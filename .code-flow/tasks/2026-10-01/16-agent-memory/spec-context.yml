@@ -1,7 +1,7 @@
 version: 1
 task: Agent 长期记忆（agent-memory）
 enforcement: required
-updated_at: '2026-10-01T12:47:05.686369+00:00'
+updated_at: '2026-10-01T15:11:49.842085+00:00'
 sources:
 - type: cli
   ref: bind
@@ -38,20 +38,45 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 本设计不新增创建/上传类 POST 端点（记忆写入口是模型工具 remember，非 HTTP 端点），且该工具按 (tenant_id,
+            user_id, memory_key) 覆盖更新，天然幂等、不产生重复行，无幂等键需求。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       plan:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 本设计不新增创建/上传类 POST 端点（记忆写入口是模型工具 remember，非 HTTP 端点），且该工具按 (tenant_id,
+            user_id, memory_key) 覆盖更新，天然幂等、不产生重复行，无幂等键需求。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-01T15:12:10.811494+00:00'
+          status: unverified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -67,20 +92,45 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 本设计不新增、也不修改任何 HTTP API：记忆列表 GET 的 source_type 字段、分页封套与错误码均为既有（MemoryItem.source_type
+            见 application/dto.py:258-270，MEMORY_COLUMNS 已 select），无封套/分页口径变更可落。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       plan:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 本设计不新增、也不修改任何 HTTP API：记忆列表 GET 的 source_type 字段、分页封套与错误码均为既有（MemoryItem.source_type
+            见 application/dto.py:258-270，MEMORY_COLUMNS 已 select），无封套/分页口径变更可落。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-01T15:12:10.811512+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -113,20 +163,39 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-auth-001
+          artifact_sha256: c7557e3a9c4ab391f0de2d1029fdfaa3551d033106e3bd2ba599a218dbc2b1d9
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.md
+          section_id: TASK-002
+          item_id: TASK-002
+          artifact_sha256: 3324f7b6dd7e541fff1a8991d90e41433bda552fa800589e443d336296832639
         decision: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-01T15:12:10.812167+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -158,20 +227,39 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-data-001
+          artifact_sha256: c7557e3a9c4ab391f0de2d1029fdfaa3551d033106e3bd2ba599a218dbc2b1d9
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 3324f7b6dd7e541fff1a8991d90e41433bda552fa800589e443d336296832639
         decision: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-01T15:12:10.812806+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -206,20 +294,45 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 本设计无前端改动：Console 记忆列表的「来源」列与词条已具备（frontend/src/modules/user-identity/UserDetailTabs.tsx:622、locales/zh-CN.json:174
+            与 en-US 同键），不新增任何前端 HTTP 调用。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       plan:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 本设计无前端改动：Console 记忆列表的「来源」列与词条已具备（frontend/src/modules/user-identity/UserDetailTabs.tsx:622、locales/zh-CN.json:174
+            与 en-US 同键），不新增任何前端 HTTP 调用。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-01T15:12:10.813480+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -250,20 +363,47 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 无 i18n 面：不新增页面文案，且 remember/recall 的错误码为工具本地码（同 skill 工具 SKILL_NOT_EFFECTIVE
+            口径，工具结果不是 API 错误封套、不经 config/api-messages.yaml），既有 user.memory.* 词条 zh-CN/en-US
+            双侧齐备。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       plan:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 无 i18n 面：不新增页面文案，且 remember/recall 的错误码为工具本地码（同 skill 工具 SKILL_NOT_EFFECTIVE
+            口径，工具结果不是 API 错误封套、不经 config/api-messages.yaml），既有 user.memory.* 词条 zh-CN/en-US
+            双侧齐备。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-01T15:12:10.814079+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -294,20 +434,39 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-im-001
+          artifact_sha256: c7557e3a9c4ab391f0de2d1029fdfaa3551d033106e3bd2ba599a218dbc2b1d9
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 3324f7b6dd7e541fff1a8991d90e41433bda552fa800589e443d336296832639
         decision: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-01T15:12:10.814688+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -340,24 +499,123 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-log-001
+          artifact_sha256: c7557e3a9c4ab391f0de2d1029fdfaa3551d033106e3bd2ba599a218dbc2b1d9
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.md
+          section_id: TASK-004
+          item_id: TASK-004
+          artifact_sha256: 3324f7b6dd7e541fff1a8991d90e41433bda552fa800589e443d336296832639
         decision: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-01T15:12:10.815333+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
         decision: null
+        evidence: []
+- spec_id: harness-mcp
+  path: mcp/harness-mcp.md
+  status: active
+  hashes:
+    file_sha256: fd039d9f17aa0933c4e717bfbe83e3eeb9ef1caa8d8dbe7ff1665a48deec2afd
+    metadata_sha256: 10fb3c0716fce5fff5a48023d4e3c690aeb9e2ea9fdf3f252258c486af9c7a97
+    rules_sha256: e17b2c3a76c397162bd3651ce8b9de3d4404d55ae0034cfaa209a2f2b41576c4
+  selected_by: scope:path
+  reason: Git diff matched packages/agent-core/src/muad_agent_core/tools/registry.py
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-mcp-001
+    summary: V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅
+      Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。
+    text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+    enforcement: required
+    verifier_ref: harness-mcp#RULE-mcp-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: not_applicable
+        refs: []
+        decision:
+          kind: not_applicable
+          reason: 本需求不涉及 MCP：不改 Streamable HTTP 传输、不改 discover-tools 维护的 Tool Catalog、不做
+            Tool 级授权，也不注册或改动任何 MCP Tool。该规则系 TASK-001 期间 evaluate_scope 按 path_mapping（**/tools/**）从当时未提交的无关改动（统一
+            ToolRegistry 的 ToolDefinition.externalizable_result）自动绑定；该改动已独立提交为 07acdbb，本需求自身不产生
+            MCP 面改动。绑定为自动产生、非设计选型。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T15:11:49.257554Z'
+          source: 'chat: 用户在误绑处置中选择「提交那笔修复 + harness-mcp 判 N/A」（AskUserQuestion 单选确认，2026-10-01）'
+          expires_at: null
+        evidence: []
+      plan:
+        status: not_applicable
+        refs: []
+        decision:
+          kind: not_applicable
+          reason: 本需求不涉及 MCP：不改 Streamable HTTP 传输、不改 discover-tools 维护的 Tool Catalog、不做
+            Tool 级授权，也不注册或改动任何 MCP Tool。该规则系 TASK-001 期间 evaluate_scope 按 path_mapping（**/tools/**）从当时未提交的无关改动（统一
+            ToolRegistry 的 ToolDefinition.externalizable_result）自动绑定；该改动已独立提交为 07acdbb，本需求自身不产生
+            MCP 面改动。绑定为自动产生、非设计选型。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T15:11:49.257554Z'
+          source: 'chat: 用户在误绑处置中选择「提交那笔修复 + harness-mcp 判 N/A」（AskUserQuestion 单选确认，2026-10-01）'
+          expires_at: null
+        evidence: []
+      code:
+        status: not_applicable
+        refs: []
+        decision:
+          kind: not_applicable
+          reason: 本需求不涉及 MCP：不改 Streamable HTTP 传输、不改 discover-tools 维护的 Tool Catalog、不做
+            Tool 级授权，也不注册或改动任何 MCP Tool。该规则系 TASK-001 期间 evaluate_scope 按 path_mapping（**/tools/**）从当时未提交的无关改动（统一
+            ToolRegistry 的 ToolDefinition.externalizable_result）自动绑定；该改动已独立提交为 07acdbb，本需求自身不产生
+            MCP 面改动。绑定为自动产生、非设计选型。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T15:11:49.257554Z'
+          source: 'chat: 用户在误绑处置中选择「提交那笔修复 + harness-mcp 判 N/A」（AskUserQuestion 单选确认，2026-10-01）'
+          expires_at: null
+        evidence: []
+      review:
+        status: not_applicable
+        refs: []
+        decision:
+          kind: not_applicable
+          reason: 本需求不涉及 MCP：不改 Streamable HTTP 传输、不改 discover-tools 维护的 Tool Catalog、不做
+            Tool 级授权，也不注册或改动任何 MCP Tool。该规则系 TASK-001 期间 evaluate_scope 按 path_mapping（**/tools/**）从当时未提交的无关改动（统一
+            ToolRegistry 的 ToolDefinition.externalizable_result）自动绑定；该改动已独立提交为 07acdbb，本需求自身不产生
+            MCP 面改动。绑定为自动产生、非设计选型。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T15:11:49.257554Z'
+          source: 'chat: 用户在误绑处置中选择「提交那笔修复 + harness-mcp 判 N/A」（AskUserQuestion 单选确认，2026-10-01）'
+          expires_at: null
         evidence: []
 - spec_id: harness-rel
   path: rel/harness-rel.md
@@ -383,20 +641,47 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 规则文本为「关系类变更使用单关系 POST/DELETE 并由独立事务完成；禁止用全量 PUT 覆盖整个关系集合」（User→Agent
+            授权、Agent→Skill/MCP 绑定）。本设计不修改也不新增任何关系类变更，只新增两个 Runtime 工具与一处读取链改动。该绑定当初按
+            rel = reliability 语义误选（rel 域 tags 为 relation/binding/grant/transaction），建议选型侧减少此类复发。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       plan:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 规则文本为「关系类变更使用单关系 POST/DELETE 并由独立事务完成；禁止用全量 PUT 覆盖整个关系集合」（User→Agent
+            授权、Agent→Skill/MCP 绑定）。本设计不修改也不新增任何关系类变更，只新增两个 Runtime 工具与一处读取链改动。该绑定当初按
+            rel = reliability 语义误选（rel 域 tags 为 relation/binding/grant/transaction），建议选型侧减少此类复发。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-01T15:12:11.701823+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -428,20 +713,39 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-secret-001
+          artifact_sha256: c7557e3a9c4ab391f0de2d1029fdfaa3551d033106e3bd2ba599a218dbc2b1d9
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.md
+          section_id: TASK-003
+          item_id: TASK-003
+          artifact_sha256: 3324f7b6dd7e541fff1a8991d90e41433bda552fa800589e443d336296832639
         decision: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-01T15:12:11.702738+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -474,20 +778,39 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-snapshot-001
+          artifact_sha256: c7557e3a9c4ab391f0de2d1029fdfaa3551d033106e3bd2ba599a218dbc2b1d9
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.md
+          section_id: TASK-003
+          item_id: TASK-003
+          artifact_sha256: 3324f7b6dd7e541fff1a8991d90e41433bda552fa800589e443d336296832639
         decision: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-01T15:12:11.703405+00:00'
+          status: unverified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -518,20 +841,39 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: c7557e3a9c4ab391f0de2d1029fdfaa3551d033106e3bd2ba599a218dbc2b1d9
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 3324f7b6dd7e541fff1a8991d90e41433bda552fa800589e443d336296832639
         decision: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-01T15:12:11.704212+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -562,20 +904,55 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-time-001
+          artifact_sha256: c7557e3a9c4ab391f0de2d1029fdfaa3551d033106e3bd2ba599a218dbc2b1d9
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 16-agent-memory.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 3324f7b6dd7e541fff1a8991d90e41433bda552fa800589e443d336296832639
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-01T15:12:16.541413+00:00'
+          status: verified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: dbdb0c2034f470ffb8479bdc1e3d7fbc41bb91ed130aa7d0bb3f8547ccb4dc5b
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 29ac13178332e017a5049b7931de85e33dd9df3472f7506e3772f4cc8fe38dfe
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed in 0.01s\n...................................\
+              \                                      [100%]\n===============================\
+              \ warnings summary ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              35 passed, 1639 deselected, 1 warning in 3.70s\n"
       review:
         status: pending
         refs: []
@@ -606,20 +983,43 @@ bindings:
     verifier_stage: code
     stage_status:
       design:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 本设计不新增页面、不改列表页骨架与菜单：记忆列表沿用既有列表页（含分页与筛选骨架），无 UI 结构变更。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       plan:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 本设计不新增页面、不改列表页骨架与菜单：记忆列表沿用既有列表页（含分页与筛选骨架），无 UI 结构变更。
+          confirmed_by: project-owner
+          confirmed_at: '2026-10-01T14:19:35.196173Z'
+          source: 'chat: 用户在设计评审中逐条勾选确认 not_applicable（AskUserQuestion 六条分别确认，2026-10-01）'
+          expires_at: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-01T15:12:16.542517+00:00'
+          status: unverified
+          rule_text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+          artifact_sha256: null
+          diff_sha256: 618da9137ff5cec850625e8373804f72220973e7e7ff8a87a474d133480b9c64
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []

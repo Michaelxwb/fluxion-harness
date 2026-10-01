@@ -1,0 +1,364 @@
+{
+  "schema": 2,
+  "task_file": "16-agent-memory.md",
+  "task_sha256": "ee4a7d5168e13c79370d66c8d3d3363eae94b007a7f01d5a2da083eaf9880030",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Gateway(HTTP/SSE + 企微 WS 探针) → Runtime → 真实 PostgreSQL + 真实 LLM 探针",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_memory_flow.py",
+        "-k",
+        "s01"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Service → 真实 PostgreSQL（同 key 覆盖更新）",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_service.py",
+        "-k",
+        "s02"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "22e3421ec51c405eb98ae5b0e8711153",
+        "executed_at": "2026-10-01T15:12:10.765310+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "22e3421ec51c405eb98ae5b0e8711153",
+          "executed_at": "2026-10-01T15:12:10.765310+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-03",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ContextBuilder → 模型请求（真实 PostgreSQL 取记忆）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_memory.py",
+        "-k",
+        "s03"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ContextBuilder → 模型请求（真实 PostgreSQL 取记忆）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_memory.py",
+        "-k",
+        "s04"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-05",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Gateway(SSE) → Runtime → 真实 PostgreSQL + 真实 LLM 探针（回执 + 审计行）",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_memory_flow.py",
+        "-k",
+        "s05"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "工具处理器 → 真实 PostgreSQL（跨用户写入不可能）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_tools.py",
+        "-k",
+        "e01"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "处理器入参校验（缺 `source_type`）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_tools.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "处理器入参校验（category 白名单）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_tools.py",
+        "-k",
+        "e03"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "工具注册表（`memory_write=false` 不注册）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_tools.py",
+        "-k",
+        "e04"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "工具处理器 → 真实 PostgreSQL（写失败降级）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_tools.py",
+        "-k",
+        "e05"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ContextBuilder → 真实 PostgreSQL（读失败降级）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_memory.py",
+        "-k",
+        "e06"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-07",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ContextBuilder → 模型请求体（平台密钥探针）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_memory.py",
+        "-k",
+        "e07"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-01",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "`memory_key` 格式校验（64 字符边界/大写/空格）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_tools.py",
+        "-k",
+        "b01"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-02",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ContextBuilder → 模型请求（双上限先到先得）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_memory.py",
+        "-k",
+        "b02"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-03",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "`recall` 入参（`limit` 0/21/缺省）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_tools.py",
+        "-k",
+        "b03"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-04",
+      "source": "16-agent-memory.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Runtime 工具结果链路（recall 满配不被外置）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_tools.py",
+        "-k",
+        "b04"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    }
+  ]
+}
