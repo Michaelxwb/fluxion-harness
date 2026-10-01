@@ -1,9 +1,8 @@
 """S-04/E-03：密钥明文迁移（真实 Alembic/PostgreSQL/backfill CLI）。
 
-**本文件必须单独一次 pytest 调用运行**（`make test-migration`，排在主套件之后）：它会对**共享库**
-做 `alembic downgrade 0004` → 插旧行 → `upgrade head`，与其同批跑的后续套件会连锁失败
-（历史现象：`tests/gateway/test_bind_command.py` 报 `console server did not become ready`）。
-`make test` / CI 的主套件因此显式 `--ignore` 本文件。
+注意：本用例会对**共享库**做 `alembic downgrade 0004` → 插旧行 → `upgrade head`（改整库 schema）。
+在 macOS 本地与其它套件同批运行时，后续 `tests/gateway/*` / `tests/e2e/test_gateway_bind_e2e.py`
+可能连锁失败（Linux/CI 上未观察到）——排查这类"失败点随套件而变"的现象时先想到这条。
 """
 
 from __future__ import annotations
