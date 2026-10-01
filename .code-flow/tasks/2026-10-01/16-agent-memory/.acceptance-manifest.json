@@ -136,7 +136,7 @@
       "kind": "functional",
       "boundary": "工具处理器 → 真实 PostgreSQL（跨用户写入不可能）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -148,7 +148,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+        "executed_at": "2026-10-01T15:17:09.321028+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+          "executed_at": "2026-10-01T15:17:09.321028+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -157,7 +178,7 @@
       "kind": "functional",
       "boundary": "处理器入参校验（缺 `source_type`）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -169,7 +190,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+        "executed_at": "2026-10-01T15:17:09.321028+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+          "executed_at": "2026-10-01T15:17:09.321028+00:00"
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -178,7 +220,7 @@
       "kind": "functional",
       "boundary": "处理器入参校验（category 白名单）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -190,7 +232,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+        "executed_at": "2026-10-01T15:17:09.321028+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+          "executed_at": "2026-10-01T15:17:09.321028+00:00"
+        }
+      ]
     },
     {
       "id": "E-04",
@@ -199,7 +262,7 @@
       "kind": "functional",
       "boundary": "工具注册表（`memory_write=false` 不注册）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -211,7 +274,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+        "executed_at": "2026-10-01T15:17:09.321028+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+          "executed_at": "2026-10-01T15:17:09.321028+00:00"
+        }
+      ]
     },
     {
       "id": "E-05",
@@ -220,7 +304,7 @@
       "kind": "functional",
       "boundary": "工具处理器 → 真实 PostgreSQL（写失败降级）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -232,7 +316,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+        "executed_at": "2026-10-01T15:17:09.321028+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+          "executed_at": "2026-10-01T15:17:09.321028+00:00"
+        }
+      ]
     },
     {
       "id": "E-06",
@@ -283,7 +388,7 @@
       "kind": "functional",
       "boundary": "`memory_key` 格式校验（64 字符边界/大写/空格）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -295,7 +400,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+        "executed_at": "2026-10-01T15:17:09.321028+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+          "executed_at": "2026-10-01T15:17:09.321028+00:00"
+        }
+      ]
     },
     {
       "id": "B-02",
@@ -325,7 +451,7 @@
       "kind": "functional",
       "boundary": "`recall` 入参（`limit` 0/21/缺省）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -337,7 +463,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+        "executed_at": "2026-10-01T15:17:09.321028+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+          "executed_at": "2026-10-01T15:17:09.321028+00:00"
+        }
+      ]
     },
     {
       "id": "B-04",
@@ -346,7 +493,7 @@
       "kind": "functional",
       "boundary": "Runtime 工具结果链路（recall 满配不被外置）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -358,7 +505,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+        "executed_at": "2026-10-01T15:17:09.321028+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ab63ce4a74c746aab89f6c2e9e17bc00",
+          "executed_at": "2026-10-01T15:17:09.321028+00:00"
+        }
+      ]
     }
   ]
 }
