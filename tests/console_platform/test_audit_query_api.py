@@ -581,7 +581,9 @@ async def test_keyword_export_filters_survive_persistence_and_match_list(
     client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed,
 ) -> None:
     from muad_console_platform.application.audit_export_service import (
-        canonical_filters, query_filters_from_canonical, to_query_filters,
+        canonical_filters,
+        query_filters_from_canonical,
+        to_query_filters,
     )
     from muad_console_platform.application.dto import AuditExportCreateRequest
     from muad_console_platform.infrastructure.repositories.audit_query_repository import (
