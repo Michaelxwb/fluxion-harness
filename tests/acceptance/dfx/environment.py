@@ -787,6 +787,12 @@ def delivery_pair(stack: DfxStack, log_dir: Path) -> Iterator[tuple[str, str]]:
             **os.environ,
             "DATABASE_URL": settings.require_database_url(),
             "REDIS_URL": settings.require_redis_url(),
+            # 启动校验要求 ARTIFACT_ROOT 目录存在（缺则拒启动）。必须显式给本栈的临时产物根：
+            # 靠环境默认值 `./.data/artifacts` 会在干净检出/CI 上不存在（本地因历史运行碰巧有），
+            # 表现为 `dfx-im-gateway exited early (code=3): artifact storage is not mounted`。
+            "ARTIFACT_ROOT": str(stack.artifact_root),
+            "SKILL_CACHE_ROOT": str(stack.skill_cache_root),
+            "LOG_DIR": str(log_dir),
             "CONSOLE_PLATFORM_URL": stack.console_url,
             "CHANNEL_PROBE_URL": f"{probe_url}/probe/deliveries",
             "DEFAULT_TENANT_ID": stack.tenant_id,
