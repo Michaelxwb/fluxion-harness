@@ -232,27 +232,30 @@ uv sync --all-packages --extra dev    # dev extra 才带 pytest/ruff/mypy（[too
 
 ### 首次初始化（新库 / 新环境）
 
-三步，全部幂等，可重复执行：
+三步，全部幂等，可重复执行。**连接串配置在 `migrations/alembic.ini`**（`migrations/` 下的脚本只读这个文件，
+**不读环境变量**；换环境就改它，或用 `-c <另一份 ini>` 指定）：
+
+```ini
+sqlalchemy.url       = postgresql+asyncpg://muad:muad@localhost:5432/muad   # 目标库（应用角色）
+admin_database_url   = postgresql://postgres@localhost:5432/postgres        # PG 管理员（仅第 1 步用）
+```
 
 ```bash
-# 1) 建角色 + 建库 + 授权（PG 级；需要 PG 管理员连接串指向维护库）
-#    ADMIN_DATABASE_URL = 数据库管理员（能 CREATEDB/CREATEROLE），只在这一步用
-#    DATABASE_URL       = 应用角色（muad，拥有该库的普通角色），应用与迁移都用它
-ADMIN_DATABASE_URL=postgresql://postgres@localhost:5432/postgres \
-DATABASE_URL=postgresql+asyncpg://muad:secret@localhost:5432/muad \
+# 1) 建角色 + 建库 + 授权（PG 级；管理员串可临时 `--admin-url <dsn>` 覆盖）
 uv run python migrations/bootstrap_db.py            # --check 只看状态，--reset-password 改口令
 
 # 2) 建 schema / 表 / 索引（到 head 则 no-op）
-DATABASE_URL=postgresql+asyncpg://muad:secret@localhost:5432/muad \
 uv run python migrations/db_migrate.py
 
 # 3) 建 **Console 管理员账号**（应用层账号行 role=ADMIN，用来登录 Console；与 PG 权限无关）
-DATABASE_URL=postgresql+asyncpg://muad:secret@localhost:5432/muad \
+#    这一步是应用侧 CLI，读 `.env`/环境变量里的 DATABASE_URL
 uv run muad-console-admin create-admin --username admin --tenant default
 ```
 
-> Console / Runtime / Worker 启动时会比对库的 `alembic_version` 与代码里的迁移头，**不在 head 就拒绝启动**——
-> 所以升级发布也必须「先跑第 2 步，再滚动应用」。
+> 三个概念别混：**PG 管理员**（`admin_database_url`，只用于第 1 步）/ **应用 DB 角色** `muad`
+> （`sqlalchemy.url`，拥有该库的普通角色，应用与迁移都用它）/ **Console 账号**（应用层，与 PG 权限无关）。
+> Console / Runtime / Worker 启动时会比对库的 `alembic_version` 与代码里的迁移头，**不在 head 就拒绝启动**
+> —— 所以升级发布也必须「先跑第 2 步，再滚动应用」。
 
 Console Platform：
 

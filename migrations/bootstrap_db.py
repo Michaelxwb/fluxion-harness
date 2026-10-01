@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 """一次性数据库引导：建角色 + 建库 + 授权（PG 级，与 schema 迁移分开）。
 
-- 需要**管理员连接串** `ADMIN_DATABASE_URL`（指向维护库，如 `.../postgres`）；
-  目标库名/角色名/口令从 `DATABASE_URL` 解析。
+- 连接串**只来自 ini**（默认 `migrations/alembic.ini`，**不读环境变量**）：
+  `sqlalchemy.url` = 目标库（应用角色），`admin_database_url` = PG 管理员（指向维护库）。
+  换环境就改 ini，或用 `-c <另一份 ini>`；管理员串也可用 `--admin-url <dsn>` 临时覆盖。
 - **幂等**：角色与库已存在则不动（`--reset-password` 显式改口令）；`--check` 只报告不修改。
 - 职责边界：本脚本只建 **database 与 role**；schema/表/索引归 `migrations/db_migrate.py`，
   首个 **Console 管理员账号**（应用层账号行，用于登录 Console）归 Console CLI：
@@ -11,18 +12,19 @@
   口令不落终端/日志（输出一律打码），DDL 的标识符/字面量交给服务端 `format(%I/%L)` 转义。
 
 用法：
-    ADMIN_DATABASE_URL=postgresql://postgres@localhost:5432/postgres \\
-    DATABASE_URL=postgresql+asyncpg://muad:secret@localhost:5432/muad \\
     uv run python migrations/bootstrap_db.py [--check | --reset-password]
+    uv run python migrations/bootstrap_db.py -c migrations/alembic.prod.ini
+    uv run python migrations/bootstrap_db.py --admin-url postgresql://postgres@host:5432/postgres
 """
 
 from __future__ import annotations
 
 import sys
-from os import environ
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 import psycopg
+from _config import load_dsn, parse_config_args, resolve_ini
 
 
 def masked(dsn: str) -> str:
@@ -111,19 +113,37 @@ def run(admin_dsn: str, target_dsn: str, *, check: bool, reset_password: bool) -
 
 
 def main(argv: list[str]) -> int:
-    admin_dsn = environ.get("ADMIN_DATABASE_URL", "").strip()
-    target_dsn = environ.get("DATABASE_URL", "").strip()
-    if not admin_dsn or not target_dsn:
+    root = Path(__file__).resolve().parents[1]
+    given_ini, args = parse_config_args(argv)
+    ini = resolve_ini(given_ini, root)
+
+    admin_override: str | None = None
+    rest: list[str] = []
+    index = 0
+    while index < len(args):
+        if args[index] == "--admin-url":
+            if index + 1 >= len(args):
+                raise SystemExit("--admin-url 需要一个连接串参数")
+            admin_override = args[index + 1]
+            index += 2
+            continue
+        rest.append(args[index])
+        index += 1
+
+    unknown = [arg for arg in rest if arg not in ("--check", "--reset-password")]
+    if unknown:
         print(
-            "需要 ADMIN_DATABASE_URL（维护库，如 .../postgres）与 DATABASE_URL（目标库）两个环境变量",
+            f"未知参数：{unknown}（支持 --check / --reset-password / --admin-url <dsn> / -c <ini>）",
             file=sys.stderr,
         )
         return 2
-    unknown = [arg for arg in argv if arg not in ("--check", "--reset-password")]
-    if unknown:
-        print(f"未知参数：{unknown}（支持 --check / --reset-password）", file=sys.stderr)
-        return 2
-    return run(admin_dsn, target_dsn, check="--check" in argv, reset_password="--reset-password" in argv)
+
+    target_dsn = load_dsn(ini, "sqlalchemy.url", purpose="引导脚本需要目标库连接串")
+    admin_dsn = admin_override or load_dsn(
+        ini, "admin_database_url", purpose="需要 PG 管理员连接串（也可用 --admin-url 覆盖）"
+    )
+    print(f"bootstrap: ini={ini}", file=sys.stderr)
+    return run(admin_dsn, target_dsn, check="--check" in rest, reset_password="--reset-password" in rest)
 
 
 if __name__ == "__main__":
