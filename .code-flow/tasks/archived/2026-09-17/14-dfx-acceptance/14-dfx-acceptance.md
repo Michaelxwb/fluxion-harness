@@ -138,6 +138,10 @@
 - S-02: verified — automated command passed; run_id=0c0d5d06d65944d8a74c482f883bae2c (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=0c0d5d06d65944d8a74c482f883bae2c (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=0c0d5d06d65944d8a74c482f883bae2c (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -194,6 +198,8 @@ FEAT-03 的契约层聚合：ORM↔迁移 parity、契约模型形状、关系�
 - B-02: verified — automated command passed; run_id=1f09357ded7543ddb63b2d063438d62a (confirmed_by: runner)
 - S-03: verified — automated command passed; run_id=fcb8746c587e4007b920ab71d5d1a6bc (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=fcb8746c587e4007b920ab71d5d1a6bc (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -241,6 +247,7 @@ FEAT-03 的契约层聚合：ORM↔迁移 parity、契约模型形状、关系�
 | RULE-worker-001 | 承接（原 verifier），无独立 RED：本任务未改 claim/lease 生产实现；同实现的抖动取证见 S-04 行（①②③）。更宽的扰动（去掉 claim 的状态谓词）会先撞上共享开发库的历史终态残留行、不构成干净取证，故未采用（该次扰动把既有残留行 `ignored-by-header` 由 `COMPLETED` 改为 `FAILED`，属其他套件的历史测试残留，如实登记）。 | verifier argv 两段全过：`tests/agent_worker` → **234 passed（10.00s）**；`tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py` → **142 passed（4.89s）**。本任务新增的口径用例（PG 唯一权威源/Redis 仅 hint/`task_type` 仅 `SKILL/BATCH`/claim SKIP LOCKED）随 S-04 一批 5 passed。blast radius 单跑：`tests/agent_worker` 234 passed、`tests/agent_runtime` 149 passed、`tests/console_tasks` 19 passed。 | 原 verifier 自身断言（`tests/agent_worker/test_worker_leases.py` 的单租约/回收/CAS 面等）+ 本任务新增断言：`TaskType` 枚举封闭 `{"SKILL","BATCH"}` 且 PG 实际取值 ⊆ 该集合；Redis `task:cancel:{uuid}`/`task:wakeup` hint 对不存在的 Task 既造不出行也改不了任何真实事实（PG 行数 before==after）；行被他人事务持锁时 claim 必须跳过而非等待（`FOR UPDATE SKIP LOCKED`）。 | 真实 PG（`task.task_execution`/`task.task_event`/`task.task_submission` 逐行回读与计数）+ 真实 Redis（`SET NX EX`/TTL/PING 往返）+ 真实 Console/Worker uvicorn 子进程；未 mock。本任务不宣称 TASK-005 拥有的场景（WAITING 释放 lease、deadline sweep、过期 reclaim）。 | verified |
 - S-04: verified — automated command passed; run_id=280e260563b343178fea186511d5a0c9 (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=c5d27f0b9f0541a6be6083bdd6ae6aed (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -303,6 +310,9 @@ FEAT-04 的依赖故障面：PG 不可用 fail closed（不本地落状态、`/r
 - E-01: verified — automated command passed; run_id=f84de0ab660b477eb55fa5008911c0f5 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=f84de0ab660b477eb55fa5008911c0f5 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=f84de0ab660b477eb55fa5008911c0f5 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -357,6 +367,9 @@ FEAT-04 的依赖故障面：PG 不可用 fail closed（不本地落状态、`/r
 - E-04: verified — automated command passed; run_id=bebfe15ea73a417683fc42964924b5bc (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=bebfe15ea73a417683fc42964924b5bc (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=bebfe15ea73a417683fc42964924b5bc (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -413,6 +426,8 @@ FEAT-04 的最终投递面：终态投递以 `delivery_key`（`task:{task_id}:fi
 - E-06: verified — automated command passed; run_id=ff33447f6f1b41b489cb50c7b2040e6b (confirmed_by: runner)
 - S-11: verified — automated command passed; run_id=dd3775deb539431782b9bcac87c6c1ea (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=dd3775deb539431782b9bcac87c6c1ea (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -466,6 +481,7 @@ FEAT-05 的安全面：未命中 allowlist 的 `ctx.http` 不发出调用并按 
 > 本任务**如实登记的边界**（写进 `test_dfx_security.py` docstring，**不得**读作已覆盖）：① canary 机检范围**恰为**四张审计表 + IM 出站文本 + bot 快照两侧，**不含** `runtime.canonical_event`、`control.config_audit_log`、Skill package 与 `SKILL.md`；「不得进入」是约定而非全覆盖，新增落库面必须自查，**不得以「canary 全绿」代替覆盖结论**。② **`EgressBoundary` 尚未被 Run 内的 `SkillContext.http` 接线**（全仓无 `SkillContext` 构造点；Run 内唯一真实出网面是 MCP，`target_type=MCP`，已由 S-10 覆盖）⇒ 本文件**直接驱动生产类 `EgressBoundary` + 真实探针 + 真实 PG 审计**，未伪造 Run 内 `ctx.http`；是否接线属功能实现范畴，超出本验收任务。③ NFS 慢故障等边界不属本任务。
 - E-07: verified — automated command passed; run_id=903ac46342b340cd897e186319eeaf02 (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=0dedce87a21b4ac6928a0c50cfd68347 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -526,6 +542,7 @@ FEAT-05 的 API 面：缺失/伪造 CSRF → 403 `FORBIDDEN` 且不落业务变�
 - E-08: verified — automated command passed; run_id=66d0986a691843019a674b8dd8ef8b28 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=cf49bc596e5748fa8e283aa0fb5055a6 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=781a6f5cdfd742d3b6c14c244bd070a9 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -583,6 +600,7 @@ FEAT-06 的模型恢复面。**验收对象是生产恢复链**：`AgentRunner._
 - E-09: verified — automated command passed; run_id=e63cbdddaec84e6c9cef9038b07f5103 (confirmed_by: runner)
 - E-09: verified — automated command passed; run_id=5a52d00158b148b4b3b2ffdf723c65a9 (confirmed_by: runner)
 - E-09: verified — automated command passed; run_id=b65e40710b0948ae97ecaed43aec3e60 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -643,6 +661,12 @@ FEAT-02 的第一组黄金旅程：`/bind` 首次绑定后身份稳定映射 Pla
 - S-05: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
 - S-09: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=6e9997732da94713a50d0c77fd747084 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=6e9997732da94713a50d0c77fd747084 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=6e9997732da94713a50d0c77fd747084 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -706,6 +730,12 @@ FEAT-02/FEAT-05 的第二组旅程：同步 Skill/异步 Task/定时 Schedule �
 - S-07: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
 - S-08: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
 - S-10: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=6e9997732da94713a50d0c77fd747084 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=6e9997732da94713a50d0c77fd747084 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=6e9997732da94713a50d0c77fd747084 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -758,6 +788,8 @@ FEAT-02 的无状态面：Run R1 执行后更新配置，删除 Pod 后继续 Tu
 - S-12: e2e_deferred — automated command e2e_deferred; run_id=92889ec8baa04eba9b3c6494079ec92c (confirmed_by: runner)
 - S-12: e2e_deferred — automated command e2e_deferred; run_id=f9bdffb00ff5428a8f2b194cd07f49f1 (confirmed_by: runner)
 - S-12: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=6e9997732da94713a50d0c77fd747084 (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=fa0de57be1dd43a2b19e1fd9af0aa805 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
