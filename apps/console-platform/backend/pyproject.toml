@@ -19,6 +19,9 @@ dependencies = [
   "jsonschema>=4.26.0",
 ]
 
+[project.scripts]
+muad-console-admin = "muad_console_platform.cli:main"
+
 [build-system]
 requires = ["setuptools>=70"]
 build-backend = "setuptools.build_meta"
