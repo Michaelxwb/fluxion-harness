@@ -38,7 +38,7 @@
 
 ## 1.1 业务背景
 
-MSS 已经积累大量业务平台能力、成熟 SOP 和专家经验，但很多服务交付仍依赖服务人员人工串联：
+业务侧已经积累大量平台能力、成熟 SOP 和专家经验，但很多服务交付仍依赖服务人员人工串联：
 
 ```text
 理解客户需求
@@ -119,7 +119,7 @@ Turn 3 → runtime-2
 
 ## 1.3 设计目标
 
-1. 普通用户一句话发起真实 MSS 工作。
+1. 普通用户一句话发起真实业务工作。
 2. SOP 开发者继续使用 Python、pytest、PyCharm/VS Code 开发业务逻辑。
 3. 新接口出现时可以直接在 Skill 中使用，不要求先建 Capability。
 4. Skill 修改后分钟级重新导入，指定用户立即验证。
@@ -157,7 +157,7 @@ Turn 3 → runtime-2
 
 | 用户 | 典型角色 | 核心目标 |
 |---|---|---|
-| 普通用户 | 服务经理、运营人员、交付人员 | 快速完成一项真实 MSS 工作 |
+| 普通用户 | 服务经理、运营人员、交付人员 | 快速完成一项真实业务工作 |
 | 管理员 | 平台管理员、服务管理员 | 管理 Agent、用户、模型、Skill、MCP、凭据和 IM 入口，并保障可运营 |
 | SOP / Agent 开发者 | 服务专家、Python 开发人员、Agent 应用开发者 | 把成熟人工 SOP 快速转化为可复用 Skill，并持续迭代 |
 
@@ -602,7 +602,7 @@ policy-check/
 name: policy-check
 description: 为指定客户执行设备策略检查；当用户要求策略检查、基线检查或检查异常策略时使用。
 execution: async
-platform_label: MSS
+platform_label: example-platform
 ---
 ```
 

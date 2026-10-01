@@ -17,11 +17,11 @@ from pydantic import ValidationError
 
 def _platform_config(**overrides: Any) -> PlatformConfig:
     payload: dict[str, Any] = {
-        "key": "mss",
-        "name": "MSS Platform",
+        "key": "demo",
+        "name": "Example Platform",
         "resolver_type": "BASE_URL",
-        "resolver_config": {"base_url": "https://mss.example"},
-        "adapter_key": "mssw",
+        "resolver_config": {"base_url": "https://platform.example"},
+        "adapter_key": "generic-http",
         "adapter_config": {"login_endpoint": "/login"},
         "credential_mode": CredentialMode.USER_ONLY,
     }
@@ -73,7 +73,12 @@ def test_platform_config_defaults_and_credential_mode() -> None:
 
     with pytest.raises(ValidationError):
         PlatformConfig.model_validate(
-            {"key": "mss", "name": "MSS", "resolver_type": "BASE_URL", "adapter_key": "mssw"}
+            {
+                "key": "demo",
+                "name": "Example Platform",
+                "resolver_type": "BASE_URL",
+                "adapter_key": "generic-http",
+            }
         )
 
     with pytest.raises(ValidationError):
@@ -124,7 +129,7 @@ def test_platform_request_defaults_payload() -> None:
 def test_prepared_request_hides_auth_headers_in_repr() -> None:
     prepared = PreparedRequest(
         method="POST",
-        url="https://mss.example/api",
+        url="https://platform.example/api",
         headers={"Authorization": "Bearer top-secret"},
         body='{"a": 1}',
     )

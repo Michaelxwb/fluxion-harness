@@ -171,10 +171,10 @@ def build_skill_context() -> SkillContext:
 @pytest.fixture
 def platform_config() -> PlatformConfig:
     return PlatformConfig(
-        key="mss",
-        name="MSS Platform",
+        key="demo",
+        name="Example Platform",
         resolver_type="BASE_URL",
-        resolver_config={"base_url": "https://mss.example"},
+        resolver_config={"base_url": "https://platform.example"},
         adapter_key="dummy",
         credential_mode=CredentialMode.USER_ONLY,
     )

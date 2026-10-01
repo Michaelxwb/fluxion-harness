@@ -457,7 +457,7 @@
   "mcp.form.advancedSection": "高级配置",
   "mcp.form.advancedSectionHint": "认证密钥与连接参数，均可留空使用默认值",
   "mcp.form.banner": "保存后平台连接 MCP Server，执行 initialize + tools/list。工具目录继承 MCP Server 的用户范围；V1.4 不做单 Tool 用户授权。",
-  "mcp.form.namePlaceholder": "例如：MSS 知识检索",
+  "mcp.form.namePlaceholder": "例如：知识库检索",
   "agent.title": "Agent 管理",
   "agent.subtitle": "创建逻辑 Agent，组合模型、Skill、MCP 与 IM 通道",
   "agent.searchPlaceholder": "搜索名称 / 标识",

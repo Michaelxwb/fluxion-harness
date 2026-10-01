@@ -90,7 +90,7 @@ def _egress_response(mode: str, credential_json: dict | None) -> dict:
                 "id": str(uuid.uuid4()),
                 "key": "p",
                 "resolver_type": "BASE_URL",
-                "resolver_config": {"base_url": "https://mssw.internal"},
+                "resolver_config": {"base_url": "https://platform.internal"},
                 "adapter_key": "generic-http",
                 "adapter_config": {},
                 "adapter_schema_version": "1",

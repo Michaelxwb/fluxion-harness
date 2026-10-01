@@ -29,7 +29,7 @@ async def test_dummy_adapter_satisfies_platform_adapter_protocol(
     assert adapter.credential_schema["type"] == "object"
 
     session = await adapter.authenticate(platform_config, CREDENTIAL)
-    assert session == PlatformSession(session_id="mss:v1")
+    assert session == PlatformSession(session_id="demo:v1")
     assert await adapter.validate(platform_config, session) is True
 
     prepared = await adapter.prepare_request(
@@ -38,7 +38,7 @@ async def test_dummy_adapter_satisfies_platform_adapter_protocol(
         PlatformRequest(target=PlatformTarget(method="GET", path="/api/customer/C-1001")),
         CREDENTIAL,
     )
-    assert prepared == PreparedRequest(method="GET", url="https://mss.example/api/customer/C-1001")
+    assert prepared == PreparedRequest(method="GET", url="https://demo.example/api/customer/C-1001")
 
 
 async def test_dummy_platform_client_satisfies_protocol(platform_client: PlatformClient) -> None:
@@ -46,11 +46,11 @@ async def test_dummy_platform_client_satisfies_protocol(platform_client: Platfor
     assert inspect.iscoroutinefunction(platform_client.request)
 
     result = await platform_client.call(
-        "mss",
+        "demo",
         PlatformRequest(target=PlatformTarget(service="svc", operation="op"), payload={"k": "v"}),
     )
 
-    assert result == {"platform_key": "mss", "payload": {"k": "v"}}
+    assert result == {"platform_key": "demo", "payload": {"k": "v"}}
 
 
 
@@ -68,7 +68,7 @@ async def test_dummy_session_manager_satisfies_protocol(
     )
 
     session = await session_manager.acquire(request)
-    assert session == PlatformSession(session_id="mss:v1")
+    assert session == PlatformSession(session_id="demo:v1")
 
     assert await session_manager.renew(request) == session
 

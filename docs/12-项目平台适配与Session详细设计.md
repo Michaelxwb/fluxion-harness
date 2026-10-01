@@ -131,10 +131,7 @@ packages/platform-sdk/
 ├── adapter/
 │   ├── base.py
 │   ├── registry.py
-│   └── adapters/
-│       ├── mssw.py
-│       ├── mssp.py
-│       └── generic_http_session.py
+│   └── generic_http.py
 ├── credential/
 │   ├── resolver.py
 │   └── types.py
@@ -148,8 +145,8 @@ packages/platform-sdk/
 注册：
 
 ```python
-registry.register(MSSWAdapter())
-registry.register(MSSPAdapter())
+registry.register(GenericHttpAdapter())
+registry.register(GenericHttpAdapter(key=platform_key, name=f"通用 HTTP ({platform_key})", version="2"))
 registry.register(GenericHTTPSessionAdapter())
 ```
 

@@ -29,7 +29,7 @@ def _write(root: Path, frontmatter: str, body: str = "# Skill") -> Path:
 def test_loads_manifest_from_frontmatter(tmp_path: Path) -> None:
     root = _write(
         tmp_path / "policy-check",
-        "name: policy-check\ndescription: checks policy\nexecution: async\nplatform_label: MSS",
+        "name: policy-check\ndescription: checks policy\nexecution: async\nplatform_label: example-platform",
     )
 
     package = SkillPackage.load(root)
@@ -37,7 +37,7 @@ def test_loads_manifest_from_frontmatter(tmp_path: Path) -> None:
     assert package.manifest.name == "policy-check"
     assert package.manifest.description == "checks policy"
     assert package.manifest.execution is SkillExecutionMode.ASYNC
-    assert package.manifest.platform_label == "MSS"
+    assert package.manifest.platform_label == "example-platform"
 
 
 def test_execution_defaults_to_sync_and_label_is_optional(tmp_path: Path) -> None:

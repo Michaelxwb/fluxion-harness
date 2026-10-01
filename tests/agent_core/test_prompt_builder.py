@@ -8,7 +8,7 @@ def _skills() -> tuple[PromptSkill, ...]:
             key="device-audit",
             name="Device Audit",
             description="audits devices",
-            platform_label="MSS",
+            platform_label="example-platform",
         ),
     )
 
@@ -20,7 +20,7 @@ def test_builder_includes_instructions_and_skill_catalog() -> None:
 
     assert prompt.startswith("be helpful")
     assert "- policy-check: Policy Check - checks policy" in prompt
-    assert "- device-audit: Device Audit [MSS] - audits devices" in prompt
+    assert "- device-audit: Device Audit [example-platform] - audits devices" in prompt
 
 
 def test_version_marker_is_optional() -> None:

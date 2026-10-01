@@ -457,7 +457,7 @@
   "mcp.form.advancedSection": "Advanced",
   "mcp.form.advancedSectionHint": "Auth secret and connection parameters; all optional",
   "mcp.form.banner": "After saving, the platform connects to the MCP Server and runs initialize + tools/list. The tool catalog inherits the server's user scope; V1.4 has no per-tool authorization.",
-  "mcp.form.namePlaceholder": "e.g. MSS Knowledge Retrieval",
+  "mcp.form.namePlaceholder": "e.g. Knowledge Retrieval",
   "agent.title": "Agent Management",
   "agent.subtitle": "Create logical agents combining models, skills, MCP and IM channels",
   "agent.searchPlaceholder": "Search name / key",

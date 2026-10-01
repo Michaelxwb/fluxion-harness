@@ -21,11 +21,11 @@ def test_platform_session_key_is_exact() -> None:
         platform_id="platform-1",
         actor_scope=user_actor_scope("user-1"),
         credential_version="v1",
-        adapter_key="mssw",
+        adapter_key="generic-http",
         adapter_version="1.0.0",
     )
 
-    assert key == "platform_session:tenant-1:platform-1:user:user-1:v1:mssw:1.0.0"
+    assert key == "platform_session:tenant-1:platform-1:user:user-1:v1:generic-http:1.0.0"
     assert key.startswith(f"{SESSION_KEY_PREFIX}:")
     assert len(key.split(":")) == 8
 

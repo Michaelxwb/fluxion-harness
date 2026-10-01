@@ -30,7 +30,7 @@ def _headers(tenant: TenantContext) -> dict[str, str]:
     return {"X-Tenant-Id": tenant.tenant_id, "X-Internal-Service": "test-internal-token"}
 
 
-def _payload(platform_key: str = "mssw-prod", **overrides: object) -> dict[str, object]:
+def _payload(platform_key: str = "example-prod", **overrides: object) -> dict[str, object]:
     payload: dict[str, object] = {
         "actor_user_id": str(uuid.uuid4()),
         "execution_ref": {"type": "RUN", "id": str(uuid.uuid4())},
@@ -59,10 +59,10 @@ async def _make_platform(
     async with get_session_factory()() as session:
         platform = ProjectPlatform(
             tenant_id=tenant.tenant_id,
-            key=f"mssw-{uuid.uuid4().hex[:6]}",
-            name="MSS",
+            key=f"example-{uuid.uuid4().hex[:6]}",
+            name="Example Platform",
             resolver_type="BASE_URL",
-            resolver_config_json={"base_url": "https://mssw.internal"},
+            resolver_config_json={"base_url": "https://platform.internal"},
             adapter_key="generic-http",
             credential_mode=credential_mode,
             enabled=enabled,
@@ -145,7 +145,7 @@ async def test_b129_user_then_shared_fallback(
     data = response.json()["data"]
     assert data["decision"] == "ALLOW"
     assert data["platform"]["key"] == key
-    assert data["platform"]["resolver_config"] == {"base_url": "https://mssw.internal"}
+    assert data["platform"]["resolver_config"] == {"base_url": "https://platform.internal"}
     assert data["platform"]["credential_mode"] == "USER_THEN_SHARED"
     assert data["credential"]["credential_json"] == {"token": "shared-secret"}  # 共享回退
 

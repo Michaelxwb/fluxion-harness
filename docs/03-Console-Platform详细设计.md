@@ -541,8 +541,8 @@ GET /api/v1/platform-adapters
 示例：
 
 ```text
-MSSW 平台适配器
-MSSP 平台适配器
+通用 HTTP 适配器（generic-http）
+按平台增配的通用 HTTP 适配器（<platform-key>，version 2）
 通用 HTTP Session 适配器
 ...
 ```
@@ -625,8 +625,8 @@ Adapter 是 Python 代码注册项，不是数据库脚本。Console 只消费 M
 
 ```json
 {
-  "key": "mssw",
-  "name": "MSSW 平台适配器",
+  "key": "generic-http",
+  "name": "通用 HTTP 适配器",
   "version": "1",
   "platform_config_schema": {...},
   "credential_schema": {...},

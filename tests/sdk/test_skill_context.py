@@ -44,26 +44,26 @@ def test_task_map_requires_items_script_and_concurrency() -> None:
 
 async def test_context_platform_call(skill_context: SkillContext) -> None:
     result = await skill_context.platform.call(
-        "mss",
+        "demo",
         PlatformRequest(
             target=PlatformTarget(service="customer-service-mgr", operation="get_customer"),
             payload={"customer_id": "C-1001"},
         ),
     )
 
-    assert result == {"platform_key": "mss", "payload": {"customer_id": "C-1001"}}
+    assert result == {"platform_key": "demo", "payload": {"customer_id": "C-1001"}}
 
 
 async def test_context_platform_request(skill_context: SkillContext) -> None:
     result = await skill_context.platform.request(
-        "mss",
+        "demo",
         "customer-service-mgr",
         "get_customer",
         {"customer_id": "C-1001"},
     )
 
     assert result == {
-        "platform_key": "mss",
+        "platform_key": "demo",
         "service": "customer-service-mgr",
         "operation": "get_customer",
         "payload": {"customer_id": "C-1001"},
@@ -96,7 +96,7 @@ async def test_context_task_map(skill_context: SkillContext) -> None:
 
 
 async def test_context_http_get_post_request(skill_context: SkillContext) -> None:
-    url = "https://mss-internal.example/api/devices"
+    url = "https://platform-internal.example/api/devices"
 
     get_response = await skill_context.http.get(url, timeout_sec=10.0)
     assert get_response.status_code == 200

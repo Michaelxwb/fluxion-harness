@@ -40,7 +40,7 @@ V1 **不要求 `skill.yaml`**。
 name: policy-check
 description: 为指定客户执行设备策略检查；当用户要求策略检查、基线检查或检查异常策略时使用。
 execution: async
-platform_label: MSS
+platform_label: example-platform
 ---
 
 # 设备策略检查
@@ -251,7 +251,7 @@ class SkillContext(Protocol):
 
 ```python
 customer = await ctx.platform.call(
-    platform="mss",
+    platform="example",
     service="customer-service-mgr",
     operation="get_customer",
     payload={"customer_id": "C-1001"},
@@ -262,7 +262,7 @@ customer = await ctx.platform.call(
 
 ```python
 resp = await ctx.platform.request(
-    platform="mss",
+    platform="example",
     method="GET",
     path="/api/customer/C-1001",
 )
@@ -303,7 +303,7 @@ children = await ctx.task.map(
 
 ```python
 resp = await ctx.http.get(
-    "https://mss-internal.example/api/devices",
+    "https://platform-internal.example/api/devices",
     timeout=10,
 )
 ```
@@ -398,8 +398,8 @@ class PlatformAdapter(Protocol):
 
 ```text
 PlatformAdapterRegistry
-├── mssw -> MSSWAdapter
-├── mssp -> MSSPAdapter / shared protocol adapter
+├── generic-http -> GenericHttpAdapter
+├── <platform-key> -> GenericHttpAdapter(key=..., version=2) / shared protocol adapter
 ├── generic_http_session -> GenericHTTPSessionAdapter
 └── ...
 ```
