@@ -18,7 +18,14 @@ from muad_agent_core.model import (
     ModelToolCall,
 )
 from muad_agent_core.tools import ToolRegistry
-from muad_agent_runtime.application.executor import AgentRunnerExecutor, ExecutorRequest
+from muad_agent_runtime.application.artifacts import ArtifactResultWriter
+from muad_agent_runtime.application.executor import (
+    TOOL_RESULT_ARTIFACT_BYTES,
+    AgentRunnerExecutor,
+    ExecutorRequest,
+    ExecutorRunContext,
+    ToolCallRecorder,
+)
 from muad_agent_runtime.application.skill_tools import (
     EXECUTE_SKILL_TOOL,
     LOAD_SKILL_TOOL,
@@ -49,6 +56,14 @@ MAIN_SCRIPT = (
     "print(json.dumps({'echo': payload, 'script': 'main'}))\n"
 )
 OTHER_SCRIPT = "import json\nprint(json.dumps({'script': 'other'}))\n"
+
+
+def _skill_md_with_body(body: str) -> str:
+    """同 `SKILL_MD` 的 frontmatter，正文换成调用方给的 `body`（用于构造超大 SKILL.md）。"""
+    return (
+        "---\nname: demo-skill\ndescription: demo skill for runtime tests\n"
+        "execution: sync\nplatform_label: Demo\n---\n\n" + body + "\n"
+    )
 
 
 @dataclass(frozen=True)
@@ -138,6 +153,51 @@ async def test_load_skill_returns_manifest_and_instructions(skill_env: SkillEnv)
     assert payload["instructions"].startswith("# Demo Skill")
     assert "Run scripts/main.py" in payload["instructions"]
     assert "name: demo-skill" not in payload["instructions"]
+
+
+async def test_load_skill_full_body_survives_tool_result_wrapper(tmp_path: Path) -> None:
+    """[回归 2026-10-01] 超过 8KB 的 SKILL.md 正文必须**整段**到达模型。
+
+    `load_skill` 的返回就是要给模型读的正文，属「内容投递」；被大结果外置规则换成
+    `{"artifact": {...}}` 加预览，等于把工具废掉。本条同时钉住**接线**：`build_skill_registry`
+    产出的真实定义必须带 `externalizable_result=False` —— 只测 executor 的判定分支是不够的，
+    漏了标记照样静默外置。
+    """
+    body = (
+        "# Demo Skill\n\n"
+        + "正文放 SKILL.md，大段规范放 references。\n" * 400
+        + "END-OF-INSTRUCTIONS"
+    )
+    env = _env_for(tmp_path, {"SKILL.md": _skill_md_with_body(body)})
+    definition = env.registry.get(LOAD_SKILL_TOOL)
+    assert definition.externalizable_result is False
+    # 脚本输出是顺带数据，仍应保持可外置（默认 True）——标记只给内容投递类工具
+    assert env.registry.get(EXECUTE_SKILL_TOOL).externalizable_result is True
+    assert env.registry.get(RUN_SKILL_SCRIPT_TOOL).externalizable_result is True
+    handler = definition.handler
+    assert handler is not None
+
+    raw = await handler({"skill_key": SKILL_KEY}, call_id="call-skill-1")
+    assert len(raw.encode("utf-8")) > TOOL_RESULT_ARTIFACT_BYTES  # 前置条件：确实超过外置阈值
+
+    recorder = ToolCallRecorder(
+        context=ExecutorRunContext(
+            tenant_id=f"skill-{uuid.uuid4()}",
+            run_id=uuid.uuid4(),
+            conversation_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
+        ),
+        audit_writer=None,
+        artifact_writer=ArtifactResultWriter(tmp_path / "artifacts"),
+    )
+    content = await recorder(
+        definition, {"skill_key": SKILL_KEY}, handler=handler, call_id="call-skill-1"
+    )
+
+    assert "artifact" not in content
+    payload = json.loads(content)
+    assert payload["manifest"]["name"] == SKILL_KEY
+    assert payload["instructions"] == body
 
 
 async def test_wrapped_package_loads_from_runtime_cache(tmp_path: Path) -> None:

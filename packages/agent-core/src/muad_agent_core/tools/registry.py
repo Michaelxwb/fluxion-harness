@@ -34,6 +34,12 @@ class ToolDefinition:
     input_schema: Mapping[str, Any]
     effect: ToolEffect
     handler: ToolHandler | None = None
+    # 结果是否允许被「大结果外置」规则截成 Artifact 引用。
+    # `True`（默认）保持既有行为——顺带的大块数据（一次大查询/脚本输出）不该撑爆上下文。
+    # `False` 用于**内容投递**类工具：它们的返回**本身就是给模型读的正文**，外置等于把工具
+    # 废掉（2026-10-01 事故：`load_skill` 返回 8.3KB 被外置成 400 字符预览，模型实际只看到
+    # 正文的 1/20，且**没有任何报错**）。注意这不是「无限直通」——调用方仍有独立上限。
+    externalizable_result: bool = True
 
 
 class ToolNotFoundError(LookupError):

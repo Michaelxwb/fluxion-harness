@@ -179,6 +179,8 @@ class SkillToolSet:
                 input_schema=_input_schema({"skill_key": _STRING_SCHEMA}, ("skill_key",)),
                 effect=ToolEffect.READ,
                 handler=self.load_skill,
+                # 内容投递：返回的 SKILL.md 正文**就是要给模型读的**，不得被大结果外置截成预览
+                externalizable_result=False,
             ),
             ToolDefinition(
                 name=READ_SKILL_RESOURCE_TOOL,
@@ -189,6 +191,8 @@ class SkillToolSet:
                 ),
                 effect=ToolEffect.READ,
                 handler=self.read_skill_resource,
+                # 同上：references 正文同样属于内容投递
+                externalizable_result=False,
             ),
             ToolDefinition(
                 name=EXECUTE_SKILL_TOOL,

@@ -19,6 +19,8 @@ from muad_agent_core.tools import ToolDefinition, ToolEffect
 from muad_agent_runtime.api.deps import get_executor_factory
 from muad_agent_runtime.application.artifacts import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
+    MAX_INLINE_RESULT_BYTES,
+    TOOL_RESULT_ARTIFACT_BYTES,
     AuditedModelProvider,
     ExecutorRequest,
     ExecutorRunContext,
@@ -72,7 +74,7 @@ async def test_tool_recorder_audits_and_externalizes_large_result(tmp_path) -> N
         artifact_writer=ArtifactResultWriter(tmp_path),
     )
     definition = ToolDefinition(
-        name="load_skill",
+        name="demo_tool",
         description="d",
         input_schema={"type": "object"},
         effect=ToolEffect.READ,
@@ -82,7 +84,7 @@ async def test_tool_recorder_audits_and_externalizes_large_result(tmp_path) -> N
     async def handler(arguments: Any, *, call_id: str) -> str:
         return large
 
-    content = await recorder(definition, {"skill_key": "demo"}, handler=handler, call_id="call-demo-1")
+    content = await recorder(definition, {"q": "x"}, handler=handler, call_id="call-demo-1")
     payload = json.loads(content)
     assert payload["artifact"]["size"] == len(large)
     assert payload["artifact"]["preview"].startswith("x")
@@ -95,7 +97,8 @@ async def test_tool_recorder_audits_and_externalizes_large_result(tmp_path) -> N
         ).scalars().all()
         assert len(audits) == 1
         assert audits[0].tool_call_id == "call-demo-1"  # 必须是模型给的调用 id，不是工具名
-        assert audits[0].tool_name == "load_skill"
+        assert audits[0].tool_name == "demo_tool"
+        # `_tool_kind` 现状口径：非 `mcp::` 前缀一律归 SKILL
         assert audits[0].tool_kind == "SKILL"
         assert audits[0].status == "OK"
         assert audits[0].artifact_id is not None
@@ -108,6 +111,82 @@ async def test_tool_recorder_audits_and_externalizes_large_result(tmp_path) -> N
         assert len(artifacts) == 1
         assert artifacts[0].artifact_type == "TOOL_RESULT"
         assert (tmp_path / artifacts[0].storage_key).is_file()
+
+
+async def test_content_delivery_tool_result_is_not_externalized(tmp_path) -> None:
+    """[回归 2026-10-01] 声明 `externalizable_result=False` 的「内容投递」工具，结果不得外置。
+
+    事故现场：`load_skill` 返回 8320 字节（> 8KB 外置阈值）被换成 `{"artifact": {...}}` 与
+    400 字符预览，模型只看到正文的 1/20，**且没有任何报错**。而当时的
+    `test_tool_recorder_audits_and_externalizes_large_result` 恰好借用 `load_skill` 当夹具名
+    并断言它**被外置** —— 测试在为正相反的行为背书，这才是规则冲突没被发现的原因。
+    """
+    recorder = ToolCallRecorder(
+        context=ExecutorRunContext(
+            tenant_id=TENANT, run_id=RUN_ID, conversation_id=CONV_ID, user_id=USER_ID
+        ),
+        audit_writer=_writer(),
+        artifact_writer=ArtifactResultWriter(tmp_path),
+    )
+    definition = ToolDefinition(
+        name="demo_tool",
+        description="d",
+        input_schema={"type": "object"},
+        effect=ToolEffect.READ,
+        externalizable_result=False,
+    )
+    large = "x" * (TOOL_RESULT_ARTIFACT_BYTES + 256)  # 前置条件：确实超过通用外置阈值
+
+    async def handler(arguments: Any, *, call_id: str) -> str:
+        return large
+
+    content = await recorder(definition, {"q": "x"}, handler=handler, call_id="call-inline-1")
+
+    assert content == large
+    assert "artifact" not in content
+
+    async with get_session_factory()() as session:
+        artifact_count = await session.scalar(
+            sa.select(sa.func.count()).select_from(Artifact).where(Artifact.tenant_id == TENANT)
+        )
+        assert artifact_count == 0
+        audit = (
+            await session.execute(
+                sa.select(ToolCallAudit).where(ToolCallAudit.tenant_id == TENANT)
+            )
+        ).scalar_one()
+        assert audit.artifact_id is None
+
+
+async def test_content_delivery_tool_result_is_externalized_above_inline_cap(tmp_path) -> None:
+    """「不可外置」不等于「无限直通」：超过内联上限仍然外置。
+
+    没有这道兜底，一个超大 SKILL.md 会直接打爆上下文 —— 而唯一拦着它的就是这条上限。
+    它同时把「渐进式披露」从建议变成约束：正文放 SKILL.md，大段规范放 references/。
+    """
+    recorder = ToolCallRecorder(
+        context=ExecutorRunContext(
+            tenant_id=TENANT, run_id=RUN_ID, conversation_id=CONV_ID, user_id=USER_ID
+        ),
+        audit_writer=_writer(),
+        artifact_writer=ArtifactResultWriter(tmp_path),
+    )
+    definition = ToolDefinition(
+        name="demo_tool",
+        description="d",
+        input_schema={"type": "object"},
+        effect=ToolEffect.READ,
+        externalizable_result=False,
+    )
+    huge = "x" * (MAX_INLINE_RESULT_BYTES + 1)
+
+    async def handler(arguments: Any, *, call_id: str) -> str:
+        return huge
+
+    content = await recorder(definition, {"q": "x"}, handler=handler, call_id="call-inline-2")
+
+    payload = json.loads(content)
+    assert payload["artifact"]["size"] == len(huge)
 
 
 async def test_tool_recorder_audits_failure_status() -> None:

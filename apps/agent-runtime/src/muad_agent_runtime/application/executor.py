@@ -63,6 +63,11 @@ ASSISTANT_TURN_EVENT = "assistant.turn"
 CANCEL_POLL_INTERVAL_SEC = 0.25
 MODEL_TIMEOUT_SEC = 120.0
 TOOL_RESULT_ARTIFACT_BYTES = 8 * 1024
+# 内容投递类工具（`externalizable_result=False`）的内联上限：**不是无限直通**。
+# 超过它仍然外置，否则一个超大 SKILL.md 会直接打爆上下文；这也把「渐进式披露」从建议变成
+# 硬约束（正文放 SKILL.md / 大段规范放 references）。取值与 `MAX_RESOURCE_BYTES`（单次资源
+# 读取上限）对齐：工具本就被允许读这么大的正文，就不该在返回路上被截断。
+MAX_INLINE_RESULT_BYTES = 256 * 1024
 PROVIDER_NAME = "openai-compatible"
 MCP_TOOL_PREFIX = "mcp::"
 
@@ -407,6 +412,23 @@ class ToolCallRecorder:
         self._audit = audit_writer
         self._artifacts = artifact_writer
 
+    def _should_externalize(self, definition: ToolDefinition, content: str) -> bool:
+        """工具结果是否超出内联预算、须外置成 Artifact 并只留预览。
+
+        默认按 `TOOL_RESULT_ARTIFACT_BYTES`（8KB）判定；**内容投递类工具**
+        （`externalizable_result=False`，如 `load_skill` / `read_skill_resource`）改按
+        `MAX_INLINE_RESULT_BYTES` 判定 —— 它们的返回**就是要给模型读的正文**，按 8KB 截成
+        预览等于把工具废掉（2026-10-01 事故：8320 字节的 `load_skill` 返回值被外置，模型只
+        拿到 400 字符预览、看不到 1/20 的正文，而且**没有任何报错**，两侧行为差异直到与
+        另一产品对比才暴露）。
+        """
+        limit = (
+            TOOL_RESULT_ARTIFACT_BYTES
+            if definition.externalizable_result
+            else MAX_INLINE_RESULT_BYTES
+        )
+        return len(content.encode("utf-8")) > limit
+
     async def __call__(
         self,
         definition: ToolDefinition,
@@ -422,7 +444,7 @@ class ToolCallRecorder:
         error_code: str | None = None
         try:
             content = str(await handler(arguments, call_id=call_id))
-            if self._artifacts is not None and len(content.encode("utf-8")) > TOOL_RESULT_ARTIFACT_BYTES:
+            if self._artifacts is not None and self._should_externalize(definition, content):
                 reference = await self._artifacts.persist_tool_result(
                     tenant_id=self._context.tenant_id,
                     conversation_id=self._context.conversation_id,
