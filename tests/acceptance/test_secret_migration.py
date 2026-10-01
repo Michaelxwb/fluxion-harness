@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -41,10 +42,24 @@ def _database_url() -> str:
     return url
 
 
+def _alembic_ini() -> Path:
+    """迁移配置**只认 ini**（`migrations/env.py` 不再读环境变量）：
+    按本测试实际要打的库现场生成一份，保证 alembic 子进程与断言/DML 用的是同一个库。
+    （靠环境变量驱动 alembic 的写法在 ini 与 DATABASE_URL 不一致时会让降级落到另一个库。）
+    """
+    ini = Path(tempfile.gettempdir()) / f"alembic-secret-migration-{os.getpid()}.ini"
+    ini.write_text(
+        "[alembic]\nscript_location = migrations\nprepend_sys_path = .\n"
+        f"sqlalchemy.url = {_database_url()}\n",
+        encoding="utf-8",
+    )
+    return ini
+
+
 def _run_alembic(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     env = {**os.environ, "DATABASE_URL": _database_url()}
     return subprocess.run(
-        [sys.executable, "-m", "alembic", "-c", "migrations/alembic.ini", *args],
+        [sys.executable, "-m", "alembic", "-c", str(_alembic_ini()), *args],
         cwd=ROOT,
         env=env,
         check=check,
