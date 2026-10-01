@@ -182,11 +182,36 @@ def _await_status(task_id: uuid.UUID, status: str, *, timeout_sec: float) -> dic
 
 
 def _await_lease_expired(task_id: uuid.UUID, *, timeout_sec: float) -> dict[str, Any]:
-    """等到行上的租约**真的过期**（绝对时刻比较：`lease_until < now`），不做无界 sleep。"""
+    """严格版：等到行上的租约**真的过期**（`lease_until < now`）。
+
+    只用于**不会有接手者**的样本（如「过期执行者晚到写入」的 stale 行——唯一存活 Worker 被 blocker
+    占住）：那里过期态是稳定可观测的。E-04 主链不能用它（接手可能抢在轮询之前完成，见下）。
+    """
     return _await_row(
         task_id,
         lambda row: row["lease_until"] is not None and row["lease_until"] < datetime.now(UTC),
         what="租约过期",
+        timeout_sec=timeout_sec,
+    )
+
+
+def _await_lease_expired_or_reclaimed(task_id: uuid.UUID, *, timeout_sec: float) -> dict[str, Any]:
+    """等到「租约过期」这一步确实发生过——**接受两种合法落点**，不赌能抓到那个瞬态中间态。
+
+    ① 盘面上抓到过期租约（`lease_until < now`）：本用例想观测的中间态；
+    ② **已经被接手**（`attempt` 递增，或行已终态并释放租约）：过期 → 接手已经发生，此时接手者的
+       租约是未来时刻或已释放，那个瞬态**不可能再被等回来**。
+
+    实测（CI run #75，2026-10-01）：接手先于轮询落地 ⇒ 旧写法把瞬态等成 36s 超时并判失败，而盘面
+    完全正确（`COMPLETED` + `attempt=2` + `result_json.probe=killed`）。「接手发生在过期之后」不靠本函数，
+    由 `_assert_sigkill_reclaim` 用**事件时间戳**断言（绝对时刻，心跳随进程停止）。
+    """
+    return _await_row(
+        task_id,
+        lambda row: (row["lease_until"] is not None and row["lease_until"] < datetime.now(UTC))
+        or row["attempt"] > 1
+        or row["status"] in {"COMPLETED", "FAILED", "CANCELLED"},
+        what="租约过期（或被接手）",
         timeout_sec=timeout_sec,
     )
 
@@ -384,7 +409,7 @@ def _sigkill_reclaim_arm(
     assert before_expiry["lease_owner"] == victim_owner, "被杀后租约不应立即易主"
     # 接手者用基座默认租约（30s/心跳 1s，30x 余量）：它要长期持有这一行，租约太短会被负载惊扰。
     start("worker-survivor")
-    _await_lease_expired(task_id, timeout_sec=RECOVERY_LEASE_SEC + 30.0)
+    _await_lease_expired_or_reclaimed(task_id, timeout_sec=RECOVERY_LEASE_SEC + 30.0)
     _assert_sigkill_reclaim(task_id, victim_owner=victim_owner, last_heartbeat_at=last_heartbeat_at)
     return task_id
 
