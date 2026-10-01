@@ -50,6 +50,8 @@ from ..infrastructure.audit_writer import RuntimeAuditWriter
 from ..metrics import MODEL_INVOCATIONS_METRIC, TOOL_CALLS_METRIC, record_outcome
 from .artifacts import ArtifactResultWriter
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
+from .memory_service import MemoryService
+from .memory_tools import MemoryScope, MemoryToolSet, memory_write_enabled
 from .skill_tools import build_default_skill_cache, build_skill_registry
 from .task_client import TaskSubmissionContext, WorkerTaskClient
 from .task_tools import BackgroundTaskToolSet
@@ -598,6 +600,19 @@ def build_registry(
                 for server in request.mcp_servers
             ],
         )
+    if request.run_context is not None:
+        # 记忆工具的作用域只来自 Run 上下文（`user_id`/`tenant_id` 不进工具 schema）；
+        # `memory_write=false` 的 agent 连 `remember` 都看不见，但 `recall` 仍注册——
+        # 注入面由 ContextBuilder 统一治理，读侧不随写开关变化。
+        MemoryToolSet(
+            service=MemoryService(),
+            scope=MemoryScope(
+                tenant_id=request.run_context.tenant_id,
+                user_id=request.run_context.user_id,
+                run_id=request.run_context.run_id,
+            ),
+            write_enabled=memory_write_enabled(request.agent.runtime_config),
+        ).register(registry)
     if request.run_context is not None:
         registry = _wrap_registry(
             registry,
