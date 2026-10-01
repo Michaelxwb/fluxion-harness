@@ -60,10 +60,15 @@ class DbBackedContextBuilder:
         tenant_id: str,
         conversation_id: uuid.UUID,
         user_id: uuid.UUID | None,
-        include_memory: bool = True,
         budget: int | None = None,
     ) -> tuple[ModelMessage, ...]:
-        """执行链使用：取最近事件（最新保留）+ 受控 Memory，返回可直接发送的消息序列。"""
+        """执行链使用：取最近事件（最新保留）+ 受控 Memory，返回可直接发送的消息序列。
+
+        这是**唯一**的记忆注入路径。此前 `build()` 还有一条 `ContextInput.memory`（调用方传入
+        预先拼好的字符串）的旁路，措辞是旧的 `[memory] key: value`（形如系统指令）；该字段全仓
+        零生产者，两条路并存会让"注入措辞"这一 NFR-SEC-02 的唯一落点分叉，故已连同
+        `include_memory` 开关一并移除（2026-10-01）。
+        """
         async with self._session_factory()() as session:
             events = await self._recent_events(
                 session, tenant_id, conversation_id, budget or self._budget.max_messages
@@ -71,7 +76,7 @@ class DbBackedContextBuilder:
             history = await self._to_messages(session, tenant_id, events)
             memories = (
                 await self._load_memory(session, tenant_id, user_id)
-                if include_memory and user_id is not None
+                if user_id is not None
                 else []
             )
         trimmed = _trim(history, budget or self._budget.max_messages)
@@ -92,15 +97,12 @@ class DbBackedContextBuilder:
             messages.append(
                 ModelMessage(role=ModelRole.USER, content=f"[artifact preview] {preview}")
             )
-        for memory in context.memory:
-            messages.append(ModelMessage(role=ModelRole.SYSTEM, content=f"[memory] {memory}"))
 
         if getattr(context, "conversation_id", None):
             history = await self.load_history(
                 tenant_id=getattr(context, "tenant_id", ""),
                 conversation_id=context.conversation_id,  # type: ignore[arg-type]
                 user_id=getattr(context, "user_id", None),
-                include_memory=not bool(context.memory),
                 budget=getattr(context, "budget_messages", None) or self._budget.max_messages,
             )
             messages.extend(history)

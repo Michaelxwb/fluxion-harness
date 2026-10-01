@@ -15,7 +15,6 @@ class ContextInput:
     history: tuple[ModelMessage, ...] = ()
     skill_instructions: tuple[str, ...] = ()
     artifact_previews: tuple[str, ...] = ()
-    memory: tuple[str, ...] = ()
     tools: tuple[ToolDefinition, ...] = ()
     # DB-backed 构建（08 TASK-009）：来源隔离与预算
     conversation_id: uuid.UUID | None = None

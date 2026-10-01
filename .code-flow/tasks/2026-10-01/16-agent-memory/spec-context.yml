@@ -1,7 +1,7 @@
 version: 1
 task: Agent 长期记忆（agent-memory）
 enforcement: required
-updated_at: '2026-10-01T15:31:48.866058+00:00'
+updated_at: '2026-10-01T15:45:09.101961+00:00'
 sources:
 - type: cli
   ref: bind
@@ -190,7 +190,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-auth-001
-          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
+          artifact_sha256: d62a76be57b4ae6698743f56513719125ecf86093b5e42b60c44b159fb52b1c2
         decision: null
         evidence: []
       plan:
@@ -265,7 +265,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
+          artifact_sha256: d62a76be57b4ae6698743f56513719125ecf86093b5e42b60c44b159fb52b1c2
         decision: null
         evidence: []
       plan:
@@ -505,7 +505,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-im-001
-          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
+          artifact_sha256: d62a76be57b4ae6698743f56513719125ecf86093b5e42b60c44b159fb52b1c2
         decision: null
         evidence: []
       plan:
@@ -581,7 +581,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-log-001
-          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
+          artifact_sha256: d62a76be57b4ae6698743f56513719125ecf86093b5e42b60c44b159fb52b1c2
         decision: null
         evidence: []
       plan:
@@ -817,7 +817,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-secret-001
-          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
+          artifact_sha256: d62a76be57b4ae6698743f56513719125ecf86093b5e42b60c44b159fb52b1c2
         decision: null
         evidence: []
       plan:
@@ -893,7 +893,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
+          artifact_sha256: d62a76be57b4ae6698743f56513719125ecf86093b5e42b60c44b159fb52b1c2
         decision: null
         evidence: []
       plan:
@@ -906,7 +906,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -932,6 +932,32 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-01T15:33:24.855688+00:00'
+          status: verified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: head:85e6b042fec3b25005724c3f6366c9ddf336c5ff
+          result_sha256: 7dfead2ce4540b53fc2ea57c54a3563af9ef8c80b2dd82bade4540ab92f668aa
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: afefada2e7d0620b22baedd58d1df73e6452efc3acc019c111bc244b56cfdd54
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.25s
+
+              ....................                                                     [100%]
+
+              20 passed, 165 deselected in 0.61s
+
+              '
       review:
         status: pending
         refs: []
@@ -967,7 +993,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-test-001
-          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
+          artifact_sha256: d62a76be57b4ae6698743f56513719125ecf86093b5e42b60c44b159fb52b1c2
         decision: null
         evidence: []
       plan:
@@ -1041,7 +1067,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-time-001
-          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
+          artifact_sha256: d62a76be57b4ae6698743f56513719125ecf86093b5e42b60c44b159fb52b1c2
         decision: null
         evidence: []
       plan:
