@@ -126,6 +126,7 @@
 - S-02: verified — automated command passed; run_id=22e3421ec51c405eb98ae5b0e8711153 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
@@ -223,6 +224,14 @@
 - B-01: verified — automated command passed; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
@@ -301,6 +310,11 @@
 - E-06: verified — automated command passed; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
@@ -356,6 +370,7 @@
 - B-05: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
 - B-05: verified — automated command passed; run_id=3c7893c98e1743e2a000707aba8f83c4 (confirmed_by: runner)
 - B-05: verified — automated command passed; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
@@ -424,6 +439,8 @@
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=bff39f3eb88641e28e881ad7a8fe842b (confirmed_by: runner)
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
