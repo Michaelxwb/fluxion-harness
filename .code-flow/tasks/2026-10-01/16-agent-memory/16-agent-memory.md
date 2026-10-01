@@ -50,25 +50,25 @@
 |---|---|---|---|---|---|---|---|---|---|
 | S-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Gateway(HTTP/SSE + 企微 WS 探针) → Runtime → 真实 PostgreSQL + 真实 LLM 探针 | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s01"] | . | 900 |  |
 | S-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（同 key 覆盖更新） | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py","-k","s02"] | . | 600 |  |
-| S-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s03"] | . | 600 |  |
-| S-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s04"] | . | 600 |  |
+| S-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s03"] | . | 600 |  |
+| S-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s04"] | . | 600 |  |
 | S-05 | 16-agent-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Gateway(SSE) → Runtime → 真实 PostgreSQL + 真实 LLM 探针（回执 + 审计行） | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s05"] | . | 900 |  |
 | E-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | 工具处理器 → 真实 PostgreSQL（跨用户写入不可能） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e01"] | . | 600 |  |
 | E-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | 处理器入参校验（缺 `source_type`） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e02"] | . | 600 |  |
 | E-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | 处理器入参校验（category 白名单） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e03"] | . | 600 |  |
 | E-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | 工具注册表（`memory_write=false` 不注册） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e04"] | . | 600 |  |
 | E-05 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | 工具处理器 → 真实 PostgreSQL（写失败降级） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e05"] | . | 600 |  |
-| E-06 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 真实 PostgreSQL（读失败降级） | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e06"] | . | 600 |  |
-| E-07 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求体（平台密钥探针） | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e07"] | . | 600 |  |
+| E-06 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 真实 PostgreSQL（读失败降级） | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e06"] | . | 600 |  |
+| E-07 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求体（平台密钥探针） | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e07"] | . | 600 |  |
 | B-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | `memory_key` 格式校验（64 字符边界/大写/空格） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b01"] | . | 600 |  |
-| B-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（双上限先到先得） | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","b02"] | . | 600 |  |
+| B-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（双上限先到先得） | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","b02"] | . | 600 |  |
 | B-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | `recall` 入参（`limit` 0/21/缺省） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b03"] | . | 600 |  |
 | B-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | Runtime 工具结果链路（recall 满配不被外置） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b04"] | . | 600 |  |
 | RULE-data-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 真实 PostgreSQL 表结构/索引/四列口径 + 原 verifier 真实边界 | TASK-001 | verified | ["uv","run","pytest","-q","tests","-k","schema_parity"] | . | 600 |  |
 | RULE-time-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 时间列口径 + 原 verifier 真实边界 | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"] | . | 900 |  |
 | RULE-auth-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 记忆非可授权资源 + 原 verifier 真实边界 | TASK-002 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 1200 |  |
-| RULE-snapshot-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 记忆属实时读取、不进快照冻结集 + 原 verifier 真实边界 | TASK-003 | planned | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 |  |
-| RULE-secret-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 平台密钥不经记忆链进入 Prompt/日志 + 原 verifier 真实边界 | TASK-003 | planned | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 600 |  |
+| RULE-snapshot-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 记忆属实时读取、不进快照冻结集 + 原 verifier 真实边界 | TASK-003 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 |  |
+| RULE-secret-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 平台密钥不经记忆链进入 Prompt/日志 + 原 verifier 真实边界 | TASK-003 | verified | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 600 |  |
 | RULE-log-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | logging-kit 出口 + `value` 全文不入日志 + 原 verifier 真实边界 | TASK-004 | planned | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | . | 600 |  |
 | RULE-im-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 不改 bot↔agent 路由；记忆按已绑定身份 + 原 verifier 真实边界 | TASK-005 | planned | ["uv","run","pytest","-q","tests/console_channel","tests/gateway"] | . | 900 |  |
 | RULE-test-001 | 16-agent-memory.design.md#Spec Compliance Matrix | E2E | 仓库级真实验收（真实 HTTP/PostgreSQL/Redis/进程）+ 原 verifier 真实边界 | TASK-005 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 2400 |  |
@@ -213,7 +213,7 @@
 - [2026-10-01] completed (done)
 ## TASK-003: 注入链：分级注入、双上限、非指令措辞与读失败降级
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 16-agent-memory.design.md#2.3.1 功能清单, 16-agent-memory.design.md#3.5 质量实现方案, 16-agent-memory.design.md#2.5.3 非功能指标
@@ -234,35 +234,51 @@
 
 ### Checklist
 
-- [ ] [S-03][integration] 以 ContextBuilder → 模型请求为边界编写用例（真实 PostgreSQL 取记忆）：用户有 1 条 `USER_EXPLICIT` 记忆时，断言请求中出现注入消息、**带来源标注**、且措辞含"仅供参考/非指令"与冲突优先级说明。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s03"]`。
-- [ ] [S-04][integration] 同边界：用户只有 `AGENT_INFERRED` 记忆时，断言请求中**不含**该记忆；模型调用 `recall` 后才取得到。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s04"]`。
-- [ ] [B-02][integration] 同边界：构造 12 条（短值）与若干写满 512 字符的记忆，断言注入条数 ≤10、总字节 ≤2048+措辞开销、取的是 `update_time` 最新的若干条、其余**不注入且不报错**。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","b02"]`。
-- [ ] [E-06][integration] 以 ContextBuilder → 真实 PostgreSQL 为边界编写用例：令注入查询抛错，断言本轮不注入、记 warning、**Run 正常继续**（请求仍被构建）。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e06"]`。
-- [ ] [E-07][integration] 以 ContextBuilder → 模型请求体为边界编写用例：以已知平台密钥值（模型 `api_key`/bot `secret`/MCP `auth_secret`）为**探针**，断言注入到请求的记忆内容中**不含任何密钥值**。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e07"]`。
-- [ ] [RULE-snapshot-001][integration] 作为唯一最终负责人：断言记忆属**实时读取**（不进 Run/execution snapshot 冻结集，配置变更只影响后续新 Run 的既有语义不被破坏）；原 verifier 全部通过。verifier argv：`["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]`。
-- [ ] [RULE-secret-001][integration] 作为唯一最终负责人：断言平台密钥不经记忆链进入 Prompt 或日志（`value` 全文不落日志）；原 verifier 全部通过。verifier argv：`["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]`。
-- [ ] 改造 `_load_memory`：改用 `MemoryService.list_for_injection`；实现 `MAX_INJECTED_MEMORIES`/`MAX_INJECTED_BYTES` 逐条累加（先到先得）与措辞拼接；异常路径 `try/except` 降级为空列表 + warning。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
+- [x] [S-03][integration] 以 ContextBuilder → 模型请求为边界编写用例（真实 PostgreSQL 取记忆）：用户有 1 条 `USER_EXPLICIT` 记忆时，断言请求中出现注入消息、**带来源标注**、且措辞含"仅供参考/非指令"与冲突优先级说明。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s03"]`。
+- [x] [S-04][integration] 同边界：用户只有 `AGENT_INFERRED` 记忆时，断言请求中**不含**该记忆；模型调用 `recall` 后才取得到。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s04"]`。
+- [x] [B-02][integration] 同边界：构造 12 条（短值）与若干写满 512 字符的记忆，断言注入条数 ≤10、总字节 ≤2048+措辞开销、取的是 `update_time` 最新的若干条、其余**不注入且不报错**。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","b02"]`。
+- [x] [E-06][integration] 以 ContextBuilder → 真实 PostgreSQL 为边界编写用例：令注入查询抛错，断言本轮不注入、记 warning、**Run 正常继续**（请求仍被构建）。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e06"]`。
+- [x] [E-07][integration] 以 ContextBuilder → 模型请求体为边界编写用例：以已知平台密钥值（模型 `api_key`/bot `secret`/MCP `auth_secret`）为**探针**，断言注入到请求的记忆内容中**不含任何密钥值**。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e07"]`。
+- [x] [RULE-snapshot-001][integration] 作为唯一最终负责人：断言记忆属**实时读取**（不进 Run/execution snapshot 冻结集，配置变更只影响后续新 Run 的既有语义不被破坏）；原 verifier 全部通过。verifier argv：`["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]`。
+- [x] [RULE-secret-001][integration] 作为唯一最终负责人：断言平台密钥不经记忆链进入 Prompt 或日志（`value` 全文不落日志）；原 verifier 全部通过。verifier argv：`["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]`。
+- [x] 改造 `_load_memory`：改用 `MemoryService.list_for_injection`；实现 `MAX_INJECTED_MEMORIES`/`MAX_INJECTED_BYTES` 逐条累加（先到先得）与措辞拼接；异常路径 `try/except` 降级为空列表 + warning。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-03 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | 注入消息存在；带来源标注与非指令措辞 | tests/agent_runtime/test_context_memory.py / S-03 | `["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s03"]` | planned |
-| S-04 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | `AGENT_INFERRED` 不在默认请求中；`recall` 可取 | tests/agent_runtime/test_context_memory.py / S-04 | `["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s04"]` | planned |
-| B-02 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | 条数 ≤10 且字节 ≤2048；取最新；其余不注入不报错 | tests/agent_runtime/test_context_memory.py / B-02 | `["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","b02"]` | planned |
-| E-06 | integration | ContextBuilder → 真实 PostgreSQL | 读失败 → 不注入、记 warning、Run 继续 | tests/agent_runtime/test_context_memory.py / E-06 | `["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e06"]` | planned |
-| E-07 | integration | ContextBuilder → 模型请求体 | 请求体不含已知平台密钥值（探针断言） | tests/agent_runtime/test_context_memory.py / E-07 | `["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e07"]` | planned |
-| RULE-snapshot-001 | integration | 记忆为实时读取、非冻结项 + 原 verifier 真实边界 | 快照语义不变；原 verifier 全部通过 | 原 verifier / RULE-snapshot-001 | `["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]` | planned |
-| RULE-secret-001 | integration | 平台密钥不经记忆链进 Prompt/日志 + 原 verifier 真实边界 | 密钥值不出现在 Prompt 与日志；原 verifier 全部通过 | 原 verifier / RULE-secret-001 | `["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]` | planned |
+| S-03 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | 注入消息存在；带来源标注与非指令措辞 | tests/agent_runtime/test_context_memory.py / S-03 | `["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s03"]` | verified |
+| S-04 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | `AGENT_INFERRED` 不在默认请求中；`recall` 可取 | tests/agent_runtime/test_context_memory.py / S-04 | `["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s04"]` | verified |
+| B-02 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | 条数 ≤10 且字节 ≤2048；取最新；其余不注入不报错 | tests/agent_runtime/test_context_memory.py / B-02 | `["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","b02"]` | verified |
+| E-06 | integration | ContextBuilder → 真实 PostgreSQL | 读失败 → 不注入、记 warning、Run 继续 | tests/agent_runtime/test_context_memory.py / E-06 | `["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e06"]` | verified |
+| E-07 | integration | ContextBuilder → 模型请求体 | 请求体不含已知平台密钥值（探针断言） | tests/agent_runtime/test_context_memory.py / E-07 | `["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e07"]` | verified |
+| RULE-snapshot-001 | integration | 记忆为实时读取、非冻结项 + 原 verifier 真实边界 | 快照语义不变；原 verifier 全部通过 | 原 verifier / RULE-snapshot-001 | `["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]` | verified |
+| RULE-secret-001 | integration | 平台密钥不经记忆链进 Prompt/日志 + 原 verifier 真实边界 | 密钥值不出现在 Prompt 与日志；原 verifier 全部通过 | 原 verifier / RULE-secret-001 | `["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]` | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-03 | **真实 RED（两段）**：① 按登记 argv 执行 → 收集期 `ImportError: cannot import name 'MAX_INJECTED_BYTES'`（上限常量尚不存在）；② 语义取证脚本（真实 PG + 真实 `load_history`）打印出 `'[memory] inferred.key: 模型自行归纳的偏好'` / `'[memory] legacy.key: 历史取值的记忆'` —— 改造前**任何来源都会被注入**，且措辞是裸 `[memory] key: value`，与系统指令无从区分。 | **1 passed**（`-k s03`）；整文件 **10 passed**；`tests/agent_runtime` 全套 **168 passed**；ruff 干净、mypy `Success`。 | `test_s03_user_explicit_memory_injected_with_provenance_and_non_instruction_wording`：注入行恰好 1 条；含 `reply.language` 与值 `中文`；含来源标注 `用户明确要求`；含 `仅供参考`、`非指令`；含冲突优先级 `以当前指示为准`；该消息 `str(role) == "system"`。 | 真实 PostgreSQL `runtime.user_memory`（隔离租户 `inj-<uuid>`，用例后清理）+ 真实 `DbBackedContextBuilder`；断言对象是**最终模型请求**的消息序列。 | verified |
+| S-04 | **真实 RED**：语义取证脚本显示 `AGENT_INFERRED` 记忆在改造前被直接注入（见 S-03 的 ②），即分级过滤此前**完全不存在**；历史取值 `EXPLICIT` 同样被注入（这会因历史数据放宽注入面，design §4.4 明确禁止）。 | **2 passed**（`-k s04`：`test_s04_agent_inferred_memory_not_injected_but_recallable` + `test_s04_legacy_source_type_is_not_injected`）。 | 前者：模型请求中无任何 `[记忆·` 行、`"简洁" not in 全量消息`；随后 `MemoryService.search`（`recall` 的落点）取回 `["work.style"]` 且值为 `简洁` —— 证明它**只经检索路径**可达。后者：历史 `EXPLICIT` 行的值不出现在请求中。 | 真实 PostgreSQL + 真实 `build()`（ContextBuilder → 模型请求）；检索侧走真实 `MemoryService.search`。 | verified |
+| B-02 | **真实 RED**：改造前既无条数上限也无字节上限（`_load_memory` 直接 `select` 全量、无 `order_by` 无 `limit`），语义取证脚本一次性注入 2 条即为证据；上限常量亦不存在（ImportError）。 | **2 passed**（`-k b02`：条数上限用例 + 字节上限用例）。 | 条数：12 条短记忆 → 注入恰好 `MAX_INJECTED_MEMORIES`(=10) 条，且键序为 `k.11..k.02`（最新的 10 条），`v00`/`v01` 未出现。字节：两条 512 字中文（≈1.5KB/条）→ 只注入最新那条，注入行总字节 ≤ `MAX_INJECTED_BYTES`(=2048)，且不报错。 | 真实 PostgreSQL；`update_time` **显式递增**种入（同一事务的行会拿到相同 `now()`，并列时"取最近 N 条"无确定顺序）。 | verified |
+| E-06 | **真实 RED**：改造前 `_load_memory` 无异常处理，注入查询抛错会冒泡到 `build()` ⇒ **整轮对话构建失败**（用户侧表现为发不出消息）。 | **1 passed**（`-k e06`）。 | 注入查询抛 `SQLAlchemyError` 后：模型请求**仍被构建**（`request.model_id == "gpt-4o-mini"`）、无任何注入行、且 logging 记录中存在 WARNING（故障不静默）。 | 故障注入在**记忆查询这一处**（`MemoryService.list_for_injection_with_session` 抛 DB 异常族）；会话与历史仍走真实 PostgreSQL、真实 `build()`。实现只吞 `SQLAlchemyError` —— 编程错误继续上抛，不静默。 | verified |
+| E-07 | **不适用（不伪造失败）**：该断言是对**既有性质**的探针（平台密钥从不进入模型上下文），改造前后都成立，无法构造出对应缺陷的 RED。 | **1 passed**（`-k e07`）。 | 已知密钥探针值（`sk-owner-table-key`/`mcp-owner-secret`/`bot-secret-value`）不出现在请求的消息、工具定义与参数中；注入行只由「措辞 + key + 存储值」构成（`reply.language = 中文` 出现且值只出现一次、行以 `）` 结尾）⇒ 不夹带其它列内容。**边界说明**：本用例证明的是"记忆链路不额外带出任何东西"，全局"Prompt 无密钥"由 RULE-secret-001 的原 verifier 承载。 | 真实 PostgreSQL + 真实模型请求构建（`messages` + `tools` + `params` 全量探针）。 | verified |
+| RULE-snapshot-001 | 不适用（本任务不新增任何冻结面：记忆是每轮实时读取，不进 Run/execution snapshot） | 原 verifier 通过：`test_snapshot_freeze.py`+`test_run_reaper.py` **4 passed**；`tests/agent_runtime -k "executor or resolve"` **20 passed, 148 deselected** | 注入链改造只在 `context_builder` 的**读取**路径上，未触及快照冻结与 hash 口径 | 原 verifier 真实边界（真实 PostgreSQL + 快照 hash 断言） | verified |
+| RULE-secret-001 | 不适用（本任务不新增密钥面） | 原 verifier 通过：**12 passed** | 注入措辞只落 `key` 与存储值；日志只落 `tenant_id`/`user_id`（**不落 value 全文**） | 原 verifier 真实边界（logging-kit 脱敏 + 真实 PostgreSQL 审计） | verified |
+- S-03: verified — automated command passed; run_id=3229a1d183f34f9faab46276af123fa7 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=3229a1d183f34f9faab46276af123fa7 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=3229a1d183f34f9faab46276af123fa7 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=3229a1d183f34f9faab46276af123fa7 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=3229a1d183f34f9faab46276af123fa7 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
 
 ---
-
+- [2026-10-01] started
+- [2026-10-01] completed (done)
 ## TASK-004: 记忆观测与审计取证
 
 - **Status**: draft
