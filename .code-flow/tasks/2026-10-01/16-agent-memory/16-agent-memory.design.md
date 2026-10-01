@@ -31,7 +31,7 @@
 |------|------|------|---------|
 | v0.1 | 2026-10-01 | — | 初始草稿（基于现状盘面勘查与三项产品口径决策） |
 | v0.2 | 2026-10-01 | — | 按设计评审修订：①补 `recall` 结果会被通用「大结果外置」规则截断的缺陷与修法（RULE-09 / B-04）；②补记忆读失败降级的场景空洞（RULE-10 / E-06）；③明确记忆**无 agent 维度**的产品口径（§2.4 有意妥协）；④修正 NFR-PERF-03 的自相矛盾算式（双上限取先到先得）；⑤Console「来源」列经盘面核对**已具备**，FEAT-07/API-01 从实现范围移入「既有能力」，相应规范行改判 N/A；⑥修正 `harness-rel#RULE-rel-001` 的规则误读（真实规则为「关系类变更」，非 reliability）；⑦Spec Compliance Matrix 收敛到 `spec-context.yml` 实际绑定的 14 条规则；⑧补 `enabled` 覆盖语义、`effect` 非控制点、E2E 真实边界可复现性等实施细节 |
-| v0.3 | 2026-10-01 | — | 按编码阶段实现事实同步三处口径（design↔code 对齐）：① §3.4 C-01 写失败改为**抛 `AppError`**（原写「返回 `{"saved": false}`」会让 `tool_call_audit` 记成 `OK`、失败在审计与指标上不可见）；② §3.3 钉死 `update_time` 取**数据库时钟**（原写「应用层显式赋值」，两钟混用会让「更新晚于插入」不成立）；③ §3.4 C-02 澄清 `recall` 的外置豁免在 4096B 上限下是**冗余防线**（防未来上限抬高），测试必须同时断言声明面 |
+| v0.3 | 2026-10-01 | — | 按编码阶段实现事实同步三处口径（design↔code 对齐）：① §3.4 C-01 写失败改为**抛 `AppError`**（原写「返回 `{"saved": false}`」会让 `tool_call_audit` 记成 `OK`、失败在审计与指标上不可见）；② §3.3 钉死 `update_time` 取**数据库时钟**（原写「应用层显式赋值」，两钟混用会让「更新晚于插入」不成立）；③ §3.4 C-02 澄清 `recall` 的外置豁免在 4096B 上限下是**冗余防线**（防未来上限抬高），测试必须同时断言声明面；④ §3.5 监控指标改为**计数值记在 amount**（原写把 count/bytes 放进 label，会裂出无界时间序列），仅低基数枚举进 label |
 
 ---
 
@@ -343,6 +343,8 @@ graph LR
 | `uq_user_memory_tenant_user_memory_key` | UNIQUE（partial） | `(tenant_id, user_id, memory_key) WHERE is_deleted = false` | **保证 upsert 幂等**：相同 key 并发写入不产生重复行 |
 | `ix_user_memory_user_enabled_update_time` | btree | `(user_id, enabled, update_time DESC)` | **本设计的注入查询**：`WHERE tenant_id=? AND user_id=? AND enabled AND NOT is_deleted ORDER BY update_time DESC LIMIT n` |
 
+**计数型指标的 label 卫生（v0.3 按实现更正）**：v0.1 写的 `memory_inject_total{count}`、`memory_recall_total{count,bytes}` 把**计数值放进 label** —— 那样每取一个新计数就裂出一条新的时间序列（无界基数），与本仓 `metrics.py` docstring 的 label 卫生口径直接冲突。实现改为：计数记在 **amount**，只把**低基数枚举**（`source_type`、`status`）放 label；检索字节另立 `memory_recall_bytes_total`。行为等价，形态不同。
+
 **排序键的时钟口径（v0.2 按实现更正）**：`update_time` 一律取**数据库时钟**（插入走 `server_default now()`、更新走 `now()`），**不用应用进程时钟**。理由有二：① 它是注入（`ORDER BY update_time DESC LIMIT n`）与 `recall` 截断的排序键，而 Runtime 是**多 Pod 无状态**、同一用户可被任意 Pod 写入 —— 用各 Pod 的进程时钟排序跨写者不可比；② 两个时钟混用会让「更新必然晚于插入」不成立（实测同一用例里插入走 DB 时钟、更新走进程时钟，两者相差约 1ms 且方向不定，症状是断言**单跑过、整跑挂**）。v0.1 写的「由应用层显式赋值」本意是「不依赖 ORM `onupdate` 魔法」，此处把「哪一层的钟」钉死。
 
 > **v0.1 的 ⚠️ 待补项已收敛（无需新增索引）**：索引以 `user_id` 打头、不含 `tenant_id`；注入查询的谓词却含 `tenant_id`。结论是**保留现状**：`user_id` 指向 `control.platform_user.id`，由 `gen_random_uuid()`（UUIDv4）生成，跨租户碰撞概率可忽略，故不存在实际退化。`tenant_id` 谓词保留为**纵深防御**（租户隔离不依赖索引唯一性，与 `harness-data`/`harness-auth` 口径一致）；`is_deleted` 同样未被索引覆盖，但该用户的行数极少（见容量预估），可忽略。**实施期不再需要核对。**
@@ -444,7 +446,8 @@ graph LR
 
 | 场景 | 实现方案 |
 |--------|---------|
-| 监控指标 | 复用既有 metrics 端口：`memory_write_total{source_type,status}`、`memory_inject_total{count}`、`memory_recall_total{count,bytes}` |
+| 监控指标 | 复用既有 metrics 端口，**计数值记在 amount 而不是 label**（v0.3 按实现更正）：`memory_write_total{source_type,status}`、`memory_inject_total`（无 label，取值为本轮注入条数）、`memory_recall_total{status}`（取值为返回条数）、`memory_recall_bytes_total{status}`（取值为返回字节数）。指标目录见 `metrics.py` 的 `CATALOG`，无流量时也经 `GET /metrics` 暴露 |
+
 | 日志 | 结构化 JSON + 既有 trace 字段；写入与注入各一条 INFO（**不落 value 全文**，只落 key/来源/长度） |
 | 链路追踪 | 写入与注入均带 `run_id` / `tenant_id`（既有中间件已注入） |
 | 误标抽查（RISK-05 补偿） | 审计行含 `source_type`；抽查口径：`USER_EXPLICIT` 占比异常升高时人工核对对应会话 |

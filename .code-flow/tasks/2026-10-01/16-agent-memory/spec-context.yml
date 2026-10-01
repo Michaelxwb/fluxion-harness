@@ -1,7 +1,7 @@
 version: 1
 task: Agent 长期记忆（agent-memory）
 enforcement: required
-updated_at: '2026-10-01T15:23:14.188771+00:00'
+updated_at: '2026-10-01T15:31:48.866058+00:00'
 sources:
 - type: cli
   ref: bind
@@ -190,7 +190,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-auth-001
-          artifact_sha256: dbb860b99722c10f5bf04f76d179888282bd57d8d6eebdf5f27de0c8696af872
+          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
         decision: null
         evidence: []
       plan:
@@ -199,7 +199,7 @@ bindings:
         - artifact: 16-agent-memory.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: c7b45cc644551945c289d210af016fd7fea8cf3a250fdcb92adafa38cee43a42
+          artifact_sha256: 73f60b0dfb0a91fededd0b980c05e366101837a19a9df50699b5f463d040485d
         decision: null
         evidence: []
       code:
@@ -265,7 +265,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: dbb860b99722c10f5bf04f76d179888282bd57d8d6eebdf5f27de0c8696af872
+          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
         decision: null
         evidence: []
       plan:
@@ -274,7 +274,7 @@ bindings:
         - artifact: 16-agent-memory.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: c7b45cc644551945c289d210af016fd7fea8cf3a250fdcb92adafa38cee43a42
+          artifact_sha256: 73f60b0dfb0a91fededd0b980c05e366101837a19a9df50699b5f463d040485d
         decision: null
         evidence: []
       code:
@@ -505,7 +505,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-im-001
-          artifact_sha256: dbb860b99722c10f5bf04f76d179888282bd57d8d6eebdf5f27de0c8696af872
+          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
         decision: null
         evidence: []
       plan:
@@ -514,7 +514,7 @@ bindings:
         - artifact: 16-agent-memory.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: c7b45cc644551945c289d210af016fd7fea8cf3a250fdcb92adafa38cee43a42
+          artifact_sha256: 73f60b0dfb0a91fededd0b980c05e366101837a19a9df50699b5f463d040485d
         decision: null
         evidence: []
       code:
@@ -581,7 +581,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-log-001
-          artifact_sha256: dbb860b99722c10f5bf04f76d179888282bd57d8d6eebdf5f27de0c8696af872
+          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
         decision: null
         evidence: []
       plan:
@@ -590,7 +590,7 @@ bindings:
         - artifact: 16-agent-memory.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: c7b45cc644551945c289d210af016fd7fea8cf3a250fdcb92adafa38cee43a42
+          artifact_sha256: 73f60b0dfb0a91fededd0b980c05e366101837a19a9df50699b5f463d040485d
         decision: null
         evidence: []
       code:
@@ -817,7 +817,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-secret-001
-          artifact_sha256: dbb860b99722c10f5bf04f76d179888282bd57d8d6eebdf5f27de0c8696af872
+          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
         decision: null
         evidence: []
       plan:
@@ -826,7 +826,7 @@ bindings:
         - artifact: 16-agent-memory.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: c7b45cc644551945c289d210af016fd7fea8cf3a250fdcb92adafa38cee43a42
+          artifact_sha256: 73f60b0dfb0a91fededd0b980c05e366101837a19a9df50699b5f463d040485d
         decision: null
         evidence: []
       code:
@@ -893,7 +893,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: dbb860b99722c10f5bf04f76d179888282bd57d8d6eebdf5f27de0c8696af872
+          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
         decision: null
         evidence: []
       plan:
@@ -902,7 +902,7 @@ bindings:
         - artifact: 16-agent-memory.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: c7b45cc644551945c289d210af016fd7fea8cf3a250fdcb92adafa38cee43a42
+          artifact_sha256: 73f60b0dfb0a91fededd0b980c05e366101837a19a9df50699b5f463d040485d
         decision: null
         evidence: []
       code:
@@ -967,7 +967,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-test-001
-          artifact_sha256: dbb860b99722c10f5bf04f76d179888282bd57d8d6eebdf5f27de0c8696af872
+          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
         decision: null
         evidence: []
       plan:
@@ -976,7 +976,7 @@ bindings:
         - artifact: 16-agent-memory.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: c7b45cc644551945c289d210af016fd7fea8cf3a250fdcb92adafa38cee43a42
+          artifact_sha256: 73f60b0dfb0a91fededd0b980c05e366101837a19a9df50699b5f463d040485d
         decision: null
         evidence: []
       code:
@@ -1041,7 +1041,7 @@ bindings:
         - artifact: 16-agent-memory.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-time-001
-          artifact_sha256: dbb860b99722c10f5bf04f76d179888282bd57d8d6eebdf5f27de0c8696af872
+          artifact_sha256: b363d190628706fcefe2db8a62963247362e8d52b7efa70f0a5685e6e35fd143
         decision: null
         evidence: []
       plan:
@@ -1050,7 +1050,7 @@ bindings:
         - artifact: 16-agent-memory.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: c7b45cc644551945c289d210af016fd7fea8cf3a250fdcb92adafa38cee43a42
+          artifact_sha256: 73f60b0dfb0a91fededd0b980c05e366101837a19a9df50699b5f463d040485d
         decision: null
         evidence: []
       code:
