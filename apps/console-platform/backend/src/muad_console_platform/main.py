@@ -2,6 +2,7 @@ import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from muad_api import (
@@ -22,6 +23,7 @@ from .application.auth_service import AuthService
 from .application.platform_adapter_service import build_default_registry
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
 from .metrics import install_console_metrics
+from .spa import install_spa
 
 SERVICE_NAME = "muad-console-platform"
 
@@ -80,3 +82,6 @@ install_console_security(app, ConsoleSessionVerifier(), ConsoleRoleResolver())
 install_health_probes(app, {"database": database_readiness(get_engine)})
 install_console_metrics(app)
 app.include_router(router)
+# 前端构建产物由同一进程提供（docs/01 §10）；必须在所有路由/探针之后——catch-all 只兜底。
+# 开发/E2E 下该目录不存在 → 不注册任何路由（dev 用 vite，E2E 用 vite preview）。
+install_spa(app, Path(os.getenv("STATIC_DIR", "/app/static")))
