@@ -66,18 +66,8 @@ def _zip_bytes(files: Mapping[str, str]) -> bytes:
     return buffer.getvalue()
 
 
-@pytest.fixture
-def skill_env(tmp_path: Path) -> SkillEnv:
-    data = _zip_bytes(
-        {
-            "SKILL.md": SKILL_MD,
-            "scripts/main.py": MAIN_SCRIPT,
-            "scripts/other.py": OTHER_SCRIPT,
-            "references/guide.md": "guide body",
-            "assets/overview.txt": "asset body",
-            "references/big.txt": "x" * (MAX_RESOURCE_BYTES + 256),
-        }
-    )
+def _env_for(tmp_path: Path, files: Mapping[str, str]) -> SkillEnv:
+    data = _zip_bytes(files)
     artifact_root = tmp_path / "artifacts"
     artifact_path = artifact_root / STORAGE_KEY
     artifact_path.parent.mkdir(parents=True)
@@ -100,6 +90,22 @@ def skill_env(tmp_path: Path) -> SkillEnv:
         policy=AgentPolicy(deadline_ms=30_000),
     )
     return SkillEnv(registry=registry, skill=skill, cache=cache)
+
+
+@pytest.fixture
+def skill_env(tmp_path: Path) -> SkillEnv:
+    """**平铺**包：`SKILL.md` 直接在 zip 根（`cd <包目录> && zip -r x.zip .` 的产物）。"""
+    return _env_for(
+        tmp_path,
+        {
+            "SKILL.md": SKILL_MD,
+            "scripts/main.py": MAIN_SCRIPT,
+            "scripts/other.py": OTHER_SCRIPT,
+            "references/guide.md": "guide body",
+            "assets/overview.txt": "asset body",
+            "references/big.txt": "x" * (MAX_RESOURCE_BYTES + 256),
+        },
+    )
 
 
 async def _call(
@@ -132,6 +138,37 @@ async def test_load_skill_returns_manifest_and_instructions(skill_env: SkillEnv)
     assert payload["instructions"].startswith("# Demo Skill")
     assert "Run scripts/main.py" in payload["instructions"]
     assert "name: demo-skill" not in payload["instructions"]
+
+
+async def test_wrapped_package_loads_from_runtime_cache(tmp_path: Path) -> None:
+    """带一层包装目录的包（`zip -r x.zip <folder>`）必须能加载，且资源按**包根**解析。
+
+    回归（2026-10-01 实测事故）：缓存把 zip **原样解包**，而运行时按「平坦根」找
+    `SKILL.md` ⇒ 包装层的包在导入校验侧能过（校验侧有定位逻辑）、运行时却报
+    `SKILL_PACKAGE_INVALID: missing SKILL.md`（用户侧表现：技能导入成功但 `load_skill` 加载不了）。
+    夹具默认打**平铺**包，故这条路径此前无覆盖 —— 而「zip 一个文件夹」正是最自然的打包方式
+    （也是 macOS Finder 压缩的形状）。定位规则现已收敛到 `muad_skill_sdk.locate_package_root`
+    单点实现，两侧共用。
+    """
+    env = _env_for(
+        tmp_path,
+        {
+            "demo-skill/SKILL.md": SKILL_MD,
+            "demo-skill/scripts/main.py": MAIN_SCRIPT,
+            "demo-skill/references/guide.md": "guide body",
+        },
+    )
+
+    payload = await _call(env.registry, LOAD_SKILL_TOOL, {"skill_key": SKILL_KEY})
+    assert payload["manifest"]["name"] == "demo-skill"
+    assert payload["instructions"].startswith("# Demo Skill")
+
+    guide = await _call(
+        env.registry,
+        READ_SKILL_RESOURCE_TOOL,
+        {"skill_key": SKILL_KEY, "path": "references/guide.md"},
+    )
+    assert guide == {"path": "references/guide.md", "content": "guide body"}
 
 
 async def test_read_skill_resource_reads_references_and_assets(skill_env: SkillEnv) -> None:

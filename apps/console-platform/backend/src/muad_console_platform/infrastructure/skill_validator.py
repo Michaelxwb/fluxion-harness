@@ -13,7 +13,12 @@ from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_skill_sdk import SkillManifest, SkillPackage, SkillPackageError
+from muad_skill_sdk import (
+    SkillManifest,
+    SkillPackage,
+    SkillPackageError,
+    locate_package_root,
+)
 
 ZIP_BYTES_LIMIT = 50 * 1024 * 1024
 UNPACKED_BYTES_LIMIT = 200 * 1024 * 1024
@@ -152,12 +157,16 @@ def _extract(archive: zipfile.ZipFile, destination: Path) -> None:
 
 
 def _locate_package_root(temp_root: Path) -> tuple[Path, str]:
-    if (temp_root / SKILL_FILE_NAME).is_file():
-        return temp_root, ""
-    entries = list(temp_root.iterdir())
-    if len(entries) == 1 and entries[0].is_dir() and (entries[0] / SKILL_FILE_NAME).is_file():
-        return entries[0], entries[0].name
-    raise invalid_package()
+    """委托 `muad_skill_sdk.locate_package_root` —— 定位规则**唯一定义在该 SDK**。
+
+    导入侧与运行时侧必须用同一套规则：两边各自实现会漂移成「导入通过、运行时 missing
+    SKILL.md」（2026-10-01 实测事故）。本函数只保留「把 SDK 错误翻译成 Console 侧
+    `invalid_package()`」这一层适配。
+    """
+    try:
+        return locate_package_root(temp_root)
+    except SkillPackageError as exc:
+        raise invalid_package() from exc
 
 
 def _load_package(root: Path) -> SkillPackage:

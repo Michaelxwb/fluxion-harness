@@ -20,6 +20,36 @@ class SkillPackageError(ValueError):
         super().__init__(message)
 
 
+def locate_package_root(base: str | Path) -> tuple[Path, str]:
+    """定位包根：→ `(包根, 包装目录名)`；`SKILL.md` 在 base 根下时包装名为空串。
+
+    两种合法形状：
+    - **平铺**：`base/SKILL.md`（`cd <包目录> && zip -r x.zip .` 的产物）；
+    - **单层包装**：`base/<name>/SKILL.md`（zip 一个文件夹的产物，也是 macOS Finder 压缩的
+      形状）。
+
+    ⚠️ **校验侧（导入）与运行时（加载）必须用同一套定位规则**。两边各自实现会错位：导入按
+    包装层解析通过、运行时按平坦根找不到 `SKILL.md` ⇒ 用户侧表现为「导入成功但 load_skill
+    报 `SKILL_PACKAGE_INVALID: missing SKILL.md`」（2026-10-01 实测事故，夹具默认打平铺包
+    故测试未覆盖包装层）。故本函数是唯一定义处，两侧共用。
+
+    定位失败抛 `SkillPackageError`，由调用方翻译成各自的错误码。
+    """
+    root = Path(base)
+    if (root / SKILL_FILE_NAME).is_file():
+        return root, ""
+    # 只数**目录**：运行时的缓存目录里还躺着 `READY` 这类元数据文件，若按"恰好一个条目"
+    # 判定，带包装层的包会被这个标记文件挤掉（2026-10-01 实测）。根下多几个非目录文件
+    # 不影响包根判定；但出现第二个目录仍视为无法定位。
+    directories = [entry for entry in root.iterdir() if entry.is_dir()]
+    if (
+        len(directories) == 1
+        and (directories[0] / SKILL_FILE_NAME).is_file()
+    ):
+        return directories[0], directories[0].name
+    raise SkillPackageError(f"missing {SKILL_FILE_NAME}")
+
+
 @dataclass(frozen=True, slots=True)
 class SkillManifest:
     name: str

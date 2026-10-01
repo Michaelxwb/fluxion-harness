@@ -18,7 +18,7 @@ from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache, SkillArtifactCacheError
 from muad_common import SharedSettings
 from muad_contracts import ResolvedSkill, SkillExecutionMode
-from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError
+from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
 
 from ..metrics import SKILL_LOAD_METRIC, record_outcome
 from .task_client import TaskSubmissionContext
@@ -275,7 +275,11 @@ class SkillToolSet:
             return cached
         ready_dir = await self._ready_dir(skill)
         try:
-            package = SkillPackage.load(ready_dir)
+            # 缓存目录是 zip **原样解包**的产物，可能带一层包装目录（zip 一个文件夹打的包，
+            # 也是 macOS Finder 压缩的形状）。定位规则必须与导入校验侧共用同一实现，否则
+            # 会出现「导入通过、运行时 missing SKILL.md」（2026-10-01 实测事故）。
+            package_root, _ = locate_package_root(ready_dir)
+            package = SkillPackage.load(package_root)
         except SkillPackageError as exc:
             raise SkillToolError(ErrorCode.SKILL_PACKAGE_INVALID.value, exc.message) from exc
         self._packages[skill.key] = package
