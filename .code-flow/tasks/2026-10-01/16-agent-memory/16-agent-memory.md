@@ -48,11 +48,11 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 argv | cwd | timeout | depends_on |
 |---|---|---|---|---|---|---|---|---|---|
-| S-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Gateway(HTTP/SSE + 企微 WS 探针) → Runtime → 真实 PostgreSQL + 真实 LLM 探针 | TASK-005 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s01"] | . | 900 |  |
+| S-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Gateway(HTTP/SSE + 企微 WS 探针) → Runtime → 真实 PostgreSQL + 真实 LLM 探针 | TASK-005 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s01"] | . | 900 |  |
 | S-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（同 key 覆盖更新） | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py","-k","s02"] | . | 600 |  |
 | S-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s03"] | . | 600 |  |
 | S-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s04"] | . | 600 |  |
-| S-05 | 16-agent-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Gateway(SSE) → Runtime → 真实 PostgreSQL + 真实 LLM 探针（回执 + 审计行） | TASK-005 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s05"] | . | 900 |  |
+| S-05 | 16-agent-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Gateway(SSE) → Runtime → 真实 PostgreSQL + 真实 LLM 探针（回执 + 审计行） | TASK-005 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s05"] | . | 900 |  |
 | E-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | 工具处理器 → 真实 PostgreSQL（跨用户写入不可能） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e01"] | . | 600 |  |
 | E-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | 处理器入参校验（缺 `source_type`） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e02"] | . | 600 |  |
 | E-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | 处理器入参校验（category 白名单） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e03"] | . | 600 |  |
@@ -127,6 +127,7 @@
 - S-02: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
@@ -232,6 +233,14 @@
 - B-01: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
@@ -315,6 +324,11 @@
 - E-06: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
@@ -371,6 +385,7 @@
 - B-05: verified — automated command passed; run_id=3c7893c98e1743e2a000707aba8f83c4 (confirmed_by: runner)
 - B-05: verified — automated command passed; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
 - B-05: verified — automated command passed; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
@@ -414,8 +429,8 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | E2E | 真实 Gateway(HTTP/SSE + 企微 WS 探针)、Runtime、真实 PostgreSQL、真实 LLM 探针 | 产生 `remember` 调用；新增一行且 `user_id` 为当前用户；`source_type=USER_EXPLICIT` | tests/acceptance/im_gateway/test_memory_flow.py / S-01 | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s01"]` | e2e_deferred |
-| S-05 | E2E | 真实 Gateway(SSE)、Runtime、真实 PostgreSQL、真实 LLM 探针 | 回执含已保存内容且不承诺必然生效；审计行含 `run_id`/`memory_key` | tests/acceptance/im_gateway/test_memory_flow.py / S-05 | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s05"]` | e2e_deferred |
+| S-01 | E2E | 真实 Gateway(HTTP/SSE + 企微 WS 探针)、Runtime、真实 PostgreSQL、真实 LLM 探针 | 产生 `remember` 调用；新增一行且 `user_id` 为当前用户；`source_type=USER_EXPLICIT` | tests/acceptance/im_gateway/test_memory_flow.py / S-01 | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s01"]` | verified |
+| S-05 | E2E | 真实 Gateway(SSE)、Runtime、真实 PostgreSQL、真实 LLM 探针 | 回执含已保存内容且不承诺必然生效；审计行含 `run_id`/`memory_key` | tests/acceptance/im_gateway/test_memory_flow.py / S-05 | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s05"]` | verified |
 | RULE-im-001 | integration | 不改路由（Console 渠道 + Gateway 真实链路）+ 原 verifier 真实边界 | bot↔agent 路由不变；记忆按绑定身份落库；原 verifier 全部通过 | 原 verifier / RULE-im-001 | `["uv","run","pytest","-q","tests/console_channel","tests/gateway"]` | verified |
 | RULE-test-001 | E2E | 仓库级真实验收（HTTP/PostgreSQL/Redis/进程/Browser）+ 原 verifier 真实边界 | 全量 acceptance 与前端构建/E2E 通过；层级不降级 | 原 verifier / RULE-test-001 | `["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]` | e2e_deferred |
 
@@ -441,6 +456,10 @@
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=1bde2e2def2d48a6b940fae0b8d0b1a9 (confirmed_by: runner)
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=6738d6ab4c1d42979affa0538ec93606 (confirmed_by: runner)
+- S-01: failed — automated command failed; run_id=4210faa67ba744f8909932e065a622d5 (confirmed_by: runner)
+- S-05: failed — automated command failed; run_id=4210faa67ba744f8909932e065a622d5 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)

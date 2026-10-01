@@ -154,9 +154,26 @@ async def _cleanup_memory(gateway_stack: GatewayStack) -> AsyncIterator[None]:
         await engine.dispose()
 
 
+async def _wait_for_gateway_ws(stack: GatewayStack) -> None:
+    """等真实 Gateway 在 WS 探针上完成订阅 —— 未连上时推送会直接断言失败。
+
+    探针按 bot **定向**投递（`connection_bots[index] == bot_id`），所以等待条件必须落在
+    **目标 bot** 的连接上，只判「有任意连接」在共享栈上会假就绪。先例：既有
+    `test_binding.py::_wait_for_gateway_ws`（那里判的是订阅帧 + 任意连接，因为其断言不依赖 bot 定向）。
+    """
+    probe = stack.ws_probe
+    assert probe is not None, "WS 探针未接入栈"
+    await _wait_for(
+        lambda: BOT_ID in getattr(probe, "connection_bots", {}).values(),
+        what=f"Gateway 未在超时内连上真实 WS 探针（bot {BOT_ID}）",
+        timeout=REPLY_TIMEOUT_SEC,
+    )
+
+
 async def test_s01_gateway_message_writes_user_memory(memory_probe: GatewayStack) -> None:
     """[S-01][E2E] 用户说"记住：以后都用中文回答我" → 真实链路落一行本人记忆（USER_EXPLICIT）。"""
     stack = memory_probe
+    await _wait_for_gateway_ws(stack)
     replies_before = len(_replies(stack))
 
     await _push(stack, text=USER_TEXT)
@@ -192,6 +209,7 @@ async def test_s05_receipt_reaches_model_and_write_is_audited(memory_probe: Gate
     Artifact 预览、也不是 `saved: false`）。模型如何措辞属模型行为，不在探针模型的断言范围内。
     """
     stack = memory_probe
+    await _wait_for_gateway_ws(stack)
     replies_before = len(_replies(stack))
 
     await _push(stack, text=USER_TEXT)
