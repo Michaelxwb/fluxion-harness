@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import get_session_factory
 from ..infrastructure.models.runtime import UserMemory
@@ -119,21 +120,39 @@ class MemoryService:
         条数/字节上限不在这里施加 —— 调用方（ContextBuilder）按预算逐条累加。
         """
         async with get_session_factory()() as session:
-            rows = (
-                await session.execute(
-                    select(UserMemory)
-                    .where(
-                        UserMemory.tenant_id == tenant_id,
-                        UserMemory.user_id == user_id,
-                        UserMemory.source_type == SOURCE_USER_EXPLICIT,
-                        UserMemory.enabled.is_(True),
-                        UserMemory.is_deleted.is_(False),
-                    )
-                    .order_by(UserMemory.update_time.desc())
-                    .limit(limit)
+            return await self.list_for_injection_with_session(
+                session, tenant_id, user_id, limit=limit
+            )
+
+    @staticmethod
+    async def list_for_injection_with_session(
+        session: AsyncSession,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        *,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """在调用方已持有的 session 上执行注入查询。
+
+        ContextBuilder 取历史时已经开着一个会话；再在里层开第二个会话会在**持有连接的同时**
+        申请新连接，池紧张时直接把请求拖死。同款先例见
+        `ArtifactResultWriter.persist_tool_result_with_session`。
+        """
+        rows = (
+            await session.execute(
+                select(UserMemory)
+                .where(
+                    UserMemory.tenant_id == tenant_id,
+                    UserMemory.user_id == user_id,
+                    UserMemory.source_type == SOURCE_USER_EXPLICIT,
+                    UserMemory.enabled.is_(True),
+                    UserMemory.is_deleted.is_(False),
                 )
-            ).scalars().all()
-            return [self._snapshot(row) for row in rows]
+                .order_by(UserMemory.update_time.desc())
+                .limit(limit)
+            )
+        ).scalars().all()
+        return [MemoryService._snapshot(row) for row in rows]
 
     async def search(
         self,

@@ -73,7 +73,7 @@
       "kind": "functional",
       "boundary": "ContextBuilder → 模型请求（真实 PostgreSQL 取记忆）",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -85,7 +85,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3229a1d183f34f9faab46276af123fa7",
+        "executed_at": "2026-10-01T15:15:49.302369+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3229a1d183f34f9faab46276af123fa7",
+          "executed_at": "2026-10-01T15:15:49.302369+00:00"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -94,7 +115,7 @@
       "kind": "functional",
       "boundary": "ContextBuilder → 模型请求（真实 PostgreSQL 取记忆）",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -106,7 +127,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3229a1d183f34f9faab46276af123fa7",
+        "executed_at": "2026-10-01T15:15:49.302369+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3229a1d183f34f9faab46276af123fa7",
+          "executed_at": "2026-10-01T15:15:49.302369+00:00"
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -346,7 +388,7 @@
       "kind": "functional",
       "boundary": "ContextBuilder → 真实 PostgreSQL（读失败降级）",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -358,7 +400,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3229a1d183f34f9faab46276af123fa7",
+        "executed_at": "2026-10-01T15:15:49.302369+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3229a1d183f34f9faab46276af123fa7",
+          "executed_at": "2026-10-01T15:15:49.302369+00:00"
+        }
+      ]
     },
     {
       "id": "E-07",
@@ -367,7 +430,7 @@
       "kind": "functional",
       "boundary": "ContextBuilder → 模型请求体（平台密钥探针）",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -379,7 +442,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3229a1d183f34f9faab46276af123fa7",
+        "executed_at": "2026-10-01T15:15:49.302369+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3229a1d183f34f9faab46276af123fa7",
+          "executed_at": "2026-10-01T15:15:49.302369+00:00"
+        }
+      ]
     },
     {
       "id": "B-01",
@@ -430,7 +514,7 @@
       "kind": "functional",
       "boundary": "ContextBuilder → 模型请求（双上限先到先得）",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -442,7 +526,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3229a1d183f34f9faab46276af123fa7",
+        "executed_at": "2026-10-01T15:15:49.302369+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3229a1d183f34f9faab46276af123fa7",
+          "executed_at": "2026-10-01T15:15:49.302369+00:00"
+        }
+      ]
     },
     {
       "id": "B-03",
