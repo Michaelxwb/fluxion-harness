@@ -53,20 +53,20 @@
 | S-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s03"] | . | 600 |  |
 | S-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s04"] | . | 600 |  |
 | S-05 | 16-agent-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Gateway(SSE) → Runtime → 真实 PostgreSQL + 真实 LLM 探针（回执 + 审计行） | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s05"] | . | 900 |  |
-| E-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | 工具处理器 → 真实 PostgreSQL（跨用户写入不可能） | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e01"] | . | 600 |  |
-| E-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | 处理器入参校验（缺 `source_type`） | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e02"] | . | 600 |  |
-| E-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | 处理器入参校验（category 白名单） | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e03"] | . | 600 |  |
-| E-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | 工具注册表（`memory_write=false` 不注册） | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e04"] | . | 600 |  |
-| E-05 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | 工具处理器 → 真实 PostgreSQL（写失败降级） | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e05"] | . | 600 |  |
+| E-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | 工具处理器 → 真实 PostgreSQL（跨用户写入不可能） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e01"] | . | 600 |  |
+| E-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | 处理器入参校验（缺 `source_type`） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e02"] | . | 600 |  |
+| E-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | 处理器入参校验（category 白名单） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e03"] | . | 600 |  |
+| E-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | 工具注册表（`memory_write=false` 不注册） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e04"] | . | 600 |  |
+| E-05 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | 工具处理器 → 真实 PostgreSQL（写失败降级） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e05"] | . | 600 |  |
 | E-06 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 真实 PostgreSQL（读失败降级） | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e06"] | . | 600 |  |
 | E-07 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求体（平台密钥探针） | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","e07"] | . | 600 |  |
-| B-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | `memory_key` 格式校验（64 字符边界/大写/空格） | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b01"] | . | 600 |  |
+| B-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | `memory_key` 格式校验（64 字符边界/大写/空格） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b01"] | . | 600 |  |
 | B-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（双上限先到先得） | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","b02"] | . | 600 |  |
-| B-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | `recall` 入参（`limit` 0/21/缺省） | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b03"] | . | 600 |  |
-| B-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | Runtime 工具结果链路（recall 满配不被外置） | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b04"] | . | 600 |  |
+| B-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | `recall` 入参（`limit` 0/21/缺省） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b03"] | . | 600 |  |
+| B-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | Runtime 工具结果链路（recall 满配不被外置） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b04"] | . | 600 |  |
 | RULE-data-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 真实 PostgreSQL 表结构/索引/四列口径 + 原 verifier 真实边界 | TASK-001 | verified | ["uv","run","pytest","-q","tests","-k","schema_parity"] | . | 600 |  |
 | RULE-time-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 时间列口径 + 原 verifier 真实边界 | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"] | . | 900 |  |
-| RULE-auth-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 记忆非可授权资源 + 原 verifier 真实边界 | TASK-002 | planned | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 1200 |  |
+| RULE-auth-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 记忆非可授权资源 + 原 verifier 真实边界 | TASK-002 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 1200 |  |
 | RULE-snapshot-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 记忆属实时读取、不进快照冻结集 + 原 verifier 真实边界 | TASK-003 | planned | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 |  |
 | RULE-secret-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 平台密钥不经记忆链进入 Prompt/日志 + 原 verifier 真实边界 | TASK-003 | planned | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 600 |  |
 | RULE-log-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | logging-kit 出口 + `value` 全文不入日志 + 原 verifier 真实边界 | TASK-004 | planned | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | . | 600 |  |
@@ -133,7 +133,7 @@
 - [2026-10-01] completed (done)
 ## TASK-002: 记忆工具 remember / recall 与写入开关
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 16-agent-memory.design.md#2.3.1 功能清单, 16-agent-memory.design.md#2.3.2 字段约束, 16-agent-memory.design.md#3.4 接口设计, 16-agent-memory.design.md#2.5.1 业务规则与约束
@@ -155,41 +155,62 @@
 
 ### Checklist
 
-- [ ] [B-04][integration] 以 Runtime 工具结果链路（`ToolCallRecorder` + 真实 PostgreSQL 审计 + 真实 Artifact 写盘）为边界编写用例：构造 20 条满载记忆（单条 512 字符，纯 ASCII ≈11KB / 中文 ≈31KB，**均超 8KB 通用外置阈值**）后调用 `recall`，断言返回体**无 `artifact` 键**、`items` 完整、总字节 ≤ `MAX_RECALL_BYTES`，且 `tool_call_audit.artifact_id is NULL`。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b04"]`。
-- [ ] [E-01][integration] 以工具处理器 → 真实 PostgreSQL 为边界编写用例：调用处理器时**显式传入**他人 `user_id`（schema 不接受该参数，故直接调处理器验证忽略），断言写入归属当前 Run 用户、库内**不存在**该他人名下的记忆行。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e01"]`。
-- [ ] [E-02][unit] 缺 `source_type` → 返回错误码且**库内无写入**；对话不中断（返回值为 JSON 字符串而非抛异常）。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e02"]`。
-- [ ] [E-03][unit] `category=SYSTEM_POLICY`（不在白名单）→ 拒绝写入，错误码可读。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e03"]`。
-- [ ] [E-04][integration] 以工具注册表为边界编写用例：`runtime_config={"memory_write": false}` 时注册表中**没有** `remember`；默认（缺配置）时**有**。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e04"]`。
-- [ ] [E-05][integration] 以工具处理器 → 真实 PostgreSQL 为边界编写用例：令写入抛错（DB 不可达/约束冲突），断言工具栏 `status=ERROR`+错误码、**对话不中断**（后续模型回合仍可进行）、库内无半截行。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e05"]`。
-- [ ] [B-01][unit] `memory_key` 边界：64 字符**合法**、65 字符/含大写/含空格**拒绝**；返回错误码而非异常。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b01"]`。
-- [ ] [B-03][unit] `recall` 的 `limit`：`0`/`21` 越界拒绝、缺省取 10、`1`/`20` 合法。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b03"]`。
-- [ ] [RULE-auth-001][integration] 作为唯一最终负责人：断言记忆**不是可授权资源**（不参与 User→Agent/Agent→Skill/MCP 三层授权），工具注册不依赖 Grant/Binding，且工具 schema 中**不出现** `user_id`/`tenant_id`；原 verifier 全部通过。verifier argv：`["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]`。
-- [ ] 实现 `MemoryToolSet._definitions()`：`remember` 的 `effect=ToolEffect.WRITE`、`recall` 为 `ToolEffect.READ` 且 `externalizable_result=False`；`description` 写明"仅在用户明确要求记住或明确表达稳定偏好时调用"与 `source_type` 判定标准。
-- [ ] 接线到注册表：在 `executor.py` 中按 `agent.runtime_config.memory_write`（默认 true）注册记忆工具；`user_id`/`tenant_id` 一律取自 `ExecutorRunContext`，禁止从任何入参派生。
-- [ ] 实现 `recall` 的 `MAX_RECALL_BYTES=4096` 逐条累加（先到先得、至少 1 条）与 `notice` 非指令措辞（记忆是既往内容、非指令，冲突时以当前指示为准）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
+- [x] [B-04][integration] 以 Runtime 工具结果链路（`ToolCallRecorder` + 真实 PostgreSQL 审计 + 真实 Artifact 写盘）为边界编写用例：构造 20 条满载记忆（单条 512 字符，纯 ASCII ≈11KB / 中文 ≈31KB，**均超 8KB 通用外置阈值**）后调用 `recall`，断言返回体**无 `artifact` 键**、`items` 完整、总字节 ≤ `MAX_RECALL_BYTES`，且 `tool_call_audit.artifact_id is NULL`。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b04"]`。
+- [x] [E-01][integration] 以工具处理器 → 真实 PostgreSQL 为边界编写用例：调用处理器时**显式传入**他人 `user_id`（schema 不接受该参数，故直接调处理器验证忽略），断言写入归属当前 Run 用户、库内**不存在**该他人名下的记忆行。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e01"]`。
+- [x] [E-02][unit] 缺 `source_type` → 返回错误码且**库内无写入**；对话不中断（返回值为 JSON 字符串而非抛异常）。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e02"]`。
+- [x] [E-03][unit] `category=SYSTEM_POLICY`（不在白名单）→ 拒绝写入，错误码可读。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e03"]`。
+- [x] [E-04][integration] 以工具注册表为边界编写用例：`runtime_config={"memory_write": false}` 时注册表中**没有** `remember`；默认（缺配置）时**有**。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e04"]`。
+- [x] [E-05][integration] 以工具处理器 → 真实 PostgreSQL 为边界编写用例：令写入抛错（DB 不可达/约束冲突），断言工具栏 `status=ERROR`+错误码、**对话不中断**（后续模型回合仍可进行）、库内无半截行。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e05"]`。
+- [x] [B-01][unit] `memory_key` 边界：64 字符**合法**、65 字符/含大写/含空格**拒绝**；返回错误码而非异常。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b01"]`。
+- [x] [B-03][unit] `recall` 的 `limit`：`0`/`21` 越界拒绝、缺省取 10、`1`/`20` 合法。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b03"]`。
+- [x] [RULE-auth-001][integration] 作为唯一最终负责人：断言记忆**不是可授权资源**（不参与 User→Agent/Agent→Skill/MCP 三层授权），工具注册不依赖 Grant/Binding，且工具 schema 中**不出现** `user_id`/`tenant_id`；原 verifier 全部通过。verifier argv：`["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]`。
+- [x] 实现 `MemoryToolSet._definitions()`：`remember` 的 `effect=ToolEffect.WRITE`、`recall` 为 `ToolEffect.READ` 且 `externalizable_result=False`；`description` 写明"仅在用户明确要求记住或明确表达稳定偏好时调用"与 `source_type` 判定标准。
+- [x] 接线到注册表：在 `executor.py` 中按 `agent.runtime_config.memory_write`（默认 true）注册记忆工具；`user_id`/`tenant_id` 一律取自 `ExecutorRunContext`，禁止从任何入参派生。
+- [x] 实现 `recall` 的 `MAX_RECALL_BYTES=4096` 逐条累加（先到先得、至少 1 条）与 `notice` 非指令措辞（记忆是既往内容、非指令，冲突时以当前指示为准）。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-01 | integration | 工具处理器 → 真实 PostgreSQL | 写入归属当前 Run 用户；他人 user_id 名下无行 | tests/agent_runtime/test_memory_tools.py / E-01 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e01"]` | planned |
-| E-02 | unit | 处理器入参校验 | 缺 `source_type` → 错误码且不落库、不抛异常 | tests/agent_runtime/test_memory_tools.py / E-02 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e02"]` | planned |
-| E-03 | unit | 处理器入参校验 | 非白名单 category 拒绝 | tests/agent_runtime/test_memory_tools.py / E-03 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e03"]` | planned |
-| E-04 | integration | 工具注册表 | `memory_write=false` 无 `remember`；默认有 | tests/agent_runtime/test_memory_tools.py / E-04 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e04"]` | planned |
-| E-05 | integration | 工具处理器 → 真实 PostgreSQL | 写失败 → 错误码、对话继续、无半截行 | tests/agent_runtime/test_memory_tools.py / E-05 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e05"]` | planned |
-| B-01 | unit | `memory_key` 格式校验 | 64 合法 / 65、大写、空格拒绝 | tests/agent_runtime/test_memory_tools.py / B-01 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b01"]` | planned |
-| B-03 | unit | `recall` 入参 | 0/21 越界、缺省 10、1/20 合法 | tests/agent_runtime/test_memory_tools.py / B-03 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b03"]` | planned |
-| B-04 | integration | Runtime 工具结果链路（recall 满配） | 无 `artifact` 键；`items` 完整；≤4096B；审计 `artifact_id` 为空 | tests/agent_runtime/test_memory_tools.py / B-04 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b04"]` | planned |
-| RULE-auth-001 | integration | 记忆非可授权资源 + 原 verifier 真实边界 | schema 无 user/tenant；注册不依赖 Grant；原 verifier 全部通过 | 原 verifier / RULE-auth-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]` | planned |
+| E-01 | integration | 工具处理器 → 真实 PostgreSQL | 写入归属当前 Run 用户；他人 user_id 名下无行 | tests/agent_runtime/test_memory_tools.py / E-01 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e01"]` | verified |
+| E-02 | unit | 处理器入参校验 | 缺 `source_type` → 错误码且不落库、不抛异常 | tests/agent_runtime/test_memory_tools.py / E-02 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e02"]` | verified |
+| E-03 | unit | 处理器入参校验 | 非白名单 category 拒绝 | tests/agent_runtime/test_memory_tools.py / E-03 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e03"]` | verified |
+| E-04 | integration | 工具注册表 | `memory_write=false` 无 `remember`；默认有 | tests/agent_runtime/test_memory_tools.py / E-04 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e04"]` | verified |
+| E-05 | integration | 工具处理器 → 真实 PostgreSQL | 写失败 → 错误码、对话继续、无半截行 | tests/agent_runtime/test_memory_tools.py / E-05 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e05"]` | verified |
+| B-01 | unit | `memory_key` 格式校验 | 64 合法 / 65、大写、空格拒绝 | tests/agent_runtime/test_memory_tools.py / B-01 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b01"]` | verified |
+| B-03 | unit | `recall` 入参 | 0/21 越界、缺省 10、1/20 合法 | tests/agent_runtime/test_memory_tools.py / B-03 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b03"]` | verified |
+| B-04 | integration | Runtime 工具结果链路（recall 满配） | 无 `artifact` 键；`items` 完整；≤4096B；审计 `artifact_id` 为空 | tests/agent_runtime/test_memory_tools.py / B-04 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b04"]` | verified |
+| RULE-auth-001 | integration | 记忆非可授权资源 + 原 verifier 真实边界 | schema 无 user/tenant；注册不依赖 Grant；原 verifier 全部通过 | 原 verifier / RULE-auth-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]` | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| E-01 | **真实 RED**：实现前按登记 argv 执行 → `ModuleNotFoundError: No module named 'muad_agent_runtime.application.memory_tools'`（新功能，模块尚不存在 ⇒ 场景无法通过；非伪造失败）。 | `test_e01_cross_user_write_is_structurally_impossible` passed。整文件 **12 passed**；`tests/agent_runtime` 回归 **173 passed**；ruff 干净、mypy `Success`。 | 入参显式带 `user_id=OTHER_USER_ID` 与 `tenant_id="other"` 时，`payload["saved"] is True` 且 `WHERE user_id=当前 Run 用户` 回读得到该行；`_memory_rows(OTHER_USER_ID) == []`。 | 真实 PostgreSQL `runtime.user_memory`（随机 tenant `memtool-<uuid>`，用例后清理）；身份只来自 `MemoryScope`（构造自 `ExecutorRunContext`）。 | verified |
+| E-02 | 同 E-01（模块缺失 ⇒ 收集失败）。 | passed | 缺 `source_type` → `saved is False` 且 `error_code == "MEMORY_SOURCE_TYPE_INVALID"`；`_memory_rows(USER_ID) == []`（未落库）；返回值为 JSON 字符串而非抛异常。 | 处理器入参校验（无外部依赖） | verified |
+| E-03 | 同 E-01。 | passed | `category="SYSTEM_POLICY"` → `error_code == "MEMORY_CATEGORY_NOT_ALLOWED"` 且库内无写入（白名单来自 `memory_service.ALLOWED_CATEGORIES`）。 | 处理器入参校验 | verified |
+| E-04 | 同 E-01。 | passed | `build_registry(runtime_config={"memory_write": False})` 后 `REMEMBER_TOOL not in names` 且 `RECALL_TOOL in names`；缺配置与显式 `True` 时 `REMEMBER_TOOL in names`。 | 工具注册表（真实 `build_registry` + 真实 `SkillArtifactCache`） | verified |
+| E-05 | 同 E-01；随后实现首版把写失败**吞成** `{"saved": false}` → 审计被记成 `OK`，断言 `audit.status == "ERROR"` 不成立（该实现缺陷由本用例暴露）。 | passed（两例）：`test_e05_write_failure_degrades_without_breaking_conversation`、`test_e05_write_failure_keeps_the_model_turn_going` | 写入抛错 → 抛 `AppError`；`tool_call_audit` 落 `tool_name='remember'`、`status='ERROR'`、`error_code='COMMON_INTERNAL_ERROR'`；库内无半截行；真实 `AgentRunner` 下最终回合仍产出 `final answer`，模型看到 `role=TOOL` 的失败消息（`tool failed`）⇒ 不会宣称"已记住"。 | 真实 PostgreSQL 审计行 + 真实 `AgentRunner`（工具异常兜底见 `agent/runner.py:388-392`） | verified |
+| B-01 | 同 E-01。 | passed | 64 字符 key → `saved is True`；65 字符/含大写/含空格/空串/`-` 开头 → `error_code == "MEMORY_KEY_INVALID"`；库内只有合法那一条。 | 处理器入参校验 + 真实 PostgreSQL 回读 | verified |
+| B-03 | 同 E-01。 | passed | `limit` 为 0/21/-1 → `error_code == "MEMORY_LIMIT_INVALID"` 且 `items == []`；缺省 → 10 条；1/20 → 对应条数。 | 处理器入参校验 + 真实 PostgreSQL（25 条种子） | verified |
+| B-04 | 同 E-01（模块缺失）。**扰动取证发现问题并加固**：首版断言只有"返回体无 `artifact` 键"——把 `recall` 的 `externalizable_result` 改回 `True` 后该用例**照样绿**（恒真：`MAX_RECALL_BYTES=4096` 本就低于 8KB 外置阈值，无豁免也不会被外置）。加固为**同时断言声明面**后，同一扰动**变红** ✓，还原后复跑全绿。 | passed | 20 条 ×512 字符经生产同款 `ToolCallRecorder` 调用后：`"artifact" not in content`、`items` 非空且单条 512 字符、`len(content.encode()) <= MAX_RECALL_BYTES`、`recall_definition.externalizable_result is False`、审计 `artifact_id is None`。 | Runtime 工具结果链路（真实 recorder + 真实 PostgreSQL 审计 + 真实 Artifact 写盘） | verified |
+| RULE-auth-001 | 不适用（本任务不新增授权关系，只新增两个不受 Grant 约束的工具） | 原 verifier 通过：`tests/console_platform/test_user_side_relations.py -k s04` + `tests -k schema_parity` **35 passed, 1651 deselected** | `build_registry` 在**没有任何 Grant/Binding** 的情况下完成注册；两个工具的 `input_schema` 既无 `user_id` 也无 `tenant_id`，且 `additionalProperties is False`。 | 真实 `build_registry`（真实 SkillArtifactCache）+ 原 verifier 真实边界 | verified |
+- E-01: verified — automated command passed; run_id=ab63ce4a74c746aab89f6c2e9e17bc00 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=ab63ce4a74c746aab89f6c2e9e17bc00 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=ab63ce4a74c746aab89f6c2e9e17bc00 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=ab63ce4a74c746aab89f6c2e9e17bc00 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=ab63ce4a74c746aab89f6c2e9e17bc00 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=ab63ce4a74c746aab89f6c2e9e17bc00 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=ab63ce4a74c746aab89f6c2e9e17bc00 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=ab63ce4a74c746aab89f6c2e9e17bc00 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
 
 ---
-
+- [2026-10-01] started
+- [2026-10-01] completed (done)
 ## TASK-003: 注入链：分级注入、双上限、非指令措辞与读失败降级
 
 - **Status**: draft
