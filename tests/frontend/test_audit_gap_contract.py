@@ -178,8 +178,9 @@ def test_b214_agent_filter_is_wired_to_agent_id_end_to_end() -> None:
 
     bar = _read(FILTER_BAR)
     agent_control = _window(bar, 'data-testid="audit-filter-keyword"', "/>")
-    assert "value={value.keyword??''}" in agent_control, "合并搜索控件须绑定 keyword"
-    assert "emit({keyword:text||undefined})" in agent_control, "合并搜索须上抛 keyword"
+    assert "value={keywordDraft}" in agent_control, "合并搜索控件须绑定 keyword 草稿"
+    assert "emit({keyword:keywordDraft||undefined})" in agent_control, "合并搜索须上抛 keyword"
+    assert "onEnterPress" in agent_control, "合并搜索须回车才提交（不得逐键查询）"
     assert "resourceType" not in agent_control, "Agent 筛选不得再冒充 resourceType"
 
     resource_control = _window(bar, 'data-testid="audit-filter-resourceType"', "/>")

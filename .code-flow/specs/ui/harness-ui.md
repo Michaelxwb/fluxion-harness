@@ -77,7 +77,37 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
 - **Shell 不得出现「系统设置」入口**：`config/menu.ts` 与 `layout/AppLayout.tsx` 里连 `setting` 字样都不允许出现（含大小写变体）——防止在菜单来源之外硬编码第二处导航。机检：`tests/frontend/test_console_shell_contract.py:41-46`。
 - **`AppLayout` 不得内联第二处导航项数组**：Nav items 只能由 `menuItems` 派生（`menuItems.filter(...)` → `visibleItems.map(...)`）；不得出现 `items={[{ itemKey: '/x', ... }]}` 这类内联数组。机检：`tests/frontend/test_console_shell_contract.py:58-64`。
 - **列表页加载必须有请求竞态守卫**：`const requestSeq = useRef(0)`，请求发出前 `++requestSeq.current` 存为局部常量，响应回来先比对 `seq !== requestSeq.current` 即丢弃（不得写入 state）。现网 19 个文件（`agent-management/AgentPage.tsx:30,42-44`、`project-platform/PlatformPage.tsx`、`user-identity/UserPage.tsx`、`skill-management/SkillPage.tsx`、`mcp-management/McpPage.tsx`、`model-management/ModelPage.tsx`、`task-schedule/TaskPage.tsx`、`SchedulePage.tsx`、`SelectedUserTable.tsx`、`PlatformCredentialTab.tsx` 及 `overview-dashboard`/`audit-observability` 的 hooks 等）都已收敛到该形态。
-- **关键字搜索输入 300ms 防抖**后才写入列表查询参数并复位到第 1 页（`agent-management/AgentPage.tsx:31-37`、`PlatformPage.tsx`、`SkillPage.tsx`、`McpPage.tsx` 四处同款）；不得在 `onChange` 里直接触发请求。
+- **列表筛选的生效时机统一为「选择即时、文本回车」**：下拉/日期类筛选**选中即**写入查询参数；关键字文本是**草稿**，只有**回车**才写入查询参数；两者都把页码复位到第 1 页。列表页**没有**独立搜索按钮——筛选控件本身就是搜索入口（对应设计 §3.3.1 的按钮表只有「搜索/筛选」「重置」「刷新」三行）。8 个模块列表页同款：`agent-management/AgentPage.tsx`、`model-management/ModelPage.tsx`、`user-identity/UserPage.tsx`、`skill-management/SkillPage.tsx`、`mcp-management/McpPage.tsx`、`project-platform/PlatformPage.tsx`、`audit-observability/components/AuditFilterBar.tsx`、`task-schedule/{TaskPage,SchedulePage}.tsx`。
+
+  ✅：关键字只改草稿、回车才提交；下拉直接改查询参数
+
+  ```tsx
+  const [keywordInput, setKeywordInput] = useState('');
+
+  /** 回车提交：复位页码；值未变则不改 params，避免无谓重查。 */
+  const commitKeyword = (): void => {
+    setParams((prev) =>
+      prev.keyword === keywordInput ? prev : { ...prev, keyword: keywordInput, page: 1 }
+    );
+  };
+
+  <Input
+    value={keywordInput}
+    onChange={setKeywordInput}      // 只改草稿，不触发请求
+    onEnterPress={commitKeyword}    // 回车才写入查询参数
+  />
+  <Select onChange={(value) => setParams((prev) => ({ ...prev, enabled: String(value), page: 1 }))} />
+  ```
+
+  ❌：`onChange` 里逐键查询（或 300ms 防抖查询）；下拉只改草稿、要再点独立搜索按钮才生效
+
+  ```tsx
+  <Input onChange={(text) => setParams((prev) => ({ ...prev, keyword: text, page: 1 }))} />
+  <Select onChange={(value) => setFilters((prev) => ({ ...prev, enabled: String(value) }))} />
+  <ListActionButton action="search" onClick={applyFilters} />
+  ```
+
+  机检：`tests/frontend/test_agent_module_contract.py`、`test_mcp_module_contract.py`、`test_skill_module_contract.py`、`test_platform_page_contract.py::test_page_applies_keyword_on_enter` 断言列表页含 `keywordInput` + `onEnterPress`；`test_audit_gap_contract.py` 断言审计关键字控件绑定草稿并在回车时上抛。`components/common/ListActionButton.tsx` 的 `Action` 类型**不含** `'search'`（放回搜索按钮会直接 typecheck 失败）。
 - **列表主展示字段即详情入口，优先复用公共 `EntityLink`**（`components/common/EntityLink.tsx`，`Button theme="borderless"` + `data-testid`）。已复用 8 处；`AgentPage` 的 Agent 名列仍手写同形态 `Button`，属待收敛的技术债——新代码一律优先用 `EntityLink`，不要复制手写版本。
 
 ## Avoid

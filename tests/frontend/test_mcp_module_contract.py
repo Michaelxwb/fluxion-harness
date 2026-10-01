@@ -76,7 +76,7 @@ def test_mcp_page_error_state_and_race_guards() -> None:
     source = _source("McpPage.tsx")
     assert "ErrorState" in source
     assert "requestSeq" in source
-    assert "keywordInput" in source and "setTimeout" in source
+    assert "keywordInput" in source and "onEnterPress" in source
     assert "mcp.actions.discover" in source  # 列表操作列刷新工具
 
 

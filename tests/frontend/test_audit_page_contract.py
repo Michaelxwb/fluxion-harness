@@ -208,7 +208,6 @@ def test_filter_bar_declares_merged_filters_mapped_to_query() -> None:
     for member in (
         "value:AuditListQuery;",
         "onChange(patch:Partial<AuditListQuery>):void;",
-        "onSearch():void;",
         "onReset():void;",
         "onRefresh():void;",
     ):

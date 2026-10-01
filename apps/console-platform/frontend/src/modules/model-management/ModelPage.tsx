@@ -95,6 +95,12 @@ export function ModelPage() {
     }));
   };
 
+  /** 下拉类筛选：选中即生效。只提交本字段的补丁，不带上尚未回车的 keyword 草稿。 */
+  const applyFilter = (patch: Partial<typeof EMPTY_FILTERS>): void => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setParams((prev) => ({ ...prev, ...patch, page: 1 }));
+  };
+
   const resetFilters = (): void => {
     setFilters(EMPTY_FILTERS);
     setParams(DEFAULT_PARAMS);
@@ -198,7 +204,7 @@ export function ModelPage() {
                   { value: 'true', label: t('common.status.enabled') },
                   { value: 'false', label: t('common.status.disabled') }
                 ]}
-                onChange={(value) => setFilters((prev) => ({ ...prev, enabled: String(value) }))}
+                onChange={(value) => applyFilter({ enabled: String(value) })}
               />
               <Select
                 value={filters.last_test_status || undefined}
@@ -209,11 +215,8 @@ export function ModelPage() {
                   value,
                   label: option.label
                 }))}
-                onChange={(value) =>
-                  setFilters((prev) => ({ ...prev, last_test_status: value ? String(value) : '' }))
-                }
+                onChange={(value) => applyFilter({ last_test_status: value ? String(value) : '' })}
               />
-              <ListActionButton data-testid="search-model" onClick={applyFilters} action="search" />
               <ListActionButton data-testid="reset-model" onClick={resetFilters} action="reset" />
               <ListActionButton onClick={() => void reload()} action="refresh" />
             </>

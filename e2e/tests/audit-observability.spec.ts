@@ -100,9 +100,11 @@ async function pickOption(page: Page, testId: string, label: string): Promise<vo
   await expect(page.getByTestId(testId)).toContainText(label);
 }
 
-/** Trace ID 筛选：受控输入每键触发重查（设计 §3.3.1）。 */
+/** Trace ID 筛选：文本回车触发重查（设计 §3.3.1）。 */
 async function filterByTrace(page: Page, traceId: string): Promise<void> {
-  await page.getByTestId('audit-filter-keyword').fill(traceId);
+  const keyword = page.getByTestId('audit-filter-keyword');
+  await keyword.fill(traceId);
+  await keyword.press('Enter');
 }
 
 /** 把创建导出的请求头换成固定幂等键，其余（URL/体/响应）全部走真实后端。 */

@@ -4,8 +4,12 @@
  * 受控展示组件：`value` 由 `AuditPage` 持有，本组件只上抛筛选补丁，不直接调 service。
  * 所有变更统一经 `emit` 出口，把 `page` 重置为 1（设计 §3.4）；`undefined` 表示清空该筛选项
  * （service 层会丢弃未设置项，不会污染查询串）。后端 snake_case 只出现在 service 层。
+ *
+ * 关键字文本是**例外**：输入期间只改本地草稿（`keywordDraft`），**回车**才经 `emit` 提交 ——
+ * 否则每敲一键都会触发一次查询。下拉/日期保持选中即生效。
  */
 
+import { useEffect, useState } from 'react';
 import { DatePicker, Input, Select } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
@@ -15,8 +19,6 @@ import type { AuditListQuery } from '../types';
 export interface AuditFilterBarProps {
   value: AuditListQuery;
   onChange(patch: Partial<AuditListQuery>): void;
-  /** 立即按当前条件重查（文本输入回车触发，见各 `onEnterPress`）。 */
-  onSearch(): void;
   /** 清空全部筛选并回到第 1 页（设计 §3.3.1「重置」）。 */
   onReset(): void;
   /** 按当前筛选重取当前页（设计 §3.3.1「刷新」）。 */
@@ -80,6 +82,15 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
   const { t } = useTranslation();
   const { value } = props;
 
+  /** 关键字草稿：输入期间不查询，回车才经 `emit` 提交。 */
+  const [keywordDraft, setKeywordDraft] = useState(value.keyword ?? '');
+
+  // 仅在「已生效的 keyword」变化时回填草稿（回车提交、重置清空）。
+  // 依赖只能写 value.keyword：写成 value 会让选任意下拉都冲掉正在输入的文本。
+  useEffect(() => {
+    setKeywordDraft(value.keyword ?? '');
+  }, [value.keyword]);
+
   /** 唯一上抛出口：任一筛选变更都把 page 重置为 1（设计 §3.4）。 */
   function emit(patch: Partial<AuditListQuery>): void {
     props.onChange({ ...patch, page: 1 });
@@ -99,9 +110,9 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
         showClear
         aria-label={t('audit.filter.keyword')}
         placeholder={t('audit.filter.keyword')}
-        value={value.keyword ?? ''}
-        onChange={(text) => emit({ keyword: text || undefined })}
-        onEnterPress={() => props.onSearch()}
+        value={keywordDraft}
+        onChange={setKeywordDraft}
+        onEnterPress={() => emit({ keyword: keywordDraft || undefined })}
       />
       <DatePicker
         data-testid="audit-filter-time"
@@ -152,7 +163,6 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
         }))}
         onChange={(raw) => emit({ resultStatus: (raw as string) ?? undefined })}
       />
-      <ListActionButton action="search" data-testid="audit-search" onClick={props.onSearch} />
       <ListActionButton data-testid="audit-reset" onClick={() => props.onReset()} action="reset" />
       <ListActionButton data-testid="audit-refresh" onClick={() => props.onRefresh()} action="refresh" />
     </>

@@ -38,7 +38,7 @@ def test_skill_page_error_state_and_race_guards() -> None:
     source = _source("SkillPage.tsx")
     assert "ErrorState" in source
     assert "requestSeq" in source
-    assert "keywordInput" in source and "setTimeout" in source
+    assert "keywordInput" in source and "onEnterPress" in source
     assert "skill.actions.copyFailed" in source
     assert "newRequestId" in _source("services/skills.ts")
     assert "crypto.randomUUID" not in _source("services/skills.ts")

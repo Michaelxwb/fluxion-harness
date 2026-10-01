@@ -69,6 +69,12 @@ export function UserPage() {
     setParams((prev) => ({ ...prev, keyword: filters.keyword, status: filters.status, page: 1 }));
   };
 
+  /** 下拉类筛选：选中即生效。只提交本字段的补丁，不带上尚未回车的 keyword 草稿。 */
+  const applyFilter = (patch: Partial<typeof EMPTY_FILTERS>): void => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setParams((prev) => ({ ...prev, ...patch, page: 1 }));
+  };
+
   const resetFilters = (): void => {
     setFilters(EMPTY_FILTERS);
     setParams(DEFAULT_PARAMS);
@@ -126,9 +132,8 @@ export function UserPage() {
                 { value: 'ACTIVE', label: t('common.status.enabled') },
                 { value: 'DISABLED', label: t('common.status.disabled') }
               ]}
-              onChange={(value) => setFilters((prev) => ({ ...prev, status: value ? String(value) : '' }))}
+              onChange={(value) => applyFilter({ status: value ? String(value) : '' })}
             />
-            <ListActionButton data-testid="search-user" onClick={applyFilters} action="search" />
             <ListActionButton data-testid="reset-user" onClick={resetFilters} action="reset" />
             <ListActionButton onClick={() => void reload()} action="refresh" />
           </>

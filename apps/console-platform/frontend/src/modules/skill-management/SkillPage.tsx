@@ -27,14 +27,12 @@ export function SkillPage() {
   const [importVisible, setImportVisible] = useState(false);
   const requestSeq = useRef(0);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setParams((prev) =>
-        prev.keyword === keywordInput ? prev : { ...prev, keyword: keywordInput, page: 1 }
-      );
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [keywordInput]);
+  /** 关键字：回车才写入查询参数并复位第 1 页（值未变则不产生新 params，避免无谓重查）。 */
+  const commitKeyword = (): void => {
+    setParams((prev) =>
+      prev.keyword === keywordInput ? prev : { ...prev, keyword: keywordInput, page: 1 }
+    );
+  };
 
   const reload = useCallback(async () => {
     const current = ++requestSeq.current;
@@ -105,6 +103,8 @@ export function SkillPage() {
                 placeholder={t('skill.searchPlaceholder')}
                 style={{ width: 200 }}
                 onChange={setKeywordInput}
+                onEnterPress={commitKeyword}
+                showClear
               />
               <Select
                 value={params.user_scope || undefined}

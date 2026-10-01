@@ -29,10 +29,10 @@ def test_page_exposes_row_test_action_and_error_state() -> None:
     assert "requestSeq" in source, "列表请求需要竞态保护"
 
 
-def test_page_debounces_keyword_search() -> None:
+def test_page_applies_keyword_on_enter() -> None:
     source = _source("PlatformPage.tsx")
     assert "keywordInput" in source
-    assert "setTimeout" in source and "clearTimeout" in source
+    assert "onEnterPress" in source
 
 
 def test_platform_route_replaces_placeholder() -> None:

@@ -30,7 +30,7 @@ def test_agent_page_layout_and_common_components() -> None:
     assert "setDetailId" in source
     assert "actions={" in source and "search={" in source
     assert "requestSeq" in source
-    assert "keywordInput" in source and "setTimeout" in source
+    assert "keywordInput" in source and "onEnterPress" in source
     assert "agent.actions.copyFailed" in source
     assert "key={detailId}" in source
 

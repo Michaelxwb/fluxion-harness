@@ -112,6 +112,7 @@ test('S-01/S-09 平台创建、唯一冲突、软删重建、筛选与分页', a
     await modal.locator('.semi-modal-close').click();
 
     await page.getByPlaceholder('名称 / 标识').fill(key);
+    await page.getByPlaceholder('名称 / 标识').press('Enter');
     await expect(page.getByTestId(`platform-link-${key}`)).toBeVisible();
     await expect(page.locator('.semi-table-tbody .semi-table-row')).toHaveCount(1);
 
@@ -267,6 +268,7 @@ test('S-08 用户详情凭据 Tab 展示平台与配置状态', async ({ page })
   try {
     await page.goto('/users');
     await page.getByPlaceholder('姓名 / 账号').fill(userCode);
+    await page.getByPlaceholder('姓名 / 账号').press('Enter');
     await page.getByTestId(`user-link-${userCode}`).click();
     await expect(page.locator('.semi-sidesheet')).toBeVisible();
     await page.locator('.semi-sidesheet').getByRole('tab', { name: /项目平台凭据/ }).click();

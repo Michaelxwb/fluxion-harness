@@ -26,25 +26,21 @@ for (const path of ['/models', '/agents', '/skills', '/mcp', '/platforms', '/use
   });
 }
 
-test('audit keyword query, search and reset use the merged filter', async ({ page }) => {
+test('audit keyword query on Enter, and reset, use the merged filter', async ({ page }) => {
   await prepare(page);
   await page.goto('/audits');
   const keyword = page.getByTestId('audit-filter-keyword');
   await expect(page.locator('input[data-testid^="audit-filter-"]')).toHaveCount(1);
-  const search = page.getByTestId('audit-search');
   const reset = page.getByTestId('audit-reset');
-  await expect(search).toHaveText('');
   await expect(reset).toHaveText('');
   const query = page.waitForRequest((req) => new URL(req.url()).searchParams.get('keyword') === 'tester');
   await keyword.fill('tester');
+  await keyword.press('Enter');
   const url = new URL((await query).url());
   expect(url.searchParams.get('page')).toBe('1');
   for (const key of ['actor_user_id', 'agent_id', 'resource_id', 'action', 'trace_id']) {
     expect(url.searchParams.has(key)).toBe(false);
   }
-  const searched = page.waitForRequest((req) => new URL(req.url()).searchParams.get('keyword') === 'tester');
-  await search.click();
-  await searched;
   const cleared = page.waitForRequest((req) => req.url().includes('/audits?') && !new URL(req.url()).searchParams.has('keyword'));
   await reset.click();
   await cleared;
@@ -56,7 +52,7 @@ for (const width of [1024, 2048]) {
     await prepare(page);
     await page.setViewportSize({ width, height: 800 });
     await page.goto('/audits');
-    for (const id of ['audit-filter-keyword', 'audit-search', 'audit-reset', 'audit-refresh']) {
+    for (const id of ['audit-filter-keyword', 'audit-reset', 'audit-refresh']) {
       await expect(page.getByTestId(id)).toBeInViewport();
     }
     const overflows = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);

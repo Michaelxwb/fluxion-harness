@@ -30,14 +30,12 @@ export function AgentPage() {
   const [detailReloadKey, setDetailReloadKey] = useState(0);
   const requestSeq = useRef(0);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setParams((prev) =>
-        prev.keyword === keywordInput ? prev : { ...prev, keyword: keywordInput, page: 1 }
-      );
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [keywordInput]);
+  /** 关键字：回车才写入查询参数并复位第 1 页（值未变则不产生新 params，避免无谓重查）。 */
+  const commitKeyword = (): void => {
+    setParams((prev) =>
+      prev.keyword === keywordInput ? prev : { ...prev, keyword: keywordInput, page: 1 }
+    );
+  };
 
   const reload = useCallback(async () => {
     const current = ++requestSeq.current;
@@ -131,6 +129,8 @@ export function AgentPage() {
                 placeholder={t('agent.searchPlaceholder')}
                 style={{ width: 220 }}
                 onChange={setKeywordInput}
+                onEnterPress={commitKeyword}
+                showClear
               />
               <Select
                 value={params.enabled || undefined}

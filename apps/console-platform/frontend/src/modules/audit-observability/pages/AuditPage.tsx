@@ -96,12 +96,11 @@ function useAuditDetailSelection() {
   return { detail, handleOpenDetail, handleCloseDetail };
 }
 
-/** 工具栏入参（设计 §3.3.1）：筛选/分页状态 + 四个出口；导出筛选与列表筛选同源、不含分页。 */
+/** 工具栏入参（设计 §3.3.1）：筛选/分页状态 + 三个出口；导出筛选与列表筛选同源、不含分页。 */
 interface AuditPageToolbarProps {
   query: AuditListQuery;
   exportFilters: AuditExportCreateRequest['filters'];
   onChange(patch: Partial<AuditListQuery>): void;
-  onSearch(): void;
   onReset(): void;
   onRefresh(): void;
 }
@@ -115,7 +114,6 @@ function AuditPageToolbar(props: AuditPageToolbarProps) {
         <AuditFilterBar
           value={props.query}
           onChange={props.onChange}
-          onSearch={props.onSearch}
           onReset={props.onReset}
           onRefresh={props.onRefresh}
         />
@@ -221,7 +219,6 @@ export function AuditPage() {
           query={query}
           exportFilters={exportFilters}
           onChange={handleFilterChange}
-          onSearch={handleRefresh}
           onReset={handleReset}
           onRefresh={handleRefresh}
         />
