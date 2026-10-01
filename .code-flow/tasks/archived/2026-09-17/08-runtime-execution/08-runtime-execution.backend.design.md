@@ -791,7 +791,7 @@ POST /internal/runtime/resolve-definition
     {"skill_id":"uuid","artifact_id":"uuid","key":"policy-check","name":"设备策略检查","description":"...","version":"1.3.0","checksum":"sha256:...","storage_key":"skills/{skill_id}/{artifact_id}/skill.zip","frontmatter":{},"execution_mode":"ASYNC"}
   ],
   "mcp_servers": [
-    {"mcp_server_id":"uuid","key":"mssw-mcp","catalog_revision":7,"catalog_hash":"sha256:...","definitions":[{"name":"...","description":"...","input_schema":{},"effect":"READ"}]}
+    {"mcp_server_id":"uuid","key":"example-mcp","catalog_revision":7,"catalog_hash":"sha256:...","definitions":[{"name":"...","description":"...","input_schema":{},"effect":"READ"}]}
   ]
 }
 ```
@@ -852,9 +852,9 @@ POST /internal/runtime/resolve-egress-access
 {
   "decision":"ALLOW",
   "platform": {
-    "id":"uuid","key":"mssw-prod","resolver_type":"BASE_URL",
-    "resolver_config":{"base_url":"https://mssw.internal"},
-    "adapter_key":"mssw","adapter_config":{},
+    "id":"uuid","key":"example-prod","resolver_type":"BASE_URL",
+    "resolver_config":{"base_url":"https://platform.internal"},
+    "adapter_key":"generic-http","adapter_config":{},
     "adapter_schema_version":"1","credential_mode":"USER_THEN_SHARED"
   },
   "credential": {

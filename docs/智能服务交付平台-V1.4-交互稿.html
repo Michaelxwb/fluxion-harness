@@ -838,11 +838,11 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow:auto}th{height:42
 <script>
 const S={
  agents:[
-  {id:'ag-001',name:'MSS 服务助手',key:'mss-assistant',model:'Qwen3-235B',skills:['policy-check','customer-query','monthly-report','alarm-summary'],mcp:['kb-mcp','mss-tools'],
+  {id:'ag-001',name:'服务助手',key:'example-assistant',model:'Qwen3-235B',skills:['policy-check','customer-query','monthly-report','alarm-summary'],mcp:['kb-mcp','example-tools'],
    channels:[
-    {id:'im-001',type:'WECOM',name:'MSS 服务机器人',botId:'wxbot_mss_01',status:'CONNECTED'},
-    {id:'im-002',type:'WECOM',name:'MSS 交付机器人',botId:'wxbot_mss_delivery',status:'CONNECTED'}
-   ],enabled:true,revision:18,updated:'2026-09-17 15:40:00',instructions:'你是 MSS 服务交付助手，负责理解服务人员的业务目标，按需加载 Skill，并在需要时提交后台任务。'},
+    {id:'im-001',type:'WECOM',name:'服务机器人',botId:'wxbot_demo_01',status:'CONNECTED'},
+    {id:'im-002',type:'WECOM',name:'交付机器人',botId:'wxbot_demo_delivery',status:'CONNECTED'}
+   ],enabled:true,revision:18,updated:'2026-09-17 15:40:00',instructions:'你是 服务交付助手，负责理解服务人员的业务目标，按需加载 Skill，并在需要时提交后台任务。'},
   {id:'ag-002',name:'安全分析助手',key:'security-analyst',model:'DeepSeek-V4',skills:['vuln-analysis'],mcp:['kb-mcp'],
    channels:[{id:'im-003',type:'WECOM',name:'安全分析机器人',botId:'wxbot_sec_02',status:'CONNECTED'}],
    enabled:true,revision:7,updated:'2026-09-17 10:18:06',instructions:'聚焦安全分析、漏洞研判与知识检索。'},
@@ -863,7 +863,7 @@ const S={
     {name:'get_article',description:'根据文章 ID 获取知识库文章详情。',effect:'READ',enabled:true,input:'article_id:string'},
     {name:'list_categories',description:'列出知识库当前可用分类。',effect:'READ',enabled:true,input:'parent_id?:string'}
    ]},
-  {id:'mcp-002',name:'MSS 工具 MCP',key:'mss-tools',endpoint:'http://mss-tools.internal/mcp',userScope:'SELECTED',selectedUsers:['u-101','u-102'],enabled:true,connectionStatus:'AVAILABLE',lastDiscover:'2026-09-17 10:05:36',updated:'2026-09-17 10:05:36',
+  {id:'mcp-002',name:'工具 MCP',key:'example-tools',endpoint:'http://example-tools.internal/mcp',userScope:'SELECTED',selectedUsers:['u-101','u-102'],enabled:true,connectionStatus:'AVAILABLE',lastDiscover:'2026-09-17 10:05:36',updated:'2026-09-17 10:05:36',
    tools:[
     {name:'query_alarm',description:'查询指定客户和时间范围内的告警。',effect:'READ',enabled:true,input:'customer_id:string, start_time:string, end_time:string'},
     {name:'query_device',description:'查询客户设备及基础状态。',effect:'READ',enabled:true,input:'customer_id:string, keyword?:string'},
@@ -878,7 +878,7 @@ const S={
   {id:'m-3',name:'Qwen3-32B',key:'qwen3-32b',protocol:'OPENAI',baseUrl:'http://model-gateway.internal/v1',modelId:'qwen3-32b',apiKeySet:false,enabled:true,testStatus:'AVAILABLE',revision:2,updated:'2026-09-15 17:28:18'}
  ],
  users:[
-  {id:'u-101',name:'张明',account:'zhangming',agents:['MSS 服务助手'],platform:'MSS 已配置',im:'wotvU...4GA',memory:3,status:'ACTIVE',created:'2026-09-01 09:20:10',updated:'2026-09-17 11:10:06',
+  {id:'u-101',name:'张明',account:'zhangming',agents:['服务助手'],platform:'已配置',im:'wotvU...4GA',memory:3,status:'ACTIVE',created:'2026-09-01 09:20:10',updated:'2026-09-17 11:10:06',
    agentGrants:[
     {agentId:'ag-001',grantedAt:'2026-09-01 10:00:00'}
    ],
@@ -887,15 +887,15 @@ const S={
     'p-2':{configured:false,updated:'-'}
    },
    identities:[
-    {id:'cid-001',channel:'WECOM',externalId:'wotvU...4GA',botId:'wxbot_mss_01',boundAt:'2026-09-01 10:12:20',lastActive:'2026-09-17 11:08:45',status:'ACTIVE'},
-    {id:'cid-002',channel:'WECOM',externalId:'wotvU...9KB',botId:'wxbot_mss_delivery',boundAt:'2026-09-05 09:18:31',lastActive:'2026-09-16 17:20:14',status:'ACTIVE'}
+    {id:'cid-001',channel:'WECOM',externalId:'wotvU...4GA',botId:'wxbot_demo_01',boundAt:'2026-09-01 10:12:20',lastActive:'2026-09-17 11:08:45',status:'ACTIVE'},
+    {id:'cid-002',channel:'WECOM',externalId:'wotvU...9KB',botId:'wxbot_demo_delivery',boundAt:'2026-09-05 09:18:31',lastActive:'2026-09-16 17:20:14',status:'ACTIVE'}
    ],
    memories:[
     {id:'mem-001',content:'偏好中文报告',source:'对话提取',updated:'2026-09-17 10:32:11'},
     {id:'mem-002',content:'先摘要后明细',source:'用户确认',updated:'2026-09-16 16:08:20'},
     {id:'mem-003',content:'常用简版交付模板',source:'对话提取',updated:'2026-09-15 11:40:06'}
    ]},
-  {id:'u-102',name:'李雪',account:'lixue',agents:['MSS 服务助手','安全分析助手'],platform:'MSS 已配置',im:'wotvK...9XQ',memory:2,status:'ACTIVE',created:'2026-09-02 10:10:00',updated:'2026-09-17 10:20:33',
+  {id:'u-102',name:'李雪',account:'lixue',agents:['服务助手','安全分析助手'],platform:'已配置',im:'wotvK...9XQ',memory:2,status:'ACTIVE',created:'2026-09-02 10:10:00',updated:'2026-09-17 10:20:33',
    agentGrants:[
     {agentId:'ag-001',grantedAt:'2026-09-02 10:30:00'},
     {agentId:'ag-002',grantedAt:'2026-09-10 15:21:00'}
@@ -905,13 +905,13 @@ const S={
     'p-2':{configured:true,updated:'2026-09-16 09:42:35'}
    },
    identities:[
-    {id:'cid-003',channel:'WECOM',externalId:'wotvK...9XQ',botId:'wxbot_mss_01',boundAt:'2026-09-02 10:35:10',lastActive:'2026-09-17 10:18:51',status:'ACTIVE'}
+    {id:'cid-003',channel:'WECOM',externalId:'wotvK...9XQ',botId:'wxbot_demo_01',boundAt:'2026-09-02 10:35:10',lastActive:'2026-09-17 10:18:51',status:'ACTIVE'}
    ],
    memories:[
     {id:'mem-004',content:'报告默认附风险分级',source:'用户确认',updated:'2026-09-16 14:10:30'},
     {id:'mem-005',content:'关注终端告警趋势',source:'对话提取',updated:'2026-09-15 09:28:15'}
    ]},
-  {id:'u-103',name:'王涛',account:'wangtao',agents:['MSS 服务助手'],platform:'未配置',im:'未绑定',memory:0,status:'ACTIVE',created:'2026-09-16 14:00:00',updated:'2026-09-16 14:11:52',
+  {id:'u-103',name:'王涛',account:'wangtao',agents:['服务助手'],platform:'未配置',im:'未绑定',memory:0,status:'ACTIVE',created:'2026-09-16 14:00:00',updated:'2026-09-16 14:11:52',
    agentGrants:[
     {agentId:'ag-001',grantedAt:'2026-09-16 14:05:00'}
    ],
@@ -923,19 +923,19 @@ const S={
    memories:[]}
  ],
  platformAdapters:[
-  {key:'mssw',name:'MSSW 平台适配器',version:'1',sessionMode:'SESSION',
+  {key:'generic-http',name:'通用 HTTP 适配器',version:'1',sessionMode:'SESSION',
    configFields:[
     {key:'login_endpoint',label:'登录接口',type:'text',placeholder:'/gateway/login_agent'},
     {key:'health_endpoint',label:'健康检查接口',type:'text',placeholder:'/v1/rtt'},
-    {key:'branch_tag',label:'Branch Tag',type:'text',placeholder:'MSSW-ADAPTER'},
+    {key:'branch_tag',label:'Branch Tag',type:'text',placeholder:'GENERIC-HTTP'},
     {key:'csrf_enabled',label:'启用 CSRF',type:'select',options:['否','是']}
    ],
    credentialFields:[{key:'ak',label:'AK',secret:true},{key:'sk',label:'SK',secret:true}]},
-  {key:'mssp',name:'MSSP 平台适配器',version:'1',sessionMode:'SESSION',
+  {key:'shared-protocol',name:'共享协议适配器',version:'1',sessionMode:'SESSION',
    configFields:[
     {key:'login_endpoint',label:'登录接口',type:'text',placeholder:'/gateway/login_agent'},
     {key:'health_endpoint',label:'健康检查接口',type:'text',placeholder:'/v1/rtt'},
-    {key:'branch_tag',label:'Branch Tag',type:'text',placeholder:'MSSP-ADAPTER'}
+    {key:'branch_tag',label:'Branch Tag',type:'text',placeholder:'SHARED-PROTOCOL'}
    ],
    credentialFields:[{key:'ak',label:'AK',secret:true},{key:'sk',label:'SK',secret:true}]},
   {key:'generic-http-session',name:'通用 HTTP Session 适配器',version:'1',sessionMode:'SESSION',
@@ -948,31 +948,31 @@ const S={
    credentialFields:[{key:'username',label:'用户名',secret:false},{key:'password',label:'密码',secret:true}]}
  ],
  platforms:[
-  {id:'p-1',name:'MSSW 业务平台',key:'mssw-prod',resolverType:'BASE_URL',resolverConfig:{baseUrl:'https://mssw.internal'},adapterKey:'mssw',credentialMode:'USER_THEN_SHARED',
-   adapterConfig:{login_endpoint:'/gateway/login_agent',health_endpoint:'/v1/rtt',branch_tag:'MSSW-ADAPTER',csrf_enabled:'否'},
+  {id:'p-1',name:'示例业务平台',key:'example-prod',resolverType:'BASE_URL',resolverConfig:{baseUrl:'https://platform.internal'},adapterKey:'generic-http',credentialMode:'USER_THEN_SHARED',
+   adapterConfig:{login_endpoint:'/gateway/login_agent',health_endpoint:'/v1/rtt',branch_tag:'GENERIC-HTTP',csrf_enabled:'否'},
    enabled:true,updated:'2026-09-17 09:16:10'},
-  {id:'p-2',name:'MSSP 业务平台',key:'mssp-prod',resolverType:'SERVICE_DISCOVERY',resolverConfig:{serviceName:'mssp-service-mgr'},adapterKey:'mssp',credentialMode:'USER_ONLY',
-   adapterConfig:{login_endpoint:'/gateway/login_agent',health_endpoint:'/v1/rtt',branch_tag:'MSSP-ADAPTER'},
+  {id:'p-2',name:'示例管理平台',key:'example-mgmt',resolverType:'SERVICE_DISCOVERY',resolverConfig:{serviceName:'example-service-mgr'},adapterKey:'shared-protocol',credentialMode:'USER_ONLY',
+   adapterConfig:{login_endpoint:'/gateway/login_agent',health_endpoint:'/v1/rtt',branch_tag:'SHARED-PROTOCOL'},
    enabled:true,updated:'2026-09-16 09:20:00'}
  ],
  tasks:[
-  {id:'task-20260917-001',scheduleId:null,intent:'policy_check',agent:'MSS 服务助手',user:'张明',skill:'设备策略检查',trigger:'IMMEDIATE',status:'RUNNING',progress:'12/20',children:20,completed:12,failed:1,started:'2026-09-17 11:24:08',finished:'-',delivery:'PENDING',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'policy-check:v1.8.2',result:'',route:'WeCom · wxbot_mss_01 · wotvU...4GA'},
-  {id:'task-20260916-001',scheduleId:'sch-002',intent:'alarm_summary',agent:'MSS 服务助手',user:'李雪',skill:'告警摘要',trigger:'SCHEDULED',status:'COMPLETED',progress:'1/1',children:1,completed:1,failed:0,started:'2026-09-16 18:00:01',finished:'2026-09-16 18:03:42',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'alarm-summary:v1.1.0',result:'昨日告警摘要生成完成并已投递。',route:'WeCom · wxbot_mss_01 · wotvK...9XQ'},
-  {id:'task-20260915-001',scheduleId:'sch-002',intent:'alarm_summary',agent:'MSS 服务助手',user:'李雪',skill:'告警摘要',trigger:'SCHEDULED',status:'COMPLETED',progress:'1/1',children:1,completed:1,failed:0,started:'2026-09-15 18:00:02',finished:'2026-09-15 18:04:10',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'alarm-summary:v1.1.0',result:'告警摘要生成完成并已投递。',route:'WeCom · wxbot_mss_01 · wotvK...9XQ'},
-  {id:'task-20260914-001',scheduleId:'sch-001',intent:'policy_check',agent:'MSS 服务助手',user:'张明',skill:'设备策略检查',trigger:'SCHEDULED',status:'COMPLETED',progress:'20/20',children:20,completed:20,failed:0,started:'2026-09-14 09:00:02',finished:'2026-09-14 09:08:31',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'policy-check:v1.8.2',result:'每周策略检查完成。',route:'WeCom · wxbot_mss_01 · wotvU...4GA'},
-  {id:'task-20260907-001',scheduleId:'sch-001',intent:'policy_check',agent:'MSS 服务助手',user:'张明',skill:'设备策略检查',trigger:'SCHEDULED',status:'COMPLETED',progress:'18/18',children:18,completed:18,failed:0,started:'2026-09-07 09:00:01',finished:'2026-09-07 09:07:44',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r17',skillArtifact:'policy-check:v1.8.1',result:'每周策略检查完成。',route:'WeCom · wxbot_mss_01 · wotvU...4GA'},
-  {id:'task-20260917-003',scheduleId:null,intent:'policy_check',agent:'MSS 服务助手',user:'王涛',skill:'设备策略检查',trigger:'IMMEDIATE',status:'FAILED',progress:'0/1',children:1,completed:0,failed:1,started:'2026-09-17 10:31:16',finished:'2026-09-17 10:31:18',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'policy-check:v1.8.2',result:'凭据未配置，任务未执行。',error:'CREDENTIAL_MISSING',route:'WeCom · wxbot_mss_01 · wotv?'}
+  {id:'task-20260917-001',scheduleId:null,intent:'policy_check',agent:'服务助手',user:'张明',skill:'设备策略检查',trigger:'IMMEDIATE',status:'RUNNING',progress:'12/20',children:20,completed:12,failed:1,started:'2026-09-17 11:24:08',finished:'-',delivery:'PENDING',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'policy-check:v1.8.2',result:'',route:'WeCom · wxbot_demo_01 · wotvU...4GA'},
+  {id:'task-20260916-001',scheduleId:'sch-002',intent:'alarm_summary',agent:'服务助手',user:'李雪',skill:'告警摘要',trigger:'SCHEDULED',status:'COMPLETED',progress:'1/1',children:1,completed:1,failed:0,started:'2026-09-16 18:00:01',finished:'2026-09-16 18:03:42',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'alarm-summary:v1.1.0',result:'昨日告警摘要生成完成并已投递。',route:'WeCom · wxbot_demo_01 · wotvK...9XQ'},
+  {id:'task-20260915-001',scheduleId:'sch-002',intent:'alarm_summary',agent:'服务助手',user:'李雪',skill:'告警摘要',trigger:'SCHEDULED',status:'COMPLETED',progress:'1/1',children:1,completed:1,failed:0,started:'2026-09-15 18:00:02',finished:'2026-09-15 18:04:10',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'alarm-summary:v1.1.0',result:'告警摘要生成完成并已投递。',route:'WeCom · wxbot_demo_01 · wotvK...9XQ'},
+  {id:'task-20260914-001',scheduleId:'sch-001',intent:'policy_check',agent:'服务助手',user:'张明',skill:'设备策略检查',trigger:'SCHEDULED',status:'COMPLETED',progress:'20/20',children:20,completed:20,failed:0,started:'2026-09-14 09:00:02',finished:'2026-09-14 09:08:31',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'policy-check:v1.8.2',result:'每周策略检查完成。',route:'WeCom · wxbot_demo_01 · wotvU...4GA'},
+  {id:'task-20260907-001',scheduleId:'sch-001',intent:'policy_check',agent:'服务助手',user:'张明',skill:'设备策略检查',trigger:'SCHEDULED',status:'COMPLETED',progress:'18/18',children:18,completed:18,failed:0,started:'2026-09-07 09:00:01',finished:'2026-09-07 09:07:44',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r17',skillArtifact:'policy-check:v1.8.1',result:'每周策略检查完成。',route:'WeCom · wxbot_demo_01 · wotvU...4GA'},
+  {id:'task-20260917-003',scheduleId:null,intent:'policy_check',agent:'服务助手',user:'王涛',skill:'设备策略检查',trigger:'IMMEDIATE',status:'FAILED',progress:'0/1',children:1,completed:0,failed:1,started:'2026-09-17 10:31:16',finished:'2026-09-17 10:31:18',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'policy-check:v1.8.2',result:'凭据未配置，任务未执行。',error:'CREDENTIAL_MISSING',route:'WeCom · wxbot_demo_01 · wotv?'}
  ],
  schedules:[
-  {id:'sch-001',name:'每周策略检查',agent:'MSS 服务助手',user:'张明',intent:'policy_check',skill:'设备策略检查',expr:'每周一 09:00',tz:'Asia/Shanghai',next:'2026-09-21 09:00:00',last:'2026-09-14 09:00:02',status:'ACTIVE',route:'WeCom · 张明'},
-  {id:'sch-002',name:'每日告警摘要',agent:'MSS 服务助手',user:'李雪',intent:'alarm_summary',skill:'告警摘要',expr:'每天 18:00',tz:'Asia/Shanghai',next:'2026-09-17 18:00:00',last:'2026-09-16 18:00:01',status:'ACTIVE',route:'WeCom · 李雪'},
+  {id:'sch-001',name:'每周策略检查',agent:'服务助手',user:'张明',intent:'policy_check',skill:'设备策略检查',expr:'每周一 09:00',tz:'Asia/Shanghai',next:'2026-09-21 09:00:00',last:'2026-09-14 09:00:02',status:'ACTIVE',route:'WeCom · 张明'},
+  {id:'sch-002',name:'每日告警摘要',agent:'服务助手',user:'李雪',intent:'alarm_summary',skill:'告警摘要',expr:'每天 18:00',tz:'Asia/Shanghai',next:'2026-09-17 18:00:00',last:'2026-09-16 18:00:01',status:'ACTIVE',route:'WeCom · 李雪'},
   {id:'sch-003',name:'季度报告试验',agent:'试验 Agent',user:'张明',intent:'quarter_report',skill:'策略检查 Next',expr:'每季度首日 08:30',tz:'Asia/Shanghai',next:'2026-10-01 08:30:00',last:'-',status:'PAUSED',route:'WeCom · 张明'}
  ],
  audits:[
-  {time:'2026-09-17 11:34:12',type:'TASK',actor:'张明',agent:'MSS 服务助手',target:'task-20260917-001',action:'child.completed',result:'SUCCESS',trace:'tr-8a129d'},
-  {time:'2026-09-17 11:33:58',type:'EGRESS',actor:'张明',agent:'MSS 服务助手',target:'customer-service-mgr',action:'GET device/list',result:'SUCCESS',trace:'tr-8a129d'},
+  {time:'2026-09-17 11:34:12',type:'TASK',actor:'张明',agent:'服务助手',target:'task-20260917-001',action:'child.completed',result:'SUCCESS',trace:'tr-8a129d'},
+  {time:'2026-09-17 11:33:58',type:'EGRESS',actor:'张明',agent:'服务助手',target:'customer-service-mgr',action:'GET device/list',result:'SUCCESS',trace:'tr-8a129d'},
   {time:'2026-09-17 11:03:09',type:'CONFIG',actor:'Admin',agent:'-',target:'monthly-report v0.9.4',action:'skill.import',result:'SUCCESS',trace:'cfg-0127'},
-  {time:'2026-09-17 10:31:18',type:'TASK',actor:'王涛',agent:'MSS 服务助手',target:'task-20260917-003',action:'task.failed',result:'CREDENTIAL_MISSING',trace:'tr-77ce12'}
+  {time:'2026-09-17 10:31:18',type:'TASK',actor:'王涛',agent:'服务助手',target:'task-20260917-003',action:'task.failed',result:'CREDENTIAL_MISSING',trace:'tr-77ce12'}
  ]
 };
 let current='overview'; let agentPage=1; let skillPage=1; const F={agentSearch:'',skillSearch:'',skillExec:'ALL',skillScope:'ANY',taskSearch:'',taskStatus:'ALL',taskTrigger:'ALL',scheduleSearch:'',scheduleStatus:'ALL'};
@@ -1170,7 +1170,7 @@ function openAgent(id,tab='basic'){
 function openImChannelConfig(agentId,channelId=''){
  const a=S.agents.find(x=>x.id===agentId);
  const c=(a.channels||[]).find(x=>x.id===channelId);
- openModal(c?'编辑 IM 通道':'新增 IM 通道',`<div class="form-grid"><div class="form-item"><label class="req">通道类型</label><select id="imType"><option value="WECOM">企业微信</option></select></div><div class="form-item"><label class="req">通道名称</label><input id="imName" value="${c?.name||''}" placeholder="例如：MSS 服务机器人"></div><div class="form-item full"><label class="req">bot_id</label><input id="botId" value="${c?.botId||''}" placeholder="wxbot_xxx"></div><div class="form-item full"><label class="req">密钥</label><input type="password" value="${c?'********':''}" placeholder="输入 Secret"><div class="help">保存后仅保留 密钥引用，不回显明文。每个 bot_id 只能绑定一个逻辑 Agent，但一个 Agent 可以配置多个 IM 通道。</div></div></div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveImChannel('${agentId}','${channelId}')">保存</button>`)
+ openModal(c?'编辑 IM 通道':'新增 IM 通道',`<div class="form-grid"><div class="form-item"><label class="req">通道类型</label><select id="imType"><option value="WECOM">企业微信</option></select></div><div class="form-item"><label class="req">通道名称</label><input id="imName" value="${c?.name||''}" placeholder="例如：服务机器人"></div><div class="form-item full"><label class="req">bot_id</label><input id="botId" value="${c?.botId||''}" placeholder="wxbot_xxx"></div><div class="form-item full"><label class="req">密钥</label><input type="password" value="${c?'********':''}" placeholder="输入 Secret"><div class="help">保存后仅保留 密钥引用，不回显明文。每个 bot_id 只能绑定一个逻辑 Agent，但一个 Agent 可以配置多个 IM 通道。</div></div></div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveImChannel('${agentId}','${channelId}')">保存</button>`)
 }
 function saveImChannel(agentId,channelId=''){
  const botId=$('#botId').value.trim(),name=$('#imName').value.trim();
@@ -1381,8 +1381,8 @@ function mcp(){
 
 function openMcpCreate(){
  openModal('注册 MCP',`<div class="form-grid">
-   <div class="form-item"><label class="req">名称</label><input placeholder="例如：MSS 知识检索"></div>
-   <div class="form-item"><label class="req">标识</label><input placeholder="mss-kb"></div>
+   <div class="form-item"><label class="req">名称</label><input placeholder="例如：知识检索"></div>
+   <div class="form-item"><label class="req">标识</label><input placeholder="example-kb"></div>
    <div class="form-item full"><label class="req">服务地址</label><input placeholder="http://mcp.internal/mcp"><div class="help">V1.4 仅支持 Streamable HTTP。</div></div>
    <div class="form-item"><label>用户范围</label><select><option value="SELECTED">指定用户</option><option value="ALL">全部授权用户</option></select></div>
    <div class="form-item"><label>启用状态</label><select><option value="true">启用</option><option value="false">禁用</option></select></div>
@@ -1744,7 +1744,7 @@ function platforms(){
 
 function openPlatformCreate(){
  const adapterOpts=S.platformAdapters.map(a=>`<option value="${a.key}">${a.name}</option>`).join('');
- openModal('新增项目平台',`<div class="notice">项目平台保存平台实例、寻址方式和 PlatformAdapter 配置。认证、签名和 Session 逻辑由 PlatformAdapter 负责。</div><div class="form-grid" style="margin-top:16px"><div class="form-item"><label class="req">名称</label><input id="platformName" placeholder="例如：MSSW 生产平台"></div><div class="form-item"><label class="req">标识</label><input id="platformKey" placeholder="mssw-prod"></div><div class="form-item"><label class="req">接入方式</label><select id="platformResolverType" onchange="renderPlatformResolverFields()"><option value="BASE_URL">Base URL</option><option value="SERVICE_DISCOVERY">服务发现</option></select></div><div class="form-item"><label class="req">平台适配器</label><select id="platformAdapter" onchange="renderPlatformAdapterFields()">${adapterOpts}</select></div><div id="platformResolverFields" class="form-item full"></div><div class="form-item"><label class="req">凭据策略</label><select id="credentialMode"><option value="USER_ONLY">仅用户凭据</option><option value="SHARED_ONLY">仅共享凭据</option><option value="USER_THEN_SHARED">用户优先 / 共享回退</option><option value="NONE">无凭据</option></select></div><div class="form-item"><label>启用状态</label><select id="platformEnabled"><option value="true">启用</option><option value="false">禁用</option></select></div><div id="adapterFields" class="form-item full"></div></div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveProjectPlatform()">保存</button>`);
+ openModal('新增项目平台',`<div class="notice">项目平台保存平台实例、寻址方式和 PlatformAdapter 配置。认证、签名和 Session 逻辑由 PlatformAdapter 负责。</div><div class="form-grid" style="margin-top:16px"><div class="form-item"><label class="req">名称</label><input id="platformName" placeholder="例如：示例生产平台"></div><div class="form-item"><label class="req">标识</label><input id="platformKey" placeholder="example-prod"></div><div class="form-item"><label class="req">接入方式</label><select id="platformResolverType" onchange="renderPlatformResolverFields()"><option value="BASE_URL">Base URL</option><option value="SERVICE_DISCOVERY">服务发现</option></select></div><div class="form-item"><label class="req">平台适配器</label><select id="platformAdapter" onchange="renderPlatformAdapterFields()">${adapterOpts}</select></div><div id="platformResolverFields" class="form-item full"></div><div class="form-item"><label class="req">凭据策略</label><select id="credentialMode"><option value="USER_ONLY">仅用户凭据</option><option value="SHARED_ONLY">仅共享凭据</option><option value="USER_THEN_SHARED">用户优先 / 共享回退</option><option value="NONE">无凭据</option></select></div><div class="form-item"><label>启用状态</label><select id="platformEnabled"><option value="true">启用</option><option value="false">禁用</option></select></div><div id="adapterFields" class="form-item full"></div></div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveProjectPlatform()">保存</button>`);
  setTimeout(()=>{renderPlatformResolverFields();renderPlatformAdapterFields()},0)
 }
 
@@ -1754,7 +1754,7 @@ function renderPlatformResolverFields(){
  const type=$('#platformResolverType')?.value||'BASE_URL',host=$('#platformResolverFields');if(!host)return;
  host.innerHTML=type==='SERVICE_DISCOVERY'
    ? `<label class="req">服务名</label><input id="platformServiceName" placeholder="例如：customer-service-mgr"><div class="help">由内部服务发现解析真实地址。</div>`
-   : `<label class="req">Base URL</label><input id="platformBaseUrl" placeholder="例如：https://mssw.internal"><div class="help">填写业务平台根地址。</div>`
+   : `<label class="req">Base URL</label><input id="platformBaseUrl" placeholder="例如：https://platform.internal"><div class="help">填写业务平台根地址。</div>`
 }
 
 function renderPlatformAdapterFields(values={}){
@@ -1825,7 +1825,7 @@ function schedules(){
  return `<div class="card"><div class="toolbar"><div class="toolbar-left"><button class="btn" onclick="openScheduleHelp()">如何通过 Agent 创建</button></div><div class="toolbar-right"><input id="scheduleSearch" class="input search" value="${F.scheduleSearch}" placeholder="名称 / 用户 / 业务意图" onkeydown="if(event.key==='Enter')applySearch('scheduleSearch','scheduleSearch')"><button class="btn" onclick="applySearch('scheduleSearch','scheduleSearch')">搜索</button><select id="scheduleStatus" class="select" onchange="setFilter('scheduleStatus',this.value)"><option value="ALL" ${F.scheduleStatus==='ALL'?'selected':''}>全部调度状态</option><option value="ACTIVE" ${F.scheduleStatus==='ACTIVE'?'selected':''}>启用</option><option value="PAUSED" ${F.scheduleStatus==='PAUSED'?'selected':''}>已暂停</option><option value="COMPLETED" ${F.scheduleStatus==='COMPLETED'?'selected':''}>已完成</option></select><button class="btn" onclick="toast('已刷新')">↻ 刷新</button></div></div><div class="table-wrap"><table><thead><tr><th>名称</th><th>Agent</th><th>执行用户</th><th>业务意图</th><th>Skill</th><th>调度规则</th><th>时区</th><th>下次触发时间</th><th>最近触发时间</th><th>调度状态</th><th>操作</th></tr></thead><tbody>${rows.map(s=>`<tr><td><span class="row-link" onclick="openSchedule('${s.id}')">${s.name}</span></td><td>${s.agent}</td><td>${s.user}</td><td class="mono">${s.intent}</td><td>${s.skill}</td><td>${s.expr}</td><td>${s.tz}</td><td>${s.next}</td><td>${s.last}</td><td>${statusTag(s.status)}</td><td>${s.status==='ACTIVE'?`<button class="btn ghost" onclick="toggleSchedule('${s.id}')">暂停</button>`:(s.status==='PAUSED'?`<button class="btn ghost" onclick="toggleSchedule('${s.id}')">恢复</button>`:'-')}</td></tr>`).join('')}</tbody></table></div>${pagination(rows.length,1,10,'void')}</div>`
 }
 
-function openScheduleHelp(){openModal('通过 Agent 创建定时任务',`<div class="chat"><div class="chat-title">企业微信 · MSS 服务助手</div><div class="chat-messages"><div class="bubble user">每周一上午 9 点帮 A 客户做一次策略检查，完成后告诉我</div><div class="bubble bot">已理解：每周一 09:00 为 A 客户执行“设备策略检查”。任务将在后台执行，完成后只推送最终结果。确认创建吗？</div><div class="bubble user">确认</div><div class="bubble bot">已创建定时任务“每周策略检查”，下次触发：2026-09-21 09:00。</div></div><div class="chat-input"><input placeholder="这里只是交互演示" disabled><button class="btn primary" disabled>发送</button></div></div>`,`<button class="btn primary" onclick="closeModal()">关闭</button>`,'wide')}
+function openScheduleHelp(){openModal('通过 Agent 创建定时任务',`<div class="chat"><div class="chat-title">企业微信 · 服务助手</div><div class="chat-messages"><div class="bubble user">每周一上午 9 点帮 A 客户做一次策略检查，完成后告诉我</div><div class="bubble bot">已理解：每周一 09:00 为 A 客户执行“设备策略检查”。任务将在后台执行，完成后只推送最终结果。确认创建吗？</div><div class="bubble user">确认</div><div class="bubble bot">已创建定时任务“每周策略检查”，下次触发：2026-09-21 09:00。</div></div><div class="chat-input"><input placeholder="这里只是交互演示" disabled><button class="btn primary" disabled>发送</button></div></div>`,`<button class="btn primary" onclick="closeModal()">关闭</button>`,'wide')}
 
 
 
@@ -2065,7 +2065,7 @@ function openPlatformEdit(id){
 
 function renderEditPlatformResolverFields(platformId){
  const p=S.platforms.find(x=>x.id===platformId),type=$('#editPlatformResolverType')?.value||p.resolverType,host=$('#editPlatformResolverFields');if(!host)return;
- host.innerHTML=type==='SERVICE_DISCOVERY'?`<label class="req">服务名</label><input id="editPlatformServiceName" value="${p.resolverType==='SERVICE_DISCOVERY'?(p.resolverConfig?.serviceName||''):''}" placeholder="例如：customer-service-mgr">`:`<label class="req">Base URL</label><input id="editPlatformBaseUrl" value="${p.resolverType==='BASE_URL'?(p.resolverConfig?.baseUrl||''):''}" placeholder="例如：https://mssw.internal">`
+ host.innerHTML=type==='SERVICE_DISCOVERY'?`<label class="req">服务名</label><input id="editPlatformServiceName" value="${p.resolverType==='SERVICE_DISCOVERY'?(p.resolverConfig?.serviceName||''):''}" placeholder="例如：customer-service-mgr">`:`<label class="req">Base URL</label><input id="editPlatformBaseUrl" value="${p.resolverType==='BASE_URL'?(p.resolverConfig?.baseUrl||''):''}" placeholder="例如：https://platform.internal">`
 }
 
 function renderEditPlatformAdapterFields(platformId){
