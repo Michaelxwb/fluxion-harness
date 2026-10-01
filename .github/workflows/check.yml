@@ -21,8 +21,20 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # 全量测试里有大量用例要求真实 Redis（如 tests/agent_worker/test_worker_lifecycle.py 的
+      # wakeup hint），缺了会直接红：`AssertionError: REDIS_URL 未配置或不可达：该用例需要真实 Redis`
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgresql+asyncpg://muad:muad@localhost:5432/muad
+      REDIS_URL: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
