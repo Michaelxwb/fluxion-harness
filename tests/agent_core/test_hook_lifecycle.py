@@ -53,7 +53,7 @@ def _request() -> AgentRunRequest:
 
 
 def _echo_tool(registry: ToolRegistry) -> None:
-    async def handler(arguments: dict[str, Any]) -> str:
+    async def handler(arguments: dict[str, Any], *, call_id: str) -> str:
         return "pong"
 
     registry.register(

@@ -109,7 +109,7 @@ async def _call(
 ) -> dict[str, Any]:
     definition = registry.get(name)
     assert definition.handler is not None
-    return json.loads(await definition.handler(arguments))
+    return json.loads(await definition.handler(arguments, call_id=f"call-{uuid.uuid4()}"))
 
 
 def _error_code(payload: Mapping[str, Any]) -> str:

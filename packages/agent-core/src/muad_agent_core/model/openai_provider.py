@@ -83,6 +83,7 @@ class OpenAICompatibleProvider:
         self, response: httpx.Response, on_delta: DeltaCallback
     ) -> ModelResponse:
         content_parts: list[str] = []
+        reasoning_parts: list[str] = []
         tool_calls: dict[int, dict[str, Any]] = {}
         finish_reason = "stop"
         input_tokens: int | None = None
@@ -120,6 +121,10 @@ class OpenAICompatibleProvider:
             if isinstance(text, str) and text:
                 content_parts.append(text)
                 await on_delta(text)
+            # 思维链只累积、**不**经 on_delta 外发：它不是给用户看的正文
+            reasoning = delta.get("reasoning_content")
+            if isinstance(reasoning, str) and reasoning:
+                reasoning_parts.append(reasoning)
             self._accumulate_tool_calls(tool_calls, delta.get("tool_calls"))
         return ModelResponse(
             content="".join(content_parts),
@@ -127,6 +132,7 @@ class OpenAICompatibleProvider:
             tool_calls=self._assembled_tool_calls(tool_calls),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            reasoning_content="".join(reasoning_parts) or None,
         )
 
     @staticmethod
@@ -219,6 +225,9 @@ class OpenAICompatibleProvider:
         payload: dict[str, Any] = {"role": str(message.role), "content": message.content}
         if message.tool_call_id is not None:
             payload["tool_call_id"] = message.tool_call_id
+        if message.reasoning_content is not None:
+            # 思考模式要求：带 tool_calls 的 assistant 消息必须把思维链原样回传
+            payload["reasoning_content"] = message.reasoning_content
         if message.tool_calls:
             payload["tool_calls"] = [
                 {
@@ -261,6 +270,7 @@ class OpenAICompatibleProvider:
         if not isinstance(message, dict):
             raise ModelRequestError("model response has no message")
         content = message.get("content")
+        reasoning = message.get("reasoning_content")
         finish_reason = choice.get("finish_reason")
         input_tokens, output_tokens = self._usage(payload.get("usage"))
         return ModelResponse(
@@ -269,6 +279,7 @@ class OpenAICompatibleProvider:
             tool_calls=self._tool_calls(message.get("tool_calls")),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            reasoning_content=reasoning if isinstance(reasoning, str) and reasoning else None,
         )
 
     @staticmethod

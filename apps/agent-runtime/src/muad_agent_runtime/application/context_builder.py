@@ -7,13 +7,19 @@ from dataclasses import dataclass
 from typing import Any
 
 from muad_agent_core.context.builder import ContextInput
-from muad_agent_core.model.provider import ModelMessage, ModelRequest, ModelRole
+from muad_agent_core.model.provider import ModelMessage, ModelRequest, ModelRole, ModelToolCall
 from sqlalchemy import select
 
 from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import Artifact, CanonicalEvent, UserMemory
 
-HISTORY_EVENT_TYPES = ("USER_MESSAGE", "ASSISTANT_MESSAGE", "TOOL_CALL")
+HISTORY_EVENT_TYPES = ("USER_MESSAGE", "ASSISTANT_MESSAGE", "TOOL_CALL", "ASSISTANT_TURN")
+
+# 历史里保留的 tool 回合数上限（一个回合 = assistant(tool_calls) + 它的若干 tool 结果）。
+# 依据：思考模式的 `reasoning_content` 实测约 3KB/轮（单轮 2840 字符），全量回放会让请求体
+# 随会话线性膨胀，而消息条数预算（`BudgetPolicy.max_messages`）管不住字节数。
+# 超出的回合**整回合丢弃**（绝不半截保留，否则会造出孤儿 tool 消息 ⇒ 供应商直接拒绝）。
+MAX_HISTORY_TOOL_ROUNDS = 6
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,32 +136,71 @@ class DbBackedContextBuilder:
         previews = await self._artifact_previews(
             session, tenant_id, [event.artifact_id for event in events if event.artifact_id]
         )
-        history: list[ModelMessage] = []
+
+        # 只有被 `ASSISTANT_TURN` **声明过**的工具调用才进历史。缺了这层校验，历史里会出现
+        # 「孤儿 tool 消息」（前面没有任何 assistant `tool_calls`），供应商会直接拒绝**整个**
+        # 请求 —— 实测：`Messages with role 'tool' must be a response to a preceding message
+        # with 'tool_calls'`。本事件类型上线前的存量会话全是这种孤儿，故一律跳过（丢那几轮
+        # 的工具上下文，换取会话立刻可用）。
+        declared: set[str] = set()
+        for event in events:
+            if event.event_type != "ASSISTANT_TURN":
+                continue
+            for call in (event.payload_json or {}).get("tool_calls") or []:
+                if isinstance(call, dict) and isinstance(call.get("id"), str):
+                    declared.add(call["id"])
+
+        # round_no 标记「属于哪个 tool 回合」；0 = 与工具无关的普通消息（永远保留）
+        entries: list[tuple[int, ModelMessage]] = []
+        round_no = 0
         for event in events:
             payload = event.payload_json or {}
             if event.event_type == "USER_MESSAGE":
-                history.append(
-                    ModelMessage(role=ModelRole.USER, content=str(payload.get("text", "")))
+                entries.append(
+                    (0, ModelMessage(role=ModelRole.USER, content=str(payload.get("text", ""))))
                 )
             elif event.event_type == "ASSISTANT_MESSAGE":
-                history.append(
-                    ModelMessage(role=ModelRole.ASSISTANT, content=str(payload.get("text", "")))
+                entries.append(
+                    (0, ModelMessage(role=ModelRole.ASSISTANT, content=str(payload.get("text", ""))))
                 )
-            elif event.event_type == "TOOL_CALL":
-                preview = previews.get(event.artifact_id) if event.artifact_id else None
-                content = (
-                    f"[tool:{payload.get('tool')}] {preview}"
-                    if preview
-                    else f"[tool:{payload.get('tool')}]"
-                )
-                history.append(
-                    ModelMessage(
-                        role=ModelRole.TOOL,
-                        content=content,
-                        tool_call_id=payload.get("call_id"),
+            elif event.event_type == "ASSISTANT_TURN":
+                calls = _tool_calls(payload.get("tool_calls"))
+                if not calls:
+                    continue
+                round_no += 1
+                reasoning = payload.get("reasoning_content")
+                entries.append(
+                    (
+                        round_no,
+                        ModelMessage(
+                            role=ModelRole.ASSISTANT,
+                            content=str(payload.get("text") or ""),
+                            tool_calls=calls,
+                            reasoning_content=(
+                                reasoning if isinstance(reasoning, str) and reasoning else None
+                            ),
+                        ),
                     )
                 )
-        return history
+            elif event.event_type == "TOOL_CALL":
+                # 键名以事件 payload 为准：`tool_call_id` / `tool_name`（曾误读 `call_id` /
+                # `tool`，导致 tool 消息的 id 恒为 None —— 那正是「tool 消息配不上 assistant
+                # tool_calls」这个历史故障的根因；`tool` 那处还会把工具名显示成 None）。
+                call_id = payload.get("tool_call_id")
+                if not isinstance(call_id, str) or call_id not in declared:
+                    continue  # 孤儿 tool 消息：整条请求会因此被拒
+                preview = previews.get(event.artifact_id) if event.artifact_id else None
+                content = (
+                    f"[tool:{payload.get('tool_name')}] {preview}"
+                    if preview
+                    else f"[tool:{payload.get('tool_name')}]"
+                )
+                entries.append(
+                    (round_no, ModelMessage(role=ModelRole.TOOL, content=content, tool_call_id=call_id))
+                )
+
+        keep = _kept_tool_rounds([value for value, _ in entries])
+        return [message for value, message in entries if value == 0 or value in keep]
 
     async def _artifact_previews(
         self,
@@ -195,6 +240,34 @@ class DbBackedContextBuilder:
             )
         ).scalars().all()
         return [f"{row.memory_key}: {row.content_json.get('value', '')}" for row in rows]
+
+
+def _tool_calls(raw: Any) -> tuple[ModelToolCall, ...]:
+    """把事件里的 tool_calls JSON 还原成契约对象；脏项跳过，不让一条坏数据崩掉整段历史。"""
+    if not isinstance(raw, list):
+        return ()
+    calls: list[ModelToolCall] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        call_id, name = item.get("id"), item.get("name")
+        if not isinstance(call_id, str) or not isinstance(name, str):
+            continue
+        arguments = item.get("arguments")
+        calls.append(
+            ModelToolCall(
+                id=call_id,
+                name=name,
+                arguments=dict(arguments) if isinstance(arguments, dict) else {},
+            )
+        )
+    return tuple(calls)
+
+
+def _kept_tool_rounds(present: list[int]) -> set[int]:
+    """保留最近 `MAX_HISTORY_TOOL_ROUNDS` 个 tool 回合；**整回合**保留或丢弃，绝不半截。"""
+    rounds = sorted({value for value in present if value > 0})
+    return set(rounds[-MAX_HISTORY_TOOL_ROUNDS:])
 
 
 def _trim(history: list[ModelMessage], budget: int) -> list[ModelMessage]:

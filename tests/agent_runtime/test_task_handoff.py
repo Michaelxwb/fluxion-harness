@@ -150,7 +150,9 @@ def _tool_set(
 async def _call_tool(tool_set: SkillToolSet, name: str, arguments: dict[str, object]) -> dict[str, Any]:
     definition = tool_set.registry().get(name)
     assert definition.handler is not None
-    return cast(dict[str, Any], json.loads(await definition.handler(arguments)))
+    return cast(dict[str, Any], json.loads(await definition.handler(
+        arguments, call_id=f"call-{uuid.uuid4()}"
+    )))
 
 
 async def _task_row(task_id: uuid.UUID) -> TaskExecution:
@@ -385,7 +387,9 @@ def _task_tools(
 async def _invoke(registry: ToolRegistry, name: str, arguments: dict[str, object]) -> dict[str, Any]:
     handler = registry.get(name).handler
     assert handler is not None
-    return cast(dict[str, Any], json.loads(await handler(arguments)))
+    return cast(dict[str, Any], json.loads(await handler(
+        arguments, call_id=f"call-{uuid.uuid4()}"
+    )))
 
 
 async def test_b123_create_schedule_tool_uses_run_actor_and_route() -> None:

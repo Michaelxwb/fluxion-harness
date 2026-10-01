@@ -124,6 +124,9 @@ class AgentGraphState(TypedDict):
     is_cancelled: Callable[[], bool] | None
     on_delta: DeltaCallback | None
     on_tool_started: Callable[[str, str], Awaitable[None]] | None
+    # 每次模型响应触发一次，带完整 assistant 消息（含 tool_calls 与 reasoning_content）：
+    # 调用方据此把「一个 assistant 回合」原样持久化，供后续 Run 重建**合法**历史。
+    on_assistant_turn: Callable[[ModelMessage], Awaitable[None]] | None
     on_tool_completed: Callable[[str, str, str, str | None], Awaitable[None]] | None
     last_response: dict[str, Any] | None
     post_model_pending: bool
@@ -179,6 +182,7 @@ class AgentRunner:
         is_cancelled: Callable[[], bool] | None = None,
         on_delta: DeltaCallback | None = None,
         on_tool_started: Callable[[str, str], Awaitable[None]] | None = None,
+        on_assistant_turn: Callable[[ModelMessage], Awaitable[None]] | None = None,
         on_tool_completed: Callable[[str, str, str, str | None], Awaitable[None]] | None = None,
     ) -> AgentRunResult:
         system = self._prompt_builder.build(instructions=request.instructions, skills=request.skills)
@@ -203,6 +207,7 @@ class AgentRunner:
             is_cancelled=is_cancelled,
             on_delta=on_delta,
             on_tool_started=on_tool_started,
+            on_assistant_turn=on_assistant_turn,
             on_tool_completed=on_tool_completed,
             last_response=None,
             post_model_pending=False,
@@ -287,7 +292,11 @@ class AgentRunner:
             role=ModelRole.ASSISTANT,
             content=response.content,
             tool_calls=response.tool_calls,
+            reasoning_content=response.reasoning_content,
         )
+        notify_assistant = state["on_assistant_turn"]
+        if notify_assistant is not None:
+            await notify_assistant(assistant)
         return {
             **state,
             "messages": [*state["messages"], assistant],
@@ -377,7 +386,7 @@ class AgentRunner:
             await state["on_tool_started"](call.id, call.name)
         status = "OK"
         try:
-            content = await definition.handler(arguments)
+            content = await definition.handler(arguments, call_id=call.id)
         except Exception as exc:
             status = "ERROR"
             content = TOOL_FAILED_TEMPLATE.format(reason=f"{type(exc).__name__}: {exc}")

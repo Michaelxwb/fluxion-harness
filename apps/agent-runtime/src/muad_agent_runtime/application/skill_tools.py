@@ -116,7 +116,7 @@ class SkillToolSet:
             registry.register(definition)
         return registry
 
-    async def load_skill(self, arguments: Mapping[str, Any]) -> str:
+    async def load_skill(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             skill = self._require_skill(arguments)
             package = await self._package(skill)
@@ -127,7 +127,7 @@ class SkillToolSet:
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
 
-    async def read_skill_resource(self, arguments: Mapping[str, Any]) -> str:
+    async def read_skill_resource(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             skill = self._require_skill(arguments)
             relative = _require_string(arguments, "path")
@@ -145,7 +145,7 @@ class SkillToolSet:
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
 
-    async def execute_skill(self, arguments: Mapping[str, Any]) -> str:
+    async def execute_skill(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             skill = self._require_skill(arguments)
             input_data = _require_input(arguments)
@@ -160,7 +160,7 @@ class SkillToolSet:
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
 
-    async def run_skill_script(self, arguments: Mapping[str, Any]) -> str:
+    async def run_skill_script(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             skill = self._require_skill(arguments)
             name = _require_string(arguments, "script")

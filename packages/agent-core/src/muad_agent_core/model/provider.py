@@ -30,6 +30,10 @@ class ModelMessage:
     content: str
     tool_call_id: str | None = None
     tool_calls: tuple[ModelToolCall, ...] = ()
+    # 思考模式的思维链。**带 `tool_calls` 的 assistant 消息必须原样回传**，否则供应商直接
+    # 拒绝（实测 deepseek-flash：`reasoning_content ... must be passed back`；纯文本
+    # assistant 消息则不需要）。不带 tool_calls 的回合无需保留。
+    reasoning_content: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +59,8 @@ class ModelResponse:
     tool_calls: tuple[ModelToolCall, ...] = ()
     input_tokens: int | None = None
     output_tokens: int | None = None
+    # 思考模式的思维链，随响应一并返回（见 `ModelMessage.reasoning_content`）。
+    reasoning_content: str | None = None
 
 
 class ModelProvider(Protocol):

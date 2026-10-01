@@ -234,7 +234,7 @@ class McpRuntimeAdapter:
         server: McpServerDefinition,
         tool: McpToolDefinition,
     ) -> ToolHandler:
-        async def handler(arguments: Mapping[str, Any]) -> str:
+        async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
             return await self.execute_tool(
                 server=server,
                 tool=tool,

@@ -30,6 +30,7 @@ from muad_agent_core.model import (
     OpenAICompatibleProvider,
     StreamingModelProvider,
 )
+from muad_agent_core.prompt import PromptSkill
 from muad_agent_core.tools import ToolDefinition, ToolRegistry
 from muad_api import AppError
 from muad_api.context import current_locale, current_trace_id
@@ -57,6 +58,8 @@ CancelCheck = Callable[[], Awaitable[bool]]
 MESSAGE_DELTA_EVENT = "message.delta"
 TOOL_STARTED_EVENT = "tool.started"
 TOOL_COMPLETED_EVENT = "tool.completed"
+# 一个 assistant 回合（含 tool_calls 与思维链）原样落库；历史重建靠它产出**合法**的消息序列
+ASSISTANT_TURN_EVENT = "assistant.turn"
 CANCEL_POLL_INTERVAL_SEC = 0.25
 MODEL_TIMEOUT_SEC = 120.0
 TOOL_RESULT_ARTIFACT_BYTES = 8 * 1024
@@ -142,6 +145,33 @@ class AgentRunnerExecutor:
                 )
             )
 
+        async def on_assistant_turn(message: ModelMessage) -> None:
+            """把带 tool_calls 的 assistant 回合**原样**落事件，供后续 Run 重建合法历史。
+
+            只有带 `tool_calls` 的回合需要落：纯文本回合已由 run 结束时的 `ASSISTANT_MESSAGE`
+            承载；而思考模式**只**在带 tool_calls 时要求回传 `reasoning_content`（实测），
+            所以纯文本回合的思维链不必存。
+            """
+            if not message.tool_calls:
+                return
+            await emit(
+                ExecutorEvent(
+                    type=ASSISTANT_TURN_EVENT,
+                    data={
+                        "text": message.content,
+                        "reasoning_content": message.reasoning_content,
+                        "tool_calls": [
+                            {
+                                "id": call.id,
+                                "name": call.name,
+                                "arguments": dict(call.arguments),
+                            }
+                            for call in message.tool_calls
+                        ],
+                    },
+                )
+            )
+
         async def on_tool_completed(
             call_id: str, name: str, status: str, artifact_id: str | None
         ) -> None:
@@ -158,7 +188,7 @@ class AgentRunnerExecutor:
             )
 
         task = asyncio.create_task(
-            self._execute(cancelled, on_delta, on_tool_started, on_tool_completed)
+            self._execute(cancelled, on_delta, on_tool_started, on_assistant_turn, on_tool_completed)
         )
         try:
             while True:
@@ -192,6 +222,7 @@ class AgentRunnerExecutor:
         cancelled: asyncio.Event,
         on_delta: Callable[[str], Awaitable[None]],
         on_tool_started: Callable[[str, str], Awaitable[None]],
+        on_assistant_turn: Callable[[ModelMessage], Awaitable[None]],
         on_tool_completed: Callable[[str, str, str, str | None], Awaitable[None]],
     ) -> Any:
         try:
@@ -200,6 +231,7 @@ class AgentRunnerExecutor:
                 is_cancelled=cancelled.is_set,
                 on_delta=on_delta,
                 on_tool_started=on_tool_started,
+                on_assistant_turn=on_assistant_turn,
                 on_tool_completed=on_tool_completed,
             )
         except RunnerCancelled:
@@ -215,6 +247,7 @@ class AgentRunnerExecutor:
         return AgentRunRequest(
             model_id=self._request.model.model_id,
             instructions=self._request.agent.instructions,
+            skills=tuple(_prompt_skill(skill) for skill in self._request.skills),
             messages=messages,
             policy=AgentPolicy.from_runtime_config(self._request.agent.runtime_config),
             temperature=_float_param(params, "temperature"),
@@ -339,6 +372,22 @@ def _tool_kind(name: str) -> str:
     return "MCP" if name.startswith(MCP_TOOL_PREFIX) else "SKILL"
 
 
+def _prompt_skill(skill: ResolvedSkill) -> PromptSkill:
+    """把生效 Skill 投影成提示词目录项（只带名称/描述，产物细节不进提示词）。
+
+    缺了这一步，`DefaultPromptBuilder` 的 `## Available skills` 段永远为空 —— 模型不知道
+    自己有哪些技能可按名加载（症状：用户自然语言问"你有哪些技能"时，模型只能答"我无法
+    列出，请告诉我 key"）。授权判定仍在上游（生效集合），本函数只做投影。
+    """
+    label = skill.frontmatter.get("platform_label")
+    return PromptSkill(
+        key=skill.key,
+        name=skill.name,
+        description=skill.description,
+        platform_label=str(label) if label else None,
+    )
+
+
 def _args_hash(arguments: Mapping[str, Any]) -> str:
     canonical = json.dumps(dict(arguments), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -363,6 +412,8 @@ class ToolCallRecorder:
         definition: ToolDefinition,
         arguments: Mapping[str, Any],
         handler: Any,
+        *,
+        call_id: str,
     ) -> str:
         started_wall = datetime.now(UTC)
         started = time.monotonic()
@@ -370,14 +421,14 @@ class ToolCallRecorder:
         status = "OK"
         error_code: str | None = None
         try:
-            content = str(await handler(arguments))
+            content = str(await handler(arguments, call_id=call_id))
             if self._artifacts is not None and len(content.encode("utf-8")) > TOOL_RESULT_ARTIFACT_BYTES:
                 reference = await self._artifacts.persist_tool_result(
                     tenant_id=self._context.tenant_id,
                     conversation_id=self._context.conversation_id,
                     run_id=self._context.run_id,
                     task_id=None,
-                    tool_call_id=definition.name,
+                    tool_call_id=call_id,
                     tool_name=definition.name,
                     result_text=content,
                     user_id=self._context.user_id,
@@ -411,7 +462,7 @@ class ToolCallRecorder:
             )
             if self._audit is not None:
                 await self._audit.record_tool_call(
-                    tool_call_id=definition.name,
+                    tool_call_id=call_id,
                     tool_name=definition.name,
                     tool_kind=_tool_kind(definition.name),
                     prepared_args_hash=_args_hash(arguments),

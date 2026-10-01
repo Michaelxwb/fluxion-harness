@@ -236,7 +236,11 @@ class _BotConnection:
 
     def _record_failure(self, event: str, error: Exception) -> None:
         self._last_error = error
-        logger.warning("%s bot_id=%s error=%s", event, self.bot.bot_id, type(error).__name__)
+        # 类名与消息都要：str(exc) 不含类名，只打 __name__ 又会丢掉「缺哪个包/为什么连不上」
+        # 这类关键信息（真实事故：只落 ImportError，看不到 requires python-socks）。
+        logger.warning(
+            "%s bot_id=%s error=%s: %s", event, self.bot.bot_id, type(error).__name__, error
+        )
 
     def _handle_message(self, message: WeComInboundMessage) -> None:
         self._emit(message)
@@ -258,7 +262,9 @@ class _BotConnection:
 
     def _handle_error(self, error: Exception) -> None:
         self._last_error = error
-        logger.warning("wecom_bot_error bot_id=%s error=%s", self.bot.bot_id, type(error).__name__)
+        logger.warning(
+            "wecom_bot_error bot_id=%s error=%s: %s", self.bot.bot_id, type(error).__name__, error
+        )
         if self._stop_requested.is_set():
             return
         self._set_state(ConnectionState.BACKOFF)

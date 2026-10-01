@@ -94,6 +94,7 @@ STREAM_BUSINESS_TYPES: dict[str, str] = {
     "message.delta": "ASSISTANT_DELTA",
     "tool.started": "TOOL_CALL_STARTED",
     "tool.completed": "TOOL_CALL",
+    "assistant.turn": "ASSISTANT_TURN",
     "skill.loaded": "SKILL_LOADED",
     "artifact.created": "ARTIFACT_CREATED",
     "interrupt.required": "INTERRUPT_REQUIRED",

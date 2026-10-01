@@ -533,7 +533,10 @@ async def test_skills_success_lists_effective_catalog(catalog: MessageCatalog) -
     await pipeline.handle(adapter, make_envelope(text="/skills"))
 
     # 设计 §3.4.2：name/platform_label/description 都可见，且不含 SKILL.md 全文
-    assert _sent_texts(adapter) == ["设备策略检查（policy-check）: 检查客户设备策略"]
+    # 排版（2026-10-01 改善）：条数抬头 → 名称加粗独占一行 → 描述另起一行
+    assert _sent_texts(adapter) == [
+        "**可用技能（1）**\n\n**设备策略检查（policy-check）**\n检查客户设备策略"
+    ]
 
 
 async def test_skills_empty_catalog_reply(catalog: MessageCatalog) -> None:

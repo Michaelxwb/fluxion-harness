@@ -15,7 +15,16 @@ class ToolEffect(StrEnum):
 
 
 class ToolHandler(Protocol):
-    async def __call__(self, arguments: Mapping[str, Any]) -> str: ...
+    """工具处理器协议。
+
+    `call_id` 是**模型本次调用**的 id（`ModelToolCall.id`），**必须**由调用方传入：
+    它是「一次 Run 内同一工具被调用多次」时区分各次调用的唯一标识。缺了它，下游只能拿
+    工具名兜底，而 `runtime.tool_call_audit` 上的唯一约束正是 `(run_id, tool_call_id)`
+    —— 于是同名工具第二次调用必定插入失败（历史缺陷，见 2026-10-01 排查）。
+    叶子处理器可以不使用它，但**必须**声明并透传，否则包装层拿不到。
+    """
+
+    async def __call__(self, arguments: Mapping[str, Any], *, call_id: str) -> str: ...
 
 
 @dataclass(frozen=True, slots=True)

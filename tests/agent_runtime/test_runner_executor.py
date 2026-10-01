@@ -12,6 +12,7 @@ from muad_agent_core.model import (
     ModelResponse,
     ModelUnavailableError,
 )
+from muad_agent_core.prompt import DefaultPromptBuilder
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.api.deps import get_executor_factory
 from muad_agent_runtime.application.executor import (
@@ -26,7 +27,7 @@ from muad_agent_runtime.infrastructure.models.runtime import RunRecord
 from muad_agent_runtime.main import app
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import ResolveDefinitionResponse, ResolvedModel
+from muad_contracts import ResolvedAgent, ResolveDefinitionResponse, ResolvedModel, ResolvedSkill
 from muad_platform_sdk import SecretValue
 
 from agent_runtime.conftest import FakeExecutor, TenantContext, parse_sse
@@ -213,3 +214,55 @@ async def test_no_env_fallback_for_missing_model_api_key(
         await resolve_model_api_key(_model(None))
 
     assert error.value.code == "CREDENTIAL_MISSING"
+
+
+def test_effective_skills_enter_the_model_prompt() -> None:
+    """生效 Skill 必须进入 `AgentRunRequest.skills`，从而进入模型的系统提示词。
+
+    回归（2026-10-01 排查）：`_build_run_request` 此前漏传 `skills=`，
+    `DefaultPromptBuilder` 的 `## Available skills` 段因此恒为空 —— 技能明明已授权给该
+    用户，模型却不知道它存在。症状：用自然语言问「你有哪些技能」时，模型只能回答
+    「我无法列出，请把 skill key 告诉我」，只有用户报出 key 才可能用上技能。
+    """
+    skill = ResolvedSkill(
+        skill_id=uuid.uuid4(),
+        artifact_id=uuid.uuid4(),
+        key="demo-skill",
+        name="Demo Skill",
+        description="做演示用",
+        version="1.0.0",
+        checksum="sha256:" + "0" * 64,
+        storage_key="skills/a/b/skill.zip",
+        frontmatter={"platform_label": "演示"},
+    )
+
+    async def _never_cancelled() -> bool:
+        return False
+
+    request = ExecutorRequest(
+        agent=ResolvedAgent(id=uuid.uuid4(), key="demo", revision=1, instructions="be helpful"),
+        model=ResolvedModel(
+            id=uuid.uuid4(),
+            revision=1,
+            model_id="gpt-4o-mini",
+            base_url="https://api.example.com/v1",
+        ),
+        input_text="hi",
+        is_cancel_requested=_never_cancelled,
+        skills=(skill,),
+    )
+    executor = AgentRunnerExecutor(
+        runner=AgentRunner(provider=StaticProvider(content="ok"), registry=ToolRegistry()),
+        request=request,
+    )
+
+    run_request = executor._build_run_request()
+    assert [(item.key, item.name, item.platform_label) for item in run_request.skills] == [
+        ("demo-skill", "Demo Skill", "演示")
+    ]
+
+    system = DefaultPromptBuilder().build(
+        instructions=run_request.instructions, skills=run_request.skills
+    )
+    assert "## Available skills" in system
+    assert "demo-skill" in system and "做演示用" in system

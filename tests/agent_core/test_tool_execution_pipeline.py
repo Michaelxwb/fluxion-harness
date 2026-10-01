@@ -16,7 +16,7 @@ from muad_agent_core.tools.pipeline import (
 CALLS: list[dict[str, Any]] = []
 
 
-def _echo_handler(arguments: dict[str, Any]) -> str:
+def _echo_handler(arguments: dict[str, Any], *, call_id: str) -> str:
     CALLS.append(dict(arguments))
     return json.dumps({"echo": arguments.get("text")})
 
@@ -120,7 +120,7 @@ async def test_b113_args_hash_stable_and_redacted() -> None:
 async def test_b113_handler_failure_audits_and_reraises() -> None:
     """[B-113] handler 异常：审计失败终态后异常向上传播（不吞）。"""
 
-    def bad_handler(arguments: dict[str, Any]) -> str:
+    def bad_handler(arguments: dict[str, Any], *, call_id: str) -> str:
         raise RuntimeError("boom")
 
     registry = ToolRegistry()

@@ -129,7 +129,7 @@ class ToolExecutionPipeline:
 
         content: str
         try:
-            outcome = definition.handler(prepared.arguments)
+            outcome = definition.handler(prepared.arguments, call_id=prepared.call_id)
             # ToolHandler 协议声明为 async，但运行时同时容忍同步 handler：
             # 返回 awaitable 就 await，否则直接取返回值（不做强制转换）
             resolved: Any = await outcome if inspect.isawaitable(outcome) else outcome

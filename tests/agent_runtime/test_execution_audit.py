@@ -79,10 +79,10 @@ async def test_tool_recorder_audits_and_externalizes_large_result(tmp_path) -> N
     )
     large = "x" * (9 * 1024)
 
-    async def handler(arguments: Any) -> str:
+    async def handler(arguments: Any, *, call_id: str) -> str:
         return large
 
-    content = await recorder(definition, {"skill_key": "demo"}, handler=handler)
+    content = await recorder(definition, {"skill_key": "demo"}, handler=handler, call_id="call-demo-1")
     payload = json.loads(content)
     assert payload["artifact"]["size"] == len(large)
     assert payload["artifact"]["preview"].startswith("x")
@@ -94,6 +94,7 @@ async def test_tool_recorder_audits_and_externalizes_large_result(tmp_path) -> N
             )
         ).scalars().all()
         assert len(audits) == 1
+        assert audits[0].tool_call_id == "call-demo-1"  # 必须是模型给的调用 id，不是工具名
         assert audits[0].tool_name == "load_skill"
         assert audits[0].tool_kind == "SKILL"
         assert audits[0].status == "OK"
@@ -124,11 +125,11 @@ async def test_tool_recorder_audits_failure_status() -> None:
         effect=ToolEffect.READ,
     )
 
-    async def handler(arguments: Any) -> str:
+    async def handler(arguments: Any, *, call_id: str) -> str:
         raise RuntimeError("boom")
 
     with pytest.raises(RuntimeError):
-        await recorder(definition, {"q": "x"}, handler=handler)
+        await recorder(definition, {"q": "x"}, handler=handler, call_id="call-demo-2")
 
     async with get_session_factory()() as session:
         audit = (
@@ -227,3 +228,50 @@ async def test_run_request_carries_history_and_credentials_surface(
     assert contents[-1] == "second"
     assert seen[-1].run_context is not None
     assert seen[-1].run_context.tenant_id == tenant.tenant_id
+
+
+async def test_tool_recorder_keeps_repeated_same_tool_calls_distinct() -> None:
+    """同一工具在一次 Run 内被调用多次：每次都须落一行，且 tool_call_id 各不相同。
+
+    回归（2026-10-01 排查）：此前用**工具名**充当 `tool_call_id`，而
+    `runtime.tool_call_audit` 上有 `UNIQUE (run_id, tool_call_id)`（`0002` 迁移）
+    ⇒ 同名工具第二次调用必定撞唯一约束。又因审计写在 `finally` 里，异常还会把工具
+    本身的成功结果一并掩盖 —— 真实表现是模型第二次 `load_skill` 直接失败、
+    skill 整个用不了（此前用例只断言 `tool_name`，所以从未触发）。
+    """
+    recorder = ToolCallRecorder(
+        context=ExecutorRunContext(
+            tenant_id=TENANT, run_id=RUN_ID, conversation_id=CONV_ID, user_id=USER_ID
+        ),
+        audit_writer=_writer(),
+        artifact_writer=None,
+    )
+    definition = ToolDefinition(
+        name="load_skill",
+        description="d",
+        input_schema={"type": "object"},
+        effect=ToolEffect.READ,
+    )
+
+    async def handler(arguments: Any, *, call_id: str) -> str:
+        return f"ok:{arguments['skill_key']}"
+
+    first = await recorder(definition, {"skill_key": "a"}, handler=handler, call_id="call-a")
+    second = await recorder(definition, {"skill_key": "b"}, handler=handler, call_id="call-b")
+    assert (first, second) == ("ok:a", "ok:b")
+
+    async with get_session_factory()() as session:
+        rows = (
+            (
+                await session.execute(
+                    sa.select(ToolCallAudit)
+                    .where(ToolCallAudit.tenant_id == TENANT)
+                    .order_by(ToolCallAudit.create_time)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert [row.tool_call_id for row in rows] == ["call-a", "call-b"]
+    assert {row.tool_name for row in rows} == {"load_skill"}
+    assert {row.status for row in rows} == {"OK"}

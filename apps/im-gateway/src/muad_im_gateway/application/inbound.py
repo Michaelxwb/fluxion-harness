@@ -106,17 +106,23 @@ def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
 
 
 def format_skills(skills: Sequence[ChannelSkillItem]) -> str:
-    """设计 §3.4.2：只展示 name/platform_label/description，不含 SKILL.md 全文。"""
+    """设计 §3.4.2：只展示 name/platform_label/description，不含 SKILL.md 全文。
+
+    排版（2026-10-01 改善）：先给条数，再**一条一段** —— 名称单独一行加粗，描述缩进在
+    下一行，段间空行。原先是 `名称: 描述` 单行拼接，条目一多就糊成一整块、名称与描述
+    分不清。回复走 `reply_text` 的 stream 体，markdown 会被渲染（模型回复里的 `**粗体**`
+    已实测渲染成加粗），故用 `**` 做标题。
+    """
     if not skills:
         return NO_SKILLS_TEXT
-    lines: list[str] = []
+    blocks = [f"**可用技能（{len(skills)}）**"]
     for skill in skills:
         name = skill.name.strip()
         label = (skill.platform_label or "").strip()
         title = f"{label}（{name}）" if label and label != name else name
         description = skill.description.strip()
-        lines.append(f"{title}: {description}".strip(": "))
-    return "\n".join(lines)
+        blocks.append(f"**{title}**\n{description}" if description else f"**{title}**")
+    return "\n\n".join(blocks)
 
 
 async def fetch_skill_catalog(

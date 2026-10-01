@@ -265,6 +265,9 @@ async def test_b111_skills_lists_full_catalog_without_leaking_unauthorized(
         assert item["name"] in text, item
         assert item["label"] in text, item
         assert item["description"] in text, item
+        # 排版：描述另起一行（不是 `名称: 描述` 单行拼接），否则条目一多就糊成一整块
+        assert f"\n{item['description'].strip()}" in text, item
+    assert text.startswith(f"**可用技能（{len(catalog_env['visible'])}）**"), text[:80]
     # 未授权条目既不出现名称也不出现描述（不泄露存在性）
     assert catalog_env["hidden_name"] not in text
     assert UNAUTHORIZED_CANARY not in text

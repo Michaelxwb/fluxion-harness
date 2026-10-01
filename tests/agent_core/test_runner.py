@@ -72,7 +72,7 @@ def _tool_call(
 
 
 def _echo_tool(registry: ToolRegistry, calls: list[dict[str, Any]]) -> None:
-    async def handler(arguments: Mapping[str, Any]) -> str:
+    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
         calls.append(dict(arguments))
         return json.dumps({"echo": arguments.get("text")})
 
@@ -178,7 +178,7 @@ async def test_unknown_tool_is_fed_back_to_model() -> None:
 
 
 async def test_tool_handler_failure_is_fed_back_to_model() -> None:
-    async def failing(arguments: Mapping[str, Any]) -> str:
+    async def failing(arguments: Mapping[str, Any], *, call_id: str) -> str:
         raise RuntimeError("handler exploded")
 
     registry = ToolRegistry()
@@ -276,7 +276,7 @@ async def test_external_cancellation_is_checked_between_steps() -> None:
     calls: list[dict[str, Any]] = []
     state = {"cancelled": False}
 
-    async def handler(arguments: Mapping[str, Any]) -> str:
+    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
         calls.append(dict(arguments))
         state["cancelled"] = True
         return "{}"

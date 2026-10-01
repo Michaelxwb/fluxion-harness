@@ -124,7 +124,7 @@ def _task_summary(data: Mapping[str, Any]) -> dict[str, Any]:
     return {key: data.get(key) for key in TASK_SUMMARY_KEYS}
 
 
-Handler = Callable[[Mapping[str, Any]], Awaitable[Any]]
+Handler = Callable[..., Awaitable[Any]]
 ToolSpec = tuple[str, str, dict[str, Any], ToolEffect, Handler]
 
 
@@ -145,9 +145,9 @@ class BackgroundTaskToolSet:
             registry.register(definition)
 
     def _wrap(self, handler: Handler) -> ToolHandler:
-        async def run(arguments: Mapping[str, Any]) -> str:
+        async def run(arguments: Mapping[str, Any], *, call_id: str) -> str:
             try:
-                return json.dumps(await handler(arguments), ensure_ascii=False, default=str)
+                return json.dumps(await handler(arguments, call_id=call_id), ensure_ascii=False, default=str)
             except TaskToolError as exc:
                 return _error(exc.code, exc.message)
             except AppError as exc:
@@ -259,7 +259,7 @@ class BackgroundTaskToolSet:
         digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
         return f"run:{self._context.source_run_id or 'ad-hoc'}:schedule:{digest}"
 
-    async def _create_schedule(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    async def _create_schedule(self, arguments: Mapping[str, Any], *, call_id: str) -> dict[str, Any]:
         skill = self._skill(arguments)
         spec = _spec_arg(arguments)
         if spec is None:
@@ -282,7 +282,7 @@ class BackgroundTaskToolSet:
             locale=self._context.locale,
         )
 
-    async def _list_schedules(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    async def _list_schedules(self, arguments: Mapping[str, Any], *, call_id: str) -> dict[str, Any]:
         return await self._client.list_schedules(
             tenant_id=self._context.tenant_id,
             actor_user_id=self._context.actor_user_id,
@@ -291,7 +291,7 @@ class BackgroundTaskToolSet:
             **_query(arguments),
         )
 
-    async def _update_schedule(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    async def _update_schedule(self, arguments: Mapping[str, Any], *, call_id: str) -> dict[str, Any]:
         name = arguments.get("name")
         return await self._client.update_schedule(
             tenant_id=self._context.tenant_id,
@@ -303,7 +303,7 @@ class BackgroundTaskToolSet:
             trace_id=self._context.trace_id,
         )
 
-    async def _delete_schedule(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    async def _delete_schedule(self, arguments: Mapping[str, Any], *, call_id: str) -> dict[str, Any]:
         return await self._client.delete_schedule(
             tenant_id=self._context.tenant_id,
             schedule_id=_uuid_arg(arguments, "schedule_id"),
@@ -311,7 +311,7 @@ class BackgroundTaskToolSet:
             trace_id=self._context.trace_id,
         )
 
-    async def _get_task(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    async def _get_task(self, arguments: Mapping[str, Any], *, call_id: str) -> dict[str, Any]:
         data = await self._client.get_task(
             tenant_id=self._context.tenant_id,
             task_id=_uuid_arg(arguments, "task_id"),
@@ -320,7 +320,7 @@ class BackgroundTaskToolSet:
         )
         return _task_summary(data)
 
-    async def _list_tasks(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    async def _list_tasks(self, arguments: Mapping[str, Any], *, call_id: str) -> dict[str, Any]:
         data = await self._client.list_tasks(
             tenant_id=self._context.tenant_id,
             trace_id=self._context.trace_id,
@@ -330,7 +330,7 @@ class BackgroundTaskToolSet:
         items = data.get("items") or []
         return {**data, "items": [_task_summary(item) for item in items if isinstance(item, Mapping)]}
 
-    async def _cancel_task(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    async def _cancel_task(self, arguments: Mapping[str, Any], *, call_id: str) -> dict[str, Any]:
         return await self._client.cancel_task(
             tenant_id=self._context.tenant_id,
             task_id=_uuid_arg(arguments, "task_id"),
