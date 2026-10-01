@@ -21,6 +21,13 @@ from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 
+from ..metrics import (
+    MEMORY_RECALL_BYTES_METRIC,
+    MEMORY_RECALL_METRIC,
+    MEMORY_WRITE_METRIC,
+    record_counter,
+    record_outcome,
+)
 from .memory_service import (
     ALLOWED_CATEGORIES,
     SOURCE_AGENT_INFERRED,
@@ -183,8 +190,19 @@ class MemoryToolSet:
                 source_ref=str(self._scope.run_id),
             )
         except Exception as exc:  # noqa: BLE001 — 任何写失败都必须可审计，不得静默降级成 OK
-            logger.warning("memory write failed", extra={"memory_key": memory_key}, exc_info=True)
+            record_outcome(MEMORY_WRITE_METRIC, "ERROR", {"source_type": source_type})
+            logger.warning("memory_write_failed", extra={"memory_key": memory_key}, exc_info=True)
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+        record_outcome(MEMORY_WRITE_METRIC, "OK", {"source_type": source_type})
+        # 只落 key / 来源 / 长度：`value` 是用户可控内容，落全文等于把用户输入搬进日志
+        logger.info(
+            "memory_write_ok",
+            extra={
+                "memory_key": memory_key,
+                "source_type": source_type,
+                "value_length": len(value),
+            },
+        )
         return json.dumps(
             {"saved": True, "memory_key": entry["memory_key"], "version": entry["version"]},
             ensure_ascii=False,
@@ -202,9 +220,23 @@ class MemoryToolSet:
                 self._scope.tenant_id, self._scope.user_id, prefix=prefix, limit=limit
             )
         except Exception:  # noqa: BLE001 — 降级契约：读失败只回错误码，不中断对话
-            logger.warning("memory recall failed", extra={"run_id": str(self._scope.run_id)}, exc_info=True)
+            record_outcome(MEMORY_RECALL_METRIC, "ERROR")
+            logger.warning("memory_recall_failed", extra={"run_id": str(self._scope.run_id)}, exc_info=True)
             return _recall_error(MEMORY_READ_FAILED, "memory read failed")
-        return _bounded_payload(entries)
+        payload = _bounded_payload(entries)
+        payload_bytes = len(payload.encode("utf-8"))
+        record_outcome(MEMORY_RECALL_METRIC, "OK")
+        # 字节口径与 `MAX_RECALL_BYTES` 一致：统计返回体（上限约束的就是它），不是单条 value
+        record_counter(MEMORY_RECALL_BYTES_METRIC, payload_bytes)
+        logger.info(
+            "memory_recall_ok",
+            extra={
+                "run_id": str(self._scope.run_id),
+                "result_count": len(json.loads(payload)["items"]),
+                "result_bytes": payload_bytes,
+            },
+        )
+        return payload
 
 
 def _bounded_payload(entries: Sequence[Mapping[str, Any]]) -> str:

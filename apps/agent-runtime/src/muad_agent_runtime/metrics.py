@@ -21,6 +21,10 @@ SKILL_LOAD_METRIC: Final = "skill_load_total"
 EGRESS_CALLS_METRIC: Final = "egress_calls_total"
 ARTIFACT_BYTES_METRIC: Final = "artifact_bytes_total"
 RUN_RECLAIM_METRIC: Final = "run_reclaim_total"
+MEMORY_WRITE_METRIC: Final = "memory_write_total"
+MEMORY_INJECT_METRIC: Final = "memory_inject_total"
+MEMORY_RECALL_METRIC: Final = "memory_recall_total"
+MEMORY_RECALL_BYTES_METRIC: Final = "memory_recall_bytes_total"
 
 COUNTER: Final = "counter"
 GAUGE: Final = "gauge"
@@ -39,6 +43,17 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     (EGRESS_CALLS_METRIC, COUNTER, ("platform", "status"), "Egress calls by platform and status"),
     (ARTIFACT_BYTES_METRIC, COUNTER, ("type",), "Artifact bytes written by artifact type"),
     (RUN_RECLAIM_METRIC, COUNTER, (), "Abandoned runs reaped back by the run reaper"),
+    (
+        MEMORY_WRITE_METRIC,
+        COUNTER,
+        ("source_type", "status"),
+        "Long-term memory writes by source type and outcome",
+    ),
+    # 注入/检索的"条数与字节"记在 **amount** 而不是 label：label 里放计数值会按每次取值
+    # 裂出新的时间序列（无界基数），与本模块 docstring 的 label 卫生口径冲突。
+    (MEMORY_INJECT_METRIC, COUNTER, (), "Memory entries injected into model requests"),
+    (MEMORY_RECALL_METRIC, COUNTER, ("status",), "Recall tool calls by outcome"),
+    (MEMORY_RECALL_BYTES_METRIC, COUNTER, (), "Bytes returned by the recall tool"),
 )
 
 

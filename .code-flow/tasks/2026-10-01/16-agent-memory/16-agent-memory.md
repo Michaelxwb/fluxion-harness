@@ -29,7 +29,7 @@
 
 - **验收栈复用（不新建临时脚本）**：S-01/S-05 的 E2E 落在 `tests/acceptance/im_gateway/`，复用既有 `gateway_stack`——它已拉起**真实 Gateway + Console + Runtime×2 + Worker + 真实 LLM 探针 + 企微 WS 探针 + 真实 PostgreSQL/Redis**，并自带 `bound_external_user_id` / `agent_id` 种子。design 声明的"真实 IM Gateway + 真实 PostgreSQL + 真实模型"由此满足，无需新基建。
 - **层级不降级**：design 指定 E2E 的 S-01/S-05 保持 `E2E`（manifest `kind=e2e`，Done Gate 期间 deferred，由需求级 `--include-e2e` 统一执行）；其余 integration/unit 场景按 design 层级原样登记。
-- **真实企微通道不登记为 manual 行**：design §2.5.2 注要求"作为 manual 场景登记"，但**先例（10-im-gateway 归档 manifest）中真实企微同样未登记 manual 行**；且 manifest 的 manual 行永不自动执行，无真实凭据时只能长期停在 `planned`，反而制造一行永远无法收敛的验收。故本需求以 **WS 探针 + 真实 Gateway 进程**作为企微边界的可复现替身，真实企微真机复验按 S-P13-07 口径**保持 planned、不得标 verified**，不占用场景 ID。若需要，可在 TASK-005 追加 `B-05`（manual）——**需用户确认后补**。
+- **真实企微通道不登记为 manual 行**：design §2.5.2 注要求"作为 manual 场景登记"，但**先例（10-im-gateway 归档 manifest）中真实企微同样未登记 manual 行**；且 manifest 的 manual 行永不自动执行，无真实凭据时只能长期停在 `planned`，反而制造一行永远无法收敛的验收。故本需求以 **WS 探针 + 真实 Gateway 进程**作为企微边界的可复现替身，真实企微真机复验按 S-P13-07 口径**保持 planned、不得标 verified**，不占用场景 ID。若需要，可为 TASK-005 追加一条 manual 场景（**需用户确认后补**；`B-05` 已被 TASK-004 的审计观测场景占用）。
 - **分级注入的两处实现边界**（避免两个任务改同一段）：TASK-001 只提供**纯数据访问**（`list_for_injection` 在 SQL 层过滤 `source_type=enabled=is_deleted` 并 `ORDER BY update_time DESC LIMIT n`；`search` 供 recall 用）；**上限与措辞**分别由 TASK-003（注入）与 TASK-002（recall）施加，理由是两者上界不同且都要独立断言。
 - **记忆无 agent 维度是既定产品口径**（design §2.4 有意妥协②）：同一用户跨 agent、跨通道共享一份记忆。E2E 中**不得**把"agent B 读到 agent A 写入的记忆"当作缺陷断言。
 - **`source_type` 是模型自报的枚举**（RISK-05）：断言只针对**系统行为**（非 `USER_EXPLICIT` 不注入、`USER_EXPLICIT` 注入），**不得**断言模型一定会正确标注。
@@ -48,11 +48,11 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 argv | cwd | timeout | depends_on |
 |---|---|---|---|---|---|---|---|---|---|
-| S-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Gateway(HTTP/SSE + 企微 WS 探针) → Runtime → 真实 PostgreSQL + 真实 LLM 探针 | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s01"] | . | 900 |  |
+| S-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Gateway(HTTP/SSE + 企微 WS 探针) → Runtime → 真实 PostgreSQL + 真实 LLM 探针 | TASK-005 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s01"] | . | 900 |  |
 | S-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（同 key 覆盖更新） | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py","-k","s02"] | . | 600 |  |
 | S-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s03"] | . | 600 |  |
 | S-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（真实 PostgreSQL 取记忆） | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s04"] | . | 600 |  |
-| S-05 | 16-agent-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Gateway(SSE) → Runtime → 真实 PostgreSQL + 真实 LLM 探针（回执 + 审计行） | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s05"] | . | 900 |  |
+| S-05 | 16-agent-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Gateway(SSE) → Runtime → 真实 PostgreSQL + 真实 LLM 探针（回执 + 审计行） | TASK-005 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s05"] | . | 900 |  |
 | E-01 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | 工具处理器 → 真实 PostgreSQL（跨用户写入不可能） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e01"] | . | 600 |  |
 | E-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | 处理器入参校验（缺 `source_type`） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e02"] | . | 600 |  |
 | E-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | 处理器入参校验（category 白名单） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","e03"] | . | 600 |  |
@@ -64,12 +64,13 @@
 | B-02 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | ContextBuilder → 模型请求（双上限先到先得） | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","b02"] | . | 600 |  |
 | B-03 | 16-agent-memory.design.md#2.5.2 功能验收场景 | unit | `recall` 入参（`limit` 0/21/缺省） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b03"] | . | 600 |  |
 | B-04 | 16-agent-memory.design.md#2.5.2 功能验收场景 | integration | Runtime 工具结果链路（recall 满配不被外置） | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_tools.py","-k","b04"] | . | 600 |  |
+| B-05 | 16-agent-memory.design.md#3.5 质量实现方案 | integration | 真实 PostgreSQL 审计表 + 真实 logger 出口 + 真实 api-kit 注册表 | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_observability.py"] | . | 600 |  |
 | RULE-data-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 真实 PostgreSQL 表结构/索引/四列口径 + 原 verifier 真实边界 | TASK-001 | verified | ["uv","run","pytest","-q","tests","-k","schema_parity"] | . | 600 |  |
 | RULE-time-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 时间列口径 + 原 verifier 真实边界 | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"] | . | 900 |  |
 | RULE-auth-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 记忆非可授权资源 + 原 verifier 真实边界 | TASK-002 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 1200 |  |
 | RULE-snapshot-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 记忆属实时读取、不进快照冻结集 + 原 verifier 真实边界 | TASK-003 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 |  |
 | RULE-secret-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 平台密钥不经记忆链进入 Prompt/日志 + 原 verifier 真实边界 | TASK-003 | verified | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 600 |  |
-| RULE-log-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | logging-kit 出口 + `value` 全文不入日志 + 原 verifier 真实边界 | TASK-004 | planned | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | . | 600 |  |
+| RULE-log-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | logging-kit 出口 + `value` 全文不入日志 + 原 verifier 真实边界 | TASK-004 | verified | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | . | 600 |  |
 | RULE-im-001 | 16-agent-memory.design.md#Spec Compliance Matrix | integration | 不改 bot↔agent 路由；记忆按已绑定身份 + 原 verifier 真实边界 | TASK-005 | planned | ["uv","run","pytest","-q","tests/console_channel","tests/gateway"] | . | 900 |  |
 | RULE-test-001 | 16-agent-memory.design.md#Spec Compliance Matrix | E2E | 仓库级真实验收（真实 HTTP/PostgreSQL/Redis/进程）+ 原 verifier 真实边界 | TASK-005 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 2400 |  |
 
@@ -123,6 +124,7 @@
 | RULE-data-001 | 不适用（本任务不改表结构：**无新增迁移**，只复用既有 `runtime.user_memory`） | 原 verifier 通过：**35 passed, 1639 deselected** | 表结构/索引 parity 由原 verifier 断言（四列口径、partial unique `WHERE is_deleted=false`、`timestamptz`、`jsonb`） | 原 verifier 真实边界（真实 PostgreSQL schema 与 ORM/迁移一致性） | verified |
 | RULE-time-001 | 不适用（时间列口径既有，本任务只改变赋值路径） | 原 verifier 通过：`tests/frontend/test_datetime_contract.py` + `tests -k schema_parity` 均绿（**35 passed, 1639 deselected**） | `update_time` 列保持 `timestamptz`；本任务把赋值统一为数据库时钟 `now()`（插入与更新同口径），并在代码注释中记录理由（注入/检索按它排序，Runtime 多 Pod 不得用进程时钟排序） | 原 verifier 真实边界 + 真实 PostgreSQL 回读 | verified |
 - S-02: verified — automated command passed; run_id=22e3421ec51c405eb98ae5b0e8711153 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
@@ -204,6 +206,14 @@
 - B-01: verified — automated command passed; run_id=ab63ce4a74c746aab89f6c2e9e17bc00 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=ab63ce4a74c746aab89f6c2e9e17bc00 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=ab63ce4a74c746aab89f6c2e9e17bc00 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
@@ -272,6 +282,11 @@
 - E-06: verified — automated command passed; run_id=3229a1d183f34f9faab46276af123fa7 (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=3229a1d183f34f9faab46276af123fa7 (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=3229a1d183f34f9faab46276af123fa7 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
@@ -281,12 +296,12 @@
 - [2026-10-01] completed (done)
 ## TASK-004: 记忆观测与审计取证
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-003
 - **Source**: 16-agent-memory.design.md#3.5 质量实现方案, 16-agent-memory.design.md#2.5.1 业务规则与约束
 - **Spec-Refs**: harness-log#RULE-log-001
-- **Acceptance-Refs**: RULE-log-001
+- **Acceptance-Refs**: RULE-log-001, B-05
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/metrics.py`, `apps/agent-runtime/src/muad_agent_runtime/application/memory_service.py`, `apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py`, `tests/agent_runtime/test_memory_observability.py`（新）
 - **Estimate**: 半天级
 
@@ -301,26 +316,38 @@
 
 ### Checklist
 
-- [ ] [RULE-log-001][integration] 作为唯一最终负责人：断言记忆链路的日志经统一 logging-kit 出口、字段结构一致、**`value` 全文不出现**（用超长且含哨兵串的 value 反查日志），且错误走错误码而非堆栈外泄；原 verifier 全部通过。verifier argv：`["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"]`。
-- [ ] [S-05 观测面] 补齐说明：本任务不承担 S-05 的最终验收（回执与审计行的端到端断言归 TASK-005），但须提供 TASK-005 所需的可观测入口（`memory_write_total` 计数可读）。
-- [ ] 声明三个指标并接线：写入（含 `source_type` 与 status 维度）、注入（条数）、检索（条数与字节）。
-- [ ] 落 INFO 日志三处，断言不含 `value` 全文；warning 日志覆盖 E-06 的读失败降级路径。
-- [ ] 以真实 PostgreSQL 为边界钉死 RULE-07 的审计行：成功写入后 `tool_call_audit` 中存在 `tool_name='remember'` 的行，其 `args_preview_json` 可读出 `memory_key` 与 `source_type`，且 `status='OK'`；失败写入 `status='ERROR'` 且带错误码。**明确记录"复用既有表、无新迁移"**。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
+- [x] [RULE-log-001][integration] 作为唯一最终负责人：断言记忆链路的日志经统一 logging-kit 出口、字段结构一致、**`value` 全文不出现**（用超长且含哨兵串的 value 反查日志），且错误走错误码而非堆栈外泄；原 verifier 全部通过。verifier argv：`["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"]`。
+- [x] [B-05][integration] 以真实 PostgreSQL（`tool_call_audit`）+ 真实 logger 出口 + 真实 api-kit 注册表为边界：写失败必须在审计与指标面可分辨（`status='ERROR'` + 非空 `error_code` + `memory_write_total{status='ERROR'}` 递增），日志渲染（message + extras）不含 `value` 全文。执行 argv：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_observability.py"]`。
+- [x] [S-05 观测面] 补齐说明：本任务不承担 S-05 的最终验收（回执与审计行的端到端断言归 TASK-005），但须提供 TASK-005 所需的可观测入口（`memory_write_total` 计数可读）。
+- [x] 声明三个指标并接线：写入（含 `source_type` 与 status 维度）、注入（条数）、检索（条数与字节）。
+- [x] 落 INFO 日志三处，断言不含 `value` 全文；warning 日志覆盖 E-06 的读失败降级路径。
+- [x] 以真实 PostgreSQL 为边界钉死 RULE-07 的审计行：成功写入后 `tool_call_audit` 中存在 `tool_name='remember'` 的行，其 `args_preview_json` 可读出 `memory_key` 与 `source_type`，且 `status='OK'`；失败写入 `status='ERROR'` 且带错误码。**明确记录"复用既有表、无新迁移"**。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| RULE-log-001 | integration | logging-kit 出口 + `value` 全文不入日志 + 原 verifier 真实边界 | 日志不含 `value` 全文；字段结构一致；原 verifier 全部通过 | tests/agent_runtime/test_memory_observability.py + 原 verifier / RULE-log-001 | `["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"]` | planned |
+| RULE-log-001 | integration | logging-kit 出口 + `value` 全文不入日志 + 原 verifier 真实边界 | 日志不含 `value` 全文；字段结构一致；原 verifier 全部通过 | tests/agent_runtime/test_memory_observability.py + 原 verifier / RULE-log-001 | `["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"]` | verified |
+| B-05 | integration | 真实 PostgreSQL（`tool_call_audit`）+ 真实 logger 出口 + 真实 api-kit 注册表 | 写失败在审计与指标面**可分辨**（`status=ERROR` + 错误码）；日志无 `value` 全文；指标随调用递增 | tests/agent_runtime/test_memory_observability.py / B-05 | `["uv","run","pytest","-q","tests/agent_runtime/test_memory_observability.py"]` | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| RULE-log-001 | **真实 RED（3 条）**：① `test_rule_log_001_memory_value_is_never_written_to_logs` FAILED —— `AssertionError: 写入链路缺 INFO 日志：`（`assert 'memory_write' in ''`：写入/注入/检索三条链路一条日志都没有）；② `test_memory_metrics_cover_write_inject_and_recall` FAILED —— `assert 0.0 == (0.0 + 1)` where `_metric_value('memory_write_total', {'source_type':'USER_EXPLICIT','status':'OK'}) == 0.0`（指标未声明）；③ `test_rule_07_write_failure_is_visible_in_audit_and_metric` FAILED —— 同上，`status='ERROR'` 那条时间序列同样读不到。**另 2 条无 RED（如实记录）**：审计行复用 `tool_call_audit` 在实现前即成立（该用例的价值是钉住"不另开审计表"）；`AGENT_INFERRED` 不注入的断言在实现前恒真（0==0），已补"`USER_EXPLICIT` 会增加"的对照腿使其非恒真。 | 5 passed；`tests/agent_runtime` 全套 **185 passed**；RULE-log-001 原 verifier **11 passed**；ruff 干净、mypy `Success`（3 文件）。 | `test_rule_log_001_...`：以哨兵串 `VALUE_SENTINEL` 反查所有 `muad_agent_runtime.*` record 的**完整渲染**（message + 结构化 extras，只查 message 会漏掉被塞进 `extra` 的 value）；并断言三条链路各有 INFO 且带 `memory_key` / `value_length` 字段。`test_memory_metrics_...`：写入 `+1`（带 `source_type`/`status` 维度）、注入 `+2`、检索调用 `+1`、检索字节 `+len(返回体)`。`test_rule_07_remember_write_is_audited_in_tool_call_audit`：`tool_call_audit.tool_name='remember'`、`tool_call_id='call-audit-1'`、`status='OK'`、`args_preview_json['memory_key'/'source_type']` 可读。`test_rule_07_write_failure_...`：写失败 → 审计 `status='ERROR'` 且 `error_code` 非空 + `memory_write_total{status='ERROR'}` 递增。`test_agent_inferred_write_...`：两条腿（推断类不增 / 显式类 +1）。 | 真实 PostgreSQL（`runtime.user_memory` 真实写入与注入、`runtime.tool_call_audit` 真实审计行）；真实 logger 出口（`caplog` 采的是真 record）；真实 api-kit 进程内注册表（`render_metrics()` 与 `GET /metrics` 同源）。**故障注入**：写失败用例以 `monkeypatch` 令 `MemoryService.upsert` 抛错制造受控故障，审计与指标仍走真实链路。 | verified |
+| RULE-log-001（扰动） | **扰动取证**：把 `value` 全文加进写入日志的 `extra` → `test_rule_log_001_...` **变红**（1 failed / 4 passed），逐字节还原后 **5 passed** —— 证明这条脱敏护栏真的会红，不是恒真断言。 | — | — | — | verified |
+| B-05 | 见 RULE-log-001 行的三条 RED（本场景与其共用同一测试文件与实现），其中`test_rule_07_write_failure_is_visible_in_audit_and_metric` 即本场景的直接 RED（`assert 0.0 == (0.0 + 1)`，失败在指标面不可见）。 | 5 passed（整文件）；`tests/agent_runtime` 185 passed | `test_rule_07_write_failure_is_visible_in_audit_and_metric`：写失败 → `tool_call_audit.status='ERROR'` 且 `error_code` 非空、`memory_write_total{source_type='USER_EXPLICIT',status='ERROR'}` 递增；`test_rule_log_001_...`：日志渲染不含哨兵串 | 真实 PostgreSQL（`tool_call_audit`）+ 真实 logger（`caplog`）+ 真实注册表（`render_metrics()`） | verified |
+| RULE-log-001（设计↔实现口径差异，待父进程裁决） | — | — | 设计 §3.5 写 `memory_inject_total{count}`、`memory_recall_total{count,bytes}`，即把**计数值放进 label**。实现改为：计数记在 **amount**，`memory_inject_total` 无 label、`memory_recall_total{status}` 记调用、字节另立 `memory_recall_bytes_total`。理由：label 里放计数值会按每次取值裂出新的时间序列（无界基数），与本仓 `metrics.py` docstring 的 label 卫生口径冲突。 | 指标目录声明见 `metrics.py:CATALOG`（新增 4 条，`GET /metrics` 无流量时也暴露） | 不涉及 | verified（行为等价，label 形态与设计文本不同） |
+- B-05: verified — automated command passed; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=3c7893c98e1743e2a000707aba8f83c4 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
 
 ---
-
+- [2026-10-01] started
+- [2026-10-01] completed (done)
 ## TASK-005: E2E 验收与需求级收口
 
 - **Status**: draft
@@ -357,12 +384,15 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | E2E | 真实 Gateway(HTTP/SSE + 企微 WS 探针)、Runtime、真实 PostgreSQL、真实 LLM 探针 | 产生 `remember` 调用；新增一行且 `user_id` 为当前用户；`source_type=USER_EXPLICIT` | tests/acceptance/im_gateway/test_memory_flow.py / S-01 | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s01"]` | planned |
-| S-05 | E2E | 真实 Gateway(SSE)、Runtime、真实 PostgreSQL、真实 LLM 探针 | 回执含已保存内容且不承诺必然生效；审计行含 `run_id`/`memory_key` | tests/acceptance/im_gateway/test_memory_flow.py / S-05 | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s05"]` | planned |
+| S-01 | E2E | 真实 Gateway(HTTP/SSE + 企微 WS 探针)、Runtime、真实 PostgreSQL、真实 LLM 探针 | 产生 `remember` 调用；新增一行且 `user_id` 为当前用户；`source_type=USER_EXPLICIT` | tests/acceptance/im_gateway/test_memory_flow.py / S-01 | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s01"]` | e2e_deferred |
+| S-05 | E2E | 真实 Gateway(SSE)、Runtime、真实 PostgreSQL、真实 LLM 探针 | 回执含已保存内容且不承诺必然生效；审计行含 `run_id`/`memory_key` | tests/acceptance/im_gateway/test_memory_flow.py / S-05 | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_flow.py","-k","s05"]` | e2e_deferred |
 | RULE-im-001 | integration | 不改路由（Console 渠道 + Gateway 真实链路）+ 原 verifier 真实边界 | bot↔agent 路由不变；记忆按绑定身份落库；原 verifier 全部通过 | 原 verifier / RULE-im-001 | `["uv","run","pytest","-q","tests/console_channel","tests/gateway"]` | planned |
 | RULE-test-001 | E2E | 仓库级真实验收（HTTP/PostgreSQL/Redis/进程/Browser）+ 原 verifier 真实边界 | 全量 acceptance 与前端构建/E2E 通过；层级不降级 | 原 verifier / RULE-test-001 | `["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]` | planned |
 
 ### Acceptance Evidence
+
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=27aacffb602043849691650872043436 (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
