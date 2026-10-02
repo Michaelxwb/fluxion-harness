@@ -484,7 +484,6 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - `uv run mypy apps packages` → **Success: no issues found in 263 source files**；`ruff` → **All checks passed**
 
 **一处需要记录的计划缺陷（不是本任务能修的）**：`S-01` 归属 TASK-006，但其 E2E 通路要求网关侧已能产出附件引用（TASK-002 下载解密、TASK-004 落盘/契约），而 TASK-006 的 `Depends` 只有 TASK-001/TASK-005。因此**编码期无法写出可执行的 S-01 E2E**，只能登记为 `e2e_deferred`；真正闭合依赖 TASK-010 的需求级终验。这个依赖缺口不影响本任务的实现正确性，但会让"每个 P0 任务都能自证其场景"这条预期在 TASK-006 上落空。
-- S-01: e2e_deferred — automated command e2e_deferred; run_id=0680a452741547c89ada3efee1878d49 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -550,8 +549,6 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 **实现里新增的一处 agent-core 能力（需记录）**：`ToolDefinition.follow_up_messages` —— 工具结果之后追加消息。存在理由唯一：**OpenAI 协议的 tool 消息不能携带图像块**，所以「重看图片」只能由运行时补一条 user 消息。`runner._execute_tools` 在追加 tool 结果后调用它（入参用 `text_of(result.content)` 显式收窄 —— 工具结果恒为文本）。
 
 **依赖引入**：`pypdf` / `python-docx` / `openpyxl` / `python-pptx` 落在 **agent-runtime**（AD-4-B：不进网关，渠道层不背内容理解）。
-- S-02: e2e_deferred — automated command e2e_deferred; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
-- S-05: e2e_deferred — automated command e2e_deferred; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
