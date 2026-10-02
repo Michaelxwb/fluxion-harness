@@ -14,12 +14,12 @@
 - **Decisions**：
   - **探针先行**（FEAT-06 是 P0 前置）：企微能否发文件/图片、上传流程（media_id vs URL）、发送 ack 与幂等——**外部协议事实**，猜错要重写整条链（与上期 R-01 同源）。
   - **写与交付分离**：`write_artifact` 只写（不再因缺交付路由而拒绝），新增 `append_artifact`（分段追加长文档）与**显式交付工具** `deliver_artifact`。依据是五条代码事实（设计 §3.6）：现有守卫把"写"与"可交付"耦合错了方向、中间产物会被误发、"写了但没发"的语义无法表达、幂等键必须在交付那一步可派生等。**否决** `write_artifact(deliver=true)` 参数式合并。
+  - **会话内交付走同步调用**（**2026-10-03 修订**）：runtime **同步 POST 网关既有 `/internal/deliveries`**，拿到真实交付结论；**否决**原稿的"发 SSE 事件 + 网关异步消费"。理由：网关是 SSE 的**纯消费方**（runtime 只有 `/runs`、`/resume`、`/cancel`、`GET /runs/{id}`，没有回执通道），异步化会让"失败可重试/降级为链接"无法诚实表达（RULE-03），E-06 按原设计不可实现。代价是 Run 多一次渠道往返——由独立超时兜住，**超时按失败（未知），不得算成功**。交付端点因此**一条契约两个调用方**（worker 已在用）；`DeliveryRequest` 需最小扩展（`task_id` 可省 + `run:{run_id}:{artifact_id}` 形态），对既有调用向后兼容。
   - **追加写换新键**：`RULE-skill-001` 要求同 `storage_key` 二次写入必须抛错 ⇒ 分段追加写**新 key**，artifact 行指向最新版本，历史版本记在既有 `metadata_json`（不改 schema）。
   - **出站渠道差异走可选能力协议**（与入站 `AttachmentSource` 同构）：核心域只给"产物引用 + 路由"，适配器决定直发/链接/降级。
-  - **交付审计表从第一天起渠道中立**：`channel + route_key`（适配器产出的可读不透明串），**不照抄**上期入站审计表的 `bot_id + external_user_id` 企微形状——未来上 web chat 时那两列会成为"填不出真值"的必填字段。
-  - **取件是渠道无关能力**：签名短 TTL 直链 + 鉴权端点，Console／未来 web chat／降级链接**复用同一套**。
-  - **前端页面后置**：本期只做取件端点与签名直链（IM 终端用户是 `platform_user`，Console 登录主体是 `console_account`，两套身份——给终端用户 Console 页面等于给一扇打不开的门）。
-  - **产物取件端点不加 Console 页面**，`harness-frontend` / `harness-ui` 两条 required 规则在本需求标 N/A（已由用户逐条确认）。
+  - **交付审计表从第一天起渠道中立**：`channel + route_key`（适配器产出的可读不透明串），**不照抄**上期入站审计表的 `bot_id + external_user_id` 企微形状——未来上 web chat 时那两列会成为"填不出真值"的必填字段。**幂等键唯一权威定义 = `(tenant_id, artifact_id, route_key)`**（artifact 级），`outcome` 是该行当前状态（`DELIVERED` 为终态，失败重试成功更新同一行）——这样 S-10"审计仍只有一行"与 E-06"失败→重试成功"同时成立。
+  - **取件是渠道无关能力**：签名短 TTL 直链 + 鉴权端点，**降级链接与未来 web chat 复用同一套**。
+  - **前端页面后置**（用户已确认）：本期**不做**任何 Console 页面（IM 终端用户是 `platform_user`，Console 登录主体是 `console_account`，两套身份——给终端用户 Console 页面等于给一扇打不开的门）；`harness-frontend` / `harness-ui` 两条 required 规则在本需求标 **N/A**（用户逐条确认）。
 - **Non-goals**：企微以外的 IM 通道（只做企微，但接缝按渠道中立设计）；附件在线编辑/协作；文档结构化理解；病毒扫描/内容审核；跨租户产物共享；出站消息的富文本排版（卡片模板只作为链接载体）。
 - **Acceptance**：见下方 Acceptance Coverage（19 条场景；S-05 为 manual，原因是需要真实外部机器人与会话，无法在 CI 复现）。
 
@@ -31,20 +31,20 @@
 |--------|---------|---------|-------------|---------|------|------|-----|------|------|
 | S-01 | design#2.5.2 | integration | 真实文件系统 + 真实解析库（pypdf/docx） | TASK-002 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | S-02 | design#2.5.2 | integration | 真实 PG（runtime.artifact 逐行回读） | TASK-003 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
-| S-03 | design#2.5.2 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip | . | 300 |  |
-| S-04 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | TASK-004 | planned | uv run pytest -q tests/acceptance/attachment_round_trip | . | 300 |  |
+| S-03 | design#2.5.2 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
+| S-04 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | TASK-004 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
 | S-05 | design#2.5.2 | manual | 真实企微机器人（外部条件，无法在 CI 自动化） | TASK-001 | planned | - | . | 60 |  |
-| S-06 | design#2.5.2 | E2E | 真实会话 → 真实产物 → 真实交付 → 渠道帧/链接 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip | . | 300 |  |
-| S-07 | design#2.5.2 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliver → 渠道帧 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip | . | 300 |  |
+| S-06 | design#2.5.2 | E2E | 真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
+| S-07 | design#2.5.2 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | S-08 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
-| S-09 | design#2.5.2 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | TASK-008 | planned | uv run pytest -q tests/acceptance/attachment_round_trip | . | 300 |  |
-| S-10 | design#2.5.2 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip | . | 300 |  |
+| S-09 | design#2.5.2 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | TASK-008 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | . | 300 |  |
+| S-10 | design#2.5.2 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | E-01 | design#2.5.2 | integration | 真实文件系统 | TASK-002 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
-| E-02 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 | TASK-004 | planned | uv run pytest -q tests/acceptance/attachment_round_trip | . | 300 |  |
+| E-02 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 | TASK-004 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
 | E-03 | design#2.5.2 | integration | 真实 PG + 真实存储 + 鉴权层 | TASK-008 | planned | uv run pytest -q tests/console_channel/test_artifact_fetch.py | . | 120 |  |
-| E-04 | design#2.5.2 | integration | 真实 HTTP（渠道发送端点） | TASK-007 | planned | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | . | 120 |  |
+| E-04 | design#2.5.2 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | TASK-007 | planned | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | . | 120 |  |
 | E-05 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
-| E-06 | design#2.5.2 | integration | 真实 HTTP（渠道发送端点） | TASK-006 | planned | uv run pytest -q tests/gateway/test_artifact_delivery.py | . | 120 |  |
+| E-06 | design#2.5.2 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | TASK-006 | planned | uv run pytest -q tests/gateway/test_artifact_delivery.py | . | 120 |  |
 | B-01 | design#2.5.2 | unit | 分段纯函数 | TASK-002 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | B-02 | design#2.5.2 | unit | 枚举分页 | TASK-003 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | B-03 | design#2.5.2 | unit | 出站产物大小 | TASK-005 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
@@ -188,6 +188,7 @@
 - [ ] 文案经消息目录取，`config/api-messages.yaml` 补 zh-CN 与 en-US 词条；数值（如上限）仍只有一处来源
 - [ ] [S-04][E2E] 真实边界：真实 WS 探针 → 真实网关 → 真实渠道帧；断言用户收到**一条**"已收到 2 个、1 个未接收及原因"的回执，且仅此一条附件相关反馈
 - [ ] [E-02][E2E] 真实边界：真实 WS 探针 → 真实网关；断言全部附件被拒时只发一条拒绝说明（不出现两条消息）
+- [ ] 新增 `tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py`（**本任务自己建立该目录与文件**，不依赖 TASK-010；命令只指向本文件，指向目录会在别处文件尚未存在时报错）
 - [ ] 运行 verifier：`uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py`（`harness-i18n#RULE-i18n-001`）；记录输出
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
@@ -195,8 +196,8 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-04 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | 用户收到一条含"已收到 N 个、M 个未接收及原因"的回执；仅此一条附件相关反馈 | tests/acceptance/attachment_round_trip | uv run pytest -q tests/acceptance/attachment_round_trip | planned |
-| E-02 | E2E | 真实 WS 探针 → 真实网关 | 全部被拒时只有一条拒绝说明，不叠加回执 | tests/acceptance/attachment_round_trip | uv run pytest -q tests/acceptance/attachment_round_trip | planned |
+| S-04 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | 用户收到一条含"已收到 N 个、M 个未接收及原因"的回执；仅此一条附件相关反馈 | tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | planned |
+| E-02 | E2E | 真实 WS 探针 → 真实网关 | 全部被拒时只有一条拒绝说明，不叠加回执 | tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | planned |
 
 ### Acceptance Evidence
 
@@ -216,7 +217,7 @@
 
 ### Description
 
-`write_artifact` 现在既"写"又隐含"可交付"：没有交付路由时它**直接拒绝**（`attachment_tools.py:210-221`），于是后台任务、控制台触发的 Run 连"写"都做不了——而"写"本身只需要 Run 上下文（产物落共享 store + DB 行）。本任务把两者**在实现上拆开**：`write_artifact` 只写；新增 `append_artifact` 供分段写长文档（模型单轮输出有 token 上限，没有追加就写不出长文档）；交付动作留给 TASK-006 的 `deliver_artifact`。
+`write_artifact` 现在既"写"又隐含"可交付"：没有交付路由时它**直接拒绝**（`apps/agent-runtime/src/muad_agent_runtime/application/attachment_tools.py:214-221`），于是后台任务、控制台触发的 Run 连"写"都做不了——而"写"本身只需要 Run 上下文（产物落共享 store + DB 行）。本任务把两者**在实现上拆开**：`write_artifact` 只写；新增 `append_artifact` 供分段写长文档（模型单轮输出有 token 上限，没有追加就写不出长文档）；交付动作留给 TASK-006 的 `deliver_artifact`。
 
 **不可变约束**（`harness-skill#RULE-skill-001`）直接决定方案：同一 `storage_key` 二次写入必须抛错 ⇒ 追加写**新 key**，artifact 行指向最新版本，历史版本键记在既有 `metadata_json`，**不改 schema**。
 
@@ -226,7 +227,7 @@
 - [ ] 新增 `append_artifact(artifact_id, content)`：只能追加**本 Run 自产**的产物；每次追加写**新 `storage_key`**（原子写：临时文件 + `os.replace`），artifact 行指向最新版本并把历史版本键写入 `metadata_json`；**同 key 二次写入必须抛 `FileExistsError`**
 - [ ] 产物大小上限（既有 `MAX_READ_BYTES`）对写出与追加一视同仁；超限**明确拒绝**且**不破坏已有内容**
 - [ ] 产物与追加写**不进入 Run 快照冻结范围**（快照只冻 Agent/Model/Skill/MCP/Prompt/catalog），冻结语义不变
-- [ ] [B-03][unit] 真实边界：出站产物大小；断言等于上限接收、上限 + 1 B **明确拒绝**且已有内容不被破坏
+- [ ] [B-03][unit] 真实边界：出站产物大小 + **不可变性**（真实文件系统）；断言等于上限接收、上限 + 1 B **明确拒绝**且已有内容不被破坏、**同一 `storage_key` 二次写入抛 `FileExistsError`**（RULE-01）
 - [ ] 运行 verifier：`uv run pytest -q tests/test_skill_artifact_cache.py`（`harness-skill#RULE-skill-001`）；记录输出
 - [ ] 运行 verifier：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"`（`harness-snapshot#RULE-snapshot-001`）；记录输出
 - [ ] 运行验收命令并填写 Acceptance Evidence
@@ -235,7 +236,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-03 | unit | 出站产物大小（真实文件系统） | 等于上限接收；超过上限明确拒绝且已写内容不被破坏 | tests/agent_runtime/test_attachment_tools.py | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | planned |
+| B-03 | unit | 出站产物大小 + 不可变性（真实文件系统） | 等于上限接收；超过上限明确拒绝且已写内容不被破坏；**同 key 二次写入抛 `FileExistsError`** | tests/agent_runtime/test_attachment_tools.py | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | planned |
 
 ### Acceptance Evidence
 
@@ -248,28 +249,34 @@
 
 - **Status**: draft
 - **Priority**: P0
-- **Depends**: TASK-001, TASK-005
+- **Depends**: TASK-001, TASK-005, TASK-007
 - **Source**: `attachment-round-trip.design.md#3.4 接口设计`, `#3.6 出站交付：写与发的分离（硬需求落点）`, `#3.2 架构设计`
 - **Spec-Refs**: harness-im#RULE-im-001, harness-worker#RULE-worker-001
 - **Acceptance-Refs**: E-06
 
 ### Description
 
-这是硬需求的落点：**写完文件之后，Agent 必须能把它发送给用户**。四段工作——① 契约 `DeliveryMessage` 增加产物形态（渠道中立，复用 `AttachmentRef` 同型引用）；② 新增显式交付工具 `deliver_artifact(artifact_id, note?)`，Runtime 发**渠道中立**的 `artifact.delivery` SSE 事件（只带引用，不阻塞模型回答）；③ 网关消费事件，调适配器的**可选出站能力**（直发文件/图片，或降级为 TASK-008 的取件链接）；④ 后台任务路径复用既有投递链（`task:{task_id}:final` 幂等键不变），新增 `message.type=artifact` 形态，**发送失败必须释放投递占位**（否则任务被误判已送达）。
+这是硬需求的落点：**写完文件之后，Agent 必须能把它发送给用户**。五段工作——① 契约扩展：`DeliveryMessage` 增加产物形态（渠道中立，复用 `AttachmentRef` 同型引用），`DeliveryRequest` 支持**会话形态**（`task_id` 可省、`delivery_key = run:{run_id}:{artifact_id}`），对既有 worker 调用向后兼容；② 新增显式交付工具 `deliver_artifact(artifact_id, note?)`，runtime **同步 POST 网关 `/internal/deliveries`** 并拿到真实结论；③ 网关侧既有 `reserve → 发送 → mark` 不变，`type=artifact/image` 时调适配器的**可选出站能力**（直发，或降级为 TASK-008 的签名取件链接）；④ 后台任务路径复用同一端点（`task:{task_id}:final` 幂等键不变），**发送失败必须释放投递占位**（否则任务被误判已送达）；⑤ 交付结果经 TASK-007 的内部端点写审计。
+
+**为什么是同步调用而不是异步事件**（设计 §3.1 ADR）：网关是 SSE 的**纯消费方**——runtime 只有 `/runs`、`/resume`、`/cancel`、`GET /runs/{id}`，**没有回执通道**；异步化会让模型拿不到交付结论，"失败可重试/降级为链接"都无法诚实表达，E-06 按原设计不可实现。同步调用复用网关既有的幂等与失败释放占位，**一条交付契约两个调用方**（worker 已在用）。**代价**：Run 多一次渠道往返——必须定义独立超时，且**超时按失败（未知）处理，绝不拆成成功**。
+
+**依赖 TASK-007 的原因**：E-06 断言"审计记 FAILED"需要审计表与内部端点先存在；反向地，TASK-007 的 E-04 只验审计写入本身（见该任务）。
 
 设计顺序上**依赖 TASK-001 的探针结论**决定"直发"分支是否成立；但两条分支的实现骨架可以并行准备（能力协议对两者都成立）。
 
 ### Checklist
 
 - [ ] `DeliveryMessage` 增 `type` 取值 `artifact`/`image`（缺省仍 `text`，向后兼容）；`type != text` 时 `artifact: AttachmentRef` 必填，**不含任何渠道私有发送凭据**
+- [ ] `DeliveryRequest` 支持会话形态：`task_id` 改为 `UUID | None = None`，`delivery_key` 两种形态互斥校验（有 `task_id` → 仍是 `task:{task_id}:final`；无 → `run:{run_id}:{artifact_id}`）；**既有 worker 调用零改动**
+- [ ] `DeliveryResponse` 增 `outcome`（`DELIVERED`/`DEGRADED`）与 `fallback_url`（仅降级时）；`delivered=false` 仍表示"未确认送达"，不得当成功
 - [ ] 新增工具 `deliver_artifact(artifact_id, note?)`：校验归属（本 Run/会话 + 租户）与交付路由存在；schema 只有这两个字段，**没有渠道字段**
-- [ ] 工具结果明确回传三种结论：已交付（含文件名）/ 降级为链接（含链接）/ 失败（含原因码 + "产物已保留，可重试"）
-- [ ] Runtime 发 `artifact.delivery` 事件（只带 `AttachmentRef` + note）；网关回"已受理"不阻塞模型回答
-- [ ] 适配器侧新增**可选出站能力协议**（与入站 `AttachmentSource` 同构）：核心域只给"产物引用 + 路由"，适配器决定直发/链接/降级
-- [ ] 图片出站（FEAT-10）：`type=image` 走同一交付链；`view_image` 是入站方向的重看，**不是**同一件事
-- [ ] 后台路径：`/internal/deliver` 支持产物形态；沿用既有 `reserve → 发送 → mark`，**失败释放占位**
+- [ ] 工具结果明确回传三种结论：已交付（含文件名）/ 降级为签名链接（含链接）/ 失败（含原因码 + "产物已保留，可重试"）；**超时按失败**
+- [ ] runtime 侧新增交付客户端：**同步 POST `/internal/deliveries`**（用既有 `settings.im_gateway_url`），**独立超时**配置；超时/传输错误 → 报失败并保留产物，**不得**当成成功
+- [ ] 适配器侧新增**可选出站能力协议**（与入站 `AttachmentSource` 同构）：核心域只给"产物引用 + 路由"，适配器决定直发/链接/降级；降级时由适配器调用 TASK-008 的取件能力生成签名链接
+- [ ] 图片出站（FEAT-10，P0）：`type=image` 走同一交付链；`view_image` 是入站方向的重看，**不是**同一件事
+- [ ] 后台路径：`/internal/deliveries` 支持产物形态；沿用既有 `reserve → 发送 → mark`，**失败释放占位**
 - [ ] 交付链全程**不见渠道形状**：核心域与网关应用层零渠道字样与发送凭据（守卫会判红）
-- [ ] [E-06][integration] 真实边界：真实 HTTP（渠道发送端点）；断言首次交付失败时工具结果显式报失败与原因、**产物保留**、按同一幂等键重试后成功且用户恰好收到一次
+- [ ] [E-06][integration] 真实边界：真实 HTTP（网关交付端点 + 渠道侧失败注入）；断言首次交付失败时工具结果显式报失败与原因、**产物保留**、审计记 FAILED；按同一幂等键重试后成功（审计同一行转 DELIVERED）且用户恰好收到一次
 - [ ] 运行 verifier：`uv run pytest -q tests/console_channel tests/gateway`（`harness-im#RULE-im-001`）；记录输出
 - [ ] 运行 verifier：`uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py`（`harness-worker#RULE-worker-001`）；记录输出
 - [ ] 运行验收命令并填写 Acceptance Evidence
@@ -278,7 +285,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-06 | integration | 真实 HTTP（渠道发送端点） | 首次失败 → 显式报失败与原因 + 产物保留 + 审计 FAILED；同幂等键重试成功且用户恰好收到一次 | tests/gateway/test_artifact_delivery.py | uv run pytest -q tests/gateway/test_artifact_delivery.py | planned |
+| E-06 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | 首次失败 → 显式报失败与原因 + 产物保留 + 审计 FAILED；同幂等键重试成功、审计同一行转 DELIVERED、用户恰好收到一次 | tests/gateway/test_artifact_delivery.py | uv run pytest -q tests/gateway/test_artifact_delivery.py | planned |
 
 ### Acceptance Evidence
 
@@ -305,11 +312,12 @@
 ### Checklist
 
 - [ ] 新增 `control.artifact_delivery_audit`（`StandardColumnsMixin` + `timestamptz`）：`tenant_id`/`artifact_id`/`channel`/`route_key`/`delivery_key`/`outcome`(`DELIVERED`/`FAILED`/`DEGRADED`)/`reason_code`/`trace_id`；**无自由 JSON 列**（凭据与令牌在类型上无处可放）
-- [ ] 索引：`(tenant_id, create_time DESC)`、`(artifact_id)`、`(tenant_id, channel, route_key)`、partial unique `(tenant_id, delivery_key, route_key, outcome) WHERE is_deleted = false`——**含 `route_key` 是必需的**：否则同一产物交付到两个不同路由会被误判为重复
+- [ ] 索引：`(tenant_id, create_time DESC)`、`(artifact_id)`、`(tenant_id, channel, route_key)`、`(delivery_key)`，以及 **`uq_artifact_delivery_audit_target` = partial UNIQUE `(tenant_id, artifact_id, route_key) WHERE is_deleted = false`**
+- [ ] **幂等语义（唯一键的权威定义，设计 §3.3）**：键是 `(tenant_id, artifact_id, route_key)`——对齐 RULE-07/S-10"同一**产物**对同一**路由**只交付一次"；**`outcome` 不在键里**，它是该行的**当前状态**（`DELIVERED` 为终态、不被覆盖）；**失败重试成功 = 更新同一行**而不是新增行。`delivery_key` 只作传输层留痕，不参与唯一约束
 - [ ] alembic 迁移：单链接在当前 head 之后，`upgrade` / `downgrade` 双跑可用；**无回填**（历史产物无交付记录——不存在的事实不伪造）
-- [ ] `POST /internal/channel/artifact-delivery`（`InternalServiceDep` + `HeaderTenantId` + `ok(catalog,…)` 封套）；写入走 `ON CONFLICT DO NOTHING` + 回查，重投不产生第二行
+- [ ] `POST /internal/channel/artifact-delivery`（`InternalServiceDep` + `HeaderTenantId` + `ok(catalog,…)` 封套）；写入走 `ON CONFLICT (tenant_id, artifact_id, route_key) DO UPDATE ... WHERE outcome <> 'DELIVERED'` + 回查
 - [ ] 不新增部署单元、网关不持库（审计经 console 内部端点写）
-- [ ] [E-04][integration] 真实边界：真实 HTTP（渠道发送端点）；断言渠道上传/发送失败或超时时交付显式失败、审计记 `FAILED`、调用方**不**收到"已交付"、按幂等键可重试
+- [ ] [E-04][integration] 真实边界：真实 HTTP（console 内部端点）+ 真实 PG；断言以 `outcome=FAILED` 写入落一行 + 原因码、同键重写不产生第二行、`DELIVERED` 为终态不可被覆盖、凭据/令牌不在字段里
 - [ ] 运行 verifier：`uv run pytest -q tests/architecture`（`harness-arch#RULE-arch-001`）；记录输出
 - [ ] 运行 verifier：`uv run pytest -q tests/console_skill/test_import_idempotency.py`（`harness-api#RULE-api-002`）；记录输出
 - [ ] 运行 verifier：`uv run pytest -q tests -k schema_parity`（`harness-data#RULE-data-001`）；记录输出
@@ -319,7 +327,9 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-04 | integration | 真实 HTTP（渠道发送端点）+ 真实 PG | 渠道失败 → 交付显式失败 + 审计记 FAILED + 调用方不收到已交付；按幂等键可重试 | tests/console_channel/test_artifact_delivery_audit.py | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | planned |
+| E-04 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | `FAILED` 落一行 + 原因码；同键重写不产生第二行；`DELIVERED` 为终态；字段里没有凭据/令牌 | tests/console_channel/test_artifact_delivery_audit.py | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | planned |
+
+> **E-04 的边界为何收窄到"审计写入本身"**（设计已记录）：它的归属是**审计落点**（本任务只建表 + 端点），而"渠道失败 → 交付显式失败 → 调用方不收到已交付"的完整链路断言需要交付链存在，那属 TASK-006 的 E-06。原稿把 E-04 的边界写成"真实 HTTP（渠道发送端点）"会让本任务的 Done Gate 依赖尚未实现的上游；**收窄是把场景归位到它真正的主体（审计写入），不是降级真实边界**——E-04 仍然打真实 HTTP 与真实 PG。
 
 ### Acceptance Evidence
 
@@ -350,6 +360,7 @@
 - [ ] 降级链接由 TASK-006 的适配器在"不能直发"时使用；本任务只提供能力，不含渠道判断
 - [ ] [S-09][E2E] 真实边界：真实 HTTP 取件端点 + 真实鉴权（非 mock）；断言签名令牌与 Console 会话两条路径都拿到**字节与原文件一致**的内容；令牌过期/跨租户一律 404
 - [ ] [E-03][integration] 真实边界：真实 PG + 真实存储 + 鉴权层；断言以租户 B 请求租户 A 的产物 id 被拒且**不泄露存在性**
+- [ ] 新增 `tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py`（**本任务自己建立该目录与文件**，不依赖 TASK-010）
 - [ ] 运行 verifier：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`（`harness-api#RULE-api-001`）；记录输出
 - [ ] 运行 verifier：`uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py`（`harness-secret#RULE-secret-001`）；记录输出
 - [ ] 运行 verifier：`uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity`（`harness-auth#RULE-auth-001`）；记录输出
@@ -359,7 +370,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-09 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | 两条鉴权路径都拿到字节与原文件一致的内容；令牌过期/跨租户一律 404 | tests/acceptance/attachment_round_trip | uv run pytest -q tests/acceptance/attachment_round_trip | planned |
+| S-09 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | 两条鉴权路径都拿到字节与原文件一致的内容；令牌过期/跨租户一律 404 | tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | planned |
 | E-03 | integration | 真实 PG + 真实存储 + 鉴权层 | 跨租户请求被拒且与不存在同样响应（不泄露存在性） | tests/console_channel/test_artifact_fetch.py | uv run pytest -q tests/console_channel/test_artifact_fetch.py | planned |
 
 ### Acceptance Evidence
@@ -425,12 +436,13 @@
 
 - [ ] 确认真实边界未被降级：这些 E2E 里未 mock 业务 API / DB / 落盘 / 渠道帧
 - [ ] 端到端跑通「长文档 → 分段读 → 回答体现**末尾**事实」（证明不是只读了开头）
-- [ ] 端到端跑通「会话内写出 → 显式交付 → 用户收到文件或链接 → 审计有记录」
+- [ ] 端到端跑通「会话内写出 → 显式交付（**同步调用**）→ 用户收到文件/图片或签名链接 → 审计有记录」
 - [ ] 端到端跑通「后台任务完成 → 投递链 → 用户收到产物（不再是一串 UUID）」
 - [ ] [S-03][E2E] 真实边界：真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体；断言模型请求体里出现**后续片段**正文且最终回答含该事实
-- [ ] [S-06][E2E] 真实边界：真实会话 → 真实产物 → 真实交付 → 渠道帧/链接；断言用户收到文件（分支 1）或可下载链接（分支 2），审计有对应记录，且**交付失败时模型不被告知"已交付"**
-- [ ] [S-07][E2E] 真实边界：真实 Worker 进程 → 真实网关 `/internal/deliver` → 渠道帧；断言用户收到文件或链接、投递恰好一次（重投幂等）、审计有记录
-- [ ] [S-10][E2E] 真实边界：真实渠道帧 + 真实 PG（审计逐行回读）；断言同一产物对同一路由交付两次时用户**只**收到一次、第二次工具结果回"此前已交付"、审计仍只有一行
+- [ ] [S-06][E2E] 真实边界：真实会话 → 真实产物 → **真实 HTTP 交付调用** → 渠道帧/链接；断言用户收到文件/图片（分支 1）或签名取件链接（分支 2），审计有对应记录，且**交付失败时工具结果必须报失败、不得出现"已交付"**
+- [ ] [S-07][E2E] 真实边界：真实 Worker 进程 → 真实网关 `/internal/deliveries` → 渠道帧；断言用户收到文件/图片或链接、投递恰好一次（重投幂等）、审计有记录
+- [ ] [S-10][E2E] 真实边界：真实渠道帧 + 真实 PG（审计逐行回读）；断言同一产物对同一路由交付两次时用户**只**收到一次、第二次工具结果回"此前已交付"、审计**仍只有一行**
+- [ ] 新增 `tests/acceptance/attachment_round_trip/test_round_trip_e2e.py`（**本任务自己的文件**；目录由最先落地的 E2E 任务建立，本任务不假定它已存在）
 - [ ] 运行 verifier：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（`harness-test#RULE-test-001`）；记录输出
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
@@ -438,10 +450,10 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-03 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | 模型请求体出现后续片段正文；回答含文档末尾的事实 | tests/acceptance/attachment_round_trip | uv run pytest -q tests/acceptance/attachment_round_trip | planned |
-| S-06 | E2E | 真实会话 → 真实产物 → 真实交付 → 渠道帧/链接 | 用户收到文件或链接；审计有记录；失败时不谎报已交付 | tests/acceptance/attachment_round_trip | uv run pytest -q tests/acceptance/attachment_round_trip | planned |
-| S-07 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliver → 渠道帧 | 用户收到文件或链接；投递恰好一次；审计有记录 | tests/acceptance/attachment_round_trip | uv run pytest -q tests/acceptance/attachment_round_trip | planned |
-| S-10 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | 同一产物同路由只交付一次；第二次回"此前已交付"；审计仍一行 | tests/acceptance/attachment_round_trip | uv run pytest -q tests/acceptance/attachment_round_trip | planned |
+| S-03 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | 模型请求体出现后续片段正文；回答含文档末尾的事实 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | planned |
+| S-06 | E2E | 真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接 | 用户收到文件/图片或签名链接；审计有记录；失败时不谎报已交付 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | planned |
+| S-07 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧 | 用户收到文件/图片或链接；投递恰好一次；审计有记录 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | planned |
+| S-10 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | 同一产物同路由只交付一次；第二次回"此前已交付"；审计仍一行 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | planned |
 
 ### Acceptance Evidence
 

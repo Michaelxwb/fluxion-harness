@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "attachment-round-trip.md",
-  "task_sha256": "dc6dbc35aaeef4b6a2de123a91d7aa828ab3bc0262ef9f6befbd9fad2b3ac4a4",
+  "task_sha256": "ba3b24de8031e9a0c975714be851e0362b4cc5c366d2687136d0e9dc31ebf6df",
   "scenarios": [
     {
       "id": "S-01",
@@ -54,7 +54,7 @@
         "run",
         "pytest",
         "-q",
-        "tests/acceptance/attachment_round_trip"
+        "tests/acceptance/attachment_round_trip/test_round_trip_e2e.py"
       ],
       "cwd": ".",
       "timeout": 300.0,
@@ -73,7 +73,7 @@
         "run",
         "pytest",
         "-q",
-        "tests/acceptance/attachment_round_trip"
+        "tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py"
       ],
       "cwd": ".",
       "timeout": 300.0,
@@ -97,7 +97,7 @@
       "source": "design#2.5.2",
       "level": "E2E",
       "kind": "e2e",
-      "boundary": "真实会话 → 真实产物 → 真实交付 → 渠道帧/链接",
+      "boundary": "真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接",
       "owner": "TASK-010",
       "status": "planned",
       "command": [
@@ -105,7 +105,7 @@
         "run",
         "pytest",
         "-q",
-        "tests/acceptance/attachment_round_trip"
+        "tests/acceptance/attachment_round_trip/test_round_trip_e2e.py"
       ],
       "cwd": ".",
       "timeout": 300.0,
@@ -116,7 +116,7 @@
       "source": "design#2.5.2",
       "level": "E2E",
       "kind": "e2e",
-      "boundary": "真实 Worker 进程 → 真实网关 /internal/deliver → 渠道帧",
+      "boundary": "真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧",
       "owner": "TASK-010",
       "status": "planned",
       "command": [
@@ -124,7 +124,7 @@
         "run",
         "pytest",
         "-q",
-        "tests/acceptance/attachment_round_trip"
+        "tests/acceptance/attachment_round_trip/test_round_trip_e2e.py"
       ],
       "cwd": ".",
       "timeout": 300.0,
@@ -162,7 +162,7 @@
         "run",
         "pytest",
         "-q",
-        "tests/acceptance/attachment_round_trip"
+        "tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py"
       ],
       "cwd": ".",
       "timeout": 300.0,
@@ -181,7 +181,7 @@
         "run",
         "pytest",
         "-q",
-        "tests/acceptance/attachment_round_trip"
+        "tests/acceptance/attachment_round_trip/test_round_trip_e2e.py"
       ],
       "cwd": ".",
       "timeout": 300.0,
@@ -219,7 +219,7 @@
         "run",
         "pytest",
         "-q",
-        "tests/acceptance/attachment_round_trip"
+        "tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py"
       ],
       "cwd": ".",
       "timeout": 300.0,
@@ -249,7 +249,7 @@
       "source": "design#2.5.2",
       "level": "integration",
       "kind": "functional",
-      "boundary": "真实 HTTP（渠道发送端点）",
+      "boundary": "真实 HTTP（console 内部端点）+ 真实 PG",
       "owner": "TASK-007",
       "status": "planned",
       "command": [
@@ -287,7 +287,7 @@
       "source": "design#2.5.2",
       "level": "integration",
       "kind": "functional",
-      "boundary": "真实 HTTP（渠道发送端点）",
+      "boundary": "真实 HTTP（网关交付端点 + 渠道侧失败注入）",
       "owner": "TASK-006",
       "status": "planned",
       "command": [

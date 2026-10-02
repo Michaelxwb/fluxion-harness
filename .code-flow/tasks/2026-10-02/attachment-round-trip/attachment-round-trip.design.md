@@ -99,10 +99,10 @@
 | FEAT-07 | 出站形态契约 | `DeliveryMessage` 增加产物形态（渠道中立，复用 `AttachmentRef` 同型引用） | P0 | US-04 |
 | FEAT-08 | "写出"与"交付"语义分离 | `write_artifact` 只写；新增 `append_artifact`（分段写长文档）与显式交付动作 | P0 | US-04 |
 | FEAT-09 | 产物投递链 | 会话内（SSE 内交付）与后台任务（worker → gateway）两条路径把产物交给渠道 | P0 | US-04 |
-| FEAT-10 | 图片出站 | 让 Agent 把图片发给用户（`view_image` 是入站方向的重看，方向不同） | P1 | US-04 |
+| FEAT-10 | 图片出站 | 让 Agent 把图片发给用户（`view_image` 是入站方向的重看，方向不同）；与文件共用同一条交付链（`type=image`） | P0 | US-04 |
 | FEAT-11 | 出站交付审计 | 记录"谁在何时把哪个产物交付给哪个路由、结果如何" | P0 | US-04 |
 | FEAT-12 | 产物保留期与清理 | 按保留期清理入站/出站产物（文件 + DB 行），带宽限期保护进行中事务 | P1 | US-05 |
-| FEAT-13 | 产物取件（渠道无关） | 带鉴权的取件端点 + **签名短 TTL 令牌**（Console、未来 web chat、降级链接三方复用同一套）；Console 页面后置 | P0 | US-04、US-05 |
+| FEAT-13 | 产物取件（渠道无关） | 带鉴权的取件端点 + **签名短 TTL 令牌**（降级链接、未来 web chat 复用同一套）；**Console 页面后置** | P0 | US-04、US-05 |
 | FEAT-14 | **写完即可交付（硬需求）** | 写出的产物**必须能被发送给用户**：`write_artifact` 不得停留在「返回一个没人接收的 id」；由显式交付动作 + 两条投递路径 + 适配器出站能力共同保证（见 §3.6） | P0 | US-04 |
 
 #### 2.3.2 字段约束 [按需]
@@ -138,10 +138,10 @@
 
 | 类别 | 内容 |
 |------|------|
-| **范围（In Scope）** | ① 读材料：分段读取、附件枚举、大文件策略、文档内定位；② 入站回执：接收结果反馈（与拒绝反馈合并）；③ 出站交付：真机探针 → 契约形态 → 写/交付语义分离 → 会话内与后台两条投递路径 → 图片出站 → 交付审计；④ 生命周期：保留期与清理、Console 产物列表与下载。 |
-| **非范围（Out of Scope）** | ① 企微以外的 IM 通道（本次只做企微；但接缝按渠道中立设计，新通道只写适配器）；② 附件的在线编辑/协作（只做读、写、交付）；③ 文档结构化理解（表格还原、版面分析）；④ 产物内容的病毒扫描/内容审核；⑤ 跨租户的产物共享；⑥ 出站消息的富文本排版能力（卡片模板只作为链接载体，不做模板卡片编排）。 |
+| **范围（In Scope）** | ① 读材料：分段读取、附件枚举、大文件策略、文档内定位；② 入站回执：接收结果反馈（与拒绝反馈合并）；③ 出站交付：真机探针 → 契约形态 → 写/交付语义分离 → 会话内与后台两条投递路径 → 图片出站 → 交付审计；④ 生命周期：保留期与清理、**渠道无关的产物取件端点（签名短 TTL 直链）**。**本期不做 Console 前端页面**（见 §Spec Compliance Matrix 的落点说明）。 |
+| **非范围（Out of Scope）** | ① 企微以外的 IM 通道（本次只做企微；但接缝按渠道中立设计，新通道只写适配器）；② 附件的在线编辑/协作（只做读、写、交付）；③ 文档结构化理解（表格还原、版面分析）；④ 产物内容的病毒扫描/内容审核；⑤ 跨租户的产物共享；⑥ 出站消息的富文本排版能力（卡片模板只作为链接载体，不做模板卡片编排）；⑦ **Console 前端页面**（产物列表/下载页面、任何页面改造）——后置由承接方（Console 产物页 / 未来 web chat 页）落地，本期只提供后端能力。 |
 | **前置假设** | ① **企微 aibot 的出站能力未知**——现有代码注释只写明会话内回复体支持 `stream`/`template_card`、主动发送体支持 `markdown`/`template_card`（`apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py:444-457`）；**能否发文件/图片、如何上传、是否可确认，一律由 FEAT-06 的探针给出结论**，本设计不预设。② 共享 artifact store 是 RWX PVC，Runtime/Gateway 看到同一批字节（上期已落地）。③ 用户已配置真实企微机器人，可做真机验证。 |
-| **有意妥协 / 技术债** | ① 若探针结论是"企微不能直发文件"，本次交付降级为**控制台下载链接**（可接受：不依赖渠道能力，且链接可审计）；② 图片出站（FEAT-10）在有结论前不进入 P0；③ 产物保留期先做"定时扫描 + 宽限期"，不做配额/告警。 |
+| **有意妥协 / 技术债** | ① 若探针结论是"企微不能直发文件"，本次交付降级为**签名取件直链**（可接受：不依赖渠道能力，且链接可审计）——**不是** Console 页面（终端用户没有 Console 账号，见 API-05）；② 产物保留期先做"定时扫描 + 宽限期"，不做配额/告警；③ 出站交付采用**同步调用**（模型要拿到交付结论），代价是 Run 时长多一次渠道往返——由超时与"未知不等于成功"的语义兜住（§3.6）。 |
 
 ---
 
@@ -151,9 +151,9 @@
 
 | ID | 类型 | 描述 | 验证场景 |
 |----|------|------|---------|
-| RULE-01 | 业务规则 | 产物写出一律**不可变**：同一 `storage_key` 不得二次写入；追加必须换新键（遵守上期 `harness-skill#RULE-skill-001`） | S-01、E-01 |
+| RULE-01 | 业务规则 | 产物写出一律**不可变**：同一 `storage_key` 不得二次写入（二次写必须抛 `FileExistsError`）；追加必须换新键（遵守上期 `harness-skill#RULE-skill-001`） | B-03 |
 | RULE-02 | 系统约束 | 出站交付的**渠道差异只活在适配器层**：核心域与网关应用层不得出现渠道专有字样、上传凭据或发送形状 | S-05、S-06 |
-| RULE-03 | 业务规则 | 写出与交付是两件事：写出成功不等于用户收到；交付失败必须显式报错，**不得谎报 delivered**；**交付失败时产物必须保留**（不回滚写入，见 §3.6） | S-06、E-04、E-06 |
+| RULE-03 | 业务规则 | 写出与交付是两件事：写出成功不等于用户收到；**交付结论来自真实发送结果**（同步调用，超时视为**未知**、不得算成功），失败必须显式报错、**不得谎报 delivered**；**交付失败时产物必须保留**（不回滚写入，见 §3.6） | S-06、E-04、E-06 |
 | RULE-07 | 业务规则 | 同一产物对同一交付路由**只交付一次**：重复请求返回「此前已交付」，不产生第二个文件、不新增第二条审计行 | S-10 |
 | RULE-04 | 系统约束 | 入站回执与拒绝反馈**合并为至多一条消息**，不得对同一条入站消息产生两条用户可见反馈 | S-04、E-02 |
 | RULE-05 | 系统约束 | 产物对用户的可见性受**租户与授权**约束：跨租户、未授权的产物读取与下载一律拒绝且不泄露存在性 | S-09、E-03 |
@@ -170,11 +170,11 @@
 | S-03 | FEAT-01、FEAT-02、FEAT-04 | P0 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | 本模块 | 一份**末尾**含唯一事实（如 "XL-900"）的长 pdf | 用户发文档并提问该事实 | 模型请求体里出现后续片段的正文；最终回答含该事实（证明不是只读了开头） |
 | S-04 | FEAT-05 | P0 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | 本模块 | 用户发送 3 个附件（其中 1 个超限） | 发送后观察用户收到的消息 | 用户收到**一条**包含"已收到 2 个、1 个未接收及原因"的回执；且仅此一条附件相关反馈 |
 | S-05 | FEAT-06 | P0 | manual | 真实企微机器人（外部条件，无法在 CI 自动化） | 本模块 | 真实 bot 凭据与可用会话 | 按探针清单逐项发送文件/图片并记录帧与 ack | 产出**事实表**：可否直发文件、可否发图片、上传流程、ack 语义、失败形态；结论写入设计并决定 S-06 的形态分支 |
-| S-06 | FEAT-07、FEAT-08、FEAT-09、FEAT-11 | P0 | E2E | 真实会话 → 真实产物 → 真实交付 → 渠道帧/链接 | 本模块 | Agent 在一次会话内写出一个产物并显式交付 | 触发一次含交付的会话 | 用户在该对话内收到文件（分支 1）或可下载链接（分支 2）；`artifact_delivery_audit` 有对应记录；模型**不**被告知"已交付"当且仅当交付失败 |
-| S-07 | FEAT-09、FEAT-11 | P0 | E2E | 真实 Worker 进程 → 真实网关 `/internal/deliver` → 渠道帧 | 本模块 | 一个带 `result_artifact_id` 的后台任务完成 | 等 Worker 投递 | 用户收到文件或链接（不再是一串 UUID）；投递恰好一次（重投幂等）；审计有记录 |
+| S-06 | FEAT-07、FEAT-08、FEAT-09、FEAT-10、FEAT-11 | P0 | E2E | 真实会话 → 真实产物 → **真实 HTTP 交付调用** → 渠道帧/链接 | 本模块 | Agent 在一次会话内写出一个产物并显式交付 | 触发一次含交付的会话 | 用户在该对话内收到文件/图片（分支 1）或签名取件链接（分支 2）；`artifact_delivery_audit` 有对应记录；**交付失败时工具结果必须报失败**（不得出现"已交付"字样） |
+| S-07 | FEAT-09、FEAT-11 | P0 | E2E | 真实 Worker 进程 → 真实网关 `/internal/deliveries` → 渠道帧 | 本模块 | 一个带 `result_artifact_id` 的后台任务完成 | 等 Worker 投递 | 用户收到文件/图片或链接（不再是一串 UUID）；投递恰好一次（重投幂等）；审计有记录 |
 | S-08 | FEAT-12 | P1 | integration | 真实文件系统 + 真实 PG | 本模块 | 三个产物：一个早于保留期、一个在宽限期内、一个在用的 | 跑清理命令 | 只清理过期项；文件与 DB 行同时消失；宽限期内与在用项**原地不动** |
 | S-09 | FEAT-13 | P0 | E2E | 真实 HTTP 取件端点 + 真实鉴权（**非 mock**）；浏览器渲染场景后置 | 本模块 | 租户 A 有产物 | 用签名令牌与 Console 会话两条路径取件 | 两条路径都拿到**字节与原文件一致**的内容；令牌过期/跨租户一律 404 且不泄露存在性 |
-| S-10 | FEAT-14、FEAT-09 | P0 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | 本模块 | 一个产物已被交付给某路由 | 对同一产物、同一路由再次发起交付 | 用户**只**收到一次文件/链接；第二次的工具结果明确回「此前已交付」；审计仍只有一行 |
+| S-10 | FEAT-14、FEAT-09 | P0 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | 本模块 | 一个产物已被交付给某路由 | 对同一产物、同一路由再次发起交付 | 用户**只**收到一次文件/链接；第二次的工具结果明确回「此前已交付」；审计**仍只有一行**（该行 `outcome=DELIVERED`，不新增行） |
 
 **异常场景**
 
@@ -183,9 +183,9 @@
 | E-01 | FEAT-01 | integration | 真实文件系统 | 本模块 | 读取超上限文件 / 损坏文档 / 越界 offset | 返回**明确错误**（指明是哪个文件、哪种原因），绝不返回乱码或空内容冒充成功 | Agent 能向用户说清"哪个文件读不了、为什么" |
 | E-02 | FEAT-05 | E2E | 真实 WS 探针 → 真实网关 | 本模块 | 全部附件被拒 | 只发一条拒绝说明（不叠加回执，不出现两条消息） | 用户收到一条清楚说明 |
 | E-03 | FEAT-13 | integration | 真实 PG + 真实存储 + 鉴权层 | 本模块 | 以租户 B 请求租户 A 的产物 id | 拒绝且**不泄露存在性**（与不存在同样响应） | 无信息泄露 |
-| E-04 | FEAT-09 | integration | 真实 HTTP（渠道发送端点） | 本模块 | 渠道上传/发送失败或超时 | 交付显式失败：审计记失败、调用方不收到"已交付"、按幂等键可重试 | 用户不会收到"已发出"的假消息；重试后能收到 |
+| E-04 | FEAT-11 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | 本模块 | 以 `outcome=FAILED` 写交付审计（渠道失败由调用方上报） | 审计落一行 `FAILED` + 原因码；同键重写**不产生第二行**（`DELIVERED` 为终态不可被覆盖）；凭据/令牌不在字段里 | 运维可查到"这次交付失败了、为什么" |
 | E-05 | FEAT-12 | integration | 真实文件系统 + 真实 PG | 本模块 | 清理时遇到宽限期内的文件 / 有 DB 行但文件缺失 | 跳过在用文件；行缺失的文件按"孤儿"处理且不误删在用；结果可对账 | 无用户可见影响；运维可核对清理结果 |
-| E-06 | FEAT-14、FEAT-09 | integration | 真实 HTTP（渠道发送端点） | 本模块 | 首次交付失败（渠道侧拒绝/超时） | 工具结果显式报失败与原因；**产物保留**；审计记 FAILED；按同一幂等键重试后成功且用户恰好收到一次 | Agent 能向用户说明「文件没能发出、可重试」；重试成功后用户收到文件 |
+| E-06 | FEAT-14、FEAT-09 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | 本模块 | 首次交付失败（渠道侧拒绝/超时/交付超时） | 工具结果显式报失败与原因；**产物保留**；审计记 FAILED；按同一幂等键重试后成功、同一行转为 DELIVERED 且用户恰好收到一次 | Agent 能向用户说明「文件没能发出、可重试」；重试成功后用户收到文件 |
 
 **边界场景**
 
@@ -193,7 +193,7 @@
 |--------|---------|-------------|------|----------|--------|---------|
 | B-01 | unit | 分段纯函数 | 本模块 | `offset` | 0 / 恰好等于总长 / 超出总长 / 负值 | 分别返回首段 / 空段 + 明确标注 / 空段 + 明确标注 / 参数错误 |
 | B-02 | unit | 枚举分页 | 本模块 | `limit` | 1 / 50 / 51 / 空集 | 上限内正常；超上限被拒绝或夹紧（实现需二选一并固定）；空集返回空列表而非错误 |
-| B-03 | unit | 出站产物大小 | 本模块 | 产物字节数 | 上限值 / 上限 + 1 B | 等于上限接收；超过上限**明确拒绝**并保留已有内容不被破坏 |
+| B-03 | unit | 出站产物大小 + **不可变性**（真实文件系统） | 本模块 | 产物字节数 / 二次写入 | 上限值 / 上限 + 1 B / 同一 `storage_key` 二次写 | 等于上限接收；超过上限**明确拒绝**并保留已有内容不被破坏；**同一 `storage_key` 二次写入抛 `FileExistsError`**（RULE-01） |
 
 #### 2.5.3 非功能指标 [按需]
 
@@ -201,9 +201,12 @@
 
 | 指标ID | 指标名称 | 目标值 | 测量方法 |
 |--------|---------|-------|---------|
-| NFR-PERF-01 | 分段读取单次调用耗时（20 000 字符片段） | 待定 | 集成测试内计时（同一份文档三次读取的 P95） |
-| NFR-PERF-02 | 附件枚举单次调用耗时（20 条） | 待定 | 集成测试内计时 |
-| NFR-PERF-03 | 会话内交付从工具调用到渠道发出 | 待定 | E2E 计时（受渠道往返影响，需探针结论后定） |
+| NFR-PERF-01 | 分段读取单次调用耗时（20 000 字符片段） | **不作为门禁**（观测项，首轮实测后回填） | 集成测试内计时（同一份文档三次读取的 P95） |
+| NFR-PERF-02 | 附件枚举单次调用耗时（20 条） | **不作为门禁**（观测项，首轮实测后回填） | 集成测试内计时 |
+| NFR-PERF-03 | 会话内交付从工具调用到渠道发出 | **不作为门禁**（观测项；受渠道往返支配，探针结论后回填） | E2E 计时 |
+| NFR-PERF-04 | 清理扫描（`--limit` 批量） | **不作为门禁**（观测项，首轮实测后回填） | 集成测试内计时 |
+
+> **为什么不给数值**：本模块的耗时几乎全部由外部因素支配（渠道往返、解析库、PG），在没有实测基线时填任何数字都是编造；而这三项都不构成用户可感知的门槛。故本期**只作观测**，不进任何门禁；首轮实测后回填量级。
 
 **可靠性指标**
 
@@ -249,9 +252,9 @@
 | 追加写长文档 | 每次追加写**新 `storage_key`**，artifact 行指向最新版本并在 metadata 记录历史版本 | 同一 key 二次写入（覆盖） | `RULE-skill-001` 明确不可变：同 key 二次写入必须抛错；新键方案天然满足，历史版本交给生命周期清理 | 易 |
 | 读取分段 | **参数化**（`offset`/`limit` 挂在 `read_attachment`） | 新增 `read_attachment_range` 工具 | 工具面越窄，模型选错的机会越小；分段是同一动作的参数 | 易 |
 | 枚举 | **新增 `list_attachments` 工具** | 复用上下文引用 | 枚举是**新动作**；且上下文引用会被预算裁剪，是"失联"的根因 | 易 |
-| 会话内交付的载体 | Runtime **SSE 新增交付事件**（事件里只带引用） | 把产物塞进回复文本（贴 UUID） | 现状正是贴 UUID 且用户拿不到文件；引用型事件与既有 `attachments` 同型 | 易 |
+| 会话内交付的载体 | Runtime **同步调用网关既有的 `/internal/deliveries`**（产物形态复用同一交付契约） | ① 发 SSE 事件 + 网关异步消费（原方案）② 把产物塞进回复文本（贴 UUID） | ① 模型拿不到交付结论：网关是 SSE 的**纯消费方**（runtime 只有 `/runs`、`/resume`、`/cancel`、`GET /runs/{id}`，**没有回执通道**），于是"已交付/失败可重试"无法诚实表达，E-04/E-06 按原设计不可实现；② 现状正是贴 UUID 且用户拿不到文件。同步调用复用网关既有的 `reserve → 发送 → mark` + 幂等 + 失败释放占位，**一条交付契约两个调用方**（worker 已在用），与既有 `worker → gateway` 同型（都是"调用渠道能力持有者"，适配器只在网关）。**代价**：Run 多一次渠道往返（见 §3.6 的超时与未知语义） | 中 |
 | 交付审计落点 | 新增 `control.artifact_delivery_audit` + 内部端点写入 | 网关直连 DB / 复用 runtime 审计表 | 网关不持库（架构测试守住）；runtime 审计表语义是工具/出站/模型调用，不含"交付给谁" | 中 |
-| 降级形态 | 渠道不支持直发时**发下载链接** | 静默不发 / 只回文本 | 静默不发等于欺骗；链接是唯一不依赖渠道能力的真实交付 | 易 |
+| 降级形态 | 渠道不支持直发时**发签名取件链接** | 静默不发 / 只回文本 / 发 Console 页面链接 | 静默不发等于欺骗；Console 页面链接给终端用户是死链（`platform_user` 没有 Console 账号）；签名直链是唯一不依赖渠道能力、也不依赖 Console 身份的真实交付 | 易 |
 
 #### 技术栈
 
@@ -261,7 +264,7 @@
 | 框架 | FastAPI / SQLAlchemy / Pydantic v2 | 现状 | 不引入新框架 |
 | 数据库 | PostgreSQL | 现状 | 产物生命周期与审计沿用既有库 |
 | 存储 | 共享 artifact store（RWX PVC） | 现状 | `RULE-skill-001` |
-| 前端 | React + TS + Semi Design | 现状 | Console 产物页（`RULE-front-001`、`RULE-ui-001`） |
+| 前端 | React + TS + Semi Design | 现状 | **本期不改前端**（Console 产物页与未来 web chat 页后置；本需求只提供后端能力与签名取件链接） |
 
 ---
 
@@ -280,21 +283,28 @@ graph TB
         RT1 --> T3["search_attachment"]
     end
     subgraph "本需求：出站交付"
-        RT2["agent-runtime 交付事件"] --> GW2["im-gateway 会话内交付"]
-        WK["agent-worker 投递链"] --> GW2
+        RT2["agent-runtime 交付客户端"] -->|"同步 HTTP<br/>POST /internal/deliveries"| GW2["im-gateway 交付端点"]
+        WK["agent-worker 投递链"] -->|"同一端点（既有）"| GW2
         GW2 --> CAP{"适配器可选能力"}
-        CAP -->|"分支1 可直发"| U2["渠道用户收到文件"]
-        CAP -->|"分支2 不可直发"| LNK["下载链接"]
+        CAP -->|"分支1 可直发"| U2["渠道用户收到文件/图片"]
+        CAP -->|"分支2 不可直发"| LNK["签名取件直链"]
     end
-    subgraph "本需求：生命周期与可见性"
+    subgraph "本需求：生命周期"
         CLI["cleanup-artifacts CLI"] --> ST1
         CLI --> DB1[("runtime.artifact")]
-        CON["Console 产物页"] --> DB1
-        CON --> DL["鉴权下载端点"]
     end
-    GW2 -.->|"内部端点"| AUD[("control.artifact_delivery_audit")]
+    subgraph "本需求：取件能力（渠道无关）"
+        DL["鉴权取件端点 + 签名令牌"]
+    end
+    GW2 -.->|"内部端点（网关不持库）"| AUD[("control.artifact_delivery_audit")]
     LNK --> DL
+    DL --> ST1
 ```
+
+> **新增的组件边界：`agent-runtime → im-gateway`**（图中的 `RT2 --> GW2`）。
+> - **为什么新增这条边**：交付结论必须回到模型（RULE-03），而网关是 SSE 的纯消费方、没有回执通道；同步调用复用网关既有的 `reserve → 发送 → mark` 与失败释放占位，且与既有 `worker → im-gateway` 同型——**渠道能力只在网关**，runtime 不直接碰渠道。
+> - **身份与鉴权（如实记录）**：该端点**现状没有任何服务令牌校验**，靠内网隔离（`apps/im-gateway/src/muad_im_gateway/api/delivery.py` 的依赖只有 registry 与 dedupe，`main.py` 无鉴权中间件）。本需求**不改变这个姿态**（worker 已在用同一端点）；若要加服务令牌属独立加固项，不在本期范围——此处显式记录，避免后人误以为已有校验。
+> - **超时**：runtime 侧交付调用必须有独立超时；超时**不得算成功**（§3.6）。
 
 #### 技术分层
 
@@ -331,8 +341,8 @@ graph LR
 | artifact_id | UUID | N | — | 见索引 | 被交付的产物（逻辑引用，跨 Schema 不做物理 FK） |
 | channel | VARCHAR(32) | N | — | 见索引 | 渠道枚举（值域 = 契约 `ChannelName`，渠道中性词汇） |
 | route_key | VARCHAR(256) | N | — | 见索引 | **交付路由标识**：由适配器产出的**可读不透明串**——企微 = `{bot_id}:{external_user_id}`；未来 web chat = `session:{id}`。刻意**不拆成渠道私有列** |
-| delivery_key | VARCHAR(128) | N | — | 见索引 | 幂等键：会话内 = `run:{run_id}:{artifact_id}`；后台 = 既有 `task:{task_id}:final` |
-| outcome | VARCHAR(16) | N | — | — | `DELIVERED` / `FAILED` / `DEGRADED`（降级为链接） |
+| delivery_key | VARCHAR(128) | N | — | 见索引 | **传输幂等键**（调用方给出的那一个）：会话内 = `run:{run_id}:{artifact_id}`；后台 = 既有 `task:{task_id}:final`。留痕用，**不参与唯一约束**（见下） |
+| outcome | VARCHAR(16) | N | — | 见索引 | **该行的当前状态**：`DELIVERED` / `FAILED` / `DEGRADED`（降级为签名链接）。`DELIVERED` 为**终态**（不可被后续写覆盖）；失败重试成功 = **更新同一行**，不新增行 |
 | reason_code | VARCHAR(64) | N | `''` | — | 失败/降级原因码（枚举化，无自由文本） |
 | trace_id | VARCHAR(64) | Y | — | — | 链路串联 |
 | is_deleted | BOOLEAN | N | false | — | 标准四列 |
@@ -346,7 +356,16 @@ graph LR
 | `ix_artifact_delivery_audit_tenant_time` | BTREE | `(tenant_id, create_time DESC)` | 租户内按时间排查 |
 | `ix_artifact_delivery_audit_artifact` | BTREE | `(artifact_id)` | 某个产物的交付历史 |
 | `ix_artifact_delivery_audit_route` | BTREE | `(tenant_id, channel, route_key)` | 按交付对象排查（route_key 不透明，配合 `channel` 前缀） |
-| `uq_artifact_delivery_audit_key` | partial UNIQUE | `(tenant_id, delivery_key, route_key, outcome)` `WHERE is_deleted = false` | 重投不产生重复行；**含 `route_key` 是必需的**：否则同一产物交付到两个不同路由会被误判为重复 |
+| `ix_artifact_delivery_audit_delivery_key` | BTREE | `(delivery_key)` | 按调用方的传输幂等键追溯 |
+| `uq_artifact_delivery_audit_target` | partial UNIQUE | `(tenant_id, artifact_id, route_key)` `WHERE is_deleted = false` | **幂等键的唯一权威定义**：同一产物对同一路由**只有一行** |
+
+**幂等语义（唯一键的权威定义，全文只此一处）**
+
+- **键 = `(tenant_id, artifact_id, route_key)`**——对齐 RULE-07 与 S-10 的口径："同一**产物**对同一**路由**只交付一次"。刻意**不含** `delivery_key`：会话内与后台是两条传输路径，但"某产物已交付给某路由"是**同一个事实**，不该因为走的路径不同而记两行。
+- **`outcome` 是该行的当前状态，不在唯一键里**：失败后重试成功 = **把同一行从 `FAILED` 更新为 `DELIVERED`**（不是新增一行）。这样 S-10 的"审计仍只有一行"与 E-06 的"失败→重试成功"两条断言同时成立。
+  - 写入语义：`INSERT ... ON CONFLICT (tenant_id, artifact_id, route_key) DO UPDATE SET outcome=EXCLUDED.outcome, reason_code=EXCLUDED.reason_code, update_time=now() WHERE artifact_delivery_audit.outcome <> 'DELIVERED'`——**已 `DELIVERED` 的行是终态，不被后续写覆盖**（重放只读回既有行）。
+- **`delivery_key` 只留痕**：它仍由调用方给出（后台沿用 `task:{task_id}:final`），用于把审计行与传输层的重试对起来；**不参与唯一约束**。
+- **为什么含 `route_key`**：同一产物交付给两个不同路由是**两条不同的事实**，不能被去重掉（早前一版曾把它写成 `(tenant_id, delivery_key, outcome)`，那会误判重复）。
 
 **为什么路由用 `(channel, route_key)` 而不是 `channel + bot_id + external_user_id`**（本表的形状与上期入站审计表**刻意不一致**）
 
@@ -396,7 +415,7 @@ erDiagram
 | `search_attachment(arguments, *, call_id) -> str` | `artifact_id`、`query`、`limit?` | 命中片段 + 偏移（找不到时明确说"未命中"） | 同上解析类错误码 |
 | `write_artifact(arguments, *, call_id) -> str` | `content`、`filename?` | 产物 id + 文件名 | 超上限 → `ATTACHMENT_TOO_LARGE`；**不再因缺少交付路由而拒绝** |
 | `append_artifact(arguments, *, call_id) -> str` | `artifact_id`、`content` | 新版本字节数 + 产物 id | 目标不是自产产物 / 超上限 → 明确错误码 |
-| `deliver_artifact(arguments, *, call_id) -> str` | `artifact_id`、`note?` | 交付结论（已交付 / 降级为链接，含可读说明） | 无交付路由 → `ATTACHMENT_WRITE_UNAVAILABLE`（**只有交付动作**依赖路由） |
+| `deliver_artifact(arguments, *, call_id) -> str` | `artifact_id`、`note?` | 交付结论（已交付 / 降级为链接 / 失败可重试）——**来自同步调用的真实结果**，超时按失败 | 无交付路由 → `ATTACHMENT_WRITE_UNAVAILABLE`（**只有交付动作**依赖路由）；渠道失败 → `ARTIFACT_DELIVERY_FAILED` |
 
 > 工具面原则：**只增动作，不加渠道字段**。所有工具 schema 里不得出现渠道名、上传凭据或 URL（`RULE-im-002`）。
 
@@ -406,11 +425,11 @@ erDiagram
 
 | 接口ID | 名称 | 方法 | 路径 | 详细 |
 |--------|------|------|------|------|
-| API-01 | 会话内交付（SSE 事件） | — | `POST /v1/runs`（既有）事件流内 | [↓](#api-01) |
-| API-02 | 后台任务投递（既有路径，新增形态） | POST | `/internal/deliver`（im-gateway，既有） | [↓](#api-02) |
+| API-01 | 会话内交付（**同步 HTTP**，复用交付端点） | POST | `/internal/deliveries`（im-gateway，既有端点新增产物形态） | [↓](#api-01) |
+| API-02 | 后台任务投递（既有路径，新增形态） | POST | `/internal/deliveries`（im-gateway，既有） | [↓](#api-02) |
 | API-03 | 交付审计写入 | POST | `/internal/channel/artifact-delivery`（console，内部） | [↓](#api-03) |
 | API-04 | 产物列表（**后置**：随 Console 页面） | GET | `/api/v1/artifacts` | [↓](#api-04) |
-| API-05 | Console 产物下载 | GET | `/api/v1/artifacts/{artifact_id}/content` | [↓](#api-05) |
+| API-05 | 产物取件（渠道无关能力） | GET | `/api/v1/artifacts/{artifact_id}/content` | [↓](#api-05) |
 
 #### 形态 B：CLI 命令
 
@@ -422,78 +441,101 @@ erDiagram
 
 ---
 
-#### API-01: 会话内交付（Runtime SSE 事件）
+#### API-01: 会话内交付（Runtime **同步调用**，与 API-02 同一端点）
 
-**请求**：无独立请求——在既有 Run 事件流中新增事件类型。
+> **B1 决策（同步而非异步）**：本接口**不是** SSE 事件。Runtime 在工具调用内**同步 POST** `/internal/deliveries`（API-02 的端点），拿到真实交付结论后作为工具结果回给模型。理由见 §3.1 ADR「会话内交付的载体」：网关是 SSE 的纯消费方、没有回执通道，而 RULE-03 要求不得谎报。
 
-**事件示例**
+**请求**：与 API-02 同形，差异只在 `delivery_key` 的形态与 `task_id` 的缺省。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| task_id | UUID | 否 | **后台路径必填**（既有不变）；**会话内路径省略** |
+| delivery_key | string | 是 | 会话内 = `run:{run_id}:{artifact_id}`；后台 = 既有 `task:{task_id}:final`。契约校验按形态互斥（见下） |
+| route | object | 是 | 既有交付路由（`DeliveryRouteInput`） |
+| message.type | string | 是 | `artifact` / `image`（新增取值） |
+| message.artifact | `AttachmentRef` | 条件 | `type != text` 时必填；**渠道中立引用** |
+| note | string | 否 | 模型想附的一句话说明 |
+
+**响应**（在既有封套上扩展，向后兼容）
 
 ```json
-{
-  "event": "artifact.delivery",
-  "data": {
-    "artifact": {
-      "storage_key": "outbound/8f3c.../a1b2...",
-      "kind": "DOCUMENT",
-      "media_type": "text/markdown",
-      "size": 4096,
-      "filename": "巡检报告.md",
-      "checksum": "sha256:...",
-      "source_channel": "WECOM"
-    },
-    "note": "这是本次巡检的汇总报告"
-  }
-}
+{ "code": 0, "msg": "success",
+  "data": { "accepted": true, "delivered": true, "deduplicated": false,
+            "outcome": "DEGRADED", "fallback_url": "https://…/api/v1/artifacts/…/content?token=…" } }
 ```
 
-**响应**：网关消费该事件后调用适配器的**可选出站能力**；网关回给 Runtime 的只是"已受理"（不阻塞模型回答）。
+| 字段 | 说明 |
+|------|------|
+| delivered | 是否**真实送达**（既有字段；`false` 表示仅占位/未确认，不得当成功） |
+| outcome | `DELIVERED`（直发成功）/ `DEGRADED`（渠道不支持直发，已发**签名取件链接**）。`FAILED` 不走 200，走错误码 |
+| fallback_url | 仅 `DEGRADED` 时返回，供模型转达用户（签名短 TTL，非渠道私密凭据） |
 
 **错误码**
 
 | 错误码 | 信息 | 场景 | HTTP状态码 |
 |--------|------|------|----------|
 | `ARTIFACT_DELIVERY_UNAVAILABLE` | 当前会话没有可交付的通道 | `run_context.delivery_route` 缺失 | 400 |
-| `ARTIFACT_DELIVERY_FAILED` | 产物交付失败（渠道侧） | 上传/发送失败 | 502 |
+| `ARTIFACT_DELIVERY_FAILED` | 产物交付失败（渠道侧/上传侧） | 上传/发送失败、占位超时 | 502 |
 
 **处理逻辑**
 
 ```mermaid
 flowchart TD
     A["Agent 调 deliver_artifact"] --> B{"有交付路由?"}
-    B -->|否| C["显式失败：ATTACHMENT_WRITE_UNAVAILABLE"]
-    B -->|是| D["Runtime 发 artifact.delivery 事件（只带引用）"]
-    D --> E["Gateway 取适配器"]
+    B -->|否| C["工具显式失败：ATTACHMENT_WRITE_UNAVAILABLE（不调网关）"]
+    B -->|是| D["Runtime 同步 POST /internal/deliveries<br/>（run:{run_id}:{artifact_id}）"]
+    D --> E["Gateway：reserve（既有幂等）"]
     E --> F{"适配器支持直发?"}
     F -->|是| G["适配器发送文件/图片"]
-    F -->|否| H["生成取件链接（API-05 渠道无关能力）并作为文本发出（DEGRADED）"]
-    G --> I["写交付审计"]
+    F -->|否| H["取件能力生成签名直链（API-05）并作为文本发出（DEGRADED）"]
+    G --> I["写交付审计（API-03，网关不持库）"]
     H --> I
-    I --> J["回受理结果"]
+    I --> J["返回 outcome / fallback_url"]
+    J --> K["Runtime 把结论作为工具结果回给模型"]
+    D -.->|"超时"| L["按**未知**处理：报失败 + 产物保留 + 可重试；<br/>**绝不**当成功"]
 ```
+
+**关于"未知"**：runtime→gateway 的超时只说明**没拿到结论**，不说明没发出去。因此超时一律按**失败（可重试）**反馈；重试由幂等键兜底（同产物同路由不会重复发）。这是 RULE-03"不得谎报"的直接推论。
 
 ---
 
-#### API-02: 后台任务投递（`/internal/deliver` 新形态）
+#### API-02: 交付端点 `/internal/deliveries`（既有端点，新增产物形态与第二个调用方）
 
-**请求**
+> **路径以代码为准**：真实路由前缀是 **`/internal/deliveries`**（`apps/im-gateway/src/muad_im_gateway/api/delivery.py:21`；worker 客户端 `apps/agent-worker/src/muad_agent_worker/delivery/client.py:9`）。早前草案里的 `/internal/deliver` **不存在**，照它实现会 404。
+
+**契约改动（一条交付契约、两个调用方）**
+
+既有 `DeliveryRequest` 是**任务专属**的——`task_id` 必填，且 `@model_validator` 强制 `delivery_key == f"task:{task_id}:final"`（`packages/contracts/src/muad_contracts/delivery.py`）。会话内交付不是任务，故需**最小扩展**（对既有 worker 调用**完全向后兼容**）：
+
+| 字段 | 改动 | 约束 |
+|------|------|------|
+| `task_id` | `UUID` → `UUID \| None = None` | **后台路径仍然必填** |
+| `delivery_key` | 形态扩展 | 两种形态**互斥**校验：`task:{task_id}:final`（有 `task_id` 时）或 `run:{run_id}:{artifact_id}`（无 `task_id` 时）。保留"key 与 task_id 必须一致"的既有校验，只是新增第二形态 |
+| `message.type` | `Literal["text"]` → `Literal["text","artifact","image"]` | 缺省仍 `text`（向后兼容） |
+| `message.artifact` | 新增 `AttachmentRef \| None` | `type != text` 时必填 |
+| `DeliveryResponse.outcome` / `.fallback_url` | 新增 | 见 API-01 的响应表 |
+
+**请求**（产物形态）
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| delivery_key | string | 是 | 既有幂等键（`task:{task_id}:final`） |
+| delivery_key | string | 是 | `task:{task_id}:final`（后台）或 `run:{run_id}:{artifact_id}`（会话内） |
 | route | object | 是 | 既有交付路由 |
 | message.type | string | 是 | 新增取值 `artifact` / `image`（缺省仍为 `text`，向后兼容） |
 | message.artifact | `AttachmentRef` | 条件 | `type != text` 时必填；**渠道中立引用** |
 | artifact_ids | UUID[] | 否 | 既有字段，语义保持"仅引用、便于追溯"，**不因本需求改变** |
 
-**响应**（沿用既有封套）
+**响应**（沿用既有封套 + 新增两个字段）
 
 ```json
-{ "code": 0, "msg": "success", "data": { "accepted": true, "delivered": true, "deduplicated": false } }
+{ "code": 0, "msg": "success",
+  "data": { "accepted": true, "delivered": true, "deduplicated": false,
+            "outcome": "DELIVERED", "fallback_url": null } }
 ```
 
 **错误码**：沿用既有投递错误码；新增 `ARTIFACT_DELIVERY_FAILED`（渠道侧失败，可重试）。
 
-**处理逻辑**：既有 `reserve → 发送 → mark` 不变；`type=artifact` 时适配器走"发文件或链接"，**发送失败必须释放占位**（否则任务被误判已送达）。
+**处理逻辑**：既有 `reserve → 发送 → mark` 不变；`type=artifact`/`image` 时走适配器的**可选出站能力**（直发或降级为签名链接），**发送失败必须释放占位**（否则任务被误判已送达）。降级时把 `fallback_url` 一并回给调用方（会话内路径要转达用户，后台路径可拼进正文）。
 
 ---
 
@@ -520,7 +562,7 @@ flowchart TD
 | `COMMON_VALIDATION_ERROR` | 参数错误 | 字段非法/夹带未知字段（`extra="forbid"`） | 400 |
 | `UNAUTHORIZED` | 未授权 | 缺内部服务令牌 | 401 |
 
-**处理逻辑**：`ON CONFLICT DO NOTHING` + 回查（与上期 `im_inbound_audit` 同口径），**契约字段全枚举化、无自由 JSON 列** ⇒ 上传凭据与下载令牌在类型上无处可放。
+**处理逻辑**：按 §3.3 的唯一键 `(tenant_id, artifact_id, route_key)` 做 `ON CONFLICT DO UPDATE`（`DELIVERED` 为终态、不被覆盖）+ 回查，**失败重试成功是更新同一行而非新增行**。**契约字段全枚举化、无自由 JSON 列** ⇒ 上传凭据与下载令牌在类型上无处可放。
 
 ---
 
@@ -572,10 +614,10 @@ flowchart TD
 
 | 指标ID | 热点路径 | 目标值 | 实现方案（含被放弃的较慢方案） |
 |--------|---------|-------|------------------------------|
-| NFR-PERF-01 | `read_attachment` 分段 | 待定 | **按需抽取**：只解码/抽取一次全量文本并缓存于单次工具调用内，再切片返回；**放弃**"每次 offset 都从字节重新解析"（同一 Run 内重复解析同一文档是纯浪费） |
-| NFR-PERF-02 | `list_attachments` | 待定 | 单条 SQL，按 `(run_id)` / `(conversation_id, create_time DESC)` 走既有索引 `ix_artifact_run` / `ix_artifact_conversation`；**放弃**先查全量再内存过滤 |
-| NFR-PERF-03 | 会话内交付 | 待定 | 字节**不经核心域搬运**：事件只带 `AttachmentRef`，适配器按 key 直接读共享 store；**放弃**把字节放进 SSE（会把流撑爆） |
-| NFR-PERF-04 | 清理扫描 | 待定 | 单次扫描 + `--limit` 批量删除；**放弃**逐文件 stat 的 N+1 |
+| NFR-PERF-01 | `read_attachment` 分段 | 不作为门禁（观测项） | **按需抽取**：只解码/抽取一次全量文本并缓存于单次工具调用内，再切片返回；**放弃**"每次 offset 都从字节重新解析"（同一 Run 内重复解析同一文档是纯浪费） |
+| NFR-PERF-02 | `list_attachments` | 不作为门禁（观测项） | 单条 SQL，按 `(run_id)` / `(conversation_id, create_time DESC)` 走既有索引 `ix_artifact_run` / `ix_artifact_conversation`；**放弃**先查全量再内存过滤 |
+| NFR-PERF-03 | 会话内交付（**同步**） | 不作为门禁（观测项） | 字节**不经核心域搬运**：请求只带 `AttachmentRef`，适配器按 key 直接读共享 store；**放弃**把字节放进请求体（会把链路撑爆）。代价是 Run 多一次渠道往返——由**独立超时**兜住，超时按失败处理（§3.6） |
+| NFR-PERF-04 | 清理扫描 | 不作为门禁（观测项） | 单次扫描 + `--limit` 批量删除；**放弃**逐文件 stat 的 N+1 |
 
 #### 可靠性设计 [按需]
 
@@ -586,7 +628,7 @@ flowchart TD
 | RISK-01 | 渠道上传/发送失败 | 用户收不到产物 | 显式失败 + 释放投递占位 + 幂等键可重试；**不谎报 delivered** | E-04 |
 | RISK-02 | 重复投递 | 用户收到两份文件 | 幂等键（既有 `delivery_key` + 新增审计 partial unique） | S-07 |
 | RISK-03 | 清理误删在用文件 | 产物损坏 | 宽限期 + 在用判定（有 DB 行且未过期） | S-08、E-05 |
-| RISK-04 | 长文档追加写覆盖历史 | 内容丢失 | 每次追加写新 key；artifact 行指向最新 + metadata 记版本 | S-01、E-01 |
+| RISK-04 | 长文档追加写覆盖历史 | 内容丢失 | 每次追加写新 key；artifact 行指向最新 + metadata 记版本；**同 key 二次写抛错**由单测钉死 | B-03 |
 | RISK-05 | 下载端点越权 | 跨租户数据泄露 | 统一 404 + 不泄露存在性 | E-03 |
 
 #### 安全性设计 [按需]
@@ -618,7 +660,7 @@ flowchart TD
 
 | # | 代码事实 | 对取舍的含义 |
 |---|---------|-------------|
-| 1 | 现有守卫把「写」与「可交付」**耦合错了方向**：`write_artifact` 在 `has_delivery_route=false` 时直接拒绝，理由是「写出来没人收，静默成功等于骗模型」（`attachment_tools.py:210-221`） | 于是**没有交付路由的场景连「写」都做不了**（后台任务、控制台触发的 Run）。可「写」本身不需要路由——产物落共享 store + DB 行即可（上期 AD-1-B）。分离后：写只依赖 run 上下文，**只有交付依赖路由**。选 (b) 会把这个错误耦合保留下来。 |
+| 1 | 现有守卫把「写」与「可交付」**耦合错了方向**：`write_artifact` 在 `has_delivery_route=false` 时直接拒绝，理由是「写出来没人收，静默成功等于骗模型」（`apps/agent-runtime/src/muad_agent_runtime/application/attachment_tools.py:214-221`） | 于是**没有交付路由的场景连「写」都做不了**（后台任务、控制台触发的 Run）。可「写」本身不需要路由——产物落共享 store + DB 行即可（上期 AD-1-B）。分离后：写只依赖 run 上下文，**只有交付依赖路由**。选 (b) 会把这个错误耦合保留下来。 |
 | 2 | 「写」已有完整实现（原子写 + 落 `artifact` 行），「发」**完全没有实现** | 两者在实现上本就是两段独立工作。选 (b) 会把「发」塞进「写」的同步路径，而发送依赖外部网络（超时/重试/吞吐未知）⇒ 失败语义模糊：究竟是**没写成功**还是**写了没发出去**？(a) 让两种状态各自独立、可分别重试。 |
 | 3 | Agent 需要**中间产物**（分片整理后合并、多候选文件） | 选 (b) 时每个中间产物都会被发出去——用户被垃圾文件轰炸，且模型无法撤回。(a) 让写出自由用于中间步骤，交付是显式决定。 |
 | 4 | 工具结果要能表达交付成败 | (a) 下该结果属于交付工具，语义单一；(b) 下同一次调用要同时表达「写了/没写」×「发了/没发」四种组合，模型极易把「写了但没发」当成成功。 |
@@ -631,12 +673,15 @@ flowchart TD
 | 跳 | 组件 | 做什么 | 现状 | 待验/未决 |
 |---|------|--------|------|-----------|
 | 1 | agent-runtime 工具面 | 模型调 `deliver_artifact(artifact_id, note?)`；校验归属（本 Run/会话 + 租户）与交付路由存在 | 新写 | — |
-| 2 | agent-runtime 事件层 | 发出**渠道中立**的交付事件 `artifact.delivery`（只带 `AttachmentRef` + note），**不阻塞模型回答** | 新写（SSE 新事件） | 事件是否需要 ack/超时语义 |
-| 3 | im-gateway 会话内路径 | 消费事件 → 取适配器 → 调其**可选出站能力** | 新写 | — |
-| 3′ | agent-worker 后台路径 | 后台任务完成时既有投递链已带 `artifact_ids`（`delivery/service.py:77-83`），新增 `message.type=artifact` 形态 → 走同一网关端点 | 骨架已有，形态待加 | — |
-| 4 | 渠道适配器 | 决定**怎么发**：直发文件/图片，或降级为下载链接 | **完全未知** | **企微能否发文件/图片、上传流程（media_id vs URL）、发送是否有 ack/幂等 —— 全部待 FEAT-06 真机探针**（与上期 R-01 同源的外部事实风险） |
+| 2 | agent-runtime **交付客户端** | **同步 POST 网关 `/internal/deliveries`**（会话形态 `run:{run_id}:{artifact_id}`，`task_id` 省略），带 `AttachmentRef`（**不含字节**）；**独立超时**，超时按"未知"→ 失败可重试，**绝不拆成成功** | 新写（runtime 首次调 gateway） | 超时取值（取 runtime 交付客户端配置） |
+| 3 | im-gateway 交付端点 | 既有 `reserve → 发送 → mark` 不变；`type=artifact/image` 时取适配器的**可选出站能力**；失败释放占位 | 骨架已有，形态待加 | — |
+| 3′ | agent-worker 后台路径 | 后台任务完成时既有投递链已带 `artifact_ids`（`apps/agent-worker/src/muad_agent_worker/delivery/service.py:82`），新增 `message.type=artifact` 形态 → 走**同一网关端点** | 骨架已有，形态待加 | — |
+| 4 | 渠道适配器 | 决定**怎么发**：直发文件/图片，或降级为签名取件直链（调 API-05 的取件能力生成链接，作为文本发出） | **完全未知** | **企微能否发文件/图片、上传流程（media_id vs URL）、发送是否有 ack/幂等 —— 全部待 FEAT-06 真机探针**（与上期 R-01 同源的外部事实风险） |
+| 5 | 交付审计 | 网关把 `outcome`（`DELIVERED`/`DEGRADED`/`FAILED`）经 console 内部端点写入（**网关不持库**） | 新写（TASK-007） | — |
 
-> 跳 1–3 全程**不见渠道形状**；跳 4 是唯一允许出现渠道差异的地方。
+> 跳 1–3、5 全程**不见渠道形状**；跳 4 是唯一允许出现渠道差异的地方。
+
+**关于不新增 SSE 事件类型（记录）**：会话内交付改为**同步调用**后，**不再新增 `artifact.delivery` 事件**，因此**无需**在 `apps/agent_runtime/application/run_service.py:104-116` 的 `STREAM_BUSINESS_TYPES` 里登记新类型（早前草案依赖那条登记，改设计后自然消除）。交付的规范记录由两处承担：**既有 tool 调用事件**（会话回放可见）+ **交付审计行**（运维可查）。若将来有人新增事件类型，**必须**同时登记该映射，否则落不了库、回放不了。
 
 #### 交付结果可观测（成功/失败怎么表达，产物去哪）
 
@@ -644,7 +689,7 @@ flowchart TD
 
 - 成功：`已交付产物 {id} 到当前会话（{文件名}）`
 - 降级：`已发送取件链接（当前渠道不支持直发文件）：{链接}` —— 链接即 §3.4 API-05 的**渠道无关取件能力**（签名短 TTL），不是一次性特例
-- 失败：`交付失败（{原因码}）：产物已保留（id={id}），可重试`
+- 失败（含**超时/未知**）：`交付失败（{原因码}）：产物已保留（id={id}），可重试` —— 超时只说明没拿到结论，**不得**改成"已交付"
 
 三条配套规则：
 
@@ -654,9 +699,12 @@ flowchart TD
 
 #### 幂等：同一产物被要求交付两次
 
-- 幂等键 **`(tenant_id, artifact_id, route_key)`**——`route_key` 是**适配器产出的可读不透明串**（§3.3），**不是**渠道私有字段的元组；会话内与后台两条路径统一用它（后台既有的 `delivery_key = task:{task_id}:final` 保持不变，另由 artifact 维度兜底去重）。
-- 落点：`control.artifact_delivery_audit` 的 partial unique `(tenant_id, delivery_key, route_key, outcome) WHERE is_deleted = false`（§3.3，**含 `route_key`**：同一产物交付到两个不同路由是两条不同的事实，不能被去重掉），写入走 `ON CONFLICT DO NOTHING` + 回查 —— 与入站审计表"partial unique + 回查"同口径（键的构成按本表的路由形状调整）。
-- 行为：**同一产物对同一路由重复交付 → 只发一次**；第二次请求返回「此前已交付」，不产生第二个文件、不新增第二条审计行（S-10）。渠道重投场景由入站去重（上期 E-07）+ 本键共同兜底。
+**键的权威定义在 §3.3**（"幂等语义"小节），此处不重复定义，只讲行为：
+
+- **键 = `(tenant_id, artifact_id, route_key)`**——对齐 RULE-07/S-10 的口径"同一**产物**对同一**路由**只交付一次"。会话内与后台是两条传输路径，但"某产物已交付给某路由"是**同一个事实**，不因路径不同而记两行；`delivery_key`（`run:{run_id}:{artifact_id}` / `task:{task_id}:final`）只作传输层留痕。
+- **行为**：同一产物对同一路由重复交付 → **只发一次**；第二次请求返回「此前已交付」，不产生第二个文件、**不新增审计行**（那一行保持 `outcome=DELIVERED`）。
+- **失败重试**：首次失败留下 `outcome=FAILED` 的**同一行**；重试成功把这行**更新**为 `DELIVERED`（不新增行）。`DELIVERED` 为终态，不被后续写覆盖。
+- **两层兜底**：网关既有的 `reserve → 发送 → mark`（Redis 占位 + 送达标记）负责**传输层**不重发；本表唯一键负责**事实层**不重复记账。渠道重投场景另由入站去重（上期 E-07）兜底。
 
 #### RULE-im-002 兼容（渠道中立）
 
@@ -708,7 +756,8 @@ flowchart TD
 |-------------|---------|------|---------|
 | 企微 aibot 出站协议 | 能否发文件/图片、上传流程、ack | **未知，待 FEAT-06 探针** | 高 |
 | 共享 artifact store（RWX PVC） | 产物字节存取 | 上期已落地 | 低 |
-| Console 前端 | 产物页面与下载交互 | 需新增 | 中 |
+| **im-gateway `/internal/deliveries`（runtime 为其新增调用方）** | 会话内交付的同步调用入口；复用既有 `reserve → 发送 → mark` | 端点已存在、**worker 已在用**；runtime 是**新增调用方**（`settings.im_gateway_url` 目前只有 worker 消费，已存在该配置项） | 中（新增一条 runtime→gateway 调用边；默认超时与故障语义需定，见 §3.6） |
+| Console 前端 | 产物页面与下载交互 | **本期不做**（页面后置；本期交付的是后端取件能力 + 签名直链） | — |
 
 ### 5.2 风险识别
 
@@ -716,7 +765,7 @@ flowchart TD
 |--------|------|------|------|------|---------|---------|
 | R-01 | 外部依赖 | **企微 aibot 可能根本不支持发送文件/图片** | 中 | 出站直发形态不成立 | 先探针（FEAT-06）；不可直发则降级为控制台下载链接（分支 2 已在设计中） | S-05 |
 | R-02 | 技术 | 出站交付容易把渠道形状漏进核心域（违反 `RULE-im-002`） | 中 | 后续接新通道要改核心域 | 可选能力协议 + 静态守卫覆盖出站路径 | S-05、S-06 + verifier |
-| R-03 | 数据 | 追加写与"不可变"规则冲突 | 低 | 实现走偏（同 key 覆盖） | 新键 + 版本记录；单测钉死"同 key 二次写抛错" | S-01、E-01 |
+| R-03 | 数据 | 追加写与"不可变"规则冲突 | 低 | 实现走偏（同 key 覆盖） | 新键 + 版本记录；单测钉死"同 key 二次写抛错" | B-03 |
 | R-04 | 一致性 | 清理与在用产物竞争 | 中 | 误删在用文件 | 宽限期 + 在用判定 + dry-run | S-08、E-05 |
 | R-05 | 安全 | 下载端点越权/存在性泄露 | 中 | 跨租户泄露 | 统一 404、租户+授权过滤 | E-03 |
 | R-06 | 外部依赖 | 真机探针需要真实凭据与会话，无法在 CI 复现 | 高 | S-05 只能 manual | 探针结论落**事实表**并作为后续设计的输入；E2E 只覆盖到"适配器接口调用"这一层 | S-05（manual）、S-06 |
@@ -736,25 +785,26 @@ flowchart TD
 | US-04 | FEAT-07 | API-01, API-02（契约形态） | S-06, S-07 | E2E | 待实现 |
 | US-04 | FEAT-08 | 函数 `write_artifact` / `append_artifact` / `deliver_artifact` | S-06, B-03, E-01 | E2E / unit | 待实现 |
 | US-04 | FEAT-09 | API-01, API-02 | S-06, S-07, E-04 | E2E / integration | 待实现 |
-| US-04 | FEAT-10 | 函数 `deliver_artifact`（图片分支） | S-07 | E2E | 待实现 |
-| US-04 | FEAT-11 | API-03 | S-06, S-07 | E2E | 待实现 |
-| US-04 | FEAT-13 | API-04, API-05 | S-09, E-03 | E2E / integration | 待实现 |
+| US-04 | FEAT-10 | 函数 `deliver_artifact`（图片分支）、API-01/02（`type=image`） | S-06, S-07 | E2E | 待实现 |
+| US-04 | FEAT-11 | API-03 | S-06, S-07, E-04 | E2E / integration | 待实现 |
+| US-04 | FEAT-13 | API-05（**API-04 后置，随 Console 页面**） | S-09, E-03 | E2E / integration | 待实现 |
 | US-04 | FEAT-14 | 函数 `deliver_artifact`、API-01、API-02、API-03 | S-06, S-10, E-04, E-06 | E2E / integration | 待实现 |
 | US-05 | FEAT-12 | CLI `cleanup-artifacts` | S-08, E-05 | integration | 待实现 |
-| US-05 | FEAT-13 | API-04, API-05 | S-09 | E2E | 待实现 |
+| US-05 | FEAT-13 | API-05（取件能力，供未来 Console 页面复用） | S-09 | E2E | 待实现 |
 
 **RULE / 高影响 RISK 映射自检**
 
 | RULE / RISK | 映射场景 | 说明 |
 |-------------|---------|------|
-| RULE-01（不可变） | S-01、E-01 | 追加写新键 + 分段读取 |
+| RULE-01（不可变） | B-03 | 追加写新键 + **同 key 二次写抛错**（B-03 已含该断言） |
 | RULE-02（渠道中立） | S-05、S-06 | 探针与交付路径 + 静态守卫 verifier |
-| RULE-03（写≠交付） | S-06、E-04 | 交付失败不谎报 |
+| RULE-03（写≠交付） | S-06、E-04、E-06 | 交付结论来自同步真实结果；超时不得算成功 |
 | RULE-04（至多一条反馈） | S-04、E-02 | 回执与拒绝合并 |
-| RULE-05（可见性受授权） | S-09、E-03 | 列表与下载 |
+| RULE-05（可见性受授权） | S-09、E-03 | 取件端点与令牌 |
 | RULE-06（清理保护在用） | S-08、E-05 | 宽限期 + dry-run |
-| RULE-07（交付幂等） | S-10 | 幂等键 `(artifact_id, route)` + 审计 partial unique |
+| RULE-07（交付幂等） | S-10 | 唯一键 `(tenant_id, artifact_id, route_key)`（§3.3 权威定义） |
 | R-01（企微可能不支持直发） | S-05（manual） | 无法自动化：需真实外部机器人与会话 |
+| R-03（追加写覆盖历史） | B-03 | 新键 + 同 key 二次写抛错 |
 | R-06（探针不可 CI 复现） | S-05（manual） | 同上 |
 
 ---
@@ -768,7 +818,7 @@ flowchart TD
 | `harness-skill#RULE-skill-001` | required | 产物仍写 RWX PVC、相对 `storage_key`、原子写；**不可变**约束直接决定"追加写新键"的方案 | §3.1 ADR「追加写长文档」、RULE-01 | S-01、E-01、B-03 | applied |
 | `harness-arch#RULE-arch-001` | required | 不新增部署单元；交付链不绑定 Pod；同一会话可任意实例 | §4.1 | S-06、S-07 | applied |
 | `harness-api#RULE-api-001` | required | Console 产物接口与内部端点统一封套；列表统一分页 | API-03/04/05 | S-09、E-03 | applied |
-| `harness-api#RULE-api-002` | required | 交付/审计写入需幂等：会话内用 `run:{run_id}:{artifact_id}`、后台沿用 `task:{task_id}:final` | §3.3 `uq_artifact_delivery_audit_key`、§3.4 API-02/03 | S-06、S-07、E-04 | applied |
+| `harness-api#RULE-api-002` | required | 交付/审计写入需幂等：传输层沿用 `delivery_key`（`task:{task_id}:final` / `run:{run_id}:{artifact_id}`），**事实层唯一键是 `(tenant_id, artifact_id, route_key)`**（§3.3 权威定义） | §3.3「幂等语义」、§3.4 API-02/03 | S-06、S-10、E-04、E-06 | applied |
 | `harness-data#RULE-data-001` | required | 新表用标准四列 + partial unique（`WHERE is_deleted=false`）+ `timestamptz`；跨 Owner Schema 仅逻辑 UUID | §3.3 | S-08（清理对账）、迁移双跑 | applied |
 | `harness-secret#RULE-secret-001` | required | 上传凭据/下载令牌/产物明文不进日志与审计字段（审计契约无自由 JSON 列） | §3.3、§3.5 安全性、API-03 | E-03、E-04 | applied |
 | `harness-log#RULE-log-001` | required | 交付与清理日志走 logging-kit，只记类型/大小/原因码 | §3.5 可观测性 | S-06、E-04 | applied |
@@ -777,16 +827,16 @@ flowchart TD
 | `harness-time#RULE-time-001` | required | 审计与保留期判定用 `timestamptz`；交付结果的时间戳口径一致（Console 展示格式随页面后置） | §3.3、§3.6 | S-08、S-09 | applied |
 | `harness-worker#RULE-worker-001` | required | 交付沿用既有投递租约/幂等；**不新增 `task_type`**，不改变 PG 为唯一权威源 | §3.4 API-02、§3.2 链路 | S-07、E-04 | applied |
 | `harness-auth#RULE-auth-001` | required | 产物取件受授权约束：签名令牌 + 归属校验，未授权/跨租户一律 404 | API-05、RULE-05 | S-09、E-03 | applied |
-| `harness-frontend#RULE-front-001` | required | **本期无前端改动**（产物取件走签名直链，不新增页面）⇒ 规则不适用本期 | —（后置承接：Console 产物页/未来 web chat 页） | — | **后置承接（待用户确认）** |
-| `harness-ui#RULE-ui-001` | required | 同上：本期不新增/不改造 Console 页面 | —（后置承接） | — | **后置承接（待用户确认）** |
+| `harness-frontend#RULE-front-001` | required | **本期无前端改动**（产物取件走签名直链，不新增/不改造任何页面）⇒ 规则不适用本期 | —（后置承接：Console 产物页 / 未来 web chat 页） | — | **not_applicable（用户已确认：本期 N/A，后置承接）** |
+| `harness-ui#RULE-ui-001` | required | 同上：本期不新增/不改造 Console 页面 | —（后置承接） | — | **not_applicable（用户已确认：本期 N/A，后置承接）** |
 | `harness-snapshot#RULE-snapshot-001` | required | 交付与产物**不进入快照冻结范围**（快照只冻 Agent/Model/Skill/MCP/Prompt/catalog） | §3.3（无快照字段改动） | S-06 | applied |
 | `harness-model#RULE-model-001` | required | 本需求不新增模型调用/不引入默认模型回退 | —（工具结果仍走既有模型链路） | — | **标 N/A：待用户逐条确认** |
 | `harness-mcp#RULE-mcp-001` | required | 不涉及 MCP Tool Catalog 与授权 | — | — | **标 N/A：待用户逐条确认** |
 | `harness-platform#RULE-platform-001` | required | 不涉及 ProjectPlatform 实例/Session | — | — | **标 N/A：待用户逐条确认** |
 | `harness-rel#RULE-rel-001` | required | 不修改任何关系集合（无全量 PUT） | — | — | **标 N/A：待用户逐条确认** |
 
-> **前端落点的当前默认（待用户确认）**：本期**只做渠道无关的取件能力（API-05 签名直链）**，Console 页面**后置**。理由：IM 终端用户没有 Console 账号（`console_account` 与 `platform_user` 是两套身份），给终端用户 Console 页面等于给一扇打不开的门；而运营在 Console 里看产物不紧急、且不影响本需求的任何验收场景（US-05"把结果交回用户"由直链闭合）。
-> 因此 §2.3 的 FEAT-13（Console 产物可见与下载）**在本期范围收敛为"取件端点 + 签名令牌"**，页面部分后置；`FEAT-13` 的场景 S-09 相应改为"取件端点 E2E（真实 HTTP + 真实鉴权）"，Playwright 渲染场景后置到承接方。
+> **前端落点（用户已确认）**：本期**只做渠道无关的取件能力（API-05 签名直链）**，**不做**任何 Console 页面（FEAT-13 的页面部分后置；API-04 随页面一并后置）。理由：IM 终端用户没有 Console 账号（`console_account` 与 `platform_user` 是两套身份），给终端用户 Console 页面等于给一扇打不开的门；而运营在 Console 里看产物不紧急、且不影响本需求的任何验收场景（US-04/US-05"把结果交回用户"由签名直链闭合）。`harness-frontend#RULE-front-001` 与 `harness-ui#RULE-ui-001` 因此在本需求标 **not_applicable**（用户逐条确认）。
+> 相应地：§2.3 的 FEAT-13 在本期收敛为"取件端点 + 签名令牌"；S-09 的验收为**取件端点 E2E（真实 HTTP + 真实鉴权）**，Playwright 渲染场景后置到承接方。
 
 ---
 
