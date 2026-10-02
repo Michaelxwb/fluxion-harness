@@ -680,12 +680,26 @@ body {
   align-items: center;
   gap: 12px;
   width: 100%;
+  /* 窄屏（移动端 390px）下动作区放不下时整块换到下一行，而不是把标题压成 0 并横向溢出。
+     起因：`.detail-actions` 原为 `flex: 0 0 auto`（按内容宽撑开、不收缩、不换行），
+     mcp 详情的 4 个动作按钮在 390px 下会溢出视口（实测第 4 个仅 73% 可见，
+     `e2e/tests/detail-layout.spec.ts` 的 mobile 用例据此失败）。 */
+  flex-wrap: wrap;
 }
 
 .detail-heading { flex: 1; min-width: 0; }
 .detail-title { font-size: 18px; font-weight: 600; line-height: 24px; overflow-wrap: anywhere; }
 .detail-subtitle { margin-top: 4px; font-size: 12px; line-height: 18px; color: var(--semi-color-text-2); overflow-wrap: anywhere; }
-.detail-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+/* `flex: 0 1 auto`（可收缩）+ 自身可换行：动作区被给到受限宽度后，按钮分多行而不是溢出。
+   只加 `flex-wrap` 不够 —— 不收缩的话它永远按内容宽撑开，换行无从触发。 */
+.detail-actions {
+  flex: 0 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
 .detail-notice { margin: 16px 20px 0; }
 
 .app-detail-sheet .semi-sidesheet-body {
