@@ -554,3 +554,56 @@ class InboundAudit(StandardColumnsMixin, Base):
         sa.BigInteger(), nullable=False, server_default=sa.text("0")
     )
     trace_id: Mapped[str | None] = mapped_column(sa.String(64))
+
+
+class ArtifactDeliveryAudit(StandardColumnsMixin, Base):
+    """交付审计（设计 §3.3 / API-03）："谁在何时把哪个产物交付给哪个路由、结果如何"。
+
+    **与 `InboundAudit` 刻意不同形**：路由用 `(channel, route_key)` 而不是
+    `channel + bot_id + external_user_id`。`route_key` 是适配器产出的**可读不透明串**
+    （企微 = `{bot_id}:{userid}`，未来 web chat = `session:{id}`）—— 接 web chat 时那一列
+    仍然填得出真值，而渠道私有的两列会当场填不出。不一致是**有意的**（上期已归档的表不动）。
+
+    **没有自由 JSON 列**：交付凭据与取件令牌在结构上无处可放（RULE-secret-001 的审计腿）。
+
+    幂等键 = **partial unique `(tenant_id, artifact_id, route_key)`**（设计 §3.3 的权威定义）：
+    "同一**产物**对同一**路由**只交付一次"。刻意**不含** `delivery_key`（会话内与后台是两条
+    传输路径，但"某产物已交付给某路由"是同一个事实）与 `outcome`（它是该行的**当前状态**：
+    失败重试成功 = 更新同一行，而不是新增一行）。
+    """
+
+    __tablename__ = "artifact_delivery_audit"
+    __table_args__ = (
+        sa.Index(
+            "ix_artifact_delivery_audit_tenant_time",
+            "tenant_id",
+            sa.text("create_time DESC"),
+        ),
+        sa.Index("ix_artifact_delivery_audit_artifact", "artifact_id"),
+        sa.Index("ix_artifact_delivery_audit_route", "tenant_id", "channel", "route_key"),
+        sa.Index("ix_artifact_delivery_audit_delivery_key", "delivery_key"),
+        sa.Index(
+            "uq_artifact_delivery_audit_target",
+            "tenant_id",
+            "artifact_id",
+            "route_key",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    #: 被交付的产物。control 与 runtime 是**不同 Owner Schema** ⇒ 只做逻辑 UUID 引用，不建物理 FK
+    artifact_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    channel: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    #: 适配器产出的可读不透明串；**刻意不拆成渠道私有列**（见类文档）
+    route_key: Mapped[str] = mapped_column(sa.String(256), nullable=False)
+    #: 传输层幂等键（调用方给出）：留痕用，**不参与唯一约束**
+    delivery_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    #: DELIVERED / FAILED / DEGRADED；`DELIVERED` 是终态，不被后续写覆盖
+    outcome: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    reason_code: Mapped[str] = mapped_column(
+        sa.String(64), nullable=False, server_default=sa.text("''")
+    )
+    trace_id: Mapped[str | None] = mapped_column(sa.String(64))

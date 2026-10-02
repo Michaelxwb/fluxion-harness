@@ -5,12 +5,14 @@ from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, InternalServiceDep, ok
 from muad_contracts import (
     DEFAULT_PAGE_SIZE,
+    ArtifactDeliveryAuditRequest,
     ChannelBindRequest,
     ChannelResolveRequest,
     InboundAuditRequest,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.artifact_delivery_audit_service import ArtifactDeliveryAuditService
 from ..application.channel_service import ChannelService
 from ..application.channel_skills_service import ChannelSkillsService
 from ..application.inbound_audit_service import InboundAuditService
@@ -96,4 +98,22 @@ async def audit(
     取件凭据在类型上无处可放。重复投递返回既有行（幂等键见服务层）。
     """
     audit_id = await InboundAuditService(session).record(tenant_id, payload)
+    return ok(request.app.state.message_catalog, {"id": str(audit_id)})
+
+
+@router.post("/artifact-delivery")
+async def artifact_delivery(
+    payload: ArtifactDeliveryAuditRequest,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    internal_service: InternalServiceDep,
+) -> ApiResponse[Any]:
+    """交付审计写入（设计 API-03）——**网关唯一的交付留痕出口**。
+
+    网关不持库，只能把"哪个产物交付给哪个路由、结果如何"交到这里；入参契约全字段具名化，
+    交付凭据与取件令牌在类型上无处可放。同键重写**更新既有行**而不是新增（幂等键见服务层）；
+    已 `DELIVERED` 的行是终态，后到的写落空。
+    """
+    audit_id = await ArtifactDeliveryAuditService(session).record(tenant_id, payload)
     return ok(request.app.state.message_catalog, {"id": str(audit_id)})

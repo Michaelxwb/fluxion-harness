@@ -42,7 +42,7 @@
 | E-01 | design#2.5.2 | integration | 真实文件系统 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | E-02 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 | TASK-004 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
 | E-03 | design#2.5.2 | integration | 真实 PG + 真实存储 + 鉴权层 | TASK-008 | planned | uv run pytest -q tests/console_channel/test_artifact_fetch.py | . | 120 |  |
-| E-04 | design#2.5.2 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | TASK-007 | planned | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | . | 120 |  |
+| E-04 | design#2.5.2 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | TASK-007 | verified | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | . | 120 |  |
 | E-05 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
 | E-06 | design#2.5.2 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | TASK-006 | planned | uv run pytest -q tests/gateway/test_artifact_delivery.py | . | 120 |  |
 | B-01 | design#2.5.2 | unit | 分段纯函数 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
@@ -464,7 +464,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-007: 交付审计落点（表 + console 内部端点）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#3.3 数据设计`, `#3.4 接口设计`
@@ -479,30 +479,55 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ### Checklist
 
-- [ ] 新增 `control.artifact_delivery_audit`（`StandardColumnsMixin` + `timestamptz`）：`tenant_id`/`artifact_id`/`channel`/`route_key`/`delivery_key`/`outcome`(`DELIVERED`/`FAILED`/`DEGRADED`)/`reason_code`/`trace_id`；**无自由 JSON 列**（凭据与令牌在类型上无处可放）
-- [ ] 索引：`(tenant_id, create_time DESC)`、`(artifact_id)`、`(tenant_id, channel, route_key)`、`(delivery_key)`，以及 **`uq_artifact_delivery_audit_target` = partial UNIQUE `(tenant_id, artifact_id, route_key) WHERE is_deleted = false`**
-- [ ] **幂等语义（唯一键的权威定义，设计 §3.3）**：键是 `(tenant_id, artifact_id, route_key)`——对齐 RULE-07/S-10"同一**产物**对同一**路由**只交付一次"；**`outcome` 不在键里**，它是该行的**当前状态**（`DELIVERED` 为终态、不被覆盖）；**失败重试成功 = 更新同一行**而不是新增行。`delivery_key` 只作传输层留痕，不参与唯一约束
-- [ ] alembic 迁移：单链接在当前 head 之后，`upgrade` / `downgrade` 双跑可用；**无回填**（历史产物无交付记录——不存在的事实不伪造）
-- [ ] `POST /internal/channel/artifact-delivery`（`InternalServiceDep` + `HeaderTenantId` + `ok(catalog,…)` 封套）；写入走 `ON CONFLICT (tenant_id, artifact_id, route_key) DO UPDATE ... WHERE outcome <> 'DELIVERED'` + 回查
-- [ ] 不新增部署单元、网关不持库（审计经 console 内部端点写）
-- [ ] [E-04][integration] 真实边界：真实 HTTP（console 内部端点）+ 真实 PG；断言以 `outcome=FAILED` 写入落一行 + 原因码、同键重写不产生第二行、`DELIVERED` 为终态不可被覆盖、凭据/令牌不在字段里
-- [ ] 运行 verifier：`uv run pytest -q tests/architecture`（`harness-arch#RULE-arch-001`）；记录输出
-- [ ] 运行 verifier：`uv run pytest -q tests/console_skill/test_import_idempotency.py`（`harness-api#RULE-api-002`）；记录输出
-- [ ] 运行 verifier：`uv run pytest -q tests -k schema_parity`（`harness-data#RULE-data-001`）；记录输出
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 新增 `control.artifact_delivery_audit`（`StandardColumnsMixin` + `timestamptz`）：`tenant_id`/`artifact_id`/`channel`/`route_key`/`delivery_key`/`outcome`(`DELIVERED`/`FAILED`/`DEGRADED`)/`reason_code`/`trace_id`；**无自由 JSON 列**（凭据与令牌在类型上无处可放）
+- [x] 索引：`(tenant_id, create_time DESC)`、`(artifact_id)`、`(tenant_id, channel, route_key)`、`(delivery_key)`，以及 **`uq_artifact_delivery_audit_target` = partial UNIQUE `(tenant_id, artifact_id, route_key) WHERE is_deleted = false`**
+- [x] **幂等语义（唯一键的权威定义，设计 §3.3）**：键是 `(tenant_id, artifact_id, route_key)`——对齐 RULE-07/S-10"同一**产物**对同一**路由**只交付一次"；**`outcome` 不在键里**，它是该行的**当前状态**（`DELIVERED` 为终态、不被覆盖）；**失败重试成功 = 更新同一行**而不是新增行。`delivery_key` 只作传输层留痕，不参与唯一约束
+- [x] alembic 迁移：单链接在当前 head 之后，`upgrade` / `downgrade` 双跑可用；**无回填**（历史产物无交付记录——不存在的事实不伪造）—— `0016_artifact_delivery_audit.py`，实测 `0015 → 0016 → 0015 → 0016`
+- [x] `POST /internal/channel/artifact-delivery`（`InternalServiceDep` + `HeaderTenantId` + `ok(catalog,…)` 封套）；写入走 `ON CONFLICT (tenant_id, artifact_id, route_key) DO UPDATE ... WHERE outcome <> 'DELIVERED'` + 回查
+- [x] 不新增部署单元、网关不持库（审计经 console 内部端点写）
+- [x] [E-04][integration] 真实边界：真实 HTTP（console 内部端点）+ 真实 PG；断言以 `outcome=FAILED` 写入落一行 + 原因码、同键重写不产生第二行、`DELIVERED` 为终态不可被覆盖、凭据/令牌不在字段里
+- [x] 运行 verifier：`uv run pytest -q tests/architecture`（`harness-arch#RULE-arch-001`）；记录输出 —— **13 passed**
+- [x] 运行 verifier：`uv run pytest -q tests/console_skill/test_import_idempotency.py`（`harness-api#RULE-api-002`）；记录输出 —— **5 passed**
+- [x] 运行 verifier：`uv run pytest -q tests -k schema_parity`（`harness-data#RULE-data-001`）；记录输出 —— **35 passed**
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-04 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | `FAILED` 落一行 + 原因码；同键重写不产生第二行；`DELIVERED` 为终态；字段里没有凭据/令牌 | tests/console_channel/test_artifact_delivery_audit.py | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | planned |
+| E-04 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | `FAILED` 落一行 + 原因码；同键重写不产生第二行；`DELIVERED` 为终态；字段里没有凭据/令牌 | tests/console_channel/test_artifact_delivery_audit.py::test_failed_delivery_lands_one_row_with_a_reason_code + ::test_rewriting_the_same_target_updates_the_same_row + ::test_delivered_is_terminal_and_cannot_be_overwritten + ::test_delivery_audit_has_no_place_for_credentials | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | verified |
 
 > **E-04 的边界为何收窄到"审计写入本身"**（设计已记录）：它的归属是**审计落点**（本任务只建表 + 端点），而"渠道失败 → 交付显式失败 → 调用方不收到已交付"的完整链路断言需要交付链存在，那属 TASK-006 的 E-06。原稿把 E-04 的边界写成"真实 HTTP（渠道发送端点）"会让本任务的 Done Gate 依赖尚未实现的上游；**收窄是把场景归位到它真正的主体（审计写入），不是降级真实边界**——E-04 仍然打真实 HTTP 与真实 PG。
 
 ### Acceptance Evidence
 
+**执行（2026-10-03）**，登记命令 `uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py` → **4 passed**。
+
+**RED（先写测试再实现）**：用 `git stash push -u` 把实现（契约/模型/迁移/服务/端点）暂存起来跑一次
+→ `ImportError: cannot import name 'ArtifactDeliveryAudit' from ...infrastructure.models.control`（预期失败）；
+`git stash pop` 复原后转 GREEN。
+
+**GREEN**：E-04 **4 passed**；相邻 `tests/console_channel` **44 passed**；三条 required verifier 全绿
+（`tests/architecture` **13 passed** / `test_import_idempotency.py` **5 passed** / `-k schema_parity` **35 passed**）。
+
+**迁移双跑**（清单要求）：`0015 → 0016 → 0015 → 0016`，`upgrade` 与 `downgrade` 都可用，结束停在 head。
+迁移是**纯新增表**、无回填——历史产物没有交付记录，"补一批行"是把不存在的事实伪造成数据。
+
+**落点**：契约 `ArtifactDeliveryAuditRequest` + `DeliveryAuditOutcome`（`packages/contracts`）；模型
+`ArtifactDeliveryAudit`（console `control.py`）；服务 `artifact_delivery_audit_service.py`；端点
+`POST /internal/channel/artifact-delivery`（与上期 `/internal/channel/audit` 同门控口径）。
+
+**为什么这张表与上期入站审计表刻意不同形**（设计 §3.3 已记录）：路由用 `(channel, route_key)`
+而不是 `channel + bot_id + external_user_id`。`route_key` 是适配器产出的**可读不透明串**，
+接 web chat 时那一列仍填得出真值，而渠道私有的两列会当场填不出。
+- E-04: verified — automated command passed; run_id=557f25c0fc8e407799b1ae41d4e540b1 (confirmed_by: runner)
+
 ### Log
 - [2026-10-03] created (draft)
+- [2026-10-03] started
+- [2026-10-03] 契约 + 模型 + 迁移 0016 + 服务 + 内部端点；迁移 upgrade/downgrade 双跑验证
+- [2026-10-03] E-04 4 passed；三条 required verifier 全绿；相邻 console_channel 44 passed
+- [2026-10-03] completed (done)
 
 ---
 

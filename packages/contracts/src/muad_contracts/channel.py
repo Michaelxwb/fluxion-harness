@@ -21,6 +21,10 @@ UnsupportedMedia = Literal["VOICE", "VIDEO", "OTHER"]
 #: 入站审计的三种结局（设计 API-10）。
 InboundAuditOutcome = Literal["RECEIVED", "REJECTED", "FAILED"]
 
+#: 交付审计的三种结局（设计 API-03）。`DELIVERED` 是**终态**：同一产物对同一路由一旦交付成功，
+#: 该行不再被后续写覆盖（失败重试成功是把同一行从 FAILED 更新成 DELIVERED，不是新增一行）。
+DeliveryAuditOutcome = Literal["DELIVERED", "FAILED", "DEGRADED"]
+
 
 class PageMeta(ContractModel):
     """统一列表分页字段（required API Rule：page>=1、1<=page_size<=100）。"""
@@ -78,6 +82,27 @@ class InboundAuditRequest(ContractModel):
     attachment_count: int = Field(ge=0)
     accepted_count: int = Field(ge=0)
     total_bytes: int = Field(ge=0)
+    trace_id: str | None = None
+
+
+class ArtifactDeliveryAuditRequest(ContractModel):
+    """交付审计事件（设计 API-03）：网关 → console 内部端点（**网关不持库**）。
+
+    **与入站审计表刻意不同形**：路由用 `(channel, route_key)` 而不是 `channel + bot_id +
+    external_user_id`。`route_key` 是**适配器产出的可读不透明串**（企微 = `{bot_id}:{userid}`，
+    未来 web chat = `session:{id}`）—— 核心域与审计表都不认它的内部形状，否则上 web chat 时
+    那两个渠道私有列会**填不出真值**。
+
+    同样**没有自由 JSON 字段**：交付凭据与取件令牌在类型上就无处可放（RULE-secret-001 的
+    审计腿由结构保证，不是靠写入前脱敏）。
+    """
+
+    artifact_id: UUID
+    channel: ChannelName
+    route_key: str = Field(min_length=1, max_length=256)
+    delivery_key: str = Field(min_length=1, max_length=128)
+    outcome: DeliveryAuditOutcome
+    reason_code: str = Field(default="", max_length=64)
     trace_id: str | None = None
 
 

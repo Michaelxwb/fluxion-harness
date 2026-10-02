@@ -370,7 +370,7 @@
       "kind": "functional",
       "boundary": "真实 HTTP（console 内部端点）+ 真实 PG",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -380,7 +380,28 @@
       ],
       "cwd": ".",
       "timeout": 120.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "557f25c0fc8e407799b1ae41d4e540b1",
+        "executed_at": "2026-10-02T17:49:50.973084+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "557f25c0fc8e407799b1ae41d4e540b1",
+          "executed_at": "2026-10-02T17:49:50.973084+00:00"
+        }
+      ]
     },
     {
       "id": "E-05",
