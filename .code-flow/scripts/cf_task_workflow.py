@@ -185,6 +185,12 @@ def _run_requirement_verifiers(
     executed = reused = 0
     failures: list[str] = []
     context_paths: set[Path] = set()
+    # 按 context 文件聚合后再一次性应用：`collect_requirement_bindings` 对同一个文件只
+    # load 一次、把**同一个对象**挂在它绑定的每条规则下；若逐规则 `_apply_evidence(同一陈旧对象)`
+    # 再 save，后一条会覆盖前一条 —— 实测表现是"整轮只有 spec_id 排序最后的那条规则留下证据"
+    # （2026-10-02：`must` 之外 13 条规则的 evidence 全丢，且最后那条累积了 6 轮）。
+    # `_apply_evidence` 本就接收 tuple，聚合应用即正解。
+    pending: dict[Path, list[Mapping[str, object]]] = {}
     scope = _review_scope(root)
     for spec_id in sorted(targets):
         info = targets[spec_id]
@@ -204,12 +210,15 @@ def _run_requirement_verifiers(
             evidence = by_rule.get(rule_ref)
             if evidence is None:
                 continue
-            payload = (_evidence_data(evidence),)
-            for ctx_path, context in entries:
+            payload = _evidence_data(evidence)
+            for ctx_path, _context in entries:
                 context_paths.add(ctx_path)
-                updated = _apply_evidence(context, payload)
-                if updated != context:
-                    save_context(str(ctx_path), updated)
+                pending.setdefault(ctx_path, []).append(payload)
+    for ctx_path, payloads in pending.items():
+        current = load_context(str(ctx_path))
+        updated = _apply_evidence(current, tuple(payloads))
+        if updated != current:
+            save_context(str(ctx_path), updated)
     for ctx_path in sorted(context_paths):
         gate = validate_stage(load_context(str(ctx_path)), "review", diff_sha256=scope.diff_sha256)
         failures.extend(f"{issue.spec_id}#{issue.rule_ref}" for issue in gate.errors)
