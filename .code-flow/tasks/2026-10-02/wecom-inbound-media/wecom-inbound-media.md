@@ -27,11 +27,11 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 | cwd | 超时 | 依赖 |
 |--------|---------|---------|-------------|---------|------|------|-----|------|------|
-| S-01 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体 | TASK-010 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 300 |  |
-| S-02 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG → 真实 artifact → 工具真实抽取 | TASK-010 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 300 |  |
+| S-01 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体 | TASK-010 | verified | uv run pytest -q tests/acceptance/wecom_attachments | . | 300 |  |
+| S-02 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG → 真实 artifact → 工具真实抽取 | TASK-010 | verified | uv run pytest -q tests/acceptance/wecom_attachments | . | 300 |  |
 | S-03 | design#2.5.2 | integration | 模型 provider 请求体（不 mock 组装层） | TASK-005 | verified | uv run pytest -q tests/agent_core/test_openai_provider.py | . | 60 |  |
 | S-04 | design#2.5.2 | E2E | 回调 → 落盘 → 契约 → 工具 | TASK-004 | verified | uv run pytest -q tests/acceptance/im_gateway/test_wecom_attachments.py | . | 180 |  |
-| S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-010 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 300 |  |
+| S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-010 | verified | uv run pytest -q tests/acceptance/wecom_attachments | . | 300 |  |
 | S-06 | design#2.5.2 | integration | 工具 → artifact store → 读回 | TASK-008 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 60 |  |
 | S-07 | design#2.5.2 | integration | FakeChannelAdapter → 门控 → 契约 → 落盘（不含企微路径） | TASK-004 | verified | uv run pytest -q tests/gateway/test_inbound_attachment_flow.py tests/gateway/test_inbound_attachment_store.py | . | 60 |  |
 | S-08 | design#2.5.2 | integration | 回调帧分流解析层（不 mock 帧） | TASK-002 | verified | uv run pytest -q tests/gateway/test_wecom_media.py | . | 60 |  |
@@ -59,7 +59,7 @@
 
 ## TASK-001: 契约层：附件位 + 通道枚举收口
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: 无
 - **Source**: `wecom-inbound-media.design.md#2.3.2 字段约束`, `#3.2.3 通道复用性`, `#3.4 接口设计`
@@ -112,6 +112,8 @@
 - B-07: not_configured — automated command not_configured; run_id=875f5933215b44d7b31a2444036134f8 (confirmed_by: runner)
 - B-05: verified — automated command passed; run_id=4095b5dd4d5641a2ac7b08e27b7943b2 (confirmed_by: runner)
 - B-07: verified — automated command passed; run_id=4095b5dd4d5641a2ac7b08e27b7943b2 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -122,7 +124,7 @@
 - [2026-10-02] completed (done)
 ## TASK-002: 企微入站分流 + 媒体下载解密
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: `wecom-inbound-media.design.md#3.2.1`, `#3.2.2`, `#3.4 接口设计`, `#3.1 方案选型`
@@ -179,6 +181,8 @@
 - E-04: verified — automated command passed; run_id=586860170ba5421fb7f014475437aa20 (confirmed_by: runner)
 - S-08: verified — automated command passed; run_id=415d5b7e6f32435c8d42c1403e40cb59 (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=415d5b7e6f32435c8d42c1403e40cb59 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -188,7 +192,7 @@
 - [2026-10-02] completed (done)
 ## TASK-003: 附件门控（纯函数）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: `wecom-inbound-media.design.md#2.3.2 字段约束`, `#3.4 接口设计`
@@ -239,6 +243,10 @@
 - B-02: verified — automated command passed; run_id=6362dc61c2d2460bbb160a87a9b4a5dc (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=6362dc61c2d2460bbb160a87a9b4a5dc (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=6362dc61c2d2460bbb160a87a9b4a5dc (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -248,7 +256,7 @@
 - [2026-10-02] completed (done)
 ## TASK-004: 附件落盘 + 接收反馈与审计
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003, TASK-012
 - **Source**: `wecom-inbound-media.design.md#3.2.1`, `#3.4 接口设计`, `#3.5 质量实现方案`
@@ -346,6 +354,16 @@
 - E-02: verified — automated command passed; run_id=00b33a3e8ee84240886bb29c91405a4b (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=00b33a3e8ee84240886bb29c91405a4b (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=00b33a3e8ee84240886bb29c91405a4b (confirmed_by: runner)
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- E-01: e2e_deferred — automated command e2e_deferred; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -355,7 +373,7 @@
 - [2026-10-02] completed (done)
 ## TASK-005: 模型多模态内容形态
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: `wecom-inbound-media.design.md#3.4 接口设计`, `#3.1 方案选型`
@@ -399,6 +417,8 @@
 **实现中的一处必要附带改动**：`executor.py` 把 assistant 回合落事件时用了 `message.content`，放宽类型后它可能是内容块元组。新增 `text_of(content)` 取其文本视图（纯文本原样返回），事件载荷因此仍只收文本。助手回合本就是文本，此处是类型安全的收口而非行为变化。
 - S-03: verified — automated command passed; run_id=23692145c6c84cd6b34a9c5d8224b1c7 (confirmed_by: runner)
 - B-06: verified — automated command passed; run_id=23692145c6c84cd6b34a9c5d8224b1c7 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -408,7 +428,7 @@
 - [2026-10-02] completed (done)
 ## TASK-006: Runtime 附件落库 + 上下文组装
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-005
 - **Source**: `wecom-inbound-media.design.md#3.2.1`, `#3.3 数据设计`
@@ -474,7 +494,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - [2026-10-02] completed (done)
 ## TASK-007: 附件读取工具（文档抽取）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: `wecom-inbound-media.design.md#3.4 接口设计`, `#3.1 方案选型`
@@ -534,6 +554,8 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -544,7 +566,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - [2026-10-02] completed (done)
 ## TASK-008: 产物写出工具
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-007
 - **Source**: `wecom-inbound-media.design.md#3.4 接口设计`
@@ -585,6 +607,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 **实现补充**：`write_artifact` 落在 TASK-007 建立的 `AttachmentToolSet` 上（同一套租户/存储口径），新增构造参数 `run_id` / `conversation_id` / `has_delivery_route` —— 前两者决定产物行挂在哪（`run_id` 非空 ⇒ `ck_artifact_run_task_xor` 继续成立），后者是上面那道显式拒绝的依据。写出用「临时文件 + `os.replace`」原子替换，不留半成品。
 - S-06: verified — automated command passed; run_id=743a771afe0f4967aaf7ce3bef6a7b72 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -594,7 +617,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - [2026-10-02] completed (done)
 ## TASK-009: 当前时间工具
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: 无
 - **Source**: `wecom-inbound-media.design.md#3.4 接口设计`
@@ -631,6 +654,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 **设计落点的补充**：设计 §3.4 API-09 只写"`current_time` 工具"，未指定时区来源。实现取**平台级默认** `SharedSettings.default_timezone`（默认 `Asia/Shanghai`）—— 因为调度时区是 per-schedule 必填项，而"现在几点"没有 per-run 来源；非法值在 `resolve_zone()` 显式 `ValueError`，与 `harness-time#RULE-time-001` 对调度时区的口径一致（不静默回退）。
 - B-08: verified — automated command passed; run_id=ee1b545bde6646828c268dbf52df1b30 (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -640,7 +664,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - [2026-10-02] completed (done)
 ## TASK-010: 端到端验收基线
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-006, TASK-007
 - **Source**: `wecom-inbound-media.design.md#2.5 验收条件`, `#3.2.3 通道复用性`
@@ -676,9 +700,9 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | 回调、PG/Redis、落盘、模型请求体 | 附件落盘可读回；模型请求体含图像内容块且 base64 与源字节一致；回答经真实链路回到渠道 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s01_image_is_persisted_and_sent_to_the_model_as_a_content_block` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
-| S-02 | E2E | 回调、PG、artifact、解析库 | 文档落盘；模型按**上下文里的附件 ID** 调真工具；工具结果含文档正文 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s02_document_is_extracted_by_the_real_tool_and_answered` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
-| S-05 | E2E | 上下文组装、模型 | 历史图片**不进**本轮上下文；模型重看后它作为新内容块被重发 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s05_historical_image_is_resent_as_a_content_block_after_view_image` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
+| S-01 | E2E | 回调、PG/Redis、落盘、模型请求体 | 附件落盘可读回；模型请求体含图像内容块且 base64 与源字节一致；回答经真实链路回到渠道 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s01_image_is_persisted_and_sent_to_the_model_as_a_content_block` | uv run pytest -q tests/acceptance/wecom_attachments | verified |
+| S-02 | E2E | 回调、PG、artifact、解析库 | 文档落盘；模型按**上下文里的附件 ID** 调真工具；工具结果含文档正文 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s02_document_is_extracted_by_the_real_tool_and_answered` | uv run pytest -q tests/acceptance/wecom_attachments | verified |
+| S-05 | E2E | 上下文组装、模型 | 历史图片**不进**本轮上下文；模型重看后它作为新内容块被重发 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s05_historical_image_is_resent_as_a_content_block_after_view_image` | uv run pytest -q tests/acceptance/wecom_attachments | verified |
 | S-07 | integration | 门控、契约、落盘 | 通道中性用例不含企微路径 | `tests/gateway/test_inbound_attachment_flow.py`（TASK-004 交付，此处复跑） | uv run pytest -q tests/gateway/test_inbound_attachment_flow.py tests/gateway/test_inbound_attachment_store.py | verified |
 
 ### Acceptance Evidence
@@ -712,6 +736,12 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=eda0676585c14ca0be12df83b92024c9 (confirmed_by: runner)
 - S-02: e2e_deferred — automated command e2e_deferred; run_id=eda0676585c14ca0be12df83b92024c9 (confirmed_by: runner)
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=eda0676585c14ca0be12df83b92024c9 (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -721,7 +751,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - [2026-10-02] completed (done)
 ## TASK-011: 通道取值收口 + 通道中立性静态守卫
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-004
 - **Source**: `wecom-inbound-media.design.md#3.2.3`, `#2.5.2 B-09`
@@ -773,6 +803,7 @@ B-07 只钉住了**类型定义处**（`Literal["WECOM"]` 只在 `enums.py` 一�
 **Done Gate 裁决**：`pass`（`cf_task_workflow.py finish --task TASK-011`，rc=0）。deferred：15 个 verifier（需求级 `verify-e2e` 收口）+ 1 个 heavy validator（归档 `cf_validation` 收口）。
 
  verified — automated command passed; run_id=8cda806567e24a5f9e242b4341b718df (confirmed_by: runner)
+- B-09: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -782,7 +813,7 @@ B-07 只钉住了**类型定义处**（`Literal["WECOM"]` 只在 `enums.py` 一�
 - [2026-10-02] completed (done)
 ## TASK-012: 入站审计落点（表 + console 内部端点）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: —
 - **Source**: `wecom-inbound-media.design.md#3.3 数据设计`, `#3.4 API-10`
@@ -837,6 +868,7 @@ B-07 只钉住了**类型定义处**（`Literal["WECOM"]` 只在 `enums.py` 一�
 - `uv run ruff check .` → **All checks passed**
 - E-08: verified — automated command passed; run_id=c98aa554df9046ce8205a7c8f241ccf7 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=9f7b4a5144ba4d0fa496cf18e8c9eab7 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)

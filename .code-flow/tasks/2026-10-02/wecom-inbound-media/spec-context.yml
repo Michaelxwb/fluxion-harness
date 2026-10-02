@@ -3993,7 +3993,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -4210,6 +4210,47 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-02T14:12:08.655017+00:00'
+          status: verified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: head:bdcd905f00b6f89d217358b1b0fbb8e5b8e6a026
+          result_sha256: 9337681d982b3e77a7bef2369daafcb746798207ce3923f2a639ab0582ab789b
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
+            exit_code: 0
+            stdout_sha256: 2a8403565467d5208a82ab4a9e26b5f08fc7c99cb5b62e1946d2a23062bfc776
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 30%]
+
+              ........................................................................
+              [ 61%]
+
+              ........................................................................
+              [ 91%]
+
+              ....................                                                     [100%]
+
+              236 passed in 10.10s
+
+              ........................................................................
+              [ 36%]
+
+              ........................................................................
+              [ 73%]
+
+              ...................................................                      [100%]
+
+              195 passed in 5.39s
+
+              '
       review:
         status: pending
         refs: []
