@@ -16,6 +16,12 @@ dependencies = [
   "muad-platform-sdk",
   "muad-logging",
   "redis>=5,<7",
+  # 附件文档文本抽取（设计 §3.1 技术栈 / AD-4-B）：**落在 agent 侧，不进网关** —— 渠道层不背
+  # 内容理解，且任何入口落进 artifact 的东西都能读（企微附件 / Console 上传 / skill 产出）。
+  "pypdf>=5,<7",
+  "python-docx>=1.1,<2",
+  "openpyxl>=3.1,<4",
+  "python-pptx>=1.0,<2",
 ]
 
 [build-system]

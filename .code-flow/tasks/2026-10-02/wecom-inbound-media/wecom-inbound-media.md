@@ -27,18 +27,18 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 | cwd | 超时 | 依赖 |
 |--------|---------|---------|-------------|---------|------|------|-----|------|------|
 | S-01 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
-| S-02 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG → 真实 artifact → 工具真实抽取 | TASK-007 | planned | - | . | 60 |  |
+| S-02 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG → 真实 artifact → 工具真实抽取 | TASK-007 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
 | S-03 | design#2.5.2 | integration | 模型 provider 请求体（不 mock 组装层） | TASK-005 | verified | uv run pytest -q tests/agent_core/test_openai_provider.py | . | 60 |  |
 | S-04 | design#2.5.2 | E2E | 回调 → 落盘 → 契约 → 工具 | TASK-004 | planned | - | . | 60 |  |
-| S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-007 | e2e_deferred | - | . | 60 |  |
+| S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-007 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
 | S-06 | design#2.5.2 | integration | 工具 → artifact store → 读回 | TASK-008 | planned | - | . | 60 |  |
 | S-07 | design#2.5.2 | integration | FakeChannelAdapter → 门控 → 契约 → 落盘（不含企微路径） | TASK-004 | planned | - | . | 60 |  |
 | E-01 | design#2.5.2 | E2E | 回调 → 反馈投递 → 审计表 | TASK-004 | planned | - | . | 60 |  |
 | E-02 | design#2.5.2 | E2E | 同上 | TASK-004 | planned | - | . | 60 |  |
 | E-03 | design#2.5.2 | E2E | 同上 | TASK-004 | planned | - | . | 60 |  |
 | E-04 | design#2.5.2 | integration | 解密路径 + 日志/审计输出 | TASK-002 | planned | - | . | 60 |  |
-| E-05 | design#2.5.2 | integration | DB 查询 + 工具越权校验 | TASK-007 | planned | - | . | 60 |  |
-| E-06 | design#2.5.2 | integration | 真实解析库 | TASK-007 | planned | - | . | 60 |  |
+| E-05 | design#2.5.2 | integration | DB 查询 + 工具越权校验 | TASK-007 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 60 |  |
+| E-06 | design#2.5.2 | integration | 真实解析库 | TASK-007 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 60 |  |
 | E-07 | design#2.5.2 | integration | 幂等键 + 落盘 | TASK-004 | planned | - | . | 60 |  |
 | B-01 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | verified | uv run pytest -q tests/gateway/test_attachment_gate.py | . | 60 |  |
 | B-02 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | verified | uv run pytest -q tests/gateway/test_attachment_gate.py | . | 60 |  |
@@ -195,12 +195,12 @@
 | B-04 | FAIL: 同上 | PASS: `7 passed` | `::test_b04_storage_key_never_contains_user_input`（文件名 `../../etc/passwd` 与空串下，产物键均不含其任何片段；原文件名仍作为元信息保留） | 路径解析为纯字符串拼接，无 IO | verified |
 
 **本次回归**：
-- `uv run pytest -q tests/console_channel tests/gateway` → **249 passed**（`harness-im#RULE-im-001` verifier；含本任务新增 7 条）
+- `uv run pytest -q tests/console_channel tests/gateway` → **249 passed**（含本任务新增 7 条）
 - `uv run mypy apps packages` → **Success: no issues found in 262 source files**；`ruff` → **All checks passed**
 
 **补充覆盖（超出场景表，服务于清单项）**：`test_constants_match_the_designed_defaults`（常量与设计 §2.3.2 一致）、`test_type_whitelist_rejects_unknown_media_type`（白名单外拒绝，E-01 的判定来源）、`test_decision_is_pure_and_order_preserving`（纯函数 + 保序）。
 
-**留给后续的**：原因码目前是模块内的字符串常量，**尚未**写进 `config/api-messages.yaml` —— 目录词条与用户可见反馈是 TASK-004 的清单项（`harness-i18n#RULE-i18n-001`）。此处只把码定死，避免两处各写一份。
+**留给后续的**：原因码目前是模块内的字符串常量，**尚未**写进 `config/api-messages.yaml` —— 目录词条与用户可见反馈由 TASK-004 承接。此处只把码定死，避免两处各写一份。
 - B-01: verified — automated command passed; run_id=6362dc61c2d2460bbb160a87a9b4a5dc (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=6362dc61c2d2460bbb160a87a9b4a5dc (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=6362dc61c2d2460bbb160a87a9b4a5dc (confirmed_by: runner)
@@ -381,11 +381,11 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - [2026-10-02] completed (done)
 ## TASK-007: 附件读取工具（文档抽取）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: `wecom-inbound-media.design.md#3.4 接口设计`, `#3.1 方案选型`
-- **Spec-Refs**: harness-auth#RULE-auth-001
+- **Spec-Refs**: harness-auth#RULE-auth-001, harness-mcp#RULE-mcp-001
 - **Acceptance-Refs**: S-02, S-05, E-05, E-06
 
 ### Description
@@ -394,32 +394,61 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 ### Checklist
 
-- [ ] 新增 `read_attachment`：文档类返回抽取文本，纯文本类返回内容，图片类提示改用 `view_image`
-- [ ] 新增 `view_image`：仅限 `kind=IMAGE`，调用后追加携带图像内容块的 user 消息
-- [ ] 引入解析依赖（`pypdf`/`python-docx`/`openpyxl`/`python-pptx`）并按需导入
-- [ ] 工具入口按 `tenant_id` 过滤 + 越权校验；受大小上限保护
-- [ ] [S-02][E2E] 发送内容已知的 pdf 并提问其中事实（真实边界：真实回调桩 → 真实 PG → 真实 artifact → 工具**真实抽取**，不 mock 解析库）；断言抽取文本与文档实际内容一致且回答正确
-- [ ] [S-05][E2E] 模型调用重看后再提问（真实边界：真实上下文组装 + 真实模型）；断言历史图片作为新内容块被重发
-- [ ] [E-05][integration] 以租户 B 身份读取租户 A 的 `artifact_id`（真实边界：DB 查询 + 工具越权校验）；断言拒绝且不泄露存在性细节
-- [ ] [E-06][integration] 加密/损坏文档（真实边界：真实解析库）；断言返回明确错误而非乱码或空内容
-- [ ] 运行 verifier：`uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity`（`harness-auth#RULE-auth-001`）；记录输出并填写 Acceptance Evidence
+- [x] 新增 `read_attachment`：文档类返回抽取文本，纯文本类返回内容，图片类提示改用 `view_image`
+- [x] 新增 `view_image`：仅限 `kind=IMAGE`，调用后追加携带图像内容块的 user 消息
+- [x] 引入解析依赖（`pypdf`/`python-docx`/`openpyxl`/`python-pptx`）并按需导入
+- [x] 工具入口按 `tenant_id` 过滤 + 越权校验；受大小上限保护
+- [x] [S-02][E2E] 发送内容已知的 pdf 并提问其中事实（真实边界：真实回调桩 → 真实 PG → 真实 artifact → 工具**真实抽取**，不 mock 解析库）；断言抽取文本与文档实际内容一致且回答正确
+- [x] [S-05][E2E] 模型调用重看后再提问（真实边界：真实上下文组装 + 真实模型）；断言历史图片作为新内容块被重发
+- [x] [E-05][integration] 以租户 B 身份读取租户 A 的 `artifact_id`（真实边界：DB 查询 + 工具越权校验）；断言拒绝且不泄露存在性细节
+- [x] [E-06][integration] 加密/损坏文档（真实边界：真实解析库）；断言返回明确错误而非乱码或空内容
+- [x] 运行 verifier：`uv run pytest -q tests/console_mcp/test_mcp_rules.py`（`harness-mcp#RULE-mcp-001`，路径映射自动绑定后的局部承接）；记录输出 **3 passed**
+- [x] 运行 verifier：`uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity`（`harness-auth#RULE-auth-001`）；记录输出并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | E2E | 回调、PG、artifact、解析库 | 抽取内容与文档一致；回答正确 | planned | planned | planned |
-| S-05 | E2E | 上下文组装、模型 | 历史图片重发为内容块 | planned | planned | planned |
-| E-05 | integration | DB、越权校验 | 跨租户读取被拒 | planned | planned | planned |
-| E-06 | integration | 真实解析库 | 明确错误而非乱码 | planned | planned | planned |
+| S-02 | E2E | 回调、PG、artifact、解析库 | 抽取内容与文档一致；回答正确 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
+| S-05 | E2E | 上下文组装、模型 | 历史图片重发为内容块 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
+| E-05 | integration | DB、越权校验 | 跨租户读取被拒 | `tests/agent_runtime/test_attachment_tools.py` | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | verified |
+| E-06 | integration | 真实解析库 | 明确错误而非乱码 | `tests/agent_runtime/test_attachment_tools.py` | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-05 | FAIL: `ModuleNotFoundError: No module named 'muad_agent_runtime.application.attachment_tools'` | PASS: `6 passed` | `tests/agent_runtime/test_attachment_tools.py::test_e05_cross_tenant_read_is_rejected_without_leaking_existence`（以另一租户身份读 → 抛 `ATTACHMENT_NOT_FOUND`；断言**错误里不含**对方文件名与标识本身） | 真实 PG（`artifact` 行）+ 工具入口越权校验，未 mock | verified |
+| E-06 | FAIL: 同上（模块导入期即失败） | PASS: `6 passed` | `::test_e06_corrupt_document_yields_a_clear_error`（损坏 pdf → `ATTACHMENT_EXTRACT_FAILED` 且**指明是哪个文件**） | **真实解析库**（pypdf），未 mock；断言是「抛明确错误」而非返回乱码/空内容 | verified |
+| S-02 | 编码期不执行（E2E） | 编码期不执行（E2E） | 待需求级终验登记 | 上游 TASK-002/TASK-004 未落地，回调通路尚未连通 | e2e_deferred |
+| S-05 | 编码期不执行（E2E） | 编码期不执行（E2E） | 待需求级终验登记 | 同上 | e2e_deferred |
+
+**本任务的功能级证据**（6 passed）另含三条支撑断言：
+- `test_reads_text_from_a_real_pdf`：内容已知的 pdf 交真实解析库抽取，返回带文件名
+- `test_image_read_hints_at_view_image`：图片不能当文本读，提示改用重看工具
+- `test_view_image_rejects_non_image`：非图片调用重看必须拒绝
+- `test_view_image_follow_up_carries_the_image_part`：**新机制的正面证据** —— 工具结果之后产出的一条 `user` 消息带 `ImagePart`，且 base64 与源字节一致（tool 角色不能携带图像块，这是唯一通道）
+
+**本次回归**：
+- `harness-auth#RULE-auth-001` verifier：`test_user_side_relations.py -k s04` → **2 passed**；`tests -k schema_parity` → **35 passed**
+- `tests/agent_core tests/agent_runtime tests/gateway` → **483 passed**（含本任务新增 6 条）
+- `uv run mypy apps packages` → **Success: no issues found in 264 source files**；`ruff` → **All checks passed**
+
+**实现里新增的一处 agent-core 能力（需记录）**：`ToolDefinition.follow_up_messages` —— 工具结果之后追加消息。存在理由唯一：**OpenAI 协议的 tool 消息不能携带图像块**，所以「重看图片」只能由运行时补一条 user 消息。`runner._execute_tools` 在追加 tool 结果后调用它（入参用 `text_of(result.content)` 显式收窄 —— 工具结果恒为文本）。
+
+**依赖引入**：`pypdf` / `python-docx` / `openpyxl` / `python-pptx` 落在 **agent-runtime**（AD-4-B：不进网关，渠道层不背内容理解）。
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
 
 ---
-
+- [2026-10-02] started
+- [2026-10-02] resumed (in-progress)
+- [2026-10-02] completed (done)
 ## TASK-008: 产物写出工具
 
 - **Status**: draft

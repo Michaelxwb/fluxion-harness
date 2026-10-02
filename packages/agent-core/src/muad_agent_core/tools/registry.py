@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from ..model.provider import ModelMessage
 
 MCP_TOOL_NAMESPACE = "mcp"
 
@@ -34,6 +37,10 @@ class ToolDefinition:
     input_schema: Mapping[str, Any]
     effect: ToolEffect
     handler: ToolHandler | None = None
+    # 工具结果之后追加的消息（结果 → 追加消息）。**存在的唯一理由**是「工具调用后需要补一条
+    # 消息」而 tool 角色做不到：OpenAI 协议的 tool 消息**不能携带图像块**，于是"重看图片"
+    # 只能由运行时在工具结果之后补一条 user 消息。返回空元组即不追加。
+    follow_up_messages: Callable[[str], Awaitable[tuple[ModelMessage, ...]]] | None = None
     # 结果是否允许被「大结果外置」规则截成 Artifact 引用。
     # `True`（默认）保持既有行为——顺带的大块数据（一次大查询/脚本输出）不该撑爆上下文。
     # `False` 用于**内容投递**类工具：它们的返回**本身就是给模型读的正文**，外置等于把工具

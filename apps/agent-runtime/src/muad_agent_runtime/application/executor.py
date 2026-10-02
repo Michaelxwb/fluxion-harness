@@ -49,8 +49,10 @@ from muad_contracts import (
 from muad_platform_sdk.types import SecretValue
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
+from ..infrastructure.db import get_session_factory
 from ..metrics import MODEL_INVOCATIONS_METRIC, TOOL_CALLS_METRIC, record_outcome
 from .artifacts import ArtifactResultWriter
+from .attachment_tools import AttachmentToolSet
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_service import MemoryService
 from .memory_tools import MemoryScope, MemoryToolSet, memory_write_enabled
@@ -605,6 +607,13 @@ def build_registry(
     # 内置时间工具：模型不知道"现在几点"，而 create_schedule 与相对时间（"明天早上 9 点"）都依赖它。
     # 时区取平台默认的 IANA 名，与调度侧口径一致（harness-time#RULE-time-001）。
     TimeToolSet(zone=resolve_zone(SharedSettings().default_timezone)).register(registry)
+    if request.run_context is not None:
+        # 附件读取工具：类型无关、入口无关（AD-4-B）。租户从 Run 上下文取，**不进工具 schema**。
+        AttachmentToolSet(
+            session_factory=get_session_factory,
+            artifact_root=SharedSettings().artifact_root,
+            tenant_id=request.run_context.tenant_id,
+        ).register(registry)
     if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:
         mcp_adapter.register_catalog(
             registry=registry,

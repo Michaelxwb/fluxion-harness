@@ -601,6 +601,7 @@ def evaluate_gate(candidates: Sequence[AttachmentCandidate]) -> GateDecision: ..
 | `harness-test#RULE-test-001` | required | 跨渠道回调/DB/落盘/模型请求体的流程必须 E2E 且不 mock 真实边界；抽取纯逻辑（门控、路径安全）下沉 unit；契约序列化用 integration。 | §2.5.2 全表 | S-01..S-06 / E-01..E-07 / B-01..B-06 + 原 verifier | harness-test#RULE-test-001 | applied |
 | `harness-time#RULE-time-001` | required | 附件时间戳统一 `timestamptz`；FEAT-10 的时间基准必须带 IANA 时区口径（与调度时区一致），不得返回裸 UTC 字符串。 | §3.3、API-09 | B-08 + 原 verifier | harness-time#RULE-time-001 | applied |
 | `harness-worker#RULE-worker-001` | required | 本次改动只把 `DeliveryRouteInput.channel` 的 `Literal["WECOM"]` 换成**等价**的 `ChannelName` 别名（AD-7 枚举收口）——**行为等价**，未触及 claim/lease、权威源、Redis hint 或 Task 状态机；附件能力不进入 Worker 链路（同步工具调用，不落后台任务）。该 Rule 由路径映射（改动 `contracts/tasks.py`）**自动绑定**，此处为局部承接。 | §3.2.3（枚举收口，等价替换） | B-07 + 原 verifier（`uv run pytest -q tests/agent_worker`） | harness-worker#RULE-worker-001 | applied |
+| `harness-mcp#RULE-mcp-001` | required | 本次只给**共享的** `ToolDefinition` 增加一个可选字段 `follow_up_messages`（默认 `None`）：MCP Tool 仍进入**同一个** ToolRegistry，注册路径与既有字段均未变；未触及 Streamable HTTP、`discover-tools` 或 Server 级授权口径。该 Rule 由路径映射（改动 `agent-core/tools/registry.py`）**自动绑定**，此处为局部承接。 | §3.4 API-06（工具面扩展） | 原 verifier（`uv run pytest -q tests/console_mcp/test_mcp_rules.py`，3 passed）+ B-06 同族 | harness-mcp#RULE-mcp-001 | applied |
 ---
 
 ## 附录：术语表

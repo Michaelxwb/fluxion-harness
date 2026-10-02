@@ -26,6 +26,7 @@ from ..model.provider import (
     ModelRole,
     ModelToolCall,
     ModelUsage,
+    text_of,
 )
 from ..prompt.builder import DefaultPromptBuilder, PromptBuilder, PromptSkill
 from ..tools.registry import ToolNotFoundError, ToolRegistry
@@ -325,8 +326,17 @@ class AgentRunner:
                 exhausted = True
                 messages.append(_tool_message(call.id, TOOL_BUDGET_EXHAUSTED))
                 continue
-            messages.append(await self._run_tool_call(state, call))
+            result = await self._run_tool_call(state, call)
+            messages.append(result)
             used += 1
+            # 工具结果之后可能需要补消息（见 `ToolDefinition.follow_up_messages`）：
+            # tool 角色不能携带图像块，「重看图片」只能落成一条 user 消息。
+            try:
+                definition = self._registry.get(call.name)
+            except LookupError:
+                definition = None
+            if definition is not None and definition.follow_up_messages is not None:
+                messages.extend(await definition.follow_up_messages(text_of(result.content)))
         await self._emit_post_model(state)
         return {
             **state,
