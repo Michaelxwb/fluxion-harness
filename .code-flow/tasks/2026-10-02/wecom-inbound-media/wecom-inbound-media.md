@@ -645,7 +645,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - **Depends**: TASK-004, TASK-006, TASK-007
 - **Source**: `wecom-inbound-media.design.md#2.5 验收条件`, `#3.2.3 通道复用性`
 - **Spec-Refs**: harness-test#RULE-test-001
-- **Acceptance-Refs**: S-01, S-02, S-05（**本任务为负责人**：三条 E2E 的归属已从 TASK-006/007 移来——它们当年写不出可执行用例，真正闭合就在这里）, S-04, S-07, E-01, E-02, E-03（引用）
+- **Acceptance-Refs**: S-01, S-02, S-05（**本任务为负责人**：三条 E2E 的归属已从 TASK-006/007 移来——它们当年写不出可执行用例，真正闭合就在这里）, S-07（TASK-004 交付，本任务只复跑）
 
 ### Description
 
