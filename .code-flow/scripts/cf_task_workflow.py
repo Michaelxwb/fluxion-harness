@@ -185,12 +185,6 @@ def _run_requirement_verifiers(
     executed = reused = 0
     failures: list[str] = []
     context_paths: set[Path] = set()
-    # 按 context 文件聚合后再一次性应用：`collect_requirement_bindings` 对同一个文件只
-    # load 一次、把**同一个对象**挂在它绑定的每条规则下；若逐规则 `_apply_evidence(同一陈旧对象)`
-    # 再 save，后一条会覆盖前一条 —— 实测表现是"整轮只有 spec_id 排序最后的那条规则留下证据"
-    # （2026-10-02：`must` 之外 13 条规则的 evidence 全丢，且最后那条累积了 6 轮）。
-    # `_apply_evidence` 本就接收 tuple，聚合应用即正解。
-    pending: dict[Path, list[Mapping[str, object]]] = {}
     scope = _review_scope(root)
     for spec_id in sorted(targets):
         info = targets[spec_id]
@@ -210,15 +204,12 @@ def _run_requirement_verifiers(
             evidence = by_rule.get(rule_ref)
             if evidence is None:
                 continue
-            payload = _evidence_data(evidence)
-            for ctx_path, _context in entries:
+            payload = (_evidence_data(evidence),)
+            for ctx_path, context in entries:
                 context_paths.add(ctx_path)
-                pending.setdefault(ctx_path, []).append(payload)
-    for ctx_path, payloads in pending.items():
-        current = load_context(str(ctx_path))
-        updated = _apply_evidence(current, tuple(payloads))
-        if updated != current:
-            save_context(str(ctx_path), updated)
+                updated = _apply_evidence(context, payload)
+                if updated != context:
+                    save_context(str(ctx_path), updated)
     for ctx_path in sorted(context_paths):
         gate = validate_stage(load_context(str(ctx_path)), "review", diff_sha256=scope.diff_sha256)
         failures.extend(f"{issue.spec_id}#{issue.rule_ref}" for issue in gate.errors)
@@ -275,6 +266,15 @@ def verify_e2e(root: str, directory: str) -> dict[str, object]:
             "next": ("向用户展示待确认清单并取得明确回复后，运行 confirm-manual 批量写入确认，再重跑 verify-e2e；"
                      "Agent 不得代确认。"),
         }
+    validation: dict[str, object] = {"decision": "pass", "reason": "no_validators_configured", "reused": 0}
+    try:
+        from cf_validation import validate_files
+
+        validation = validate_files(root, tuple(sorted(_git_tracked_files(root))), include_heavy=True)
+    except (OSError, ValueError) as exc:
+        return {"decision": "block", "reason": "validation_error", "detail": str(exc)}
+    if validation.get("decision") != "pass" and validation.get("reason") != "no_validators_configured":
+        return {"decision": "block", "reason": "validation_failed", "validation": validation}
     confirmations = _manual_confirmations(root, all_targets)
     review = (_run_requirement_verifiers(root, all_targets, confirmations) if all_targets
               else {"executed": 0, "reused": 0, "failed": []})
@@ -289,6 +289,12 @@ def verify_e2e(root: str, directory: str) -> dict[str, object]:
         "reused": review["reused"],
         "failed": review["failed"],
         "review": review,
+        "validation": {
+            "decision": validation.get("decision"),
+            "reason": validation.get("reason", ""),
+            "reused": validation.get("reused", 0),
+            "failures": validation.get("failures", []),
+        },
     }
     if decision == "pass":
         for task_file, task_id, _ in tasks:
