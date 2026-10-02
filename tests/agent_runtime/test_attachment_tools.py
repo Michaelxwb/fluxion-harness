@@ -14,6 +14,8 @@ import pytest
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.application.attachment_tools import (
     READ_ATTACHMENT_TOOL,
+    WRITE_ARTIFACT_TOOL,
+    WRITE_ARTIFACT_RESULT_PREFIX,
     VIEW_IMAGE_TOOL,
     AttachmentToolError,
     AttachmentToolSet,
@@ -222,3 +224,88 @@ async def test_view_image_follow_up_carries_the_image_part(
     images = [part for part in parts if not isinstance(part, str)]
     assert len(images) == 1
     assert images[0].data_base64 == base64.b64encode(payload).decode("ascii")
+
+
+async def _seed_run(tenant: TenantContext) -> tuple[uuid.UUID, uuid.UUID]:
+    async with get_session_factory()() as session:
+        conversation = Conversation(
+            tenant_id=tenant.tenant_id, user_id=tenant.platform_user_id,
+            agent_id=tenant.agent_id, status="ACTIVE", last_seq=0,
+        )
+        session.add(conversation)
+        await session.flush()
+        run = RunRecord(
+            tenant_id=tenant.tenant_id, conversation_id=conversation.id,
+            user_id=tenant.platform_user_id, agent_id=tenant.agent_id,
+            status="RUNNING", input_text="x", trace_id=uuid.uuid4().hex,
+            cancel_requested=False,
+        )
+        session.add(run)
+        await session.commit()
+        return run.id, conversation.id
+
+
+def _writer_tool_set(tenant: TenantContext, root, run_id, conversation_id, *, has_route=True):
+    return AttachmentToolSet(
+        session_factory=get_session_factory,
+        artifact_root=root,
+        tenant_id=tenant.tenant_id,
+        run_id=run_id,
+        conversation_id=conversation_id,
+        has_delivery_route=has_route,
+    )
+
+
+async def test_s06_write_then_read_back_closes_the_loop(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """S-06：写出的产物必须能被**同一个读取工具**读回，内容一致（闭环）。
+
+    真实边界：工具 → 真实 artifact store（落盘）→ 读回，全程不 mock。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_set = _writer_tool_set(tenant, artifact_root, run_id, conversation_id)
+
+    payload = "# 汇总\n\n- 第一条\n- 第二条\n"
+    written = await _call(
+        tool_set, WRITE_ARTIFACT_TOOL, {"content": payload, "filename": "汇总.md"}
+    )
+    assert written.startswith(WRITE_ARTIFACT_RESULT_PREFIX)
+    artifact_id = written[len(WRITE_ARTIFACT_RESULT_PREFIX) :].split("）")[0].strip()
+
+    read_back = await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": artifact_id})
+    assert "汇总.md" in read_back
+    assert payload.strip() in read_back, "读回内容必须与写出内容一致"
+    # 文件真的落到了 artifact store，而不是只写了 DB 行
+    assert any(artifact_root.rglob("*"))
+
+
+async def test_write_artifact_without_delivery_route_errors_explicitly(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """没有交付路由时必须明确报错 —— 产物写出来没人收，静默成功等于骗模型。"""
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_set = _writer_tool_set(
+        tenant, artifact_root, run_id, conversation_id, has_route=False
+    )
+
+    with pytest.raises(AttachmentToolError):
+        await _call(tool_set, WRITE_ARTIFACT_TOOL, {"content": "x", "filename": "a.md"})
+
+
+async def test_written_artifact_is_tenant_scoped(tenant: TenantContext, artifact_root) -> None:
+    """写出的产物同样受租户隔离：别的租户读不到。"""
+    run_id, conversation_id = await _seed_run(tenant)
+    written = await _call(
+        _writer_tool_set(tenant, artifact_root, run_id, conversation_id),
+        WRITE_ARTIFACT_TOOL,
+        {"content": "secret", "filename": "s.md"},
+    )
+    artifact_id = written[len(WRITE_ARTIFACT_RESULT_PREFIX) :].split("）")[0].strip()
+
+    other = AttachmentToolSet(
+        session_factory=get_session_factory, artifact_root=artifact_root,
+        tenant_id=f"other-{uuid.uuid4()}",
+    )
+    with pytest.raises(AttachmentToolError):
+        await _call(other, READ_ATTACHMENT_TOOL, {"artifact_id": artifact_id})

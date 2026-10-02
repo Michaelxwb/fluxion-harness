@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "wecom-inbound-media.md",
-  "task_sha256": "e76a3ec2e5e80141518afe349eaa89db610e811a4a71e3a86a627752de2db95b",
+  "task_sha256": "bd9f89ce39732d2b273c91bd795ce6402d4650b5c9d9a5a61a64b301d2ad47e3",
   "scenarios": [
     {
       "id": "S-01",
@@ -39,26 +39,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-02",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "958559213b864daca2c8b7a154e1c2d6",
-        "executed_at": "2026-10-02T09:34:45.492897+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-02",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "958559213b864daca2c8b7a154e1c2d6",
-          "executed_at": "2026-10-02T09:34:45.492897+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-03",
@@ -109,26 +90,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-05",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "958559213b864daca2c8b7a154e1c2d6",
-        "executed_at": "2026-10-02T09:34:45.492897+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-05",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "958559213b864daca2c8b7a154e1c2d6",
-          "executed_at": "2026-10-02T09:34:45.492897+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-06",
@@ -137,11 +99,38 @@
       "kind": "functional",
       "boundary": "工具 → artifact store → 读回",
       "owner": "TASK-008",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_attachment_tools.py"
+      ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "743a771afe0f4967aaf7ce3bef6a7b72",
+        "executed_at": "2026-10-02T09:38:19.720500+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "743a771afe0f4967aaf7ce3bef6a7b72",
+          "executed_at": "2026-10-02T09:38:19.720500+00:00"
+        }
+      ]
     },
     {
       "id": "S-07",
@@ -225,28 +214,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-05",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "958559213b864daca2c8b7a154e1c2d6",
-        "executed_at": "2026-10-02T09:34:45.492897+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "958559213b864daca2c8b7a154e1c2d6",
-          "executed_at": "2026-10-02T09:34:45.492897+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-06",
@@ -265,28 +233,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-06",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "958559213b864daca2c8b7a154e1c2d6",
-        "executed_at": "2026-10-02T09:34:45.492897+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "958559213b864daca2c8b7a154e1c2d6",
-          "executed_at": "2026-10-02T09:34:45.492897+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-07",

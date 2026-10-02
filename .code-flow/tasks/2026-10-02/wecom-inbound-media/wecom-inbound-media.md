@@ -31,7 +31,7 @@
 | S-03 | design#2.5.2 | integration | 模型 provider 请求体（不 mock 组装层） | TASK-005 | verified | uv run pytest -q tests/agent_core/test_openai_provider.py | . | 60 |  |
 | S-04 | design#2.5.2 | E2E | 回调 → 落盘 → 契约 → 工具 | TASK-004 | planned | - | . | 60 |  |
 | S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-007 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
-| S-06 | design#2.5.2 | integration | 工具 → artifact store → 读回 | TASK-008 | planned | - | . | 60 |  |
+| S-06 | design#2.5.2 | integration | 工具 → artifact store → 读回 | TASK-008 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 60 |  |
 | S-07 | design#2.5.2 | integration | FakeChannelAdapter → 门控 → 契约 → 落盘（不含企微路径） | TASK-004 | planned | - | . | 60 |  |
 | E-01 | design#2.5.2 | E2E | 回调 → 反馈投递 → 审计表 | TASK-004 | planned | - | . | 60 |  |
 | E-02 | design#2.5.2 | E2E | 同上 | TASK-004 | planned | - | . | 60 |  |
@@ -451,7 +451,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - [2026-10-02] completed (done)
 ## TASK-008: 产物写出工具
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-007
 - **Source**: `wecom-inbound-media.design.md#3.4 接口设计`
@@ -464,24 +464,41 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 ### Checklist
 
-- [ ] 新增 `write_artifact`：写产物并返回标识
-- [ ] 受大小上限与租户隔离约束；无交付路由时明确报错
-- [ ] [S-06][integration] 调用写产物工具后再读回（真实边界：工具 → artifact store → 读回）；断言内容一致（闭环）
-- [ ] 运行 `uv run pytest -q tests/test_skill_artifact_cache.py` 并填写 Acceptance Evidence
+- [x] 新增 `write_artifact`：写产物并返回标识
+- [x] 受大小上限与租户隔离约束；无交付路由时明确报错
+- [x] [S-06][integration] 调用写产物工具后再读回（真实边界：工具 → artifact store → 读回）；断言内容一致（闭环）
+- [x] 运行 `uv run pytest -q tests/test_skill_artifact_cache.py` 并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-06 | integration | 工具、artifact store | 写出后读回内容一致 | planned | planned | planned |
+| S-06 | integration | 工具、artifact store | 写出后读回内容一致 | `tests/agent_runtime/test_attachment_tools.py::test_s06_write_then_read_back_closes_the_loop` | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-06 | FAIL: `ImportError: cannot import name 'WRITE_ARTIFACT_TOOL'` | PASS: `9 passed` | `tests/agent_runtime/test_attachment_tools.py::test_s06_write_then_read_back_closes_the_loop`（写出 → 用**同一个读取工具**读回，断言内容逐字一致；并断言文件真的落到了 artifact store，而不是只写了 DB 行） | 工具 → 真实 artifact store（落盘 + 原子替换）→ 读回，全程不 mock | verified |
+
+**本任务的其余覆盖（同文件）**：
+- `test_write_artifact_without_delivery_route_errors_explicitly`：**没有交付路由必须显式报错** —— 写出来没人收，静默成功等于骗模型说"已经交付"（设计 FEAT-09 验收）
+- `test_written_artifact_is_tenant_scoped`：写出的产物同样受租户隔离，别的租户读不到
+
+**本次回归**：
+- verifier `uv run pytest -q tests/test_skill_artifact_cache.py` → **4 passed**
+- `tests/agent_core tests/agent_runtime` → **273 passed**（含本任务新增 3 条）
+- `uv run mypy apps packages` → **Success: no issues found in 264 source files**
+
+**实现补充**：`write_artifact` 落在 TASK-007 建立的 `AttachmentToolSet` 上（同一套租户/存储口径），新增构造参数 `run_id` / `conversation_id` / `has_delivery_route` —— 前两者决定产物行挂在哪（`run_id` 非空 ⇒ `ck_artifact_run_task_xor` 继续成立），后者是上面那道显式拒绝的依据。写出用「临时文件 + `os.replace`」原子替换，不留半成品。
+- S-06: verified — automated command passed; run_id=743a771afe0f4967aaf7ce3bef6a7b72 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
 
 ---
-
+- [2026-10-02] started
+- [2026-10-02] completed (done)
 ## TASK-009: 当前时间工具
 
 - **Status**: done

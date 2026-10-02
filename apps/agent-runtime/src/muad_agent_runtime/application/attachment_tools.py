@@ -11,7 +11,9 @@ Console 上传、skill 产出）。渠道层因此不必背内容理解。
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
+import os
 import uuid
 from collections.abc import Awaitable, Mapping
 from typing import Any
@@ -25,6 +27,9 @@ from ..infrastructure.models.runtime import Artifact
 
 READ_ATTACHMENT_TOOL = "read_attachment"
 VIEW_IMAGE_TOOL = "view_image"
+WRITE_ARTIFACT_TOOL = "write_artifact"
+
+AGENT_OUTPUT_ARTIFACT_TYPE = "AGENT_OUTPUT"
 
 READ_ATTACHMENT_DESCRIPTION = (
     "Read the content of a file the user sent (or that an earlier step produced) by its "
@@ -44,8 +49,15 @@ ATTACHMENT_NOT_FOUND = "ATTACHMENT_NOT_FOUND"
 ATTACHMENT_TYPE_UNSUPPORTED = "ATTACHMENT_TYPE_UNSUPPORTED"
 ATTACHMENT_EXTRACT_FAILED = "ATTACHMENT_EXTRACT_FAILED"
 ATTACHMENT_TOO_LARGE = "ATTACHMENT_TOO_LARGE"
+ATTACHMENT_WRITE_UNAVAILABLE = "ATTACHMENT_WRITE_UNAVAILABLE"
 
 VIEW_IMAGE_RESULT_PREFIX = "已重新附上图片（附件 ID "
+WRITE_ARTIFACT_RESULT_PREFIX = "已写出产物（附件 ID "
+
+WRITE_ARTIFACT_DESCRIPTION = (
+    "Write the result you produced as a file the user can receive, and return its attachment id. "
+    "Use it when the outcome is a document rather than a short chat reply."
+)
 
 _DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 _XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -107,10 +119,16 @@ class AttachmentToolSet:
         session_factory: SessionFactoryProvider,
         artifact_root: str,
         tenant_id: str,
+        run_id: uuid.UUID | None = None,
+        conversation_id: uuid.UUID | None = None,
+        has_delivery_route: bool = False,
     ) -> None:
         self._session_factory = session_factory
         self._artifact_root = artifact_root
         self._tenant_id = tenant_id
+        self._run_id = run_id
+        self._conversation_id = conversation_id
+        self._has_delivery_route = has_delivery_route
 
     def register(self, registry: ToolRegistry) -> None:
         string_schema: Mapping[str, Any] = {"type": "string"}
@@ -143,6 +161,20 @@ class AttachmentToolSet:
                 follow_up_messages=self._image_follow_up,
             )
         )
+        registry.register(
+            ToolDefinition(
+                name=WRITE_ARTIFACT_TOOL,
+                description=WRITE_ARTIFACT_DESCRIPTION,
+                input_schema={
+                    "type": "object",
+                    "properties": {"content": string_schema, "filename": string_schema},
+                    "required": ["content"],
+                    "additionalProperties": False,
+                },
+                effect=ToolEffect.WRITE,
+                handler=self.write_artifact,
+            )
+        )
 
     async def read_attachment(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         row = await self._load(arguments.get("artifact_id"))
@@ -172,6 +204,57 @@ class AttachmentToolSet:
                 ATTACHMENT_TYPE_UNSUPPORTED, "该附件的媒体类型不是图片，无法重看"
             )
         return f"{VIEW_IMAGE_RESULT_PREFIX}{row.id}）：{_filename(row)}"
+
+    async def write_artifact(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """把结果写成产物并返回标识，与 `read_attachment` 形成闭环。
+
+        两道前置拒绝都**显式报错**：没有 run 上下文（无处挂产物行），或**没有交付路由**
+        （写出来没人收 —— 静默成功等于骗模型说"已经交付"）。
+        """
+        if self._run_id is None:
+            raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前运行不支持写出产物")
+        if not self._has_delivery_route:
+            raise AttachmentToolError(
+                ATTACHMENT_WRITE_UNAVAILABLE,
+                "当前会话没有可交付的通道，写出的产物无人接收；请直接在回复里给出内容",
+            )
+        content = arguments.get("content")
+        if not isinstance(content, str) or not content:
+            raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, "content 必填且为非空字符串")
+        raw_name = arguments.get("filename")
+        name = raw_name.strip() if isinstance(raw_name, str) and raw_name.strip() else "产出.md"
+
+        data = content.encode("utf-8")
+        if len(data) > MAX_READ_BYTES:
+            raise AttachmentToolError(
+                ATTACHMENT_TOO_LARGE, f"产物超过上限（{MAX_READ_BYTES} 字节）"
+            )
+
+        artifact_id = uuid.uuid4()
+        storage_key = f"outbound/{self._run_id}/{artifact_id}"
+        path = NfsArtifactStore(self._artifact_root).resolve(storage_key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp = path.parent / f".tmp-{uuid.uuid4().hex}"
+        temp.write_bytes(data)
+        os.replace(temp, path)  # 原子替换：不留半成品
+
+        row = Artifact(
+            id=artifact_id,
+            tenant_id=self._tenant_id,
+            run_id=self._run_id,
+            task_id=None,
+            conversation_id=self._conversation_id,
+            artifact_type=AGENT_OUTPUT_ARTIFACT_TYPE,
+            storage_key=storage_key,
+            media_type="text/markdown",
+            size=len(data),
+            checksum="sha256:" + hashlib.sha256(data).hexdigest(),
+            metadata_json={"kind": "DOCUMENT", "filename": name, "source": "agent"},
+        )
+        async with self._session_factory()() as session:
+            session.add(row)
+            await session.commit()
+        return f"{WRITE_ARTIFACT_RESULT_PREFIX}{artifact_id}）：{name}"
 
     def _image_follow_up(self, result: str) -> Awaitable[tuple[ModelMessage, ...]]:
         return self._build_image_message(result)

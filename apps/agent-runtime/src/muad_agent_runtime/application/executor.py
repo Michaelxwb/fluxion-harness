@@ -613,6 +613,10 @@ def build_registry(
             session_factory=get_session_factory,
             artifact_root=SharedSettings().artifact_root,
             tenant_id=request.run_context.tenant_id,
+            run_id=request.run_context.run_id,
+            conversation_id=request.run_context.conversation_id,
+            # 交付路由缺失时 `write_artifact` 会明确报错而不是静默成功（设计 FEAT-09 验收）
+            has_delivery_route=request.run_context.delivery_route is not None,
         ).register(registry)
     if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:
         mcp_adapter.register_catalog(
