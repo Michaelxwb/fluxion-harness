@@ -1,4 +1,10 @@
 from enum import StrEnum
+from typing import Literal
+
+# 通道枚举的**唯一**定义处：新增通道只改这一行，其余位置一律引用本别名。
+# 放在 leaves 模块（仅依赖标准库），避免 channel ↔ tasks 的循环导入。
+# 机检：tests/test_attachment_contract.py::test_b07_channel_enum_is_defined_in_exactly_one_place
+ChannelName = Literal["WECOM"]
 
 
 class RunStatus(StrEnum):

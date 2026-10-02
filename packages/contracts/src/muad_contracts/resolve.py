@@ -5,14 +5,14 @@ from uuid import UUID
 
 from pydantic import Field
 
-from .enums import SkillExecutionMode
+from .enums import ChannelName, SkillExecutionMode
 from .tasks import ContractModel
 
 
 class ResolveDefinitionRequest(ContractModel):
     agent_id: UUID
     actor_user_id: UUID
-    channel: Literal["WECOM"]
+    channel: ChannelName
 
 
 class ResolvedAgent(ContractModel):

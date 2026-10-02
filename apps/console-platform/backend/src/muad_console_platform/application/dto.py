@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from muad_contracts import CredentialMode
+from muad_contracts import ChannelName, CredentialMode
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -479,7 +479,7 @@ class AgentBindSkillRequest(BaseModel):
 class ChannelCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    channel: Literal["WECOM"] = "WECOM"
+    channel: ChannelName = "WECOM"
     name: str = Field(min_length=1, max_length=128)
     bot_id: str = Field(min_length=1, max_length=256)
     secret: str = Field(min_length=1)

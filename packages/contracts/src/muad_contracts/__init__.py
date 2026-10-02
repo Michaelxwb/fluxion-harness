@@ -1,6 +1,7 @@
 from .channel import (
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
+    AttachmentRef,
     BotSnapshotItem,
     BotSnapshotResponse,
     ChannelBindRequest,
@@ -15,6 +16,7 @@ from .channel import (
 from .delivery import DeliveryMessage, DeliveryRequest, DeliveryResponse
 from .enums import (
     ArtifactValidationStatus,
+    ChannelName,
     CredentialMode,
     CredentialStatus,
     DeliveryMode,
@@ -57,6 +59,7 @@ from .tasks import (
 )
 
 __all__ = [
+    "ChannelName",
     "DEFAULT_PAGE_SIZE",
     "MAX_PAGE_SIZE",
     "REQUIRED_SNAPSHOT_KEYS",
@@ -69,6 +72,7 @@ __all__ = [
     "ChannelBindRequest",
     "ChannelBindResponse",
     "ChannelContext",
+    "AttachmentRef",
     "ChannelEnvelope",
     "ChannelResolveRequest",
     "ChannelResolveResponse",

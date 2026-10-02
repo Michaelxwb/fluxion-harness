@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .enums import DeliveryMode, ScheduleStatus, TaskStatus, TriggerType
+from .enums import ChannelName, DeliveryMode, ScheduleStatus, TaskStatus, TriggerType
 
 
 class ContractModel(BaseModel):
@@ -15,7 +15,7 @@ class ContractModel(BaseModel):
 
 
 class DeliveryRouteInput(ContractModel):
-    channel: Literal["WECOM"]
+    channel: ChannelName
     bot_id: str = Field(min_length=1)
     external_user_id: str = Field(min_length=1)
     external_conversation_id: str | None = None

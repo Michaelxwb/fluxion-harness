@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import Field
 
+from .channel import AttachmentRef
+from .enums import ChannelName
 from .tasks import ContractModel
 
 
 class ChannelContext(ContractModel):
-    type: Literal["WECOM"]
+    type: ChannelName
     bot_id: str = Field(min_length=1)
     external_user_id: str | None = None
     external_conversation_id: str | None = None
@@ -17,9 +19,10 @@ class ChannelContext(ContractModel):
 
 class MessageInput(ContractModel):
     id: str = Field(min_length=1)
-    type: Literal["text"] = "text"
+    # 缺省仍为 "text"：既有只发文本的调用方无需改动（向后兼容）
+    type: Literal["text", "attachment"] = "text"
     text: str = ""
-    attachments: list[dict[str, Any]] = Field(default_factory=list)
+    attachments: list[AttachmentRef] = Field(default_factory=list)
 
 
 class RunRequest(ContractModel):
