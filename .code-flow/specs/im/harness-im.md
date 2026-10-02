@@ -20,6 +20,17 @@ verifiers:
     - tests/gateway
     cwd: .
     timeout: 600
+- rule: RULE-im-002
+  type: command
+  config:
+    argv:
+    - uv
+    - run
+    - pytest
+    - -q
+    - tests/architecture/test_channel_neutrality.py
+    cwd: .
+    timeout: 300
 ---
 
 # harness-im
@@ -27,6 +38,7 @@ verifiers:
 ## Rules
 
 - [RULE-im-001] 一个逻辑 Agent 可绑定 0..N 个 IM 通道账号；每个 `bot_id` 只路由到一个 Agent；Bot 与 Runtime/Worker Pod 无任何绑定；Gateway 不保存 `agent_id→Pod` 映射。
+- [RULE-im-002] **渠道差异只活在适配器层**：核心域（`agent-runtime` / `agent-worker`）零渠道专有字样与取件形状；`im-gateway` 除 `channels/` 与装配根 `main.py` 外同样为零。取件、下载、解密、媒体 URL/密钥**一律不出适配器**——上层只看到「已解密字节 + 元信息」。机检见 `tests/architecture/test_channel_neutrality.py`（三条：核心域全文零字样 / 核心域不得给 `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）。
 
 ## Conventions
 
@@ -44,6 +56,20 @@ verifiers:
 - **解析顺序固定，错误码不得泄露跨租户存在性**：先向 Console `resolve`（未知/禁用/已删 bot → `BOT_NOT_FOUND`；跨租户 bot 同样按 `BOT_NOT_FOUND`，不泄露其存在性），再依次判未绑定 → `UNBOUND`、未授权 → `NO_PERMISSION`（`apps/console-platform/backend/src/muad_console_platform/application/channel_service.py:94-126`；`apps/im-gateway/src/muad_im_gateway/application/inbound.py:414-428`）。
   - 机检：`tests/console_channel/test_channel_resolve_api.py:210-220`
 - **幂等键沿链路透传**：Gateway 以原通道 `message_id` 作为 `Idempotency-Key` 传给 Console bind 与 Runtime run/conversation，使可重试提交不重复建 Run（`apps/im-gateway/src/muad_im_gateway/application/runtime_client.py:98-101`、`application/console_client.py:198-200`）。
+
+入站附件的取件与落盘（wecom-inbound-media，2026-10-02 归档）：
+
+- **取件是适配器的「可选能力」，不是核心域的接口**：适配器实现 `AttachmentSource`（`attachment_count(envelope)` + `fetch_attachment(envelope, index, *, max_bytes)`），核心域只给 envelope/下标/上限，拿回 `FetchedAttachment`（已解密字节 + MIME + 文件名 + checksum）——`url`/`aes_key`/`media_id` 这类渠道私有形状**一步都不出去**（`apps/im-gateway/src/muad_im_gateway/channels/base.py:55-78`、`application/inbound.py:543-575`）。
+  - 新通道只要实现这两个方法，预检/取件/实检/落盘/反馈/审计那一整段**一行都不用改**（对照用例：`tests/gateway/test_inbound_attachment_flow.py` 用同一条 `msgid` 喂两条不同取件路径，契约/反馈/审计/落盘字节逐项相同）。
+  - ❌ 在应用层写 `if channel == "WECOM"` 分支或直接摸适配器的取件凭据
+- **门控分两段：预检判数量（取件前）→ 取件 → 实检判类型与大小（解密后）**：渠道回调常**不带** `size`/MIME/文件名（企微只有 `{url, aeskey?}`），"下载前按类型与大小门控"物理上不可实现（`application/attachment_gate.py:120-140`）。部分拒绝**不拖累其余**；单文件超限必须在**流式下载途中**中止，不读完再判（`channels/wecom/media.py:112-126`）。
+- **原因码是渠道中立的词汇表，适配器负责翻译**：`ATTACHMENT_TOO_LARGE` / `ATTACHMENT_FETCH_FAILED` / `ATTACHMENT_FETCH_TIMEOUT` / `ATTACHMENT_DECRYPT_FAILED` 定义在渠道边界（`channels/base.py:47-64`），适配器把自己的私有异常翻成 `AttachmentFetchError(code)`；应用层据此取文案 + 写审计，**不 import 任何渠道异常**。
+  - 反馈文案一律经消息目录（`config/api-messages.yaml`），**上限数值只有一个来源**：门控常量经 `args` 注入（`application/inbound.py:647-655`）——文案里的数字与判定用的常量绝不各写一份。
+- **入口护栏判「有没有内容」时必须问适配器**：`ChannelEnvelope.attachments` 只描述"**已经拿到手的**字节"，纯图片/文件消息在取件前它必然为空 ⇒ 只判它会把整条媒体消息在入口拦掉，取件/反馈/审计一行都跑不到（**实测 P0**）。判空条件要含 `unsupported_media` 与适配器待取件数（`application/inbound.py:145-160`）。
+- **`AttachmentRef` 一处定义、两处同型**：渠道边界 `ChannelEnvelope.attachments` 与消息契约 `MessageInput.attachments` 同型零转换；只描述已拿到手的字节，**不含 `artifact_id`**——网关只写字节、`artifact` 行由 Runtime 在 Run 建立后写（`packages/contracts/src/muad_contracts/channel.py:33-48`，设计 AD-1-B）。
+  - 产物键只由系统生成（`inbound/{token}/{index}`），**用户文件名只作元信息、永不参与路径拼接**；写入原子（临时文件 + `os.replace`）且不可变（同键二次写抛 `FileExistsError`）。
+- **网关不持库 ⇒ 入站审计经 Console 内网端点写控制面表**：`POST /internal/channel/audit`（`InternalServiceDep` + `HeaderTenantId`）写 `control.im_inbound_audit`（`apps/console-platform/backend/src/muad_console_platform/api/internal_channel.py`）。审计契约 `InboundAuditRequest` 字段**全部枚举化、刻意没有自由 JSON 列** ⇒ 取件凭据在**类型上**无处可放（比写入前运行时脱敏更强）；幂等键 `(tenant_id, channel, external_message_id, outcome)` 承载重投（`ON CONFLICT DO NOTHING` + 回查）。
+  - 审计面抖动**不阻断用户请求**（不能因为审计写不进去就让用户收不到回答），但失败必须留 ERROR 日志。
 
 ## Avoid
 
