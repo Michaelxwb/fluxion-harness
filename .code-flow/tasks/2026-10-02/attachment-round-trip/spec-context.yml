@@ -1,7 +1,7 @@
 version: 1
 task: attachment-round-trip
 enforcement: required
-updated_at: '2026-10-02T17:09:46.174138+00:00'
+updated_at: '2026-10-02T17:10:42.011544+00:00'
 sources:
 - type: cli
   ref: bind
@@ -52,7 +52,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-007
           item_id: harness-api#RULE-api-002
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -250,7 +250,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-008
           item_id: harness-api#RULE-api-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -463,7 +463,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-007
           item_id: harness-arch#RULE-arch-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -678,7 +678,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-008
           item_id: harness-auth#RULE-auth-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -892,7 +892,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-007
           item_id: harness-data#RULE-data-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -1327,7 +1327,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-004
           item_id: harness-i18n#RULE-i18n-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -1540,7 +1540,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-006
           item_id: harness-im#RULE-im-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -1739,7 +1739,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-001
           item_id: harness-im#RULE-im-002
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -1966,7 +1966,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-009
           item_id: harness-log#RULE-log-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -2180,7 +2180,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-008
           item_id: harness-secret#RULE-secret-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -2398,7 +2398,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-005
           item_id: harness-skill#RULE-skill-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -2613,7 +2613,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-005
           item_id: harness-snapshot#RULE-snapshot-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -2826,7 +2826,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-010
           item_id: harness-test#RULE-test-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -3039,7 +3039,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-009
           item_id: harness-time#RULE-time-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
@@ -3471,7 +3471,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-006
           item_id: harness-worker#RULE-worker-001
-          artifact_sha256: f27f4ed52b044b19c83d854e617af3b7625f2d961733813a9989ecb5731cc760
+          artifact_sha256: 9f3284c94157a20330b47b0c003ff0a23ef4559895fbfe30bcde99289cd46b4f
         decision: null
         evidence: []
       code:
