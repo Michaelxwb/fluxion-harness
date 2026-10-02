@@ -1,6 +1,11 @@
 import { defineConfig } from '@playwright/test';
 
+import { ISOLATED_DATASTORES_TEARDOWN, useIsolatedDatastores } from './support/isolated-datastores';
+
+useIsolatedDatastores();
+
 export default defineConfig({
+  globalTeardown: ISOLATED_DATASTORES_TEARDOWN,
   testDir: './tests/project-platform',
   timeout: 90_000,
   retries: 0,

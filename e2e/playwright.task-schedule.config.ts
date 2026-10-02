@@ -1,11 +1,16 @@
 import { defineConfig } from '@playwright/test';
 
+import { ISOLATED_DATASTORES_TEARDOWN, useIsolatedDatastores } from './support/isolated-datastores';
+
+useIsolatedDatastores();
+
 const WORKER_PORT = 8123;
 const CONSOLE_PORT = 8124;
 const INTERNAL_TOKEN = 'e2e-browser-token';
 const TENANT = 'e2e-browser';
 
 export default defineConfig({
+  globalTeardown: ISOLATED_DATASTORES_TEARDOWN,
   testDir: './tests/task-schedule',
   timeout: 120_000,
   retries: 0,

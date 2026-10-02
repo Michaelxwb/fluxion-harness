@@ -3,6 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { defineConfig } from '@playwright/test';
 
+import { ISOLATED_DATASTORES_TEARDOWN, useIsolatedDatastores } from './support/isolated-datastores';
+
+useIsolatedDatastores();
+
 // 端口偏移口径与其它模块一致：优先取 argv 里的场景号，手工整跑回落 pid 派生；算一次冻结进 env。
 const GREP_ID = /[SE]-\d+/.exec(process.argv.join(' '))?.[0] ?? '';
 const DERIVED = GREP_ID ? Number(GREP_ID.replace(/\D/g, '')) : process.pid % 47;
@@ -26,6 +30,7 @@ process.env.E2E_AUTH_ARTIFACT_ROOT = ARTIFACT_ROOT;
 // 真实 Console（真实 PostgreSQL + Cookie）+ 真实前端构建产物（vite preview）。
 // 认证不触模型/运行面，故不启 Runtime/Worker/Gateway/探针。
 export default defineConfig({
+  globalTeardown: ISOLATED_DATASTORES_TEARDOWN,
   testDir: './tests',
   testMatch: ['console-auth.spec.ts'],
   timeout: 120_000,

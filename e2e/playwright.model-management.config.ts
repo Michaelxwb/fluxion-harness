@@ -1,5 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
+import { ISOLATED_DATASTORES_TEARDOWN, useIsolatedDatastores } from './support/isolated-datastores';
+
+useIsolatedDatastores();
+
 // 端口偏移：优先取本进程 argv 里的 --grep 场景号（runner 会把每个场景当独立进程跑，
 // 场景号 → 固定偏移 ⇒ 相邻场景必然端口不同，从根本上避免上一场景的服务尚未释放就被抢占）；
 // 偏移算一次后冻结进 env，因为 config 会在每个 worker 里被重新求值，而 worker 的 argv 不含 --grep。
@@ -16,6 +20,7 @@ process.env.E2E_PROBE_PORT = String(PROBE_PORT);
 
 // 自带端口、不复用既有服务、跑构建产物（vite preview）。
 export default defineConfig({
+  globalTeardown: ISOLATED_DATASTORES_TEARDOWN,
   testDir: './tests/model-management',
   timeout: 90_000,
   retries: 0,
