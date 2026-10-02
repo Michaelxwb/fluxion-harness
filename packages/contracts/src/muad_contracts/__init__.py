@@ -11,6 +11,8 @@ from .channel import (
     ChannelResolveResponse,
     ChannelSkillItem,
     ChannelSkillsResponse,
+    InboundAuditOutcome,
+    InboundAuditRequest,
     PageMeta,
     UnsupportedMedia,
 )
@@ -75,6 +77,8 @@ __all__ = [
     "ChannelContext",
     "AttachmentRef",
     "ChannelEnvelope",
+    "InboundAuditOutcome",
+    "InboundAuditRequest",
     "UnsupportedMedia",
     "ChannelResolveRequest",
     "ChannelResolveResponse",

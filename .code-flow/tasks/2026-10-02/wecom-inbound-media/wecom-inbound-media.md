@@ -19,7 +19,7 @@
   - plan 阶段补 `B-08`（FEAT-10 的时钟场景），design §6 缺口已闭合。
   - **代码期修订（2026-10-02，TASK-002 开工时）**：① 门控拆**两段**（预检数量 → 实检类型/大小）——企微回调不带 `size`/MIME/文件名（design §3.2.2），单段前置门控物理上不可实现；② `mixed` 图文混排纳入范围（补 `S-08`）；③ 契约新增 `ChannelEnvelope.unsupported_media` 作为"不支持类型"的传输通道（E-01 的前置，核心域回复由 TASK-004 接线）。
 - **Non-goals**: 出站端到端文件发送；企微以外的渠道（含自建 web 对话页通道）；语音/视频专门处理；附件保留期策略；文档结构化理解。
-- **Acceptance**: 见下方 Acceptance Coverage（23 条场景）。
+- **Acceptance**: 见下方 Acceptance Coverage（25 条场景）。
 
 ---
 
@@ -50,8 +50,10 @@
 | B-06 | design#2.5.2 | integration | provider 组装 | TASK-005 | verified | uv run pytest -q tests/agent_core/test_openai_provider.py | . | 60 |  |
 | B-07 | design#2.5.2 | unit | 源码静态检查 | TASK-001 | verified | uv run pytest -q tests/test_attachment_contract.py | . | 60 |  |
 | B-08 | design#2.5.2 | unit | 注入固定时钟 | TASK-009 | verified | uv run pytest -q tests/agent_runtime/test_time_tools.py | . | 60 |  |
+| B-09 | design#2.5.2 | unit | 源码静态检查（不 mock） | TASK-011 | planned | uv run pytest -q tests/architecture/test_channel_neutrality.py | . | 60 |  |
+| E-08 | design#2.5.2 | integration | 内部端点 → 真实 PG 审计表 | TASK-012 | verified | uv run pytest -q tests/console_channel/test_inbound_audit.py | . | 60 |  |
 
-> 覆盖自检：design 全部 P0/P1 场景 23/23 已分配唯一负责人；RULE-01..08 与高影响 R-01/R-04 均有映射场景；E2E 场景 6 个未降级。
+> 覆盖自检：design 全部 P0/P1 场景 25/25 已分配唯一负责人；RULE-01..08 与高影响 R-01/R-04 均有映射场景；E2E 场景 6 个未降级。
 
 ---
 
@@ -246,9 +248,9 @@
 - [2026-10-02] completed (done)
 ## TASK-004: 附件落盘 + 接收反馈与审计
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
-- **Depends**: TASK-002, TASK-003
+- **Depends**: TASK-002, TASK-003, TASK-012
 - **Source**: `wecom-inbound-media.design.md#3.2.1`, `#3.4 接口设计`, `#3.5 质量实现方案`
 - **Spec-Refs**: harness-arch#RULE-arch-001, harness-skill#RULE-skill-001, harness-log#RULE-log-001, harness-i18n#RULE-i18n-001
 - **Acceptance-Refs**: S-04, S-07, E-01, E-02, E-03, E-07
@@ -259,12 +261,14 @@
 
 ### Checklist
 
-- [ ] 附件写入共享 store，key 为相对路径；沿用"临时文件 + `os.replace`"原子替换
-- [ ] 门控接线为**两段**（design §3.2.1 / API-07）：**预检** `evaluate_precheck(count)` 在下载之前判数量 → 调 TASK-002 取件 → **实检** `evaluate_gate(candidates)` 用解密后的真实 `media_type`/`size` 判类型与大小
+- [ ] **取件的跨层接缝（本任务最关键的设计点）**：新增可选能力协议 `AttachmentSource`（仿既有 `AdapterDegradation` / `StreamFinalizer` 写法）——`attachment_count(envelope)` + `fetch_attachment(envelope, index, *, max_bytes)`。**核心域只给 envelope、下标与上限，拿回已解密字节与元信息，全程看不见 `url`/`aes_key`**（AD-8）。适配器内部按 `message_id` 保留通道私有引用，**必须有驱逐**（TTL/容量）：命令消息、重复投递、空载荷兜底这几条路径**永远不会来取件**
+- [ ] 附件写入共享 store：新增 im-gateway 对 `muad-artifact-store` 的依赖；key 为**相对路径**；沿用"临时文件 + `os.replace`"原子替换。**部署同步**：`deploy/k8s/base/im-gateway.yaml` 补 artifacts 卷挂载（现在只有 `fsGroup` 与来自 configMap 的 `ARTIFACT_ROOT`，**没有 volumeMounts/volumes** ⇒ 字节会写进容器临时盘，runtime 在自己的 PVC 上按 key 找不到）
+- [ ] **取件顺序**：放在 `_handle_message` 的 `_resolve` **之后**、`RunRequest` 之前——未绑定/无权限是天然早退点，"能收才去拉"，把 AD-1-B 下的无主字节压到最小（设计 R-07）
+- [ ] 门控接线为**两段**（design §3.2.1 / API-07）：**预检** `evaluate_precheck(count)` 在取件之前判数量（纯函数，无 IO）→ 取件 → **实检** `evaluate_gate(candidates)` 用解密后的真实 `media_type`/`size` 判类型与大小；部分拒绝不拖累其余
 - [ ] `unsupported_media` 兜底升级为**用户可见回复 + 审计**（E-01）：TASK-002 只让它"不进入 Run"，本条负责把回复补上，并删除兜底注释里的过渡说明
-- [ ] 门控拒绝 / 下载失败 / 解密失败 / 落盘失败 / 不支持类型 → 各自映射文案与审计码，**无静默路径**
+- [ ] 门控拒绝 / 取件失败（超时·网络·超限·解密） / 落盘失败 / 不支持类型 → 各自映射文案与审计码，**无静默路径**
 - [ ] 反馈文案经消息目录取；`config/api-messages.yaml` 补齐 zh-CN 与 en-US 词条
-- [ ] 审计记录含 `external_message_id`、附件数、拒绝原因码（供 PRD §2.2 指标度量）；**并闭合 E-04 的审计腿**——审计行中不得出现 `aes_key` 与媒体明文 URL（TASK-002 只覆盖日志腿，见其清单）
+- [ ] 审计记录含 `external_message_id`、附件数、拒绝原因码（供 PRD §2.2 指标度量）；**并闭合 E-04 的审计腿**——审计行中不得出现 `aes_key` 与媒体明文 URL（TASK-002 只覆盖日志腿，见其清单）；**写审计经 TASK-012 的 `POST /internal/channel/audit`——本任务只调用、不建表**
 - [ ] [S-04][E2E] 一条消息带 3 个附件（含图片与文档）（真实边界：回调 → 落盘 → 契约 → 工具，不 mock）；断言三个附件各自落盘、可分别读取、互不覆盖
 - [ ] [S-07][integration] `FakeChannelAdapter` 以**与企微不同的取件路径**（不经 url/aes_key）产出带附件的 envelope（真实边界：门控 → 契约 → 落盘，不含企微代码路径）；断言门控/契约/落盘行为与企微路径一致
 - [ ] [E-01][E2E] 不受支持类型 → 不落盘 + 审计 + 用户收到明确说明
@@ -275,6 +279,7 @@
 - [ ] 运行 verifier：`uv run pytest -q tests/test_skill_artifact_cache.py`（`harness-skill#RULE-skill-001`）；记录输出
 - [ ] 运行 verifier：`uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py`（`harness-log#RULE-log-001`）；记录输出
 - [ ] 运行 verifier：`uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py`（`harness-i18n#RULE-i18n-001`）；记录输出并填写 Acceptance Evidence
+- [ ] 运行 verifier：`uv run pytest -q tests/gateway`（`harness-im#RULE-im-001`：`inbound.py` 属本 Rule 的路径映射，局部承接）；记录输出
 
 ### Acceptance Contract
 
@@ -293,7 +298,7 @@
 - [2026-10-02] created (draft)
 
 ---
-
+- [2026-10-02] started
 ## TASK-005: 模型多模态内容形态
 
 - **Status**: done
@@ -612,3 +617,110 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 ### Log
 - [2026-10-02] created (draft)
+
+---
+
+## TASK-011: 通道取值收口 + 通道中立性静态守卫
+
+- **Status**: draft
+- **Priority**: P1
+- **Depends**: TASK-004
+- **Source**: `wecom-inbound-media.design.md#3.2.3`, `#2.5.2 B-09`
+- **Spec-Refs**: harness-worker#RULE-worker-001, harness-time#RULE-time-001, harness-snapshot#RULE-snapshot-001
+- **Acceptance-Refs**: B-09
+
+### Description
+
+B-07 只钉住了**类型定义处**（`Literal["WECOM"]` 只在 `enums.py` 一处），**取值填充处**没收：字符串 `"WECOM"` 全仓仍有 10 处，其中 4 处在渠道层之外——console 的通道管理面 2 处（合理，它本身就是通道管理界面），**`agent-runtime/.../run_service.py:408` 与 `agent-worker/.../scheduler/client.py:53` 各 1 处（核心域）**。
+
+那两处填的是 `ResolveDefinitionRequest.channel`——一个**必填、但全仓没有任何消费方读它**的字段（console `resolve_service.py` / `internal_runtime.py` / runtime `console_client.py` / `ports.py` 逐个 grep，零引用）⇒ 每个调用点只能凭空编一个通道名。**现在不咬人，但它是"接新通道时声称的通道与实际不符"的埋伏**：一旦有人开始读它（例如做按通道的授权），两处编造的值立刻就是错的。
+
+本任务把取值收干净，并把"核心域零渠道字样 / 零取件形状"钉成**会红的静态守卫**。守卫与被它判红的代码**必须同一批落地**（先加守卫则任务自身为红），故合为一个任务。
+
+### Checklist
+
+- [ ] `ResolveDefinitionRequest.channel` 改为 `ChannelName | None = None`：**有真值给真值，没有就显式省略**，不再编造
+- [ ] `run_service.py` 的 resolve 调用改传 `request.channel.type`（运行请求里已有真值，零额外 IO）
+- [ ] worker 的 `scheduler/client.py` 省略该字段，并注明理由：**定时触发不经渠道**，交付通道属于 Schedule 的 `delivery_route`，不是 resolve 的输入（为填这个没人读的字段去热路径上多打一次库不划算）
+- [ ] console 侧确认无消费方依赖该字段非空（现为零引用）
+- [ ] [B-09][unit] 静态守卫：核心域（`agent-runtime`/`agent-worker`）零渠道字样（`WECOM`/`aeskey`/`url_private`/`download_code`…）与取件形状；通道专有字样只允许出现在 `channels/` 适配器层与 console 通道管理面
+- [ ] 回归：既有文本路径与调度链路全绿（改动了 worker 的 resolve 入参与核心域的填入值）
+- [ ] 运行 verifier：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"`（`harness-snapshot#RULE-snapshot-001`）；记录输出并填写 Acceptance Evidence
+- [ ] 运行 verifier：`uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py`（`harness-worker#RULE-worker-001`）；记录输出并填写 Acceptance Evidence
+- [ ] 运行 verifier：`uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity`（`harness-time#RULE-time-001`）；记录输出并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|--------|---------|--------------------|---------|----------------|---------|------|
+| B-09 | unit | 源码静态检查（不 mock） | 核心域零渠道字样与取件形状；`channel` 取值无编造 | `tests/architecture/test_channel_neutrality.py` | `uv run pytest -q tests/architecture/test_channel_neutrality.py` | planned |
+
+### Acceptance Evidence
+
+### Log
+- [2026-10-02] created (draft)
+
+---
+
+## TASK-012: 入站审计落点（表 + console 内部端点）
+
+- **Status**: done
+- **Priority**: P0
+- **Depends**: —
+- **Source**: `wecom-inbound-media.design.md#3.3 数据设计`, `#3.4 API-10`
+- **Spec-Refs**: harness-api#RULE-api-001, harness-data#RULE-data-001, harness-time#RULE-time-001, harness-im#RULE-im-001
+- **Acceptance-Refs**: E-08
+
+### Description
+
+设计原写"复用既有审计写入路径（`audit_writer`），不新增表"——**照做不了**：那个 writer 在 runtime 侧、写 `runtime.{tool_call,egress,model_invocation}_audit` 三张表，语义是工具/出站/模型调用；而入站接收/拒绝发生在网关，**网关不持库**（架构测试扫 `sqlalchemy`）；console 的 `internal_channel` 只有 `resolve`/`bind`/`bots`/`skills`，没有审计入口。权威写入方只能是 console。
+
+本任务先把落点建起来（表 + 内部端点），TASK-004 才有地方写"接收/拒绝/失败各一条"。**它是 TASK-004 的前置**。
+
+### Checklist
+
+- [x] 契约新增 `InboundAuditRequest`（渠道中立；字段**全部枚举化/结构化** ⇒ 结构上无法承载 `aes_key` 或媒体 URL，RULE-06 的审计腿靠类型保证而非运行时脱敏）
+- [x] `control.im_inbound_audit` 表：`StandardColumnsMixin`（`id/is_deleted/create_time/update_time`）、时间 `timestamptz`、索引 `(tenant_id, create_time DESC)` 与 `(external_message_id)`；**关键查询字段不藏 JSON，且不设自由 JSON 列**
+- [x] alembic 迁移：单链，接在当前 head 之后；`uv run alembic upgrade head` 可升可降
+- [x] `POST /internal/channel/audit`：`InternalServiceDep`（服务令牌门控）+ `HeaderTenantId`（调用方显式声明租户），响应走 `ok(request.app.state.message_catalog, ...)` 封套
+- [x] 服务层 `InboundAuditService.record`：只写白名单字段；**幂等键 `(tenant_id, channel, external_message_id, outcome)`，同键重投不产生第二行**（企微会重投，与 E-07 同源）
+- [x] [E-08][integration] 三种 `outcome`（RECEIVED/REJECTED/FAILED）各落一行、字段齐全（含 `external_message_id`/附件数/通过数/原因码）；同键重投幂等；**审计行内不含任何取件凭据**（真实边界：内部端点 → 真实 PG 审计表）
+- [x] 运行 verifier：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`（`harness-api#RULE-api-001`）；记录输出并填写 Acceptance Evidence
+- [x] 运行 verifier：`uv run pytest -q tests -k schema_parity`（`harness-data#RULE-data-001`）；记录输出并填写 Acceptance Evidence
+- [x] 运行 verifier：`uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity`（`harness-time#RULE-time-001`）；记录输出并填写 Acceptance Evidence
+- [x] 运行 verifier：`uv run pytest -q tests/console_channel tests/gateway`（`harness-im#RULE-im-001`：新增契约类型与既有通道契约同族，局部承接）；记录输出并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|--------|---------|--------------------|---------|----------------|---------|------|
+| E-08 | integration | 内部端点 → 真实 PG 审计表 | 三种 outcome 各落一行且字段齐全；同键重投幂等；行内无取件凭据 | `tests/console_channel/test_inbound_audit.py` | `uv run pytest -q tests/console_channel/test_inbound_audit.py` | verified |
+
+
+### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-08 | 把源码改动移开（`git stash push -- apps packages migrations`）后本文件整体 collection error：`ImportError: cannot import name 'InboundAudit' from ...infrastructure.models.control` | PASS: `4 passed` | `tests/console_channel/test_inbound_audit.py`：`test_three_outcomes_each_land_one_row_with_named_fields`（三种结局各落一行，拒绝原因/附件计数/通过数/字节数都能直接查出）、`test_redelivery_of_the_same_outcome_does_not_write_a_second_row`（重投返回**同一个 id** 且只有一行）、`test_the_same_message_with_a_different_outcome_keeps_both_rows`（幂等键粒度=消息×结局）、`test_audit_storage_has_no_place_for_credentials`（结构 + 行为两层） | 内部端点 → 真实 PostgreSQL：迁移 **0015** 真实建表（`control.im_inbound_audit`，15 列 + 3 索引），测试经真实 ASGI 客户端与真实 DB 断言，**无 mock** | verified |
+
+**本任务的其余覆盖（同文件）**：见上表第三列——四条各自钉死一件事，"幂等键粒度"那条尤其重要：把 `outcome` 放进键意味着"接收过之后又失败"是**两条事实**，不会被去重吃掉。
+
+**实现补充**：
+- **`ON CONFLICT DO NOTHING` + 回查**，而不是"先查再插"——并发重投时后者会两个都查不到、插两条再被唯一索引抛错；幂等的最终保证是那条 **partial unique 索引**（`... WHERE is_deleted = false`）。
+- **契约 `extra="forbid"`**（`ContractModel` 既有配置）让"夹带取件凭据"的请求被**指名 422 拒绝**（`{"aes_key","url"}`），比"忽略未知字段"更强：既进不了库，也不会被谁日后加个 catch-all 字段悄悄收下。
+- 表**刻意不设 JSON 列**：`RULE-secret-001` 的审计腿因此是**结构保证**而不是运行时脱敏。
+
+**本次回归**：
+- `uv run pytest -q tests/console_channel tests/gateway` → **290 passed**（`harness-im#RULE-im-001` verifier）
+- `uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py` → **18 passed**（`harness-api#RULE-api-001` verifier）
+- `uv run pytest -q tests -k schema_parity` → **35 passed**（`harness-data#RULE-data-001` / `harness-time#RULE-time-001` verifier）
+- `uv run pytest -q tests/frontend/test_datetime_contract.py` → **2 passed**（`harness-time` verifier）
+- `uv run mypy apps packages` → **Success: no issues found in 266 source files**
+- `uv run ruff check .` → **All checks passed**
+- E-08: verified — automated command passed; run_id=c98aa554df9046ce8205a7c8f241ccf7 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=9f7b4a5144ba4d0fa496cf18e8c9eab7 (confirmed_by: runner)
+
+### Log
+- [2026-10-02] created (draft)
+- [2026-10-02] started
+- [2026-10-02] completed (done)

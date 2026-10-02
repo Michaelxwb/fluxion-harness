@@ -166,6 +166,7 @@
 | E-05 | FEAT-03/06 | integration | DB 查询 + 工具越权校验 | 本模块 | 以租户 B 的身份读取租户 A 的 artifact_id | 拒绝并返回明确错误 | 读取失败，不泄露存在性细节 |
 | E-06 | FEAT-06 | integration | 真实解析库 | 本模块 | 文档加密/损坏 | 返回明确错误 | Agent 能如实转述"这份文档读不了"，而非乱码 |
 | E-07 | FEAT-01/03 | integration | 幂等键 + 落盘 | 本模块 | 同一消息被企微重投 | 去重；不产生重复产物 | 无重复响应 |
+| E-08 | FEAT-07 | integration | 内部端点 → 真实 PG 审计表 | 本模块 | 入站接收/拒绝/失败各写一条 | 各落一行，含 `external_message_id`、附件数、通过数、原因码；同键重投不产生第二行 | 运维能查到"谁发的什么被拒了、为什么"；**行内没有任何取件凭据**（字段结构上无从承载） |
 
 **边界场景**
 
@@ -178,6 +179,7 @@
 | B-05 | integration | 契约序列化 | 本模块 | 附件数 | 0 | 契约与请求体与现状一致 |
 | B-06 | integration | provider 组装 | 本模块 | 内容形态 | 纯字符串 | 输出 `content` 为字符串（非数组），字段集不变 |
 | B-07 | unit | 源码静态检查（不 mock） | 本模块 | `Literal["WECOM"]` 字面量出现处 | 全仓 | 字面量**只**出现在 `ChannelName` 定义处；其余位置均为别名引用（RULE-08） |
+| B-09 | unit | 源码静态检查（不 mock） | 本模块 | 核心域里的渠道**取值**与取件形状 | 全仓 | ① `agent-runtime`/`agent-worker` **零**渠道专有字样（`WECOM`/`aeskey`/`url_private`/`download_code` 等）与取件形状；② `ResolveDefinitionRequest.channel` 由调用方给**真值**或**显式省略**，不得凭空编造一个通道名；③ 通道专有字样只允许出现在 `channels/` 适配器层与 console 的通道管理面（2026-10-02 补：B-07 只钉住了类型定义处，取值填充处仍有写死） |
 | B-08 | unit | 注入固定时钟（不 mock 被测函数本身） | 本模块 | 时间工具 | 注入已知固定时刻 | 工具返回该时刻，且带 IANA 时区标识（非裸 UTC 字符串，`harness-time#RULE-time-001`） |
 
 #### 2.5.3 非功能指标 [按需]
@@ -424,7 +426,7 @@
 
 ### 3.3 数据设计 [必填]
 
-**本模块不新增表**。复用 `runtime.artifact`（`apps/agent-runtime/.../infrastructure/models/runtime.py:214`）：
+**附件字节不新增表**（审计另计，见本节末尾）。复用 `runtime.artifact`（`apps/agent-runtime/.../infrastructure/models/runtime.py:214`）：
 
 | 列 | 本需求的用法 |
 |----|-------------|
@@ -436,7 +438,34 @@
 | `metadata_json` | `{"filename": ..., "source": "wecom", "external_message_id": ...}`（关键查询字段不藏 JSON，遵循 `harness-data#RULE-data-001`） |
 | 标准列 | `id/is_deleted/create_time/update_time` 由 `StandardColumnsMixin` 提供；时间 `timestamptz` |
 
-**审计**：接收/拒绝/失败复用既有审计写入路径（`audit_writer`），不新增表。
+**审计（2026-10-02 修正：必须新增一张表）**
+
+原文写的是"接收/拒绝/失败复用既有审计写入路径（`audit_writer`），不新增表"——**那句照做不了**：
+
+- `audit_writer`（`RuntimeAuditWriter`）是 **runtime 侧**的，写 `runtime.{tool_call,egress,model_invocation}_audit` 三张表，语义是工具调用/出站/模型调用，**没有"入站接收/拒绝"这一面**；
+- 入站接收/拒绝发生在**网关**，而网关**不持库**（`tests/architecture/test_im_gateway_boundaries.py::test_gateway_does_not_hold_a_database` 直接扫 `sqlalchemy`）；
+- console 的 `api/internal_channel.py` 现有 `resolve`/`bind`/`bots`/`skills`，**没有审计写入端点**；`/api/v1/audits` 是**查询**面。
+
+⇒ 权威写入方只能是 **console**，由新增的内部端点承接网关的审计事件（API-10）。
+
+表名 `control.im_inbound_audit`（与 `config_audit_log` 同 schema；这是**平台运行事件**，不是配置变更，故不复用后者）：
+
+| 列 | 类型 | 说明 |
+|----|------|------|
+| `tenant_id` | `String(64)` | 租户隔离（既有口径） |
+| `channel` | `String(32)` | 渠道中性取值（`ChannelName`） |
+| `bot_id` | `String(128)` | 哪个 bot 收到的 |
+| `external_message_id` | `String(128)` | 回调消息 id（PRD §2.2 度量与排重的事实来源） |
+| `external_user_id` | `String(128)` | 外部用户 |
+| `outcome` | `String(32)` | `RECEIVED` / `REJECTED` / `FAILED` |
+| `reason_code` | `String(64)` | 拒绝/失败原因码（接收时为空串） |
+| `attachment_count` | `Integer` | 本条消息的附件数 |
+| `accepted_count` | `Integer` | 通过门控的附件数 |
+| `total_bytes` | `BigInteger` | 已接收入库的字节数合计 |
+| `trace_id` | `String(64)` | 关联日志 |
+| 标准列 | — | `StandardColumnsMixin` 提供 `id/is_deleted/create_time/update_time`；时间 `timestamptz` |
+
+**刻意没有自由形式的 JSON 列**：全部字段都是**枚举化/结构化**的，因此**结构上就不可能把 `aes_key` 或媒体 URL 夹带进行**——这比"先写自由字段再靠脱敏兜底"强得多（RULE-06 的审计腿因此可被静态保证，而不是靠运行时过滤）。索引：`(tenant_id, create_time DESC)`、`(external_message_id)`。
 
 ### 3.4 接口设计 [必填]
 
@@ -455,6 +484,7 @@
 | API-07 | `AttachmentGate` 门控 | 函数 | FEAT-08 | `apps/im-gateway/.../application/` |
 | API-08 | `write_artifact` 工具 | 工具 | FEAT-09 | `apps/agent-runtime/.../application/` |
 | API-09 | `current_time` 工具 | 工具 | FEAT-10 | `apps/agent-runtime/.../application/` |
+| API-10 | `POST /internal/channel/audit`（**入站审计写入**，权威方是 console） | HTTP（内部） | FEAT-07 | `console api/internal_channel.py` + `application/inbound_audit_service.py` |
 
 #### API-01: 附件契约（渠道边界 + 消息契约）
 
@@ -576,6 +606,28 @@ def evaluate_gate(candidates: Sequence[AttachmentCandidate]) -> GateDecision: ..
 - 两者都是纯函数，无 IO —— 便于 B-01/B-02/B-03 单测。
 - P0 读模块常量；P1 改为读配置。
 
+#### API-10: `POST /internal/channel/audit` —— 入站审计的唯一写入面
+
+```python
+# packages/contracts/.../channel.py —— 渠道中立的审计事件（与 ChannelEnvelope 同族）
+class InboundAuditRequest(ContractModel):
+    channel: ChannelName
+    bot_id: str = Field(min_length=1)
+    external_message_id: str = Field(min_length=1)
+    external_user_id: str = Field(min_length=1)
+    outcome: Literal["RECEIVED", "REJECTED", "FAILED"]
+    reason_code: str = ""
+    attachment_count: int = Field(ge=0)
+    accepted_count: int = Field(ge=0)
+    total_bytes: int = Field(ge=0)
+```
+
+- **为什么是它、而不是直接写库**：网关不持库（`test_gateway_does_not_hold_a_database` 扫 `sqlalchemy`），入站事件的权威写入方只能是 console；runtime 的三张审计表语义不符（工具/出站/模型调用）。
+- **为什么字段全部枚举化/结构化**：**结构上不允许夹带取件凭据**——`aes_key` 与媒体 URL 没有任何字段可以承载（RULE-06 的审计腿因此靠类型保证，而不是靠运行时脱敏兜底）。
+- **鉴权与租户**：沿用既有内部端点口径——`InternalServiceDep`（服务令牌门控）+ `HeaderTenantId`（调用方显式声明租户）。
+- **幂等**：以 `(tenant_id, channel, external_message_id, outcome)` 去重——企微会重投（与 E-07 同源）。
+- 响应走 `ok(catalog, ...)` 封套，返回落库记录 id。
+
 ### 3.5 质量实现方案 [必填]
 
 #### 性能设计 [按需]
@@ -685,6 +737,7 @@ def evaluate_gate(candidates: Sequence[AttachmentCandidate]) -> GateDecision: ..
 | `harness-time#RULE-time-001` | required | 附件时间戳统一 `timestamptz`；FEAT-10 的时间基准必须带 IANA 时区口径（与调度时区一致），不得返回裸 UTC 字符串。 | §3.3、API-09 | B-08 + 原 verifier | harness-time#RULE-time-001 | applied |
 | `harness-worker#RULE-worker-001` | required | 本次改动只把 `DeliveryRouteInput.channel` 的 `Literal["WECOM"]` 换成**等价**的 `ChannelName` 别名（AD-7 枚举收口）——**行为等价**，未触及 claim/lease、权威源、Redis hint 或 Task 状态机；附件能力不进入 Worker 链路（同步工具调用，不落后台任务）。该 Rule 由路径映射（改动 `contracts/tasks.py`）**自动绑定**，此处为局部承接。 | §3.2.3（枚举收口，等价替换） | B-07 + 原 verifier（`uv run pytest -q tests/agent_worker`） | harness-worker#RULE-worker-001 | applied |
 | `harness-mcp#RULE-mcp-001` | required | 本次只给**共享的** `ToolDefinition` 增加一个可选字段 `follow_up_messages`（默认 `None`）：MCP Tool 仍进入**同一个** ToolRegistry，注册路径与既有字段均未变；未触及 Streamable HTTP、`discover-tools` 或 Server 级授权口径。该 Rule 由路径映射（改动 `agent-core/tools/registry.py`）**自动绑定**，此处为局部承接。 | §3.4 API-06（工具面扩展） | 原 verifier（`uv run pytest -q tests/console_mcp/test_mcp_rules.py`，3 passed）+ B-06 同族 | harness-mcp#RULE-mcp-001 | applied |
+| `harness-api#RULE-api-001` | required | **新增一个内部端点** `POST /internal/channel/audit`（API-10）承载入站审计写入：沿用既有内部端点口径（`InternalServiceDep` 服务令牌 + `HeaderTenantId` 显式租户 + `ok(catalog, …)` 封套），**不引入新的错误码体系、不动对外业务 API 面与前端**。该 Rule 由路径映射（改动 `console api/internal_channel.py`）**自动绑定**，此处为局部承接（TASK-012）。 | §3.3（审计表）、§3.4 API-10 | E-08 + 原 verifier | harness-api#RULE-api-001 | applied |
 ---
 
 ## 附录：术语表

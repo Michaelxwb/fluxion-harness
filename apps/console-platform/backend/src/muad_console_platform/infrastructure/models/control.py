@@ -500,3 +500,57 @@ class SharedCredentialRef(StandardColumnsMixin, Base):
         nullable=False,
         server_default=sa.text("'ACTIVE'"),
     )
+
+
+class InboundAudit(StandardColumnsMixin, Base):
+    """入站事件审计（设计 §3.3 / API-10）：接收 / 拒绝 / 失败各一条。
+
+    **刻意没有自由 JSON 列** —— 字段全部枚举化，取件凭据（`aes_key`、媒体 URL）在结构上
+    无处可放。RULE-secret-001 的审计腿因此由类型保证，而不是靠写入前的运行时脱敏。
+
+    幂等由 partial unique `(tenant_id, channel, external_message_id, outcome)` 承载：企微会
+    重投（与 E-07 同源），同一条消息的同一结局只留一行（RULE-data-001 的软删唯一口径）。
+    索引按"某租户最近的入站事件"与"按消息 id 追一条"两种查法建。
+    """
+
+    __tablename__ = "im_inbound_audit"
+    __table_args__ = (
+        sa.Index(
+            "ix_im_inbound_audit_tenant_create_time",
+            "tenant_id",
+            sa.text("create_time DESC"),
+        ),
+        sa.Index("ix_im_inbound_audit_external_message_id", "external_message_id"),
+        sa.Index(
+            "uq_im_inbound_audit_message_outcome",
+            "tenant_id",
+            "channel",
+            "external_message_id",
+            "outcome",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    channel: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    bot_id: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    external_message_id: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    external_user_id: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    #: RECEIVED / REJECTED / FAILED（设计 API-10 的三种结局）
+    outcome: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    #: 拒绝/失败原因码（接收时为空串）—— 用户可见文案由消息目录取，不落在这里
+    reason_code: Mapped[str] = mapped_column(
+        sa.String(64), nullable=False, server_default=sa.text("''")
+    )
+    attachment_count: Mapped[int] = mapped_column(
+        sa.Integer(), nullable=False, server_default=sa.text("0")
+    )
+    accepted_count: Mapped[int] = mapped_column(
+        sa.Integer(), nullable=False, server_default=sa.text("0")
+    )
+    total_bytes: Mapped[int] = mapped_column(
+        sa.BigInteger(), nullable=False, server_default=sa.text("0")
+    )
+    trace_id: Mapped[str | None] = mapped_column(sa.String(64))

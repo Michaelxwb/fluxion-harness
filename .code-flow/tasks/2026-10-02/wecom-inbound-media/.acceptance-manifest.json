@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "wecom-inbound-media.md",
-  "task_sha256": "f1156d8ea7e12627dd9a48d3c05bceef89ae881f3cd3a8131a5dd2bbad7ddad5",
+  "task_sha256": "441fcd0a3fed00068ac5e94cbe33c4c029f0996b0c5fd68abf230e97e07cb581",
   "scenarios": [
     {
       "id": "S-01",
@@ -151,7 +151,6 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
       "evidence": {
         "id": "S-08",
         "kind": "functional",
@@ -160,27 +159,7 @@
         "revision": 2,
         "run_id": "415d5b7e6f32435c8d42c1403e40cb59",
         "executed_at": "2026-10-02T10:11:08.904485+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "586860170ba5421fb7f014475437aa20",
-          "executed_at": "2026-10-02T10:10:56.028739+00:00"
-        },
-        {
-          "id": "S-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 2,
-          "run_id": "415d5b7e6f32435c8d42c1403e40cb59",
-          "executed_at": "2026-10-02T10:11:08.904485+00:00"
-        }
-      ]
+      }
     },
     {
       "id": "E-01",
@@ -240,7 +219,6 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
       "evidence": {
         "id": "E-04",
         "kind": "functional",
@@ -249,27 +227,7 @@
         "revision": 2,
         "run_id": "415d5b7e6f32435c8d42c1403e40cb59",
         "executed_at": "2026-10-02T10:11:08.904485+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "586860170ba5421fb7f014475437aa20",
-          "executed_at": "2026-10-02T10:10:56.028739+00:00"
-        },
-        {
-          "id": "E-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 2,
-          "run_id": "415d5b7e6f32435c8d42c1403e40cb59",
-          "executed_at": "2026-10-02T10:11:08.904485+00:00"
-        }
-      ]
+      }
     },
     {
       "id": "E-05",
@@ -473,6 +431,74 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": []
+    },
+    {
+      "id": "B-09",
+      "source": "design#2.5.2",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "源码静态检查（不 mock）",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture/test_channel_neutrality.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-08",
+      "source": "design#2.5.2",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "内部端点 → 真实 PG 审计表",
+      "owner": "TASK-012",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_channel/test_inbound_audit.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "9f7b4a5144ba4d0fa496cf18e8c9eab7",
+        "executed_at": "2026-10-02T11:23:54.009012+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "c98aa554df9046ce8205a7c8f241ccf7",
+          "executed_at": "2026-10-02T11:23:48.947884+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "9f7b4a5144ba4d0fa496cf18e8c9eab7",
+          "executed_at": "2026-10-02T11:23:54.009012+00:00"
+        }
+      ]
     }
   ]
 }

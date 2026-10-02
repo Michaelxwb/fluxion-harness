@@ -18,6 +18,9 @@ AttachmentKind = Literal["IMAGE", "DOCUMENT", "OTHER"]
 #: 刻意不描述渠道私有的取件形状（url/aes_key/media_id...），否则渠道差异会渗透核心域（AD-8）。
 UnsupportedMedia = Literal["VOICE", "VIDEO", "OTHER"]
 
+#: 入站审计的三种结局（设计 API-10）。
+InboundAuditOutcome = Literal["RECEIVED", "REJECTED", "FAILED"]
+
 
 class PageMeta(ContractModel):
     """统一列表分页字段（required API Rule：page>=1、1<=page_size<=100）。"""
@@ -56,6 +59,26 @@ class ChannelEnvelope(ContractModel):
     # 非空表示这条消息的载荷形态本渠道不接收（如语音/视频）：核心域据此给用户明确反馈，
     # 而不是让消息在渠道边界静默消失（RULE-01）。默认 None ⇒ 序列化结果与改造前一致。
     unsupported_media: UnsupportedMedia | None = None
+
+
+class InboundAuditRequest(ContractModel):
+    """入站审计事件（设计 API-10）：网关 → console 内部端点。
+
+    **字段全部枚举化/结构化，刻意没有自由形式的 JSON 字段** —— 因此 `aes_key`、媒体 URL
+    这类取件凭据**在类型上就无处可放**（RULE-secret-001 的审计腿由结构保证，而不是靠写入前
+    的运行时脱敏）。谁发的什么被拒、为什么，全部落在具名字段里。
+    """
+
+    channel: ChannelName
+    bot_id: str = Field(min_length=1)
+    external_message_id: str = Field(min_length=1)
+    external_user_id: str = Field(min_length=1)
+    outcome: InboundAuditOutcome
+    reason_code: str = ""
+    attachment_count: int = Field(ge=0)
+    accepted_count: int = Field(ge=0)
+    total_bytes: int = Field(ge=0)
+    trace_id: str | None = None
 
 
 class ChannelResolveRequest(ContractModel):

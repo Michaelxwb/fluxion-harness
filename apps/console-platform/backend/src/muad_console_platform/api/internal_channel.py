@@ -3,11 +3,17 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, InternalServiceDep, ok
-from muad_contracts import DEFAULT_PAGE_SIZE, ChannelBindRequest, ChannelResolveRequest
+from muad_contracts import (
+    DEFAULT_PAGE_SIZE,
+    ChannelBindRequest,
+    ChannelResolveRequest,
+    InboundAuditRequest,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.channel_service import ChannelService
 from ..application.channel_skills_service import ChannelSkillsService
+from ..application.inbound_audit_service import InboundAuditService
 from ..infrastructure.db import get_session
 from ..metrics import BIND_METRIC, count_outcome
 from .deps import HeaderTenantId
@@ -74,3 +80,20 @@ async def skills(
         page_size=page_size,
     )
     return ok(request.app.state.message_catalog, skills_response.model_dump(mode="json"))
+
+
+@router.post("/audit")
+async def audit(
+    payload: InboundAuditRequest,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    internal_service: InternalServiceDep,
+) -> ApiResponse[Any]:
+    """入站事件审计写入（设计 API-10）——**网关唯一的审计出口**。
+
+    网关不持库，只能把"谁发的什么被拒了、为什么"交到这里；入参契约全字段枚举化，
+    取件凭据在类型上无处可放。重复投递返回既有行（幂等键见服务层）。
+    """
+    audit_id = await InboundAuditService(session).record(tenant_id, payload)
+    return ok(request.app.state.message_catalog, {"id": str(audit_id)})
