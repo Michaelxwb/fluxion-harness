@@ -9,7 +9,7 @@ E-06 的 `delivered=false` 支：生产 Gateway **当前没有任何路径**会�
 真实 Redis 与真实探针，只在**回程**延迟并改写 `delivered`。
 
 退避口径：使用**真实间隔**（不注入时钟）——真实 Worker 进程按生产 `DeliveryLoop` 的
-`BACKOFF_BASE_SEC * 2 ** delivery_attempts` 窗口重试，用例从 `task.task_event` 的真实
+`delivery_backoff_base_sec × 2**delivery_attempts` 窗口重试，用例从 `task.task_event` 的真实
 `create_time` 差值与库内 `delivery_attempts` 回读测量。因子套件默认 `delivery_poll_interval_sec=5`
 会把每个窗口放大到 5s 的轮询粒度上，故本模块把该真实配置项钉到 1s（生产环境变量，二者皆为真实节拍）。
 """
@@ -27,11 +27,11 @@ import httpx
 import pytest
 import redis.asyncio
 import sqlalchemy as sa
-from muad_agent_worker.delivery.service import BACKOFF_BASE_SEC
 from muad_common import SharedSettings
 from muad_im_gateway.api.delivery import DELIVERY_DEDUPE_PREFIX, DELIVERY_DEDUPE_TTL_SEC
 
 from .environment import (
+    DELIVERY_BACKOFF_BASE_SEC,
     TENANT,
     DfxStack,
     TaskSpec,
@@ -386,7 +386,7 @@ def test_s11_final_delivery_dedupes_replay_and_persists_before_send(
 
 
 def test_e06_backoff_sequence_then_success(live_stack: DfxStack, http: httpx.Client, tmp_path: Any) -> None:
-    """[E-06] 渠道失败后按真实退避窗口重投、恢复后成功：`BACKOFF_BASE_SEC * 2**attempts`。
+    """[E-06] 渠道失败后按真实退避窗口重投、恢复后成功：`delivery_backoff_base_sec × 2**attempts`。
 
     **只断言产品不变量，不赌"第几次成功"**：
     - 早期写法（`delivery_attempts == max_attempts`，靠探针注入次数与 Worker 尝试次数对齐）在慢环境必红：
@@ -435,9 +435,10 @@ def test_e06_backoff_sequence_then_success(live_stack: DfxStack, http: httpx.Cli
             (events[index + 1][1] - events[index][1]).total_seconds()
             for index in range(len(events) - 1)
         ]
-        # 第 k 次失败后，下一次尝试的窗口是 5 * 2**k 秒（attempts 已被自增并提交）。
+        # 第 k 次失败后，下一次尝试的窗口是 `DELIVERY_BACKOFF_BASE_SEC * 2**k` 秒（attempts 已被自增并提交）。
+        # 该 base **从验收栈注入的同一份常量读取**，故窗口随注入值走，断言规律不变。
         for index, gap in enumerate(gaps, start=1):
-            window = float(BACKOFF_BASE_SEC * 2**index)
+            window = float(DELIVERY_BACKOFF_BASE_SEC * 2**index)
             assert window <= gap <= window + BACKOFF_SLACK_SEC, (
                 f"第 {index} 次失败后的退避间隔 {gap}s 不在 [{window}, {window + BACKOFF_SLACK_SEC}]"
             )
@@ -445,7 +446,7 @@ def test_e06_backoff_sequence_then_success(live_stack: DfxStack, http: httpx.Cli
         records = probe_deliveries(probe_url, bot_id)
         assert len(records) == 1, f"同一 delivery_key 不得重复成功发送：{records}"
         assert count_task_events(task_id, "DELIVERY_SENT") == 1
-        windows = [BACKOFF_BASE_SEC * 2**index for index in range(1, attempts)]
+        windows = [DELIVERY_BACKOFF_BASE_SEC * 2**index for index in range(1, attempts)]
         print(f"[E-06] 退避实测间隔={gaps}s 窗口={windows}s attempts={attempts}")
     await_no_extra_services()
 

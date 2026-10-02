@@ -68,6 +68,16 @@ TASK_LEASE_SEC = 30
 TASK_HEARTBEAT_SEC = 1
 TASK_CANCEL_CHECK_SEC = 1
 WORKER_POLL_INTERVAL_SEC = 1
+# 投递重试退避窗口 = 本值 × 2**delivery_attempts（生产者侧是设置项 `delivery_backoff_base_sec`）。
+# **生产默认 5**（→ 5/10/20/40，4 次失败共 75s）；这里压到 2（→ 2/4/8/16，共 30s）。
+# 退避的**规律**不变：仍是同一条 SQL 表达式、同一条断言（实测间隔 ∈ [窗口, 窗口+粒度+余量]），
+# 只是把窗口整体缩小以省掉真实等待。窗口 2s 仍是投递轮询粒度（`DELIVERY_POLL_SEC=1`）的 2 倍，
+# 故断言仍能分辨各窗口。生产默认值由单测钉住（`tests/agent_worker/test_delivery_backoff_default.py`）。
+DELIVERY_BACKOFF_BASE_SEC = 2
+# deadline sweep 周期 / scheduler 触发轮询：生产默认 30 / 10，这里压到 2。
+# 语义都是「多久扫一次」，压小只让「到期任务被扫到」「错过窗口被跳过」更快可观测。
+TASK_DEADLINE_SWEEP_INTERVAL_SEC = 2
+SCHEDULER_POLL_INTERVAL_SEC = 2
 READY_TIMEOUT_SEC = 45.0
 # 服务子进程启动：负载下首次绑定/启动可能瞬时失败——重试，而不是让用例失败。
 START_ATTEMPTS = 3
@@ -572,6 +582,9 @@ def start_dfx_stack(root: Path) -> tuple[DfxStack, list[ServiceProcess]]:
         "TASK_HEARTBEAT_SEC": str(TASK_HEARTBEAT_SEC),
         "TASK_CANCEL_CHECK_SEC": str(TASK_CANCEL_CHECK_SEC),
         "WORKER_POLL_INTERVAL_SEC": str(WORKER_POLL_INTERVAL_SEC),
+        "DELIVERY_BACKOFF_BASE_SEC": str(DELIVERY_BACKOFF_BASE_SEC),
+        "TASK_DEADLINE_SWEEP_INTERVAL_SEC": str(TASK_DEADLINE_SWEEP_INTERVAL_SEC),
+        "SCHEDULER_POLL_INTERVAL_SEC": str(SCHEDULER_POLL_INTERVAL_SEC),
     }
 
     console_port, worker_port = distinct_free_ports(2)

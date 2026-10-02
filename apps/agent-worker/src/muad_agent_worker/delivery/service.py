@@ -27,7 +27,6 @@ from .messages import build_delivery_message
 
 logger = logging.getLogger(__name__)
 
-BACKOFF_BASE_SEC = 5
 TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))
 RETRYABLE_DELIVERY_STATUSES = (str(DeliveryStatus.PENDING), str(DeliveryStatus.FAILED))
 DELIVERY_ATTEMPT_TOTAL = "delivery_attempt_total"
@@ -122,7 +121,7 @@ class DeliveryLoop:
             0,
             0,
             0,
-            BACKOFF_BASE_SEC * sa.func.power(2, TaskExecution.delivery_attempts),
+            self._settings.delivery_backoff_base_sec * sa.func.power(2, TaskExecution.delivery_attempts),
         )
         candidate_id = (
             select(TaskExecution.id)

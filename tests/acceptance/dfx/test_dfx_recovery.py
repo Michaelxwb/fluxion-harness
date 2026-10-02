@@ -50,6 +50,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from tests.acceptance.task_schedule.environment import ServiceProcess
 
 from .environment import (
+    SCHEDULER_POLL_INTERVAL_SEC,
+    TASK_DEADLINE_SWEEP_INTERVAL_SEC,
     TENANT,
     DfxStack,
     TaskSpec,
@@ -93,8 +95,10 @@ FRESH_LEASE_SEC = 300
 BLOCKER_SLEEP_SEC = 20
 
 # E-05：deadline sweep 的真实节拍（生产默认 30s 间隔 + 10s 轮询粒度）。
-DEADLINE_SWEEP_SEC = 30
-SCHEDULER_POLL_SEC = 10
+# 镜像**验收栈注入的值**，不写死生产默认（30 / 10）：写死会让注入失效，或更糟 ——
+# 注入生效了但断言窗口仍按旧默认算，两边脱节。取值见 .environment 的对应常量。
+DEADLINE_SWEEP_SEC = TASK_DEADLINE_SWEEP_INTERVAL_SEC
+SCHEDULER_POLL_SEC = SCHEDULER_POLL_INTERVAL_SEC
 # 「30s 内」的可观测上界：sweep 间隔 30s，但 sweep 只在 Scheduler 轮询拍点上执行，
 # 因此从 deadline 到终态的真实上界是「一个 sweep 间隔 + 一个轮询拍点」。
 DEADLINE_BUDGET_SEC = float(DEADLINE_SWEEP_SEC + SCHEDULER_POLL_SEC)
