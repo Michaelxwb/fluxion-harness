@@ -196,9 +196,11 @@ test('S-06 详情导入新版本后版本记录/当前版本更新且 SKILL.md �
     await expect(page.getByTestId('detail-subtitle')).toContainText('v2.0.0');
 
     await page.getByTestId('artifact-link-2.0.0').click();
-    const artifactModal = page.locator('.semi-modal');
-    await artifactModal.getByRole('tab', { name: 'SKILL.md' }).click();
-    await expect(artifactModal.getByTestId('artifact-skill-md')).toContainText('# E2E S06 Skill v2');
+    // 版本详情改由 DetailSideSheet（.semi-sidesheet）承载，不再是 .semi-modal；技能详情 Sheet
+    // 仍开着，故按「版本详情」标题定位叠加在其上的这一层
+    const artifactSheet = page.locator('.semi-sidesheet').filter({ hasText: '版本详情' });
+    await artifactSheet.getByRole('tab', { name: 'SKILL.md' }).click();
+    await expect(artifactSheet.getByTestId('artifact-skill-md')).toContainText('# E2E S06 Skill v2');
 
     const stored = dumpSkill(key);
     expect(stored.artifacts.map((item) => item.version)).toEqual(['2.0.0', '1.0.0']);
@@ -260,7 +262,9 @@ test('S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作', async 
 
     await page.getByTestId(`skill-link-${key}`).click();
     const sheet = page.locator('.semi-sidesheet');
-    await sheet.getByText('指定用户').last().click();
+    // 按 tab 角色切换：详情内容里也有「指定用户」文案的 detail-section-title（隐藏节点），
+    // 纯文本 + .last() 会命中它而非 tab
+    await sheet.getByRole('tab', { name: '指定用户' }).click();
     await expect(sheet).toContainText('当前对所有拥有对应 Agent 使用权的用户开放');
     await expect(sheet.getByTestId('add-selected-user')).toHaveCount(0);
     expect(dumpSkill(key).skill?.user_scope).toBe('ALL');

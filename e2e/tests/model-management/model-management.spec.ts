@@ -65,7 +65,9 @@ test('S-01 新增模型后 DB/界面仅显示已配置且不回显明文', async
   await createModelViaUi(page, key);
 
   const row = page.locator('.semi-table-row', { hasText: key });
-  await expect(row).toContainText('已配置');
+  // 列表状态列已改为图标（ModelStatusIcons）：无可见文本，语义落在 role="img" 的 aria-label
+  // 上（`API Key: 已配置` = model.columns.apiKey + model.apiKeyConfigured 词条）
+  await expect(row.getByRole('img', { name: 'API Key: 已配置' })).toBeVisible();
   await expect(page.locator('body')).not.toContainText('e2e-ui-key');
 
   await page.getByTestId(`model-link-${key}`).click();
@@ -101,9 +103,19 @@ test('S-02/S-04 选择两个模型批量测试并刷新列表', async ({ page })
     await modal.locator('.semi-modal-close').click();
     await expect(modal).toBeHidden();
 
-    // Modal 关闭后 DOM 可能仍保留（Semi 动画），故列表断言限定可见行
-    await expect(page.locator('.semi-table-row:visible', { hasText: first.key })).toContainText('通过');
-    await expect(page.locator('.semi-table-row:visible', { hasText: second.key })).toContainText('通过');
+    // Modal 关闭后 DOM 可能仍保留（Semi 动画），故列表断言限定可见行。
+    // 列表状态列已改为图标（ModelStatusIcons）：无可见文本，「通过」落在 role="img" 的
+    // aria-label 上（`测试状态: 通过` = model.columns.lastTestStatus + model.test.status.available）
+    await expect(
+      page
+        .locator('.semi-table-row:visible', { hasText: first.key })
+        .getByRole('img', { name: '测试状态: 通过' })
+    ).toBeVisible();
+    await expect(
+      page
+        .locator('.semi-table-row:visible', { hasText: second.key })
+        .getByRole('img', { name: '测试状态: 通过' })
+    ).toBeVisible();
   } finally {
     await cleanupModel(page, first);
     await cleanupModel(page, second);
