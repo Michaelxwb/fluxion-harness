@@ -47,7 +47,7 @@
 | B-05 | design#2.5.2 | integration | 契约序列化 | TASK-001 | verified | uv run pytest -q tests/test_attachment_contract.py | . | 60 |  |
 | B-06 | design#2.5.2 | integration | provider 组装 | TASK-005 | planned | - | . | 60 |  |
 | B-07 | design#2.5.2 | unit | 源码静态检查 | TASK-001 | verified | uv run pytest -q tests/test_attachment_contract.py | . | 60 |  |
-| B-08 | design#2.5.2 | unit | 注入固定时钟 | TASK-009 | planned | - | . | 60 |  |
+| B-08 | design#2.5.2 | unit | 注入固定时钟 | TASK-009 | verified | uv run pytest -q tests/agent_runtime/test_time_tools.py | . | 60 |  |
 
 > 覆盖自检：design 全部 P0/P1 场景 22/22 已分配唯一负责人；RULE-01..08 与高影响 R-01/R-04 均有映射场景；E2E 场景 6 个未降级。
 
@@ -389,7 +389,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 ## TASK-009: 当前时间工具
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: 无
 - **Source**: `wecom-inbound-media.design.md#3.4 接口设计`
@@ -402,24 +402,37 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 ### Checklist
 
-- [ ] 新增时间能力，返回带 IANA 时区标识的时间
-- [ ] 时钟可注入（便于测试断言固定时刻）
-- [ ] [B-08][unit] 注入已知固定时刻（真实边界：注入固定时钟，不 mock 被测函数本身）；断言返回该时刻且**带 IANA 时区标识**（非裸 UTC 字符串）
-- [ ] 运行 verifier：`uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity`（`harness-time#RULE-time-001`）；记录输出并填写 Acceptance Evidence
+- [x] 新增时间能力，返回带 IANA 时区标识的时间
+- [x] 时钟可注入（便于测试断言固定时刻）
+- [x] [B-08][unit] 注入已知固定时刻（真实边界：注入固定时钟，不 mock 被测函数本身）；断言返回该时刻且**带 IANA 时区标识**（非裸 UTC 字符串）
+- [x] 运行 verifier：`uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity`（`harness-time#RULE-time-001`）；记录输出并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-08 | unit | 注入固定时钟 | 返回注入时刻且带 IANA 时区标识 | planned | planned | planned |
+| B-08 | unit | 注入固定时钟 | 返回注入时刻且带 IANA 时区标识 | `tests/agent_runtime/test_time_tools.py::test_b08_current_time_returns_injected_instant_with_iana_zone` | uv run pytest -q tests/agent_runtime/test_time_tools.py | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-08 | FAIL: `ModuleNotFoundError: No module named 'muad_agent_runtime.application.time_tools'` | PASS: `3 passed` | `tests/agent_runtime/test_time_tools.py::test_b08_current_time_returns_injected_instant_with_iana_zone`（`2026-10-02T09:30:00+08:00 (Asia/Shanghai)`：按注入时刻真实换算 + 带 IANA 名 + 不出现 UTC 时刻）、`::test_b08_same_instant_renders_per_zone`（同一时刻在 Asia/Shanghai 与 UTC 下渲染不同 ⇒ 时区真参与换算）、`::test_b08_invalid_zone_is_rejected` | 注入固定时钟（**不 mock 被测函数**，换算与格式化走真实代码路径） | verified |
+
+**本次回归**：
+- `uv run pytest -q tests/frontend/test_datetime_contract.py` → **2 passed**；`uv run pytest -q tests -k schema_parity` → **35 passed**（`harness-time#RULE-time-001` verifier）
+- `uv run pytest -q tests/agent_runtime` → **188 passed**（executor 装配点变更的回归）
+- `uv run mypy apps packages` → **Success: no issues found in 261 source files**；`ruff` → **All checks passed**
+
+**设计落点的补充**：设计 §3.4 API-09 只写"`current_time` 工具"，未指定时区来源。实现取**平台级默认** `SharedSettings.default_timezone`（默认 `Asia/Shanghai`）—— 因为调度时区是 per-schedule 必填项，而"现在几点"没有 per-run 来源；非法值在 `resolve_zone()` 显式 `ValueError`，与 `harness-time#RULE-time-001` 对调度时区的口径一致（不静默回退）。
+- B-08: verified — automated command passed; run_id=ee1b545bde6646828c268dbf52df1b30 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
 
 ---
-
+- [2026-10-02] started
+- [2026-10-02] completed (done)
 ## TASK-010: 端到端验收基线
 
 - **Status**: draft

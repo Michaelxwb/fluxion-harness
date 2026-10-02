@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "wecom-inbound-media.md",
-  "task_sha256": "9751839b4ea1a1f12f16106ca3f67be598172db560f2fb199ba3ea9e1a4bca02",
+  "task_sha256": "0e6d5e67cf7264f76f22f7b17acb36ebe19d7f0371002a387c792320e9240106",
   "scenarios": [
     {
       "id": "S-01",
@@ -254,28 +254,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-05",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "4095b5dd4d5641a2ac7b08e27b7943b2",
-        "executed_at": "2026-10-02T09:06:21.706147+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "4095b5dd4d5641a2ac7b08e27b7943b2",
-          "executed_at": "2026-10-02T09:06:21.706147+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-06",
@@ -307,28 +286,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-07",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "4095b5dd4d5641a2ac7b08e27b7943b2",
-        "executed_at": "2026-10-02T09:06:21.706147+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-07",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "4095b5dd4d5641a2ac7b08e27b7943b2",
-          "executed_at": "2026-10-02T09:06:21.706147+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-08",
@@ -337,11 +295,38 @@
       "kind": "functional",
       "boundary": "注入固定时钟",
       "owner": "TASK-009",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_time_tools.py"
+      ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ee1b545bde6646828c268dbf52df1b30",
+        "executed_at": "2026-10-02T09:08:50.334461+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ee1b545bde6646828c268dbf52df1b30",
+          "executed_at": "2026-10-02T09:08:50.334461+00:00"
+        }
+      ]
     }
   ]
 }

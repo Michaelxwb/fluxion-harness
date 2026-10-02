@@ -10,6 +10,10 @@ class SharedSettings(BaseSettings):
     default_locale: str = "zh-CN"
     default_tenant_id: str = "default"
     api_messages_file: str = "./config/api-messages.yaml"
+    # Agent 的 `current_time` 工具所用的 IANA 时区名。调度侧的时区是**每条 schedule 必填**的，
+    # 而"现在几点"（相对时间推算的前提）没有 per-run 来源，故给一个平台级默认。
+    # 非法值在 `resolve_zone()` 处显式报错，不静默回退。
+    default_timezone: str = "Asia/Shanghai"
 
     database_url: str | None = None
     redis_url: str | None = None

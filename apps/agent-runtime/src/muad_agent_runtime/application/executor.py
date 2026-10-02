@@ -55,6 +55,7 @@ from .memory_tools import MemoryScope, MemoryToolSet, memory_write_enabled
 from .skill_tools import build_default_skill_cache, build_skill_registry
 from .task_client import TaskSubmissionContext, WorkerTaskClient
 from .task_tools import BackgroundTaskToolSet
+from .time_tools import TimeToolSet, resolve_zone
 
 CancelCheck = Callable[[], Awaitable[bool]]
 MESSAGE_DELTA_EVENT = "message.delta"
@@ -590,6 +591,9 @@ def build_registry(
         BackgroundTaskToolSet(
             client=task_client, context=task_context, skills=request.skills
         ).register(registry)
+    # 内置时间工具：模型不知道"现在几点"，而 create_schedule 与相对时间（"明天早上 9 点"）都依赖它。
+    # 时区取平台默认的 IANA 名，与调度侧口径一致（harness-time#RULE-time-001）。
+    TimeToolSet(zone=resolve_zone(SharedSettings().default_timezone)).register(registry)
     if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:
         mcp_adapter.register_catalog(
             registry=registry,
