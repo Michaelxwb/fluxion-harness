@@ -28,7 +28,7 @@
 |--------|---------|---------|-------------|---------|------|------|-----|------|------|
 | S-01 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体 | TASK-006 | planned | - | . | 60 |  |
 | S-02 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG → 真实 artifact → 工具真实抽取 | TASK-007 | planned | - | . | 60 |  |
-| S-03 | design#2.5.2 | integration | 模型 provider 请求体（不 mock 组装层） | TASK-005 | planned | - | . | 60 |  |
+| S-03 | design#2.5.2 | integration | 模型 provider 请求体（不 mock 组装层） | TASK-005 | verified | uv run pytest -q tests/agent_core/test_openai_provider.py | . | 60 |  |
 | S-04 | design#2.5.2 | E2E | 回调 → 落盘 → 契约 → 工具 | TASK-004 | planned | - | . | 60 |  |
 | S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-007 | planned | - | . | 60 |  |
 | S-06 | design#2.5.2 | integration | 工具 → artifact store → 读回 | TASK-008 | planned | - | . | 60 |  |
@@ -45,7 +45,7 @@
 | B-03 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | verified | uv run pytest -q tests/gateway/test_attachment_gate.py | . | 60 |  |
 | B-04 | design#2.5.2 | unit | 路径解析函数 | TASK-003 | verified | uv run pytest -q tests/gateway/test_attachment_gate.py | . | 60 |  |
 | B-05 | design#2.5.2 | integration | 契约序列化 | TASK-001 | verified | uv run pytest -q tests/test_attachment_contract.py | . | 60 |  |
-| B-06 | design#2.5.2 | integration | provider 组装 | TASK-005 | planned | - | . | 60 |  |
+| B-06 | design#2.5.2 | integration | provider 组装 | TASK-005 | verified | uv run pytest -q tests/agent_core/test_openai_provider.py | . | 60 |  |
 | B-07 | design#2.5.2 | unit | 源码静态检查 | TASK-001 | verified | uv run pytest -q tests/test_attachment_contract.py | . | 60 |  |
 | B-08 | design#2.5.2 | unit | 注入固定时钟 | TASK-009 | verified | uv run pytest -q tests/agent_runtime/test_time_tools.py | . | 60 |  |
 
@@ -262,7 +262,7 @@
 
 ## TASK-005: 模型多模态内容形态
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: `wecom-inbound-media.design.md#3.4 接口设计`, `#3.1 方案选型`
@@ -275,27 +275,44 @@
 
 ### Checklist
 
-- [ ] 定义 `ImagePart`；`ModelMessage.content` 放宽为 `str | tuple[str | ImagePart, ...]`
-- [ ] provider 组装：`str` → 原样输出（字段集不变）；元组 → `content` 数组
-- [ ] 不改 `model_id` 显式绑定口径、不引入第二协议
-- [ ] [S-03][integration] 纯文本会话（真实边界：模型 provider 请求体，不 mock 组装层）；断言请求体与改造前基线**逐字节相同**
-- [ ] [B-06][integration] 内容形态为纯字符串时（真实边界：provider 组装）；断言输出 `content` 为**字符串而非数组**，且字段集不变
-- [ ] 运行 verifier：`uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled`（`harness-model#RULE-model-001`）；记录输出并填写 Acceptance Evidence
+- [x] 定义 `ImagePart`；`ModelMessage.content` 放宽为 `str | tuple[str | ImagePart, ...]`
+- [x] provider 组装：`str` → 原样输出（字段集不变）；元组 → `content` 数组
+- [x] 不改 `model_id` 显式绑定口径、不引入第二协议
+- [x] [S-03][integration] 纯文本会话（真实边界：模型 provider 请求体，不 mock 组装层）；断言请求体与改造前基线**逐字节相同**
+- [x] [B-06][integration] 内容形态为纯字符串时（真实边界：provider 组装）；断言输出 `content` 为**字符串而非数组**，且字段集不变
+- [x] 运行 verifier：`uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled`（`harness-model#RULE-model-001`）；记录输出并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-03 | integration | provider 请求体 | 纯文本请求体逐字节不变 | planned | planned | planned |
-| B-06 | integration | provider 组装 | 纯文本 content 为字符串、字段集不变 | planned | planned | planned |
+| S-03 | integration | provider 请求体 | 纯文本请求体逐字节不变 | `tests/agent_core/test_openai_provider.py::test_s03_plain_text_request_body_is_unchanged` | uv run pytest -q tests/agent_core/test_openai_provider.py | verified |
+| B-06 | integration | provider 组装 | 纯文本 content 为字符串、字段集不变 | `tests/agent_core/test_openai_provider.py::test_b06_plain_text_content_stays_a_string` | uv run pytest -q tests/agent_core/test_openai_provider.py | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-03 | FAIL: `ImportError: cannot import name 'ImagePart' from 'muad_agent_core.model'` | PASS: `18 passed` | `tests/agent_core/test_openai_provider.py::test_s03_plain_text_request_body_is_unchanged`（四种角色覆盖；`body["messages"]` 与冻结基线逐字段相等，且整份 body 的规范化 JSON 与基线一致） | 走**完整 provider 组装 + HTTP 序列化**，`MockTransport` 只拦传输、不 mock 组装层 | verified |
+| B-06 | FAIL: 同上（模块导入期即失败） | PASS: `18 passed` | `::test_b06_plain_text_content_stays_a_string`（`content` 是 `str` 而非数组；文本消息字段集 == {role, content}，tool 消息 == {role, content, tool_call_id}） | 同上 | verified |
+
+**本次回归**：
+- `uv run pytest -q tests/console_platform/test_models_api.py` → **8 passed**；`tests/console_platform/test_agents_api.py -k disabled` → **1 passed**（`harness-model#RULE-model-001` verifier）
+- `uv run pytest -q tests/agent_core tests/agent_runtime` → **258 passed**（executor 装配点 + provider 变更的回归；含本任务新增 3 条）
+- `uv run mypy apps packages` → **Success: no issues found in 262 source files**；`ruff` → **All checks passed**
+
+**设计里的一条待定项在此定下（R-09）**：设计 §3.4 API-05 写"`data_base64` 或 url，实现时二选一，见 §5 R-09"。选 **base64 data URL** —— 产物落在集群内共享卷（RWX PVC）上，模型供应商**访问不到**；走预签名 URL 需要额外的对外暴露与时效管理。data URL 是 OpenAI 兼容协议的原生形态，且与"本地不可达"这个部署事实相容。
+
+**实现中的一处必要附带改动**：`executor.py` 把 assistant 回合落事件时用了 `message.content`，放宽类型后它可能是内容块元组。新增 `text_of(content)` 取其文本视图（纯文本原样返回），事件载荷因此仍只收文本。助手回合本就是文本，此处是类型安全的收口而非行为变化。
+- S-03: verified — automated command passed; run_id=23692145c6c84cd6b34a9c5d8224b1c7 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=23692145c6c84cd6b34a9c5d8224b1c7 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
 
 ---
-
+- [2026-10-02] started
+- [2026-10-02] completed (done)
 ## TASK-006: Runtime 附件落库 + 上下文组装
 
 - **Status**: draft

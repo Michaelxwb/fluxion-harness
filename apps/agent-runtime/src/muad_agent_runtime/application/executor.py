@@ -29,6 +29,7 @@ from muad_agent_core.model import (
     ModelUnavailableError,
     OpenAICompatibleProvider,
     StreamingModelProvider,
+    text_of,
 )
 from muad_agent_core.prompt import PromptSkill
 from muad_agent_core.tools import ToolDefinition, ToolRegistry
@@ -166,7 +167,8 @@ class AgentRunnerExecutor:
                 ExecutorEvent(
                     type=ASSISTANT_TURN_EVENT,
                     data={
-                        "text": message.content,
+                        # 事件载荷只接受文本：多模态消息取其文本视图（助手回合本就是文本）
+                        "text": text_of(message.content),
                         "reasoning_content": message.reasoning_content,
                         "tool_calls": [
                             {

@@ -25,9 +25,40 @@ class ModelToolCall:
 
 
 @dataclass(frozen=True, slots=True)
+class ImagePart:
+    """图像内容块。
+
+    **承载形态取 base64 data URL**（设计 §5 R-09 的待定项在此定下）：产物落在集群内共享卷
+    （RWX PVC）上，模型供应商访问不到；走预签名 URL 需要额外的对外暴露与时效管理。data URL
+    是 OpenAI 兼容协议的原生形态，且与"本地不可达"这个部署事实相容。
+    """
+
+    media_type: str
+    data_base64: str
+
+    def data_url(self) -> str:
+        return f"data:{self.media_type};base64,{self.data_base64}"
+
+
+#: 消息内容：纯文本，或内容块序列（文本块 + 图像块）。
+#: 放宽成联合类型是为了让图片能进上下文；**纯文本路径的请求体必须逐字节不变**（S-03/B-06）。
+ModelContent = str | tuple[str | ImagePart, ...]
+
+
+def text_of(content: ModelContent) -> str:
+    """取消息的纯文本视图：多模态消息丢弃图像块、拼接文本块。
+
+    供需要"文本形态"的落库/事件路径使用（那些路径不接受内容块）。纯文本消息原样返回。
+    """
+    if isinstance(content, str):
+        return content
+    return "".join(part for part in content if isinstance(part, str))
+
+
+@dataclass(frozen=True, slots=True)
 class ModelMessage:
     role: ModelRole
-    content: str
+    content: ModelContent
     tool_call_id: str | None = None
     tool_calls: tuple[ModelToolCall, ...] = ()
     # 思考模式的思维链。**带 `tool_calls` 的 assistant 消息必须原样回传**，否则供应商直接

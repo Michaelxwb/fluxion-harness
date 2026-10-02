@@ -5,12 +5,14 @@ from typing import Any
 import httpx
 import pytest
 from muad_agent_core.model import (
+    ImagePart,
     ModelMessage,
     ModelProvider,
     ModelRateLimitedError,
     ModelRequest,
     ModelRequestError,
     ModelRole,
+    ModelToolCall,
     ModelUnavailableError,
     OpenAICompatibleProvider,
 )
@@ -371,3 +373,128 @@ async def test_stream_maps_rate_limit_before_body() -> None:
     finally:
         await provider.aclose()
     assert exc.value.retry_after == 2.0
+
+
+# ---------------------------------------------------------------------------
+# 多模态内容形态（TASK-005）
+#
+# 内容类型从「只能是字符串」放宽为可承载内容块。护栏是**纯文本路径逐字节不变**：
+# 放宽类型最容易误伤的就是既有对话，所以这里把改造前的请求体整份冻结成基线。
+# ---------------------------------------------------------------------------
+
+#: 改造前的纯文本请求体基线（逐字段冻结）。多模态支持**不得**改动这条路径的任何一处。
+PLAIN_TEXT_MESSAGES_BASELINE: list[dict[str, Any]] = [
+    {"role": "system", "content": "be helpful"},
+    {"role": "user", "content": "hello"},
+    {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "call-1",
+                "type": "function",
+                "function": {"name": "echo", "arguments": '{"text": "hi"}'},
+            }
+        ],
+    },
+    {"role": "tool", "content": "echo: hi", "tool_call_id": "call-1"},
+]
+
+
+def _plain_text_request() -> ModelRequest:
+    """覆盖四种角色（含带 tool_calls 的 assistant 与 tool 结果）的纯文本请求。"""
+    return ModelRequest(
+        model_id="gpt-4o-mini",
+        messages=(
+            ModelMessage(role=ModelRole.SYSTEM, content="be helpful"),
+            ModelMessage(role=ModelRole.USER, content="hello"),
+            ModelMessage(
+                role=ModelRole.ASSISTANT,
+                content="",
+                tool_calls=(ModelToolCall(id="call-1", name="echo", arguments={"text": "hi"}),),
+            ),
+            ModelMessage(role=ModelRole.TOOL, content="echo: hi", tool_call_id="call-1"),
+        ),
+    )
+
+
+async def test_s03_plain_text_request_body_is_unchanged() -> None:
+    """S-03：纯文本会话的请求体与改造前**逐字节相同**。
+
+    真实边界：走完整的 provider 组装 + HTTP 序列化（`MockTransport` 只拦截传输，
+    不 mock 组装层）——断言的是真正发出去的 body。
+    """
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    provider = _provider(handler)
+    try:
+        await provider.complete(_plain_text_request())
+    finally:
+        await provider.aclose()
+
+    body = json.loads(captured[0].content)
+    assert body["messages"] == PLAIN_TEXT_MESSAGES_BASELINE
+    # 整份 body 也冻结：新增顶层字段同样属于「改动既有路径」
+    assert json.dumps(body, sort_keys=True, ensure_ascii=False) == json.dumps(
+        {"model": "gpt-4o-mini", "messages": PLAIN_TEXT_MESSAGES_BASELINE},
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+
+
+async def test_b06_plain_text_content_stays_a_string() -> None:
+    """B-06：内容形态为纯字符串时，输出 `content` 必须是**字符串而非数组**，字段集不变。"""
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    provider = _provider(handler)
+    try:
+        await provider.complete(_plain_text_request())
+    finally:
+        await provider.aclose()
+
+    messages = json.loads(captured[0].content)["messages"]
+    assert isinstance(messages[0]["content"], str)
+    assert set(messages[0]) == {"role", "content"}, "纯文本消息不得新增字段"
+    assert isinstance(messages[3]["content"], str)
+    assert set(messages[3]) == {"role", "content", "tool_call_id"}
+
+
+async def test_multimodal_content_becomes_parts_array() -> None:
+    """内容为内容块元组时输出 `content` 数组：文本块 + 图像块（TASK-005 的正向能力）。"""
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    request = ModelRequest(
+        model_id="gpt-4o-mini",
+        messages=(
+            ModelMessage(
+                role=ModelRole.USER,
+                content=(
+                    "看看这张图",
+                    ImagePart(media_type="image/png", data_base64="QUJD"),
+                ),
+            ),
+        ),
+    )
+    provider = _provider(handler)
+    try:
+        await provider.complete(request)
+    finally:
+        await provider.aclose()
+
+    content = json.loads(captured[0].content)["messages"][0]["content"]
+    assert content == [
+        {"type": "text", "text": "看看这张图"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,QUJD"}},
+    ]

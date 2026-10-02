@@ -8,7 +8,35 @@ from muad_platform_sdk.types import SecretValue
 
 from ..tools.registry import ToolDefinition
 from .errors import ModelRateLimitedError, ModelRequestError, ModelUnavailableError
-from .provider import DeltaCallback, ModelMessage, ModelRequest, ModelResponse, ModelToolCall
+from .provider import (
+    DeltaCallback,
+    ImagePart,
+    ModelContent,
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    ModelToolCall,
+)
+
+
+def _render_content(content: ModelContent) -> str | list[dict[str, Any]]:
+    """把消息内容渲染成供应商可收的形态。
+
+    **`str` 必须原样返回字符串**（而不是包装成单元素数组）：纯文本路径的请求体要保持逐字节
+    不变（S-03/B-06）——供应商对两种形态的接受度也不一致，无谓地改成数组是自找回归。
+    """
+    if isinstance(content, str):
+        return content
+    parts: list[dict[str, Any]] = []
+    for item in content:
+        if isinstance(item, str):
+            parts.append({"type": "text", "text": item})
+        elif isinstance(item, ImagePart):
+            parts.append({"type": "image_url", "image_url": {"url": item.data_url()}})
+        else:  # pragma: no cover - 类型系统已封闭，留作防御
+            raise TypeError(f"unsupported model content part: {type(item)!r}")
+    return parts
+
 
 CHAT_COMPLETIONS_PATH = "/chat/completions"
 RATE_LIMIT_STATUS = 429
@@ -222,7 +250,7 @@ class OpenAICompatibleProvider:
 
     @staticmethod
     def _message(message: ModelMessage) -> dict[str, Any]:
-        payload: dict[str, Any] = {"role": str(message.role), "content": message.content}
+        payload: dict[str, Any] = {"role": str(message.role), "content": _render_content(message.content)}
         if message.tool_call_id is not None:
             payload["tool_call_id"] = message.tool_call_id
         if message.reasoning_content is not None:

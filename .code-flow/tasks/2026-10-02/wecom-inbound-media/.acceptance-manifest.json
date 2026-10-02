@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "wecom-inbound-media.md",
-  "task_sha256": "502f1ae96d562ada9de7de1b828e0a4283d388167daf0044b173c24f51a40e3c",
+  "task_sha256": "dfd63019d66d899531a15c8f888a91eed8965e1915e942a99bfcda24b2d6a5f3",
   "scenarios": [
     {
       "id": "S-01",
@@ -36,11 +36,38 @@
       "kind": "functional",
       "boundary": "模型 provider 请求体（不 mock 组装层）",
       "owner": "TASK-005",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_openai_provider.py"
+      ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "23692145c6c84cd6b34a9c5d8224b1c7",
+        "executed_at": "2026-10-02T09:16:04.895145+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "23692145c6c84cd6b34a9c5d8224b1c7",
+          "executed_at": "2026-10-02T09:16:04.895145+00:00"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -202,28 +229,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
-        "executed_at": "2026-10-02T09:12:43.973562+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
-          "executed_at": "2026-10-02T09:12:43.973562+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-02",
@@ -242,28 +248,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
-        "executed_at": "2026-10-02T09:12:43.973562+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
-          "executed_at": "2026-10-02T09:12:43.973562+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-03",
@@ -282,28 +267,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
-        "executed_at": "2026-10-02T09:12:43.973562+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
-          "executed_at": "2026-10-02T09:12:43.973562+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-04",
@@ -322,28 +286,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
-        "executed_at": "2026-10-02T09:12:43.973562+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
-          "executed_at": "2026-10-02T09:12:43.973562+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-05",
@@ -371,11 +314,38 @@
       "kind": "functional",
       "boundary": "provider 组装",
       "owner": "TASK-005",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_openai_provider.py"
+      ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "23692145c6c84cd6b34a9c5d8224b1c7",
+        "executed_at": "2026-10-02T09:16:04.895145+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "23692145c6c84cd6b34a9c5d8224b1c7",
+          "executed_at": "2026-10-02T09:16:04.895145+00:00"
+        }
+      ]
     },
     {
       "id": "B-07",

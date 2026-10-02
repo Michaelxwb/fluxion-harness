@@ -7,6 +7,8 @@ from .errors import (
 from .openai_provider import OpenAICompatibleProvider
 from .provider import (
     DeltaCallback,
+    ImagePart,
+    ModelContent,
     ModelMessage,
     ModelProvider,
     ModelRequest,
@@ -15,10 +17,13 @@ from .provider import (
     ModelToolCall,
     ModelUsage,
     StreamingModelProvider,
+    text_of,
 )
 
 __all__ = [
     "DeltaCallback",
+    "ImagePart",
+    "ModelContent",
     "ModelMessage",
     "ModelProvider",
     "ModelProviderError",
@@ -32,4 +37,5 @@ __all__ = [
     "ModelUsage",
     "OpenAICompatibleProvider",
     "StreamingModelProvider",
+    "text_of",
 ]
