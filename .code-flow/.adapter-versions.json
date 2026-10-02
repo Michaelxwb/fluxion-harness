@@ -1,8 +1,8 @@
 {
-  "core": "0.6.8",
+  "core": "0.6.9",
   "adapters": {
-    "claude": "0.6.8",
-    "opencode": "0.6.8",
-    "codex": "0.6.8"
+    "claude": "0.6.9",
+    "opencode": "0.6.9",
+    "codex": "0.6.9"
   }
 }
