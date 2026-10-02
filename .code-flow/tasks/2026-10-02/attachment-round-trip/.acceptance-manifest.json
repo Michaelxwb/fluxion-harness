@@ -118,7 +118,7 @@
       "kind": "e2e",
       "boundary": "真实 WS 探针 → 真实网关 → 真实渠道帧",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -128,7 +128,26 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "f2eac4ea720149fbaa6ee0069af0e882",
+        "executed_at": "2026-10-02T17:33:18.786535+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "f2eac4ea720149fbaa6ee0069af0e882",
+          "executed_at": "2026-10-02T17:33:18.786535+00:00"
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -294,7 +313,7 @@
       "kind": "e2e",
       "boundary": "真实 WS 探针 → 真实网关",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -304,7 +323,26 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "f2eac4ea720149fbaa6ee0069af0e882",
+        "executed_at": "2026-10-02T17:33:18.786535+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "f2eac4ea720149fbaa6ee0069af0e882",
+          "executed_at": "2026-10-02T17:33:18.786535+00:00"
+        }
+      ]
     },
     {
       "id": "E-03",

@@ -280,3 +280,18 @@ codes:
     messages:
       zh-CN: 附件无法解密，未接收
       en-US: The attachment could not be decrypted and was not accepted.
+
+  # 入站回执（attachment-round-trip TASK-004 / RULE-04）：与拒绝反馈**合并为至多一条**。
+  # 全收下报数目；部分接收把「收到几个 + 几个没收 + 原因」并进同一条，原因复用上方各码的文案
+  # （经 {reason} 注入，**数值仍只有一处来源**）；全拒时只发上方的拒绝说明，不叠加本回执。
+  ATTACHMENT_RECEIPT_ALL:
+    http_status: 200
+    messages:
+      zh-CN: 已收到 {count} 个附件
+      en-US: Received {count} attachment(s).
+
+  ATTACHMENT_RECEIPT_PARTIAL:
+    http_status: 200
+    messages:
+      zh-CN: 已收到 {accepted} 个附件，{rejected} 个未接收：{reason}
+      en-US: "Received {accepted} attachment(s); {rejected} were not accepted: {reason}"

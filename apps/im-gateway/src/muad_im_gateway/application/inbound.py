@@ -43,6 +43,8 @@ from ..channels.base import (
 from ..infrastructure.dedupe import DedupeStore, DedupeStoreError, is_duplicate
 from .attachment_gate import (
     ATTACHMENT_COUNT_EXCEEDED,
+    ATTACHMENT_RECEIPT_ALL,
+    ATTACHMENT_RECEIPT_PARTIAL,
     ATTACHMENT_TYPE_NOT_ALLOWED,
     MAX_ATTACHMENT_BYTES,
     MAX_ATTACHMENTS_PER_MESSAGE,
@@ -624,8 +626,10 @@ class InboundPipeline:
 
         codes = [*failures, *(rejection.code for rejection in precheck.rejected)]
         codes.extend(rejection.code for rejection in decision.rejected)
-        if codes:
-            await self._send_text(adapter, route, self._feedback_text(_primary_code(codes)))
+        # RULE-04：同一条入站消息**至多一条**附件相关反馈。全收下也要回一条收据（否则用户
+        # 不知道东西到底到没到），部分接收把原因**并进同一条**——绝不拆成"回执 + 拒绝说明"两条。
+        if refs or codes:
+            await self._send_text(adapter, route, self._receipt_text(len(refs), codes))
         if failures:
             outcome: InboundAuditOutcome = "FAILED"
         elif refs:
@@ -667,6 +671,30 @@ class InboundPipeline:
         elif code == ATTACHMENT_COUNT_EXCEEDED:
             args["limit"] = MAX_ATTACHMENTS_PER_MESSAGE
         return self._catalog.message(code, self._locale, args or None)
+
+    def _receipt_text(self, accepted: int, codes: Sequence[str]) -> str:
+        """一条回执，**至多一条**（RULE-04）。三种形态共用这一个出口：
+
+        - **全部接收** → 只报数目（原先这里是静默的，用户不知道东西到没到）；
+        - **部分接收** → 「收到几个 + 几个没收 + 原因」并成一条，原因复用拒绝码自己的文案；
+        - **全部拒绝** → 只给拒绝说明，**不叠加**回执（叠加就成了第二条消息）。
+
+        文案一律经消息目录（RULE-i18n-001），数值仍只有一处来源——原因是**取**来的，不是另写的。
+        """
+        rejected = len(codes)
+        if rejected and accepted:
+            return self._catalog.message(
+                ATTACHMENT_RECEIPT_PARTIAL,
+                self._locale,
+                {
+                    "accepted": accepted,
+                    "rejected": rejected,
+                    "reason": self._feedback_text(_primary_code(codes)),
+                },
+            )
+        if rejected:
+            return self._feedback_text(_primary_code(codes))
+        return self._catalog.message(ATTACHMENT_RECEIPT_ALL, self._locale, {"count": accepted})
 
     async def _audit(
         self,

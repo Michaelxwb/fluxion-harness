@@ -32,7 +32,7 @@
 | S-01 | design#2.5.2 | integration | 真实文件系统 + 真实解析库（pypdf/docx） | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | S-02 | design#2.5.2 | integration | 真实 PG（runtime.artifact 逐行回读） | TASK-003 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | S-03 | design#2.5.2 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
-| S-04 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | TASK-004 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
+| S-04 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | TASK-004 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
 | S-05 | design#2.5.2 | manual | 真实企微机器人（外部条件，无法在 CI 自动化） | TASK-001 | planned | - | . | 60 |  |
 | S-06 | design#2.5.2 | E2E | 真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | S-07 | design#2.5.2 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
@@ -40,7 +40,7 @@
 | S-09 | design#2.5.2 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | TASK-008 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | . | 300 |  |
 | S-10 | design#2.5.2 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | E-01 | design#2.5.2 | integration | 真实文件系统 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
-| E-02 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 | TASK-004 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
+| E-02 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 | TASK-004 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
 | E-03 | design#2.5.2 | integration | 真实 PG + 真实存储 + 鉴权层 | TASK-008 | planned | uv run pytest -q tests/console_channel/test_artifact_fetch.py | . | 120 |  |
 | E-04 | design#2.5.2 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | TASK-007 | planned | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | . | 120 |  |
 | E-05 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
@@ -290,7 +290,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-004: 入站回执（与拒绝反馈合并为至多一条）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#2.3.1 功能清单`, `#2.5.1 业务规则与约束`
@@ -303,26 +303,51 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ### Checklist
 
-- [ ] 收到附件后按接收结果生成回执：全部接收 / 部分接收（含被拒数量与原因）/ 全部拒绝（只发拒绝说明，不叠加回执）
-- [ ] 与既有拒绝反馈路径合并：同一条入站消息**最多一条**附件相关反馈
-- [ ] 文案经消息目录取，`config/api-messages.yaml` 补 zh-CN 与 en-US 词条；数值（如上限）仍只有一处来源
-- [ ] [S-04][E2E] 真实边界：真实 WS 探针 → 真实网关 → 真实渠道帧；断言用户收到**一条**"已收到 2 个、1 个未接收及原因"的回执，且仅此一条附件相关反馈
-- [ ] [E-02][E2E] 真实边界：真实 WS 探针 → 真实网关；断言全部附件被拒时只发一条拒绝说明（不出现两条消息）
-- [ ] 新增 `tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py`（**本任务自己建立该目录与文件**，不依赖 TASK-010；命令只指向本文件，指向目录会在别处文件尚未存在时报错）
-- [ ] 运行 verifier：`uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py`（`harness-i18n#RULE-i18n-001`）；记录输出
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 收到附件后按接收结果生成回执：全部接收 / 部分接收（含被拒数量与原因）/ 全部拒绝（只发拒绝说明，不叠加回执）
+- [x] 与既有拒绝反馈路径合并：同一条入站消息**最多一条**附件相关反馈
+- [x] 文案经消息目录取，`config/api-messages.yaml` 补 zh-CN 与 en-US 词条；数值（如上限）仍只有一处来源
+- [x] [S-04][E2E] 真实边界：真实 WS 探针 → 真实网关 → 真实渠道帧；断言用户收到**一条**"已收到 2 个、1 个未接收及原因"的回执，且仅此一条附件相关反馈 —— **已编写并登记为 `e2e_deferred`，按协议不在本阶段执行**
+- [x] [E-02][E2E] 真实边界：真实 WS 探针 → 真实网关；断言全部附件被拒时只发一条拒绝说明（不出现两条消息）—— 同上
+- [x] 新增 `tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py`（**本任务自己建立该目录与文件**，不依赖 TASK-010；命令只指向本文件，指向目录会在别处文件尚未存在时报错）—— 目录 + `conftest.py`（复用 `im_gateway.environment` 原语）+ 本文件
+- [x] 运行 verifier：`uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py`（`harness-i18n#RULE-i18n-001`）；记录输出 —— **6 passed + `i18n keys OK: 717`**
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-04 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | 用户收到一条含"已收到 N 个、M 个未接收及原因"的回执；仅此一条附件相关反馈 | tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | planned |
-| E-02 | E2E | 真实 WS 探针 → 真实网关 | 全部被拒时只有一条拒绝说明，不叠加回执 | tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | planned |
+| S-04 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | 用户收到一条含"已收到 N 个、M 个未接收及原因"的回执；仅此一条附件相关反馈 | tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py::test_s04_partial_acceptance_sends_exactly_one_merged_receipt | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | e2e_deferred |
+| E-02 | E2E | 真实 WS 探针 → 真实网关 | 全部被拒时只有一条拒绝说明，不叠加回执 | tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py::test_e02_all_rejected_sends_only_the_rejection_not_a_receipt | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | e2e_deferred |
 
 ### Acceptance Evidence
 
+**执行（2026-10-03）**。S-04/E-02 是 E2E，按协议**只编写不执行**（登记 `e2e_deferred`，由需求级 `cf-task:verify-e2e` 统一跑）。
+
+**实现**：`inbound.py` 的 `_materialize` 里，原先是「有拒绝码才发一条拒绝说明、否则静默」，现在三种形态共用一个出口 `_receipt_text`：
+- 全收下 → `ATTACHMENT_RECEIPT_ALL`（**原先静默**，用户不知道东西到没到）；
+- 部分接收 → `ATTACHMENT_RECEIPT_PARTIAL`，原因经 `{reason}` 注入**取**自拒绝码自己的文案（不另写一份，数值仍只有一处来源）；
+- 全拒 → 仍只发拒绝说明，**不叠加**回执。
+
+**必须同时改的两处（否则改动不生效或不合法）**：
+1. `packages/api-kit/.../error_codes.py` —— 目录码与 `ErrorCode` 枚举**双向一一对应**（`tests/test_error_catalog.py` 断言），新增词条必须同时登记；
+2. `tests/gateway/test_inbound_attachment_flow.py` 的两条既有断言 —— 它们钉的正是**旧行为**（部分接收只回拒绝原因），RULE-04 要求合并，期望值必须跟着变成合并回执。这不是"改测试凑实现"：新期望里仍然断言原因原文与上限数值出现，只是外面套了回执。
+
+**验证**：`tests/test_error_catalog.py` + `tests/gateway/test_inbound_attachment_flow.py` + `tests/gateway/test_attachment_gate.py` 共 **23 passed**；i18n verifier **6 passed + `i18n keys OK: 717`**；`ruff` 全绿；`mypy` 干净。新增网关层用例 `test_s04_all_accepted_sends_exactly_one_receipt` 覆盖"全收下"这条**此前无任何覆盖**的新分支。E2E 两文件 `--collect-only` 通过（imports/conftest 可解析）。
+
+**E2E 与设计稿的一处偏离（如实登记）**：设计 S-04 前置条件写「1 个**超限**」，E2E 改用**类型不在白名单**来制造"部分接收"——超限要造 50 MiB 夹具并真的下载到中止，而该路径已由兄弟用例 `tests/acceptance/im_gateway/test_wecom_attachments.py::test_e02_oversized_file_reply_carries_the_limit_and_an_audit` 覆盖并断言上限数值；本用例要验的是**回执的合并语义**，与"因为什么被拒"无关。
+
+**踩到的坑**：en-US 词条里 `accepted: {reason}` 的 ASCII 冒号+空格被 YAML 当成映射（`ScannerError`）⇒ 该行必须加引号。
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=f2eac4ea720149fbaa6ee0069af0e882 (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=f2eac4ea720149fbaa6ee0069af0e882 (confirmed_by: runner)
+
 ### Log
 - [2026-10-03] created (draft)
+- [2026-10-03] started
+- [2026-10-03] 实现合并回执（`_receipt_text` 三形态共用一个出口）+ 消息目录新增两码 + 枚举登记
+- [2026-10-03] 更新两条既有断言：部分接收的期望由"只回拒绝原因"改为合并回执（RULE-04 的直接后果）
+- [2026-10-03] 新增 `test_s04_all_accepted_sends_exactly_one_receipt` 覆盖"全收下"新分支
+- [2026-10-03] 新建 `tests/acceptance/attachment_round_trip/`（conftest + E2E）；23 passed / i18n 6 passed / ruff / mypy 全绿
+- [2026-10-03] completed (done)
 
 ---
 

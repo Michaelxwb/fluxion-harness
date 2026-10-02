@@ -32,6 +32,8 @@ from muad_common import SharedSettings
 from muad_contracts import AttachmentRef, BotSnapshotItem, ChannelEnvelope, InboundAuditRequest
 from muad_im_gateway.application.attachment_gate import (
     ATTACHMENT_COUNT_EXCEEDED,
+    ATTACHMENT_RECEIPT_ALL,
+    ATTACHMENT_RECEIPT_PARTIAL,
     ATTACHMENT_TYPE_NOT_ALLOWED,
     MAX_ATTACHMENTS_PER_MESSAGE,
 )
@@ -319,10 +321,21 @@ async def test_s07_two_fetch_paths_produce_identical_outcomes(
         assert ref.storage_key.startswith("inbound/") and not ref.storage_key.startswith("/")
         assert ref.checksum and ref.size > 0
 
-    # ② 用户可见反馈一致，文案取自消息目录、原因码取自门控（类型拒绝优先于数量超限）
+    # ② 用户可见反馈一致，文案取自消息目录。**TASK-004 起这里是合并回执**（RULE-04）：
+    #    部分接收不再只回那句拒绝原因，而是「收到几个 + 几个没收 + 原因」并成一条。
+    #    原因码仍取自门控（类型拒绝优先于数量超限）。
     assert fake.feedback == wecom.feedback
     assert fake.feedback[0] == MessageCatalog(CATALOG_PATH).message(
-        ATTACHMENT_TYPE_NOT_ALLOWED, "zh-CN"
+        ATTACHMENT_RECEIPT_PARTIAL,
+        "zh-CN",
+        {
+            "accepted": len(fake.refs),
+            # CASE 里 6 条：zip 被实检拒、第 6 个被预检按位置丢弃 ⇒ 拒绝 2 条
+            "rejected": 2,
+            "reason": MessageCatalog(CATALOG_PATH).message(
+                ATTACHMENT_TYPE_NOT_ALLOWED, "zh-CN"
+            ),
+        },
     )
 
     # ③ 审计一致：带载荷的消息一行，计数与结局相同
@@ -388,13 +401,58 @@ async def test_s07_count_limit_is_reported_with_the_gate_number(tmp_path: Path) 
     )
 
     assert len(outcome.refs) == MAX_ATTACHMENTS_PER_MESSAGE
+    # TASK-004 起走**合并回执**（RULE-04）：收到几个 + 几个没收 + 原因，同一条里说清。
+    # 原因里的数值仍直接来自门控常量（只有一处定义）。
     expected = MessageCatalog(CATALOG_PATH).message(
-        ATTACHMENT_COUNT_EXCEEDED, "zh-CN", {"limit": MAX_ATTACHMENTS_PER_MESSAGE}
+        ATTACHMENT_RECEIPT_PARTIAL,
+        "zh-CN",
+        {
+            "accepted": MAX_ATTACHMENTS_PER_MESSAGE,
+            "rejected": 1,
+            "reason": MessageCatalog(CATALOG_PATH).message(
+                ATTACHMENT_COUNT_EXCEEDED, "zh-CN", {"limit": MAX_ATTACHMENTS_PER_MESSAGE}
+            ),
+        },
     )
     assert outcome.feedback[0] == expected
     assert str(MAX_ATTACHMENTS_PER_MESSAGE) in outcome.feedback[0]
+    assert outcome.feedback.count(expected) == 1, "RULE-04：至多一条附件相关反馈"
     assert outcome.audits[0].reason_code == ATTACHMENT_COUNT_EXCEEDED
     assert outcome.audits[0].total_bytes == sum(ref.size for ref in outcome.refs)
+
+
+async def test_s04_all_accepted_sends_exactly_one_receipt(tmp_path: Path) -> None:
+    """S-04 的另一半（网关层）：**全部接收也要回一条**。
+
+    原先这里是**静默**的——用户发完附件只有模型回答，不知道东西到底到没到。现在三种形态
+    共用一个出口，这一条同时钉住"至少要有一条"与"至多一条"（RULE-04）。
+    """
+    adapter = FakeChannelAdapter()
+    envelope = _media_only_envelope(f"msg-receipt-{time.time_ns()}")
+    await adapter.push(
+        envelope,
+        blobs=[
+            FakeBlob(data=PNG + bytes([index]), media_type="image/png", filename=f"{index}.png")
+            for index in range(2)
+        ],
+    )
+
+    outcome = await _drive(
+        adapter=adapter,
+        envelope=envelope,
+        root=tmp_path,
+        dedupe=_NullDedupe(),
+        outbound=lambda: _fake_outbound(adapter),
+    )
+
+    assert len(outcome.refs) == 2
+    receipt = MessageCatalog(CATALOG_PATH).message(
+        ATTACHMENT_RECEIPT_ALL, "zh-CN", {"count": 2}
+    )
+    # `feedback` 装的是**所有发出去的消息**（含模型回答），所以按"收据出现几次"断言，
+    # 不能按总条数——那会把模型那句一起算进去。
+    assert outcome.feedback[0] == receipt, "收据在模型回答之前发出"
+    assert outcome.feedback.count(receipt) == 1, "全收下恰好一条收据，不得叠加任何拒绝说明"
 
 
 @pytest.mark.integration
