@@ -47,7 +47,7 @@
 | E-06 | design#2.5.2 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | TASK-006 | planned | uv run pytest -q tests/gateway/test_artifact_delivery.py | . | 120 |  |
 | B-01 | design#2.5.2 | unit | 分段纯函数 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | B-02 | design#2.5.2 | unit | 枚举分页 | TASK-003 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
-| B-03 | design#2.5.2 | unit | 出站产物大小 | TASK-005 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
+| B-03 | design#2.5.2 | unit | 出站产物大小 | TASK-005 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 
 > 覆盖自检：design 全部 P0/P1 场景 **19/19** 已分配唯一负责人（S-01..S-10、E-01..E-06、B-01..B-03）；RULE-01..07 与高影响 R-01/R-06 均有映射场景；E2E 场景 **7 个**（S-03、S-04、S-06、S-07、S-09、S-10、E-02）层级未降级；`manual` 仅 S-05，原因是需要真实外部机器人与会话（CI 无法复现，设计 R-06）。
 
@@ -353,7 +353,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-005: 写与交付语义分离 + `append_artifact`
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#3.6 出站交付：写与发的分离（硬需求落点）`, `#3.1 方案选型`
@@ -368,25 +368,47 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ### Checklist
 
-- [ ] `write_artifact` 去掉"缺交付路由即拒绝"的守卫：只依赖 Run 上下文；返回文案明确提示"产物已写出（id=…）；如需交给用户请调用 `deliver_artifact`"
-- [ ] 新增 `append_artifact(artifact_id, content)`：只能追加**本 Run 自产**的产物；每次追加写**新 `storage_key`**（原子写：临时文件 + `os.replace`），artifact 行指向最新版本并把历史版本键写入 `metadata_json`；**同 key 二次写入必须抛 `FileExistsError`**
-- [ ] 产物大小上限（既有 `MAX_READ_BYTES`）对写出与追加一视同仁；超限**明确拒绝**且**不破坏已有内容**
-- [ ] 产物与追加写**不进入 Run 快照冻结范围**（快照只冻 Agent/Model/Skill/MCP/Prompt/catalog），冻结语义不变
-- [ ] [B-03][unit] 真实边界：出站产物大小 + **不可变性**（真实文件系统）；断言等于上限接收、上限 + 1 B **明确拒绝**且已有内容不被破坏、**同一 `storage_key` 二次写入抛 `FileExistsError`**（RULE-01）
-- [ ] 运行 verifier：`uv run pytest -q tests/test_skill_artifact_cache.py`（`harness-skill#RULE-skill-001`）；记录输出
-- [ ] 运行 verifier：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"`（`harness-snapshot#RULE-snapshot-001`）；记录输出
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] `write_artifact` 去掉"缺交付路由即拒绝"的守卫：只依赖 Run 上下文；返回文案明确提示"产物已写出（id=…）；如需交给用户请调用 `deliver_artifact`"
+- [x] 新增 `append_artifact(artifact_id, content)`：只能追加**本 Run 自产**的产物；每次追加写**新 `storage_key`**（原子写：临时文件 + `os.replace`），artifact 行指向最新版本并把历史版本键写入 `metadata_json`；**同 key 二次写入必须抛 `FileExistsError`**
+- [x] 产物大小上限（既有 `MAX_READ_BYTES`）对写出与追加一视同仁；超限**明确拒绝**且**不破坏已有内容** —— 追加超限在**落任何字节之前**就拒绝（先合并计算、再写）
+- [x] 产物与追加写**不进入 Run 快照冻结范围**（快照只冻 Agent/Model/Skill/MCP/Prompt/catalog），冻结语义不变
+- [x] [B-03][unit] 真实边界：出站产物大小 + **不可变性**（真实文件系统）；断言等于上限接收、上限 + 1 B **明确拒绝**且已有内容不被破坏、**同一 `storage_key` 二次写入抛 `FileExistsError`**（RULE-01）
+- [x] 运行 verifier：`uv run pytest -q tests/test_skill_artifact_cache.py`（`harness-skill#RULE-skill-001`）；记录输出 —— **4 passed**
+- [x] 运行 verifier：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"`（`harness-snapshot#RULE-snapshot-001`）；记录输出 —— **4 passed + 20 passed**
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
-|--------|---------|--------------------|---------|----------------|---------|------|
-| B-03 | unit | 出站产物大小 + 不可变性（真实文件系统） | 等于上限接收；超过上限明确拒绝且已写内容不被破坏；**同 key 二次写入抛 `FileExistsError`** | tests/agent_runtime/test_attachment_tools.py | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | planned |
+|--------|---------|-------------------|---------|----------------|---------|------|
+| B-03 | unit | 出站产物大小 + 不可变性（真实文件系统） | 等于上限接收；超过上限明确拒绝且已写内容不被破坏；**同 key 二次写入抛 `FileExistsError`** | tests/agent_runtime/test_attachment_tools.py::test_b03_store_write_is_immutable + ::test_b03_write_artifact_respects_the_size_limit + ::test_b03_append_versions_the_key_and_never_breaks_existing_content | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | verified |
 
 ### Acceptance Evidence
 
+**执行（2026-10-03）**，登记命令 `uv run pytest -q tests/agent_runtime/test_attachment_tools.py`。
+
+**RED（先写测试再实现）**：`uv run pytest -q tests/agent_runtime/test_attachment_tools.py -k "b03 or append or delivery_route"`
+→ `ImportError: cannot import name 'APPEND_ARTIFACT_TOOL'`（预期失败）。
+
+**GREEN**：同一文件 **22 passed**；`tests/agent_runtime` 全量 + `tests/gateway/test_inbound_attachment_store.py` + `tests/acceptance/test_foundation_artifact.py` 共 **231 passed**（无回归）；`ruff` 全绿；`mypy` 干净。
+
+**一处超出任务原文的实现决定（已记录）**：不可变写入原语放在**共享包** `packages/artifact-store/src/muad_artifact_store/nfs.py` 的 `NfsArtifactStore.write()`，而不是在 `attachment_tools.py` 里再造一份。理由：`RULE-skill-001` 把「写入不可变」定为**存储层契约**，而 console 侧 `skill_artifact_store.write_artifact` 已经实现过一份同样的语义 —— 再抄第三份就是三处会各自漂移的定义。只**新增方法**，不改既有行为（console/worker/gateway 的调用点未动）。**残留**：console 那份仍独立存在，收敛它不在本任务范围。
+
+- B-03: verified —— 三部分：① `NfsArtifactStore.write` 同一 key 二次写入抛 `FileExistsError` 且首份内容**原样**（真实文件系统）；② `write_artifact` 恰好等于上限**接收**、上限 + 1 字节 → `ATTACHMENT_TOO_LARGE`；③ 追加写**换新 key**（行指向 v2、v1 字节原样留存、最新版是全文），超限追加 → `ATTACHMENT_TOO_LARGE` 且**已有内容与 DB 行都不动**。
+
+**行为反转的一处既有测试**：`test_write_artifact_without_delivery_route_errors_explicitly` 钉的正是本任务要**拆掉**的守卫（缺交付路由即拒绝），已改写为 `test_write_artifact_succeeds_without_a_delivery_route`（断言无路由也能写、且返回值提示 `deliver_artifact`）。这是需求的直接后果，不是为了凑实现。
+
+**另加一条超出场景的覆盖**：`test_append_rejects_artifacts_this_run_did_not_produce` —— 入站附件的字节属于用户原始文件，被 Agent 改写就再也回不到原件了。
+- B-03: verified — automated command passed; run_id=a54e55aeeb664ed88a4ccbb9ab1483e3 (confirmed_by: runner)
+
 ### Log
 - [2026-10-03] created (draft)
+- [2026-10-03] started
+- [2026-10-03] 不可变写入原语加到共享 `NfsArtifactStore.write()`（只新增方法，不动既有调用点）
+- [2026-10-03] `write_artifact` 去掉交付路由守卫；新增 `append_artifact`（版本化 key + metadata_json 记历史）
+- [2026-10-03] 改写一条既有断言（行为反转：无交付路由也能写）
+- [2026-10-03] 22 passed / 231 passed（含 agent_runtime 全量）/ 两条 required verifier 全绿 / ruff / mypy
+- [2026-10-03] completed (done)
 
 ---
 

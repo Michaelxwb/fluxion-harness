@@ -14,6 +14,7 @@ import uuid
 import pytest
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.application.attachment_tools import (
+    APPEND_ARTIFACT_TOOL,
     ATTACHMENT_DIRECTION_INVALID,
     ATTACHMENT_EXTRACT_FAILED,
     ATTACHMENT_LIMIT_INVALID,
@@ -35,6 +36,7 @@ from muad_agent_runtime.application.attachment_tools import (
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, Conversation, RunRecord
+from muad_artifact_store import NfsArtifactStore
 
 from .conftest import TenantContext
 
@@ -298,19 +300,6 @@ async def test_s06_write_then_read_back_closes_the_loop(
     assert payload.strip() in read_back, "读回内容必须与写出内容一致"
     # 文件真的落到了 artifact store，而不是只写了 DB 行
     assert any(artifact_root.rglob("*"))
-
-
-async def test_write_artifact_without_delivery_route_errors_explicitly(
-    tenant: TenantContext, artifact_root
-) -> None:
-    """没有交付路由时必须明确报错 —— 产物写出来没人收，静默成功等于骗模型。"""
-    run_id, conversation_id = await _seed_run(tenant)
-    tool_set = _writer_tool_set(
-        tenant, artifact_root, run_id, conversation_id, has_route=False
-    )
-
-    with pytest.raises(AttachmentToolError):
-        await _call(tool_set, WRITE_ARTIFACT_TOOL, {"content": "x", "filename": "a.md"})
 
 
 async def test_written_artifact_is_tenant_scoped(tenant: TenantContext, artifact_root) -> None:
@@ -619,3 +608,138 @@ async def test_s02_lists_inbound_and_self_produced_attachments(
     # 列出来的 id 要真的可寻址（闭环）：直接拿去读，能读回内容
     read_back = await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": inbound.group(1)})
     assert "来件.pdf" in read_back
+
+
+# ---------------------------------------------------------------------------
+# TASK-005：写与交付语义分离、追加写与不可变性（B-03）
+# ---------------------------------------------------------------------------
+
+
+async def _row_key(artifact_id: str) -> str:
+    """回读 DB 行当前的 `storage_key`（版本演进要看它指向哪里）。"""
+    async with get_session_factory()() as session:
+        row = await session.get(Artifact, uuid.UUID(artifact_id))
+    assert row is not None
+    return row.storage_key
+
+
+def _artifact_id_of(result: str) -> str:
+    return result[len(WRITE_ARTIFACT_RESULT_PREFIX) :].split("）")[0].strip()
+
+
+async def test_write_artifact_succeeds_without_a_delivery_route(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """**TASK-005 起行为反转**：没有交付路由也能写。
+
+    原先这里是「缺交付路由即拒绝」——那把「写」与「可交付」**耦合错了方向**：后台任务、
+    控制台触发的 Run 连"写"都做不了。而"写"本身只需要 Run 上下文（落共享 store + DB 行）。
+    交付能不能做，由 TASK-006 的 `deliver_artifact` 单独管。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_set = _writer_tool_set(tenant, artifact_root, run_id, conversation_id, has_route=False)
+
+    written = await _call(tool_set, WRITE_ARTIFACT_TOOL, {"content": "x", "filename": "a.md"})
+
+    assert written.startswith(WRITE_ARTIFACT_RESULT_PREFIX)
+    assert any(artifact_root.rglob("*")), "没有交付路由也要真的落盘"
+    assert "deliver_artifact" in written, "返回值要告诉模型：想交给用户得再调交付工具"
+
+
+def test_b03_store_write_is_immutable(artifact_root) -> None:
+    """B-03（不可变原语）：同一 `storage_key` 二次写入抛 `FileExistsError`，且**首个内容原样**。
+
+    真实边界：真实文件系统。这条不是防呆而是**契约**（`RULE-skill-001`）——长文档追加写
+    正是靠"每次换一个新 key"做版本演进。
+    """
+    store = NfsArtifactStore(artifact_root)
+    store.write("outbound/probe/v1", b"first")
+
+    with pytest.raises(FileExistsError):
+        store.write("outbound/probe/v1", b"second")
+
+    assert store.resolve("outbound/probe/v1").read_bytes() == b"first"
+
+
+async def test_b03_write_artifact_respects_the_size_limit(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """B-03（大小）：恰好等于上限**接收**；上限 + 1 字节**明确拒绝**。"""
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_set = _writer_tool_set(tenant, artifact_root, run_id, conversation_id)
+
+    at_limit = await _call(
+        tool_set, WRITE_ARTIFACT_TOOL,
+        {"content": "x" * MAX_READ_BYTES, "filename": "满.md"},
+    )
+    assert at_limit.startswith(WRITE_ARTIFACT_RESULT_PREFIX), "恰好等于上限必须接受"
+
+    with pytest.raises(AttachmentToolError) as over:
+        await _call(
+            tool_set, WRITE_ARTIFACT_TOOL,
+            {"content": "x" * (MAX_READ_BYTES + 1), "filename": "超.md"},
+        )
+    assert over.value.code == ATTACHMENT_TOO_LARGE
+
+
+async def test_b03_append_versions_the_key_and_never_breaks_existing_content(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """B-03（追加）：每次追加写**新 key**、行指向最新、历史版本原样留存；超限拒绝且**不破坏已有内容**。
+
+    真实边界：真实文件系统（版本键真的落盘）。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_set = _writer_tool_set(tenant, artifact_root, run_id, conversation_id)
+    store = NfsArtifactStore(artifact_root)
+
+    written = await _call(
+        tool_set, WRITE_ARTIFACT_TOOL, {"content": "第一段\n", "filename": "长文.md"}
+    )
+    artifact_id = _artifact_id_of(written)
+    first_key = await _row_key(artifact_id)
+
+    appended = await _call(
+        tool_set, APPEND_ARTIFACT_TOOL, {"artifact_id": artifact_id, "content": "第二段\n"}
+    )
+    assert artifact_id in appended, "追加后仍要能拿到同一个产物 id"
+
+    second_key = await _row_key(artifact_id)
+    assert second_key != first_key, "artifact 不可变 ⇒ 追加必须换新 key（RULE-skill-001）"
+    assert store.resolve(first_key).read_bytes() == "第一段\n".encode(), "历史版本必须原样不可变"
+    assert store.resolve(second_key).read_bytes() == "第一段\n第二段\n".encode(), "最新版本是全文"
+
+    read_back = await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": artifact_id})
+    assert "第一段" in read_back and "第二段" in read_back
+
+    # 超限：拒绝，且**已有内容与行都不动**（半截写入等于把用户的文档毁掉）
+    before = store.resolve(second_key).read_bytes()
+    with pytest.raises(AttachmentToolError) as too_big:
+        await _call(
+            tool_set, APPEND_ARTIFACT_TOOL,
+            {"artifact_id": artifact_id, "content": "x" * MAX_READ_BYTES},
+        )
+    assert too_big.value.code == ATTACHMENT_TOO_LARGE
+    assert store.resolve(second_key).read_bytes() == before, "拒绝不得破坏已有内容"
+    assert await _row_key(artifact_id) == second_key, "拒绝不得改动 DB 行"
+
+
+async def test_append_rejects_artifacts_this_run_did_not_produce(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """只能追加**本 Run 自产**的产物：拿用户发来的附件去追加必须明确拒绝。
+
+    这条不是洁癖——入站附件的字节属于用户原始文件，被 Agent 改写就再也回不到原件了。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    inbound_id = await _seed_artifact(
+        tenant, artifact_root, data=b"user file", kind="DOCUMENT",
+        media_type="text/plain", filename="来件.txt", into=(run_id, conversation_id),
+    )
+    tool_set = _writer_tool_set(tenant, artifact_root, run_id, conversation_id)
+
+    with pytest.raises(AttachmentToolError):
+        await _call(
+            tool_set, APPEND_ARTIFACT_TOOL,
+            {"artifact_id": str(inbound_id), "content": "追加"},
+        )

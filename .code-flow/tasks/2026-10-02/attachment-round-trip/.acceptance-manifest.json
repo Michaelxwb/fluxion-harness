@@ -516,7 +516,7 @@
       "kind": "functional",
       "boundary": "出站产物大小",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -526,7 +526,28 @@
       ],
       "cwd": ".",
       "timeout": 120.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "a54e55aeeb664ed88a4ccbb9ab1483e3",
+        "executed_at": "2026-10-02T17:37:42.893577+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "a54e55aeeb664ed88a4ccbb9ab1483e3",
+          "executed_at": "2026-10-02T17:37:42.893577+00:00"
+        }
+      ]
     }
   ]
 }

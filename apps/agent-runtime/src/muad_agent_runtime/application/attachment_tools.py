@@ -13,7 +13,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
-import os
 import uuid
 from collections import OrderedDict
 from collections.abc import Awaitable, Mapping
@@ -33,6 +32,10 @@ VIEW_IMAGE_TOOL = "view_image"
 WRITE_ARTIFACT_TOOL = "write_artifact"
 SEARCH_ATTACHMENT_TOOL = "search_attachment"
 LIST_ATTACHMENTS_TOOL = "list_attachments"
+APPEND_ARTIFACT_TOOL = "append_artifact"
+#: 交付工具的**名字**在本任务就要用到（写出的返回值要告诉模型怎么把产物交出去）。
+#: 工具本身由 TASK-006 注册；名字只在这里定义一次，避免两处各写一个字符串。
+DELIVER_ARTIFACT_TOOL = "deliver_artifact"
 
 AGENT_OUTPUT_ARTIFACT_TYPE = "AGENT_OUTPUT"
 #: 入站产物类型（封闭集合，定义在入站落库模块里）。方向判定按**类型**而不是按 run_id 是否存在——
@@ -53,6 +56,10 @@ SEARCH_ATTACHMENT_DESCRIPTION = (
 LIST_ATTACHMENTS_DESCRIPTION = (
     "List the files you can currently address — both the ones the user sent and the ones you "
     "produced earlier. Use it when an id from an earlier turn is no longer in front of you."
+)
+APPEND_ARTIFACT_DESCRIPTION = (
+    "Append more text to a file you produced earlier in this run. Use it to build a long document "
+    "across several turns, since a single reply has a length limit."
 )
 VIEW_IMAGE_DESCRIPTION = (
     "Attach a previously sent image to the conversation again so you can look at it. Use this "
@@ -301,6 +308,20 @@ class AttachmentToolSet:
         )
         registry.register(
             ToolDefinition(
+                name=APPEND_ARTIFACT_TOOL,
+                description=APPEND_ARTIFACT_DESCRIPTION,
+                input_schema={
+                    "type": "object",
+                    "properties": {"artifact_id": string_schema, "content": string_schema},
+                    "required": ["artifact_id", "content"],
+                    "additionalProperties": False,
+                },
+                effect=ToolEffect.WRITE,
+                handler=self.append_artifact,
+            )
+        )
+        registry.register(
+            ToolDefinition(
                 name=VIEW_IMAGE_TOOL,
                 description=VIEW_IMAGE_DESCRIPTION,
                 input_schema={
@@ -463,18 +484,14 @@ class AttachmentToolSet:
         return f"{VIEW_IMAGE_RESULT_PREFIX}{row.id}）：{_filename(row)}"
 
     async def write_artifact(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
-        """把结果写成产物并返回标识，与 `read_attachment` 形成闭环。
+        """把结果写成产物并返回标识。**只写，不管能不能交付**（TASK-005）。
 
-        两道前置拒绝都**显式报错**：没有 run 上下文（无处挂产物行），或**没有交付路由**
-        （写出来没人收 —— 静默成功等于骗模型说"已经交付"）。
+        原先这里还拒绝"没有交付路由"的运行——那把「写」与「可交付」**耦合错了方向**：
+        后台任务、控制台触发的 Run 连"写"都做不了，而"写"本身只需要 Run 上下文。
+        唯一还需要 Run 上下文的理由是产物行要挂 `run_id`。
         """
         if self._run_id is None:
             raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前运行不支持写出产物")
-        if not self._has_delivery_route:
-            raise AttachmentToolError(
-                ATTACHMENT_WRITE_UNAVAILABLE,
-                "当前会话没有可交付的通道，写出的产物无人接收；请直接在回复里给出内容",
-            )
         content = arguments.get("content")
         if not isinstance(content, str) or not content:
             raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, "content 必填且为非空字符串")
@@ -488,12 +505,8 @@ class AttachmentToolSet:
             )
 
         artifact_id = uuid.uuid4()
-        storage_key = f"outbound/{self._run_id}/{artifact_id}"
-        path = NfsArtifactStore(self._artifact_root).resolve(storage_key)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temp = path.parent / f".tmp-{uuid.uuid4().hex}"
-        temp.write_bytes(data)
-        os.replace(temp, path)  # 原子替换：不留半成品
+        storage_key = _version_key(self._run_id, artifact_id, 1)
+        self._store().write(storage_key, data)
 
         row = Artifact(
             id=artifact_id,
@@ -506,12 +519,70 @@ class AttachmentToolSet:
             media_type="text/markdown",
             size=len(data),
             checksum="sha256:" + hashlib.sha256(data).hexdigest(),
-            metadata_json={"kind": "DOCUMENT", "filename": name, "source": "agent"},
+            metadata_json={
+                "kind": "DOCUMENT",
+                "filename": name,
+                "source": "agent",
+                "version": 1,
+                "versions": [],
+            },
         )
         async with self._session_factory()() as session:
             session.add(row)
             await session.commit()
-        return f"{WRITE_ARTIFACT_RESULT_PREFIX}{artifact_id}）：{name}"
+        # 明确告诉模型"写"与"交"是两件事，否则它会以为写完就等于用户收到了
+        return (
+            f"{WRITE_ARTIFACT_RESULT_PREFIX}{artifact_id}）：{name}。"
+            f"如果需要把它交给用户，请再调用 {DELIVER_ARTIFACT_TOOL}"
+        )
+
+    async def append_artifact(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """分段追加写长文档：模型单轮输出有 token 上限，没有追加就写不出长文档。
+
+        **每次追加换一个新 `storage_key`**（`RULE-skill-001`：artifact 不可变），artifact 行
+        指向最新版本，历史版本键记进 `metadata_json`——**不改 schema**。
+        """
+        row = await self._load(arguments.get("artifact_id"))
+        if row.artifact_type != AGENT_OUTPUT_ARTIFACT_TYPE or row.run_id != self._run_id:
+            raise AttachmentToolError(
+                ATTACHMENT_TYPE_UNSUPPORTED,
+                f"{_filename(row)}：只能追加本次运行自己写出的产物",
+            )
+        content = arguments.get("content")
+        if not isinstance(content, str) or not content:
+            raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, "content 必填且为非空字符串")
+        data = content.encode("utf-8")
+
+        # 先算再写：超限**必须在落任何字节之前**拒绝，否则半截写入等于把用户的文档毁掉
+        existing = self._read_bytes(row)
+        merged = existing + data
+        if len(merged) > MAX_READ_BYTES:
+            raise AttachmentToolError(
+                ATTACHMENT_TOO_LARGE,
+                f"{_filename(row)}：追加后超过上限（{MAX_READ_BYTES} 字节），已有内容未改动",
+            )
+
+        metadata = dict(row.metadata_json or {})
+        versions = [str(key) for key in (metadata.get("versions") or [])]
+        versions.append(row.storage_key)
+        version = len(versions) + 1
+        storage_key = _version_key(row.run_id, row.id, version)
+        self._store().write(storage_key, merged)
+
+        metadata["versions"] = versions
+        metadata["version"] = version
+        row.storage_key = storage_key
+        row.size = len(merged)
+        row.checksum = "sha256:" + hashlib.sha256(merged).hexdigest()
+        row.metadata_json = metadata
+        async with self._session_factory()() as session:
+            await session.merge(row)  # 行已存在 ⇒ merge（merge 是同步的，只 commit 要 await）
+            await session.commit()
+        self._text_cache.pop(row.id, None)  # 抽取缓存必须作废，否则读回的是上一版全文
+        return f"已追加到产物（附件 ID {row.id}）：{_filename(row)}，当前 {len(merged)} 字符"
+
+    def _store(self) -> NfsArtifactStore:
+        return NfsArtifactStore(self._artifact_root)
 
     def _image_follow_up(self, result: str) -> Awaitable[tuple[ModelMessage, ...]]:
         return self._build_image_message(result)
@@ -571,6 +642,15 @@ class AttachmentToolSet:
 def _filename(row: Artifact) -> str:
     name = (row.metadata_json or {}).get("filename")
     return name if isinstance(name, str) and name else "(未命名)"
+
+
+def _version_key(run_id: uuid.UUID | None, artifact_id: uuid.UUID, version: int) -> str:
+    """版本化的 `storage_key`。
+
+    artifact 不可变（`RULE-skill-001`）⇒ 追加写**只能换新 key**，所以"第几版"必须编进 key，
+    否则第二次写就撞 `FileExistsError`（那正是不可变契约在起作用）。
+    """
+    return f"outbound/{run_id}/{artifact_id}/v{version}"
 
 
 def _list_line(row: Artifact) -> str:
