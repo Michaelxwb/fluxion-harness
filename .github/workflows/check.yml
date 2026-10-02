@@ -62,6 +62,89 @@ jobs:
       - run: npm run build
         working-directory: apps/console-platform/frontend
 
+  # 浏览器验收：真实构建产物（vite preview）+ 真实 Chrome + 真实 PostgreSQL/Redis。
+  #
+  # 为什么单列一个 job：`frontend` 只验证「能构建」，Playwright 在 CI 里从不执行 —— 于是断言
+  # 与实现之间的漂移（testid 改名、详情容器从 Modal 换成 SideSheet、写死的文案被本地化）只在
+  # 有人手动跑某个域时才暴露，没有任何聚合信号（2026-10-02 一轮里手查出 4 处这类漂移 + 1 处
+  # 产品崩溃）。逐域顺序执行且**不 fail-fast**：一次 CI 就能列出**全部**漂移的域，而不是修一个
+  # 才发现下一个。新增域时同步下面那份域清单即可。
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: muad
+          POSTGRES_PASSWORD: muad
+          POSTGRES_DB: muad
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U muad -d muad"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # 验收每轮自建 muad_acc_<uuid> 空库（tests/acceptance/datastores.py），此处的库只作「建库
+      # 基准」；POSTGRES_USER=muad 在官方镜像里是超级用户，具备建库权限。
+      DATABASE_URL: postgresql+asyncpg://muad:muad@localhost:5432/muad
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            apps/console-platform/frontend/package-lock.json
+            e2e/package-lock.json
+      # redis 不随 --extra dev 直装，但 dev extra 含 muad-agent-runtime / muad-im-gateway，
+      # 两者把 redis 声明为运行时依赖，故会传递装上（datastores.py 依赖它做号位占位）。
+      - run: uv sync --extra dev
+      - run: npm ci
+        working-directory: apps/console-platform/frontend
+      - run: npm ci
+        working-directory: e2e
+      # 域配置一律 `channel: 'chrome'`（系统 Chrome，不下载 Playwright 自带浏览器）：缺了要立刻
+      # 报清楚，而不是等到某个域超时才发现
+      - name: 预检系统 Chrome
+        run: google-chrome --version
+      - name: 逐域浏览器验收（汇总失败，不 fail-fast）
+        run: |
+          set -u
+          failed=""
+          for domain in \
+            agent audit-observability console-auth form-layout list-actions mcp \
+            model-management overview-dashboard platform sidebar skill \
+            task-schedule user-identity
+          do
+            echo "::group::e2e ${domain}"
+            if make acceptance-e2e DOMAIN="${domain}"; then
+              echo "PASS ${domain}"
+            else
+              echo "FAIL ${domain}"
+              failed="${failed} ${domain}"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "${failed}" ]; then
+            echo "::error::浏览器验收失败的域:${failed}"
+            exit 1
+          fi
+          echo "全部 13 个域通过"
+
   # 四个部署单元各一个镜像（与 deploy/k8s/base 的四份 Deployment 一一对应）。
   # 这里只验证「能构建」；镜像推送/打标（:latest / :vX.Y.Z）待 registry 确定后另加 job。
   images:
