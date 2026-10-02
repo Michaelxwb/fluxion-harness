@@ -1,7 +1,7 @@
 version: 1
 task: wecom-inbound-media
 enforcement: required
-updated_at: '2026-10-02T09:14:58.973162+00:00'
+updated_at: '2026-10-02T09:20:20.853684+00:00'
 sources:
 - type: cli
   ref: bind
@@ -45,7 +45,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-arch-001
           item_id: TASK-004
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -97,6 +97,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-02T09:20:25.019657+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -143,7 +154,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-007 RULE-auth-001
           item_id: TASK-007
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -195,6 +206,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-02T09:20:25.020269+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -240,7 +262,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-006 RULE-data-001
           item_id: TASK-006
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -292,6 +314,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-02T09:20:25.020880+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -336,7 +369,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-i18n-001
           item_id: TASK-004
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -388,6 +421,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-02T09:20:25.021470+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -432,7 +476,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-001 RULE-im-001
           item_id: TASK-001
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -484,6 +528,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-02T09:20:25.022066+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -530,7 +585,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-log-001
           item_id: TASK-004
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -582,6 +637,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-02T09:20:25.022703+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -626,7 +692,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-005 RULE-model-001
           item_id: TASK-005
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -678,6 +744,17 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-02T09:20:25.023292+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -723,7 +800,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-002 RULE-secret-001
           item_id: TASK-002
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -770,6 +847,17 @@ bindings:
           rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
           artifact_sha256: null
           diff_sha256: 529f6819ea6c2a2dfd0f4e15c810bc16723567c1855d355aede29e1ae71be518
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-02T09:20:25.024138+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
           result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
           error_code: deferred_to_review
           details:
@@ -824,7 +912,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-skill-001
           item_id: TASK-004
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -876,6 +964,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-02T09:20:25.024750+00:00'
+          status: unverified
+          rule_text_sha256: 27d60d2926408a023dd7e0fb752d69b924b80ac83118ec89f1c50e4332221235
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -922,7 +1021,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-006 RULE-snapshot-001
           item_id: TASK-006
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -974,6 +1073,17 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-02T09:20:25.025380+00:00'
+          status: unverified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1018,7 +1128,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-010 RULE-test-001
           item_id: TASK-010
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -1070,6 +1180,17 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-02T09:20:25.026195+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1114,7 +1235,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-009 RULE-time-001
           item_id: TASK-009
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -1182,6 +1303,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-02T09:20:25.026827+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1227,7 +1359,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-001 RULE-worker-001
           item_id: TASK-001
-          artifact_sha256: b67673b24542716fb58100c6298f4c4eaf542029f0a8c0be6174236c550fed55
+          artifact_sha256: 74ac3c402169d35906fe56a4dcf46d599a94134738f0843c6bcf7e8ae73337fc
         decision: null
         evidence: []
       code:
@@ -1274,6 +1406,17 @@ bindings:
           rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
           artifact_sha256: null
           diff_sha256: 529f6819ea6c2a2dfd0f4e15c810bc16723567c1855d355aede29e1ae71be518
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-02T09:20:25.027440+00:00'
+          status: unverified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: ef10060a0baa4986186905a989b3d2edbef726542df16512f24a3d4feb0ebfd3
           result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
           error_code: deferred_to_review
           details:

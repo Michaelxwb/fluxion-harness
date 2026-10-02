@@ -17,6 +17,7 @@ from muad_agent_core.model import ModelMessage
 from muad_api import AppError
 from muad_api.context import current_trace_id
 from muad_api.error_codes import ErrorCode
+from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_contracts import (
     ChannelContext,
@@ -37,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.db import get_session_factory
 from ..infrastructure.models.runtime import (
+    Artifact,
     CanonicalEvent,
     Conversation,
     RunInterrupt,
@@ -54,6 +56,15 @@ from .executor import (
     ExecutorRunContext,
     RunExecutor,
     default_executor_factory,
+)
+from .inbound_attachments import (
+    INBOUND_DOCUMENT,
+    INBOUND_IMAGE,
+    INBOUND_OTHER,
+    PersistedAttachment,
+    attachment_payload,
+    build_current_content,
+    persist_inbound_attachments,
 )
 from .ports import CredentialsClient, ResolveClient
 from .run_events import EventWriter
@@ -587,12 +598,25 @@ class RunService:
                 conversation_id=conversation.id,
                 request_fingerprint=submission_fingerprint_value,
             )
+            # 入站附件：落 artifact 行（与 Run 同事务，设计 AD-1-B），并把紧凑摘要写进事件载荷
+            # 供历史组装直接渲染文本引用——历史是逐条回放的热路径，不为一句引用回查产物表。
+            persisted = await persist_inbound_attachments(
+                self._session,
+                tenant_id=tenant_id,
+                run_id=run.id,
+                conversation_id=conversation.id,
+                refs=request.message.attachments,
+            )
             seq = await self._event_writer().append(
                 tenant_id=tenant_id,
                 conversation_id=conversation.id,
                 run_id=run.id,
                 event_type=USER_MESSAGE_EVENT,
-                payload={"text": request.message.text, "message_id": request.message.id},
+                payload={
+                    "text": request.message.text,
+                    "message_id": request.message.id,
+                    "attachments": attachment_payload(persisted),
+                },
                 submission_id=submission.id,
             )
             submission.first_seq = seq
@@ -846,6 +870,21 @@ class RunService:
             )
         return bool(value)
 
+    async def _load_inbound_attachments(self, run: RunRecord) -> tuple[PersistedAttachment, ...]:
+        """本 Run 的入站附件（渠道侧已写好字节，这里只回读引用）。"""
+        rows = (
+            await self._session.execute(
+                sa.select(Artifact).where(
+                    Artifact.run_id == run.id,
+                    Artifact.artifact_type.in_((INBOUND_IMAGE, INBOUND_DOCUMENT, INBOUND_OTHER)),
+                )
+            )
+        ).scalars().all()
+        return tuple(_persisted_from_row(row) for row in rows)
+
+    def _read_artifact_bytes(self, storage_key: str) -> bytes:
+        return NfsArtifactStore(self._settings.artifact_root).resolve(storage_key).read_bytes()
+
     async def _renew_lease_loop(self, run_id: uuid.UUID) -> None:
         while True:
             await asyncio.sleep(self._settings.run_heartbeat_sec)
@@ -872,6 +911,12 @@ class RunService:
                 agent=agent,
                 model=model,
                 input_text=run.input_text,
+                # 无附件时 build_current_content 原样返回文本，故无需额外判空分支
+                input_content=build_current_content(
+                    run.input_text,
+                    attachments=await self._load_inbound_attachments(run),
+                    read_bytes=self._read_artifact_bytes,
+                ),
                 is_cancel_requested=lambda: self._is_cancel_requested(run.id),
                 skills=tuple(skills),
                 mcp_servers=tuple(mcp_servers),
@@ -1169,3 +1214,18 @@ def _error_code_for(exc: Exception) -> str:
     if isinstance(exc, RunnerModelError):
         return str(ErrorCode.MODEL_UNAVAILABLE)
     return str(ErrorCode.COMMON_INTERNAL_ERROR)
+
+
+def _persisted_from_row(row: Artifact) -> PersistedAttachment:
+    """`artifact` 行 → 引用结构。kind 直接取落库时写进 metadata 的原值。"""
+    metadata = row.metadata_json or {}
+    filename = metadata.get("filename")
+    return PersistedAttachment(
+        artifact_id=row.id,
+        kind=str(metadata.get("kind") or "OTHER"),
+        media_type=row.media_type,
+        filename=filename if isinstance(filename, str) else None,
+        size=row.size,
+        storage_key=row.storage_key,
+    )
+

@@ -15,6 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import Artifact, CanonicalEvent
 from ..metrics import MEMORY_INJECT_METRIC, record_counter
+from .inbound_attachments import attachments_from_payload, render_attachment_reference
 from .memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
@@ -174,8 +175,18 @@ class DbBackedContextBuilder:
         for event in events:
             payload = event.payload_json or {}
             if event.event_type == "USER_MESSAGE":
+                # 历史轮次的附件**只留文本引用**（设计 AD-3-B）：全量重发旧图会让请求体随
+                # 轮次线性膨胀，而多数轮次根本用不到它。模型要重看得主动调附件工具。
+                reference = render_attachment_reference(attachments_from_payload(payload.get("attachments")))
+                text = str(payload.get("text", ""))
                 entries.append(
-                    (0, ModelMessage(role=ModelRole.USER, content=str(payload.get("text", ""))))
+                    (
+                        0,
+                        ModelMessage(
+                            role=ModelRole.USER,
+                            content="\n".join(part for part in (text, reference) if part),
+                        ),
+                    )
                 )
             elif event.event_type == "ASSISTANT_MESSAGE":
                 entries.append(

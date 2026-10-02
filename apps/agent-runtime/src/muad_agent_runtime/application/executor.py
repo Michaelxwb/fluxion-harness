@@ -20,6 +20,7 @@ from muad_agent_core.agent import (
 )
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
+    ModelContent,
     ModelMessage,
     ModelProvider,
     ModelRateLimitedError,
@@ -106,6 +107,9 @@ class ExecutorRequest:
     model: ResolvedModel
     input_text: str
     is_cancel_requested: CancelCheck
+    #: 当前消息的内容。默认用 `input_text`；带图片时由调用方给出内容块（设计 AD-3-B：
+    #: 只有**当前消息**的图片内联，历史轮次只留文本引用）。
+    input_content: ModelContent | None = None
     skills: tuple[ResolvedSkill, ...] = ()
     mcp_servers: tuple[ResolvedMcpServer, ...] = ()
     history: tuple[ModelMessage, ...] = ()
@@ -252,7 +256,12 @@ class AgentRunnerExecutor:
         messages = (
             tuple(self._request.history)
             if self._request.history
-            else (ModelMessage(role=ModelRole.USER, content=self._request.input_text),)
+            else (
+                ModelMessage(
+                    role=ModelRole.USER,
+                    content=self._request.input_content or self._request.input_text,
+                ),
+            )
         )
         return AgentRunRequest(
             model_id=self._request.model.model_id,

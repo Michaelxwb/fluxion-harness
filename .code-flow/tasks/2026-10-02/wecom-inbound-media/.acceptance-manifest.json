@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "wecom-inbound-media.md",
-  "task_sha256": "dfd63019d66d899531a15c8f888a91eed8965e1915e942a99bfcda24b2d6a5f3",
+  "task_sha256": "c506a035802b6d351d22e222ddb47be9247648fc571581026c749a4e72a3d68a",
   "scenarios": [
     {
       "id": "S-01",
@@ -10,8 +10,14 @@
       "kind": "e2e",
       "boundary": "真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体",
       "owner": "TASK-006",
-      "status": "planned",
-      "command": null,
+      "status": "e2e_deferred",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/wecom_attachments"
+      ],
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": []
@@ -46,28 +52,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "23692145c6c84cd6b34a9c5d8224b1c7",
-        "executed_at": "2026-10-02T09:16:04.895145+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "23692145c6c84cd6b34a9c5d8224b1c7",
-          "executed_at": "2026-10-02T09:16:04.895145+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-04",
@@ -89,7 +74,7 @@
       "kind": "e2e",
       "boundary": "真实上下文组装 + 真实模型",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": null,
       "cwd": ".",
       "timeout": 60.0,
@@ -324,28 +309,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-06",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "23692145c6c84cd6b34a9c5d8224b1c7",
-        "executed_at": "2026-10-02T09:16:04.895145+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "23692145c6c84cd6b34a9c5d8224b1c7",
-          "executed_at": "2026-10-02T09:16:04.895145+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-07",

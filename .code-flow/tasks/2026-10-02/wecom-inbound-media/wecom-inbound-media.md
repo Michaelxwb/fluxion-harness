@@ -26,11 +26,11 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 | cwd | 超时 | 依赖 |
 |--------|---------|---------|-------------|---------|------|------|-----|------|------|
-| S-01 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体 | TASK-006 | planned | - | . | 60 |  |
+| S-01 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
 | S-02 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG → 真实 artifact → 工具真实抽取 | TASK-007 | planned | - | . | 60 |  |
 | S-03 | design#2.5.2 | integration | 模型 provider 请求体（不 mock 组装层） | TASK-005 | verified | uv run pytest -q tests/agent_core/test_openai_provider.py | . | 60 |  |
 | S-04 | design#2.5.2 | E2E | 回调 → 落盘 → 契约 → 工具 | TASK-004 | planned | - | . | 60 |  |
-| S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-007 | planned | - | . | 60 |  |
+| S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-007 | e2e_deferred | - | . | 60 |  |
 | S-06 | design#2.5.2 | integration | 工具 → artifact store → 读回 | TASK-008 | planned | - | . | 60 |  |
 | S-07 | design#2.5.2 | integration | FakeChannelAdapter → 门控 → 契约 → 落盘（不含企微路径） | TASK-004 | planned | - | . | 60 |  |
 | E-01 | design#2.5.2 | E2E | 回调 → 反馈投递 → 审计表 | TASK-004 | planned | - | . | 60 |  |
@@ -315,7 +315,7 @@
 - [2026-10-02] completed (done)
 ## TASK-006: Runtime 附件落库 + 上下文组装
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-005
 - **Source**: `wecom-inbound-media.design.md#3.2.1`, `#3.3 数据设计`
@@ -328,28 +328,57 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 ### Checklist
 
-- [ ] Run 建立时把 `AttachmentRef` 落成 `artifact` 行（`artifact_type=INBOUND_*`，`storage_key` 相对键，`metadata_json` 存 filename/source/external_message_id）
-- [ ] 组装上下文：当前消息图片 → `ImagePart` 内容块；历史附件 → 文本引用
-- [ ] 附件不进入 Snapshot 冻结范围（仅 Agent/Model/Skill/MCP 版本按既有口径冻结）
-- [ ] [S-01][E2E] 发送含已知文字的图片并提问（真实边界：真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体，不 mock）；断言①附件落盘且可读回②发给模型的请求体**含图像内容块**③模型回答体现图中内容
-- [ ] [S-05][E2E] 前一轮发过图片后，模型重看再提问（真实边界：真实上下文组装 + 真实模型）；断言历史图片作为新的内容块被重发
-- [ ] 运行 verifier：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"`（`harness-snapshot#RULE-snapshot-001`）；记录输出
-- [ ] 运行 verifier：`uv run pytest -q tests -k schema_parity`（`harness-data#RULE-data-001`）；记录输出并填写 Acceptance Evidence
+- [x] Run 建立时把 `AttachmentRef` 落成 `artifact` 行（`artifact_type=INBOUND_*`，`storage_key` 相对键，`metadata_json` 存 filename/source/external_message_id）
+- [x] 组装上下文：当前消息图片 → `ImagePart` 内容块；历史附件 → 文本引用
+- [x] 附件不进入 Snapshot 冻结范围（仅 Agent/Model/Skill/MCP 版本按既有口径冻结）
+- [x] [S-01][E2E] **登记**（不在编码期执行）：`tests/acceptance/wecom_attachments/test_inbound_image_e2e.py`；真实边界＝真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体，不 mock。状态 `e2e_deferred` —— 其上游（TASK-002 网关下载、TASK-004 落盘/反馈）尚未落地，此刻**写不出可执行的 E2E**，由需求级终验（TASK-010）闭合
+- [x] [S-05][E2E] **登记**（本任务仅引用；manifest 归属 TASK-007）：真实边界＝真实上下文组装 + 真实模型。状态 `e2e_deferred`
+- [x] 运行 verifier：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"`（`harness-snapshot#RULE-snapshot-001`）；记录输出
+- [x] 运行 verifier：`uv run pytest -q tests -k schema_parity`（`harness-data#RULE-data-001`）；记录输出并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | 回调、PG/Redis、落盘、模型请求体 | 落盘可读回；请求体含图像块；回答体现图中内容 | planned | planned | planned |
-| S-05 | E2E | 上下文组装、模型 | 历史图片作为新内容块重发 | planned | planned | planned |
+| S-01 | E2E | 回调、PG/Redis、落盘、模型请求体 | 落盘可读回；请求体含图像块；回答体现图中内容 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
+| S-05 | E2E | 上下文组装、模型 | 历史图片作为新内容块重发 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-01 | 编码期不执行（E2E） | 编码期不执行（E2E） | 待需求级终验登记 | 上游 TASK-002/TASK-004 未落地，E2E 通路尚未连通 | e2e_deferred |
+| S-05 | 编码期不执行（E2E） | 编码期不执行（E2E） | 待需求级终验登记 | 本任务仅引用；manifest 归属 TASK-007 | e2e_deferred |
+
+**本任务的功能级证据**（`tests/agent_runtime/test_inbound_attachments.py`，6 passed；RED = `ModuleNotFoundError: ...inbound_attachments`）：
+
+| 覆盖点 | 断言 |
+|--------|------|
+| 落库（真实 PG） | `artifact` 行的 `run_id` 非空、`task_id` 为空（`ck_artifact_run_task_xor` 继续成立）、`storage_key` 不被重写（AD-1-B）、`metadata_json` 带回 `kind`/`filename`/`source` |
+| 类型映射 | IMAGE/DOCUMENT/OTHER → `INBOUND_*`；未知 kind 兜底 `INBOUND_OTHER` |
+| 文本引用 | 带可得 `artifact_id`（模型/工具靠它寻址）、文件名与 media_type；空列表返回空串 |
+| 当前消息组装 | 无读取器时**仍留引用**（不假装没收到附件）；图片内联为 `ImagePart`（base64 与源字节一致）；文档不内联只留引用；字节读不到时退回引用而非整轮失败 |
+
+**装配（三处，均已接上）**：
+- `run_service` Run 创建处：`persist_inbound_attachments` 与 Run/Snapshot/事件**同事务**（只 flush 不 commit —— 先提交会让"Run 建失败但附件行留下"成为可能），并把紧凑摘要写进 `USER_MESSAGE` 载荷。
+- `run_service._build_executor`：按 `run_id` 查回入站产物 → `build_current_content` → `ExecutorRequest.input_content`（无附件时原样返回文本，故无额外判空分支；`ix_artifact_run` 上的一次索引查询）。
+- `context_builder._to_messages`：历史 `USER_MESSAGE` 按载荷里的附件摘要渲染文本引用（不回查产物表 —— 历史是逐条回放的热路径）。
+
+**本次回归**：
+- `harness-snapshot#RULE-snapshot-001` verifier：`test_snapshot_freeze.py` + `test_run_reaper.py` → **4 passed**；`tests/agent_runtime -k "executor or resolve"` → **20 passed**
+- `harness-data#RULE-data-001` verifier：`tests -k schema_parity` → **35 passed**
+- `tests/agent_runtime` → **194 passed**（含本任务新增 6 条）
+- `uv run mypy apps packages` → **Success: no issues found in 263 source files**；`ruff` → **All checks passed**
+
+**一处需要记录的计划缺陷（不是本任务能修的）**：`S-01` 归属 TASK-006，但其 E2E 通路要求网关侧已能产出附件引用（TASK-002 下载解密、TASK-004 落盘/契约），而 TASK-006 的 `Depends` 只有 TASK-001/TASK-005。因此**编码期无法写出可执行的 S-01 E2E**，只能登记为 `e2e_deferred`；真正闭合依赖 TASK-010 的需求级终验。这个依赖缺口不影响本任务的实现正确性，但会让"每个 P0 任务都能自证其场景"这条预期在 TASK-006 上落空。
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=0680a452741547c89ada3efee1878d49 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
 
 ---
-
+- [2026-10-02] started
+- [2026-10-02] completed (done)
 ## TASK-007: 附件读取工具（文档抽取）
 
 - **Status**: draft
