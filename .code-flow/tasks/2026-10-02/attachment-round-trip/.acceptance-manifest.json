@@ -1,0 +1,362 @@
+{
+  "schema": 2,
+  "task_file": "attachment-round-trip.md",
+  "task_sha256": "dc6dbc35aaeef4b6a2de123a91d7aa828ab3bc0262ef9f6befbd9fad2b3ac4a4",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "design#2.5.2",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实文件系统 + 真实解析库（pypdf/docx）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_attachment_tools.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "design#2.5.2",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG（runtime.artifact 逐行回读）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_attachment_tools.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-03",
+      "source": "design#2.5.2",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/attachment_round_trip"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "design#2.5.2",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 WS 探针 → 真实网关 → 真实渠道帧",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/attachment_round_trip"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-05",
+      "source": "design#2.5.2",
+      "level": "manual",
+      "kind": "manual",
+      "boundary": "真实企微机器人（外部条件，无法在 CI 自动化）",
+      "owner": "TASK-001",
+      "status": "planned",
+      "command": null,
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-06",
+      "source": "design#2.5.2",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实会话 → 真实产物 → 真实交付 → 渠道帧/链接",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/attachment_round_trip"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-07",
+      "source": "design#2.5.2",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Worker 进程 → 真实网关 /internal/deliver → 渠道帧",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/attachment_round_trip"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-08",
+      "source": "design#2.5.2",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实文件系统 + 真实 PG",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_artifact_cleanup.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-09",
+      "source": "design#2.5.2",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 HTTP 取件端点 + 真实鉴权（非 mock）",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/attachment_round_trip"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-10",
+      "source": "design#2.5.2",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实渠道帧 + 真实 PG（审计逐行回读）",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/attachment_round_trip"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "design#2.5.2",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实文件系统",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_attachment_tools.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "design#2.5.2",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 WS 探针 → 真实网关",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/attachment_round_trip"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "design#2.5.2",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG + 真实存储 + 鉴权层",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_channel/test_artifact_fetch.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "design#2.5.2",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 HTTP（渠道发送端点）",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_channel/test_artifact_delivery_audit.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "design#2.5.2",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实文件系统 + 真实 PG",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_artifact_cleanup.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "design#2.5.2",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 HTTP（渠道发送端点）",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_artifact_delivery.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-01",
+      "source": "design#2.5.2",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "分段纯函数",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_attachment_tools.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-02",
+      "source": "design#2.5.2",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "枚举分页",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_attachment_tools.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-03",
+      "source": "design#2.5.2",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "出站产物大小",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_attachment_tools.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    }
+  ]
+}

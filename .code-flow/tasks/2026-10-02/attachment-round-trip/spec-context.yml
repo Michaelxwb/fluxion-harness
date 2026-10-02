@@ -1,7 +1,7 @@
 version: 1
 task: attachment-round-trip
 enforcement: required
-updated_at: '2026-10-02T16:16:13.559178+00:00'
+updated_at: '2026-10-02T16:25:50.265834+00:00'
 sources:
 - type: cli
   ref: bind
@@ -47,8 +47,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-007
+          item_id: harness-api#RULE-api-002
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -80,8 +84,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-008
+          item_id: harness-api#RULE-api-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -128,8 +136,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-007
+          item_id: harness-arch#RULE-arch-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -178,8 +190,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-008
+          item_id: harness-auth#RULE-auth-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -227,8 +243,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-007
+          item_id: harness-data#RULE-data-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -281,9 +301,16 @@ bindings:
           expires_at: null
         evidence: []
       plan:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 本期不做 Console 页面：产物取件走渠道无关的签名直链，页面后置由承接方（Console 产物页 / 未来 web chat）落地
+          confirmed_by: user:jahan
+          confirmed_at: '2026-10-02T16:25:50+00:00'
+          source: 用户 2026-10-03 追认。本记录原由 agent 从 design 阶段的同一确认平移（非用户当场确认）；经用户核对结论无异议，保留
+            N/A 并更正归属
+          expires_at: null
         evidence: []
       code:
         status: pending
@@ -329,8 +356,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-004
+          item_id: harness-i18n#RULE-i18n-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -377,8 +408,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-006
+          item_id: harness-im#RULE-im-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -411,8 +446,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-001
+          item_id: harness-im#RULE-im-002
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -461,8 +500,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-009
+          item_id: harness-log#RULE-log-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -510,8 +553,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-008
+          item_id: harness-secret#RULE-secret-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -563,8 +610,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-005
+          item_id: harness-skill#RULE-skill-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -613,8 +664,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-005
+          item_id: harness-snapshot#RULE-snapshot-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -661,8 +716,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-010
+          item_id: harness-test#RULE-test-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -709,8 +768,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-009
+          item_id: harness-time#RULE-time-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
@@ -759,9 +822,16 @@ bindings:
           expires_at: null
         evidence: []
       plan:
-        status: pending
+        status: not_applicable
         refs: []
-        decision: null
+        decision:
+          kind: not_applicable
+          reason: 本期不做 Console 页面：产物取件走渠道无关的签名直链，页面后置由承接方（Console 产物页 / 未来 web chat）落地
+          confirmed_by: user:jahan
+          confirmed_at: '2026-10-02T16:25:50+00:00'
+          source: 用户 2026-10-03 追认。本记录原由 agent 从 design 阶段的同一确认平移（非用户当场确认）；经用户核对结论无异议，保留
+            N/A 并更正归属
+          expires_at: null
         evidence: []
       code:
         status: pending
@@ -808,8 +878,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: attachment-round-trip.md
+          section_id: TASK-006
+          item_id: harness-worker#RULE-worker-001
+          artifact_sha256: ac7edab8717bdce6417427345907481dba08caa66bb4493c7ff920cb05ee5938
         decision: null
         evidence: []
       code:
