@@ -1,7 +1,7 @@
 version: 1
 task: wecom-inbound-media
 enforcement: required
-updated_at: '2026-10-02T09:43:01.519088+00:00'
+updated_at: '2026-10-02T10:32:21.795134+00:00'
 sources:
 - type: cli
   ref: bind
@@ -36,7 +36,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-arch-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -45,7 +45,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-arch-001
           item_id: TASK-004
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -178,7 +178,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-auth-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -187,7 +187,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-007 RULE-auth-001
           item_id: TASK-007
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -319,7 +319,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -328,7 +328,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-006 RULE-data-001
           item_id: TASK-006
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -459,7 +459,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-i18n-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -468,7 +468,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-i18n-001
           item_id: TASK-004
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -599,7 +599,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-im-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -608,7 +608,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-001 RULE-im-001
           item_id: TASK-001
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -741,7 +741,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-log-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -750,7 +750,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-log-001
           item_id: TASK-004
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -881,7 +881,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-mcp-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -890,7 +890,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-007 RULE-mcp-001
           item_id: TASK-007
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -978,7 +978,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-model-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -987,7 +987,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-005 RULE-model-001
           item_id: TASK-005
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -1119,7 +1119,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-secret-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -1128,7 +1128,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-002 RULE-secret-001
           item_id: TASK-002
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -1277,7 +1277,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-skill-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -1286,7 +1286,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-skill-001
           item_id: TASK-004
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -1419,7 +1419,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -1428,7 +1428,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-006 RULE-snapshot-001
           item_id: TASK-006
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -1559,7 +1559,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-test-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -1568,7 +1568,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-010 RULE-test-001
           item_id: TASK-010
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -1699,7 +1699,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-time-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -1708,7 +1708,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-009 RULE-time-001
           item_id: TASK-009
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
@@ -1856,7 +1856,7 @@ bindings:
         - artifact: wecom-inbound-media.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-worker-001
-          artifact_sha256: 722b90e2806972324da5e8ac2ba42685cad7c4bee7d87411bdc5dc1200fce5e9
+          artifact_sha256: 151a890dad2a682cab6d8b4f279acb90223abc3f8050d5c5cd589c910c25d263
         decision: null
         evidence: []
       plan:
@@ -1865,7 +1865,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-001 RULE-worker-001
           item_id: TASK-001
-          artifact_sha256: a147551761f649849b6e6e0a5bd555fd7c01b0f9b7805ebc17a15a30270965b0
+          artifact_sha256: 2806795d0af20053e0d4a31fc1f917d5f02d6e81702178296115937cfae86d1d
         decision: null
         evidence: []
       code:
