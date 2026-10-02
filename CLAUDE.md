@@ -18,6 +18,21 @@
 - Network calls inside tight loops
 
 <!-- code-flow:spec-loading schema=1 start -->
+## 验收怎么跑（全量测试）
+
+- **pytest 验收**：`make acceptance`（= `uv run pytest -q tests/acceptance`）。
+  **不需要任何环境变量**：`tests/acceptance/conftest.py` 的 session fixture 会自动建一个空库
+  （`muad_acc_<uuid>`，空库 + `alembic upgrade head`）、Redis 用 10–15 号，跑完自动 drop；
+  每轮开销约 0.8s。若看到"需要 CREATEDB"的提示，那是一次性环境前提（本机 dev 实例的 `muad`
+  角色缺 `CREATEDB`，用超级用户 `ALTER ROLE muad CREATEDB;` 即可）。
+- **浏览器验收（Playwright）**：`make acceptance-e2e DOMAIN=<域>`（域如 `console-auth`、
+  `overview-dashboard`、`audit-observability`、`task-schedule`、`agent`）。命令已含前端
+  `npm run build` —— preview 跑的是构建产物，不 build 会拿到陈旧产物。
+- **不要**用共享 dev 库跑验收，也**不要**为了"清干净"去删 dev 库的行（那是开发数据）。
+  必须独立库的原因与机制见 `.code-flow/specs/test/harness-test.md`（claim 与投递选取不带租户谓词
+  + 各栈出站端点是栈级 env ⇒ 共用库时跨套件互相污染，表现为"单跑绿、串跑红"）。
+- 排查用逃生阀：`MUAD_ACCEPTANCE_SHARED_DB=1` 可让 pytest 验收退回共享库（仅用于对比排查）。
+
 ## Spec Workflow (schema 1)
 
 - If `.code-flow/.active-task.json` exists, validate it and `spec-context.yml`, then use only the active TASK's `Spec-Refs`, Design refs, and Acceptance Contract. Never reselect Specs from Catalog.
