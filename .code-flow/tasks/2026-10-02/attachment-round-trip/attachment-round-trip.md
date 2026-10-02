@@ -55,7 +55,7 @@
 
 ## TASK-001: 企微出站能力真机探针
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#2.3.1 功能清单`, `#3.6 出站交付：写与发的分离（硬需求落点）`, `#5.1 项目依赖`
@@ -89,6 +89,7 @@
 
 ### Log
 - [2026-10-03] created (draft)
+- [2026-10-03] started
 
 ---
 
