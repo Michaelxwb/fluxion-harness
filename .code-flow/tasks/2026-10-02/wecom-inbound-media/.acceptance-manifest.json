@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "wecom-inbound-media.md",
-  "task_sha256": "0e6d5e67cf7264f76f22f7b17acb36ebe19d7f0371002a387c792320e9240106",
+  "task_sha256": "502f1ae96d562ada9de7de1b828e0a4283d388167daf0044b173c24f51a40e3c",
   "scenarios": [
     {
       "id": "S-01",
@@ -192,11 +192,38 @@
       "kind": "functional",
       "boundary": "门控纯函数",
       "owner": "TASK-003",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_attachment_gate.py"
+      ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
+        "executed_at": "2026-10-02T09:12:43.973562+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
+          "executed_at": "2026-10-02T09:12:43.973562+00:00"
+        }
+      ]
     },
     {
       "id": "B-02",
@@ -205,11 +232,38 @@
       "kind": "functional",
       "boundary": "门控纯函数",
       "owner": "TASK-003",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_attachment_gate.py"
+      ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
+        "executed_at": "2026-10-02T09:12:43.973562+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
+          "executed_at": "2026-10-02T09:12:43.973562+00:00"
+        }
+      ]
     },
     {
       "id": "B-03",
@@ -218,11 +272,38 @@
       "kind": "functional",
       "boundary": "门控纯函数",
       "owner": "TASK-003",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_attachment_gate.py"
+      ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
+        "executed_at": "2026-10-02T09:12:43.973562+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
+          "executed_at": "2026-10-02T09:12:43.973562+00:00"
+        }
+      ]
     },
     {
       "id": "B-04",
@@ -231,11 +312,38 @@
       "kind": "functional",
       "boundary": "路径解析函数",
       "owner": "TASK-003",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_attachment_gate.py"
+      ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
+        "executed_at": "2026-10-02T09:12:43.973562+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6362dc61c2d2460bbb160a87a9b4a5dc",
+          "executed_at": "2026-10-02T09:12:43.973562+00:00"
+        }
+      ]
     },
     {
       "id": "B-05",
@@ -305,28 +413,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-08",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "ee1b545bde6646828c268dbf52df1b30",
-        "executed_at": "2026-10-02T09:08:50.334461+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "ee1b545bde6646828c268dbf52df1b30",
-          "executed_at": "2026-10-02T09:08:50.334461+00:00"
-        }
-      ]
+      "depends_on": []
     }
   ]
 }

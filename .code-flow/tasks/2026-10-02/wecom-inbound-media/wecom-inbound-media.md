@@ -40,10 +40,10 @@
 | E-05 | design#2.5.2 | integration | DB 查询 + 工具越权校验 | TASK-007 | planned | - | . | 60 |  |
 | E-06 | design#2.5.2 | integration | 真实解析库 | TASK-007 | planned | - | . | 60 |  |
 | E-07 | design#2.5.2 | integration | 幂等键 + 落盘 | TASK-004 | planned | - | . | 60 |  |
-| B-01 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | planned | - | . | 60 |  |
-| B-02 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | planned | - | . | 60 |  |
-| B-03 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | planned | - | . | 60 |  |
-| B-04 | design#2.5.2 | unit | 路径解析函数 | TASK-003 | planned | - | . | 60 |  |
+| B-01 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | verified | uv run pytest -q tests/gateway/test_attachment_gate.py | . | 60 |  |
+| B-02 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | verified | uv run pytest -q tests/gateway/test_attachment_gate.py | . | 60 |  |
+| B-03 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | verified | uv run pytest -q tests/gateway/test_attachment_gate.py | . | 60 |  |
+| B-04 | design#2.5.2 | unit | 路径解析函数 | TASK-003 | verified | uv run pytest -q tests/gateway/test_attachment_gate.py | . | 60 |  |
 | B-05 | design#2.5.2 | integration | 契约序列化 | TASK-001 | verified | uv run pytest -q tests/test_attachment_contract.py | . | 60 |  |
 | B-06 | design#2.5.2 | integration | provider 组装 | TASK-005 | planned | - | . | 60 |  |
 | B-07 | design#2.5.2 | unit | 源码静态检查 | TASK-001 | verified | uv run pytest -q tests/test_attachment_contract.py | . | 60 |  |
@@ -154,7 +154,7 @@
 
 ## TASK-003: 附件门控（纯函数）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: `wecom-inbound-media.design.md#2.3.2 字段约束`, `#3.4 接口设计`
@@ -167,31 +167,51 @@
 
 ### Checklist
 
-- [ ] 实现门控纯函数：输入候选附件序列，输出 `GateDecision`（通过/拒绝 + 原因码）
-- [ ] P0 常量：单文件 20 MiB、单消息 5 个、类型白名单（图片 png/jpeg/gif/webp；文档 pdf/docx/txt/md/xlsx/pptx）
-- [ ] 路径安全：产物键由系统生成，原始文件名仅入元信息
-- [ ] [B-01][unit] 单文件大小 == 20 MiB → 接收（真实边界：门控纯函数）
-- [ ] [B-02][unit] 单文件大小 == 20 MiB + 1 B → 拒绝且原因码为"超大小上限"
-- [ ] [B-03][unit] 附件数 == 5 → 接收；== 6 → 拒绝
-- [ ] [B-04][unit] 文件名 `../../etc/passwd` 与空串 → 落盘路径不含用户输入，原文件名仅入元信息
-- [ ] 运行门控单测并填写 Acceptance Evidence
+- [x] 实现门控纯函数：输入候选附件序列，输出 `GateDecision`（通过/拒绝 + 原因码）
+- [x] P0 常量：单文件 20 MiB、单消息 5 个、类型白名单（图片 png/jpeg/gif/webp；文档 pdf/docx/txt/md/xlsx/pptx）
+- [x] 路径安全：产物键由系统生成，原始文件名仅入元信息
+- [x] [B-01][unit] 单文件大小 == 20 MiB → 接收（真实边界：门控纯函数）
+- [x] [B-02][unit] 单文件大小 == 20 MiB + 1 B → 拒绝且原因码为"超大小上限"
+- [x] [B-03][unit] 附件数 == 5 → 接收；== 6 → 拒绝
+- [x] [B-04][unit] 文件名 `../../etc/passwd` 与空串 → 落盘路径不含用户输入，原文件名仅入元信息
+- [x] 运行门控单测并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-01 | unit | 门控纯函数 | 恰好等于上限 → 接收 | planned | planned | planned |
-| B-02 | unit | 门控纯函数 | 超 1 字节 → 拒绝 + 原因码 | planned | planned | planned |
-| B-03 | unit | 门控纯函数 | 5 接收 / 6 拒绝 | planned | planned | planned |
-| B-04 | unit | 路径解析函数 | 路径不含用户输入 | planned | planned | planned |
+| B-01 | unit | 门控纯函数 | 恰好等于上限 → 接收 | `tests/gateway/test_attachment_gate.py::test_b01_size_exactly_at_limit_is_accepted` | uv run pytest -q tests/gateway/test_attachment_gate.py | verified |
+| B-02 | unit | 门控纯函数 | 超 1 字节 → 拒绝 + 原因码 | `tests/gateway/test_attachment_gate.py::test_b02_size_one_byte_over_limit_is_rejected` | uv run pytest -q tests/gateway/test_attachment_gate.py | verified |
+| B-03 | unit | 门控纯函数 | 5 接收 / 6 拒绝 | `tests/gateway/test_attachment_gate.py::test_b03_attachment_count_boundary` | uv run pytest -q tests/gateway/test_attachment_gate.py | verified |
+| B-04 | unit | 路径解析函数 | 路径不含用户输入 | `tests/gateway/test_attachment_gate.py::test_b04_storage_key_never_contains_user_input` | uv run pytest -q tests/gateway/test_attachment_gate.py | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-01 | FAIL: `ModuleNotFoundError: No module named 'muad_im_gateway.application.attachment_gate'` | PASS: `7 passed` | `tests/gateway/test_attachment_gate.py::test_b01_size_exactly_at_limit_is_accepted`（`size == 20 MiB` → `decision.ok` 且 `accepted == 1`） | 门控纯函数，无 IO、无 mock | verified |
+| B-02 | FAIL: 同上（模块导入期即失败） | PASS: `7 passed` | `::test_b02_size_one_byte_over_limit_is_rejected`（`20 MiB + 1` → 拒且 `code == ATTACHMENT_TOO_LARGE`） | 同上 | verified |
+| B-03 | FAIL: 同上 | PASS: `7 passed` | `::test_b03_attachment_count_boundary`（5 → 全收；6 → 前 5 收、第 6 拒且 `code == ATTACHMENT_COUNT_EXCEEDED`） | 同上 | verified |
+| B-04 | FAIL: 同上 | PASS: `7 passed` | `::test_b04_storage_key_never_contains_user_input`（文件名 `../../etc/passwd` 与空串下，产物键均不含其任何片段；原文件名仍作为元信息保留） | 路径解析为纯字符串拼接，无 IO | verified |
+
+**本次回归**：
+- `uv run pytest -q tests/console_channel tests/gateway` → **249 passed**（`harness-im#RULE-im-001` verifier；含本任务新增 7 条）
+- `uv run mypy apps packages` → **Success: no issues found in 262 source files**；`ruff` → **All checks passed**
+
+**补充覆盖（超出场景表，服务于清单项）**：`test_constants_match_the_designed_defaults`（常量与设计 §2.3.2 一致）、`test_type_whitelist_rejects_unknown_media_type`（白名单外拒绝，E-01 的判定来源）、`test_decision_is_pure_and_order_preserving`（纯函数 + 保序）。
+
+**留给后续的**：原因码目前是模块内的字符串常量，**尚未**写进 `config/api-messages.yaml` —— 目录词条与用户可见反馈是 TASK-004 的清单项（`harness-i18n#RULE-i18n-001`）。此处只把码定死，避免两处各写一份。
+- B-01: verified — automated command passed; run_id=6362dc61c2d2460bbb160a87a9b4a5dc (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=6362dc61c2d2460bbb160a87a9b4a5dc (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=6362dc61c2d2460bbb160a87a9b4a5dc (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=6362dc61c2d2460bbb160a87a9b4a5dc (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
 
 ---
-
+- [2026-10-02] started
+- [2026-10-02] completed (done)
 ## TASK-004: 附件落盘 + 接收反馈与审计
 
 - **Status**: draft
