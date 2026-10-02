@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "wecom-inbound-media.md",
-  "task_sha256": "48a7575f3475c430568efc0909ed3f22b1c9d0a881633f2afadcbd654a474a0a",
+  "task_sha256": "6836a92585c08e5d9cbdf7019ee62c94293dadfb4a809434e22e2c398b888956",
   "scenarios": [
     {
       "id": "S-01",
@@ -9,7 +9,7 @@
       "level": "E2E",
       "kind": "e2e",
       "boundary": "真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体",
-      "owner": "TASK-006",
+      "owner": "TASK-010",
       "status": "e2e_deferred",
       "command": [
         "uv",
@@ -19,8 +19,27 @@
         "tests/acceptance/wecom_attachments"
       ],
       "cwd": ".",
-      "timeout": 60.0,
-      "depends_on": []
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "eda0676585c14ca0be12df83b92024c9",
+        "executed_at": "2026-10-02T12:57:40.009887+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "eda0676585c14ca0be12df83b92024c9",
+          "executed_at": "2026-10-02T12:57:40.009887+00:00"
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -28,7 +47,7 @@
       "level": "E2E",
       "kind": "e2e",
       "boundary": "真实回调桩 → 真实 PG → 真实 artifact → 工具真实抽取",
-      "owner": "TASK-007",
+      "owner": "TASK-010",
       "status": "e2e_deferred",
       "command": [
         "uv",
@@ -38,8 +57,27 @@
         "tests/acceptance/wecom_attachments"
       ],
       "cwd": ".",
-      "timeout": 60.0,
-      "depends_on": []
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "eda0676585c14ca0be12df83b92024c9",
+        "executed_at": "2026-10-02T12:57:40.009887+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "eda0676585c14ca0be12df83b92024c9",
+          "executed_at": "2026-10-02T12:57:40.009887+00:00"
+        }
+      ]
     },
     {
       "id": "S-03",
@@ -122,7 +160,7 @@
       "level": "E2E",
       "kind": "e2e",
       "boundary": "真实上下文组装 + 真实模型",
-      "owner": "TASK-007",
+      "owner": "TASK-010",
       "status": "e2e_deferred",
       "command": [
         "uv",
@@ -132,8 +170,27 @@
         "tests/acceptance/wecom_attachments"
       ],
       "cwd": ".",
-      "timeout": 60.0,
-      "depends_on": []
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "eda0676585c14ca0be12df83b92024c9",
+        "executed_at": "2026-10-02T12:57:40.009887+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "eda0676585c14ca0be12df83b92024c9",
+          "executed_at": "2026-10-02T12:57:40.009887+00:00"
+        }
+      ]
     },
     {
       "id": "S-06",

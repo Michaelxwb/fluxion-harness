@@ -96,6 +96,27 @@ class ExecutorRunContext:
     delivery_route: DeliveryRouteInput | None = None
 
 
+def _with_current_turn(
+    history: tuple[ModelMessage, ...], current: ModelMessage
+) -> tuple[ModelMessage, ...]:
+    """把**当前轮**放进要发给模型的消息序列。
+
+    消息序列来自**会话事件回放**，而本轮的 `USER_MESSAGE` 在 Run 建立时就写进去了 ⇒ 历史末尾
+    已经是这一轮的用户消息，**不能直接追加**（同一句话会出现两次）。
+
+    - 当前消息**带内联内容**（图片内容块，设计 AD-3-B）时：替换末尾那条用户消息 —— 这正是
+      "图片直发模型"能否成立的关键一步；历史里那份只有文本引用，不经替换图像块永远发不出去。
+    - 当前消息是纯文本（含文档轮次）时：历史原样使用，行为与改造前逐字节一致（零回归面）。
+    """
+    if not history:
+        return (current,)
+    if isinstance(current.content, str):
+        return history
+    if history[-1].role == ModelRole.USER:
+        return (*history[:-1], current)
+    return (*history, current)
+
+
 @dataclass(frozen=True, slots=True)
 class ExecutorCredentials:
     """执行期内存凭据：MCP auth secret 不参与 repr/序列化。"""
@@ -255,16 +276,11 @@ class AgentRunnerExecutor:
 
     def _build_run_request(self) -> AgentRunRequest:
         params = dict(self._request.model.params)
-        messages = (
-            tuple(self._request.history)
-            if self._request.history
-            else (
-                ModelMessage(
-                    role=ModelRole.USER,
-                    content=self._request.input_content or self._request.input_text,
-                ),
-            )
+        current = ModelMessage(
+            role=ModelRole.USER,
+            content=self._request.input_content or self._request.input_text,
         )
+        messages = _with_current_turn(tuple(self._request.history), current)
         return AgentRunRequest(
             model_id=self._request.model.model_id,
             instructions=self._request.agent.instructions,

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -24,9 +25,48 @@ from fastapi.responses import JSONResponse
 app = FastAPI()
 
 DEFAULT_FINAL_TEXT = "pong"
+#: 入站附件的文本引用形如 `notes.txt（text/plain，12 字节，附件 ID 4f0c…）`
+ARTIFACT_ID_RE = re.compile(r"附件 ID ([0-9a-fA-F-]{36})")
+ARTIFACT_ID_PLACEHOLDER = "$last_artifact_id"
 DEFAULT_TOOL_ARGUMENTS = '{"query": "ping"}'
 RECORDED_LIMIT = 50
 _received: list[dict[str, Any]] = []
+#: 运行期脚本（`POST /script`）；空 = 用 env 默认
+_script: dict[str, Any] = {}
+
+
+def _message_text(message: dict[str, Any]) -> str:
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            str(part.get("text") or "") for part in content if isinstance(part, dict)
+        )
+    return ""
+
+
+def _last_user_index(messages: list[Any]) -> int:
+    """最后一条 user 消息的下标（没有则 0，即整份都算"本轮"）。"""
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if isinstance(message, dict) and message.get("role") == "user":
+            return index
+    return 0
+
+
+def _last_artifact_id(messages: list[Any]) -> str:
+    """从模型实际收到的上下文里取**最近一条**附件引用里的 ID（与真实模型看到的是同一份文本）。
+
+    倒着找是必须的：历史轮次的附件也带 ID，正着找会拿到上一轮那个，工具于是读错文件。
+    """
+    for message in reversed(messages):
+        if not isinstance(message, dict):
+            continue
+        match = ARTIFACT_ID_RE.search(_message_text(message))
+        if match:
+            return match.group(1)
+    return ""
 
 
 @app.get("/healthz")
@@ -37,6 +77,22 @@ async def healthz() -> dict[str, str]:
 @app.get("/requests")
 async def received_requests() -> dict[str, list[dict[str, Any]]]:
     return {"requests": list(_received)}
+
+
+@app.get("/script")
+async def get_script() -> dict[str, Any]:
+    return {"script": dict(_script)}
+
+
+@app.post("/script")
+async def set_script(request: Request) -> dict[str, Any]:
+    """设定后续请求的模型行为；传 `{}` 即清除（回到 env 默认）。"""
+    payload = await request.json()
+    _script.clear()
+    if isinstance(payload, dict):
+        allowed = ("tool_name", "tool_arguments", "final_text")
+        _script.update({key: payload[key] for key in allowed if key in payload})
+    return {"script": dict(_script)}
 
 
 @app.get("/v1/models")
@@ -62,11 +118,19 @@ async def chat_completions(request: Request):
     _received.append(body)
     del _received[:-RECORDED_LIMIT]
     messages = body.get("messages") or []
-    tool_name = os.environ.get("OPENAI_PROBE_TOOL_NAME", "")
-    tool_arguments = os.environ.get("OPENAI_PROBE_TOOL_ARGUMENTS", DEFAULT_TOOL_ARGUMENTS)
+    tool_name = str(_script.get("tool_name") or os.environ.get("OPENAI_PROBE_TOOL_NAME", ""))
+    tool_arguments = str(
+        _script.get("tool_arguments") or os.environ.get("OPENAI_PROBE_TOOL_ARGUMENTS", DEFAULT_TOOL_ARGUMENTS)
+    )
+    if ARTIFACT_ID_PLACEHOLDER in tool_arguments:
+        tool_arguments = tool_arguments.replace(ARTIFACT_ID_PLACEHOLDER, _last_artifact_id(messages))
     if tool_name:
+        # 「**本轮**是否已拿到工具结果」——只看最后一条 user 消息之后的那些消息。
+        # 不能看整份 messages：历史轮次里的 tool 消息会让探针以为本轮已经调过工具，于是
+        # 直接给 final_text，脚本里的工具永远不被调用（实测：同一会话先跑过别的工具回合时必现）。
         has_tool_result = any(
-            isinstance(message, dict) and message.get("role") == "tool" for message in messages
+            isinstance(message, dict) and message.get("role") == "tool"
+            for message in messages[_last_user_index(messages) :]
         )
         if not has_tool_result:
             return {
@@ -90,7 +154,9 @@ async def chat_completions(request: Request):
                     }
                 ]
             }
-    final_text = os.environ.get("OPENAI_PROBE_FINAL_TEXT", DEFAULT_FINAL_TEXT)
+    final_text = str(
+        _script.get("final_text") or os.environ.get("OPENAI_PROBE_FINAL_TEXT", DEFAULT_FINAL_TEXT)
+    )
     return {
         "choices": [
             {

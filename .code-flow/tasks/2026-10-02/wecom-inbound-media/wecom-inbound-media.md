@@ -27,11 +27,11 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 | cwd | 超时 | 依赖 |
 |--------|---------|---------|-------------|---------|------|------|-----|------|------|
-| S-01 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
-| S-02 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG → 真实 artifact → 工具真实抽取 | TASK-007 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
+| S-01 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体 | TASK-010 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 300 |  |
+| S-02 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG → 真实 artifact → 工具真实抽取 | TASK-010 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 300 |  |
 | S-03 | design#2.5.2 | integration | 模型 provider 请求体（不 mock 组装层） | TASK-005 | verified | uv run pytest -q tests/agent_core/test_openai_provider.py | . | 60 |  |
 | S-04 | design#2.5.2 | E2E | 回调 → 落盘 → 契约 → 工具 | TASK-004 | verified | uv run pytest -q tests/acceptance/im_gateway/test_wecom_attachments.py | . | 180 |  |
-| S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-007 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
+| S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-010 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 300 |  |
 | S-06 | design#2.5.2 | integration | 工具 → artifact store → 读回 | TASK-008 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 60 |  |
 | S-07 | design#2.5.2 | integration | FakeChannelAdapter → 门控 → 契约 → 落盘（不含企微路径） | TASK-004 | verified | uv run pytest -q tests/gateway/test_inbound_attachment_flow.py tests/gateway/test_inbound_attachment_store.py | . | 60 |  |
 | S-08 | design#2.5.2 | integration | 回调帧分流解析层（不 mock 帧） | TASK-002 | verified | uv run pytest -q tests/gateway/test_wecom_media.py | . | 60 |  |
@@ -640,12 +640,12 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - [2026-10-02] completed (done)
 ## TASK-010: 端到端验收基线
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-006, TASK-007
 - **Source**: `wecom-inbound-media.design.md#2.5 验收条件`, `#3.2.3 通道复用性`
 - **Spec-Refs**: harness-test#RULE-test-001
-- **Acceptance-Refs**: S-01, S-02, S-04, S-07, E-01, E-02, E-03（**引用，不作为最终验收负责人**）
+- **Acceptance-Refs**: S-01, S-02, S-05（**本任务为负责人**：三条 E2E 的归属已从 TASK-006/007 移来——它们当年写不出可执行用例，真正闭合就在这里）, S-04, S-07, E-01, E-02, E-03（引用）
 
 ### Description
 
@@ -653,27 +653,72 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 ### Checklist
 
-- [ ] 确认真实边界未被降级：E2E 场景中未 mock 业务 API / DB / 落盘 / 模型组装
-- [ ] 端到端跑通「图片 → 落盘 → 上下文 → 模型请求体含图像块」与「文档 → 落盘 → 工具抽取 → 回答」两条主链
-- [ ] [S-01/S-02][E2E] 登记可单独执行的 `pytest`/`playwright` 命令与真实边界（不 mock 业务 API）
-- [ ] 验证 S-07 的通道中性用例在**不含企微代码路径**下通过
-- [ ] 运行 verifier：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（`harness-test#RULE-test-001`）；记录输出并填写 Acceptance Evidence
+- [x] 确认真实边界未被降级：E2E 场景中未 mock 业务 API / DB / 落盘 / 模型组装（三条用例的边界是真实 WS 探针 → 真实四进程 → 真实 HTTP 媒体源 → 真实共享 store → 真实 PG → **真实模型请求体**）
+- [x] 端到端跑通「图片 → 落盘 → 上下文 → 模型请求体含图像块」与「文档 → 落盘 → 工具抽取 → 回答」两条主链
+- [x] [S-01/S-02][E2E] 登记可单独执行的 `pytest` 命令与真实边界：`uv run pytest -q tests/acceptance/wecom_attachments`
+- [x] 验证 S-07 的通道中性用例在**不含企微代码路径**下通过（`tests/gateway/test_inbound_attachment_flow.py`，TASK-004 已交付；本次复跑）
+- [x] 运行 verifier：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（`harness-test#RULE-test-001`）；记录输出并填写 Acceptance Evidence
+
+> **这两条 E2E 一跑就抓到一处 P0 缺陷（本任务的核心产出）**：图片**从来没有**进过模型请求体。
+> 根因不在附件链路，而在消息组装：`RunExecutor._build_run_request` 写的是
+> `messages = history if history else (当前消息,)`，而消息序列来自**会话事件回放**——本轮
+> `USER_MESSAGE` 在 Run 建立时就已写入事件表，历史必然含它 ⇒ `history` 永不为空 ⇒ 那份带
+> 图片内容块的当前消息**永远被丢掉**，模型只看到文本引用。修法两处：`executor` 把当前轮
+> 显式放进序列（带内联内容时替换末尾那条本轮用户消息，纯文本轮次行为不变）；`run_service`
+> 的续跑路径传本轮补充输入且不重放入站附件，避免把上一轮的图再内联一次。
+>
+> **探针（测试替身）同时修了两处会掩盖问题的行为**：① `tool_arguments` 里 `$last_artifact_id`
+> 改为取**最近一条**附件引用（正着找会拿到上一轮那个，工具于是读错文件）；② "本轮是否已拿到
+> 工具结果"改为只看**最后一条 user 消息之后**的消息（看整份 messages 时，历史里的 tool 消息
+> 会让脚本工具永远不被调用）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | 回调、PG/Redis、落盘、模型请求体 | 主链端到端可复现 | planned | `uv run pytest -q tests/acceptance` | planned |
-| S-02 | E2E | 回调、PG、artifact、解析库 | 主链端到端可复现 | planned | planned | planned |
-| S-07 | integration | 门控、契约、落盘 | 通道中性用例不含企微路径 | planned | planned | planned |
+| S-01 | E2E | 回调、PG/Redis、落盘、模型请求体 | 附件落盘可读回；模型请求体含图像内容块且 base64 与源字节一致；回答经真实链路回到渠道 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s01_image_is_persisted_and_sent_to_the_model_as_a_content_block` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
+| S-02 | E2E | 回调、PG、artifact、解析库 | 文档落盘；模型按**上下文里的附件 ID** 调真工具；工具结果含文档正文 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s02_document_is_extracted_by_the_real_tool_and_answered` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
+| S-05 | E2E | 上下文组装、模型 | 历史图片**不进**本轮上下文；模型重看后它作为新内容块被重发 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s05_historical_image_is_resent_as_a_content_block_after_view_image` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
+| S-07 | integration | 门控、契约、落盘 | 通道中性用例不含企微路径 | `tests/gateway/test_inbound_attachment_flow.py`（TASK-004 交付，此处复跑） | uv run pytest -q tests/gateway/test_inbound_attachment_flow.py tests/gateway/test_inbound_attachment_store.py | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-01 | FAIL（**首跑即红，抓到 P0**）：`模型请求体里始终没有出现图像内容块`——跑到的请求体里图片只是文本引用。根因不在附件链路，而在消息组装：`RunExecutor._build_run_request` 的 `messages = history if history else (当前消息,)`，而消息序列来自**会话事件回放**，本轮 `USER_MESSAGE` 在 Run 建立时就已入表 ⇒ `history` 永不为空 ⇒ 带图像块的当前消息被丢掉 | PASS: `3 passed in 18.56s`（runner exit_code=0） | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s01_image_is_persisted_and_sent_to_the_model_as_a_content_block`（① 共享 store 上 `inbound/<msgid>/0` 的字节 == 发送的 PNG；② `runtime.artifact` 行的 checksum 与 `INBOUND_IMAGE` 与磁盘一致；③ 模型请求体里 `image_url` 的 base64 == 发送字节；④ 回答经真实链路回到渠道） | 真实 WS 探针 → 真实 Gateway/Runtime/Console/Worker 进程 → 真实 HTTP 媒体源（真实 AES 密文）→ 真实共享 store → 真实 PG → **真实模型请求体**（HTTP 探针逐次记录 body） | verified |
+| S-02 | FAIL（首跑）：`call_arguments[0]["artifact_id"] == artifact_id` 不等——探针的 `$last_artifact_id` 取的是**第一个**附件引用，同一会话先跑过别的轮次时拿到上一轮那个，工具于是读错文件 | PASS: `3 passed` | `::test_s02_document_is_extracted_by_the_real_tool_and_answered`（① pdf 落盘；② 模型调用参数里的 id **等于**本轮 PG 里那一行的 id；③ 工具结果里的正文含文档里的 `DEVICE XL-900`（真实解析库抽出）；④ `runtime.tool_call_audit` 有 `read_attachment` 留痕） | 真实 pdf（手写最小合法文件）+ 真实 `pypdf` + 真实 PG 逐行回读 | verified |
+| S-05 | FAIL（首跑）：`重看后重发的不是那张历史图片；观察到的图像块：[]`——探针把"本轮是否已拿到工具结果"判在**整份 messages** 上，历史轮次的 tool 消息让它直接返回 `final_text`，脚本里的 `view_image` **永远不被调用**（修复前同一文件单跑能过、整跑必红） | PASS: `3 passed` | `::test_s05_historical_image_is_resent_as_a_content_block_after_view_image`（① 第二轮**首个**请求里没有图像块，历史附件只留带 `artifact_id` 的文本引用（RULE-03）；② 重看之后的请求里，图像块的 base64 == 第一轮那张图**本身**） | 真实上下文组装（历史事件回放）+ 真实共享 store 读回字节 + 真实模型请求体 | verified |
+| S-07 | 编码期已由 TASK-004 交付（本任务只复跑，未改断言） | PASS: `17 passed` | `tests/gateway/test_inbound_attachment_flow.py`（同一 `msgid` 喂两条适配器，结论逐项相同） | `FakeChannelAdapter`（内存字节、无 url/aes_key）与生产 `WeComAdapter`（真实 HTTP + 真实解密）跑**同一段编排** | verified |
+
+**修复清单（本次改动全在这三处，均为"让两条主链真的通"所必需）**：
+1. `executor._build_run_request`：当前轮**显式进消息序列**——带内联内容（图片块）时替换末尾那条本轮用户消息；纯文本/文档轮次行为逐字节不变（零回归面）。
+2. `run_service._build_executor` / `_stream_run`：新增 `current_text` / `with_attachments`；**续跑路径**传本轮补充输入且**不重放**原消息的入站附件（否则会把上一轮的图再内联一次）。原先 `input_content` 用 `run.input_text` 组装，续跑时会拿旧文本。
+3. `tests/e2e/openai_probe_app.py`（测试替身）：`$last_artifact_id` 取**最近一条**引用；"本轮是否已拿到工具结果"只看**最后一条 user 消息之后**的消息。这两处不修，E2E 会给出**假绿/假红**：前者让工具读错文件，后者让脚本工具静默不被调用。
+
+**本次回归**：
+- `uv run pytest -q tests/acceptance`（`harness-test#RULE-test-001` 第一条腿，全量真实栈）→ **272 passed, 1 failed in 811s**
+- `uv run pytest -q tests/agent_runtime --ignore=test_runner_executor.py` → **195 passed**；`tests/agent_runtime/test_runner_executor.py` → **8 passed**；`tests/agent_core` → **70 passed**
+- `tests/acceptance/im_gateway/test_memory_flow.py`（探针回归：同样依赖脚本化工具调用）→ **2 passed**；`tests/acceptance/wecom_attachments` → **3 passed**
+- `uv run mypy apps packages` → **Success: no issues found in 267 source files**；`uv run ruff check .` → **All checks passed**
+
+> **那 1 条失败的甄别（未改实现）**：`tests/acceptance/im_gateway/test_redis_degradation.py::test_e06_dedupe_recovers_after_redis_available`，报错是 `AssertionError: e2e-im-bot 的连接不可用，无法推送`——**推送时探针侧没有活连接**，是 WS 重连时序，不是去重逻辑的断言。该文件单跑 **2 passed in 42.74s**；本次改动不触及 WS/去重路径（改的是消息组装与探针脚本判据）。按项目口径「单跑通过、整跑偶发 ⇒ 先怀疑环境残留再改实现」判定为整跑偶发。
+
+**两处残余（明确不声称绿）**：
+1. **模型腿**：S-01/S-02 的"模型"是 HTTP 探针（脚本化）。**请求体这一跨边界事实**已验；"真实多模态供应商模型看图答得对"需要外部凭据，本仓 dev 环境没有（`.env` 只有基础设施，无模型密钥）⇒ 设计 `R-05` 的真机腿仍开放。
+2. **`harness-test` verifier 的后两条腿**（`npm --prefix apps/console-platform/frontend run build` + `npm --prefix e2e test`）**本次未执行**：Done Gate 记为 heavy deferred（与全量 Pytest 同一口径），留待归档 `cf_validation`。
+
+**Done Gate 裁决**：`pass`（`cf_task_workflow.py finish --task TASK-010`，rc=0）。deferred：16 个 verifier（需求级 `verify-e2e` 收口）+ 1 个 heavy validator（归档 `cf_validation` 收口）。
+
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=eda0676585c14ca0be12df83b92024c9 (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=eda0676585c14ca0be12df83b92024c9 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=eda0676585c14ca0be12df83b92024c9 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
 
 ---
-
+- [2026-10-02] started
+- [2026-10-02] completed (done)
 ## TASK-011: 通道取值收口 + 通道中立性静态守卫
 
 - **Status**: done

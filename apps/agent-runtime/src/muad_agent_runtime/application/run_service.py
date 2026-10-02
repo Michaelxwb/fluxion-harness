@@ -748,6 +748,8 @@ class RunService:
                 history=history,
                 submission_id=submission.id,
                 resumed=True,
+                current_text=input_text,
+                with_attachments=False,
             ),
         )
 
@@ -906,16 +908,23 @@ class RunService:
         mcp_servers: Sequence[ResolvedMcpServer],
         mcp_secrets: dict[str, str],
         history: Sequence[ModelMessage],
+        *,
+        current_text: str | None = None,
+        with_attachments: bool = True,
     ) -> RunExecutor:
+        text = run.input_text if current_text is None else current_text
+        # 续跑（WAITING_INPUT 的补充输入）**不重放**原消息的入站附件：那一轮的字节已经进过
+        # 上下文，重放会把旧图再内联一次，而用户这一轮说的通常是别的事。
+        attachments = await self._load_inbound_attachments(run) if with_attachments else ()
         return await self._executor_factory(
             ExecutorRequest(
                 agent=agent,
                 model=model,
-                input_text=run.input_text,
+                input_text=text,
                 # 无附件时 build_current_content 原样返回文本，故无需额外判空分支
                 input_content=build_current_content(
-                    run.input_text,
-                    attachments=await self._load_inbound_attachments(run),
+                    text,
+                    attachments=attachments,
                     read_bytes=self._read_artifact_bytes,
                 ),
                 is_cancel_requested=lambda: self._is_cancel_requested(run.id),
@@ -945,6 +954,8 @@ class RunService:
         history: Sequence[ModelMessage],
         submission_id: uuid.UUID,
         resumed: bool,
+        current_text: str | None = None,
+        with_attachments: bool = True,
     ) -> AsyncIterator[ExecutorEvent]:
         yield await self._persist_event(
             run,
@@ -961,7 +972,15 @@ class RunService:
         failure: Exception | None = None
         try:
             executor = await self._build_executor(
-                run, agent, model, skills, mcp_servers, mcp_secrets, history
+                run,
+                agent,
+                model,
+                skills,
+                mcp_servers,
+                mcp_secrets,
+                history,
+                current_text=current_text,
+                with_attachments=with_attachments,
             )
             async for event in executor.run():
                 if event.type == "message.delta":
