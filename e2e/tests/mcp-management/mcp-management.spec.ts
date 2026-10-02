@@ -177,6 +177,11 @@ test('S-06 工具明细展示名称与操作类型，无 Tool 级启停/授权',
     await expect(toolDetail).not.toContainText('启停');
     await toolDetail.locator('.semi-sidesheet-close').click();
 
+    // 关闭内层不得连带卸载整个 Console。曾在此崩：内层 DetailSideSheet 关闭时 children 变 null，
+    // Semi `Tabs.getPanes()` 对 null children 返回 null → `TabBar.renderTabComponents` 直接
+    // list.map(...) 抛 TypeError → React 卸载整棵树（只点外层 X、只按 Esc 都不触发，唯一出口必崩）。
+    await expect(page.getByTestId('mcp-tool-probe_tool_0')).toBeVisible();
+
     // probe_tool_1 带 readOnlyHint
     await page.getByTestId('mcp-tool-probe_tool_1').click();
     await expect(toolDetail).toContainText('只读');
