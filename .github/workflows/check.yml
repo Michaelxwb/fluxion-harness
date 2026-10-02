@@ -138,9 +138,17 @@ jobs:
             else
               echo "FAIL ${domain}"
               failed="${failed} ${domain}"
-              # 把**首条错误**带进 annotation：annotation 匿名可读，而 job 日志需要认证。
-              # 2026-10-02 首跑只报「哪些域失败」不报原因，等于没法诊断 —— 这次补上。
-              reason="$(grep -m1 -E "Error:|error:|Timeout|FAILED|failed|EADDRINUSE|refused" "$log" | cut -c1-220 || true)"
+              # 把**失败的那一条**带进 annotation：annotation 匿名可读，而 job 日志需要认证。
+              # 分两轮取，顺序重要 ——
+              #   ① `✘`（list reporter 的失败标记）或 ` 12) `（失败块编号）：这才是**失败项**本身；
+              #   ② 退回到 `Error:` 一类：启动阶段就死时没有 ①（Playwright 还没跑到用例），
+              #      此时 WebServer 的报错才是真因。
+              # 教训：早先只用一条宽泛的 grep（含 `FAILED`），会匹配到**通过**用例的名字
+              # （如「E-FE-03 超时 Task 显示 FAILED …」），于是 annotation 报出一个假原因。
+              reason="$(grep -m1 -E '✘|^[[:space:]]*[0-9]+\) ' "$log" || true)"
+              if [ -z "${reason}" ]; then
+                reason="$(grep -m1 -E 'Error:|Timed out|EADDRINUSE|ECONNREFUSED|refused|StartupValidationError' "$log" || true)"
+              fi
               echo "::error::${domain}: ${reason:-（未匹配到错误行，见 artifact e2e-domain-logs）}"
               tail -c 2000 "$log"
             fi
