@@ -28,7 +28,9 @@ from sqlalchemy import select
 from .conftest import TenantContext
 
 
-def _ref(kind: str = "IMAGE", media_type: str = "image/png", filename: str | None = "截图.png") -> AttachmentRef:
+def _ref(
+    kind: str = "IMAGE", media_type: str = "image/png", filename: str | None = "截图.png"
+) -> AttachmentRef:
     return AttachmentRef(
         storage_key=f"inbound/{uuid.uuid4().hex}/0",
         kind=kind,  # type: ignore[arg-type]
