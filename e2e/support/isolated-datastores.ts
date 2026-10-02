@@ -14,6 +14,9 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO = fileURLToPath(new URL('../..', import.meta.url));
@@ -79,6 +82,16 @@ export function useIsolatedDatastores(): void {
   // 服务与 seed 都读 DATABASE_URL / REDIS_URL（SharedSettings），必须一并覆盖。
   process.env.DATABASE_URL = info.database_url;
   process.env.REDIS_URL = info.redis_url;
+  // 产物根同样**每轮独立且钉在系统临时目录**（spec 明文：不写仓库 `.data/artifacts`）。
+  // 缺了它，Console 的启动校验会以
+  //   `artifact storage is not mounted: <repo>/.data/artifacts`
+  // 直接失败、webServer 永远 not ready —— 本地开发机上那个目录早就在（gitignore 的），
+  // CI 干净检出没有。2026-10-02 的 e2e job 首跑就栽在这：13 个域里凡是「起了 Console 又没
+  // 自己设 ARTIFACT_ROOT」的 7 个全红（audit-observability / console-auth /
+  // overview-dashboard 三个自己设了 tmpdir 的域则全绿）。
+  const artifactRoot = path.join(os.tmpdir(), `muad-e2e-${info.name}`, 'artifacts');
+  mkdirSync(artifactRoot, { recursive: true });
+  process.env.ARTIFACT_ROOT = artifactRoot;
   process.env.E2E_ADMIN_USER = ADMIN_USER;
   process.env.E2E_ADMIN_PASSWORD = ADMIN_PASSWORD;
 
