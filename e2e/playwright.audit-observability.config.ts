@@ -53,6 +53,7 @@ export default defineConfig({
     baseURL: PREVIEW_URL,
     channel: 'chrome',
     locale: 'zh-CN',
+    timezoneId: 'Asia/Shanghai',
     trace: 'retain-on-failure'
   },
   webServer: [

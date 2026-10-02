@@ -21,6 +21,7 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${CONSOLE_PORT}`,
     channel: 'chrome',
     locale: 'zh-CN',
+    timezoneId: 'Asia/Shanghai',
     trace: 'retain-on-failure'
   },
   webServer: [

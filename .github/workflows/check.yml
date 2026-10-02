@@ -138,6 +138,10 @@ jobs:
             else
               echo "FAIL ${domain}"
               failed="${failed} ${domain}"
+              # trace / error-context 只在失败时保留（`trace: retain-on-failure`），但 Playwright
+              # 每跑一次都会清空 outputDir（默认 `e2e/test-results`）⇒ 当场按域搬走，否则 13 个域
+              # 顺序跑完只剩**最后一个**域的，偶发失败（如 task-cancel 的 detach）事后无从复盘。
+              cp -r e2e/test-results "/tmp/e2e-logs/${domain}-test-results" 2>/dev/null || true
               # 把**失败的那一条**带进 annotation：annotation 匿名可读，而 job 日志需要认证。
               # 分两轮取，顺序重要 ——
               #   ① `✘`（list reporter 的失败标记）或 ` 12) `（失败块编号）：这才是**失败项**本身；
@@ -170,10 +174,15 @@ jobs:
 
   # 四个部署单元各一个镜像（与 deploy/k8s/base 的四份 Deployment 一一对应）。
   # PR 上只验证「能构建」；**只有 main 的 push 才发布到 ghcr.io**（避免 PR 污染 registry）。
-  # 命名沿用仓库既有口径 `muad-<unit>` —— 与 deploy/k8s/base/*.yaml 的 image 字段、
-  # 以及本 job 的本地 tag `muad-<unit>:ci` 一致。早期 ghcr 上那套
-  # fluxion-api / fluxion-runtime / fluxion-worker / fluxion 是 2026-09-07 的一次手动推送
-  # （tag 为当天的 sha `f7cf691`），命名与仓库单元对不上，**不再沿用**。
+  # 镜像名沿用仓库既有口径 `muad-<unit>`；deploy/k8s/base/*.yaml 的 image 字段引用的是同一
+  # 名字的 **ghcr 全名**（`ghcr.io/michaelxwb/muad-<unit>:latest`）——两边都不得写裸名。
+  # 早期 ghcr 上那套 fluxion-api / fluxion-runtime / fluxion-worker / fluxion 是
+  # 2026-09-07 的一次手动推送（tag 为当天的 sha `f7cf691`），命名与仓库单元对不上，**不再沿用**。
+  #
+  # tags 里**不得**出现无 registry 前缀的裸名：`muad-<unit>:ci` 会被解析成
+  # `docker.io/library/muad-<unit>`，而 `push: true` 时 buildx 推**全部** tag ⇒ 拿 ghcr 的
+  # token 去推 Docker Hub，以 `401 ... access token has insufficient scopes` 整条失败
+  # （2026-10-02 首轮真实推送实测）。裸名也没有消费者：本 job 无 `load:`，镜像不进本地 daemon。
   images:
     runs-on: ubuntu-latest
     permissions:
@@ -226,7 +235,6 @@ jobs:
           platforms: ${{ steps.targets.outputs.platforms }}
           push: ${{ steps.targets.outputs.push }}
           tags: |
-            muad-${{ matrix.unit }}:ci
             ${{ steps.img.outputs.prefix }}/muad-${{ matrix.unit }}:latest
             ${{ steps.img.outputs.prefix }}/muad-${{ matrix.unit }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.unit }}

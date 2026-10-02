@@ -6,7 +6,7 @@ export default defineConfig({
   fullyParallel: true,
   workers: 2,
   timeout: 30_000,
-  use: { baseURL: 'http://127.0.0.1:4186', channel: 'chrome' },
+  use: { baseURL: 'http://127.0.0.1:4186', channel: 'chrome', timezoneId: 'Asia/Shanghai' },
   webServer: {
     command: 'npm run preview -- --host 127.0.0.1 --port 4186 --strictPort',
     cwd: '../apps/console-platform/frontend',

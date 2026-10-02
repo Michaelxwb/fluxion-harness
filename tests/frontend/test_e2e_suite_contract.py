@@ -3,7 +3,7 @@
 **为什么需要**：e2e 的断言与前端实现之间没有任何静态联系。实现改了（重命名 testid、把详情
 壳从 `Modal` 换成 `SideSheet`、把写死的英文标签本地化）断言**不会自动红**，只在跑该域时才
 暴露，且没有任何聚合信号 —— 2026-10-02 一轮里就手查出 4 处这类漂移 + 1 处产品崩溃，全部
-靠人眼。本文件把其中**可静态判定**的两类钉死：
+靠人眼。本文件把其中**可静态判定**的三类钉死：
 
 1. `getByTestId('X')` 引用的 testid 必须在前端源码里定义 —— 直接写 `data-testid="X"`，或经
    共享组件（`KpiLink` / `EntityLink` / `SideSheet` 等）以 `testId="X"` prop 传入。源码中的
@@ -13,6 +13,8 @@
    同时起真实 Console 的域还必须注入 `MUAD_API_TARGET` 把前端流量钉到本域实例
    （口径见 `.code-flow/specs/test/harness-test.md`）。第三个用例守住它的前置条件 ——
    `preview` 服务的是 `dist/`，Makefile 必须先 build。
+3. 域配置必须钉死浏览器时区（`use.timezoneId`）—— 展示值按浏览器本地时区渲染，不钉就出现
+   「同一份断言本地绿、CI 红」（CI runner 是 UTC，开发机是 UTC+8）。
 
 **不在此覆盖**：断言里的文案与容器类漂移（`.semi-modal` → `.semi-sidesheet`、`revision` →
 「修订版本」）。它们依赖真实渲染（且 `.semi-*` 是库类，不在本仓源码内），静态不可判，只能
@@ -88,6 +90,27 @@ def test_domain_configs_serve_built_frontend() -> None:
             )
     assert not offenders, (
         "以下域配置违反 harness-test.md 的前端服务口径：\n  " + "\n  ".join(offenders)
+    )
+
+
+def test_domain_configs_pin_browser_timezone() -> None:
+    """域配置必须钉死浏览器时区 —— 绝对时间的断言值是按**浏览器**时区渲染出来的。
+
+    `DateTimeText` 用 `getFullYear()`/`getHours()` 逐段拼装（口径见 harness-time.md 的
+    「前端把 UTC ISO8601 转本地时区渲染」）⇒ 展示值取决于浏览器时区。不钉时区时开发机
+    （UTC+8）渲染 `09:00:00`、CI runner（UTC）渲染 `01:00:00`，同一份断言**本地绿、CI 红**，
+    且失败信息只报「找不到该文本」，看不出是时区问题（2026-10-02 task-schedule 的
+    B-135/B-136 实测：种子 `2026-12-31T01:00:00+00:00`，断言 `2026-12-31 09:00:00`）。
+    """
+    assert E2E_CONFIGS, "未发现任何域配置：glob 规则可能已与目录结构脱节"
+    offenders = [
+        config.name
+        for config in E2E_CONFIGS
+        if "timezoneId" not in config.read_text(encoding="utf-8")
+    ]
+    assert not offenders, (
+        "以下域配置未钉浏览器时区（`use.timezoneId`）：断言里的绝对时间会随机器时区漂移，"
+        "本地绿而 CI 红：\n  " + "\n  ".join(offenders)
     )
 
 

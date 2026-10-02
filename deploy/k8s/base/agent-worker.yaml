@@ -21,7 +21,9 @@ spec:
         fsGroup: 10001
       containers:
         - name: app
-          image: muad-agent-worker:latest
+          # 必须带 ghcr 前缀：裸名会被当 Docker Hub 的 docker.io/library/… 去拉，
+          # 而 `:latest` 默认 imagePullPolicy=Always ⇒ ImagePullBackOff。
+          image: ghcr.io/michaelxwb/muad-agent-worker:latest
           ports:
             - containerPort: 8002
           envFrom:
