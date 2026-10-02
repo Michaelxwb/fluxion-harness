@@ -120,6 +120,32 @@ def _today() -> str:
     return date.today().isoformat()
 
 
+def _log_list_end(section: str, heading: re.Match[str]) -> int:
+    """Offset just past the last entry of the `### Log` list, or past its heading."""
+    body = section[heading.end():]
+    boundary = re.search(r"(?m)^#{2,3} |^---[ \t]*$", body)
+    end = heading.end() + (boundary.start() if boundary is not None else len(body))
+    entries = list(re.finditer(r"(?m)^- .*$", section[heading.end():end]))
+    return heading.end() + entries[-1].end() if entries else heading.end()
+
+
+def _append_log_entry(section: str, log_line: str) -> str:
+    """Append a lifecycle entry inside the `### Log` list.
+
+    The section ends with the `---` separator that delimits tasks, so appending to
+    the section itself drops the entry outside the log list and swallows the blank
+    line before the next `## TASK-`.
+    """
+    heading = re.search(r"(?m)^### Log[ \t]*$", section)
+    if heading is not None:
+        at = _log_list_end(section, heading)
+        return section[:at] + f"\n{log_line}" + section[at:]
+    separator = re.search(r"(?m)^---[ \t]*$", section)
+    at = separator.start() if separator is not None else len(section)
+    head, tail = section[:at].rstrip(), section[at:].lstrip("\n")
+    return f"{head}\n\n### Log\n{log_line}\n" + (f"\n{tail}" if tail else "")
+
+
 def _set_status(section: str, status: str, log_line: str = "") -> str:
     if re.search(r"(?m)^- \*\*Status\*\*:", section):
         section = re.sub(r"(?m)^- \*\*Status\*\*:.*$", f"- **Status**: {status}", section, count=1)
@@ -128,7 +154,7 @@ def _set_status(section: str, status: str, log_line: str = "") -> str:
         insert_at = anchor.end() if anchor else 0
         section = section[:insert_at] + f"\n- **Status**: {status}" + section[insert_at:]
     if log_line and log_line not in section.splitlines():
-        section = section.rstrip() + ("\n" if "### Log" in section else "\n\n### Log\n") + log_line + "\n"
+        section = _append_log_entry(section, log_line)
     return section
 
 
