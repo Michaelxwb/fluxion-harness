@@ -171,6 +171,11 @@ def start_gateway_stack(
         AGENT_RUNTIME_URL=runtime_url,
         IM_GATEWAY_URL=gateway_url,
         DELIVERY_POLL_INTERVAL_SEC="1",
+        # 投递退避窗口 = base × 2**attempts（生产默认 5）。本栈**没有任何用例断言窗口值**
+        # （`test_b127` 只断言「耗尽后 FAILED 且任务不被吞掉」），所以可以压到 int 下限：
+        # 原值下 attempt=4 的窗口是 5×16 = 80s，正是那条用例 81s 的全部来源；压到 1 → 16s，
+        # 仍是投递轮询粒度（1s）的 16 倍，退避路径照样被真实走过。
+        DELIVERY_BACKOFF_BASE_SEC="1",
     )
     gateway = spawn(
         "gateway",
