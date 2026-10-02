@@ -125,17 +125,24 @@ jobs:
         run: |
           set -u
           failed=""
+          mkdir -p /tmp/e2e-logs
           for domain in \
             agent audit-observability console-auth form-layout list-actions mcp \
             model-management overview-dashboard platform sidebar skill \
             task-schedule user-identity
           do
             echo "::group::e2e ${domain}"
-            if make acceptance-e2e DOMAIN="${domain}"; then
+            log="/tmp/e2e-logs/${domain}.log"
+            if make acceptance-e2e DOMAIN="${domain}" >"$log" 2>&1; then
               echo "PASS ${domain}"
             else
               echo "FAIL ${domain}"
               failed="${failed} ${domain}"
+              # 把**首条错误**带进 annotation：annotation 匿名可读，而 job 日志需要认证。
+              # 2026-10-02 首跑只报「哪些域失败」不报原因，等于没法诊断 —— 这次补上。
+              reason="$(grep -m1 -E "Error:|error:|Timeout|FAILED|failed|EADDRINUSE|refused" "$log" | cut -c1-220 || true)"
+              echo "::error::${domain}: ${reason:-（未匹配到错误行，见 artifact e2e-domain-logs）}"
+              tail -c 2000 "$log"
             fi
             echo "::endgroup::"
           done
@@ -144,6 +151,14 @@ jobs:
             exit 1
           fi
           echo "全部 13 个域通过"
+      - name: 上传各域日志（无论成败）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-domain-logs
+          path: /tmp/e2e-logs
+          retention-days: 7
+          if-no-files-found: warn
 
   # 四个部署单元各一个镜像（与 deploy/k8s/base 的四份 Deployment 一一对应）。
   # 这里只验证「能构建」；镜像推送/打标（:latest / :vX.Y.Z）待 registry 确定后另加 job。
