@@ -12,7 +12,7 @@
 
 - **Scope**：四个包——读材料增强（FEAT-01..04）、入站回执（FEAT-05）、出站交付（FEAT-06..11、14）、产物生命周期（FEAT-12、13）；P0 先交付，P1 随批。
 - **Decisions**：
-  - **探针先行**（FEAT-06 是 P0 前置）：企微能否发文件/图片、上传流程（media_id vs URL）、发送 ack 与幂等——**外部协议事实**，猜错要重写整条链（与上期 R-01 同源）。
+  - **探针先行**（FEAT-06 是 P0 前置）：企微能否发文件/图片、上传流程（media_id vs URL）、发送 ack 与幂等——**外部协议事实**，猜错要重写整条链（与上期 R-01 同源）。**已于 2026-10-03 完成**：可直发，唯一通路 `media_id`（来自三步分片上传），走**直发分支**；事实表见设计 §3.6「真机探针结论」。
   - **写与交付分离**：`write_artifact` 只写（不再因缺交付路由而拒绝），新增 `append_artifact`（分段追加长文档）与**显式交付工具** `deliver_artifact`。依据是五条代码事实（设计 §3.6）：现有守卫把"写"与"可交付"耦合错了方向、中间产物会被误发、"写了但没发"的语义无法表达、幂等键必须在交付那一步可派生等。**否决** `write_artifact(deliver=true)` 参数式合并。
   - **会话内交付走同步调用**（**2026-10-03 修订**）：runtime **同步 POST 网关既有 `/internal/deliveries`**，拿到真实交付结论；**否决**原稿的"发 SSE 事件 + 网关异步消费"。理由：网关是 SSE 的**纯消费方**（runtime 只有 `/runs`、`/resume`、`/cancel`、`GET /runs/{id}`，没有回执通道），异步化会让"失败可重试/降级为链接"无法诚实表达（RULE-03），E-06 按原设计不可实现。代价是 Run 多一次渠道往返——由独立超时兜住，**超时按失败（未知），不得算成功**。交付端点因此**一条契约两个调用方**（worker 已在用）；`DeliveryRequest` 需最小扩展（`task_id` 可省 + `run:{run_id}:{artifact_id}` 形态），对既有调用向后兼容。
   - **追加写换新键**：`RULE-skill-001` 要求同 `storage_key` 二次写入必须抛错 ⇒ 分段追加写**新 key**，artifact 行指向最新版本，历史版本记在既有 `metadata_json`（不改 schema）。
@@ -55,7 +55,7 @@
 
 ## TASK-001: 企微出站能力真机探针
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#2.3.1 功能清单`, `#3.6 出站交付：写与发的分离（硬需求落点）`, `#5.1 项目依赖`
@@ -68,14 +68,16 @@
 
 **探针代码只能落在适配器层**（`channels/wecom/`）：核心域与网关应用层不得出现任何渠道专有字样或上传凭据，`tests/architecture/test_channel_neutrality.py` 会当场判红。
 
+**探针结论（2026-10-03，已完成）**：企微 aibot **可以直发文件与图片**，唯一通路是 `media_id`（`url` 与内联 `base64` 均被 `40058` 拒收）；上传为**三步分片**（`aibot_upload_media_{init,chunk,finish}`，分片 ≤512 KiB、≤100 片），**Python SDK 未实现、需在适配器层自实现**；渠道**不做幂等**。完整事实表见设计 §3.6「真机探针结论」，逐条原始回执见下方 Acceptance Evidence。
+
 ### Checklist
 
-- [ ] 按探针清单逐项实测并记录**原始帧与 ack**：① 会话内回复（`aibot_respond_msg`）能否发文件、发图片；② 主动发送（`aibot_send_msg`）能否发文件、发图片；③ 若能发，文件从哪来（先上传拿 `media_id` 还是直接给 URL/字节）；④ 发送是否有 ack、失败长什么样；⑤ 重投同一条发送请求是否重复发出文件
-- [ ] 断言必须落在**真实响应**上（errmsg/errcode/帧体），不得只看"没抛异常"——上期踩过"本地探针不校验故套件测不出"的坑
-- [ ] 产出**事实表**（可否直发文件/图片、上传流程、ack 语义、失败形态、幂等性），并写回设计 §3.6 的"跳 4"与 §5.1 的状态列
-- [ ] 真机环境注意：绕系统 SOCKS 代理（否则缺 python-socks 报错）、可上 TLS 中继做真实断链、看 `wecom_ws_connected` 与 Reply ack、**不要起 Worker**
-- [ ] [S-05][manual] 登记探针步骤与记录位置（真实边界：真实企微机器人 + 真实会话；无法在 CI 复现，原因是外部凭据与会话，设计 R-06）
-- [ ] 运行 verifier：`uv run pytest -q tests/architecture/test_channel_neutrality.py`（`harness-im#RULE-im-002`）；记录输出
+- [x] 按探针清单逐项实测并记录**原始帧与 ack**：① 会话内回复（`aibot_respond_msg`）能否发文件、发图片；② 主动发送（`aibot_send_msg`）能否发文件、发图片；③ 若能发，文件从哪来（先上传拿 `media_id` 还是直接给 URL/字节）；④ 发送是否有 ack、失败长什么样；⑤ 重投同一条发送请求是否重复发出文件 —— **六项全部有结论**：①② 两条路径都能发文件与图片；③ 只能走 `media_id`（`url`/内联 `base64` 被 `40058` 拒），`media_id` 来自三步分片上传；④ ack 分层（详见下）；⑤ 渠道**不去重**，同 `media_id` 连发两次用户侧出现两条
+- [x] 断言必须落在**真实响应**上（errmsg/errcode/帧体），不得只看"没抛异常"——上期踩过"本地探针不校验故套件测不出"的坑 —— 每条变体记录完整回执帧；并设**两个对照**（`markdown` 合法 / `text` 非法），分别验证探针能测出"通过"与"拒绝"。对照当场抓出过一次探针自身缺陷（绕过 `WSClient.send_message` 致 `chatid` 丢失，**所有** msgtype 误报 `86201`）
+- [x] 产出**事实表**（可否直发文件/图片、上传流程、ack 语义、失败形态、幂等性），并写回设计 §3.6 的"跳 4"与 §5.1 的状态列 —— 事实表见设计 §3.6「真机探针结论」；跳 4 改为**直发（`media_id`）**；§5.1 风险等级高→低；同步回填 §2.4 前置假设/妥协、§3.2 外部依赖、§5.2（R-01 消解）
+- [x] 真机环境注意：绕系统 SOCKS 代理（否则缺 python-socks 报错）、可上 TLS 中继做真实断链、看 `wecom_ws_connected` 与 Reply ack、**不要起 Worker** —— `no_proxy` 已设且生效；全程监控 `wecom_ws_connected`（探针连接期间 dev 网关始终为 1，未被踢下线）；**未起 Worker**。*未做 TLS 中继断链*：断链/退避属上期 E-10 的验收范围，本任务验收项是"发送能力"，不重复覆盖
+- [x] [S-05][manual] 登记探针步骤与记录位置（真实边界：真实企微机器人 + 真实会话；无法在 CI 复现，原因是外部凭据与会话，设计 R-06）—— 见下方 Acceptance Evidence「探针步骤」与「记录位置」
+- [x] 运行 verifier：`uv run pytest -q tests/architecture/test_channel_neutrality.py`（`harness-im#RULE-im-002`）；记录输出 —— `3 passed in 0.55s`（探针代码不入库，只改文档，守卫未被触犯）
 
 ### Acceptance Contract
 
@@ -87,9 +89,68 @@
 
 > manual 场景只登记原因/边界/验收方式；人工确认与 E2E 执行统一留给 verify-e2e。
 
+**真实边界**：真实企微 aibot 长连接（`wss://openws.work.weixin.qq.com`）+ 真实会话 + 真人目视确认渲染。CI 无法复现（外部凭据与会话，设计 R-06）。
+
+**探针步骤**（探针代码**不入库**，只存在于会话期 `/tmp`——渠道专有形状与上传凭据不得进核心域）
+
+1. 从 `control.bot_account` 取 enabled 的 WECOM bot（`bot_id` + `secret`），从 `control.channel_identity` 取单聊 chatid（单聊 chatid 即 `from.userid`）。凭据只经环境/DB 读取，**不打印、不入库、不进证据**。
+2. `no_proxy=openws.work.weixin.qq.com,127.0.0.1,localhost` 绕 macOS 系统 SOCKS 代理（否则缺 `python-socks` 直连报错）；`aibot.WSClient(...max_reconnect_attempts=0)` 直连真机；tee `_ws_manager._handle_frame` 落**每一条**收到的原始帧。
+3. 主动发送路径：`client.send_message(chatid, body)` 跑能力矩阵（含 `markdown`/`text` 两个对照）。
+4. 上传：按 Node SDK 参考实现自实现 `aibot_upload_media_{init,chunk,finish}` 三步分片，再发真 `media_id`。
+5. 会话内回复：探针常驻等待**真实用户发消息**，取入站帧 `headers.req_id` 后逐条回复（该 req_id 只能由真实回调产生，无法构造）。
+6. **渲染结果由用户在企微内目视确认**——ack 只证明服务端受理，不证明用户看见。
+
+**原始回执帧（逐条，`errcode`/`errmsg` 原样；`upload_id`/`media_id` 为不透明串，此处截断）**
+
+主动发送路径：
+```
+CTL-markdown      {"headers":{"req_id":"aibot_send_msg_…"},"errcode":0,"errmsg":"ok"}
+CTL-text          {"headers":{"req_id":"aibot_send_msg_…"},"errcode":40008,"errmsg":"invalid message type, hint: […], from ip: 163.125.147.69"}
+image-url         {"errcode":40058,"errmsg":"missing field `body.image.media_id`. invalid Request Parameter, …"}   ← 帧无 headers.req_id
+file-url          {"errcode":40058,"errmsg":"missing field `body.file.media_id`. invalid Request Parameter, …"}    ← 帧无 headers.req_id
+image-mixed-url   {"headers":{"req_id":"…"},"errcode":40008,"errmsg":"invalid message type, …"}
+image-media-id    {"headers":{"req_id":"…"},"errcode":40007,"errmsg":"invalid media_id, …"}
+image-base64      {"errcode":40058,"errmsg":"missing field `body.image.media_id`. …"}                             ← 帧无 headers.req_id
+```
+
+上传三步（1 片与 3 片各跑一遍）：
+```
+aibot_upload_media_init   → {"headers":{"req_id":"aibot_upload_media_init_…"},"body":{"upload_id":"a23cff8e…"},"errcode":0,"errmsg":"ok"}
+aibot_upload_media_chunk  → {"headers":{"req_id":"aibot_upload_media_chunk_…"},"errcode":0,"errmsg":"ok"}        ×1（15.8 KB）/ ×3（1.25 MB）
+aibot_upload_media_finish → {"headers":{…},"body":{"type":"image","media_id":"32KoGhL5…"(87 字符),"created_at":1790959832},"errcode":0,"errmsg":"ok"}
+```
+
+发送真 `media_id`（`chatid` = 单聊 userid）：
+```
+send image        {"headers":{"req_id":"aibot_send_msg_…"},"errcode":0,"errmsg":"ok"}  ← 用户侧：图片渲染 ✅
+send file         {"headers":{"req_id":"aibot_send_msg_…"},"errcode":0,"errmsg":"ok"}  ← 用户侧：文件渲染 ✅
+send image-repeat {"headers":{"req_id":"aibot_send_msg_…"},"errcode":0,"errmsg":"ok"}  ← 同一 media_id 重发：用户侧出现**第二张**（渠道不去重）
+```
+
+会话内回复路径（**五条共用同一条入站回调的 `req_id`**；入站帧：`cmd=aibot_msg_callback`、`body.from.userid=XuWenBin`、`body.chattype=single`、`body.msgtype=text`）：
+```
+R0 stream finish   {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,"errmsg":"ok"}  ← 用户侧：文本渲染 ✅
+R1 text            {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":40008,"errmsg":"invalid message type, …"}
+R2 image           {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,"errmsg":"ok"}  ← 用户侧：图片渲染 ✅
+R3 file            {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,"errmsg":"ok"}  ← 用户侧：文件渲染 ✅
+R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,"errmsg":"ok"}  ← 用户侧：**无图**
+```
+
+`msg_item` 追加验证（**6 种形状全部 `errcode 0` 且用户侧均无图**）：`{media_id}`、`{base64,md5}`（Node SDK 类型定义所载形状，PNG 15.8 KB）、大写 md5、无 md5、1×1 与 64×64——与官方《回复消息》文档「`body.stream` **暂不支持 `msg_item` 字段**」一致。
+
+**用户侧目视确认**（探针自证不了送达）：主动路径的图片、文件、重复图均渲染；会话内路径 R0/R2/R3 渲染、R4 无图。
+
+> **记录位置**：完整原始 JSON（含全部帧）为会话期 `/tmp/wecom_probe_outbound.json`、`/tmp/wecom_probe_media2.json`、`/tmp/wecom_probe_reply.json`、`/tmp/wecom_probe_msgitem_size.json` 等，**随会话结束即失**；本文件与设计 §3.6 保留逐条回执帧与结论，为持久记录。测试用 `media_id` 3 天后失效，非机密。
+
 ### Log
 - [2026-10-03] created (draft)
 - [2026-10-03] started
+- [2026-10-03] 主动发送路径探针完成：可发 `markdown`；`text` 40008；`image`/`file` 收 `url`/`base64` 均 40058 ⇒ 定位到唯一通路 `media_id`
+- [2026-10-03] 自实现三步分片上传并实测通过（1 片 / 3 片）；发真 `media_id` 成功，用户侧确认图片与文件渲染
+- [2026-10-03] 会话内回复路径探针完成（需真实入站 `req_id`）：`image`/`file` 直发渲染；`msg_item` 六种形状均"收下不出图"
+- [2026-10-03] 查证官方《回复消息》文档（101836）：`msg_item` **官方暂不支持**；补齐合法 msgtype 全集与 20480 字节 / 10 分钟 finish 等硬边界
+- [2026-10-03] 回填设计 §3.6「真机探针结论」事实表 + 跳 4 + §2.4/§3.2/§5.1/§5.2；verifier `tests/architecture/test_channel_neutrality.py` 3 passed
+- [2026-10-03] completed (done)
 
 ---
 
@@ -263,7 +324,7 @@
 
 **依赖 TASK-007 的原因**：E-06 断言"审计记 FAILED"需要审计表与内部端点先存在；反向地，TASK-007 的 E-04 只验审计写入本身（见该任务）。
 
-设计顺序上**依赖 TASK-001 的探针结论**决定"直发"分支是否成立；但两条分支的实现骨架可以并行准备（能力协议对两者都成立）。
+**TASK-001 探针结论（2026-10-03，已落定）**：**直发分支成立**——企微可直发文件与图片，唯一通路 `media_id`（`url` 与内联 `base64` 均被 `40058` 拒），`media_id` 来自**三步分片上传** `aibot_upload_media_{init,chunk,finish}`（分片 ≤512 KiB、≤100 片，约 50 MB 上限；`chunk_index` 0-based；`media_id` 有效 3 天）。**Python SDK（`aibot` 1.0.2，PyPI 最新）没有上传能力**（只有 `download_file`）⇒ 三步上传需在 `channels/wecom/` 内自行实现。降级为签名链接的条件因此收窄为「>≈50 MB」或类型不受支持，不再是"企微可能不支持"。另：**渠道不做幂等**（同 `media_id` 重发两次，用户侧出现两条），去重只能靠 `(tenant_id, artifact_id, route_key)` 唯一键。事实表见设计 §3.6「真机探针结论」。
 
 ### Checklist
 
@@ -274,6 +335,7 @@
 - [ ] 工具结果明确回传三种结论：已交付（含文件名）/ 降级为签名链接（含链接）/ 失败（含原因码 + "产物已保留，可重试"）；**超时按失败**
 - [ ] runtime 侧新增交付客户端：**同步 POST `/internal/deliveries`**（用既有 `settings.im_gateway_url`），**独立超时**配置；超时/传输错误 → 报失败并保留产物，**不得**当成成功
 - [ ] 适配器侧新增**可选出站能力协议**（与入站 `AttachmentSource` 同构）：核心域只给"产物引用 + 路由"，适配器决定直发/链接/降级；降级时由适配器调用 TASK-008 的取件能力生成签名链接
+- [ ] `channels/wecom/` 内实现**三步分片上传**（SDK 无此能力，见上方探针结论）：`init → chunk ×N → finish` 拿 `media_id`，再以 `image`/`file` 体发出（会话内 `aibot_respond_msg`、主动 `aibot_send_msg`）；分片 ≤512 KiB、≤100 片，超出走降级；`media_id` 3 天失效 ⇒ **跨 3 天的重试必须重新上传**，不能只重发
 - [ ] 图片出站（FEAT-10，P0）：`type=image` 走同一交付链；`view_image` 是入站方向的重看，**不是**同一件事
 - [ ] 后台路径：`/internal/deliveries` 支持产物形态；沿用既有 `reserve → 发送 → mark`，**失败释放占位**
 - [ ] 交付链全程**不见渠道形状**：核心域与网关应用层零渠道字样与发送凭据（守卫会判红）
