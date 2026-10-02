@@ -15,6 +15,7 @@ import hashlib
 import io
 import os
 import uuid
+from collections import OrderedDict
 from collections.abc import Awaitable, Mapping
 from typing import Any
 
@@ -28,20 +29,30 @@ from ..infrastructure.models.runtime import Artifact
 READ_ATTACHMENT_TOOL = "read_attachment"
 VIEW_IMAGE_TOOL = "view_image"
 WRITE_ARTIFACT_TOOL = "write_artifact"
+SEARCH_ATTACHMENT_TOOL = "search_attachment"
 
 AGENT_OUTPUT_ARTIFACT_TYPE = "AGENT_OUTPUT"
 
 READ_ATTACHMENT_DESCRIPTION = (
     "Read the content of a file the user sent (or that an earlier step produced) by its "
-    "attachment id. Returns extracted text for documents; for images use view_image instead."
+    "attachment id. Long documents come back one segment at a time: pass offset to continue "
+    "where the previous segment ended. Returns extracted text for documents; for images use "
+    "view_image instead."
+)
+SEARCH_ATTACHMENT_DESCRIPTION = (
+    "Find where a keyword occurs in a file's extracted text and return the matching fragments "
+    "with their character offsets. Use it to jump straight to the relevant part of a long "
+    "document instead of paging through it."
 )
 VIEW_IMAGE_DESCRIPTION = (
     "Attach a previously sent image to the conversation again so you can look at it. Use this "
     "when an earlier image is relevant but is no longer in front of you."
 )
 
-#: 抽取/读取的字节上限。与门控同量级：防呆的第二道，防超预期的大文件拖垮运行。
-MAX_READ_BYTES = 20 * 1024 * 1024
+#: 抽取/读取的字节上限。**与门控同量级**（`MAX_ATTACHMENT_BYTES`）：防呆的第二道，
+#: 防超预期的大文件拖垮运行。2026-10-03 随门控 20 MiB → 50 MiB 一起放宽——两者若不同步，
+#: 会出现"门控收下了、Runtime 读不了"的悬空文件。
+MAX_READ_BYTES = 50 * 1024 * 1024
 #: 回给模型的文本上限。超出截断并显式标注，**不静默丢内容**。
 MAX_TEXT_CHARS = 20_000
 
@@ -50,6 +61,21 @@ ATTACHMENT_TYPE_UNSUPPORTED = "ATTACHMENT_TYPE_UNSUPPORTED"
 ATTACHMENT_EXTRACT_FAILED = "ATTACHMENT_EXTRACT_FAILED"
 ATTACHMENT_TOO_LARGE = "ATTACHMENT_TOO_LARGE"
 ATTACHMENT_WRITE_UNAVAILABLE = "ATTACHMENT_WRITE_UNAVAILABLE"
+#: 参数类拒绝。与 `memory_tools` 的 `<FIELD>_INVALID` 同口径：**码要能指名道姓**，
+#: 模型才知道该改哪个参数，而不是笼统的"参数错误"。
+ATTACHMENT_OFFSET_INVALID = "ATTACHMENT_OFFSET_INVALID"
+ATTACHMENT_LIMIT_INVALID = "ATTACHMENT_LIMIT_INVALID"
+ATTACHMENT_QUERY_INVALID = "ATTACHMENT_QUERY_INVALID"
+
+DEFAULT_OFFSET = 0
+#: 单次搜索返回的命中条数上限（与 `limit` 的字符语义无关，故另设常量）
+DEFAULT_SEARCH_HITS = 5
+MAX_SEARCH_HITS = 20
+#: 命中片段两侧各取的上下文字符数——够模型判断相关性，又不至于把整篇搬回来
+SEARCH_CONTEXT_CHARS = 80
+#: 抽取结果缓存条数。按 Run 复用（`AttachmentToolSet` 每个 Run 一个），让"同一份文档读多段"
+#: 不再重复解析；有界，避免一次 Run 把多份大文档的全文留在内存里。
+MAX_TEXT_CACHE_ENTRIES = 4
 
 VIEW_IMAGE_RESULT_PREFIX = "已重新附上图片（附件 ID "
 WRITE_ARTIFACT_RESULT_PREFIX = "已写出产物（附件 ID "
@@ -112,6 +138,36 @@ def _extract_document(data: bytes, media_type: str) -> str:
     )
 
 
+def slice_text(text: str, offset: int, limit: int) -> str:
+    """按字符偏移切片——**纯函数**，无 IO、无副作用，分段语义的唯一实现处。
+
+    越界**不是错误**（设计 §2.3.2）：`offset` 等于或超出全文长度一律返回空串，由调用方
+    连区间标注一并回给模型——"读到了末尾"与"参数写错了"是两件事，不能混成同一个错。
+    """
+    if offset < 0:
+        raise AttachmentToolError(ATTACHMENT_OFFSET_INVALID, f"offset 不能为负：{offset}")
+    if limit < 1 or limit > MAX_TEXT_CHARS:
+        raise AttachmentToolError(
+            ATTACHMENT_LIMIT_INVALID, f"limit 必须在 1..{MAX_TEXT_CHARS} 之间：{limit}"
+        )
+    return text[offset : offset + limit]
+
+
+def _segment_note(offset: int, limit: int, total: int) -> str:
+    """区间标注。**必须让多次调用可拼接还原全文**，没读完时还要给出可行动的下一步。
+
+    旧实现只丢一句"内容过长，已截断"——模型既不知道后面还有多少，也不知道怎么继续读。
+    """
+    start = min(offset, total)
+    end = min(offset + limit, total)
+    note = f"（片段 {start}–{end} / 共 {total} 字符"
+    if offset >= total:
+        note += "；已到末尾，无更多内容"
+    elif end < total:
+        note += f"；未完，继续读请用 offset={end}，单次上限 {limit}"
+    return note + "）"
+
+
 class AttachmentToolSet:
     def __init__(
         self,
@@ -129,21 +185,46 @@ class AttachmentToolSet:
         self._run_id = run_id
         self._conversation_id = conversation_id
         self._has_delivery_route = has_delivery_route
+        #: 抽取结果按 Run 复用：同一份长文档分多次读，只解析一次（NFR-PERF-01）
+        self._text_cache: OrderedDict[uuid.UUID, str] = OrderedDict()
 
     def register(self, registry: ToolRegistry) -> None:
         string_schema: Mapping[str, Any] = {"type": "string"}
+        integer_schema: Mapping[str, Any] = {"type": "integer"}
         registry.register(
             ToolDefinition(
                 name=READ_ATTACHMENT_TOOL,
                 description=READ_ATTACHMENT_DESCRIPTION,
                 input_schema={
                     "type": "object",
-                    "properties": {"artifact_id": string_schema},
+                    "properties": {
+                        "artifact_id": string_schema,
+                        "offset": {**integer_schema, "minimum": 0},
+                        "limit": {**integer_schema, "minimum": 1, "maximum": MAX_TEXT_CHARS},
+                    },
                     "required": ["artifact_id"],
                     "additionalProperties": False,
                 },
                 effect=ToolEffect.READ,
                 handler=self.read_attachment,
+            )
+        )
+        registry.register(
+            ToolDefinition(
+                name=SEARCH_ATTACHMENT_TOOL,
+                description=SEARCH_ATTACHMENT_DESCRIPTION,
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "artifact_id": string_schema,
+                        "query": string_schema,
+                        "limit": {**integer_schema, "minimum": 1, "maximum": MAX_SEARCH_HITS},
+                    },
+                    "required": ["artifact_id", "query"],
+                    "additionalProperties": False,
+                },
+                effect=ToolEffect.READ,
+                handler=self.search_attachment,
             )
         )
         registry.register(
@@ -177,21 +258,94 @@ class AttachmentToolSet:
         )
 
     async def read_attachment(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """分段读。返回值**永远**带区间与总长标注，多次调用可拼接还原全文。"""
         row = await self._load(arguments.get("artifact_id"))
         if (row.metadata_json or {}).get("kind") == "IMAGE":
             return (
                 f"这是图片附件 {row.id}（{_filename(row)}），不能当文本读；"
                 f"如需查看请调用 {VIEW_IMAGE_TOOL}。"
             )
-        data = self._read_bytes(row)
+        offset = self._int_argument(arguments, "offset", DEFAULT_OFFSET, ATTACHMENT_OFFSET_INVALID)
+        limit = self._int_argument(arguments, "limit", MAX_TEXT_CHARS, ATTACHMENT_LIMIT_INVALID)
+        text = self._extract(row)
         try:
-            text = _extract_document(data, row.media_type)
+            segment = slice_text(text, offset, limit)
         except AttachmentToolError as exc:
-            # 报错要指明**是哪个文件**读不出来，否则模型只能对用户说"有个文件读不了"
+            # 参数错也要指明是哪个文件，模型才能说清"这份文档的 offset 写错了"
             raise AttachmentToolError(exc.code, f"{_filename(row)}：{exc.message}") from exc
-        if len(text) > MAX_TEXT_CHARS:
-            return f"{text[:MAX_TEXT_CHARS]}\n…（内容过长，已截断，共 {len(text)} 字符）"
-        return f"[{_filename(row)}]\n{text}"
+        lines = [f"[{_filename(row)}]"]
+        if segment:
+            lines.append(segment)
+        lines.append(_segment_note(offset, limit, len(text)))
+        return "\n".join(lines)
+
+    async def search_attachment(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """在已抽取文本里定位关键词，返回命中片段与字符偏移。
+
+        **未命中必须明说**（RULE-01 的同一条精神）：返回空内容会被模型当成"读到了空文档"，
+        于是凭空发挥——不命中就直说没命中。
+        """
+        row = await self._load(arguments.get("artifact_id"))
+        query = arguments.get("query")
+        if not isinstance(query, str) or not query:
+            raise AttachmentToolError(ATTACHMENT_QUERY_INVALID, "query 必填且为非空字符串")
+        limit = self._int_argument(
+            arguments, "limit", DEFAULT_SEARCH_HITS, ATTACHMENT_LIMIT_INVALID
+        )
+        if limit < 1 or limit > MAX_SEARCH_HITS:
+            raise AttachmentToolError(
+                ATTACHMENT_LIMIT_INVALID, f"limit 必须在 1..{MAX_SEARCH_HITS} 之间：{limit}"
+            )
+        text = self._extract(row)
+        hits: list[int] = []
+        cursor = 0
+        while len(hits) < limit:
+            found = text.find(query, cursor)
+            if found < 0:
+                break
+            hits.append(found)
+            cursor = found + len(query)  # 不重叠地前进，避免同一处被反复命中
+        name = _filename(row)
+        if not hits:
+            return f"[{name}] 未命中「{query}」 / 共 {len(text)} 字符"
+        lines = [f"[{name}] 命中 {len(hits)} 处 / 共 {len(text)} 字符"]
+        for hit in hits:
+            start = max(0, hit - SEARCH_CONTEXT_CHARS)
+            end = min(len(text), hit + len(query) + SEARCH_CONTEXT_CHARS)
+            lines.append(f"offset={hit}：…{text[start:end].replace(chr(10), ' ')}…")
+        return "\n".join(lines)
+
+    def _extract(self, row: Artifact) -> str:
+        """抽取全量文本，**按 Run 复用**：同一份长文档分多次读只解析一次（NFR-PERF-01）。
+
+        读字节与解析任一步失败都要**指明是哪个文件**，否则模型只能对用户说"有个文件读不了"。
+        """
+        cached = self._text_cache.get(row.id)
+        if cached is not None:
+            return cached
+        try:
+            text = _extract_document(self._read_bytes(row), row.media_type)
+        except AttachmentToolError as exc:
+            raise AttachmentToolError(exc.code, f"{_filename(row)}：{exc.message}") from exc
+        self._text_cache[row.id] = text
+        self._text_cache.move_to_end(row.id)
+        while len(self._text_cache) > MAX_TEXT_CACHE_ENTRIES:
+            self._text_cache.popitem(last=False)
+        return text
+
+    @staticmethod
+    def _int_argument(
+        arguments: Mapping[str, Any], name: str, default: int, code: str
+    ) -> int:
+        """取整数参数。**bool 要挡掉**——Python 里 `True` 是 `int`，放过去会变成 offset=1。
+
+        写成正向收窄（先认下 int、再排除 bool）而不是 `if bool or not int: raise`：后者
+        在类型检查器眼里落空路径**没有**被收窄成 int（实测报 `Returning Any`）。
+        """
+        value = arguments.get(name, default)
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+        raise AttachmentToolError(code, f"{name} 必须是整数：{value!r}")
 
     async def view_image(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         row = await self._load(arguments.get("artifact_id"))

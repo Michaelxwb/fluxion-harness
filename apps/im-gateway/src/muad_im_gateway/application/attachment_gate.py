@@ -22,7 +22,11 @@ from ..channels.base import ATTACHMENT_TOO_LARGE
 MIB = 1024 * 1024
 
 #: 单文件大小上限。覆盖常见截图与办公文档；避免单条消息拖垮下载与上下文。
-MAX_ATTACHMENT_BYTES = 20 * MIB
+#: **2026-10-03 由 20 MiB 放宽到 50 MiB**（attachment-round-trip TASK-002）：企微官方对
+#: 入站 `file`/`video` 的回调上限是 100 MB（《接收消息》100719），且出站上传通道的天花板
+#: 是 512 KiB × 100 片 ≈ 50 MB —— 50 MiB 让"能收进来"与"能发出去"对齐，不再是自己给自己
+#: 设的 5 倍紧箍。代价：单个超限附件最多浪费 50 MiB + 1 的带宽（下载器读满即止）。
+MAX_ATTACHMENT_BYTES = 50 * MIB
 #: 单消息附件数上限。与「只内联当前消息图片」的成本口径匹配（设计 AD-3-B）。
 MAX_ATTACHMENTS_PER_MESSAGE = 5
 

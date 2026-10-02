@@ -2,7 +2,7 @@
 
 **为什么不复用 SDK 的 `WSClient.download_file`**（三条都是源码事实）：
 
-1. 它内部 `await response.read()` —— **无字节上限**，20 MiB 与 2 GiB 的文件一样全量进内存；
+1. 它内部 `await response.read()` —— **无字节上限**，多大都全量进内存（几百 KB 的图与 2 GiB 的文件一视同仁）；
 2. 它的超时写死 10s（`WeComApiClient(timeout=10000)`）且外部不可配；
 3. `aes_key` 缺失时它只打一条 warn 就把**加密原文**当文件返回 —— 上层会把密文当图片/文档用，
    而验收要求「密钥缺失必须明确失败」。

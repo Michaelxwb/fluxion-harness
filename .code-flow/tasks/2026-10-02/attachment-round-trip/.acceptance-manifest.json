@@ -10,7 +10,7 @@
       "kind": "functional",
       "boundary": "真实文件系统 + 真实解析库（pypdf/docx）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -20,7 +20,37 @@
       ],
       "cwd": ".",
       "timeout": 120.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "09886fc31f424b2cbc5c79f570598044",
+        "executed_at": "2026-10-02T17:24:03.664626+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ae252815e2ce4c41b5af3fa26bb1f10d",
+          "executed_at": "2026-10-02T17:23:42.795861+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "09886fc31f424b2cbc5c79f570598044",
+          "executed_at": "2026-10-02T17:24:03.664626+00:00"
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -194,7 +224,7 @@
       "kind": "functional",
       "boundary": "真实文件系统",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -204,7 +234,37 @@
       ],
       "cwd": ".",
       "timeout": 120.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "09886fc31f424b2cbc5c79f570598044",
+        "executed_at": "2026-10-02T17:24:03.664626+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ae252815e2ce4c41b5af3fa26bb1f10d",
+          "executed_at": "2026-10-02T17:23:42.795861+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "09886fc31f424b2cbc5c79f570598044",
+          "executed_at": "2026-10-02T17:24:03.664626+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -308,7 +368,7 @@
       "kind": "functional",
       "boundary": "分段纯函数",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -318,7 +378,37 @@
       ],
       "cwd": ".",
       "timeout": 120.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "09886fc31f424b2cbc5c79f570598044",
+        "executed_at": "2026-10-02T17:24:03.664626+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ae252815e2ce4c41b5af3fa26bb1f10d",
+          "executed_at": "2026-10-02T17:23:42.795861+00:00"
+        },
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "09886fc31f424b2cbc5c79f570598044",
+          "executed_at": "2026-10-02T17:24:03.664626+00:00"
+        }
+      ]
     },
     {
       "id": "B-02",

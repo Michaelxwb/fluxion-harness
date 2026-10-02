@@ -29,7 +29,7 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 | cwd | 超时 | 依赖 |
 |--------|---------|---------|-------------|---------|------|------|-----|------|------|
-| S-01 | design#2.5.2 | integration | 真实文件系统 + 真实解析库（pypdf/docx） | TASK-002 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
+| S-01 | design#2.5.2 | integration | 真实文件系统 + 真实解析库（pypdf/docx） | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | S-02 | design#2.5.2 | integration | 真实 PG（runtime.artifact 逐行回读） | TASK-003 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | S-03 | design#2.5.2 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | S-04 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | TASK-004 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
@@ -39,13 +39,13 @@
 | S-08 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
 | S-09 | design#2.5.2 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | TASK-008 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | . | 300 |  |
 | S-10 | design#2.5.2 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
-| E-01 | design#2.5.2 | integration | 真实文件系统 | TASK-002 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
+| E-01 | design#2.5.2 | integration | 真实文件系统 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | E-02 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 | TASK-004 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
 | E-03 | design#2.5.2 | integration | 真实 PG + 真实存储 + 鉴权层 | TASK-008 | planned | uv run pytest -q tests/console_channel/test_artifact_fetch.py | . | 120 |  |
 | E-04 | design#2.5.2 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | TASK-007 | planned | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | . | 120 |  |
 | E-05 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
 | E-06 | design#2.5.2 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | TASK-006 | planned | uv run pytest -q tests/gateway/test_artifact_delivery.py | . | 120 |  |
-| B-01 | design#2.5.2 | unit | 分段纯函数 | TASK-002 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
+| B-01 | design#2.5.2 | unit | 分段纯函数 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | B-02 | design#2.5.2 | unit | 枚举分页 | TASK-003 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | B-03 | design#2.5.2 | unit | 出站产物大小 | TASK-005 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 
@@ -158,40 +158,74 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-002: 读材料工具面：分段读 + 文档内定位 + 大文件策略
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#2.3.2 字段约束`, `#3.4 接口设计`, `#3.5 质量实现方案`
-- **Spec-Refs**: —
+- **Spec-Refs**:
 - **Acceptance-Refs**: S-01, E-01, B-01
 
 ### Description
 
-`read_attachment` 现在只能返回前 `MAX_TEXT_CHARS = 20 000` 字符且 schema 只有 `artifact_id`——长文档实际不可用。本任务给它加 `offset`/`limit` 分段，并补 `search_attachment`（在已抽取文本里按关键词返回命中片段与偏移，避免模型盲目翻页），以及超长文档的"目录 + 分段指引"策略。**抽取一次、切片多次**：单次工具调用内缓存全量文本，不因 offset 变化重复解析同一文档。
+`read_attachment` 现在只能返回前 `MAX_TEXT_CHARS = 20 000` 字符且 schema 只有 `artifact_id`——长文档实际不可用。本任务给它加 `offset`/`limit` 分段，并补 `search_attachment`（在已抽取文本里按关键词返回命中片段与偏移，避免模型盲目翻页），以及**长文档的翻页指引**。**抽取一次、切片多次**：单次工具调用内缓存全量文本，不因 offset 变化重复解析同一文档。
+
+> **范围收窄（2026-10-03，用户确认）**：需求稿写的「目录/摘要」**不做**——抽取结果是纯文本、没有真实文档结构可依，"行首偏移表"语义模糊且会挤占模型上下文。FEAT-03 降级为**可行动的翻页指引**（全文总长 + 本段区间 + 后续各段 `offset` + 单次上限）。真需要"目录"时另开需求。
+> 口径澄清：这里说的"超长"是**正文超过 `MAX_TEXT_CHARS`（字符）**，与字节门控 `MAX_ATTACHMENT_BYTES` **无关**——60 000 字符的文档通常只有几十到一两百 KB。
+> **附带改动（2026-10-03，用户要求）**：单文件上限 **20 MiB → 50 MiB**，门控与 Runtime 镜像两个常量同步改（不同步会产生"门控收下了、Runtime 读不了"的悬空文件）。依据：企微官方入站回调上限 100 MB、出站上传天花板 ≈50 MB。**取代**归档需求 wecom-inbound-media 的 RULE-05 数值（数量上限仍为 5）。落点：门控常量 + Runtime 常量 + `tests/gateway/test_attachment_gate.py` 里钉死数值的那条断言。
 
 ### Checklist
 
-- [ ] `read_attachment` schema 增 `offset`（≥0，缺省 0）与 `limit`（1..`MAX_TEXT_CHARS`，缺省 `MAX_TEXT_CHARS`）；返回值标注**片段区间与全文总长**，使多次调用可拼接还原
-- [ ] 新增 `search_attachment(artifact_id, query, limit?)`：返回命中片段 + 偏移；未命中明确说"未命中"，不返回空内容冒充成功
-- [ ] 大文件策略：超过上限的文档给出"目录/摘要 + 分段读指引"，而不是只丢一句截断提示
-- [ ] 拒绝路径保持既有口径：不支持的 MIME、损坏文档、越界 offset 各自返回**明确错误码**，绝不返回乱码或空内容
-- [ ] [S-01][integration] 真实边界：真实文件系统 + 真实解析库；断言三次片段（`offset=0/20000/40000`）拼接**逐字符等于**全文，且每段标注区间与总长
-- [ ] [E-01][integration] 真实边界：真实文件系统；断言超上限/损坏文档/越界 offset 各自返回明确错误（指明文件与原因），不返回乱码或空内容
-- [ ] [B-01][unit] 真实边界：分段纯函数；断言 `offset` 取 0 / 恰好等于总长 / 超出总长 / 负值 四种边界的行为（首段 / 空段+标注 / 空段+标注 / 参数错误）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] `read_attachment` schema 增 `offset`（≥0，缺省 0）与 `limit`（1..`MAX_TEXT_CHARS`，缺省 `MAX_TEXT_CHARS`）；返回值标注**片段区间与全文总长**，使多次调用可拼接还原
+- [x] 新增 `search_attachment(artifact_id, query, limit?)`：返回命中片段 + 偏移；未命中明确说"未命中"，不返回空内容冒充成功
+- [x] 长文档翻页指引：正文超过 `MAX_TEXT_CHARS` 时给出**可行动**的翻页指引（全文总长 + 本段区间 + **下一段的 `offset`** + 单次上限），而不是只丢一句"内容过长，已截断"；**不做"目录/摘要"**（见 Description 的范围收窄）
+- [x] 拒绝路径保持既有口径：不支持的 MIME、损坏文档、**非法 offset（负值）/ 非法 limit** 各自返回**明确错误码**，绝不返回乱码或空内容。**注**：`offset` **超出全文长度不是错误** —— 返回空片段并注明（设计 §2.3.2 + B-01 口径；原清单把两种"越界"混为一谈，已按设计澄清）
+- [x] [S-01][integration] 真实边界：真实文件系统 + 真实解析库；断言三次片段（`offset=0/20000/40000`）拼接**逐字符等于**全文，且每段标注区间与总长
+- [x] [E-01][integration] 真实边界：真实文件系统；断言超上限/损坏文档/非法 offset（负值）各自返回明确错误（指明文件与原因），不返回乱码或空内容；并断言 `offset` **超出全文长度**返回空段+标注而**非报错**
+- [x] [B-01][unit] 真实边界：分段纯函数；断言 `offset` 取 0 / 恰好等于总长 / 超出总长 / 负值 四种边界的行为（首段 / 空段+标注 / 空段+标注 / 参数错误）；另断言 `limit` 的上下界（0 与 >`MAX_TEXT_CHARS` 为参数错误）
+- [x] **（附带改动）单文件上限 20 MiB → 50 MiB**：门控 `MAX_ATTACHMENT_BYTES` 与 Runtime 镜像 `MAX_READ_BYTES` **已同步**；`tests/gateway/test_attachment_gate.py` 里钉死数值的那条断言同步更新；`tests/acceptance/im_gateway/test_wecom_attachments.py` 的超限夹具按常数自适应（随之上到 62 MiB，耗时与内存约翻倍，属预期）。验收：`uv run pytest -q tests/gateway/test_attachment_gate.py` → **7 passed**
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | integration | 真实文件系统 + 真实解析库（pypdf/docx） | 三次片段拼接逐字符等于全文；每段标注区间与总长 | tests/agent_runtime/test_attachment_tools.py | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | planned |
-| E-01 | integration | 真实文件系统 | 超上限/损坏/越界 offset → 明确错误码（含文件与原因），不返回乱码或空内容 | tests/agent_runtime/test_attachment_tools.py | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | planned |
-| B-01 | unit | 分段纯函数 | offset=0/等于总长/超总长/负值 四边界行为分别正确 | tests/agent_runtime/test_attachment_tools.py | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | planned |
+| S-01 | integration | 真实文件系统 + 真实解析库（pypdf/docx） | 三次片段拼接逐字符等于全文；每段标注区间与总长 | tests/agent_runtime/test_attachment_tools.py::test_s01_paged_read_reassembles_the_whole_document | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | verified |
+| E-01 | integration | 真实文件系统 | 超上限/损坏/非法 offset（负值）→ 明确错误码（含文件与原因），不返回乱码或空内容；offset 超全文长度 → **空段+标注（非错误）** | tests/agent_runtime/test_attachment_tools.py::test_e01_rejection_paths_are_explicit_and_labelled | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | verified |
+| B-01 | unit | 分段纯函数 | offset=0/等于总长/超总长/负值 四边界行为分别正确；limit 上下界非参数错误 | tests/agent_runtime/test_attachment_tools.py::test_b01_segment_boundaries | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | verified |
 
 ### Acceptance Evidence
 
+**执行（2026-10-03）**，登记命令 `uv run pytest -q tests/agent_runtime/test_attachment_tools.py`。
+
+**RED（先写测试再实现，按先红后绿留证）**：`uv run pytest -q tests/agent_runtime/test_attachment_tools.py -k "b01 or s01 or e01 or document_search"`
+→ `ImportError: cannot import name 'ATTACHMENT_LIMIT_INVALID' from ...application.attachment_tools`（新符号尚不存在，正是预期的失败原因）。
+
+**GREEN**：同一文件 **14 passed in 0.56s**（原有 9 条 + 本任务 5 条，无回归）。
+相邻套件 **49 passed**（`tests/gateway/test_attachment_gate.py`、`test_wecom_media.py`、`test_inbound_attachment_flow.py` —— 上限常量改动的直接下游）。
+`ruff check` 覆盖 5 个改动文件：**All checks passed**。
+
+**实现中发现并修掉的真实缺口**：`_read_bytes` 抛 `ATTACHMENT_TOO_LARGE` 时**不带文件名**（只有 `_extract_document` 那条路径加了前缀），而 E-01 要求"含文件与原因" ⇒ 抽成 `_extract()` 统一前缀（读字节与解析两条路都覆盖）。
+
+- S-01: verified —— 60 000 字符的真 docx（单段）经真实 python-docx 抽取；`offset=0/20000/40000` 三段拼接**逐字符等于**全文；区间标注实测 `(0,20000,60000) / (20000,40000,60000) / (40000,60000,60000)`。另有一条覆盖"未读完给翻页指引、读到最后一段不再提示"。
+- E-01: verified —— 超上限（**真实落盘** 50 MiB + 1 字节）→ `ATTACHMENT_TOO_LARGE` 且含文件名；损坏 docx → `ATTACHMENT_EXTRACT_FAILED` 且含文件名；负 offset → `ATTACHMENT_OFFSET_INVALID` 且含文件名；**offset 超全文长度 → 空段 + "共 3 字符"标注，不报错**。
+- B-01: verified —— 纯函数 `slice_text` 四边界：`0`→首段、**等于**总长→空串、**超出**总长→空串、负值→`ATTACHMENT_OFFSET_INVALID`；另 `limit` 取 `0` 与 `MAX_TEXT_CHARS+1` → `ATTACHMENT_LIMIT_INVALID`。
+
+**附带改动（上限 20 MiB → 50 MiB）**：`tests/gateway/test_attachment_gate.py` **7 passed**（B-01/B-02 的边界语义不变，只换数值；钉死数值的那条断言已同步）。代码内已无残留的 20 MiB 字面量（仅变更注释里作为历史提及）。
+- S-01: verified — automated command passed; run_id=ae252815e2ce4c41b5af3fa26bb1f10d (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=ae252815e2ce4c41b5af3fa26bb1f10d (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=ae252815e2ce4c41b5af3fa26bb1f10d (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=09886fc31f424b2cbc5c79f570598044 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=09886fc31f424b2cbc5c79f570598044 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=09886fc31f424b2cbc5c79f570598044 (confirmed_by: runner)
+
 ### Log
 - [2026-10-03] created (draft)
+- [2026-10-03] started
+- [2026-10-03] 范围收窄（用户确认）：FEAT-03 不做"目录/摘要"，降级为可行动的翻页指引；offset 超全文长度定为「空段+标注」而非报错
+- [2026-10-03] 附带改动（用户要求）：单文件上限 20 MiB → 50 MiB，门控常量与 Runtime 镜像常量同步
+- [2026-10-03] 先写测试拿 RED（`ImportError: ATTACHMENT_LIMIT_INVALID`），再实现；`test_attachment_tools.py` 14 passed、相邻 49 passed、ruff 全绿
+- [2026-10-03] 实现期修掉一处真实缺口：`_read_bytes` 的超限错误不带文件名
+- [2026-10-03] completed (done)
 
 ---
 
@@ -201,7 +235,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#2.3.2 字段约束`, `#3.4 接口设计`
-- **Spec-Refs**: —
+- **Spec-Refs**:
 - **Acceptance-Refs**: S-02, B-02
 
 ### Description

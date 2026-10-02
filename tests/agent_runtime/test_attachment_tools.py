@@ -8,17 +8,26 @@ from __future__ import annotations
 
 import base64
 import io
+import re
 import uuid
 
 import pytest
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.application.attachment_tools import (
+    ATTACHMENT_EXTRACT_FAILED,
+    ATTACHMENT_LIMIT_INVALID,
+    ATTACHMENT_OFFSET_INVALID,
+    ATTACHMENT_TOO_LARGE,
+    MAX_READ_BYTES,
+    MAX_TEXT_CHARS,
     READ_ATTACHMENT_TOOL,
+    SEARCH_ATTACHMENT_TOOL,
     VIEW_IMAGE_TOOL,
     WRITE_ARTIFACT_RESULT_PREFIX,
     WRITE_ARTIFACT_TOOL,
     AttachmentToolError,
     AttachmentToolSet,
+    slice_text,
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, Conversation, RunRecord
@@ -309,3 +318,187 @@ async def test_written_artifact_is_tenant_scoped(tenant: TenantContext, artifact
     )
     with pytest.raises(AttachmentToolError):
         await _call(other, READ_ATTACHMENT_TOOL, {"artifact_id": artifact_id})
+
+
+# ---------------------------------------------------------------------------
+# TASK-002：分段读（S-01）、拒绝路径（E-01）、分段纯函数边界（B-01）、文档内定位
+# ---------------------------------------------------------------------------
+
+_DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+#: 片段区间标注：`（片段 0–20000 / 共 60000 字符…）`
+_SEG_NOTE_RE = re.compile(r"（片段 (\d+)–(\d+) / 共 (\d+) 字符")
+#: 标注永远在结果**末尾**，剥离它即可拿回纯片段正文
+_TAIL_NOTE_RE = re.compile(r"(?:^|\n)（片段 \d+–\d+ / 共 \d+ 字符[^）]*）\s*\Z")
+
+
+def _segment_of(result: str) -> str:
+    """剥掉首行文件名与末尾区间标注，取回纯片段正文（S-01 要按字符拼接比对）。"""
+    return _TAIL_NOTE_RE.sub("", result.partition("\n")[2])
+
+
+def _docx_bytes(*paragraphs: str) -> bytes:
+    """一份**内容已知**的真实 .docx（交给真实解析库读，不 mock）。
+
+    抽取口径是 `"\\n".join(p.text for p in doc.paragraphs)`，所以多段之间会各有一个换行。
+    """
+    import docx
+
+    document = docx.Document()
+    for text in paragraphs:
+        document.add_paragraph(text)
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def test_b01_segment_boundaries() -> None:
+    """B-01：分段纯函数的四种 offset 边界 + limit 上下界。
+
+    真实边界就是纯函数本身（无 IO）：这里钉死的是**切片语义**，不是工具编排。
+    """
+    text = "abcdefghij"  # 10 字符
+
+    assert slice_text(text, 0, 4) == "abcd", "offset=0 → 首段"
+    assert slice_text(text, len(text), 4) == "", "offset 恰好等于总长 → 空段"
+    assert slice_text(text, len(text) + 5, 4) == "", "offset 超出总长 → 空段"
+
+    with pytest.raises(AttachmentToolError) as negative:
+        slice_text(text, -1, 4)
+    assert negative.value.code == ATTACHMENT_OFFSET_INVALID, "负 offset 是参数错误，不是空段"
+
+    with pytest.raises(AttachmentToolError) as too_small:
+        slice_text(text, 0, 0)
+    assert too_small.value.code == ATTACHMENT_LIMIT_INVALID
+
+    with pytest.raises(AttachmentToolError) as too_big:
+        slice_text(text, 0, MAX_TEXT_CHARS + 1)
+    assert too_big.value.code == ATTACHMENT_LIMIT_INVALID
+
+
+async def test_s01_paged_read_reassembles_the_whole_document(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """S-01：三次分段拼接**逐字符等于**全文，且每段标注区间与总长。
+
+    真实边界：真实文件系统（字节真落盘）+ 真实解析库（python-docx 解析真 OOXML）。
+    全文用**单段** 60 000 字符，好让 0/20000/40000 三段恰好覆盖到最后一个字符。
+    """
+    full = "".join(chr(0x4E00 + (index % 512)) for index in range(60_000))
+    data = _docx_bytes(full)
+    artifact_id = await _seed_artifact(
+        tenant, artifact_root, data=data, kind="DOCUMENT",
+        media_type=_DOCX_MIME, filename="长报告.docx",
+    )
+    tool_set = _tool_set(tenant, artifact_root)
+
+    segments: list[str] = []
+    ranges: list[tuple[int, int, int]] = []
+    for offset in (0, 20_000, 40_000):
+        result = await _call(
+            tool_set, READ_ATTACHMENT_TOOL,
+            {"artifact_id": str(artifact_id), "offset": offset, "limit": 20_000},
+        )
+        assert "长报告.docx" in result, "每次返回都要带文件名"
+        note = _SEG_NOTE_RE.search(result)
+        assert note is not None, f"offset={offset} 的片段必须标注区间与总长：{result[-120:]!r}"
+        ranges.append((int(note.group(1)), int(note.group(2)), int(note.group(3))))
+        segments.append(_segment_of(result))
+
+    assert "".join(segments) == full, "三次片段拼接必须逐字符等于全文"
+    assert ranges == [(0, 20_000, 60_000), (20_000, 40_000, 60_000), (40_000, 60_000, 60_000)]
+
+
+async def test_s01_long_document_carries_a_paging_hint(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """FEAT-03（收窄后）：未读完时给可行动的翻页指引，而不是一句"内容过长，已截断"。"""
+    full = "".join(chr(0x4E00 + (index % 512)) for index in range(60_000))
+    artifact_id = await _seed_artifact(
+        tenant, artifact_root, data=_docx_bytes(full), kind="DOCUMENT",
+        media_type=_DOCX_MIME, filename="长报告.docx",
+    )
+
+    first = await _call(
+        _tool_set(tenant, artifact_root), READ_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id)}
+    )
+    assert "offset=20000" in first, "未读完时必须告诉模型下一次从哪读"
+    assert "已截断" not in first, "旧的截断文案必须被可行动的指引取代"
+
+    last = await _call(
+        _tool_set(tenant, artifact_root), READ_ATTACHMENT_TOOL,
+        {"artifact_id": str(artifact_id), "offset": 40_000},
+    )
+    assert "offset=" not in last, "读到最后一段就不该再提示翻页"
+
+
+async def test_e01_rejection_paths_are_explicit_and_labelled(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """E-01：超上限 / 损坏文档 / 非法 offset 各自明确报错（含文件与原因），绝不给乱码或空内容。
+
+    另一面：`offset` **超出全文长度不是错误** —— 返回空段并注明（设计 §2.3.2）。
+    """
+    tool_set = _tool_set(tenant, artifact_root)
+
+    oversized = await _seed_artifact(
+        tenant, artifact_root, data=b"x" * (MAX_READ_BYTES + 1), kind="DOCUMENT",
+        media_type="text/plain", filename="超大.txt",
+    )
+    with pytest.raises(AttachmentToolError) as too_large:
+        await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": str(oversized)})
+    assert too_large.value.code == ATTACHMENT_TOO_LARGE
+    assert "超大.txt" in str(too_large.value), "报错必须指明是哪个文件"
+
+    corrupt = await _seed_artifact(
+        tenant, artifact_root, data=b"not-a-real-docx-at-all", kind="DOCUMENT",
+        media_type=_DOCX_MIME, filename="损坏.docx",
+    )
+    with pytest.raises(AttachmentToolError) as broken:
+        await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": str(corrupt)})
+    assert broken.value.code == ATTACHMENT_EXTRACT_FAILED
+    assert "损坏.docx" in str(broken.value)
+
+    readable = await _seed_artifact(
+        tenant, artifact_root, data="短文本".encode(), kind="DOCUMENT",
+        media_type="text/plain", filename="短.txt",
+    )
+    with pytest.raises(AttachmentToolError) as bad_offset:
+        await _call(
+            tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": str(readable), "offset": -1}
+        )
+    assert bad_offset.value.code == ATTACHMENT_OFFSET_INVALID
+    assert "短.txt" in str(bad_offset.value)
+
+    # 超出全文长度：**不是**错误，给空段 + 标注（仍要说明是哪个文件、总长多少）
+    beyond = await _call(
+        tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": str(readable), "offset": 999}
+    )
+    assert "短.txt" in beyond
+    assert _segment_of(beyond) == "", "超界返回空段"
+    assert "共 3 字符" in beyond, "空段也要注明全文总长，模型才知道确实是读完了"
+
+
+async def test_document_search_reports_hits_with_offsets_and_misses(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """文档内定位：命中给片段与偏移；**未命中要说"未命中"，不返回空内容冒充成功**。"""
+    body = "开头\nALPHA 出现在这里\n中间段落\nALPHA 又出现一次\n结尾"
+    artifact_id = await _seed_artifact(
+        tenant, artifact_root, data=body.encode(), kind="DOCUMENT",
+        media_type="text/plain", filename="笔记.txt",
+    )
+    tool_set = _tool_set(tenant, artifact_root)
+
+    hits = await _call(
+        tool_set, SEARCH_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id), "query": "ALPHA"}
+    )
+    assert "笔记.txt" in hits
+    assert hits.count("offset=") == 2, f"全文里 ALPHA 出现两次：{hits!r}"
+    assert f"offset={body.index('ALPHA')}" in hits, "命中要带真实字符偏移，不能只报「有一次」"
+
+    miss = await _call(
+        tool_set, SEARCH_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id), "query": "NOT-IN-FILE"}
+    )
+    assert "未命中" in miss, "未命中必须明说，不能返回空内容"
+    assert "offset=" not in miss

@@ -27,8 +27,13 @@ def _candidate(size: int = 1024, media_type: str = "image/png", filename: str | 
 
 
 def test_constants_match_the_designed_defaults() -> None:
-    """P0 默认值必须与设计 §2.3.2 一致 —— 它们同时是用户可见提示里的数值来源。"""
-    assert MAX_ATTACHMENT_BYTES == 20 * MIB
+    """P0 默认值必须与设计一致 —— 它们同时是用户可见提示里的数值来源。
+
+    大小上限 **2026-10-03 由 20 MiB 放宽到 50 MiB**（attachment-round-trip TASK-002）：
+    企微官方入站回调上限是 100 MB，出站上传天花板 ≈ 50 MB，50 MiB 让收发对齐。
+    数量上限沿用 wecom-inbound-media 的 5（本次未动）。
+    """
+    assert MAX_ATTACHMENT_BYTES == 50 * MIB
     assert MAX_ATTACHMENTS_PER_MESSAGE == 5
     assert "image/png" in ALLOWED_MEDIA_TYPES
     assert "application/pdf" in ALLOWED_MEDIA_TYPES
