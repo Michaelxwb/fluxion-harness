@@ -23,15 +23,15 @@
       "cwd": ".",
       "timeout": 900.0,
       "depends_on": [],
-      "revision": 8,
+      "revision": 10,
       "evidence": {
         "id": "S-01",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 8,
-        "run_id": "b1831ac4972c4dd9a9dbda91bdb8090b",
-        "executed_at": "2026-10-02T01:39:15.689352+00:00"
+        "revision": 10,
+        "run_id": "94bed980f8684d0da6ed7e3262ddf5f8",
+        "executed_at": "2026-10-02T03:39:46.345111+00:00"
       },
       "runs": [
         {
@@ -104,6 +104,24 @@
           "revision": 8,
           "run_id": "b1831ac4972c4dd9a9dbda91bdb8090b",
           "executed_at": "2026-10-02T01:39:15.689352+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 9,
+          "run_id": "6f8da9bf22ef4fd3bd6e109432a5533d",
+          "executed_at": "2026-10-02T02:56:52.785882+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 10,
+          "run_id": "94bed980f8684d0da6ed7e3262ddf5f8",
+          "executed_at": "2026-10-02T03:39:46.345111+00:00"
         }
       ]
     },
@@ -307,15 +325,15 @@
       "cwd": ".",
       "timeout": 900.0,
       "depends_on": [],
-      "revision": 8,
+      "revision": 10,
       "evidence": {
         "id": "S-05",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 8,
-        "run_id": "b1831ac4972c4dd9a9dbda91bdb8090b",
-        "executed_at": "2026-10-02T01:39:15.689352+00:00"
+        "revision": 10,
+        "run_id": "94bed980f8684d0da6ed7e3262ddf5f8",
+        "executed_at": "2026-10-02T03:39:46.345111+00:00"
       },
       "runs": [
         {
@@ -388,6 +406,24 @@
           "revision": 8,
           "run_id": "b1831ac4972c4dd9a9dbda91bdb8090b",
           "executed_at": "2026-10-02T01:39:15.689352+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 9,
+          "run_id": "6f8da9bf22ef4fd3bd6e109432a5533d",
+          "executed_at": "2026-10-02T02:56:52.785882+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 10,
+          "run_id": "94bed980f8684d0da6ed7e3262ddf5f8",
+          "executed_at": "2026-10-02T03:39:46.345111+00:00"
         }
       ]
     },
