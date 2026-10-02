@@ -54,6 +54,16 @@ E2E 创建的业务数据（无删除端点的资源尤其如此）必须：用�
   - ❌ 共用 dev 库、再靠"跑前清残留"维持隔离 —— 残留来自被中断的运行与 dev 服务，清不干净就退化成随机红
   - ❌ 让使用者每次跑前手动 `export DATABASE_URL/REDIS_URL`（隔离会变成"记得设才有"，等于没有）
   - 开销实测 0.76s/轮（建库 0.10 + 迁移 0.65），相对验收总时长的量级可忽略
+- **验收栈的「可注入节拍」一律注入小值，且测试里镜像这些节拍的常量必须读注入值**：轮询/扫描/退避这类间隔在验收里直接变成墙钟，而它们**不改变被测语义**（断言的是「最终发生」与「退避按几何级数增长」，不是节拍的绝对长度）。生产默认 → 注入值：`WORKER_POLL_INTERVAL_SEC` 5→1、`SCHEDULER_POLL_INTERVAL_SEC` 10→2、`TASK_DEADLINE_SWEEP_INTERVAL_SEC` 30→2、`DELIVERY_POLL_INTERVAL_SEC` 5→1、`DELIVERY_BACKOFF_BASE_SEC` 5→1（或 2）。三个栈各自在 `environment.py` 的 `base_env` 注入（`tests/acceptance/{dfx,task_schedule,im_gateway}/`）。
+  - ✅ 测试侧常量**从注入值派生**：`DEADLINE_SWEEP_SEC = TASK_DEADLINE_SWEEP_INTERVAL_SEC`（`dfx/test_dfx_recovery.py`）、`SCHEDULER_POLL_SEC = SCHEDULER_POLL_INTERVAL_SEC`（`dfx/test_dfx_routing.py`）、窗口写 `DELIVERY_BACKOFF_BASE_SEC * 2**index`（`dfx/test_dfx_delivery.py`）
+  - ❌ 在测试里**写死生产默认**（如 `SCHEDULER_POLL_SEC = 10`）：注入生效后**断言窗口与实际节拍静默脱节** —— 测试仍绿，但已不代表任何事
+  - ❌ 无差别地压**租约**：`TASK_LEASE_SEC` 须显著大于心跳间隔（`dfx/environment.py:61-66` 的论证：压小会让「执行中不失约」不再可稳定观测，一次调度延误就把产品的**正确工作**误判成 heartbeat 失效）
+  - 实测（2026-10-02，三笔 `91e5275`/`29f9c39`/`08af988`）：全量 `tests/acceptance` **1064s → 780s（−26.6%）**，单项最大 `im_gateway::test_b127` 81s → 16s
+- **「常量值」与「行为规律」分层验证**：一条断言若为「等真实时间」而变得极慢（如 98s 的退避耗尽），拆成两层 —— E2E 注入小参数验证**规律**（几何增长、耗尽后写审计且不写已送达），**生产默认值**由毫秒级单测钉住（`tests/agent_worker/test_delivery_backoff_default.py` 钉 `delivery_backoff_base_sec == 5` 且 env 覆盖生效 —— 后者同时证明 E2E 的注入链路真的被读到）。
+  - 前提是**该常量可配置**：产品侧这类时间常量应做成设置项而非模块常量（`BACKOFF_BASE_SEC` → `delivery_backoff_base_sec`，**默认值不变 ⇒ 生产行为不变**）。改名前先 grep 全仓引用，并同步**按名字引用它的 spec 约定**（`worker/harness-worker.md` 就按名字引用了它）。
+  - ✅ 分层后两侧证明的事实集合不变：E2E 仍验「与生产公式一致」的形状，单测验常量取值。先例：14-dfx-acceptance 归档文档的「边界登记」明确「**调参不改公式不视为违规**，本用例钉的是形状不是常量取值」
+  - ❌ 让「生产默认是 X」这条**常量**只有一条 98 秒的 E2E 覆盖 —— 慢得没人愿意跑，且一改参数就作废
+- **验收耗时的优化必须由 `--durations` 归因驱动**，不得从「哪一段看起来慢」推瓶颈。实测反例（2026-10-02）：先假设「16 个 dfx 模块各起一套 live stack」与「worker 轮询 5s 是元凶」，**两个都错** —— `setup`（模块级栈启动）只占 **6.7%**，而前 5 条用例占 **52%**，榜首是**等退避窗口**的用例（`--durations` 把 setup/call/teardown 分开列，栈启动成本因此单独可见）。与既有纪律同源：「单跑通过、整跑偶发失败先怀疑环境残留，复跑再下结论，不要直接改实现」。
 - 外部依赖（模型/LLM 端点、第三方 API）用真实本地探针服务承载：`tests/e2e/openai_probe_app.py`（真实 HTTP 健康响应）与 Console/Vite 并列写入 `webServer` 数组；禁止在 E2E 中伪造外部响应。
 - **流式超时的「有界失败」用例必须注入 `STREAM_TIMEOUT_SEC`**：`RuntimeClient` 的流式读超时由**独立常量**决定——`create_run` 显式传 `httpx.Timeout(STREAM_TIMEOUT_SEC, connect=REQUEST_TIMEOUT_SEC)`，构造函数的 `timeout_sec` 只作用于非流式调用（`apps/im-gateway/src/muad_im_gateway/application/runtime_client.py`）。常量默认 300s，用例须 `monkeypatch` 成小值才能驱动「上游挂起 → 有界失败」的真实路径（`tests/gateway/test_runtime_client.py`）。
 - **每个需求收尾必须有 `tests/<domain>_inventory.py` 闭合清单**：以**真实盘面**为输入做交叉核对，而不是自查断言——任务文档的覆盖表/契约表/Evidence 表、`.acceptance-manifest.json`、`spec-context.yml` 里的 required 规则，以及 E2E 套件与场景名是否**真的在盘**。口径（4 例：`tests/console_auth_inventory.py`、`tests/overview_dashboard_inventory.py`、`tests/audit_observability_inventory.py`、`tests/dfx_inventory.py`）：

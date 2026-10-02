@@ -81,6 +81,25 @@ config.headers['X-Request-Id'] = crypto.randomUUID();
 
 机检：`tests/frontend/test_platform_detail_contract.py::test_credentials_pane_is_admin_only`、`tests/frontend/test_user_credential_tab_contract.py::test_credentials_tab_is_admin_only`。
 
+**共享壳层组件不得假定 `children` 非空**：props 声明为可选（`children?: ReactNode`）就必须容忍空值 —— 尤其**把 children 交给 Semi `Tabs` 之前必须判空**。`Tabs.getPanes()` 对 `null` children 返回 `null`，`TabBar.renderTabComponents` 随即 `list.map(...)` 抛 TypeError，**React 卸载整棵树**（2026-10-02 真实事故：`b2ea46e` 把 `<Modal>`（容忍 null children）换成 `DetailSideSheet`（无条件 `<Tabs>{children}</Tabs>`）后，关闭 mcp 内层「工具详情」面板即崩整页；全仓 `<Tabs>` 容器只有这一处，故这是共享组件的合约问题，不是某个调用方的写法问题）。
+
+✅：仅在确有内容时才渲染容器
+
+```tsx
+const tabs =
+  props.children === null || props.children === undefined ? null : (
+    <Tabs type="line" activeKey={props.activeTab}>{props.children}</Tabs>
+  );
+```
+
+❌：无条件渲染
+
+```tsx
+<Tabs type="line" activeKey={props.activeTab}>{props.children}</Tabs>
+```
+
+判空用**严格** `null`/`undefined`，不要用 falsy：实测 `React.Children.map` 对 `null`/`undefined` 返回 `null`/`undefined`（会崩），对 `false`/`''`/`0` 返回数组（不崩）—— 用 falsy 判定反而会顺手改掉 `{cond && <TabPane/>}` 今天**不崩**的行为，属多余语义变更。回归守卫：`e2e/tests/mcp-management/mcp-management.spec.ts` 的 S-06 在关闭内层面板后断言外层列表仍在（整树未被卸载）。机检：`tests/frontend/test_detail_sidesheet_contract.py` 钉住 props 与结构，但**判不出**这条语义（无法用模式判定 children 是否判空）。
+
 > 登记缺口：`tests/frontend/test_api_client_contract.py` 已钉死上述拦截器契约，但**未登记进任何 spec 的 `verifiers`**（仅在已归档 `01-platform-foundation` 里作 E-07 的 argv 出现过）；`tests/frontend/test_form_layout_contract.py` 在整个 `.code-flow/` 下**零引用**。两者都应在后续 refresh 时并入对应 rule 的 verifier 清单。
 >
 > 机检覆盖边界：`scripts/check_frontend_api_usage.py` 目前只扫 `axios`/`fetch` 的裸用，**不覆盖**「import `api` 实例」这一类——RULE-front-001 的调用面禁令靠评审把关。若要机器兜底，可在该脚本补一条：除 `src/api/` 与 `services/` 外不得出现 `api.` 调用。
