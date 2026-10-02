@@ -177,14 +177,34 @@ jobs:
         unit: [console-platform, agent-runtime, agent-worker, im-gateway]
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
       # ghcr 的包名要求**全小写**，而 owner 是 `Michaelxwb` ⇒ 用 bash 小写展开算前缀，
       # 否则 build-push-action 会以 invalid reference format 失败。
       - name: 计算镜像前缀（ghcr 包名要求全小写）
         id: img
         run: echo "prefix=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      # 平台与推送的**唯一决策点**（后面各步都引用它，避免条件散落多处而不一致）：
+      # - main 的 push：多平台（amd64 + arm64）并推送；
+      # - 其它（PR / 其它分支）：只构建本机平台、不推送。
+      # 为什么不能「多平台 + 不推送」：多平台镜像产出的 manifest list **无法 load 进本地
+      # docker daemon**（daemon 只持单一平台），build-push-action 会以
+      # `docker exporter does not currently support exporting manifest lists` 失败。
+      - name: 选择目标平台与是否推送
+        id: targets
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "platforms=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT"
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "platforms=linux/amd64" >> "$GITHUB_OUTPUT"
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          fi
+      # arm64 走 QEMU 模拟；必须排在 buildx **之前**，binfmt 才会被 buildx 采纳。
+      # 只在真要多平台时装（PR 上省掉这段开销）。
+      - if: steps.targets.outputs.push == 'true'
+        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
       - name: Log in to ghcr.io
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: steps.targets.outputs.push == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -195,7 +215,8 @@ jobs:
         with:
           context: .
           file: apps/${{ matrix.unit }}/Dockerfile
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          platforms: ${{ steps.targets.outputs.platforms }}
+          push: ${{ steps.targets.outputs.push }}
           tags: |
             muad-${{ matrix.unit }}:ci
             ${{ steps.img.outputs.prefix }}/muad-${{ matrix.unit }}:latest
