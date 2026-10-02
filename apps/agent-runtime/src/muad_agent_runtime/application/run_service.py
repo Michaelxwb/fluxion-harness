@@ -405,7 +405,8 @@ class RunService:
             ResolveDefinitionRequest(
                 agent_id=agent_id,
                 actor_user_id=platform_user_id,
-                channel="WECOM",
+                # 建会话**不经渠道**（调用方只有 agent/用户，请求体里也没有通道）⇒ 显式省略，
+                # **不编一个通道名**：编造的值一旦被消费方读走就是错的（B-09）。
             ),
             tenant_id=tenant_id,
             trace_id=current_trace_id(),

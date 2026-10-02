@@ -47,10 +47,12 @@ class ConsoleResolveClient:
     async def resolve(
         self, agent_id: UUID, actor_user_id: UUID, tenant_id: str
     ) -> ResolveDefinitionResponse:
+        # 定时触发**不经渠道**：交付通道属于 Schedule 的 `delivery_route`，不是 resolve 的输入
+        # （resolve 只用 agent/actor）。为填一个没人读的字段在热路径上多打一次库不划算，
+        # 更不能凭空编一个通道名（B-09）⇒ 显式省略。
         request = ResolveDefinitionRequest(
             agent_id=agent_id,
             actor_user_id=actor_user_id,
-            channel="WECOM",
         )
         headers = {"X-Tenant-Id": tenant_id}
         if self._service_token:

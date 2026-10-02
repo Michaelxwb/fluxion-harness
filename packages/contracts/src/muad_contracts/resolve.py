@@ -12,7 +12,11 @@ from .tasks import ContractModel
 class ResolveDefinitionRequest(ContractModel):
     agent_id: UUID
     actor_user_id: UUID
-    channel: ChannelName
+    #: **有真值就给真值，没有就显式省略**——不得凭空编一个通道名（B-09）。
+    #: 现状：console 侧零消费方读它（`resolve_service` 只用 agent/actor），所以"必填"只会逼
+    #: 每个调用点去编一个值；哪天开始按通道做授权，编造的值立刻就是错的。
+    #: 定时触发（worker）与建会话（runtime）都不经渠道 ⇒ 它们显式省略。
+    channel: ChannelName | None = None
 
 
 class ResolvedAgent(ContractModel):

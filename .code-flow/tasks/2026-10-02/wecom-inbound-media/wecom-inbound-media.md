@@ -50,7 +50,7 @@
 | B-06 | design#2.5.2 | integration | provider 组装 | TASK-005 | verified | uv run pytest -q tests/agent_core/test_openai_provider.py | . | 60 |  |
 | B-07 | design#2.5.2 | unit | 源码静态检查 | TASK-001 | verified | uv run pytest -q tests/test_attachment_contract.py | . | 60 |  |
 | B-08 | design#2.5.2 | unit | 注入固定时钟 | TASK-009 | verified | uv run pytest -q tests/agent_runtime/test_time_tools.py | . | 60 |  |
-| B-09 | design#2.5.2 | unit | 源码静态检查（不 mock） | TASK-011 | planned | uv run pytest -q tests/architecture/test_channel_neutrality.py | . | 60 |  |
+| B-09 | design#2.5.2 | unit | 源码静态检查（不 mock） | TASK-011 | verified | uv run pytest -q tests/architecture/test_channel_neutrality.py | . | 60 |  |
 | E-08 | design#2.5.2 | integration | 内部端点 → 真实 PG 审计表 | TASK-012 | verified | uv run pytest -q tests/console_channel/test_inbound_audit.py | . | 60 |  |
 
 > 覆盖自检：design 全部 P0/P1 场景 25/25 已分配唯一负责人；RULE-01..08 与高影响 R-01/R-04 均有映射场景；E2E 场景 6 个未降级。
@@ -676,7 +676,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 ## TASK-011: 通道取值收口 + 通道中立性静态守卫
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-004
 - **Source**: `wecom-inbound-media.design.md#3.2.3`, `#2.5.2 B-09`
@@ -693,29 +693,48 @@ B-07 只钉住了**类型定义处**（`Literal["WECOM"]` 只在 `enums.py` 一�
 
 ### Checklist
 
-- [ ] `ResolveDefinitionRequest.channel` 改为 `ChannelName | None = None`：**有真值给真值，没有就显式省略**，不再编造
-- [ ] `run_service.py` 的 resolve 调用改传 `request.channel.type`（运行请求里已有真值，零额外 IO）
-- [ ] worker 的 `scheduler/client.py` 省略该字段，并注明理由：**定时触发不经渠道**，交付通道属于 Schedule 的 `delivery_route`，不是 resolve 的输入（为填这个没人读的字段去热路径上多打一次库不划算）
-- [ ] console 侧确认无消费方依赖该字段非空（现为零引用）
-- [ ] [B-09][unit] 静态守卫：核心域（`agent-runtime`/`agent-worker`）零渠道字样（`WECOM`/`aeskey`/`url_private`/`download_code`…）与取件形状；通道专有字样只允许出现在 `channels/` 适配器层与 console 通道管理面
-- [ ] 回归：既有文本路径与调度链路全绿（改动了 worker 的 resolve 入参与核心域的填入值）
-- [ ] 运行 verifier：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"`（`harness-snapshot#RULE-snapshot-001`）；记录输出并填写 Acceptance Evidence
-- [ ] 运行 verifier：`uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py`（`harness-worker#RULE-worker-001`）；记录输出并填写 Acceptance Evidence
-- [ ] 运行 verifier：`uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity`（`harness-time#RULE-time-001`）；记录输出并填写 Acceptance Evidence
+- [x] `ResolveDefinitionRequest.channel` 改为 `ChannelName | None = None`：**有真值给真值，没有就显式省略**，不再编造
+- [x] `run_service.py` 的两处 resolve 调用分别收口：**建 Run 那条**传 `request.channel.type`（运行请求里有真值，零额外 IO——核对后确认它**原本就是对的**）；**建会话那条**（`create_conversation`）调用点根本没有通道（入参只有 agent/用户，`CreateConversationRequest` 里也没有）⇒ 显式省略，不编造
+- [x] worker 的 `scheduler/client.py` 省略该字段，并注明理由：**定时触发不经渠道**，交付通道属于 Schedule 的 `delivery_route`，不是 resolve 的输入（为填这个没人读的字段去热路径上多打一次库不划算）
+- [x] console 侧确认无消费方依赖该字段非空（`resolve_service.py` 只用 agent/actor；`internal_runtime.py`、runtime `console_client.py`/`ports.py` 均不读）——改为可选后 `tests/console_platform` 136 passed
+- [x] [B-09][unit] 静态守卫：核心域（`agent-runtime`/`agent-worker`）零渠道字样（`WECOM`/`aeskey`/`url_private`/`download_code`…）与取件形状；通道专有字样只允许出现在 `channels/` 适配器层与 console 通道管理面
+- [x] 回归：既有文本路径与调度链路全绿（改动了 worker 的 resolve 入参与核心域的填入值）
+
+> **清单第二条的落实与偏差（记录）**：原条目写"`run_service.py` 的 resolve 调用改传 `request.channel.type`"，那是按"冒烟点在建 Run 路径"写的。实际读代码后：建 Run 那条**早就是**真值，写死的是**建会话**那条，而它没有通道可传 ⇒ 按 B-09 ② 的"没有就显式省略"处理。方向不变（不再编造），只是落点与手段与清单原文不同。
+>
+> **两条断言的分工（写给后来者）**：① 与 ② 用的是**全文**扫描（连注释都不许提）——核心域零容忍；③ 用的是 **AST 代码扫描**（标识符 + 关键字参数名 + 非文档字符串字面量），因为别处的注释常需要点名"这个字段必须无处可放"（`AttachmentRef` 的文档串就逐个点名了 `aes_key`/`media_id`/`download_code`），把说明当泄漏会让守卫变成噪音。允许面写成 `ALLOWED_SURFACES` 常量，放宽时改清单、不改断言，多出来的那处在 review 里可见。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-09 | unit | 源码静态检查（不 mock） | 核心域零渠道字样与取件形状；`channel` 取值无编造 | `tests/architecture/test_channel_neutrality.py` | `uv run pytest -q tests/architecture/test_channel_neutrality.py` | planned |
+| B-09 | unit | 源码静态检查（不 mock） | 核心域零渠道字样与取件形状；`channel` 取值无编造 | `tests/architecture/test_channel_neutrality.py`（三条：核心域零字样 / 不传字面量 / 允许面之外零泄漏） | uv run pytest -q tests/architecture/test_channel_neutrality.py | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-09 | FAIL（**把写回的字面量放回去即可复现**）：在 `apps/agent-worker/.../scheduler/client.py` 把 `channel="WECOM"` 加回后，三条断言**同时**红，且各自指名文件与行号——①`{'apps/agent-worker/src/muad_agent_worker/scheduler/client.py': ['wecom']}`；②`['apps/agent-worker/src/muad_agent_worker/scheduler/client.py:53']`；③同 ①。这就是"接线前"的真实状态 | PASS: `3 passed`（runner exit_code=0） | `tests/architecture/test_channel_neutrality.py::test_b09_core_domain_carries_no_channel_vocabulary`（核心域全文零渠道字样）/ `::test_b09_core_domain_never_fabricates_a_channel_value`（AST 取 `ResolveDefinitionRequest(channel=<字面量>)`，`DINGTALK` 这类换名字也照样红）/ `::test_b09_channel_vocabulary_only_lives_on_the_allowed_surfaces`（全仓允许面之外零泄漏） | **真实源码扫描**：读盘全文匹配（①②）与 `ast.parse` 遍历（③），无 mock、无桩；允许面是 `ALLOWED_SURFACES` 常量，放宽必须改清单而非改断言 | verified |
+
+**本次回归**：
+- `harness-snapshot#RULE-snapshot-001` verifier：`test_snapshot_freeze.py` + `test_run_reaper.py` → **4 passed**；`tests/agent_runtime -k "executor or resolve"` → **20 passed**
+- `harness-worker#RULE-worker-001` verifier：`tests/agent_worker` → **236 passed**；`tests/agent_runtime --ignore=test_runner_executor.py` → **195 passed**
+- `harness-time#RULE-time-001` verifier：`tests/frontend/test_datetime_contract.py` → **2 passed**；`tests -k schema_parity` → **35 passed**
+- `tests/architecture` → **13 passed**（含本任务新增 3 条）；`tests/test_contracts.py tests/console_channel tests/gateway` → **317 passed**；`tests/console_platform` → **136 passed**（`channel` 改可选后的契约消费方）
+- `uv run mypy apps packages` → **Success: no issues found in 267 source files**；`uv run ruff check .` → **All checks passed**
+
+> **偶发甄别（记录，未改实现）**：本次两处首跑失败都在**整跑/组合跑**里出现、**单跑通过、复跑全绿**——① `tests/agent_worker` 首跑的 `test_b124_admin_list_and_cancel_contract`（单跑 1 passed；整域复跑 236 passed）；② `tests/test_contracts.py tests/console_channel tests/gateway` 组合首跑的 `tests/gateway/test_bind_command.py::test_b110_bind_success_replies_and_persists_identity`（单跑 1 passed；整组合复跑 317 passed）。按项目口径先怀疑环境残留（本机 dev 服务在跑、与验收共用 PG/Redis）再怀疑实现，两者复跑均绿且与本次改动无交集（一是 admin 任务列表、二是绑定回执），故判定为整跑偶发。
+
+**Done Gate 裁决**：`pass`（`cf_task_workflow.py finish --task TASK-011`，rc=0）。deferred：15 个 verifier（需求级 `verify-e2e` 收口）+ 1 个 heavy validator（归档 `cf_validation` 收口）。
+
+ verified — automated command passed; run_id=8cda806567e24a5f9e242b4341b718df (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
 
 ---
-
+- [2026-10-02] started
+- [2026-10-02] completed (done)
 ## TASK-012: 入站审计落点（表 + console 内部端点）
 
 - **Status**: done
