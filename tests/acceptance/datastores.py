@@ -11,7 +11,7 @@
       → 建空库 + 迁到 head（可选预置 Console 管理员），stdout 输出 JSON
         {"database_url": …, "redis_url": …, "name": …}
   uv run python -m tests.acceptance.datastores stop <name>
-      → DROP DATABASE … WITH (FORCE)
+      → DROP DATABASE … WITH (FORCE)，并归还本次占用的 Redis 号位
 
 **前提**：连接角色需要 CREATEDB。缺权限时 `create_datastore` 抛 `DatastorePrivilegeError`，
 调用方**不得静默退回共享库** —— 退回等于隔离失效。
@@ -34,16 +34,27 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import asyncpg
+import redis.asyncio
 from muad_common import SharedSettings
+from redis.exceptions import RedisError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-# 独立 Redis 标号区间（与 dev 的 db 0 分开；同机并发运行按 pid 落在不同号上）
+# 独立 Redis 标号区间（与 dev 的 db 0 分开）。号位靠**原子占位**分配，不靠 pid 取模 ——
+# 用 pid 取模时两个并发运行只要同余就共用同一个 DB（1/6 概率），隔离会退化成「单跑绿、串跑红」。
 REDIS_DB_START = 10
 REDIS_DB_COUNT = 6
+# 占号键（写在**被占的那个号**里）：值为本次的库名，收尾按值释放，互踩不到别人的号。
+REDIS_CLAIM_KEY = "muad:acceptance:db-claim"
+# 异常中断（未走到收尾）的运行靠 TTL 自动让出号位；取一个明显长于单轮验收的值。
+REDIS_CLAIM_TTL_SEC = 7200
 DEFAULT_PREFIX = "muad_acc_"
 
 
-class DatastorePrivilegeError(RuntimeError):
+class DatastoreUnavailableError(RuntimeError):
+    """当前环境无法提供独立数据存储（权限不足，或 Redis 号位耗尽）。"""
+
+
+class DatastorePrivilegeError(DatastoreUnavailableError):
     """当前角色没有 CREATEDB，无法建独立库（提示见消息）。"""
 
 
@@ -92,9 +103,55 @@ def new_database_name(prefix: str = DEFAULT_PREFIX) -> str:
     return f"{prefix}{uuid.uuid4().hex[:10]}"
 
 
-def isolated_redis_url(base_redis_url: str) -> str:
-    """按 pid 落到 10–15 号 Redis DB（同机并发运行互不撞号）。"""
-    return _redis_url_with_db(base_redis_url, REDIS_DB_START + (os.getpid() % REDIS_DB_COUNT))
+def _claim_redis_db(url_with_db: str, owner: str) -> bool:
+    """在该号上原子占位（`SET NX EX`）。True = 本运行独占该号。"""
+
+    async def claim() -> bool:
+        client = redis.asyncio.from_url(url_with_db)
+        try:
+            return bool(await client.set(REDIS_CLAIM_KEY, owner, nx=True, ex=REDIS_CLAIM_TTL_SEC))
+        finally:
+            await client.aclose()
+
+    return bool(_run_in_thread(claim))
+
+
+def _release_redis_db(redis_url: str, owner: str) -> None:
+    """释放**值等于本次库名**的占号；值属于别的运行的，一律不动。"""
+
+    async def release() -> None:
+        encoded = owner.encode()
+        for index in range(REDIS_DB_START, REDIS_DB_START + REDIS_DB_COUNT):
+            client = redis.asyncio.from_url(_redis_url_with_db(redis_url, index))
+            try:
+                if (await client.get(REDIS_CLAIM_KEY)) == encoded:
+                    await client.delete(REDIS_CLAIM_KEY)
+            finally:
+                await client.aclose()
+
+    _run_in_thread(release)
+
+
+def isolated_redis_url(base_redis_url: str, owner: str) -> str:
+    """占一个**未被占用**的 10–15 号 Redis DB 并返回指向它的 URL。
+
+    号位靠原子占位分配，不靠 `pid % 6` 取模：取模时两个并发运行只要 pid 同余就**共用同一个
+    DB**（1/6 概率），而 Redis 承载去重键与队列 —— 共用即隔离失效，退化成「单跑绿、串跑红」，
+    正是本机制要消除的那类症状。`owner` 传本次的库名，收尾时按值释放。
+    """
+    first = os.getpid() % REDIS_DB_COUNT
+    for offset in range(REDIS_DB_COUNT):
+        index = REDIS_DB_START + (first + offset) % REDIS_DB_COUNT
+        candidate = _redis_url_with_db(base_redis_url, index)
+        if _claim_redis_db(candidate, owner):
+            return candidate
+    raise DatastoreUnavailableError(
+        f"{REDIS_DB_START}–{REDIS_DB_START + REDIS_DB_COUNT - 1} 号 Redis DB 全被占用："
+        f"同机并发验收超过 {REDIS_DB_COUNT} 个。等其中一个跑完（收尾会释放占号，"
+        f"异常中断的由 {REDIS_CLAIM_TTL_SEC}s TTL 兜底）后重试；确认无残留时也可手动清：\n"
+        f"  for n in $(seq {REDIS_DB_START} {REDIS_DB_START + REDIS_DB_COUNT - 1}); "
+        f"do redis-cli -n $n DEL {REDIS_CLAIM_KEY}; done"
+    )
 
 
 def _create_database(dsn: str, name: str) -> None:
@@ -156,9 +213,13 @@ def create_datastore(prefix: str = DEFAULT_PREFIX) -> dict[str, str]:
     name = new_database_name(prefix)
     admin_dsn = _asyncpg_dsn(base_database_url)
 
+    # 先占 Redis 号位：抢不到就立刻失败，此时还没有库需要回收。之后每条失败路径都要把号位
+    # 还回去 —— 否则异常一次就永久吃掉一个号（只靠 TTL 兜底会让并发额度悄悄缩水）。
+    redis_url = isolated_redis_url(base_redis_url, name)
     try:
         _create_database(admin_dsn, name)
     except asyncpg.InsufficientPrivilegeError as exc:
+        _release_redis_db(base_redis_url, name)
         raise DatastorePrivilegeError(
             "验收需要独立数据库，但当前角色没有 CREATEDB：\n"
             f"  {exc}\n"
@@ -171,8 +232,9 @@ def create_datastore(prefix: str = DEFAULT_PREFIX) -> dict[str, str]:
     try:
         _migrate_to_head(database_url, tmpdir)
     except BaseException:
-        # 迁移失败也要丢弃半成品库，避免残留
+        # 迁移失败也要丢弃半成品库 + 归还 Redis 号位，避免残留
         _drop_database(admin_dsn, name)
+        _release_redis_db(base_redis_url, name)
         raise
     finally:
         import shutil
@@ -181,16 +243,28 @@ def create_datastore(prefix: str = DEFAULT_PREFIX) -> dict[str, str]:
 
     return {
         "database_url": database_url,
-        "redis_url": isolated_redis_url(base_redis_url),
+        "redis_url": redis_url,
         "name": name,
         "admin_database_url": base_database_url,
     }
 
 
-def drop_datastore(name: str, admin_database_url: str | None = None) -> None:
-    """丢弃临时库（FORCE 断连）。`admin_database_url` 缺省时取环境里的基准 `DATABASE_URL`。"""
+def drop_datastore(
+    name: str, admin_database_url: str | None = None, redis_url: str | None = None
+) -> None:
+    """丢弃临时库（FORCE 断连）并**归还 Redis 号位**。
+
+    两个 URL 缺省时都取环境里的基准值：`_redis_url_with_db` 只替换路径，故传进来的 URL
+    带的是哪个 Redis 号都无所谓，只要指向同一实例（pytest 侧收尾前已恢复原 env、Playwright
+    侧 CLI 子进程继承的是被覆盖过的 env，两条路径都成立）。
+    """
     base = admin_database_url or SharedSettings().require_database_url()
     _drop_database(_asyncpg_dsn(base), name)
+    try:
+        _release_redis_db(redis_url or SharedSettings().require_redis_url(), name)
+    except RedisError as exc:
+        # 不阻塞收尾（占号有 TTL 兜底），但显式告警而非静默吞掉
+        print(f"[acceptance] Redis 占号释放失败（{name}）：{exc}", file=sys.stderr)
 
 
 def seed_console_admin(

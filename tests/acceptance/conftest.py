@@ -23,7 +23,7 @@ from collections.abc import Iterator
 import pytest
 
 from tests.acceptance.datastores import (
-    DatastorePrivilegeError,
+    DatastoreUnavailableError,
     create_datastore,
     drop_datastore,
 )
@@ -41,7 +41,7 @@ def isolated_datastores() -> Iterator[None]:
     saved = {key: os.environ.get(key) for key in _MANAGED_ENV}
     try:
         info = create_datastore()
-    except DatastorePrivilegeError as exc:  # pragma: no cover - 环境前提
+    except DatastoreUnavailableError as exc:  # pragma: no cover - 环境前提
         pytest.fail(str(exc))
 
     # 必须同时改 **os.environ**：各域套件的 seed 是进程内直连 DB、走 SharedSettings()，
