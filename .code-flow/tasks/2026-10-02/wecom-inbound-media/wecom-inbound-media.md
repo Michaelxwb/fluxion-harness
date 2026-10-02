@@ -30,18 +30,18 @@
 | S-01 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
 | S-02 | design#2.5.2 | E2E | 真实回调桩 → 真实 PG → 真实 artifact → 工具真实抽取 | TASK-007 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
 | S-03 | design#2.5.2 | integration | 模型 provider 请求体（不 mock 组装层） | TASK-005 | verified | uv run pytest -q tests/agent_core/test_openai_provider.py | . | 60 |  |
-| S-04 | design#2.5.2 | E2E | 回调 → 落盘 → 契约 → 工具 | TASK-004 | planned | - | . | 60 |  |
+| S-04 | design#2.5.2 | E2E | 回调 → 落盘 → 契约 → 工具 | TASK-004 | verified | uv run pytest -q tests/acceptance/im_gateway/test_wecom_attachments.py | . | 180 |  |
 | S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-007 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
 | S-06 | design#2.5.2 | integration | 工具 → artifact store → 读回 | TASK-008 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 60 |  |
-| S-07 | design#2.5.2 | integration | FakeChannelAdapter → 门控 → 契约 → 落盘（不含企微路径） | TASK-004 | planned | - | . | 60 |  |
+| S-07 | design#2.5.2 | integration | FakeChannelAdapter → 门控 → 契约 → 落盘（不含企微路径） | TASK-004 | verified | uv run pytest -q tests/gateway/test_inbound_attachment_flow.py tests/gateway/test_inbound_attachment_store.py | . | 60 |  |
 | S-08 | design#2.5.2 | integration | 回调帧分流解析层（不 mock 帧） | TASK-002 | verified | uv run pytest -q tests/gateway/test_wecom_media.py | . | 60 |  |
-| E-01 | design#2.5.2 | E2E | 回调 → 反馈投递 → 审计表 | TASK-004 | planned | - | . | 60 |  |
-| E-02 | design#2.5.2 | E2E | 同上 | TASK-004 | planned | - | . | 60 |  |
-| E-03 | design#2.5.2 | E2E | 同上 | TASK-004 | planned | - | . | 60 |  |
+| E-01 | design#2.5.2 | E2E | 回调 → 反馈投递 → 审计表 | TASK-004 | verified | uv run pytest -q tests/acceptance/im_gateway/test_wecom_attachments.py | . | 180 |  |
+| E-02 | design#2.5.2 | E2E | 同上 | TASK-004 | verified | uv run pytest -q tests/acceptance/im_gateway/test_wecom_attachments.py | . | 180 |  |
+| E-03 | design#2.5.2 | E2E | 同上 | TASK-004 | verified | uv run pytest -q tests/acceptance/im_gateway/test_wecom_attachments.py | . | 180 |  |
 | E-04 | design#2.5.2 | integration | 解密路径 + 日志输出（审计腿见 TASK-004） | TASK-002 | verified | uv run pytest -q tests/gateway/test_wecom_media.py tests/test_logging_redaction.py | . | 60 |  |
 | E-05 | design#2.5.2 | integration | DB 查询 + 工具越权校验 | TASK-007 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 60 |  |
 | E-06 | design#2.5.2 | integration | 真实解析库 | TASK-007 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 60 |  |
-| E-07 | design#2.5.2 | integration | 幂等键 + 落盘 | TASK-004 | planned | - | . | 60 |  |
+| E-07 | design#2.5.2 | integration | 幂等键 + 落盘 | TASK-004 | verified | uv run pytest -q tests/gateway/test_inbound_attachment_flow.py tests/gateway/test_inbound_attachment_store.py | . | 60 |  |
 | B-01 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | verified | uv run pytest -q tests/gateway/test_attachment_gate.py | . | 60 |  |
 | B-02 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | verified | uv run pytest -q tests/gateway/test_attachment_gate.py | . | 60 |  |
 | B-03 | design#2.5.2 | unit | 门控纯函数 | TASK-003 | verified | uv run pytest -q tests/gateway/test_attachment_gate.py | . | 60 |  |
@@ -248,7 +248,7 @@
 - [2026-10-02] completed (done)
 ## TASK-004: 附件落盘 + 接收反馈与审计
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003, TASK-012
 - **Source**: `wecom-inbound-media.design.md#3.2.1`, `#3.4 接口设计`, `#3.5 质量实现方案`
@@ -261,44 +261,98 @@
 
 ### Checklist
 
-- [ ] **取件的跨层接缝（本任务最关键的设计点）**：新增可选能力协议 `AttachmentSource`（仿既有 `AdapterDegradation` / `StreamFinalizer` 写法）——`attachment_count(envelope)` + `fetch_attachment(envelope, index, *, max_bytes)`。**核心域只给 envelope、下标与上限，拿回已解密字节与元信息，全程看不见 `url`/`aes_key`**（AD-8）。适配器内部按 `message_id` 保留通道私有引用，**必须有驱逐**（TTL/容量）：命令消息、重复投递、空载荷兜底这几条路径**永远不会来取件**
-- [ ] 附件写入共享 store：新增 im-gateway 对 `muad-artifact-store` 的依赖；key 为**相对路径**；沿用"临时文件 + `os.replace`"原子替换。**部署同步**：`deploy/k8s/base/im-gateway.yaml` 补 artifacts 卷挂载（现在只有 `fsGroup` 与来自 configMap 的 `ARTIFACT_ROOT`，**没有 volumeMounts/volumes** ⇒ 字节会写进容器临时盘，runtime 在自己的 PVC 上按 key 找不到）
-- [ ] **取件顺序**：放在 `_handle_message` 的 `_resolve` **之后**、`RunRequest` 之前——未绑定/无权限是天然早退点，"能收才去拉"，把 AD-1-B 下的无主字节压到最小（设计 R-07）
-- [ ] 门控接线为**两段**（design §3.2.1 / API-07）：**预检** `evaluate_precheck(count)` 在取件之前判数量（纯函数，无 IO）→ 取件 → **实检** `evaluate_gate(candidates)` 用解密后的真实 `media_type`/`size` 判类型与大小；部分拒绝不拖累其余
-- [ ] `unsupported_media` 兜底升级为**用户可见回复 + 审计**（E-01）：TASK-002 只让它"不进入 Run"，本条负责把回复补上，并删除兜底注释里的过渡说明
-- [ ] 门控拒绝 / 取件失败（超时·网络·超限·解密） / 落盘失败 / 不支持类型 → 各自映射文案与审计码，**无静默路径**
-- [ ] 反馈文案经消息目录取；`config/api-messages.yaml` 补齐 zh-CN 与 en-US 词条
-- [ ] 审计记录含 `external_message_id`、附件数、拒绝原因码（供 PRD §2.2 指标度量）；**并闭合 E-04 的审计腿**——审计行中不得出现 `aes_key` 与媒体明文 URL（TASK-002 只覆盖日志腿，见其清单）；**写审计经 TASK-012 的 `POST /internal/channel/audit`——本任务只调用、不建表**
-- [ ] [S-04][E2E] 一条消息带 3 个附件（含图片与文档）（真实边界：回调 → 落盘 → 契约 → 工具，不 mock）；断言三个附件各自落盘、可分别读取、互不覆盖
-- [ ] [S-07][integration] `FakeChannelAdapter` 以**与企微不同的取件路径**（不经 url/aes_key）产出带附件的 envelope（真实边界：门控 → 契约 → 落盘，不含企微代码路径）；断言门控/契约/落盘行为与企微路径一致
-- [ ] [E-01][E2E] 不受支持类型 → 不落盘 + 审计 + 用户收到明确说明
-- [ ] [E-02][E2E] 超上限文件 → 回复中**包含上限数值** + 审计
-- [ ] [E-03][E2E] 下载失败 → 明确失败说明 + 审计
-- [ ] [E-07][integration] 同一消息重投 → 去重，不产生重复产物
-- [ ] 运行 verifier：`uv run pytest -q tests/architecture`（`harness-arch#RULE-arch-001`）；记录输出
-- [ ] 运行 verifier：`uv run pytest -q tests/test_skill_artifact_cache.py`（`harness-skill#RULE-skill-001`）；记录输出
-- [ ] 运行 verifier：`uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py`（`harness-log#RULE-log-001`）；记录输出
-- [ ] 运行 verifier：`uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py`（`harness-i18n#RULE-i18n-001`）；记录输出并填写 Acceptance Evidence
-- [ ] 运行 verifier：`uv run pytest -q tests/gateway`（`harness-im#RULE-im-001`：`inbound.py` 属本 Rule 的路径映射，局部承接）；记录输出
+- [x] **取件的跨层接缝（本任务最关键的设计点）**：新增可选能力协议 `AttachmentSource`（仿既有 `AdapterDegradation` / `StreamFinalizer` 写法）——`attachment_count(envelope)` + `fetch_attachment(envelope, index, *, max_bytes)`。**核心域只给 envelope、下标与上限，拿回已解密字节与元信息，全程看不见 `url`/`aes_key`**（AD-8）。适配器内部按 `message_id` 保留通道私有引用，**必须有驱逐**（TTL/容量）：命令消息、重复投递、空载荷兜底这几条路径**永远不会来取件**
+- [x] 附件写入共享 store：新增 im-gateway 对 `muad-artifact-store` 的依赖；key 为**相对路径**；沿用"临时文件 + `os.replace`"原子替换。**部署同步**：`deploy/k8s/base/im-gateway.yaml` 补 artifacts 卷挂载（现在只有 `fsGroup` 与来自 configMap 的 `ARTIFACT_ROOT`，**没有 volumeMounts/volumes** ⇒ 字节会写进容器临时盘，runtime 在自己的 PVC 上按 key 找不到）
+- [x] **取件顺序**：放在 `_handle_message` 的 `_resolve` **之后**、`RunRequest` 之前——未绑定/无权限是天然早退点，"能收才去拉"，把 AD-1-B 下的无主字节压到最小（设计 R-07）
+- [x] 门控接线为**两段**（design §3.2.1 / API-07）：**预检** `evaluate_precheck(count)` 在取件之前判数量（纯函数，无 IO）→ 取件 → **实检** `evaluate_gate(candidates)` 用解密后的真实 `media_type`/`size` 判类型与大小；部分拒绝不拖累其余
+- [x] `unsupported_media` 兜底升级为**用户可见回复 + 审计**（E-01）：TASK-002 只让它"不进入 Run"，本条负责把回复补上，并删除兜底注释里的过渡说明
+- [x] 门控拒绝 / 取件失败（超时·网络·超限·解密） / 落盘失败 / 不支持类型 → 各自映射文案与审计码，**无静默路径**
+- [x] 反馈文案经消息目录取；`config/api-messages.yaml` 补齐 zh-CN 与 en-US 词条
+- [x] 审计记录含 `external_message_id`、附件数、拒绝原因码（供 PRD §2.2 指标度量）；**并闭合 E-04 的审计腿**——审计行中不得出现 `aes_key` 与媒体明文 URL（TASK-002 只覆盖日志腿，见其清单）；**写审计经 TASK-012 的 `POST /internal/channel/audit`——本任务只调用、不建表**
+- [x] [S-04][E2E] 一条消息带 3 个附件（含图片与文档）（真实边界：回调 → 落盘 → 契约 → 工具，不 mock）；断言三个附件各自落盘、可分别读取、互不覆盖
+- [x] [S-07][integration] `FakeChannelAdapter` 以**与企微不同的取件路径**（不经 url/aes_key）产出带附件的 envelope（真实边界：门控 → 契约 → 落盘，不含企微代码路径）；断言门控/契约/落盘行为与企微路径一致
+- [x] [E-01][E2E] 不受支持类型 → 不落盘 + 审计 + 用户收到明确说明
+- [x] [E-02][E2E] 超上限文件 → 回复中**包含上限数值** + 审计
+- [x] [E-03][E2E] 下载失败 → 明确失败说明 + 审计
+- [x] [E-07][integration] 同一消息重投 → 去重，不产生重复产物
+- [x] 运行 verifier：`uv run pytest -q tests/architecture`（`harness-arch#RULE-arch-001`）；记录输出
+- [x] 运行 verifier：`uv run pytest -q tests/test_skill_artifact_cache.py`（`harness-skill#RULE-skill-001`）；记录输出
+- [x] 运行 verifier：`uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py`（`harness-log#RULE-log-001`）；记录输出
+- [x] 运行 verifier：`uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py`（`harness-i18n#RULE-i18n-001`）；记录输出并填写 Acceptance Evidence
+- [x] 运行 verifier：`uv run pytest -q tests/gateway`（`harness-im#RULE-im-001`：`inbound.py` 属本 Rule 的路径映射，局部承接）；记录输出
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-04 | E2E | 回调、落盘、契约、工具 | 3 附件各自落盘且可分别读取 | planned | planned | planned |
-| S-07 | integration | 门控、契约、落盘 | 与企微路径行为一致；核心域无渠道分支 | planned | planned | planned |
-| E-01 | E2E | 回调、反馈投递、审计表 | 不落盘 + 审计 + 明确回复 | planned | planned | planned |
-| E-02 | E2E | 同上 | 回复含上限数值 | planned | planned | planned |
-| E-03 | E2E | 同上 | 明确失败说明 + 审计 | planned | planned | planned |
-| E-07 | integration | 幂等键、落盘 | 重投不产生重复产物 | planned | planned | planned |
+| S-04 | E2E | 回调、落盘、契约、工具 | 3 附件各自落盘且可分别读取 | `tests/acceptance/im_gateway/test_wecom_attachments.py::test_s04_three_attachments_land_and_are_readable_separately` | uv run pytest -q tests/acceptance/im_gateway/test_wecom_attachments.py | verified |
+| S-07 | integration | 门控、契约、落盘 | 与企微路径行为一致；核心域无渠道分支 | `tests/gateway/test_inbound_attachment_flow.py::test_s07_two_fetch_paths_produce_identical_outcomes`（另三条同族：入口不拦纯媒体 / 数量上限文案 / 取件失败不静默） | uv run pytest -q tests/gateway/test_inbound_attachment_flow.py tests/gateway/test_inbound_attachment_store.py | verified |
+| E-01 | E2E | 回调、反馈投递、审计表 | 不落盘 + 审计 + 明确回复 | `tests/acceptance/im_gateway/test_wecom_attachments.py::test_e01_unsupported_type_is_explained_and_audited` | uv run pytest -q tests/acceptance/im_gateway/test_wecom_attachments.py | verified |
+| E-02 | E2E | 同上 | 回复含上限数值 | `tests/acceptance/im_gateway/test_wecom_attachments.py::test_e02_oversized_file_reply_carries_the_limit_and_an_audit` | uv run pytest -q tests/acceptance/im_gateway/test_wecom_attachments.py | verified |
+| E-03 | E2E | 同上 | 明确失败说明 + 审计 | `tests/acceptance/im_gateway/test_wecom_attachments.py::test_e03_take_failure_is_explained_and_audited` | uv run pytest -q tests/acceptance/im_gateway/test_wecom_attachments.py | verified |
+| E-07 | integration | 幂等键、落盘 | 重投不产生重复产物 | `tests/gateway/test_inbound_attachment_flow.py::test_e07_redelivery_creates_no_second_run_and_no_duplicate_artifact`（真栈腿：`tests/acceptance/im_gateway/test_wecom_attachments.py::test_e07_redelivered_message_produces_no_duplicate_artifact`） | uv run pytest -q tests/gateway/test_inbound_attachment_flow.py tests/gateway/test_inbound_attachment_store.py | verified |
+
+> **完成说明（2026-10-02）**：接线与六条场景测试均已落地并跑绿（E2E 另在真实栈上单跑 5 passed）。
+>
+> **接线中发现并修掉的一处真问题**：入口护栏 `_carries_no_payload` 原先只看 `envelope.attachments`，
+> 而该字段按定义只描述"**已经拿到手的**字节"（AD-8）——纯图片/文件消息在取件前它必然为空，
+> 于是**所有纯媒体消息在入口就被拦掉，整条附件链路是死的**。修法：护栏改为"文本 / 附件 /
+> `unsupported_media` / 适配器待取件数（`AttachmentSource.attachment_count`）皆空才算无载荷"，
+> 并把"取件前引用消失"这一条罕见路径补成明确失败（反馈 + 审计），不留静默路径。
+> S-07 的 `test_s07_media_only_envelope_is_not_dropped_at_the_entry` 就是钉这条的回归。
+>
+> **S-07 的验法**：同一条 `msgid` 喂两条适配器（`FakeChannelAdapter` 内存字节、无 url/aes_key；
+> 生产 `WeComAdapter` 走真实 HTTP + 真实 AES 密文），断言门控结论、契约产出、反馈、审计与落盘
+> 字节**逐项相同**。为此把媒体服务与官方加密算法抽到 `tests/e2e/wecom_media_server.py` 共用，
+> `FakeChannelAdapter` 补上 `AttachmentSource` 能力（`FakeBlob`：**没有取件凭据**）。
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-04 | 验收类，实现已就位，首跑即通过（不制造 RED） | PASS: `5 passed in 23.31s`；runner 单跑 exit_code=0 | `tests/acceptance/im_gateway/test_wecom_attachments.py::test_s04_three_attachments_land_and_are_readable_separately`（三份产物键 `inbound/<msgid>/{0,1,2}` 各自字节 == 各自明文；`runtime.artifact` 三行的 storage_key/media_type/size/checksum 与磁盘逐行一致；审计一行 `RECEIVED`，count/accepted/total 与落盘事实一致） | 真实 WS 探针 + 真实 Gateway/Runtime/Console/Worker 进程 + 真实 HTTP 媒体源（真实 AES-256-CBC 密文）+ 真实共享 artifact store + 真实 PG（`runtime.artifact` 逐行回读） | verified |
+| S-07 | FAIL（真问题）：`test_s07_media_only_envelope_is_not_dropped_at_the_entry` —— 纯媒体消息在入口被 `_carries_no_payload` 拦掉，`run_requests == []`、无产物、无反馈 | PASS: `17 passed`；runner exit_code=0 | `tests/gateway/test_inbound_attachment_flow.py::test_s07_two_fetch_paths_produce_identical_outcomes`（同 msgid 两条路径的 refs/feedback/audits/落盘字节/进 Run 的消息**逐项相等**）；同文件另三条：入口不拦纯媒体、数量上限文案数值来自门控常量、取件失败有反馈+审计且不建 Run | `FakeChannelAdapter`（内存字节、无 url/aes_key）+ 生产 `WeComAdapter`（真实 HTTP + 真实解密）跑**同一段编排**；真实 Redis（E-07）；真实文件系统 | verified |
+| E-01 | 验收类，首跑即通过 | PASS: `5 passed in 23.31s` | `::test_e01_unsupported_type_is_explained_and_audited`（回复 == 消息目录 `UNSUPPORTED_MEDIA` zh-CN 原文；`inbound/<msgid>/` 目录不存在；审计 `REJECTED`/`UNSUPPORTED_MEDIA` 且 count/accepted 均为 0） | 真实回调帧（voice）→ 真实 Gateway → 真实 Console 内部端点 → 真实 PG `control.im_inbound_audit` 回读 | verified |
+| E-02 | FAIL（**断言口径错，非产品缺陷**）：首跑 `assert media_server.sent[path] < len(oversized)` 得 `22020112 < 22020105` —— 拿**明文**长度与**密文**写出字节比较（差 7 字节 PKCS#7 填充） | PASS: `5 passed in 23.31s` | `::test_e02_oversized_file_reply_carries_the_limit_and_an_audit`（回复 == 目录 `ATTACHMENT_TOO_LARGE` 且含 `str(MAX_ATTACHMENT_BYTES)`；无产物；审计 `FAILED`/`ATTACHMENT_TOO_LARGE`；服务端写出字节 < 它持有的密文长度 ⇒ **没读完就中止**） | 真实 32 MiB 级密文经真实 HTTP 分块下发（服务端 4ms 节流让中止可观测）+ 真实 PG 审计行 | verified |
+| E-03 | 验收类，首跑即通过 | PASS: `5 passed in 23.31s` | `::test_e03_take_failure_is_explained_and_audited`（媒体 URL 404 → 回复 == 目录 `ATTACHMENT_FETCH_FAILED`；无产物；审计 `FAILED`/`ATTACHMENT_FETCH_FAILED`，attachment_count=1、accepted=0） | 真实 HTTP 404 响应 + 真实 PG 审计行 | verified |
+| E-07 | 验收类，首跑即通过 | PASS: `17 passed`（integration 腿）+ `5 passed`（真栈腿） | `tests/gateway/test_inbound_attachment_flow.py::test_e07_redelivery_creates_no_second_run_and_no_duplicate_artifact`（真 Redis：重投后 run 请求数仍 1、产物摘要集合不变、审计仍 1 行、`im:dedupe:WECOM:<msgid>` 存在且 TTL ∈ (0, 600]）；`test_wecom_attachments.py::test_e07_redelivered_message_produces_no_duplicate_artifact`（真栈：直方图同上，`runtime.artifact` 仍 1 行） | 真实 Redis（幂等键）+ 真实文件系统 + 真栈 PG | verified |
+
+**本次回归**：
+- `uv run pytest -q tests/gateway` → **267 passed**（`harness-im#RULE-im-001` verifier；含本任务新增 17 条）
+- `uv run pytest -q tests/acceptance/im_gateway` → **70 passed in 397.48s**（真实栈全量，含本任务新增 5 条）
+- `uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py` → **18 passed**（`harness-api#RULE-api-001`）
+- `uv run pytest -q tests/acceptance/test_foundation_i18n.py` → **6 passed**；`uv run python scripts/check_frontend_i18n.py` → **i18n keys OK: 717**（`harness-i18n#RULE-i18n-001`）
+- `uv run mypy apps packages` → **Success: no issues found in 267 source files**；`uv run ruff check .` → **All checks passed**
+
+**Done Gate 首跑 block，暴露并修掉一处真缺陷（记录）**：`harness-api#RULE-api-001` 的 verifier 断言"消息目录码 ↔ `ErrorCode` 双向一致"，而 7 条入站附件词条只加进了 `config/api-messages.yaml`、**没有同步 `ErrorCode`** ⇒ `tests/test_error_catalog.py` 直接红。修法是把 7 个码登记进 `ErrorCode`（`packages/api-kit/src/muad_api/error_codes.py`），而不是把词条从目录里拿掉——词条是 E-01/E-02/E-03 反馈文案的唯一来源。这条是"词条与枚举必须同步"的机制在起作用，不是接线本身写错。
+
+**Done Gate 裁决**：`pass`（`cf_task_workflow.py finish --task TASK-004`，rc=0；E2E 场景另经 `cf_acceptance_runner --include-e2e --owner TASK-004` 实跑并写入证据，六条全 `passed`）。deferred：9 个 verifier（需求级 `verify-e2e` 收口）+ 1 个 heavy validator（归档 `cf_validation` 收口）。
+
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=10523afa3c104dd59f190c68b13138e3 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=10523afa3c104dd59f190c68b13138e3 (confirmed_by: runner)
+- E-01: e2e_deferred — automated command e2e_deferred; run_id=10523afa3c104dd59f190c68b13138e3 (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=10523afa3c104dd59f190c68b13138e3 (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=10523afa3c104dd59f190c68b13138e3 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=10523afa3c104dd59f190c68b13138e3 (confirmed_by: runner)
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=24cfd56a879644e18a86312038950eb1 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=24cfd56a879644e18a86312038950eb1 (confirmed_by: runner)
+- E-01: e2e_deferred — automated command e2e_deferred; run_id=24cfd56a879644e18a86312038950eb1 (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=24cfd56a879644e18a86312038950eb1 (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=24cfd56a879644e18a86312038950eb1 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=24cfd56a879644e18a86312038950eb1 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=00b33a3e8ee84240886bb29c91405a4b (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=00b33a3e8ee84240886bb29c91405a4b (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=00b33a3e8ee84240886bb29c91405a4b (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=00b33a3e8ee84240886bb29c91405a4b (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=00b33a3e8ee84240886bb29c91405a4b (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=00b33a3e8ee84240886bb29c91405a4b (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
 
 ---
 - [2026-10-02] started
+- [2026-10-02] completed (done)
 ## TASK-005: 模型多模态内容形态
 
 - **Status**: done

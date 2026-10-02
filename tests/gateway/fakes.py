@@ -27,6 +27,7 @@ from muad_contracts import (
     ChannelResolveResponse,
     ChannelSkillItem,
     ChannelSkillsResponse,
+    InboundAuditRequest,
     RunRequest,
 )
 from muad_im_gateway.application.runtime_client import SseEvent
@@ -47,6 +48,8 @@ class FakeConsoleClient:
         self.resolve_calls: list[ChannelResolveRequest] = []
         self.bind_calls: list[ChannelBindRequest] = []
         self.bots_calls = 0
+        self.audit_calls: list[InboundAuditRequest] = []
+        self.audit_error: AppError | None = None
 
     async def resolve(
         self,
@@ -82,6 +85,11 @@ class FakeConsoleClient:
         if self.bots_error is not None:
             raise self.bots_error
         return self.bot_snapshot
+
+    async def audit(self, request: InboundAuditRequest, tenant_id: str) -> None:
+        self.audit_calls.append(request)
+        if self.audit_error is not None:
+            raise self.audit_error
 
     async def channel_skills(
         self,

@@ -16,6 +16,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+# 超限只有一种说法：码定义在中立的渠道边界词汇表里，这里只引用（单一来源）
+from ..channels.base import ATTACHMENT_TOO_LARGE
+
 MIB = 1024 * 1024
 
 #: 单文件大小上限。覆盖常见截图与办公文档；避免单条消息拖垮下载与上下文。
@@ -41,7 +44,6 @@ ALLOWED_MEDIA_TYPES = frozenset(
     }
 )
 
-ATTACHMENT_TOO_LARGE = "ATTACHMENT_TOO_LARGE"
 ATTACHMENT_COUNT_EXCEEDED = "ATTACHMENT_COUNT_EXCEEDED"
 ATTACHMENT_TYPE_NOT_ALLOWED = "ATTACHMENT_TYPE_NOT_ALLOWED"
 
@@ -114,3 +116,35 @@ def evaluate_gate(candidates: Sequence[AttachmentCandidate]) -> GateDecision:
 def build_storage_key(*, token: str, index: int) -> str:
     """产物键只由系统生成：`token` 由调用方给（消息/会话级不透明 id），**不含用户输入**。"""
     return f"inbound/{token}/{index}"
+
+
+@dataclass(frozen=True, slots=True)
+class PrecheckDecision:
+    """预检结论：`accepted` 是**个数**——按回调顺序的前 N 个通过。"""
+
+    accepted: int
+    rejected: tuple[GateRejection, ...]
+
+    @property
+    def ok(self) -> bool:
+        return not self.rejected
+
+
+def evaluate_precheck(count: int) -> PrecheckDecision:
+    """① 预检：**只判数量**（设计 §3.2.1 / API-07）。
+
+    输入就是"本消息识别出几个媒体项"——这是取件之前**唯一的已知量**：企微回调不带 `size`、
+    MIME 与文件名（设计 §3.2.2），类型与大小都只能在取件解密之后判（见 `evaluate_gate`）。
+
+    **为什么输入是计数而不是某种候选类型**：预检除了"第几个"之外没有任何可判的东西；为它造一个
+    候选类型必然会带进渠道私有的取件引用，而核心域不得看见任何渠道私有形状（RULE-07 / AD-8）。
+    """
+    rejected = tuple(
+        GateRejection(
+            index,
+            ATTACHMENT_COUNT_EXCEEDED,
+            f"单条消息最多 {MAX_ATTACHMENTS_PER_MESSAGE} 个附件",
+        )
+        for index in range(MAX_ATTACHMENTS_PER_MESSAGE, max(count, 0))
+    )
+    return PrecheckDecision(min(max(count, 0), MAX_ATTACHMENTS_PER_MESSAGE), rejected)

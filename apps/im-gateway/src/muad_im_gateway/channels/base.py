@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator, Mapping
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from muad_contracts import ChannelEnvelope, DeliveryMessage, DeliveryRouteInput
@@ -41,6 +42,54 @@ class ChannelAdapter(Protocol):
     async def iter_events(self) -> AsyncIterator[ChannelEnvelope]: ...
     async def send(self, route: DeliveryRouteInput, message: DeliveryMessage) -> None: ...
     async def stream(self, route: DeliveryRouteInput, chunks: AsyncIterator[str]) -> None: ...
+
+
+#: 附件的原因码词汇表——**渠道中立**：渠道层（可能抛）与应用层（映射文案 + 写审计）共用同一套。
+#: 单文件超限与门控实检里的 `ATTACHMENT_TOO_LARGE` 是**同一个码**：超限这件事只有一种说法。
+ATTACHMENT_TOO_LARGE = "ATTACHMENT_TOO_LARGE"
+ATTACHMENT_FETCH_TIMEOUT = "ATTACHMENT_FETCH_TIMEOUT"
+ATTACHMENT_FETCH_FAILED = "ATTACHMENT_FETCH_FAILED"
+ATTACHMENT_DECRYPT_FAILED = "ATTACHMENT_DECRYPT_FAILED"
+
+
+class AttachmentFetchError(Exception):
+    """取件失败（渠道中立）。
+
+    渠道适配器**必须**把自己的私有异常翻译成这个类型——否则应用层就得 import 具体渠道的异常，
+    "换通道只写适配器"就不成立了（RULE-07 / S-07）。`code` 同时用于用户可见反馈与审计原因码。
+    """
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+@dataclass(frozen=True, slots=True)
+class FetchedAttachment:
+    """渠道取回并**已解密**的媒体内容。
+
+    刻意与契约 `AttachmentRef` 不同：这里已经有字节，但**还没有产物键**——落盘属应用编排层。
+    """
+
+    data: bytes
+    media_type: str
+    filename: str | None
+    checksum: str
+
+
+@runtime_checkable
+class AttachmentSource(Protocol):
+    """可选能力：本通道能否按 envelope 取回附件字节（AD-8 的跨层接缝）。
+
+    核心域只给 envelope、下标与上限，**拿回的是已解密字节与元信息**——`url`/`aes_key` 这类
+    渠道私有形状一步都不出去；新通道只要实现这两个方法，门控/落盘/契约那一侧一行不用改。
+    """
+
+    def attachment_count(self, envelope: ChannelEnvelope) -> int: ...
+
+    async def fetch_attachment(
+        self, envelope: ChannelEnvelope, index: int, *, max_bytes: int
+    ) -> FetchedAttachment: ...
 
 
 @runtime_checkable

@@ -209,6 +209,14 @@ class WeComProbe:
             frame["body"]["chatid"] = chat_id
         await self._send_to_bot(frame, bot_id)
 
+    async def push_raw_frame(self, *, bot_id: str, frame: dict[str, Any]) -> None:
+        """推送任意回调帧（媒体等多形态入站的通用入口）：只投递给目标 bot 的连接。
+
+        `push_message` 只覆盖文本形态；媒体帧的形状由调用方按协议构造（与真实企微回调同形），
+        投递路径与去重语义与 `push_message` 完全一致。
+        """
+        await self._send_to_bot(frame, bot_id)
+
     async def push_event(
         self,
         *,

@@ -21,7 +21,16 @@ from muad_contracts import (
     UnsupportedMedia,
 )
 
-from ..base import ChannelAdapterUnavailable, ChannelBotNotFound
+from ..base import (
+    ATTACHMENT_DECRYPT_FAILED,
+    ATTACHMENT_FETCH_FAILED,
+    ATTACHMENT_FETCH_TIMEOUT,
+    ATTACHMENT_TOO_LARGE,
+    AttachmentFetchError,
+    ChannelAdapterUnavailable,
+    ChannelBotNotFound,
+    FetchedAttachment,
+)
 from .media import download_media as download_media_content
 from .sdk_port import (
     EventCallback,
@@ -29,8 +38,13 @@ from .sdk_port import (
     WeComInboundEvent,
     WeComInboundMessage,
     WeComMediaContent,
+    WeComMediaDecryptError,
+    WeComMediaNetworkError,
     WeComMediaRef,
+    WeComMediaTimeoutError,
+    WeComMediaTooLargeError,
     WeComSdkConnectionError,
+    WeComSdkError,
     WeComSdkFactory,
     WeComSdkPort,
 )
@@ -42,6 +56,12 @@ DEFAULT_BACKOFF_MAX_SEC = 30.0
 DEFAULT_STREAM_FLUSH_INTERVAL_SEC = 0.5
 # 连接存活探测间隔：SDK 不保证服务端主动关闭时回调 on_disconnected，按有界间隔兜底探测
 DEFAULT_LIVENESS_INTERVAL_SEC = 1.0
+# 待取件引用的存活时长。企微的媒体 URL 五分钟内有效（设计 §3.2.2），过期后取也没用；
+# TTL 同时是"永远不会被取走"的那批引用的回收手段——命令消息、重复投递、空载荷兜底
+# 这几条路径都不会调 fetch_attachment。
+MEDIA_REF_TTL_SEC = 300.0
+# 待取件引用的容量上限：TTL 之内消息量突增时仍有硬边界（按插入顺序淘汰最旧的）。
+MEDIA_REF_CAPACITY = 256
 TEXT_MESSAGE_TYPE = "text"
 IMAGE_MESSAGE_TYPE = "image"
 FILE_MESSAGE_TYPE = "file"
@@ -75,6 +95,14 @@ class _StreamState:
     reply_ref: str
     buffer: list[str] = field(default_factory=list)
     last_update_at: float = 0.0
+
+
+@dataclass(slots=True)
+class _PendingMedia:
+    """一条消息待取件的媒体引用 + 插入时刻（用于 TTL 驱逐）。"""
+
+    refs: tuple[WeComMediaRef, ...]
+    created_at: float
 
 
 def route_key(route: DeliveryRouteInput) -> RouteKey:
@@ -545,6 +573,7 @@ class WeComAdapter:
         self._events: asyncio.Queue[ChannelEnvelope] = asyncio.Queue()
         self._reply_refs: dict[RouteKey, str] = {}
         self._streams: dict[RouteKey, _StreamState] = {}
+        self._pending_media: dict[str, _PendingMedia] = {}
         self._started = False
 
     @property
@@ -738,6 +767,8 @@ class WeComAdapter:
             return
         key = (message.bot_id, message.external_user_id, message.external_conversation_id)
         self._reply_refs[key] = message.reply_id
+        if message.media:
+            self._remember_media(message.message_id, message.media)
         # `attachments` 此刻必为空：取件（`message.media`，渠道私有）与落盘由网关应用编排层
         # 按设计 §3.2.1 的 ②→⑥ 顺序接线后填充；适配器只负责把"来了一条什么"送达边界。
         self._events.put_nowait(
@@ -750,6 +781,57 @@ class WeComAdapter:
                 text=message.text,
                 unsupported_media=message.unsupported_media,
             )
+        )
+
+    def _remember_media(self, message_id: str, refs: tuple[WeComMediaRef, ...]) -> None:
+        """记下待取件引用并**驱逐**：过期的一律丢掉，仍超容量则丢最旧的。
+
+        不驱逐就会漏：命令消息、被去重丢弃的重复投递、空载荷兜底——这些路径都不取件，
+        它们的引用如果留在表里就是纯泄漏。TTL 对齐企微 URL 的五分钟有效期。
+        """
+        now = asyncio.get_running_loop().time()
+        self._pending_media = {
+            key: item
+            for key, item in self._pending_media.items()
+            if now - item.created_at < MEDIA_REF_TTL_SEC
+        }
+        while len(self._pending_media) >= MEDIA_REF_CAPACITY:
+            oldest = min(self._pending_media, key=lambda key: self._pending_media[key].created_at)
+            del self._pending_media[oldest]
+        self._pending_media[message_id] = _PendingMedia(refs=refs, created_at=now)
+
+    def attachment_count(self, envelope: ChannelEnvelope) -> int:
+        pending = self._pending_media.get(envelope.message_id)
+        return len(pending.refs) if pending is not None else 0
+
+    async def fetch_attachment(
+        self, envelope: ChannelEnvelope, index: int, *, max_bytes: int
+    ) -> FetchedAttachment:
+        """取回并解密第 `index` 个附件。**凭据不出这个函数**——调用方只拿到字节与元信息。"""
+        pending = self._pending_media.get(envelope.message_id)
+        if pending is None or index < 0 or index >= len(pending.refs):
+            # 过期/已驱逐/越界：明确失败，不静默给空字节（上层据此走 E-03 的失败反馈）
+            raise WeComSdkError(
+                f"wecom media ref unavailable message_id={envelope.message_id} index={index}"
+            )
+        ref = pending.refs[index]
+        try:
+            content = await self._require_client(envelope.bot_id).download_media(
+                ref.url, ref.aes_key, max_bytes=max_bytes
+            )
+        except WeComMediaTooLargeError as exc:
+            raise AttachmentFetchError(ATTACHMENT_TOO_LARGE) from exc
+        except WeComMediaTimeoutError as exc:
+            raise AttachmentFetchError(ATTACHMENT_FETCH_TIMEOUT) from exc
+        except WeComMediaDecryptError as exc:
+            raise AttachmentFetchError(ATTACHMENT_DECRYPT_FAILED) from exc
+        except WeComMediaNetworkError as exc:
+            raise AttachmentFetchError(ATTACHMENT_FETCH_FAILED) from exc
+        return FetchedAttachment(
+            data=content.data,
+            media_type=content.media_type,
+            filename=content.filename,
+            checksum=content.checksum,
         )
 
     def _require_client(self, bot_id: str) -> WeComSdkPort:

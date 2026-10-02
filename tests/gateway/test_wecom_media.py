@@ -17,18 +17,14 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
-import http.server
 import logging
-import threading
 import time
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
 from typing import Any
-from urllib.parse import quote
 from uuid import uuid4
 
 import pytest
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from muad_contracts import BotSnapshotItem
 from muad_im_gateway.channels.wecom.adapter import WeComAdapter, _AibotClientPort
 from muad_im_gateway.channels.wecom.media import (
@@ -45,11 +41,15 @@ from muad_im_gateway.channels.wecom.sdk_port import (
     WeComMediaTooLargeError,
 )
 
+from tests.e2e.wecom_media_server import (
+    AES_KEY,
+    MediaServer,
+    wecom_ciphertext,
+)
+
 BOT_ID = "bot-1"
-AES_KEY = base64.b64encode(b"0123456789abcdef0123456789abcdef").decode()
 WRONG_AES_KEY = base64.b64encode(b"fedcba9876543210fedcba9876543210").decode()
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"pixels" * 4
-SERVER_CHUNK_BYTES = 64 * 1024
 
 
 # --------------------------------------------------------------------------- 帧
@@ -170,78 +170,9 @@ async def next_envelope(adapter: WeComAdapter) -> Any:
     return await asyncio.wait_for(events.__anext__(), timeout=2)
 
 
-# ------------------------------------------------------------------- 本地真实服务
-
-
-class MediaServer:
-    """本地真实 HTTP 服务：按路径返回字节，可配置文件名、响应前延迟与发送节流。"""
-
-    def __init__(self) -> None:
-        self.routes: dict[str, bytes] = {}
-        self.filenames: dict[str, str] = {}
-        self.delays: dict[str, float] = {}
-        self.chunk_delay = 0.0
-        self.sent: dict[str, int] = {}
-        handler = _media_handler(self)
-        self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
-        self._server.daemon_threads = True
-        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
-        self._thread.start()
-
-    def serve(self, path: str, body: bytes, *, filename: str | None = None, delay: float = 0.0) -> str:
-        self.routes[path] = body
-        self.delays[path] = delay
-        if filename is not None:
-            self.filenames[path] = filename
-        return f"{self.base_url}{path}"
-
-    @property
-    def base_url(self) -> str:
-        host, port = self._server.server_address[:2]
-        return f"http://{host}:{port}"
-
-    def close(self) -> None:
-        self._server.shutdown()
-        self._server.server_close()
-
-
-def _media_handler(media: MediaServer) -> type[http.server.BaseHTTPRequestHandler]:
-    class Handler(http.server.BaseHTTPRequestHandler):
-        protocol_version = "HTTP/1.1"
-
-        def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler 的约定命名
-            body = media.routes.get(self.path)
-            if body is None:
-                self.send_error(404)
-                return
-            delay = media.delays.get(self.path, 0.0)
-            if delay:
-                time.sleep(delay)
-            self.send_response(200)
-            self.send_header("Content-Length", str(len(body)))
-            filename = media.filenames.get(self.path)
-            if filename is not None:
-                # 非 ASCII 文件名只能走 RFC 5987：`send_header` 按 latin-1 编码，直接塞中文会抛
-                self.send_header("Content-Disposition", _disposition(filename))
-            self.end_headers()
-            written = 0
-            try:
-                for offset in range(0, len(body), SERVER_CHUNK_BYTES):
-                    chunk = body[offset : offset + SERVER_CHUNK_BYTES]
-                    self.wfile.write(chunk)
-                    written += len(chunk)
-                    if media.chunk_delay:
-                        time.sleep(media.chunk_delay)
-            except (BrokenPipeError, ConnectionResetError):
-                # 客户端在超上限时主动断开——这正是"没读完"的证据
-                pass
-            finally:
-                media.sent[self.path] = written
-
-        def log_message(self, *args: object) -> None:
-            """静音默认的 stderr 访问日志。"""
-
-    return Handler
+def log_text(caplog: pytest.LogCaptureFixture) -> str:
+    """把捕获到的日志拍平成文本（消息 + 参数），用于断言凭据不出现在日志里。"""
+    return "\n".join(f"{record.getMessage()} {record.args!r}" for record in caplog.records)
 
 
 @pytest.fixture
@@ -251,27 +182,6 @@ def media_server() -> Iterator[MediaServer]:
         yield server
     finally:
         server.close()
-
-
-def _disposition(filename: str) -> str:
-    """按服务端实际做法构造 `Content-Disposition`：ASCII 走 `filename=`，非 ASCII 走 RFC 5987。"""
-    if filename.isascii():
-        return f'attachment; filename="{filename}"'
-    return f"attachment; filename*=UTF-8''{quote(filename, safe='')}"
-
-
-def wecom_ciphertext(plaintext: bytes, *, aes_key: str = AES_KEY) -> bytes:
-    """按官方算法产出**真实密文**：AES-256-CBC，IV = 密钥前 16 字节，PKCS#7 填充。"""
-    key = base64.b64decode(aes_key)
-    pad_len = 16 - len(plaintext) % 16
-    padded = plaintext + bytes([pad_len]) * pad_len
-    encryptor = Cipher(algorithms.AES(key), modes.CBC(key[:16])).encryptor()
-    return encryptor.update(padded) + encryptor.finalize()
-
-
-def log_text(caplog: pytest.LogCaptureFixture) -> str:
-    """把捕获到的日志拍平成文本（消息 + 参数），用于断言凭据不出现在日志里。"""
-    return "\n".join(f"{record.getMessage()} {record.args!r}" for record in caplog.records)
 
 
 # ------------------------------------------------------------------ S-08 分流

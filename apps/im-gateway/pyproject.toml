@@ -8,6 +8,7 @@ dependencies = [
   "httpx>=0.28,<1",
   "redis>=5,<7",
   "muad-api",
+  "muad-artifact-store",
   "muad-common",
   "muad-contracts",
   "muad-logging",
@@ -24,6 +25,7 @@ where = ["src"]
 
 [tool.uv.sources]
 muad-api = { workspace = true }
+muad-artifact-store = { workspace = true }
 muad-common = { workspace = true }
 muad-contracts = { workspace = true }
 muad-logging = { workspace = true }

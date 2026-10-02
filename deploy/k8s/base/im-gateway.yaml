@@ -40,6 +40,11 @@ spec:
                 secretKeyRef:
                   name: muad-external
                   key: REDIS_URL
+          # 附件字节要落进共享 artifact store，Runtime 才能按 storage_key 读到（AD-1-B）。
+          # 只注入 ARTIFACT_ROOT 环境变量是不够的——路径没挂载时网关会写进容器临时盘并"成功"。
+          volumeMounts:
+            - name: artifacts
+              mountPath: /mnt/muad-artifacts
           readinessProbe:
             httpGet:
               path: /healthz
@@ -48,6 +53,11 @@ spec:
             httpGet:
               path: /healthz
               port: 8003
+      volumes:
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: muad-artifacts-rwx
+
 ---
 apiVersion: v1
 kind: Service

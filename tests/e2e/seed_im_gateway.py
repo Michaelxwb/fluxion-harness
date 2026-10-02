@@ -34,6 +34,8 @@ CHAT_ID = "e2e-im-chat"
 IM_CONTROL_CLEANUP = (
     "DELETE FROM control.channel_identity WHERE tenant_id = :t",
     "DELETE FROM control.bind_code WHERE tenant_id = :t",
+    # 入站审计（TASK-012）：租户级清理要带上，否则跑过的验收行会留下来干扰后续断言
+    "DELETE FROM control.im_inbound_audit WHERE tenant_id = :t",
 )
 
 

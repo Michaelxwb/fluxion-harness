@@ -4,14 +4,17 @@ import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator, Sequence
+from dataclasses import dataclass
 from math import ceil
 from uuid import UUID
 
 from muad_api import AppError, metrics
 from muad_api.catalog import MessageCatalog
+from muad_api.context import current_trace_id
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
     DEFAULT_PAGE_SIZE,
+    AttachmentRef,
     ChannelBindRequest,
     ChannelContext,
     ChannelEnvelope,
@@ -20,14 +23,35 @@ from muad_contracts import (
     ChannelSkillItem,
     DeliveryMessage,
     DeliveryRouteInput,
+    InboundAuditOutcome,
+    InboundAuditRequest,
     MessageInput,
     RunRequest,
     RunStatus,
 )
 
-from ..channels.base import ChannelAdapter, ChannelAdapterUnavailable, StreamFinalizer
+from ..channels.base import (
+    ATTACHMENT_FETCH_FAILED,
+    ATTACHMENT_TOO_LARGE,
+    AttachmentFetchError,
+    AttachmentSource,
+    ChannelAdapter,
+    ChannelAdapterUnavailable,
+    FetchedAttachment,
+    StreamFinalizer,
+)
 from ..infrastructure.dedupe import DedupeStore, DedupeStoreError, is_duplicate
+from .attachment_gate import (
+    ATTACHMENT_COUNT_EXCEEDED,
+    ATTACHMENT_TYPE_NOT_ALLOWED,
+    MAX_ATTACHMENT_BYTES,
+    MAX_ATTACHMENTS_PER_MESSAGE,
+    AttachmentCandidate,
+    evaluate_gate,
+    evaluate_precheck,
+)
 from .console_client import ConsoleClientPort
+from .inbound_attachments import InboundAttachmentStore
 from .runtime_client import RuntimeClientPort, SseEvent
 from .stream_renderer import (
     BROKEN_STREAM_TEXT,
@@ -43,6 +67,11 @@ logger = logging.getLogger(__name__)
 
 DEDUPE_PREFIX = "im:dedupe"
 DEDUPE_TTL_SEC = 600
+
+AUDIT_RECEIVED = "RECEIVED"
+AUDIT_REJECTED = "REJECTED"
+AUDIT_FAILED = "FAILED"
+UNSUPPORTED_MEDIA_CODE = "UNSUPPORTED_MEDIA"
 
 RUN_CREATED_EVENT = "run.created"
 MESSAGE_DELTA_EVENT = "message.delta"
@@ -96,6 +125,14 @@ def _elapsed_ms(started_at: float, ended_at: float | None = None) -> float:
     return round(((ended_at or time.monotonic()) - started_at) * 1000, 3)
 
 
+def _primary_code(codes: Sequence[str]) -> str:
+    """多条拒绝原因并存时选一条给用户看：按 `_FEEDBACK_PRIORITY`，未知码排最后。"""
+    for candidate in _FEEDBACK_PRIORITY:
+        if candidate in codes:
+            return candidate
+    return codes[0]
+
+
 def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
     return DeliveryRouteInput(
         channel=envelope.channel,
@@ -105,13 +142,20 @@ def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
     )
 
 
-def _carries_no_payload(envelope: ChannelEnvelope) -> bool:
-    """信封里既无文本、也无**已落盘**的附件 ⇒ 没有可运行的内容。
+def _attachment_count(adapter: ChannelAdapter, envelope: ChannelEnvelope) -> int:
+    """适配器侧的**待取件**数量；不支持取件的渠道恒为 0（取件是可选能力，AD-8）。"""
+    return adapter.attachment_count(envelope) if isinstance(adapter, AttachmentSource) else 0
 
-    改造前这种信封不可能出现（文本非空是适配器的前置条件），所以这是纯新增的护栏：
-    附件引用只描述"已经拿到手的字节"（AD-8），取件与落盘未完成前 `attachments` 必为空。
+
+def _carries_no_payload(adapter: ChannelAdapter, envelope: ChannelEnvelope) -> bool:
+    """信封里既无文本、也无附件、也无"渠道说有、尚未取件"的载荷 ⇒ 没有可运行的内容。
+
+    不能只看 `attachments`：它按定义只描述"**已经拿到手的**字节"（AD-8），所以纯图片/文件消息
+    在取件之前必然是空的——只看它会把媒体消息在入口就拦掉，永远走不到取件。
     """
-    return not envelope.text.strip() and not envelope.attachments
+    if envelope.text.strip() or envelope.attachments or envelope.unsupported_media is not None:
+        return False
+    return _attachment_count(adapter, envelope) == 0
 
 
 def format_skills(skills: Sequence[ChannelSkillItem]) -> str:
@@ -173,6 +217,23 @@ class _RunStreamState:
         self.first_chunk_at: float | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class _CollectedAttachments:
+    """一条消息的附件链路结论。`audit_outcome` 为 None ⇒ 无需审计（纯文本消息）。"""
+
+    refs: tuple[AttachmentRef, ...] = ()
+    audit_outcome: InboundAuditOutcome | None = None
+    reason_code: str = ""
+
+
+#: 反馈原因码的优先级：取件失败先说（E-03），其次体积（E-02），再次类型，最后数量。
+_FEEDBACK_PRIORITY = (
+    ATTACHMENT_TOO_LARGE,
+    ATTACHMENT_TYPE_NOT_ALLOWED,
+    ATTACHMENT_COUNT_EXCEEDED,
+)
+
+
 class InboundPipeline:
     def __init__(
         self,
@@ -181,6 +242,7 @@ class InboundPipeline:
         console: ConsoleClientPort,
         runtime: RuntimeClientPort,
         catalog: MessageCatalog,
+        attachment_store: InboundAttachmentStore | None = None,
         tenant_id: str,
         locale: str = "zh-CN",
         delta_flush_interval_sec: float = DELTA_FLUSH_INTERVAL_SEC,
@@ -190,6 +252,8 @@ class InboundPipeline:
         self._console = console
         self._runtime = runtime
         self._catalog = catalog
+        # 未配置时**不静默丢附件**：真收到媒体会记 ERROR（见 `_collect_attachments`）。
+        self._attachment_store = attachment_store
         self._tenant_id = tenant_id
         self._locale = locale
         self._route_locks: dict[tuple[str, str, str], asyncio.Lock] = {}
@@ -246,16 +310,14 @@ class InboundPipeline:
     async def handle(self, adapter: ChannelAdapter, envelope: ChannelEnvelope) -> None:
         if not await self._mark_seen(envelope):
             return
-        if _carries_no_payload(envelope):
-            # 既无文本也无附件 ⇒ 没有可运行的内容。媒体类消息的字节要先经"预检 → 取件 → 实检
-            # → 落盘"才会填进 `attachments`（设计 §3.2.1 的 ②→⑥）；在网关应用编排层接线之前，
-            # 这里**不能**继续往下走：那会把一条空消息当作用户输入发给模型。
-            # `unsupported_media` 非空时同样落在这里——用户可见的明确反馈（E-01）由该接线一并补上。
+        if _carries_no_payload(adapter, envelope):
+            # 既无文本也无附件、渠道也说没有待取件的内容 ⇒ 没有可运行的东西：**不**建 Run、
+            # **不**回复（用户没发任何可回应的内容）。带载荷的消息不会走到这里：它的取件、
+            # 反馈与审计在 `_collect_attachments` 里闭环。
             logger.warning(
-                "inbound_envelope_without_payload message_id=%s channel=%s unsupported_media=%s",
+                "inbound_envelope_without_payload message_id=%s channel=%s",
                 envelope.message_id,
                 envelope.channel,
-                envelope.unsupported_media,
             )
             return
         text = envelope.text.strip()
@@ -453,6 +515,13 @@ class InboundPipeline:
         if not resolved.authorized:
             await self._send_text(adapter, route, NO_PERMISSION_TEXT)
             return
+        # 附件链路放在**授权之后**：未绑定/无权限那两条早退路径不会取件，"能收才去拉"，
+        # 把 AD-1-B 下（字节先于 Run 落盘）的无主产物压到最小（设计 §3.2.1）。
+        collected = await self._collect_attachments(adapter, route, envelope)
+        if not collected.refs and not envelope.text.strip():
+            # 没有可跑的内容（附件全部被拒/取件失败，且文本为空）：反馈与审计已由
+            # `_collect_attachments` 闭环，这里只是**不**把空消息当用户输入发给模型。
+            return
         request = RunRequest(
             agent_id=resolved.agent_id,
             platform_user_id=resolved.platform_user_id,
@@ -462,9 +531,180 @@ class InboundPipeline:
                 external_user_id=envelope.external_user_id,
                 external_conversation_id=envelope.external_conversation_id,
             ),
-            message=MessageInput(id=envelope.message_id, text=envelope.text),
+            message=MessageInput(
+                id=envelope.message_id,
+                type="attachment" if collected.refs else "text",
+                text=envelope.text,
+                attachments=list(collected.refs),
+            ),
         )
         await self._consume_run(adapter, route, request, resolved.platform_user_id)
+
+    async def _collect_attachments(
+        self, adapter: ChannelAdapter, route: DeliveryRouteInput, envelope: ChannelEnvelope
+    ) -> _CollectedAttachments:
+        """② 预检 → ③ 取件 → ④ 实检 → ⑤ 落盘（设计 §3.2.1）。
+
+        **没有静默路径**：每一种"收不了"都在这里同时给出用户可见回复与审计结局；纯文本消息直接
+        返回——不取件、也不写审计（审计只针对带载荷的消息，否则每句闲聊一行会把审计面淹掉）。
+        """
+        if envelope.unsupported_media is not None:
+            return await self._reject_payload(adapter, route, envelope, UNSUPPORTED_MEDIA_CODE, 0)
+        source = adapter if isinstance(adapter, AttachmentSource) else None
+        count = _attachment_count(adapter, envelope)
+        if count == 0:
+            if envelope.text.strip():
+                # 纯文本消息：不取件，也不写审计（否则每句闲聊一行会把审计面淹掉）
+                return _CollectedAttachments()
+            # 入口护栏放行过（当时确有引用），此刻引用没了（授权往返期间过期或被驱逐）。
+            # 仍然不能静默：给反馈 + 审计，而不是把空文本当用户输入发出去。
+            return await self._reject_payload(adapter, route, envelope, ATTACHMENT_FETCH_FAILED, 0)
+        if self._attachment_store is None:
+            # 部署漏配（缺 ARTIFACT_ROOT）：响亮地失败，而不是把附件悄悄丢掉
+            logger.error(
+                "inbound_attachments_unavailable message_id=%s count=%s", envelope.message_id, count
+            )
+            return await self._reject_payload(adapter, route, envelope, ATTACHMENT_FETCH_FAILED, count)
+        assert source is not None  # count > 0 只可能来自实现了取件的适配器
+        return await self._materialize(adapter, route, envelope, source, count)
+
+    async def _materialize(
+        self,
+        adapter: ChannelAdapter,
+        route: DeliveryRouteInput,
+        envelope: ChannelEnvelope,
+        source: AttachmentSource,
+        count: int,
+    ) -> _CollectedAttachments:
+        store = self._attachment_store
+        assert store is not None  # 调用方已判过
+        precheck = evaluate_precheck(count)
+        fetched: list[tuple[int, FetchedAttachment]] = []
+        failures: list[str] = []
+        for index in range(precheck.accepted):
+            try:
+                fetched.append(
+                    (
+                        index,
+                        await source.fetch_attachment(
+                            envelope, index, max_bytes=MAX_ATTACHMENT_BYTES
+                        ),
+                    )
+                )
+            except AttachmentFetchError as exc:
+                failures.append(exc.code)
+
+        graded = [
+            (
+                index,
+                AttachmentCandidate(
+                    media_type=item.media_type, size=len(item.data), filename=item.filename
+                ),
+                item,
+            )
+            for index, item in fetched
+        ]
+        decision = evaluate_gate([candidate for _, candidate, _ in graded])
+        rejected_positions = {rejection.index for rejection in decision.rejected}
+
+        refs: list[AttachmentRef] = []
+        total_bytes = 0
+        for position, (index, _candidate, content) in enumerate(graded):
+            if position in rejected_positions:
+                continue
+            refs.append(
+                store.persist(
+                    token=envelope.message_id,
+                    index=index,
+                    content=content,
+                    source_channel=envelope.channel,
+                )
+            )
+            total_bytes += len(content.data)
+
+        codes = [*failures, *(rejection.code for rejection in precheck.rejected)]
+        codes.extend(rejection.code for rejection in decision.rejected)
+        if codes:
+            await self._send_text(adapter, route, self._feedback_text(_primary_code(codes)))
+        if failures:
+            outcome: InboundAuditOutcome = "FAILED"
+        elif refs:
+            outcome = "RECEIVED"
+        else:
+            outcome = "REJECTED"
+        await self._audit(
+            envelope,
+            outcome=outcome,
+            count=count,
+            accepted=len(refs),
+            total_bytes=total_bytes,
+            reason_code=_primary_code(codes) if codes else "",
+        )
+        return _CollectedAttachments(
+            refs=tuple(refs), audit_outcome=outcome, reason_code=_primary_code(codes) if codes else ""
+        )
+
+    async def _reject_payload(
+        self,
+        adapter: ChannelAdapter,
+        route: DeliveryRouteInput,
+        envelope: ChannelEnvelope,
+        code: str,
+        count: int,
+    ) -> _CollectedAttachments:
+        """整条消息不可收：明确回复 + 审计（E-01 走的就是这条路）。"""
+        await self._send_text(adapter, route, self._feedback_text(code))
+        await self._audit(
+            envelope, outcome="REJECTED", count=count, accepted=0, total_bytes=0, reason_code=code
+        )
+        return _CollectedAttachments(audit_outcome="REJECTED", reason_code=code)
+
+    def _feedback_text(self, code: str) -> str:
+        """用户可见文案一律经消息目录取（RULE-i18n-001）；**数值只有一个来源**：门控常量。"""
+        args: dict[str, object] = {}
+        if code == ATTACHMENT_TOO_LARGE:
+            args["limit"] = MAX_ATTACHMENT_BYTES
+        elif code == ATTACHMENT_COUNT_EXCEEDED:
+            args["limit"] = MAX_ATTACHMENTS_PER_MESSAGE
+        return self._catalog.message(code, self._locale, args or None)
+
+    async def _audit(
+        self,
+        envelope: ChannelEnvelope,
+        *,
+        outcome: InboundAuditOutcome,
+        count: int,
+        accepted: int,
+        total_bytes: int,
+        reason_code: str,
+    ) -> None:
+        """写一条入站审计（TASK-012 的 `POST /internal/channel/audit`）。
+
+        审计面抖动**不阻断用户请求**：不能因为审计写不进去就让用户收不到回答；但失败必须留
+        ERROR 日志（"不吞"指的是有痕迹，不是指放弃用户请求）。
+        """
+        try:
+            await self._console.audit(
+                InboundAuditRequest(
+                    channel=envelope.channel,
+                    bot_id=envelope.bot_id,
+                    external_message_id=envelope.message_id,
+                    external_user_id=envelope.external_user_id,
+                    outcome=outcome,
+                    reason_code=reason_code,
+                    attachment_count=count,
+                    accepted_count=accepted,
+                    total_bytes=total_bytes,
+                    trace_id=current_trace_id() or None,
+                ),
+                self._tenant_id,
+            )
+        except AppError as exc:
+            logger.error(
+                "inbound_audit_write_failed message_id=%s error=%s",
+                envelope.message_id,
+                type(exc).__name__,
+            )
 
     async def _consume_run(
         self,

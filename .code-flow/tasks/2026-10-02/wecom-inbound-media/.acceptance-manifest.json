@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "wecom-inbound-media.md",
-  "task_sha256": "441fcd0a3fed00068ac5e94cbe33c4c029f0996b0c5fd68abf230e97e07cb581",
+  "task_sha256": "48a7575f3475c430568efc0909ed3f22b1c9d0a881633f2afadcbd654a474a0a",
   "scenarios": [
     {
       "id": "S-01",
@@ -67,11 +67,54 @@
       "kind": "e2e",
       "boundary": "回调 → 落盘 → 契约 → 工具",
       "owner": "TASK-004",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_wecom_attachments.py"
+      ],
       "cwd": ".",
-      "timeout": 60.0,
-      "depends_on": []
+      "timeout": 180.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-04",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+        "executed_at": "2026-10-02T12:01:09.475717+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "10523afa3c104dd59f190c68b13138e3",
+          "executed_at": "2026-10-02T11:59:58.651840+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "24cfd56a879644e18a86312038950eb1",
+          "executed_at": "2026-10-02T12:00:32.037821+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+          "executed_at": "2026-10-02T12:01:09.475717+00:00"
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -127,11 +170,57 @@
       "kind": "functional",
       "boundary": "FakeChannelAdapter → 门控 → 契约 → 落盘（不含企微路径）",
       "owner": "TASK-004",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_inbound_attachment_flow.py",
+        "tests/gateway/test_inbound_attachment_store.py"
+      ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+        "executed_at": "2026-10-02T12:01:09.475717+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "10523afa3c104dd59f190c68b13138e3",
+          "executed_at": "2026-10-02T11:59:58.651840+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "24cfd56a879644e18a86312038950eb1",
+          "executed_at": "2026-10-02T12:00:32.037821+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+          "executed_at": "2026-10-02T12:01:09.475717+00:00"
+        }
+      ]
     },
     {
       "id": "S-08",
@@ -168,11 +257,54 @@
       "kind": "e2e",
       "boundary": "回调 → 反馈投递 → 审计表",
       "owner": "TASK-004",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_wecom_attachments.py"
+      ],
       "cwd": ".",
-      "timeout": 60.0,
-      "depends_on": []
+      "timeout": 180.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-01",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+        "executed_at": "2026-10-02T12:01:09.475717+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "10523afa3c104dd59f190c68b13138e3",
+          "executed_at": "2026-10-02T11:59:58.651840+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "24cfd56a879644e18a86312038950eb1",
+          "executed_at": "2026-10-02T12:00:32.037821+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+          "executed_at": "2026-10-02T12:01:09.475717+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -181,11 +313,54 @@
       "kind": "e2e",
       "boundary": "同上",
       "owner": "TASK-004",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_wecom_attachments.py"
+      ],
       "cwd": ".",
-      "timeout": 60.0,
-      "depends_on": []
+      "timeout": 180.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-02",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+        "executed_at": "2026-10-02T12:01:09.475717+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "10523afa3c104dd59f190c68b13138e3",
+          "executed_at": "2026-10-02T11:59:58.651840+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "24cfd56a879644e18a86312038950eb1",
+          "executed_at": "2026-10-02T12:00:32.037821+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+          "executed_at": "2026-10-02T12:01:09.475717+00:00"
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -194,11 +369,54 @@
       "kind": "e2e",
       "boundary": "同上",
       "owner": "TASK-004",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_wecom_attachments.py"
+      ],
       "cwd": ".",
-      "timeout": 60.0,
-      "depends_on": []
+      "timeout": 180.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-03",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+        "executed_at": "2026-10-02T12:01:09.475717+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "10523afa3c104dd59f190c68b13138e3",
+          "executed_at": "2026-10-02T11:59:58.651840+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "24cfd56a879644e18a86312038950eb1",
+          "executed_at": "2026-10-02T12:00:32.037821+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+          "executed_at": "2026-10-02T12:01:09.475717+00:00"
+        }
+      ]
     },
     {
       "id": "E-04",
@@ -274,11 +492,57 @@
       "kind": "functional",
       "boundary": "幂等键 + 落盘",
       "owner": "TASK-004",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_inbound_attachment_flow.py",
+        "tests/gateway/test_inbound_attachment_store.py"
+      ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+        "executed_at": "2026-10-02T12:01:09.475717+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "10523afa3c104dd59f190c68b13138e3",
+          "executed_at": "2026-10-02T11:59:58.651840+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "24cfd56a879644e18a86312038950eb1",
+          "executed_at": "2026-10-02T12:00:32.037821+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "00b33a3e8ee84240886bb29c91405a4b",
+          "executed_at": "2026-10-02T12:01:09.475717+00:00"
+        }
+      ]
     },
     {
       "id": "B-01",

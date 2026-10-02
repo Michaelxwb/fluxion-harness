@@ -17,6 +17,7 @@ from muad_contracts import (
     ChannelResolveRequest,
     ChannelResolveResponse,
     ChannelSkillsResponse,
+    InboundAuditRequest,
 )
 from pydantic import BaseModel
 
@@ -31,6 +32,8 @@ RESOLVE_PATH = "/internal/channel/resolve"
 BIND_PATH = "/internal/channel/bind"
 BOTS_PATH = "/internal/channel/bots"
 CHANNEL_SKILLS_PATH = "/internal/channel/skills"
+#: 入站审计写入（TASK-012 建的权威落点；网关不持库，审计只能经它写）
+AUDIT_PATH = "/internal/channel/audit"
 REQUEST_TIMEOUT_SEC = 5.0
 
 
@@ -66,6 +69,8 @@ class ConsoleClientPort(Protocol):
         page: int = 1,
         page_size: int = DEFAULT_PAGE_SIZE,
     ) -> ChannelSkillsResponse: ...
+
+    async def audit(self, request: InboundAuditRequest, tenant_id: str) -> None: ...
 
 
 class ConsoleClient:
@@ -146,6 +151,24 @@ class ConsoleClient:
             tenant_id,
             params=params,
         )
+
+    async def audit(self, request: InboundAuditRequest, tenant_id: str) -> None:
+        """写一条入站审计（设计 API-10）。
+
+        **失败不吞**：调用方需要知道审计没写成功——"收不了"必须有痕迹（RULE-01），
+        悄悄失败等于没有痕迹。返回值只有落库 id，网关用不上，故不建模。
+        """
+        try:
+            response = await self._client.request(
+                "POST",
+                AUDIT_PATH,
+                json=request.model_dump(mode="json"),
+                headers=_headers(tenant_id, self._service_token),
+            )
+        except httpx.HTTPError as exc:
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+        if response.status_code >= 400:
+            raise AppError(error_code_from_payload(decode_json(response)))
 
     async def aclose(self) -> None:
         await self._client.aclose()

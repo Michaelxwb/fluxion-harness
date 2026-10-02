@@ -13,6 +13,7 @@ from muad_api import (
     validate_startup,
 )
 from muad_api.catalog import MessageCatalog
+from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_logging import configure_logging
 
@@ -21,6 +22,7 @@ from .api.health import readiness_checks, readiness_detail
 from .application.bot_snapshot import BotSnapshotCache
 from .application.console_client import ConsoleClient
 from .application.inbound import InboundPipeline
+from .application.inbound_attachments import InboundAttachmentStore
 from .application.runtime_client import RuntimeClient
 from .channels.base import ChannelRegistry
 from .channels.probe import HttpProbeChannelAdapter
@@ -82,11 +84,14 @@ async def _build_resources(
         tenant_id=settings.default_tenant_id,
         on_snapshot_changed=adapter.apply_snapshot,
     )
+    # 附件字节落共享 artifact store（RWX PVC，Runtime 同挂）：部署侧必须挂载 `artifact_root`，
+    # 只注入环境变量而不挂卷会让网关写进容器临时盘并"成功"，Runtime 却什么都读不到。
     inbound = InboundPipeline(
         dedupe=dedupe,
         console=console,
         runtime=runtime,
         catalog=catalog,
+        attachment_store=InboundAttachmentStore(NfsArtifactStore(settings.artifact_root)),
         tenant_id=settings.default_tenant_id,
         locale=settings.default_locale,
     )
