@@ -1,7 +1,7 @@
 version: 1
 task: wecom-inbound-media
 enforcement: required
-updated_at: '2026-10-02T12:14:01.037225+00:00'
+updated_at: '2026-10-02T14:15:34.539210+00:00'
 sources:
 - type: cli
   ref: bind
@@ -397,7 +397,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-arch-001
           item_id: TASK-004
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -688,7 +688,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-007 RULE-auth-001
           item_id: TASK-007
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -954,7 +954,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-006 RULE-data-001
           item_id: TASK-006
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -1219,7 +1219,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-i18n-001
           item_id: TASK-004
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -1510,7 +1510,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-001 RULE-im-001
           item_id: TASK-001
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -1777,7 +1777,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-log-001
           item_id: TASK-004
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -2070,7 +2070,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-007 RULE-mcp-001
           item_id: TASK-007
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -2292,7 +2292,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-005 RULE-model-001
           item_id: TASK-005
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -2558,7 +2558,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-002 RULE-secret-001
           item_id: TASK-002
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -2854,7 +2854,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-004 RULE-skill-001
           item_id: TASK-004
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -3145,11 +3145,11 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-006 RULE-snapshot-001
           item_id: TASK-006
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -3366,6 +3366,32 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-02T14:17:33.237357+00:00'
+          status: verified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: head:fa74cd1304c76e9edec4e6ac3f000a80002f1f6c
+          result_sha256: ba0f06fd1a0ecf3912d1d81a3ad918c120ca878da62395c02a18a2a7e6ba024e
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 276d1f8711a3508bd00bcf745ebabc5218f82ce4f90970ca440d6521008433cf
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.27s
+
+              ....................                                                     [100%]
+
+              20 passed, 183 deselected in 0.70s
+
+              '
       review:
         status: pending
         refs: []
@@ -3410,7 +3436,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-010 RULE-test-001
           item_id: TASK-010
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -3675,7 +3701,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-009 RULE-time-001
           item_id: TASK-009
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -3989,7 +4015,7 @@ bindings:
         - artifact: wecom-inbound-media.md
           section_id: TASK-001 RULE-worker-001
           item_id: TASK-001
-          artifact_sha256: 8e9c5ecd264eb6bfd285c4938406544e6bae7f5c9c4bb89d2ca9c0ba213fe356
+          artifact_sha256: 4dca3f4bc2cf90497f118ef8a2049e75462746fe457ee0b29a075915993e3b6d
         decision: null
         evidence: []
       code:
@@ -4249,6 +4275,88 @@ bindings:
               ...................................................                      [100%]
 
               195 passed in 5.39s
+
+              '
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-02T14:36:13.532778+00:00'
+          status: verified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: head:125bd3259148d12e9122238908b26e457aecc7e2
+          result_sha256: 33892bf0f4288a83da189c08b2ecf71be132a7444ecae84bdb603ac0848c2f9b
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
+            exit_code: 0
+            stdout_sha256: 7137bdfb5cc177f5806fdefd9ca7f55ad79e1b5a8ae0d2463a98ffc3545851d4
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 30%]
+
+              ........................................................................
+              [ 61%]
+
+              ........................................................................
+              [ 91%]
+
+              ....................                                                     [100%]
+
+              236 passed in 10.58s
+
+              ........................................................................
+              [ 36%]
+
+              ........................................................................
+              [ 73%]
+
+              ...................................................                      [100%]
+
+              195 passed in 5.67s
+
+              '
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-02T14:52:19.597304+00:00'
+          status: verified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: head:125bd3259148d12e9122238908b26e457aecc7e2
+          result_sha256: 1bfc98006b5d8b184c9383156e3cae1ee49d31f6fbf5bbbd9c37437c8ff2b0e2
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
+            exit_code: 0
+            stdout_sha256: b978f7e7f4c008ed6df4cb858e92b579d5fd4f1af636877f62b0e007ee3d45f6
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 30%]
+
+              ........................................................................
+              [ 61%]
+
+              ........................................................................
+              [ 91%]
+
+              ....................                                                     [100%]
+
+              236 passed in 10.14s
+
+              ........................................................................
+              [ 36%]
+
+              ........................................................................
+              [ 73%]
+
+              ...................................................                      [100%]
+
+              195 passed in 6.15s
 
               '
       review:

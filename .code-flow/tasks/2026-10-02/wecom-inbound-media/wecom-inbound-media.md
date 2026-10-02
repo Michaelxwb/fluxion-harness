@@ -364,6 +364,10 @@
 - E-01: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -739,6 +743,9 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - S-01: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
 - S-05: verified — automated command passed; run_id=49e612ef30b24b61a6388e3c89a78d59 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
