@@ -105,6 +105,15 @@ def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
     )
 
 
+def _carries_no_payload(envelope: ChannelEnvelope) -> bool:
+    """信封里既无文本、也无**已落盘**的附件 ⇒ 没有可运行的内容。
+
+    改造前这种信封不可能出现（文本非空是适配器的前置条件），所以这是纯新增的护栏：
+    附件引用只描述"已经拿到手的字节"（AD-8），取件与落盘未完成前 `attachments` 必为空。
+    """
+    return not envelope.text.strip() and not envelope.attachments
+
+
 def format_skills(skills: Sequence[ChannelSkillItem]) -> str:
     """设计 §3.4.2：只展示 name/platform_label/description，不含 SKILL.md 全文。
 
@@ -236,6 +245,18 @@ class InboundPipeline:
 
     async def handle(self, adapter: ChannelAdapter, envelope: ChannelEnvelope) -> None:
         if not await self._mark_seen(envelope):
+            return
+        if _carries_no_payload(envelope):
+            # 既无文本也无附件 ⇒ 没有可运行的内容。媒体类消息的字节要先经"预检 → 取件 → 实检
+            # → 落盘"才会填进 `attachments`（设计 §3.2.1 的 ②→⑥）；在网关应用编排层接线之前，
+            # 这里**不能**继续往下走：那会把一条空消息当作用户输入发给模型。
+            # `unsupported_media` 非空时同样落在这里——用户可见的明确反馈（E-01）由该接线一并补上。
+            logger.warning(
+                "inbound_envelope_without_payload message_id=%s channel=%s unsupported_media=%s",
+                envelope.message_id,
+                envelope.channel,
+                envelope.unsupported_media,
+            )
             return
         text = envelope.text.strip()
         metrics.inc_counter(

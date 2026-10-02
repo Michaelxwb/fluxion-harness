@@ -14,6 +14,10 @@ MAX_PAGE_SIZE = 100
 
 AttachmentKind = Literal["IMAGE", "DOCUMENT", "OTHER"]
 
+#: 渠道中性词汇：回调里出现了**本渠道不接收**的载荷形态时，用它让核心域知道"来过一条"。
+#: 刻意不描述渠道私有的取件形状（url/aes_key/media_id...），否则渠道差异会渗透核心域（AD-8）。
+UnsupportedMedia = Literal["VOICE", "VIDEO", "OTHER"]
+
 
 class PageMeta(ContractModel):
     """统一列表分页字段（required API Rule：page>=1、1<=page_size<=100）。"""
@@ -49,6 +53,9 @@ class ChannelEnvelope(ContractModel):
     text: str = ""
     # 渠道适配器产出的附件引用，与 Runtime 侧 MessageInput.attachments 同型（零转换）
     attachments: list[AttachmentRef] = Field(default_factory=list)
+    # 非空表示这条消息的载荷形态本渠道不接收（如语音/视频）：核心域据此给用户明确反馈，
+    # 而不是让消息在渠道边界静默消失（RULE-01）。默认 None ⇒ 序列化结果与改造前一致。
+    unsupported_media: UnsupportedMedia | None = None
 
 
 class ChannelResolveRequest(ContractModel):

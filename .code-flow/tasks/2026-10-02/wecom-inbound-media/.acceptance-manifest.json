@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "wecom-inbound-media.md",
-  "task_sha256": "bd9f89ce39732d2b273c91bd795ce6402d4650b5c9d9a5a61a64b301d2ad47e3",
+  "task_sha256": "f1156d8ea7e12627dd9a48d3c05bceef89ae881f3cd3a8131a5dd2bbad7ddad5",
   "scenarios": [
     {
       "id": "S-01",
@@ -110,7 +110,6 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
       "evidence": {
         "id": "S-06",
         "kind": "functional",
@@ -119,18 +118,7 @@
         "revision": 1,
         "run_id": "743a771afe0f4967aaf7ce3bef6a7b72",
         "executed_at": "2026-10-02T09:38:19.720500+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "743a771afe0f4967aaf7ce3bef6a7b72",
-          "executed_at": "2026-10-02T09:38:19.720500+00:00"
-        }
-      ]
+      }
     },
     {
       "id": "S-07",
@@ -144,6 +132,55 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": []
+    },
+    {
+      "id": "S-08",
+      "source": "design#2.5.2",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "回调帧分流解析层（不 mock 帧）",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_wecom_media.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "415d5b7e6f32435c8d42c1403e40cb59",
+        "executed_at": "2026-10-02T10:11:08.904485+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "586860170ba5421fb7f014475437aa20",
+          "executed_at": "2026-10-02T10:10:56.028739+00:00"
+        },
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "415d5b7e6f32435c8d42c1403e40cb59",
+          "executed_at": "2026-10-02T10:11:08.904485+00:00"
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -189,13 +226,50 @@
       "source": "design#2.5.2",
       "level": "integration",
       "kind": "functional",
-      "boundary": "解密路径 + 日志/审计输出",
+      "boundary": "解密路径 + 日志输出（审计腿见 TASK-004）",
       "owner": "TASK-002",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_wecom_media.py",
+        "tests/test_logging_redaction.py"
+      ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "415d5b7e6f32435c8d42c1403e40cb59",
+        "executed_at": "2026-10-02T10:11:08.904485+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "586860170ba5421fb7f014475437aa20",
+          "executed_at": "2026-10-02T10:10:56.028739+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "415d5b7e6f32435c8d42c1403e40cb59",
+          "executed_at": "2026-10-02T10:11:08.904485+00:00"
+        }
+      ]
     },
     {
       "id": "E-05",

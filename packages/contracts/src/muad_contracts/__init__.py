@@ -12,6 +12,7 @@ from .channel import (
     ChannelSkillItem,
     ChannelSkillsResponse,
     PageMeta,
+    UnsupportedMedia,
 )
 from .delivery import DeliveryMessage, DeliveryRequest, DeliveryResponse
 from .enums import (
@@ -74,6 +75,7 @@ __all__ = [
     "ChannelContext",
     "AttachmentRef",
     "ChannelEnvelope",
+    "UnsupportedMedia",
     "ChannelResolveRequest",
     "ChannelResolveResponse",
     "ChannelSkillsResponse",

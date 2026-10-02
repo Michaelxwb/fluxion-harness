@@ -18,14 +18,18 @@ from muad_contracts import (
     ChannelEnvelope,
     DeliveryMessage,
     DeliveryRouteInput,
+    UnsupportedMedia,
 )
 
 from ..base import ChannelAdapterUnavailable, ChannelBotNotFound
+from .media import download_media as download_media_content
 from .sdk_port import (
     EventCallback,
     MessageCallback,
     WeComInboundEvent,
     WeComInboundMessage,
+    WeComMediaContent,
+    WeComMediaRef,
     WeComSdkConnectionError,
     WeComSdkFactory,
     WeComSdkPort,
@@ -39,6 +43,16 @@ DEFAULT_STREAM_FLUSH_INTERVAL_SEC = 0.5
 # 连接存活探测间隔：SDK 不保证服务端主动关闭时回调 on_disconnected，按有界间隔兜底探测
 DEFAULT_LIVENESS_INTERVAL_SEC = 1.0
 TEXT_MESSAGE_TYPE = "text"
+IMAGE_MESSAGE_TYPE = "image"
+FILE_MESSAGE_TYPE = "file"
+MIXED_MESSAGE_TYPE = "mixed"
+#: 图文混排里多个文本项的连接符：直接相接会把两句话粘成一个词
+MIXED_TEXT_SEPARATOR = "\n"
+#: 会产出媒体引用的 msgtype（`mixed` 的图片项由 `_mixed_payload` 单独处理）
+ACCEPTED_MEDIA_TYPES = frozenset({IMAGE_MESSAGE_TYPE, FILE_MESSAGE_TYPE})
+#: 本适配器已"认得"的消息类型。未列出的类型不是格式错误，而是**本渠道不接收**，须走反馈路径。
+ACCEPTED_MESSAGE_TYPES = frozenset({TEXT_MESSAGE_TYPE, MIXED_MESSAGE_TYPE}) | ACCEPTED_MEDIA_TYPES
+_UNSUPPORTED_MESSAGE_TYPES: dict[str, UnsupportedMedia] = {"voice": "VOICE", "video": "VIDEO"}
 STREAM_HEADER_KEY = "headers"
 STREAM_REPLY_ID_KEY = "req_id"
 CONNECTED_GAUGE = "wecom_ws_connected"
@@ -284,6 +298,61 @@ def _as_str(source: Mapping[str, object], key: str) -> str:
     return value if isinstance(value, str) else ""
 
 
+def _media_ref(payload: Mapping[str, object]) -> WeComMediaRef | None:
+    """企微的取件凭据在**同一个对象**里：`{url, aeskey?}`（设计 §3.2.2）。缺 `url` 则不可取件。"""
+    url = _as_str(payload, "url")
+    if not url:
+        return None
+    return WeComMediaRef(url=url, aes_key=_as_str(payload, "aeskey") or None)
+
+
+def _payload(body: Mapping[str, object], msgtype: str) -> tuple[str, tuple[WeComMediaRef, ...]]:
+    """返回 `(并入消息文本, 媒体引用)`——`mixed` 下两者可同时非空。"""
+    if msgtype == TEXT_MESSAGE_TYPE:
+        return _as_str(_as_mapping(body.get(TEXT_MESSAGE_TYPE)), "content"), ()
+    if msgtype in ACCEPTED_MEDIA_TYPES:
+        ref = _media_ref(_as_mapping(body.get(msgtype)))
+        return "", (ref,) if ref is not None else ()
+    if msgtype == MIXED_MESSAGE_TYPE:
+        return _mixed_payload(_as_mapping(body.get(MIXED_MESSAGE_TYPE)))
+    return "", ()
+
+
+def _mixed_payload(mixed: Mapping[str, object]) -> tuple[str, tuple[WeComMediaRef, ...]]:
+    """图文混排：`image` 项**各成一个**媒体引用；`text` 项按出现顺序并入消息文本。
+
+    多个文本项之间用换行分隔——直接首尾相接会把两句话粘成一个词。
+    """
+    items = mixed.get("msg_item")
+    texts: list[str] = []
+    refs: list[WeComMediaRef] = []
+    for item in items if isinstance(items, list) else ():
+        entry = _as_mapping(item)
+        item_type = _as_str(entry, "msgtype")
+        if item_type == TEXT_MESSAGE_TYPE:
+            content = _as_str(_as_mapping(entry.get(TEXT_MESSAGE_TYPE)), "content")
+            if content:
+                texts.append(content)
+        elif item_type in ACCEPTED_MEDIA_TYPES:
+            ref = _media_ref(_as_mapping(entry.get(item_type)))
+            if ref is not None:
+                refs.append(ref)
+    return MIXED_TEXT_SEPARATOR.join(texts), tuple(refs)
+
+
+def _unsupported_media(msgtype: str) -> UnsupportedMedia | None:
+    """本渠道不接收的载荷形态（RULE-01：不得静默丢弃）。
+
+    已知的语音/视频给具体取值，便于日后按类型改文案；其余非空且未接收的类型归 `OTHER`。
+    空 `msgtype` 返回 `None`——那不是一条可归属的消息。
+    """
+    if msgtype in _UNSUPPORTED_MESSAGE_TYPES:
+        return _UNSUPPORTED_MESSAGE_TYPES[msgtype]
+    if msgtype and msgtype not in ACCEPTED_MESSAGE_TYPES:
+        return "OTHER"
+    return None
+
+
 class _AibotClient(Protocol):
     @property
     def is_connected(self) -> bool: ...
@@ -363,6 +432,11 @@ class _AibotClientPort:
         frame: dict[str, object] = {STREAM_HEADER_KEY: {STREAM_REPLY_ID_KEY: reply_id}}
         await self._client.reply_stream(frame, stream_id, content, finish=finish)
 
+    async def download_media(self, url: str, aes_key: str | None, *, max_bytes: int) -> WeComMediaContent:
+        """取件不走 SDK（`WSClient.download_file` 无字节上限、超时不可配、密钥缺失返回密文），
+        只复用它的解密函数——细节见 `media` 模块文档串。"""
+        return await download_media_content(url, aes_key, max_bytes=max_bytes)
+
     def _deliver_message(self, frame: object, callback: MessageCallback) -> None:
         message = self._to_inbound_message(frame)
         if message is not None:
@@ -374,25 +448,36 @@ class _AibotClientPort:
             callback(event)
 
     def _to_inbound_message(self, frame: object) -> WeComInboundMessage | None:
+        """按 `msgtype` 分流（设计 §3.2.2）。
+
+        可接收的（`image` / `file` / `mixed` 内的 `image` 项）产出**渠道私有的媒体引用**；
+        本渠道不接收但**结构合法**的（`voice` / `video` / 未知类型）以 `unsupported_media` 表达，
+        使消息不再在渠道边界消失（RULE-01）。**结构不合法**的帧（缺 `msgid`/`from`、图片缺 `url`）
+        仍返回 `None`：那不是"收不了的消息"，而是无法归属的帧。
+        """
         if not isinstance(frame, Mapping):
             return None
         body = _as_mapping(frame.get("body"))
         headers = _as_mapping(frame.get(STREAM_HEADER_KEY))
-        if _as_str(body, "msgtype") != TEXT_MESSAGE_TYPE:
-            return None
         message_id = _as_str(body, "msgid")
         user_id = _as_str(_as_mapping(body.get("from")), "userid")
-        text = _as_str(_as_mapping(body.get(TEXT_MESSAGE_TYPE)), "content")
-        if not message_id or not user_id or not text:
+        if not message_id or not user_id:
+            return None
+        msgtype = _as_str(body, "msgtype")
+        text, media = _payload(body, msgtype)
+        unsupported = None if text or media else _unsupported_media(msgtype)
+        if not text and not media and unsupported is None:
             return None
         return WeComInboundMessage(
             bot_id=self._bot_id,
             message_id=message_id,
             external_user_id=user_id,
             external_conversation_id=_as_str(body, "chatid") or None,
-            message_type=TEXT_MESSAGE_TYPE,
+            message_type=msgtype,
             text=text,
             reply_id=_as_str(headers, STREAM_REPLY_ID_KEY),
+            media=media,
+            unsupported_media=unsupported,
         )
 
     def _to_inbound_event(self, frame: object) -> WeComInboundEvent | None:
@@ -653,6 +738,8 @@ class WeComAdapter:
             return
         key = (message.bot_id, message.external_user_id, message.external_conversation_id)
         self._reply_refs[key] = message.reply_id
+        # `attachments` 此刻必为空：取件（`message.media`，渠道私有）与落盘由网关应用编排层
+        # 按设计 §3.2.1 的 ②→⑥ 顺序接线后填充；适配器只负责把"来了一条什么"送达边界。
         self._events.put_nowait(
             ChannelEnvelope(
                 channel="WECOM",
@@ -661,6 +748,7 @@ class WeComAdapter:
                 external_conversation_id=message.external_conversation_id,
                 message_id=message.message_id,
                 text=message.text,
+                unsupported_media=message.unsupported_media,
             )
         )
 

@@ -17,8 +17,9 @@
   - AD-7-B：通道枚举收口为 `ChannelName` 别名（产品确认纳入本期）。
   - AD-1-B：网关只落字节、`artifact` 行由 Runtime 写（不改 schema）。
   - plan 阶段补 `B-08`（FEAT-10 的时钟场景），design §6 缺口已闭合。
+  - **代码期修订（2026-10-02，TASK-002 开工时）**：① 门控拆**两段**（预检数量 → 实检类型/大小）——企微回调不带 `size`/MIME/文件名（design §3.2.2），单段前置门控物理上不可实现；② `mixed` 图文混排纳入范围（补 `S-08`）；③ 契约新增 `ChannelEnvelope.unsupported_media` 作为"不支持类型"的传输通道（E-01 的前置，核心域回复由 TASK-004 接线）。
 - **Non-goals**: 出站端到端文件发送；企微以外的渠道（含自建 web 对话页通道）；语音/视频专门处理；附件保留期策略；文档结构化理解。
-- **Acceptance**: 见下方 Acceptance Coverage（20 条场景 + B-08）。
+- **Acceptance**: 见下方 Acceptance Coverage（23 条场景）。
 
 ---
 
@@ -33,10 +34,11 @@
 | S-05 | design#2.5.2 | E2E | 真实上下文组装 + 真实模型 | TASK-007 | e2e_deferred | uv run pytest -q tests/acceptance/wecom_attachments | . | 60 |  |
 | S-06 | design#2.5.2 | integration | 工具 → artifact store → 读回 | TASK-008 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 60 |  |
 | S-07 | design#2.5.2 | integration | FakeChannelAdapter → 门控 → 契约 → 落盘（不含企微路径） | TASK-004 | planned | - | . | 60 |  |
+| S-08 | design#2.5.2 | integration | 回调帧分流解析层（不 mock 帧） | TASK-002 | verified | uv run pytest -q tests/gateway/test_wecom_media.py | . | 60 |  |
 | E-01 | design#2.5.2 | E2E | 回调 → 反馈投递 → 审计表 | TASK-004 | planned | - | . | 60 |  |
 | E-02 | design#2.5.2 | E2E | 同上 | TASK-004 | planned | - | . | 60 |  |
 | E-03 | design#2.5.2 | E2E | 同上 | TASK-004 | planned | - | . | 60 |  |
-| E-04 | design#2.5.2 | integration | 解密路径 + 日志/审计输出 | TASK-002 | planned | - | . | 60 |  |
+| E-04 | design#2.5.2 | integration | 解密路径 + 日志输出（审计腿见 TASK-004） | TASK-002 | verified | uv run pytest -q tests/gateway/test_wecom_media.py tests/test_logging_redaction.py | . | 60 |  |
 | E-05 | design#2.5.2 | integration | DB 查询 + 工具越权校验 | TASK-007 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 60 |  |
 | E-06 | design#2.5.2 | integration | 真实解析库 | TASK-007 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 60 |  |
 | E-07 | design#2.5.2 | integration | 幂等键 + 落盘 | TASK-004 | planned | - | . | 60 |  |
@@ -49,7 +51,7 @@
 | B-07 | design#2.5.2 | unit | 源码静态检查 | TASK-001 | verified | uv run pytest -q tests/test_attachment_contract.py | . | 60 |  |
 | B-08 | design#2.5.2 | unit | 注入固定时钟 | TASK-009 | verified | uv run pytest -q tests/agent_runtime/test_time_tools.py | . | 60 |  |
 
-> 覆盖自检：design 全部 P0/P1 场景 22/22 已分配唯一负责人；RULE-01..08 与高影响 R-01/R-04 均有映射场景；E2E 场景 6 个未降级。
+> 覆盖自检：design 全部 P0/P1 场景 23/23 已分配唯一负责人；RULE-01..08 与高影响 R-01/R-04 均有映射场景；E2E 场景 6 个未降级。
 
 ---
 
@@ -118,40 +120,70 @@
 - [2026-10-02] completed (done)
 ## TASK-002: 企微入站分流 + 媒体下载解密
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
-- **Source**: `wecom-inbound-media.design.md#3.2.1`, `#3.4 接口设计`, `#3.1 方案选型`
+- **Source**: `wecom-inbound-media.design.md#3.2.1`, `#3.2.2`, `#3.4 接口设计`, `#3.1 方案选型`
 - **Spec-Refs**: harness-secret#RULE-secret-001
-- **Acceptance-Refs**: E-04
+- **Acceptance-Refs**: S-08, E-04
 
 ### Description
 
-渠道适配层不再对非文本消息一律 `return None`：按 `msgtype` 分流，可接收的（图片/文件）走媒体下载与解密，产出 `AttachmentRef`。取件方式（`url` + `aeskey`）是**企微私有**，不得提升为跨渠道通用接口（AD-8）。`checksum` 必须在**解密之后**计算。
+渠道适配层不再对非文本消息一律 `return None`：按 `msgtype` 分流——`image` / `file` 各成一个媒体引用，`mixed` 内的**每个 `image` 项各成一个**（`text` 项并入消息文本）；`voice` / `video` **不进媒体管道、不下载**，改以 `ChannelEnvelope.unsupported_media` 送达核心域。取件方式（`url` + `aeskey`）是**企微私有**，不得提升为跨渠道通用接口（AD-8）。**下载由本仓自实现**（SDK 的 `download_file` 无字节上限、超时不可配、密钥缺失时返回密文），**只复用 SDK 的解密函数**以免算法分叉；`checksum` 必须在**解密之后**计算。
 
 ### Checklist
 
-- [ ] `_to_inbound_message` 按 `msgtype` 分流，非文本可接收类型进入附件处理并填充 `attachments`
-- [ ] `WeComSdkPort` 暴露渠道私有的媒体下载能力（签名含 `url`/`aes_key`，仅供 wecom 包内使用）
-- [ ] 下载实现强制超时与字节上限；失败以明确异常类型上抛（区分超时/网络/解密失败）
-- [ ] `checksum` 在解密后计算
-- [ ] [E-04][integration] 覆盖密钥缺失与密钥不匹配两种解密失败（真实边界：解密路径 + 日志/审计输出，不 mock 解密）；断言①不落半成品（无 `artifact` 行、无残留文件）②**日志与审计中均不出现 `aes_key` 与媒体明文 URL**
-- [ ] 回归：既有文本路径用例全绿
-- [ ] 运行 verifier：`uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py`（`harness-secret#RULE-secret-001`）；记录输出并填写 Acceptance Evidence
+- [x] `_to_inbound_message` 按 `msgtype` 分流：`image`/`file` → 1 个媒体引用；`mixed` → 逐个 `image` 项各 1 个（`text` 项并入消息文本）；`voice`/`video`/未知 → 置 `unsupported_media` 且**不产出媒体引用、不下载**
+- [x] `WeComSdkPort.download_media(url, aes_key, *, max_bytes)` 返回 `WeComMediaContent`（已解密字节 + `media_type` + `filename` + `checksum`；大小即 `len(data)`，不另存一份），且**不复用** SDK 的 `download_file`
+- [x] 下载实现强制 30s 超时与**流式**字节上限（累计超限立即中止，不读完）；失败以明确异常类型上抛（区分超时/网络/解密失败），`aes_key` 缺失走**解密失败**路径而非返回密文
+- [x] `media_type` 在解密后判定（魔术字节 → 文件名扩展名 → `application/octet-stream` 兜底）；**不采信**下载响应的 `Content-Type`
+- [x] `checksum` 在解密后计算
+- [x] 契约新增 `ChannelEnvelope.unsupported_media`（渠道中性取值）+ 核心域兜底：不进入 Run、记结构化日志、**不产生回复**（回复由 TASK-004 接线，E-01）
+- [x] [S-08][integration] `mixed` 图文混排（2 个 image 项 + 1 个 text 项）（真实边界：分流解析层，不 mock 帧）；断言两项各成一个候选、文本并入消息文本、候选与同消息单图共享数量门控
+- [x] [E-04][integration] 覆盖密钥缺失与密钥不匹配两种解密失败（真实边界：本地真实 HTTP 服务 + 真实 AES 密文 + 官方 `decrypt_file`，**解密不 mock**）；断言①失败**不返回任何内容**（绝不退化为返回密文）且异常文本不含凭据 ②**日志中**不出现 `aes_key` 与媒体明文 URL。**两条不在本任务范围**（不是"已闭合"）：**审计腿**依赖 TASK-004 的审计写入接线；**"无 artifact 行/无残留文件"**在 TASK-002 结构上无从断言——本任务不写盘也不写库（引用只描述"已到手的字节"，持久化在 TASK-004）
+- [x] 回归：既有文本路径用例全绿
+- [x] 运行 verifier：`uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py`（`harness-secret#RULE-secret-001`）；**12 passed**
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-04 | integration | 解密路径、日志/审计输出 | 失败不留半成品；密钥与 URL 不出现在日志/审计 | planned | `uv run pytest -q tests/test_logging_redaction.py` | planned |
+| S-08 | integration | 回调帧分流解析层 | `mixed` 的两项各成一个候选；文本并入；与同消息单图共享数量门控 | `tests/gateway/test_wecom_media.py` | `uv run pytest -q tests/gateway/test_wecom_media.py` | verified |
+| E-04 | integration | 解密路径、日志输出（审计腿见 TASK-004） | 密钥缺失/不匹配均明确失败且不返回密文；密钥与 URL 不出现在日志 | `tests/gateway/test_wecom_media.py`（+ 原 verifier `tests/test_logging_redaction.py`） | `uv run pytest -q tests/gateway/test_wecom_media.py tests/test_logging_redaction.py` | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-08 | 把源码改动移开（`git stash push -- apps packages`）后本文件整体 collection error：`ModuleNotFoundError: No module named 'muad_im_gateway.channels.wecom.media'` | PASS: `37 passed` | `tests/gateway/test_wecom_media.py`：`test_mixed_message_yields_one_ref_per_image_item_and_merges_text`（两项各成一个引用、文本并入）、`test_mixed_refs_are_the_same_shape_as_separate_image_messages`（**与两条单图消息的引用逐字段相等** ⇒ 数量门控不可能对两者计数不同）、`test_adapter_emits_envelope_with_merged_text_and_no_attachments` | 原始回调帧 → 真实 `_AibotClientPort` → 真实 `WeComAdapter` → `iter_events()` 取 `ChannelEnvelope`；**帧不 mock** | verified |
+| E-04 | 同上 | PASS: `37 passed` | `::test_decrypt_failures_are_explicit_and_never_return_ciphertext[None]` / `[上界外的密钥]`、`::test_decrypt_failure_logs_reason_without_credentials`、`::test_success_logs_metadata_without_credentials`、`::test_oversized_body_is_aborted_before_the_whole_response_is_read` | 本地真实 HTTP 服务 + 真实 AES-256-CBC 密文 + 官方 `crypto_utils.decrypt_file`，**解密不 mock**。**对照实验**（同一份密文跑官方 SDK `WSClient.download_file`）：密钥缺失时它 `WARN` 一句后**把密文当文件返回**（实测 `bytes == ciphertext` 为真）、密钥不匹配时抛裸 `RuntimeError`；本实现两腿都抛**可区分**的 `WeComMediaDecryptError` 且不返回任何内容 | verified（**日志腿**；审计腿属 TASK-004，见其清单） |
+
+**本任务的其余覆盖（同文件）**：
+- `test_voice_and_video_are_marked_unsupported_without_media`：语音/视频**不进媒体管道、不产生取件**，以 `unsupported_media` 表达 —— 消息不再在渠道边界消失（RULE-01）
+- `test_structurally_invalid_frames_are_still_ignored`：缺 `msgid`/`from`、图片缺 `url` 的**结构不合法**帧仍不产生消息 —— 与"收不了的消息"是两回事
+- `test_checksum_is_computed_after_decryption`：**同一明文用两把不同密钥**加密，解密后校验和必须相同（若在密文上算校验和，这里必红）
+- `test_slow_response_hits_the_timeout` / `test_missing_media_url_is_a_network_failure`：超时与 URL 失效可区分（E-03 的两条腿）
+- `test_media_type_is_detected_after_decryption` / `test_filename_parsing_covers_both_disposition_forms`：类型判定顺序与 `Content-Disposition` 两种形式（含 RFC 5987 非 ASCII 名）
+
+**本次回归**：
+- `tests/gateway tests/architecture tests/test_attachment_contract.py` → **263 passed**（含本任务新增 37 条）
+- `tests/acceptance/im_gateway` → **65 passed**（inbound 兜底与适配器改动的真实栈回归）
+- verifier `uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py` → **12 passed**
+- `uv run mypy apps packages` → **Success: no issues found in 265 source files**
+- `uv run ruff check apps packages tests/gateway/test_wecom_media.py` → **All checks passed**
+
+**实现补充**：`channels/wecom/media.py` 自实现流式取件，三条理由都是可复现事实（SDK 无字节上限、超时不可配且写死 10s、密钥缺失返回密文——见上表对照实验），**只复用 SDK 的解密函数**。`max_bytes` 由调用方传入：产品策略常量的唯一定义处是门控的 `MAX_ATTACHMENT_BYTES`，传参避免了在下载器里复制一份数值、也避免 `channels/` 反向依赖 `application/`。`media_type` 一律在**解密后**判定，不采信下载响应的 `Content-Type`（那描述的是加密载荷）。`WeComMediaRef` 的 `url`/`aes_key` 都设了 `repr=False`——默认 repr 会随任何一次 f-string 把取件凭据写进日志。
+- S-08: verified — automated command passed; run_id=586860170ba5421fb7f014475437aa20 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=586860170ba5421fb7f014475437aa20 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=415d5b7e6f32435c8d42c1403e40cb59 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=415d5b7e6f32435c8d42c1403e40cb59 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
 
 ---
-
+- [2026-10-02] started
+- [2026-10-02] completed (done)
 ## TASK-003: 附件门控（纯函数）
 
 - **Status**: done
@@ -228,9 +260,11 @@
 ### Checklist
 
 - [ ] 附件写入共享 store，key 为相对路径；沿用"临时文件 + `os.replace`"原子替换
-- [ ] 门控拒绝 / 下载失败 / 解密失败 / 落盘失败 → 各自映射文案与审计码，**无静默路径**
+- [ ] 门控接线为**两段**（design §3.2.1 / API-07）：**预检** `evaluate_precheck(count)` 在下载之前判数量 → 调 TASK-002 取件 → **实检** `evaluate_gate(candidates)` 用解密后的真实 `media_type`/`size` 判类型与大小
+- [ ] `unsupported_media` 兜底升级为**用户可见回复 + 审计**（E-01）：TASK-002 只让它"不进入 Run"，本条负责把回复补上，并删除兜底注释里的过渡说明
+- [ ] 门控拒绝 / 下载失败 / 解密失败 / 落盘失败 / 不支持类型 → 各自映射文案与审计码，**无静默路径**
 - [ ] 反馈文案经消息目录取；`config/api-messages.yaml` 补齐 zh-CN 与 en-US 词条
-- [ ] 审计记录含 `external_message_id`、附件数、拒绝原因码（供 PRD §2.2 指标度量）
+- [ ] 审计记录含 `external_message_id`、附件数、拒绝原因码（供 PRD §2.2 指标度量）；**并闭合 E-04 的审计腿**——审计行中不得出现 `aes_key` 与媒体明文 URL（TASK-002 只覆盖日志腿，见其清单）
 - [ ] [S-04][E2E] 一条消息带 3 个附件（含图片与文档）（真实边界：回调 → 落盘 → 契约 → 工具，不 mock）；断言三个附件各自落盘、可分别读取、互不覆盖
 - [ ] [S-07][integration] `FakeChannelAdapter` 以**与企微不同的取件路径**（不经 url/aes_key）产出带附件的 envelope（真实边界：门控 → 契约 → 落盘，不含企微代码路径）；断言门控/契约/落盘行为与企微路径一致
 - [ ] [E-01][E2E] 不受支持类型 → 不落盘 + 审计 + 用户收到明确说明
