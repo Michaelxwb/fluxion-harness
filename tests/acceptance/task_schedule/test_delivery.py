@@ -69,6 +69,20 @@ def _wait(predicate: Any, timeout_sec: float = 90.0) -> Any:
     return value
 
 
+def _my_deliveries(live_stack: LiveStack, http: httpx.Client) -> list[dict[str, Any]]:
+    """只取**本栈 bot** 的投递 —— 探针是共享的，全局计数会数到别的套件。
+
+    根因（2026-10-02 实测）：`claim` 不带租户谓词（`worker/claimer.py:20-27`，Worker 是无状态
+    通用工作池，任务行自带 `tenant_id`），于是**别的域套件留下的可领取任务**会被本栈 Worker
+    领走，并按本栈环境注入的探针 URL 投递 —— 探针里因此多出一条不属于本用例的投递，
+    `assert len(deliveries) == 1` 这种**全局计数**断言随即偶发失败（实测：单独跑全绿，
+    放进 `verify-e2e` 的 14 条 verifier 顺序里必红）。断言限定到本栈 bot 后，意图
+    （"失败那次不计、成功恰好一条"）不变，但不再依赖别的套件的行为。
+    """
+    payload = http.get(f"{live_stack.channel_url}/probe/deliveries").json()
+    return [item for item in payload["deliveries"] if item.get("bot_id") == live_stack.bot_id]
+
+
 def test_s03_final_delivery_reaches_probe_once_and_is_deduped(
     live_stack: LiveStack, http: httpx.Client
 ) -> None:
@@ -87,9 +101,8 @@ def test_s03_final_delivery_reaches_probe_once_and_is_deduped(
     assert delivery_key == f"task:{task_id}:final"
     assert delivered_at is not None and attempts >= 1
 
-    deliveries = http.get(f"{live_stack.channel_url}/probe/deliveries").json()["deliveries"]
+    deliveries = _my_deliveries(live_stack, http)
     assert len(deliveries) == 1, deliveries
-    assert deliveries[0]["bot_id"] == live_stack.bot_id
 
     # 同一 delivery_key 重放：真实 Gateway + 真实 Redis 去重，不重复触达渠道
     replay = http.post(
@@ -126,6 +139,6 @@ def test_e05_channel_failure_retries_without_fake_sent(
     status, _, delivery_status, _, _, attempts = _task_row(live_stack, task_id)
     assert delivery_status == "SENT"
     assert attempts >= 2, "失败必须计入尝试并重试"
-    deliveries = http.get(f"{live_stack.channel_url}/probe/deliveries").json()["deliveries"]
-    assert len(deliveries) == 1
+    deliveries = _my_deliveries(live_stack, http)
+    assert len(deliveries) == 1, deliveries
     assert status == "COMPLETED"
