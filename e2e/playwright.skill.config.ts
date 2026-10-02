@@ -26,7 +26,10 @@ export default defineConfig({
       timeout: 60_000
     },
     {
-      command: 'npm --prefix apps/console-platform/frontend run dev -- --host 127.0.0.1 --port 5173',
+      // 跑真实构建产物（vite preview），不是 dev server：套件须先 `npm run build`（见 harness-test.md）
+      command:
+        'MUAD_API_TARGET=http://127.0.0.1:8000 npm --prefix apps/console-platform/frontend run preview ' +
+        '-- --host 127.0.0.1 --port 5173 --strictPort',
       cwd: '..',
       url: 'http://127.0.0.1:5173',
       reuseExistingServer: false,
