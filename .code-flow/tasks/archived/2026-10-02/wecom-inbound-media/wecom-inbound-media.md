@@ -114,6 +114,8 @@
 - B-07: verified — automated command passed; run_id=4095b5dd4d5641a2ac7b08e27b7943b2 (confirmed_by: runner)
 - B-05: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 - B-07: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -183,6 +185,8 @@
 - E-04: verified — automated command passed; run_id=415d5b7e6f32435c8d42c1403e40cb59 (confirmed_by: runner)
 - S-08: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -247,6 +251,10 @@
 - B-02: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -287,7 +295,7 @@
 - [x] 运行 verifier：`uv run pytest -q tests/test_skill_artifact_cache.py`（`harness-skill#RULE-skill-001`）；记录输出
 - [x] 运行 verifier：`uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py`（`harness-log#RULE-log-001`）；记录输出
 - [x] 运行 verifier：`uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py`（`harness-i18n#RULE-i18n-001`）；记录输出并填写 Acceptance Evidence
-- [x] 运行 verifier：`uv run pytest -q tests/gateway`（`harness-im#RULE-im-001`：`inbound.py` 属本 Rule 的路径映射，局部承接）；记录输出
+- [x] 运行 verifier：`uv run pytest -q tests/gateway`（`harness-im` 的 `RULE-im-001`：`inbound.py` 属本 Rule 的路径映射，局部承接）；记录输出
 
 ### Acceptance Contract
 
@@ -326,13 +334,13 @@
 | E-07 | 验收类，首跑即通过 | PASS: `17 passed`（integration 腿）+ `5 passed`（真栈腿） | `tests/gateway/test_inbound_attachment_flow.py::test_e07_redelivery_creates_no_second_run_and_no_duplicate_artifact`（真 Redis：重投后 run 请求数仍 1、产物摘要集合不变、审计仍 1 行、`im:dedupe:WECOM:<msgid>` 存在且 TTL ∈ (0, 600]）；`test_wecom_attachments.py::test_e07_redelivered_message_produces_no_duplicate_artifact`（真栈：直方图同上，`runtime.artifact` 仍 1 行） | 真实 Redis（幂等键）+ 真实文件系统 + 真栈 PG | verified |
 
 **本次回归**：
-- `uv run pytest -q tests/gateway` → **267 passed**（`harness-im#RULE-im-001` verifier；含本任务新增 17 条）
+- `uv run pytest -q tests/gateway` → **267 passed**（`harness-im` 的 `RULE-im-001` verifier；含本任务新增 17 条）
 - `uv run pytest -q tests/acceptance/im_gateway` → **70 passed in 397.48s**（真实栈全量，含本任务新增 5 条）
-- `uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py` → **18 passed**（`harness-api#RULE-api-001`）
+- `uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py` → **18 passed**（`harness-api` 的 `RULE-api-001`）
 - `uv run pytest -q tests/acceptance/test_foundation_i18n.py` → **6 passed**；`uv run python scripts/check_frontend_i18n.py` → **i18n keys OK: 717**（`harness-i18n#RULE-i18n-001`）
 - `uv run mypy apps packages` → **Success: no issues found in 267 source files**；`uv run ruff check .` → **All checks passed**
 
-**Done Gate 首跑 block，暴露并修掉一处真缺陷（记录）**：`harness-api#RULE-api-001` 的 verifier 断言"消息目录码 ↔ `ErrorCode` 双向一致"，而 7 条入站附件词条只加进了 `config/api-messages.yaml`、**没有同步 `ErrorCode`** ⇒ `tests/test_error_catalog.py` 直接红。修法是把 7 个码登记进 `ErrorCode`（`packages/api-kit/src/muad_api/error_codes.py`），而不是把词条从目录里拿掉——词条是 E-01/E-02/E-03 反馈文案的唯一来源。这条是"词条与枚举必须同步"的机制在起作用，不是接线本身写错。
+**Done Gate 首跑 block，暴露并修掉一处真缺陷（记录）**：`harness-api` 的 `RULE-api-001` 的 verifier 断言"消息目录码 ↔ `ErrorCode` 双向一致"，而 7 条入站附件词条只加进了 `config/api-messages.yaml`、**没有同步 `ErrorCode`** ⇒ `tests/test_error_catalog.py` 直接红。修法是把 7 个码登记进 `ErrorCode`（`packages/api-kit/src/muad_api/error_codes.py`），而不是把词条从目录里拿掉——词条是 E-01/E-02/E-03 反馈文案的唯一来源。这条是"词条与枚举必须同步"的机制在起作用，不是接线本身写错。
 
 **Done Gate 裁决**：`pass`（`cf_task_workflow.py finish --task TASK-004`，rc=0；E2E 场景另经 `cf_acceptance_runner --include-e2e --owner TASK-004` 实跑并写入证据，六条全 `passed`）。deferred：9 个 verifier（需求级 `verify-e2e` 收口）+ 1 个 heavy validator（归档 `cf_validation` 收口）。
 
@@ -368,6 +376,12 @@
 - E-01: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -423,6 +437,8 @@
 - B-06: verified — automated command passed; run_id=23692145c6c84cd6b34a9c5d8224b1c7 (confirmed_by: runner)
 - S-03: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 - B-06: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -557,6 +573,8 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - E-06: verified — automated command passed; run_id=958559213b864daca2c8b7a154e1c2d6 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -609,6 +627,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 **实现补充**：`write_artifact` 落在 TASK-007 建立的 `AttachmentToolSet` 上（同一套租户/存储口径），新增构造参数 `run_id` / `conversation_id` / `has_delivery_route` —— 前两者决定产物行挂在哪（`run_id` 非空 ⇒ `ck_artifact_run_task_xor` 继续成立），后者是上面那道显式拒绝的依据。写出用「临时文件 + `os.replace`」原子替换，不留半成品。
 - S-06: verified — automated command passed; run_id=743a771afe0f4967aaf7ce3bef6a7b72 (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -656,6 +675,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 **设计落点的补充**：设计 §3.4 API-09 只写"`current_time` 工具"，未指定时区来源。实现取**平台级默认** `SharedSettings.default_timezone`（默认 `Asia/Shanghai`）—— 因为调度时区是 per-schedule 必填项，而"现在几点"没有 per-run 来源；非法值在 `resolve_zone()` 显式 `ValueError`，与 `harness-time#RULE-time-001` 对调度时区的口径一致（不静默回退）。
 - B-08: verified — automated command passed; run_id=ee1b545bde6646828c268dbf52df1b30 (confirmed_by: runner)
 - B-08: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -746,6 +766,9 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - S-01: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
 - S-05: verified — automated command passed; run_id=d9b2b33f7a904e76883b11c85e7ec238 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -759,7 +782,7 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 - **Priority**: P1
 - **Depends**: TASK-004
 - **Source**: `wecom-inbound-media.design.md#3.2.3`, `#2.5.2 B-09`
-- **Spec-Refs**: harness-worker#RULE-worker-001, harness-time#RULE-time-001, harness-snapshot#RULE-snapshot-001
+- **Spec-Refs**: harness-worker` 的 `RULE-worker-001, harness-time` 的 `RULE-time-001, harness-snapshot` 的 `RULE-snapshot-001
 - **Acceptance-Refs**: B-09
 
 ### Description
@@ -796,9 +819,9 @@ B-07 只钉住了**类型定义处**（`Literal["WECOM"]` 只在 `enums.py` 一�
 | B-09 | FAIL（**把写回的字面量放回去即可复现**）：在 `apps/agent-worker/.../scheduler/client.py` 把 `channel="WECOM"` 加回后，三条断言**同时**红，且各自指名文件与行号——①`{'apps/agent-worker/src/muad_agent_worker/scheduler/client.py': ['wecom']}`；②`['apps/agent-worker/src/muad_agent_worker/scheduler/client.py:53']`；③同 ①。这就是"接线前"的真实状态 | PASS: `3 passed`（runner exit_code=0） | `tests/architecture/test_channel_neutrality.py::test_b09_core_domain_carries_no_channel_vocabulary`（核心域全文零渠道字样）/ `::test_b09_core_domain_never_fabricates_a_channel_value`（AST 取 `ResolveDefinitionRequest(channel=<字面量>)`，`DINGTALK` 这类换名字也照样红）/ `::test_b09_channel_vocabulary_only_lives_on_the_allowed_surfaces`（全仓允许面之外零泄漏） | **真实源码扫描**：读盘全文匹配（①②）与 `ast.parse` 遍历（③），无 mock、无桩；允许面是 `ALLOWED_SURFACES` 常量，放宽必须改清单而非改断言 | verified |
 
 **本次回归**：
-- `harness-snapshot#RULE-snapshot-001` verifier：`test_snapshot_freeze.py` + `test_run_reaper.py` → **4 passed**；`tests/agent_runtime -k "executor or resolve"` → **20 passed**
-- `harness-worker#RULE-worker-001` verifier：`tests/agent_worker` → **236 passed**；`tests/agent_runtime --ignore=test_runner_executor.py` → **195 passed**
-- `harness-time#RULE-time-001` verifier：`tests/frontend/test_datetime_contract.py` → **2 passed**；`tests -k schema_parity` → **35 passed**
+- `harness-snapshot` 的 `RULE-snapshot-001` verifier：`test_snapshot_freeze.py` + `test_run_reaper.py` → **4 passed**；`tests/agent_runtime -k "executor or resolve"` → **20 passed**
+- `harness-worker` 的 `RULE-worker-001` verifier：`tests/agent_worker` → **236 passed**；`tests/agent_runtime --ignore=test_runner_executor.py` → **195 passed**
+- `harness-time` 的 `RULE-time-001` verifier：`tests/frontend/test_datetime_contract.py` → **2 passed**；`tests -k schema_parity` → **35 passed**
 - `tests/architecture` → **13 passed**（含本任务新增 3 条）；`tests/test_contracts.py tests/console_channel tests/gateway` → **317 passed**；`tests/console_platform` → **136 passed**（`channel` 改可选后的契约消费方）
 - `uv run mypy apps packages` → **Success: no issues found in 267 source files**；`uv run ruff check .` → **All checks passed**
 
@@ -808,6 +831,7 @@ B-07 只钉住了**类型定义处**（`Literal["WECOM"]` 只在 `enums.py` 一�
 
  verified — automated command passed; run_id=8cda806567e24a5f9e242b4341b718df (confirmed_by: runner)
 - B-09: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- B-09: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
@@ -821,7 +845,7 @@ B-07 只钉住了**类型定义处**（`Literal["WECOM"]` 只在 `enums.py` 一�
 - **Priority**: P0
 - **Depends**: —
 - **Source**: `wecom-inbound-media.design.md#3.3 数据设计`, `#3.4 API-10`
-- **Spec-Refs**: harness-api#RULE-api-001, harness-data#RULE-data-001, harness-time#RULE-time-001, harness-im#RULE-im-001
+- **Spec-Refs**: harness-api#RULE-api-001, harness-data` 的 `RULE-data-001, harness-time` 的 `RULE-time-001, harness-im` 的 `RULE-im-001
 - **Acceptance-Refs**: E-08
 
 ### Description
@@ -838,10 +862,10 @@ B-07 只钉住了**类型定义处**（`Literal["WECOM"]` 只在 `enums.py` 一�
 - [x] `POST /internal/channel/audit`：`InternalServiceDep`（服务令牌门控）+ `HeaderTenantId`（调用方显式声明租户），响应走 `ok(request.app.state.message_catalog, ...)` 封套
 - [x] 服务层 `InboundAuditService.record`：只写白名单字段；**幂等键 `(tenant_id, channel, external_message_id, outcome)`，同键重投不产生第二行**（企微会重投，与 E-07 同源）
 - [x] [E-08][integration] 三种 `outcome`（RECEIVED/REJECTED/FAILED）各落一行、字段齐全（含 `external_message_id`/附件数/通过数/原因码）；同键重投幂等；**审计行内不含任何取件凭据**（真实边界：内部端点 → 真实 PG 审计表）
-- [x] 运行 verifier：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`（`harness-api#RULE-api-001`）；记录输出并填写 Acceptance Evidence
-- [x] 运行 verifier：`uv run pytest -q tests -k schema_parity`（`harness-data#RULE-data-001`）；记录输出并填写 Acceptance Evidence
-- [x] 运行 verifier：`uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity`（`harness-time#RULE-time-001`）；记录输出并填写 Acceptance Evidence
-- [x] 运行 verifier：`uv run pytest -q tests/console_channel tests/gateway`（`harness-im#RULE-im-001`：新增契约类型与既有通道契约同族，局部承接）；记录输出并填写 Acceptance Evidence
+- [x] 运行 verifier：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`（`harness-api#RULE-api-001`、`harness-api#RULE-api-002`，同一条命令覆盖）；记录输出并填写 Acceptance Evidence
+- [x] 运行 verifier：`uv run pytest -q tests -k schema_parity`（`harness-data` 的 `RULE-data-001`）；记录输出并填写 Acceptance Evidence
+- [x] 运行 verifier：`uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity`（`harness-time` 的 `RULE-time-001`）；记录输出并填写 Acceptance Evidence
+- [x] 运行 verifier：`uv run pytest -q tests/console_channel tests/gateway`（`harness-im` 的 `RULE-im-001`：新增契约类型与既有通道契约同族，局部承接）；记录输出并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -864,15 +888,16 @@ B-07 只钉住了**类型定义处**（`Literal["WECOM"]` 只在 `enums.py` 一�
 - 表**刻意不设 JSON 列**：`RULE-secret-001` 的审计腿因此是**结构保证**而不是运行时脱敏。
 
 **本次回归**：
-- `uv run pytest -q tests/console_channel tests/gateway` → **290 passed**（`harness-im#RULE-im-001` verifier）
+- `uv run pytest -q tests/console_channel tests/gateway` → **290 passed**（`harness-im` 的 `RULE-im-001` verifier）
 - `uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py` → **18 passed**（`harness-api#RULE-api-001` verifier）
-- `uv run pytest -q tests -k schema_parity` → **35 passed**（`harness-data#RULE-data-001` / `harness-time#RULE-time-001` verifier）
+- `uv run pytest -q tests -k schema_parity` → **35 passed**（`harness-data` 的 `RULE-data-001` / `harness-time` 的 `RULE-time-001` verifier）
 - `uv run pytest -q tests/frontend/test_datetime_contract.py` → **2 passed**（`harness-time` verifier）
 - `uv run mypy apps packages` → **Success: no issues found in 266 source files**
 - `uv run ruff check .` → **All checks passed**
 - E-08: verified — automated command passed; run_id=c98aa554df9046ce8205a7c8f241ccf7 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=9f7b4a5144ba4d0fa496cf18e8c9eab7 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=bb4803f3d6994a80b66e45ca26bb9b2e (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=b24fcefab5a84644a8d608bd7313cc09 (confirmed_by: runner)
 
 ### Log
 - [2026-10-02] created (draft)
