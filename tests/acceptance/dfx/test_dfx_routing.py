@@ -58,6 +58,7 @@ from sqlalchemy import text
 
 from tests.acceptance.task_schedule.environment import (
     INTERNAL_TOKEN,
+    SCHEDULER_POLL_INTERVAL_SEC,
     LiveStack,
     cleanup,
     clear_engine_caches,
@@ -73,7 +74,9 @@ pytestmark = pytest.mark.e2e
 
 RUN_TIMEOUT_SEC = 60.0
 TASK_TIMEOUT_SEC = 90.0
-SCHEDULER_POLL_SEC = 10
+# 镜像**栈注入的值**，不写死生产默认 10：本文件的调度类用例按这个节拍算超时与安静窗口，
+# 写死会在栈改成注入后与系统实际节拍脱节（映射见 task_schedule/environment.py 的常量）。
+SCHEDULER_POLL_SEC = SCHEDULER_POLL_INTERVAL_SEC
 POLL_INTERVAL_SEC = 0.2
 
 EXECUTE_SKILL_TOOL = "execute_skill"

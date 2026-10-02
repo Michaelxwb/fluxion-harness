@@ -32,6 +32,18 @@ SKILL_KEY = "e2e_policy_check"
 BOT_ID = "e2e-bot"
 BOT_SECRET = "e2e-bot-secret"
 READY_TIMEOUT_SEC = 45.0
+# 时序节拍：本栈此前**全部沿用生产默认**（worker poll 5s / scheduler 10s / deadline sweep 30s /
+# 投递 poll 5s / 投递退避 base 5），于是每条排队用例都要真等一个轮询周期、每条退避用例要真等
+# 整段窗口。压小**不改变被测语义**：断言的是「最终发生」与「退避按几何级数增长
+# （base × 2**attempts）」，不是节拍的绝对长度。镜像这些值的测试常量一律改读这里，避免
+# 「默认一变、测试静默漂移」。
+# **租约刻意不压**：`task_lease_sec` 须显著大于心跳间隔，否则一次调度延误就让租约按设计合法
+# 过期，会被误判成「执行中失约」（同 dfx 栈 environment.py:61-66 的论证）。
+WORKER_POLL_INTERVAL_SEC = 1
+SCHEDULER_POLL_INTERVAL_SEC = 2
+TASK_DEADLINE_SWEEP_INTERVAL_SEC = 2
+DELIVERY_POLL_INTERVAL_SEC = 1
+DELIVERY_BACKOFF_BASE_SEC = 2
 
 BATCH_SKILL_SCRIPT = (
     "import json, sys\n"
@@ -404,6 +416,11 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
         "REDIS_URL": redis_url,
         "ARTIFACT_ROOT": str(artifact_root),
         "SKILL_CACHE_ROOT": str(skill_cache_root),
+        "WORKER_POLL_INTERVAL_SEC": str(WORKER_POLL_INTERVAL_SEC),
+        "SCHEDULER_POLL_INTERVAL_SEC": str(SCHEDULER_POLL_INTERVAL_SEC),
+        "TASK_DEADLINE_SWEEP_INTERVAL_SEC": str(TASK_DEADLINE_SWEEP_INTERVAL_SEC),
+        "DELIVERY_POLL_INTERVAL_SEC": str(DELIVERY_POLL_INTERVAL_SEC),
+        "DELIVERY_BACKOFF_BASE_SEC": str(DELIVERY_BACKOFF_BASE_SEC),
     }
 
     console_port = free_port()
