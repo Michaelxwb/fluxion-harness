@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-10-01/16-agent-memory/（16-agent-memory.design.md）
 - **Created**: 2026-10-01
-- **Updated**: 2026-10-01
+- **Updated**: 2026-10-02
 - **Plan-State**: planned（拆解已写入并通过 Plan Gate 与 verify-plan；**待用户确认后进入 start**，各 TASK 保持 draft）
 
 ## Proposal
@@ -80,7 +80,7 @@
 
 ## TASK-001: 记忆读写服务层（覆盖语义 + 注入/检索查询原语）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 16-agent-memory.design.md#2.3.2 字段约束, 16-agent-memory.design.md#3.3 数据设计, 16-agent-memory.design.md#3.5 质量实现方案
@@ -138,7 +138,7 @@
 - [2026-10-01] completed (done)
 ## TASK-002: 记忆工具 remember / recall 与写入开关
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 16-agent-memory.design.md#2.3.1 功能清单, 16-agent-memory.design.md#2.3.2 字段约束, 16-agent-memory.design.md#3.4 接口设计, 16-agent-memory.design.md#2.5.1 业务规则与约束
@@ -250,7 +250,7 @@
 - [2026-10-01] completed (done)
 ## TASK-003: 注入链：分级注入、双上限、非指令措辞与读失败降级
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 16-agent-memory.design.md#2.3.1 功能清单, 16-agent-memory.design.md#3.5 质量实现方案, 16-agent-memory.design.md#2.5.3 非功能指标
@@ -338,7 +338,7 @@
 - [2026-10-01] completed (done)
 ## TASK-004: 记忆观测与审计取证
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-003
 - **Source**: 16-agent-memory.design.md#3.5 质量实现方案, 16-agent-memory.design.md#2.5.1 业务规则与约束
@@ -395,7 +395,7 @@
 - [2026-10-01] completed (done)
 ## TASK-005: E2E 验收与需求级收口
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
 - **Source**: 16-agent-memory.design.md#2.5.2 功能验收场景, 16-agent-memory.design.md#2.5.3 非功能指标, 16-agent-memory.design.md#6 需求追溯矩阵
@@ -460,6 +460,14 @@
 - S-05: failed — automated command failed; run_id=4210faa67ba744f8909932e065a622d5 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
 - S-05: verified — automated command passed; run_id=c9dca8a5d9c146c39b91f7452fc3b676 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=7a5cf7b38f7c46f2b79f608634b5adf1 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=7a5cf7b38f7c46f2b79f608634b5adf1 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=af24094e047c4d1c9a30261b521644fc (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=af24094e047c4d1c9a30261b521644fc (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=40e3464dc76541e29f1a44f1c24e8098 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=40e3464dc76541e29f1a44f1c24e8098 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=b1831ac4972c4dd9a9dbda91bdb8090b (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=b1831ac4972c4dd9a9dbda91bdb8090b (confirmed_by: runner)
 
 ### Log
 - [2026-10-01] created (draft)
