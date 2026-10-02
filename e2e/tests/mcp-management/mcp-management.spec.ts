@@ -167,15 +167,19 @@ test('S-06 工具明细展示名称与操作类型，无 Tool 级启停/授权',
     await sheet.getByRole('tab', { name: '工具明细' }).click();
     await expect(page.getByTestId('mcp-tool-probe_tool_0')).toBeVisible();
     await page.getByTestId('mcp-tool-probe_tool_0').click();
-    const modal = page.locator('.semi-modal');
-    await expect(modal).toContainText('Input Schema');
-    await expect(modal).toContainText('写入'); // probe_tool_0 无 annotations → WRITE
-    await expect(modal).not.toContainText('启停');
-    await modal.locator('.semi-modal-close').click();
+    // 工具详情是嵌套的 DetailSideSheet：在外层 MCP 详情之上再开一层 .semi-sidesheet，
+    // 故以本地化标题「工具详情（…）」（mcp.tools.detailTitle）定位内层，避免与外层混淆。
+    const toolDetail = page.locator('.semi-sidesheet').filter({
+      has: page.locator('.detail-title', { hasText: '工具详情' })
+    });
+    await expect(toolDetail).toContainText('Input Schema');
+    await expect(toolDetail).toContainText('写入'); // probe_tool_0 无 annotations → WRITE
+    await expect(toolDetail).not.toContainText('启停');
+    await toolDetail.locator('.semi-sidesheet-close').click();
 
     // probe_tool_1 带 readOnlyHint
     await page.getByTestId('mcp-tool-probe_tool_1').click();
-    await expect(page.locator('.semi-modal')).toContainText('只读');
+    await expect(toolDetail).toContainText('只读');
   } finally {
     cleanupMcp(key);
   }

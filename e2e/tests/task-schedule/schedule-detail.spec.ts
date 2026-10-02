@@ -61,7 +61,8 @@ test.describe('Schedule 详情', () => {
     await expect(page.getByTestId('schedule-delete')).toBeVisible();
     await expect(sheet.getByText('0 9 * * *')).toBeVisible();
     await expect(sheet.getByText('Asia/Shanghai')).toBeVisible();
-    await expect(sheet.getByText('revision')).toBeVisible();
+    // 修订版本字段已本地化：schedule.detail.revision =「修订版本」（原断言写死英文 "revision" 已过时）
+    await expect(sheet.getByText('修订版本')).toBeVisible();
     await expect(sheet.getByText('2026-12-31 09:00:00')).toBeVisible();
     await expect(sheet.getByText('schedule.columns.timezone')).toHaveCount(0);
 
