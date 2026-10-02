@@ -453,15 +453,15 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | 回调、PG/Redis、落盘、模型请求体 | 落盘可读回；请求体含图像块；回答体现图中内容 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
-| S-05 | E2E | 上下文组装、模型 | 历史图片作为新内容块重发 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
+| S-01 | E2E | 回调、PG/Redis、落盘、模型请求体 | 落盘可读回；请求体含图像块；回答体现图中内容 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | verified |
+| S-05 | E2E | 上下文组装、模型 | 历史图片作为新内容块重发 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
-| S-01 | 编码期不执行（E2E） | 编码期不执行（E2E） | 待需求级终验登记 | 上游 TASK-002/TASK-004 未落地，E2E 通路尚未连通 | e2e_deferred |
-| S-05 | 编码期不执行（E2E） | 编码期不执行（E2E） | 待需求级终验登记 | 本任务仅引用；manifest 归属 TASK-007 | e2e_deferred |
+| S-01 | 编码期不执行（E2E） | PASS: 需求级 `verify-e2e` 实跑通过 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py`（见 TASK-010 证据） | 真实回调桩 → 真实 PG/Redis → 真实落盘 → 真实模型请求体 | verified |
+| S-05 | 编码期不执行（E2E） | PASS: 需求级 `verify-e2e` 实跑通过 | `test_s05_historical_image_is_resent_as_a_content_block_after_view_image`（见 TASK-010 证据） | 真实上下文组装 + 真实模型请求体 | verified |
 
 **本任务的功能级证据**（`tests/agent_runtime/test_inbound_attachments.py`，6 passed；RED = `ModuleNotFoundError: ...inbound_attachments`）：
 
@@ -522,8 +522,8 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | E2E | 回调、PG、artifact、解析库 | 抽取内容与文档一致；回答正确 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
-| S-05 | E2E | 上下文组装、模型 | 历史图片重发为内容块 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | e2e_deferred |
+| S-02 | E2E | 回调、PG、artifact、解析库 | 抽取内容与文档一致；回答正确 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | verified |
+| S-05 | E2E | 上下文组装、模型 | 历史图片重发为内容块 | `tests/acceptance/wecom_attachments/test_inbound_image_e2e.py` | uv run pytest -q tests/acceptance/wecom_attachments | verified |
 | E-05 | integration | DB、越权校验 | 跨租户读取被拒 | `tests/agent_runtime/test_attachment_tools.py` | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | verified |
 | E-06 | integration | 真实解析库 | 明确错误而非乱码 | `tests/agent_runtime/test_attachment_tools.py` | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | verified |
 
@@ -533,8 +533,8 @@ Runtime 在 Run 建立后把消息里的 `AttachmentRef` 落成 `runtime.artifac
 |--------|-----|-------|---------|-------------|------|
 | E-05 | FAIL: `ModuleNotFoundError: No module named 'muad_agent_runtime.application.attachment_tools'` | PASS: `6 passed` | `tests/agent_runtime/test_attachment_tools.py::test_e05_cross_tenant_read_is_rejected_without_leaking_existence`（以另一租户身份读 → 抛 `ATTACHMENT_NOT_FOUND`；断言**错误里不含**对方文件名与标识本身） | 真实 PG（`artifact` 行）+ 工具入口越权校验，未 mock | verified |
 | E-06 | FAIL: 同上（模块导入期即失败） | PASS: `6 passed` | `::test_e06_corrupt_document_yields_a_clear_error`（损坏 pdf → `ATTACHMENT_EXTRACT_FAILED` 且**指明是哪个文件**） | **真实解析库**（pypdf），未 mock；断言是「抛明确错误」而非返回乱码/空内容 | verified |
-| S-02 | 编码期不执行（E2E） | 编码期不执行（E2E） | 待需求级终验登记 | 上游 TASK-002/TASK-004 未落地，回调通路尚未连通 | e2e_deferred |
-| S-05 | 编码期不执行（E2E） | 编码期不执行（E2E） | 待需求级终验登记 | 同上 | e2e_deferred |
+| S-02 | 编码期不执行（E2E） | PASS: 需求级 `verify-e2e` 实跑通过 | `test_s02_document_is_extracted_by_the_real_tool_and_answered`（见 TASK-010 证据） | 真实回调桩 → 真实 PG → 真实 artifact → 真实解析库 | verified |
+| S-05 | 编码期不执行（E2E） | PASS: 需求级 `verify-e2e` 实跑通过 | `test_s05_historical_image_is_resent_as_a_content_block_after_view_image`（见 TASK-010 证据） | 真实上下文组装 + 真实模型请求体 | verified |
 
 **本任务的功能级证据**（6 passed）另含三条支撑断言：
 - `test_reads_text_from_a_real_pdf`：内容已知的 pdf 交真实解析库抽取，返回带文件名
