@@ -30,7 +30,7 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 | cwd | 超时 | 依赖 |
 |--------|---------|---------|-------------|---------|------|------|-----|------|------|
 | S-01 | design#2.5.2 | integration | 真实文件系统 + 真实解析库（pypdf/docx） | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
-| S-02 | design#2.5.2 | integration | 真实 PG（runtime.artifact 逐行回读） | TASK-003 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
+| S-02 | design#2.5.2 | integration | 真实 PG（runtime.artifact 逐行回读） | TASK-003 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | S-03 | design#2.5.2 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | S-04 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | TASK-004 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
 | S-05 | design#2.5.2 | manual | 真实企微机器人（外部条件，无法在 CI 自动化） | TASK-001 | planned | - | . | 60 |  |
@@ -46,7 +46,7 @@
 | E-05 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
 | E-06 | design#2.5.2 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | TASK-006 | planned | uv run pytest -q tests/gateway/test_artifact_delivery.py | . | 120 |  |
 | B-01 | design#2.5.2 | unit | 分段纯函数 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
-| B-02 | design#2.5.2 | unit | 枚举分页 | TASK-003 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
+| B-02 | design#2.5.2 | unit | 枚举分页 | TASK-003 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | B-03 | design#2.5.2 | unit | 出站产物大小 | TASK-005 | planned | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 
 > 覆盖自检：design 全部 P0/P1 场景 **19/19** 已分配唯一负责人（S-01..S-10、E-01..E-06、B-01..B-03）；RULE-01..07 与高影响 R-01/R-06 均有映射场景；E2E 场景 **7 个**（S-03、S-04、S-06、S-07、S-09、S-10、E-02）层级未降级；`manual` 仅 S-05，原因是需要真实外部机器人与会话（CI 无法复现，设计 R-06）。
@@ -231,7 +231,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-003: 附件枚举工具 `list_attachments`
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#2.3.2 字段约束`, `#3.4 接口设计`
@@ -244,25 +244,47 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ### Checklist
 
-- [ ] 新增工具 `list_attachments`，入参 `scope`（`run`/`conversation`，缺省 `conversation`）、`direction`（`inbound`/`outbound`，缺省不限）、`limit`（1..50，缺省 20）、`offset`（≥0）
-- [ ] 返回紧凑行文本（id、文件名、MIME、大小、方向、时间），入站与自产可区分；空集返回空列表说明而非错误
-- [ ] 租户与归属过滤从 Run 上下文取，**不进工具 schema**；跨租户一律不可见
-- [ ] 单条 SQL 完成（走既有 `ix_artifact_run` / `ix_artifact_conversation`），不做"先查全量再内存过滤"
-- [ ] [S-02][integration] 真实边界：真实 PG（`runtime.artifact` 逐行回读）；断言一次 Run 内的 1 个入站 pdf 与 1 个自产 markdown **都在**，字段齐全且方向可区分
-- [ ] [B-02][unit] 真实边界：枚举分页；断言 `limit` 取 1/50/51/空集的行为（上限内正常；超上限被拒绝或夹紧——**实现需二选一并固定**；空集返回空列表而非错误）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 新增工具 `list_attachments`，入参 `scope`（`run`/`conversation`，缺省 `conversation`）、`direction`（`inbound`/`outbound`，缺省不限）、`limit`（1..50，缺省 20）、`offset`（≥0）
+- [x] 返回紧凑行文本（id、文件名、MIME、大小、方向、时间），入站与自产可区分；空集返回空列表说明而非错误
+- [x] 租户与归属过滤从 Run 上下文取，**不进工具 schema**；跨租户一律不可见
+- [x] 单条 SQL 完成（走既有 `ix_artifact_run` / `ix_artifact_conversation`），不做"先查全量再内存过滤"
+- [x] [S-02][integration] 真实边界：真实 PG（`runtime.artifact` 逐行回读）；断言一次 Run 内的 1 个入站 pdf 与 1 个自产 markdown **都在**，字段齐全且方向可区分
+- [x] [B-02][unit] 真实边界：枚举分页；断言 `limit` 取 1/50/51/空集的行为。**二选一已定：超上限一律拒绝，不夹紧**（与 `read_attachment` 的 `limit` 同口径——同一个概念两套行为，模型学不会）；分页窗口抽成纯函数 `list_window` 供直测；空集返回空列表而非错误
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | integration | 真实 PG（runtime.artifact 逐行回读） | 入站与自产两条都在，含 id/文件名/MIME/大小/方向；两者可区分 | tests/agent_runtime/test_attachment_tools.py | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | planned |
-| B-02 | unit | 枚举分页 | limit=1/50/51/空集行为正确；空集返回空列表而非错误 | tests/agent_runtime/test_attachment_tools.py | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | planned |
+| S-02 | integration | 真实 PG（runtime.artifact 逐行回读） | 入站与自产两条都在，含 id/文件名/MIME/大小/方向；两者可区分 | tests/agent_runtime/test_attachment_tools.py::test_s02_lists_inbound_and_self_produced_attachments | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | verified |
+| B-02 | unit | 枚举分页 | limit=1/50/51/空集行为正确；空集返回空列表而非错误 | tests/agent_runtime/test_attachment_tools.py::test_b02_listing_paging_boundaries + ::test_b02_empty_scope_returns_an_empty_list_not_an_error | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | verified |
 
 ### Acceptance Evidence
 
+**执行（2026-10-03）**，登记命令 `uv run pytest -q tests/agent_runtime/test_attachment_tools.py`。
+
+**RED（先写测试再实现）**：`uv run pytest -q tests/agent_runtime/test_attachment_tools.py -k "b02 or s02"`
+→ `ImportError: cannot import name 'LIST_ATTACHMENTS_TOOL'`（新符号尚不存在，预期失败）。
+
+**GREEN**：同一文件 **18 passed in 0.39s**（TASK-002 的 14 条 + 本任务 4 条，无回归）。`ruff check` 全绿；`mypy` 干净。
+
+**两个设计选择（二选一已固定，写进 Checklist）**：
+1. **`limit` 超上限一律拒绝**，不夹紧 —— 与 `read_attachment` 的 `limit` 同口径。
+2. **方向按 `artifact_type` 判定**（出站只有 `AGENT_OUTPUT` 一种），**不按"有没有 `run_id`"** —— 后台任务的自产产物 `run_id` 为空，按 run 判会把它误报成入站。
+
+- S-02: verified —— 同一会话内 1 个入站 pdf + 1 个自产 markdown，两条都在且 id/文件名/MIME/大小/方向齐全；方向分别为「入站」/「自产」。**并做了闭环断言**：列出的 id 原样喂回 `read_attachment` 能读回内容（否则"跨多轮继续用某个附件"仍然断链）。
+- B-02: verified —— 纯函数 `list_window`：缺省 `(0,20)`、`limit=1`→`(0,1)`、`limit=50&offset=7`→`(7,50)`、`limit=51`/`limit=0`→`ATTACHMENT_LIMIT_INVALID`、`offset=-1`→`ATTACHMENT_OFFSET_INVALID`；空集查询返回「0 条」且**不编造条目**、不报错。
+
+**超出场景、另行覆盖**（与 `search_attachment` 同样的做法——设计 §3.4 要求"参数非法 → 明确错误码"，但无对应验收场景）：新增 `test_listing_rejects_unknown_filters`，断言未知 `scope`/`direction` 报 `ATTACHMENT_SCOPE_INVALID`/`ATTACHMENT_DIRECTION_INVALID`，**不静默当成空集**（静默会让模型以为"确实没有附件"而转为凭记忆编）。
+- S-02: verified — automated command passed; run_id=79c07fb4e7024e2393cd085eee9d077e (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=79c07fb4e7024e2393cd085eee9d077e (confirmed_by: runner)
+
 ### Log
 - [2026-10-03] created (draft)
+- [2026-10-03] started
+- [2026-10-03] 二选一固定：limit 超上限一律拒绝（与 read_attachment 同口径）；方向按 artifact_type 判定而非按 run_id 有无
+- [2026-10-03] 先写测试拿 RED（`ImportError: LIST_ATTACHMENTS_TOOL`），再实现；18 passed、ruff/mypy 全绿
+- [2026-10-03] completed (done)
 
 ---
 

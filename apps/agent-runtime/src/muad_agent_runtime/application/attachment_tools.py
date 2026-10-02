@@ -19,19 +19,25 @@ from collections import OrderedDict
 from collections.abc import Awaitable, Mapping
 from typing import Any
 
+import sqlalchemy as sa
 from muad_agent_core.model import ImagePart, ModelMessage, ModelRole
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_artifact_store import NfsArtifactStore
 
 from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import Artifact
+from .inbound_attachments import INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER
 
 READ_ATTACHMENT_TOOL = "read_attachment"
 VIEW_IMAGE_TOOL = "view_image"
 WRITE_ARTIFACT_TOOL = "write_artifact"
 SEARCH_ATTACHMENT_TOOL = "search_attachment"
+LIST_ATTACHMENTS_TOOL = "list_attachments"
 
 AGENT_OUTPUT_ARTIFACT_TYPE = "AGENT_OUTPUT"
+#: 入站产物类型（封闭集合，定义在入站落库模块里）。方向判定按**类型**而不是按 run_id 是否存在——
+#: 后台任务的自产产物 `run_id` 为空，用"有没有 run"判方向会把它误判成入站。
+INBOUND_ARTIFACT_TYPES = (INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER)
 
 READ_ATTACHMENT_DESCRIPTION = (
     "Read the content of a file the user sent (or that an earlier step produced) by its "
@@ -43,6 +49,10 @@ SEARCH_ATTACHMENT_DESCRIPTION = (
     "Find where a keyword occurs in a file's extracted text and return the matching fragments "
     "with their character offsets. Use it to jump straight to the relevant part of a long "
     "document instead of paging through it."
+)
+LIST_ATTACHMENTS_DESCRIPTION = (
+    "List the files you can currently address — both the ones the user sent and the ones you "
+    "produced earlier. Use it when an id from an earlier turn is no longer in front of you."
 )
 VIEW_IMAGE_DESCRIPTION = (
     "Attach a previously sent image to the conversation again so you can look at it. Use this "
@@ -66,6 +76,8 @@ ATTACHMENT_WRITE_UNAVAILABLE = "ATTACHMENT_WRITE_UNAVAILABLE"
 ATTACHMENT_OFFSET_INVALID = "ATTACHMENT_OFFSET_INVALID"
 ATTACHMENT_LIMIT_INVALID = "ATTACHMENT_LIMIT_INVALID"
 ATTACHMENT_QUERY_INVALID = "ATTACHMENT_QUERY_INVALID"
+ATTACHMENT_SCOPE_INVALID = "ATTACHMENT_SCOPE_INVALID"
+ATTACHMENT_DIRECTION_INVALID = "ATTACHMENT_DIRECTION_INVALID"
 
 DEFAULT_OFFSET = 0
 #: 单次搜索返回的命中条数上限（与 `limit` 的字符语义无关，故另设常量）
@@ -76,6 +88,20 @@ SEARCH_CONTEXT_CHARS = 80
 #: 抽取结果缓存条数。按 Run 复用（`AttachmentToolSet` 每个 Run 一个），让"同一份文档读多段"
 #: 不再重复解析；有界，避免一次 Run 把多份大文档的全文留在内存里。
 MAX_TEXT_CACHE_ENTRIES = 4
+
+#: 枚举范围：本次 Run 内 / 整个会话（缺省会话——历史引用被裁掉的附件靠它找回）
+SCOPE_RUN = "run"
+SCOPE_CONVERSATION = "conversation"
+SCOPES = frozenset({SCOPE_RUN, SCOPE_CONVERSATION})
+SCOPE_DEFAULT = SCOPE_CONVERSATION
+#: 方向：用户发来的 / Agent 自产（缺省不限）
+DIRECTION_INBOUND = "inbound"
+DIRECTION_OUTBOUND = "outbound"
+DIRECTIONS = frozenset({DIRECTION_INBOUND, DIRECTION_OUTBOUND})
+#: 呈现给模型的中文标签。**只在这里定义一次**，测试按同一份常量取值。
+DIRECTION_LABELS = {DIRECTION_INBOUND: "入站", DIRECTION_OUTBOUND: "自产"}
+DEFAULT_LIST_LIMIT = 20
+MAX_LIST_LIMIT = 50
 
 VIEW_IMAGE_RESULT_PREFIX = "已重新附上图片（附件 ID "
 WRITE_ARTIFACT_RESULT_PREFIX = "已写出产物（附件 ID "
@@ -168,6 +194,34 @@ def _segment_note(offset: int, limit: int, total: int) -> str:
     return note + "）"
 
 
+def _require_int(arguments: Mapping[str, Any], name: str, default: int, code: str) -> int:
+    """取整数参数。**bool 要挡掉**——Python 里 `True` 是 `int`，放过去会变成 offset=1。
+
+    写成正向收窄（先认下 int、再排除 bool）而不是 `if bool or not int: raise`：后者
+    在类型检查器眼里落空路径**没有**被收窄成 int（实测报 `Returning Any`）。
+    """
+    value = arguments.get(name, default)
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    raise AttachmentToolError(code, f"{name} 必须是整数：{value!r}")
+
+
+def list_window(arguments: Mapping[str, Any]) -> tuple[int, int]:
+    """把枚举入参归一成 `(offset, limit)`；越界**一律拒绝**（不夹紧）。
+
+    与 `read_attachment` 的 `limit` 同口径——同一个概念两套行为，模型学不会。
+    """
+    offset = _require_int(arguments, "offset", DEFAULT_OFFSET, ATTACHMENT_OFFSET_INVALID)
+    limit = _require_int(arguments, "limit", DEFAULT_LIST_LIMIT, ATTACHMENT_LIMIT_INVALID)
+    if offset < 0:
+        raise AttachmentToolError(ATTACHMENT_OFFSET_INVALID, f"offset 不能为负：{offset}")
+    if not 1 <= limit <= MAX_LIST_LIMIT:
+        raise AttachmentToolError(
+            ATTACHMENT_LIMIT_INVALID, f"limit 必须在 1..{MAX_LIST_LIMIT} 之间：{limit}"
+        )
+    return offset, limit
+
+
 class AttachmentToolSet:
     def __init__(
         self,
@@ -229,6 +283,24 @@ class AttachmentToolSet:
         )
         registry.register(
             ToolDefinition(
+                name=LIST_ATTACHMENTS_TOOL,
+                description=LIST_ATTACHMENTS_DESCRIPTION,
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "scope": {"type": "string", "enum": sorted(SCOPES)},
+                        "direction": {"type": "string", "enum": sorted(DIRECTIONS)},
+                        "limit": {**integer_schema, "minimum": 1, "maximum": MAX_LIST_LIMIT},
+                        "offset": {**integer_schema, "minimum": 0},
+                    },
+                    "additionalProperties": False,
+                },
+                effect=ToolEffect.READ,
+                handler=self.list_attachments,
+            )
+        )
+        registry.register(
+            ToolDefinition(
                 name=VIEW_IMAGE_TOOL,
                 description=VIEW_IMAGE_DESCRIPTION,
                 input_schema={
@@ -265,8 +337,8 @@ class AttachmentToolSet:
                 f"这是图片附件 {row.id}（{_filename(row)}），不能当文本读；"
                 f"如需查看请调用 {VIEW_IMAGE_TOOL}。"
             )
-        offset = self._int_argument(arguments, "offset", DEFAULT_OFFSET, ATTACHMENT_OFFSET_INVALID)
-        limit = self._int_argument(arguments, "limit", MAX_TEXT_CHARS, ATTACHMENT_LIMIT_INVALID)
+        offset = _require_int(arguments, "offset", DEFAULT_OFFSET, ATTACHMENT_OFFSET_INVALID)
+        limit = _require_int(arguments, "limit", MAX_TEXT_CHARS, ATTACHMENT_LIMIT_INVALID)
         text = self._extract(row)
         try:
             segment = slice_text(text, offset, limit)
@@ -289,7 +361,7 @@ class AttachmentToolSet:
         query = arguments.get("query")
         if not isinstance(query, str) or not query:
             raise AttachmentToolError(ATTACHMENT_QUERY_INVALID, "query 必填且为非空字符串")
-        limit = self._int_argument(
+        limit = _require_int(
             arguments, "limit", DEFAULT_SEARCH_HITS, ATTACHMENT_LIMIT_INVALID
         )
         if limit < 1 or limit > MAX_SEARCH_HITS:
@@ -315,6 +387,52 @@ class AttachmentToolSet:
             lines.append(f"offset={hit}：…{text[start:end].replace(chr(10), ' ')}…")
         return "\n".join(lines)
 
+    async def list_attachments(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """列出当前可寻址的附件（入站 + 自产）。**空集不是错误**——报错会让模型以为工具坏了。
+
+        租户与归属过滤从 Run 上下文取，**不进工具 schema**：归属一旦成为模型可填的参数，
+        越权就只剩一层校验（NFR-SEC-01）。单条 SQL 完成，走既有 `ix_artifact_run` /
+        `ix_artifact_conversation`，不做"先查全量再内存过滤"（NFR-PERF-02）。
+        """
+        scope = arguments.get("scope", SCOPE_DEFAULT)
+        if not isinstance(scope, str) or scope not in SCOPES:
+            raise AttachmentToolError(
+                ATTACHMENT_SCOPE_INVALID, f"scope 只能是 {sorted(SCOPES)}：{scope!r}"
+            )
+        direction = arguments.get("direction")
+        if direction is not None and (
+            not isinstance(direction, str) or direction not in DIRECTIONS
+        ):
+            raise AttachmentToolError(
+                ATTACHMENT_DIRECTION_INVALID,
+                f"direction 只能是 {sorted(DIRECTIONS)}：{direction!r}",
+            )
+        offset, limit = list_window(arguments)
+
+        stmt = (
+            sa.select(Artifact)
+            .where(Artifact.tenant_id == self._tenant_id, Artifact.is_deleted.is_(False))
+            .order_by(Artifact.create_time.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        if scope == SCOPE_RUN:
+            stmt = stmt.where(Artifact.run_id == self._run_id)
+        else:
+            stmt = stmt.where(Artifact.conversation_id == self._conversation_id)
+        if direction == DIRECTION_INBOUND:
+            stmt = stmt.where(Artifact.artifact_type.in_(INBOUND_ARTIFACT_TYPES))
+        elif direction == DIRECTION_OUTBOUND:
+            stmt = stmt.where(Artifact.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE)
+
+        async with self._session_factory()() as session:
+            rows = list((await session.execute(stmt)).scalars())
+
+        header = f"[附件 {len(rows)} 条] scope={scope} offset={offset} limit={limit}"
+        if not rows:
+            return f"{header} —— 当前范围内没有可寻址的附件"
+        return "\n".join([header, *(_list_line(row) for row in rows)])
+
     def _extract(self, row: Artifact) -> str:
         """抽取全量文本，**按 Run 复用**：同一份长文档分多次读只解析一次（NFR-PERF-01）。
 
@@ -332,21 +450,6 @@ class AttachmentToolSet:
         while len(self._text_cache) > MAX_TEXT_CACHE_ENTRIES:
             self._text_cache.popitem(last=False)
         return text
-
-    @staticmethod
-    def _int_argument(
-        arguments: Mapping[str, Any], name: str, default: int, code: str
-    ) -> int:
-        """取整数参数。**bool 要挡掉**——Python 里 `True` 是 `int`，放过去会变成 offset=1。
-
-        写成正向收窄（先认下 int、再排除 bool）而不是 `if bool or not int: raise`：后者
-        在类型检查器眼里落空路径**没有**被收窄成 int（实测报 `Returning Any`）。
-        """
-        value = arguments.get(name, default)
-        if isinstance(value, int) and not isinstance(value, bool):
-            return value
-        raise AttachmentToolError(code, f"{name} 必须是整数：{value!r}")
-
     async def view_image(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         row = await self._load(arguments.get("artifact_id"))
         if (row.metadata_json or {}).get("kind") != "IMAGE":
@@ -468,3 +571,22 @@ class AttachmentToolSet:
 def _filename(row: Artifact) -> str:
     name = (row.metadata_json or {}).get("filename")
     return name if isinstance(name, str) and name else "(未命名)"
+
+
+def _list_line(row: Artifact) -> str:
+    """枚举里的一行：`id · 文件名 · MIME · 大小 · 方向 · 时间`。
+
+    **id 放最前且不加任何修饰** —— 模型要能原样复制去调 `read_attachment`/`search_attachment`；
+    方向用类型判定（出站只有 `AGENT_OUTPUT` 一种），不按"有没有 run_id"——后台任务的自产产物
+    `run_id` 为空，那样判会把它误报成入站。
+    """
+    direction = (
+        DIRECTION_OUTBOUND
+        if row.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE
+        else DIRECTION_INBOUND
+    )
+    created = row.create_time.isoformat() if row.create_time is not None else "-"
+    return (
+        f"- {row.id} · {_filename(row)} · {row.media_type} · {row.size} B"
+        f" · {DIRECTION_LABELS[direction]} · {created}"
+    )

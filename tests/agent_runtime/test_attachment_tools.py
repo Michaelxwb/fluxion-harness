@@ -14,10 +14,13 @@ import uuid
 import pytest
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.application.attachment_tools import (
+    ATTACHMENT_DIRECTION_INVALID,
     ATTACHMENT_EXTRACT_FAILED,
     ATTACHMENT_LIMIT_INVALID,
     ATTACHMENT_OFFSET_INVALID,
+    ATTACHMENT_SCOPE_INVALID,
     ATTACHMENT_TOO_LARGE,
+    LIST_ATTACHMENTS_TOOL,
     MAX_READ_BYTES,
     MAX_TEXT_CHARS,
     READ_ATTACHMENT_TOOL,
@@ -27,6 +30,7 @@ from muad_agent_runtime.application.attachment_tools import (
     WRITE_ARTIFACT_TOOL,
     AttachmentToolError,
     AttachmentToolSet,
+    list_window,
     slice_text,
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
@@ -62,29 +66,36 @@ async def _seed_artifact(
     kind: str,
     media_type: str,
     filename: str,
+    into: tuple[uuid.UUID, uuid.UUID] | None = None,
 ) -> uuid.UUID:
+    """落一条入站附件。`into=(run_id, conversation_id)` 可挂进既有 Run/会话（S-02 需要
+    让入站与自产**同处一个会话**，否则枚举范围无从谈起）。"""
     async with get_session_factory()() as session:
-        conversation = Conversation(
-            tenant_id=tenant.tenant_id,
-            user_id=tenant.platform_user_id,
-            agent_id=tenant.agent_id,
-            status="ACTIVE",
-            last_seq=0,
-        )
-        session.add(conversation)
-        await session.flush()
-        run = RunRecord(
-            tenant_id=tenant.tenant_id,
-            conversation_id=conversation.id,
-            user_id=tenant.platform_user_id,
-            agent_id=tenant.agent_id,
-            status="RUNNING",
-            input_text="x",
-            trace_id=uuid.uuid4().hex,
-            cancel_requested=False,
-        )
-        session.add(run)
-        await session.flush()
+        if into is None:
+            conversation = Conversation(
+                tenant_id=tenant.tenant_id,
+                user_id=tenant.platform_user_id,
+                agent_id=tenant.agent_id,
+                status="ACTIVE",
+                last_seq=0,
+            )
+            session.add(conversation)
+            await session.flush()
+            run = RunRecord(
+                tenant_id=tenant.tenant_id,
+                conversation_id=conversation.id,
+                user_id=tenant.platform_user_id,
+                agent_id=tenant.agent_id,
+                status="RUNNING",
+                input_text="x",
+                trace_id=uuid.uuid4().hex,
+                cancel_requested=False,
+            )
+            session.add(run)
+            await session.flush()
+            run_id, conversation_id = run.id, conversation.id
+        else:
+            run_id, conversation_id = into
         storage_key = f"inbound/{uuid.uuid4().hex}/0"
         artifact_id = uuid.uuid4()
         (root / storage_key).parent.mkdir(parents=True, exist_ok=True)
@@ -93,8 +104,8 @@ async def _seed_artifact(
             Artifact(
                 id=artifact_id,
                 tenant_id=tenant.tenant_id,
-                run_id=run.id,
-                conversation_id=conversation.id,
+                run_id=run_id,
+                conversation_id=conversation_id,
                 artifact_type=f"INBOUND_{kind}",
                 storage_key=storage_key,
                 media_type=media_type,
@@ -502,3 +513,109 @@ async def test_document_search_reports_hits_with_offsets_and_misses(
     )
     assert "未命中" in miss, "未命中必须明说，不能返回空内容"
     assert "offset=" not in miss
+
+
+# ---------------------------------------------------------------------------
+# TASK-003：附件枚举（S-02）、枚举分页边界（B-02）
+# ---------------------------------------------------------------------------
+
+_ENTRY_RE = re.compile(r"^- (\S+) · (.+?) · (\S+) · (\d+) B · (入站|自产) · (.+)$", re.M)
+
+
+def _entries(listed: str) -> list[re.Match[str]]:
+    return list(_ENTRY_RE.finditer(listed))
+
+
+def test_b02_listing_paging_boundaries() -> None:
+    """B-02（纯函数部分）：分页窗口的上下界。**超上限一律拒绝**，不夹紧。
+
+    二选一已定：`limit` 越界与 `offset` 为负都当参数错误。理由是 `read_attachment` 的
+    `limit` 已是这个口径——同一个概念两套行为，模型学不会。
+    """
+    assert list_window({}) == (0, 20), "缺省 offset=0 / limit=20"
+    assert list_window({"limit": 1}) == (0, 1)
+    assert list_window({"limit": 50, "offset": 7}) == (7, 50)
+
+    with pytest.raises(AttachmentToolError) as over:
+        list_window({"limit": 51})
+    assert over.value.code == ATTACHMENT_LIMIT_INVALID
+
+    with pytest.raises(AttachmentToolError) as under:
+        list_window({"limit": 0})
+    assert under.value.code == ATTACHMENT_LIMIT_INVALID
+
+    with pytest.raises(AttachmentToolError) as negative:
+        list_window({"offset": -1})
+    assert negative.value.code == ATTACHMENT_OFFSET_INVALID
+
+
+async def test_b02_empty_scope_returns_an_empty_list_not_an_error(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """B-02（空集部分）：范围内没有附件 → 说"0 条"，**不是错误**。
+
+    空集与"出错"必须分开：报错会让模型以为工具坏了，于是不敢再列。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    listed = await _call(
+        _writer_tool_set(tenant, artifact_root, run_id, conversation_id), LIST_ATTACHMENTS_TOOL, {}
+    )
+
+    assert "0 条" in listed
+    assert _entries(listed) == [], "空集不得编造条目"
+
+
+async def test_listing_rejects_unknown_filters(tenant: TenantContext, artifact_root) -> None:
+    """未知的 `scope`/`direction` 必须**明确报错**，不能静默当成"什么都没匹配到"。
+
+    静默返回空集是危险的：模型会以为"这个会话确实没有附件"，转而凭记忆编。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_set = _writer_tool_set(tenant, artifact_root, run_id, conversation_id)
+
+    with pytest.raises(AttachmentToolError) as bad_scope:
+        await _call(tool_set, LIST_ATTACHMENTS_TOOL, {"scope": "everything"})
+    assert bad_scope.value.code == ATTACHMENT_SCOPE_INVALID
+
+    with pytest.raises(AttachmentToolError) as bad_direction:
+        await _call(tool_set, LIST_ATTACHMENTS_TOOL, {"direction": "sideways"})
+    assert bad_direction.value.code == ATTACHMENT_DIRECTION_INVALID
+
+
+async def test_s02_lists_inbound_and_self_produced_attachments(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """S-02：同一会话里的**入站**与**自产**都要列出，字段齐全且方向可区分。
+
+    真实边界：真实 PG —— 逐行回读 `runtime.artifact`，不 mock 仓储。列出的 id 必须能
+    直接喂给 `read_attachment`（否则"跨多轮继续用某个附件"仍然断链）。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    pdf = _pdf_bytes("hello")
+    inbound_id = await _seed_artifact(
+        tenant, artifact_root, data=pdf, kind="DOCUMENT",
+        media_type="application/pdf", filename="来件.pdf",
+        into=(run_id, conversation_id),
+    )
+    tool_set = _writer_tool_set(tenant, artifact_root, run_id, conversation_id)
+    await _call(tool_set, WRITE_ARTIFACT_TOOL, {"content": "# 汇总\n", "filename": "汇总.md"})
+
+    listed = await _call(tool_set, LIST_ATTACHMENTS_TOOL, {})
+    entries = _entries(listed)
+    assert len(entries) == 2, f"一次 Run 内的两条附件都要列出：{listed!r}"
+
+    by_name = {match.group(2): match for match in entries}
+    assert set(by_name) == {"来件.pdf", "汇总.md"}
+
+    inbound, outbound = by_name["来件.pdf"], by_name["汇总.md"]
+    assert inbound.group(1) == str(inbound_id), "列出的 id 必须与库里的一致"
+    assert inbound.group(3) == "application/pdf"
+    assert inbound.group(4) == str(len(pdf)), "大小取真实字节数"
+    assert inbound.group(5) == "入站"
+
+    assert outbound.group(3) == "text/markdown"
+    assert outbound.group(5) == "自产", "入站与自产必须可区分"
+
+    # 列出来的 id 要真的可寻址（闭环）：直接拿去读，能读回内容
+    read_back = await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": inbound.group(1)})
+    assert "来件.pdf" in read_back
