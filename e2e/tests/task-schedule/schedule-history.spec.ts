@@ -107,4 +107,31 @@ test.describe('Schedule 历史', () => {
     await page.goto('/tasks');
     await expect(page.getByText(historyTaskId)).toBeVisible();
   });
+
+  test('S-FE-09 历史可一键落到任务列表并带上 schedule 筛选', async ({ page, request }) => {
+    const scheduleId = await seedSchedule(request, {
+      name: 'e2e-history-view-all',
+      status: 'ACTIVE',
+      agent_id: AGENT_ID
+    });
+    const historyTaskId = await seedTask(request, {
+      status: 'COMPLETED',
+      agent_id: AGENT_ID,
+      schedule_id: scheduleId,
+      trigger_type: 'SCHEDULED'
+    });
+    const unrelatedId = await seedTask(request, { status: 'QUEUED', agent_id: AGENT_ID });
+
+    await login(page);
+    await page.goto('/schedules');
+    await page.getByTestId(`schedule-link-${scheduleId}`).click();
+    await page.locator('.semi-tabs-tab', { hasText: '历史任务' }).click();
+    await page.getByTestId('schedule-history-view-all').click();
+
+    // 深链两端成对：发出方写 scheduleId，接收方必须真的按它筛选（只变 URL 不算数）
+    await expect(page).toHaveURL(new RegExp(`/tasks\\?scheduleId=${scheduleId}$`));
+    await expect(page.getByTestId('task-filter-schedule')).toBeVisible();
+    await expect(page.getByTestId(`task-link-${historyTaskId}`)).toBeVisible();
+    await expect(page.getByTestId(`task-link-${unrelatedId}`)).toHaveCount(0);
+  });
 });

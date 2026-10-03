@@ -34,6 +34,8 @@ export interface TaskDetailSideSheetProps {
   onCancel(): void;
   onSelectTask?(taskId: string): void;
   onMutated?(taskId: string): void;
+  /** 定时触发来源的反向入口。展示组件不导航（与 `RecentTaskList` 同约定），由页面接线。 */
+  onOpenSchedule?(scheduleId: string): void;
 }
 
 function snapshotSummary(snapshot: Record<string, unknown>): string {
@@ -204,6 +206,25 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
                 },
                 { label: t('task.columns.intent'), value: detail.intent_key },
                 { label: t('task.columns.triggerType'), value: t(`task.trigger.${detail.trigger_type}`) },
+                // 反向链接：只在定时触发的任务上出现，紧邻「触发方式」——两者是同一件事的
+                // 类型与来源。`schedule_id` 已删时链接仍可点，由 schedule 详情侧渲染 404 态。
+                ...(detail.trigger_type === 'SCHEDULED' && detail.schedule_id
+                  ? [
+                      {
+                        label: t('task.columns.scheduleId'),
+                        value: props.onOpenSchedule ? (
+                          <EntityLink
+                            testId="task-detail-schedule"
+                            onClick={() => props.onOpenSchedule?.(detail.schedule_id as string)}
+                          >
+                            {detail.schedule_id}
+                          </EntityLink>
+                        ) : (
+                          detail.schedule_id
+                        )
+                      }
+                    ]
+                  : []),
                 { label: t('task.columns.deliveryStatus'), value: t(`task.delivery.${detail.delivery_status}`) },
                 {
                   label: t('task.columns.deadlineAt'),

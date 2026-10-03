@@ -4,6 +4,8 @@ import { cancelTask } from './services/tasks';
 
 export interface TaskActionsState {
   cancelling: boolean;
+  /** 正在取消的那一行；列表页用它只给该行显示 loading，而不是整表一起转。 */
+  cancellingTaskId: string | null;
   cancel(taskId: string): Promise<boolean>;
 }
 
@@ -16,12 +18,12 @@ export interface UseTaskActionsOptions {
  * 失败保留原状态（不伪造终态），错误由 ApiClient Toast 展示。
  */
 export function useTaskActions(options: UseTaskActionsOptions): TaskActionsState {
-  const [cancelling, setCancelling] = useState(false);
+  const [cancellingTaskId, setCancellingTaskId] = useState<string | null>(null);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
   const cancel = useCallback(async (taskId: string): Promise<boolean> => {
-    setCancelling(true);
+    setCancellingTaskId(taskId);
     try {
       await cancelTask(taskId);
       optionsRef.current.onCancelled(taskId);
@@ -29,9 +31,9 @@ export function useTaskActions(options: UseTaskActionsOptions): TaskActionsState
     } catch {
       return false;
     } finally {
-      setCancelling(false);
+      setCancellingTaskId(null);
     }
   }, []);
 
-  return { cancelling, cancel };
+  return { cancelling: cancellingTaskId !== null, cancellingTaskId, cancel };
 }

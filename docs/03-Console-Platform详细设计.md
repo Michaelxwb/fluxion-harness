@@ -701,35 +701,52 @@ flowchart LR
 
 后台任务是运维/管理视图，不要求普通用户进入 Console。
 
-列表字段建议：
-
-```text
-任务 ID / 业务意图 / Agent / 执行用户 / Skill / 触发方式 / 任务状态 / 子任务进度 / 开始时间 / 完成时间 / 任务截止时间 / 投递状态 / 操作
-```
-
-任务截止时间来自 `task_execution.deadline_at`（默认创建时间 + 24h）；详情页同时展示 `error_code` 等失败原因。
-
-支持：
-
-- 按 Agent/User/Skill/Status/时间筛选；
-- 查看 Parent/Child 树；
-- 查看 Task Timeline；
-- 查看 execution snapshot；
-- 查看最终 Artifact；
-- 管理员取消仍未完成的 Task；
-- 不在 Console 手工编辑 Task 的业务输入。
-
-### 11.4 定时任务页面
-
-定时任务主要由用户通过 Agent 创建；Console 提供管理员可见性和必要治理。
+**与 11.4 的关系是「实例 / 定义」**：一次定时触发会在本页产生**一条 Task**（`task_execution.schedule_id`
+指向来源 Schedule，`trigger_type = SCHEDULED`）。因此**定时任务页的每一次触发都能在本页找到**，
+而本页是**全部** Task 的列表（含 `IMMEDIATE`），不是「定时任务的历史」的子集视图；
+两页互为可达：本页 → 详情 →「定时任务 ID」→ 定时任务详情，定时任务详情 →「历史任务」→
+本页（带 `scheduleId` 筛选）。Schedule 软删后历史 Task **保留**，此时反向链接的目标已不可读，
+详情侧以错误态呈现，不静默落回无关列表。
 
 列表字段：
 
 ```text
-名称 / Agent / 执行用户 / 业务意图 / Skill / 调度规则 / 时区 / 下次触发时间 / 最近触发时间 / 调度状态 / 操作
+任务 ID / 业务意图 / Agent / 执行用户 / Skill / 触发方式 / 任务状态 / 子任务进度 /
+开始时间 / 完成时间 / 任务截止时间 / 投递状态 / 失败原因 / 操作
 ```
 
-调度状态取 `ACTIVE / PAUSED / COMPLETED`（ONCE 触发完成后进入 `COMPLETED`）。
+任务截止时间来自 `task_execution.deadline_at`（默认创建时间 + 24h）；详情页同时展示 `error_code`
+等失败原因。子任务进度取 `(已终态子任务数 / 子任务总数)`，**整页一次 `GROUP BY parent_id` 取回**，
+不逐行查询；无子任务的行显示 `0/0`。
+
+支持：
+
+- 按 Agent / 执行用户 / Skill / Status / 触发方式筛选，另提供**创建时间**与**截止时间**两个区间
+  （区间含结束日整天）；
+- 列表内直接取消仍未完成的 Task（与详情页同一取消语义：成功才刷新，失败不伪造终态）；
+- 查看 Parent/Child 树；
+- 查看 Task Timeline；
+- 查看 execution snapshot；
+- 查看最终 Artifact；
+- 不在 Console 手工编辑 Task 的业务输入。
+
+**深链**：`/tasks?taskId=<id>` 直接打开该任务详情；`/tasks?scheduleId=<id>` 预置按定时任务筛选
+（该筛选以可关闭的标签显式呈现，避免用户被困在不可见的隐式条件里）。两个键与
+`overview` / `运行审计` 的跳转口径一致（camelCase），详见 11.6「跨页定位」。
+
+### 11.4 定时任务页面
+
+定时任务主要由用户通过 Agent 创建；Console 提供管理员可见性和必要治理。
+本页是**定义**视图（11.3 是它的**实例**视图），两者的可达关系见 11.3。
+
+列表字段：
+
+```text
+名称 / Agent / 执行用户 / 业务意图 / Skill / 调度规则 / 时区 / 下次触发时间 / 最近触发时间 / 调度状态 / 更新时间
+```
+
+调度状态取 `ACTIVE / PAUSED / COMPLETED / MISSED`（ONCE 触发完成后进入 `COMPLETED`，
+错过触发时间进入终态 `MISSED`）。
 
 允许：
 
@@ -741,7 +758,11 @@ flowchart LR
 
 定时任务变更只影响未来触发；已经创建的 TaskExecution 不漂移。
 
-历史触发必须按 `task_execution.schedule_id = 当前 schedule.id` 查询并按 `create_time DESC` 展示，禁止在不同 Schedule 详情复用同一组硬编码历史记录。
+历史触发必须按 `task_execution.schedule_id = 当前 schedule.id` 查询并按 `create_time DESC` 展示，禁止在不同 Schedule 详情复用同一组硬编码历史记录。历史页签另提供**「在任务列表中查看」**，
+落到 `/tasks?scheduleId=<id>`（口径同 11.3 深链）。
+
+**操作列留在详情侧**（暂停/恢复/删除）：这三个动作都带破坏性或状态语义，放在 920px 宽的
+列表行里既挤压其余字段、又容易误触，而它们的使用频率远低于浏览。
 
 ### 11.5 运行审计页面
 
@@ -763,6 +784,31 @@ action          = 操作
 ```
 
 筛选与 `07-跨模块接口与协议详细设计.md` §10.11 一致：`resource_type/resource_id/actor_user_id/action/trace_id/start_time/end_time`。
+
+### 11.6 跨页定位（深链口径）
+
+Console 里「从一条记录跳到它的关联记录」一律落到**列表页 + camelCase 查询参数**，不新建路由。
+参数由**接收页自己**定义初值语义，且**不回写 URL**（写回会让关闭详情/清除筛选与地址栏互相拉扯）。
+
+| 发出方 | 深链 | 接收页行为 |
+|---|---|---|
+| 概览「最近后台任务」 | `/tasks?taskId=<id>` | 打开该任务详情 |
+| 概览「下一批定时触发」 | `/schedules?scheduleId=<id>` | 打开该定时任务详情 |
+| 运行审计「关联 Task」 | `/tasks?taskId=<id>` | 打开该任务详情 |
+| 后台任务详情「定时任务 ID」 | （叠加打开定时任务详情，不跳页） | — |
+| 定时任务详情「在任务列表中查看」 | `/tasks?scheduleId=<id>` | 预置按定时任务筛选 |
+
+三条约束：
+
+- **发出方与接收方的键名必须成对**——单改一侧不会报错，只会打开一个无关的空列表
+  （实例见 `docs/issues/2026-10-03-audit-run-link.md`：两个键都发出来了，接收页两个都没读）。
+  机检：`tests/frontend/test_task_schedule_deep_link_contract.py`。
+- **目标已失效（已删/越权）时给出明确错误态**，不静默落回空列表；带参数的 URL 可直接访问与刷新。
+- **施加于列表的隐式筛选必须可见可清除**（如 `scheduleId` 以可关闭标签呈现），否则用户被困在一个
+  自己都不知道存在的过滤条件里。
+
+`runId` 暂**无承载页**：普通对话的模型/工具调用可以产生运行审计而不产生后台 Task，
+用任务列表承载任意 Run 是错的，具体承载页面待设计确认（该 issue 此条仍未闭环）。
 
 ---
 

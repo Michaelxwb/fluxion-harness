@@ -17,6 +17,15 @@ async function seedTask(request: APIRequestContext, body: Record<string, unknown
   return (await response.json()).data.task_id as string;
 }
 
+async function seedSchedule(
+  request: APIRequestContext,
+  body: Record<string, unknown>
+): Promise<string> {
+  const response = await request.post('/__e2e/seed-schedule', { data: body });
+  expect(response.status()).toBe(200);
+  return (await response.json()).data.schedule_id as string;
+}
+
 async function openDetail(page: Page, taskId: string): Promise<void> {
   await page.goto('/tasks');
   await page.getByTestId(`task-link-${taskId}`).click();
@@ -143,5 +152,71 @@ test.describe('Task 详情', () => {
       .locator('.detail-grid')
       .evaluate((element) => getComputedStyle(element).gridTemplateColumns);
     expect(columns.trim().split(/\s+/).length).toBe(1);
+  });
+
+  test('S-FE-05 定时触发的任务可反向打开其定时任务（任务 ↔ 定时任务双向可达）', async ({
+    page,
+    request
+  }) => {
+    const scheduleId = await seedSchedule(request, {
+      name: 'e2e-task-detail-schedule',
+      status: 'ACTIVE',
+      agent_id: AGENT_ID
+    });
+    const scheduledId = await seedTask(request, {
+      status: 'COMPLETED',
+      agent_id: AGENT_ID,
+      schedule_id: scheduleId,
+      trigger_type: 'SCHEDULED'
+    });
+
+    await login(page);
+    await openDetail(page, scheduledId);
+
+    // 反向链接紧邻「触发方式」；点开后叠加打开定时任务详情（嵌套 SideSheet，非跳页）
+    await expect(page.getByTestId('task-detail-schedule')).toHaveText(scheduleId);
+    await page.getByTestId('task-detail-schedule').click();
+    await expect(page.getByTestId('schedule-detail-next-fire')).toBeVisible();
+    await expect(page.locator('.detail-title', { hasText: 'e2e-task-detail-schedule' })).toHaveCount(1);
+    // 任务详情仍在下面一层（嵌套而非替换）
+    await expect(page.getByTestId('task-detail-deadline')).toBeAttached();
+  });
+
+  test('S-FE-06 普通任务不显示该行；来源已失效时给出错误态而非白屏', async ({ page, request }) => {
+    const immediateId = await seedTask(request, { status: 'QUEUED', agent_id: AGENT_ID });
+    // 失效来源必须是**真实存在过、再被软删**的 Schedule：`task_execution.schedule_id` 有外键，
+    // 指向不存在的 id 连种子都写不进去（500），造不出这个场景。
+    const scheduleId = await seedSchedule(request, {
+      name: 'e2e-task-detail-orphan',
+      status: 'ACTIVE',
+      agent_id: AGENT_ID
+    });
+    const orphanId = await seedTask(request, {
+      status: 'COMPLETED',
+      agent_id: AGENT_ID,
+      schedule_id: scheduleId,
+      trigger_type: 'SCHEDULED'
+    });
+
+    await login(page);
+
+    // Schedule 软删后历史 Task 保留（B-137 已钉），但反向链接的目标已不可读
+    await page.goto('/schedules');
+    await page.getByTestId(`schedule-link-${scheduleId}`).click();
+    await page.getByTestId('schedule-delete').click();
+    await page
+      .locator('.semi-popconfirm')
+      .getByRole('button', { name: /确定|删除/ })
+      .click({ force: true });
+    await expect(page.getByTestId(`schedule-link-${scheduleId}`)).toHaveCount(0);
+
+    await openDetail(page, immediateId);
+    await expect(page.getByTestId('task-detail-schedule')).toHaveCount(0);
+    await page.locator('.semi-sidesheet-close').click();
+
+    await openDetail(page, orphanId);
+    await expect(page.getByTestId('task-detail-schedule')).toBeVisible();
+    await page.getByTestId('task-detail-schedule').click();
+    await expect(page.getByTestId('error-state')).toBeVisible();
   });
 });

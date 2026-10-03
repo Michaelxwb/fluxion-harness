@@ -17,6 +17,15 @@ async function seedTask(request: APIRequestContext, body: Record<string, unknown
   return (await response.json()).data.task_id as string;
 }
 
+async function seedSchedule(
+  request: APIRequestContext,
+  body: Record<string, unknown>
+): Promise<string> {
+  const response = await request.post('/__e2e/seed-schedule', { data: body });
+  expect(response.status()).toBe(200);
+  return (await response.json()).data.schedule_id as string;
+}
+
 test.describe('后台任务列表（B-131）', () => {
   test.beforeEach(async ({ request }) => {
     await request.post('/__e2e/cleanup');
@@ -100,9 +109,18 @@ test.describe('后台任务列表（B-131）', () => {
     await page.goto('/tasks');
 
     await expect(page.getByTestId('task-help')).toBeVisible();
-    await expect(page.getByTestId('task-filter-status')).toBeVisible();
-    await expect(page.getByTestId('task-filter-trigger')).toBeVisible();
-    await expect(page.getByTestId('task-filter-deadline')).toBeVisible();
+    for (const testId of [
+      'task-filter-status',
+      'task-filter-trigger',
+      'task-filter-agent',
+      'task-filter-actor',
+      'task-filter-skill',
+      'task-filter-create',
+      'task-filter-deadline',
+      'task-reset'
+    ]) {
+      await expect(page.getByTestId(testId)).toBeVisible();
+    }
 
     await page.getByTestId('task-help').click();
     const help = page.getByTestId('task-help-content');
@@ -123,5 +141,109 @@ test.describe('后台任务列表（B-131）', () => {
     await page.getByTestId('error-retry').click();
     await expect(page.getByText(taskId)).toBeVisible();
     await expect(page.getByTestId('error-state')).toHaveCount(0);
+  });
+
+  test('S-FE-07 ?taskId= 深链直接打开该任务详情，刷新后仍定位同一条', async ({ page, request }) => {
+    const target = await seedTask(request, { status: 'QUEUED', agent_id: AGENT_ID });
+    await seedTask(request, { status: 'QUEUED', agent_id: AGENT_ID });
+
+    await login(page);
+    await page.goto(`/tasks?taskId=${target}`);
+
+    await expect(page.getByTestId('task-detail-deadline')).toBeVisible();
+    await expect(page.getByTestId('detail-subtitle')).toContainText('排队中');
+    // 列表本身照常加载（深链不是"只显示详情"）
+    await expect(page.locator('.app-pagination')).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByTestId('task-detail-deadline')).toBeVisible();
+  });
+
+  test('E-FE-04 深链指向已失效的记录时给出错误态，不静默落回空列表', async ({ page, request }) => {
+    await seedTask(request, { status: 'QUEUED', agent_id: AGENT_ID });
+
+    await login(page);
+    await page.goto('/tasks?taskId=00000000-0000-4000-8000-000000000000');
+
+    await expect(page.getByTestId('error-state')).toBeVisible();
+    // 列表没被这条失效深链拖垮
+    await expect(page.locator('.app-pagination')).toBeVisible();
+  });
+
+  test('S-FE-08 ?scheduleId= 深链预置按定时任务筛选，且该筛选显式可见可清除', async ({
+    page,
+    request
+  }) => {
+    const scheduleId = await seedSchedule(request, {
+      name: 'e2e-task-list-schedule',
+      status: 'ACTIVE',
+      agent_id: AGENT_ID
+    });
+    const fromSchedule = await seedTask(request, {
+      status: 'COMPLETED',
+      agent_id: AGENT_ID,
+      schedule_id: scheduleId,
+      trigger_type: 'SCHEDULED'
+    });
+    const unrelated = await seedTask(request, { status: 'QUEUED', agent_id: AGENT_ID });
+
+    const queries: string[] = [];
+    page.on('request', (httpRequest) => {
+      if (httpRequest.url().includes('/api/v1/tasks')) {
+        queries.push(new URL(httpRequest.url()).search);
+      }
+    });
+
+    await login(page);
+    await page.goto(`/tasks?scheduleId=${scheduleId}`);
+
+    await expect(page.getByTestId('task-filter-schedule')).toBeVisible();
+    await expect(page.getByTestId(`task-link-${fromSchedule}`)).toBeVisible();
+    await expect(page.getByTestId(`task-link-${unrelated}`)).toHaveCount(0);
+    expect(queries.some((search) => search.includes(`schedule_id=${scheduleId}`))).toBe(true);
+
+    await page.getByTestId('task-filter-schedule').locator('.semi-tag-close').click();
+    await expect(page.getByTestId('task-filter-schedule')).toHaveCount(0);
+    await expect(page.getByTestId(`task-link-${unrelated}`)).toBeVisible();
+  });
+
+  test('B-131c 子任务进度可见，可取消状态在列表内可直接取消', async ({ page, request }) => {
+    const parent = await seedTask(request, {
+      status: 'WAITING',
+      task_type: 'BATCH',
+      agent_id: AGENT_ID
+    });
+    await seedTask(request, {
+      status: 'COMPLETED',
+      agent_id: AGENT_ID,
+      parent_id: parent,
+      root_id: parent,
+      item_key: 'child-a'
+    });
+    await seedTask(request, {
+      status: 'RUNNING',
+      agent_id: AGENT_ID,
+      parent_id: parent,
+      root_id: parent,
+      item_key: 'child-b'
+    });
+    const cancellable = await seedTask(request, { status: 'QUEUED', agent_id: AGENT_ID });
+    const doneId = await seedTask(request, { status: 'COMPLETED', agent_id: AGENT_ID });
+
+    await login(page);
+    await page.goto('/tasks');
+
+    await expect(page.getByTestId(`task-children-${parent}`)).toHaveText('1/2');
+    await expect(page.getByTestId(`task-children-${cancellable}`)).toHaveText('0/0');
+    // 终态行没有取消入口
+    await expect(page.getByTestId(`task-row-cancel-${doneId}`)).toHaveCount(0);
+
+    await page.getByTestId(`task-row-cancel-${cancellable}`).click();
+    await page
+      .locator('.semi-popconfirm')
+      .getByRole('button', { name: /确定|删除/ })
+      .click({ force: true });
+
+    await expect(page.locator('.semi-table-row', { hasText: cancellable })).toContainText('已取消');
   });
 });

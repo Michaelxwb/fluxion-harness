@@ -85,10 +85,27 @@ test('S-02 点击最近任务/下次调度条目进入对应模块', async ({ pa
   await login(page);
   await page.goto('/');
 
+  // 本域只起 Console（**没有 agent-worker**），任务/定时任务的**详情接口没有后端**，
+  // 详情内容永远渲染不出来。所以这里不断言"详情打开了"，而是断言更强的、与后端无关的事实：
+  // 目标页**按 URL 里那个 id 发了详情请求**——只改 URL 不读参数的旧实现会被这条打红。
+  const detailCalls: string[] = [];
+  page.on('request', (request) => {
+    const url = request.url();
+    if (/\/api\/v1\/(tasks|schedules)\/[0-9a-f-]{36}$/.test(url)) {
+      detailCalls.push(url);
+    }
+  });
+
   const taskLink = page.locator('[data-testid^="recent-task-"]').first();
   await expect(taskLink).toBeVisible();
   await taskLink.click();
   await expect(page).toHaveURL(/\/tasks\?taskId=/);
+  const taskId = new URL(page.url()).searchParams.get('taskId') as string;
+  await expect
+    .poll(() => detailCalls.filter((url) => url.endsWith(`/api/v1/tasks/${taskId}`)).length, {
+      timeout: 15_000
+    })
+    .toBe(1);
   await expectNotBlank(page);
 
   await page.goBack();
@@ -96,6 +113,13 @@ test('S-02 点击最近任务/下次调度条目进入对应模块', async ({ pa
   await expect(scheduleLink).toBeVisible();
   await scheduleLink.click();
   await expect(page).toHaveURL(/\/schedules\?scheduleId=/);
+  const scheduleId = new URL(page.url()).searchParams.get('scheduleId') as string;
+  await expect
+    .poll(
+      () => detailCalls.filter((url) => url.endsWith(`/api/v1/schedules/${scheduleId}`)).length,
+      { timeout: 15_000 }
+    )
+    .toBe(1);
   await expectNotBlank(page);
 });
 

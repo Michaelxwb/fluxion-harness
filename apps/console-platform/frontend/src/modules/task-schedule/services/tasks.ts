@@ -53,6 +53,9 @@ export interface TaskListItem {
   update_time: string;
   started_at: string | null;
   finished_at: string | null;
+  /** 批量任务的子任务进度；无子任务为 0/0（由后端一次 GROUP BY 取回，不逐行查询）。 */
+  child_total: number;
+  child_finished: number;
 }
 
 export interface TaskDetail extends TaskListItem {
@@ -74,6 +77,7 @@ export interface TaskListParams {
   schedule_id?: string;
   agent_id?: string;
   actor_user_id?: string;
+  skill_id?: string;
   status?: TaskStatus;
   trigger_type?: TriggerType;
   start_time?: string;

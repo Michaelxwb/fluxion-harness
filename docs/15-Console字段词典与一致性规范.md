@@ -21,6 +21,11 @@
 | `trigger_type` | 触发方式 | 后台任务 |
 | `execution_mode` | 执行模式 | 后台任务 / Skill Artifact |
 | `intent_key` | 业务意图 | 后台任务 / 定时任务 |
+| Task `schedule_id` | 定时任务 ID | 后台任务（`trigger_type=SCHEDULED` 时的来源；详情中为可点链接，指向定时任务详情） |
+| Task `actor_user_id` | 执行用户 | 后台任务 / 定时任务 |
+| Task child progress | 子任务进度 | 后台任务（`已终态子任务数/子任务总数`，无子任务显示 `0/0`） |
+| Schedule `cron_expr` | Cron 表达式 | 定时任务 |
+| Schedule `timezone` | 时区 | 定时任务 |
 | `revision` | 修订版本 | Agent/Model |
 | `platform_label` | 平台标签 | Skill |
 | Agent `instructions` | 系统 Prompt | Agent |

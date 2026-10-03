@@ -58,12 +58,13 @@ test.describe('跨语言与时间', () => {
     await page.goto('/tasks');
     await expect(page.getByRole('heading', { name: '后台任务' })).toBeVisible();
     await expect(page.locator('.semi-tag', { hasText: '失败' })).toBeVisible();
-    const deadlineCell = page.locator('.semi-table-row', { hasText: taskId }).locator('td').nth(6);
+    // 按行内 testid 取单元格，不按列序：列序会随列表字段增删漂移（本用例曾因此误判）。
+    const deadlineCell = page.getByTestId(`task-deadline-${taskId}`);
     await expect(deadlineCell).toHaveText(TIME_PATTERN);
 
     await page.goto('/schedules');
     await expect(page.getByRole('heading', { name: '定时任务' })).toBeVisible();
-    const nextFireCell = page.locator('.semi-table-row', { hasText: 'e2e-locale-schedule' }).locator('td').nth(7);
+    const nextFireCell = page.getByTestId(`schedule-next-fire-${scheduleId}`);
     await expect(nextFireCell).toHaveText(TIME_PATTERN);
 
     // 切到 en-US：导航与状态文案跟随，业务词条不缺失

@@ -1,6 +1,7 @@
 import { Button, Modal, Select } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 
 import { ListActionButton } from '../../components/common/ListActionButton';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
@@ -36,6 +37,17 @@ export function SchedulePage() {
   const [detailScheduleId, setDetailScheduleId] = useState<string | null>(null);
   const [historyTaskId, setHistoryTaskId] = useState<string | null>(null);
   const requestSeq = useRef(0);
+
+  // 深链（概览「下一批定时触发」= `/schedules?scheduleId=…`）：一次性初值，不回写 URL。
+  // 目标已删/越权时由详情侧渲染 404 态，不静默落回空列表（e2e E-04）。
+  const [searchParams] = useSearchParams();
+  const deepLinkScheduleId = searchParams.get('scheduleId');
+
+  useEffect(() => {
+    if (deepLinkScheduleId) {
+      setDetailScheduleId(deepLinkScheduleId);
+    }
+  }, [deepLinkScheduleId]);
 
   const reload = useCallback(async () => {
     const current = ++requestSeq.current;
@@ -126,6 +138,8 @@ export function SchedulePage() {
               )
             },
             { title: t('schedule.columns.agent'), dataIndex: 'agent_id' },
+            { title: t('schedule.columns.actorUser'), dataIndex: 'actor_user_id' },
+            { title: t('schedule.columns.skill'), dataIndex: 'skill_id' },
             { title: t('schedule.columns.intent'), dataIndex: 'intent_key' },
             {
               title: t('schedule.columns.scheduleType'),
@@ -146,7 +160,11 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.nextFireAt'),
               dataIndex: 'next_fire_at',
-              render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
+              render: (value: string | null, record: ScheduleListItem) => (
+                <span data-testid={`schedule-next-fire-${record.schedule_id}`}>
+                  {value ? <DateTimeText value={value} /> : '-'}
+                </span>
+              )
             },
             {
               title: t('schedule.columns.lastFireAt'),

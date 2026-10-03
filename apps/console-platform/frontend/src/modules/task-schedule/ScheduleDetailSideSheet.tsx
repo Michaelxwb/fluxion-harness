@@ -1,6 +1,7 @@
-import { Button, Spin, Tabs } from '@douyinfe/semi-ui';
+import { Button, Spin, Tabs, Typography } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
@@ -28,6 +29,7 @@ export interface ScheduleDetailSideSheetProps {
 
 export function ScheduleDetailSideSheet(props: ScheduleDetailSideSheetProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [detail, setDetail] = useState<ScheduleDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -195,10 +197,23 @@ export function ScheduleDetailSideSheet(props: ScheduleDetailSideSheetProps) {
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="history" tab={t('schedule.detail.history')}>
         {detail && activeTab === 'history' ? (
-          <ScheduleHistoryTable
-            scheduleId={detail.schedule_id}
-            onOpenTask={(taskId) => props.onOpenTask?.(taskId)}
-          />
+          <>
+            {/* 深链与审计「关联」同一形状：跨页定位统一落到任务列表并携带 id 查询参数
+                （见 `AuditDetailSideSheet`），任务列表据此预置按 schedule 的筛选。 */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <Typography.Text
+                link
+                data-testid="schedule-history-view-all"
+                onClick={() => navigate(`/tasks?scheduleId=${detail.schedule_id}`)}
+              >
+                {t('schedule.detail.historyViewAll')}
+              </Typography.Text>
+            </div>
+            <ScheduleHistoryTable
+              scheduleId={detail.schedule_id}
+              onOpenTask={(taskId) => props.onOpenTask?.(taskId)}
+            />
+          </>
         ) : null}
       </Tabs.TabPane>
     </DetailSideSheet>
