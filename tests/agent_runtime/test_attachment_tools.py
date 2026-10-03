@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.application.attachment_tools import (
+    AGENT_OUTPUT_ARTIFACT_TYPE,
     APPEND_ARTIFACT_TOOL,
     ATTACHMENT_DIRECTION_INVALID,
     ATTACHMENT_EXTRACT_FAILED,
@@ -76,6 +77,7 @@ async def _seed_artifact(
     media_type: str,
     filename: str,
     into: tuple[uuid.UUID, uuid.UUID] | None = None,
+    artifact_type: str | None = None,
 ) -> uuid.UUID:
     """落一条入站附件。`into=(run_id, conversation_id)` 可挂进既有 Run/会话（S-02 需要
     让入站与自产**同处一个会话**，否则枚举范围无从谈起）。"""
@@ -115,7 +117,7 @@ async def _seed_artifact(
                 tenant_id=tenant.tenant_id,
                 run_id=run_id,
                 conversation_id=conversation_id,
-                artifact_type=f"INBOUND_{kind}",
+                artifact_type=artifact_type or f"INBOUND_{kind}",
                 storage_key=storage_key,
                 media_type=media_type,
                 size=len(data),
@@ -859,21 +861,108 @@ async def test_deliver_artifact_without_a_route_errors_explicitly(tenant, artifa
     assert exc.value.code == ATTACHMENT_WRITE_UNAVAILABLE
 
 
+def _delivery_tool_set(tenant, artifact_root, *, run_id, conversation_id, client):
+    return AttachmentToolSet(
+        session_factory=get_session_factory, artifact_root=artifact_root,
+        tenant_id=tenant.tenant_id, run_id=run_id, conversation_id=conversation_id,
+        has_delivery_route=True, delivery_route=_DELIVERY_ROUTE, delivery_client=client,
+    )
+
+
+async def test_deliver_artifact_forwards_an_inbound_image_from_this_conversation(
+    tenant, artifact_root
+) -> None:
+    """**本会话收到的附件可以转交给用户**（2026-10-03 起）。
+
+    真实场景就是用户试的那个：「把这张图片重新发给我」。在此之前这条路是**结构性堵死**的——
+    `write_artifact` 只吃文本（agent 造不出位图），作者校验又挡住转发 ⇒ **agent 一张图都发不出去**。
+    转发**不产生新内容**，只是把已有的字节递回去，所以它不需要任何新的生成能力。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    inbound_id = await _seed_artifact(
+        tenant, artifact_root, data=b"\x89PNG-inbound", kind="IMAGE",
+        media_type="image/png", filename="截图.png", into=(run_id, conversation_id),
+    )
+    client = _FakeDeliveryClient(
+        DeliveryResponse(accepted=True, delivered=True, deduplicated=False, outcome="DELIVERED")
+    )
+    tool_set = _delivery_tool_set(
+        tenant, artifact_root, run_id=run_id, conversation_id=conversation_id, client=client
+    )
+
+    result = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(inbound_id)})
+
+    assert "已交付产物" in result and "截图.png" in result
+    sent = client.requests[0]
+    assert sent.message.type == "image", "kind=IMAGE 必须走 image 体（企微只认它的 media_id 通路）"
+    assert str(sent.message.artifact.artifact_id) == str(inbound_id)
+
+
+async def test_deliver_artifact_refuses_inbound_attachments_from_another_conversation(
+    tenant, artifact_root
+) -> None:
+    """**别的会话**收到的附件必须拒绝 —— 这条界线是新加的，不能被"放宽转发"顺手带掉。
+
+    `_load` 只保证**租户**隔离。少了会话这层，模型只要拿到一个 id（历史残留、别的会话的上下文），
+    就能把它发进当前会话——那是**跨会话的数据外泄**。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    other_conversation = await _seed_artifact(
+        tenant, artifact_root, data=b"other", kind="DOCUMENT",
+        media_type="text/plain", filename="别人的.txt",
+    )
+    client = _FakeDeliveryClient()
+    tool_set = _delivery_tool_set(
+        tenant, artifact_root, run_id=run_id, conversation_id=conversation_id, client=client
+    )
+
+    with pytest.raises(AttachmentToolError) as exc:
+        await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(other_conversation)})
+
+    assert "只能交付本会话" in exc.value.message
+    assert not client.requests, "被拒的交付不得真的去调网关"
+
+
 async def test_deliver_artifact_refuses_artifacts_this_run_did_not_produce(
     tenant, artifact_root
 ) -> None:
-    """只能交付**本 Run 自产**的产物：把用户发来的附件转手发出去必须拒绝。"""
+    """**别的 Run 自产**的产物仍然拒绝（原意图保留）。"""
     run_id, conversation_id = await _seed_run(tenant)
-    inbound_id = await _seed_artifact(
-        tenant, artifact_root, data=b"user file", kind="DOCUMENT",
-        media_type="text/plain", filename="来件.txt", into=(run_id, conversation_id),
+    other_run_artifact = await _seed_artifact(
+        tenant, artifact_root, data=b"agent file", kind="DOCUMENT",
+        media_type="text/markdown", filename="别处产物.md",
+        artifact_type=AGENT_OUTPUT_ARTIFACT_TYPE,
     )
-    tool_set = AttachmentToolSet(
-        session_factory=get_session_factory, artifact_root=artifact_root,
-        tenant_id=tenant.tenant_id, run_id=run_id, conversation_id=conversation_id,
-        has_delivery_route=True, delivery_route=_DELIVERY_ROUTE,
-        delivery_client=_FakeDeliveryClient(),
+    client = _FakeDeliveryClient()
+    tool_set = _delivery_tool_set(
+        tenant, artifact_root, run_id=run_id, conversation_id=conversation_id, client=client
     )
 
-    with pytest.raises(AttachmentToolError):
-        await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(inbound_id)})
+    with pytest.raises(AttachmentToolError) as exc:
+        await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(other_run_artifact)})
+
+    assert "只能交付本次运行自己写出的产物" in exc.value.message
+    assert not client.requests
+
+
+async def test_deliver_artifact_refuses_tool_result_artifacts(tenant, artifact_root) -> None:
+    """**工具结果外置产物**（`TOOL_RESULT`）不能交付 —— 那是中间产物，发给用户等于泄漏上下文。
+
+    放开转发时必须把它挡在外面：它的 `conversation_id` 与当前会话相同，光靠会话判定拦不住。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_result = await _seed_artifact(
+        tenant, artifact_root, data=b"internal", kind="OTHER",
+        media_type="text/plain", filename="tool-result.txt",
+        into=(run_id, conversation_id), artifact_type="TOOL_RESULT",
+    )
+    client = _FakeDeliveryClient()
+    tool_set = _delivery_tool_set(
+        tenant, artifact_root, run_id=run_id, conversation_id=conversation_id, client=client
+    )
+
+    with pytest.raises(AttachmentToolError) as exc:
+        await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(tool_result)})
+
+    assert "不能交付给用户" in exc.value.message
+    assert not client.requests

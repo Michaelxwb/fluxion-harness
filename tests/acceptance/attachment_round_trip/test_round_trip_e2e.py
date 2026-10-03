@@ -549,3 +549,88 @@ async def _execute(statement: str, params: dict[str, object]) -> None:
             await connection.execute(text(statement), params)
     finally:
         await engine.dispose()
+
+
+# --------------------------------------------------- 入站图片回发（2026-10-03 补）
+
+#: 一张最小的合法 PNG（1×1 透明）。用真 PNG 头而不是随便几个字节——入库类型是按文件名推的，
+#: 但这里要让"它确实是张图"在夹具层面也站得住。
+PNG_BYTES = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+    "890000000a49444154789c6300010000050001-0d0a2db40000000049454e44ae426082".replace("-", "")
+)
+
+
+async def test_inbound_image_can_be_sent_back_to_the_user(
+    gateway_stack: GatewayStack, media_server: MediaServer
+) -> None:
+    """**用户发来的图，agent 能原样回发** —— 2026-10-03 补的端到端。
+
+    在此之前这条路是**结构性堵死**的，而用户真机上试的就是这一句（"把这张图片重新发给我"）：
+
+    - `write_artifact` 只吃文本 ⇒ agent **造不出位图**（写 `.svg` 也只会被标成 `text/markdown`）；
+    - `deliver_artifact` 的作者校验只认"本次 Run 自产" ⇒ **转发入站附件被拒**。
+
+    两条合起来 = agent 一张图都发不出去。转发不产生新内容，所以只需要放开作者校验
+    （且**只能**放开到"本会话的入站附件"）。这条用例断言的是**用户实际收到的帧**：
+    必须是 `msgtype=image` + `media_id`，而不是一个被当成普通文件发出去的 `.png`。
+    """
+    await _wait_connected(gateway_stack)
+    media_before = len(_media_frames(gateway_stack))
+
+    # ① 用户发来一张图（真实回调 → 真实落盘 → Runtime 落 artifact 行）
+    message_id, reply_id = _new_message("img")
+    url = media_server.serve(
+        f"/img/{message_id}", wecom_ciphertext(PNG_BYTES), filename="截图.png"
+    )
+    await _set_script(
+        gateway_stack, tool_name="view_image", tool_arguments=_args(artifact_id="$last_artifact_id"),
+        final_text="看到了。",
+    )
+    await _push(
+        gateway_stack,
+        _callback(
+            message_id, reply_id, {"msgtype": "image", "image": {"url": url, "aeskey": AES_KEY}}
+        ),
+    )
+    await _wait_for_reply(gateway_stack, reply_id, "看到了。")
+    await _wait_run_settled(gateway_stack)
+
+    # ② 第二轮：**把这张图回发给用户**
+    # 探针的请求列表是**模块级累积**的（前序用例的结果也在里面），所以从这里切一刀，
+    # 后面只看**本用例**产生的请求——否则断言会扫到别人的工具结果。
+    requests_before = len(await _requests(gateway_stack))
+    message_id, reply_id = _new_message("imgback")
+    await _set_script(
+        gateway_stack,
+        tool_name="deliver_artifact",
+        tool_arguments=_args(artifact_id="$last_artifact_id"),
+        final_text="图已经发回给你了。",
+    )
+    await _push(
+        gateway_stack,
+        _callback(
+            message_id, reply_id, {"msgtype": "text", "text": {"content": "把这张图再发我一次"}}
+        ),
+    )
+    await _wait_for_reply(gateway_stack, reply_id, "图已经发回给你了。")
+    await _wait_run_settled(gateway_stack)
+
+    # ③ 用户**真的收到了图片**：`msgtype=image` + `media_id`
+    frames = _media_frames(gateway_stack)[media_before:]
+    assert len(frames) == 1, f"应当恰好收到一条媒体消息，实收 {len(frames)}"
+    body = frames[0]["body"]
+    assert body["msgtype"] == "image", (
+        f"入站图片回发必须走 image 体（这个通道只用 media_id 通路），实际 {body['msgtype']}"
+    )
+    assert body["image"]["media_id"]
+
+    # ④ 工具结果必须报「已交付」，不得谎报失败
+    tool_results = [
+        _message_text(message)
+        for body in (await _requests(gateway_stack))[requests_before:]
+        for message in (body.get("messages") or [])
+        if isinstance(message, dict) and message.get("role") == "tool"
+    ]
+    assert any("已交付产物" in text for text in tool_results), tool_results
+    assert not any("交付失败" in text or "tool failed" in text for text in tool_results), tool_results

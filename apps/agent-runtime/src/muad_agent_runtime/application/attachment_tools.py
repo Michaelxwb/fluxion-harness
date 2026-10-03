@@ -78,8 +78,10 @@ DELIVERY_RESULT_DEGRADED = "已发送取件链接（当前渠道不支持直发�
 DELIVERY_RESULT_FAILED = "交付失败（{reason}）：产物已保留（id={artifact_id}），可重试"
 
 DELIVER_ARTIFACT_DESCRIPTION = (
-    "Send a file you produced earlier in this run to the user you are talking to. "
-    "Writing a file does NOT send it — call this when the user should actually receive it."
+    "Send a file to the user you are talking to. This covers both files you produced in this run "
+    "and files the user sent into this conversation (you can hand one back, e.g. \"send me that "
+    "image again\"). Writing a file does NOT send it — call this when the user should actually "
+    "receive it."
 )
 APPEND_ARTIFACT_DESCRIPTION = (
     "Append more text to a file you produced earlier in this run. Use it to build a long document "
@@ -651,11 +653,9 @@ class AttachmentToolSet:
                 ATTACHMENT_WRITE_UNAVAILABLE, "当前会话没有可交付的通道，产物发不出去"
             )
         row = await self._load(arguments.get("artifact_id"))
-        if row.run_id != self._run_id or row.artifact_type != AGENT_OUTPUT_ARTIFACT_TYPE:
-            raise AttachmentToolError(
-                ATTACHMENT_TYPE_UNSUPPORTED,
-                f"{_filename(row)}：只能交付本次运行自己写出的产物",
-            )
+        refusal = self._delivery_refusal(row)
+        if refusal is not None:
+            raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, refusal)
         request = DeliveryRequest(
             tenant_id=self._tenant_id,
             delivery_key=f"run:{self._run_id}:{row.id}",
@@ -706,6 +706,36 @@ class AttachmentToolSet:
                 ),
             ),
         )
+
+    def _delivery_refusal(self, row: Artifact) -> str | None:
+        """这一行能不能交付给用户？不能则返回**给模型看的原因**，能则 `None`。
+
+        **两条准入**，其余一律拒绝：
+
+        1. **本次 Run 自己写出的**（`AGENT_OUTPUT` + `run_id` 相同）——原本唯一的一条；
+        2. **本会话里的入站附件**（`INBOUND_*` + `conversation_id` 相同）—— 2026-10-03 新增。
+
+        第 2 条不是"顺手放宽"，而是补一个**结构性空洞**：在此之前 `write_artifact` 只吃文本
+        （agent 造不出位图），而作者校验又把转发挡住 ⇒ **agent 一张图都发不出去**，
+        连"把你刚发我的图再发回来"这种最自然的请求都做不到（真机实测：用户就是这么试的）。
+        转发**不产生新内容**，只是把已经存在的字节递回去，所以它不需要任何新的生成能力。
+
+        **刻意不放开的地方**（若放成"任意 artifact"，它就退化成"拿到 id 就能把别人的文件发出去"）：
+
+        - **租户**：`_load` 已按租户过滤，跨租户在这一步之前就已变成"不存在"；
+        - **会话**：入站附件必须是**本会话**的 —— 否则模型从别处拿到一个 id 就能把它发到当前会话；
+        - **类型**：只认 `AGENT_OUTPUT` 与三类入站；`TOOL_RESULT`（工具结果外置产物）之类一律不行，
+          那是**中间产物**，把它发给用户等于泄漏上下文。
+        """
+        if row.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE:
+            if row.run_id == self._run_id:
+                return None
+            return f"{_filename(row)}：只能交付本次运行自己写出的产物"
+        if row.artifact_type in INBOUND_ARTIFACT_TYPES:
+            if self._conversation_id is not None and row.conversation_id == self._conversation_id:
+                return None
+            return f"{_filename(row)}：只能交付本会话里收到的附件"
+        return f"{_filename(row)}：这类产物不能交付给用户"
 
     async def _load(self, artifact_id: object) -> Artifact:
         """按标识取附件行。**租户隔离**：越权一律按"不存在"处理 —— 不回显对方的存在性、
