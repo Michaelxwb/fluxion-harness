@@ -164,8 +164,13 @@ def get_artifact_fetch_tokens(request: Request) -> ArtifactFetchTokens:
 def get_artifact_fetch_service(request: Request) -> ArtifactFetchService:
     """取件服务（按进程缓存）：真实共享 store + 指向 runtime 的**解析单点**。
 
-    Console 只碰 `control` schema，不直读 `runtime.artifact`（仓库里没有这种先例，且那是
-    **跨 schema 的表结构耦合**：runtime 改一列，取件会静默退化）。归属与元信息一律问 runtime。
+    归属与元信息一律问 runtime 的 `/internal/artifacts/{id}`，而不是自己查 `runtime.artifact`。
+
+    **理由不是"console 从不跨 schema 读"**（那不是真的：`audit_query_repository` 就 JOIN 了
+    `runtime.run_record`），而是**口径只能有一处**：`artifact` 行 → `AttachmentRef` 的映射
+    （`kind` 归什么、文件名缺省怎么填、`is_deleted` 怎么算）在 runtime 侧已经是权威定义，
+    worker 的后台投递也走它。console 再抄一份，两边迟早分叉，而分叉的表现是**同一份产物在
+    两条路径上被判成不同形态**——不报错，只是发出去的东西不对。
     """
     service = getattr(request.app.state, "artifact_fetch_service", None)
     if service is None:

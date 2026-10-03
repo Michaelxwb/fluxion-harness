@@ -3,10 +3,11 @@
 **渠道无关能力**：Console 页面、未来 web chat、以及"渠道不能直发文件"时的降级链接，
 复用**同一个**鉴权端点与**同一套**令牌模型。本期只有两个消费方，但接口按多消费方设计。
 
-**元信息从哪来**：`runtime.artifact` 是 **runtime** 的 Owner 表，而 console 只碰 `control`
-（仓库里没有 console 跨 schema 读的先例）。所以归属校验走 **runtime 的
-`GET /internal/artifacts/{artifact_id}`**（解析单点，与 worker 那条路径同源）——而不是让
-console 去直读别人的表：那样 runtime 改一列，console 的取件会**静默**退化。
+**元信息从哪来**：`artifact` 行 → `AttachmentRef` 的映射（`kind` 归什么、文件名缺省怎么填、
+`is_deleted` 怎么算）**已经有一处权威定义**，在 runtime 侧，worker 的后台投递也走它。所以归属
+校验与元信息一律问 **runtime 的 `GET /internal/artifacts/{artifact_id}`**（解析单点），console
+不自己再抄一份——两处迟早分叉，而分叉的表现是**同一份产物在两条路径上被判成不同形态**：
+不报错，只是发出去的东西不对。
 解析端点对"不存在/跨租户"一律 404，正好是这里要的语义。
 """
 
