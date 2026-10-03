@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import uuid
 import zipfile
 from pathlib import Path
 from uuid import UUID
@@ -19,7 +20,12 @@ from muad_agent_runtime.application.attachments.archive_tools import (
     validate_member_path,
 )
 from muad_agent_runtime.application.attachments.output_service import OutputArtifactWriter, OutputScope
+from muad_agent_runtime.application.attachments.tool_results import (
+    TOOL_RESULT_ARTIFACT_BYTES,
+    ArtifactResultWriter,
+)
 from muad_agent_runtime.application.attachments.tools import AttachmentToolError, AttachmentToolSet
+from muad_agent_runtime.application.executor import ExecutorRunContext, ToolCallRecorder
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact
 from muad_console_platform.infrastructure.skill_validator import validated_package
@@ -208,3 +214,122 @@ def test_invisible_and_blank_path_segments_are_rejected(path: str) -> None:
         archive_files([{"path": path, "content": "x"}])
 
     assert exc.value.code == "ARCHIVE_PATH_INVALID"
+
+
+# ------------------------------------------------------- 编码口径与错误类型（2026-10-03 review）
+
+
+def test_utf8_capped_reassembles_multi_chunk_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    """分块编码不得改变结果。
+
+    按**字符**切块，切片永远落在码位边界上，所以多字节字符与代理对（非 BMP）都不会被切坏。
+    """
+    monkeypatch.setattr(archive_tools, "_ENCODE_CHUNK_CHARS", 2)
+
+    files = archive_files([{"path": "a", "content": "你好世界\U0001f389"}])
+
+    assert files[0].data == "你好世界\U0001f389".encode("utf-8")
+
+
+def test_oversized_content_is_not_fully_encoded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """超限内容必须**边编码边判**，不能先整段编码再拒。
+
+    按字符数预检挡不住 CJK：字符数没超、编码后却可能有 3–4× 的字节。旧实现会先物化整个
+    字节对象**再**被累计检查拒绝——纯放大，而这段编码跑在 `asyncio.to_thread` 的线程里，
+    照样吃 worker 的内存。
+    """
+    encoded = 0
+    real_utf8 = archive_tools._utf8
+
+    def counting_utf8(value: str) -> bytes:
+        nonlocal encoded
+        encoded += len(value)
+        return real_utf8(value)
+
+    monkeypatch.setattr(archive_tools, "_utf8", counting_utf8)
+    monkeypatch.setattr(archive_tools, "_ENCODE_CHUNK_CHARS", 10)
+    monkeypatch.setattr(archive_tools, "ARCHIVE_BYTES_LIMIT", 300)
+
+    # 字符 200（逃过快路径）但字节 600（远超上限）
+    with pytest.raises(ArchiveToolError) as error:
+        archive_files([{"path": "a", "content": "文" * 200}])
+
+    assert error.value.code == "ARCHIVE_TOO_LARGE"
+    assert 0 < encoded < 200, "必须真的编码了，但要在把整段编码完之前就停下"
+
+
+async def test_archive_storage_failure_surfaces_the_archive_error(tmp_path: Path) -> None:
+    """存储失败必须翻成 `ArchiveToolError` —— 与 `attachments.tools.write_artifact` **同口径**。
+
+    直接放 `OutputArtifactError` 逸出的话，调用方拿到的是一个既不属于本工具、也没带本工具
+    错误码的异常类型（`ARTIFACT_WRITE_FAILED` 这类码就丢了）。这里用**真实**存储失败触发：
+    artifact 根被一个普通文件占住。
+    """
+    blocked_root = tmp_path / "not-a-directory"
+    blocked_root.write_text("occupied", encoding="utf-8")
+    writer = OutputArtifactWriter(
+        artifact_root=blocked_root,
+        session_factory=get_session_factory,
+        scope=OutputScope("tenant", uuid.uuid4(), uuid.uuid4()),
+    )
+
+    with pytest.raises(ArchiveToolError) as error:
+        await ArchiveToolSet(writer).create_archive(
+            {"filename": "greeting.zip", "files": FILES}, call_id="archive"
+        )
+
+    assert error.value.code == "ARTIFACT_WRITE_FAILED"
+    assert blocked_root.read_text(encoding="utf-8") == "occupied"
+
+
+async def test_receipt_is_not_externalized_by_the_tool_result_wrapper(
+    tenant: TenantContext, tmp_path: Path
+) -> None:
+    """回执**恰好不被外置**：模型看到的必须是完整回执，而不是 `{"artifact": {...}}` 预览。
+
+    这条保证只有在**经过 executor 包装**之后才成立或可证伪 —— 直接调 handler 的用例绕过了
+    `ToolCallRecorder` 的外置判定，于是"回执裁剪到外置阈值以下"与"外置阈值"同源这件事
+    （提交 `720bffaf` ⑥）在测试里一直是断的。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    writer = OutputArtifactWriter(
+        artifact_root=tmp_path / "artifacts",
+        session_factory=get_session_factory,
+        scope=OutputScope(tenant.tenant_id, run_id, conversation_id),
+    )
+    registry = ToolRegistry()
+    ArchiveToolSet(writer).register(registry)
+    definition = registry.get(CREATE_ARCHIVE_TOOL)
+    handler = definition.handler
+    assert handler is not None
+
+    # JSON 会把引号转义成两个字符 ⇒ 三个预览就足以越过外置阈值，逼出回执裁剪
+    files = [{"path": str(index) + '"' * 1000, "content": ""} for index in range(20)]
+    arguments = {"filename": '"' * 1000 + ".zip", "files": files}
+
+    tool_results_root = tmp_path / "tool-results"
+    recorder = ToolCallRecorder(
+        context=ExecutorRunContext(
+            tenant_id=tenant.tenant_id,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            user_id=uuid.uuid4(),
+        ),
+        audit_writer=None,
+        artifact_writer=ArtifactResultWriter(tool_results_root),
+    )
+
+    content = await recorder(definition, arguments, handler=handler, call_id="archive")
+
+    receipt = json.loads(content)
+    # 前置条件：**没裁剪**的回执确实越过了外置阈值 —— 否则这条用例什么也没证明
+    untrimmed = {**receipt, "files": [item["path"] for item in files[:3]]}
+    assert len(json.dumps(untrimmed, ensure_ascii=False).encode("utf-8")) >= TOOL_RESULT_ARTIFACT_BYTES
+    assert len(receipt["files"]) < 3, "回执没有被裁剪过，说明前置条件已经不成立"
+
+    assert len(content.encode("utf-8")) < TOOL_RESULT_ARTIFACT_BYTES, (
+        "回执必须落在外置阈值之内，否则模型只会拿到预览"
+    )
+    assert "artifact" not in receipt, "回执被外置成了预览，模型看不到 artifact_id"
+    assert receipt["file_count"] == 20
+    assert not tool_results_root.exists(), "没有外置就不该落任何 tool result 文件"

@@ -27,6 +27,7 @@ from muad_contracts import (
     DeliveryRequest,
     DeliveryRouteInput,
 )
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.db import SessionFactoryProvider
 from ...infrastructure.gateway_delivery_client import (
@@ -570,43 +571,50 @@ class AttachmentToolSet:
 
         **每次追加换一个新 `storage_key`**（`RULE-skill-001`：artifact 不可变），artifact 行
         指向最新版本，历史版本键记进 `metadata_json`——**不改 schema**。
+
+        整段读-改-写**在一个事务里锁住那一行**（`SELECT … FOR UPDATE`）完成：正文合并、
+        `size`、`checksum`、`metadata_json` 全由旧值推出，不串行化的话后提交的会用旧快照
+        覆盖前一个 —— 用户拿到的是一份**少了一段**的文档，而且不报错（2026-10-03 review）。
         """
-        row = await self._load(arguments.get("artifact_id"))
-        if row.artifact_type != AGENT_OUTPUT_ARTIFACT_TYPE or row.run_id != self._run_id:
-            raise AttachmentToolError(
-                ATTACHMENT_TYPE_UNSUPPORTED,
-                f"{_filename(row)}：只能追加本次运行自己写出的产物",
-            )
-        content = arguments.get("content")
-        if not isinstance(content, str) or not content:
-            raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, "content 必填且为非空字符串")
-        data = content.encode("utf-8")
-
-        # 先算再写：超限**必须在落任何字节之前**拒绝，否则半截写入等于把用户的文档毁掉
-        existing = self._read_bytes(row)
-        merged = existing + data
-        if len(merged) > MAX_READ_BYTES:
-            raise AttachmentToolError(
-                ATTACHMENT_TOO_LARGE,
-                f"{_filename(row)}：追加后超过上限（{MAX_READ_BYTES} 字节），已有内容未改动",
-            )
-
-        metadata = dict(row.metadata_json or {})
-        versions = [str(key) for key in (metadata.get("versions") or [])]
-        versions.append(row.storage_key)
-        version = len(versions) + 1
-        storage_key = _version_key(row.run_id, row.id, version)
-        self._store().write(storage_key, merged)
-
-        metadata["versions"] = versions
-        metadata["version"] = version
-        row.storage_key = storage_key
-        row.size = len(merged)
-        row.checksum = "sha256:" + hashlib.sha256(merged).hexdigest()
-        row.metadata_json = metadata
         async with self._session_factory()() as session:
-            await session.merge(row)  # 行已存在 ⇒ merge（merge 是同步的，只 commit 要 await）
+            row = await self._load_for_update(session, arguments.get("artifact_id"))
+            if row.artifact_type != AGENT_OUTPUT_ARTIFACT_TYPE or row.run_id != self._run_id:
+                raise AttachmentToolError(
+                    ATTACHMENT_TYPE_UNSUPPORTED,
+                    f"{_filename(row)}：只能追加本次运行自己写出的产物",
+                )
+            content = arguments.get("content")
+            if not isinstance(content, str) or not content:
+                raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, "content 必填且为非空字符串")
+            data = content.encode("utf-8")
+
+            # 先算再写：超限**必须在落任何字节之前**拒绝，否则半截写入等于把用户的文档毁掉
+            existing = self._read_bytes(row)
+            merged = existing + data
+            if len(merged) > MAX_READ_BYTES:
+                raise AttachmentToolError(
+                    ATTACHMENT_TOO_LARGE,
+                    f"{_filename(row)}：追加后超过上限（{MAX_READ_BYTES} 字节），已有内容未改动",
+                )
+
+            metadata = dict(row.metadata_json or {})
+            versions = [str(key) for key in (metadata.get("versions") or [])]
+            versions.append(row.storage_key)
+            # 版本号只作**历史留痕**（给人看），不参与 storage_key：`len(versions) + 1` 是读-改-写，
+            # 一旦有别的写入方不走这把行锁，它就还会撞出同一个键。键用不依赖旧值的 uuid 后缀
+            # （2026-10-03 review）。
+            version = len(versions) + 1
+            storage_key = _version_key(row.run_id, row.id, uuid.uuid4().hex)
+            self._store().write(storage_key, merged)
+
+            metadata["versions"] = versions
+            metadata["version"] = version
+            row.storage_key = storage_key
+            row.size = len(merged)
+            row.checksum = "sha256:" + hashlib.sha256(merged).hexdigest()
+            row.metadata_json = metadata
             await session.commit()
+
         self._text_cache.pop(row.id, None)  # 抽取缓存必须作废，否则读回的是上一版全文
         return f"已追加到产物（附件 ID {row.id}）：{_filename(row)}，当前 {len(merged)} 字符"
 
@@ -718,6 +726,24 @@ class AttachmentToolSet:
             raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "附件不存在或不可访问") from exc
         async with self._session_factory()() as session:
             row = await session.get(Artifact, parsed)
+        if row is None or row.is_deleted or row.tenant_id != self._tenant_id:
+            raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "附件不存在或不可访问")
+        return row
+
+    async def _load_for_update(self, session: AsyncSession, artifact_id: object) -> Artifact:
+        """`_load` 的**加锁**版本：读-改-写路径必须持有这一行的锁直到提交。
+
+        租户/软删的判定与 `_load` 完全一致，唯一的差别是 `SELECT … FOR UPDATE`。追加写的
+        `storage_key`、`size`、`checksum`、`metadata_json` 全由旧值推出，没有这把锁时两个并发
+        追加会各自读到同一份旧值，后提交的把前一个覆盖掉（2026-10-03 review）。
+        """
+        try:
+            parsed = uuid.UUID(str(artifact_id))
+        except (ValueError, TypeError) as exc:
+            raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "附件不存在或不可访问") from exc
+        row = (
+            await session.execute(sa.select(Artifact).where(Artifact.id == parsed).with_for_update())
+        ).scalar_one_or_none()
         if row is None or row.is_deleted or row.tenant_id != self._tenant_id:
             raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "附件不存在或不可访问")
         return row

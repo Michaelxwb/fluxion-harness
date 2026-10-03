@@ -167,6 +167,23 @@ def test_invalid_script_manifest_is_rejected(tmp_path: Path, manifest: str) -> N
         SkillPackage.load(root)
 
 
+def test_entrypoint_with_nul_byte_is_a_package_error(tmp_path: Path) -> None:
+    """含 NUL 的 entrypoint 必须给出 `SkillPackageError`，而不是让 `ValueError` 逸出。
+
+    NUL 不被既有的任何一条检查拦住（不是绝对路径、没有 `..`、没有反斜杠、扩展名合法），
+    却会让 `(root / path).resolve()` 抛 `ValueError: lstat: embedded null character in path`。
+    那不是包错误，于是它**以未捕获异常穿过 SDK 边界**：runtime 侧被兜底成
+    `COMMON_INTERNAL_ERROR`，Console 导入侧直接 500 —— 两侧都拿不到真实的错误码。
+    """
+    root = _write(tmp_path, "name: greeting\ndescription: greeting")
+    (root / "scripts").mkdir()
+    (root / "scripts/run.mjs").write_text("", encoding="utf-8")
+    (root / "muad.skill.json").write_text(json.dumps({"entrypoint": "scripts/run\x00.mjs"}))
+
+    with pytest.raises(SkillPackageError):
+        SkillPackage.load(root)
+
+
 def test_declared_entrypoint_missing_falls_back_instead_of_killing_the_package(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:

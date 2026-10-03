@@ -31,7 +31,8 @@ class OutputScope:
     conversation_id: uuid.UUID | None
 
 
-def output_version_key(run_id: uuid.UUID | None, artifact_id: uuid.UUID, version: int) -> str:
+def output_version_key(run_id: uuid.UUID | None, artifact_id: uuid.UUID, version: int | str) -> str:
+    """产物的不可变存储键。`version` 允许是**不透明后缀**（追加写用 uuid），不一定是序号。"""
     return f"outbound/{run_id}/{artifact_id}/v{version}"
 
 

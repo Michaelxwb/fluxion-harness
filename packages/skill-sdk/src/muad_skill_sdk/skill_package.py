@@ -133,6 +133,12 @@ def declared_entrypoint(root: Path) -> Path | None:
     entrypoint = data["entrypoint"]
     if not isinstance(entrypoint, str) or not entrypoint.strip():
         raise SkillPackageError("entrypoint must be a non-empty relative path")
+    if "\x00" in entrypoint:
+        # NUL 通不过下面任何一条检查，却会让 `(root / path).resolve()` 抛 **ValueError**
+        # （`lstat: embedded null character in path`）。那不是 `SkillPackageError`，于是它
+        # 以未捕获异常逸出：runtime 侧被兜底成 `COMMON_INTERNAL_ERROR`，Console 导入侧直接
+        # 逸出成 500。错误码必须由这里给出（2026-10-03 review）。
+        raise SkillPackageError("entrypoint must not contain null bytes")
     path = Path(entrypoint)
     if path.is_absolute() or ".." in path.parts or "\\" in entrypoint or re.match(r"^[A-Za-z]:", entrypoint):
         raise SkillPackageError("entrypoint escapes the skill package")

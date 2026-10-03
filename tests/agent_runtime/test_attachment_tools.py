@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import re
@@ -731,6 +732,79 @@ async def test_b03_append_versions_the_key_and_never_breaks_existing_content(
     assert too_big.value.code == ATTACHMENT_TOO_LARGE
     assert store.resolve(second_key).read_bytes() == before, "拒绝不得破坏已有内容"
     assert await _row_key(artifact_id) == second_key, "拒绝不得改动 DB 行"
+
+
+async def test_concurrent_appends_do_not_collide_on_the_storage_key(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """追加的 `storage_key` **不由读-改-写的计数器推导**。
+
+    旧实现用 `len(versions) + 1` 推版本号：两个任务读到同一份行（版本 1、versions 为空）就都
+    算出 `v2`，第二次写撞上不可变 Artifact 抛 `FileExistsError`（`RULE-skill-001` 的不可变语义
+    在这里反过来把并发写变成了报错）。
+
+    行锁（`_load_for_update`）已经是并发正确性的**主**修复；这条钉的是键推导本身——只要还有
+    别的写入方不走那把锁，计数器就会重新变成碰撞源。真并发难以稳定复现，所以这里**确定性地
+    重建那个中间态**：先追加一次（写下那一刻的键），再把行改回"另一个任务刚读到时"的样子，
+    然后追加第二次。计数器实现会在第二次撞上第一次写下的 `v2`；uuid 键不会。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_set = _writer_tool_set(tenant, artifact_root, run_id, conversation_id)
+    store = NfsArtifactStore(artifact_root)
+
+    written = await _call(
+        tool_set, WRITE_ARTIFACT_TOOL, {"content": "第一段\n", "filename": "长文.md"}
+    )
+    artifact_id = _artifact_id_of(written)
+    original_key = await _row_key(artifact_id)
+
+    await _call(tool_set, APPEND_ARTIFACT_TOOL, {"artifact_id": artifact_id, "content": "第二段\n"})
+    first_append_key = await _row_key(artifact_id)
+    assert first_append_key != original_key
+
+    # 回到"另一个任务读到的快照"：行仍是原始版本，versions 还没记过任何历史
+    async with get_session_factory()() as session:
+        row = await session.get(Artifact, uuid.UUID(artifact_id))
+        assert row is not None
+        row.storage_key = original_key
+        row.metadata_json = {**row.metadata_json, "version": 1, "versions": []}
+        await session.commit()
+
+    await _call(tool_set, APPEND_ARTIFACT_TOOL, {"artifact_id": artifact_id, "content": "第三段\n"})
+    second_append_key = await _row_key(artifact_id)
+
+    assert second_append_key != first_append_key, "键不得由旧值推导，否则并发下必然撞车"
+    assert store.resolve(first_append_key).read_bytes() == "第一段\n第二段\n".encode(), (
+        "被对手抢先的那一版仍须原样留在盘上"
+    )
+
+
+async def test_concurrent_appends_all_land(tenant: TenantContext, artifact_root) -> None:
+    """并发追加**不得互相覆盖** —— 整段读-改-写必须在行锁下串行化。
+
+    正文合并、`size`、`checksum`、`metadata_json` 全由旧值推出：没有锁时两个追加各自读到同一
+    份旧值，后提交的用旧快照盖掉前一个 —— 用户拿到的是一份**少了一段**的文档，而且不报错。
+    断言的是"每一段都还在"，不是"没抛异常"。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_set = _writer_tool_set(tenant, artifact_root, run_id, conversation_id)
+
+    written = await _call(
+        tool_set, WRITE_ARTIFACT_TOOL, {"content": "第 0 段\n", "filename": "长文.md"}
+    )
+    artifact_id = _artifact_id_of(written)
+
+    segments = [f"第 {index} 段\n" for index in range(1, 4)]
+    await asyncio.gather(
+        *(
+            _call(tool_set, APPEND_ARTIFACT_TOOL, {"artifact_id": artifact_id, "content": segment})
+            for segment in segments
+        )
+    )
+
+    read_back = await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": artifact_id})
+    for expected in ["第 0 段", *(segment.strip() for segment in segments)]:
+        assert expected in read_back, f"{expected} 被并发追加覆盖掉了"
 
 
 async def test_append_rejects_artifacts_this_run_did_not_produce(

@@ -14,13 +14,15 @@ from typing import Any
 
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 
-from .output_service import MAX_OUTPUT_BYTES, OutputArtifactWriter
+from .output_service import MAX_OUTPUT_BYTES, OutputArtifactError, OutputArtifactWriter
 from .tool_results import TOOL_RESULT_ARTIFACT_BYTES
 
 CREATE_ARCHIVE_TOOL = "create_archive"
 MAX_ARCHIVE_FILES = 2000
 MAX_ARCHIVE_PATH_BYTES = 1024
 ARCHIVE_BYTES_LIMIT = MAX_OUTPUT_BYTES
+#: `_utf8_capped` 的分块大小（按**字符**计）
+_ENCODE_CHUNK_CHARS = 64 * 1024
 
 
 class ArchiveToolError(RuntimeError):
@@ -41,6 +43,27 @@ def _utf8(value: str) -> bytes:
         return value.encode("utf-8")
     except UnicodeEncodeError as exc:
         raise ArchiveToolError("ARCHIVE_CONTENT_INVALID", "文件内容和路径必须是有效 UTF-8 文本") from exc
+
+
+def _utf8_capped(content: str, limit: int) -> bytes:
+    """编码为 UTF-8，**一旦超过 limit 就失败**，不物化整个字节对象。
+
+    只按字符数预检是不够的：CJK / 非 BMP 文本编码后可达字符数的 3–4×，一段接近上限的
+    50 MiB 字符会先被编码成 ~200 MiB 的字节对象**再**被拒——纯放大，而且这段编码跑在
+    `asyncio.to_thread` 的线程里，照样吃 worker 的内存。分块编码（按**字符**切，切片永远
+    落在码位边界）把峰值压到 `limit` + 一个块（2026-10-03 review）。
+    """
+    if len(content) > limit:  # 快路径：字节数恒 ≥ 字符数，字符数已超则必然超
+        raise ArchiveToolError("ARCHIVE_TOO_LARGE", "单个文件超过 ZIP 打包上限")
+    chunks: list[bytes] = []
+    size = 0
+    for start in range(0, len(content), _ENCODE_CHUNK_CHARS):
+        chunk = _utf8(content[start : start + _ENCODE_CHUNK_CHARS])
+        size += len(chunk)
+        if size > limit:
+            raise ArchiveToolError("ARCHIVE_TOO_LARGE", "单个文件超过 ZIP 打包上限")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def validate_member_path(value: object) -> str:
@@ -103,9 +126,9 @@ def archive_files(value: object) -> tuple[ArchiveFile, ...]:
         content = item["content"]
         if not isinstance(content, str):
             raise ArchiveToolError("ARCHIVE_CONTENT_INVALID", "content 必须是文本字符串")
-        if len(content) > ARCHIVE_BYTES_LIMIT:
-            raise ArchiveToolError("ARCHIVE_TOO_LARGE", "文件总大小超过 ZIP 打包上限")
-        data = _utf8(content)
+        # 单项按**编码后的字节数**判，再累加；按字符数判会让 CJK 串带着 3–4× 的字节对象
+        # 走到这里才被拒（见 `_utf8_capped`）
+        data = _utf8_capped(content, ARCHIVE_BYTES_LIMIT)
         total += len(data)
         if total > ARCHIVE_BYTES_LIMIT:
             raise ArchiveToolError("ARCHIVE_TOO_LARGE", "文件总大小超过 ZIP 打包上限")
@@ -180,7 +203,15 @@ class ArchiveToolSet:
         # 而输入可达 50 MiB。只把 `build_archive` 挪进线程，等于把最贵的编码与校验留在循环上
         # （2026-10-03 review）。
         files, data = await asyncio.to_thread(_prepare_archive, arguments["files"])
-        row = await self._writer.save(data, filename=filename, media_type="application/zip", kind="OTHER")
+        try:
+            row = await self._writer.save(
+                data, filename=filename, media_type="application/zip", kind="OTHER"
+            )
+        except OutputArtifactError as exc:
+            # 与 `attachments.tools.write_artifact` **同口径**：存储/大小失败一律翻成工具自己的
+            # 错误类型。直接放 `OutputArtifactError` 出去会让调用方拿到一个既不是本工具、也没
+            # 走本工具错误码的错误（2026-10-03 review）。
+            raise ArchiveToolError(exc.code, exc.message) from exc
         preview = [item.path for item in files[:3]]
         result = {
             "artifact_id": str(row.id),

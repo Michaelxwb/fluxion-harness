@@ -5,6 +5,7 @@ import contextlib
 import json
 import os
 import shutil
+import signal
 import sys
 import time
 from collections.abc import Mapping
@@ -91,6 +92,8 @@ class ScriptSkillExecutor:
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                # 自成会话/进程组，超时与取消才能**连孙进程一起**回收（见 `_terminate`）
+                start_new_session=True,
             )
         except OSError as exc:
             raise SkillExecutionError("failed to start skill interpreter") from exc
@@ -134,7 +137,7 @@ async def _collect(
         cancelled = cancel_waiter is not None and cancel_waiter in done and communicate not in done
         if timed_out or cancelled:
             await _terminate(process, communicate)
-        stdout_bytes, stderr_bytes = await communicate
+        stdout_bytes, stderr_bytes = await _drain_output(communicate)
     finally:
         if cancel_waiter is not None:
             cancel_waiter.cancel()
@@ -149,14 +152,54 @@ async def _collect(
     return SkillExecutionStatus.SUCCEEDED, stdout_bytes, stderr_bytes
 
 
+async def _drain_output(communicate: asyncio.Future[tuple[bytes, bytes]]) -> tuple[bytes, bytes]:
+    """取回子进程输出，**有界等待**。
+
+    正常路径上 `communicate` 早就完成了，这个等待是零成本的；只有终止之后仍等不到 EOF
+    （管道还被谁抓着）时才会超时。那时宁可丢掉输出，也不能把 worker 无限期钉在这儿
+    —— `_terminate` 负责把整组杀掉，这里负责"即使杀不掉也不挂死"（2026-10-03 review）。
+    """
+    try:
+        return await asyncio.wait_for(communicate, TERMINATE_GRACE_SEC)
+    except TimeoutError:
+        return b"", b""
+
+
+def _signal_group(process: asyncio.subprocess.Process, sig: int) -> None:
+    """把信号发给子进程**所在的整个进程组**，而不只是它自己。
+
+    Skill 脚本自己 spawn 的孙进程不挂在 `process.pid` 上：只 `terminate()/kill()` 直接子进程
+    会把它们留成孤儿继续跑（占端口、写文件、抓着 stdout 管道）。Python 与 Node 同理 —— 这
+    不是 JS 独有的问题。
+
+    组 id 直接用 `process.pid`：子进程以 `start_new_session=True` 启动，`setsid()` 之后它
+    既是会话首进程也是组长，组 id 就等于自己的 pid。**不调 `os.getpgid(pid)`** 是有意的：
+    子进程被回收之后 `getpgid` 就查不到了，而"孙进程还抓着管道"恰恰发生在它已退出之后 ——
+    那时唯一还有效的线索就是组 id 本身（组里只要还有活着的成员，组 id 就不会被回收）。
+
+    安全性同理：组非空时这个 id **不可能**属于别的进程组；组真的空了 `killpg` 会以
+    `ProcessLookupError` 失败，落进下面的兜底（2026-10-03 review）。
+    """
+    try:
+        os.killpg(process.pid, sig)
+    except OSError:
+        # 组已消失或权限不足：退回只发给直接子进程，不吞掉这次终止
+        with contextlib.suppress(OSError):
+            process.send_signal(sig)
+
+
 async def _terminate(process: asyncio.subprocess.Process, communicate: asyncio.Future[Any]) -> None:
-    if process.returncode is not None:
-        return
-    process.terminate()
+    """超时/取消时回收**整棵进程树**。
+
+    这里**不按 `process.returncode` 早返回**：子进程自己先退出、而它 spawn 的孙进程还抓着
+    stdout 管道，是真实存在的形状。早返回会同时造成两个后果 —— 孙进程不被回收，且后面的
+    `await communicate()` 永远等不到 EOF，**worker 挂死**（2026-10-03 review）。
+    """
+    _signal_group(process, signal.SIGTERM)
     try:
         await asyncio.wait_for(asyncio.shield(communicate), TERMINATE_GRACE_SEC)
     except TimeoutError:
-        process.kill()
+        _signal_group(process, signal.SIGKILL)
 
 
 def select_script(ready_dir: Path, script: Path | None) -> Path:
@@ -216,6 +259,15 @@ def decode_capped(data: bytes) -> str:
 
 
 def parse_result(stdout: str) -> Mapping[str, Any] | None:
+    """从**末尾往前**找第一个可解析为 JSON 对象的非空行。
+
+    结果行**不必是最后一行**：脚本常会在结果之后再打印一行日志。旧实现只看最后一行、
+    解析失败就 `return None`，而 `interpret_execution` 在 `result is None` 时会把**整坨
+    stdout**（含那行日志）当成 `{"text": ...}` 交给模型——结构化结果被日志吞掉，且失败
+    语义从"空结果"悄悄变成"一坨日志文本"（2026-10-03 review）。
+
+    跳过非 JSON 行**不会**放宽成功路径：旧行为能解析出的最后一行，新行为第一个就命中它。
+    """
     for line in reversed(stdout.splitlines()):
         stripped = line.strip()
         if not stripped:
@@ -223,6 +275,7 @@ def parse_result(stdout: str) -> Mapping[str, Any] | None:
         try:
             payload = json.loads(stripped)
         except ValueError:
-            return None
-        return payload if isinstance(payload, dict) else None
+            continue
+        if isinstance(payload, dict):
+            return payload
     return None
