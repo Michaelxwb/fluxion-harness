@@ -228,3 +228,47 @@ async def test_audit_write_failure_does_not_undo_a_completed_delivery() -> None:
     assert response.status_code == 200, response.text
     assert response.json()["data"]["outcome"] == ARTIFACT_DELIVERED
     assert len(adapter.received) == 1, "交付本身真的发生了"
+
+
+# --------------------------------------------------------------------- E-06 收口
+
+
+async def test_e06_failed_delivery_then_retry_succeeds_and_the_user_gets_it_once() -> None:
+    """E-06 主链：**首次失败 → 显式报失败 + 审计 FAILED → 同幂等键重试 → 用户恰好收到一次**。
+
+    真实边界：真实 HTTP（网关交付端点）+ **渠道侧失败注入**（同一个假适配器先抛后成）。
+    审计那条线的「同一行」由 partial unique `(tenant_id, artifact_id, route_key)` 在
+    console 侧承载——**那半条在 E-04 里打真实 PG 验过**（`tests/console_channel/
+    test_artifact_delivery_audit.py`），这里断言的是**网关确实对同一个目标发了两次审计**
+    （两次的 `artifact_id` + `route_key` 完全相同 ⇒ 落到同一行的前提成立），且第二次是 DELIVERED。
+    """
+    artifact_id = uuid.uuid4()
+    body = _body(artifact_id)
+    dedupe = InMemoryDedupeStore()
+
+    # ① 渠道侧失败：显式失败 + 审计 FAILED
+    console = FakeConsoleClient()
+    async with _client(_FailingArtifactAdapter(), dedupe, console) as client:
+        first = await client.post(DELIVERIES_URL, json=body)
+    assert first.status_code == 502, first.text
+    assert first.json()["code"] == "ARTIFACT_DELIVERY_FAILED"
+    (failed_audit, tenant_id) = console.delivery_audit_calls[0]
+    assert failed_audit.outcome == "FAILED"
+    assert failed_audit.artifact_id == artifact_id
+    assert len(console.delivery_audit_calls) == 1, "失败恰好一条审计"
+
+    # ② 同一 delivery_key 重试：换成能发出去的适配器 ⇒ 成功 + 审计 DELIVERED
+    retry_console = FakeConsoleClient()
+    adapter = _ArtifactAdapter(ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED))
+    async with _client(adapter, dedupe, retry_console) as client:
+        second = await client.post(DELIVERIES_URL, json=body)
+    assert second.status_code == 200, second.text
+    assert second.json()["data"]["outcome"] == ARTIFACT_DELIVERED
+    (ok_audit, _tenant) = retry_console.delivery_audit_calls[0]
+    assert ok_audit.outcome == "DELIVERED"
+    assert ok_audit.artifact_id == failed_audit.artifact_id, "必须是同一个目标"
+    assert ok_audit.route_key == failed_audit.route_key, "路由也必须相同，否则会落成两行"
+    assert tenant_id == _tenant
+
+    # ③ 用户恰好收到一次：失败那次**没有**发出去，重试发了且只发了一次
+    assert len(adapter.received) == 1
