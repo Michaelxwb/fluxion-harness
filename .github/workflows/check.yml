@@ -37,7 +37,15 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v4
+      # **必须钉 Python 版本**：不钉的话 uv 会在 runner 上挑系统自带的 3.12、在开发机上挑
+      # uv 装的 3.13 —— CI 与本地静默跑在不同解释器上，是"本地绿、CI 红"最难查的一类来源
+      # （2026-10-03 实测：三次 CI 各挂一个不同的验收用例，而本地同批 1888 条全过）。
+      # 口径以镜像为准：四个 Dockerfile 都用 `uv:python3.12-bookworm-slim`，所以钉 3.12，
+      # 把开发机拉回与 CI / 生产一致，而不是反过来改 CI。仓库根的 `.python-version` 是同一口径的本地落地。
+      # 同一个 job 里 node 一直是显式钉的（`node-version: 20`），Python 漏了，这是补齐。
       - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
       - run: uv sync --extra dev
       # 迁移配置「各环境各一份」：本 job 用自己 service 的 DSN 现场生成 CI 专用 ini，
       # 仓库里的 migrations/alembic.ini 是 **dev 的**配置，两者互不影响（迁移只认 ini，不读环境变量）。
@@ -102,7 +110,15 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v4
+      # **必须钉 Python 版本**：不钉的话 uv 会在 runner 上挑系统自带的 3.12、在开发机上挑
+      # uv 装的 3.13 —— CI 与本地静默跑在不同解释器上，是"本地绿、CI 红"最难查的一类来源
+      # （2026-10-03 实测：三次 CI 各挂一个不同的验收用例，而本地同批 1888 条全过）。
+      # 口径以镜像为准：四个 Dockerfile 都用 `uv:python3.12-bookworm-slim`，所以钉 3.12，
+      # 把开发机拉回与 CI / 生产一致，而不是反过来改 CI。仓库根的 `.python-version` 是同一口径的本地落地。
+      # 同一个 job 里 node 一直是显式钉的（`node-version: 20`），Python 漏了，这是补齐。
       - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
       - uses: actions/setup-node@v4
         with:
           node-version: 20
