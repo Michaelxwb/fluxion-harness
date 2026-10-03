@@ -756,6 +756,24 @@ $ ls .data/artifacts/cli-smoke/    # 空 —— 盘上那份字节确实没了
 - **Spec-Refs**: harness-test#RULE-test-001
 - **Acceptance-Refs**: S-03, S-06, S-07, S-10
 
+> **接手说明（本任务尚未动工，2026-10-03 起过又退回 draft）**
+>
+> 前面 9 个任务已全部 Done Gate pass 并提交，**这一个没有开始写任何代码**。
+>
+> **为什么停在这里**：它是本需求唯一需要「在真实五进程栈上迭代调试四个 E2E 场景」的任务——每个循环都要起栈、观测渠道帧与审计行；叠加「整包验收 + 前端 build + Playwright」的 verifier。在这种任务上**绿得不对**的风险最高，而它自己的 Description 警告的恰恰就是这个失败模式（"四个前置任务各自都绿，而端到端才照得出来"）。宁可不做，也不留一条看起来绿、其实没照到东西的 E2E。
+>
+> **接手时已有的地形**（已勘明，省掉重复探查）：
+>
+> - `tests/acceptance/attachment_round_trip/conftest.py` 已有 **module 级 `gateway_stack`**（真 console / runtime / runtime2 / worker / gateway 五进程）+ `media_server`（真 AES-256-CBC 密文源）；
+> - `tests/e2e/openai_probe_app.py` 提供 **`POST /script`**（`tool_name` / `tool_arguments` / `final_text`）与 **`GET /requests`**（回读模型请求体），且 `tool_arguments` 支持 **`$last_artifact_id`** 占位——从模型**实际看到的**上下文里倒着取最近一条附件 ID。**S-03 与 S-06 就靠这两件**；
+> - **脚本一次只支持一个工具**：需要两个工具串联（如「写 → 交付」）时，用**同一会话的两次 Run**、每次 Run 前重设脚本，不要去赌中途改脚本的时序；
+> - `tests/acceptance/im_gateway/test_worker_delivery.py`（259 行）是 **S-07 的现成模板**：真 Worker 进程 → `/internal/deliveries` → 真 WS 探针 → Redis 去重 + 审计回读；
+> - 入站文档白名单含 `text/plain` / `text/markdown`（`attachment_gate.ALLOWED_MEDIA_TYPES`），S-03 的长文档用其一；
+> - 本轮新建的两个端点，**分支 2（降级链接）从这里进**：`GET /api/v1/artifacts/{id}/content`（取件）、`POST /internal/artifacts/{id}/fetch-link`（签发）；
+> - 验收栈现在会给 console 传 `AGENT_RUNTIME_URL` / `CONSOLE_PLATFORM_URL`（本轮补的，之前从没被用到过）。
+>
+> **提醒**：E2E 命令要跑在**隔离库**上（`tests/acceptance/conftest.py` 自动建），跑前先查残留进程（输出接 `head` 会 SIGPIPE 留下孤儿进程，后续表现为随机失败）。
+
 ### Description
 
 本需求跨回调、工具、PG、共享存储、渠道帧五个边界，必须有一条**端到端**信号把它们连起来，而不是各任务自证——上一需求的经验：四个前置任务各自都绿，而"图片从未进过模型请求体"这个 P0 只有端到端才照得出来。本任务在真实栈上跑通三条主链：长文档读完再回答（S-03）、会话内交付（S-06）、后台任务交付（S-07）、交付幂等（S-10），并登记可复现命令。
@@ -787,3 +805,4 @@ $ ls .data/artifacts/cli-smoke/    # 空 —— 盘上那份字节确实没了
 
 ### Log
 - [2026-10-03] created (draft)
+- [2026-10-03] started
