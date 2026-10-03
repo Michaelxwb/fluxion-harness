@@ -7,8 +7,14 @@ import sys
 from collections.abc import Sequence
 
 from muad_api import AppError
+from muad_artifact_store import NfsArtifactStore
+from muad_common import SharedSettings
 from sqlalchemy import text
 
+from .application.artifact_cleanup_service import (
+    DEFAULT_CLEANUP_LIMIT,
+    ArtifactCleanupService,
+)
 from .application.auth_service import MIN_PASSWORD_LENGTH, AuthService
 from .infrastructure.db import dispose_engine, get_session_factory
 from .infrastructure.models.auth import ROLE_ADMIN, ROLE_BUILDER
@@ -41,6 +47,26 @@ def _build_parser() -> argparse.ArgumentParser:
         help="remove artifact files without a DB record (crash leftovers)",
     )
     cleanup_orphans.add_argument("--grace-seconds", type=float, default=3600.0)
+    cleanup_artifacts = subparsers.add_parser(
+        "cleanup-artifacts",
+        help="delete artifacts past their retention window (files + rows)",
+    )
+    # 宽限期按**文件 mtime** 算，保护正在进行的写入；保留期按行的 `create_time` 算。
+    # 两者不是一回事，见 `artifact_cleanup_service` 的模块说明。
+    cleanup_artifacts.add_argument("--grace-seconds", type=float, default=3600.0)
+    cleanup_artifacts.add_argument(
+        "--retention-days",
+        type=int,
+        default=None,
+        help="override ARTIFACT_RETENTION_DAYS for this run",
+    )
+    cleanup_artifacts.add_argument("--limit", type=int, default=DEFAULT_CLEANUP_LIMIT)
+    cleanup_artifacts.add_argument(
+        "--tenant", default=None, help="only clean this tenant (default: every tenant)"
+    )
+    cleanup_artifacts.add_argument(
+        "--dry-run", action="store_true", help="report what would be deleted, delete nothing"
+    )
     return parser
 
 
@@ -160,12 +186,37 @@ async def _cleanup_skill_orphans(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _cleanup_artifacts(args: argparse.Namespace) -> int:
+    settings = SharedSettings()
+    retention_days = (
+        args.retention_days if args.retention_days is not None else settings.artifact_retention_days
+    )
+    async with get_session_factory()() as session:
+        service = ArtifactCleanupService(
+            session,
+            NfsArtifactStore(settings.artifact_root),
+            retention_days=retention_days,
+            grace_seconds=args.grace_seconds,
+            limit=args.limit,
+            tenant_id=args.tenant,
+        )
+        report = await service.run(dry_run=args.dry_run)
+        await session.commit()
+    # 逐条 stdout：**这就是对账面**（设计 §3.5「清理可对账」），运维据此核对删了什么、跳过了什么。
+    for action in report.actions:
+        print(action.line())
+    print(report.summary())
+    return 0
+
+
 async def _run(args: argparse.Namespace) -> int:
     try:
         if args.command == "backfill-secrets":
             return await _backfill_secrets()
         if args.command == "cleanup-skill-orphans":
             return await _cleanup_skill_orphans(args)
+        if args.command == "cleanup-artifacts":
+            return await _cleanup_artifacts(args)
         return await _create_admin(args)
     finally:
         await dispose_engine()

@@ -24,6 +24,10 @@ class SharedSettings(BaseSettings):
     wecom_ws_ca_file: str | None = None
 
     artifact_root: str = "./.data/artifacts"
+    # 产物保留期（天）：`cleanup-artifacts` 按它算"多久以前的算过期"。做成配置项而不是写死在
+    # CLI 里，是因为这是**运维策略**（不同部署的盘与合规要求不同），而 CLI 的 `--retention-days`
+    # 只是本次覆盖。判定用的是既有的 `runtime.artifact.create_time`，不新增列。
+    artifact_retention_days: int = 30
     mcp_max_tools_per_server: int = 200
     skill_cache_root: str = "./.data/skill-cache"
     migrations_dir: str = "./migrations/versions"

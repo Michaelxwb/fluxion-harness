@@ -36,14 +36,14 @@
 | S-05 | design#2.5.2 | manual | 真实企微机器人（外部条件，无法在 CI 自动化） | TASK-001 | planned | - | . | 60 |  |
 | S-06 | design#2.5.2 | E2E | 真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | S-07 | design#2.5.2 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
-| S-08 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
+| S-08 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | verified | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
 | S-09 | design#2.5.2 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | TASK-008 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | . | 300 |  |
 | S-10 | design#2.5.2 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | E-01 | design#2.5.2 | integration | 真实文件系统 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | E-02 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 | TASK-004 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
 | E-03 | design#2.5.2 | integration | 真实 PG + 真实存储 + 鉴权层 | TASK-008 | verified | uv run pytest -q tests/console_channel/test_artifact_fetch.py | . | 120 |  |
 | E-04 | design#2.5.2 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | TASK-007 | verified | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | . | 120 |  |
-| E-05 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
+| E-05 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | verified | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
 | E-06 | design#2.5.2 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | TASK-006 | verified | uv run pytest -q tests/gateway/test_artifact_delivery.py | . | 120 |  |
 | B-01 | design#2.5.2 | unit | 分段纯函数 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | B-02 | design#2.5.2 | unit | 枚举分页 | TASK-003 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
@@ -673,7 +673,7 @@ tests/architecture + tests/gateway` 合计 **518 passed**；`uv run mypy apps/co
 
 ## TASK-009: 产物保留期与清理
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#3.4 接口设计`, `#3.3 数据设计`, `#3.5 质量实现方案`
@@ -686,27 +686,64 @@ tests/architecture + tests/gateway` 合计 **518 passed**；`uv run mypy apps/co
 
 ### Checklist
 
-- [ ] `python -m muad_console_platform.cli cleanup-artifacts`：`--grace-seconds`（默认 3600）、`--retention-days`（默认取配置）、`--dry-run`（只报告）、`--limit`
-- [ ] 保留期判定用既有 `runtime.artifact.create_time`（`timestamptz`）与配置项，**不新增列**
-- [ ] 删除保持可对账：文件与 DB 行同时消失，不留孤儿文件、不留悬空行；**宽限期内零删除**
-- [ ] 单次扫描 + `--limit` 批量删除（不做逐文件 stat 的 N+1）；结果经 CLI stdout 逐条输出便于运维核对
-- [ ] [S-08][integration] 真实边界：真实文件系统 + 真实 PG；断言三个产物（早于保留期 / 宽限期内 / 在用）中**只**清理过期项，文件与 DB 行同时消失，另两项原地不动
-- [ ] [E-05][integration] 真实边界：真实文件系统 + 真实 PG；断言宽限期内文件被跳过；有 DB 行但文件缺失按"孤儿"处理且不误删在用；结果可对账
-- [ ] 运行 verifier：`uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py`（`harness-log#RULE-log-001`）；记录输出
-- [ ] 运行 verifier：`uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity`（`harness-time#RULE-time-001`）；记录输出
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] `python -m muad_console_platform.cli cleanup-artifacts`：`--grace-seconds`（默认 3600）、`--retention-days`（默认取配置，新增 `ARTIFACT_RETENTION_DAYS=30`）、`--dry-run`（只报告）、`--limit`（默认 500）—— **另加 `--tenant`（登记为对设计清单的补充，见下）**；CLI 真机演练：dry-run 出清单 → 真跑删文件与行 → 再跑为空 → 盘上该文件确实没了
+- [x] 保留期判定用既有 `runtime.artifact.create_time`（`timestamptz`）与配置项，**不新增列** —— 判定拆成**两个不同的时间**：保留期取行的 `create_time`，宽限期取**文件的 `st_mtime`**（挡的是进行中的写入，口径同 `cleanup-skill-orphans`）。两者合并成一个会让"在宽限期内"与"在用"变成同一类，S-08 的三个产物就退化成两类
+- [x] 删除保持可对账：文件与 DB 行同时消失，不留孤儿文件、不留悬空行；**宽限期内零删除** —— 删除顺序刻意是**先文件后行**：中途崩了留的是**悬空行**（下一轮自愈），反过来留的是**孤儿文件**（行没了就再没记录指向那个 key，谁也认不出该不该删）
+- [x] 单次扫描 + `--limit` 批量删除（不做逐文件 stat 的 N+1）；结果经 CLI stdout 逐条输出便于运维核对 —— 扫描**一条 SQL** + 删行**一次批量 DELETE**；候选被 `--limit` 卡上界，全程没有"每个文件一次 DB 往返"。**偏离登记**：宽限期判定不可避免要对**候选**（≤ limit）stat 一次——那是 mtime 的来源，不是 N+1
+- [x] [S-08][integration] 真实边界：真实文件系统 + 真实 PG；断言三个产物（早于保留期 / 宽限期内 / 在用）中**只**清理过期项，文件与 DB 行同时消失，另两项原地不动
+- [x] [E-05][integration] 真实边界：真实文件系统 + 真实 PG；断言宽限期内文件被跳过；有 DB 行但文件缺失按"孤儿"处理且不误删在用；结果可对账
+- [x] 运行 verifier：`uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py`（`harness-log#RULE-log-001`）；记录输出 —— **11 passed**
+- [x] 运行 verifier：`uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity`（`harness-time#RULE-time-001`）；记录输出 —— **2 passed** / **35 passed（1849 deselected）**
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-08 | integration | 真实文件系统 + 真实 PG | 只清理过期项；文件与 DB 行同时消失；宽限期内与在用项原地不动 | tests/console_platform/test_artifact_cleanup.py | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | planned |
-| E-05 | integration | 真实文件系统 + 真实 PG | 宽限期内跳过；行缺失按孤儿处理且不误删在用；结果可对账 | tests/console_platform/test_artifact_cleanup.py | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | planned |
+| S-08 | integration | 真实文件系统 + 真实 PG | 只清理过期项；文件与 DB 行同时消失；宽限期内与在用项原地不动 | tests/console_platform/test_artifact_cleanup.py::test_s08_only_the_expired_artifact_is_removed + ::test_s08_dry_run_reports_without_deleting_anything + ::test_s08_limit_bounds_one_run_and_the_rest_is_picked_up_next_time | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | verified |
+| E-05 | integration | 真实文件系统 + 真实 PG | 宽限期内跳过；行缺失按孤儿处理且不误删在用；结果可对账 | tests/console_platform/test_artifact_cleanup.py::test_e05_dangling_row_is_cleaned_without_touching_the_disk + ::test_e05_result_is_reconcilable_line_by_line + ::test_e05_a_second_run_finds_nothing_left | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | verified |
+
+### 补充：`--tenant`（对设计 §3.4 CLI 签名的一处扩张，登记理由）
+
+设计给的参数是 `--grace-seconds / --retention-days / --dry-run / --limit`。实现时**多加了 `--tenant`**，理由是写这条用例时被逼出来的：
+
+`cleanup` 默认是**全库扫描**，而它是一条**破坏性**命令。S-08/E-05 是集成场景，跑在共享的开发库上——**没有租户谓词时，这条命令根本无法被安全地集成验收**：测试要么会删掉不属于本次用例的历史产物，要么就得造一个假 store 让所有别的行都被判成悬空行然后一起删掉（更糟）。
+
+所以 `--tenant` 不是可选的锦上添花，是这条命令**能被真实验收的前提**；对运维同样成立（按租户清、按租户对账）。代价是两段 SQL 而不是一段带 `(:tenant IS NULL OR ...)` 的——后者会让优化器放弃 `create_time` 上的索引有序扫描，而这个表的量级正是靠那条索引撑住的。
 
 ### Acceptance Evidence
 
+**执行（2026-10-03）**，登记命令 `uv run pytest -q tests/console_platform/test_artifact_cleanup.py` → **6 passed**。
+
+**RED（先写测试再实现）**：`git stash push -u` 暂存实现（服务 / 仓储 / CLI / 配置项）后跑 →
+`ModuleNotFoundError: No module named 'muad_console_platform.application.artifact_cleanup_service'`（预期失败）；
+`git stash pop` 复原后转 GREEN。
+
+**CLI 真机演练**（不是只跑单测——设计交付的是**命令**）：
+
+```
+$ ... cleanup-artifacts --tenant cli-smoke-<id> --dry-run
+REMOVED artifact_id=… tenant_id=cli-smoke-<id> key=cli-smoke/<id>.txt size=6
+cleanup-artifacts: scanned=1 removed=1 dangling=0 skipped=0 dry_run=true
+$ ... cleanup-artifacts --tenant cli-smoke-<id>
+REMOVED ... dry_run=false          # 文件与行同时消失
+$ ... cleanup-artifacts --tenant cli-smoke-<id>
+cleanup-artifacts: scanned=0 removed=0 dangling=0 skipped=0 dry_run=false
+$ ls .data/artifacts/cli-smoke/    # 空 —— 盘上那份字节确实没了
+```
+
+**两条 required verifier**（清单要求）：`harness-log` **11 passed**；`harness-time` `tests/frontend/test_datetime_contract.py` **2 passed** + `tests -k schema_parity` **35 passed（1849 deselected）**。
+
+**相邻回归**：`tests/console_platform + tests/console_channel + tests/test_settings.py` **198 passed**（新增配置项 `ARTIFACT_RETENTION_DAYS` 未破坏既有配置用例）；`ruff` / `mypy` 全绿。
+
+- S-08: verified — automated command passed; run_id=b47359ae84d84cb89ff6e49343a1aa73 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=b47359ae84d84cb89ff6e49343a1aa73 (confirmed_by: runner)
+
 ### Log
 - [2026-10-03] created (draft)
+- [2026-10-03] started
+- [2026-10-03] 清理服务 + 只读仓储 + CLI（含 `--tenant`）+ 配置项；S-08/E-05 6 passed；CLI 真机演练通过；两条 required verifier 全绿
+- [2026-10-03] completed (done)
 
 ---
 
