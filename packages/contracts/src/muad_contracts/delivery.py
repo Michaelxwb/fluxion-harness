@@ -79,6 +79,16 @@ class DeliveryResponse(ContractModel):
     delivered: bool
     # 命中成功键的重放为 True（200 且不重发）
     deduplicated: bool
+    #: 与 `deduplicated` **同值**（网关两个都发）。留两个名字是**兼容**：网关自始就发 `duplicate`，
+    #: 既有调用方与验收用例（`tests/gateway/test_delivery_api.py`、dfx / task_schedule 验收）
+    #: 断言的是它；`deduplicated` 是后来才进契约的那个。
+    #:
+    #: **2026-10-03 补**：这个字段此前**没进契约**，而 `ContractModel` 是 `extra="forbid"` ⇒
+    #: runtime 这条新调用方（TASK-006 的会话内交付）一 `model_validate` 就抛
+    #: `ValidationError: duplicate — Extra inputs are not permitted`，**把一次已经成功的投递
+    #: 报成了失败**（用户端表现为"文件发不出去、可重试"，而文件其实已经到了）。真机实测两次复现。
+    #: worker 那条路径读得松散（`response.json().get("data")`）所以一直没露。
+    duplicate: bool = False
     #: 交付结局：`DELIVERED` 直发成功 / `DEGRADED` 降级为签名取件链接（TASK-006）
     outcome: Literal["DELIVERED", "DEGRADED"] | None = None
     #: 仅降级时有值——用户实际收到的取件直链

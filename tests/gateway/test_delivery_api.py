@@ -15,7 +15,7 @@ import pytest
 import uvicorn
 from fakes import FakeConsoleClient
 from httpx import ASGITransport, AsyncClient
-from muad_contracts import BotSnapshotItem
+from muad_contracts import BotSnapshotItem, DeliveryResponse
 from muad_im_gateway.api.deps import get_console_client, get_dedupe_store, get_registry
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable, ChannelRegistry
 from muad_im_gateway.channels.fake import FakeChannelAdapter
@@ -814,3 +814,30 @@ async def test_b117_in_flight_duplicate_is_not_reported_as_success(
     finally:
         await redis_client.delete(key)
         await redis_client.aclose()
+
+
+async def test_delivery_response_parses_into_the_contract_model() -> None:
+    """**网关发出的响应必须能被契约解析**（`DeliveryResponse` 是调用方手里的模型）。
+
+    这条守卫是 2026-10-03 真机事故的直接产物：网关自始就发 `duplicate`，而 `DeliveryResponse`
+    **没声明它**，`ContractModel` 又是 `extra="forbid"` ⇒ runtime 那条**严格解析**的调用方
+    （TASK-006 的会话内交付）一 `model_validate` 就抛
+    `ValidationError: duplicate — Extra inputs are not permitted`，**把一次已经成功的投递报成了失败**
+    ——用户被告知"文件发不出去、可重试"，而文件其实已经到了。
+
+    worker 那条路径读得松散（`response.json().get("data")`）所以一直没露；验收里也只断言了
+    "用户收到帧"，没断言"工具结果说成功"。这条测试补的就是那个缺口：**两条路径（首投 + 重放）
+    的响应都必须无条件过契约**。日后谁再往响应里加字段而忘了改契约，这里会先红。
+    """
+    adapter = FakeChannelAdapter()
+    body = delivery_body()
+    async with api_client(_registry_with(adapter), InMemoryDedupeStore()) as client:
+        first = (await client.post("/internal/deliveries", json=body)).json()["data"]
+        replay = (await client.post("/internal/deliveries", json=body)).json()["data"]
+
+    for label, data in (("首投", first), ("重放", replay)):
+        parsed = DeliveryResponse.model_validate(data)  # 抛 ValidationError 即失败
+        assert parsed.accepted is True, label
+        assert parsed.delivered is True, label
+    assert DeliveryResponse.model_validate(first).deduplicated is False
+    assert DeliveryResponse.model_validate(replay).deduplicated is True

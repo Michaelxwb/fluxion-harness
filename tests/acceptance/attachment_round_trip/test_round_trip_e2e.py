@@ -367,6 +367,24 @@ async def test_s06_agent_writes_an_artifact_and_delivers_it_in_session(
     assert [row[1] for row in audit] == ["DELIVERED"], f"审计应恰好一行 DELIVERED：{audit!r}"
     assert audit[0][2], "route_key 由适配器产出，不得为空"
 
+    # ④ **工具结果必须说"已交付"** —— 这条是 2026-10-03 补的，因为原用例漏了它。
+    # 真机事故正是：用户**收到了帧**、审计也记了 `DELIVERED`，而工具结果却报"交付失败，可重试"
+    # （网关响应里有个 `duplicate` 字段没进契约，runtime 严格解析直接抛，把成功当失败）。
+    # 只断言"帧到了"抓不到这类错——必须同时断言**模型被告知的那句话**也是对的，
+    # 否则模型会对用户说"发不出去"，而用户手里已经有文件了。
+    tool_results = [
+        _message_text(message)
+        for body in await _requests(gateway_stack)
+        for message in (body.get("messages") or [])
+        if isinstance(message, dict) and message.get("role") == "tool"
+    ]
+    assert any("已交付产物" in text for text in tool_results), (
+        f"交付工具必须向模型报「已交付」，实际工具结果：{tool_results}"
+    )
+    assert not any("交付失败" in text for text in tool_results), (
+        f"文件已经送达，工具结果不得报失败（谎报失败同样违反 RULE-03）：{tool_results}"
+    )
+
     # ④ 审计指的那个产物真的落库了，且字节与模型写的一致
     rows = [
         row
