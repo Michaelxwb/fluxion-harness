@@ -50,6 +50,7 @@ from muad_platform_sdk.types import SecretValue
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 from ..infrastructure.db import get_session_factory
+from ..infrastructure.gateway_delivery_client import GatewayDeliveryClient
 from ..metrics import MODEL_INVOCATIONS_METRIC, TOOL_CALLS_METRIC, record_outcome
 from .artifacts import ArtifactResultWriter
 from .attachment_tools import AttachmentToolSet
@@ -605,6 +606,7 @@ def build_registry(
     mcp_adapter: McpRuntimeAdapter | None,
     artifact_writer: ArtifactResultWriter | None = None,
     task_client: WorkerTaskClient | None = None,
+    delivery_client: GatewayDeliveryClient | None = None,
 ) -> ToolRegistry:
     policy = AgentPolicy.from_runtime_config(request.agent.runtime_config)
     task_context = _task_submission_context(request)
@@ -631,8 +633,11 @@ def build_registry(
             tenant_id=request.run_context.tenant_id,
             run_id=request.run_context.run_id,
             conversation_id=request.run_context.conversation_id,
-            # 交付路由缺失时 `write_artifact` 会明确报错而不是静默成功（设计 FEAT-09 验收）
+            # TASK-005 起「写」不再依赖交付路由；`has_delivery_route` 只喂返回文案里的提示。
             has_delivery_route=request.run_context.delivery_route is not None,
+            # 交付动作才需要路由与客户端（TASK-006）：没有路由时 `deliver_artifact` 明确报错
+            delivery_route=request.run_context.delivery_route,
+            delivery_client=delivery_client,
         ).register(registry)
     if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:
         mcp_adapter.register_catalog(
@@ -675,6 +680,7 @@ async def default_executor_factory(
     skill_cache: SkillArtifactCache | None = None,
     artifact_writer: ArtifactResultWriter | None = None,
     task_client: WorkerTaskClient | None = None,
+    delivery_client: GatewayDeliveryClient | None = None,
 ) -> RunExecutor:
     provider: ModelProvider = OpenAICompatibleProvider(
         base_url=request.model.base_url,
@@ -687,6 +693,13 @@ async def default_executor_factory(
         provider = AuditedModelProvider(provider, audit_writer, model=request.model.model_id)
     mcp_adapter = McpRuntimeAdapter(audit_writer=audit_writer)
     settings = SharedSettings()
+    # 交付客户端：**只有本次 Run 有交付路由时才建**（没路由的 Run 谈不上交付）。
+    # 与 task_client 同一条 owned/close 规矩：谁造谁收，避免每次 Run 漏一个 httpx 连接池。
+    owned_delivery_client: GatewayDeliveryClient | None = None
+    if delivery_client is None and request.run_context is not None:
+        if request.run_context.delivery_route is not None:
+            owned_delivery_client = GatewayDeliveryClient(settings.im_gateway_url)
+            delivery_client = owned_delivery_client
     owned_task_client: WorkerTaskClient | None = None
     if task_client is None:
         owned_task_client = WorkerTaskClient(
@@ -700,6 +713,7 @@ async def default_executor_factory(
         mcp_adapter=mcp_adapter,
         artifact_writer=artifact_writer,
         task_client=task_client,
+        delivery_client=delivery_client,
     )
     runner = AgentRunner(provider=provider, registry=registry, hooks=HookPipeline())
 
@@ -708,6 +722,8 @@ async def default_executor_factory(
         await mcp_adapter.aclose()
         if owned_task_client is not None:
             await owned_task_client.aclose()
+        if owned_delivery_client is not None:
+            await owned_delivery_client.aclose()
 
     return AgentRunnerExecutor(runner=runner, request=request, close=close)
 

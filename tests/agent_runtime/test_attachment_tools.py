@@ -10,6 +10,7 @@ import base64
 import io
 import re
 import uuid
+from typing import Any
 
 import pytest
 from muad_agent_core.tools import ToolRegistry
@@ -21,6 +22,8 @@ from muad_agent_runtime.application.attachment_tools import (
     ATTACHMENT_OFFSET_INVALID,
     ATTACHMENT_SCOPE_INVALID,
     ATTACHMENT_TOO_LARGE,
+    ATTACHMENT_WRITE_UNAVAILABLE,
+    DELIVER_ARTIFACT_TOOL,
     LIST_ATTACHMENTS_TOOL,
     MAX_READ_BYTES,
     MAX_TEXT_CHARS,
@@ -35,8 +38,12 @@ from muad_agent_runtime.application.attachment_tools import (
     slice_text,
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
+from muad_agent_runtime.infrastructure.gateway_delivery_client import (
+    DeliveryUnavailableError,
+)
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, Conversation, RunRecord
 from muad_artifact_store import NfsArtifactStore
+from muad_contracts import DeliveryResponse, DeliveryRouteInput
 
 from .conftest import TenantContext
 
@@ -743,3 +750,130 @@ async def test_append_rejects_artifacts_this_run_did_not_produce(
             tool_set, APPEND_ARTIFACT_TOOL,
             {"artifact_id": str(inbound_id), "content": "追加"},
         )
+
+
+# ---------------------------------------------------------------------------
+# TASK-006：交付工具 deliver_artifact（三种结论如实回传）
+# ---------------------------------------------------------------------------
+
+
+class _FakeDeliveryClient:
+    """记录交付请求、按脚本应答。**不发真 HTTP** —— 网关侧的真实边界由 E-06 覆盖。"""
+
+    def __init__(self, response=None, error: Exception | None = None) -> None:
+        self.requests: list[Any] = []
+        self._response = response
+        self._error = error
+
+    async def deliver(self, request, *, trace_id: str = ""):  # type: ignore[no-untyped-def]
+        self.requests.append(request)
+        if self._error is not None:
+            raise self._error
+        return self._response
+
+
+_DELIVERY_ROUTE = DeliveryRouteInput(
+    channel="WECOM", bot_id="bot-1", external_user_id="ext-1"
+)
+
+
+async def _deliverable(tenant, artifact_root, *, client, route=_DELIVERY_ROUTE):
+    """造一个「本次 Run 写出的产物」+ 配好交付路由/客户端的工具集。"""
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_set = AttachmentToolSet(
+        session_factory=get_session_factory,
+        artifact_root=artifact_root,
+        tenant_id=tenant.tenant_id,
+        run_id=run_id,
+        conversation_id=conversation_id,
+        has_delivery_route=route is not None,
+        delivery_route=route,
+        delivery_client=client,
+    )
+    written = await _call(tool_set, WRITE_ARTIFACT_TOOL, {"content": "正文", "filename": "汇总.md"})
+    return tool_set, _artifact_id_of(written)
+
+
+async def test_deliver_artifact_reports_a_real_delivery(tenant, artifact_root) -> None:
+    """已交付：结果里要有**产物 id 与文件名**，模型才能对用户说清发的是什么。"""
+    client = _FakeDeliveryClient(
+        DeliveryResponse(
+            accepted=True, delivered=True, deduplicated=False, outcome="DELIVERED"
+        )
+    )
+    tool_set, artifact_id = await _deliverable(tenant, artifact_root, client=client)
+
+    result = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": artifact_id})
+
+    assert artifact_id in result and "汇总.md" in result
+    assert len(client.requests) == 1
+    sent = client.requests[0]
+    assert sent.delivery_key == f"run:{tool_set._run_id}:{artifact_id}"
+    assert sent.task_id is None, "会话形态不带 task_id"
+    assert sent.message.artifact is not None
+    assert str(sent.message.artifact.artifact_id) == artifact_id, "适配器要拿 artifact_id 拼降级直链"
+
+
+async def test_deliver_artifact_reports_a_degraded_link(tenant, artifact_root) -> None:
+    """降级：结果里要带**链接** —— 那是用户实际收到的东西，模型得转达。"""
+    link = "https://console.invalid/api/v1/artifacts/x/content?token=t"
+    client = _FakeDeliveryClient(
+        DeliveryResponse(
+            accepted=True, delivered=True, deduplicated=False, outcome="DEGRADED", fallback_url=link
+        )
+    )
+    tool_set, artifact_id = await _deliverable(tenant, artifact_root, client=client)
+
+    result = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": artifact_id})
+
+    assert link in result
+    assert "取件链接" in result
+
+
+async def test_deliver_artifact_reports_failure_and_keeps_the_artifact(
+    tenant, artifact_root
+) -> None:
+    """没拿到结论 ⇒ **按失败报**，且明说产物已保留可重试。**绝不**说"已交付"。"""
+    client = _FakeDeliveryClient(error=DeliveryUnavailableError("ReadTimeout"))
+    tool_set, artifact_id = await _deliverable(tenant, artifact_root, client=client)
+
+    result = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": artifact_id})
+
+    assert "交付失败" in result and "可重试" in result
+    assert artifact_id in result, "要告诉模型产物还在，重试不用重写"
+    assert "已交付" not in result, "超时只说明没拿到结论，说得像发出去了就是谎报（RULE-03）"
+
+    # 产物确实还在（失败不回滚写入）
+    read_back = await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": artifact_id})
+    assert "正文" in read_back
+
+
+async def test_deliver_artifact_without_a_route_errors_explicitly(tenant, artifact_root) -> None:
+    """没有交付路由 ⇒ 明确报错（**只有交付动作**依赖路由；写不依赖）。"""
+    tool_set, artifact_id = await _deliverable(
+        tenant, artifact_root, client=_FakeDeliveryClient(), route=None
+    )
+
+    with pytest.raises(AttachmentToolError) as exc:
+        await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": artifact_id})
+    assert exc.value.code == ATTACHMENT_WRITE_UNAVAILABLE
+
+
+async def test_deliver_artifact_refuses_artifacts_this_run_did_not_produce(
+    tenant, artifact_root
+) -> None:
+    """只能交付**本 Run 自产**的产物：把用户发来的附件转手发出去必须拒绝。"""
+    run_id, conversation_id = await _seed_run(tenant)
+    inbound_id = await _seed_artifact(
+        tenant, artifact_root, data=b"user file", kind="DOCUMENT",
+        media_type="text/plain", filename="来件.txt", into=(run_id, conversation_id),
+    )
+    tool_set = AttachmentToolSet(
+        session_factory=get_session_factory, artifact_root=artifact_root,
+        tenant_id=tenant.tenant_id, run_id=run_id, conversation_id=conversation_id,
+        has_delivery_route=True, delivery_route=_DELIVERY_ROUTE,
+        delivery_client=_FakeDeliveryClient(),
+    )
+
+    with pytest.raises(AttachmentToolError):
+        await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(inbound_id)})

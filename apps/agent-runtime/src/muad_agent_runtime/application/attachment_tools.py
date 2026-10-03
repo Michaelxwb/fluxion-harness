@@ -22,8 +22,18 @@ import sqlalchemy as sa
 from muad_agent_core.model import ImagePart, ModelMessage, ModelRole
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_artifact_store import NfsArtifactStore
+from muad_contracts import (
+    AttachmentRef,
+    DeliveryMessage,
+    DeliveryRequest,
+    DeliveryRouteInput,
+)
 
 from ..infrastructure.db import SessionFactoryProvider
+from ..infrastructure.gateway_delivery_client import (
+    DeliveryUnavailableError,
+    GatewayDeliveryClient,
+)
 from ..infrastructure.models.runtime import Artifact
 from .inbound_attachments import INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER
 
@@ -56,6 +66,20 @@ SEARCH_ATTACHMENT_DESCRIPTION = (
 LIST_ATTACHMENTS_DESCRIPTION = (
     "List the files you can currently address — both the ones the user sent and the ones you "
     "produced earlier. Use it when an id from an earlier turn is no longer in front of you."
+)
+#: 交付的三种工具结果（设计 §3.6 原文）。**模型据此决定怎么跟用户说**，所以必须说清
+#: "发出去了 / 换了形态 / 没发出去且可重试"——含糊的措辞会让模型编一个"已发送"。
+#: 契约 `DeliveryResponse.outcome` 的降级取值。只比这一个：其余（含缺省）都按"已交付"看
+#: ——因为只有降级需要模型换个说法告诉用户。
+_DEGRADED_OUTCOME = "DEGRADED"
+
+DELIVERY_RESULT_DELIVERED = "已交付产物 {artifact_id} 到当前会话（{filename}）"
+DELIVERY_RESULT_DEGRADED = "已发送取件链接（当前渠道不支持直发文件）：{url}"
+DELIVERY_RESULT_FAILED = "交付失败（{reason}）：产物已保留（id={artifact_id}），可重试"
+
+DELIVER_ARTIFACT_DESCRIPTION = (
+    "Send a file you produced earlier in this run to the user you are talking to. "
+    "Writing a file does NOT send it — call this when the user should actually receive it."
 )
 APPEND_ARTIFACT_DESCRIPTION = (
     "Append more text to a file you produced earlier in this run. Use it to build a long document "
@@ -239,6 +263,8 @@ class AttachmentToolSet:
         run_id: uuid.UUID | None = None,
         conversation_id: uuid.UUID | None = None,
         has_delivery_route: bool = False,
+        delivery_route: DeliveryRouteInput | None = None,
+        delivery_client: GatewayDeliveryClient | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._artifact_root = artifact_root
@@ -246,6 +272,9 @@ class AttachmentToolSet:
         self._run_id = run_id
         self._conversation_id = conversation_id
         self._has_delivery_route = has_delivery_route
+        #: 会话的交付路由（来自 Run 上下文）。**只有交付动作依赖它**——写不需要。
+        self._delivery_route = delivery_route
+        self._delivery_client = delivery_client
         #: 抽取结果按 Run 复用：同一份长文档分多次读，只解析一次（NFR-PERF-01）
         self._text_cache: OrderedDict[uuid.UUID, str] = OrderedDict()
 
@@ -318,6 +347,20 @@ class AttachmentToolSet:
                 },
                 effect=ToolEffect.WRITE,
                 handler=self.append_artifact,
+            )
+        )
+        registry.register(
+            ToolDefinition(
+                name=DELIVER_ARTIFACT_TOOL,
+                description=DELIVER_ARTIFACT_DESCRIPTION,
+                input_schema={
+                    "type": "object",
+                    "properties": {"artifact_id": string_schema},
+                    "required": ["artifact_id"],
+                    "additionalProperties": False,
+                },
+                effect=ToolEffect.WRITE,
+                handler=self.deliver_artifact,
             )
         )
         registry.register(
@@ -581,6 +624,45 @@ class AttachmentToolSet:
         self._text_cache.pop(row.id, None)  # 抽取缓存必须作废，否则读回的是上一版全文
         return f"已追加到产物（附件 ID {row.id}）：{_filename(row)}，当前 {len(merged)} 字符"
 
+    async def deliver_artifact(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """把产物交给用户 —— **硬需求的落点**。
+
+        **写出成功不等于用户收到**（RULE-03），所以这里只认同步调用回来的**真实结论**，
+        并把它如实转成三种工具结果之一：已交付 / 降级为取件链接 / 失败可重试。
+        超时按**失败**处理：超时只说明没拿到结论，不说明没发出去。
+
+        schema 里**没有 `note`**：设计把它列进了请求字段，但没定义它在媒体路径上怎么被消费，
+        而企微的图片/文件消息**没有文本槽**。给模型一个按了没反应的旋钮，比不给更糟
+        （它会以为那句话附上去了）。要支持"文件 + 一句话"，应当由适配器发一条跟随文本，
+        那是独立的一次改动。
+        """
+        if self._delivery_client is None or self._delivery_route is None:
+            raise AttachmentToolError(
+                ATTACHMENT_WRITE_UNAVAILABLE, "当前会话没有可交付的通道，产物发不出去"
+            )
+        row = await self._load(arguments.get("artifact_id"))
+        if row.run_id != self._run_id or row.artifact_type != AGENT_OUTPUT_ARTIFACT_TYPE:
+            raise AttachmentToolError(
+                ATTACHMENT_TYPE_UNSUPPORTED,
+                f"{_filename(row)}：只能交付本次运行自己写出的产物",
+            )
+        request = DeliveryRequest(
+            delivery_key=f"run:{self._run_id}:{row.id}",
+            route=self._delivery_route,
+            message=DeliveryMessage(
+                type="image" if _artifact_kind(row) == "IMAGE" else "artifact",
+                artifact=_attachment_ref(row),
+            ),
+        )
+        try:
+            response = await self._delivery_client.deliver(request)
+        except DeliveryUnavailableError as exc:
+            # 没拿到结论（超时/传输/网关拒绝）⇒ 一律按"失败可重试"报，**绝不**说已交付
+            return DELIVERY_RESULT_FAILED.format(reason=str(exc), artifact_id=row.id)
+        if response.outcome == _DEGRADED_OUTCOME:
+            return DELIVERY_RESULT_DEGRADED.format(url=response.fallback_url or "")
+        return DELIVERY_RESULT_DELIVERED.format(artifact_id=row.id, filename=_filename(row))
+
     def _store(self) -> NfsArtifactStore:
         return NfsArtifactStore(self._artifact_root)
 
@@ -642,6 +724,29 @@ class AttachmentToolSet:
 def _filename(row: Artifact) -> str:
     name = (row.metadata_json or {}).get("filename")
     return name if isinstance(name, str) and name else "(未命名)"
+
+
+def _artifact_kind(row: Artifact) -> str:
+    """产物行里的 `kind`，收敛到契约的封闭枚举（未知值归 `OTHER`，不抛）。"""
+    kind = (row.metadata_json or {}).get("kind")
+    return kind if kind in ("IMAGE", "DOCUMENT", "OTHER") else "OTHER"
+
+
+def _attachment_ref(row: Artifact) -> AttachmentRef:
+    """产物行 → **渠道中立**的引用（设计 AD-6-C）。
+
+    只有存储键与元信息：**没有**任何渠道私有的发送形状，也没有取件凭据。
+    出站方向 `artifact_id` **必须**带上——降级为取件直链时适配器靠它拼链接。
+    """
+    return AttachmentRef(
+        storage_key=row.storage_key,
+        kind=_artifact_kind(row),  # type: ignore[arg-type]
+        media_type=row.media_type,
+        size=row.size,
+        filename=_filename(row),
+        checksum=row.checksum,
+        artifact_id=row.id,
+    )
 
 
 def _version_key(run_id: uuid.UUID | None, artifact_id: uuid.UUID, version: int) -> str:
