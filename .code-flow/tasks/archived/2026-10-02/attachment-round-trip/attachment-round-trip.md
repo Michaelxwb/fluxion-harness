@@ -55,7 +55,7 @@
 
 ## TASK-001: 企微出站能力真机探针
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#2.3.1 功能清单`, `#3.6 出站交付：写与发的分离（硬需求落点）`, `#5.1 项目依赖`
@@ -159,7 +159,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-002: 读材料工具面：分段读 + 文档内定位 + 大文件策略
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#2.3.2 字段约束`, `#3.4 接口设计`, `#3.5 质量实现方案`
@@ -218,6 +218,9 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 - S-01: verified — automated command passed; run_id=09886fc31f424b2cbc5c79f570598044 (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=09886fc31f424b2cbc5c79f570598044 (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=09886fc31f424b2cbc5c79f570598044 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
@@ -232,7 +235,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-003: 附件枚举工具 `list_attachments`
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#2.3.2 字段约束`, `#3.4 接口设计`
@@ -279,6 +282,8 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 **超出场景、另行覆盖**（与 `search_attachment` 同样的做法——设计 §3.4 要求"参数非法 → 明确错误码"，但无对应验收场景）：新增 `test_listing_rejects_unknown_filters`，断言未知 `scope`/`direction` 报 `ATTACHMENT_SCOPE_INVALID`/`ATTACHMENT_DIRECTION_INVALID`，**不静默当成空集**（静默会让模型以为"确实没有附件"而转为凭记忆编）。
 - S-02: verified — automated command passed; run_id=79c07fb4e7024e2393cd085eee9d077e (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=79c07fb4e7024e2393cd085eee9d077e (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
@@ -291,7 +296,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-004: 入站回执（与拒绝反馈合并为至多一条）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#2.3.1 功能清单`, `#2.5.1 业务规则与约束`
@@ -342,6 +347,14 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 - E-02: e2e_deferred — automated command e2e_deferred; run_id=f2eac4ea720149fbaa6ee0069af0e882 (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=2979aff4582b48209cb6ec81c49c1340 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=2979aff4582b48209cb6ec81c49c1340 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=238907688df144d8b264b428f80e3283 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=238907688df144d8b264b428f80e3283 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=c69c384d90cf47a59bc8eda3e44438f7 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=c69c384d90cf47a59bc8eda3e44438f7 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
@@ -356,7 +369,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-005: 写与交付语义分离 + `append_artifact`
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#3.6 出站交付：写与发的分离（硬需求落点）`, `#3.1 方案选型`
@@ -403,6 +416,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 **另加一条超出场景的覆盖**：`test_append_rejects_artifacts_this_run_did_not_produce` —— 入站附件的字节属于用户原始文件，被 Agent 改写就再也回不到原件了。
 - B-03: verified — automated command passed; run_id=a54e55aeeb664ed88a4ccbb9ab1483e3 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
@@ -417,7 +431,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-006: 出站交付链：契约形态 + 显式交付 + 会话内/后台两条投递路径
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-005, TASK-007
 - **Source**: `attachment-round-trip.design.md#3.4 接口设计`, `#3.6 出站交付：写与发的分离（硬需求落点）`, `#3.2 架构设计`
@@ -500,6 +514,7 @@ Done Gate pass（取件端点 + 签发面），降级链本次落地。
 > （改动全在 im-gateway，这三条不经过它）。
 
 - E-06: verified — automated command passed; run_id=34e07511176c49fc9a02e65c702ed90d (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
@@ -513,7 +528,7 @@ Done Gate pass（取件端点 + 签发面），降级链本次落地。
 
 ## TASK-007: 交付审计落点（表 + console 内部端点）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#3.3 数据设计`, `#3.4 接口设计`
@@ -570,6 +585,7 @@ Done Gate pass（取件端点 + 签发面），降级链本次落地。
 而不是 `channel + bot_id + external_user_id`。`route_key` 是适配器产出的**可读不透明串**，
 接 web chat 时那一列仍填得出真值，而渠道私有的两列会当场填不出。
 - E-04: verified — automated command passed; run_id=557f25c0fc8e407799b1ae41d4e540b1 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
@@ -582,7 +598,7 @@ Done Gate pass（取件端点 + 签发面），降级链本次落地。
 
 ## TASK-008: 产物取件能力（签名短 TTL 直链 + 鉴权端点）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#3.4 接口设计`, `#3.5 质量实现方案`
@@ -665,6 +681,11 @@ tests/architecture + tests/gateway` 合计 **518 passed**；`uv run mypy apps/co
 - S-09: e2e_deferred — automated command e2e_deferred; run_id=dba4b875820a4d1aad317c82bbc15d86 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=dba4b875820a4d1aad317c82bbc15d86 (confirmed_by: runner)
 - S-09: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=2979aff4582b48209cb6ec81c49c1340 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=238907688df144d8b264b428f80e3283 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=c69c384d90cf47a59bc8eda3e44438f7 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
@@ -677,7 +698,7 @@ tests/architecture + tests/gateway` 合计 **518 passed**；`uv run mypy apps/co
 
 ## TASK-009: 产物保留期与清理
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#3.4 接口设计`, `#3.3 数据设计`, `#3.5 质量实现方案`
@@ -742,6 +763,8 @@ $ ls .data/artifacts/cli-smoke/    # 空 —— 盘上那份字节确实没了
 
 - S-08: verified — automated command passed; run_id=b47359ae84d84cb89ff6e49343a1aa73 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=b47359ae84d84cb89ff6e49343a1aa73 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
@@ -753,7 +776,7 @@ $ ls .data/artifacts/cli-smoke/    # 空 —— 盘上那份字节确实没了
 
 ## TASK-010: 端到端验收基线
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-009
 - **Source**: `attachment-round-trip.design.md#2.5.2 功能验收场景`, `#3.6 出站交付：写与发的分离（硬需求落点）`
@@ -861,6 +884,22 @@ $ ls .data/artifacts/cli-smoke/    # 空 —— 盘上那份字节确实没了
 - S-06: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
 - S-10: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=2979aff4582b48209cb6ec81c49c1340 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=2979aff4582b48209cb6ec81c49c1340 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=2979aff4582b48209cb6ec81c49c1340 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=2979aff4582b48209cb6ec81c49c1340 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=238907688df144d8b264b428f80e3283 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=238907688df144d8b264b428f80e3283 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=238907688df144d8b264b428f80e3283 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=238907688df144d8b264b428f80e3283 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=c69c384d90cf47a59bc8eda3e44438f7 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=c69c384d90cf47a59bc8eda3e44438f7 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=c69c384d90cf47a59bc8eda3e44438f7 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=c69c384d90cf47a59bc8eda3e44438f7 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=e2712deb336044b4910e039b79995fb1 (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
