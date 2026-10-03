@@ -10,7 +10,7 @@ import httpx
 from muad_agent_runtime.application.task_client import WorkerTaskClient
 from sqlalchemy import text
 
-from .environment import INTERNAL_TOKEN, LiveStack, run_async, run_db
+from .environment import INTERNAL_TOKEN, TENANT, LiveStack, run_async, run_db
 from .helpers import submission_context
 
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED"}
@@ -108,6 +108,8 @@ def test_s03_final_delivery_reaches_probe_once_and_is_deduped(
     replay = http.post(
         f"{live_stack.gateway_url}/internal/deliveries",
         json={
+            # 交付契约要求 `tenant_id`（交付审计的幂等键要用它）
+            "tenant_id": TENANT,
             "task_id": task_id,
             "delivery_key": delivery_key,
             "route": {

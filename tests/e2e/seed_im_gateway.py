@@ -149,10 +149,14 @@ def seed_delivery_task(
     bot_id: str,
     external_user_id: str,
     external_conversation_id: str | None,
+    result_artifact_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
     """写入一条"待 Worker 投递"的已完成 Task（`delivery_status=PENDING`）+ 投递路由。
 
     供 B-130 验证生产 Worker 进程的投递循环：真实 PG 事实 + 真实 Gateway 投递。
+
+    给了 `result_artifact_id` 就是**产物形态**的投递（TASK-006）：Worker 只持有不透明 id，
+    要经 runtime 的解析单点换成渠道中立的引用才发得出去。
     """
     from muad_common import SharedSettings
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -212,7 +216,7 @@ def seed_delivery_task(
                             delivery_key=f"task:{task_id}:final",
                             delivery_attempts=0,
                             finished_at=now,
-                            result_artifact_id=None,
+                            result_artifact_id=result_artifact_id,
                         )
                     )
             return {"task_id": task_id, "delivery_key": f"task:{task_id}:final"}

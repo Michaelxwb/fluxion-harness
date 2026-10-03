@@ -5,6 +5,9 @@
 - OPENAI_PROBE_FAIL=1：返回 500
 - OPENAI_PROBE_REQUIRE_AUTH：非空时校验 Authorization: Bearer
 - OPENAI_PROBE_TOOL_NAME：非空时首轮返回该工具调用，收到 tool 结果后返回最终文本
+- 脚本还支持 **`tools`（工具序列）**：`POST /script {"tools":[{"name":…,"arguments":…}, …],
+  "final_text":…}` —— 第 n 轮返回第 n 个工具调用，序列走完后才给 `final_text`。
+  单工具脚本表达不了「先写、再交付」这类**多步**链路，而那是本需求的核心场景。
 - OPENAI_PROBE_TOOL_ARGUMENTS：上述工具调用的 arguments（JSON 字符串，默认 `{"query": "ping"}`）
 - OPENAI_PROBE_FINAL_TEXT：最终文本（默认 pong）
 
@@ -90,9 +93,37 @@ async def set_script(request: Request) -> dict[str, Any]:
     payload = await request.json()
     _script.clear()
     if isinstance(payload, dict):
-        allowed = ("tool_name", "tool_arguments", "final_text")
+        allowed = ("tool_name", "tool_arguments", "final_text", "tools")
         _script.update({key: payload[key] for key in allowed if key in payload})
     return {"script": dict(_script)}
+
+
+def _substitute(arguments: str, messages: list[Any]) -> str:
+    """`$last_artifact_id` 占位 → 从**模型实际看到的**上下文里倒着找最近一条附件 ID。"""
+    if ARTIFACT_ID_PLACEHOLDER in arguments:
+        return arguments.replace(ARTIFACT_ID_PLACEHOLDER, _last_artifact_id(messages))
+    return arguments
+
+
+def _tool_call(name: str, arguments: str, *, index: int) -> dict[str, Any]:
+    return {
+        "choices": [
+            {
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": f"call-probe-{index}",
+                            "type": "function",
+                            "function": {"name": name, "arguments": arguments},
+                        }
+                    ],
+                },
+            }
+        ]
+    }
 
 
 @app.get("/v1/models")
@@ -122,38 +153,28 @@ async def chat_completions(request: Request):
     tool_arguments = str(
         _script.get("tool_arguments") or os.environ.get("OPENAI_PROBE_TOOL_ARGUMENTS", DEFAULT_TOOL_ARGUMENTS)
     )
-    if ARTIFACT_ID_PLACEHOLDER in tool_arguments:
-        tool_arguments = tool_arguments.replace(ARTIFACT_ID_PLACEHOLDER, _last_artifact_id(messages))
-    if tool_name:
-        # 「**本轮**是否已拿到工具结果」——只看最后一条 user 消息之后的那些消息。
-        # 不能看整份 messages：历史轮次里的 tool 消息会让探针以为本轮已经调过工具，于是
-        # 直接给 final_text，脚本里的工具永远不被调用（实测：同一会话先跑过别的工具回合时必现）。
-        has_tool_result = any(
-            isinstance(message, dict) and message.get("role") == "tool"
-            for message in messages[_last_user_index(messages) :]
-        )
-        if not has_tool_result:
-            return {
-                "choices": [
-                    {
-                        "finish_reason": "tool_calls",
-                        "message": {
-                            "role": "assistant",
-                            "content": "",
-                            "tool_calls": [
-                                {
-                                    "id": "call-probe-1",
-                                    "type": "function",
-                                    "function": {
-                                        "name": tool_name,
-                                        "arguments": tool_arguments,
-                                    },
-                                }
-                            ],
-                        },
-                    }
-                ]
-            }
+    # 「**本轮**已经拿到几个工具结果」——只看最后一条 user 消息之后的那些消息。
+    # 不能看整份 messages：历史轮次里的 tool 消息会让探针以为本轮已经调过工具，于是
+    # 直接给 final_text，脚本里的工具永远不被调用（实测：同一会话先跑过别的工具回合时必现）。
+    completed = sum(
+        1
+        for message in messages[_last_user_index(messages) :]
+        if isinstance(message, dict) and message.get("role") == "tool"
+    )
+    steps = _script.get("tools")
+    if isinstance(steps, list) and steps:
+        # 工具序列：第 `completed` 步还没走完就再调一个，全部走完才落到 final_text。
+        # 这一步**不看 `tool_name`**：序列形态本身就不设 `tool_name`（多步链路用它表达），
+        # 挂在 `if tool_name` 下面会让它永远不生效——实测踩过，表现为"脚本设了但一个工具都没调"。
+        if completed < len(steps):
+            step = steps[completed] if isinstance(steps[completed], dict) else {}
+            return _tool_call(
+                str(step.get("name") or ""),
+                _substitute(str(step.get("arguments") or "{}"), messages),
+                index=completed + 1,
+            )
+    elif tool_name and completed == 0:
+        return _tool_call(tool_name, _substitute(tool_arguments, messages), index=1)
     final_text = str(
         _script.get("final_text") or os.environ.get("OPENAI_PROBE_FINAL_TEXT", DEFAULT_FINAL_TEXT)
     )

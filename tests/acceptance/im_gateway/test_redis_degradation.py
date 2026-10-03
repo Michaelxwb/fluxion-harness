@@ -158,6 +158,8 @@ async def test_e06_inbound_and_delivery_continue_at_least_once_without_redis(
     # 投递：Redis 故障下降级为 at-least-once（允许重复），但不得宣称失败
     key = f"task:{uuid.uuid4()}:final"
     body = {
+        # 交付契约要求 `tenant_id`（交付审计的幂等键要用它）
+        "tenant_id": gateway_stack.tenant_id,
         "task_id": key.split(":")[1],
         "delivery_key": key,
         "route": {

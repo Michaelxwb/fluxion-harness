@@ -297,6 +297,13 @@ class AttachmentToolSet:
                 },
                 effect=ToolEffect.READ,
                 handler=self.read_attachment,
+                # 内容投递：返回的**正文就是要给模型读的**，不得被大结果外置截成预览。
+                # 2026-10-03 端到端实测（TASK-010 的 S-03）：20 000 字符的片段被按 8KB 判据
+                # 外置，模型只拿到 **200 字符**预览——**而分页指引在结果末尾，被一并截掉了**，
+                # 于是"长文档可读完"这个功能在真实链路上等于不存在，且**没有任何报错**。
+                # 与 `load_skill` 那次是同一个事故（见 `executor._should_externalize` 的说明），
+                # 只是换了一个工具。TASK-002 的单测全绿，因为外置发生在 executor 层、不在工具里。
+                externalizable_result=False,
             )
         )
         registry.register(
@@ -315,6 +322,9 @@ class AttachmentToolSet:
                 },
                 effect=ToolEffect.READ,
                 handler=self.search_attachment,
+                # 同 `read_attachment`：命中片段同样是"要给模型读的正文"。被外置的后果更隐蔽——
+                # 模型会以为自己搜到了、只是内容"很短"。
+                externalizable_result=False,
             )
         )
         registry.register(

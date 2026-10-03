@@ -28,6 +28,13 @@ CMD_RESPONSE = "aibot_respond_msg"
 CMD_SEND_MSG = "aibot_send_msg"
 CMD_MESSAGE_CALLBACK = "aibot_msg_callback"
 CMD_EVENT_CALLBACK = "aibot_event_callback"
+# 三步分片上传（TASK-001 真机实测的协议）。**Python SDK 没实现**，网关按官方 Node SDK 的帧
+# 自行驱动；探针作为"企微服务端"的替身，必须同样应答这三条——否则出站媒体在验收里**永远走不通**
+# （表现为 uint 超时，而超时看起来像"渠道慢"）。见 tests/gateway/test_wecom_outbound_upload.py
+# 里那个更细的帧级替身；这里只管"协议能否走完"。
+CMD_UPLOAD_INIT = "aibot_upload_media_init"
+CMD_UPLOAD_CHUNK = "aibot_upload_media_chunk"
+CMD_UPLOAD_FINISH = "aibot_upload_media_finish"
 
 
 def frame_text(frame: dict[str, Any]) -> str:
@@ -100,6 +107,9 @@ class WeComProbe:
     fail_reply_bots: set[str] = field(default_factory=set)
     disconnect_bots: set[str] = field(default_factory=set)
     connection_bots: dict[int, str] = field(default_factory=dict)
+    #: 上传三步的原始帧（供用例断言"真的走过上传"，而不只是"发出了一条媒体消息"）
+    uploads: list[dict[str, Any]] = field(default_factory=list)
+    upload_chunks: list[dict[str, Any]] = field(default_factory=list)
     _server: Any = None
     ws_url: str = ""
     cert_path: Path | None = None
@@ -167,6 +177,32 @@ class WeComProbe:
             if bot_id in self.fail_reply_bots:
                 return {"headers": {"req_id": req_id}, "errcode": 50001, "errmsg": "send failed"}
             return {"headers": {"req_id": req_id}, "errcode": 0}
+        if cmd == CMD_UPLOAD_INIT:
+            self.uploads.append(frame)
+            # `errcode` **必须显式给 0**：官方 SDK 的回执处理是 `errcode = frame.get("errcode")`
+            # 然后 `if errcode != 0: raise RuntimeError("Reply ack error")` —— **缺字段等于失败**。
+            # 少了它，上传在真实 SDK 上表现为 5 秒超时 + `delivery_send_error error=RuntimeError`，
+            # 而单元测试里的帧级替身是直接返回 dict 的，走不到这条检查，**测不出**来。
+            return {
+                "headers": {"req_id": req_id},
+                "errcode": 0,
+                "body": {"upload_id": f"upload-{len(self.uploads)}"},
+            }
+        if cmd == CMD_UPLOAD_CHUNK:
+            self.upload_chunks.append(frame)
+            return {"headers": {"req_id": req_id}, "errcode": 0}
+        if cmd == CMD_UPLOAD_FINISH:
+            body = frame.get("body") or {}
+            if not self.uploads:
+                return {"headers": {"req_id": req_id}, "errcode": 40058, "errmsg": "unknown upload"}
+            return {
+                "headers": {"req_id": req_id},
+                "errcode": 0,
+                "body": {
+                    "media_id": f"media-{len(self.uploads)}",
+                    "type": (self.uploads[-1].get("body") or {}).get("type") or body.get("type"),
+                },
+            }
         return None
 
     async def drop_connection(self, bot_id: str) -> None:

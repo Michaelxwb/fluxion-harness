@@ -68,7 +68,13 @@ class GatewayDeliveryClient:
 
 
 def _error_from(response: httpx.Response) -> DeliveryUnavailableError:
-    """把网关的封套错误映射成调用方能用的原因码（**不带正文**，正文可能含渠道细节）。"""
+    """把网关的封套错误映射成调用方能用的原因码（**不带正文**，正文可能含渠道细节）。
+
+    **唯一例外是入参校验错误**：422 的 `data.errors` 里只有**我们自己契约的字段名**（没有渠道
+    形状、没有凭据），而"校验失败"这个码本身把排查成本拉满——2026-10-03 实测过一次：
+    会话内交付拿到 `COMMON_VALIDATION_ERROR`，工具结果里既没有字段名也没有网关响应体，
+    只能靠翻网关日志定位。把字段名留下来，下一次同样的问题一眼可见。
+    """
     code = "ARTIFACT_DELIVERY_FAILED"
     try:
         payload = response.json()
@@ -77,4 +83,13 @@ def _error_from(response: httpx.Response) -> DeliveryUnavailableError:
     candidate = payload.get("code") if isinstance(payload, dict) else None
     if isinstance(candidate, str) and candidate:
         code = candidate
+    if code == "COMMON_VALIDATION_ERROR" and isinstance(payload, dict):
+        data = payload.get("data")
+        fields = [
+            ", ".join(str(part) for part in item.get("loc", ()) if part != "body")
+            for item in (data.get("errors") if isinstance(data, dict) else None) or []
+            if isinstance(item, dict)
+        ]
+        if fields:
+            return DeliveryUnavailableError(f"{code}({', '.join(sorted(set(fields)))})")
     return DeliveryUnavailableError(code)

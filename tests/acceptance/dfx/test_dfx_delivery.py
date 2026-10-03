@@ -287,12 +287,23 @@ def _dedupe_ttl(delivery_key: str) -> int:
 
 
 def _replay(
-    http: httpx.Client, gateway_url: str, task_id: uuid.UUID, delivery_key: str, bot_id: str
+    http: httpx.Client,
+    gateway_url: str,
+    task_id: uuid.UUID,
+    delivery_key: str,
+    bot_id: str,
+    *,
+    tenant_id: str = TENANT,
 ) -> dict[str, Any]:
-    """对真实 Gateway 重放同一 `delivery_key`（真实 Redis 去重路径）。"""
+    """对真实 Gateway 重放同一 `delivery_key`（真实 Redis 去重路径）。
+
+    `tenant_id` 是**交付契约的必填字段**（交付审计的幂等键 `(tenant_id, artifact_id, route_key)`
+    要靠它）；重放必须带**原租户**，否则审计会落到另一个租户名下。
+    """
     response = http.post(
         f"{gateway_url}/internal/deliveries",
         json={
+            "tenant_id": tenant_id,
             "task_id": str(task_id),
             "delivery_key": delivery_key,
             "route": _route(bot_id),

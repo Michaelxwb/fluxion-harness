@@ -67,8 +67,24 @@ def _callback(message_id: str, reply_id: str, body: dict[str, Any]) -> dict[str,
     }
 
 
+def _msgtype_for(media_type: str) -> str:
+    """MIME → **协议 msgtype**。
+
+    企微回调里的 `msgtype` 只有 `image` / `file` 两个取值，**MIME 不是 msgtype**——
+    真正的 MIME 由文件的 `Content-Disposition` 文件名推出来（网关按扩展名判类型、
+    再按白名单门控）。把 MIME 当 `msgtype` 写进去，适配器会**整项丢弃**（不认识的形态不产出
+    媒体引用），表现为"推了 3 个附件、一个都没落盘、也没有任何回执"——而服务端不会报错。
+
+    本条在 2026-10-03 被 TASK-010 的端到端基线照出来：本文件此前是 `e2e_deferred`
+    （只写不跑），所以这个帧形状**从没被执行过**；兄弟套件
+    `tests/acceptance/im_gateway/test_wecom_attachments.py` 一直用的是 `image` / `file`，故一直是绿的。
+    """
+    return "image" if media_type.startswith("image/") else "file"
+
+
 def _item(media_type: str, url: str) -> dict[str, Any]:
-    return {"msgtype": media_type, media_type: {"url": url, "aeskey": AES_KEY}}
+    msgtype = _msgtype_for(media_type)
+    return {"msgtype": msgtype, msgtype: {"url": url, "aeskey": AES_KEY}}
 
 
 def _mixed(*items: dict[str, Any]) -> dict[str, Any]:

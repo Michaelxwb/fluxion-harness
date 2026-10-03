@@ -161,11 +161,18 @@ def start_gateway_stack(
         AGENT_RUNTIME_URL=runtime_url,
         CONSOLE_PLATFORM_URL=console_url,
     )
+    # `IM_GATEWAY_URL` 必须显式指到**本栈**的 gateway。不设的话 runtime 会回落到 `.env` 里的
+    # `http://127.0.0.1:8003` —— 那是**开发者本机的 dev 网关**，于是：
+    #   ① 会话内交付打到了另一个实例（跨出了本栈的隔离库边界）；
+    #   ② 那个实例跑的是它自己启动时的旧代码，回一个与本次改动无关的 422；
+    #   ③ 排查方向全错——错误码看着像契约不匹配，实际是"打错了机器"。
+    # 2026-10-03 实测踩到（TASK-010 的 S-06），worker 那条线一直是显式设的，runtime 这两条漏了。
     runtime = spawn(
         "runtime",
         "muad_agent_runtime.main",
         runtime_port,
         CONSOLE_PLATFORM_URL=console_url,
+        IM_GATEWAY_URL=gateway_url,
     )
     # TASK-030：第二 Runtime 实例（同一逻辑 Agent 可被任意实例承载）+ 真实 Worker 进程
     runtime2 = spawn(
@@ -173,6 +180,7 @@ def start_gateway_stack(
         "muad_agent_runtime.main",
         runtime2_port,
         CONSOLE_PLATFORM_URL=console_url,
+        IM_GATEWAY_URL=gateway_url,
     )
     worker = spawn(
         "worker",

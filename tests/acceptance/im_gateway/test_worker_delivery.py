@@ -139,6 +139,7 @@ async def test_s04_worker_delivers_to_route_with_7d_dedupe(
     # 重放同一 delivery_key：200 + deduplicated，且不再次发送
     before = len(_delivered_texts(gateway_stack))
     body = {
+        "tenant_id": gateway_stack.tenant_id,
         "task_id": str(seeded["task_id"]),
         "delivery_key": seeded["delivery_key"],
         "route": {
