@@ -21,7 +21,7 @@ import pytest
 import sqlalchemy as sa
 from muad_agent_core.context.builder import ContextInput
 from muad_agent_core.tools import ToolDefinition, ToolRegistry
-from muad_agent_runtime.application.artifacts import ArtifactResultWriter
+from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
 from muad_agent_runtime.application.executor import ExecutorRunContext, ToolCallRecorder
 from muad_agent_runtime.application.memory_service import (

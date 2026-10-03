@@ -3,7 +3,14 @@
 # 且传递依赖（如 muad-agent-core → muad-skill-sdk）也会绕过手工清单导致解析失败。
 # syntax=docker/dockerfile:1
 
+FROM node:24-bookworm-slim AS node-runtime
+
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libstdc++6 \
+ && rm -rf /var/lib/apt/lists/* \
+ && node --version
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \

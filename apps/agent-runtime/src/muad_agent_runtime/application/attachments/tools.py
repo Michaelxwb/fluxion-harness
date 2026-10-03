@@ -28,14 +28,23 @@ from muad_contracts import (
     DeliveryRouteInput,
 )
 
-from ..infrastructure.db import SessionFactoryProvider
-from ..infrastructure.gateway_delivery_client import (
+from ...infrastructure.db import SessionFactoryProvider
+from ...infrastructure.gateway_delivery_client import (
     DeliveryUnavailableError,
     GatewayDeliveryClient,
 )
-from ..infrastructure.models.runtime import Artifact
-from .artifact_reference import artifact_kind, attachment_ref
-from .inbound_attachments import INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER
+from ...infrastructure.models.runtime import Artifact
+from .inbound import INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER
+from .output_service import (
+    AGENT_OUTPUT_ARTIFACT_TYPE,
+    OutputArtifactError,
+    OutputArtifactWriter,
+    OutputScope,
+)
+from .output_service import (
+    output_version_key as _version_key,
+)
+from .reference import artifact_kind, attachment_ref
 
 READ_ATTACHMENT_TOOL = "read_attachment"
 VIEW_IMAGE_TOOL = "view_image"
@@ -47,7 +56,6 @@ APPEND_ARTIFACT_TOOL = "append_artifact"
 #: 工具本身由 TASK-006 注册；名字只在这里定义一次，避免两处各写一个字符串。
 DELIVER_ARTIFACT_TOOL = "deliver_artifact"
 
-AGENT_OUTPUT_ARTIFACT_TYPE = "AGENT_OUTPUT"
 #: 入站产物类型（封闭集合，定义在入站落库模块里）。方向判定按**类型**而不是按 run_id 是否存在——
 #: 后台任务的自产产物 `run_id` 为空，用"有没有 run"判方向会把它误判成入站。
 INBOUND_ARTIFACT_TYPES = (INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER)
@@ -79,8 +87,8 @@ DELIVERY_RESULT_FAILED = "交付失败（{reason}）：产物已保留（id={art
 
 DELIVER_ARTIFACT_DESCRIPTION = (
     "Send a file to the user you are talking to. This covers both files you produced in this run "
-    "and files the user sent into this conversation (you can hand one back, e.g. \"send me that "
-    "image again\"). Writing a file does NOT send it — call this when the user should actually "
+    'and files the user sent into this conversation (you can hand one back, e.g. "send me that '
+    'image again"). Writing a file does NOT send it — call this when the user should actually '
     "receive it."
 )
 APPEND_ARTIFACT_DESCRIPTION = (
@@ -192,9 +200,7 @@ def _extract_document(data: bytes, media_type: str) -> str:
         raise AttachmentToolError(
             ATTACHMENT_EXTRACT_FAILED, f"文档无法解析（可能已加密或损坏）: {exc}"
         ) from exc
-    raise AttachmentToolError(
-        ATTACHMENT_TYPE_UNSUPPORTED, f"尚不支持的内容类型: {media_type}"
-    )
+    raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, f"尚不支持的内容类型: {media_type}")
 
 
 def slice_text(text: str, offset: int, limit: int) -> str:
@@ -206,9 +212,7 @@ def slice_text(text: str, offset: int, limit: int) -> str:
     if offset < 0:
         raise AttachmentToolError(ATTACHMENT_OFFSET_INVALID, f"offset 不能为负：{offset}")
     if limit < 1 or limit > MAX_TEXT_CHARS:
-        raise AttachmentToolError(
-            ATTACHMENT_LIMIT_INVALID, f"limit 必须在 1..{MAX_TEXT_CHARS} 之间：{limit}"
-        )
+        raise AttachmentToolError(ATTACHMENT_LIMIT_INVALID, f"limit 必须在 1..{MAX_TEXT_CHARS} 之间：{limit}")
     return text[offset : offset + limit]
 
 
@@ -249,9 +253,7 @@ def list_window(arguments: Mapping[str, Any]) -> tuple[int, int]:
     if offset < 0:
         raise AttachmentToolError(ATTACHMENT_OFFSET_INVALID, f"offset 不能为负：{offset}")
     if not 1 <= limit <= MAX_LIST_LIMIT:
-        raise AttachmentToolError(
-            ATTACHMENT_LIMIT_INVALID, f"limit 必须在 1..{MAX_LIST_LIMIT} 之间：{limit}"
-        )
+        raise AttachmentToolError(ATTACHMENT_LIMIT_INVALID, f"limit 必须在 1..{MAX_LIST_LIMIT} 之间：{limit}")
     return offset, limit
 
 
@@ -410,8 +412,7 @@ class AttachmentToolSet:
         row = await self._load(arguments.get("artifact_id"))
         if (row.metadata_json or {}).get("kind") == "IMAGE":
             return (
-                f"这是图片附件 {row.id}（{_filename(row)}），不能当文本读；"
-                f"如需查看请调用 {VIEW_IMAGE_TOOL}。"
+                f"这是图片附件 {row.id}（{_filename(row)}），不能当文本读；如需查看请调用 {VIEW_IMAGE_TOOL}。"
             )
         offset = _require_int(arguments, "offset", DEFAULT_OFFSET, ATTACHMENT_OFFSET_INVALID)
         limit = _require_int(arguments, "limit", MAX_TEXT_CHARS, ATTACHMENT_LIMIT_INVALID)
@@ -437,9 +438,7 @@ class AttachmentToolSet:
         query = arguments.get("query")
         if not isinstance(query, str) or not query:
             raise AttachmentToolError(ATTACHMENT_QUERY_INVALID, "query 必填且为非空字符串")
-        limit = _require_int(
-            arguments, "limit", DEFAULT_SEARCH_HITS, ATTACHMENT_LIMIT_INVALID
-        )
+        limit = _require_int(arguments, "limit", DEFAULT_SEARCH_HITS, ATTACHMENT_LIMIT_INVALID)
         if limit < 1 or limit > MAX_SEARCH_HITS:
             raise AttachmentToolError(
                 ATTACHMENT_LIMIT_INVALID, f"limit 必须在 1..{MAX_SEARCH_HITS} 之间：{limit}"
@@ -472,13 +471,9 @@ class AttachmentToolSet:
         """
         scope = arguments.get("scope", SCOPE_DEFAULT)
         if not isinstance(scope, str) or scope not in SCOPES:
-            raise AttachmentToolError(
-                ATTACHMENT_SCOPE_INVALID, f"scope 只能是 {sorted(SCOPES)}：{scope!r}"
-            )
+            raise AttachmentToolError(ATTACHMENT_SCOPE_INVALID, f"scope 只能是 {sorted(SCOPES)}：{scope!r}")
         direction = arguments.get("direction")
-        if direction is not None and (
-            not isinstance(direction, str) or direction not in DIRECTIONS
-        ):
+        if direction is not None and (not isinstance(direction, str) or direction not in DIRECTIONS):
             raise AttachmentToolError(
                 ATTACHMENT_DIRECTION_INVALID,
                 f"direction 只能是 {sorted(DIRECTIONS)}：{direction!r}",
@@ -526,16 +521,13 @@ class AttachmentToolSet:
         while len(self._text_cache) > MAX_TEXT_CACHE_ENTRIES:
             self._text_cache.popitem(last=False)
         return text
+
     async def view_image(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         row = await self._load(arguments.get("artifact_id"))
         if (row.metadata_json or {}).get("kind") != "IMAGE":
-            raise AttachmentToolError(
-                ATTACHMENT_TYPE_UNSUPPORTED, f"附件 {row.id} 不是图片，无法重看"
-            )
+            raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, f"附件 {row.id} 不是图片，无法重看")
         if not row.media_type.startswith("image/"):
-            raise AttachmentToolError(
-                ATTACHMENT_TYPE_UNSUPPORTED, "该附件的媒体类型不是图片，无法重看"
-            )
+            raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, "该附件的媒体类型不是图片，无法重看")
         return f"{VIEW_IMAGE_RESULT_PREFIX}{row.id}）：{_filename(row)}"
 
     async def write_artifact(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
@@ -555,36 +547,18 @@ class AttachmentToolSet:
 
         data = content.encode("utf-8")
         if len(data) > MAX_READ_BYTES:
-            raise AttachmentToolError(
-                ATTACHMENT_TOO_LARGE, f"产物超过上限（{MAX_READ_BYTES} 字节）"
-            )
+            raise AttachmentToolError(ATTACHMENT_TOO_LARGE, f"产物超过上限（{MAX_READ_BYTES} 字节）")
 
-        artifact_id = uuid.uuid4()
-        storage_key = _version_key(self._run_id, artifact_id, 1)
-        self._store().write(storage_key, data)
-
-        row = Artifact(
-            id=artifact_id,
-            tenant_id=self._tenant_id,
-            run_id=self._run_id,
-            task_id=None,
-            conversation_id=self._conversation_id,
-            artifact_type=AGENT_OUTPUT_ARTIFACT_TYPE,
-            storage_key=storage_key,
-            media_type="text/markdown",
-            size=len(data),
-            checksum="sha256:" + hashlib.sha256(data).hexdigest(),
-            metadata_json={
-                "kind": "DOCUMENT",
-                "filename": name,
-                "source": "agent",
-                "version": 1,
-                "versions": [],
-            },
+        writer = OutputArtifactWriter(
+            artifact_root=self._artifact_root,
+            session_factory=self._session_factory,
+            scope=OutputScope(self._tenant_id, self._run_id, self._conversation_id),
         )
-        async with self._session_factory()() as session:
-            session.add(row)
-            await session.commit()
+        try:
+            row = await writer.save(data, filename=name, media_type="text/markdown", kind="DOCUMENT")
+        except OutputArtifactError as exc:
+            raise AttachmentToolError(exc.code, exc.message) from exc
+        artifact_id = row.id
         # 明确告诉模型"写"与"交"是两件事，否则它会以为写完就等于用户收到了
         return (
             f"{WRITE_ARTIFACT_RESULT_PREFIX}{artifact_id}）：{name}。"
@@ -649,9 +623,7 @@ class AttachmentToolSet:
         那是独立的一次改动。
         """
         if self._delivery_client is None or self._delivery_route is None:
-            raise AttachmentToolError(
-                ATTACHMENT_WRITE_UNAVAILABLE, "当前会话没有可交付的通道，产物发不出去"
-            )
+            raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前会话没有可交付的通道，产物发不出去")
         row = await self._load(arguments.get("artifact_id"))
         refusal = self._delivery_refusal(row)
         if refusal is not None:
@@ -752,9 +724,7 @@ class AttachmentToolSet:
 
     def _read_bytes(self, row: Artifact) -> bytes:
         if row.size > MAX_READ_BYTES:
-            raise AttachmentToolError(
-                ATTACHMENT_TOO_LARGE, f"附件超过可读取上限（{MAX_READ_BYTES} 字节）"
-            )
+            raise AttachmentToolError(ATTACHMENT_TOO_LARGE, f"附件超过可读取上限（{MAX_READ_BYTES} 字节）")
         path = NfsArtifactStore(self._artifact_root).resolve(row.storage_key)
         try:
             return path.read_bytes()
@@ -767,15 +737,6 @@ def _filename(row: Artifact) -> str:
     return name if isinstance(name, str) and name else "(未命名)"
 
 
-def _version_key(run_id: uuid.UUID | None, artifact_id: uuid.UUID, version: int) -> str:
-    """版本化的 `storage_key`。
-
-    artifact 不可变（`RULE-skill-001`）⇒ 追加写**只能换新 key**，所以"第几版"必须编进 key，
-    否则第二次写就撞 `FileExistsError`（那正是不可变契约在起作用）。
-    """
-    return f"outbound/{run_id}/{artifact_id}/v{version}"
-
-
 def _list_line(row: Artifact) -> str:
     """枚举里的一行：`id · 文件名 · MIME · 大小 · 方向 · 时间`。
 
@@ -783,11 +744,7 @@ def _list_line(row: Artifact) -> str:
     方向用类型判定（出站只有 `AGENT_OUTPUT` 一种），不按"有没有 run_id"——后台任务的自产产物
     `run_id` 为空，那样判会把它误报成入站。
     """
-    direction = (
-        DIRECTION_OUTBOUND
-        if row.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE
-        else DIRECTION_INBOUND
-    )
+    direction = DIRECTION_OUTBOUND if row.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE else DIRECTION_INBOUND
     created = row.create_time.isoformat() if row.create_time is not None else "-"
     return (
         f"- {row.id} · {_filename(row)} · {row.media_type} · {row.size} B"

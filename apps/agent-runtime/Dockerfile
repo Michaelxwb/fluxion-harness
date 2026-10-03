@@ -2,7 +2,14 @@
 # 不要改回 pip 手工列表：packages/* 之间是 uv workspace 依赖（[tool.uv.sources] … workspace = true），pip 不认识它。
 # syntax=docker/dockerfile:1
 
+FROM node:24-bookworm-slim AS node-runtime
+
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libstdc++6 \
+ && rm -rf /var/lib/apt/lists/* \
+ && node --version
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \

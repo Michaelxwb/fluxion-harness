@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import json
 import os
+import shutil
 import sys
 import time
 from collections.abc import Mapping
@@ -13,7 +14,8 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from muad_contracts import ResolvedSkill
-from muad_skill_sdk import SkillContext
+from muad_skill_sdk import SkillContext, SkillPackageError, declared_entrypoint, locate_package_root
+from muad_skill_sdk.skill_package import is_script_path
 
 MAX_OUTPUT_BYTES = 64 * 1024
 TERMINATE_GRACE_SEC = 2.0
@@ -73,18 +75,25 @@ class SkillExecutionResult:
 class ScriptSkillExecutor:
     async def execute(self, request: SkillExecutionRequest) -> SkillExecutionResult:
         ready_dir = Path(request.ready_dir).resolve()
+        if not (ready_dir / SCRIPTS_DIR).is_dir() and not (ready_dir / "SKILL.md").is_file():
+            try:
+                ready_dir, _ = locate_package_root(ready_dir)
+            except SkillPackageError as exc:
+                raise SkillExecutionError(exc.message) from exc
         script = select_script(ready_dir, request.script)
         started = time.monotonic()
-        process = await asyncio.create_subprocess_exec(
-            sys.executable,
-            "-I",
-            str(script),
-            cwd=str(ready_dir),
-            env=build_child_env(request.env),
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        env = build_child_env(request.env)
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *script_command(script, env),
+                cwd=str(ready_dir),
+                env=env,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except OSError as exc:
+            raise SkillExecutionError("failed to start skill interpreter") from exc
         status, stdout_bytes, stderr_bytes = await _collect(process, request)
         duration_ms = int((time.monotonic() - started) * 1000)
         stdout = decode_capped(stdout_bytes)
@@ -104,9 +113,7 @@ async def _collect(
     request: SkillExecutionRequest,
 ) -> tuple[SkillExecutionStatus, bytes, bytes]:
     stdin_payload = json.dumps(dict(request.input), ensure_ascii=False).encode("utf-8")
-    communicate: asyncio.Task[tuple[bytes, bytes]] = asyncio.ensure_future(
-        process.communicate(stdin_payload)
-    )
+    communicate: asyncio.Task[tuple[bytes, bytes]] = asyncio.ensure_future(process.communicate(stdin_payload))
     cancel_waiter = asyncio.ensure_future(request.cancel_event.wait()) if request.cancel_event else None
     timed_out = False
     cancelled = False
@@ -154,17 +161,25 @@ async def _terminate(process: asyncio.subprocess.Process, communicate: asyncio.F
 
 def select_script(ready_dir: Path, script: Path | None) -> Path:
     if script is None:
-        return select_entry_script(ready_dir)
+        script = select_entry_script(ready_dir)
     root = ready_dir.resolve()
     resolved = script.resolve()
     if root not in resolved.parents:
         raise SkillExecutionError("script path escapes the skill package")
     if not resolved.is_file():
         raise SkillExecutionError(f"skill script not found: {script.name}")
+    if not is_script_path(resolved):
+        raise SkillExecutionError("unsupported skill script extension")
     return resolved
 
 
 def select_entry_script(ready_dir: Path) -> Path:
+    try:
+        entrypoint = declared_entrypoint(ready_dir)
+    except SkillPackageError as exc:
+        raise SkillExecutionError(exc.message) from exc
+    if entrypoint is not None:
+        return entrypoint
     scripts_dir = ready_dir / SCRIPTS_DIR
     if not scripts_dir.is_dir():
         raise SkillExecutionError("skill package has no scripts directory")
@@ -173,8 +188,21 @@ def select_entry_script(ready_dir: Path) -> Path:
         return main.resolve()
     candidates = sorted(path for path in scripts_dir.glob("*.py") if path.is_file())
     if not candidates:
+        candidates = sorted(
+            path for path in scripts_dir.iterdir() if path.is_file() and is_script_path(path)
+        )
+    if not candidates:
         raise SkillExecutionError("skill package has no scripts")
     return candidates[0].resolve()
+
+
+def script_command(script: Path, env: Mapping[str, str]) -> tuple[str, ...]:
+    if script.suffix.lower() == ".py":
+        return sys.executable, "-I", str(script)
+    node = shutil.which("node", path=env.get("PATH", os.defpath))
+    if node is None:
+        raise SkillExecutionError("Node.js is required to execute JavaScript skills")
+    return node, str(script)
 
 
 def build_child_env(extra: Mapping[str, str]) -> dict[str, str]:

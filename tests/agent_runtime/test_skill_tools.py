@@ -18,7 +18,7 @@ from muad_agent_core.model import (
     ModelToolCall,
 )
 from muad_agent_core.tools import ToolRegistry
-from muad_agent_runtime.application.artifacts import ArtifactResultWriter
+from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
     TOOL_RESULT_ARTIFACT_BYTES,
     AgentRunnerExecutor,
@@ -163,11 +163,7 @@ async def test_load_skill_full_body_survives_tool_result_wrapper(tmp_path: Path)
     产出的真实定义必须带 `externalizable_result=False` —— 只测 executor 的判定分支是不够的，
     漏了标记照样静默外置。
     """
-    body = (
-        "# Demo Skill\n\n"
-        + "正文放 SKILL.md，大段规范放 references。\n" * 400
-        + "END-OF-INSTRUCTIONS"
-    )
+    body = "# Demo Skill\n\n" + "正文放 SKILL.md，大段规范放 references。\n" * 400 + "END-OF-INSTRUCTIONS"
     env = _env_for(tmp_path, {"SKILL.md": _skill_md_with_body(body)})
     definition = env.registry.get(LOAD_SKILL_TOOL)
     assert definition.externalizable_result is False
@@ -190,9 +186,7 @@ async def test_load_skill_full_body_survives_tool_result_wrapper(tmp_path: Path)
         audit_writer=None,
         artifact_writer=ArtifactResultWriter(tmp_path / "artifacts"),
     )
-    content = await recorder(
-        definition, {"skill_key": SKILL_KEY}, handler=handler, call_id="call-skill-1"
-    )
+    content = await recorder(definition, {"skill_key": SKILL_KEY}, handler=handler, call_id="call-skill-1")
 
     assert "artifact" not in content
     payload = json.loads(content)
@@ -289,7 +283,25 @@ async def test_run_skill_script_runs_named_script(skill_env: SkillEnv) -> None:
             {"skill_key": SKILL_KEY, "script": script, "input": {"question": "hi"}},
         )
         assert payload["status"] == "SUCCEEDED"
-        assert payload["result"] == {"script": "other"}
+    assert payload["result"] == {"script": "other"}
+
+
+@pytest.mark.parametrize("tool", [EXECUTE_SKILL_TOOL, RUN_SKILL_SCRIPT_TOOL])
+async def test_node_skill_runs_through_runtime_tool(tmp_path: Path, tool: str) -> None:
+    env = _env_for(
+        tmp_path,
+        {
+            "SKILL.md": SKILL_MD,
+            "muad.skill.json": json.dumps({"runtime": "script", "entrypoint": "scripts/run.mjs"}),
+            "scripts/run.mjs": 'console.log(JSON.stringify({message: "你好，见到你很高兴"}));',
+        },
+    )
+    arguments = {"skill_key": SKILL_KEY}
+    if tool == RUN_SKILL_SCRIPT_TOOL:
+        arguments["script"] = "scripts/run.mjs"
+    payload = await _call(env.registry, tool, arguments)
+    assert payload["status"] == "SUCCEEDED", payload
+    assert payload["result"] == {"message": "你好，见到你很高兴"}
 
 
 async def test_run_skill_script_rejects_invalid_name(skill_env: SkillEnv) -> None:
@@ -323,9 +335,7 @@ async def test_unknown_skill_is_a_tool_error(skill_env: SkillEnv, tool_name: str
 
 
 async def test_missing_artifact_surfaces_unavailable_code(skill_env: SkillEnv) -> None:
-    missing = skill_env.skill.model_copy(
-        update={"storage_key": "skills/demo-skill/missing.zip"}
-    )
+    missing = skill_env.skill.model_copy(update={"storage_key": "skills/demo-skill/missing.zip"})
     registry = build_skill_registry(
         cache=skill_env.cache,
         skills=(missing,),

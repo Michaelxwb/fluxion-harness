@@ -17,7 +17,7 @@ from muad_agent_core.model import (
 )
 from muad_agent_core.tools import ToolDefinition, ToolEffect
 from muad_agent_runtime.api.deps import get_executor_factory
-from muad_agent_runtime.application.artifacts import ArtifactResultWriter
+from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
     MAX_INLINE_RESULT_BYTES,
     TOOL_RESULT_ARTIFACT_BYTES,
@@ -26,6 +26,7 @@ from muad_agent_runtime.application.executor import (
     ExecutorRunContext,
     RunExecutor,
     ToolCallRecorder,
+    _preview_args,
 )
 from muad_agent_runtime.infrastructure.audit_writer import RuntimeAuditWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
@@ -354,3 +355,26 @@ async def test_tool_recorder_keeps_repeated_same_tool_calls_distinct() -> None:
     assert [row.tool_call_id for row in rows] == ["call-a", "call-b"]
     assert {row.tool_name for row in rows} == {"load_skill"}
     assert {row.status for row in rows} == {"OK"}
+
+
+def test_tool_args_preview_is_redacted_before_it_reaches_the_audit_table() -> None:
+    """入参预览落 `runtime.tool_call_audit` 之前**必须过脱敏**。
+
+    预览装的是**模型自己写的内容**：`write_artifact(content=...)`、
+    `create_archive(files=[{content: ...}])` 都会把正文开头塞进来。模型完全可能在文件里写一段
+    带 `api_key=…`/`token=…` 的配置，而那 200 字符会直接落进审计表——`RULE-secret-001`
+    要求密钥不得进入日志与审计。这里复用**同一套** `muad_logging.redaction` 策略。
+
+    同时断言**非敏感内容不受影响**：脱敏只该改它认得的键值对，不该顺手改动正文。
+    """
+    preview = _preview_args(
+        {
+            "content": "配置如下：\napi_key=sk-live-abcdef123456\n其余正文照旧",
+            "filename": "notes.md",
+        }
+    )
+
+    assert "sk-live-abcdef123456" not in preview["content"], "密钥落进了审计预览"
+    assert "***" in preview["content"], "脱敏没有生效"
+    assert "其余正文照旧" in preview["content"], "非敏感正文不得被改动"
+    assert preview["filename"] == "notes.md", "不含敏感键的值不得被改动"

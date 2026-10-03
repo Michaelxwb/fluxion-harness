@@ -290,3 +290,42 @@ async def test_e05_a_second_run_finds_nothing_left(root: Path, tenant: str) -> N
     assert _by_id(third) == {in_grace.artifact_id: ACTION_REMOVED}, (
         "宽限期放开后原本被保护的那份才轮到——反过来说明第一轮它确实是被**跳过**的，而不是被漏掉的"
     )
+
+
+async def test_temp_leftovers_are_swept_with_the_same_grace_period(root: Path, tenant: str) -> None:
+    """原子写的崩溃残留（`.tmp-*`）**复用同一个宽限期**清掉，且不碰 `skills/`。
+
+    残留只在进程崩在 `write_bytes` 与 `os.replace` 之间时产生——它**不影响任何读取**
+    （artifact 行指向最终 key），是纯盘上浪费；但没有回收器就永远躺在 PVC 上。
+    宽限期与删除策略共用一条时间线，不新增第二个旋钮。
+    `skills/` 那一段跳过：`cleanup-skill-orphans` 已经在管，两处都扫会让运维对不上账。
+    """
+    stale = root / "outbound" / "run-1" / ".tmp-stale"
+    fresh = root / "outbound" / "run-2" / ".tmp-fresh"
+    skill_tmp = root / "skills" / "t" / "s" / ".tmp-skill"
+    for path, age in ((stale, EXPIRED_AGE), (fresh, timedelta(0)), (skill_tmp, EXPIRED_AGE)):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"partial")
+        stamp = (datetime.now(UTC) - age).timestamp()
+        os.utime(path, (stamp, stamp))
+
+    report = await _cleanup(root, tenant)
+
+    assert not stale.exists(), "超过宽限期的临时文件必须清掉"
+    assert "outbound/run-1/.tmp-stale" in report.temp_files, "对账要看得见清掉了哪个"
+    assert fresh.exists(), "宽限期内的临时文件不得被动（可能正在写）"
+    assert skill_tmp.exists(), "skills/ 归 cleanup-skill-orphans 管，这里不得重复处理"
+
+
+async def test_dry_run_does_not_delete_temp_leftovers(root: Path, tenant: str) -> None:
+    """`--dry-run` 只报告，临时文件一个都不删。"""
+    stale = root / "outbound" / "run-9" / ".tmp-x"
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_bytes(b"partial")
+    stamp = (datetime.now(UTC) - EXPIRED_AGE).timestamp()
+    os.utime(stale, (stamp, stamp))
+
+    report = await _cleanup(root, tenant, dry_run=True)
+
+    assert stale.exists(), "dry-run 不得删文件"
+    assert "outbound/run-9/.tmp-x" in report.temp_files, "但要报出来"

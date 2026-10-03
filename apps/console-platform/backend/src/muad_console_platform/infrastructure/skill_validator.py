@@ -37,13 +37,15 @@ ALLOWED_EXTENSIONS = frozenset(
         ".html",
         ".css",
         ".js",
+        ".mjs",
+        ".cjs",
         ".png",
         ".jpg",
         ".svg",
     }
 )
 TEXT_EXTENSIONS = frozenset(
-    {".md", ".py", ".json", ".yaml", ".yml", ".txt", ".csv", ".html", ".css", ".js", ".svg"}
+    {".md", ".py", ".json", ".yaml", ".yml", ".txt", ".csv", ".html", ".css", ".js", ".mjs", ".cjs", ".svg"}
 )
 SECRET_PATTERNS = (
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),

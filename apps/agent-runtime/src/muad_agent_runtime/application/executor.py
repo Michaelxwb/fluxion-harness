@@ -46,14 +46,17 @@ from muad_contracts import (
     ResolvedModel,
     ResolvedSkill,
 )
+from muad_logging.redaction import redact_text
 from muad_platform_sdk.types import SecretValue
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 from ..infrastructure.db import get_session_factory
 from ..infrastructure.gateway_delivery_client import GatewayDeliveryClient
 from ..metrics import MODEL_INVOCATIONS_METRIC, TOOL_CALLS_METRIC, record_outcome
-from .artifacts import ArtifactResultWriter
-from .attachment_tools import AttachmentToolSet
+from .attachments.archive_tools import ArchiveToolSet
+from .attachments.output_service import OutputArtifactWriter, OutputScope
+from .attachments.tool_results import TOOL_RESULT_ARTIFACT_BYTES, ArtifactResultWriter
+from .attachments.tools import AttachmentToolSet
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_service import MemoryService
 from .memory_tools import MemoryScope, MemoryToolSet, memory_write_enabled
@@ -70,7 +73,6 @@ TOOL_COMPLETED_EVENT = "tool.completed"
 ASSISTANT_TURN_EVENT = "assistant.turn"
 CANCEL_POLL_INTERVAL_SEC = 0.25
 MODEL_TIMEOUT_SEC = 120.0
-TOOL_RESULT_ARTIFACT_BYTES = 8 * 1024
 # 内容投递类工具（`externalizable_result=False`）的内联上限：**不是无限直通**。
 # 超过它仍然外置，否则一个超大 SKILL.md 会直接打爆上下文；这也把「渐进式披露」从建议变成
 # 硬约束（正文放 SKILL.md / 大段规范放 references）。取值与 `MAX_RESOURCE_BYTES`（单次资源
@@ -97,9 +99,7 @@ class ExecutorRunContext:
     delivery_route: DeliveryRouteInput | None = None
 
 
-def _with_current_turn(
-    history: tuple[ModelMessage, ...], current: ModelMessage
-) -> tuple[ModelMessage, ...]:
+def _with_current_turn(history: tuple[ModelMessage, ...], current: ModelMessage) -> tuple[ModelMessage, ...]:
     """把**当前轮**放进要发给模型的消息序列。
 
     消息序列来自**会话事件回放**，而本轮的 `USER_MESSAGE` 在 Run 建立时就写进去了 ⇒ 历史末尾
@@ -210,9 +210,7 @@ class AgentRunnerExecutor:
                 )
             )
 
-        async def on_tool_completed(
-            call_id: str, name: str, status: str, artifact_id: str | None
-        ) -> None:
+        async def on_tool_completed(call_id: str, name: str, status: str, artifact_id: str | None) -> None:
             await emit(
                 ExecutorEvent(
                     type=TOOL_COMPLETED_EVENT,
@@ -241,9 +239,7 @@ class AgentRunnerExecutor:
             result = task.result()
             if not delta_emitted and result is not None and result.final_text:
                 # 非流式 provider：把最终回答作为单个 delta，保证渠道侧拼接可用
-                yield ExecutorEvent(
-                    type=MESSAGE_DELTA_EVENT, data={"delta": result.final_text}
-                )
+                yield ExecutorEvent(type=MESSAGE_DELTA_EVENT, data={"delta": result.final_text})
         finally:
             poller.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -347,20 +343,29 @@ class AuditedModelProvider:
                 response = await self._inner.complete(request)
         except ModelRateLimitedError as exc:
             await self._record(
-                started, status="RETRY", retry_reason="RATE_LIMITED",
-                error_code=str(ErrorCode.MODEL_UNAVAILABLE), message=str(exc),
+                started,
+                status="RETRY",
+                retry_reason="RATE_LIMITED",
+                error_code=str(ErrorCode.MODEL_UNAVAILABLE),
+                message=str(exc),
             )
             raise
         except ModelUnavailableError as exc:
             await self._record(
-                started, status="RETRY", retry_reason="UNAVAILABLE",
-                error_code=str(ErrorCode.MODEL_UNAVAILABLE), message=str(exc),
+                started,
+                status="RETRY",
+                retry_reason="UNAVAILABLE",
+                error_code=str(ErrorCode.MODEL_UNAVAILABLE),
+                message=str(exc),
             )
             raise
         except Exception:
             await self._record(
-                started, status="ERROR", retry_reason=None,
-                error_code=str(ErrorCode.COMMON_INTERNAL_ERROR), message="model invocation failed",
+                started,
+                status="ERROR",
+                retry_reason=None,
+                error_code=str(ErrorCode.COMMON_INTERNAL_ERROR),
+                message="model invocation failed",
             )
             raise
         await self._record(
@@ -455,11 +460,7 @@ class ToolCallRecorder:
         拿到 400 字符预览、看不到 1/20 的正文，而且**没有任何报错**，两侧行为差异直到与
         另一产品对比才暴露）。
         """
-        limit = (
-            TOOL_RESULT_ARTIFACT_BYTES
-            if definition.externalizable_result
-            else MAX_INLINE_RESULT_BYTES
-        )
+        limit = TOOL_RESULT_ARTIFACT_BYTES if definition.externalizable_result else MAX_INLINE_RESULT_BYTES
         return len(content.encode("utf-8")) > limit
 
     async def __call__(
@@ -532,10 +533,21 @@ class ToolCallRecorder:
 
 
 def _preview_args(arguments: Mapping[str, Any]) -> dict[str, Any]:
+    """工具的入参预览（落 `runtime.tool_call_audit.args_preview_json`）。
+
+    **先截断、再过 `redact_text`**：预览里装的是**模型自己写的内容**——
+    `write_artifact(content=...)`、`create_archive(files=[{content: ...}])` 都会把正文开头塞进来。
+    模型完全可能在文件里写一段带 `api_key=…`/`token=…` 的配置，而那 200 字符会**落进审计表**。
+    `RULE-secret-001` 要求密钥不得进入日志与审计，所以这里复用**同一套**脱敏策略
+    （`muad_logging.redaction`）——不是另写一份扫密钥逻辑（那才会两处漂移）。
+
+    顺序是「先截断后脱敏」：先脱敏意味着对一个可能几 MB 的值跑正则，代价与收益不成比例；
+    200 字符窗口内**完整出现**的键值对已能被覆盖，而这正是实际的泄漏形态。
+    """
     preview: dict[str, Any] = {}
     for key, value in arguments.items():
         text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-        preview[str(key)] = text[:200]
+        preview[str(key)] = redact_text(text[:200])
     return preview
 
 
@@ -549,9 +561,7 @@ def _wrap_registry(
         if handler is None:
             wrapped.register(definition)
             continue
-        wrapped.register(
-            replace(definition, handler=partial(recorder, definition, handler=handler))
-        )
+        wrapped.register(replace(definition, handler=partial(recorder, definition, handler=handler)))
     return wrapped
 
 
@@ -619,9 +629,9 @@ def build_registry(
     )
     if task_client is not None and task_context is not None:
         # docs/04 §7.5 内置任务工具：Schedule 创建/管理与后台 Task 查询/取消。
-        BackgroundTaskToolSet(
-            client=task_client, context=task_context, skills=request.skills
-        ).register(registry)
+        BackgroundTaskToolSet(client=task_client, context=task_context, skills=request.skills).register(
+            registry
+        )
     # 内置时间工具：模型不知道"现在几点"，而 create_schedule 与相对时间（"明天早上 9 点"）都依赖它。
     # 时区取平台默认的 IANA 名，与调度侧口径一致（harness-time#RULE-time-001）。
     TimeToolSet(zone=resolve_zone(SharedSettings().default_timezone)).register(registry)
@@ -638,6 +648,17 @@ def build_registry(
             # 交付动作才需要路由与客户端（TASK-006）：没有路由时 `deliver_artifact` 明确报错
             delivery_route=request.run_context.delivery_route,
             delivery_client=delivery_client,
+        ).register(registry)
+        ArchiveToolSet(
+            OutputArtifactWriter(
+                artifact_root=SharedSettings().artifact_root,
+                session_factory=get_session_factory,
+                scope=OutputScope(
+                    request.run_context.tenant_id,
+                    request.run_context.run_id,
+                    request.run_context.conversation_id,
+                ),
+            )
         ).register(registry)
     if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:
         mcp_adapter.register_catalog(

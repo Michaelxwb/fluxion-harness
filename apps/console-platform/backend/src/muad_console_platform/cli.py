@@ -205,6 +205,8 @@ async def _cleanup_artifacts(args: argparse.Namespace) -> int:
     # 逐条 stdout：**这就是对账面**（设计 §3.5「清理可对账」），运维据此核对删了什么、跳过了什么。
     for action in report.actions:
         print(action.line())
+    for key in report.temp_files:
+        print(f"TMP_REMOVED key={key}")
     print(report.summary())
     return 0
 

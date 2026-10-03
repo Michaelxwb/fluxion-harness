@@ -46,6 +46,11 @@ from ..infrastructure.repositories.artifact_retention_repository import (
 #: 也不好核对；批量由运维重复执行控制。
 DEFAULT_CLEANUP_LIMIT = 500
 
+#: 原子写留在盘上的中间文件前缀（`os.replace` 之前的那一份）。
+#: **只有进程崩在 `write_bytes` 与 `os.replace` 之间才会残留**——正常路径与失败清理都会消掉它；
+#: 残留物也**不影响任何读取**（artifact 行指向的是最终 key），是纯盘上浪费。
+TEMP_PREFIX = ".tmp-"
+
 #: 逐条动作的类型（也是 stdout 的行首标记，便于 `grep`/`awk` 对账）。
 ACTION_REMOVED = "REMOVED"
 ACTION_DANGLING = "DANGLING"
@@ -74,7 +79,14 @@ class CleanupAction:
 @dataclass(frozen=True, slots=True)
 class CleanupReport:
     actions: tuple[CleanupAction, ...]
-    dry_run: bool
+    #: 清掉的临时文件（原子写的残留）。**单独一类**：它们没有 artifact 行、没有租户，
+    #: 硬塞进 `CleanupAction` 只能编造出两个字段来。
+    temp_files: tuple[str, ...] = ()
+    dry_run: bool = False
+
+    @property
+    def temp_count(self) -> int:
+        return len(self.temp_files)
 
     def count(self, action: str) -> int:
         return sum(1 for item in self.actions if item.action == action)
@@ -89,6 +101,7 @@ class CleanupReport:
             f"removed={self.count(ACTION_REMOVED)} "
             f"dangling={self.count(ACTION_DANGLING)} "
             f"skipped={self.count(ACTION_SKIPPED)} "
+            f"temp={self.temp_count} "
             f"dry_run={str(self.dry_run).lower()}"
         )
 
@@ -130,7 +143,27 @@ class ArtifactCleanupService:
             deletable.append(row.artifact_id)
         if not dry_run:
             await self._repository.delete(deletable)
-        return CleanupReport(actions=tuple(actions), dry_run=dry_run)
+        temps = self._sweep_temp_files(grace_cutoff=grace_cutoff, dry_run=dry_run)
+        return CleanupReport(actions=tuple(actions), temp_files=tuple(temps), dry_run=dry_run)
+
+    def _sweep_temp_files(self, *, grace_cutoff: datetime, dry_run: bool) -> list[str]:
+        """清掉原子写的崩溃残留（`.tmp-*`）。
+
+        **复用同一个宽限期**：临时文件是"正在进行中的写入"的痕迹，用删除策略的同一条时间线
+        判断，不需要第二个旋钮。`skills/` 那一段**跳过**——`cleanup-skill-orphans` 已经在管它，
+        两处都扫只会让运维对不上账。
+        """
+        root = self._store.root
+        removed: list[str] = []
+        for path in sorted(root.rglob(f"{TEMP_PREFIX}*")):
+            if not path.is_file() or path.relative_to(root).parts[:1] == ("skills",):
+                continue
+            if datetime.fromtimestamp(path.stat().st_mtime, tz=UTC) > grace_cutoff:
+                continue
+            if not dry_run:
+                path.unlink(missing_ok=True)
+            removed.append(str(path.relative_to(root)))
+        return removed
 
     def _classify(
         self, row: ExpiredArtifact, *, grace_cutoff: datetime

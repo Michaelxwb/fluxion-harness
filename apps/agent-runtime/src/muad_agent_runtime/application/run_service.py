@@ -47,6 +47,15 @@ from ..infrastructure.models.runtime import (
     RuntimeSnapshot,
 )
 from ..metrics import AGENT_RUNS_METRIC, RUN_RECLAIM_METRIC, record_counter, record_outcome
+from .attachments.inbound import (
+    INBOUND_DOCUMENT,
+    INBOUND_IMAGE,
+    INBOUND_OTHER,
+    PersistedAttachment,
+    attachment_payload,
+    build_current_content,
+    persist_inbound_attachments,
+)
 from .context_builder import BudgetPolicy, DbBackedContextBuilder
 from .executor import (
     ExecutorCredentials,
@@ -56,15 +65,6 @@ from .executor import (
     ExecutorRunContext,
     RunExecutor,
     default_executor_factory,
-)
-from .inbound_attachments import (
-    INBOUND_DOCUMENT,
-    INBOUND_IMAGE,
-    INBOUND_OTHER,
-    PersistedAttachment,
-    attachment_payload,
-    build_current_content,
-    persist_inbound_attachments,
 )
 from .ports import CredentialsClient, ResolveClient
 from .run_events import EventWriter

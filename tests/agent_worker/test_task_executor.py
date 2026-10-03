@@ -12,9 +12,11 @@ import json
 import tempfile
 import uuid
 import zipfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from muad_agent_worker.worker.execution_outcomes import interpret_execution
 from muad_agent_worker.worker.executor import SkillTaskExecutor, TaskExecutionError
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 
@@ -324,3 +326,39 @@ async def test_skill_receives_task_context_env(tenant: TenantContext) -> None:
     assert result["MUAD_TASK_IDEMPOTENCY_KEY"] == "run:r1:skill:policy_check:abc"
     assert result["MUAD_TASK_ATTEMPT"] == "2"
     assert json.loads(result["MUAD_TASK_EXTERNAL_REF"]) == {"external_task_id": "ext-7"}
+
+
+EMPTY_OBJECT_MAIN = (
+    "import json, sys\n"
+    "json.loads(sys.stdin.read() or '{}')\n"
+    "print(json.dumps({}))\n"
+)
+
+
+async def test_empty_structured_result_is_not_replaced_by_stdout(tenant: TenantContext) -> None:
+    """脚本打印 `{}` 是**合法的结构化结果**，不得被 stdout 兜底覆盖成 `{"text": "{}"}`。
+
+    `SkillTaskExecutor` 造执行载荷时曾用**真值判断**（`dict(result.result) if result.result else None`），
+    falsy 的 `{}` 因此被折成 `None`；随后 `interpret_execution` 的 stdout 兜底就把 `"{}"` 当文本结果
+    顶上——于是"空对象优先于 stdout"这条保证**只在单独调 `interpret_execution` 时才成立**，
+    生产后台路径上不成立。判据用 `is not None`：`{}` 是"有结果且为空"，与"没有结果"是两件事。
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        store, cache = _caches(tmp)
+        checksum = _build_skill_zip(store.root, body=EMPTY_OBJECT_MAIN)
+
+        task = await persist_task(
+            tenant,
+            skill_artifact_id=ARTIFACT_UUID,
+            execution_snapshot_json=_snapshot(checksum),
+            input_json={},
+        )
+        outcome = await SkillTaskExecutor(cache).execute(task)
+
+    assert outcome["result"] == {}, f"空对象在造载荷时就被折成了空结果：{outcome['result']!r}"
+    assert outcome["stdout"].strip() == "{}", "夹具要求脚本确实打印了 {}"
+
+    parsed = interpret_execution(outcome, now=datetime.now(UTC))
+
+    assert parsed.result == {}, f"空对象被 stdout 兜底覆盖：{parsed.result!r}"

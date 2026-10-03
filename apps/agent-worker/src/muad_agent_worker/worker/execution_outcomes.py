@@ -49,6 +49,9 @@ def interpret_execution(execution: Mapping[str, Any], *, now: datetime) -> TaskO
             error_message=str(execution.get("stderr") or ""),
         )
     payload = dict(execution.get("result") or {})
+    stdout = execution.get("stdout")
+    if execution.get("result") is None and isinstance(stdout, str) and stdout.strip():
+        payload = {"text": stdout.strip()}
     wait = payload.get(WAIT_KEY)
     if isinstance(wait, Mapping):
         return TaskOutcome(

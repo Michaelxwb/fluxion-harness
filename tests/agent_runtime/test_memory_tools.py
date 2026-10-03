@@ -16,7 +16,7 @@ from muad_agent_core.agent import AgentPolicy, AgentRunner
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import ModelRequest, ModelResponse, ModelRole, ModelToolCall
 from muad_agent_core.tools import ToolRegistry
-from muad_agent_runtime.application.artifacts import ArtifactResultWriter
+from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
     AgentRunnerExecutor,
     ExecutorRequest,

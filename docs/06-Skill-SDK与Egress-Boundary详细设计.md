@@ -2,7 +2,7 @@
 
 ## 1. 设计目标
 
-Skill 继续保持最接近 OpenClaw/Agent Skills 的开发体验：**SKILL.md 描述何时使用和怎么做，scripts/ 承载需要确定性处理的 Python 逻辑**。平台不再要求开发者把接口、数据转换、条件和循环拆成 Capability，也不要求维护一份复杂的 `skill.yaml`。
+Skill 继续保持最接近 OpenClaw/Agent Skills 的开发体验：**SKILL.md 描述何时使用和怎么做，scripts/ 承载需要确定性处理的 Python 或 JavaScript 逻辑**。平台不再要求开发者把接口、数据转换、条件和循环拆成 Capability，也不要求维护一份复杂的 `skill.yaml`。
 
 Runtime 只抽离必须统一的基础设施：
 
@@ -70,7 +70,17 @@ scripts/ = 数据处理、接口串接、算法
 Platform = Artifact/版本/Agent 绑定/用户范围授权/审计/解析后的 execution_mode
 ```
 
-仅当未来出现第三方 Skill、强沙箱或自动依赖审批需求时，再增加独立 manifest。
+兼容可选的 `muad.skill.json` 脚本入口声明（2026-10-03）：
+
+```json
+{"runtime": "script", "entrypoint": "scripts/run.mjs"}
+```
+
+- `runtime` 若提供必须为 `script`；`entrypoint` 若提供必须指向包内真实存在的 `.py`、`.js`、`.mjs` 或 `.cjs` 文件。非法 JSON、绝对路径、目录逃逸和缺失入口在导入及执行时均拒绝。
+- 声明入口优先；无入口声明时保留原有 `scripts/main.py`、按名称排序的 Python 脚本选择规则，再回落到 JavaScript 脚本。Python 使用隔离模式，JavaScript 使用 Node.js；Runtime 与 Worker 镜像包含 Node.js 24。
+- `SKILL.md` frontmatter 继续是名称、描述、执行模式与平台标签的来源；可选 JSON 不替代它，JSON 中的版本不替代 Console 导入版本。
+- 两种脚本共用 JSON stdin、stdout/stderr、超时、取消及环境变量隔离机制。Worker 优先读取结构化 JSON 结果；成功执行且无结构化结果时将非空 stdout 保留为文本结果供投递，失败输出不作为成功结果。
+- 未声明 JSON 入口的历史 Skill 保持兼容；纯说明文档仍可导入，不强制添加脚本。
 
 ---
 
@@ -177,7 +187,7 @@ flowchart TD
     D --> E[Verify checksum]
     E --> F[Validate script path inside package]
     F --> G[Create controlled SkillContext]
-    G --> H[SkillExecutor executes Python script]
+    G --> H[SkillExecutor executes Python or Node script]
     H --> I{Result is large}
     I -->|Yes| J[Persist Artifact and create preview]
     I -->|No| K[Create ToolResult]

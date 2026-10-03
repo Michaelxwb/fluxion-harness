@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from muad_agent_runtime.application.artifacts import ArtifactResultWriter
+from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, Conversation
 

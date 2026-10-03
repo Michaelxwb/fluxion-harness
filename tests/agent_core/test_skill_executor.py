@@ -1,4 +1,5 @@
 import asyncio
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -154,9 +155,7 @@ async def test_missing_explicit_script_is_rejected(tmp_path: Path) -> None:
     _script(root, "main.py", "print('ok')\n")
 
     with pytest.raises(SkillExecutionError):
-        await ScriptSkillExecutor().execute(
-            replace(_request(root), script=root / "scripts" / "missing.py")
-        )
+        await ScriptSkillExecutor().execute(replace(_request(root), script=root / "scripts" / "missing.py"))
 
 
 async def test_env_is_scrubbed_and_allowlist_passed(
@@ -216,3 +215,73 @@ async def test_relative_ready_dir_executes_from_cache_style_path(
 
     assert result.status is SkillExecutionStatus.SUCCEEDED
     assert result.result == {"ok": True}
+
+
+@pytest.mark.parametrize("extension", ["js", "mjs", "cjs"])
+async def test_node_entrypoint_receives_stdin_and_scrubbed_env(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    extension: str,
+) -> None:
+    _script(tmp_path, "main.py", "raise RuntimeError('wrong entrypoint')")
+    _script(
+        tmp_path,
+        f"run.{extension}",
+        "let input=''; process.stdin.on('data', d => input += d);\n"
+        "process.stdin.on('end', () => console.log(JSON.stringify({"
+        "received: JSON.parse(input), secret: process.env.MODEL_API_KEY ?? null,"
+        "custom: process.env.CUSTOM_FLAG, nodeOptions: process.env.NODE_OPTIONS ?? null})));\n",
+    )
+    (tmp_path / "muad.skill.json").write_text(
+        json.dumps(
+            {
+                "runtime": "script",
+                "entrypoint": f"scripts/run.{extension}",
+            }
+        )
+    )
+    monkeypatch.setenv("MODEL_API_KEY", "test-secret")
+    monkeypatch.setenv("NODE_OPTIONS", "--invalid-option")
+    result = await ScriptSkillExecutor().execute(_request(tmp_path, env={"CUSTOM_FLAG": "yes"}))
+    assert result.status is SkillExecutionStatus.SUCCEEDED
+    assert result.result == {
+        "received": {"question": "hello"},
+        "secret": None,
+        "custom": "yes",
+        "nodeOptions": None,
+    }
+
+
+async def test_node_timeout_and_cancel_terminate_process(tmp_path: Path) -> None:
+    script = _script(tmp_path, "run.mjs", "setInterval(() => {}, 1000);")
+    request = replace(_request(tmp_path, timeout_sec=0.2), script=script)
+    result = await ScriptSkillExecutor().execute(request)
+    assert result.status is SkillExecutionStatus.TIMED_OUT
+    cancel = asyncio.Event()
+    cancel.set()
+    result = await ScriptSkillExecutor().execute(replace(request, cancel_event=cancel, timeout_sec=5))
+    assert result.status is SkillExecutionStatus.CANCELLED
+
+
+async def test_node_nonzero_exit_is_failed(tmp_path: Path) -> None:
+    _script(tmp_path, "run.mjs", "console.error('boom'); process.exit(3);")
+    result = await ScriptSkillExecutor().execute(_request(tmp_path))
+    assert result.status is SkillExecutionStatus.FAILED
+    assert result.exit_code == 3
+    assert "boom" in result.stderr
+
+
+async def test_missing_node_reports_explicit_error(tmp_path: Path) -> None:
+    _script(tmp_path, "run.mjs", "console.log('hi');")
+    with pytest.raises(SkillExecutionError, match="Node.js is required"):
+        await ScriptSkillExecutor().execute(_request(tmp_path, env={"PATH": str(tmp_path)}))
+
+
+async def test_default_script_symlink_cannot_escape_package(tmp_path: Path) -> None:
+    root = tmp_path / "package"
+    (root / "scripts").mkdir(parents=True)
+    outside = tmp_path / "outside.py"
+    outside.write_text("print('outside')")
+    (root / "scripts/main.py").symlink_to(outside)
+    with pytest.raises(SkillExecutionError, match="escapes"):
+        await ScriptSkillExecutor().execute(_request(root))

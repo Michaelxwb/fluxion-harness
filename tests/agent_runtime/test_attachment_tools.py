@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 from muad_agent_core.tools import ToolRegistry
-from muad_agent_runtime.application.attachment_tools import (
+from muad_agent_runtime.application.attachments.tools import (
     AGENT_OUTPUT_ARTIFACT_TYPE,
     APPEND_ARTIFACT_TOOL,
     ATTACHMENT_DIRECTION_INVALID,

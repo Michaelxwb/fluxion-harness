@@ -16,7 +16,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from muad_api import ApiResponse, AppError, ErrorCode, InternalServiceDep, ok
 
-from ..application.artifact_reference import attachment_ref
+from ..application.attachments.reference import attachment_ref
 from ..infrastructure.models.runtime import Artifact
 from .deps import SessionDep, TenantDep
 

@@ -18,7 +18,7 @@ from muad_agent_core.model import ImagePart, ModelContent
 from muad_contracts import AttachmentRef
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.models.runtime import Artifact
+from ...infrastructure.models.runtime import Artifact
 
 INBOUND_IMAGE = "INBOUND_IMAGE"
 INBOUND_DOCUMENT = "INBOUND_DOCUMENT"

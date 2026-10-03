@@ -9,7 +9,13 @@ from .context import (
     SkillUser,
     TaskClient,
 )
-from .skill_package import SkillManifest, SkillPackage, SkillPackageError, locate_package_root
+from .skill_package import (
+    SkillManifest,
+    SkillPackage,
+    SkillPackageError,
+    declared_entrypoint,
+    locate_package_root,
+)
 
 __all__ = [
     "ArtifactAccess",
@@ -24,4 +30,5 @@ __all__ = [
     "SkillUser",
     "TaskClient",
     "locate_package_root",
+    "declared_entrypoint",
 ]

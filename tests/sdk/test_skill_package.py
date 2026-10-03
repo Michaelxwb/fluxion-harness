@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -118,3 +119,94 @@ def test_scripts_and_resources_are_empty_without_directories(tmp_path: Path) -> 
 
     assert package.scripts() == ()
     assert package.resources() == ()
+
+
+def test_javascript_scripts_are_discoverable(tmp_path: Path) -> None:
+    root = _write(tmp_path, "name: greeting\ndescription: greeting")
+    (root / "scripts").mkdir()
+    for name in ("run.mjs", "other.js", "common.cjs", "notes.txt"):
+        (root / "scripts" / name).write_text("", encoding="utf-8")
+    assert [path.name for path in SkillPackage.load(root).scripts()] == [
+        "common.cjs",
+        "other.js",
+        "run.mjs",
+    ]
+
+
+@pytest.mark.parametrize(
+    "entrypoint",
+    [
+        "../outside.mjs",
+        "/tmp/run.mjs",
+        "C:/run.mjs",
+        "scripts\\run.mjs",
+        "scripts/run.txt",
+        "",
+        42,
+    ],
+)
+def test_invalid_manifest_entrypoint_is_rejected(tmp_path: Path, entrypoint: object) -> None:
+    """**清单写坏了**要拒绝（路径逃逸 / 绝对路径 / 盘符 / 反斜杠 / 非脚本扩展名 / 空值）。
+
+    **注意这里不再包含「文件不存在」**：那一档已改为**降级**而不是拒绝，
+    见 `test_declared_entrypoint_missing_falls_back_...`。
+    """
+    root = _write(tmp_path, "name: greeting\ndescription: greeting")
+    (root / "scripts").mkdir()
+    (root / "scripts/run.txt").write_text("", encoding="utf-8")
+    (root / "muad.skill.json").write_text(json.dumps({"entrypoint": entrypoint}))
+    with pytest.raises(SkillPackageError):
+        SkillPackage.load(root)
+
+
+@pytest.mark.parametrize("manifest", ["[]", "{", '{"runtime":"shell"}'])
+def test_invalid_script_manifest_is_rejected(tmp_path: Path, manifest: str) -> None:
+    root = _write(tmp_path, "name: greeting\ndescription: greeting")
+    (root / "muad.skill.json").write_text(manifest)
+    with pytest.raises(SkillPackageError):
+        SkillPackage.load(root)
+
+
+def test_declared_entrypoint_missing_falls_back_instead_of_killing_the_package(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """声明了入口但**文件不在** ⇒ 降级到常规搜索顺序，而不是把整个包判死。
+
+    旧行为直接抛 `SkillPackageError`，于是一个同时带着**可用的** `scripts/main.py` 和一份
+    过时/写错的清单入口的包，会**从"能跑"整个变成不可用**——而清单在过去是被忽略的
+    （即"行为收紧"影响到了既有包）。降级的安全性：候选脚本都在**同一个包内**、同一作者、
+    同一信任域，回退不等于越权。
+
+    但降级**必须留痕**：静默忽略一个声明会掩盖作者的笔误，所以断言同时要求 WARNING。
+    """
+    root = _write(tmp_path, "name: greeting\ndescription: greeting")
+    (root / "scripts").mkdir()
+    (root / "scripts/main.py").write_text("", encoding="utf-8")
+    (root / "muad.skill.json").write_text(json.dumps({"entrypoint": "scripts/run.mjs"}))
+
+    with caplog.at_level("WARNING"):
+        package = SkillPackage.load(root)  # 不抛
+
+    assert [path.name for path in package.scripts()] == ["main.py"]
+    assert any("skill_entrypoint_missing" in record.getMessage() for record in caplog.records), (
+        "降级必须留痕，否则作者的笔误被静默吞掉"
+    )
+
+
+def test_script_extension_check_is_case_insensitive(tmp_path: Path) -> None:
+    """扩展名判定**大小写不敏感** —— 与 Console 导入白名单**同源**。
+
+    Console 用 `path.suffix.lower()` 判定成员是否在白名单内，执行侧若用精确比较，
+    `scripts/run.JS` 就会**能导入、却在执行时被判成"不支持的扩展名"**（同样的错位还包括
+    `UP.PY` 被当成非 Python 脚本交给 Node 执行）。以**门禁侧（Console）为准**：
+    它能放行的，下游必须能执行。
+    """
+    root = _write(tmp_path, "name: greeting\ndescription: greeting")
+    (root / "scripts").mkdir()
+    (root / "scripts/run.JS").write_text("", encoding="utf-8")
+    (root / "scripts/helper.MJS").write_text("", encoding="utf-8")
+    (root / "muad.skill.json").write_text(json.dumps({"entrypoint": "scripts/run.JS"}))
+
+    package = SkillPackage.load(root)  # 不抛
+
+    assert [path.name for path in package.scripts()] == ["helper.MJS", "run.JS"]

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from muad_contracts import AttachmentRef
 
-from ..infrastructure.models.runtime import Artifact
+from ...infrastructure.models.runtime import Artifact
 
 #: 契约的封闭枚举。未知值归 `OTHER` 而不是抛：产物行可能是历史数据或别的写入方落的。
 _KNOWN_KINDS = ("IMAGE", "DOCUMENT", "OTHER")

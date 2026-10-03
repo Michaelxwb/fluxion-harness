@@ -143,7 +143,10 @@ class SkillTaskExecutor:
             return self._batch_envelope(task, summary)
         return {
             "status": str(result.status),
-            "result": dict(result.result) if result.result else None,
+            # `is not None` 而不是真值判断：脚本打印 `{}` 是**一个合法的结构化结果**，
+            # 用真值判断会把它折成 `None`，随后 `interpret_execution` 的 stdout 兜底
+            # 就把 `"{}"` 当成文本结果覆盖掉它（"空对象优先于 stdout"这条保证会失效）。
+            "result": dict(result.result) if result.result is not None else None,
             "stdout": result.stdout,
             "stderr": result.stderr,
             "duration_ms": result.duration_ms,

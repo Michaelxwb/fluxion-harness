@@ -123,6 +123,31 @@ packages/agent-core/
 
 ---
 
+Runtime 应用层按功能逐步组织子包。附件与制品模块已归入以下目录（2026-10-03）：
+
+```text
+apps/agent-runtime/src/muad_agent_runtime/
+├── api/                       # HTTP 协议适配
+├── application/
+│   ├── attachments/
+│   │   ├── __init__.py
+│   │   ├── tools.py           # 附件读取、搜索、写出、追加与交付工具
+│   │   ├── archive_tools.py   # create_archive：显式文本文件生成真实 ZIP
+│   │   ├── output_service.py  # 文本/二进制输出制品保存及失败清理
+│   │   ├── inbound.py         # 入站附件落库与模型上下文呈现
+│   │   ├── reference.py       # Artifact → 渠道中立 AttachmentRef
+│   │   └── tool_results.py    # 工具大结果外置保存，非用户输出文件
+│   ├── executor.py            # 执行器与工具组装
+│   └── run_service.py         # Run 编排
+└── infrastructure/            # 数据库、模型与外部服务客户端
+```
+
+调用方直接导入 `application.attachments` 下的具体模块。附件子包不反向依赖 API、bootstrap、执行器或 Run 编排服务；功能子包保留既有技术分层。
+
+`create_archive` 随具有 Run 上下文的内置工具注册，标记为 `ToolEffect.WRITE`。输入为 ZIP 文件名及 `files: [{path, content}]`，只打包显式提供的 UTF-8 文本文件，保留相对目录；不读取服务器目录，不执行 Shell。限制为 1–2000 个文件、原始内容合计不超过 50 MiB、ZIP 成品不超过 50 MiB、单路径 UTF-8 编码不超过 1024 字节。绝对路径、目录逃逸、反斜杠、重复成员、文件与目录冲突以及无效输入均明确拒绝。
+
+`output_service.py` 为 `write_artifact` 和 `create_archive` 共用的输出保存服务：沿用 `outbound/{run_id}/{artifact_id}/v1` 不可变存储、原子写入与 Run/会话/租户归属，数据库提交失败时删除已写文件。ZIP 的媒体类型为 `application/zip`，保存文件名、大小和 SHA-256 checksum。工具返回制品 ID、总文件数和最多三个路径的清单预览，避免大量文件使回执被大结果机制外置；ZIP 内部包含全部输入文件。后续调用 `deliver_artifact` 交付。首版不支持既有制品引用或二进制输入，也不执行 Skill 导入与专用校验。
+
 ## 4. AgentRunner 生命周期
 
 ```mermaid

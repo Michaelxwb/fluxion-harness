@@ -11,7 +11,7 @@ import base64
 import uuid
 
 from muad_agent_core.model import ImagePart
-from muad_agent_runtime.application.inbound_attachments import (
+from muad_agent_runtime.application.attachments.inbound import (
     INBOUND_DOCUMENT,
     INBOUND_IMAGE,
     PersistedAttachment,

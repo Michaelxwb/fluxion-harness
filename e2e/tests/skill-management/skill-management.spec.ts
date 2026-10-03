@@ -128,6 +128,27 @@ test('S-05 导入合法 Skill 后 DB/NFS 落库且列表默认 SELECTED', async 
   }
 });
 
+test('S-05m 导入内置归档逻辑生成的 Node greeting Skill', async ({ page }) => {
+  const key = uniqueKey('e2e-s05m');
+  await login(page);
+  try {
+    const files = [
+      { path: 'SKILL.md', content: skillMd('greeting') },
+      { path: 'muad.skill.json', content: JSON.stringify({ runtime: 'script', entrypoint: 'scripts/run.mjs' }) },
+      { path: 'scripts/run.mjs', content: 'process.stdout.write("你好，见到你很高兴\\n");' }
+    ];
+    const archive = execFileSync('uv', ['run', 'python', 'tests/e2e/create_archive_fixture.py', JSON.stringify(files)], { cwd: PROJECT_ROOT });
+    await importViaUi(page, key, archive);
+    await expect(page.locator('.semi-table-row', { hasText: key })).toBeVisible();
+    const stored = dumpSkill(key);
+    expect(stored.artifacts).toHaveLength(1);
+    expect(stored.artifacts[0].validation_status).toBe('READY');
+    expect(stored.artifacts[0].file_exists).toBe(true);
+  } finally {
+    cleanupSkill(key);
+  }
+});
+
 test('E-05 上传非法 ZIP 时 Modal 保留并显示本地化校验错误', async ({ page }) => {
   const key = uniqueKey('e2e-e05');
   await login(page);

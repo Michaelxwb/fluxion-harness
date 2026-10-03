@@ -15,7 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import Artifact, CanonicalEvent
 from ..metrics import MEMORY_INJECT_METRIC, record_counter
-from .inbound_attachments import attachments_from_payload, render_attachment_reference
+from .attachments.inbound import attachments_from_payload, render_attachment_reference
 from .memory_service import MemoryService
 
 logger = logging.getLogger(__name__)

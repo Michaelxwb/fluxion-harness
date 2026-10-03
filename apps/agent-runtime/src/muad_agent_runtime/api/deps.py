@@ -9,7 +9,7 @@ from muad_artifact_store import SkillArtifactCache
 from muad_common import SharedSettings
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..application.artifacts import ArtifactResultWriter
+from ..application.attachments.tool_results import ArtifactResultWriter
 from ..application.executor import ExecutorFactory, default_executor_factory
 from ..application.ports import CredentialsClient, ResolveClient
 from ..application.run_service import RunService

@@ -10,9 +10,14 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.db import SessionFactoryProvider, get_session_factory
-from ..infrastructure.models.runtime import Artifact
-from ..metrics import ARTIFACT_BYTES_METRIC, record_counter
+from ...infrastructure.db import SessionFactoryProvider, get_session_factory
+from ...infrastructure.models.runtime import Artifact
+from ...metrics import ARTIFACT_BYTES_METRIC, record_counter
+
+#: 通用工具结果的外置阈值：超过它就换成 Artifact + 预览（`RULE-skill-001` 的产物侧）。
+#: **只有这一处定义**——`executor` 的外置判定与 `archive_tools` 的回执裁剪都用它，
+#: 各写一份的话"回执刚好不被外置"这条保证会随两边改动而失效（2026-10-03 review）。
+TOOL_RESULT_ARTIFACT_BYTES = 8 * 1024
 
 PREVIEW_DEFAULT_LIMIT = 200
 TOOL_RESULT_ARTIFACT_TYPE = "TOOL_RESULT"
