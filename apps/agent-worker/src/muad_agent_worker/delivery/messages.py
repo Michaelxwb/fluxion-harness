@@ -15,7 +15,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from muad_contracts import DeliveryMessage, TaskStatus
+from muad_contracts import AttachmentRef, DeliveryMessage, TaskStatus
 
 from ..infrastructure.models.task import TaskExecution
 
@@ -72,9 +72,18 @@ def _completed_text(task: TaskExecution, texts: Mapping[str, str]) -> str:
     return "\n".join(lines)
 
 
-def build_delivery_message(task: TaskExecution, locale: str) -> DeliveryMessage:
+def build_delivery_message(
+    task: TaskExecution, locale: str, *, artifact: AttachmentRef | None = None
+) -> DeliveryMessage:
     texts = TEMPLATES.get(locale, TEMPLATES["zh-CN"])
     if task.status == str(TaskStatus.COMPLETED):
+        if artifact is not None:
+            # 有产物就**发产物**，不再给用户一串 UUID（FEAT-09 的硬要求）。
+            # 形态由渠道中立的 `kind` 决定，渠道怎么发是适配器的事。
+            return DeliveryMessage(
+                type="image" if artifact.kind == "IMAGE" else "artifact",
+                artifact=artifact,
+            )
         return DeliveryMessage(text=_completed_text(task, texts))
     if task.status == str(TaskStatus.FAILED):
         if task.error_code == DEADLINE_CODE:

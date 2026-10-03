@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
+from muad_agent_worker.delivery.artifact_client import ArtifactResolveClient
 from muad_agent_worker.delivery.client import HttpDeliveryClient
 from muad_agent_worker.delivery.service import DeliveryLoop
 from muad_agent_worker.infrastructure.models.task import TaskExecution
@@ -341,3 +343,113 @@ async def test_b120_terminal_failure_records_metric_and_audit(tenant: TenantCont
     events = await fetch_events(tenant, task.id)
     assert [event.event_type for event in events] == ["DELIVERY_FAILED"]
     assert events[0].payload_json["terminal"] is True
+
+
+# --------------------------------------------------------------- 产物形态（TASK-006）
+
+
+def _ref_handler(artifact_id: uuid.UUID, *, status: int = 200, calls: list[Any] | None = None) -> Any:
+    def handle(request: httpx.Request) -> httpx.Response:
+        if calls is not None:
+            calls.append(request)
+        if status != 200:
+            return httpx.Response(status, json={"code": "COMMON_NOT_FOUND", "data": None})
+        return httpx.Response(
+            200,
+            json={
+                "code": "0",
+                "data": {
+                    "storage_key": f"outbound/run-1/{artifact_id}/v1",
+                    "kind": "DOCUMENT",
+                    "media_type": "text/markdown",
+                    "size": 12,
+                    "filename": "汇总.md",
+                    "checksum": "sha256:" + "0" * 64,
+                    "artifact_id": str(artifact_id),
+                },
+            },
+        )
+
+    return handle
+
+
+async def _resolve_loop(tenant: TenantContext, handler: Any, *, deliver_calls: list[Any]) -> DeliveryLoop:
+    return DeliveryLoop(
+        tenant.session_factory,
+        HttpDeliveryClient(
+            "http://im-gateway",
+            httpx.AsyncClient(transport=httpx.MockTransport(_handler(200, deliver_calls))),
+        ),
+        tenant.settings,
+        ArtifactResolveClient("http://agent-runtime", transport=httpx.MockTransport(handler)),
+    )
+
+
+async def test_completed_task_sends_the_artifact_instead_of_a_bare_id(tenant: TenantContext) -> None:
+    """有产物就**发产物**：用户收到文件，而不是一串 UUID（FEAT-09 / S-07 的硬要求）。"""
+    artifact_id = uuid.uuid4()
+    task = await persist_task(
+        tenant,
+        status="COMPLETED",
+        finished_at=datetime.now(UTC),
+        delivery_route=sample_route(),
+        result_artifact_id=artifact_id,
+    )
+    deliver_calls: list[Any] = []
+    loop = await _resolve_loop(tenant, _ref_handler(artifact_id), deliver_calls=deliver_calls)
+
+    outcome = await loop.run_once()
+
+    assert outcome is not None and outcome.sent is True
+    assert len(deliver_calls) == 1
+    body = json.loads(deliver_calls[0].content)
+    assert body["message"]["type"] == "artifact"
+    assert body["message"]["artifact"]["artifact_id"] == str(artifact_id)
+    assert body["message"]["text"] == "", "产物形态不带文本载荷"
+    assert body["tenant_id"] == tenant.tenant_id
+    assert body["task_id"] == str(task.id)
+
+
+async def test_gone_artifact_falls_back_to_the_existing_text(tenant: TenantContext) -> None:
+    """产物**没了**（404）⇒ 重试多少次都不会好 ⇒ 退回文本形态，不让这条投递永远卡住。"""
+    await persist_task(
+        tenant,
+        status="COMPLETED",
+        finished_at=datetime.now(UTC),
+        delivery_route=sample_route(),
+        result_artifact_id=uuid.uuid4(),
+    )
+    deliver_calls: list[Any] = []
+    loop = await _resolve_loop(tenant, _ref_handler(uuid.uuid4(), status=404), deliver_calls=deliver_calls)
+
+    outcome = await loop.run_once()
+
+    assert outcome is not None and outcome.sent is True
+    body = json.loads(deliver_calls[0].content)
+    assert body["message"]["type"] == "text", "退文本，但仍要有任务结论"
+    assert body["message"]["text"]
+
+
+async def test_unresolvable_artifact_is_a_retryable_failure_and_sends_nothing(
+    tenant: TenantContext,
+) -> None:
+    """解析**没拿到结论**（5xx）⇒ 可重试，且**什么都不发**。
+
+    不能降级成文本：那会把"该发文件却发了串 ID"**固化**下来，而那正是本需求要消灭的东西。
+    """
+    task = await persist_task(
+        tenant,
+        status="COMPLETED",
+        finished_at=datetime.now(UTC),
+        delivery_route=sample_route(),
+        result_artifact_id=uuid.uuid4(),
+    )
+    deliver_calls: list[Any] = []
+    loop = await _resolve_loop(tenant, _ref_handler(uuid.uuid4(), status=500), deliver_calls=deliver_calls)
+
+    outcome = await loop.run_once()
+
+    assert outcome is not None and outcome.sent is False
+    assert deliver_calls == [], "没拿到引用就什么都不该发"
+    refreshed = await fetch_task(tenant, task.id)
+    assert refreshed.delivery_status != "SENT", "不能标记成已送达"

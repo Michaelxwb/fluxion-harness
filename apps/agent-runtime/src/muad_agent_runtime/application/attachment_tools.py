@@ -23,7 +23,6 @@ from muad_agent_core.model import ImagePart, ModelMessage, ModelRole
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import (
-    AttachmentRef,
     DeliveryMessage,
     DeliveryRequest,
     DeliveryRouteInput,
@@ -35,6 +34,7 @@ from ..infrastructure.gateway_delivery_client import (
     GatewayDeliveryClient,
 )
 from ..infrastructure.models.runtime import Artifact
+from .artifact_reference import artifact_kind, attachment_ref
 from .inbound_attachments import INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER
 
 READ_ATTACHMENT_TOOL = "read_attachment"
@@ -651,8 +651,8 @@ class AttachmentToolSet:
             delivery_key=f"run:{self._run_id}:{row.id}",
             route=self._delivery_route,
             message=DeliveryMessage(
-                type="image" if _artifact_kind(row) == "IMAGE" else "artifact",
-                artifact=_attachment_ref(row),
+                type="image" if artifact_kind(row) == "IMAGE" else "artifact",
+                artifact=attachment_ref(row),
             ),
         )
         try:
@@ -725,29 +725,6 @@ class AttachmentToolSet:
 def _filename(row: Artifact) -> str:
     name = (row.metadata_json or {}).get("filename")
     return name if isinstance(name, str) and name else "(未命名)"
-
-
-def _artifact_kind(row: Artifact) -> str:
-    """产物行里的 `kind`，收敛到契约的封闭枚举（未知值归 `OTHER`，不抛）。"""
-    kind = (row.metadata_json or {}).get("kind")
-    return kind if kind in ("IMAGE", "DOCUMENT", "OTHER") else "OTHER"
-
-
-def _attachment_ref(row: Artifact) -> AttachmentRef:
-    """产物行 → **渠道中立**的引用（设计 AD-6-C）。
-
-    只有存储键与元信息：**没有**任何渠道私有的发送形状，也没有取件凭据。
-    出站方向 `artifact_id` **必须**带上——降级为取件直链时适配器靠它拼链接。
-    """
-    return AttachmentRef(
-        storage_key=row.storage_key,
-        kind=_artifact_kind(row),  # type: ignore[arg-type]
-        media_type=row.media_type,
-        size=row.size,
-        filename=_filename(row),
-        checksum=row.checksum,
-        artifact_id=row.id,
-    )
 
 
 def _version_key(run_id: uuid.UUID | None, artifact_id: uuid.UUID, version: int) -> str:

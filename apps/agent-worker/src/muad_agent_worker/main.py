@@ -20,6 +20,7 @@ from .api.admin_schedules import router as admin_schedules_router
 from .api.admin_tasks import router as admin_tasks_router
 from .api.schedules import router as schedules_router
 from .api.tasks import router as tasks_router
+from .delivery.artifact_client import ArtifactResolveClient
 from .delivery.client import HttpDeliveryClient
 from .delivery.service import DeliveryLoop
 from .infrastructure.cancel_hint import create_cancel_hint_store
@@ -75,6 +76,10 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             session_factory,
             HttpDeliveryClient(settings.im_gateway_url, http_client),
             settings,
+            # 产物引用解析：worker 只有不透明的 artifact_id，解析口径在 runtime 一处
+            ArtifactResolveClient(
+                settings.agent_runtime_url, service_token=settings.internal_service_token
+            ),
         )
         background = [
             asyncio.create_task(worker.run_forever()),

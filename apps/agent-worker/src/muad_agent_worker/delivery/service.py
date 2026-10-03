@@ -10,6 +10,7 @@ from typing import Any, cast
 import sqlalchemy as sa
 from muad_common import SharedSettings
 from muad_contracts import (
+    AttachmentRef,
     DeliveryMode,
     DeliveryRequest,
     DeliveryRouteInput,
@@ -22,6 +23,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ..application.task_events import TaskEventType, append_event
 from ..infrastructure.models.task import DeliveryRoute, TaskExecution
 from ..metrics import DELIVERY_METRIC, increment, record_outcome
+from .artifact_client import (
+    ArtifactGoneError,
+    ArtifactResolveClient,
+    ArtifactResolveError,
+)
 from .client import DeliveryClientProtocol, DeliveryTransportError
 from .messages import build_delivery_message
 
@@ -31,6 +37,8 @@ TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(Task
 RETRYABLE_DELIVERY_STATUSES = (str(DeliveryStatus.PENDING), str(DeliveryStatus.FAILED))
 DELIVERY_ATTEMPT_TOTAL = "delivery_attempt_total"
 DELIVERY_FAILED_TOTAL = "delivery_failed_total"
+#: 产物引用解析不到（404）：退文本形态的计数——**看得见**才不会被当成"本来就没产物"
+ARTIFACT_GONE_TOTAL = "delivery_artifact_gone_total"
 
 
 @dataclass(frozen=True)
@@ -47,10 +55,39 @@ class DeliveryLoop:
         session_factory: async_sessionmaker[AsyncSession],
         client: DeliveryClientProtocol,
         settings: SharedSettings | None = None,
+        resolver: ArtifactResolveClient | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._client = client
+        #: 产物引用解析（TASK-006）：worker 只有不透明的 artifact_id，解析口径在 runtime 一处
+        self._resolver = resolver
         self._settings = settings or SharedSettings()
+
+
+    async def _resolve_artifact(
+        self, task: TaskExecution, *, now: datetime
+    ) -> AttachmentRef | DeliveryOutcome | None:
+        """把 `result_artifact_id` 解析成渠道中立的引用。
+
+        **两类失败分开对待**（这是本方法存在的全部理由）：
+        - 产物**没了**（404）⇒ 重试多少次都不会好 ⇒ 退回**文本形态**（含任务结论），
+          而不是让这条投递永远卡住、也不是给用户一串死 ID；
+        - **没拿到结论**（超时/5xx）⇒ 可重试 ⇒ 直接以可重试失败收场，**不**降级成文本：
+          降级会把"该发文件却发了串 ID"**固化**下来，而那正是本需求要消灭的东西。
+        """
+        if task.result_artifact_id is None or self._resolver is None:
+            return None
+        try:
+            return await self._resolver.resolve(task.result_artifact_id, tenant_id=task.tenant_id)
+        except ArtifactGoneError:
+            increment(ARTIFACT_GONE_TOTAL)
+            logger.warning("delivery_artifact_gone task_id=%s", task.id)
+            return None
+        except ArtifactResolveError as exc:
+            await self._record_retryable_failure(task, error=f"artifact resolve: {exc}", now=now)
+            return DeliveryOutcome(
+                task_id=task.id, http_status=None, error=f"artifact resolve: {exc}", sent=False
+            )
 
     async def run_forever(self) -> None:
         """每轮最多连续投递 `delivery_batch_size` 条，积压时不再每 poll 间隔只发一条。"""
@@ -74,12 +111,15 @@ class DeliveryLoop:
             error = "delivery route missing"
             await self._record_terminal_failure(task, error=error, now=moment)
             return DeliveryOutcome(task_id=task.id, http_status=None, error=error, sent=False)
+        artifact = await self._resolve_artifact(task, now=moment)
+        if isinstance(artifact, DeliveryOutcome):
+            return artifact  # 解析没拿到结论：按可重试失败收场，**不降级成文本**
         request = DeliveryRequest(
             tenant_id=task.tenant_id,
             task_id=task.id,
             delivery_key=task.delivery_key,
             route=_route_input(route),
-            message=build_delivery_message(task, self._settings.default_locale),
+            message=build_delivery_message(task, self._settings.default_locale, artifact=artifact),
             artifact_ids=[task.result_artifact_id] if task.result_artifact_id else [],
         )
         try:
