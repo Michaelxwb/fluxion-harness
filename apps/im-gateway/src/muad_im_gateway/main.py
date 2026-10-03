@@ -38,7 +38,8 @@ def _build_adapter(settings: SharedSettings) -> WeComAdapter | HttpProbeChannelA
     if settings.channel_probe_url:
         # 本地真实 HTTP 探针：验收/联调环境替代第三方实网渠道。
         return HttpProbeChannelAdapter(settings.channel_probe_url)
-    return WeComAdapter()
+    # 出站交付要按 storage_key 直读共享 store（字节不经核心域搬运，设计 §3.5）
+    return WeComAdapter(artifact_store=NfsArtifactStore(settings.artifact_root))
 
 
 @dataclass

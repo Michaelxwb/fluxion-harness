@@ -101,6 +101,8 @@ class AttachmentSource(Protocol):
 #: `DEGRADED` **不是失败**：用户确实收到了东西（一条签名取件链接），只是形态与预期不同。
 ARTIFACT_DELIVERED = "DELIVERED"
 ARTIFACT_DEGRADED = "DEGRADED"
+#: 交付失败的原因码（渠道中立）。与消息目录里同名码一致——**一处定义**。
+ARTIFACT_DELIVERY_FAILED = "ARTIFACT_DELIVERY_FAILED"
 
 
 class ArtifactDeliveryError(Exception):

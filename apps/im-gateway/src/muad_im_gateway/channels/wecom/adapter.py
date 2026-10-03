@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
 import logging
 import ssl
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
@@ -12,8 +14,10 @@ from uuid import uuid4
 
 from muad_api import metrics
 from muad_api.context import current_trace_id
+from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_contracts import (
+    AttachmentRef,
     BotSnapshotItem,
     ChannelEnvelope,
     DeliveryMessage,
@@ -22,14 +26,25 @@ from muad_contracts import (
 )
 
 from ..base import (
+    ARTIFACT_DELIVERED,
+    ARTIFACT_DELIVERY_FAILED,
     ATTACHMENT_DECRYPT_FAILED,
     ATTACHMENT_FETCH_FAILED,
     ATTACHMENT_FETCH_TIMEOUT,
     ATTACHMENT_TOO_LARGE,
+    ArtifactDeliveryError,
+    ArtifactDeliveryOutcome,
     AttachmentFetchError,
     ChannelAdapterUnavailable,
     ChannelBotNotFound,
     FetchedAttachment,
+)
+from .media import (
+    UPLOAD_CHUNK_CMD,
+    UPLOAD_FINISH_CMD,
+    UPLOAD_INIT_CMD,
+    chunk_upload,
+    uploadable_media_type,
 )
 from .media import download_media as download_media_content
 from .sdk_port import (
@@ -43,6 +58,7 @@ from .sdk_port import (
     WeComMediaRef,
     WeComMediaTimeoutError,
     WeComMediaTooLargeError,
+    WeComMediaUploadTooLargeError,
     WeComSdkConnectionError,
     WeComSdkError,
     WeComSdkFactory,
@@ -393,6 +409,19 @@ class _AibotClient(Protocol):
 
     async def send_message(self, chatid: str, body: dict[str, object]) -> object: ...
 
+    async def reply(
+        self,
+        frame: dict[str, object],
+        body: dict[str, object],
+        cmd: str | None = None,
+    ) -> object:
+        """通用回复：透传 `frame.headers.req_id`，并允许指定任意 `cmd`。
+
+        **上传三步靠它**：官方 SDK 没有上传 API，但它的通用 `reply` 允许带任意命令 ——
+        用公开方法驱动，比伸手进 `_ws_manager` 私有属性稳。
+        """
+        ...
+
     async def reply_stream(
         self,
         frame: dict[str, object],
@@ -459,6 +488,77 @@ class _AibotClientPort:
     async def send_stream(self, reply_id: str, stream_id: str, content: str, *, finish: bool) -> None:
         frame: dict[str, object] = {STREAM_HEADER_KEY: {STREAM_REPLY_ID_KEY: reply_id}}
         await self._client.reply_stream(frame, stream_id, content, finish=finish)
+
+    async def upload_media(self, data: bytes, *, media_type: str, filename: str) -> str:
+        """三步分片上传（`init → chunk × N → finish`），返回 `media_id`。
+
+        **官方 Python SDK 没有这个能力**（`aibot` 1.0.2 = PyPI 最新，只有下载），所以按官方
+        **Node** SDK 的协议自行驱动；用的是 SDK 的公开通用 `reply`（可带任意 `cmd`），
+        不伸手进它的私有连接管理器。
+
+        `chunk_index` **0-based**（TASK-001 真机判定）。`upload_id` 与 `media_id` 都是不透明串，
+        只在本方法内流转，不进日志。**`media_id` 有效 3 天** ⇒ 跨 3 天的重试要重新上传。
+        """
+        chunks = chunk_upload(data)
+        upload_id = await self._upload_command(
+            UPLOAD_INIT_CMD,
+            {
+                "type": media_type,
+                "filename": filename,
+                "total_size": len(data),
+                "total_chunks": len(chunks),
+                "md5": hashlib.md5(data).hexdigest(),
+            },
+            result_key="upload_id",
+        )
+        for index, chunk in enumerate(chunks):
+            await self._upload_command(
+                UPLOAD_CHUNK_CMD,
+                {
+                    "upload_id": upload_id,
+                    "chunk_index": index,
+                    "base64_data": base64.b64encode(chunk).decode("ascii"),
+                },
+                result_key=None,
+            )
+        return await self._upload_command(
+            UPLOAD_FINISH_CMD, {"upload_id": upload_id}, result_key="media_id"
+        )
+
+    async def _upload_command(
+        self, cmd: str, body: dict[str, object], *, result_key: str | None
+    ) -> str:
+        """发一条上传命令。
+
+        `result_key=None`（分片）只看 `errcode`——错了 SDK 会抛，回执里没有我们要的字段；
+        有 `result_key` 时必须取到**非空字符串**，取不到就当失败，绝不用空串往下走。
+        """
+        response = await self._client.reply({"headers": {"req_id": uuid4().hex}}, body, cmd)
+        if result_key is None:
+            return ""
+        if not isinstance(response, dict):
+            raise WeComSdkError(f"wecom upload command returned no frame: {cmd}")
+        payload = response.get("body")
+        value = payload.get(result_key) if isinstance(payload, dict) else None
+        if not isinstance(value, str) or not value:
+            raise WeComSdkError(f"wecom upload command returned no {result_key}: {cmd}")
+        return value
+
+    async def send_media(self, chat_id: str, *, media_type: str, media_id: str) -> None:
+        """**主动发送**媒体：`aibot_send_msg` + `<type>: {media_id}`（TASK-001 真机实测可渲染）。"""
+        await self._client.send_message(
+            chat_id, {"msgtype": media_type, media_type: {"media_id": media_id}}
+        )
+
+    async def reply_media(self, reply_id: str, *, media_type: str, media_id: str) -> None:
+        """**会话内回复**媒体：`aibot_respond_msg` + 入站回调的 `req_id`。
+
+        与文本同理 —— 会话内与主动投递是两条命令，用错会被服务端以 `40008` 拒收。
+        """
+        await self._client.reply(
+            {"headers": {"req_id": reply_id}},
+            {"msgtype": media_type, media_type: {"media_id": media_id}},
+        )
 
     async def download_media(self, url: str, aes_key: str | None, *, max_bytes: int) -> WeComMediaContent:
         """取件不走 SDK（`WSClient.download_file` 无字节上限、超时不可配、密钥缺失返回密文），
@@ -562,8 +662,12 @@ class WeComAdapter:
         backoff_max_sec: float = DEFAULT_BACKOFF_MAX_SEC,
         stream_flush_interval_sec: float = DEFAULT_STREAM_FLUSH_INTERVAL_SEC,
         liveness_interval_sec: float = DEFAULT_LIVENESS_INTERVAL_SEC,
+        artifact_store: NfsArtifactStore | None = None,
     ) -> None:
         self._sdk_factory = sdk_factory
+        #: 产物字节按 `storage_key` 直读共享 store —— **不经核心域搬运**（设计 §3.5）。
+        #: 为 `None` = 部署漏配，交付时响亮失败而不是悄悄丢。
+        self._artifact_store = artifact_store
         self._liveness_interval_sec = liveness_interval_sec
         self._bots: tuple[BotSnapshotItem, ...] = tuple(bots)
         self._backoff_base_sec = backoff_base_sec
@@ -683,6 +787,46 @@ class WeComAdapter:
             await client.reply_text(reply_ref, message.text)
             return
         await client.send_text(_chat_id(route), message.text)
+
+    async def deliver_artifact(
+        self, route: DeliveryRouteInput, artifact: AttachmentRef
+    ) -> ArtifactDeliveryOutcome:
+        """把产物发给用户（`OutboundArtifactDelivery` 的实现，AD-8 的对称接缝）。
+
+        **字节从共享 store 按 key 直读**，不经核心域搬运。形态与命令都由适配器定：
+        会话内有回调上下文就走 `aibot_respond_msg`、否则走 `aibot_send_msg` —— 与文本同一条
+        规矩（用错会被服务端以 `40008` 拒收）。
+
+        超≈50 MB 是**渠道硬上限**（512 KiB × 100 片）。**降级为取件直链接在 TASK-008 的取件
+        能力落地之后**，现在显式失败 —— 适配器不擅自换成别的形态，那会变成谎报。
+        """
+        self._ensure_started()
+        store = self._artifact_store
+        if store is None:
+            logger.error("wecom_artifact_store_missing bot_id=%s", route.bot_id)
+            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED)
+        try:
+            data = store.resolve(artifact.storage_key).read_bytes()
+        except (OSError, ValueError) as exc:
+            logger.warning("wecom_artifact_read_failed bot_id=%s", route.bot_id)
+            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED) from exc
+
+        media_type = uploadable_media_type(artifact.kind)
+        client = self._require_client(route.bot_id)
+        try:
+            media_id = await client.upload_media(
+                data, media_type=media_type, filename=artifact.filename or f"artifact.{media_type}"
+            )
+        except WeComMediaUploadTooLargeError as exc:
+            logger.warning("wecom_artifact_too_large_to_upload bot_id=%s", route.bot_id)
+            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED) from exc
+
+        reply_ref = self._reply_refs.get(route_key(route))
+        if reply_ref is not None:
+            await client.reply_media(reply_ref, media_type=media_type, media_id=media_id)
+        else:
+            await client.send_media(_chat_id(route), media_type=media_type, media_id=media_id)
+        return ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED)
 
     async def stream(self, route: DeliveryRouteInput, chunks: AsyncIterator[str]) -> None:
         self._ensure_started()

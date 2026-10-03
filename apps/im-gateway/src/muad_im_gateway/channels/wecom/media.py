@@ -33,6 +33,7 @@ from .sdk_port import (
     WeComMediaNetworkError,
     WeComMediaTimeoutError,
     WeComMediaTooLargeError,
+    WeComMediaUploadTooLargeError,
 )
 
 logger = logging.getLogger(__name__)
@@ -176,3 +177,46 @@ def _filename_from_disposition(value: str | None) -> str | None:
         return unquote(utf8_match.group(1))
     match = _FILENAME_RE.search(value)
     return unquote(match.group(1)) if match else None
+
+
+# --------------------------------------------------------------------------- 上传（出站）
+#
+# 官方 **Python** SDK 没有上传能力（`aibot` 1.0.2 = PyPI 最新，只有 `download_file`），
+# 所以按官方 **Node** SDK 的协议自行驱动：`init → chunk × N → finish`。以下口径全部来自
+# TASK-001 的真机实测（事实表见设计 §3.6「真机探针结论」）。
+
+#: 单分片大小（**base64 编码前**）。官方口径。
+UPLOAD_CHUNK_BYTES = 512 * 1024
+#: 分片数上限 ⇒ 单文件约 50 MB。**渠道硬上限**，不是我们的产品策略（与下载侧的
+#: `MAX_ATTACHMENT_BYTES` 性质不同：那个数我们可以自己定，这个不能）。
+MAX_UPLOAD_CHUNKS = 100
+
+UPLOAD_INIT_CMD = "aibot_upload_media_init"
+UPLOAD_CHUNK_CMD = "aibot_upload_media_chunk"
+UPLOAD_FINISH_CMD = "aibot_upload_media_finish"
+
+
+def uploadable_media_type(kind: str) -> str:
+    """把渠道中立的 `AttachmentRef.kind` 映射成企微的**发送形态**。
+
+    企微只收 `image`/`file` 两种，没有「其它」这一档；`kind=IMAGE` 判图片（与入站同口径），
+    其余一律当文件。**「发不发得了」不在这里决定**（那是尺寸的事），这里只决定形态。
+    """
+    return "image" if kind == "IMAGE" else "file"
+
+
+def chunk_upload(data: bytes) -> list[bytes]:
+    """按官方口径切分上传分片。
+
+    `chunk_index` 是 **0-based**：Node SDK 的类型注释写"从 1 开始"、它自己的实现却从 0 起，
+    两者互相矛盾，**真机判 0-based**（TASK-001 实测 1 片与 3 片全过）。
+
+    分片超上限**抛错**而不是截断 —— 截断会发出去一个**被砍掉一半的文件**，比明确失败更糟。
+    """
+    chunks = [
+        data[offset : offset + UPLOAD_CHUNK_BYTES]
+        for offset in range(0, len(data), UPLOAD_CHUNK_BYTES)
+    ]
+    if len(chunks) > MAX_UPLOAD_CHUNKS:
+        raise WeComMediaUploadTooLargeError(len(data), MAX_UPLOAD_CHUNKS)
+    return chunks or [b""]
