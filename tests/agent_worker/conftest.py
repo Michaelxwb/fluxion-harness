@@ -53,6 +53,15 @@ async def sweep_stale_test_rows(database_guard: None) -> None:
     stale_tasks = (
         "tenant_id LIKE 'test-%' AND status IN ('QUEUED','WAITING') AND not_before <= now()"
     )
+    #: **租约过期的 RUNNING 也要清**（2026-10-03 补）：`reclaim_expired` 与 claim 一样是
+    #: **全局**的（`_requeue_expired` 只按 status/lease/cancel/is_deleted 过滤，**没有租户谓词**），
+    #: 所以上一个用例崩溃留下的过期 RUNNING 会被下一个用例的 reclaim 一并收走 ——
+    #: 表现为 `assert reclaim_expired(...) == 1` 偶发变成 `== 2`，失败用例每次都不同、
+    #: 且单文件跑必过。缺的正是这一格。
+    stale_running = (
+        "tenant_id LIKE 'test-%' AND status = 'RUNNING' "
+        "AND lease_until IS NOT NULL AND lease_until < now()"
+    )
     stale_deliveries = (
         "tenant_id LIKE 'test-%' AND delivery_mode = 'FINAL_ONLY' "
         "AND delivery_status IN ('PENDING','FAILED') "
@@ -78,7 +87,7 @@ async def sweep_stale_test_rows(database_guard: None) -> None:
             "WHERE tenant_id LIKE 'test-%' AND next_fire_at <= now()",
         ):
             await session.execute(text(statement))
-        for predicate in (stale_tasks, stale_deliveries):
+        for predicate in (stale_tasks, stale_deliveries, stale_running):
             # 先删引用行，避免 task_event/task_submission 的外键阻塞清理。
             # ⚠️ 还必须连同**子行**一起删：`task_execution.parent_id` 是**自引用外键**，而子行
             # 的 delivery_mode/status 未必匹配谓词（实测子行为 `delivery_mode='NONE'`）——只删
