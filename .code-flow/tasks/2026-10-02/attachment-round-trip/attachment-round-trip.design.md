@@ -783,6 +783,8 @@ Python SDK 只有 `WeComApiClient.download_file_raw`，是按**入站**方向写
   > **落地订正（TASK-006）**：原稿写的是 `artifact_id` + `note?`。`note` **没有实现**——设计没定义它在媒体路径上怎么被消费，而企微的图片/文件消息没有文本槽；给模型一个按了没反应的旋钮，比不给更糟（它会以为那句话附上去了）。「文件 + 一句话」应由适配器另发一条跟随文本承担，属独立改动。
 - 「怎么发」是适配器的内部决定：核心域只依赖一个**可选能力协议** `OutboundArtifactDelivery.deliver_artifact(route, ref, *, tenant_id) -> DeliveryOutcome`，与入站 `AttachmentSource` 同构。
   > **两个补充（TASK-006 落地）**：① `tenant_id` **不是渠道形状**，而是**签发降级链接的作用域**——取件端点按租户做归属校验，少了它降级要么签不出来、要么只能烧死一个租户；交付链的审计写入本来就显式带着它。② 降级链接的签发口是另一个同构的小端口 **`ArtifactLinkIssuer`**（实现 = `ConsoleClient.issue_fetch_link`，真 HTTP 打 TASK-008 的签发端点），适配器只认这个动词、**不认识签发端点的形状**；签不出来返回 `None` ⇒ 适配器**显式失败**，绝不自己拼一条链接（用户会点开 404）。
+- **`artifact_id` 进入 `AttachmentRef` 是对上期一条约束的**有意修订**（记录在案）**：上期把 `artifact_id` 归在 `CREDENTIAL_FIELDS` 里（"取件凭据一律不得进入边界类型"），本需求把它挪到允许集合并删出凭据集合。理由是它**不满足取件凭据的定义**——一个不透明行 UUID 本身换不到任何东西：取件端点要么要 Console 会话、要么要**单产物 + 短 TTL + 可撤销**的签名令牌，且每次按租户做归属校验；同一结构里本来还带着 `storage_key`（共享存储里的真实路径），比一个 UUID 更直接。而出站方向**必须**有它：渠道不能直发文件时要拼签名直链。真正要挡的 `url` / `aes_key` / `media_id` / token **一个都没放进来**，`tests/test_attachment_contract.py` 的两条断言（集合不变 + 实例字段与凭据集不相交）继续守着这条线。
+  > **为什么现在才出现**：这条守卫自 TASK-006 起就是红的，而 TASK-006/007 的 verifier 口径里没有 `tests/test_attachment_contract.py`——需求级 `verify-e2e` 才第一次跑到它。与本任务照出的其它几条同属"verifier 口径盲区"。
 - **机检会先红**：`tests/architecture/test_channel_neutrality.py` 的三条断言（核心域全文零渠道字样 / 核心域不得给 `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）覆盖出站新代码；出站落点若按渠道分叉，这套断言会当场判红——这是本设计的**硬边界**，不是提示。
 
 ## 4. 部署与运维

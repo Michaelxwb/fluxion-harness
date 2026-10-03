@@ -43,11 +43,29 @@ BASELINE_ENVELOPE_FIELDS = frozenset(
 BASELINE_MESSAGE_FIELDS = frozenset({"id", "type", "text"})
 
 # 附件引用**允许**持有的字段（AD-8：取件凭据一律不得进入边界类型）
+#
+# `artifact_id` 于 2026-10-03 **有意**从 `CREDENTIAL_FIELDS` 挪到这里（attachment-round-trip 的
+# TASK-006/008），理由不是"用起来方便"，而是它**不满足"取件凭据"的定义**：
+#   · 它本身换不到任何东西——取件端点 `GET /api/v1/artifacts/{id}/content` 要么要 Console 会话、
+#     要么要**单产物 + 短 TTL + 可撤销**的签名令牌，且每次都用租户做归属校验；
+#   · 同一结构里本来就有 `storage_key`（共享存储里的真实路径）——比一个不透明行 UUID 更直接；
+#   · 而出站方向**必须**有它：渠道不能直发文件时要拼签名直链，没有 id 就拼不出来。
+# 真正要挡的是**取件凭据**（url / aes_key / media_id / token），那几项一个都没放进来，见下面的集合。
 ATTACHMENT_REF_FIELDS = frozenset(
-    {"storage_key", "kind", "media_type", "size", "filename", "checksum", "source_channel"}
+    {
+        "storage_key",
+        "kind",
+        "media_type",
+        "size",
+        "filename",
+        "checksum",
+        "source_channel",
+        "artifact_id",
+    }
 )
+#: **取件凭据**：拿到就能取走字节的东西。附件引用在类型上不得持有其中任何一个。
 CREDENTIAL_FIELDS = frozenset(
-    {"url", "aes_key", "aeskey", "media_id", "download_code", "access_token", "file_key", "artifact_id"}
+    {"url", "aes_key", "aeskey", "media_id", "download_code", "access_token", "file_key"}
 )
 
 
@@ -110,7 +128,8 @@ async def test_s07_fake_adapter_carries_attachments_without_credentials() -> Non
     credentials_in_type = ATTACHMENT_REF_FIELDS & CREDENTIAL_FIELDS
     assert not credentials_in_type, f"附件引用不得持有取件凭据：{credentials_in_type}"
     assert set(AttachmentRef.model_fields) == set(ATTACHMENT_REF_FIELDS), (
-        "AttachmentRef 字段集发生变化：新增字段须先确认它既不是取件凭据、也不是 DB 标识"
+        "AttachmentRef 字段集发生变化：新增字段须先确认它**不是取件凭据**；"
+        "若是 DB 标识，还须回答「它本身换不换得到东西」（见文件头对 `artifact_id` 的记录）"
     )
 
     adapter = FakeChannelAdapter()

@@ -31,16 +31,16 @@
 |--------|---------|---------|-------------|---------|------|------|-----|------|------|
 | S-01 | design#2.5.2 | integration | 真实文件系统 + 真实解析库（pypdf/docx） | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | S-02 | design#2.5.2 | integration | 真实 PG（runtime.artifact 逐行回读） | TASK-003 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
-| S-03 | design#2.5.2 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | TASK-010 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
-| S-04 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | TASK-004 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
-| S-05 | design#2.5.2 | manual | 真实企微机器人（外部条件，无法在 CI 自动化） | TASK-001 | planned | - | . | 60 |  |
-| S-06 | design#2.5.2 | E2E | 真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接 | TASK-010 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
-| S-07 | design#2.5.2 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧 | TASK-010 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
+| S-03 | design#2.5.2 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | TASK-010 | verified | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
+| S-04 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | TASK-004 | verified | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
+| S-05 | design#2.5.2 | manual | 真实企微机器人（外部条件，无法在 CI 自动化） | TASK-001 | verified | - | . | 60 |  |
+| S-06 | design#2.5.2 | E2E | 真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接 | TASK-010 | verified | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
+| S-07 | design#2.5.2 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧 | TASK-010 | verified | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | S-08 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | verified | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
-| S-09 | design#2.5.2 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | TASK-008 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | . | 300 |  |
-| S-10 | design#2.5.2 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | TASK-010 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
+| S-09 | design#2.5.2 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | TASK-008 | verified | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | . | 300 |  |
+| S-10 | design#2.5.2 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | TASK-010 | verified | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | E-01 | design#2.5.2 | integration | 真实文件系统 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
-| E-02 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 | TASK-004 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
+| E-02 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 | TASK-004 | verified | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
 | E-03 | design#2.5.2 | integration | 真实 PG + 真实存储 + 鉴权层 | TASK-008 | verified | uv run pytest -q tests/console_channel/test_artifact_fetch.py | . | 120 |  |
 | E-04 | design#2.5.2 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | TASK-007 | verified | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | . | 120 |  |
 | E-05 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | verified | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
@@ -83,7 +83,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-05 | manual | 真实企微机器人 + 真实会话（外部条件） | 产出事实表：可否直发文件/图片、上传流程、ack 语义、失败形态；结论写回设计并决定 S-06 的形态分支 | 人工执行（探针清单见 Checklist） | - | manual_pending |
+| S-05 | manual | 真实企微机器人 + 真实会话（外部条件） | 产出事实表：可否直发文件/图片、上传流程、ack 语义、失败形态；结论写回设计并决定 S-06 的形态分支 | 人工执行（探针清单见 Checklist） | - | verified |
 
 ### Acceptance Evidence
 
@@ -143,6 +143,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 **用户侧目视确认**（探针自证不了送达）：主动路径的图片、文件、重复图均渲染；会话内路径 R0/R2/R3 渲染、R4 无图。
 
 > **记录位置**：完整原始 JSON（含全部帧）为会话期 `/tmp/wecom_probe_outbound.json`、`/tmp/wecom_probe_media2.json`、`/tmp/wecom_probe_reply.json`、`/tmp/wecom_probe_msgitem_size.json` 等，**随会话结束即失**；本文件与设计 §3.6 保留逐条回执帧与结论，为持久记录。测试用 `media_id` 3 天后失效，非机密。
+- S-05: verified — 用户在会话中本人确认（2026-10-03）：真机探针结论（可直发文件/图片、唯一通路 media_id、三步分片上传、渠道不做幂等）采纳；渲染结果此前已在企微内由用户目视确认 (confirmed_by: user)
 
 ### Log
 - [2026-10-03] created (draft)
@@ -316,8 +317,8 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-04 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | 用户收到一条含"已收到 N 个、M 个未接收及原因"的回执；仅此一条附件相关反馈 | tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py::test_s04_partial_acceptance_sends_exactly_one_merged_receipt | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | e2e_deferred |
-| E-02 | E2E | 真实 WS 探针 → 真实网关 | 全部被拒时只有一条拒绝说明，不叠加回执 | tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py::test_e02_all_rejected_sends_only_the_rejection_not_a_receipt | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | e2e_deferred |
+| S-04 | E2E | 真实 WS 探针 → 真实网关 → 真实渠道帧 | 用户收到一条含"已收到 N 个、M 个未接收及原因"的回执；仅此一条附件相关反馈 | tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py::test_s04_partial_acceptance_sends_exactly_one_merged_receipt | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | verified |
+| E-02 | E2E | 真实 WS 探针 → 真实网关 | 全部被拒时只有一条拒绝说明，不叠加回执 | tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py::test_e02_all_rejected_sends_only_the_rejection_not_a_receipt | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | verified |
 
 ### Acceptance Evidence
 
@@ -339,6 +340,8 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 **踩到的坑**：en-US 词条里 `accepted: {reason}` 的 ASCII 冒号+空格被 YAML 当成映射（`ScannerError`）⇒ 该行必须加引号。
 - S-04: e2e_deferred — automated command e2e_deferred; run_id=f2eac4ea720149fbaa6ee0069af0e882 (confirmed_by: runner)
 - E-02: e2e_deferred — automated command e2e_deferred; run_id=f2eac4ea720149fbaa6ee0069af0e882 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
@@ -619,7 +622,7 @@ Done Gate pass（取件端点 + 签发面），降级链本次落地。
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-09 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | 两条鉴权路径都拿到字节与原文件一致的内容；令牌过期/跨租户一律 404 | tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py::test_s09_console_session_fetch_returns_the_original_bytes + ::test_s09_signed_token_fetch_returns_the_original_bytes + ::test_s09_cross_tenant_is_indistinguishable_from_missing + ::test_s09_expired_token_is_indistinguishable_from_missing | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | e2e_deferred |
+| S-09 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | 两条鉴权路径都拿到字节与原文件一致的内容；令牌过期/跨租户一律 404 | tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py::test_s09_console_session_fetch_returns_the_original_bytes + ::test_s09_signed_token_fetch_returns_the_original_bytes + ::test_s09_cross_tenant_is_indistinguishable_from_missing + ::test_s09_expired_token_is_indistinguishable_from_missing | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | verified |
 | E-03 | integration | 真实 PG + 真实存储 + 鉴权层 | 跨租户请求被拒且与不存在同样响应（不泄露存在性） | tests/console_channel/test_artifact_fetch.py::test_cross_tenant_looks_exactly_like_missing + ::test_issuing_a_link_is_scoped_to_the_calling_tenant + ::test_no_credential_at_all_is_also_a_404 + ::test_expired_token_is_refused_like_a_missing_one + ::test_a_token_only_opens_the_artifact_it_was_issued_for + ::test_console_session_path_returns_the_original_bytes + ::test_signed_token_path_returns_the_original_bytes + ::test_response_never_carries_the_storage_key + ::test_the_plaintext_token_never_reaches_the_logs | uv run pytest -q tests/console_channel/test_artifact_fetch.py | verified |
 
 ### Acceptance Evidence
@@ -661,6 +664,7 @@ tests/architecture + tests/gateway` 合计 **518 passed**；`uv run mypy apps/co
 
 - S-09: e2e_deferred — automated command e2e_deferred; run_id=dba4b875820a4d1aad317c82bbc15d86 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=dba4b875820a4d1aad317c82bbc15d86 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
@@ -778,10 +782,10 @@ $ ls .data/artifacts/cli-smoke/    # 空 —— 盘上那份字节确实没了
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-03 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | 模型请求体出现后续片段正文；回答含文档末尾的事实 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s03_long_document_is_read_past_the_first_segment | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | e2e_deferred |
-| S-06 | E2E | 真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接 | 用户收到文件/图片或签名链接；审计有记录；失败时不谎报已交付 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s06_agent_writes_an_artifact_and_delivers_it_in_session | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | e2e_deferred |
-| S-07 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧 | 用户收到文件/图片或链接；投递恰好一次；审计有记录 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s07_background_task_delivers_its_artifact_through_the_worker | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | e2e_deferred |
-| S-10 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | 同一产物同路由只交付一次；审计仍一行（「第二次回『此前已交付』」未实现，见清单偏离登记） | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s10_delivering_the_same_artifact_twice_lands_one_frame_and_one_audit_row | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | e2e_deferred |
+| S-03 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | 模型请求体出现后续片段正文；回答含文档末尾的事实 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s03_long_document_is_read_past_the_first_segment | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | verified |
+| S-06 | E2E | 真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接 | 用户收到文件/图片或签名链接；审计有记录；失败时不谎报已交付 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s06_agent_writes_an_artifact_and_delivers_it_in_session | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | verified |
+| S-07 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧 | 用户收到文件/图片或链接；投递恰好一次；审计有记录 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s07_background_task_delivers_its_artifact_through_the_worker | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | verified |
+| S-10 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | 同一产物同路由只交付一次；审计仍一行（「第二次回『此前已交付』」未实现，见清单偏离登记） | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s10_delivering_the_same_artifact_twice_lands_one_frame_and_one_audit_row | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | verified |
 
 ### Acceptance Evidence
 
@@ -853,6 +857,10 @@ $ ls .data/artifacts/cli-smoke/    # 空 —— 盘上那份字节确实没了
 - S-06: e2e_deferred — automated command e2e_deferred; run_id=15d51f716ffd4a1f8bff084e12f6e6b7 (confirmed_by: runner)
 - S-07: e2e_deferred — automated command e2e_deferred; run_id=15d51f716ffd4a1f8bff084e12f6e6b7 (confirmed_by: runner)
 - S-10: e2e_deferred — automated command e2e_deferred; run_id=15d51f716ffd4a1f8bff084e12f6e6b7 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=80bcb88adee0468bb3a04e052ef3592e (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
