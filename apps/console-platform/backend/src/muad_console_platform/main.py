@@ -66,6 +66,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     catalog_client = getattr(app.state, "mcp_catalog_cache_client", None)
     if catalog_client is not None:
         await catalog_client.aclose()
+    fetch_service = getattr(app.state, "artifact_fetch_service", None)
+    if fetch_service is not None:
+        await fetch_service.aclose()
     await dispose_engine()
 
 

@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import os
 import secrets
 import uuid
 from dataclasses import dataclass
@@ -25,9 +26,29 @@ from datetime import UTC, datetime, timedelta
 #: 转发消息——暴露面随时长线性增长，而用户点开它只需要几秒。
 DEFAULT_FETCH_TTL_SEC = 300.0
 
+#: 覆盖 TTL 的环境变量。做成可配置的理由只有一条，与 `delivery_backoff_base_sec` 同：
+#: **让验收能用同一条代码路径、同一套断言验证"过期即失效"**，而不必真的等满 5 分钟。
+#: 生产不设此变量，走上面的默认值。
+TTL_ENV = "ARTIFACT_FETCH_TTL_SEC"
+
 #: 单进程保留的令牌上限。**有界**：否则一个高频交付的会话能把内存吃满。
 #: 满了先淘汰最旧的——被淘汰的令牌会 404（安全方向失败），不会误放行。
 MAX_TOKENS = 4096
+
+
+def configured_ttl_sec() -> float:
+    """本进程要用的 TTL：环境变量优先，缺省 `DEFAULT_FETCH_TTL_SEC`。
+
+    非法值**显式报错**而不是静默回退默认值：一个拼错的环境变量会安静地被 300 秒盖过去，
+    验收里表现为"令牌怎么都不过期"，而排查方向会全错在令牌模型上。
+    """
+    raw = os.getenv(TTL_ENV)
+    if raw is None:
+        return DEFAULT_FETCH_TTL_SEC
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"{TTL_ENV} 必须是数字，实际是 {raw!r}") from exc
 
 
 @dataclass(frozen=True, slots=True)

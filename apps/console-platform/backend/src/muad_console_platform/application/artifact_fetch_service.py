@@ -79,6 +79,9 @@ class ArtifactFetchService:
         self._store = store
         self._resolver = resolver
 
+    async def aclose(self) -> None:
+        await self._resolver.aclose()
+
     async def fetch(self, artifact_id: uuid.UUID, *, tenant_id: str) -> ArtifactFetchTarget | None:
         """取件。**任何一步不成立都返回 `None`**，由端点统一映射成 404（不泄露存在性）。"""
         reference = await self._resolver.resolve(artifact_id, tenant_id=tenant_id)

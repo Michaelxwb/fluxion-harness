@@ -37,11 +37,11 @@
 | S-06 | design#2.5.2 | E2E | 真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | S-07 | design#2.5.2 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧 | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | S-08 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
-| S-09 | design#2.5.2 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | TASK-008 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | . | 300 |  |
+| S-09 | design#2.5.2 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | TASK-008 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | . | 300 |  |
 | S-10 | design#2.5.2 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | TASK-010 | planned | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | . | 300 |  |
 | E-01 | design#2.5.2 | integration | 真实文件系统 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | E-02 | design#2.5.2 | E2E | 真实 WS 探针 → 真实网关 | TASK-004 | e2e_deferred | uv run pytest -q tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py | . | 300 |  |
-| E-03 | design#2.5.2 | integration | 真实 PG + 真实存储 + 鉴权层 | TASK-008 | planned | uv run pytest -q tests/console_channel/test_artifact_fetch.py | . | 120 |  |
+| E-03 | design#2.5.2 | integration | 真实 PG + 真实存储 + 鉴权层 | TASK-008 | verified | uv run pytest -q tests/console_channel/test_artifact_fetch.py | . | 120 |  |
 | E-04 | design#2.5.2 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | TASK-007 | verified | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | . | 120 |  |
 | E-05 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
 | E-06 | design#2.5.2 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | TASK-006 | planned | uv run pytest -q tests/gateway/test_artifact_delivery.py | . | 120 |  |
@@ -414,7 +414,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-006: 出站交付链：契约形态 + 显式交付 + 会话内/后台两条投递路径
 
-- **Status**: in-progress
+- **Status**: blocked
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-005, TASK-007
 - **Source**: `attachment-round-trip.design.md#3.4 接口设计`, `#3.6 出站交付：写与发的分离（硬需求落点）`, `#3.2 架构设计`
@@ -457,9 +457,11 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ### Acceptance Evidence
 
+> BLOCKED: 降级链依赖 TASK-008 的取件能力（清单第 7 条：不能直发时由适配器调用取件能力生成签名直链）。006 其余各项已完成并通过验证；先做 008，完成后 resume 006 收口。
 ### Log
 - [2026-10-03] created (draft)
 - [2026-10-03] started
+- [2026-10-03] blocked (降级链依赖 TASK-008 的取件能力（清单第 7 条：不能直发时由适配器调用取件能力生成签名直链）。006 其余各项已完成并通过验证；先做 008，完成后 resume 006 收口。)
 
 ---
 
@@ -534,7 +536,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-008: 产物取件能力（签名短 TTL 直链 + 鉴权端点）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: `attachment-round-trip.design.md#3.4 接口设计`, `#3.5 质量实现方案`
@@ -547,30 +549,82 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ### Checklist
 
-- [ ] `GET /api/v1/artifacts/{artifact_id}/content`：鉴权二选一（Console 会话态 / `?token=…` 签名令牌：单产物 + 短 TTL + 可撤销，仅存内存或短 TTL 存储）
-- [ ] 响应为二进制流（`Content-Type` 取产物 `media_type`、`Content-Disposition` 带原文件名）；**不得把 `storage_key` 或存储路径暴露给客户端**
-- [ ] 无权限 / 令牌失效 / 不存在**一律 404**（与不存在同样响应，不泄露存在性）
-- [ ] 签名令牌生成与校验：**令牌不进日志、不进审计字段**（`harness-secret#RULE-secret-001`）
-- [ ] 降级链接由 TASK-006 的适配器在"不能直发"时使用；本任务只提供能力，不含渠道判断
-- [ ] [S-09][E2E] 真实边界：真实 HTTP 取件端点 + 真实鉴权（非 mock）；断言签名令牌与 Console 会话两条路径都拿到**字节与原文件一致**的内容；令牌过期/跨租户一律 404
-- [ ] [E-03][integration] 真实边界：真实 PG + 真实存储 + 鉴权层；断言以租户 B 请求租户 A 的产物 id 被拒且**不泄露存在性**
-- [ ] 新增 `tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py`（**本任务自己建立该目录与文件**，不依赖 TASK-010）
-- [ ] 运行 verifier：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`（`harness-api#RULE-api-001`）；记录输出
-- [ ] 运行 verifier：`uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py`（`harness-secret#RULE-secret-001`）；记录输出
-- [ ] 运行 verifier：`uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity`（`harness-auth#RULE-auth-001`）；记录输出
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] `GET /api/v1/artifacts/{artifact_id}/content`：鉴权二选一（Console 会话态 / `?token=…` 签名令牌：单产物 + 短 TTL + 可撤销，仅存内存或短 TTL 存储）
+- [x] 响应为二进制流（`Content-Type` 取产物 `media_type`、`Content-Disposition` 带原文件名）；**不得把 `storage_key` 或存储路径暴露给客户端**
+- [x] 无权限 / 令牌失效 / 不存在**一律 404**（与不存在同样响应，不泄露存在性）
+- [x] 签名令牌生成与校验：**令牌不进日志、不进审计字段**（`harness-secret#RULE-secret-001`）
+- [x] 降级链接由 TASK-006 的适配器在"不能直发"时使用；本任务只提供能力，不含渠道判断
+- [x] [S-09][E2E] 真实边界：真实 HTTP 取件端点 + 真实鉴权（非 mock）；断言签名令牌与 Console 会话两条路径都拿到**字节与原文件一致**的内容；令牌过期/跨租户一律 404
+- [x] [E-03][integration] 真实边界：真实 PG + 真实存储 + 鉴权层；断言以租户 B 请求租户 A 的产物 id 被拒且**不泄露存在性**
+- [x] 新增 `tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py`（**本任务自己建立该目录与文件**，不依赖 TASK-010）
+- [x] 运行 verifier：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`（`harness-api#RULE-api-001`）；记录输出 —— **18 passed**
+- [x] 运行 verifier：`uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py`（`harness-secret#RULE-secret-001`）；记录输出 —— **12 passed**
+- [x] 运行 verifier：`uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity`（`harness-auth#RULE-auth-001`）；记录输出 —— **2 passed (1 deselected) / 35 passed (1838 deselected)**
+- [x] 运行验收命令并填写 Acceptance Evidence
+
+### 补充：签发侧的 HTTP 面（设计稿的缺口，本任务补上）
+
+设计 §3.4 只写了**取件**端点（API-05），但清单第 5 条要求"降级链接由 TASK-006 的适配器…**调用 TASK-008 的取件能力生成签名链接**"——而适配器在 **im-gateway 进程**里，令牌的权威在 **Console 进程内存**里，两者之间没有任何共享存储。少一个 HTTP 面，这句话无法落地：适配器只能造假令牌，或让用户收一条注定 404 的死链。
+
+因此本任务补一个内部端点 **`POST /internal/artifacts/{artifact_id}/fetch-link`**（`InternalServiceDep` + `HeaderTenantId`），返回 `{"url": …}`：
+
+- **签发前先真解析一遍**（与取件端点**同一条** `ArtifactFetchService.fetch`）：否则会为取不到的产物签出一条注定 404 的链接，再被当成"降级成功"回给用户——那正是 RULE-03 要禁的谎报。
+- **`url` 的基址取 `console_platform_url`**，不新增配置项：这个值本来就是"别人怎么找到 Console"。
+- 这条路径**同时是 S-09 令牌分支的唯一合法入口**：验收里 Console 是独立进程，测试拿不到它的内存，没有这个端点就只能造令牌。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-09 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | 两条鉴权路径都拿到字节与原文件一致的内容；令牌过期/跨租户一律 404 | tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | planned |
-| E-03 | integration | 真实 PG + 真实存储 + 鉴权层 | 跨租户请求被拒且与不存在同样响应（不泄露存在性） | tests/console_channel/test_artifact_fetch.py | uv run pytest -q tests/console_channel/test_artifact_fetch.py | planned |
+| S-09 | E2E | 真实 HTTP 取件端点 + 真实鉴权（非 mock） | 两条鉴权路径都拿到字节与原文件一致的内容；令牌过期/跨租户一律 404 | tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py::test_s09_console_session_fetch_returns_the_original_bytes + ::test_s09_signed_token_fetch_returns_the_original_bytes + ::test_s09_cross_tenant_is_indistinguishable_from_missing + ::test_s09_expired_token_is_indistinguishable_from_missing | uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | e2e_deferred |
+| E-03 | integration | 真实 PG + 真实存储 + 鉴权层 | 跨租户请求被拒且与不存在同样响应（不泄露存在性） | tests/console_channel/test_artifact_fetch.py::test_cross_tenant_looks_exactly_like_missing + ::test_issuing_a_link_is_scoped_to_the_calling_tenant + ::test_no_credential_at_all_is_also_a_404 + ::test_expired_token_is_refused_like_a_missing_one + ::test_a_token_only_opens_the_artifact_it_was_issued_for + ::test_console_session_path_returns_the_original_bytes + ::test_signed_token_path_returns_the_original_bytes + ::test_response_never_carries_the_storage_key + ::test_the_plaintext_token_never_reaches_the_logs | uv run pytest -q tests/console_channel/test_artifact_fetch.py | verified |
 
 ### Acceptance Evidence
 
+**执行（2026-10-03）**，登记命令：
+
+- `uv run pytest -q tests/console_channel/test_artifact_fetch.py` → **9 passed**
+- `uv run pytest -q tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py` → **4 passed（26.8s，含 11s 真实过期等待）**
+
+**RED（先写测试再实现）**：`git stash push -u` 暂存实现（取件路由 / 签发路由 / 两个依赖 / 路由注册）
+后跑 E-03 → `ImportError: cannot import name 'get_artifact_fetch_service' from
+'muad_console_platform.api.deps'`（预期失败）；`git stash pop` 复原后转 GREEN。
+
+**GREEN 的相邻回归**：`tests/console_channel + tests/console_auth + tests/console_platform +
+tests/architecture + tests/gateway` 合计 **518 passed**；`uv run mypy apps/console-platform` **Success: no issues found in 96 source files**；全仓 `ruff check` 全过。
+
+**三条 required verifier**（清单要求）：`harness-api` **18 passed** / `harness-secret` **12 passed** /
+`harness-auth` **2 passed (1 deselected) + 35 passed (1838 deselected)**。
+
+**E-03 的归属校验没有打桩**：`ArtifactResolvePort` 指向 **runtime 真 app** 的 ASGI 传输
+（`/internal/artifacts/{id}`，与 worker 后台路径**同一个解析单点**）。用假解析会让"跨租户被拒"
+变成在测自己写的 if。
+
+**S-09 里两处刻意的真实等待与真实进程**：
+
+① 令牌过期**真的等** 11 秒（栈的 TTL 由 `ARTIFACT_FETCH_TTL_SEC` 压到 10s，手法与
+`delivery_backoff_base_sec` 同：让"等真实时间"的代价可承受，而代码路径一字不改）；用假时钟就
+等于把要验的东西验掉了。
+
+② 栈里新加了两个 Console 侧下游地址（`AGENT_RUNTIME_URL` / `CONSOLE_PLATFORM_URL`）——
+这是 **console → runtime 的第一条调用边**，在此之前那两个默认值从没被真正用到过，不设置会
+**安静地**打 `.env` 里的 8000/8001：表现为 502，或"所有产物都取不到"。这条排查代价直接换来了
+一条提前断言（取件链接必须以本栈 console 地址开头），把 502 换成一句能读懂的话。
+
+**顺带修掉的真漏洞**：`muad_logging.redaction` 的敏感键名覆盖了 `access_token`/`refresh_token` 等，
+**却没有裸的 `token`** —— 而本端点要求 S-09 令牌落在 `?token=` 上，那会**原样进访问日志**。
+修的是**策略**（补键名）而不是"把参数改名叫 `access_token`"（那只是让下一个人换个名字再踩一次）。
+`redact_text('…?token=SECRET123')` → `'…?token=***'`，`csrf_token_count: 5` 不受影响（边界正确）。
+
+- S-09: e2e_deferred — automated command e2e_deferred; run_id=dba4b875820a4d1aad317c82bbc15d86 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=dba4b875820a4d1aad317c82bbc15d86 (confirmed_by: runner)
+
 ### Log
 - [2026-10-03] created (draft)
+- [2026-10-03] started
+- [2026-10-03] 取件端点 + 签发端点 + 令牌模型接入 + redaction 补裸 token；E-03 9 passed / S-09 4 passed
+- [2026-10-03] 三条 required verifier 全绿；相邻 518 passed；mypy / ruff 全过
+- [2026-10-03] completed (done)
 
 ---
 

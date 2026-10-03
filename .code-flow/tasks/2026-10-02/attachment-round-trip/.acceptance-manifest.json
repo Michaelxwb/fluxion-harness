@@ -226,7 +226,7 @@
       "kind": "e2e",
       "boundary": "真实 HTTP 取件端点 + 真实鉴权（非 mock）",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -236,7 +236,26 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-09",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "dba4b875820a4d1aad317c82bbc15d86",
+        "executed_at": "2026-10-03T04:43:58.823495+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-09",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "dba4b875820a4d1aad317c82bbc15d86",
+          "executed_at": "2026-10-03T04:43:58.823495+00:00"
+        }
+      ]
     },
     {
       "id": "S-10",
@@ -351,7 +370,7 @@
       "kind": "functional",
       "boundary": "真实 PG + 真实存储 + 鉴权层",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -361,7 +380,28 @@
       ],
       "cwd": ".",
       "timeout": 120.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "dba4b875820a4d1aad317c82bbc15d86",
+        "executed_at": "2026-10-03T04:43:58.823495+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "dba4b875820a4d1aad317c82bbc15d86",
+          "executed_at": "2026-10-03T04:43:58.823495+00:00"
+        }
+      ]
     },
     {
       "id": "E-04",

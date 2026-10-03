@@ -1,7 +1,7 @@
 version: 1
 task: attachment-round-trip
 enforcement: required
-updated_at: '2026-10-02T17:53:41.848789+00:00'
+updated_at: '2026-10-03T04:20:01.446592+00:00'
 sources:
 - type: cli
   ref: bind
@@ -52,11 +52,11 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-007
           item_id: harness-api#RULE-api-002
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -361,6 +361,89 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-03T02:52:37.254184+00:00'
+          status: unverified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-03T02:57:03.485990+00:00'
+          status: unverified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-03T03:16:46.220832+00:00'
+          status: unverified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-03T03:31:35.422176+00:00'
+          status: unverified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-03T03:53:52.327542+00:00'
+          status: unverified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-03T04:21:57.196275+00:00'
+          status: unverified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-03T04:44:00.655744+00:00'
+          status: verified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: 5e106b1d694f509914f3396fec0a4f3e4aece426dec286b4d8ea445608f5c88b
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 0aba8185a4864a16e3ac6dc2fdea2538d0686afbf612d695f2b49bc86cf72fa2
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 0.82s
+
+              '
       review:
         status: pending
         refs: []
@@ -390,11 +473,11 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-008
           item_id: harness-api#RULE-api-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -711,6 +794,95 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-03T02:52:37.254378+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-03T02:57:03.486147+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-03T03:16:46.221021+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-03T03:31:35.422339+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-03T03:53:52.327744+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-03T04:21:57.196501+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-03T04:44:02.488742+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: e848acb2f9950a7aa44d0cf96d0ad8be33663ed2884abc90e2df8e0d47702331
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: ba7e8fe1b775615238acb54a07273973f40491a4eef0fee34c382f1e7c0df92a
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 1.44s\n"
       review:
         status: pending
         refs: []
@@ -755,7 +927,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-007
           item_id: harness-arch#RULE-arch-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
@@ -1052,6 +1224,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-03T02:52:37.255125+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-03T02:57:03.486763+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-03T03:16:46.221686+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-03T03:31:35.422967+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-03T03:53:52.328500+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-03T04:21:57.197178+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-03T04:44:02.489485+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1098,7 +1341,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-008
           item_id: harness-auth#RULE-auth-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
@@ -1383,6 +1626,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-03T02:52:37.255843+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-03T02:57:03.487385+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-03T03:16:46.222325+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-03T03:31:35.423601+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-03T03:53:52.329260+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-03T04:21:57.197804+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-03T04:44:02.489877+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1428,7 +1742,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-007
           item_id: harness-data#RULE-data-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
@@ -1713,6 +2027,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-03T02:52:37.256563+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-03T02:57:03.487990+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-03T03:16:46.223009+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-03T03:31:35.424238+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-03T03:53:52.330011+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-03T04:21:57.198433+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-03T04:44:02.490238+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2051,6 +2436,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-03T02:52:37.257315+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-03T02:57:03.488633+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-03T03:16:46.223721+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-03T03:31:35.424932+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-03T03:53:52.330851+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-03T04:21:57.199092+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-03T04:44:02.490697+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2095,7 +2551,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-004
           item_id: harness-i18n#RULE-i18n-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
@@ -2393,6 +2849,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-03T02:52:37.257985+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-03T02:57:03.489203+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-03T03:16:46.224350+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-03T03:31:35.425545+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-03T03:53:52.331556+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-03T04:21:57.199671+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-03T04:44:02.491039+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2437,7 +2964,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-006
           item_id: harness-im#RULE-im-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
@@ -2722,6 +3249,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-03T02:52:37.259011+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-03T02:57:03.490081+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-03T03:16:46.225291+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-03T03:31:35.426484+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-03T03:53:52.332620+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-03T04:21:57.200573+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-03T04:44:02.491541+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2752,7 +3350,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-001
           item_id: harness-im#RULE-im-002
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
@@ -3097,6 +3695,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-03T02:52:37.259018+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-03T02:57:03.490086+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-03T03:16:46.225297+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-03T03:31:35.426491+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-03T03:53:52.332628+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-03T04:21:57.200578+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-03T04:44:02.491545+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -3143,11 +3812,11 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-009
           item_id: harness-log#RULE-log-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -3428,6 +4097,91 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-03T02:52:37.259743+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-03T02:57:03.490724+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-03T03:16:46.225971+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-03T03:31:35.427135+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-03T03:53:52.333364+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-03T04:21:57.201200+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-03T04:44:03.661225+00:00'
+          status: verified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: 8dc9ff44a5d2c228a0ae6a8a39703efccb45daab96d4638c4f98a399b9ef961c
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging.py
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_logging.py
+            exit_code: 0
+            stdout_sha256: cff4254fb71956a0e22aed7ca960df74f01c93cd4c50a5a6029b5de2c2915a63
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...........                                                              [100%]
+
+              11 passed in 0.82s
+
+              '
       review:
         status: pending
         refs: []
@@ -3473,11 +4227,11 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-008
           item_id: harness-secret#RULE-secret-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -3771,6 +4525,90 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-03T02:52:37.260695+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-03T02:57:03.491533+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-03T03:16:46.226844+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-03T03:31:35.427989+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-03T03:53:52.334336+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-03T04:21:57.202012+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-03T04:44:05.063430+00:00'
+          status: verified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: 5a8fdcebc3aa6fbea39aa0750d99e2348ea504a82f04bb55fa6ce5dd0b92596a
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 153a505d3235262ad0bca92130549770b824cde66733b25c8ee6f3054dfb4f72
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............                                                             [100%]
+
+              12 passed in 0.95s
+
+              '
       review:
         status: pending
         refs: []
@@ -3820,7 +4658,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-005
           item_id: harness-skill#RULE-skill-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
@@ -4117,6 +4955,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-03T02:52:37.261377+00:00'
+          status: unverified
+          rule_text_sha256: 27d60d2926408a023dd7e0fb752d69b924b80ac83118ec89f1c50e4332221235
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-03T02:57:03.492118+00:00'
+          status: unverified
+          rule_text_sha256: 27d60d2926408a023dd7e0fb752d69b924b80ac83118ec89f1c50e4332221235
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-03T03:16:46.227468+00:00'
+          status: unverified
+          rule_text_sha256: 27d60d2926408a023dd7e0fb752d69b924b80ac83118ec89f1c50e4332221235
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-03T03:31:35.428594+00:00'
+          status: unverified
+          rule_text_sha256: 27d60d2926408a023dd7e0fb752d69b924b80ac83118ec89f1c50e4332221235
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-03T03:53:52.335005+00:00'
+          status: unverified
+          rule_text_sha256: 27d60d2926408a023dd7e0fb752d69b924b80ac83118ec89f1c50e4332221235
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-03T04:21:57.202601+00:00'
+          status: unverified
+          rule_text_sha256: 27d60d2926408a023dd7e0fb752d69b924b80ac83118ec89f1c50e4332221235
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-03T04:44:05.064162+00:00'
+          status: unverified
+          rule_text_sha256: 27d60d2926408a023dd7e0fb752d69b924b80ac83118ec89f1c50e4332221235
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -4163,7 +5072,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-005
           item_id: harness-snapshot#RULE-snapshot-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
@@ -4448,6 +5357,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-03T02:52:37.262074+00:00'
+          status: unverified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-03T02:57:03.492724+00:00'
+          status: unverified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-03T03:16:46.228109+00:00'
+          status: unverified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-03T03:31:35.429226+00:00'
+          status: unverified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-03T03:53:52.335736+00:00'
+          status: unverified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-03T04:21:57.203203+00:00'
+          status: unverified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-03T04:44:05.064576+00:00'
+          status: unverified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -4492,7 +5472,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-010
           item_id: harness-test#RULE-test-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
@@ -4777,6 +5757,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-03T02:52:37.262975+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-03T02:57:03.493515+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-03T03:16:46.228956+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-03T03:31:35.430034+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-03T03:53:52.336680+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-03T04:21:57.203999+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-03T04:44:05.065090+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -4821,7 +5872,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-009
           item_id: harness-time#RULE-time-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
@@ -5122,6 +6173,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-03T02:52:37.263644+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-03T02:57:03.494097+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-03T03:16:46.229593+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-03T03:31:35.430640+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-03T03:53:52.337370+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-03T04:21:57.204595+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-03T04:44:05.065443+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -5456,6 +6578,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-03T02:52:37.264362+00:00'
+          status: unverified
+          rule_text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-03T02:57:03.494725+00:00'
+          status: unverified
+          rule_text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-03T03:16:46.230266+00:00'
+          status: unverified
+          rule_text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-03T03:31:35.431281+00:00'
+          status: unverified
+          rule_text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-03T03:53:52.338123+00:00'
+          status: unverified
+          rule_text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-03T04:21:57.205209+00:00'
+          status: unverified
+          rule_text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-03T04:44:05.065803+00:00'
+          status: unverified
+          rule_text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -5501,7 +6694,7 @@ bindings:
         - artifact: attachment-round-trip.md
           section_id: TASK-006
           item_id: harness-worker#RULE-worker-001
-          artifact_sha256: 0f5cd4e960de0e339dfde0ec03aa6c7d185f7a29fcdfd7ccb9f46cacc1af535e
+          artifact_sha256: 946b6d1448f314332f97e23157af6a5d5a228ee117c90b7976d3c630d1269dba
         decision: null
         evidence: []
       code:
@@ -5786,6 +6979,77 @@ bindings:
           error_code: skipped_in_cheap_gate
           details:
             skipped: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-03T02:52:37.265055+00:00'
+          status: unverified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: 39ae25e79262af2a0ff8860f69222a2fd47648319df7781c7151425c0a9ff520
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-03T02:57:03.495323+00:00'
+          status: unverified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: dedb32d60ecc8aa3a59c860775273ac91b56a23534a2b40ef630ba201cf8ffa7
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-03T03:16:46.230883+00:00'
+          status: unverified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: aff5df62d77d7d89981ebec3835c89ebfe52f9efa64609eb335ddf691296986f
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-03T03:31:35.431902+00:00'
+          status: unverified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: 8060ba2024576dbe03e03309fd9eab89b499d2f4e5372170cdfc80c68c4c37de
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-03T03:53:52.338793+00:00'
+          status: unverified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: 76f8389476a9746c0b7b062c356c5331e8f44565a8b20ca2a09b74cd3505d993
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-03T04:21:57.205815+00:00'
+          status: unverified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: 9ef10bda473f0003818be49e9582bf2e5593b6d40bc86463cf035e1e138634ac
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-03T04:44:05.066145+00:00'
+          status: unverified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: e2298dd157d1c5259fa638693b177490ea2dbdf26c8e5a6b0e1d5c17c8755143
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []

@@ -149,7 +149,18 @@ def start_gateway_stack(
         return process
 
     llm_probe = spawn("llm-probe", "tests.e2e.openai_probe_app", llm_port)
-    console = spawn("console", "muad_console_platform.main", console_port)
+    # Console 自己的两个下游地址，都必须显式指到本栈的进程上——否则会**安静地**走 `.env`
+    # 里的默认端口（8000/8001），表现为莫名奇妙的 502 或"所有产物都取不到"：
+    #   · `AGENT_RUNTIME_URL`：产物取件的归属校验经 runtime 的 `/internal/artifacts/{id}`
+    #     （解析单点）。这是 console → runtime 的第一条调用边，在此之前从没被真正用到过。
+    #   · `CONSOLE_PLATFORM_URL`：Console 用它拼**取件直链的基址**（终端用户点的那个 URL）。
+    console = spawn(
+        "console",
+        "muad_console_platform.main",
+        console_port,
+        AGENT_RUNTIME_URL=runtime_url,
+        CONSOLE_PLATFORM_URL=console_url,
+    )
     runtime = spawn(
         "runtime",
         "muad_agent_runtime.main",

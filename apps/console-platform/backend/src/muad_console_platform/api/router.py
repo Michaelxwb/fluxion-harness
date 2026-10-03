@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends
 
 from .accounts import router as accounts_router
 from .agents import router as agents_router
+from .artifacts import router as artifacts_router
 from .audits import router as audits_router
 from .auth import public_router as auth_public_router
 from .auth import router as auth_router
 from .credentials import router as credentials_router
 from .deps import get_current_account, require_admin
+from .internal_artifacts import router as internal_artifacts_router
 from .internal_channel import router as internal_channel_router
 from .internal_runtime import router as internal_runtime_router
 from .mcp_servers import router as mcp_servers_router
@@ -48,3 +50,7 @@ router.include_router(admin)
 
 router.include_router(internal_runtime_router)
 router.include_router(internal_channel_router)
+router.include_router(internal_artifacts_router)
+# 取件端点**不在** authenticated/admin 组里：它的调用方可能没有 Console 会话（签名令牌路径）。
+# 鉴权在路由内部二选一完成，见 `artifacts.authorize_artifact_fetch`。
+router.include_router(artifacts_router)

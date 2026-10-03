@@ -5,9 +5,12 @@ from fastapi import Depends, Request
 from muad_api import AppError, require_roles, require_session
 from muad_api.context import current_tenant_id
 from muad_api.error_codes import ErrorCode
+from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_platform_sdk import PlatformAdapterRegistry, RedisPlatformSessionInvalidator
 
+from ..application.artifact_fetch_service import ArtifactFetchService, ArtifactResolvePort
+from ..application.artifact_fetch_tokens import ArtifactFetchTokens, configured_ttl_sec
 from ..application.auth_service import AuthService
 from ..application.mcp_ports import McpCatalogCache, NullMcpCatalogCache
 from ..application.platform_adapter_service import build_default_registry
@@ -143,3 +146,40 @@ def get_mcp_catalog_cache(request: Request) -> McpCatalogCache:
         resolved = RedisMcpCatalogCache(client)
     request.app.state.mcp_catalog_cache = resolved
     return resolved
+
+
+def get_artifact_fetch_tokens(request: Request) -> ArtifactFetchTokens:
+    """取件令牌的签发/兑换器（按进程缓存，测试可覆盖）。
+
+    **进程内**：多实例部署下 A 实例签的链接到 B 实例会 404。这是设计中接受的代价——
+    TTL 只有几分钟，且**失败方向是拒绝**，不会误放行（见 `artifact_fetch_tokens` 模块说明）。
+    """
+    tokens = getattr(request.app.state, "artifact_fetch_tokens", None)
+    if tokens is None:
+        tokens = ArtifactFetchTokens(ttl_sec=configured_ttl_sec())
+        request.app.state.artifact_fetch_tokens = tokens
+    return tokens
+
+
+def get_artifact_fetch_service(request: Request) -> ArtifactFetchService:
+    """取件服务（按进程缓存）：真实共享 store + 指向 runtime 的**解析单点**。
+
+    Console 只碰 `control` schema，不直读 `runtime.artifact`（仓库里没有这种先例，且那是
+    **跨 schema 的表结构耦合**：runtime 改一列，取件会静默退化）。归属与元信息一律问 runtime。
+    """
+    service = getattr(request.app.state, "artifact_fetch_service", None)
+    if service is None:
+        settings = SharedSettings()
+        service = ArtifactFetchService(
+            store=NfsArtifactStore(settings.artifact_root),
+            resolver=ArtifactResolvePort(
+                settings.agent_runtime_url,
+                service_token=settings.internal_service_token,
+            ),
+        )
+        request.app.state.artifact_fetch_service = service
+    return service
+
+
+FetchTokensDep = Annotated[ArtifactFetchTokens, Depends(get_artifact_fetch_tokens)]
+FetchServiceDep = Annotated[ArtifactFetchService, Depends(get_artifact_fetch_service)]
