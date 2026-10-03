@@ -44,7 +44,7 @@
 | E-03 | design#2.5.2 | integration | 真实 PG + 真实存储 + 鉴权层 | TASK-008 | verified | uv run pytest -q tests/console_channel/test_artifact_fetch.py | . | 120 |  |
 | E-04 | design#2.5.2 | integration | 真实 HTTP（console 内部端点）+ 真实 PG | TASK-007 | verified | uv run pytest -q tests/console_channel/test_artifact_delivery_audit.py | . | 120 |  |
 | E-05 | design#2.5.2 | integration | 真实文件系统 + 真实 PG | TASK-009 | planned | uv run pytest -q tests/console_platform/test_artifact_cleanup.py | . | 120 |  |
-| E-06 | design#2.5.2 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | TASK-006 | planned | uv run pytest -q tests/gateway/test_artifact_delivery.py | . | 120 |  |
+| E-06 | design#2.5.2 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | TASK-006 | verified | uv run pytest -q tests/gateway/test_artifact_delivery.py | . | 120 |  |
 | B-01 | design#2.5.2 | unit | 分段纯函数 | TASK-002 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | B-02 | design#2.5.2 | unit | 枚举分页 | TASK-003 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
 | B-03 | design#2.5.2 | unit | 出站产物大小 | TASK-005 | verified | uv run pytest -q tests/agent_runtime/test_attachment_tools.py | . | 120 |  |
@@ -414,7 +414,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-006: 出站交付链：契约形态 + 显式交付 + 会话内/后台两条投递路径
 
-- **Status**: blocked
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-005, TASK-007
 - **Source**: `attachment-round-trip.design.md#3.4 接口设计`, `#3.6 出站交付：写与发的分离（硬需求落点）`, `#3.2 架构设计`
@@ -433,35 +433,78 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ### Checklist
 
-- [ ] `DeliveryMessage` 增 `type` 取值 `artifact`/`image`（缺省仍 `text`，向后兼容）；`type != text` 时 `artifact: AttachmentRef` 必填，**不含任何渠道私有发送凭据**
-- [ ] `DeliveryRequest` 支持会话形态：`task_id` 改为 `UUID | None = None`，`delivery_key` 两种形态互斥校验（有 `task_id` → 仍是 `task:{task_id}:final`；无 → `run:{run_id}:{artifact_id}`）；**既有 worker 调用零改动**
-- [ ] `DeliveryResponse` 增 `outcome`（`DELIVERED`/`DEGRADED`）与 `fallback_url`（仅降级时）；`delivered=false` 仍表示"未确认送达"，不得当成功
-- [ ] 新增工具 `deliver_artifact(artifact_id, note?)`：校验归属（本 Run/会话 + 租户）与交付路由存在；schema 只有这两个字段，**没有渠道字段**
-- [ ] 工具结果明确回传三种结论：已交付（含文件名）/ 降级为签名链接（含链接）/ 失败（含原因码 + "产物已保留，可重试"）；**超时按失败**
-- [ ] runtime 侧新增交付客户端：**同步 POST `/internal/deliveries`**（用既有 `settings.im_gateway_url`），**独立超时**配置；超时/传输错误 → 报失败并保留产物，**不得**当成成功
-- [ ] 适配器侧新增**可选出站能力协议**（与入站 `AttachmentSource` 同构）：核心域只给"产物引用 + 路由"，适配器决定直发/链接/降级；降级时由适配器调用 TASK-008 的取件能力生成签名链接
-- [ ] `channels/wecom/` 内实现**三步分片上传**（SDK 无此能力，见上方探针结论）：`init → chunk ×N → finish` 拿 `media_id`，再以 `image`/`file` 体发出（会话内 `aibot_respond_msg`、主动 `aibot_send_msg`）；分片 ≤512 KiB、≤100 片，超出走降级；`media_id` 3 天失效 ⇒ **跨 3 天的重试必须重新上传**，不能只重发
-- [ ] 图片出站（FEAT-10，P0）：`type=image` 走同一交付链；`view_image` 是入站方向的重看，**不是**同一件事
-- [ ] 后台路径：`/internal/deliveries` 支持产物形态；沿用既有 `reserve → 发送 → mark`，**失败释放占位**
-- [ ] 交付链全程**不见渠道形状**：核心域与网关应用层零渠道字样与发送凭据（守卫会判红）
-- [ ] [E-06][integration] 真实边界：真实 HTTP（网关交付端点 + 渠道侧失败注入）；断言首次交付失败时工具结果显式报失败与原因、**产物保留**、审计记 FAILED；按同一幂等键重试后成功（审计同一行转 DELIVERED）且用户恰好收到一次
-- [ ] 运行 verifier：`uv run pytest -q tests/console_channel tests/gateway`（`harness-im#RULE-im-001`）；记录输出
-- [ ] 运行 verifier：`uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py`（`harness-worker#RULE-worker-001`）；记录输出
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] `DeliveryMessage` 增 `type` 取值 `artifact`/`image`（缺省仍 `text`，向后兼容）；`type != text` 时 `artifact: AttachmentRef` 必填，**不含任何渠道私有发送凭据**
+- [x] `DeliveryRequest` 支持会话形态：`task_id` 改为 `UUID | None = None`，`delivery_key` 两种形态互斥校验（有 `task_id` → 仍是 `task:{task_id}:final`；无 → `run:{run_id}:{artifact_id}`）；**既有 worker 调用零改动**
+- [x] `DeliveryResponse` 增 `outcome`（`DELIVERED`/`DEGRADED`）与 `fallback_url`（仅降级时）；`delivered=false` 仍表示"未确认送达"，不得当成功
+- [x] 新增工具 `deliver_artifact(artifact_id, note?)`：校验归属（本 Run/会话 + 租户）与交付路由存在；schema **没有渠道字段** —— **偏离已登记**：实际只落 `artifact_id`，**没有 `note`**。设计把它列进了请求字段，却没定义它在媒体路径上怎么被消费，而企微的图片/文件消息**没有文本槽**；给模型一个按了没反应的旋钮比不给更糟（它会以为那句话附上去了）。要支持"文件 + 一句话"应由适配器另发一条跟随文本，那是独立的一次改动。设计稿与本行原措辞已按代码事实订正
+- [x] 工具结果明确回传三种结论：已交付（含文件名）/ 降级为签名链接（含链接）/ 失败（含原因码 + "产物已保留，可重试"）；**超时按失败**
+- [x] runtime 侧新增交付客户端：**同步 POST `/internal/deliveries`**（用既有 `settings.im_gateway_url`），**独立超时**配置；超时/传输错误 → 报失败并保留产物，**不得**当成成功
+- [x] 适配器侧新增**可选出站能力协议**（与入站 `AttachmentSource` 同构）：核心域只给"产物引用 + 路由"，适配器决定直发/链接/降级；降级时由适配器调用 TASK-008 的取件能力生成签名链接 —— **本次收口**：协议 → `channels/base.py` 的 `ArtifactLinkIssuer` + `OutboundArtifactDelivery.deliver_artifact(..., tenant_id=)`；实现 → `ConsoleClient.issue_fetch_link`（真 HTTP 打 TASK-008 的签发端点）；触发 → 企微侧**唯一**不成立的条件是渠道硬上限（`WeComMediaUploadTooLargeError`），适配器降级后**把链接作为文本发给用户**并返回 `DEGRADED` + `fallback_url`。签发口缺席或签不出来 ⇒ **显式失败**，绝不自己拼链接（用户会点开 404）
+- [x] `channels/wecom/` 内实现**三步分片上传**（SDK 无此能力，见上方探针结论）：`init → chunk ×N → finish` 拿 `media_id`，再以 `image`/`file` 体发出（会话内 `aibot_respond_msg`、主动 `aibot_send_msg`）；分片 ≤512 KiB、≤100 片，超出走降级；`media_id` 3 天失效 ⇒ **跨 3 天的重试必须重新上传**，不能只重发
+- [x] 图片出站（FEAT-10，P0）：`type=image` 走同一交付链；`view_image` 是入站方向的重看，**不是**同一件事
+- [x] 后台路径：`/internal/deliveries` 支持产物形态；沿用既有 `reserve → 发送 → mark`，**失败释放占位**
+- [x] 交付链全程**不见渠道形状**：核心域与网关应用层零渠道字样与发送凭据（守卫会判红）
+- [x] [E-06][integration] 真实边界：真实 HTTP（网关交付端点 + 渠道侧失败注入）；断言首次交付失败时工具结果显式报失败与原因、**产物保留**、审计记 FAILED；按同一幂等键重试后成功（审计同一行转 DELIVERED）且用户恰好收到一次
+- [x] 运行 verifier：`uv run pytest -q tests/console_channel tests/gateway`（`harness-im#RULE-im-001`）；记录输出 —— **340 passed**
+- [x] 运行 verifier：`uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py`（`harness-worker#RULE-worker-001`）；记录输出 —— **239 passed**（首次 3 failed，见下方说明，复跑全绿）/ **217 passed**
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-06 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | 首次失败 → 显式报失败与原因 + 产物保留 + 审计 FAILED；同幂等键重试成功、审计同一行转 DELIVERED、用户恰好收到一次 | tests/gateway/test_artifact_delivery.py | uv run pytest -q tests/gateway/test_artifact_delivery.py | planned |
+| E-06 | integration | 真实 HTTP（网关交付端点 + 渠道侧失败注入） | 首次失败 → 显式报失败与原因 + 产物保留 + 审计 FAILED；同幂等键重试成功、审计同一行转 DELIVERED、用户恰好收到一次 | tests/gateway/test_artifact_delivery.py::test_e06_failed_delivery_then_retry_succeeds_and_the_user_gets_it_once + ::test_channel_side_failure_releases_the_placeholder_so_a_retry_can_send + ::test_failed_delivery_is_audited_as_failed_with_a_reason_code + ::test_successful_delivery_writes_one_audit_row + ::test_degraded_delivery_is_reported_as_delivered_with_the_link + ::test_degraded_delivery_is_audited_as_degraded_not_delivered + ::test_artifact_message_goes_through_the_optional_capability + ::test_adapter_without_the_capability_fails_explicitly + ::test_audit_write_failure_does_not_undo_a_completed_delivery | uv run pytest -q tests/gateway/test_artifact_delivery.py | verified |
 
 ### Acceptance Evidence
 
-> BLOCKED: 降级链依赖 TASK-008 的取件能力（清单第 7 条：不能直发时由适配器调用取件能力生成签名直链）。006 其余各项已完成并通过验证；先做 008，完成后 resume 006 收口。
+**阻塞已解除（2026-10-03）**：清单第 7 条原先依赖 TASK-008 的取件能力，先做 008 后回来收口。TASK-008 已
+Done Gate pass（取件端点 + 签发面），降级链本次落地。
+
+**本次收口做了什么**：
+
+- `channels/base.py` 新增 **`ArtifactLinkIssuer`** 端口（`issue_fetch_link(artifact_id, *, tenant_id) -> str | None`），
+  并把 `OutboundArtifactDelivery.deliver_artifact` 扩成 `(route, artifact, *, tenant_id)`。
+  租户是**签发链接的作用域**，不是渠道形状——设计 §3.6 那句"核心域只给产物引用 + 路由"挡的是
+  url/aes_key/media_id 这类**渠道发送体**上行，租户不在其中；交付链的审计写入本来就显式带着它。
+- 实现落在 `ConsoleClient.issue_fetch_link`（真 HTTP POST 到 TASK-008 的 `/internal/artifacts/{id}/fetch-link`），
+  **签不出来返回 `None` 而不抛** —— 让适配器去认 Console 的错误码形状正是 `RULE-im-002` 要挡的耦合。
+  签名与端口逐字一致，`ConsoleClient` 因此**直接满足**适配器要的端口，中间不套转接层。
+- 企微适配器里**唯一**会触发降级的条件是渠道硬上限（`WeComMediaUploadTooLargeError`，512 KiB × 100 片 ≈50 MB，
+  TASK-001 真机实测）。降级后**把链接作为文本发给用户**（`send_text`／会话内 `reply_text`，与文本同一条 40008 规矩），
+  并返回 `DEGRADED` + `fallback_url`。链接文本只有 URL 本身：渠道层没有 locale、拿不到消息目录，
+  在这里拼一句中文等于把用户可见文案钉死在一个语言上；"这是什么"由模型的回复交代。
+- **签发口缺席 / 签不出来 ⇒ 显式失败**，不自己拼一条像链接的串——拼出来的后果是用户点开 404，
+  而且它看起来"成功了"。
+
+**执行（2026-10-03）**：
+
+- E-06 登记命令 `uv run pytest -q tests/gateway/test_artifact_delivery.py` → **9 passed**
+- `tests/gateway` 全量 → **288 passed**（含降级新增 4 条：降级成功 / 降级审计记 `DEGRADED` / 无签发口失败 / 签不出来失败）
+- `tests/gateway/test_gateway_console_client.py` 新增签发客户端 2 条（解析成功 + 三种失败返回 `None`）→ 通过
+
+**RED（先写测试再实现）**：`git stash push -u` 暂存网关侧实现后跑降级用例 →
+`TypeError: WeComAdapter.__init__() got an unexpected keyword argument 'fetch_links'`（预期失败）；
+`git stash pop` 复原后转 GREEN。
+
+**两条 required verifier**（清单要求）：`harness-im` `tests/console_channel tests/gateway` → **341 passed**；
+`harness-worker` `tests/agent_worker` → **239 passed**、`tests/agent_runtime --ignore=test_runner_executor.py` → **217 passed**。
+
+> **首次跑 agent_worker 时有 3 条失败**（`test_b115_two_schedulers_create_exactly_one_task`、
+> `test_b115_repeated_run_for_same_fire_time_creates_nothing`、`test_running_worker_stops_on_cancel_request`），
+> **复跑全绿**。这三条都是**等真实时间**的租约/调度用例，且失败发生在第一轮（耗时 34.4s，复跑 10.6s）——
+> 本机当时有一个 **dev 网关服务（`--reload`，:8003）在跑**，与单测共用同一个 dev 库（`tests/agent_worker`
+> 不走验收的隔离库）。按项目约定"单跑通过、整跑偶发失败先怀疑环境残留"，复跑一次取证；**不是本次改动引入**
+> （改动全在 im-gateway，这三条不经过它）。
+
+- E-06: verified — automated command passed; run_id=34e07511176c49fc9a02e65c702ed90d (confirmed_by: runner)
+
 ### Log
 - [2026-10-03] created (draft)
 - [2026-10-03] started
 - [2026-10-03] blocked (降级链依赖 TASK-008 的取件能力（清单第 7 条：不能直发时由适配器调用取件能力生成签名直链）。006 其余各项已完成并通过验证；先做 008，完成后 resume 006 收口。)
+- [2026-10-03] resumed (draft)
+- [2026-10-03] 降级链落地：ArtifactLinkIssuer 端口 + ConsoleClient 签发 + 企微适配器降级发链接；E-06 9 passed / gateway 288 passed / harness-im 341 passed / harness-worker 239+217 passed
+- [2026-10-03] completed (done)
 
 ---
 

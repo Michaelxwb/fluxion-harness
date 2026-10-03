@@ -43,7 +43,8 @@ class WeComMediaUploadTooLargeError(WeComMediaError):
     """上传分片数超上限（≈50 MB）。
 
     这是**渠道硬上限**（512 KiB × 100 片），与下载侧的 `max_bytes` 那种产品策略不同：
-    它不由我们定，只能绕开（降级为取件链接由上层决定，适配器不擅自换形态）。
+    它不由我们定，只能绕开。**绕开的方式是降级为取件链接**（TASK-008 之后已落地），
+    由适配器在 `deliver_artifact` 里决定——它知道企微收不收得下，核心域不知道也不该知道。
     """
 
     def __init__(self, size: int, max_chunks: int) -> None:

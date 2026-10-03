@@ -4,6 +4,7 @@ import logging
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
+from uuid import UUID
 
 from muad_contracts import (
     AttachmentRef,
@@ -136,6 +137,21 @@ class ArtifactDeliveryOutcome:
 
 
 @runtime_checkable
+class ArtifactLinkIssuer(Protocol):
+    """取件直链的签发口（TASK-008 的能力）。
+
+    适配器在"**不能直发**"时用它换一条终端用户点得开的链接。端口定义在渠道层、实现在
+    `application`（`ConsoleClient`）：适配器只认这个动词，**不认识签发端点的形状**——
+    与 `AttachmentSource`／`OutboundArtifactDelivery` 同一条接缝（`RULE-im-002`）。
+
+    返回 `None` = 签不出来（产物已被清掉 / Console 不通）。适配器据此**显式失败**，
+    绝不自己拼一条看起来像链接的串——那会让用户点开一个 404，比报错更糟。
+    """
+
+    async def issue_fetch_link(self, artifact_id: UUID, *, tenant_id: str) -> str | None: ...
+
+
+@runtime_checkable
 class OutboundArtifactDelivery(Protocol):
     """可选能力：本通道能否把**产物发出去**（AD-8 的对称接缝，与 `AttachmentSource` 同构）。
 
@@ -156,8 +172,16 @@ class OutboundArtifactDelivery(Protocol):
         ...
 
     async def deliver_artifact(
-        self, route: DeliveryRouteInput, artifact: AttachmentRef
-    ) -> ArtifactDeliveryOutcome: ...
+        self, route: DeliveryRouteInput, artifact: AttachmentRef, *, tenant_id: str
+    ) -> ArtifactDeliveryOutcome:
+        """`tenant_id` 是**签发降级链接**要用的作用域，不是渠道形状：取件端点按租户做归属校验，
+        少了它，降级这条路要么签不出来、要么只能烧死一个租户。
+
+        设计 §3.6 写的是"核心域只给**产物引用 + 路由**"——那句话要挡的是**渠道发送体**
+        （url / aes_key / media_id 之类）不得上行，租户不在其中；交付链的其它调用点
+        （审计写入）本来就显式带着它。
+        """
+        ...
 
 
 @runtime_checkable

@@ -354,3 +354,54 @@ async def test_b102_skills_response_is_typed_for_contract_errors(stub_console: S
     finally:
         await client.aclose()
     assert excinfo.value.code == "COMMON_INTERNAL_ERROR"
+
+
+# --------------------------------------------------------------- 取件直链签发（TASK-008）
+
+
+async def test_issue_fetch_link_posts_and_returns_the_url() -> None:
+    """签发端点：POST 到 `{artifact_id}/fetch-link`，带租户与服务身份，取回 `data.url`。"""
+    captured: list[httpx.Request] = []
+    artifact_id = uuid4()
+    url = "https://console.example/api/v1/artifacts/a1/content?token=tok"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json={"code": "0", "msg": "成功", "data": {"url": url}})
+
+    client = ConsoleClient(
+        "http://console.test",
+        transport=httpx.MockTransport(handler),
+        service_token="svc-token",
+    )
+    try:
+        issued = await client.issue_fetch_link(artifact_id, tenant_id="tenant-1")
+    finally:
+        await client.aclose()
+
+    assert issued == url
+    assert captured[0].method == "POST"
+    assert captured[0].url.path == f"/internal/artifacts/{artifact_id}/fetch-link"
+    assert captured[0].headers["x-tenant-id"] == "tenant-1"
+    assert captured[0].headers["x-internal-service"] == "svc-token"
+
+
+async def test_issue_fetch_link_returns_none_instead_of_raising() -> None:
+    """**签不出来返回 `None`，不抛**：调用方是渠道适配器，让它去认 Console 的错误码形状
+    就是 `RULE-im-002` 要挡的那种耦合。三种失败各验一遍。"""
+
+    def rejecting(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"code": "COMMON_NOT_FOUND", "msg": "资源不存在"})
+
+    def malformed(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"code": "0", "msg": "成功", "data": {}})
+
+    def exploding(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("console down")
+
+    for handler in (rejecting, malformed, exploding):
+        client = ConsoleClient("http://console.test", transport=httpx.MockTransport(handler))
+        try:
+            assert await client.issue_fetch_link(uuid4(), tenant_id="tenant-1") is None
+        finally:
+            await client.aclose()

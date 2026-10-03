@@ -42,7 +42,9 @@ class _ArtifactAdapter(FakeChannelAdapter):
     def route_key(self, route: Any) -> str:
         return f"{route.bot_id}:{route.external_user_id}"
 
-    async def deliver_artifact(self, route: Any, artifact: AttachmentRef) -> ArtifactDeliveryOutcome:
+    async def deliver_artifact(
+        self, route: Any, artifact: AttachmentRef, *, tenant_id: str
+    ) -> ArtifactDeliveryOutcome:
         self.received.append((route, artifact))
         return self.outcome
 
@@ -53,7 +55,9 @@ class _FailingArtifactAdapter(FakeChannelAdapter):
     def route_key(self, route: Any) -> str:
         return f"{route.bot_id}:{route.external_user_id}"
 
-    async def deliver_artifact(self, route: Any, artifact: AttachmentRef) -> ArtifactDeliveryOutcome:
+    async def deliver_artifact(
+        self, route: Any, artifact: AttachmentRef, *, tenant_id: str
+    ) -> ArtifactDeliveryOutcome:
         raise ArtifactDeliveryError("ARTIFACT_DELIVERY_FAILED")
 
 
@@ -135,6 +139,24 @@ async def test_degraded_delivery_is_reported_as_delivered_with_the_link() -> Non
     assert data["delivered"] is True, "降级时用户确实收到了取件链接，不得当失败"
     assert data["outcome"] == ARTIFACT_DEGRADED
     assert data["fallback_url"] == link, "链接要回传给模型，它得转达给用户"
+
+
+async def test_degraded_delivery_is_audited_as_degraded_not_delivered() -> None:
+    """降级的审计结局是 `DEGRADED`，**不是** `DELIVERED`。
+
+    两者都是"用户收到了东西"，但形态不同——记成 `DELIVERED` 之后，运维从审计里再也看不出
+    这个用户拿到的是文件还是链接。这条断言把"审计说的"和"用户实际收到的"钉在一起。
+    """
+    adapter = _ArtifactAdapter(
+        ArtifactDeliveryOutcome(outcome=ARTIFACT_DEGRADED, fallback_url="https://console.invalid/x")
+    )
+    console = FakeConsoleClient()
+
+    async with _client(adapter, console=console) as client:
+        await client.post(DELIVERIES_URL, json=_body(uuid.uuid4()))
+
+    request, _tenant = console.delivery_audit_calls[0]
+    assert request.outcome == ARTIFACT_DEGRADED
 
 
 async def test_adapter_without_the_capability_fails_explicitly() -> None:

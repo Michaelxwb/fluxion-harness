@@ -26,6 +26,7 @@ from muad_contracts import (
 )
 
 from ..base import (
+    ARTIFACT_DEGRADED,
     ARTIFACT_DELIVERED,
     ARTIFACT_DELIVERY_FAILED,
     ATTACHMENT_DECRYPT_FAILED,
@@ -34,6 +35,7 @@ from ..base import (
     ATTACHMENT_TOO_LARGE,
     ArtifactDeliveryError,
     ArtifactDeliveryOutcome,
+    ArtifactLinkIssuer,
     AttachmentFetchError,
     ChannelAdapterUnavailable,
     ChannelBotNotFound,
@@ -663,11 +665,15 @@ class WeComAdapter:
         stream_flush_interval_sec: float = DEFAULT_STREAM_FLUSH_INTERVAL_SEC,
         liveness_interval_sec: float = DEFAULT_LIVENESS_INTERVAL_SEC,
         artifact_store: NfsArtifactStore | None = None,
+        fetch_links: ArtifactLinkIssuer | None = None,
     ) -> None:
         self._sdk_factory = sdk_factory
         #: 产物字节按 `storage_key` 直读共享 store —— **不经核心域搬运**（设计 §3.5）。
         #: 为 `None` = 部署漏配，交付时响亮失败而不是悄悄丢。
         self._artifact_store = artifact_store
+        #: 取件直链的签发口（TASK-008）。为 `None` 时**不能降级**：超上限的产物只能显式失败，
+        #: 绝不自己拼一条链接 —— 那会让用户点开一个 404。
+        self._fetch_links = fetch_links
         self._liveness_interval_sec = liveness_interval_sec
         self._bots: tuple[BotSnapshotItem, ...] = tuple(bots)
         self._backoff_base_sec = backoff_base_sec
@@ -793,7 +799,7 @@ class WeComAdapter:
         return f"{route.bot_id}:{route.external_user_id}"
 
     async def deliver_artifact(
-        self, route: DeliveryRouteInput, artifact: AttachmentRef
+        self, route: DeliveryRouteInput, artifact: AttachmentRef, *, tenant_id: str
     ) -> ArtifactDeliveryOutcome:
         """把产物发给用户（`OutboundArtifactDelivery` 的实现，AD-8 的对称接缝）。
 
@@ -801,8 +807,9 @@ class WeComAdapter:
         会话内有回调上下文就走 `aibot_respond_msg`、否则走 `aibot_send_msg` —— 与文本同一条
         规矩（用错会被服务端以 `40008` 拒收）。
 
-        超≈50 MB 是**渠道硬上限**（512 KiB × 100 片）。**降级为取件直链接在 TASK-008 的取件
-        能力落地之后**，现在显式失败 —— 适配器不擅自换成别的形态，那会变成谎报。
+        **不能直发时降级为取件直链**（设计 §2「降级形态」）：触发条件是**渠道硬上限**
+        （512 KiB × 100 片 ≈50 MB，见 TASK-001 真机实测），不是我们的产品策略。降级由
+        **本适配器**决定并执行——它知道企微收不收得下，核心域不知道也不该知道。
         """
         self._ensure_started()
         store = self._artifact_store
@@ -812,6 +819,7 @@ class WeComAdapter:
         try:
             data = store.resolve(artifact.storage_key).read_bytes()
         except (OSError, ValueError) as exc:
+            # 行在、字节没了：**不是"渠道不收"**，降级也救不回来（链接同样取不到）。显式失败。
             logger.warning("wecom_artifact_read_failed bot_id=%s", route.bot_id)
             raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED) from exc
 
@@ -821,9 +829,9 @@ class WeComAdapter:
             media_id = await client.upload_media(
                 data, media_type=media_type, filename=artifact.filename or f"artifact.{media_type}"
             )
-        except WeComMediaUploadTooLargeError as exc:
-            logger.warning("wecom_artifact_too_large_to_upload bot_id=%s", route.bot_id)
-            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED) from exc
+        except WeComMediaUploadTooLargeError:
+            logger.info("wecom_artifact_over_cap_degrading bot_id=%s", route.bot_id)
+            return await self._degrade_to_fetch_link(route, artifact, tenant_id=tenant_id)
 
         reply_ref = self._reply_refs.get(route_key(route))
         if reply_ref is not None:
@@ -831,6 +839,31 @@ class WeComAdapter:
         else:
             await client.send_media(_chat_id(route), media_type=media_type, media_id=media_id)
         return ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED)
+
+    async def _degrade_to_fetch_link(
+        self, route: DeliveryRouteInput, artifact: AttachmentRef, *, tenant_id: str
+    ) -> ArtifactDeliveryOutcome:
+        """发不成文件就发**一条链接**——用户确实收到了东西，只是形态不同（`DEGRADED`）。
+
+        链文本只有 URL 本身：渠道层没有 locale，也拿不到消息目录，在这里拼一句中文等于把
+        用户可见文案钉死在一个语言上。链接本身是无歧义的，而"这是什么、为什么是链接"
+        由模型的回复交代（它从工具结果里知道发生了降级）。
+        """
+        artifact_id = artifact.artifact_id
+        if self._fetch_links is None or artifact_id is None:
+            logger.warning("wecom_fetch_link_issuer_missing bot_id=%s", route.bot_id)
+            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED)
+        url = await self._fetch_links.issue_fetch_link(artifact_id, tenant_id=tenant_id)
+        if url is None:
+            logger.warning("wecom_fetch_link_unavailable bot_id=%s", route.bot_id)
+            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED)
+        client = self._require_client(route.bot_id)
+        reply_ref = self._reply_refs.get(route_key(route))
+        if reply_ref is not None:
+            await client.reply_text(reply_ref, url)
+        else:
+            await client.send_text(_chat_id(route), url)
+        return ArtifactDeliveryOutcome(outcome=ARTIFACT_DEGRADED, fallback_url=url)
 
     async def stream(self, route: DeliveryRouteInput, chunks: AsyncIterator[str]) -> None:
         self._ensure_started()

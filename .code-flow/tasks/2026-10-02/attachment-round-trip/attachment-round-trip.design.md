@@ -779,8 +779,10 @@ Python SDK 只有 `WeComApiClient.download_file_raw`，是按**入站**方向写
 
 #### RULE-im-002 兼容（渠道中立）
 
-- 核心域的措辞一律渠道中立：工具名/描述、事件类型、错误码只说「交付到当前会话 / 产物 / 路由」；`deliver_artifact` 的 schema **只有 `artifact_id` 与 `note`**，没有任何渠道字段。
-- 「怎么发」是适配器的内部决定：核心域只依赖一个**可选能力协议** `OutboundArtifactDelivery.deliver(route, ref) -> DeliveryOutcome`，与入站 `AttachmentSource` 同构。
+- 核心域的措辞一律渠道中立：工具名/描述、事件类型、错误码只说「交付到当前会话 / 产物 / 路由」；`deliver_artifact` 的 schema **只有 `artifact_id`**，没有任何渠道字段。
+  > **落地订正（TASK-006）**：原稿写的是 `artifact_id` + `note?`。`note` **没有实现**——设计没定义它在媒体路径上怎么被消费，而企微的图片/文件消息没有文本槽；给模型一个按了没反应的旋钮，比不给更糟（它会以为那句话附上去了）。「文件 + 一句话」应由适配器另发一条跟随文本承担，属独立改动。
+- 「怎么发」是适配器的内部决定：核心域只依赖一个**可选能力协议** `OutboundArtifactDelivery.deliver_artifact(route, ref, *, tenant_id) -> DeliveryOutcome`，与入站 `AttachmentSource` 同构。
+  > **两个补充（TASK-006 落地）**：① `tenant_id` **不是渠道形状**，而是**签发降级链接的作用域**——取件端点按租户做归属校验，少了它降级要么签不出来、要么只能烧死一个租户；交付链的审计写入本来就显式带着它。② 降级链接的签发口是另一个同构的小端口 **`ArtifactLinkIssuer`**（实现 = `ConsoleClient.issue_fetch_link`，真 HTTP 打 TASK-008 的签发端点），适配器只认这个动词、**不认识签发端点的形状**；签不出来返回 `None` ⇒ 适配器**显式失败**，绝不自己拼一条链接（用户会点开 404）。
 - **机检会先红**：`tests/architecture/test_channel_neutrality.py` 的三条断言（核心域全文零渠道字样 / 核心域不得给 `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）覆盖出站新代码；出站落点若按渠道分叉，这套断言会当场判红——这是本设计的**硬边界**，不是提示。
 
 ## 4. 部署与运维

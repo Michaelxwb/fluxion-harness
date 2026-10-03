@@ -22,7 +22,11 @@ from typing import Any
 import pytest
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import AttachmentRef, BotSnapshotItem, DeliveryRouteInput
-from muad_im_gateway.channels.base import ARTIFACT_DELIVERED, ArtifactDeliveryError
+from muad_im_gateway.channels.base import (
+    ARTIFACT_DEGRADED,
+    ARTIFACT_DELIVERED,
+    ArtifactDeliveryError,
+)
 from muad_im_gateway.channels.wecom.adapter import WeComAdapter, _AibotClientPort
 from muad_im_gateway.channels.wecom.media import (
     MAX_UPLOAD_CHUNKS,
@@ -34,6 +38,8 @@ from muad_im_gateway.channels.wecom.sdk_port import WeComMediaUploadTooLargeErro
 
 BOT_ID = "bot-outbound-1"
 ROUTE = DeliveryRouteInput(channel="WECOM", bot_id=BOT_ID, external_user_id="ext-1")
+#: 交付调用的租户作用域：降级签链接要用它做归属校验（不是渠道形状）。
+TENANT = "tenant-outbound-1"
 
 
 class _RecordingClient:
@@ -84,7 +90,28 @@ class _RecordingClient:
         return {}
 
 
-def _adapter(client: _RecordingClient, *, store: NfsArtifactStore | None) -> WeComAdapter:
+class _RecordingIssuer:
+    """`ArtifactLinkIssuer` 的替身：记录被问过谁，按脚本返回链接或 `None`。
+
+    真实实现是 `ConsoleClient.issue_fetch_link`（真 HTTP 打 Console 的内部端点）——
+    那条链路由 TASK-008 的 S-09 端到端验过；这里要验的是**适配器怎么用它**。
+    """
+
+    def __init__(self, url: str | None = "https://console.invalid/artifacts/x/content?token=t") -> None:
+        self.url = url
+        self.asked: list[tuple[uuid.UUID | None, str]] = []
+
+    async def issue_fetch_link(self, artifact_id: uuid.UUID, *, tenant_id: str) -> str | None:
+        self.asked.append((artifact_id, tenant_id))
+        return self.url
+
+
+def _adapter(
+    client: _RecordingClient,
+    *,
+    store: NfsArtifactStore | None,
+    fetch_links: _RecordingIssuer | None = None,
+) -> WeComAdapter:
     bot = BotSnapshotItem(
         bot_account_id=uuid.uuid4(), bot_id=BOT_ID, secret="s", agent_id=uuid.uuid4(), enabled=True
     )
@@ -92,16 +119,20 @@ def _adapter(client: _RecordingClient, *, store: NfsArtifactStore | None) -> WeC
         sdk_factory=lambda _bot_id, _secret: _AibotClientPort(client, bot_id=BOT_ID),
         bots=(bot,),
         artifact_store=store,
+        fetch_links=fetch_links,
     )
 
 
 @asynccontextmanager
 async def _running(
-    client: _RecordingClient, *, store: NfsArtifactStore | None
+    client: _RecordingClient,
+    *,
+    store: NfsArtifactStore | None,
+    fetch_links: _RecordingIssuer | None = None,
 ) -> AsyncIterator[WeComAdapter]:
     """起适配器并在用例结束时**停掉它**：`_BotConnection` 的监督任务是长驻的，
     不收尾就会留下 "Task was destroyed but it is pending" 并污染同批的其他用例。"""
-    adapter = _adapter(client, store=store)
+    adapter = _adapter(client, store=store, fetch_links=fetch_links)
     await adapter.start()
     try:
         yield adapter
@@ -195,31 +226,78 @@ async def test_deliver_artifact_reads_bytes_and_sends_media(tmp_path: Path) -> N
     target.write_bytes(payload)
 
     client = _RecordingClient()
+    issuer = _RecordingIssuer()
 
-    async with _running(client, store=store) as adapter:
-        outcome = await adapter.deliver_artifact(ROUTE, _artifact_ref(storage_key, kind="IMAGE"))
+    async with _running(client, store=store, fetch_links=issuer) as adapter:
+        outcome = await adapter.deliver_artifact(
+            ROUTE, _artifact_ref(storage_key, kind="IMAGE"), tenant_id=TENANT
+        )
 
     assert outcome.outcome == ARTIFACT_DELIVERED
     init_body = client.frames[0][1]
     assert init_body["type"] == "image", "kind=IMAGE 要按图片形态发"
     assert init_body["total_size"] == len(payload), "上传的必须是 store 里那份字节"
     assert init_body["filename"] == "报告.png", "文件名要带给用户"
+    assert issuer.asked == [], "发得出去就不该去要链接——降级是**兜底**，不是常规路径"
 
 
 async def test_deliver_artifact_without_a_store_fails_explicitly() -> None:
     """没配 `ARTIFACT_ROOT` = 部署漏配：**显式失败**，不静默吞掉这次的交付。"""
     client = _RecordingClient()
+    issuer = _RecordingIssuer()
 
-    async with _running(client, store=None) as adapter:
+    async with _running(client, store=None, fetch_links=issuer) as adapter:
         with pytest.raises(ArtifactDeliveryError):
-            await adapter.deliver_artifact(ROUTE, _artifact_ref("outbound/run-1/x/v1"))
+            await adapter.deliver_artifact(ROUTE, _artifact_ref("outbound/run-1/x/v1"), tenant_id=TENANT)
+
+    assert issuer.asked == [], "字节都读不到，签链接也救不回来：不该白问一次"
 
 
-async def test_deliver_artifact_over_the_channel_cap_fails_explicitly(tmp_path: Path) -> None:
-    """超 ≈50 MB：**渠道硬上限** ⇒ 显式失败。
+async def test_deliver_artifact_over_the_channel_cap_degrades_to_a_fetch_link(
+    tmp_path: Path,
+) -> None:
+    """超 ≈50 MB（**渠道硬上限**）⇒ 降级：**把链接作为文本发给用户**，并如实标 `DEGRADED`。
 
-    降级为取件直链接在 TASK-008 的取件能力落地之后；在此之前不擅自换成别的形态——
-    擅自换形态而不告诉调用方，就是 RULE-03 禁的那种谎报。
+    这条路径的关键不是"没报错"，而是三件事同时成立：
+    ① 用户**真的收到了东西**（一条可点的链接），② 返回的结局是 `DEGRADED` 而不是 `DELIVERED`
+    （调用方据此告诉模型"形态变了"），③ `fallback_url` 就是用户收到的那个 URL。
+    少任何一条都会变成谎报：①没有=用户什么都没收到却说成功了，②没有=审计把降级记成直发。
+    """
+    store = NfsArtifactStore(tmp_path)
+    storage_key = "outbound/run-1/big/v1"
+    target = store.resolve(storage_key)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b"x" * (UPLOAD_CHUNK_BYTES * (MAX_UPLOAD_CHUNKS + 1)))
+
+    client = _RecordingClient()
+    issuer = _RecordingIssuer("https://console.example/api/v1/artifacts/a1/content?token=tok")
+
+    async with _running(client, store=store, fetch_links=issuer) as adapter:
+        outcome = await adapter.deliver_artifact(
+            ROUTE, _artifact_ref(storage_key), tenant_id=TENANT
+        )
+
+    assert outcome.outcome == ARTIFACT_DEGRADED
+    assert outcome.fallback_url == issuer.url, "回给调用方的必须就是用户收到的那条链接"
+
+    commands = [cmd for cmd, _body, _req in client.frames]
+    assert commands == ["aibot_send_msg"], f"降级只发一条文本，不上传：{commands}"
+    body = client.frames[0][1]
+    assert body["msgtype"] == "markdown", "主动投递用 markdown 体（`text` 会被 40008 拒收）"
+    assert body["markdown"]["content"] == issuer.url, "用户收到的正是那条链接"
+
+    assert len(issuer.asked) == 1
+    artifact_id, tenant_id = issuer.asked[0]
+    assert tenant_id == TENANT, "签发必须带租户：取件端点按租户做归属校验"
+    assert artifact_id is not None
+
+
+async def test_deliver_artifact_over_the_cap_without_an_issuer_fails_explicitly(
+    tmp_path: Path,
+) -> None:
+    """没接签发口（部署漏配）⇒ 超上限时**显式失败**，不自己拼一条像链接的串。
+
+    拼一条出来的后果是用户点开一个 404——比直接报错更糟，而且它看起来"成功了"。
     """
     store = NfsArtifactStore(tmp_path)
     storage_key = "outbound/run-1/big/v1"
@@ -229,6 +307,31 @@ async def test_deliver_artifact_over_the_channel_cap_fails_explicitly(tmp_path: 
 
     client = _RecordingClient()
 
-    async with _running(client, store=store) as adapter:
+    async with _running(client, store=store, fetch_links=None) as adapter:
         with pytest.raises(ArtifactDeliveryError):
-            await adapter.deliver_artifact(ROUTE, _artifact_ref(storage_key))
+            await adapter.deliver_artifact(ROUTE, _artifact_ref(storage_key), tenant_id=TENANT)
+
+    assert [cmd for cmd, _body, _req in client.frames] == [], "失败时一条帧都不该发出去"
+
+
+async def test_deliver_artifact_over_the_cap_fails_when_no_link_can_be_issued(
+    tmp_path: Path,
+) -> None:
+    """签发口**答不出来**（产物已清掉 / Console 不通）⇒ 仍是显式失败，不是"降级成功"。
+
+    `DEGRADED` 的前提是用户确实收到了链接；签不出来还说降级，就是把 RULE-03 禁的那种谎报
+    换了个位置。
+    """
+    store = NfsArtifactStore(tmp_path)
+    storage_key = "outbound/run-1/big/v1"
+    target = store.resolve(storage_key)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b"x" * (UPLOAD_CHUNK_BYTES * (MAX_UPLOAD_CHUNKS + 1)))
+
+    client = _RecordingClient()
+
+    async with _running(client, store=store, fetch_links=_RecordingIssuer(None)) as adapter:
+        with pytest.raises(ArtifactDeliveryError):
+            await adapter.deliver_artifact(ROUTE, _artifact_ref(storage_key), tenant_id=TENANT)
+
+    assert [cmd for cmd, _body, _req in client.frames] == [], "签不出链接就什么都不该发"

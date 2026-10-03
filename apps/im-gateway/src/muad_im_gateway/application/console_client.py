@@ -37,6 +37,8 @@ CHANNEL_SKILLS_PATH = "/internal/channel/skills"
 AUDIT_PATH = "/internal/channel/audit"
 #: 交付审计写入（TASK-007 建的权威落点，同一条"网关不持库"的理由）
 DELIVERY_AUDIT_PATH = "/internal/channel/artifact-delivery"
+#: 取件直链签发（TASK-008 建）。降级链要用：适配器拿不到 Console 进程里的令牌，只能问它要。
+FETCH_LINK_PATH = "/internal/artifacts/{artifact_id}/fetch-link"
 REQUEST_TIMEOUT_SEC = 5.0
 
 
@@ -78,6 +80,14 @@ class ConsoleClientPort(Protocol):
     async def delivery_audit(
         self, request: ArtifactDeliveryAuditRequest, tenant_id: str
     ) -> None: ...
+
+    async def issue_fetch_link(self, artifact_id: UUID, *, tenant_id: str) -> str | None:
+        """签发一条签名取件直链；**签不出来返回 `None`**（产物已清掉 / Console 不通）。
+
+        签名与 `channels.base.ArtifactLinkIssuer` **完全一致**，`ConsoleClient` 因此既是
+        Console 的客户端、又直接满足适配器要的那个端口——中间不再套一层转接。
+        """
+        ...
 
 
 class ConsoleClient:
@@ -197,6 +207,35 @@ class ConsoleClient:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
         if response.status_code >= 400:
             raise AppError(error_code_from_payload(decode_json(response)))
+
+    async def issue_fetch_link(self, artifact_id: UUID, *, tenant_id: str) -> str | None:
+        """签发取件直链（设计 API-05 的签发面）。
+
+        **失败一律 `None`**，不抛异常：调用方（渠道适配器）要的是一句话——"这条链接现在
+        拿不拿得到"。抛异常会让适配器去认 Console 的错误码形状，那正是 `RULE-im-002` 要挡的
+        耦合。代价是这里要显式记一条 warning，否则"降级总是失败"会没有信号。
+        """
+        try:
+            response = await self._client.request(
+                "POST",
+                FETCH_LINK_PATH.format(artifact_id=artifact_id),
+                headers=_headers(tenant_id, self._service_token),
+            )
+        except httpx.HTTPError:
+            logger.warning("fetch_link_request_failed artifact_id=%s", artifact_id)
+            return None
+        if response.status_code >= 400:
+            logger.warning(
+                "fetch_link_rejected artifact_id=%s status=%s", artifact_id, response.status_code
+            )
+            return None
+        data = decode_json(response)
+        payload = data.get("data") if isinstance(data, dict) else None
+        url = payload.get("url") if isinstance(payload, dict) else None
+        if not isinstance(url, str) or not url:
+            logger.warning("fetch_link_malformed artifact_id=%s", artifact_id)
+            return None
+        return url
 
     async def aclose(self) -> None:
         await self._client.aclose()

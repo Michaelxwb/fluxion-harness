@@ -469,7 +469,7 @@
       "kind": "functional",
       "boundary": "真实 HTTP（网关交付端点 + 渠道侧失败注入）",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -479,7 +479,28 @@
       ],
       "cwd": ".",
       "timeout": 120.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "34e07511176c49fc9a02e65c702ed90d",
+        "executed_at": "2026-10-03T04:51:34.861166+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "34e07511176c49fc9a02e65c702ed90d",
+          "executed_at": "2026-10-03T04:51:34.861166+00:00"
+        }
+      ]
     },
     {
       "id": "B-01",

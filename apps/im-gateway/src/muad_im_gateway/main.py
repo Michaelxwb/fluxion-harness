@@ -34,12 +34,18 @@ SERVICE_NAME = "muad-im-gateway"
 configure_logging(SERVICE_NAME)
 
 
-def _build_adapter(settings: SharedSettings) -> WeComAdapter | HttpProbeChannelAdapter:
+def _build_adapter(
+    settings: SharedSettings, console: ConsoleClient
+) -> WeComAdapter | HttpProbeChannelAdapter:
     if settings.channel_probe_url:
         # 本地真实 HTTP 探针：验收/联调环境替代第三方实网渠道。
         return HttpProbeChannelAdapter(settings.channel_probe_url)
-    # 出站交付要按 storage_key 直读共享 store（字节不经核心域搬运，设计 §3.5）
-    return WeComAdapter(artifact_store=NfsArtifactStore(settings.artifact_root))
+    # 出站交付要按 storage_key 直读共享 store（字节不经核心域搬运，设计 §3.5）；
+    # 不能直发时还要一条取件直链 —— 令牌的权威在 Console 进程里，只能经 `console` 要。
+    return WeComAdapter(
+        artifact_store=NfsArtifactStore(settings.artifact_root),
+        fetch_links=console,
+    )
 
 
 @dataclass
@@ -74,11 +80,12 @@ class _GatewayResources:
 async def _build_resources(
     settings: SharedSettings, catalog: MessageCatalog
 ) -> _GatewayResources:
-    adapter = _build_adapter(settings)
+    console = ConsoleClient(settings.console_platform_url)
+    # 适配器先建，但它要用 console 当取件直链的签发口 ⇒ console 必须先于它存在。
+    adapter = _build_adapter(settings, console)
     registry = ChannelRegistry()
     registry.register(adapter)
     dedupe = await build_dedupe_store(settings.redis_url)
-    console = ConsoleClient(settings.console_platform_url)
     runtime = RuntimeClient(settings.agent_runtime_url)
     snapshot = BotSnapshotCache(
         console,
