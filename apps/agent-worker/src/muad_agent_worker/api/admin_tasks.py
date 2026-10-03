@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..application.task_service import TaskService
 from ..infrastructure.db import get_session
 from .deps import InternalServiceDep, get_tenant_id
-from .tasks import _payload, _publish_cancel_hint, detail_payload
+from .tasks import _publish_cancel_hint, detail_payload, list_payloads
 
 router = APIRouter(prefix="/internal/admin/tasks", tags=["admin-tasks"])
 
@@ -36,6 +36,7 @@ async def admin_list_tasks(
     trigger_type: Annotated[TriggerType | None, Query()] = None,
     agent_id: Annotated[uuid.UUID | None, Query()] = None,
     actor_user_id: Annotated[uuid.UUID | None, Query()] = None,
+    skill_id: Annotated[uuid.UUID | None, Query()] = None,
     schedule_id: Annotated[uuid.UUID | None, Query()] = None,
     start_time: Annotated[datetime | None, Query()] = None,
     end_time: Annotated[datetime | None, Query()] = None,
@@ -44,12 +45,14 @@ async def admin_list_tasks(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ApiResponse[Any]:
-    items, total = await TaskService(session).list(
+    service = TaskService(session)
+    items, total = await service.list(
         tenant_id,
         status=status,
         trigger_type=trigger_type,
         agent_id=agent_id,
         actor_user_id=actor_user_id,
+        skill_id=skill_id,
         schedule_id=schedule_id,
         start_time=start_time,
         end_time=end_time,
@@ -61,7 +64,7 @@ async def admin_list_tasks(
     return ok(
         request.app.state.message_catalog,
         paginate(
-            items=[_payload(task) for task in items],
+            items=await list_payloads(service, tenant_id, items),
             page=page,
             page_size=page_size,
             total=total,

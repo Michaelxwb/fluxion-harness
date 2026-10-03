@@ -24,6 +24,9 @@ async def _seed_task(
     trigger_type: str = "IMMEDIATE",
     deadline_at: datetime | None = None,
     finished_at: datetime | None = None,
+    agent_id: uuid.UUID | None = None,
+    actor_user_id: uuid.UUID | None = None,
+    skill_id: uuid.UUID | None = None,
 ) -> uuid.UUID:
     now = datetime.now(UTC)
     task_id = uuid.uuid4()
@@ -33,10 +36,10 @@ async def _seed_task(
                 TaskExecution(
                     id=task_id,
                     tenant_id=tenant_id,
-                    agent_id=uuid.uuid4(),
-                    actor_user_id=uuid.uuid4(),
+                    agent_id=agent_id or uuid.uuid4(),
+                    actor_user_id=actor_user_id or uuid.uuid4(),
                     intent_key="policy_check",
-                    skill_id=uuid.uuid4(),
+                    skill_id=skill_id or uuid.uuid4(),
                     skill_artifact_id=uuid.uuid4(),
                     trigger_type=trigger_type,
                     execution_mode="ASYNC",
@@ -125,6 +128,40 @@ async def test_b127_filters_match_worker_contract(
 
     by_status = await client.get("/api/v1/tasks", headers=headers, params={"status": "COMPLETED"})
     assert by_status.json()["data"]["total"] == 0
+
+
+async def test_b127_agent_actor_and_skill_filters_are_tenant_scoped(
+    client: AsyncClient, task_tenant: TenantContext
+) -> None:
+    """设计 §11.3 的 Agent/执行用户/Skill 三个筛选：各选各的，且互不串扰。"""
+    agent_a, agent_b = uuid.uuid4(), uuid.uuid4()
+    actor_a, actor_b = uuid.uuid4(), uuid.uuid4()
+    skill_a, skill_b = uuid.uuid4(), uuid.uuid4()
+
+    target = await _seed_task(
+        task_tenant.tenant_id, agent_id=agent_a, actor_user_id=actor_a, skill_id=skill_a
+    )
+    await _seed_task(
+        task_tenant.tenant_id, agent_id=agent_b, actor_user_id=actor_b, skill_id=skill_b
+    )
+    headers = {"X-Tenant-Id": task_tenant.tenant_id}
+
+    for params in (
+        {"agent_id": str(agent_a)},
+        {"actor_user_id": str(actor_a)},
+        {"skill_id": str(skill_a)},
+    ):
+        filtered = await client.get("/api/v1/tasks", headers=headers, params=params)
+        assert filtered.status_code == 200, filtered.text
+        assert [item["task_id"] for item in filtered.json()["data"]["items"]] == [str(target)], params
+
+    # 三个筛选可叠加，且都落进同一次查询（不是取回全量后在前端筛）。
+    combined = await client.get(
+        "/api/v1/tasks",
+        headers=headers,
+        params={"agent_id": str(agent_a), "actor_user_id": str(actor_b)},
+    )
+    assert combined.json()["data"]["total"] == 0
 
 
 async def test_b127_cancel_and_conflict_not_faked(

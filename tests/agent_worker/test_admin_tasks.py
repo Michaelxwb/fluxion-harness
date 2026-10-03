@@ -10,6 +10,8 @@ from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
+from muad_agent_worker.infrastructure.db import get_engine
+from sqlalchemy import event
 
 from agent_worker.conftest import TenantContext
 from agent_worker.helpers import persist_task
@@ -102,3 +104,43 @@ async def test_b124_admin_query_filters_match_internal_contract(
     )
     assert filtered.status_code == 200
     assert [item["task_id"] for item in filtered.json()["data"]["items"]] == [str(scheduled.id)]
+
+
+async def test_admin_list_reports_child_progress_without_n_plus_one(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """列表页「子任务进度」：整页一次 `GROUP BY` 取回，查询数不随行数增长。
+
+    N+1 守卫按语句形状无关的方式判：整请求触及 `task_execution` 的语句数有上界
+    （分页 SELECT + COUNT + 子任务 GROUP BY = 3）。逐行统计会退化成 2 + N 行。
+    """
+    parent = await persist_task(tenant, task_type="BATCH", status="RUNNING")
+    for item_key, status in (("a", "COMPLETED"), ("b", "FAILED"), ("c", "RUNNING")):
+        await persist_task(
+            tenant, parent_id=parent.id, root_id=parent.id, item_key=item_key, status=status
+        )
+    solo = await persist_task(tenant, status="QUEUED")
+    headers = _admin_headers(tenant.tenant_id)
+
+    statements: list[str] = []
+
+    def _record(conn, cursor, statement, parameters, context, executemany) -> None:
+        statements.append(statement)
+
+    engine = get_engine().sync_engine
+    event.listen(engine, "before_cursor_execute", _record)
+    try:
+        listed = await client.get("/internal/admin/tasks", headers=headers)
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
+
+    assert listed.status_code == 200, listed.text
+    items = {item["task_id"]: item for item in listed.json()["data"]["items"]}
+    assert items[str(parent.id)]["child_total"] == 3
+    assert items[str(parent.id)]["child_finished"] == 2
+    # 无子任务的行必须回 0/0，而不是缺键（前端 `undefined/total` 会渲染成 NaN）。
+    assert items[str(solo.id)]["child_total"] == 0
+    assert items[str(solo.id)]["child_finished"] == 0
+
+    touching = [statement for statement in statements if "task_execution" in statement]
+    assert len(touching) <= 3, statements

@@ -18,7 +18,7 @@ from ..application.submissions import (
     resolve_idempotency_key,
     submission_fingerprint,
 )
-from ..application.task_service import TaskService
+from ..application.task_service import TERMINAL_STATUSES, TaskService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.task import TaskEvent, TaskExecution
 from .deps import ActorUserId, ensure_tenant_consistent, get_tenant_id
@@ -46,8 +46,12 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
 
 
-def _payload(task: TaskExecution) -> dict[str, Any]:
-    """Task 摘要（设计 §3.4「Task 摘要字段」）。"""
+def _payload(task: TaskExecution, progress: tuple[int, int] | None = None) -> dict[str, Any]:
+    """Task 摘要（设计 §3.4「Task 摘要字段」）。
+
+    `progress` 是 `(子任务总数, 已终态数)`；列表接口由 `child_progress()` 一次 GROUP BY
+    取回整页，详情接口直接用已加载的 `children` 长度。缺省 0 表示没有子任务。
+    """
     return {
         "task_id": str(task.id),
         "tenant_id": task.tenant_id,
@@ -77,6 +81,8 @@ def _payload(task: TaskExecution) -> dict[str, Any]:
         "update_time": task.update_time.isoformat(),
         "started_at": _iso(task.started_at),
         "finished_at": _iso(task.finished_at),
+        "child_total": progress[0] if progress else 0,
+        "child_finished": progress[1] if progress else 0,
     }
 
 
@@ -103,7 +109,10 @@ def detail_payload(
     task: TaskExecution, events: list[TaskEvent], children: list[TaskExecution]
 ) -> dict[str, Any]:
     """Task 详情 = 摘要 + 设计 §3.4「Task 详情额外字段」+ Timeline + 子任务。"""
-    payload = _payload(task)
+    payload = _payload(
+        task,
+        (len(children), sum(1 for child in children if child.status in TERMINAL_STATUSES)),
+    )
     payload.update(
         parent_id=str(task.parent_id) if task.parent_id else None,
         root_id=str(task.root_id) if task.root_id else None,
@@ -119,6 +128,14 @@ def detail_payload(
         children=[_child_payload(child) for child in children],
     )
     return payload
+
+
+async def list_payloads(
+    service: TaskService, tenant_id: str, items: list[TaskExecution]
+) -> list[dict[str, Any]]:
+    """整页 Task 摘要，子任务进度由一次 `GROUP BY` 取回（不做逐行查询）。"""
+    progress = await service.child_progress(tenant_id, [task.id for task in items])
+    return [_payload(task, progress.get(task.id)) for task in items]
 
 
 async def _publish_cancel_hint(
@@ -198,6 +215,7 @@ async def list_tasks(
     trigger_type: Annotated[TriggerType | None, Query()] = None,
     agent_id: Annotated[uuid.UUID | None, Query()] = None,
     actor_user_id: Annotated[uuid.UUID | None, Query()] = None,
+    skill_id: Annotated[uuid.UUID | None, Query()] = None,
     schedule_id: Annotated[uuid.UUID | None, Query()] = None,
     start_time: Annotated[datetime | None, Query()] = None,
     end_time: Annotated[datetime | None, Query()] = None,
@@ -206,13 +224,15 @@ async def list_tasks(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ApiResponse[Any]:
-    items, total = await TaskService(session).list(
+    service = TaskService(session)
+    items, total = await service.list(
         tenant_id,
         status=status,
         trigger_type=trigger_type,
         agent_id=agent_id,
         # Runtime 代表用户查询时只能看到自己的 Task，忽略 query 里的 actor。
         actor_user_id=caller_actor or actor_user_id,
+        skill_id=skill_id,
         schedule_id=schedule_id,
         start_time=start_time,
         end_time=end_time,
@@ -224,7 +244,7 @@ async def list_tasks(
     return ok(
         request.app.state.message_catalog,
         paginate(
-            items=[_payload(task) for task in items],
+            items=await list_payloads(service, tenant_id, items),
             page=page,
             page_size=page_size,
             total=total,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
@@ -188,6 +189,7 @@ class TaskService:
         trigger_type: TriggerType | None = None,
         agent_id: uuid.UUID | None = None,
         actor_user_id: uuid.UUID | None = None,
+        skill_id: uuid.UUID | None = None,
         schedule_id: uuid.UUID | None = None,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
@@ -208,6 +210,8 @@ class TaskService:
             conditions.append(TaskExecution.agent_id == agent_id)
         if actor_user_id is not None:
             conditions.append(TaskExecution.actor_user_id == actor_user_id)
+        if skill_id is not None:
+            conditions.append(TaskExecution.skill_id == skill_id)
         if schedule_id is not None:
             conditions.append(TaskExecution.schedule_id == schedule_id)
         if start_time is not None:
@@ -237,6 +241,30 @@ class TaskService:
             )
         ).scalar_one()
         return list(items), int(total)
+
+    async def child_progress(
+        self, tenant_id: str, parent_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, tuple[int, int]]:
+        """本页父任务的子任务进度 `{parent_id: (总数, 已终态数)}`。
+
+        列表页要展示「子任务进度」，逐行查询即 N+1；这里用一次 `GROUP BY parent_id`
+        取回整页（`parent_ids` 最多一页 100 个）。没有子任务的行不出现在结果里。
+        """
+        if not parent_ids:
+            return {}
+        finished = func.count().filter(TaskExecution.status.in_(TERMINAL_STATUSES))
+        rows = (
+            await self._session.execute(
+                select(TaskExecution.parent_id, func.count(), finished)
+                .where(
+                    TaskExecution.tenant_id == tenant_id,
+                    TaskExecution.parent_id.in_(parent_ids),
+                    TaskExecution.is_deleted.is_(False),
+                )
+                .group_by(TaskExecution.parent_id)
+            )
+        ).all()
+        return {row[0]: (int(row[1]), int(row[2])) for row in rows}
 
     async def cancel(
         self, tenant_id: str, task_id: uuid.UUID, *, actor_user_id: uuid.UUID | None = None
