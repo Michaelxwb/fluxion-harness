@@ -749,7 +749,7 @@ $ ls .data/artifacts/cli-smoke/    # 空 —— 盘上那份字节确实没了
 
 ## TASK-010: 端到端验收基线
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-009
 - **Source**: `attachment-round-trip.design.md#2.5.2 功能验收场景`, `#3.6 出站交付：写与发的分离（硬需求落点）`
@@ -771,23 +771,28 @@ $ ls .data/artifacts/cli-smoke/    # 空 —— 盘上那份字节确实没了
 - [x] [S-07][E2E] 真实边界：真实 Worker 进程 → 真实网关 `/internal/deliveries` → 渠道帧；断言用户收到文件/图片或链接、投递恰好一次（重投幂等）、审计有记录 —— 真产物行 + 真字节 + 真 Task 行（`delivery_status=PENDING` + `result_artifact_id`），等 Worker 投递循环取走；Worker 只持有**不透明 id**，要经 runtime 的解析单点才发得出去，这条调用边只在真实栈上验得了
 - [x] [S-10][E2E] 真实边界：真实渠道帧 + 真实 PG（审计逐行回读）；断言同一产物对同一路由交付两次时用户**只**收到一次、审计**仍只有一行** —— 一次 Run 内连发两次交付。**偏离登记**：设计还要求「第二次工具结果回『此前已交付』」，实现里**没有这个分支**（第二次命中的是传输层占位键，工具按 `DELIVERED` 文案回——**事是真的**，只是没区分「这次发的」与「此前已发」）；本次不断言那一句，记在这里供后续决定是否补这个区分
 - [x] 新增 `tests/acceptance/attachment_round_trip/test_round_trip_e2e.py`（**本任务自己的文件**；目录由最先落地的 E2E 任务建立，本任务不假定它已存在） —— 四条用例 + 共用原语（等订阅、等 Run 落终态、脚本设定、模型请求体回读、审计差集）
-- [x] 运行 verifier：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（`harness-test#RULE-test-001`）；记录输出
+- [x] 运行 verifier：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（`harness-test#RULE-test-001`）；记录输出 —— **acceptance 283 passed（894s）+ 前端 build 成功 + Playwright 4 passed，exit 0**（首次整跑 7 failed，修复后全绿）
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-03 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | 模型请求体出现后续片段正文；回答含文档末尾的事实 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s03_long_document_is_read_past_the_first_segment | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） |
-| S-06 | E2E | 真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接 | 用户收到文件/图片或签名链接；审计有记录；失败时不谎报已交付 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s06_agent_writes_an_artifact_and_delivers_it_in_session | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） |
-| S-07 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧 | 用户收到文件/图片或链接；投递恰好一次；审计有记录 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s07_background_task_delivers_its_artifact_through_the_worker | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） |
-| S-10 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | 同一产物同路由只交付一次；审计仍一行（「第二次回『此前已交付』」未实现，见清单偏离登记） | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s10_delivering_the_same_artifact_twice_lands_one_frame_and_one_audit_row | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） |
+| S-03 | E2E | 真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体 | 模型请求体出现后续片段正文；回答含文档末尾的事实 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s03_long_document_is_read_past_the_first_segment | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | e2e_deferred |
+| S-06 | E2E | 真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接 | 用户收到文件/图片或签名链接；审计有记录；失败时不谎报已交付 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s06_agent_writes_an_artifact_and_delivers_it_in_session | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | e2e_deferred |
+| S-07 | E2E | 真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧 | 用户收到文件/图片或链接；投递恰好一次；审计有记录 | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s07_background_task_delivers_its_artifact_through_the_worker | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | e2e_deferred |
+| S-10 | E2E | 真实渠道帧 + 真实 PG（审计逐行回读） | 同一产物同路由只交付一次；审计仍一行（「第二次回『此前已交付』」未实现，见清单偏离登记） | tests/acceptance/attachment_round_trip/test_round_trip_e2e.py::test_s10_delivering_the_same_artifact_twice_lands_one_frame_and_one_audit_row | uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py | e2e_deferred（本地已 GREEN，终验归 verify-e2e） | e2e_deferred |
 
 ### Acceptance Evidence
 
 **执行（2026-10-03）**，登记命令 `uv run pytest -q tests/acceptance/attachment_round_trip/test_round_trip_e2e.py` → **4 passed（21.3s）**。
 
-#### 这条端到端基线**照出的四个真问题**（这正是本任务存在的理由）
+**清单登记的 verifier**：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`
+→ `tests/acceptance` **283 passed（894s）**、前端 build 成功、Playwright **4 passed**，**exit 0**。
+
+> 首次整跑是 **7 failed / 276 passed**——那 7 条就是下面 ⑤⑥ 两条发现的现场。修完后 283 全绿。
+
+#### 这条端到端基线**照出的真问题**（这正是本任务存在的理由）
 
 > 本任务 Description 写的是："四个前置任务各自都绿，而只有端到端才照得出来"。这一轮**又一次印证了**——
 > TASK-002/005/006 的单测全是绿的，而下面四条里没有一条能靠单测发现。
@@ -825,18 +830,33 @@ $ ls .data/artifacts/cli-smoke/    # 空 —— 盘上那份字节确实没了
 `write_artifact` 与 `deliver_artifact` 必须在**同一次 Run** 内（交付工具只允许交付本次 Run 自己写出的产物），
 而单工具脚本每轮只给一个工具调用。已给探针加**工具序列**（`tools: [...]`，第 n 轮返回第 n 个，走完才给 `final_text`），向后兼容。
 
+**⑤ TASK-004 的入站回执 E2E **从没跑过，而且跑不起来**。**
+
+`uv run pytest -q tests/acceptance` 首次整跑时，`attachment_round_trip/test_inbound_receipt_e2e.py` 的 S-04 / E-02 两条**双双失败**（回执 150s 内没到）。这个文件在本需求里的状态是 `e2e_deferred`——**只写不跑**，所以下面这个问题从没被执行过。
+
+根因在**测试自己的帧形状**：它把 **MIME 当 `msgtype`** 写进回调帧（`{"msgtype": "image/png", "image/png": {...}}`），而企微回调的 `msgtype` 只有 **`image` / `file`** 两个取值——真正的 MIME 由文件的 `Content-Disposition` 文件名推出来（网关按扩展名判类型、再按白名单门控）。`msgtype` 不认识 ⇒ 适配器**整项丢弃**（不认识的形态不产出媒体引用）⇒ 一个附件都不落盘、一条回执都不发，**而服务端不报错**。
+
+兄弟套件 `tests/acceptance/im_gateway/test_wecom_attachments.py` 一直是绿的，因为它用的是 `image` / `file`。已按同一口径修（新增 `_msgtype_for(mime)`），两条转绿。
+
+**⑥ `DeliveryRequest.tenant_id` 是 TASK-006 加的必填字段，而 5 条既有验收用例没带它。**
+
+`dfx` ×2 / `redis_degradation` / `worker_delivery` / `task_schedule` 都直接 POST `/internal/deliveries` 并手搓请求体，全部回 `422 missing tenant_id`。这些套件**不在 TASK-006/007 的 verifier 范围内**（那两个任务的 verifier 是 `tests/console_channel tests/gateway` 与 `tests/agent_worker` + `tests/agent_runtime`），所以回归一直没被发现——**这正是"各任务自证"的盲区**。已补齐，并注明该字段是交付审计幂等键的一部分。
+
+> **这两条加起来说明一件事**：本需求的 verifier 口径如果不包含 `tests/acceptance`，前面九个任务就算各自全绿，也可能带着两个"从来没人跑过"的窟窿收尾。TASK-010 的 verifier 命令正是为此登记的。
+
 #### 顺带改掉的一处排查成本
 
 `GatewayDeliveryClient` 拿到 422 时只留下一个 `COMMON_VALIDATION_ERROR` 码、丢掉字段名，本次为一个字段名翻了半天网关日志。
 已让它把**契约字段名**带上（只有我们自己的字段名，不含渠道形状与凭据）；上面 ② 的定位正是靠这一改动才从"契约不匹配"收敛到"打错了机器"。
 
-- S-03: e2e_deferred — 本地已 GREEN；终验归需求级 verify-e2e
-- S-06: e2e_deferred — 本地已 GREEN；终验归需求级 verify-e2e
-- S-07: e2e_deferred — 本地已 GREEN；终验归需求级 verify-e2e
-- S-10: e2e_deferred — 本地已 GREEN；终验归需求级 verify-e2e
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=15d51f716ffd4a1f8bff084e12f6e6b7 (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=15d51f716ffd4a1f8bff084e12f6e6b7 (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=15d51f716ffd4a1f8bff084e12f6e6b7 (confirmed_by: runner)
+- S-10: e2e_deferred — automated command e2e_deferred; run_id=15d51f716ffd4a1f8bff084e12f6e6b7 (confirmed_by: runner)
 
 ### Log
 - [2026-10-03] created (draft)
 - [2026-10-03] started
 - [2026-10-03] 四条 E2E 落地（真实五进程栈）：4 passed（21.3s）
 - [2026-10-03] 照出并修掉四个真问题：`read_attachment` 被大结果外置（分页指引连同正文一起消失）/ 验收栈 runtime 的 `IM_GATEWAY_URL` 指向 dev 网关 / WS 探针缺上传协议（且官方 SDK 把缺失的 `errcode` 当失败）/ 探针脚本只能挂一个工具
+- [2026-10-03] completed (done)

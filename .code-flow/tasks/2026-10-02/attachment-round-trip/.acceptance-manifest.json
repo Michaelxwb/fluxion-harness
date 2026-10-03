@@ -99,7 +99,7 @@
       "kind": "e2e",
       "boundary": "真实回调桩 → 真实落盘 → 真实工具 → 真实模型请求体",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -109,7 +109,26 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "15d51f716ffd4a1f8bff084e12f6e6b7",
+        "executed_at": "2026-10-03T07:03:43.429130+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "15d51f716ffd4a1f8bff084e12f6e6b7",
+          "executed_at": "2026-10-03T07:03:43.429130+00:00"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -169,7 +188,7 @@
       "kind": "e2e",
       "boundary": "真实会话 → 真实产物 → 真实 HTTP 交付调用 → 渠道帧/链接",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -179,7 +198,26 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "15d51f716ffd4a1f8bff084e12f6e6b7",
+        "executed_at": "2026-10-03T07:03:43.429130+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "15d51f716ffd4a1f8bff084e12f6e6b7",
+          "executed_at": "2026-10-03T07:03:43.429130+00:00"
+        }
+      ]
     },
     {
       "id": "S-07",
@@ -188,7 +226,7 @@
       "kind": "e2e",
       "boundary": "真实 Worker 进程 → 真实网关 /internal/deliveries → 渠道帧",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -198,7 +236,26 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-07",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "15d51f716ffd4a1f8bff084e12f6e6b7",
+        "executed_at": "2026-10-03T07:03:43.429130+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "15d51f716ffd4a1f8bff084e12f6e6b7",
+          "executed_at": "2026-10-03T07:03:43.429130+00:00"
+        }
+      ]
     },
     {
       "id": "S-08",
@@ -285,7 +342,7 @@
       "kind": "e2e",
       "boundary": "真实渠道帧 + 真实 PG（审计逐行回读）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -295,7 +352,26 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-10",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "15d51f716ffd4a1f8bff084e12f6e6b7",
+        "executed_at": "2026-10-03T07:03:43.429130+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-10",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "15d51f716ffd4a1f8bff084e12f6e6b7",
+          "executed_at": "2026-10-03T07:03:43.429130+00:00"
+        }
+      ]
     },
     {
       "id": "E-01",
