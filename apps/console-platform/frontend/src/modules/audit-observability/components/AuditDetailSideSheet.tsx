@@ -27,6 +27,7 @@ import { EmptyState } from '../../../components/common/EmptyState';
 import { EntityLink } from '../../../components/common/EntityLink';
 import { ErrorState } from '../../../components/common/ErrorState';
 import { StatusTag, type StatusTagOption } from '../../../components/common/StatusTag';
+import { RunDetailSideSheet } from '../../run-observability/RunDetailSideSheet';
 import { useAuditDetail } from '../hooks/useAuditDetail';
 import type { AuditDetail, AuditListItem } from '../types';
 import { RESOURCE_TYPES } from './AuditFilterBar';
@@ -199,12 +200,20 @@ export function AuditDetailSideSheet(props: AuditDetailSideSheetProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('basic');
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
   const { detail, loading, failed, reload } = useAuditDetail(props.auditType, props.auditId);
 
-  /** 关联跳转（S-07）：Console 无独立 Run 页面，Run/Task 关联统一落到任务列表并携带 id。 */
+  /** 关联跳转（S-07）：Task 落到任务列表并携带 id；**Run 原地叠加打开详情，不跳页**。
+   *
+   * Run 与 Task 是不同实体——普通对话的模型/工具调用可以产生运行审计而未必产生后台 Task，
+   * 所以"统一落到任务列表"对 Run 是错的（会打开一个无关的空列表）。 */
   const handleOpenRelated = useCallback(
     (relation: AuditRelation, id: string) => {
-      navigate(`/tasks?${relation}Id=${id}`);
+      if (relation === 'run') {
+        setOpenRunId(id);
+        return;
+      }
+      navigate(`/tasks?taskId=${id}`);
     },
     [navigate]
   );
@@ -214,25 +223,30 @@ export function AuditDetailSideSheet(props: AuditDetailSideSheetProps) {
   }
 
   return (
-    <DetailSideSheet
-      visible={props.visible}
-      title={t('nav.audit')}
-      subtitle={
-        detail
-          ? `${t(`audit.auditType.${detail.auditType}`)} · ${detail.auditId}`
-          : props.auditId
-      }
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
-      onCancel={props.onClose}
-      notice={failed ? <ErrorState onRetry={() => void reload()} /> : undefined}
-    >
-      <Tabs.TabPane itemKey="basic" tab={t('audit.detail.tab.basic')}>
-        {renderBasicTab(detail, loading, t)}
-      </Tabs.TabPane>
-      <Tabs.TabPane itemKey="relations" tab={t('audit.detail.tab.relations')}>
-        {detail ? buildRelationSection(detail, t, handleOpenRelated) : null}
-      </Tabs.TabPane>
-    </DetailSideSheet>
+    <>
+      <DetailSideSheet
+        visible={props.visible}
+        title={t('nav.audit')}
+        subtitle={
+          detail
+            ? `${t(`audit.auditType.${detail.auditType}`)} · ${detail.auditId}`
+            : props.auditId
+        }
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onCancel={props.onClose}
+        notice={failed ? <ErrorState onRetry={() => void reload()} /> : undefined}
+      >
+        <Tabs.TabPane itemKey="basic" tab={t('audit.detail.tab.basic')}>
+          {renderBasicTab(detail, loading, t)}
+        </Tabs.TabPane>
+        <Tabs.TabPane itemKey="relations" tab={t('audit.detail.tab.relations')}>
+          {detail ? buildRelationSection(detail, t, handleOpenRelated) : null}
+        </Tabs.TabPane>
+        </DetailSideSheet>
+      {/* 嵌套 SideSheet（与 mcp 工具详情、任务→定时任务同形）：Run 没有独立页面，
+          就地看比跳到一个不相关的列表更诚实。 */}
+      <RunDetailSideSheet runId={openRunId} onCancel={() => setOpenRunId(null)} />
+    </>
   );
 }

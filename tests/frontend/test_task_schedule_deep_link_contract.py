@@ -50,7 +50,7 @@ def test_every_emitted_deep_link_is_consumed_by_its_target_page() -> None:
 def test_audit_relation_task_link_is_consumed() -> None:
     """审计「关联 Task」的键由 `relation` 拼出，静态字面量匹配不到，单独钉。"""
     audit = _read(AUDIT_DETAIL)
-    assert "navigate(`/tasks?${relation}Id=${id}`)" in audit
+    assert "navigate(`/tasks?taskId=${id}`)" in audit
     assert "'run' | 'task'" in audit
     assert "searchParams.get('taskId')" in _read(TASK_PAGE)
 

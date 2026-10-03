@@ -201,7 +201,11 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await expect(page.getByTestId('audit-related-run')).toHaveText(state.runId);
   await expect(page.getByTestId('audit-related-task')).toHaveCount(0);
   await page.getByTestId('audit-related-run').click();
-  await expect(page).toHaveURL(new RegExp(`/tasks\\?runId=${state.runId}$`));
+  // Run 与 Task 是不同实体（普通对话的模型/工具调用可以没有后台 Task），所以**不再"统一落到
+  // 任务列表"**——那样只会打开一个无关的空列表（2026-10-03 那条 issue）。改为就地叠加打开。
+  await expect(page).toHaveURL(/\/audits/);
+  await expect(page.getByTestId('run-detail-error')).toBeVisible();
+  await expect(page.locator('.detail-title', { hasText: state.runId })).toHaveCount(1);
 
   // 入口二：主展示字段（CONFIG 行，before/after 差异 + 无关联）
   await page.goto('/audits');

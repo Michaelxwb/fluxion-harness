@@ -36,6 +36,8 @@ export interface TaskDetailSideSheetProps {
   onMutated?(taskId: string): void;
   /** 定时触发来源的反向入口。展示组件不导航（与 `RecentTaskList` 同约定），由页面接线。 */
   onOpenSchedule?(scheduleId: string): void;
+  /** 派生它的那次对话运行（`source_run_id`）。同一约定：回调而不导航。 */
+  onOpenRun?(runId: string): void;
 }
 
 function snapshotSummary(snapshot: Record<string, unknown>): string {
@@ -221,6 +223,25 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
                           </EntityLink>
                         ) : (
                           detail.schedule_id
+                        )
+                      }
+                    ]
+                  : []),
+                // 同一条「来源」线的另一半：对话派生的任务回指它那次 Run。字段一直传到前端，
+                // 只是此前没有地方渲染它。Run 已回收/删除时点进去同样是错误态。
+                ...(detail.source_run_id
+                  ? [
+                      {
+                        label: t('task.columns.sourceRun'),
+                        value: props.onOpenRun ? (
+                          <EntityLink
+                            testId="task-detail-run"
+                            onClick={() => props.onOpenRun?.(detail.source_run_id as string)}
+                          >
+                            {detail.source_run_id}
+                          </EntityLink>
+                        ) : (
+                          detail.source_run_id
                         )
                       }
                     ]

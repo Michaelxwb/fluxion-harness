@@ -241,7 +241,12 @@ def test_related_missing_renders_error_state_without_fabrication() -> None:
 
 
 def test_relation_links_use_entity_link_and_are_navigable() -> None:
-    """[S-07] 关联链接用公共 `EntityLink`，点击落到承载 Run/Task 记录的任务列表并携带 id。"""
+    """[S-07] 关联链接用公共 `EntityLink`：**Task 落到任务列表并携带 id，Run 就地叠加打开**。
+
+    原先是两者一律 `navigate` 到 `/tasks?${relation}Id=`——对 Run 是错的：Run 与 Task 是不同
+    实体（普通对话的模型/工具调用可以产生运行审计而不产生后台 Task），那样只会打开一个无关的
+    空列表（`docs/issues/2026-10-03-audit-run-link.md`）。
+    """
     sheet = _read(SHEET)
     compact = _compact(sheet)
     assert "components/common/EntityLink" in sheet
@@ -250,8 +255,10 @@ def test_relation_links_use_entity_link_and_are_navigable() -> None:
     assert "detail.related.runId" in compact and "detail.related.taskId" in compact, (
         "关联 id 必须取自详情出参 related"
     )
-    assert "useNavigate" in compact, "关联链接须可跳转（路由归容器）"
-    assert "/tasks?${relation}Id=${id}" in compact, "关联须落到承载 Run/Task 记录的任务列表并携带 id"
+    assert "navigate(`/tasks?taskId=${id}`)" in compact, "Task 关联仍落到任务列表并携带 id"
+    assert "setOpenRunId(id)" in compact, "Run 关联就地叠加打开，不跳页"
+    assert "/tasks?${relation}Id=" not in compact, "Run 不得再走「统一落到任务列表」那条路"
+    assert "<RunDetailSideSheet" in compact, "Run 详情须由本页挂载"
     assert "EmptyState" in sheet, "无关联记录时须用公共 EmptyState 提示"
 
 

@@ -17,6 +17,7 @@ from .overview import router as overview_router
 from .platform_adapters import router as platform_adapters_router
 from .platform_test import router as platform_test_router
 from .platforms import router as platforms_router
+from .runs import router as runs_router
 from .schedules import router as schedules_router
 from .security import require_csrf
 from .skills import router as skills_router
@@ -39,6 +40,8 @@ authenticated.include_router(mcp_servers_router)
 authenticated.include_router(overview_router)
 authenticated.include_router(tasks_router)
 authenticated.include_router(schedules_router)
+# Run 属 Runtime（`runtime.*`），Console 只做只读聚合投影；见 `api/runs.py` 的模块 docstring。
+authenticated.include_router(runs_router)
 router.include_router(authenticated)
 
 admin = APIRouter(dependencies=[Depends(require_admin), Depends(require_csrf)])
