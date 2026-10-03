@@ -222,6 +222,50 @@ async def test_tool_recorder_audits_failure_status() -> None:
         assert audit.error_code == "COMMON_INTERNAL_ERROR"
 
 
+async def test_coded_tool_error_is_recorded_with_its_own_code(tenant: TenantContext) -> None:
+    """工具自己的错误码必须落进 `tool_call_audit`，而不是被兜底成 `COMMON_INTERNAL_ERROR`。
+
+    各工具的错误类型（`AttachmentToolError`/`ArchiveToolError`/`SkillToolError`…）**都带
+    `.code`**，此前只有 `AppError` 被识别，其余全落兜底 —— 于是「附件不存在」「ZIP 超限」与
+    「运行时真炸了」在审计里一模一样，按错误码做的统计没有意义（2026-10-03 review）。
+    """
+
+    class CodedToolError(RuntimeError):
+        def __init__(self, code: str, message: str) -> None:
+            self.code = code
+            self.message = message
+            super().__init__(message)
+
+    recorder = ToolCallRecorder(
+        context=ExecutorRunContext(
+            tenant_id=TENANT, run_id=RUN_ID, conversation_id=CONV_ID, user_id=USER_ID
+        ),
+        audit_writer=_writer(),
+        artifact_writer=None,
+    )
+    definition = ToolDefinition(
+        name="read_attachment",
+        description="d",
+        input_schema={"type": "object"},
+        effect=ToolEffect.READ,
+    )
+
+    async def handler(arguments: Any, *, call_id: str) -> str:
+        raise CodedToolError("ATTACHMENT_NOT_FOUND", "附件不存在或不可访问")
+
+    with pytest.raises(CodedToolError):
+        await recorder(definition, {"artifact_id": "x"}, handler=handler, call_id="call-coded")
+
+    async with get_session_factory()() as session:
+        audit = (
+            await session.execute(
+                sa.select(ToolCallAudit).where(ToolCallAudit.tenant_id == TENANT)
+            )
+        ).scalar_one()
+        assert audit.status == "ERROR"
+        assert audit.error_code == "ATTACHMENT_NOT_FOUND"
+
+
 class _FlakyProvider:
     def __init__(self, failures: int) -> None:
         self._failures = failures

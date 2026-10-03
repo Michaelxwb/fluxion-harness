@@ -4,6 +4,8 @@ import logging
 import re
 from typing import Any
 
+from .extras import extra_fields
+
 REDACTED = "***"
 
 #: 敏感键名。**末尾那个裸 `token` 是有意加的**（2026-10-03）：签名取件直链把令牌放在 URL 的
@@ -48,7 +50,11 @@ class RedactionFilter(logging.Filter):
         if redacted != message:
             record.msg = redacted
             record.args = ()
-        fields = getattr(record, "fields", None)
-        if isinstance(fields, dict):
-            record.fields = redact_value(fields)
+        # `extra={...}` 的每个键都被标准库挂成了 record 属性 —— 这里**必须**一并脱敏。
+        # 它与 formatter 是同一个通道的两半：只修 formatter 那一半，等于把未脱敏的字段
+        # 直接写进日志文件（2026-10-03 review）。
+        for key, value in extra_fields(record).items():
+            record.__dict__[key] = (
+                REDACTED if _SENSITIVE_KEY_PATTERN.search(key) else redact_value(value)
+            )
         return True

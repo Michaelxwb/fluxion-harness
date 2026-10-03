@@ -436,6 +436,22 @@ def _args_hash(arguments: Mapping[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _tool_error_code(exc: BaseException) -> str:
+    """工具异常 → `tool_call_audit.error_code`。
+
+    不只是 `AppError`：各工具自己的错误类型（`AttachmentToolError`/`ArchiveToolError`/
+    `SkillToolError`/`MemoryToolError`…）**一律带 `.code`**，此前却统统落进兜底、被记成
+    `COMMON_INTERNAL_ERROR` —— 于是"附件不存在""ZIP 超限"和"运行时真炸了"在审计里长得
+    一模一样，按错误码做的统计也就没有意义（2026-10-03 review）。
+
+    无 `.code` 的异常才是真的意外，保持兜底码。
+    """
+    code = getattr(exc, "code", None)
+    if isinstance(code, str) and code:
+        return code
+    return str(ErrorCode.COMMON_INTERNAL_ERROR)
+
+
 class ToolCallRecorder:
     """工具执行统一包装：审计 + 大结果 Artifact 外置。"""
 
@@ -502,13 +518,9 @@ class ToolCallRecorder:
                     ensure_ascii=False,
                 )
             return content
-        except AppError as exc:
+        except Exception as exc:
             status = "ERROR"
-            error_code = str(exc.code)
-            raise
-        except Exception:
-            status = "ERROR"
-            error_code = str(ErrorCode.COMMON_INTERNAL_ERROR)
+            error_code = _tool_error_code(exc)
             raise
         finally:
             record_outcome(

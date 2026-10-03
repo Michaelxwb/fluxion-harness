@@ -11,6 +11,7 @@
 - No loose typing or silent exception handling
 - Handle errors explicitly
 - Tenant-scoped existence checks: scope `count` to the tenant (`count(tenant_id)`), never a global count — a global count lets another tenant's rows hide that the default tenant has no account and nobody can log in (instance: Console startup self-check `_warn_if_no_accounts()`)
+- Choose the optimal design over a compatibility shim — no back-compat layers, dual-write, or transitional adapters, and no keeping a wrong design just to match older spec text. **The spec follows the code's facts**: fix the code, then rewrite the spec to describe what is actually true. (Stated twice: 2026-09-17 and 2026-09-30; instances: row lock instead of retry-on-conflict, process-group kill instead of swallowing termination errors.)
 
 ## Forbidden Patterns
 - Hard-coded secrets or credentials
@@ -31,6 +32,10 @@
 - **不要**用共享 dev 库跑验收，也**不要**为了"清干净"去删 dev 库的行（那是开发数据）。
   必须独立库的原因与机制见 `.code-flow/specs/test/harness-test.md`（claim 与投递选取不带租户谓词
   + 各栈出站端点是栈级 env ⇒ 共用库时跨套件互相污染，表现为"单跑绿、串跑红"）。
+- **跑单测/验收前先停 dev 服务**：`dev.sh` 起的进程与测试共用同一套 PG/Redis，其中
+  `--reload` 的 Worker 会**领走本租户的任务**（claim 不带租户谓词）并用自己的 `ARTIFACT_ROOT`
+  执行，表现为 `SKILL_ARTIFACT_UNAVAILABLE` 一类"莫名其妙"的失败。跑前先查残留进程
+  （`ps -eo pid,etime,command | grep -E "pytest|uvicorn|vite"`），别把这种情况当实现缺陷去改代码。
 - 排查用逃生阀：`MUAD_ACCEPTANCE_SHARED_DB=1` 可让 pytest 验收退回共享库（仅用于对比排查）。
 
 ## Spec Workflow (schema 1)
@@ -51,7 +56,7 @@ Do NOT ask the user which Specs to load—the Context-first router is authoritat
    `python3 .code-flow/scripts/cf_feedback.py ignore <check-id>`
    （check-id 见反馈中的 `规则: <spec>#<check-id>`；同一规则误报达阈值会自动停用）
 3. 会话收尾被校验拦回（cf-stop 反馈未过项）时，修复后再结束；不要绕过
-4. 新增/修改规范时优先用 ✅/❌ 代码对照示例表达（见 spec 模板 Examples 段）
+4. 新增/修改规范时优先用 ✅/❌ 代码对照示例表达 —— 写进目标 spec 的 `## Conventions` 段（**没有独立的 `## Examples` 段**：20 份 harness spec 一律是 `## Rules` / `## Conventions` / `## Avoid` 三个 H2，示例以 ✅/❌ 内联在 Conventions 的条目下。**不要引入 H3**：spec 的 rule/verifier 解析只认 H2，H3 会被当成规则正文错位。
 
 ## 收尾提交纪律（Done Gate）
 

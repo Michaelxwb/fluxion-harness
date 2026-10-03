@@ -5,8 +5,7 @@ import logging
 from datetime import UTC, datetime
 
 from .context import get_log_context
-
-_RESERVED_KEYS = frozenset({"timestamp", "service", "level", "logger", "message", "exception"})
+from .extras import RESERVED_KEYS, extra_fields
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -25,11 +24,9 @@ class JsonLogFormatter(logging.Formatter):
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
         for key, value in get_log_context().items():
-            if key not in _RESERVED_KEYS:
+            if key not in RESERVED_KEYS:
                 payload[key] = value
-        fields = getattr(record, "fields", None)
-        if isinstance(fields, dict):
-            for key, value in fields.items():
-                if key not in _RESERVED_KEYS:
-                    payload[key] = value
+        # 调用方的 `extra={...}` 覆盖 log context（更贴近这一次事件），但同样不得覆写保留键
+        for key, value in extra_fields(record).items():
+            payload[key] = value
         return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))

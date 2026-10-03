@@ -328,7 +328,12 @@ async def test_e05_write_failure_keeps_the_model_turn_going(tmp_path: Path) -> N
     assert len(provider.requests) == 2  # 工具失败没有吃掉后续模型回合
     tool_message = provider.requests[1].messages[-1]
     assert tool_message.role is ModelRole.TOOL
-    assert "tool failed" in str(tool_message.content)
+    # 工具失败必须以**结构化错误体**回给模型（与 skill/task/memory 工具自己返回的
+    # `{"error": {"code", "message"}}` 同形），而不是一句散文 —— 模型据此知道"没记住"。
+    # 2026-10-03 前这里断言的是 `"tool failed" in content`：那是抛出型工具独有的散文形状，
+    # 与返回型工具的说法不一致，且模型拿不到错误码。
+    payload = json.loads(str(tool_message.content))
+    assert payload["error"]["code"] == "COMMON_INTERNAL_ERROR"
 
 
 class _RememberThenAnswerProvider:

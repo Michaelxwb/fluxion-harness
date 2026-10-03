@@ -25,11 +25,29 @@ from cf_workflow_service import (FINISHED_STATUSES, _require_marker_task,
 from cf_workflow_transaction import recover_transition
 
 
+def _remove_session_projection(root: str, task_file: str) -> None:
+    """Done Gate 通过后删掉本任务在 `specs/_session/` 的投影。
+
+    该文件是**瞬态**的（被 `.gitignore` 忽略，也列在 `cf_spec_context.DEFAULT_ACTIVE_EXCLUDES`
+    里），但此前没有任何路径删它 —— 已归档任务的投影会一直留在 spec catalog 里，向后续每一个
+    会话注入一个**早已完结**任务的 Required Rules 与 Acceptance Contract（2026-10-03 实测：
+    `_session/task-attachment-round-trip.md` 在任务归档一个月后仍在注入）。
+
+    删不掉不影响裁决：Done Gate 的结论由规则/verifier 决定，不该被一次 unlink 反转。
+    """
+    projection = Path(root) / ".code-flow/specs/_session" / f"task-{Path(task_file).stem}.md"
+    try:
+        projection.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def finish_task(root: str, directory: str, task_file: str, task_id: str) -> dict[str, object]:
     _require_marker_task(root, task_id, directory, task_file)
     gate = run_done_gate(root, directory, task_id=task_id)
     if gate.decision != "pass":
         return {"decision": "block", "reason": gate.message, "evidence": gate.evidence}
+    _remove_session_projection(root, task_file)
     result = {
         "decision": "pass",
         "deferred_review": gate.deferred_review,

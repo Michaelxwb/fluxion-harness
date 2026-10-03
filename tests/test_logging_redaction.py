@@ -49,12 +49,46 @@ def test_redact_value_masks_nested_structures():
     assert redacted['items'][1] == 'Bearer ***'
 
 
-def test_redaction_filter_redacts_message_and_fields():
+def test_redaction_filter_redacts_message():
     record = _record('password=%s', args=('hunter2',))
-    record.fields = {'access_token': 'abc', 'keep': 'ok'}
     assert RedactionFilter().filter(record) is True
     assert record.getMessage() == 'password=***'
-    assert record.fields == {'access_token': '***', 'keep': 'ok'}
+
+
+class _CaptureHandler(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+        self.addFilter(RedactionFilter())
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
+def test_extra_fields_reach_the_formatter_and_are_redacted():
+    """`extra={...}` 是标准库唯一的附加字段通道 —— 输出与脱敏**必须同时**覆盖它。
+
+    此前两条链路都只认 `record.fields`（全仓 **0 个调用方**），于是 14 处
+    `extra={...}`（`schedule_id`/`run_id`/`memory_key`/`metric`…）的结构化字段**静默丢失**；
+    更糟的是脱敏边界挂在一个没人用的通道上 —— 谁单独把 formatter 那半修好，未脱敏的
+    `extra` 就直接落盘。这条用例同时钉住两半，正是为了避免这种"只修一半"。
+    """
+    handler = _CaptureHandler()
+    logger = logging.getLogger('test.extra-fields')
+    logger.handlers = [handler]
+    logger.setLevel(logging.INFO)  # root 默认 WARNING，不设这一级 info 根本走不到 handler
+    logger.propagate = False
+    try:
+        logger.info('scheduler_tick', extra={'schedule_id': 'sch-1', 'api_key': 'SECRETVALUE'})
+    finally:
+        logger.handlers = []
+
+    record = handler.records[0]
+    assert record.api_key == '***', '敏感键名必须按**键名**脱敏，而不是只处理值'
+    payload = json.loads(JsonLogFormatter('svc').format(record))
+    assert payload['schedule_id'] == 'sch-1'
+    assert payload['api_key'] == '***'
+    assert 'SECRETVALUE' not in json.dumps(payload)
 
 
 def test_formatter_reserved_keys_win_over_log_context():
@@ -69,10 +103,13 @@ def test_formatter_reserved_keys_win_over_log_context():
     assert payload['trace_id'] == 't1'
 
 
-def test_formatter_reserved_keys_win_over_record_fields():
+def test_formatter_reserved_keys_win_over_extra_fields():
+    """保留键不得被 `extra` 覆写 —— `extra` 挂在 record 属性上，跟保留键同名时优先级要明确。"""
     clear_log_context()
     record = _record('hello')
-    record.fields = {'level': 'X', 'message': 'Y', 'custom': 1}
+    record.level = 'X'
+    record.message = 'Y'
+    record.custom = 1
     payload = json.loads(JsonLogFormatter('svc').format(record))
     assert payload['level'] == 'INFO'
     assert payload['message'] == 'hello'
@@ -101,3 +138,31 @@ def test_configure_logging_redacts_secrets_in_log_file(tmp_path):
     text = (tmp_path / service / f'{day}.log').read_text(encoding='utf-8')
     assert 'SECRETVALUE' not in text
     assert '***' in text
+
+
+def test_configure_logging_writes_extra_fields_and_redacts_them(tmp_path):
+    """端到端：`extra={...}` 必须**既落进日志文件、又不泄露敏感值**。
+
+    这是整条链路（root handler + RedactionFilter + JsonLogFormatter）的合并断言 ——
+    上一版这两半各改各的，单看任何一半都是绿的，合起来却一条字段都写不出去。
+    """
+    service = 'test-extra-fields-file'
+    root = logging.getLogger()
+    for handler in list(root.handlers):
+        root.removeHandler(handler)
+    configure_logging(service, log_dir=tmp_path, console=False)
+    try:
+        logging.getLogger('test.redaction').info(
+            'scheduler_tick', extra={'schedule_id': 'sch-1', 'api_key': 'SECRETVALUE'}
+        )
+    finally:
+        logging.shutdown()
+        for handler in list(root.handlers):
+            root.removeHandler(handler)
+
+    day = datetime.now().astimezone().strftime('%Y-%m-%d')
+    text = (tmp_path / service / f'{day}.log').read_text(encoding='utf-8')
+    assert 'SECRETVALUE' not in text
+    payload = json.loads(text.strip().splitlines()[-1])
+    assert payload['schedule_id'] == 'sch-1'
+    assert payload['api_key'] == '***'

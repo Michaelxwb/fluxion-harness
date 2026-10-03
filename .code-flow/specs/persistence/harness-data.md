@@ -45,6 +45,10 @@ verifiers:
   - ✅ 任何 UPDATE 路径都显式赋 `update_time`。
   - ❌ 只改业务列 ⇒ `update_time` 停在上一次写库时刻，审计/增量同步据此判断会漏行。
 - **Schema 名单固定 4 个**：`control`/`runtime`/`task`/`langgraph`（`migrations/versions/0001_create_schemas.py`）。前三个是本产品的 Owner Schema；`langgraph` 是 LangGraph 框架自有表（无 ORM 模型、不属产品表），**不得**在其中放业务表。
+- **`migrations/` 下的脚本不得读取环境变量**：连接串与配置一律来自 `migrations/alembic.ini`（`migrations/_config.py` 的 `load_dsn` 明确**不做 env 回落**，缺失或空值直接 `SystemExit`）。理由不是洁癖：env 回落会造成「以为在升 A 库、实际升了 B 库」——CI、验收建库与本地 dev 各有各的 `DATABASE_URL`，一旦脚本自己去读，升级目标就取决于调用者的环境而不是显式传入的 ini。
+  - ✅ `load_dsn(resolve_ini(given, root), "sqlalchemy.url", purpose=...)`；`migrations/db_migrate.py` / `env.py` / `bootstrap_db.py` 都走它
+  - ❌ `os.environ["DATABASE_URL"]` / `os.getenv(...)` 出现在 `migrations/**`（全仓现为 **0 命中**，改动后必须仍是 0）
+  - 来源：用户 2026-10-01 明确要求（「migrations/中的脚本不要读取环境变量，直接改成读取 `migrations/alembic.ini` 中的配置」）；本条**无机检**，靠评审把关
 - **租户内存在性判断（规则正文在根 `CLAUDE.md` Core Principles；本 spec 已移除机检）**：任何「是否存在」判断（如启动自检）必须把 `count` 限定在目标租户内，不得用全库计数——全库判定会让任一租户有账号就掩盖「默认租户无账号 ⇒ 无法登录」的静默故障。**此处原先的 `no-global-count-in-tenant-check` 已删除**：它的 `pattern: 'count_all\('` 指向 13-console-auth 已移除的旧实现（全仓 0 命中），只防该法复活；而「无租户过滤的 count」这类通用形态正则在多行 SQL 上判不准、误报率高，留着是假防线。故本条**靠评审把关，不要以为有机检兜底**。
   - ✅ `await self._accounts.count(self._require_tenant()) > 0`；❌ `count_all() > 0`，或 `select(func.count())` 未带 `tenant_id` 条件
 

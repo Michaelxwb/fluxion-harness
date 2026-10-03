@@ -199,6 +199,47 @@ async def test_tool_handler_failure_is_fed_back_to_model() -> None:
     assert "handler exploded" in provider.requests[1].messages[-1].content
 
 
+class _CodedToolError(RuntimeError):
+    """模拟 `AttachmentToolError` / `ArchiveToolError`：工具自己的错误类型，携带 `.code`。"""
+
+    def __init__(self, code: str, message: str) -> None:
+        self.code = code
+        self.message = message
+        super().__init__(message)
+
+
+async def test_coded_tool_failure_reaches_the_model_with_its_code() -> None:
+    """带 `.code` 的工具错误必须与「返回错误体」的工具**同形**到达模型。
+
+    `skill_tools`/`task_tools`/`memory_tools` 在自己那层把领域错误转成
+    `{"error": {"code", "message"}}` **返回**；attachments/archive 则是**抛出**带 `.code`
+    的自己人错误。此前后者只被拼成 `tool failed: AttachmentToolError: …` —— 同一件事两套
+    说法，而且模型看不到错误码（2026-10-03 review）。
+    """
+    async def failing(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        raise _CodedToolError("ATTACHMENT_NOT_FOUND", "附件不存在或不可访问")
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolDefinition(
+            name="boom",
+            description="fails",
+            input_schema={"type": "object"},
+            effect=ToolEffect.WRITE,
+            handler=failing,
+        )
+    )
+    provider = ScriptedModelProvider([_tool_call("c1", "boom"), _text("recovered")])
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.final_text == "recovered"
+    payload = json.loads(provider.requests[1].messages[-1].content)
+    assert payload == {
+        "error": {"code": "ATTACHMENT_NOT_FOUND", "message": "附件不存在或不可访问"}
+    }
+
+
 async def test_pre_tool_use_hook_can_block_execution() -> None:
     provider = ScriptedModelProvider([_tool_call("c1", "echo"), _text("done")])
     registry = ToolRegistry()

@@ -159,6 +159,10 @@ path_mapping:
         patterns:
             - "packages/artifact-store/**"
             - "packages/skill-sdk/**"
+            # Skill **执行**面（子进程启用/进程组回收/stdout 结果解析）也在本 spec 的约束里，
+            # 但原先没有任何 pattern 指向它 ⇒ 改 executor.py 时一条规范都不注入。
+            # 只收 `**/skill/**` 这 3 个文件，不用 `packages/agent-core/**` 那种过宽的写法。
+            - "packages/agent-core/**/skill/**"
         specs:
             - path: "artifact/harness-skill.md"
               tags:

@@ -42,6 +42,27 @@ TOOL_BLOCKED_TEMPLATE = "tool blocked before execution: {reason}"
 TOOL_FAILED_TEMPLATE = "tool failed: {reason}"
 
 
+def tool_failure_content(exc: BaseException) -> str:
+    """工具抛异常 → 喂回模型的工具消息。
+
+    **必须与工具自己「返回」的错误体同形**：`skill_tools`/`task_tools`/`memory_tools` 的处理
+    器在自己那层就把领域错误转成 `{"error": {"code", "message"}}` 返回，而 attachments/archive
+    是**抛出**带 `.code` 的自己人错误类型。后者若只拿到 `tool failed: AttachmentToolError: …`，
+    模型面对的就是**两种形状、且看不到错误码** —— 同一件事两套说法（2026-10-03 review）。
+
+    没有 `.code` 的异常（真正的意外）保持原文案：那才是"工具炸了"，与"工具拒绝了你"不同。
+
+    `AppError` 属前者但**没有用户可见 message**（只带 `code` + `message_args`，正文由 catalog 在
+    API 边界按 locale 解析），故 message 退化成 code —— 与 `task_tools` 既有写法
+    （`_error(str(exc.code), str(exc.code))`）一致，agent-core 也拿不到 catalog。
+    """
+    code = getattr(exc, "code", None)
+    if isinstance(code, str) and code:
+        message = getattr(exc, "message", None) or str(exc)
+        return json.dumps({"error": {"code": code, "message": str(message)}}, ensure_ascii=False)
+    return TOOL_FAILED_TEMPLATE.format(reason=f"{type(exc).__name__}: {exc}")
+
+
 class RunnerError(RuntimeError):
     def __init__(self, message: str) -> None:
         self.message = message
@@ -399,7 +420,7 @@ class AgentRunner:
             content = await definition.handler(arguments, call_id=call.id)
         except Exception as exc:
             status = "ERROR"
-            content = TOOL_FAILED_TEMPLATE.format(reason=f"{type(exc).__name__}: {exc}")
+            content = tool_failure_content(exc)
         context = await self._hooks.run(
             HookEvent.POST_TOOL_USE,
             {"call_id": call.id, "tool": call.name, "arguments": arguments, "result": content},
