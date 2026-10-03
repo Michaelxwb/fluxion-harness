@@ -8,10 +8,14 @@ from muad_api import ApiResponse, AppError, ErrorCode, metrics, ok
 from muad_contracts import DeliveryRequest
 
 from ..channels.base import (
+    ArtifactDeliveryError,
+    ArtifactDeliveryOutcome,
+    ChannelAdapter,
     ChannelAdapterUnavailable,
     ChannelBotNotFound,
     ChannelRegistry,
     ChannelRegistryError,
+    OutboundArtifactDelivery,
 )
 from ..infrastructure.dedupe import DELIVERED_VALUE, DedupeStore, DedupeStoreError
 from .deps import DedupeStoreDep, RegistryDep
@@ -54,17 +58,28 @@ async def deliver(
         )
     if not reserved:
         return await _replay(request, dedupe, key)
-    await _send(registry, body, dedupe=dedupe, key=key)
+    outcome = await _send(registry, body, dedupe=dedupe, key=key)
     try:
         await dedupe.mark(key, DELIVERY_DEDUPE_TTL_SEC)
     except DedupeStoreError as exc:
         # 已真实发送：保留短 TTL 占位，最坏情况按 at-least-once 重复投递。
         logger.warning("delivery_dedupe_mark_failed delivery_key=%s error=%s", body.delivery_key, exc)
     _count_delivery("accepted")
-    return ok(
-        request.app.state.message_catalog,
-        {"accepted": True, "duplicate": False, "delivered": True, "deduplicated": False},
-    )
+    return ok(request.app.state.message_catalog, _result(outcome))
+
+
+def _result(outcome: ArtifactDeliveryOutcome | None) -> dict[str, Any]:
+    """投递响应体。文本形态没有 `outcome` 可言，产物形态才有——所以是按需加字段而不是恒填。"""
+    payload: dict[str, Any] = {
+        "accepted": True,
+        "duplicate": False,
+        "delivered": True,
+        "deduplicated": False,
+    }
+    if outcome is not None:
+        payload["outcome"] = outcome.outcome
+        payload["fallback_url"] = outcome.fallback_url
+    return payload
 
 
 def _count_delivery(status: str) -> None:
@@ -92,11 +107,14 @@ async def _replay(request: Request, dedupe: DedupeStore, key: str) -> ApiRespons
 
 async def _send(
     registry: ChannelRegistry, body: DeliveryRequest, *, dedupe: DedupeStore | None, key: str
-) -> None:
-    """真实发送；失败时释放占位（若有）让 Worker 重试，未送达不宣称成功。"""
+) -> ArtifactDeliveryOutcome | None:
+    """真实发送；失败时释放占位（若有）让调用方重试，未送达不宣称成功。
+
+    两个形态共用一个出口：文本走既有的 `adapter.send`，产物走**可选出站能力**。
+    """
     try:
         adapter = registry.get(body.route.channel)
-        await adapter.send(body.route, body.message)
+        outcome = await _deliver(adapter, body)
     except ChannelBotNotFound as exc:
         # 未配置/已停用 bot：与"暂时不可用"区分（设计 API-05 错误码）
         logger.warning("delivery_bot_not_found delivery_key=%s error=%s", body.delivery_key, exc)
@@ -104,6 +122,14 @@ async def _send(
             await _release(dedupe, key, body.delivery_key)
         _count_delivery("failed")
         raise AppError(ErrorCode.BOT_NOT_FOUND) from exc
+    except ArtifactDeliveryError as exc:
+        # 渠道侧发不出去（含"本通道根本没有发产物的能力"）：显式失败 + 释放占位。
+        # **不得静默丢**——静默丢等于告诉调用方"发成功了"。
+        logger.warning("delivery_artifact_failed delivery_key=%s code=%s", body.delivery_key, exc.code)
+        if dedupe is not None:
+            await _release(dedupe, key, body.delivery_key)
+        _count_delivery("failed")
+        raise AppError(ErrorCode.ARTIFACT_DELIVERY_FAILED) from exc
     except (ChannelRegistryError, ChannelAdapterUnavailable) as exc:
         logger.warning("delivery_send_failed delivery_key=%s error=%s", body.delivery_key, exc)
         if dedupe is not None:
@@ -118,6 +144,26 @@ async def _send(
             await _release(dedupe, key, body.delivery_key)
         _count_delivery("failed")
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+    return outcome
+
+
+async def _deliver(adapter: ChannelAdapter, body: DeliveryRequest) -> ArtifactDeliveryOutcome | None:
+    """按载荷形态分发。**渠道差异只活在适配器里**（RULE-im-002）：这里只问"你能不能发"。
+
+    适配器没实现 `OutboundArtifactDelivery` = 本通道不会发产物 —— **显式失败**而不是悄悄
+    换成一段文字（那会让用户以为文件发了）。降级成取件链接是**适配器内部**的决定（它会返回
+    `DEGRADED` + `fallback_url`），不是这里的兜底。
+    """
+    message = body.message
+    if message.type == "text":
+        await adapter.send(body.route, message)
+        return None
+    artifact = message.artifact
+    if artifact is None:  # 契约已保证 type != text 时 artifact 必填；这里是纵深防御
+        raise ArtifactDeliveryError("ARTIFACT_DELIVERY_FAILED")
+    if not isinstance(adapter, OutboundArtifactDelivery):
+        raise ArtifactDeliveryError("ARTIFACT_DELIVERY_FAILED")
+    return await adapter.deliver_artifact(body.route, artifact)
 
 
 async def _is_delivered(dedupe: DedupeStore, key: str) -> bool:

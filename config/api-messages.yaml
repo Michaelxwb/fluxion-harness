@@ -125,6 +125,20 @@ codes:
       zh-CN: Bot 账号不存在或已禁用
       en-US: The bot account does not exist or is disabled
 
+  # 出站产物交付（attachment-round-trip TASK-006）。文案由**模型转达给用户**，
+  # 所以要说清"东西没送到"以及"能不能重试"，不能只给一个冷冰冰的码。
+  ARTIFACT_DELIVERY_UNAVAILABLE:
+    http_status: 400
+    messages:
+      zh-CN: 当前会话没有可交付的通道，产物没法发出去
+      en-US: This conversation has no delivery channel, so the artifact cannot be sent
+
+  ARTIFACT_DELIVERY_FAILED:
+    http_status: 502
+    messages:
+      zh-CN: 产物交付失败（渠道侧或上传侧），产物已保留，可重试
+      en-US: "Delivering the artifact failed (channel or upload side); it is kept and can be retried"
+
   CREDENTIAL_MISSING:
     http_status: 409
     messages:

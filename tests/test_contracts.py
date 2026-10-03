@@ -5,8 +5,10 @@ from uuid import uuid4
 import pytest
 from muad_contracts import (
     ArtifactValidationStatus,
+    AttachmentRef,
     CreateTaskRequest,
     CredentialMode,
+    DeliveryMessage,
     DeliveryMode,
     DeliveryRequest,
     DeliveryStatus,
@@ -122,6 +124,79 @@ def test_delivery_request_key_pattern():
     for bad_key in bad_keys:
         with pytest.raises(ValidationError):
             DeliveryRequest(task_id=task_id, delivery_key=bad_key, route=ROUTE, message={'text': 'done'})
+
+
+def _artifact_ref(artifact_id: Any) -> dict[str, Any]:
+    """出站引用：**带 `artifact_id`、不带 `source_channel`**（TASK-006 起两方向共用一个形状）。"""
+    return {
+        'storage_key': 'outbound/run-1/artifact-1/v1',
+        'kind': 'DOCUMENT',
+        'media_type': 'text/markdown',
+        'size': 12,
+        'filename': '汇总.md',
+        'checksum': VALID_HASH,
+        'artifact_id': str(artifact_id),
+    }
+
+
+def test_delivery_request_session_form_uses_a_run_key():
+    """会话内形态（TASK-006）：`task_id` 可省，`delivery_key = run:{run_id}:{artifact_id}`。"""
+    run_id, artifact_id = uuid4(), uuid4()
+
+    request = DeliveryRequest(
+        delivery_key=f'run:{run_id}:{artifact_id}',
+        route=ROUTE,
+        message={'type': 'artifact', 'artifact': _artifact_ref(artifact_id)},
+    )
+
+    assert request.task_id is None
+    assert request.message.type == 'artifact'
+    assert request.message.artifact is not None
+    assert request.message.artifact.artifact_id == artifact_id
+    assert request.message.artifact.source_channel is None, '出站方向没有"来源渠道"这个概念'
+
+
+def test_delivery_request_rejects_mixed_or_malformed_key_forms():
+    """两种形态**互斥**：给了 `task_id` 就必须是 `task:` 键，没给就必须是 `run:` 键。"""
+    run_id, artifact_id, task_id = uuid4(), uuid4(), uuid4()
+    message = {'type': 'text', 'text': 'x'}
+
+    for bad in (
+        {'task_id': task_id, 'delivery_key': f'run:{run_id}:{artifact_id}'},
+        {'delivery_key': f'task:{task_id}:final'},
+        {'delivery_key': f'run:{run_id}'},
+        {'delivery_key': f'run:not-a-uuid:{artifact_id}'},
+        {'delivery_key': f'run:{run_id}:not-a-uuid'},
+    ):
+        with pytest.raises(ValidationError):
+            DeliveryRequest(route=ROUTE, message=message, **bad)
+
+
+def test_delivery_message_payload_must_match_its_type():
+    """`type` 与载荷必须一致：`text` 要文本，`artifact`/`image` 要产物引用。"""
+    artifact_id = uuid4()
+
+    assert DeliveryMessage(type='text', text='done').artifact is None
+    assert DeliveryMessage(type='image', artifact=_artifact_ref(artifact_id)).artifact is not None
+
+    with pytest.raises(ValidationError):
+        DeliveryMessage(type='text')  # 文本形态没给文本
+    with pytest.raises(ValidationError):
+        DeliveryMessage(type='artifact')  # 产物形态没给引用
+    with pytest.raises(ValidationError):
+        DeliveryMessage(type='image')  # 图片形态没给引用
+
+
+def test_artifact_ref_admits_no_channel_private_shape():
+    """引用里**放不下**任何取件/发送凭据 —— 这是结构保证，不是写入前过滤（RULE-im-002）。"""
+    reference = AttachmentRef(**_artifact_ref(uuid4()))
+
+    assert reference.source_channel is None
+    # 夹带渠道私有形状必须被指名拒绝（`extra="forbid"`），而不是被悄悄收下
+    with pytest.raises(ValidationError):
+        AttachmentRef(**_artifact_ref(uuid4()), media_id='must-not-fit')
+    with pytest.raises(ValidationError):
+        AttachmentRef(**_artifact_ref(uuid4()), url='https://media.invalid/x')
 
 
 def test_run_request_literal_enforcement():

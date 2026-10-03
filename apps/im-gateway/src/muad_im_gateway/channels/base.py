@@ -5,7 +5,12 @@ from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from muad_contracts import ChannelEnvelope, DeliveryMessage, DeliveryRouteInput
+from muad_contracts import (
+    AttachmentRef,
+    ChannelEnvelope,
+    DeliveryMessage,
+    DeliveryRouteInput,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +95,54 @@ class AttachmentSource(Protocol):
     async def fetch_attachment(
         self, envelope: ChannelEnvelope, index: int, *, max_bytes: int
     ) -> FetchedAttachment: ...
+
+
+#: 交付结局（渠道中立，与契约 `DeliveryAuditOutcome` 同口径）。
+#: `DEGRADED` **不是失败**：用户确实收到了东西（一条签名取件链接），只是形态与预期不同。
+ARTIFACT_DELIVERED = "DELIVERED"
+ARTIFACT_DEGRADED = "DEGRADED"
+
+
+class ArtifactDeliveryError(Exception):
+    """产物发送失败（渠道中立）。
+
+    与 `AttachmentFetchError` 同口径：适配器**必须**把自己的私有异常翻译成这个类型，
+    否则应用层就得 import 具体渠道的异常，"换通道只写适配器"立刻不成立。
+    `code` 同时用于工具结论文案与交付审计的原因码。
+    """
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactDeliveryOutcome:
+    """一次产物交付的结局。
+
+    `fallback_url` 只在降级时有值——那是**用户实际收到的东西**，不是内部记号；
+    把 `DEGRADED` 当失败会让模型对用户说"没发出去"，那是谎报（RULE-03）。
+    """
+
+    outcome: str
+    fallback_url: str | None = None
+    reason_code: str = ""
+
+
+@runtime_checkable
+class OutboundArtifactDelivery(Protocol):
+    """可选能力：本通道能否把**产物发出去**（AD-8 的对称接缝，与 `AttachmentSource` 同构）。
+
+    适配器拿到的是**渠道中立的引用**（`AttachmentRef`：存储键 + 元信息 + `artifact_id`），
+    自己按 key 去共享 store 读字节、自己决定怎么发（直发文件/图片，或降级为取件链接）。
+    核心域与网关应用层**一步都不碰渠道的发送体**——`RULE-im-002` 要求的那条接缝就在这里。
+
+    **没实现这个协议 = 本通道不会发产物**：调用方必须显式失败，不得静默丢（RULE-01 的精神）。
+    """
+
+    async def deliver_artifact(
+        self, route: DeliveryRouteInput, artifact: AttachmentRef
+    ) -> ArtifactDeliveryOutcome: ...
 
 
 @runtime_checkable

@@ -414,7 +414,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ## TASK-006: 出站交付链：契约形态 + 显式交付 + 会话内/后台两条投递路径
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-005, TASK-007
 - **Source**: `attachment-round-trip.design.md#3.4 接口设计`, `#3.6 出站交付：写与发的分离（硬需求落点）`, `#3.2 架构设计`
@@ -459,6 +459,7 @@ R4 stream+msg_item {"headers":{"req_id":"zYiT5A1AQVaghhPBWxgzAwAA"},"errcode":0,
 
 ### Log
 - [2026-10-03] created (draft)
+- [2026-10-03] started
 
 ---
 

@@ -35,11 +35,28 @@ class PageMeta(ContractModel):
 
 
 class AttachmentRef(ContractModel):
-    """附件引用：渠道边界与消息契约**同型**使用（设计 AD-6-C）。
+    """产物/附件引用：**两个方向共用一个形状**（设计 AD-6-C）。
 
     刻意只描述"**已经拿到手的字节**"——只有存储键与元信息，**不含**任何取件凭据
     （url / aes_key / media_id / download_code ……）：取件方式渠道私有（AD-8）。
-    也**不含** `artifact_id`：artifact 行由 Runtime 在 Run 建立后写，渠道侧此刻拿不到 DB 标识（AD-1-B）。
+
+    **两个方向各自填哪些字段**（2026-10-03 明确；此前只有入站这一个方向）：
+
+    | 字段 | 入站（用户发来的） | 出站（Agent 产出、要发出去的） |
+    |------|------------------|------------------------------|
+    | `storage_key`/`kind`/`media_type`/`size`/… | ✓ | ✓ |
+    | `source_channel` | **必填**（字节来自哪个渠道） | 无（产物是 Agent 产的，没有来源渠道） |
+    | `artifact_id` | 无（此刻 DB 行还没建，AD-1-B） | **必填**（见下方两处用途） |
+
+    出站方向 `artifact_id` 的两处用途：① 交付审计的幂等键 `(tenant_id, artifact_id, route_key)`
+    要它；② 降级为签名取件直链时，适配器靠它拼 `/api/v1/artifacts/{artifact_id}/content`。
+    **所以它不能只放在 `DeliveryRequest.artifact_ids` 里**——那样适配器得去关联两个字段，
+    是二次来源，也是接新渠道时最容易踩空的地方。
+
+    **一个类型而不是两个**是有意的：两个方向的字段重合 6/7，拆成两个孪生类型必然各自漂移，
+    而且某个渠道**双向**都用时（收到的附件又要转出去）还得写转换——那正是返工面。
+    代价是入站的"来源渠道必有"从**类型保证**降为**约定**：唯一的构造处是网关落盘时传入的
+    `envelope.channel`，改动它时要留意这一点。
     """
 
     storage_key: str = Field(min_length=1)
@@ -48,7 +65,10 @@ class AttachmentRef(ContractModel):
     size: int = Field(gt=0)
     filename: str | None = None
     checksum: str = Field(min_length=1)
-    source_channel: ChannelName
+    #: 入站方向必填；出站方向不需要（见类文档）
+    source_channel: ChannelName | None = None
+    #: 出站方向必填；入站方向拿不到（AD-1-B）
+    artifact_id: UUID | None = None
 
 
 class ChannelEnvelope(ContractModel):
