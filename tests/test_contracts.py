@@ -107,6 +107,7 @@ def test_schedule_spec_rejects_removed_misfire_policy():
 def test_delivery_request_key_pattern():
     task_id = uuid4()
     request = DeliveryRequest(
+        tenant_id='tenant-1',
         task_id=task_id,
         delivery_key=f'task:{task_id}:final',
         route=ROUTE,
@@ -123,7 +124,10 @@ def test_delivery_request_key_pattern():
     )
     for bad_key in bad_keys:
         with pytest.raises(ValidationError):
-            DeliveryRequest(task_id=task_id, delivery_key=bad_key, route=ROUTE, message={'text': 'done'})
+            DeliveryRequest(
+                tenant_id='tenant-1', task_id=task_id, delivery_key=bad_key,
+                route=ROUTE, message={'text': 'done'},
+            )
 
 
 def _artifact_ref(artifact_id: Any) -> dict[str, Any]:
@@ -144,6 +148,7 @@ def test_delivery_request_session_form_uses_a_run_key():
     run_id, artifact_id = uuid4(), uuid4()
 
     request = DeliveryRequest(
+        tenant_id='tenant-1',
         delivery_key=f'run:{run_id}:{artifact_id}',
         route=ROUTE,
         message={'type': 'artifact', 'artifact': _artifact_ref(artifact_id)},
@@ -169,7 +174,7 @@ def test_delivery_request_rejects_mixed_or_malformed_key_forms():
         {'delivery_key': f'run:{run_id}:not-a-uuid'},
     ):
         with pytest.raises(ValidationError):
-            DeliveryRequest(route=ROUTE, message=message, **bad)
+            DeliveryRequest(tenant_id='tenant-1', route=ROUTE, message=message, **bad)
 
 
 def test_delivery_message_payload_must_match_its_type():

@@ -75,6 +75,7 @@ class DeliveryLoop:
             await self._record_terminal_failure(task, error=error, now=moment)
             return DeliveryOutcome(task_id=task.id, http_status=None, error=error, sent=False)
         request = DeliveryRequest(
+            tenant_id=task.tenant_id,
             task_id=task.id,
             delivery_key=task.delivery_key,
             route=_route_input(route),

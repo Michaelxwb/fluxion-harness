@@ -27,6 +27,7 @@ ROUTE = DeliveryRouteInput(channel="WECOM", bot_id="bot-1", external_user_id="ex
 def _request() -> DeliveryRequest:
     artifact_id = uuid.uuid4()
     return DeliveryRequest(
+        tenant_id="tenant-1",
         delivery_key=f"run:{uuid.uuid4()}:{artifact_id}",
         route=ROUTE,
         message=DeliveryMessage(type="text", text="x"),

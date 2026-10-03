@@ -12,9 +12,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
+from fakes import FakeConsoleClient
 from httpx import ASGITransport, AsyncClient
 from muad_contracts import AttachmentRef
-from muad_im_gateway.api.deps import get_dedupe_store, get_registry
+from muad_im_gateway.api.deps import get_console_client, get_dedupe_store, get_registry
 from muad_im_gateway.channels.base import (
     ARTIFACT_DEGRADED,
     ARTIFACT_DELIVERED,
@@ -38,6 +39,9 @@ class _ArtifactAdapter(FakeChannelAdapter):
         self.outcome = outcome
         self.received: list[tuple[Any, AttachmentRef]] = []
 
+    def route_key(self, route: Any) -> str:
+        return f"{route.bot_id}:{route.external_user_id}"
+
     async def deliver_artifact(self, route: Any, artifact: AttachmentRef) -> ArtifactDeliveryOutcome:
         self.received.append((route, artifact))
         return self.outcome
@@ -46,18 +50,24 @@ class _ArtifactAdapter(FakeChannelAdapter):
 class _FailingArtifactAdapter(FakeChannelAdapter):
     """渠道侧发不出去（含上传失败）：**必须翻译成渠道中立的 `ArtifactDeliveryError`**。"""
 
+    def route_key(self, route: Any) -> str:
+        return f"{route.bot_id}:{route.external_user_id}"
+
     async def deliver_artifact(self, route: Any, artifact: AttachmentRef) -> ArtifactDeliveryOutcome:
         raise ArtifactDeliveryError("ARTIFACT_DELIVERY_FAILED")
 
 
 @asynccontextmanager
 async def _client(
-    adapter: FakeChannelAdapter, dedupe: InMemoryDedupeStore | None = None
+    adapter: FakeChannelAdapter,
+    dedupe: InMemoryDedupeStore | None = None,
+    console: FakeConsoleClient | None = None,
 ) -> AsyncIterator[AsyncClient]:
     registry = ChannelRegistry()
     registry.register(adapter)
     app.dependency_overrides[get_registry] = lambda: registry
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe or InMemoryDedupeStore()
+    app.dependency_overrides[get_console_client] = lambda: console or FakeConsoleClient()
     transport = ASGITransport(app=app)
     try:
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -80,6 +90,7 @@ def _artifact(artifact_id: uuid.UUID) -> AttachmentRef:
 
 def _body(artifact_id: uuid.UUID) -> dict[str, Any]:
     return {
+        "tenant_id": "tenant-1",
         "delivery_key": f"run:{uuid.uuid4()}:{artifact_id}",
         "route": ROUTE,
         "message": {"type": "artifact", "artifact": _artifact(artifact_id).model_dump(mode="json")},
@@ -156,3 +167,64 @@ async def test_channel_side_failure_releases_the_placeholder_so_a_retry_can_send
 
     assert second.status_code == 200, second.text
     assert len(ok_adapter.received) == 1, "重试必须真的再发一次"
+
+
+# --------------------------------------------------------------------- 交付审计
+
+
+async def test_successful_delivery_writes_one_audit_row() -> None:
+    """交付成功 → 审计落一行 `DELIVERED`，且带上**适配器产出的 route_key**。
+
+    `route_key` 必须是适配器给的：应用层自己拼 `{bot_id}:{user}` 就是把渠道形状写进了
+    应用层（RULE-im-002），接 web chat 时那一列会当场填不出真值。
+    """
+    artifact_id = uuid.uuid4()
+    adapter = _ArtifactAdapter(ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED))
+    console = FakeConsoleClient()
+
+    async with _client(adapter, console=console) as client:
+        response = await client.post(DELIVERIES_URL, json=_body(artifact_id))
+
+    assert response.status_code == 200, response.text
+    assert len(console.delivery_audit_calls) == 1
+    request, tenant_id = console.delivery_audit_calls[0]
+    assert request.artifact_id == artifact_id
+    assert request.outcome == "DELIVERED"
+    assert request.channel == "WECOM"
+    assert request.route_key == "bot-1:ext-1", "route_key 由适配器产出"
+    assert tenant_id == "tenant-1", "租户随请求走，不靠请求头"
+
+
+async def test_failed_delivery_is_audited_as_failed_with_a_reason_code() -> None:
+    """交付失败 → 审计落 `FAILED` + 原因码。**这正是 E-06 要的那一行。**"""
+    artifact_id = uuid.uuid4()
+    console = FakeConsoleClient()
+
+    async with _client(_FailingArtifactAdapter(), console=console) as client:
+        response = await client.post(DELIVERIES_URL, json=_body(artifact_id))
+
+    assert response.status_code == 502, response.text
+    assert len(console.delivery_audit_calls) == 1
+    request, _tenant = console.delivery_audit_calls[0]
+    assert request.outcome == "FAILED"
+    assert request.reason_code == "ARTIFACT_DELIVERY_FAILED"
+
+
+async def test_audit_write_failure_does_not_undo_a_completed_delivery() -> None:
+    """审计写不进去**不阻断**已完成的交付：东西已经到用户手里了，为一条记录去回滚送达是把事做反了。
+
+    但调用方仍拿到真实结局（200 + DELIVERED）——审计是**留痕**，不是交付的前置条件。
+    """
+    from muad_api import AppError, ErrorCode
+
+    artifact_id = uuid.uuid4()
+    console = FakeConsoleClient()
+    console.delivery_audit_error = AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+    adapter = _ArtifactAdapter(ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED))
+
+    async with _client(adapter, console=console) as client:
+        response = await client.post(DELIVERIES_URL, json=_body(artifact_id))
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["outcome"] == ARTIFACT_DELIVERED
+    assert len(adapter.received) == 1, "交付本身真的发生了"

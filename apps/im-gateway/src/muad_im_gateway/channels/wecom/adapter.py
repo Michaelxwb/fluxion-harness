@@ -788,6 +788,10 @@ class WeComAdapter:
             return
         await client.send_text(_chat_id(route), message.text)
 
+    def route_key(self, route: DeliveryRouteInput) -> str:
+        """企微的交付路由标识：`{bot_id}:{external_user_id}`（可读、不透明）。"""
+        return f"{route.bot_id}:{route.external_user_id}"
+
     async def deliver_artifact(
         self, route: DeliveryRouteInput, artifact: AttachmentRef
     ) -> ArtifactDeliveryOutcome:

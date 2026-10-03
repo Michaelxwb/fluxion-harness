@@ -13,9 +13,10 @@ from typing import Any
 import httpx
 import pytest
 import uvicorn
+from fakes import FakeConsoleClient
 from httpx import ASGITransport, AsyncClient
 from muad_contracts import BotSnapshotItem
-from muad_im_gateway.api.deps import get_dedupe_store, get_registry
+from muad_im_gateway.api.deps import get_console_client, get_dedupe_store, get_registry
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable, ChannelRegistry
 from muad_im_gateway.channels.fake import FakeChannelAdapter
 from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
@@ -64,6 +65,7 @@ def delivery_body(
     """构造投递请求体；task_id 与 delivery_key 必须指向同一 Task（契约要求）。"""
     resolved_task_id = task_id or uuid.uuid4()
     return {
+        "tenant_id": "tenant-1",
         "task_id": str(resolved_task_id),
         "delivery_key": delivery_key or f"task:{resolved_task_id}:final",
         "route": {
@@ -84,6 +86,7 @@ async def api_client(
 ) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides[get_registry] = lambda: registry
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe
+    app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
     transport = ASGITransport(app=app)
     try:
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -591,6 +594,7 @@ def _b117_bot(bot_id: str) -> BotSnapshotItem:
 def _b117_body(*, bot_id: str = B117_BOT_A, delivery_key: str | None = None) -> dict[str, Any]:
     key = delivery_key or f"task:{uuid.uuid4()}:final"
     return {
+        "tenant_id": "tenant-1",
         "task_id": key.split(":")[1],
         "delivery_key": key,
         "route": {
@@ -609,6 +613,7 @@ async def _b117_gateway_http(registry: ChannelRegistry, dedupe: Any) -> AsyncIte
     """真实 Gateway HTTP（uvicorn + 真实 socket；lifespan 关闭只保留依赖注入）。"""
     app.dependency_overrides[get_registry] = lambda: registry
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe
+    app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = int(sock.getsockname()[1])

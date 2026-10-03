@@ -11,6 +11,7 @@ from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
 from muad_contracts import (
     DEFAULT_PAGE_SIZE,
+    ArtifactDeliveryAuditRequest,
     BotSnapshotResponse,
     ChannelBindRequest,
     ChannelBindResponse,
@@ -34,6 +35,8 @@ BOTS_PATH = "/internal/channel/bots"
 CHANNEL_SKILLS_PATH = "/internal/channel/skills"
 #: 入站审计写入（TASK-012 建的权威落点；网关不持库，审计只能经它写）
 AUDIT_PATH = "/internal/channel/audit"
+#: 交付审计写入（TASK-007 建的权威落点，同一条"网关不持库"的理由）
+DELIVERY_AUDIT_PATH = "/internal/channel/artifact-delivery"
 REQUEST_TIMEOUT_SEC = 5.0
 
 
@@ -71,6 +74,10 @@ class ConsoleClientPort(Protocol):
     ) -> ChannelSkillsResponse: ...
 
     async def audit(self, request: InboundAuditRequest, tenant_id: str) -> None: ...
+
+    async def delivery_audit(
+        self, request: ArtifactDeliveryAuditRequest, tenant_id: str
+    ) -> None: ...
 
 
 class ConsoleClient:
@@ -162,6 +169,27 @@ class ConsoleClient:
             response = await self._client.request(
                 "POST",
                 AUDIT_PATH,
+                json=request.model_dump(mode="json"),
+                headers=_headers(tenant_id, self._service_token),
+            )
+        except httpx.HTTPError as exc:
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+        if response.status_code >= 400:
+            raise AppError(error_code_from_payload(decode_json(response)))
+
+    async def delivery_audit(
+        self, request: ArtifactDeliveryAuditRequest, tenant_id: str
+    ) -> None:
+        """写一条**交付**审计（设计 API-03）。
+
+        与入站审计同一落点风格：网关不持库，交付结局只能经 console 内部端点交过去。
+        幂等键 `(tenant_id, artifact_id, route_key)` 在 console 侧承载 —— 失败重试成功
+        更新同一行，不新增（`DELIVERED` 为终态）。
+        """
+        try:
+            response = await self._client.request(
+                "POST",
+                DELIVERY_AUDIT_PATH,
                 json=request.model_dump(mode="json"),
                 headers=_headers(tenant_id, self._service_token),
             )

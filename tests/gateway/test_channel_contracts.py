@@ -128,6 +128,7 @@ def test_b101_delivery_message_type_is_text_only() -> None:
 def test_b101_delivery_key_must_match_request_task_id() -> None:
     task_id = uuid4()
     request = DeliveryRequest(
+        tenant_id="tenant-1",
         task_id=task_id,
         delivery_key=f"task:{task_id}:final",
         route=_route(),
@@ -143,6 +144,7 @@ def test_b101_delivery_key_must_match_request_task_id() -> None:
     ):
         with pytest.raises(ValidationError):
             DeliveryRequest(
+                tenant_id="tenant-1",
                 task_id=task_id,
                 delivery_key=bad_key,
                 route=_route(),

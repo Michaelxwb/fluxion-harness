@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse, Response
 from muad_api import AppError
 from muad_contracts import (
     DEFAULT_PAGE_SIZE,
+    ArtifactDeliveryAuditRequest,
     BotSnapshotResponse,
     ChannelBindRequest,
     ChannelBindResponse,
@@ -50,6 +51,9 @@ class FakeConsoleClient:
         self.bots_calls = 0
         self.audit_calls: list[InboundAuditRequest] = []
         self.audit_error: AppError | None = None
+        #: 交付审计（TASK-006/007）：E-06 靠它断言「交付结局有没有留痕、写了几次」
+        self.delivery_audit_calls: list[tuple[ArtifactDeliveryAuditRequest, str]] = []
+        self.delivery_audit_error: AppError | None = None
 
     async def resolve(
         self,
@@ -90,6 +94,13 @@ class FakeConsoleClient:
         self.audit_calls.append(request)
         if self.audit_error is not None:
             raise self.audit_error
+
+    async def delivery_audit(
+        self, request: ArtifactDeliveryAuditRequest, tenant_id: str
+    ) -> None:
+        self.delivery_audit_calls.append((request, tenant_id))
+        if self.delivery_audit_error is not None:
+            raise self.delivery_audit_error
 
     async def channel_skills(
         self,

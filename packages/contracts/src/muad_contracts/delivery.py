@@ -43,8 +43,14 @@ class DeliveryRequest(ContractModel):
     - **会话内**（TASK-006 新增）：`task_id` 省略，`delivery_key = run:{run_id}:{artifact_id}`。
 
     `task_id` 由必填改为可省是**放宽**，既有 worker 调用零改动。
+
+    `tenant_id` 随请求走而不是走请求头：交付审计的幂等键是
+    `(tenant_id, artifact_id, route_key)`，租户是**这条事实的一部分**，不是传输层上下文；
+    两个调用方（runtime / worker）本来就都持有它。放进必填字段，网关就不会因为"没带头"
+    而写不出一条本该写下的审计。
     """
 
+    tenant_id: str = Field(min_length=1)
     task_id: UUID | None = None
     delivery_key: str = Field(min_length=1)
     route: DeliveryRouteInput

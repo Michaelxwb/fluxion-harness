@@ -22,7 +22,7 @@ from muad_api import AppError
 from muad_api.catalog import MessageCatalog
 from muad_api.error_codes import ErrorCode
 from muad_contracts import BotSnapshotItem
-from muad_im_gateway.api.deps import get_dedupe_store, get_registry
+from muad_im_gateway.api.deps import get_console_client, get_dedupe_store, get_registry
 from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.sse import SseEvent
 from muad_im_gateway.channels.base import ChannelRegistry
@@ -130,6 +130,7 @@ async def metrics_http(adapter: WeComAdapter) -> AsyncIterator[httpx.AsyncClient
     registry.register(adapter)
     gateway_app.dependency_overrides[get_registry] = lambda: registry
     gateway_app.dependency_overrides[get_dedupe_store] = lambda: _DELIVERY_DEDUPE["store"]
+    gateway_app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = int(sock.getsockname()[1])
@@ -267,6 +268,7 @@ async def test_b119_background_delivery_status_metrics(
 ) -> None:
     key = f"task:{uuid.uuid4()}:final"
     body = {
+        "tenant_id": "tenant-1",
         "task_id": key.split(":")[1],
         "delivery_key": key,
         "route": {

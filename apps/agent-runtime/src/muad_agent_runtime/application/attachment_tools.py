@@ -647,6 +647,7 @@ class AttachmentToolSet:
                 f"{_filename(row)}：只能交付本次运行自己写出的产物",
             )
         request = DeliveryRequest(
+            tenant_id=self._tenant_id,
             delivery_key=f"run:{self._run_id}:{row.id}",
             route=self._delivery_route,
             message=DeliveryMessage(

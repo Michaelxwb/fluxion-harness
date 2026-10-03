@@ -8,6 +8,7 @@ from typing import Protocol, runtime_checkable
 from muad_contracts import (
     AttachmentRef,
     ChannelEnvelope,
+    DeliveryAuditOutcome,
     DeliveryMessage,
     DeliveryRouteInput,
 )
@@ -99,8 +100,10 @@ class AttachmentSource(Protocol):
 
 #: 交付结局（渠道中立，与契约 `DeliveryAuditOutcome` 同口径）。
 #: `DEGRADED` **不是失败**：用户确实收到了东西（一条签名取件链接），只是形态与预期不同。
-ARTIFACT_DELIVERED = "DELIVERED"
-ARTIFACT_DEGRADED = "DEGRADED"
+#: 显式标注成契约的 Literal：这样 `ArtifactDeliveryOutcome(outcome=...)` 才过得了类型检查，
+#: 也保证这两处取值域与审计表那一列**永远一致**。
+ARTIFACT_DELIVERED: DeliveryAuditOutcome = "DELIVERED"
+ARTIFACT_DEGRADED: DeliveryAuditOutcome = "DEGRADED"
 #: 交付失败的原因码（渠道中立）。与消息目录里同名码一致——**一处定义**。
 ARTIFACT_DELIVERY_FAILED = "ARTIFACT_DELIVERY_FAILED"
 
@@ -126,7 +129,8 @@ class ArtifactDeliveryOutcome:
     把 `DEGRADED` 当失败会让模型对用户说"没发出去"，那是谎报（RULE-03）。
     """
 
-    outcome: str
+    #: 与契约 `DeliveryAuditOutcome` **同口径**：交付审计那一列存的就是它，两边取值域必须一致
+    outcome: DeliveryAuditOutcome
     fallback_url: str | None = None
     reason_code: str = ""
 
@@ -141,6 +145,15 @@ class OutboundArtifactDelivery(Protocol):
 
     **没实现这个协议 = 本通道不会发产物**：调用方必须显式失败，不得静默丢（RULE-01 的精神）。
     """
+
+    def route_key(self, route: DeliveryRouteInput) -> str:
+        """把一条路由压成**可读的不透明串**，供交付审计使用（设计 §3.3）。
+
+        **由适配器产出**，因为它的形状是渠道私有的（企微 = `{bot_id}:{external_user_id}`，
+        未来 web chat = `session:{id}`）。审计表只把它当不透明串存 —— 接新渠道时那一列
+        仍然填得出真值，而"拆成 bot_id/external_user_id 两列"会当场填不出。
+        """
+        ...
 
     async def deliver_artifact(
         self, route: DeliveryRouteInput, artifact: AttachmentRef

@@ -5,7 +5,12 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 from muad_api import ApiResponse, AppError, ErrorCode, metrics, ok
-from muad_contracts import DeliveryRequest
+from muad_api.context import current_trace_id
+from muad_contracts import (
+    ArtifactDeliveryAuditRequest,
+    DeliveryAuditOutcome,
+    DeliveryRequest,
+)
 
 from ..channels.base import (
     ArtifactDeliveryError,
@@ -18,7 +23,7 @@ from ..channels.base import (
     OutboundArtifactDelivery,
 )
 from ..infrastructure.dedupe import DELIVERED_VALUE, DedupeStore, DedupeStoreError
-from .deps import DedupeStoreDep, RegistryDep
+from .deps import ConsoleClientDep, DedupeStoreDep, RegistryDep
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +46,10 @@ async def deliver(
     request: Request,
     registry: RegistryDep,
     dedupe: DedupeStoreDep,
+    console: ConsoleClientDep,
 ) -> ApiResponse[Any]:
     key = f"{DELIVERY_DEDUPE_PREFIX}:{body.delivery_key}"
+    trace_id = current_trace_id() or ""
     try:
         reserved = await dedupe.reserve(key, DELIVERY_IN_FLIGHT_TTL_SEC)
     except DedupeStoreError as exc:
@@ -50,15 +57,16 @@ async def deliver(
         logger.warning(
             "delivery_dedupe_degraded delivery_key=%s error=%s", body.delivery_key, exc
         )
-        await _send(registry, body, dedupe=None, key=key)
-        _count_delivery("accepted")
-        return ok(
-            request.app.state.message_catalog,
-            {"accepted": True, "duplicate": False, "delivered": True, "deduplicated": False},
+        outcome = await _send_audited(
+            registry, console, body, dedupe=None, key=key, trace_id=trace_id
         )
+        _count_delivery("accepted")
+        return ok(request.app.state.message_catalog, _result(outcome))
     if not reserved:
         return await _replay(request, dedupe, key)
-    outcome = await _send(registry, body, dedupe=dedupe, key=key)
+    outcome = await _send_audited(
+        registry, console, body, dedupe=dedupe, key=key, trace_id=trace_id
+    )
     try:
         await dedupe.mark(key, DELIVERY_DEDUPE_TTL_SEC)
     except DedupeStoreError as exc:
@@ -66,6 +74,85 @@ async def deliver(
         logger.warning("delivery_dedupe_mark_failed delivery_key=%s error=%s", body.delivery_key, exc)
     _count_delivery("accepted")
     return ok(request.app.state.message_catalog, _result(outcome))
+
+
+async def _send_audited(
+    registry: ChannelRegistry,
+    console: ConsoleClientDep,
+    body: DeliveryRequest,
+    *,
+    dedupe: DedupeStore | None,
+    key: str,
+    trace_id: str,
+) -> ArtifactDeliveryOutcome | None:
+    """发送 + 写交付审计（设计 §3.6 跳 5）。
+
+    **审计写不进去不阻断已完成的交付**——东西已经送到用户手里了，为了一条记录去回滚送达
+    是把事情做反了；但必须留 ERROR 痕迹（"交付过却查不到"比失败更难查）。
+    """
+    try:
+        outcome = await _send(registry, body, dedupe=dedupe, key=key)
+    except AppError as exc:
+        # 失败也要留痕：这正是 E-06 断言"审计记 FAILED"的来源
+        await _audit_delivery(
+            registry, console, body, outcome="FAILED",
+            reason_code=str(exc.code), trace_id=trace_id,
+        )
+        raise
+    await _audit_delivery(
+        registry,
+        console,
+        body,
+        outcome=outcome.outcome if outcome is not None else "DELIVERED",
+        reason_code=outcome.reason_code if outcome is not None else "",
+        trace_id=trace_id,
+    )
+    return outcome
+
+
+async def _audit_delivery(
+    registry: ChannelRegistry,
+    console: ConsoleClientDep,
+    body: DeliveryRequest,
+    *,
+    outcome: DeliveryAuditOutcome,
+    reason_code: str,
+    trace_id: str,
+) -> None:
+    """写一条交付审计。**只对产物形态**——审计表要求 `artifact_id`，而文本投递没有
+    "把哪个产物交付给哪个路由"这件事可言，硬记一行只会把那张表灌满噪声。
+
+    `route_key` **由适配器产出**（渠道私有形状不进应用层）：适配器拿不到就跳过并留痕，
+    不自己拼一个"看起来像"的串。
+    """
+    artifact = body.message.artifact
+    if body.message.type == "text" or artifact is None or artifact.artifact_id is None:
+        return
+    try:
+        adapter = registry.get(body.route.channel)
+    except (ChannelRegistryError, ChannelBotNotFound):
+        logger.warning("delivery_audit_skipped_no_adapter delivery_key=%s", body.delivery_key)
+        return
+    if not isinstance(adapter, OutboundArtifactDelivery):
+        logger.warning("delivery_audit_skipped_no_capability delivery_key=%s", body.delivery_key)
+        return
+    try:
+        await console.delivery_audit(
+            ArtifactDeliveryAuditRequest(
+                artifact_id=artifact.artifact_id,
+                channel=body.route.channel,
+                route_key=adapter.route_key(body.route),
+                delivery_key=body.delivery_key,
+                outcome=outcome,
+                reason_code=reason_code,
+                trace_id=trace_id or None,
+            ),
+            body.tenant_id,
+        )
+    except AppError as exc:
+        logger.error(
+            "delivery_audit_write_failed delivery_key=%s code=%s", body.delivery_key, exc.code
+        )
 
 
 def _result(outcome: ArtifactDeliveryOutcome | None) -> dict[str, Any]:
