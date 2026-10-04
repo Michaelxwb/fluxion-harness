@@ -64,6 +64,22 @@ def _messages() -> list[ModelMessage]:
     return messages
 
 
+def _conversation() -> list[ModelMessage]:
+    """一段有**历史**的对话，共 8 组：更早的一轮（1 user + 4 工具组 + 一句结论）+ 当前回合。
+
+    当前回合是 1 条 user + 1 个工具组。snip 只在"头 N 组之外还有**不属于当前回合**的历史"时
+    才有东西可省 —— 单回合的 `_messages()` 在新口径下没有可省的东西（见
+    `test_b01_snip_does_not_fire_when_everything_is_the_current_turn`）。
+    """
+    messages = [_user("最初的诉求：别忘了我")]
+    for index in range(4):
+        messages.extend(_tool_group(f"old-{index}", f"tool_{index}", f"旧回合 {index}", f"art-{index}"))
+    messages.append(_assistant("先前的结论"))
+    messages.append(_user("现在的追问"))
+    messages.extend(_tool_group("now-0", "tool_now", "当前回合", "art-now"))
+    return messages
+
+
 # ---- B-01：消息组切分与头尾保留 ----
 
 
@@ -76,41 +92,111 @@ def test_b01_split_groups_keeps_assistant_and_its_tool_results_together() -> Non
 
 
 def test_b01_snip_keeps_head_and_tail_and_counts_omitted_groups() -> None:
-    messages = _messages()
+    messages = _conversation()
     outcome = snip(messages, SnipSettings(keep_head_groups=2, keep_tail_groups=2, max_groups=4))
 
     assert outcome.fired
-    assert outcome.groups == 2, "6 组留下 4 组 ⇒ 省略 2 组"
+    assert outcome.groups == 4, "8 组留下头 2 + 当前回合 2 ⇒ 省略中间 4 组"
     assert outcome.bytes_saved > 0
     assert outcome.messages[0].content == "最初的诉求：别忘了我", "开头诉求必须留下"
 
     markers = [message for message in outcome.messages if "省略" in str(message.content)]
     assert len(markers) == 1, "中间只留**一条**省略标记"
     marker = str(markers[0].content)
-    assert "2 组" in marker, "标记按**组**报数"
+    assert "4 组" in marker, "标记按**组**报数"
     assert "tool_1" in marker and "tool_2" in marker, "标记要列出被省掉的工具名"
     assert "art-1" in marker or "art-2" in marker, "标记要列出被省掉的产物名"
+
+    kept = [str(message.content) for message in outcome.messages]
+    assert "现在的追问" in kept, "当前回合不受尾窗口限制，必须整段留下"
 
 
 def test_b01_snip_is_off_at_or_below_the_threshold() -> None:
     """RULE-02 的严格大于：组数恰好等于 `max_groups` 时不触发。"""
-    messages = _messages()
-    exact = snip(messages, SnipSettings(keep_head_groups=2, keep_tail_groups=2, max_groups=6))
+    messages = _conversation()
+    exact = snip(messages, SnipSettings(keep_head_groups=2, keep_tail_groups=2, max_groups=8))
     assert exact.fired is False
     assert exact.messages == tuple(messages)
 
-    over = snip(messages, SnipSettings(keep_head_groups=2, keep_tail_groups=2, max_groups=5))
+    over = snip(messages, SnipSettings(keep_head_groups=2, keep_tail_groups=2, max_groups=7))
     assert over.fired is True
 
 
 def test_b01_snip_disabled_is_identity() -> None:
-    messages = _messages()
+    messages = _conversation()
     outcome = snip(
         messages,
         SnipSettings(enabled=False, keep_head_groups=1, keep_tail_groups=1, max_groups=1),
     )
     assert outcome.fired is False
     assert outcome.messages == tuple(messages)
+
+
+def test_b01_snip_keeps_the_current_turn_whole() -> None:
+    """**当前回合（从最近一条 `user` 起到末尾）永不省略**——它不是"历史"。
+
+    反例现场（修复前）：一个回合内的工具轮次超过 `keep_tail_groups` 时，正在回答的那个问题被
+    省掉，模型只看到一串工具名，只能靠猜。生产默认值下要"单回合 > 20 个工具组"才够得着。
+    """
+    messages = [
+        _user("最初的诉求"),
+        *_tool_group("old-0", "tool_old", "旧回合 0"),
+        _assistant("先前的结论"),
+        _user("现在的追问：请核对这份清单"),
+        *[
+            message
+            for index in range(5)
+            for message in _tool_group(f"now-{index}", f"tool_now_{index}", f"当前回合 {index}")
+        ],
+    ]
+    outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=2, max_groups=3))
+
+    assert outcome.fired
+    texts = [str(message.content) for message in outcome.messages]
+    assert "最初的诉求" in texts, "开头诉求必须留下（保头）"
+    assert "现在的追问：请核对这份清单" in texts, "当前正在回答的问题被省略了"
+    for index in range(5):
+        assert f"当前回合 {index}" in texts, f"当前回合的工具组 {index} 被省略了"
+    assert "先前的结论" not in texts, "被省的只能是更早的历史"
+    assert outcome.groups == 2, "省略的是'旧回合 0'与'先前的结论'两组"
+
+
+def test_b01_snip_is_unchanged_when_the_tail_window_already_covers_the_current_turn() -> None:
+    """对照：最近一条 `user` 组落在尾窗口**之内**时，锚定不改变任何结果。"""
+    outcome = snip(
+        _conversation(), SnipSettings(keep_head_groups=2, keep_tail_groups=5, max_groups=3)
+    )
+
+    assert outcome.fired
+    assert outcome.groups == 1, "尾窗口已覆盖当前回合 ⇒ 只省头 2 组之后的那一组"
+    assert "现在的追问" in [str(message.content) for message in outcome.messages]
+
+
+def test_b01_snip_does_not_fire_when_everything_is_the_current_turn() -> None:
+    """头 N 组之后没有更早的历史 ⇒ 没有可省的东西：**不触发**，且输出逐字节等于净化后的输入。
+
+    凭空插一条省略标记会让模型以为丢了历史，实际什么都没省（还多花字节）。
+    """
+    messages = _messages()
+    outcome = snip(messages, SnipSettings(keep_head_groups=2, keep_tail_groups=2, max_groups=4))
+
+    assert outcome.fired is False
+    assert outcome.messages == tuple(messages)
+    assert outcome.bytes_saved == 0
+
+
+def test_b01_snip_without_any_user_group_falls_back_to_the_group_window() -> None:
+    """历史里一个 `user` 组都没有（例如摘要边界把更早的都切掉了）⇒ 退化为按组数的原口径。"""
+    messages = [
+        message
+        for index in range(4)
+        for message in _tool_group(f"c-{index}", f"t{index}", f"回合 {index}")
+    ]
+    outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=2))
+
+    assert outcome.fired
+    assert outcome.groups == 2
+    _assert_paired(outcome.messages)
 
 
 def test_rule01_snip_never_leaves_an_orphan_tool_message() -> None:
@@ -155,18 +241,20 @@ def test_rule01_orphan_tool_in_input_is_dropped_not_propagated() -> None:
 def test_rule01_assistant_with_tool_calls_survives_its_result() -> None:
     """反方向：工具组被保留时，声明与结果必须**成对**出现，不能只留其一。"""
     messages = [
-        _user("问"),
-        *_tool_group("c0", "t0", "回合 0", "art-0"),
-        _assistant("中间"),
-        *_tool_group("c1", "t1", "回合 1", "art-1"),
+        _user("最初的诉求"),
+        *_tool_group("old", "t_old", "旧回合", "art-old"),
+        _assistant("先前的结论"),
+        _user("现在的追问"),
+        *_tool_group("c1", "t1", "当前回合", "art-1"),
     ]
-    outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=2))
+    outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=3))
 
     assert outcome.fired
     _assert_paired(outcome.messages)
     assert any(message.tool_calls for message in outcome.messages), "尾部工具组的 assistant 必须在"
     surviving = [message for message in outcome.messages if message.role is ModelRole.TOOL]
     assert [message.tool_call_id for message in surviving] == ["c1"], "尾部工具组的结果必须与声明一起来"
+    assert all(message.tool_call_id != "old" for message in outcome.messages), "被省的组整组退场"
 
 
 # ---- B-03：micro 降级 ----
@@ -287,7 +375,7 @@ def test_rule02_message_bytes_counts_reasoning_and_tool_arguments() -> None:
 
 
 def test_rule02_snip_reports_real_byte_savings() -> None:
-    messages = _messages()
+    messages = _conversation()
     outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=2))
     assert outcome.bytes_before > outcome.bytes_after
     assert outcome.bytes_saved == outcome.bytes_before - outcome.bytes_after
@@ -295,11 +383,13 @@ def test_rule02_snip_reports_real_byte_savings() -> None:
 
 def test_outcome_payload_shape_matches_audit_event() -> None:
     """审计事件要的 `layers{layer: {fired, groups, bytes_saved}}` 形状必须能直接取到。"""
-    outcome = snip(_messages(), SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=2))
+    outcome = snip(
+        _conversation(), SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=2)
+    )
     payload: dict[str, Any] = outcome.as_layer_payload()
     assert payload["layer"] == "snip"
     assert payload["fired"] is True
-    assert payload["groups"] == 4
+    assert payload["groups"] == 5, "8 组留下头 1 + 当前回合 2 ⇒ 省略中间 5 组"
     assert payload["bytes_saved"] > 0
     assert set(payload) == {"layer", "fired", "groups", "bytes_saved"}
 
@@ -326,7 +416,7 @@ def test_protected_prefix_is_the_leading_system_run() -> None:
 
 def test_snip_never_counts_or_omits_the_protected_prefix() -> None:
     """snip 的"保头"是**对话区**的头：系统提示/memory/摘要既不被算进组数也不被省掉。"""
-    messages = [*_prefix(), *_messages()]
+    messages = [*_prefix(), *_conversation()]
     outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=2))
 
     assert outcome.fired

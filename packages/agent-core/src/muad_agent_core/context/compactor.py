@@ -176,11 +176,24 @@ def _snip_marker(omitted: Sequence[Group]) -> ModelMessage:
     return ModelMessage(role=ModelRole.SYSTEM, content=content)
 
 
+def _current_turn_start(groups: Sequence[Group]) -> int | None:
+    """最近一条 `user` 消息所在组的下标——**当前回合从它开始，永远不参与省略**。
+
+    与条数兜底"从最近一条 USER 起切"是同一条口径（`trim_history`），只是这里按组算：模型必须
+    知道自己在回答什么，否则它只能对着一串工具名猜。没有 `user` 组时返回 None（退化为按组数）。
+    """
+    for index in range(len(groups) - 1, -1, -1):
+        if any(message.role is ModelRole.USER for message in groups[index]):
+            return index
+    return None
+
+
 def snip(messages: Sequence[ModelMessage], settings: SnipSettings) -> LayerOutcome:
     """保留最前 `keep_head_groups` 组 + 最近 `keep_tail_groups` 组，中间换一条省略标记。
 
     触发条件是**组数严格大于** `max_groups`（RULE-02 的严格大于口径；`max_groups` 是阈值不是
-    保留总数）。
+    保留总数）。尾部下界还受**当前回合**约束（`_current_turn_start`）：最近一条 `user` 起到末尾
+    全保，所以实际保留的组数可能多于 `keep_tail_groups`；两者之间没有更早的历史时不触发。
     """
     sanitized = _sanitized(messages)
     before = history_bytes(sanitized)
@@ -193,14 +206,22 @@ def snip(messages: Sequence[ModelMessage], settings: SnipSettings) -> LayerOutco
         return _unchanged("snip", sanitized, before)
 
     head = groups[: settings.keep_head_groups]
-    tail_count = min(settings.keep_tail_groups, len(groups) - len(head) - 1)
-    omitted = groups[len(head) : len(groups) - tail_count]
+    tail_count = max(0, min(settings.keep_tail_groups, len(groups) - len(head) - 1))
+    start = len(groups) - tail_count
+    current_turn = _current_turn_start(groups)
+    if current_turn is not None:
+        start = min(start, current_turn)
+
+    omitted = groups[len(head) : start]
+    if not omitted:
+        # 头 N 组之后全是当前回合：没有"更早的历史"可省。插一条省略标记只会让模型以为丢了
+        # 东西（还多花字节），所以不触发——层未触发时输出仍是净化后的输入。
+        return _unchanged("snip", sanitized, before)
+
     emitted: list[ModelMessage] = [*prefix]
     emitted.extend(message for group in head for message in group)
     emitted.append(_snip_marker(omitted))
-    emitted.extend(
-        message for group in groups[len(groups) - tail_count :] for message in group
-    )
+    emitted.extend(message for group in groups[start:] for message in group)
     compacted = tuple(emitted)
     return LayerOutcome(
         "snip", True, len(omitted), before, history_bytes(compacted), compacted

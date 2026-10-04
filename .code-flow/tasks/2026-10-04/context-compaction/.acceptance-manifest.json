@@ -50,7 +50,7 @@
       "kind": "functional",
       "boundary": "纯逻辑：消息组切分与头尾保留（尾部锚定最近一条 user 组）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -60,7 +60,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4533d6e75dce45daa740f741ff7d9189",
+        "executed_at": "2026-10-04T10:56:33.871373+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4533d6e75dce45daa740f741ff7d9189",
+          "executed_at": "2026-10-04T10:56:33.871373+00:00"
+        }
+      ]
     },
     {
       "id": "B-03",
