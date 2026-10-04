@@ -9,7 +9,6 @@ from fastapi import FastAPI
 from muad_api import (
     install_api_foundation,
     install_health_probes,
-    install_metrics,
     validate_startup,
 )
 from muad_api.catalog import MessageCatalog
@@ -28,6 +27,7 @@ from .channels.base import ChannelRegistry
 from .channels.probe import HttpProbeChannelAdapter
 from .channels.wecom.adapter import WeComAdapter
 from .infrastructure.dedupe import DedupeStore, build_dedupe_store
+from .metrics import install_gateway_metrics
 
 SERVICE_NAME = "muad-im-gateway"
 
@@ -151,4 +151,4 @@ install_health_probes(
     detail=lambda: readiness_detail(app),
 )
 app.include_router(delivery_router)
-install_metrics(app)
+install_gateway_metrics(app)

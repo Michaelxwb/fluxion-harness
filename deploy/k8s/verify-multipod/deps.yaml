@@ -1,0 +1,97 @@
+# 冒烟用的隔离依赖：PostgreSQL + Redis。
+#
+# **为什么必须有**：冒烟脚本会清掉 `e2e-im-gateway` / `e2e-task-schedule` 两个租户再种 e2e 数据，
+# 并投真实任务——跑到 dev 库上就是往你的开发数据里塞 e2e 行。所以它跑在**一次性库**上：
+# 起这一份、跑完删掉，与生产依赖（NFS/PG/Redis 都是外部依赖，见 docs/01 §4.3）无关。
+#
+# 用法：
+#   kubectl apply -f deploy/k8s/verify-multipod/deps.yaml
+#   kubectl -n muad port-forward svc/verify-postgres 5433:5432 &
+#   export DATABASE_URL=postgresql+asyncpg://muad:muad@localhost:5433/muad
+#   uv run python tests/k8s_multipod_smoke.py --leg all
+#   kubectl delete -f deploy/k8s/verify-multipod/deps.yaml     # 跑完删掉
+apiVersion: v1
+kind: Service
+metadata:
+  name: verify-postgres
+  namespace: muad
+spec:
+  selector:
+    app: verify-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verify-postgres
+  namespace: muad
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: verify-postgres
+  template:
+    metadata:
+      labels:
+        app: verify-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          env:
+            - {name: POSTGRES_USER, value: muad}
+            - {name: POSTGRES_PASSWORD, value: muad}
+            - {name: POSTGRES_DB, value: muad}
+            # 数据目录挪到子目录：挂载点根目录由 k8s 管理，PG 要求空目录
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec: {command: ["pg_isready", "-U", "muad", "-d", "muad"]}
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+      volumes:
+        # 一次性库：用 emptyDir 即可（跑完连数据一起没，正合本意）
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: verify-redis
+  namespace: muad
+spec:
+  selector:
+    app: verify-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verify-redis
+  namespace: muad
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: verify-redis
+  template:
+    metadata:
+      labels:
+        app: verify-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec: {command: ["redis-cli", "ping"]}
+            initialDelaySeconds: 2
+            periodSeconds: 3

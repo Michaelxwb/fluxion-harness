@@ -1,0 +1,17 @@
+# 多 Pod 冒烟：Runtime 与 Worker 各 2 副本（docs/01 §4.2 建议 runtime/worker 为 2~N）。
+# Console 保持 1、IM Gateway 保持 1（docs/01 §4.2：gateway 1~N，按 Bot 数/连接数/吞吐再谈）。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: muad-agent-runtime
+  namespace: muad
+spec:
+  replicas: 2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: muad-agent-worker
+  namespace: muad
+spec:
+  replicas: 2

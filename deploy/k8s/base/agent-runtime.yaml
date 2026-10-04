@@ -40,9 +40,16 @@ spec:
                 secretKeyRef:
                   name: muad-external
                   key: REDIS_URL
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: muad-external
+                  key: INTERNAL_SERVICE_TOKEN
+          # readiness 接 /readyz（api-kit 的依赖就绪口径，依赖缺失回 503）；
+          # liveness 仍接 /healthz（存活，不因依赖抖动重启 Pod）。
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: 8001
           livenessProbe:
             httpGet:

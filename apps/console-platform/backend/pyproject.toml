@@ -17,6 +17,10 @@ dependencies = [
   "muad-logging",
   "muad-skill-sdk",
   "jsonschema>=4.26.0",
+  # 迁移载体：`migrations/db_migrate.py` 只依赖 alembic + sqlalchemy[asyncio] + asyncpg
+  # （不 import 任何业务包）。集群内没有别的地方能跑迁移，而 Console 是控制面单元，
+  # 故由它的镜像承载 `deploy/k8s/base/migrate-job.yaml`（版本与根 pyproject 同 pin）。
+  "alembic>=1.14,<2",
 ]
 
 [project.scripts]

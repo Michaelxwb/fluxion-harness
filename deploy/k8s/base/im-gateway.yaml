@@ -40,14 +40,21 @@ spec:
                 secretKeyRef:
                   name: muad-external
                   key: REDIS_URL
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: muad-external
+                  key: INTERNAL_SERVICE_TOKEN
           # 附件字节要落进共享 artifact store，Runtime 才能按 storage_key 读到（AD-1-B）。
           # 只注入 ARTIFACT_ROOT 环境变量是不够的——路径没挂载时网关会写进容器临时盘并"成功"。
           volumeMounts:
             - name: artifacts
               mountPath: /mnt/muad-artifacts
+          # readiness 接 /readyz（api-kit 的依赖就绪口径，依赖缺失回 503）；
+          # liveness 仍接 /healthz（存活，不因依赖抖动重启 Pod）。
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: 8003
           livenessProbe:
             httpGet:

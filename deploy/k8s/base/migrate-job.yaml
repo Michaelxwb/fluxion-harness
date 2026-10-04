@@ -1,0 +1,44 @@
+# 迁移 Job：把 `migrations/` 升到 head。**集群内唯一的 schema 变更入口**。
+#
+# 载体镜像是 console-platform：`migrations/db_migrate.py` 只依赖 alembic + sqlalchemy[asyncio]
+# + asyncpg（不 import 任何业务包），而全仓只有 Console 镜像带 alembic（其余三个单元的依赖
+# 是按各自运行时最小集声明的）。不想让 Console 镜像承担这件事的话，另建一个专用载体镜像即可，
+# 但**不要再让部署依赖"某人手工连库跑迁移"** —— 那样新环境起不来，且没人知道该跑什么。
+#
+# 用法（顺序见 deploy/k8s/README.md）：
+#   kubectl apply -f deploy/k8s/base/namespace.yaml -f deploy/k8s/base/configmap.yaml ...
+#   kubectl -n muad delete job muad-migrate --ignore-not-found && \
+#   kubectl apply -f deploy/k8s/base/migrate-job.yaml
+#   kubectl -n muad wait --for=condition=complete job/muad-migrate --timeout=300s
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: muad-migrate
+  namespace: muad
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+      containers:
+        - name: migrate
+          image: ghcr.io/michaelxwb/muad-console-platform:latest
+          command: ["sh", "-c"]
+          # 迁移只认 ini、不读环境变量（见 docs 与 `migrations/db_migrate.py` 的文档串），
+          # 所以这里按 CI 的同一口径**现场生成 ini**，DSN 取自 Secret 的 DATABASE_URL。
+          args:
+            - |
+              set -e
+              printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' "$DATABASE_URL" > /tmp/alembic.job.ini
+              python migrations/db_migrate.py -c /tmp/alembic.job.ini
+              python migrations/db_migrate.py -c /tmp/alembic.job.ini current
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: muad-external
+                  key: DATABASE_URL
