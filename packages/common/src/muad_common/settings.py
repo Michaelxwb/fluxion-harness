@@ -32,6 +32,9 @@ class SharedSettings(BaseSettings):
     mcp_max_tools_per_server: int = 200
     skill_cache_root: str = "./.data/skill-cache"
     migrations_dir: str = "./migrations/versions"
+    # 压缩配置**设置源**的进程内缓存 TTL（秒）。设置源变更后 ≤TTL 对下一个新 Run 生效；在飞的
+    # Run 用的仍是它自己那份冻结值（`policy_json`）。它的作用是不让每个新 Run 都去打一次设置源。
+    context_settings_cache_ttl_sec: int = 10
 
     console_platform_url: str = "http://127.0.0.1:8000"
     agent_runtime_url: str = "http://127.0.0.1:8001"

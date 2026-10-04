@@ -5,7 +5,7 @@ import hashlib
 import json
 import logging
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,6 +13,11 @@ from typing import Any
 
 import sqlalchemy as sa
 from muad_agent_core.agent import RunnerModelError
+from muad_agent_core.context.settings import (
+    CompactionSettings,
+    compaction_payload,
+    default_compaction_settings,
+)
 from muad_agent_core.model import ModelMessage
 from muad_api import AppError
 from muad_api.context import current_trace_id
@@ -57,6 +62,7 @@ from .attachments.inbound import (
     persist_inbound_attachments,
 )
 from .context_builder import BudgetPolicy, DbBackedContextBuilder
+from .context_settings import resolve_compaction_settings
 from .executor import (
     ExecutorCredentials,
     ExecutorEvent,
@@ -84,7 +90,34 @@ logger = logging.getLogger(__name__)
 ACTIVE_RUN_STATUSES = (RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT)
 TERMINAL_RUN_STATUSES = (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)
 PROMPT_TEMPLATE_VERSION = "1"
-DEFAULT_POLICY: dict[str, Any] = {"max_model_retries": 3}
+MAX_MODEL_RETRIES = 3
+
+
+def snapshot_policy(compaction: CompactionSettings | None = None) -> dict[str, Any]:
+    """Run 侧 execution snapshot 的执行期策略——`policy_json` 的唯一构建口径。
+
+    压缩配置与 `max_model_retries` 一并冻结在这里：配置变更只影响后续新 Run，在飞的 Run 用的
+    是它自己那一份冻结值（`harness-snapshot#RULE-snapshot-001` 的"Run 侧等价载体"）。
+    """
+    settings = compaction if compaction is not None else default_compaction_settings()
+    return {
+        "max_model_retries": MAX_MODEL_RETRIES,
+        "compaction": compaction_payload(settings),
+    }
+
+
+def history_budget_of(policy: Mapping[str, Any] | None) -> int | None:
+    """从已冻结的 `policy_json` 取历史预算（消息条数）；缺失/形状不对时返回 None。
+
+    返回 None 让 `DbBackedContextBuilder` 回落到它自己的默认值——resume 读到的是**这一行当时**
+    冻结的预算，而不是当前配置，配置改动因此只影响后续新 Run。
+    """
+    compaction = (policy or {}).get("compaction")
+    value = compaction.get("history_budget_messages") if isinstance(compaction, Mapping) else None
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+DEFAULT_POLICY: dict[str, Any] = snapshot_policy()
 RUN_ABANDONED = "RUN_ABANDONED"
 USER_MESSAGE_EVENT = "USER_MESSAGE"
 ASSISTANT_MESSAGE_EVENT = "ASSISTANT_MESSAGE"
@@ -97,7 +130,6 @@ INTERRUPT_RESOLVED = "RESOLVED"
 INTERRUPT_CANCELLED = "CANCELLED"
 TERMINAL_STREAM_TYPES = (RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)
 REPLAY_POLL_SEC = 0.5
-HISTORY_BUDGET_MESSAGES = 40
 CONVERSATION_ACTIVE = "ACTIVE"
 
 STREAM_BUSINESS_TYPES: dict[str, str] = {
@@ -148,7 +180,14 @@ def build_snapshot(
     run_id: uuid.UUID,
     tenant_id: str,
     resolved: ResolveDefinitionResponse,
+    compaction: CompactionSettings | None = None,
 ) -> RuntimeSnapshot:
+    settings = (
+        compaction
+        if compaction is not None
+        else resolve_compaction_settings(resolved.agent.runtime_config)
+    )
+    policy = snapshot_policy(settings)
     return RuntimeSnapshot(
         tenant_id=tenant_id,
         run_id=run_id,
@@ -159,9 +198,9 @@ def build_snapshot(
         model_json=_snapshot_model(resolved.model),
         skill_catalog_json=[skill.model_dump(mode="json") for skill in resolved.skills],
         mcp_catalog_json=[server.model_dump(mode="json") for server in resolved.mcp_servers],
-        policy_json=dict(DEFAULT_POLICY),
+        policy_json=policy,
         prompt_template_version=PROMPT_TEMPLATE_VERSION,
-        content_hash=_snapshot_hash(resolved, DEFAULT_POLICY),
+        content_hash=_snapshot_hash(resolved, policy),
     )
 
 
@@ -248,7 +287,8 @@ class RunService:
         self._credentials_client = credentials_client
         self._submissions = submissions or RunSubmissionService(get_session_factory)
         self._context_builder = context_builder or DbBackedContextBuilder(
-            session_factory=get_session_factory, budget=BudgetPolicy(max_messages=HISTORY_BUDGET_MESSAGES)
+            session_factory=get_session_factory,
+            budget=BudgetPolicy(max_messages=default_compaction_settings().history_budget_messages),
         )
         self._settings = SharedSettings()
 
@@ -561,6 +601,9 @@ class RunService:
     ) -> RunStart:
         now = _utcnow()
         run_id = uuid.uuid4()
+        # 压缩配置在此解析一次：既冻进这一行的 snapshot，也供本次历史装配用同一个值——
+        # 二者若各解析一次，配置恰好在两次之间变更就会让"冻结值"与"实际用的值"分叉。
+        compaction = resolve_compaction_settings(resolved.agent.runtime_config)
         model, mcp_secrets = await self._runtime_credentials(
             run_id,
             tenant_id,
@@ -587,7 +630,7 @@ class RunService:
         self._session.add(run)
         try:
             await self._session.flush()
-            snapshot = self._build_snapshot(run.id, tenant_id, resolved)
+            snapshot = self._build_snapshot(run.id, tenant_id, resolved, compaction)
             self._session.add(snapshot)
             await self._session.flush()
             run.snapshot_id = snapshot.id
@@ -640,7 +683,12 @@ class RunService:
             if replay is not None:
                 return self._replay_start(replay)
             raise AppError(ErrorCode.RUN_BUSY) from exc
-        history = await self._load_history(conversation.id, tenant_id, request.platform_user_id)
+        history = await self._load_history(
+            conversation.id,
+            tenant_id,
+            request.platform_user_id,
+            budget_messages=compaction.history_budget_messages,
+        )
         return RunStart(
             run_id=run.id,
             conversation_id=conversation.id,
@@ -735,7 +783,13 @@ class RunService:
             if replay is not None:
                 return self._replay_start(replay)
             raise AppError(ErrorCode.RUN_BUSY) from exc
-        history = await self._load_history(run.conversation_id, run.tenant_id, run.user_id)
+        # resume 不重解析配置：历史预算从这一行已冻结的 `policy_json` 取，配置改动只影响后续新 Run。
+        history = await self._load_history(
+            run.conversation_id,
+            run.tenant_id,
+            run.user_id,
+            budget_messages=history_budget_of(snapshot.policy_json),
+        )
         return RunStart(
             run_id=run.id,
             conversation_id=run.conversation_id,
@@ -846,12 +900,18 @@ class RunService:
             logger.warning("cancel_hint_set_failed", extra={"run_id": str(run_id)})
 
     async def _load_history(
-        self, conversation_id: uuid.UUID, tenant_id: str, user_id: uuid.UUID
+        self,
+        conversation_id: uuid.UUID,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        *,
+        budget_messages: int | None = None,
     ) -> tuple[ModelMessage, ...]:
         return await self._context_builder.load_history(
             tenant_id=tenant_id,
             conversation_id=conversation_id,
             user_id=user_id,
+            budget=budget_messages,
         )
 
     def _build_snapshot(
@@ -859,8 +919,11 @@ class RunService:
         run_id: uuid.UUID,
         tenant_id: str,
         resolved: ResolveDefinitionResponse,
+        compaction: CompactionSettings | None = None,
     ) -> RuntimeSnapshot:
-        return build_snapshot(run_id=run_id, tenant_id=tenant_id, resolved=resolved)
+        return build_snapshot(
+            run_id=run_id, tenant_id=tenant_id, resolved=resolved, compaction=compaction
+        )
 
     def _event_writer(self) -> EventWriter:
         return EventWriter(self._session)

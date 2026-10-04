@@ -1,0 +1,237 @@
+{
+  "schema": 2,
+  "task_file": "context-compaction.md",
+  "task_sha256": "f5029719cb39b2d0a32d97b4ee799907a0acd060a7081fee29182c23fef891e6",
+  "scenarios": [
+    {
+      "id": "E-04",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG：execution snapshot 的 `policy_json`",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_compaction_config.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "49092492ce474f52ba642f9ebce7b19c",
+        "executed_at": "2026-10-04T10:09:27.452641+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "49092492ce474f52ba642f9ebce7b19c",
+          "executed_at": "2026-10-04T10:09:27.452641+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-01",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯逻辑：消息组切分与头尾保留",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_context_compactor.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-03",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯逻辑：micro 降级与占位符",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_context_compactor.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-02",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯逻辑：整轮批次预算选取",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_artifact_round_budget.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-04",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯逻辑：摘要五字段精确校验",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_summary.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG + 共享产物存储",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_compaction_artifacts.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG：从 canonical_event 重建",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_rebuild.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG：canonical_event 审计行",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_events.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 agent-runtime `/metrics`（api-kit 目录）",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_metrics.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实请求装配 → 模型 HTTP 探针",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_memory_budget.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-01",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_context_compaction.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    }
+  ]
+}

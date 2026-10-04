@@ -114,7 +114,10 @@ async def test_b104_definition_change_only_affects_new_runs(
     before = await _snapshot_row(run1)
     assert before["content_hash"].startswith("sha256:")
     assert "api_key" not in before["model_json"]
-    assert before["policy_json"] == {"max_model_retries": 3}
+    # policy_json 冻结**执行期策略**：`max_model_retries` 之外，压缩策略也一并冻结在此键
+    # （RULE-snapshot-001 的"预算只属 snapshot 的 budget 键 / Run 侧等价载体是 policy_json"）。
+    assert before["policy_json"]["max_model_retries"] == 3
+    assert "compaction" in before["policy_json"]
     assert before["agent_revision"] == resolved.agent.revision
     assert before["model_revision"] == resolved.model.revision
 

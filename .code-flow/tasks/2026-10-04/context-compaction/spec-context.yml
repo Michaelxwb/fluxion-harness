@@ -1,0 +1,522 @@
+version: 1
+task: context-compaction
+enforcement: required
+updated_at: '2026-10-04T10:09:43.286035+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: harness-arch
+  path: arch/harness-arch.md
+  status: active
+  hashes:
+    file_sha256: 4e9344e6fe1286341a97cceb886f03715d435fe3830e98284fd2e366fea0a181
+    metadata_sha256: 39a976af1534eeebee31887b5b054dd8406536a86fd2e9dc8d6f27e6e0e1bda7
+    rules_sha256: 11ae8f2db7be71dfeebbf0d395ea7f65402138090add6e7aa91602ff60c6b12b
+  selected_by: agent
+  reason: 压缩结果必须可按库重建、跨 Pod 一致；transcript 落共享产物存储，不落 Pod 本地盘
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-arch-001
+    summary: 固定四个部署单元（console-platform / agent-runtime / agent-worker / im-gateway）；Runtime
+      与 Worker 无状态、可横向扩展，不绑定 Pod、bot_id 或用户；同一会话可被任意 Pod 执行。
+    text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+    enforcement: required
+    verifier_ref: harness-arch#RULE-arch-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: context-compaction.design.md
+          section_id: 3.2 架构设计
+          item_id: rebuild-and-shared-store
+          artifact_sha256: 9610f94ec74b43869a6b353ed466430c48ccc1d95da63d6da532a7405ea299f1
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: context-compaction.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 9dfef16a71eeca4162c5919e68b9e35db1e2e160812a323315164c90432be0f9
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-04T10:09:27.485033+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 79f4ecad0a8fc91e892610230da2ea4e1b14ec23b21579c89d048c2b7e0c8c62
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-data
+  path: persistence/harness-data.md
+  status: active
+  hashes:
+    file_sha256: f3ba94f49367b79c43bee24451ba528a5b7f57975196521ddd934187c626c92e
+    metadata_sha256: 7d1f9d0220849592b3262f71451e8eb62a816bb1e1dc20a98261ff463bd02406
+    rules_sha256: fb8cfcb8f9e5ecb2fbc7cd763598d18b42d10f7146361ef776bdf7a20279a8d7
+  selected_by: agent
+  reason: 摘要作为权威历史落库（新事件类型）；transcript 落 artifact 表；时间戳/jsonb 口径
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-data-001
+    summary: 产品表统一 `id/is_deleted/create_time/update_time`；软删除唯一约束用 partial unique
+      `WHERE is_deleted=false`；时间统一 `timestamptz`；同 Owner Schema 用物理 FK，跨 Owner Schema
+      仅逻辑 UUID；JSON 配置用 `jsonb` 且关键查询字段不得只藏在 JSON。
+    text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+    enforcement: required
+    verifier_ref: harness-data#RULE-data-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: context-compaction.design.md
+          section_id: 3.3 数据设计
+          item_id: canonical_event-and-artifact
+          artifact_sha256: 9610f94ec74b43869a6b353ed466430c48ccc1d95da63d6da532a7405ea299f1
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: context-compaction.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 9dfef16a71eeca4162c5919e68b9e35db1e2e160812a323315164c90432be0f9
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-04T10:09:27.485760+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: 79f4ecad0a8fc91e892610230da2ea4e1b14ec23b21579c89d048c2b7e0c8c62
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-model
+  path: model/harness-model.md
+  status: active
+  hashes:
+    file_sha256: 4df2516ed2be551cf6080e995aea9ce407cffa094e392ea8ff695f326decaa0f
+    metadata_sha256: 6a2d580437c8b00f81ed56195982db49f26ff42ac0109e44bd28281b5d49f9cd
+    rules_sha256: ca794c666a9657f8e324ca978ce2aeade30bb0b4f48ddb36f7a204ac87fa77c6
+  selected_by: agent
+  reason: 摘要调用只走 OPENAI 兼容协议；摘要模型引用 model_definition，不新增默认模型
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-model-001
+    summary: '`model_definition` 不设 `is_default`；每个 Agent 必须显式保存 `model_id`，不存在平台默认模型回退；模型调用只允许
+      OPENAI 兼容协议。'
+    text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+    enforcement: required
+    verifier_ref: harness-model#RULE-model-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: context-compaction.design.md
+          section_id: 3.4 接口设计
+          item_id: summary.model_ref
+          artifact_sha256: 9610f94ec74b43869a6b353ed466430c48ccc1d95da63d6da532a7405ea299f1
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: context-compaction.md
+          section_id: TASK-004
+          item_id: TASK-004
+          artifact_sha256: 9dfef16a71eeca4162c5919e68b9e35db1e2e160812a323315164c90432be0f9
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-04T10:09:27.486445+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 79f4ecad0a8fc91e892610230da2ea4e1b14ec23b21579c89d048c2b7e0c8c62
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-secret
+  path: secret/harness-secret.md
+  status: active
+  hashes:
+    file_sha256: eb8707731633fe77fc6735d5cdcd7fa5da68d5850a5497dc5a0d3f66aa1dd01e
+    metadata_sha256: af4b34f2fb0332b6cfa359e3771ee61db87085d03bf7bef36e0c5628b1150ffb
+    rules_sha256: d72b90f97ac3a4c118df8a8d415344355cc395920a2aad7a767857c0375fc378
+  selected_by: agent
+  reason: transcript 含对话原文，不得新增对外明文出口；摘要与日志不得落密钥
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-secret-001
+    summary: 密钥明文存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；**平台侧无自有密钥列**，见
+      Conventions 的休眠列说明），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM
+      Prompt 或 API 响应（对外以 `*_configured` 表达）。
+    text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+    enforcement: required
+    verifier_ref: harness-secret#RULE-secret-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: context-compaction.design.md
+          section_id: 3.5 质量实现方案
+          item_id: no-new-egress
+          artifact_sha256: 9610f94ec74b43869a6b353ed466430c48ccc1d95da63d6da532a7405ea299f1
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: context-compaction.md
+          section_id: TASK-004
+          item_id: TASK-004
+          artifact_sha256: 9dfef16a71eeca4162c5919e68b9e35db1e2e160812a323315164c90432be0f9
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-04T10:09:27.487377+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 79f4ecad0a8fc91e892610230da2ea4e1b14ec23b21579c89d048c2b7e0c8c62
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-skill
+  path: artifact/harness-skill.md
+  status: active
+  hashes:
+    file_sha256: 220b554a479d28080b67f94f5b178c1f0931f86272f6ae99a35b0e38ae841f79
+    metadata_sha256: d401c91bc5271f353f28b5a053cae47eacd8e5ea3eb13f27ab8919e8c74d493b
+    rules_sha256: 7cb644c5da45f9baf9149dc65c61fcd05a75d23f5d8999ff7bbf89b03c023e34
+  selected_by: agent
+  reason: transcript / 工具结果写入共享 artifact store 的不可变写与原子发布口径
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-skill-001
+    summary: 'Artifact Store 为 **RWX PVC**（硬事实是 `accessModes: ReadWriteMany`，`deploy/k8s/base/pvc-artifacts.yaml:7-8`；是否落在
+      NFS 由部署侧 StorageClass 决定，清单里 `storageClassName` 并未固定；V1 不建 MinIO/S3）；数据库只保存相对
+      `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从
+      NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight（**限每进程内**：跨 Pod 的正确性由
+      `os.replace` 幂等与 DB CAS 承载，不得当作跨进程互斥）；Artifact 写入不可变（temp+`os.replace` 原子写，同
+      `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans`
+      CLI 宽限期扫描清理（默认 1h，保护进行中事务）。'
+    text_sha256: 27d60d2926408a023dd7e0fb752d69b924b80ac83118ec89f1c50e4332221235
+    enforcement: required
+    verifier_ref: harness-skill#RULE-skill-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: context-compaction.design.md
+          section_id: 3.5 质量实现方案
+          item_id: artifact-immutable-write
+          artifact_sha256: 9610f94ec74b43869a6b353ed466430c48ccc1d95da63d6da532a7405ea299f1
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: context-compaction.md
+          section_id: TASK-003
+          item_id: TASK-003
+          artifact_sha256: 9dfef16a71eeca4162c5919e68b9e35db1e2e160812a323315164c90432be0f9
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-04T10:09:27.488060+00:00'
+          status: unverified
+          rule_text_sha256: 27d60d2926408a023dd7e0fb752d69b924b80ac83118ec89f1c50e4332221235
+          artifact_sha256: null
+          diff_sha256: 79f4ecad0a8fc91e892610230da2ea4e1b14ec23b21579c89d048c2b7e0c8c62
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-snapshot
+  path: snapshot/harness-snapshot.md
+  status: active
+  hashes:
+    file_sha256: 6e33a7296699303538636a993467cb3296896dff19685aa7b7583430b01d6e42
+    metadata_sha256: 4772b9dff35dcd7ef80935ac4770a4fc804a0080c8bd92d7ab8108a3cfaac583
+    rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
+  selected_by: agent
+  reason: 压缩配置（阈值/开关/摘要模型）随 execution snapshot 冻结，仅影响后续新 Run；预算键口径
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-snapshot-001
+    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP
+      版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run
+      侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新
+      Run/Task；终态写入必须 CAS。
+    text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+    enforcement: required
+    verifier_ref: harness-snapshot#RULE-snapshot-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: context-compaction.design.md
+          section_id: 3.4 接口设计
+          item_id: budget.compaction
+          artifact_sha256: 9610f94ec74b43869a6b353ed466430c48ccc1d95da63d6da532a7405ea299f1
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: context-compaction.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 9dfef16a71eeca4162c5919e68b9e35db1e2e160812a323315164c90432be0f9
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-04T10:09:27.488759+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 79f4ecad0a8fc91e892610230da2ea4e1b14ec23b21579c89d048c2b7e0c8c62
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+      review:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 33ac20d9d4eec7b26365a9f6a5f6182fc62c754c2157c53c55fcfd7b89223e0a
+    metadata_sha256: 90ff1d9439f397d39a57d2bcbd591071cea018a7eec01c134eb038389d936776
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: 压缩的分层验收：纯逻辑单测 + 真实 PG 的重建一致性 + 跨 Pod 的 E2E
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: context-compaction.design.md
+          section_id: 2.5.2 验收场景
+          item_id: S-01/E-01/B-01
+          artifact_sha256: 9610f94ec74b43869a6b353ed466430c48ccc1d95da63d6da532a7405ea299f1
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: context-compaction.md
+          section_id: TASK-009
+          item_id: TASK-009
+          artifact_sha256: 9dfef16a71eeca4162c5919e68b9e35db1e2e160812a323315164c90432be0f9
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-04T10:09:27.489661+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 79f4ecad0a8fc91e892610230da2ea4e1b14ec23b21579c89d048c2b7e0c8c62
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-worker
+  path: worker/harness-worker.md
+  status: active
+  hashes:
+    file_sha256: e99c75db62a78b7492bea5eba2fcc05cbd03161b7f2b21d220eff030faa01ce8
+    metadata_sha256: 185250e5e95b30103f5592a48a99064876217aa17b4fc2caeadd5c3ca692b0c3
+    rules_sha256: d02da9bc0d9b0d42a01d70601d4db156bfc331b9f1641de59c33d2c152e4cc74
+  selected_by: agent
+  reason: Worker 执行后台任务时走同一条压缩链路，PostgreSQL 为唯一权威源
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-worker-001
+    summary: PostgreSQL 是 Task/Schedule/lease 的唯一权威源；Redis 仅作 wake-up/cancel hint；`task_type`
+      仅 `SKILL/BATCH`（外部等待用 WAITING 表达）；claim 使用 `FOR UPDATE SKIP LOCKED`，进入 WAITING
+      释放 lease，deadline 到期由 Scheduler sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`。
+    text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+    enforcement: required
+    verifier_ref: harness-worker#RULE-worker-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: context-compaction.design.md
+          section_id: 3.1 方案选型
+          item_id: ADR-01
+          artifact_sha256: 9610f94ec74b43869a6b353ed466430c48ccc1d95da63d6da532a7405ea299f1
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: context-compaction.md
+          section_id: TASK-009
+          item_id: TASK-009
+          artifact_sha256: 9dfef16a71eeca4162c5919e68b9e35db1e2e160812a323315164c90432be0f9
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-04T10:09:27.490328+00:00'
+          status: unverified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: 79f4ecad0a8fc91e892610230da2ea4e1b14ec23b21579c89d048c2b7e0c8c62
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
