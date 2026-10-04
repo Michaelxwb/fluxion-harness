@@ -17,6 +17,7 @@ from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import Artifact, CanonicalEvent
 from ..metrics import MEMORY_INJECT_METRIC, record_counter
 from .attachments.inbound import attachments_from_payload, render_attachment_reference
+from .attachments.tool_results import reference_payload
 from .context_events import covered_up_to, latest_summary
 from .memory_service import MemoryService
 
@@ -47,7 +48,6 @@ class BudgetPolicy:
     # `max_messages` 是**取事件的查询守卫**（`_recent_events` 按它 ×4 限流），不是请求预算本身：
     # 请求里的条数由压缩层按冻结配置的 `history_budget_messages` 兜底，两边用的是同一个值。
     max_messages: int = 40
-    preview_max: int = 400
 
 
 class DbBackedContextBuilder:
@@ -183,7 +183,7 @@ class DbBackedContextBuilder:
         tenant_id: str,
         events: list[CanonicalEvent],
     ) -> list[ModelMessage]:
-        previews = await self._artifact_previews(
+        references = await self._artifact_references(
             session, tenant_id, [event.artifact_id for event in events if event.artifact_id]
         )
 
@@ -249,10 +249,15 @@ class DbBackedContextBuilder:
                 call_id = payload.get("tool_call_id")
                 if not isinstance(call_id, str) or call_id not in declared:
                     continue  # 孤儿 tool 消息：整条请求会因此被拒
-                preview = previews.get(event.artifact_id) if event.artifact_id else None
+                # 外置过的结果按**当时发出去的那条引用 JSON** 还原（ADR-05）：模型据此既能
+                # 看到预览，也拿得到 `artifact_id` 去 `read_attachment`。没外置的没有产物可指，
+                # 只留工具名。
+                artifact_ref = (
+                    references.get(event.artifact_id) if event.artifact_id else None
+                )
                 content = (
-                    f"[tool:{payload.get('tool_name')}] {preview}"
-                    if preview
+                    reference_payload(artifact_ref)
+                    if artifact_ref is not None
                     else f"[tool:{payload.get('tool_name')}]"
                 )
                 entries.append(
@@ -262,12 +267,17 @@ class DbBackedContextBuilder:
         keep = _kept_tool_rounds([value for value, _ in entries])
         return [message for value, message in entries if value == 0 or value in keep]
 
-    async def _artifact_previews(
+    async def _artifact_references(
         self,
         session: Any,
         tenant_id: str,
         artifact_ids: list[uuid.UUID],
-    ) -> dict[uuid.UUID, str]:
+    ) -> dict[uuid.UUID, dict[str, Any]]:
+        """外置产物的完整引用（含落库时的头尾预览，**不再二次截断**）。
+
+        重建要还原"当时发出去的那份"引用 JSON（ADR-05），而那份预览是 `preview_head_tail`
+        按配置裁出来的；在这里再截一刀就会与实发不等。
+        """
         if not artifact_ids:
             return {}
         rows = (
@@ -280,7 +290,13 @@ class DbBackedContextBuilder:
             )
         ).scalars().all()
         return {
-            row.id: (row.preview_text or "")[: self._budget.preview_max] for row in rows
+            row.id: {
+                "artifact_id": str(row.id),
+                "size": row.size,
+                "checksum": row.checksum,
+                "preview": row.preview_text or "",
+            }
+            for row in rows
         }
 
     async def _load_memory(

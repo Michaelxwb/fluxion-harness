@@ -446,7 +446,7 @@
       "kind": "functional",
       "boundary": "真实 PG + 共享产物存储 + 真实两连 Run（同一会话）",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -456,7 +456,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "522b6534e7444df991ced1ff0329b9f4",
+        "executed_at": "2026-10-04T11:16:16.369627+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "522b6534e7444df991ced1ff0329b9f4",
+          "executed_at": "2026-10-04T11:16:16.369627+00:00"
+        }
+      ]
     }
   ]
 }

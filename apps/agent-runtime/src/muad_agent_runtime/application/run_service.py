@@ -189,6 +189,24 @@ def _lease_deadline(seconds: int) -> datetime:
     return _utcnow() + timedelta(seconds=seconds)
 
 
+def _event_artifact_id(data: Mapping[str, Any]) -> uuid.UUID | None:
+    """流事件载荷里的产物 id → canonical 行的 `artifact_id` **列**（design ADR-05）。
+
+    重建历史时按**列**取回产物（预览 + 引用 JSON），所以这一步必须把 id 提上来：此前只写在
+    `payload_json` 里，列恒为 NULL，于是外置过的工具结果跨 Run 重建时退化成 `[tool:名称]`。
+    工具返回的引用 JSON 是**模型自己写的内容**，不是可信 UUID：解析失败按"没有产物"处理并留
+    一条警告 —— 一个坏 id 不该让整条 Run 挂掉。
+    """
+    raw = data.get("artifact_id")
+    if raw is None:
+        return None
+    try:
+        return uuid.UUID(str(raw))
+    except (ValueError, TypeError, AttributeError):
+        logger.warning("event_artifact_id_invalid", extra={"artifact_id": str(raw)[:64]})
+        return None
+
+
 def _canonical_json(payload: Any) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
@@ -1106,6 +1124,7 @@ class RunService:
                 payload=data,
                 submission_id=submission_id,
                 stream_type=sse_type,
+                artifact_id=_event_artifact_id(data),
             )
             await session.commit()
         return ExecutorEvent(

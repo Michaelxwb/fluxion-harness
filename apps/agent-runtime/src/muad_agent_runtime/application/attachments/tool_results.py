@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -79,6 +80,25 @@ def select_round_persists(
         selected.append(item)
         remaining -= item.size_bytes
     return tuple(item.tool_call_id for item in selected)
+
+
+def reference_payload(reference: Mapping[str, Any]) -> str:
+    """外置结果的**模型可见形态**：只给引用与预览，正文留在产物里（要原文用 `read_attachment`）。
+
+    写入侧（`ToolCallRecorder`）与重建侧（`context_builder`）必须用**同一个**序列化：否则
+    "重建的那份 == 当时真正发出去的那份"就不成立（design ADR-05）。
+    """
+    return json.dumps(
+        {
+            "artifact": {
+                "artifact_id": reference["artifact_id"],
+                "size": reference["size"],
+                "checksum": reference["checksum"],
+                "preview": reference["preview"],
+            }
+        },
+        ensure_ascii=False,
+    )
 
 
 class ArtifactResultWriter:

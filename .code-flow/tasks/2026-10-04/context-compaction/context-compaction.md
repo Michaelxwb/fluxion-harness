@@ -36,7 +36,7 @@
 | E-06 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实请求装配 → 模型 HTTP 探针 | TASK-008 | planned | uv run pytest -q tests/agent_runtime/test_context_memory_budget.py | . | 600 |
 | S-01 | context-compaction.design.md#2.5.2 验收场景 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | . | 1200 |
 | E-07 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | TASK-011 | verified | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py | . | 600 |
-| E-08 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实两连 Run（同一会话） | TASK-012 | planned | uv run pytest -q tests/agent_runtime/test_tool_result_history.py | . | 600 |
+| E-08 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实两连 Run（同一会话） | TASK-012 | verified | uv run pytest -q tests/agent_runtime/test_tool_result_history.py | . | 600 |
 
 > 本表覆盖 design §2.5.2 全部 **13** 条场景（B-01..04、E-01..08、S-01）与 §2.5.1 全部 6 条业务规则（RULE-01..06 的负责人见各 TASK 的 Acceptance-Refs）。
 >
@@ -601,7 +601,7 @@ TASK-003 交付了 `select_round_persists`（整轮选取，纯逻辑）与 `Art
 
 ## TASK-012: 外置过的工具结果可从 canonical 行逐字节重建
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-011
 - **Source**: context-compaction.design.md#3.2 架构设计（ADR-05）, context-compaction.design.md#3.3 数据设计, context-compaction.design.md#2.5.2 验收场景
@@ -619,24 +619,33 @@ FEAT-08 承诺"重建的那份 == 当时真正发给模型的那份"，但**外�
 
 ### Checklist
 
-- [ ] [E-08][integration] 先写 RED：真实 PG + 真实产物根 + 真实两连 Run（同一会话）——第一个 Run 的工具结果外置，断言"第二个 Run 的模型请求里那条 tool 消息**逐字节**等于第一个 Run 当时发出去的引用 JSON，且 canonical 行的 `artifact_id` 列已写入"；现行实现必然红（列是 NULL、重建只剩 `[tool:名称]`），记录失败命令与原因
-- [ ] [E-08][integration] 边界：① 引用 JSON 里的 `artifact_id` 不是合法 UUID（工具自己写的脏值）⇒ 列留空、记一条 warning、**Run 不受影响**；② 未外置的工具结果（`artifact_id` 为 NULL）⇒ 重建仍是 `[tool:名称]`，不凭空造引用
-- [ ] 实现：`RunService._persist_event` 从事件载荷取 `artifact_id` 提到列上；`reference_payload` 从 `executor` 提到 `attachments/tool_results`，写入侧与重建侧共用；重建取的预览**不再截断**（`BudgetPolicy.preview_max` 随之退场，不保留死配置）
-- [ ] 不留兼容层：不做"两处都读"的兜底，也不为旧数据补写；列与载荷是同一事实的两种表达，以列作重建的指针
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [E-08][integration] 先写 RED：真实 PG + 真实产物根 + 真实两连 Run（同一会话）——第一个 Run 的工具结果外置，断言"第二个 Run 的模型请求里那条 tool 消息**逐字节**等于第一个 Run 当时发出去的引用 JSON，且 canonical 行的 `artifact_id` 列已写入"；现行实现必然红（列是 NULL、重建只剩 `[tool:名称]`），记录失败命令与原因
+- [x] [E-08][integration] 边界：① 引用 JSON 里的 `artifact_id` 不是合法 UUID（工具自己写的脏值）⇒ 列留空、记一条 warning、**Run 不受影响**；② 未外置的工具结果（`artifact_id` 为 NULL）⇒ 重建仍是 `[tool:名称]`，不凭空造引用
+- [x] 实现：`RunService._persist_event` 从事件载荷取 `artifact_id` 提到列上；`reference_payload` 从 `executor` 提到 `attachments/tool_results`，写入侧与重建侧共用；重建取的预览**不再截断**（`BudgetPolicy.preview_max` 随之退场，不保留死配置）
+- [x] 不留兼容层：不做"两处都读"的兜底，也不为旧数据补写；列与载荷是同一事实的两种表达，以列作重建的指针
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-08 | integration | 真实 PG + 共享产物存储 + 真实两连 Run（同一会话） | 第二个 Run 的请求里那条 tool 消息与第一个 Run 发出去的引用 JSON **逐字节相同**；canonical `TOOL_CALL` 行的 `artifact_id` 列非空且指向真实产物；脏 id 不影响 Run | tests/agent_runtime/test_tool_result_history.py::test_e08_externalized_result_rebuilds_byte_identically | uv run pytest -q tests/agent_runtime/test_tool_result_history.py | planned |
+| E-08 | integration | 真实 PG + 共享产物存储 + 真实两连 Run（同一会话） | 第二个 Run 的请求里那条 tool 消息与第一个 Run 发出去的引用 JSON **逐字节相同**；canonical `TOOL_CALL` 行的 `artifact_id` 列非空且指向真实产物；脏 id 不影响 Run | tests/agent_runtime/test_tool_result_history.py::test_e08_externalized_result_rebuilds_byte_identically | uv run pytest -q tests/agent_runtime/test_tool_result_history.py | verified |
 
 ### Acceptance Evidence
 
-> functional 的 RED/GREEN 与逐条断言证据由 `cf-task-start` 在编码期登记；全部 functional 状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-08 | FAIL: `test_e08_externalized_result_rebuilds_byte_identically` → `AssertionError: 跨 Run 重建必须逐字节还原当时那条引用` / `assert '[tool:dump]' == '{"artifact": {"artifact_id": "09a341e0-…", "size": 24000, "checksum": "sha256:dfdd…", "preview": "内容…"}}'` —— 重建只剩工具名，正文、预览、artifact_id 全丢 | 2 passed | `test_e08_externalized_result_rebuilds_byte_identically`（引用 JSON 逐字节相等 + canonical 行的 `artifact_id` 列非空且指向真实产物 + 两连 Run 确在同一会话）、`test_e08_dirty_artifact_id_does_not_break_the_run`（脏 id ⇒ 列留空、Run 仍 COMPLETED、下一个 Run 重建为 `[tool:dirty]` 不凭空造引用） | 真实 `RunService` 建 Run + 真实 SSE 消费 → 真实 `AgentRunner` 工具回合 → 生产同款 `ToolCallRecorder` → 真实 PostgreSQL（`runtime.canonical_event` / `runtime.artifact`）+ 真实产物根 | verified |
+
+**扰动取证**：P1（canonical 不写 `artifact_id` 列）⇒ **1 failed**；P2（重建退回 `[tool:名称] + 截断预览`）⇒ **1 failed**；逐字节还原后复跑 2 passed。
+
+**顺带退场的死配置**：`BudgetPolicy.preview_max`（400 字二次截断）随"不再截断"一起删除——保留它既没有读者，也会让重建与实发不等。
+- E-08: verified — automated command passed; run_id=522b6534e7444df991ced1ff0329b9f4 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-04] created (draft)
 - [2026-10-04] resumed (in-progress)
 - [2026-10-04] completed (done)
+- [2026-10-04] started
+- [2026-10-04] 实现：① `attachments/tool_results.reference_payload()`（从 `executor` 提上来，写入侧与重建侧**共用同一个**序列化）；② `RunService._event_artifact_id()` 把流事件载荷里的 id 提到 canonical 行的**列**上（脏值按"没有产物"计并留 `event_artifact_id_invalid` 警告）；③ `context_builder._artifact_previews` → `_artifact_references`（返回完整引用，不再按 400 字截断），重建渲染改为还原当时那条引用 JSON。回归 `tests/agent_core tests/agent_runtime tests/architecture tests/sdk` → **579 passed**；ruff / mypy(297 files) clean。

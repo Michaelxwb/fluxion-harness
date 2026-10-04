@@ -60,6 +60,7 @@ from .attachments.output_service import OutputArtifactWriter, OutputScope
 from .attachments.tool_results import (
     ArtifactResultWriter,
     RoundCandidate,
+    reference_payload,
     select_round_persists,
 )
 from .attachments.tools import AttachmentToolSet
@@ -497,21 +498,6 @@ class _RoundCall:
     args_preview: dict[str, Any]
 
 
-def _reference_payload(reference: Mapping[str, Any]) -> str:
-    """外置后的模型可见形态：只给引用与预览，正文留在产物里（要原文用 `read_attachment`）。"""
-    return json.dumps(
-        {
-            "artifact": {
-                "artifact_id": reference["artifact_id"],
-                "size": reference["size"],
-                "checksum": reference["checksum"],
-                "preview": reference["preview"],
-            }
-        },
-        ensure_ascii=False,
-    )
-
-
 class ToolCallRecorder:
     """工具执行统一包装：**整轮批次预算** + 审计 + 把产物 id 交给上层报事件。
 
@@ -581,7 +567,7 @@ class ToolCallRecorder:
         references = await self._persist(call_ids, contents, selected)
         await self._flush_audit(call_ids, references)
         return tuple(
-            replace(message, content=_reference_payload(references[call_id]))
+            replace(message, content=reference_payload(references[call_id]))
             if call_id in references
             else message
             for message, call_id in zip(results, call_ids, strict=True)
