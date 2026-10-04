@@ -33,6 +33,10 @@ class ExecutionProgress:
         self._stopped: float | None = None
         self._tools: set[str] = set()
         self._model_active = False
+        #: 是否已经开过一次模型调用。**只有**它还是 False 才允许显示 PREPARING：
+        #: 执行一旦开始，「准备中」就是倒退（模型结束到工具开始之间会闪一下），
+        #: 而且每次闪动都是客户端的一次整帧重排。
+        self._model_started = False
         self.phase = ProgressPhase.PREPARING
         self.visible = True
 
@@ -56,6 +60,7 @@ class ExecutionProgress:
                 self._started = self._clock() - _event_age(event.timestamp)
         elif event.type in ("model.started", "model.completed"):
             self._model_active = event.type == "model.started"
+            self._model_started = self._model_started or self._model_active
             self._execution_phase()
         elif event.type in ("tool.started", "tool.completed"):
             call_id = str(event.data.get("tool_call_id", ""))
@@ -78,7 +83,9 @@ class ExecutionProgress:
     def _execution_phase(self) -> None:
         if self._tools:
             self.phase = ProgressPhase.EXECUTING
-        elif self._model_active:
+        elif self._model_active or self._model_started:
+            # 模型调用之间（上一个模型返回、工具还没起）仍然是「思考中」：
+            # 只有**从未**开过模型调用才算准备中，否则每过一个模型/工具边界就闪一次「准备中」。
             self.phase = ProgressPhase.THINKING
         else:
             self.phase = ProgressPhase.PREPARING
@@ -90,6 +97,11 @@ _STOP_PHASES = {
     "run.completed": ProgressPhase.COMPLETED,
     "run.failed": ProgressPhase.FAILED,
 }
+
+#: 计时节拍默认值：IM 客户端每收到一帧都要**整帧重排并滚动到底**，1 秒一帧实测让对话框滚动
+#: 发涩，产品口径定为 5 秒。生产由 `SharedSettings.im_progress_interval_sec` 注入（同默认值），
+#: 验收栈按「可注入节拍一律注入小值」注入 1s。
+PROGRESS_INTERVAL_SEC = 5.0
 
 
 def _event_age(timestamp: str | None) -> float:

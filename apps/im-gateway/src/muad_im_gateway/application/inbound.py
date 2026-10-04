@@ -57,7 +57,12 @@ from .attachment_gate import (
 )
 from .console_client import ConsoleClientPort
 from .inbound_attachments import InboundAttachmentStore
-from .progress import ActivityMessages, ExecutionProgress, iter_with_ticks
+from .progress import (
+    PROGRESS_INTERVAL_SEC,
+    ActivityMessages,
+    ExecutionProgress,
+    iter_with_ticks,
+)
 from .runtime_client import RuntimeClientPort, SseEvent
 from .stream_renderer import (
     BROKEN_STREAM_TEXT,
@@ -269,7 +274,7 @@ class InboundPipeline:
         tenant_id: str,
         locale: str = "zh-CN",
         delta_flush_interval_sec: float = DELTA_FLUSH_INTERVAL_SEC,
-        progress_interval_sec: float = 1.0,
+        progress_interval_sec: float = PROGRESS_INTERVAL_SEC,
     ) -> None:
         if progress_interval_sec <= 0:
             raise ValueError("progress interval must be positive")

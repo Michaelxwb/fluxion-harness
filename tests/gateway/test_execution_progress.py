@@ -7,6 +7,7 @@ import pytest
 from fakes import FakeConsoleClient, FakeRuntimeClient, FakeWeComSdkFactory, make_envelope, resolved_response
 from muad_api.catalog import MessageCatalog
 from muad_artifact_store import NfsArtifactStore
+from muad_common import SharedSettings
 from muad_contracts import AttachmentRef, BotSnapshotItem, DeliveryRouteInput
 from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.progress import ExecutionProgress, ProgressPhase, iter_with_ticks
@@ -366,6 +367,54 @@ def _pipeline_with_progress(
         delta_flush_interval_sec=0.0,  # 增量立刻成帧：正文写入紧随"隐藏占位"的那一帧
         progress_interval_sec=interval,
     )
+
+
+def test_b401_progress_interval_default_is_five_seconds(monkeypatch):
+    """生产默认节拍由毫秒级单测钉住（harness-test「常量值与行为规律分层验证」）。
+
+    E2E 注入 1s 只证明「计时在走、秒数在涨」这条规律；「生产默认是 5 秒」这条**常量事实**
+    在这里钉——它同时也是客户端重排成本的取舍，改它要有意识地改。
+    """
+    monkeypatch.delenv("IM_PROGRESS_INTERVAL_SEC", raising=False)
+    assert SharedSettings().im_progress_interval_sec == 5.0
+
+    monkeypatch.setenv("IM_PROGRESS_INTERVAL_SEC", "1")
+    assert SharedSettings().im_progress_interval_sec == 1.0
+
+
+async def test_b402_identical_status_frame_is_not_re_sent():
+    """一字不差的状态帧不再重发：客户端白重排一次、滚动一次（实测 run.created 会紧跟着
+    起始帧再发一遍同样的「准备中」）。内容变了才发。"""
+    sdk = Sdk()
+    reply = ReplySession(client=lambda: sdk, reply_ref="dedup", flush_interval_sec=0)
+    await reply.update_status("🔵 准备中 · 已执行 00:00")
+    await reply.update_status("🔵 准备中 · 已执行 00:00")
+    await reply.update_status("🔵 思考中 · 已执行 00:00")
+    assert [frame[2] for frame in sdk.frames] == [
+        "<think>🔵 准备中 · 已执行 00:00</think>",
+        "<think>🔵 思考中 · 已执行 00:00</think>",
+    ]
+
+
+def test_b401_never_falls_back_to_preparing_after_execution_started():
+    """执行一旦开始就不再显示「准备中」。
+
+    模型结束到工具开始之间落回 PREPARING 会让阶段一路跳（思考中→准备中→执行中→准备中），
+    而每次跳都是一次整帧重排。
+    """
+    state = ExecutionProgress(clock=lambda: 100.0)
+    state.apply(SseEvent("run.created", {}))
+    assert state.phase == ProgressPhase.PREPARING
+
+    state.apply(SseEvent("model.started", {}))
+    assert state.phase == ProgressPhase.THINKING
+    state.apply(SseEvent("model.completed", {}))
+    assert state.phase == ProgressPhase.THINKING
+
+    state.apply(SseEvent("tool.started", {"tool_call_id": "t1"}))
+    assert state.phase == ProgressPhase.EXECUTING
+    state.apply(SseEvent("tool.completed", {"tool_call_id": "t1"}))
+    assert state.phase == ProgressPhase.THINKING
 
 
 async def test_b401_in_flight_status_never_shares_the_stream_with_the_answer(

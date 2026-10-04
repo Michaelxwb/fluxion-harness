@@ -29,7 +29,9 @@ from tests.acceptance.im_gateway.environment import (
     CHAT_ID,
     GatewayStack,
     count_tenant_rows,
+    latest_run_id,
     purge_tenant,
+    wait_for_new_run_terminal,
 )
 from tests.e2e.wecom_probe_app import frame_text
 
@@ -227,12 +229,15 @@ async def test_b124_authorized_run_snapshot_contains_only_effective_skills(
     gateway_stack: GatewayStack, authz_env: dict[str, Any]
 ) -> None:
     before = len(_replies(gateway_stack))
+    before_run = await latest_run_id()
     await _push(gateway_stack, text="授权用户发起一次运行")
     await _wait_for(
         lambda: len(_replies(gateway_stack)) > before,
         what="授权用户的运行未得到回复",
         timeout=REPLY_TIMEOUT_SEC,
     )
+    # 收到回复 ≠ Run 跑完（进度占位帧在 Run 建立之前就发了）：等**这次新建的** Run 到终态再读快照
+    await wait_for_new_run_terminal(previous_run_id=before_run, timeout=REPLY_TIMEOUT_SEC)
     # Runtime 侧 Effective Capability：Snapshot 的 Skill Catalog 只含授权技能
     catalog_rows = await _rows(
         "SELECT skill_catalog_json FROM runtime.runtime_snapshot WHERE tenant_id = :t "

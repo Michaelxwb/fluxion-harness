@@ -57,7 +57,8 @@ class ReplySession:
         self._on_finish = on_finish
         self._status_timeout_sec = status_timeout_sec
         self._body = ""
-        self._status = ""
+        #: 最近一次真的发出去的状态帧内容（含占位与当时的正文）：同内容不再重复发。
+        self._status_sent: str | None = None
         self._last_flush = 0.0
         self._closed = False
         self._sent = False
@@ -74,20 +75,24 @@ class ReplySession:
     async def update_status(self, text: str) -> None:
         if self._closed:
             return
-        self._status = text
+        content = f"<think>{text}</think>" + ("\n\n" + self._body if self._body else "")
+        if content == self._status_sent:
+            # 一字不差的重复帧 = 客户端白重排一次、白滚动一次（实测 run.created 会紧跟着
+            # 起始帧再发一遍同样的「准备中」）。额度也不该为它花掉。
+            return
         if self._budget is not None and not self._budget.take():
             return
-        content = f"<think>{text}</think>" + ("\n\n" + self._body if self._body else "")
         try:
             async with asyncio.timeout(self._status_timeout_sec):
                 await self._flush(content)
         except TimeoutError:
             logger.warning("reply_status_send_timeout reply_ref=%s", self._reply_ref)
+        else:
+            self._status_sent = content
 
     async def stream(self, text: str) -> None:
         if self._closed:
             return
-        self._status = ""
         self._body += text
         if time.monotonic() - self._last_flush >= self._flush_interval_sec:
             await self._flush(self._body)
@@ -103,7 +108,6 @@ class ReplySession:
             except Exception as exc:
                 raise ChannelAdapterUnavailable("reply text send failed") from exc
         else:
-            self._status = ""
             self._body += ("\n\n" if self._body else "") + text
             await self._flush(self._body)
 

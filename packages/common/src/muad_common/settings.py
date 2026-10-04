@@ -37,7 +37,11 @@ class SharedSettings(BaseSettings):
     agent_runtime_url: str = "http://127.0.0.1:8001"
     agent_worker_url: str = "http://127.0.0.1:8002"
     im_gateway_url: str = "http://127.0.0.1:8003"
-    im_progress_interval_sec: float = Field(default=1.0, ge=1.0)
+    # 活跃执行的计时节拍：IM 里每帧状态都会让客户端**整帧重排并滚动到底**，1 秒一帧实测
+    # 让对话框滚动明显发涩，产品口径改为 5 秒（帧数降到 1/5）。验收栈按「可注入节拍一律注入
+    # 小值」的规矩注入 1s（`tests/acceptance/im_gateway/environment.py`），生产默认值由
+    # `tests/gateway/test_execution_progress.py` 的毫秒级用例钉住。
+    im_progress_interval_sec: float = Field(default=5.0, ge=1.0)
     im_progress_updates_per_second: float = Field(default=10.0, ge=1.0)
 
     run_lease_sec: int = 60

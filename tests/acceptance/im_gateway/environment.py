@@ -7,7 +7,9 @@ fixture finally 清理；两个 Runtime 实例与真实 Worker 进程由 TASK-03
 
 from __future__ import annotations
 
+import asyncio
 import os
+import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -53,11 +55,13 @@ __all__ = [
     "cleanup",
     "count_tenant_rows",
     "free_port",
+    "latest_run_id",
     "purge_tenant",
     "require",
     "restart_process",
     "run_db",
     "start_gateway_stack",
+    "wait_for_new_run_terminal",
     "stop_gateway_stack",
 ]
 
@@ -132,6 +136,10 @@ def start_gateway_stack(
             "REDIS_URL": redis_url,
             "ARTIFACT_ROOT": str(artifact_root),
             "SKILL_CACHE_ROOT": str(skill_cache_root),
+            # 计时节拍：生产默认 5s（客户端每帧都整帧重排 + 滚动到底），验收里压到 1s ——
+            # 一次几秒的运行在 5s 节拍下压根不会产生 tick 帧，那条路径（`iter_with_ticks` +
+            # tick 分支 + 令牌预算）在 E2E 里就没人走。生产默认值由毫秒级单测钉住。
+            "IM_PROGRESS_INTERVAL_SEC": "1",
         }
     )
 
@@ -307,3 +315,60 @@ async def count_tenant_rows(table: str) -> int:
             return int(result.scalar() or 0)
 
     return int(await _with_own_engine(count) or 0)  # type: ignore[arg-type]
+
+
+RUN_TERMINAL_STATUSES = ("COMPLETED", "FAILED", "CANCELLED")
+
+
+async def latest_run_id() -> str | None:
+    """最新一次 Run 的 id（按 `create_time` 取最后一行）。"""
+    from sqlalchemy import text
+
+    async def fetch(session_factory: object) -> str | None:
+        async with session_factory() as session:  # type: ignore[operator]
+            result = await session.execute(
+                text(
+                    "SELECT id::text FROM runtime.run_record WHERE tenant_id = :t "
+                    "ORDER BY create_time DESC LIMIT 1"
+                ),
+                {"t": TENANT},
+            )
+            value = result.scalar()
+            return None if value is None else str(value)
+
+    return await _with_own_engine(fetch)  # type: ignore[return-value]
+
+
+async def wait_for_new_run_terminal(*, previous_run_id: str | None, timeout: float = 120.0) -> str:
+    """等**这次推送新建的** Run（id ≠ `previous_run_id`）跑到终态，返回状态。
+
+    同步点**不能**写成「收到任意一条回复」：进度占位帧（`🔵 准备中`）在 Run 建立**之前**就发
+    出来了（设计里的「提交准备」阶段），于是"收到回复"完全可能早于 Run 建立/跑完 —— 拿它当真，
+    读到的要么是只有 `run.created` 的中间盘面，要么是**上一条用例留下的旧 Run**（假绿）。
+    2026-10-04 CI：S-03 因此挂掉；本地机器快，0.3s 轮询窗口里 Run 早已跑完，所以只有 CI 会撞。
+    """
+    deadline = time.monotonic() + timeout
+    status = "未知（未观察到新 Run）"
+    while time.monotonic() < deadline:
+        run_id = await latest_run_id()
+        if run_id is not None and run_id != previous_run_id:
+            status = await _latest_status_of(run_id)
+            if status in RUN_TERMINAL_STATUSES:
+                return status
+        await asyncio.sleep(0.3)
+    raise AssertionError(
+        f"新 Run（≠{previous_run_id}）未在 {timeout}s 内到达终态，最后状态 {status!r}"
+    )
+
+
+async def _latest_status_of(run_id: str) -> str:
+    from sqlalchemy import text
+
+    async def fetch(session_factory: object) -> str:
+        async with session_factory() as session:  # type: ignore[operator]
+            result = await session.execute(
+                text("SELECT status FROM runtime.run_record WHERE id = :r"), {"r": uuid.UUID(run_id)}
+            )
+            return str(result.scalar() or "")
+
+    return await _with_own_engine(fetch)  # type: ignore[return-value]

@@ -25,7 +25,9 @@ from tests.acceptance.im_gateway.environment import (
     CHAT_ID,
     GatewayStack,
     count_tenant_rows,
+    latest_run_id,
     purge_tenant,
+    wait_for_new_run_terminal,
 )
 from tests.e2e.wecom_probe_app import frame_text
 
@@ -192,10 +194,14 @@ async def test_s03_stream_reply_has_monotonic_seq_and_completes(
 ) -> None:
     await _wait_gateway_ws(gateway_stack)
     before = len(_replies(gateway_stack))
+    before_run = await latest_run_id()
     await _push(gateway_stack, text="S-03 流式回复")
     await _wait_for(
         lambda: len(_replies(gateway_stack)) > before, what="未收到流式回复", timeout=REPLY_TIMEOUT_SEC
     )
+    # 收到回复 ≠ Run 跑完：进度占位帧在 Run 建立**之前**就发出来了（提交准备阶段），
+    # 必须另等**这次新建的** Run 到终态，否则会读到中间盘面、或上一条用例留下的旧 Run
+    await wait_for_new_run_terminal(previous_run_id=before_run, timeout=REPLY_TIMEOUT_SEC)
     # 授权消息创建了 Run；canonical_event 的 seq 严格单调；run.completed 收尾
     rows = await _rows(
         "SELECT seq, stream_type FROM runtime.canonical_event WHERE run_id = ("
