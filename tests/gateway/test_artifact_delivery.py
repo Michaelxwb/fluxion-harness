@@ -43,9 +43,9 @@ class _ArtifactAdapter(FakeChannelAdapter):
         return f"{route.bot_id}:{route.external_user_id}"
 
     async def deliver_artifact(
-        self, route: Any, artifact: AttachmentRef, *, tenant_id: str
+        self, route: Any, artifact: AttachmentRef, *, tenant_id: str, run_id: str | None = None
     ) -> ArtifactDeliveryOutcome:
-        self.received.append((route, artifact))
+        self.received.append((route, artifact, run_id))
         return self.outcome
 
 
@@ -56,7 +56,7 @@ class _FailingArtifactAdapter(FakeChannelAdapter):
         return f"{route.bot_id}:{route.external_user_id}"
 
     async def deliver_artifact(
-        self, route: Any, artifact: AttachmentRef, *, tenant_id: str
+        self, route: Any, artifact: AttachmentRef, *, tenant_id: str, run_id: str | None = None
     ) -> ArtifactDeliveryOutcome:
         raise ArtifactDeliveryError("ARTIFACT_DELIVERY_FAILED")
 
@@ -92,10 +92,10 @@ def _artifact(artifact_id: uuid.UUID) -> AttachmentRef:
     )
 
 
-def _body(artifact_id: uuid.UUID) -> dict[str, Any]:
+def _body(artifact_id: uuid.UUID, *, run_id: uuid.UUID | None = None) -> dict[str, Any]:
     return {
         "tenant_id": "tenant-1",
-        "delivery_key": f"run:{uuid.uuid4()}:{artifact_id}",
+        "delivery_key": f"run:{run_id or uuid.uuid4()}:{artifact_id}",
         "route": ROUTE,
         "message": {"type": "artifact", "artifact": _artifact(artifact_id).model_dump(mode="json")},
     }
@@ -104,10 +104,11 @@ def _body(artifact_id: uuid.UUID) -> dict[str, Any]:
 async def test_artifact_message_goes_through_the_optional_capability() -> None:
     """产物形态**不走文本 send**，而是交给适配器的可选出站能力，并把结局回传调用方。"""
     artifact_id = uuid.uuid4()
+    run_id = uuid.uuid4()
     adapter = _ArtifactAdapter(ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED))
 
     async with _client(adapter) as client:
-        response = await client.post(DELIVERIES_URL, json=_body(artifact_id))
+        response = await client.post(DELIVERIES_URL, json=_body(artifact_id, run_id=run_id))
 
     assert response.status_code == 200, response.text
     data = response.json()["data"]
@@ -116,9 +117,13 @@ async def test_artifact_message_goes_through_the_optional_capability() -> None:
     assert not adapter.sent, "产物形态不得退化成一段文本"
 
     assert len(adapter.received) == 1
-    _route, reference = adapter.received[0]
+    _route, reference, received_run_id = adapter.received[0]
     assert reference.artifact_id == artifact_id, "适配器必须拿到 artifact_id：降级直链要它来拼"
     assert reference.source_channel is None, "出站方向没有「来源渠道」这个概念"
+    assert received_run_id == str(run_id), (
+        "交付键里的 Run 必须传给适配器：同路由可能有多条入站消息，"
+        "少了它产物会回到「本会话最新回调」而不是起这个 Run 的那条"
+    )
 
 
 async def test_degraded_delivery_is_reported_as_delivered_with_the_link() -> None:

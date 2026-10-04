@@ -5,6 +5,7 @@ import base64
 import hashlib
 import logging
 import ssl
+import time
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
@@ -49,6 +50,7 @@ from .media import (
     uploadable_media_type,
 )
 from .media import download_media as download_media_content
+from .reply import ReplySession, StatusBudget
 from .sdk_port import (
     EventCallback,
     MessageCallback,
@@ -666,7 +668,14 @@ class WeComAdapter:
         liveness_interval_sec: float = DEFAULT_LIVENESS_INTERVAL_SEC,
         artifact_store: NfsArtifactStore | None = None,
         fetch_links: ArtifactLinkIssuer | None = None,
+        status_updates_per_second: float = 10.0,
     ) -> None:
+        if status_updates_per_second < 1:
+            raise ValueError("status update rate must be at least one per second")
+        self._status_rate = status_updates_per_second
+        self._status_budgets: dict[str, StatusBudget] = {}
+        self._message_refs: dict[tuple[str, str], tuple[str, float]] = {}
+        self._replies: set[ReplySession] = set()
         self._sdk_factory = sdk_factory
         #: 产物字节按 `storage_key` 直读共享 store —— **不经核心域搬运**（设计 §3.5）。
         #: 为 `None` = 部署漏配，交付时响亮失败而不是悄悄丢。
@@ -753,6 +762,13 @@ class WeComAdapter:
     async def stop(self) -> None:
         self._started = False
         await self._finish_all_streams()
+        for reply in tuple(self._replies):
+            try:
+                await reply.finish()
+            except ChannelAdapterUnavailable:
+                logger.warning("channel_reply_stop_failed", exc_info=True)
+        self._message_refs.clear()
+        self._status_budgets.clear()
         for connection in tuple(self._connections.values()):
             await connection.stop()
         self._connections.clear()
@@ -799,7 +815,12 @@ class WeComAdapter:
         return f"{route.bot_id}:{route.external_user_id}"
 
     async def deliver_artifact(
-        self, route: DeliveryRouteInput, artifact: AttachmentRef, *, tenant_id: str
+        self,
+        route: DeliveryRouteInput,
+        artifact: AttachmentRef,
+        *,
+        tenant_id: str,
+        run_id: str | None = None,
     ) -> ArtifactDeliveryOutcome:
         """把产物发给用户（`OutboundArtifactDelivery` 的实现，AD-8 的对称接缝）。
 
@@ -831,17 +852,37 @@ class WeComAdapter:
             )
         except WeComMediaUploadTooLargeError:
             logger.info("wecom_artifact_over_cap_degrading bot_id=%s", route.bot_id)
-            return await self._degrade_to_fetch_link(route, artifact, tenant_id=tenant_id)
+            return await self._degrade_to_fetch_link(
+                route, artifact, tenant_id=tenant_id, run_id=run_id
+            )
 
-        reply_ref = self._reply_refs.get(route_key(route))
+        reply_ref = self._reply_target(route, run_id)
         if reply_ref is not None:
             await client.reply_media(reply_ref, media_type=media_type, media_id=media_id)
         else:
             await client.send_media(_chat_id(route), media_type=media_type, media_id=media_id)
         return ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED)
 
+    def _reply_target(self, route: DeliveryRouteInput, run_id: str | None) -> str | None:
+        """本条出站消息该回哪个回调。
+
+        产物带着起它的 Run ⇒ 用**起这个 Run 的那条入站消息**的回调：同一路由后来再来消息，
+        只把路由级「最新回调」顶掉，不该把老任务的产物挂到新消息上。Run 已收尾（会话已结束）
+        或键里没有 Run 时，退回路由级最新回调——那是本适配器一直以来的语义。
+        """
+        if run_id is not None:
+            for session in self._replies:
+                if session.run_id == run_id:
+                    return session.reply_ref
+        return self._reply_refs.get(route_key(route))
+
     async def _degrade_to_fetch_link(
-        self, route: DeliveryRouteInput, artifact: AttachmentRef, *, tenant_id: str
+        self,
+        route: DeliveryRouteInput,
+        artifact: AttachmentRef,
+        *,
+        tenant_id: str,
+        run_id: str | None = None,
     ) -> ArtifactDeliveryOutcome:
         """发不成文件就发**一条链接**——用户确实收到了东西，只是形态不同（`DEGRADED`）。
 
@@ -858,12 +899,28 @@ class WeComAdapter:
             logger.warning("wecom_fetch_link_unavailable bot_id=%s", route.bot_id)
             raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED)
         client = self._require_client(route.bot_id)
-        reply_ref = self._reply_refs.get(route_key(route))
+        reply_ref = self._reply_target(route, run_id)
         if reply_ref is not None:
             await client.reply_text(reply_ref, url)
         else:
             await client.send_text(_chat_id(route), url)
         return ArtifactDeliveryOutcome(outcome=ARTIFACT_DEGRADED, fallback_url=url)
+
+    def open_reply(self, route: DeliveryRouteInput, message_id: str) -> ReplySession:
+        self._ensure_started()
+        ref = self._message_refs.pop((route.bot_id, message_id), None)
+        if ref is None:
+            raise ChannelAdapterUnavailable("inbound callback context expired")
+        budget = self._status_budgets.setdefault(route.bot_id, StatusBudget(self._status_rate))
+        session = ReplySession(
+            client=lambda: self._require_client(route.bot_id),
+            reply_ref=ref[0],
+            flush_interval_sec=self._stream_flush_interval_sec,
+            budget=budget,
+            on_finish=lambda: self._replies.discard(session),
+        )
+        self._replies.add(session)
+        return session
 
     async def stream(self, route: DeliveryRouteInput, chunks: AsyncIterator[str]) -> None:
         self._ensure_started()
@@ -935,6 +992,10 @@ class WeComAdapter:
             await self._finish_stream(key)
 
     def _drop_routes(self, bot_id: str) -> None:
+        self._status_budgets.pop(bot_id, None)
+        for ref_key in tuple(self._message_refs):
+            if ref_key[0] == bot_id:
+                del self._message_refs[ref_key]
         for key in tuple(self._streams):
             if key[0] == bot_id:
                 del self._streams[key]
@@ -948,6 +1009,7 @@ class WeComAdapter:
             return
         key = (message.bot_id, message.external_user_id, message.external_conversation_id)
         self._reply_refs[key] = message.reply_id
+        self._remember_reply(message)
         if message.media:
             self._remember_media(message.message_id, message.media)
         # `attachments` 此刻必为空：取件（`message.media`，渠道私有）与落盘由网关应用编排层
@@ -963,6 +1025,15 @@ class WeComAdapter:
                 unsupported_media=message.unsupported_media,
             )
         )
+
+    def _remember_reply(self, message: WeComInboundMessage) -> None:
+        now = time.monotonic()
+        self._message_refs = {
+            key: ref for key, ref in self._message_refs.items() if now - ref[1] < MEDIA_REF_TTL_SEC
+        }
+        while len(self._message_refs) >= MEDIA_REF_CAPACITY:
+            del self._message_refs[next(iter(self._message_refs))]
+        self._message_refs[(message.bot_id, message.message_id)] = (message.reply_id, now)
 
     def _remember_media(self, message_id: str, refs: tuple[WeComMediaRef, ...]) -> None:
         """记下待取件引用并**驱逐**：过期的一律丢掉，仍超容量则丢最旧的。

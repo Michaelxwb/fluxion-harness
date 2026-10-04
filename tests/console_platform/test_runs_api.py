@@ -203,13 +203,18 @@ async def test_run_detail_projects_metadata_and_structural_outline(
     seed = await _run(tenant)
     async with get_session_factory()() as session:
         async with session.begin():
+            # 形状必须与生产同形：`event_type` 是落库后的**业务名**（RUN_CREATED/ASSISTANT_DELTA/
+            # MODEL_CALL_STARTED…），SSE 名只出现在 `stream_type` 里。按 SSE 名播种会让
+            # 「轮廓剔除」看起来生效，而线上照旧（`run_query_repository.STREAMING_EVENT_TYPES`）。
             for seq, (event_type, stream_type) in enumerate(
                 (
-                    ("run.created", None),
-                    ("message.delta", "message.delta"),
-                    ("tool.started", "tool.started"),
-                    ("message.delta", "message.delta"),
-                    ("run.completed", None),
+                    ("RUN_CREATED", "run.created"),
+                    ("ASSISTANT_DELTA", "message.delta"),
+                    ("MODEL_CALL_STARTED", "model.started"),
+                    ("TOOL_CALL_STARTED", "tool.started"),
+                    ("ASSISTANT_DELTA", "message.delta"),
+                    ("MODEL_CALL_COMPLETED", "model.completed"),
+                    ("RUN_COMPLETED", "run.completed"),
                 ),
                 start=1,
             ):
@@ -229,13 +234,15 @@ async def test_run_detail_projects_metadata_and_structural_outline(
     assert data["trace_id"] == seed.trace_id
     assert data["timeline_truncated"] is False
 
-    # 轮廓剔除流式增量（token 级，行数可达数千），其余按 seq 升序
+    # 轮廓只剔流式增量（token 级，行数可达数千）；模型调用边界与工具调用一样**保留**
     assert [item["event_type"] for item in data["timeline"]] == [
-        "run.created",
-        "tool.started",
-        "run.completed",
+        "RUN_CREATED",
+        "MODEL_CALL_STARTED",
+        "TOOL_CALL_STARTED",
+        "MODEL_CALL_COMPLETED",
+        "RUN_COMPLETED",
     ]
-    assert [item["seq"] for item in data["timeline"]] == [1, 3, 5]
+    assert [item["seq"] for item in data["timeline"]] == [1, 3, 4, 6, 7]
 
 
 async def test_run_detail_does_not_leak_input_text_or_event_payload(

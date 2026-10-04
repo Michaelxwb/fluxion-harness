@@ -45,6 +45,7 @@ def _build_adapter(
     return WeComAdapter(
         artifact_store=NfsArtifactStore(settings.artifact_root),
         fetch_links=console,
+        status_updates_per_second=settings.im_progress_updates_per_second,
     )
 
 
@@ -102,6 +103,7 @@ async def _build_resources(
         attachment_store=InboundAttachmentStore(NfsArtifactStore(settings.artifact_root)),
         tenant_id=settings.default_tenant_id,
         locale=settings.default_locale,
+        progress_interval_sec=settings.im_progress_interval_sec,
     )
     return _GatewayResources(
         registry=registry,

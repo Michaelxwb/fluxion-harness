@@ -250,7 +250,9 @@ async def _deliver(adapter: ChannelAdapter, body: DeliveryRequest) -> ArtifactDe
         raise ArtifactDeliveryError("ARTIFACT_DELIVERY_FAILED")
     if not isinstance(adapter, OutboundArtifactDelivery):
         raise ArtifactDeliveryError("ARTIFACT_DELIVERY_FAILED")
-    return await adapter.deliver_artifact(body.route, artifact, tenant_id=body.tenant_id)
+    return await adapter.deliver_artifact(
+        body.route, artifact, tenant_id=body.tenant_id, run_id=body.run_id
+    )
 
 
 async def _is_delivered(dedupe: DedupeStore, key: str) -> bool:

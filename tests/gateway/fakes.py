@@ -181,6 +181,9 @@ class FakeWeComSdkPort:
         self.sent_texts: list[tuple[str, str]] = []
         self.replied_texts: list[tuple[str, str]] = []
         self.stream_updates: list[tuple[str, str, str, bool]] = []
+        self.uploaded_media: list[tuple[bytes, str, str]] = []
+        self.replied_media: list[tuple[str, str, str]] = []
+        self.sent_media: list[tuple[str, str, str]] = []
         self._on_message: Callable[[WeComInboundMessage], None] | None = None
         self._on_event: Callable[[WeComInboundEvent], None] | None = None
         self._on_authenticated: Callable[[], None] | None = None
@@ -232,6 +235,22 @@ class FakeWeComSdkPort:
         if not self.connected:
             raise RuntimeError("fake client not connected")
         self.stream_updates.append((reply_id, stream_id, content, finish))
+
+    async def upload_media(self, data: bytes, *, media_type: str, filename: str) -> str:
+        if not self.connected:
+            raise RuntimeError("fake client not connected")
+        self.uploaded_media.append((data, media_type, filename))
+        return f"media-{len(self.uploaded_media)}"
+
+    async def reply_media(self, reply_id: str, *, media_type: str, media_id: str) -> None:
+        if not self.connected:
+            raise RuntimeError("fake client not connected")
+        self.replied_media.append((reply_id, media_type, media_id))
+
+    async def send_media(self, chat_id: str, *, media_type: str, media_id: str) -> None:
+        if not self.connected:
+            raise RuntimeError("fake client not connected")
+        self.sent_media.append((chat_id, media_type, media_id))
 
     def push_message(self, message: WeComInboundMessage) -> None:
         if self._on_message is None:

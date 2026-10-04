@@ -57,6 +57,15 @@ class DeliveryRequest(ContractModel):
     message: DeliveryMessage
     artifact_ids: list[UUID] = Field(default_factory=list)
 
+    @property
+    def run_id(self) -> str | None:
+        """会话内交付的 Run id；后台任务交付（`task:...`）为 `None`。
+
+        由交付键导出，不新增字段：键和 Run 是**同一条事实**，多一个字段就会有两种说法。
+        适配器按它把产物回到起这个 Run 的那条消息（同路由可能有多条入站消息）。
+        """
+        return self.delivery_key.split(":")[1] if RUN_DELIVERY_KEY.match(self.delivery_key) else None
+
     @model_validator(mode="after")
     def _delivery_key_matches_scope(self) -> Self:
         """两种形态**互斥**：键的形态必须与 `task_id` 的有无一致。

@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +37,8 @@ class SharedSettings(BaseSettings):
     agent_runtime_url: str = "http://127.0.0.1:8001"
     agent_worker_url: str = "http://127.0.0.1:8002"
     im_gateway_url: str = "http://127.0.0.1:8003"
+    im_progress_interval_sec: float = Field(default=1.0, ge=1.0)
+    im_progress_updates_per_second: float = Field(default=10.0, ge=1.0)
 
     run_lease_sec: int = 60
     run_heartbeat_sec: int = 20

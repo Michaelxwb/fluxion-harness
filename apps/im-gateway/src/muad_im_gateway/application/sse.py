@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 KNOWN_EVENT_TYPES = frozenset(
     {
         "run.created",
+        "model.started",
+        "model.completed",
         "message.delta",
         "skill.loaded",
         "tool.started",

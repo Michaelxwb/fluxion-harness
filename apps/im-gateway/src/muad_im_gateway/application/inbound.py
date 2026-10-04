@@ -4,6 +4,7 @@ import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator, Sequence
+from contextlib import aclosing, suppress
 from dataclasses import dataclass
 from math import ceil
 from uuid import UUID
@@ -37,7 +38,9 @@ from ..channels.base import (
     AttachmentSource,
     ChannelAdapter,
     ChannelAdapterUnavailable,
+    ChannelReplySession,
     FetchedAttachment,
+    ReplySessionFactory,
     StreamFinalizer,
 )
 from ..infrastructure.dedupe import DedupeStore, DedupeStoreError, is_duplicate
@@ -54,6 +57,7 @@ from .attachment_gate import (
 )
 from .console_client import ConsoleClientPort
 from .inbound_attachments import InboundAttachmentStore
+from .progress import ActivityMessages, ExecutionProgress, iter_with_ticks
 from .runtime_client import RuntimeClientPort, SseEvent
 from .stream_renderer import (
     BROKEN_STREAM_TEXT,
@@ -135,6 +139,18 @@ def _primary_code(codes: Sequence[str]) -> str:
     return codes[0]
 
 
+def _writes(actions: Sequence[RenderAction]) -> bool:
+    """这组动作里有没有**真的要写到会话上**的内容。
+
+    空动作（增量还在 renderer 缓冲里、没到 flush 时机）与空文本都不占用发送者——
+    在飞的计时状态可以继续跑，读取循环照常往下走。
+    """
+    return any(
+        action.kind in (STREAM_KIND, FINALIZE_KIND) or (action.kind == TEXT_KIND and action.text)
+        for action in actions
+    )
+
+
 def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
     return DeliveryRouteInput(
         channel=envelope.channel,
@@ -211,6 +227,11 @@ class _RunStreamState:
 
     def __init__(self, renderer: StreamRenderer) -> None:
         self.renderer = renderer
+        self.progress = ExecutionProgress()
+        self.reply: ChannelReplySession | None = None
+        #: 在飞的**计时状态**发送（见 `_update_progress`）：读取循环不等它，但它与正文
+        #: 共用同一条会话流，所以正文/收尾写入前必须让它落地（否则两个写者并发写同一 stream）。
+        self.status_task: asyncio.Task[None] | None = None
         self.run_id: str | None = None
         self.awaiting_input = False
         self.terminal = False
@@ -248,7 +269,12 @@ class InboundPipeline:
         tenant_id: str,
         locale: str = "zh-CN",
         delta_flush_interval_sec: float = DELTA_FLUSH_INTERVAL_SEC,
+        progress_interval_sec: float = 1.0,
     ) -> None:
+        if progress_interval_sec <= 0:
+            raise ValueError("progress interval must be positive")
+        self._progress_interval_sec = progress_interval_sec
+        self._activity_messages: ActivityMessages | None = None
         self._delta_flush_interval_sec = delta_flush_interval_sec
         self._dedupe = dedupe
         self._console = console
@@ -742,24 +768,111 @@ class InboundPipeline:
         platform_user_id: UUID,
     ) -> None:
         state = _RunStreamState(self._build_renderer())
+        if isinstance(adapter, ReplySessionFactory):
+            try:
+                state.reply = adapter.open_reply(route, request.message.id)
+                if self._activity_messages is None:
+                    self._activity_messages = ActivityMessages(self._catalog.file_path, self._locale)
+            except ChannelAdapterUnavailable:
+                logger.warning("channel_reply_session_unavailable channel=%s", route.channel)
+        finalized = False
         try:
+            await self._update_progress(route, state, force=True)
             stream = self._runtime.create_run(request, tenant_id=self._tenant_id)
-            async for event in stream:
-                await self._apply_run_event(adapter, route, platform_user_id, state, event)
-                if state.terminal:
-                    break
+            async with aclosing(iter_with_ticks(stream, interval=self._progress_interval_sec)) as events:
+                async for event in events:
+                    if event is None:
+                        await self._update_progress(route, state)
+                        continue
+                    await self._apply_run_event(adapter, route, platform_user_id, state, event)
+                    if state.terminal:
+                        break
+            if not state.terminal and not state.awaiting_input:
+                state.progress.apply(SseEvent("run.failed", {}))
+                await self._update_progress(route, state, force=True)
+                await self._send_run_text(adapter, route, state, BROKEN_STREAM_TEXT)
         except AppError as exc:
-            await self._run_actions(adapter, route, state, state.renderer.finalize())
-            await self._reply_error(adapter, route, exc)
+            state.progress.apply(SseEvent("run.failed", {}))
+            await self._update_progress(route, state, force=True)
+            if state.reply is None:
+                # 非状态能力渠道**保留原回复路径**（设计 §3.2）：正文尾段先落，错误文案在后。
+                # 有回复会话的渠道相反——错误要并进那条还没收尾的流里，所以先发再 finalize。
+                await self._run_actions(adapter, route, state, state.renderer.finalize())
+                finalized = True
+            await self._reply_error(adapter, route, exc, reply=state.reply)
             return
-        await self._run_actions(adapter, route, state, state.renderer.finalize())
+        finally:
+            if not finalized:
+                await self._run_actions(adapter, route, state, state.renderer.finalize())
         metrics.set_gauge(
             STREAM_LATENCY_METRIC,
             _elapsed_ms(state.started_at),
             help="Whole-stream latency until finalize (ms)",
         )
-        if not state.terminal and not state.awaiting_input:
-            await self._send_text(adapter, route, BROKEN_STREAM_TEXT)
+
+    async def _update_progress(
+        self,
+        route: DeliveryRouteInput,
+        state: _RunStreamState,
+        *,
+        force: bool = False,
+    ) -> None:
+        """把当前阶段送到会话上（设计 §3.4 / PROGRESS-01）。
+
+        **计时 tick 与阶段变化走两条路**：
+
+        - `force=True`（阶段变化、终态、准备中）在主路径上**按序**发送：先等掉在飞的 tick，
+          再发本条——同一条会话流只有一个写者，顺序不能被 tick 打乱。
+        - `force=False`（1 秒 tick）**不等**：发送者忙就整条丢掉（不排队、不积压），下一拍用
+          当时的最新阶段重算。读取循环因此不会被计时拖住，正文与终态可以随时插进来。
+        """
+        if state.reply is None or (not force and not state.progress.active):
+            return
+        if not state.progress.visible:
+            return
+        if force:
+            await self._drain_status(state)
+            await self._send_status(route, state)
+            return
+        if state.status_task is None or state.status_task.done():
+            state.status_task = asyncio.create_task(self._send_status(route, state))
+
+    async def _send_status(self, route: DeliveryRouteInput, state: _RunStreamState) -> None:
+        reply = state.reply
+        if reply is None:  # 会话在任务起跑前被回收（收尾/停机）
+            return
+        assert self._activity_messages is not None
+        try:
+            await reply.update_status(self._activity_messages.render(state.progress))
+        except ChannelAdapterUnavailable:
+            logger.warning("channel_status_update_failed channel=%s", route.channel, exc_info=True)
+
+    async def _drain_status(self, state: _RunStreamState) -> None:
+        """等掉在飞的 tick，保证随后写入的是**唯一写者**。
+
+        只等不取消：状态帧与正文帧同走一条官方流，中途取消可能留下半个 WS 帧；而两者共用
+        同一条传输，等它的代价也就是这条传输本来要花的代价。上限由会话自己的状态超时兜底。
+        """
+        task, state.status_task = state.status_task, None
+        if task is None:
+            return
+        with suppress(asyncio.CancelledError):
+            await task
+
+    async def _send_run_text(
+        self,
+        adapter: ChannelAdapter,
+        route: DeliveryRouteInput,
+        state: _RunStreamState,
+        text: str,
+    ) -> None:
+        if state.reply is None:
+            await self._send_text(adapter, route, text)
+            return
+        try:
+            await state.reply.send(text)
+        except ChannelAdapterUnavailable:
+            logger.warning("channel_reply_failed channel=%s", route.channel, exc_info=True)
 
     def _build_renderer(self) -> StreamRenderer:
         return StreamRenderer(
@@ -775,6 +888,9 @@ class InboundPipeline:
         state: _RunStreamState,
         event: SseEvent,
     ) -> None:
+        changed = state.progress.apply(event)
+        if changed:
+            await self._update_progress(route, state, force=True)
         del platform_user_id  # resume 由 Runtime 决定（Gateway 无状态）
         if state.first_event_at is None:
             state.first_event_at = time.monotonic()
@@ -787,6 +903,8 @@ class InboundPipeline:
             run_id = event.run_id or (event.data or {}).get("run_id")
             if run_id is not None:
                 state.run_id = str(run_id)
+                if state.reply is not None:
+                    state.reply.bind_run(state.run_id)
             return
         await self._run_actions(adapter, route, state, state.renderer.apply(event))
         if event.type == INTERRUPT_REQUIRED_EVENT:
@@ -801,6 +919,14 @@ class InboundPipeline:
         state: _RunStreamState,
         actions: Sequence[RenderAction],
     ) -> None:
+        if state.reply is not None:
+            actions = tuple(action for action in actions if action.kind != FINALIZE_KIND) + tuple(
+                action for action in actions if action.kind == FINALIZE_KIND
+            )
+            if _writes(actions):
+                # 真要写了才等在飞的 tick。force 路径**挡不住这一帧**：正文一出现状态即转为
+                # 不可见，此后的 force 调用都在可见性检查处直接返回，只有这里能兜住。
+                await self._drain_status(state)
         for action in actions:
             if action.kind == STREAM_KIND:
                 if state.first_chunk_at is None:
@@ -810,11 +936,25 @@ class InboundPipeline:
                         _elapsed_ms(state.started_at, state.first_chunk_at),
                         help="Time to first streamed chunk (ms)",
                     )
-                await self._stream_text(adapter, route, action.text)
+                if state.reply is None:
+                    await self._stream_text(adapter, route, action.text)
+                else:
+                    try:
+                        await state.reply.stream(action.text)
+                    except ChannelAdapterUnavailable:
+                        logger.warning("channel_reply_stream_failed channel=%s", route.channel, exc_info=True)
             elif action.kind == TEXT_KIND and action.text:
-                await self._send_text(adapter, route, action.text)
+                await self._send_run_text(adapter, route, state, action.text)
             elif action.kind == FINALIZE_KIND:
-                await self._finalize_stream(adapter, route)
+                if state.reply is None:
+                    await self._finalize_stream(adapter, route)
+                else:
+                    try:
+                        await state.reply.finish()
+                    except ChannelAdapterUnavailable:
+                        logger.warning(
+                            "channel_reply_finalize_failed channel=%s", route.channel, exc_info=True
+                        )
 
     async def _flush(
         self,
@@ -869,12 +1009,17 @@ class InboundPipeline:
         adapter: ChannelAdapter,
         route: DeliveryRouteInput,
         exc: AppError,
+        *,
+        reply: ChannelReplySession | None = None,
     ) -> None:
-        metrics.inc_counter(
-            RUNTIME_ERRORS_METRIC, 1, {"code": exc.code}, help="Runtime error codes observed"
-        )
-        metrics.inc_counter(
-            MESSAGE_FAILURES_METRIC, 1, {"reason": exc.code}, help="IM message failures"
-        )
+        metrics.inc_counter(RUNTIME_ERRORS_METRIC, 1, {"code": exc.code}, help="Runtime error codes observed")
+        metrics.inc_counter(MESSAGE_FAILURES_METRIC, 1, {"reason": exc.code}, help="IM message failures")
         logger.warning("inbound_dependency_error code=%s", exc.code)
-        await self._send_text(adapter, route, self._catalog.message(exc.code, self._locale))
+        text = self._catalog.message(exc.code, self._locale)
+        if reply is None:
+            await self._send_text(adapter, route, text)
+        else:
+            try:
+                await reply.send(text)
+            except ChannelAdapterUnavailable:
+                logger.warning("channel_error_reply_failed channel=%s", route.channel, exc_info=True)

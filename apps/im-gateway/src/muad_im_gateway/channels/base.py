@@ -51,6 +51,32 @@ class ChannelAdapter(Protocol):
     async def stream(self, route: DeliveryRouteInput, chunks: AsyncIterator[str]) -> None: ...
 
 
+class ChannelReplySession(Protocol):
+    """一次入站消息的回复会话（可选能力，设计 SESSION-01）。
+
+    与会话级的「最新回调」无关：本会话只服务**打开它的那条消息**，所以同会话后来的入站
+    消息不会把它的回复目标顶掉。
+    """
+
+    def bind_run(self, run_id: str) -> None:
+        """把本会话绑到发起它的 Run：产物按 `run:{run_id}:{artifact_id}` 投递时，
+        适配器据此找回**本条消息**的回调，而不是本路由最新那条。"""
+        ...
+
+    async def update_status(self, text: str) -> None: ...
+
+    async def stream(self, text: str) -> None: ...
+
+    async def send(self, text: str) -> None: ...
+
+    async def finish(self) -> None: ...
+
+
+@runtime_checkable
+class ReplySessionFactory(Protocol):
+    def open_reply(self, route: DeliveryRouteInput, message_id: str) -> ChannelReplySession: ...
+
+
 #: 附件的原因码词汇表——**渠道中立**：渠道层（可能抛）与应用层（映射文案 + 写审计）共用同一套。
 #: 单文件超限与门控实检里的 `ATTACHMENT_TOO_LARGE` 是**同一个码**：超限这件事只有一种说法。
 ATTACHMENT_TOO_LARGE = "ATTACHMENT_TOO_LARGE"
@@ -172,14 +198,22 @@ class OutboundArtifactDelivery(Protocol):
         ...
 
     async def deliver_artifact(
-        self, route: DeliveryRouteInput, artifact: AttachmentRef, *, tenant_id: str
+        self,
+        route: DeliveryRouteInput,
+        artifact: AttachmentRef,
+        *,
+        tenant_id: str,
+        run_id: str | None = None,
     ) -> ArtifactDeliveryOutcome:
         """`tenant_id` 是**签发降级链接**要用的作用域，不是渠道形状：取件端点按租户做归属校验，
         少了它，降级这条路要么签不出来、要么只能烧死一个租户。
 
+        `run_id` 来自交付键（`run:{run_id}:{artifact_id}`）：**同一个路由上可能有多条入站
+        消息**，按它才能把产物回到**起这个 Run 的那条消息**的回调上；键里没有 run（后台任务
+        投递）时为 `None`，适配器退回本路由的最新回调。
+
         设计 §3.6 写的是"核心域只给**产物引用 + 路由**"——那句话要挡的是**渠道发送体**
-        （url / aes_key / media_id 之类）不得上行，租户不在其中；交付链的其它调用点
-        （审计写入）本来就显式带着它。
+        （url / aes_key / media_id 之类）不得上行，租户与 Run 都不在其中。
         """
         ...
 

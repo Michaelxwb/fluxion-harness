@@ -71,6 +71,20 @@ verifiers:
 - **网关不持库 ⇒ 入站审计经 Console 内网端点写控制面表**：`POST /internal/channel/audit`（`InternalServiceDep` + `HeaderTenantId`）写 `control.im_inbound_audit`（`apps/console-platform/backend/src/muad_console_platform/api/internal_channel.py`）。审计契约 `InboundAuditRequest` 字段**全部枚举化、刻意没有自由 JSON 列** ⇒ 取件凭据在**类型上**无处可放（比写入前运行时脱敏更强）；幂等键 `(tenant_id, channel, external_message_id, outcome)` 承载重投（`ON CONFLICT DO NOTHING` + 回查）。
   - 审计面抖动**不阻断用户请求**（不能因为审计写不进去就让用户收不到回答），但失败必须留 ERROR 日志。
 
+执行状态展示（im-execution-progress，2026-10-04）：
+
+- **执行事件是事实，动画是渠道能力**：Runner 在真实模型调用前后发 `model.started` / `model.completed`；Executor 经现有 Run 持久事件链输出。Gateway 从模型/工具事件推导阶段，经可选 `ReplySessionFactory` 展示；原生动画标签仅由适配器生成。
+  - ✅ `tool.started` → 执行中，所有并行工具完成后再切换；❌ 按计时器轮流伪造思考/执行状态
+- **每条消息拥有独立回复会话**：`open_reply(route, message_id)` 绑定该消息的回调，状态全量替换、正文追加、`finish()` 幂等；新入站消息不能覆盖旧任务的回复目标。
+  - ✅ 正文与最终结果复用同一 stream；❌ 用用户/会话级最新回调回复仍在运行的旧消息
+  - ✅ 产物交付按交付键里的 `run:{run_id}:{artifact_id}` 找回**起这个 Run 的那条消息**的回调（会话 `bind_run`，交付契约把 `run_id` 传给适配器）；键里没有 Run（后台任务投递）才退回路由级最新回调
+  - ❌ 产物也回「本路由最新回调」——同会话后来的消息会把仍在运行的老任务的产物挂到自己头上
+- **计时不创造执行状态**：当前 submission 的 `run.created` 时间恢复本段起点，monotonic 计算秒数；等待确认、后台受理、完成/失败/取消/断流停止当前段。后台 Task 沿既有 Worker 可靠投递流程通知结果，本段计时不冒充后台任务进度。
+- **状态发送有界**：默认每秒一次计时，每机器人共享可配置令牌预算；额度不足跳过当前刷新，不积压 tick、不每秒查库/写事件/调用模型。正文与收尾绕过状态预算；状态发送错误显式记录，不阻断执行。新 IM 渠道实现回复会话能力并扩展契约白名单，无须改模型/工具状态机。
+  - ✅ 计时 tick 交给后台单飞任务：发送者忙就整条丢弃（下一拍按最新阶段重算），正文/收尾写入前先让在飞的 tick 落地，读取循环不被计时拖住
+  - ✅ 状态帧与正文帧共用一条 session 流 ⇒ **任何时刻只有一个写者**；慢/挂住的状态发送由超时兜底后放弃并留日志
+  - ❌ 每秒排队等上一拍发送返回，或让状态帧与正文帧并发写同一条 stream（正文会被占位盖回去）
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。

@@ -18,9 +18,12 @@ from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-#: 流式增量事件：一次运行里按 token 产生，行数可达数千，是「轮廓」要剔掉的那一类。
-#: 生产侧定义见 `apps/agent-runtime/src/muad_agent_runtime/application/executor.py`（`MESSAGE_DELTA_EVENT`）。
-STREAMING_EVENT_TYPES = ("message.delta",)
+#: 不进「轮廓」的事件类型：**落库后的业务名**（`canonical_event.event_type`，不是 SSE 名——
+#: 生产侧由 `STREAM_BUSINESS_TYPES` 映射，见
+#: `apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`）。
+#: 只剔 token 级增量（一次运行可达数千行，占满上限后轮廓就只剩它）。
+#: 模型调用边界**保留**：与 `TOOL_CALL_STARTED`/`TOOL_CALL` 对称，是审计要看的执行事实。
+STREAMING_EVENT_TYPES = ("ASSISTANT_DELTA",)
 
 #: 轮廓上限。超出只回前 N 条并置 `truncated`，让页面能如实说明「还有更多」，而不是假装完整。
 TIMELINE_LIMIT = 200

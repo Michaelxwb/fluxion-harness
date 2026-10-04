@@ -133,6 +133,10 @@ assert (await session.get(RunRecord, run_id)).status == "RUNNING"               
   - ✅ 逐腿：先只改 `agent.instructions`，断言新 Run 的 `content_hash` 变**且** model 相关列不变；再只改 `model.params_json`，反向断言。
   - ❌ 同时改 agent+model 后只断言「hash 变了」——即便把 `agent` 从 hash 计算里去掉，断言照样绿（实测首轮扰动不变红，加固为逐腿后才变红）。参考 `tests/acceptance/dfx/test_dfx_stateless.py`、`tests/agent_runtime/test_snapshot_freeze.py::test_b104_definition_change_only_affects_new_runs`。
 - ❌ 把验收/Done Gate 命令的输出接进会**提前关闭的管道**（典型 `| head`）：SIGPIPE 会打断 pytest 收尾，`stop_live_stack`/`stop_audit_stack` 不执行，留下 uvicorn/`muad_*.main` 孤儿进程继续连同一个本地测试库 → 后续运行随机失败（如 `SKILL_ARTIFACT_UNAVAILABLE`、任务 `FAILED`），且失败点每次不同、单跑却都通过，极易误判为跨模块 flake。用 `> file` 或 `tail`（会读完输入）；每次运行前先确认无残留进程（`ps aux | grep -E "[u]vicorn|muad_(agent_worker|agent_runtime|console_platform|im_gateway)\.main"`）。**登记缺口：本条无任何脚本/机检约束**——收口清单里没有对应的规则断言，属纯人工纪律，只能在评审与运行前自查时人工把关。
+- **测试文件的导入名必须唯一，否则全量 pytest 连收集都过不去**：两个**都没有** `__init__.py` 的目录里出现同名 `test_*.py` 时，pytest 用 basename 当模块名，`pytest tests/` 在收集阶段直接中断（`import file mismatch: imported module 'X' has this __file__ attribute: …/A/X.py`），而**单文件跑全绿**——报错里那句「remove `__pycache__`」是误导，真因是包标记缺失。仓内口径是**给其中一个目录补空的 `__init__.py`**（`tests/acceptance/{runtime,dfx,overview,task_schedule,audit_observability,console_auth_flow}/` 早有先例），改名会牵动任务文档 Acceptance Coverage/Contract 里已登记的测试路径与已有证据。
+  - ✅ 定名之前先 `find tests -name "<basename>.py"`；撞名就补包标记，或改一个更具体的名字
+  - ❌ 同一需求里按场景层各建一个 `test_<需求名>.py`（本次实例：`tests/gateway/test_execution_progress.py` 与 `tests/acceptance/im_gateway/test_execution_progress.py` 同名 ⇒ `pytest tests/` 一条都跑不了，而 `pytest tests/gateway` 与 acceptance 单跑都绿）
+  - 机检：`tests/test_collection_layout.py::test_no_two_test_modules_share_an_import_name`（按 pytest 的 prepend 规则推导入名：目录链上有 `__init__.py` 的算包段，否则该目录名即模块名的起点）
 
 ## Avoid
 

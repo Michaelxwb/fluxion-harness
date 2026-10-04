@@ -103,6 +103,8 @@ CONVERSATION_ACTIVE = "ACTIVE"
 STREAM_BUSINESS_TYPES: dict[str, str] = {
     RUN_CREATED_EVENT: "RUN_CREATED",
     "message.delta": "ASSISTANT_DELTA",
+    "model.started": "MODEL_CALL_STARTED",
+    "model.completed": "MODEL_CALL_COMPLETED",
     "tool.started": "TOOL_CALL_STARTED",
     "tool.completed": "TOOL_CALL",
     "assistant.turn": "ASSISTANT_TURN",

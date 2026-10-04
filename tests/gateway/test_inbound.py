@@ -604,3 +604,60 @@ async def test_consume_loop_survives_handler_crash(catalog: MessageCatalog) -> N
 
     assert len(runtime.run_requests) == 1
     assert runtime.run_requests[0].message.id == "m-2"
+
+
+class _OrderedAdapter(FakeChannelAdapter):
+    """非状态能力渠道（设计 §3.2「保留原回复路径」）：把出站动作记进**同一条时间线**。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.actions: list[str] = []
+
+    async def stream(self, route: DeliveryRouteInput, chunks) -> None:  # type: ignore[no-untyped-def]
+        self.actions.append("stream:" + "".join([chunk async for chunk in chunks]))
+
+    async def send(self, route: DeliveryRouteInput, message: DeliveryMessage) -> None:
+        self.actions.append("text:" + message.text)
+
+    async def finish_stream(self, route: DeliveryRouteInput) -> None:
+        self.actions.append("finish")
+
+
+class _MidStreamFailingRuntime(FakeRuntimeClient):
+    """先产出正文再以 AppError 中断——真实网关遇到的是**运行中**失败，不是建 Run 就失败。"""
+
+    def __init__(self, events: list[SseEvent], error: AppError) -> None:
+        super().__init__(events)
+        self._failure = error
+
+    async def create_run(
+        self, request, *, tenant_id: str, trace_id: str = ""  # type: ignore[no-untyped-def]
+    ):
+        self.run_requests.append(request)
+        for event in self.events:
+            yield event
+        raise self._failure
+
+
+async def test_app_error_keeps_partial_body_before_the_error_text(catalog: MessageCatalog) -> None:
+    """错误路径不得把非状态能力渠道的顺序改掉：正文尾段先落，错误文案在后。"""
+    console = FakeConsoleClient()
+    console.resolve_response = resolved_response()
+    runtime = _MidStreamFailingRuntime(
+        [
+            SseEvent(type="run.created", data={"run_id": "run-1"}),
+            SseEvent(type="message.delta", data={"delta": "半句"}),
+        ],
+        AppError(ErrorCode.RUN_BUSY),
+    )
+    adapter = _OrderedAdapter()
+    pipeline = _pipeline(console, runtime, catalog=catalog, delta_flush_interval_sec=1000.0)
+
+    await pipeline.handle(adapter, make_envelope())
+
+    assert adapter.actions == [
+        "stream:半句",
+        "finish",
+        "text:当前会话已有任务执行中，可发送 /stop 停止",
+    ]
+

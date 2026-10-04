@@ -67,6 +67,8 @@ from .time_tools import TimeToolSet, resolve_zone
 
 CancelCheck = Callable[[], Awaitable[bool]]
 MESSAGE_DELTA_EVENT = "message.delta"
+MODEL_STARTED_EVENT = "model.started"
+MODEL_COMPLETED_EVENT = "model.completed"
 TOOL_STARTED_EVENT = "tool.started"
 TOOL_COMPLETED_EVENT = "tool.completed"
 # 一个 assistant 回合（含 tool_calls 与思维链）原样落库；历史重建靠它产出**合法**的消息序列
@@ -169,6 +171,12 @@ class AgentRunnerExecutor:
         async def emit(event: ExecutorEvent) -> None:
             await queue.put(event)
 
+        async def on_model_started() -> None:
+            await emit(ExecutorEvent(type=MODEL_STARTED_EVENT, data={}))
+
+        async def on_model_completed() -> None:
+            await emit(ExecutorEvent(type=MODEL_COMPLETED_EVENT, data={}))
+
         async def on_delta(text: str) -> None:
             nonlocal delta_emitted
             delta_emitted = True
@@ -224,7 +232,15 @@ class AgentRunnerExecutor:
             )
 
         task = asyncio.create_task(
-            self._execute(cancelled, on_delta, on_tool_started, on_assistant_turn, on_tool_completed)
+            self._execute(
+                cancelled,
+                on_delta,
+                on_tool_started,
+                on_assistant_turn,
+                on_tool_completed,
+                on_model_started,
+                on_model_completed,
+            )
         )
         try:
             while True:
@@ -258,12 +274,16 @@ class AgentRunnerExecutor:
         on_tool_started: Callable[[str, str], Awaitable[None]],
         on_assistant_turn: Callable[[ModelMessage], Awaitable[None]],
         on_tool_completed: Callable[[str, str, str, str | None], Awaitable[None]],
+        on_model_started: Callable[[], Awaitable[None]],
+        on_model_completed: Callable[[], Awaitable[None]],
     ) -> Any:
         try:
             return await self._runner.run(
                 self._build_run_request(),
                 is_cancelled=cancelled.is_set,
                 on_delta=on_delta,
+                on_model_started=on_model_started,
+                on_model_completed=on_model_completed,
                 on_tool_started=on_tool_started,
                 on_assistant_turn=on_assistant_turn,
                 on_tool_completed=on_tool_completed,

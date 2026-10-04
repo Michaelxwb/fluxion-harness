@@ -1,0 +1,393 @@
+{
+  "schema": 2,
+  "task_file": "im-execution-progress.md",
+  "task_sha256": "0ebeb0bd51a1a0aadaeaf4b54e27fe5438d0f67499e4cc55b1dff22981bbccd4",
+  "scenarios": [
+    {
+      "id": "S-401",
+      "source": "im-execution-progress.design.md#2.3 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 WS → Gateway → Runtime/PG → 模型 HTTP 探针 → 原生流回复",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_execution_progress.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 6,
+      "evidence": {
+        "id": "S-401",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 6,
+        "run_id": "23a57453a88142a9967d2881f9c08595",
+        "executed_at": "2026-10-04T03:12:22.351158+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-401",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "f66779417d5f4aaba101885d74344aa6",
+          "executed_at": "2026-10-03T23:55:51.654669+00:00"
+        },
+        {
+          "id": "S-401",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "d5b87f3593d54e2bbd8c55629c20bd49",
+          "executed_at": "2026-10-03T23:57:02.731272+00:00"
+        },
+        {
+          "id": "S-401",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "bd719fb1d0e94520a57a2ab8e56bfced",
+          "executed_at": "2026-10-03T23:57:35.556018+00:00"
+        },
+        {
+          "id": "S-401",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 4,
+          "run_id": "84579c343fe74a1e9aff5aa2b0903f6d",
+          "executed_at": "2026-10-04T02:33:38.370765+00:00"
+        },
+        {
+          "id": "S-401",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "cb5ed45adf4949bcbe8fa0b4eedf0d66",
+          "executed_at": "2026-10-04T03:11:20.224068+00:00"
+        },
+        {
+          "id": "S-401",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 6,
+          "run_id": "23a57453a88142a9967d2881f9c08595",
+          "executed_at": "2026-10-04T03:12:22.351158+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-402",
+      "source": "im-execution-progress.design.md#2.3 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Runner → Executor 模型与工具事件",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_execution_activity.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "S-402",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "23a57453a88142a9967d2881f9c08595",
+        "executed_at": "2026-10-04T03:12:22.351158+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-402",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "st(model_id='test', messages=(ModelMessage(role=<ModelRole.SYSTEM: 'system'>, content='', tool_call_id=None, tool_calls=(), reasoning_content=None),), tools=(), temperature=None, max_tokens=None, params={})\n\n    async def complete(self, request: ModelRequest) -> ModelResponse:\n        self.requests.append(request)\n        if not self._script:\n            raise AssertionError(\"unexpected model call\")\n        item = self._script.pop(0)\n        if isinstance(item, Exception):\n>           raise item\nE           muad_agent_core.model.errors.ModelUnavailableError: down\n\ntests/agent_core/test_runner.py:42: ModelUnavailableError\n\nDuring handling of the above exception, another exception occurred:\n\n    async def test_s402_model_events_wrap_every_retry_and_failure():\n        events = []\n    \n        async def started():\n            events.append(\"started\")\n    \n        async def completed():\n            events.append(\"completed\")\n    \n        provider = ScriptedModelProvider([ModelUnavailableError(\"down\"), ModelUnavailableError(\"down\")])\n        runner = AgentRunner(provider=provider, registry=ToolRegistry())\n        with pytest.raises(ModelUnavailableError):\n>           await runner.run(\n                AgentRunRequest(model_id=\"test\", instructions=\"\", policy=AgentPolicy(max_model_retries=1)),\n                on_model_started=started,\n                on_model_completed=completed,\n            )\n\ntests/agent_runtime/test_execution_activity.py:119: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npackages/agent-core/src/muad_agent_core/agent/runner.py:244: in run\n    final = cast(AgentGraphState, await self._graph.ainvoke(initial))\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/langgraph/pregel/main.py:4090: in ainvoke\n    async for chunk in self.astream(\n.venv/lib/python3.12/site-packages/langgraph/pregel/main.py:3440: in astream\n    async for _ in runner.atick(\n.venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py:396: in atick\n    await arun_with_retry(\n.venv/lib/python3.12/site-packages/langgraph/pregel/_retry.py:744: in arun_with_retry\n    return await task.proc.ainvoke(task.input, config)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py:756: in ainvoke\n    input = await asyncio.create_task(\n.venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py:522: in ainvoke\n    ret = await self.afunc(*args, **kwargs)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npackages/agent-core/src/muad_agent_core/agent/runner.py:308: in _call_model\n    response = await self._complete_with_recovery(\npackages/agent-core/src/muad_agent_core/agent/runner.py:492: in _complete_with_recovery\n    await self._cancel_aware_sleep(state, self._retry_delay(state, attempts, None))\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <muad_agent_core.agent.runner.AgentRunner object at 0x10aeba6f0>\nstate = {'budget_exhausted': False, 'final_text': '', 'input_tokens': 0, 'instructions': '', ...}\nattempt = 1, retry_after = None\n\n    def _retry_delay(\n        self,\n        state: AgentGraphState,\n        attempt: int,\n        retry_after: float | None,\n    ) -> float:\n        policy = state[\"policy\"]\n        if attempt >= policy.max_model_retries:\n>           raise RunnerModelError(f\"model retries exhausted: {attempt}\")\nE           muad_agent_core.agent.runner.RunnerModelError: model retries exhausted: 1\nE           During task with name 'model' and id 'cf5324ed-548f-6bf4-0fea-900f80134877'\n\npackages/agent-core/src/muad_agent_core/agent/runner.py:528: RunnerModelError\n=========================== short test summary info ============================\nFAILED tests/agent_runtime/test_execution_activity.py::test_s402_model_events_wrap_every_retry_and_failure\n1 failed, 3 passed in 0.30s",
+          "revision": 1,
+          "run_id": "f66779417d5f4aaba101885d74344aa6",
+          "executed_at": "2026-10-03T23:55:51.654669+00:00"
+        },
+        {
+          "id": "S-402",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "d5b87f3593d54e2bbd8c55629c20bd49",
+          "executed_at": "2026-10-03T23:57:02.731272+00:00"
+        },
+        {
+          "id": "S-402",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "bd719fb1d0e94520a57a2ab8e56bfced",
+          "executed_at": "2026-10-03T23:57:35.556018+00:00"
+        },
+        {
+          "id": "S-402",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "84579c343fe74a1e9aff5aa2b0903f6d",
+          "executed_at": "2026-10-04T02:33:38.370765+00:00"
+        },
+        {
+          "id": "S-402",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "23a57453a88142a9967d2881f9c08595",
+          "executed_at": "2026-10-04T03:12:22.351158+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-401",
+      "source": "im-execution-progress.design.md#2.3 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Pipeline → 回复会话 → 等待/终态/断流清理",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_execution_progress.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "E-401",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "23a57453a88142a9967d2881f9c08595",
+        "executed_at": "2026-10-04T03:12:22.351158+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-401",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "f66779417d5f4aaba101885d74344aa6",
+          "executed_at": "2026-10-03T23:55:51.654669+00:00"
+        },
+        {
+          "id": "E-401",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "d5b87f3593d54e2bbd8c55629c20bd49",
+          "executed_at": "2026-10-03T23:57:02.731272+00:00"
+        },
+        {
+          "id": "E-401",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "bd719fb1d0e94520a57a2ab8e56bfced",
+          "executed_at": "2026-10-03T23:57:35.556018+00:00"
+        },
+        {
+          "id": "E-401",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "84579c343fe74a1e9aff5aa2b0903f6d",
+          "executed_at": "2026-10-04T02:33:38.370765+00:00"
+        },
+        {
+          "id": "E-401",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "23a57453a88142a9967d2881f9c08595",
+          "executed_at": "2026-10-04T03:12:22.351158+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-401",
+      "source": "im-execution-progress.design.md#2.3 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "进度状态机与有界异步调度",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_execution_progress.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "B-401",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "23a57453a88142a9967d2881f9c08595",
+        "executed_at": "2026-10-04T03:12:22.351158+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-401",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "f66779417d5f4aaba101885d74344aa6",
+          "executed_at": "2026-10-03T23:55:51.654669+00:00"
+        },
+        {
+          "id": "B-401",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "d5b87f3593d54e2bbd8c55629c20bd49",
+          "executed_at": "2026-10-03T23:57:02.731272+00:00"
+        },
+        {
+          "id": "B-401",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "bd719fb1d0e94520a57a2ab8e56bfced",
+          "executed_at": "2026-10-03T23:57:35.556018+00:00"
+        },
+        {
+          "id": "B-401",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "84579c343fe74a1e9aff5aa2b0903f6d",
+          "executed_at": "2026-10-04T02:33:38.370765+00:00"
+        },
+        {
+          "id": "B-401",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "23a57453a88142a9967d2881f9c08595",
+          "executed_at": "2026-10-04T03:12:22.351158+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-402",
+      "source": "im-execution-progress.design.md#2.3 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实适配器 → 本地 TLS WS → 官方 SDK",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_execution_progress.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "B-402",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "23a57453a88142a9967d2881f9c08595",
+        "executed_at": "2026-10-04T03:12:22.351158+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-402",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "f66779417d5f4aaba101885d74344aa6",
+          "executed_at": "2026-10-03T23:55:51.654669+00:00"
+        },
+        {
+          "id": "B-402",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "d5b87f3593d54e2bbd8c55629c20bd49",
+          "executed_at": "2026-10-03T23:57:02.731272+00:00"
+        },
+        {
+          "id": "B-402",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "bd719fb1d0e94520a57a2ab8e56bfced",
+          "executed_at": "2026-10-03T23:57:35.556018+00:00"
+        },
+        {
+          "id": "B-402",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "84579c343fe74a1e9aff5aa2b0903f6d",
+          "executed_at": "2026-10-04T02:33:38.370765+00:00"
+        },
+        {
+          "id": "B-402",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "23a57453a88142a9967d2881f9c08595",
+          "executed_at": "2026-10-04T03:12:22.351158+00:00"
+        }
+      ]
+    }
+  ]
+}

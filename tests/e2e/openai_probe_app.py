@@ -89,11 +89,19 @@ async def get_script() -> dict[str, Any]:
 
 @app.post("/script")
 async def set_script(request: Request) -> dict[str, Any]:
-    """设定后续请求的模型行为；传 `{}` 即清除（回到 env 默认）。"""
+    """设定后续请求的模型行为；传 `{}` 即清除（回到 env 默认）。
+
+    `delay_ms` 在这里就校验成非负整数：白名单只按 key 取值，不管值的形状，放到
+    `/v1/chat/completions` 里再 `int()` 会变成一记 500，看起来像模型侧挂了。
+    """
     payload = await request.json()
+    if isinstance(payload, dict) and "delay_ms" in payload:
+        delay_ms = payload["delay_ms"]
+        if not isinstance(delay_ms, int) or isinstance(delay_ms, bool) or delay_ms < 0:
+            return JSONResponse({"error": "delay_ms must be a non-negative integer"}, status_code=400)
     _script.clear()
     if isinstance(payload, dict):
-        allowed = ("tool_name", "tool_arguments", "final_text", "tools")
+        allowed = ("tool_name", "tool_arguments", "final_text", "tools", "delay_ms")
         _script.update({key: payload[key] for key in allowed if key in payload})
     return {"script": dict(_script)}
 
@@ -133,7 +141,7 @@ async def list_models() -> dict[str, list[dict[str, str]]]:
 
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request):
-    delay_ms = int(os.environ.get("OPENAI_PROBE_DELAY_MS", "0"))
+    delay_ms = int(_script.get("delay_ms", os.environ.get("OPENAI_PROBE_DELAY_MS", "0")))
     if delay_ms > 0:
         await asyncio.sleep(delay_ms / 1000)
     required = os.environ.get("OPENAI_PROBE_REQUIRE_AUTH", "")

@@ -309,3 +309,30 @@ codes:
     messages:
       zh-CN: 已收到 {accepted} 个附件，{rejected} 个未接收：{reason}
       en-US: "Received {accepted} attachment(s); {rejected} were not accepted: {reason}"
+
+# Transient IM activity presentation; these are UI templates, not API error codes.
+activity_messages:
+  PREPARING:
+    zh-CN: '🔵 准备中 · 已执行 {elapsed}'
+    en-US: '🔵 Preparing · elapsed {elapsed}'
+  THINKING:
+    zh-CN: '🔵 思考中 · 已执行 {elapsed}'
+    en-US: '🔵 Thinking · elapsed {elapsed}'
+  EXECUTING:
+    zh-CN: '⚙️ 执行中 · 已执行 {elapsed}'
+    en-US: '⚙️ Executing · elapsed {elapsed}'
+  WAITING_INPUT:
+    zh-CN: '⏸ 等待你的确认 · 已执行 {elapsed}'
+    en-US: '⏸ Awaiting your confirmation · elapsed {elapsed}'
+  ACCEPTED:
+    zh-CN: '📥 已转交后台任务 · 本次执行 {elapsed}'
+    en-US: '📥 Handed off to a background task · elapsed {elapsed}'
+  COMPLETED:
+    zh-CN: '✅ 已完成 · 用时 {elapsed}'
+    en-US: '✅ Completed · elapsed {elapsed}'
+  FAILED:
+    zh-CN: '❌ 执行失败 · 用时 {elapsed}'
+    en-US: '❌ Failed · elapsed {elapsed}'
+  CANCELLED:
+    zh-CN: '⏹ 已停止 · 用时 {elapsed}'
+    en-US: '⏹ Stopped · elapsed {elapsed}'

@@ -146,6 +146,8 @@ class AgentGraphState(TypedDict):
     is_cancelled: Callable[[], bool] | None
     on_delta: DeltaCallback | None
     on_tool_started: Callable[[str, str], Awaitable[None]] | None
+    on_model_started: Callable[[], Awaitable[None]] | None
+    on_model_completed: Callable[[], Awaitable[None]] | None
     # 每次模型响应触发一次，带完整 assistant 消息（含 tool_calls 与 reasoning_content）：
     # 调用方据此把「一个 assistant 回合」原样持久化，供后续 Run 重建**合法**历史。
     on_assistant_turn: Callable[[ModelMessage], Awaitable[None]] | None
@@ -204,6 +206,8 @@ class AgentRunner:
         is_cancelled: Callable[[], bool] | None = None,
         on_delta: DeltaCallback | None = None,
         on_tool_started: Callable[[str, str], Awaitable[None]] | None = None,
+        on_model_started: Callable[[], Awaitable[None]] | None = None,
+        on_model_completed: Callable[[], Awaitable[None]] | None = None,
         on_assistant_turn: Callable[[ModelMessage], Awaitable[None]] | None = None,
         on_tool_completed: Callable[[str, str, str, str | None], Awaitable[None]] | None = None,
     ) -> AgentRunResult:
@@ -229,6 +233,8 @@ class AgentRunner:
             is_cancelled=is_cancelled,
             on_delta=on_delta,
             on_tool_started=on_tool_started,
+            on_model_started=on_model_started,
+            on_model_completed=on_model_completed,
             on_assistant_turn=on_assistant_turn,
             on_tool_completed=on_tool_completed,
             last_response=None,
@@ -490,14 +496,19 @@ class AgentRunner:
             except ModelRequestError as exc:
                 raise RunnerModelError(f"model request rejected: {exc}") from exc
 
-    async def _invoke_model(
-        self, state: AgentGraphState, request: ModelRequest
-    ) -> ModelResponse:
-        streamer = getattr(self._provider, "stream", None)
-        on_delta = state["on_delta"]
-        if on_delta is not None and streamer is not None:
-            return cast(ModelResponse, await streamer(request, on_delta))
-        return await self._provider.complete(request)
+    async def _invoke_model(self, state: AgentGraphState, request: ModelRequest) -> ModelResponse:
+        started, completed = state["on_model_started"], state["on_model_completed"]
+        if started is not None:
+            await started()
+        try:
+            streamer = getattr(self._provider, "stream", None)
+            on_delta = state["on_delta"]
+            if on_delta is not None and streamer is not None:
+                return cast(ModelResponse, await streamer(request, on_delta))
+            return await self._provider.complete(request)
+        finally:
+            if completed is not None:
+                await completed()
 
     async def _cancel_aware_sleep(self, state: AgentGraphState, delay: float) -> None:
         """退避期间保持 cancel/deadline 可响应。"""

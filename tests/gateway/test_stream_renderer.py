@@ -201,7 +201,8 @@ async def test_b115_stream_tail_is_complete_and_finalized_once(
     # 真实 WeCom 流式协议：每帧携带"当前累积全文"，末帧 finish=true
     assert [_frame_text(frame) for frame in stream_frames][-1] == "分析完成", stream_frames
     assert all(
-        "分析完成".startswith(_frame_text(frame)) for frame in stream_frames
+        _frame_text(frame).startswith("<think>") or "分析完成".startswith(_frame_text(frame))
+        for frame in stream_frames
     ), [(_frame_text(frame)) for frame in stream_frames]
     finished = [index for index, frame in enumerate(stream_frames) if _stream_finished(frame)]
     assert finished == [len(stream_frames) - 1], stream_frames
