@@ -38,7 +38,7 @@ from muad_agent_runtime.application.memory_tools import (
 )
 from muad_agent_runtime.infrastructure.audit_writer import RuntimeAuditWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import ToolCallAudit, UserMemory
+from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, ToolCallAudit, UserMemory
 from muad_api import AppError, render_metrics
 
 TENANT = f"memobs-{uuid.uuid4()}"
@@ -58,7 +58,9 @@ MEMORY_RECALL_BYTES_METRIC = "memory_recall_bytes_total"
 async def _cleanup() -> AsyncIterator[None]:
     yield
     async with get_session_factory()() as session:
-        for table in (UserMemory.__table__, ToolCallAudit.__table__):
+        # 清扫范围必须覆盖本文件**写入**的每一张表：少一张就会"每跑一次残留几行"永久累积
+        # （2026-10-01 在 `test_context_memory.py` 上实测踩过）。
+        for table in (UserMemory.__table__, ToolCallAudit.__table__, CanonicalEvent.__table__):
             await session.execute(table.delete().where(table.c.tenant_id == TENANT))
         await session.commit()
 
@@ -226,6 +228,19 @@ async def test_memory_metrics_cover_write_inject_and_recall() -> None:
         call_id="call-metric-1",
     )
     payload = await _handler(recall)({}, call_id="call-metric-2")
+    # 历史要给够：注入上限是 `min(MAX_INJECTED_BYTES, memory.budget_ratio × 装配出的历史字节)`，
+    # 历史太短时比例先触顶（只走"至少一条"的下限），本用例要验的"两条都注入"就轮不到。
+    async with get_session_factory()() as session:
+        session.add(
+            CanonicalEvent(
+                tenant_id=TENANT,
+                conversation_id=CONV_ID,
+                seq=1,
+                event_type="USER_MESSAGE",
+                payload_json={"text": "历史" * 2500},
+            )
+        )
+        await session.commit()
     builder = DbBackedContextBuilder(session_factory=get_session_factory)
     await builder.build(
         ContextInput(

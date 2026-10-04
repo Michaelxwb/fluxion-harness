@@ -33,7 +33,7 @@
 | E-01 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：从 canonical_event 重建 | TASK-005 | verified | uv run pytest -q tests/agent_runtime/test_context_rebuild.py | . | 600 |
 | E-03 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：canonical_event 审计行 | TASK-005 | verified | uv run pytest -q tests/agent_runtime/test_context_events.py | . | 600 |
 | E-05 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | TASK-007 | verified | uv run pytest -q tests/agent_runtime/test_context_metrics.py | . | 600 |
-| E-06 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实请求装配 → 模型 HTTP 探针 | TASK-008 | planned | uv run pytest -q tests/agent_runtime/test_context_memory_budget.py | . | 600 |
+| E-06 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实请求装配 → 模型 HTTP 探针 | TASK-008 | verified | uv run pytest -q tests/agent_runtime/test_context_memory_budget.py | . | 600 |
 | S-01 | context-compaction.design.md#2.5.2 验收场景 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | . | 1200 |
 | E-07 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | TASK-011 | verified | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py | . | 600 |
 | E-08 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实两连 Run（同一会话） | TASK-012 | verified | uv run pytest -q tests/agent_runtime/test_tool_result_history.py | . | 600 |
@@ -437,7 +437,7 @@
 - [2026-10-04] 实现：`metrics.py` 新增四个计数器（`context_compaction_total{layer,status}`、`context_compaction_bytes_saved_total{layer}`、`context_summary_total{status}`、`context_summary_tokens_total`，token 记在 **amount** 不进 label）并进 `CATALOG`；`context_compaction.py` 在收口处逐层记 CPU 无关的计数与省下字节，摘要层记 `OK`/`REJECTED`/`FAILED` 三种结局，整段退化路径记 `{layer="*",status="FAILED"}`（失败不静默）；token 用量记在**发起调用的一侧**（`make_summary_runner`，那里才有 `ModelResponse` 的 usage），且无论采不采用都记（钱已经花了）。回归 `tests/agent_core tests/agent_runtime tests/architecture tests/sdk` → **582 passed**；ruff / mypy(297 files) clean。
 ## TASK-008: memory 预算与 micro 豁免（FEAT-09）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-006
 - **Source**: context-compaction.design.md#2.3 功能方案, context-compaction.design.md#2.5.2 验收场景
@@ -450,27 +450,50 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 
 ### Checklist
 
-- [ ] [E-06][integration] 先登记并编写 tests/agent_runtime/test_context_memory_budget.py；真实边界：真实请求装配（`context_builder` → `ExecutorRequest.history` → `AgentRunner`）→ 模型 HTTP 探针；断言 memory 注入段计入预算（超限时参与裁剪）、且**不参与 micro 降级**（探针收到的 system 段与注入原文逐字一致）；验证设计约定并登记证据，记录 RED/GREEN
-- [ ] 注入上限（`MAX_INJECTED_MEMORIES=10`、`MAX_INJECTED_BYTES=2048`）与 `memory.budget_ratio`（默认 0.2）不得互相打架：显式登记两者的优先级口径
-- [ ] 负例非空转：构造"不做 memory 标记"的对照，证明该断言能真实失败
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [E-06][integration] 先登记并编写 tests/agent_runtime/test_context_memory_budget.py；真实边界：真实请求装配（`context_builder` → `ExecutorRequest.history` → `AgentRunner`）→ 模型 HTTP 探针；断言 memory 注入段计入预算（超限时参与裁剪）、且**不参与 micro 降级**（探针收到的 system 段与注入原文逐字一致）；验证设计约定并登记证据，记录 RED/GREEN
+- [x] 注入上限（`MAX_INJECTED_MEMORIES=10`、`MAX_INJECTED_BYTES=2048`）与 `memory.budget_ratio`（默认 0.2）不得互相打架：显式登记两者的优先级口径
+- [x] 负例非空转：构造"不做 memory 标记"的对照，证明该断言能真实失败
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-06 | integration | 真实请求装配 → 模型 HTTP 探针 | memory 注入段计入预算并参与裁剪；不参与 micro 降级、内容逐字保留 | tests/agent_runtime/test_context_memory_budget.py | uv run pytest -q tests/agent_runtime/test_context_memory_budget.py | planned |
+| E-06 | integration | 真实请求装配 → 模型 HTTP 探针 | 注入字节 ≤ `min(2048, budget_ratio × 历史字节)`（下限：至少一条）；注入段不参与 micro 降级、内容逐字保留 | tests/agent_runtime/test_context_memory_budget.py | uv run pytest -q tests/agent_runtime/test_context_memory_budget.py | verified |
 
 ### Acceptance Evidence
 
-> functional 的 RED/GREEN 与逐条断言证据由 `cf-task-start` 在编码期登记；全部 functional 状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-06 | FAIL: `AssertionError: 比例收紧后不该再注入，实得 [三条记忆…]` —— 比例**完全没生效**（配置里的 `memory.budget_ratio` 无人读） | 2 passed | `test_e06_injection_is_byte_capped_by_the_history_ratio`（放宽 ⇒ 三条逐字注入且总量 ≤ 2048 硬上限；收紧 ⇒ 只剩下限那一条且总量严格更小）、`test_e06_injected_memory_is_verbatim_while_micro_degrades_tools`（`CONTEXT_COMPACTED` 审计事件里 `micro.fired=True` 作对照，同一轮请求的注入段仍逐字一致） | 真实 PG（`canonical_event` + `user_memory`）→ 真实 `DbBackedContextBuilder` → 真实 `AgentRunner` → **真实模型 HTTP 探针**（`GET /requests` 回放模型实际收到的请求体） | verified |
+
+**扰动取证**：P1（预算不看 ratio，只留 2048 硬顶）⇒ 1 failed；P2（生产路径不传 ratio）⇒ 1 failed；P3（注入措辞不再逐字，去掉效力边界后缀）⇒ 2 failed；逐字节还原后复跑 2 passed。
+
+**两条口径（用户 2026-10-04 选定，已写进 design v0.4）**：① 分母是**装配出的历史字节**，生效上限 `min(MAX_INJECTED_BYTES, ratio × 历史字节)`；② 「超限参与裁剪」裁的是**注多少条**——已注入的段落在受保护前缀里，压缩层不动它（TASK-006 不回退）。
+
+**下限口径（用户 2026-10-04 追加选定）**：比例可以把注入收紧到「一条」，但**永不收紧到零**。理由不是审美：`ratio × 历史字节` 在短会话（含每个会话的第 1 轮）只有几十字节，一条都放不下 ⇒ **静默关掉一个既有功能**。实现是「第一条永远进，之后按预算累加、触顶即停」。
+
+**既有用例的收口（8 条，**断言一个字没改**）**：6 条注入上限用例（`test_context_memory.py`）的夹具补了 15KB 历史，使 `0.2 × 15KB > 2048` ⇒ 生效上限回到硬上限，它们验的「条数/字节硬上限」才轮得到；1 条（`test_memory_observability.py`）同型补历史，并把 `canonical_event` 加进该文件的清理夹具（**清扫范围必须覆盖写入范围**，否则每跑一次残留几行——本仓库踩过）。剩下 1 条是本任务自己的收紧腿，按新口径改成「只剩下限那一条」。
+- E-06: verified — automated command passed; run_id=959664b3832b43dc9e0136b43aa41bf4 (confirmed_by: runner)
 
 ### Log
+- [2026-10-04] **按用户选定的下限口径收口**（比例可收紧到「一条」，但永不收紧到零）：`_load_memory` 改成「第一条永远进，之后按 `min(2048, ratio × 历史字节)` 累加、触顶即停」。8 条既有失败修掉 7 条——其中 6 条是 `test_context_memory.py` 的注入上限用例，给它们的夹具补了一段 15KB 历史（`0.2 × 15KB > 2048` ⇒ 生效上限回到硬上限 2048，**断言一个字没改**；理由写进了`_seed_injection_tenant` 的注释）。
+- [2026-10-04] **剩余 1 条未决**（同因，未修）：`test_memory_observability.py::test_memory_metrics_cover_write_inject_and_recall` 期望注入 **2** 条，实得 1 条（`assert 17.0 == 16.0 + 2`）——它的会话没有历史，比例先触顶，只走下限。修法与上一条同型（给它的 `CONV_ID` 补一段长历史），但**未做**：该文件的清理夹具只删 `user_memory`/`tool_call_audit`，直接加 `canonical_event` 行会留下残留（本仓库踩过「清扫范围小于写入范围 ⇒ 每跑一次残留几行」的坑），要先确认清理口径再动。
+- [2026-10-04] **断点（任务保持 in-progress，未提交）**：按用户选定的口径实现完毕（`min(2048, ratio × 装配出的历史字节)`，比例走 Agent `runtime_config` → `RunService` → `load_history`），E-06 两条新用例通过、三条扰动全部变红。**但回归打出 8 个既有 memory 用例失败**（`test_context_memory.py` 6 条、`test_memory_observability.py` 2 条），根因是口径本身：
+  · 这些用例的历史只有几条短消息（≈100–200 字节），`0.2 × 历史字节` ≈ 20–40 字节 ⇒ **一条记忆都放不下**；
+  · 也就是「短会话（含每个会话的第 1 轮）memory 注入被静默关掉」。
+  这不是夹具问题——那些断言编码的是**上一个需求交付的产品行为**（memory 能注入），让它们变红等于静默废掉一个既有功能。两条可选出路，需用户定夺：
+  **① 加下限**：`budget = min(2048, max(ratio × 历史字节, 至少放得下一条))`——比例仍能收紧，但永不收紧到 0；
+  **② 换分母**：不用「装配出的历史字节」，改用某个**非零**的上下文预算口径（例如 `history_budget_messages` 折算、或整份 prompt 的字节）。
+  未决期间不改动这 8 条用例、不提交。
 
 - [2026-10-04] created (draft)
+- [2026-10-04] started
+- [2026-10-04] completed (done)
 
 ---
-
+- [2026-10-04] 实现：`context_builder._memory_budget_bytes()`（`min(2048, ratio × history_bytes)`）+ `_load_memory(budget_bytes=...)`（第一条永远进）；`load_history(memory_budget_ratio=...)` 由 `RunService` 从**冻结配置**带下去（新 Run 用 `compaction.memory.budget_ratio`，resume 用 `compaction_settings_of(policy_json)`）。回归 `tests/agent_core tests/agent_runtime tests/architecture tests/sdk` → **584 passed**；ruff / mypy(297 files) clean。
+- [2026-10-04] 最后一条既有用例（`test_memory_metrics_cover_write_inject_and_recall`）按同型修：补 15KB 历史 + 清理夹具加 `canonical_event`（用户 2026-10-04 选定「按同型修，补清理夹具」）。
 ## TASK-009: 收口清单与需求级终验
 
 - **Status**: draft

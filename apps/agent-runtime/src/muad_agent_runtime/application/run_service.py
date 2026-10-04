@@ -724,6 +724,7 @@ class RunService:
             tenant_id,
             request.platform_user_id,
             budget_messages=compaction.history_budget_messages,
+            memory_budget_ratio=compaction.memory.budget_ratio,
         )
         return RunStart(
             run_id=run.id,
@@ -821,11 +822,13 @@ class RunService:
                 return self._replay_start(replay)
             raise AppError(ErrorCode.RUN_BUSY) from exc
         # resume 不重解析配置：历史预算从这一行已冻结的 `policy_json` 取，配置改动只影响后续新 Run。
+        frozen = compaction_settings_of(snapshot.policy_json)
         history = await self._load_history(
             run.conversation_id,
             run.tenant_id,
             run.user_id,
             budget_messages=history_budget_of(snapshot.policy_json),
+            memory_budget_ratio=frozen.memory.budget_ratio if frozen is not None else None,
         )
         return RunStart(
             run_id=run.id,
@@ -944,13 +947,19 @@ class RunService:
         user_id: uuid.UUID,
         *,
         budget_messages: int | None = None,
+        memory_budget_ratio: float | None = None,
     ) -> tuple[ModelMessage, ...]:
-        """取装配用的历史。`budget_messages` 只做取数守卫；裁剪在压缩层（同一冻结值）。"""
+        """取装配用的历史。
+
+        `budget_messages` 只做取数守卫；裁剪在压缩层（同一冻结值）。`memory_budget_ratio` 是
+        FEAT-09 的注入占比（分母是装配出的历史字节），同样来自这一行冻结的配置。
+        """
         return await self._context_builder.load_history(
             tenant_id=tenant_id,
             conversation_id=conversation_id,
             user_id=user_id,
             budget_messages=budget_messages,
+            memory_budget_ratio=memory_budget_ratio,
         )
 
     def _build_snapshot(

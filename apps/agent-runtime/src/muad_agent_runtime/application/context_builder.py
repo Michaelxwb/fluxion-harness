@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from muad_agent_core.context.builder import ContextInput
+from muad_agent_core.context.compactor import history_bytes
+from muad_agent_core.context.settings import default_compaction_settings
 from muad_agent_core.context.summary import summary_from_payload, summary_message
 from muad_agent_core.model.provider import ModelMessage, ModelRequest, ModelRole, ModelToolCall
 from sqlalchemy import select
@@ -67,6 +70,7 @@ class DbBackedContextBuilder:
         conversation_id: uuid.UUID,
         user_id: uuid.UUID | None,
         budget_messages: int | None = None,
+        memory_budget_ratio: float | None = None,
     ) -> tuple[ModelMessage, ...]:
         """执行链使用：取最近事件（最新保留）+ 受控 Memory，返回可直接发送的消息序列。
 
@@ -93,7 +97,12 @@ class DbBackedContextBuilder:
             )
             history = await self._to_messages(session, tenant_id, events)
             memories = (
-                await self._load_memory(session, tenant_id, user_id)
+                await self._load_memory(
+                    session,
+                    tenant_id,
+                    user_id,
+                    budget_bytes=_memory_budget_bytes(history, memory_budget_ratio),
+                )
                 if user_id is not None
                 else []
             )
@@ -304,6 +313,8 @@ class DbBackedContextBuilder:
         session: Any,
         tenant_id: str,
         user_id: uuid.UUID,
+        *,
+        budget_bytes: int,
     ) -> list[str]:
         """取自动注入的记忆：**只有 `USER_EXPLICIT`**，受条数/字节双上限，读失败则本轮不注入。
 
@@ -326,7 +337,10 @@ class DbBackedContextBuilder:
         for row in rows:
             line = _render_memory(str(row["memory_key"]), str(row["content_json"].get("value", "")))
             size = len(line.encode("utf-8"))
-            if total_bytes + size > MAX_INJECTED_BYTES:
+            # **下限口径**：比例可以把注入收紧到"一条"，但不允许收紧到零 —— 短会话（含每个会话的
+            # 第 1 轮）历史字节极少，`ratio × 历史字节` 会小到一条都放不下，那等于静默关掉 memory。
+            # 所以第一条永远进，之后按预算累加、触顶即停。
+            if injected and total_bytes + size > budget_bytes:
                 break
             injected.append(line)
             total_bytes += size
@@ -341,6 +355,21 @@ class DbBackedContextBuilder:
             },
         )
         return injected
+
+
+def _memory_budget_bytes(history: Sequence[ModelMessage], ratio: float | None) -> int:
+    """memory 注入可占的**字节**上限（FEAT-09）。
+
+    生效上限 = `min(MAX_INJECTED_BYTES, ratio × 装配出的历史字节)`：硬上限是绝对兜底（中文内容的
+    实际约束），比例是「别挤占历史」——两者取小，谁都不越谁。
+
+    历史为空（会话第一轮）时比例为 0 ⇒ 本轮不注入。这是"memory 不占历史预算"的直接后果，
+    **不是 bug**；要放开就得给比例配一个下限（那是另一个口径决定）。
+    """
+    effective = (
+        default_compaction_settings().memory.budget_ratio if ratio is None else ratio
+    )
+    return max(0, min(MAX_INJECTED_BYTES, int(history_bytes(history) * effective)))
 
 
 def _render_memory(memory_key: str, value: str) -> str:

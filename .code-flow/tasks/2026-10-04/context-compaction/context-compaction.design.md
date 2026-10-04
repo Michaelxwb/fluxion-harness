@@ -20,6 +20,7 @@
 | v0.1 | 2026-10-04 | Claude | 初始设计（来源：本会话对齐结论 + PRD v0.1） |
 | v0.2 | 2026-10-04 | Claude | 补 ADR-04（工具结果外置的判定单元是回合，非单条调用）与 TASK-010/011；承接 path-mapped 新绑定的 `harness-mcp`（新增 `tools/round_results.py` 命中其过宽的 tools 路径模式） |
 | v0.3 | 2026-10-04 | Claude | 补 ADR-05：外置过的工具结果必须能从 canonical 行逐字节重建（`_persist_event` 补写 `artifact_id` 列 + 重建改用与写入侧同一个 `reference_payload`，不再截断）；新增 E-08 与 TASK-012 |
+| v0.4 | 2026-10-04 | Claude | 定死 FEAT-09 的两处口径（用户 2026-10-04 选定）：`budget_ratio` 的分母是**装配出的历史字节**、与硬上限取小；「超限参与裁剪」裁的是**注多少条**（已注入的段仍受保护前缀庇护，不回退 TASK-006） |
 
 ## 2. 需求分析
 
@@ -62,7 +63,7 @@
 | FEAT-06 | 压缩指标 | 各层触发次数、省下字节、摘要调用与 token 数进各服务 metric catalog | P1 | US-02 |
 | FEAT-07 | 压缩配置 | 配置进 execution snapshot 的 `budget.compaction`（Run 侧等价载体 `policy_json`），仅影响后续新 Run；进程内缓存 + 短 TTL | P1 | US-03 |
 | FEAT-08 | 重建一致 | 压缩后的历史可由库**确定性重建**，与当时真正发给模型的那份**逐字节一致** | P0 | US-04 |
-| FEAT-09 | memory 预算 | memory 注入计入上下文预算；注入段不参与 micro 降级 | P1 | US-01 |
+| FEAT-09 | memory 预算 | memory 注入**按字节**占用上下文预算：注入字节 ≤ `memory.budget_ratio` × **装配出的历史字节**（与 `MAX_INJECTED_BYTES` 取小）；超限时**少注几条**（沿用「按 `update_time DESC` 先到先得、触顶即停」），已注入的段落在受保护前缀里、不参与 micro 降级（内容逐字保留） | P1 | US-01 |
 
 **字段约束（配置项）**
 
@@ -81,7 +82,7 @@
 | `summary.threshold_bytes` | int | `50000` | 严格大于才摘要 |
 | `summary.model_ref` | str \| null | `null` | 引用既有 `model_definition`（**不承载 api_key**） |
 | `history_budget_messages` | int | `40` | ≥ 1（原常量转为配置项） |
-| `memory.budget_ratio` | float | `0.2` | (0,1] |
+| `memory.budget_ratio` | float | `0.2` | (0,1]；**分母是装配出的历史字节**（`history_bytes(history)`）。生效上限 = `min(MAX_INJECTED_BYTES, ratio × 历史字节)`：硬上限是绝对兜底、比例是「别挤占历史」，两者**取小**。历史为空时比例为 0 ⇒ 本轮不注入（「memory 不占历史预算」的直接后果） |
 
 ### 2.4 范围与边界 [必填]
 
@@ -116,7 +117,7 @@
 | E-03 | FEAT-05 | integration | 真实 PG：canonical_event | 压缩发生时恰好多一行压缩事件，字段（层级/省下字节/摘要引用）齐 |
 | E-04 | FEAT-07 | integration | 真实 PG：execution snapshot | 配置改动只影响后续新 Run；在跑的 Run 用冻结值 |
 | E-05 | FEAT-06 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | 无流量也暴露四级计数器目录；label 低基数（layer/outcome）；触发后计数与省下字节递增 |
-| E-06 | FEAT-09 | integration | 真实 agent-runtime 请求装配 → 模型 HTTP 探针 | memory 注入段计入上下文预算（超限时参与裁剪）；注入段不参与 micro 降级、内容原样保留 |
+| E-06 | FEAT-09 | integration | 真实 agent-runtime 请求装配 → 模型 HTTP 探针 | memory 注入段计入上下文预算：按 `budget_ratio × 历史字节` 收紧后**少注几条**；注入段不参与 micro 降级、内容逐字保留（同一请求里旧工具结果被降级即为对照） |
 | E-07 | FEAT-02 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | 一个回合里多条结果**各自都没超单条阈值**、但合计超整轮预算 ⇒ 超出的那些落盘、模型收到引用 JSON、canonical `TOOL_CALL` 行带 `artifact_id`（跨 Run 重建指得到那个产物） |
 | E-08 | FEAT-08 | integration | 真实 PG + 共享产物存储 + 真实两连 Run（同一会话） | 第一个 Run 外置过的工具结果，在**同一会话的下一个 Run** 的历史里被**逐字节**还原成当时那条引用 JSON（含 `artifact_id`）；canonical `TOOL_CALL` 行的 `artifact_id` 列已写入 |
 | S-01 | FEAT-01..05 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | 长会话 + 大工具结果 + 多工具回合后：开头诉求仍在、无孤儿 TOOL、模型收到的 prompt 含省略标记或摘要、压缩事件落库 |

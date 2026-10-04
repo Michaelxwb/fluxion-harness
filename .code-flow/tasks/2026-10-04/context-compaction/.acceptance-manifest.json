@@ -370,7 +370,7 @@
       "kind": "functional",
       "boundary": "真实请求装配 → 模型 HTTP 探针",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -380,7 +380,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "959664b3832b43dc9e0136b43aa41bf4",
+        "executed_at": "2026-10-04T11:40:59.795910+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "959664b3832b43dc9e0136b43aa41bf4",
+          "executed_at": "2026-10-04T11:40:59.795910+00:00"
+        }
+      ]
     },
     {
       "id": "S-01",

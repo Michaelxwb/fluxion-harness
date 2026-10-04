@@ -367,6 +367,19 @@ async def _seed_injection_tenant(
                     update_time=base + timedelta(minutes=index),
                 )
             )
+        # **必须带一段像样的历史**：FEAT-09 的注入上限是
+        # `min(MAX_INJECTED_BYTES, memory.budget_ratio × 装配出的历史字节)`——历史太短时
+        # 比例先触顶，本组用例要验的"条数/字节硬上限"根本轮不到。给够 15KB ⇒ 0.2 × 15KB > 2048，
+        # 生效上限回到 2048（硬上限），断言口径不变。
+        session.add(
+            CanonicalEvent(
+                tenant_id=tenant,
+                conversation_id=conversation_id,
+                seq=1,
+                event_type="USER_MESSAGE",
+                payload_json={"text": "历史" * 2500},
+            )
+        )
         await session.commit()
     return tenant, conversation_id, user_id
 
