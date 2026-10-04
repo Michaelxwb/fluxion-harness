@@ -156,6 +156,37 @@ async def test_many_files_keep_a_compact_receipt(
         assert archive.namelist() == [item["path"] for item in files]
 
 
+async def test_receipt_is_trimmed_to_the_effective_threshold(
+    tenant: TenantContext, tmp_path: Path
+) -> None:
+    """回执裁剪线必须跟着**本次 Run 生效的**阈值走，而不是模块里的 8KB 常量。
+
+    反例现场（TASK-011 之后）：外置判定读冻结配置、回执裁剪读常量 —— 一旦把
+    `tool_result.persist_threshold_bytes` 调低，回执就会**自己**超过生效阈值被外置成引用，
+    模型拿不到"已生成 ZIP…请调用 deliver_artifact"这句指引（`harness-skill` 的
+    RULE-skill-001 警告的正是这个失效方式）。
+    """
+    run_id, conversation_id = await _seed_run(tenant)
+    writer = OutputArtifactWriter(
+        artifact_root=tmp_path,
+        session_factory=get_session_factory,
+        scope=OutputScope(tenant.tenant_id, run_id, conversation_id),
+    )
+    files = [{"path": str(index) + "文" * 300, "content": ""} for index in range(5)]
+
+    tight = await ArchiveToolSet(writer, receipt_limit_bytes=1200).create_archive(
+        {"filename": "tight.zip", "files": files}, call_id="tight"
+    )
+    default = await ArchiveToolSet(writer).create_archive(
+        {"filename": "default.zip", "files": files}, call_id="default"
+    )
+
+    assert len(tight.encode("utf-8")) < 1200, "回执必须裁到生效阈值以下"
+    assert json.loads(tight)["files"] == [], "阈值收紧 ⇒ 预览整段让位给那句 deliver_artifact 指引"
+    assert len(default.encode("utf-8")) < 8192
+    assert json.loads(default)["files"], "默认阈值下应当还能留几条预览（对照组非空转）"
+
+
 @pytest.mark.parametrize("filename", ["greeting.txt", "../greeting.zip", "folder/greeting.zip", ".zip"])
 def test_archive_filename_must_be_a_zip_basename(filename: str) -> None:
     with pytest.raises(ArchiveToolError):

@@ -775,7 +775,10 @@ def build_registry(
             delivery_client=delivery_client,
         ).register(registry)
         ArchiveToolSet(
-            OutputArtifactWriter(
+            # 回执裁剪与外置判定必须用**同一个生效阈值**（否则调低阈值后回执自己会被外置，
+            # 模型看不到 deliver_artifact 指引）
+            receipt_limit_bytes=tool_result_settings(request).persist_threshold_bytes,
+            writer=OutputArtifactWriter(
                 artifact_root=SharedSettings().artifact_root,
                 session_factory=get_session_factory,
                 scope=OutputScope(

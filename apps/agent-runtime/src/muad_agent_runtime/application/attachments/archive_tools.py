@@ -157,8 +157,22 @@ def _prepare_archive(raw: object) -> tuple[Any, bytes]:
 
 
 class ArchiveToolSet:
-    def __init__(self, writer: OutputArtifactWriter) -> None:
+    def __init__(
+        self,
+        writer: OutputArtifactWriter,
+        *,
+        receipt_limit_bytes: int = TOOL_RESULT_ARTIFACT_BYTES,
+    ) -> None:
+        """`receipt_limit_bytes` = **本次 Run 生效的**外置阈值（冻结配置里的
+        `tool_result.persist_threshold_bytes`）。
+
+        回执必须裁到这条线**以下**，否则它自己会被外置成引用，模型就拿不到
+        「已生成 ZIP（附件 ID …）。需要发给用户时请调用 deliver_artifact」这句指引。
+        与 `ToolCallRecorder` 用**同一个生效值**（`harness-skill` 的 RULE-skill-001 要求
+        阈值只有一处事实来源；硬编码常量只在没有冻结配置时兜底）。
+        """
         self._writer = writer
+        self._receipt_limit_bytes = receipt_limit_bytes
 
     def register(self, registry: ToolRegistry) -> None:
         registry.register(
@@ -225,7 +239,7 @@ class ArchiveToolSet:
             "message": f"已生成 ZIP（附件 ID {row.id}）。需要发给用户时请调用 deliver_artifact。",
         }
         receipt = json.dumps(result, ensure_ascii=False)
-        while preview and len(receipt.encode("utf-8")) >= TOOL_RESULT_ARTIFACT_BYTES:
+        while preview and len(receipt.encode("utf-8")) >= self._receipt_limit_bytes:
             preview.pop()
             result["files_truncated"] = True
             receipt = json.dumps(result, ensure_ascii=False)
