@@ -118,7 +118,7 @@ class ArtifactResultWriter:
 
         async def run() -> dict[str, Any]:
             async with factory()() as session:
-                return await self.persist_tool_result_with_session(
+                reference = await self.persist_tool_result_with_session(
                     session,
                     tenant_id=tenant_id,
                     conversation_id=conversation_id,
@@ -131,6 +131,8 @@ class ArtifactResultWriter:
                     preview_head_bytes=preview_head_bytes,
                     preview_tail_bytes=preview_tail_bytes,
                 )
+                await session.commit()
+                return reference
 
         return await run()
 
@@ -151,19 +153,27 @@ class ArtifactResultWriter:
     ) -> dict[str, Any]:
         if run_id is not None and task_id is not None:
             raise ValueError("run_id/task_id are mutually exclusive (XOR)")
-        return await self._persist_one_with_session(
-            session,
-            tenant_id=tenant_id,
-            conversation_id=conversation_id,
-            run_id=run_id,
-            task_id=task_id,
-            tool_call_id=tool_call_id,
-            tool_name=tool_name,
-            result_text=result_text,
-            preview_head_bytes=preview_head_bytes,
-            preview_tail_bytes=preview_tail_bytes,
-            written=[],
-        )
+        written: list[str] = []
+        try:
+            reference = await self._persist_one_with_session(
+                session,
+                tenant_id=tenant_id,
+                conversation_id=conversation_id,
+                run_id=run_id,
+                task_id=task_id,
+                tool_call_id=tool_call_id,
+                tool_name=tool_name,
+                result_text=result_text,
+                preview_head_bytes=preview_head_bytes,
+                preview_tail_bytes=preview_tail_bytes,
+                written=written,
+            )
+            await session.commit()
+        except BaseException:
+            # 行没落成，盘上的文件也不留（提交移到这里之后，这一步由调用方负责）
+            self._discard(written)
+            raise
+        return reference
 
     async def persist_round_results_with_session(
         self,
@@ -181,6 +191,9 @@ class ArtifactResultWriter:
 
         `results` 是 `(tool_call_id, tool_name, result_text)` 三元组序列，只包含
         `select_round_persists` 选中的那些。返回 `tool_call_id -> 引用`。
+
+        **文件与行一起成败**：整批只在最后提交一次事务。此前是逐条提交，中途失败时文件回滚了
+        而已经提交的行留在库里指向已删文件 —— "整批回滚"名不副实。
         """
         written: list[str] = []
         references: dict[str, dict[str, Any]] = {}
@@ -199,6 +212,7 @@ class ArtifactResultWriter:
                     preview_tail_bytes=preview_tail_bytes,
                     written=written,
                 )
+            await session.commit()
         except BaseException:
             self._discard(written)
             raise
@@ -245,7 +259,6 @@ class ArtifactResultWriter:
                 metadata_json={"tool_call_id": tool_call_id, "tool_name": tool_name},
             )
             session.add(row)
-            await session.commit()
         except BaseException:
             self._discard([key])
             written.remove(key)

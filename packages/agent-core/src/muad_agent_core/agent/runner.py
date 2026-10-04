@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, TypedDict, cast
@@ -31,6 +31,7 @@ from ..model.provider import (
 )
 from ..prompt.builder import DefaultPromptBuilder, PromptBuilder, PromptSkill
 from ..tools.registry import ToolNotFoundError, ToolRegistry
+from ..tools.round_results import ToolResultRoundPort
 
 NODE_PREPARE_CONTEXT = "prepare_context"
 NODE_MODEL = "model"
@@ -193,6 +194,7 @@ class AgentRunner:
         hooks: HookPipeline | None = None,
         prompt_builder: PromptBuilder | None = None,
         context_compactor: ContextCompactor | None = None,
+        tool_round_results: ToolResultRoundPort | None = None,
     ) -> None:
         self._provider = provider
         self._registry = registry
@@ -201,6 +203,9 @@ class AgentRunner:
         # 压缩只作用于**派生请求**（design §3.1 ADR-01：这里是 `ModelRequest` 的唯一组装点），
         # `state["messages"]` 这份权威历史一个字节都不动。
         self._context_compactor = context_compactor
+        # 工具结果的整批判定发生在**回合末**（design ADR-04）：外置与否要看本轮全部结果的大小，
+        # 且产物 id 必须赶在 `tool.completed` 之前定下来。
+        self._round_results = tool_round_results
         self._stop_emitted = False
         self._graph = self._build_graph()
 
@@ -355,23 +360,32 @@ class AgentRunner:
         messages = list(state["messages"])
         used = state["tool_calls_used"]
         exhausted = False
-        for call in state["pending_tool_calls"]:
-            self._ensure_runnable(state)
-            if used >= state["policy"].max_tool_calls:
-                exhausted = True
-                messages.append(_tool_message(call.id, TOOL_BUDGET_EXHAUSTED))
-                continue
-            result = await self._run_tool_call(state, call)
-            messages.append(result)
-            used += 1
-            # 工具结果之后可能需要补消息（见 `ToolDefinition.follow_up_messages`）：
-            # tool 角色不能携带图像块，「重看图片」只能落成一条 user 消息。
-            try:
-                definition = self._registry.get(call.name)
-            except LookupError:
-                definition = None
-            if definition is not None and definition.follow_up_messages is not None:
-                messages.extend(await definition.follow_up_messages(text_of(result.content)))
+        # 本回合真正执行过的调用：(消息下标, 调用 id, 工具名, 状态)。整批判定与完成事件都在
+        # 回合末一次性收口（ADR-04）——不在循环里逐条报，否则产物 id 赶不上那条事件。
+        executed: list[tuple[int, str, str, str]] = []
+        try:
+            for call in state["pending_tool_calls"]:
+                self._ensure_runnable(state)
+                if used >= state["policy"].max_tool_calls:
+                    exhausted = True
+                    messages.append(_tool_message(call.id, TOOL_BUDGET_EXHAUSTED))
+                    continue
+                result, status = await self._run_tool_call(state, call)
+                messages.append(result)
+                executed.append((len(messages) - 1, call.id, call.name, status))
+                used += 1
+                # 工具结果之后可能需要补消息（见 `ToolDefinition.follow_up_messages`）：
+                # tool 角色不能携带图像块，「重看图片」只能落成一条 user 消息。
+                try:
+                    definition = self._registry.get(call.name)
+                except LookupError:
+                    definition = None
+                if definition is not None and definition.follow_up_messages is not None:
+                    messages.extend(await definition.follow_up_messages(text_of(result.content)))
+        finally:
+            # 回合收口**必须走 finally**：中途被取消/超时打断时，已经跑完的那些同样是"发生过的事"
+            # ——此前审计是逐条写的，中断时那些行已经落了；不收口等于把它们抹掉。
+            await self._finish_tool_round(state, messages, executed)
         await self._emit_post_model(state)
         return {
             **state,
@@ -381,6 +395,31 @@ class AgentRunner:
             "budget_exhausted": state["budget_exhausted"] or exhausted,
         }
 
+    async def _finish_tool_round(
+        self,
+        state: AgentGraphState,
+        messages: list[ModelMessage],
+        executed: Sequence[tuple[int, str, str, str]],
+    ) -> None:
+        """回合末收口：先让端口按**整轮**决定谁要外置（可改写消息内容），再逐条报完成。
+
+        顺序是硬约束：`tool.completed` 上挂着产物 id，它进了 canonical 行、历史重建靠它把产物
+        找回来，所以必须等整批判定落定之后再发。
+        """
+        if not executed:
+            return
+        if self._round_results is not None:
+            indexes = [index for index, *_ in executed]
+            replaced = await self._round_results.finish_round(
+                tuple(messages[index] for index in indexes)
+            )
+            for index, message in zip(indexes, replaced, strict=True):
+                messages[index] = message
+        for index, call_id, name, status in executed:
+            await self._notify_tool_completed(
+                state, call_id, name, status, _artifact_ref(text_of(messages[index].content))
+            )
+
     async def _emit_post_model(self, state: AgentGraphState) -> None:
         """设计 S-05 顺序：post_model 在 post_tool_use 之后、每次模型响应触发一次。"""
         if not state["post_model_pending"]:
@@ -389,7 +428,9 @@ class AgentRunner:
         await self._hooks.run(HookEvent.POST_MODEL, payload)
         state["post_model_pending"] = False
 
-    async def _run_tool_call(self, state: AgentGraphState, call: ModelToolCall) -> ModelMessage:
+    async def _run_tool_call(
+        self, state: AgentGraphState, call: ModelToolCall
+    ) -> tuple[ModelMessage, str]:
         arguments = dict(call.arguments)
         try:
             context = await self._hooks.run(
@@ -397,8 +438,12 @@ class AgentRunner:
                 {"call_id": call.id, "tool": call.name, "arguments": arguments},
             )
         except Exception as exc:
-            await self._notify_tool_completed(state, call.id, call.name, "BLOCKED", None)
-            return _tool_message(call.id, TOOL_BLOCKED_TEMPLATE.format(reason=f"{type(exc).__name__}: {exc}"))
+            return (
+                _tool_message(
+                    call.id, TOOL_BLOCKED_TEMPLATE.format(reason=f"{type(exc).__name__}: {exc}")
+                ),
+                "BLOCKED",
+            )
         payload = context.payload.get("arguments", arguments)
         if isinstance(payload, Mapping):
             arguments = dict(payload)
@@ -418,15 +463,17 @@ class AgentRunner:
 
     async def _execute_tool(
         self, state: AgentGraphState, call: ModelToolCall, arguments: dict[str, Any]
-    ) -> ModelMessage:
+    ) -> tuple[ModelMessage, str]:
+        """执行一次工具调用，返回（给模型的工具消息, 状态）。**不在这里报完成事件**（ADR-04）。"""
         try:
             definition = self._registry.get(call.name)
         except ToolNotFoundError:
-            await self._notify_tool_completed(state, call.id, call.name, "NOT_FOUND", None)
-            return _tool_message(call.id, UNKNOWN_TOOL_TEMPLATE.format(name=call.name))
+            return _tool_message(call.id, UNKNOWN_TOOL_TEMPLATE.format(name=call.name)), "NOT_FOUND"
         if definition.handler is None:
-            await self._notify_tool_completed(state, call.id, call.name, "FAILED", None)
-            return _tool_message(call.id, TOOL_FAILED_TEMPLATE.format(reason="no handler registered"))
+            return (
+                _tool_message(call.id, TOOL_FAILED_TEMPLATE.format(reason="no handler registered")),
+                "FAILED",
+            )
         if state["on_tool_started"] is not None:
             await state["on_tool_started"](call.id, call.name)
         status = "OK"
@@ -442,8 +489,7 @@ class AgentRunner:
         result = context.payload.get("result", content)
         if isinstance(result, str):
             content = result
-        await self._notify_tool_completed(state, call.id, call.name, status, _artifact_ref(content))
-        return _tool_message(call.id, content)
+        return _tool_message(call.id, content), status
 
     async def _finalize(self, state: AgentGraphState) -> AgentGraphState:
         await self._emit_post_model(state)

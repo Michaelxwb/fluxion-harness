@@ -11,16 +11,21 @@ import pytest
 import sqlalchemy as sa
 from httpx import AsyncClient
 from muad_agent_core.model import (
+    ModelMessage,
     ModelRateLimitedError,
     ModelRequest,
     ModelResponse,
+    ModelRole,
+    text_of,
 )
 from muad_agent_core.tools import ToolDefinition, ToolEffect
 from muad_agent_runtime.api.deps import get_executor_factory
-from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
+from muad_agent_runtime.application.attachments.tool_results import (
+    TOOL_RESULT_ARTIFACT_BYTES,
+    ArtifactResultWriter,
+)
 from muad_agent_runtime.application.executor import (
     MAX_INLINE_RESULT_BYTES,
-    TOOL_RESULT_ARTIFACT_BYTES,
     AuditedModelProvider,
     ExecutorRequest,
     ExecutorRunContext,
@@ -65,6 +70,18 @@ async def _cleanup() -> AsyncIterator[None]:
         await session.commit()
 
 
+async def _close_round(recorder: ToolCallRecorder, *, call_id: str, content: str) -> str:
+    """回合收口（design ADR-04）：整批判定、落盘与审计行都在这一步发生。
+
+    逐条调用只做缓冲，所以直连 recorder 的用例必须自己收口 —— 生产里这一步由 `AgentRunner`
+    在回合末调用（`finish_round`），不收口等于在测一个永远等不到回合结束的中间态。
+    """
+    messages = await recorder.finish_round(
+        (ModelMessage(role=ModelRole.TOOL, content=content, tool_call_id=call_id),)
+    )
+    return text_of(messages[0].content)
+
+
 async def test_tool_recorder_audits_and_externalizes_large_result(tmp_path) -> None:
     """[B-113] 工具执行落 tool_call_audit；大结果外置 Artifact 并返回引用。"""
     recorder = ToolCallRecorder(
@@ -86,6 +103,7 @@ async def test_tool_recorder_audits_and_externalizes_large_result(tmp_path) -> N
         return large
 
     content = await recorder(definition, {"q": "x"}, handler=handler, call_id="call-demo-1")
+    content = await _close_round(recorder, call_id="call-demo-1", content=content)
     payload = json.loads(content)
     assert payload["artifact"]["size"] == len(large)
     assert payload["artifact"]["preview"].startswith("x")
@@ -142,6 +160,7 @@ async def test_content_delivery_tool_result_is_not_externalized(tmp_path) -> Non
         return large
 
     content = await recorder(definition, {"q": "x"}, handler=handler, call_id="call-inline-1")
+    content = await _close_round(recorder, call_id="call-inline-1", content=content)
 
     assert content == large
     assert "artifact" not in content
@@ -185,6 +204,7 @@ async def test_content_delivery_tool_result_is_externalized_above_inline_cap(tmp
         return huge
 
     content = await recorder(definition, {"q": "x"}, handler=handler, call_id="call-inline-2")
+    content = await _close_round(recorder, call_id="call-inline-2", content=content)
 
     payload = json.loads(content)
     assert payload["artifact"]["size"] == len(huge)
@@ -210,6 +230,9 @@ async def test_tool_recorder_audits_failure_status() -> None:
 
     with pytest.raises(RuntimeError):
         await recorder(definition, {"q": "x"}, handler=handler, call_id="call-demo-2")
+    # 生产里失败会被 runner 转成一条 tool 消息继续走回合（`tool_failure_content`），
+    # 所以收口时拿到的就是这个形态的工具消息。
+    await _close_round(recorder, call_id="call-demo-2", content="tool failed: RuntimeError: boom")
 
     async with get_session_factory()() as session:
         audit = (
@@ -255,6 +278,9 @@ async def test_coded_tool_error_is_recorded_with_its_own_code(tenant: TenantCont
 
     with pytest.raises(CodedToolError):
         await recorder(definition, {"artifact_id": "x"}, handler=handler, call_id="call-coded")
+    await _close_round(
+        recorder, call_id="call-coded", content="tool failed: CodedToolError"
+    )
 
     async with get_session_factory()() as session:
         audit = (
@@ -359,7 +385,7 @@ async def test_tool_recorder_keeps_repeated_same_tool_calls_distinct() -> None:
 
     回归（2026-10-01 排查）：此前用**工具名**充当 `tool_call_id`，而
     `runtime.tool_call_audit` 上有 `UNIQUE (run_id, tool_call_id)`（`0002` 迁移）
-    ⇒ 同名工具第二次调用必定撞唯一约束。又因审计写在 `finally` 里，异常还会把工具
+    ⇒ 同名工具第二次调用必定撞唯一约束。又因审计曾与工具执行写在同一条 `finally` 里，异常还会把工具
     本身的成功结果一并掩盖 —— 真实表现是模型第二次 `load_skill` 直接失败、
     skill 整个用不了（此前用例只断言 `tool_name`，所以从未触发）。
     """
@@ -383,6 +409,14 @@ async def test_tool_recorder_keeps_repeated_same_tool_calls_distinct() -> None:
     first = await recorder(definition, {"skill_key": "a"}, handler=handler, call_id="call-a")
     second = await recorder(definition, {"skill_key": "b"}, handler=handler, call_id="call-b")
     assert (first, second) == ("ok:a", "ok:b")
+    # 同一个回合里的两次调用**一起**收口：整批判定看的就是"本轮全部结果"
+    messages = await recorder.finish_round(
+        (
+            ModelMessage(role=ModelRole.TOOL, content=first, tool_call_id="call-a"),
+            ModelMessage(role=ModelRole.TOOL, content=second, tool_call_id="call-b"),
+        )
+    )
+    assert [text_of(message.content) for message in messages] == ["ok:a", "ok:b"]
 
     async with get_session_factory()() as session:
         rows = (

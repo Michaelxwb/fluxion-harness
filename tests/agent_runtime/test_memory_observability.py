@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 import sqlalchemy as sa
 from muad_agent_core.context.builder import ContextInput
+from muad_agent_core.model import ModelMessage, ModelRole, text_of
 from muad_agent_core.tools import ToolDefinition, ToolRegistry
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
@@ -80,6 +81,18 @@ def _definition(tool_set: MemoryToolSet, name: str) -> ToolDefinition:
     registry = ToolRegistry()
     tool_set.register(registry)
     return registry.get(name)
+
+
+async def _close_round(recorder: ToolCallRecorder, *, call_id: str, content: str) -> str:
+    """回合收口（design ADR-04）：整批判定、落盘与审计行都在这一步发生。
+
+    逐条调用只做缓冲，所以直连 recorder 的用例必须自己收口 —— 生产里这一步由 `AgentRunner`
+    在回合末调用。
+    """
+    messages = await recorder.finish_round(
+        (ModelMessage(role=ModelRole.TOOL, content=content, tool_call_id=call_id),)
+    )
+    return text_of(messages[0].content)
 
 
 def _render_record(record: logging.LogRecord) -> str:
@@ -257,7 +270,7 @@ async def test_rule_07_remember_write_is_audited_in_tool_call_audit(tmp_path) ->
         artifact_writer=ArtifactResultWriter(tmp_path),
     )
 
-    await recorder(
+    content = await recorder(
         remember,
         {
             "memory_key": "reply.language",
@@ -268,6 +281,7 @@ async def test_rule_07_remember_write_is_audited_in_tool_call_audit(tmp_path) ->
         handler=_handler(remember),
         call_id="call-audit-1",
     )
+    await _close_round(recorder, call_id="call-audit-1", content=content)
 
     async with get_session_factory()() as session:
         row = (
@@ -326,6 +340,10 @@ async def test_rule_07_write_failure_is_visible_in_audit_and_metric(
             handler=_handler(remember),
             call_id="call-audit-2",
         )
+    # 生产里 Runner 把工具异常转成一条 tool 消息继续走回合；这里照同一形态收口
+    await _close_round(
+        recorder, call_id="call-audit-2", content="tool failed: RuntimeError: database is unreachable"
+    )
 
     async with get_session_factory()() as session:
         row = (

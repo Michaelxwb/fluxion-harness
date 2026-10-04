@@ -4,9 +4,10 @@ import asyncio
 import contextlib
 import hashlib
 import json
+import logging
 import time
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from functools import partial
@@ -18,7 +19,7 @@ from muad_agent_core.agent import (
     AgentRunRequest,
     RunnerCancelled,
 )
-from muad_agent_core.context.settings import CompactionSettings
+from muad_agent_core.context.settings import CompactionSettings, ToolResultSettings
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
     ModelContent,
@@ -56,7 +57,11 @@ from ..infrastructure.gateway_delivery_client import GatewayDeliveryClient
 from ..metrics import MODEL_INVOCATIONS_METRIC, TOOL_CALLS_METRIC, record_outcome
 from .attachments.archive_tools import ArchiveToolSet
 from .attachments.output_service import OutputArtifactWriter, OutputScope
-from .attachments.tool_results import TOOL_RESULT_ARTIFACT_BYTES, ArtifactResultWriter
+from .attachments.tool_results import (
+    ArtifactResultWriter,
+    RoundCandidate,
+    select_round_persists,
+)
 from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
@@ -66,6 +71,8 @@ from .skill_tools import build_default_skill_cache, build_skill_registry
 from .task_client import TaskSubmissionContext, WorkerTaskClient
 from .task_tools import BackgroundTaskToolSet
 from .time_tools import TimeToolSet, resolve_zone
+
+logger = logging.getLogger(__name__)
 
 CancelCheck = Callable[[], Awaitable[bool]]
 MESSAGE_DELTA_EVENT = "message.delta"
@@ -477,8 +484,43 @@ def _tool_error_code(exc: BaseException) -> str:
     return str(ErrorCode.COMMON_INTERNAL_ERROR)
 
 
+@dataclass(frozen=True, slots=True)
+class _RoundCall:
+    """本回合一次调用的缓冲：判定要用的工具定义 + 审计要用的字段。"""
+
+    definition: ToolDefinition
+    status: str
+    error_code: str | None
+    started_wall: datetime
+    latency_ms: int
+    args_hash: str
+    args_preview: dict[str, Any]
+
+
+def _reference_payload(reference: Mapping[str, Any]) -> str:
+    """外置后的模型可见形态：只给引用与预览，正文留在产物里（要原文用 `read_attachment`）。"""
+    return json.dumps(
+        {
+            "artifact": {
+                "artifact_id": reference["artifact_id"],
+                "size": reference["size"],
+                "checksum": reference["checksum"],
+                "preview": reference["preview"],
+            }
+        },
+        ensure_ascii=False,
+    )
+
+
 class ToolCallRecorder:
-    """工具执行统一包装：审计 + 大结果 Artifact 外置。"""
+    """工具执行统一包装：**整轮批次预算** + 审计 + 把产物 id 交给上层报事件。
+
+    判定单元是**回合**而不是单条调用（design ADR-04）：单条超阈值要落盘，多条**合计**超整轮预算
+    也要落盘 —— 后者只有把本轮全部结果放在一起看才算得出。所以 `__call__` 不再逐条外置，改为把
+    结果与审计字段缓存进本回合缓冲；回合末由 `finish_round` 一次性判定、批量落盘（失败整批回滚）、
+    把被外置的结果换成引用，再逐条写审计行。产物 id 因此赶得上 `tool.completed`（它进了
+    canonical 行，历史重建靠它把产物找回来）。
+    """
 
     def __init__(
         self,
@@ -486,23 +528,13 @@ class ToolCallRecorder:
         context: ExecutorRunContext,
         audit_writer: RuntimeAuditWriter | None,
         artifact_writer: ArtifactResultWriter | None,
+        settings: ToolResultSettings | None = None,
     ) -> None:
         self._context = context
         self._audit = audit_writer
         self._artifacts = artifact_writer
-
-    def _should_externalize(self, definition: ToolDefinition, content: str) -> bool:
-        """工具结果是否超出内联预算、须外置成 Artifact 并只留预览。
-
-        默认按 `TOOL_RESULT_ARTIFACT_BYTES`（8KB）判定；**内容投递类工具**
-        （`externalizable_result=False`，如 `load_skill` / `read_skill_resource`）改按
-        `MAX_INLINE_RESULT_BYTES` 判定 —— 它们的返回**就是要给模型读的正文**，按 8KB 截成
-        预览等于把工具废掉（2026-10-01 事故：8320 字节的 `load_skill` 返回值被外置，模型只
-        拿到 400 字符预览、看不到 1/20 的正文，而且**没有任何报错**，两侧行为差异直到与
-        另一产品对比才暴露）。
-        """
-        limit = TOOL_RESULT_ARTIFACT_BYTES if definition.externalizable_result else MAX_INLINE_RESULT_BYTES
-        return len(content.encode("utf-8")) > limit
+        self._settings = settings or ToolResultSettings()
+        self._round: dict[str, _RoundCall] = {}
 
     async def __call__(
         self,
@@ -512,37 +544,13 @@ class ToolCallRecorder:
         *,
         call_id: str,
     ) -> str:
+        """执行一次工具并**只做缓冲**：落盘与否要等本轮结果到齐（ADR-04）。"""
         started_wall = datetime.now(UTC)
         started = time.monotonic()
-        artifact_id: str | None = None
         status = "OK"
         error_code: str | None = None
         try:
-            content = str(await handler(arguments, call_id=call_id))
-            if self._artifacts is not None and self._should_externalize(definition, content):
-                reference = await self._artifacts.persist_tool_result(
-                    tenant_id=self._context.tenant_id,
-                    conversation_id=self._context.conversation_id,
-                    run_id=self._context.run_id,
-                    task_id=None,
-                    tool_call_id=call_id,
-                    tool_name=definition.name,
-                    result_text=content,
-                    user_id=self._context.user_id,
-                )
-                artifact_id = str(reference["artifact_id"])
-                content = json.dumps(
-                    {
-                        "artifact": {
-                            "artifact_id": reference["artifact_id"],
-                            "size": reference["size"],
-                            "checksum": reference["checksum"],
-                            "preview": reference["preview"],
-                        }
-                    },
-                    ensure_ascii=False,
-                )
-            return content
+            return str(await handler(arguments, call_id=call_id))
         except Exception as exc:
             status = "ERROR"
             error_code = _tool_error_code(exc)
@@ -553,20 +561,113 @@ class ToolCallRecorder:
                 status,
                 {"kind": _tool_kind(definition.name), "tool": definition.name},
             )
-            if self._audit is not None:
-                await self._audit.record_tool_call(
-                    tool_call_id=call_id,
-                    tool_name=definition.name,
-                    tool_kind=_tool_kind(definition.name),
-                    prepared_args_hash=_args_hash(arguments),
-                    args_preview_json=_preview_args(arguments),
-                    status=status,
-                    start_time=started_wall,
-                    end_time=datetime.now(UTC),
-                    latency_ms=int((time.monotonic() - started) * 1000),
-                    error_code=error_code,
-                    artifact_id=uuid.UUID(artifact_id) if artifact_id else None,
+            self._round[call_id] = _RoundCall(
+                definition=definition,
+                status=status,
+                error_code=error_code,
+                started_wall=started_wall,
+                latency_ms=int((time.monotonic() - started) * 1000),
+                args_hash=_args_hash(arguments),
+                args_preview=_preview_args(arguments),
+            )
+
+    async def finish_round(self, results: Sequence[ModelMessage]) -> Sequence[ModelMessage]:
+        """整轮判定 → 批量落盘 → 替换内容 → 逐条写审计行。返回与入参**等长同序**的消息序列。"""
+        if not results:
+            return tuple(results)
+        call_ids = [message.tool_call_id or "" for message in results]
+        contents = [text_of(message.content) for message in results]
+        selected = self._select(call_ids, contents)
+        references = await self._persist(call_ids, contents, selected)
+        await self._flush_audit(call_ids, references)
+        return tuple(
+            replace(message, content=_reference_payload(references[call_id]))
+            if call_id in references
+            else message
+            for message, call_id in zip(results, call_ids, strict=True)
+        )
+
+    def _select(self, call_ids: list[str], contents: list[str]) -> set[int]:
+        """本回合要外置的下标：内容投递类按内联上限**单条**判定且不进整轮预算，其余走整轮选取。"""
+        forced: set[int] = set()
+        candidates: list[RoundCandidate] = []
+        for index, (call_id, content) in enumerate(zip(call_ids, contents, strict=True)):
+            record = self._round.get(call_id)
+            size = len(content.encode("utf-8"))
+            if record is not None and not record.definition.externalizable_result:
+                # 内容投递类工具（`load_skill` / `read_skill_resource`）的返回**就是要给模型读的
+                # 正文**，按 8KB 截成预览等于把工具废掉（2026-10-01 事故：8320 字节的
+                # `load_skill` 返回值被外置，模型只拿到 400 字符预览，而且**没有任何报错**，
+                # 两侧行为差异直到与另一产品对比才暴露）。
+                if size > MAX_INLINE_RESULT_BYTES:
+                    forced.add(index)
+                continue
+            candidates.append(RoundCandidate(call_id, size))
+        chosen = set(
+            select_round_persists(
+                candidates,
+                persist_threshold_bytes=self._settings.persist_threshold_bytes,
+                round_budget_bytes=self._settings.round_budget_bytes,
+            )
+        )
+        forced.update(index for index, call_id in enumerate(call_ids) if call_id in chosen)
+        return forced
+
+    async def _persist(
+        self, call_ids: list[str], contents: list[str], selected: set[int]
+    ) -> dict[str, dict[str, Any]]:
+        """批量落盘。失败**整批回滚**并退化成"这批不外置"（外置是尽力而为，不得让 Run 失败）。"""
+        if not selected or self._artifacts is None:
+            return {}
+        payload = [
+            (call_ids[index], self._tool_name(call_ids[index]), contents[index])
+            for index in sorted(selected)
+        ]
+        try:
+            async with get_session_factory()() as session:
+                return await self._artifacts.persist_round_results_with_session(
+                    session,
+                    tenant_id=self._context.tenant_id,
+                    conversation_id=self._context.conversation_id,
+                    run_id=self._context.run_id,
+                    task_id=None,
+                    results=payload,
+                    preview_head_bytes=self._settings.preview_head_bytes,
+                    preview_tail_bytes=self._settings.preview_tail_bytes,
                 )
+        except Exception as exc:  # noqa: BLE001 —— 退化后正文照旧内联，Run 不受影响
+            logger.warning(
+                "tool_round_persist_failed",
+                extra={"run_id": str(self._context.run_id), "error": str(exc)},
+            )
+            return {}
+
+    def _tool_name(self, call_id: str) -> str:
+        record = self._round.get(call_id)
+        return record.definition.name if record is not None else ""
+
+    async def _flush_audit(
+        self, call_ids: list[str], references: Mapping[str, Mapping[str, Any]]
+    ) -> None:
+        """逐条写审计行（带最终 `artifact_id`）并清空本回合缓冲。"""
+        for call_id in call_ids:
+            record = self._round.pop(call_id, None)
+            if record is None or self._audit is None:
+                continue
+            reference = references.get(call_id)
+            await self._audit.record_tool_call(
+                tool_call_id=call_id,
+                tool_name=record.definition.name,
+                tool_kind=_tool_kind(record.definition.name),
+                prepared_args_hash=record.args_hash,
+                args_preview_json=record.args_preview,
+                status=record.status,
+                start_time=record.started_wall,
+                end_time=datetime.now(UTC),
+                latency_ms=record.latency_ms,
+                error_code=record.error_code,
+                artifact_id=uuid.UUID(str(reference["artifact_id"])) if reference else None,
+            )
 
 
 def _preview_args(arguments: Mapping[str, Any]) -> dict[str, Any]:
@@ -654,6 +755,7 @@ def build_registry(
     artifact_writer: ArtifactResultWriter | None = None,
     task_client: WorkerTaskClient | None = None,
     delivery_client: GatewayDeliveryClient | None = None,
+    recorder: ToolCallRecorder | None = None,
 ) -> ToolRegistry:
     policy = AgentPolicy.from_runtime_config(request.agent.runtime_config)
     task_context = _task_submission_context(request)
@@ -723,13 +825,20 @@ def build_registry(
     if request.run_context is not None:
         registry = _wrap_registry(
             registry,
-            ToolCallRecorder(
+            recorder
+            or ToolCallRecorder(
                 context=request.run_context,
                 audit_writer=audit_writer,
                 artifact_writer=artifact_writer,
+                settings=tool_result_settings(request),
             ),
         )
     return registry
+
+
+def tool_result_settings(request: ExecutorRequest) -> ToolResultSettings:
+    """整轮批次预算与预览阈值：取自**冻结**配置，没有冻结配置时回落 schema 默认值。"""
+    return request.compaction.tool_result if request.compaction is not None else ToolResultSettings()
 
 
 async def default_executor_factory(
@@ -764,6 +873,16 @@ async def default_executor_factory(
             settings.agent_worker_url, service_token=settings.internal_service_token
         )
         task_client = owned_task_client
+    # 工具结果的**整轮批次预算**要同时挂在两个地方：注册表里逐条执行时缓冲结果，回合末由
+    # `AgentRunner` 调同一个对象收口（design ADR-04）——所以这里只建一份，两处共用。
+    recorder: ToolCallRecorder | None = None
+    if request.run_context is not None:
+        recorder = ToolCallRecorder(
+            context=request.run_context,
+            audit_writer=audit_writer,
+            artifact_writer=artifact_writer,
+            settings=tool_result_settings(request),
+        )
     registry = build_registry(
         request=request,
         cache=skill_cache or build_default_skill_cache(),
@@ -772,12 +891,14 @@ async def default_executor_factory(
         artifact_writer=artifact_writer,
         task_client=task_client,
         delivery_client=delivery_client,
+        recorder=recorder,
     )
     runner = AgentRunner(
         provider=provider,
         registry=registry,
         hooks=HookPipeline(),
         context_compactor=_context_compactor(request, provider, artifact_root=settings.artifact_root),
+        tool_round_results=recorder,
     )
 
     async def close() -> None:

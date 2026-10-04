@@ -35,7 +35,7 @@
 | E-05 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | TASK-007 | planned | uv run pytest -q tests/agent_runtime/test_context_metrics.py | . | 600 |
 | E-06 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实请求装配 → 模型 HTTP 探针 | TASK-008 | planned | uv run pytest -q tests/agent_runtime/test_context_memory_budget.py | . | 600 |
 | S-01 | context-compaction.design.md#2.5.2 验收场景 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | . | 1200 |
-| E-07 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | TASK-011 | planned | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py | . | 600 |
+| E-07 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | TASK-011 | verified | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py | . | 600 |
 
 > 本表覆盖 design §2.5.2 全部 **12** 条场景（B-01..04、E-01..07、S-01，含回填的 E-05/E-06 与本次新增的 E-07）与 §2.5.1 全部 6 条业务规则（RULE-01..06 的负责人见各 TASK 的 Acceptance-Refs）。
 >
@@ -549,12 +549,12 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 
 ## TASK-011: 工具结果的整轮批次预算接进回合循环
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-006
 - **Source**: context-compaction.design.md#3.2 架构设计（ADR-04）, context-compaction.design.md#2.5.2 验收场景
-- **Spec-Refs**:
-- **Acceptance-Refs**: E-07
+- **Spec-Refs**: harness-mcp#RULE-mcp-001
+- **Acceptance-Refs**: E-07, RULE-mcp-001
 
 ### Description
 
@@ -564,22 +564,34 @@ TASK-003 交付了 `select_round_persists`（整轮选取，纯逻辑）与 `Art
 
 ### Checklist
 
-- [ ] [E-07][integration] 先写 RED：真实 PG + 真实产物根 + 真实 `AgentRunner`，一个回合里三条结果各自都没超单条阈值、合计超整轮预算，断言"超出的那些落盘、模型收到引用 JSON、canonical `TOOL_CALL` 行带 `artifact_id`"；现行实现必然红（一条都不落盘），记录失败命令与原因
-- [ ] [E-07][integration] 覆盖两条反向腿：① 整轮合计**未超**预算 ⇒ **一条都不落盘**（不得因为"整轮判定"把原本内联的结果无谓外置）；② 失败注入：本批落盘中途抛错 ⇒ **整批回滚**（盘上不留半截产物），且 Run 不因此失败（退化到"这批不外置"）
-- [ ] 端口与接线：`ToolCallRecorder` 缓存本回合原始结果（含 `externalizable_result=False` 的既有豁免口径），`AgentRunner._execute_tools` 在回合末调用端口一次；端口实现全在 runtime 侧，`packages/*` 不得 import app 包
-- [ ] 顺序约束：审计行与 `tool.completed` 在批次判定**之后**逐条发，且都带最终 `artifact_id`；单工具回合的事件时序与现状逐条等价（既有 `tests/agent_runtime/test_execution_activity.py` 的时序断言不得改）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [E-07][integration] 先写 RED：真实 PG + 真实产物根 + 真实 `AgentRunner`，一个回合里三条结果各自都没超单条阈值、合计超整轮预算，断言"超出的那些落盘、模型收到引用 JSON、canonical `TOOL_CALL` 行带 `artifact_id`"；现行实现必然红（一条都不落盘），记录失败命令与原因
+- [x] [E-07][integration] 覆盖两条反向腿：① 整轮合计**未超**预算 ⇒ **一条都不落盘**（不得因为"整轮判定"把原本内联的结果无谓外置）；② 失败注入：本批落盘中途抛错 ⇒ **整批回滚**（盘上不留半截产物），且 Run 不因此失败（退化到"这批不外置"）
+- [x] 端口与接线：`ToolCallRecorder` 缓存本回合原始结果（含 `externalizable_result=False` 的既有豁免口径），`AgentRunner._execute_tools` 在回合末调用端口一次；端口实现全在 runtime 侧，`packages/*` 不得 import app 包
+- [x] 顺序约束：审计行与 `tool.completed` 在批次判定**之后**逐条发，且都带最终 `artifact_id`；单工具回合的事件时序与现状逐条等价（既有 `tests/agent_runtime/test_execution_activity.py` 的时序断言不得改）
+- [x] [RULE-mcp-001][integration] 作为**承接方**（不是规则主体）：整轮批次判定包装在**统一 ToolRegistry** 外层，`mcp::` 前缀的 MCP 工具与内置工具走同一条包装路径、不按来源分叉；MCP 工具定义仍只来自冻结 Snapshot 的 definitions（本需求不碰 discover-tools，也不在 Run 内调 `tools/list`）。执行规则自带的 verifier：`uv run pytest -q tests/console_mcp/test_mcp_rules.py`，并记录门禁裁决
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-07 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | 整轮合计超预算才落盘；落盘的那些被换成引用 JSON；canonical `TOOL_CALL` 行带 `artifact_id`；整批失败回滚且 Run 不失败 | tests/agent_runtime/test_tool_round_budget.py::test_e07_round_batch_lands_in_the_tool_loop | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py | planned |
+| E-07 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | 整轮合计超预算才落盘（从大到小、进预算即停）；落盘的那些被换成引用 JSON、未落的正文原样；canonical `TOOL_CALL` 行的 `payload_json.artifact_id` 与落盘产物一致；整批失败回滚且 Run 不失败 | tests/agent_runtime/test_tool_round_budget.py::test_e07_round_batch_lands_in_the_tool_loop | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py | verified |
+| RULE-mcp-001 | integration | 真实统一 `ToolRegistry`（`mcp::` 前缀工具与内置工具走同一条包装路径） | 判定包装不按工具来源分叉；MCP 工具定义仍只来自冻结 Snapshot 的 definitions（Run 内无 `tools/list`） | tests/console_mcp/test_mcp_rules.py | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py && uv run pytest -q tests/console_mcp/test_mcp_rules.py | verified |
 
 ### Acceptance Evidence
 
-> functional 的 RED/GREEN 与逐条断言证据由 `cf-task-start` 在编码期登记；全部 functional 状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-07 | **实现先行，未记录行为 RED**：`AgentRunner(tool_round_results=...)` 与 recorder 的回合收口都是本任务新增的接口，实现前跑是收集期 `TypeError`、不是行为红。改以两条**扰动**替代取证：P1「回合末不调端口」⇒ 1 failed；P2「整轮判定只看单条阈值」⇒ 1 failed；逐字节还原后复绿 | 3 passed | `test_e07_round_batch_lands_in_the_tool_loop`（落盘的是最大的两条 4000/3500；`{"artifact"` 引用进了第二轮模型请求、未落盘那条正文原样；canonical 行的 `payload_json.artifact_id` 与产物一致；三条审计行带同一个 id）、`test_e07_round_within_budget_persists_nothing`（反向腿①：零落盘、正文原样）、`test_e07_failed_batch_rolls_back_without_failing_the_run`（反向腿②：第三件写盘时炸 ⇒ 盘上零文件、库里零行、Run 仍 COMPLETED、模型仍拿到正文） | 真实 `RunService` 建 Run + 真实 SSE 消费 → 真实 `AgentRunner` 工具回合 → 生产同款 `ToolCallRecorder` → 真实 PostgreSQL（`runtime.artifact` / `canonical_event` / `tool_call_audit`）+ 真实产物根 | verified |
+
+**顺带修掉一处「整批」名不副实**：`ArtifactResultWriter` 原先**逐条 commit**，中途失败时文件回滚了、已提交的行却留在库里指向已删文件。现改为整批只在最后提交一次（单条路径由调用方提交），失败时行与文件一起退场 —— B-02 的回滚用例随注入点改成「第 2 条插行时失败」（`_StubSession` 新增 `fail_on_add`，并断言 `commits == 0`）。
+- E-07: verified — automated command passed; run_id=3ceab6c1eb2143139edabbdb66d99ee4 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-04] created (draft)
+- [2026-10-04] started
+- [2026-10-04] 实现：`packages/agent-core` 新增端口 `ToolResultRoundPort`（`tools/round_results.py`）；`AgentRunner` 增 `tool_round_results`，在 `_execute_tools` 的 **finally** 里收口（中途被取消/超时打断时，已经跑完的那些同样要判定与审计）；逐条 `on_tool_completed` 移到收口之后，产物 id 因此赶得上事件。runtime 侧 `ToolCallRecorder` 改为「逐条缓冲 + `finish_round` 整批判定 / 批量落盘 / 写审计 / 替换引用」，`build_registry` 与 `default_executor_factory` 共用同一个 recorder（`build_registry` 新增可选 `recorder` 入参）。回归 `tests/agent_core tests/agent_runtime tests/architecture tests/sdk` → **577 passed**；ruff / mypy(297 files) clean。
+- [2026-10-04] **发现（不在本任务范围，需单独决策）**：canonical `TOOL_CALL` 行的 `artifact_id` **列**在生产里永远是 NULL —— `RunService._persist_event` 调 `EventWriter.append(...)` 时没传 `artifact_id=`，产物 id 只落在 `payload_json` 里；而 `context_builder._to_messages` 的 TOOL_CALL 预览查找读的是**列**（`previews.get(event.artifact_id)`）。后果：跨 Run 重建历史时**外置过的工具结果一律退化成 `[tool:名称]`** —— 既没有预览，也没有 id 去 `read_attachment`。E-01 的重建用例没有覆盖这条（它不种 TOOL_CALL 行），所以一直没被发现。本任务只保证 id 送到 `payload_json`（`tool.completed` 的真实载体），列的缺口留给单独决策。
+- [2026-10-04] resumed (in-progress)
+- [2026-10-04] completed (done)

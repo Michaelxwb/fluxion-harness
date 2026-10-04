@@ -98,14 +98,24 @@ def test_b02_preview_returns_text_verbatim_when_it_fits() -> None:
 
 
 class _StubSession:
-    """只实现落盘路径真正用到的两个方法；`fail_after` 控制第几次 commit 起失败。"""
+    """只实现落盘路径真正用到的两个方法。
 
-    def __init__(self, *, fail_after: int | None = None) -> None:
+    `fail_after` 控制第几次 `commit` 起失败，`fail_on_add` 控制第几次插行起失败 —— 整批现在
+    **只在最后提交一次**，所以"中途失败"要用插行那一条腿来注入。
+    """
+
+    def __init__(
+        self, *, fail_after: int | None = None, fail_on_add: int | None = None
+    ) -> None:
         self.commits = 0
+        self.adds = 0
         self._fail_after = fail_after
+        self._fail_on_add = fail_on_add
 
     def add(self, row: Any) -> None:
-        return None
+        self.adds += 1
+        if self._fail_on_add is not None and self.adds >= self._fail_on_add:
+            raise RuntimeError("db down")
 
     async def commit(self) -> None:
         self.commits += 1
@@ -146,9 +156,13 @@ async def test_db_failure_removes_the_written_file(tmp_path: Path) -> None:
 
 
 async def test_round_batch_rolls_back_every_file_it_wrote(tmp_path: Path) -> None:
-    """整批第 2 条失败 ⇒ 第 1 条已写的文件也要回滚，不留半批。"""
+    """整批第 2 条失败 ⇒ 第 1 条已写的文件也要回滚，且**一行都不提交**，不留半批。
+
+    提交口径是整批一次（不是逐条）：逐条提交时文件回滚了、行还留在库里指向已删文件，
+    "整批回滚"名不副实。
+    """
     writer = ArtifactResultWriter(tmp_path, session_factory=None)
-    session = _StubSession(fail_after=2)
+    session = _StubSession(fail_on_add=2)
     with pytest.raises(RuntimeError):
         await writer.persist_round_results_with_session(
             session,
@@ -158,7 +172,8 @@ async def test_round_batch_rolls_back_every_file_it_wrote(tmp_path: Path) -> Non
             task_id=None,
             results=[("call-1", "t1", "a" * 100), ("call-2", "t2", "b" * 100)],
         )
-    assert session.commits == 2, "确实写到了第 2 条才失败（否则本用例空转）"
+    assert session.adds == 2, "确实写到了第 2 条才失败（否则本用例空转）"
+    assert session.commits == 0, "中途失败 ⇒ 一行都不该提交"
     assert list(tmp_path.rglob("*.bin")) == [], "半批产物必须被清掉"
 
 

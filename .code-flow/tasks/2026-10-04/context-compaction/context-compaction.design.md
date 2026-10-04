@@ -18,6 +18,7 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | v0.1 | 2026-10-04 | Claude | 初始设计（来源：本会话对齐结论 + PRD v0.1） |
+| v0.2 | 2026-10-04 | Claude | 补 ADR-04（工具结果外置的判定单元是回合，非单条调用）与 TASK-010/011；承接 path-mapped 新绑定的 `harness-mcp`（新增 `tools/round_results.py` 命中其过宽的 tools 路径模式） |
 
 ## 2. 需求分析
 
@@ -265,3 +266,4 @@
 | harness-model#RULE-model-001 | required | 摘要只走 OPENAI 兼容协议，引用既有 `model_definition`，无默认模型回退 | 3.4 接口设计（`summary.model_ref`） | B-04 | applied |
 | harness-secret#RULE-secret-001 | required | 摘要/事件/日志不含密钥；transcript 不新增对外出口 | 3.5 质量实现方案（安全/隐私） | E-02、S-01 | applied |
 | harness-test#RULE-test-001 | required | 分层验收：纯逻辑单测 + 真实 PG 一致性 + 真实链路 E2E | 2.5.2 验收场景 | S-01、E-01、B-01..04 | applied |
+| harness-mcp#RULE-mcp-001 | required | 整轮批次判定作用于**统一 ToolRegistry 的全部工具**（含 `mcp::` 前缀的 MCP 工具）：包装在注册表层、不按工具来源分叉；MCP 工具定义仍只来自冻结 Snapshot 的 definitions | 3.2 架构设计（ADR-04） | RULE-mcp-001 自带 verifier（`tests/console_mcp/test_mcp_rules.py`） | applied |

@@ -406,7 +406,7 @@
       "kind": "functional",
       "boundary": "真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -416,7 +416,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3ceab6c1eb2143139edabbdb66d99ee4",
+        "executed_at": "2026-10-04T11:05:15.486890+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3ceab6c1eb2143139edabbdb66d99ee4",
+          "executed_at": "2026-10-04T11:05:15.486890+00:00"
+        }
+      ]
     }
   ]
 }

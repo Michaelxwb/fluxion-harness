@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import AsyncIterator, Mapping
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -14,7 +14,14 @@ import pytest
 import sqlalchemy as sa
 from muad_agent_core.agent import AgentPolicy, AgentRunner
 from muad_agent_core.hooks import HookPipeline
-from muad_agent_core.model import ModelRequest, ModelResponse, ModelRole, ModelToolCall
+from muad_agent_core.model import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    ModelRole,
+    ModelToolCall,
+    text_of,
+)
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
@@ -126,7 +133,40 @@ def _writer() -> RuntimeAuditWriter:
     )
 
 
-def _recording_registry(tmp_path: Path, tool_set: MemoryToolSet) -> ToolRegistry:
+@dataclass(frozen=True, slots=True)
+class _RecordingChain:
+    """生产同款的工具结果链路：注册表**逐条缓冲**，回合末由同一个 recorder 收口（ADR-04）。
+
+    逐条调用本身不再产生副作用（不落盘、不写审计）——整批判定要看本轮全部结果的大小，产物 id
+    也必须赶在 `tool.completed` 之前定下来。所以直连链路的用例必须**自己收口**，否则测的是一个
+    永远等不到回合结束的中间态。
+    """
+
+    registry: ToolRegistry
+    recorder: ToolCallRecorder
+
+    async def call(self, name: str, arguments: Mapping[str, Any]) -> str:
+        """跑一次工具并立刻收口（等价于一个只含这一次调用的回合）；失败时收口后再抛。"""
+        definition = self.registry.get(name)
+        assert definition.handler is not None
+        call_id = f"call-{uuid.uuid4()}"
+        try:
+            content = await definition.handler(dict(arguments), call_id=call_id)
+        except Exception as exc:
+            # 生产里 Runner 把工具异常转成一条 tool 消息继续走回合，这里照同一形态收口，
+            # 免得审计行（本组用例的主角）永远等不到回合结束。
+            await self._close(call_id, f"tool failed: {type(exc).__name__}: {exc}")
+            raise
+        return await self._close(call_id, content)
+
+    async def _close(self, call_id: str, content: str) -> str:
+        messages = await self.recorder.finish_round(
+            (ModelMessage(role=ModelRole.TOOL, content=content, tool_call_id=call_id),)
+        )
+        return text_of(messages[0].content)
+
+
+def _recording_registry(tmp_path: Path, tool_set: MemoryToolSet) -> _RecordingChain:
     """把工具集包进生产同款 `ToolCallRecorder`（审计 + 大结果外置判定都走真实链路）。"""
     registry = ToolRegistry()
     tool_set.register(registry)
@@ -142,13 +182,7 @@ def _recording_registry(tmp_path: Path, tool_set: MemoryToolSet) -> ToolRegistry
         handler = definition.handler
         assert handler is not None
         wrapped.register(replace(definition, handler=partial(recorder, definition, handler=handler)))
-    return wrapped
-
-
-async def _call_registry(registry: ToolRegistry, name: str, arguments: Mapping[str, Any]) -> str:
-    definition = registry.get(name)
-    assert definition.handler is not None
-    return await definition.handler(dict(arguments), call_id=f"call-{uuid.uuid4()}")
+    return _RecordingChain(registry=wrapped, recorder=recorder)
 
 
 # --------------------------------------------------------------------------- B-01
@@ -289,10 +323,10 @@ async def test_e05_write_failure_degrades_without_breaking_conversation(tmp_path
     `OK`，失败在审计与 `memory_write_total{status=error}` 指标上彻底消失（`load_skill` 事故的
     教训正是"没有任何报错"）。不中断对话由 AgentRunner 的工具异常兜底承载 —— 见下一个用例。
     """
-    registry = _recording_registry(tmp_path, _tool_set(_FailingService()))
+    chain = _recording_registry(tmp_path, _tool_set(_FailingService()))
 
     with pytest.raises(AppError):
-        await _call_registry(registry, REMEMBER_TOOL, _remember_args(memory_key="will.fail"))
+        await chain.call(REMEMBER_TOOL, _remember_args(memory_key="will.fail"))
 
     assert await _memory_rows(USER_ID) == []
 
@@ -314,10 +348,15 @@ async def test_e05_write_failure_keeps_the_model_turn_going(tmp_path: Path) -> N
     `finally` 后被 Runner 捕获）。断言最终回合产出答复，且模型看到的工具消息表明失败 ——
     因此模型不会宣称"已记住"。
     """
-    registry = _recording_registry(tmp_path, _tool_set(_FailingService()))
+    chain = _recording_registry(tmp_path, _tool_set(_FailingService()))
     provider = _RememberThenAnswerProvider()
     executor = AgentRunnerExecutor(
-        runner=AgentRunner(provider=provider, registry=registry, hooks=HookPipeline()),
+        runner=AgentRunner(
+            provider=provider,
+            registry=chain.registry,
+            hooks=HookPipeline(),
+            tool_round_results=chain.recorder,
+        ),
         request=_request(),
     )
 
@@ -369,11 +408,9 @@ async def test_b04_recall_result_is_not_truncated_by_artifact_externalization(tm
     tool_set = _tool_set()
     for index in range(20):
         await _upsert(f"bulk.{index:02d}", "x" * 512)
-    registry = _recording_registry(tmp_path, tool_set)
+    chain = _recording_registry(tmp_path, tool_set)
 
-    content = await _call_registry(
-        registry, RECALL_TOOL, {"limit": 20, "prefix": "bulk."}
-    )
+    content = await chain.call(RECALL_TOOL, {"limit": 20, "prefix": "bulk."})
 
     assert "artifact" not in content
     payload = json.loads(content)
