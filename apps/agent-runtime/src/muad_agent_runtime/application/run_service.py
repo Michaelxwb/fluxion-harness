@@ -14,9 +14,12 @@ from typing import Any
 import sqlalchemy as sa
 from muad_agent_core.agent import RunnerModelError
 from muad_agent_core.context.settings import (
+    COMPACTION_POLICY_KEY,
+    CompactionConfigError,
     CompactionSettings,
     compaction_payload,
     default_compaction_settings,
+    parse_compaction_settings,
 )
 from muad_agent_core.model import ModelMessage
 from muad_api import AppError
@@ -106,11 +109,26 @@ def snapshot_policy(compaction: CompactionSettings | None = None) -> dict[str, A
     }
 
 
+def compaction_settings_of(policy: Mapping[str, Any] | None) -> CompactionSettings | None:
+    """从**已冻结**的 `policy_json` 还原压缩配置；缺键或形状坏返回 None（等于不压缩）。
+
+    resume 走这条：在跑的 Run 用的永远是它自己那一份冻结值，不吃当前配置。
+    """
+    compaction = (policy or {}).get(COMPACTION_POLICY_KEY)
+    if not isinstance(compaction, Mapping):
+        return None
+    try:
+        return parse_compaction_settings(compaction)
+    except CompactionConfigError:
+        return None
+
+
 def history_budget_of(policy: Mapping[str, Any] | None) -> int | None:
     """从已冻结的 `policy_json` 取历史预算（消息条数）；缺失/形状不对时返回 None。
 
-    返回 None 让 `DbBackedContextBuilder` 回落到它自己的默认值——resume 读到的是**这一行当时**
-    冻结的预算，而不是当前配置，配置改动因此只影响后续新 Run。
+    这一个值有两个消费者，且**必须是同一个**：装配侧的取数守卫（`load_history`）与压缩层的条数
+    兜底（`trim_history`）。返回 None 让两边各自回落默认值——resume 读到的是**这一行当时**冻结的
+    预算，而不是当前配置，配置改动因此只影响后续新 Run。
     """
     compaction = (policy or {}).get("compaction")
     value = compaction.get("history_budget_messages") if isinstance(compaction, Mapping) else None
@@ -703,6 +721,7 @@ class RunService:
                 history=history,
                 submission_id=submission.id,
                 resumed=False,
+                compaction=compaction,
             ),
         )
 
@@ -804,6 +823,7 @@ class RunService:
                 history=history,
                 submission_id=submission.id,
                 resumed=True,
+                compaction=compaction_settings_of(snapshot.policy_json),
                 current_text=input_text,
                 with_attachments=False,
             ),
@@ -907,11 +927,12 @@ class RunService:
         *,
         budget_messages: int | None = None,
     ) -> tuple[ModelMessage, ...]:
+        """取装配用的历史。`budget_messages` 只做取数守卫；裁剪在压缩层（同一冻结值）。"""
         return await self._context_builder.load_history(
             tenant_id=tenant_id,
             conversation_id=conversation_id,
             user_id=user_id,
-            budget=budget_messages,
+            budget_messages=budget_messages,
         )
 
     def _build_snapshot(
@@ -974,6 +995,7 @@ class RunService:
         mcp_secrets: dict[str, str],
         history: Sequence[ModelMessage],
         *,
+        compaction: CompactionSettings | None = None,
         current_text: str | None = None,
         with_attachments: bool = True,
     ) -> RunExecutor:
@@ -996,6 +1018,7 @@ class RunService:
                 skills=tuple(skills),
                 mcp_servers=tuple(mcp_servers),
                 history=tuple(history),
+                compaction=compaction,
                 credentials=ExecutorCredentials(mcp_secrets=mcp_secrets),
                 run_context=ExecutorRunContext(
                     tenant_id=run.tenant_id,
@@ -1019,6 +1042,7 @@ class RunService:
         history: Sequence[ModelMessage],
         submission_id: uuid.UUID,
         resumed: bool,
+        compaction: CompactionSettings | None = None,
         current_text: str | None = None,
         with_attachments: bool = True,
     ) -> AsyncIterator[ExecutorEvent]:
@@ -1044,6 +1068,7 @@ class RunService:
                 mcp_servers,
                 mcp_secrets,
                 history,
+                compaction=compaction,
                 current_text=current_text,
                 with_attachments=with_attachments,
             )

@@ -219,18 +219,23 @@ def test_e04_settings_cache_merges_agent_override_over_platform_source() -> None
     assert settings.snip.keep_head_groups == 3, "未覆盖的键回落默认"
 
 
-# ---- `history_budget_messages` 不是没人读的字段：历史装配真的按它裁 ----
+# ---- `history_budget_messages` 不是没人读的字段：条数真的按它裁 ----
 
 
 async def test_e04_history_budget_from_frozen_config_actually_trims(
     tenant: TenantContext,
     database_guard: None,
 ) -> None:
-    """真实 PG 的 `runtime.canonical_event` 种 5 条 USER_MESSAGE，按冻结配置里的预算装配历史。
+    """真实 PG 的 `runtime.canonical_event` 种 5 条 USER_MESSAGE，按冻结配置里的预算裁历史。
 
-    断言两侧：① builder 的历史装配受传入预算约束；② resume 侧从 `policy_json` 取预算的读法
-    （缺键回落 None ⇒ 用 builder 默认值，不会因为老 Run 没有这个键而炸）。
+    断言三侧：
+    ① **装配不裁**（`load_history` 把 5 条全给出来）——压缩只有一处，装配侧再压一遍就是两种口径；
+    ② **压缩层按同一个冻结值裁**（`trim_history` 拿到 2 就把对话区裁到 2 条）；
+    ③ resume 侧从 `policy_json` 取预算的读法（缺键回落 None ⇒ 两边各自用默认值，不会因为老 Run
+       没有这个键而炸）。
     """
+    from muad_agent_core.context.compactor import compact_history
+    from muad_agent_core.context.settings import default_compaction_settings
     from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
     from muad_agent_runtime.application.run_service import history_budget_of
     from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent
@@ -250,20 +255,25 @@ async def test_e04_history_budget_from_frozen_config_actually_trims(
         await session.commit()
 
     builder = DbBackedContextBuilder(session_factory=get_session_factory)
-    trimmed = await builder.load_history(
+    history = await builder.load_history(
         tenant_id=tenant.tenant_id,
         conversation_id=conversation_id,
         user_id=None,
-        budget=2,
+        budget_messages=2,
     )
-    assert len(trimmed) == 2, "预算 2 必须把 5 条历史裁到 2 条"
+    assert len(history) == 5, "装配侧不裁历史：裁剪只有压缩层一处口径"
 
-    # 默认值保持生产行为：不传预算时用 builder 自己的默认（40），5 条全留。
-    defaulted = await builder.load_history(
-        tenant_id=tenant.tenant_id, conversation_id=conversation_id, user_id=None
+    frozen = history_budget_of({"compaction": {"history_budget_messages": 2}})
+    defaults = default_compaction_settings()
+    compacted, layers = compact_history(
+        history,
+        snip_settings=defaults.snip,
+        micro_settings=defaults.micro,
+        history_budget_messages=frozen,
     )
-    assert len(defaulted) == 5
+    assert len(compacted) == 2, "冻结预算 2 必须把 5 条历史裁到 2 条"
+    assert [(layer.layer, layer.fired) for layer in layers if layer.fired] == [("budget", True)]
 
-    assert history_budget_of({"compaction": {"history_budget_messages": 2}}) == 2
+    assert frozen == 2
     assert history_budget_of({"compaction": {}}) is None
     assert history_budget_of({}) is None

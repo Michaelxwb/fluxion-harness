@@ -33,7 +33,7 @@
 | E-03 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：canonical_event 审计行 | TASK-005 | verified | uv run pytest -q tests/agent_runtime/test_context_events.py | . | 600 |
 | E-05 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | TASK-007 | planned | uv run pytest -q tests/agent_runtime/test_context_metrics.py | . | 600 |
 | E-06 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实请求装配 → 模型 HTTP 探针 | TASK-008 | planned | uv run pytest -q tests/agent_runtime/test_context_memory_budget.py | . | 600 |
-| S-01 | context-compaction.design.md#2.5.2 验收场景 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | TASK-006 | planned | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | . | 1200 |
+| S-01 | context-compaction.design.md#2.5.2 验收场景 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | . | 1200 |
 
 > 本表覆盖 design §2.5.2 全部 11 条场景（B-01..04、E-01..06、S-01，含本次回填的 E-05/E-06）与 §2.5.1 全部 6 条业务规则（RULE-01..06 的负责人见各 TASK 的 Acceptance-Refs）。
 
@@ -322,7 +322,7 @@
 
 ## TASK-006: 接线请求构建缝与端到端验收（FEAT-01..05 串联）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003, TASK-004, TASK-005
 - **Source**: context-compaction.design.md#3.1 方案选型, context-compaction.design.md#3.2 架构设计, context-compaction.design.md#2.5.2 验收场景
@@ -335,25 +335,51 @@
 
 ### Checklist
 
-- [ ] [S-01][E2E] 先登记并编写 tests/acceptance/im_gateway/test_context_compaction.py；真实边界：真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针（`tests/e2e/openai_probe_app.py`，禁止伪造外部响应）；成功路径不得出现 `page.route(` 一类拦截；验证设计约定并登记证据，E2E 延后 verify-e2e
-- [ ] 接线位置必须是 `AgentRunner` 组装 `ModelRequest` 的唯一处（不得在 `context_builder` 里再压一遍，否则同一份历史两种口径）
-- [ ] 端口实现全部在 runtime 适配器侧（`packages/*` 不得 import 四个 app 模块，依赖方向单向）
-- [ ] 压缩整体包在 try 内：异常退化到"不压缩"，日志只记字节数与层级、不记内容
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [S-01][E2E] 先登记并编写 tests/acceptance/im_gateway/test_context_compaction.py；真实边界：真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针（`tests/e2e/openai_probe_app.py`，禁止伪造外部响应）；成功路径不得出现 `page.route(` 一类拦截；验证设计约定并登记证据，E2E 延后 verify-e2e
+- [x] 接线位置必须是 `AgentRunner` 组装 `ModelRequest` 的唯一处（不得在 `context_builder` 里再压一遍，否则同一份历史两种口径）
+- [x] 端口实现全部在 runtime 适配器侧（`packages/*` 不得 import 四个 app 模块，依赖方向单向）
+- [x] 压缩整体包在 try 内：异常退化到"不压缩"，日志只记字节数与层级、不记内容
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | 长会话 + 大工具结果 + 多工具回合后：开头诉求仍在、无孤儿 TOOL、模型收到的 prompt 含省略标记或摘要、压缩事件落库 | tests/acceptance/im_gateway/test_context_compaction.py | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | planned |
+| S-01 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | 长会话 + 大工具结果 + 多工具回合后：开头诉求仍在、无孤儿 TOOL、模型收到的 prompt 含省略标记或摘要、压缩事件落库 | tests/acceptance/im_gateway/test_context_compaction.py::test_s01_compaction_composes_on_the_real_chain | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | e2e_deferred |
 
 ### Acceptance Evidence
 
 > E2E 场景延后到需求级 verify-e2e 执行；`cf-task-start` 在编码期登记实现与接线证据。
 
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-01 | 不制造 RED（验收类基线：E2E 由 `cf_acceptance_runner --include-e2e` 统一执行） | pending（延后 verify-e2e） | `test_s01_compaction_composes_on_the_real_chain`：省略标记出现在探针记录的真实请求体里 / `OPENING` 仍在 / `FOLLOW_UP` 仍在 / `_assert_no_orphan_tools` 按序校验 tool_call_id / `count(canonical_event where event_type='CONTEXT_COMPACTED') ≥ 1` | 真实 WS 探针推入站帧 → 真实 Gateway → 真实 Runtime → 真实 PG → 真实 `tests/e2e/openai_probe_app.py`（`GET /requests` 回放每次真实请求体） | e2e_deferred |
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=1c882addab1d45d8a90dc139179f377d (confirmed_by: runner)
+
 ### Log
+- [2026-10-04] **接线完成（本轮）**：
+  · `agent-core/context/compactor.py` 增 `trim_history`（原 `context_builder._trim` 的口径上移）与 `compact_history`（micro→snip→条数兜底）与 `ContextCompactor` 协议；
+  · `agent-core/agent/runner.py`：`AgentRunner(context_compactor=...)`，在 `_call_model` 组装 `ModelRequest` 的**唯一处**对派生历史调用它，`state["messages"]` 一个字节不动；
+  · 新增 `agent-runtime/application/context_compaction.py`：`RuntimeContextCompactor` 承载四个层与副作用（transcript 落盘、摘要事件、压缩审计事件），**整段包在 try 内**（RULE-04 退化到原样返回），并含 `make_summary_runner`（用既有 provider + `model_ref`，无默认模型回退）；
+  · `ExecutorRequest` 增 `compaction`；`RunService` 把**冻结**配置一路带下去（新 Run 用 `resolve_compaction_settings`，resume 用新增的 `compaction_settings_of(snapshot.policy_json)`），`default_executor_factory` 据此装配压缩器。
+  回归 `tests/agent_runtime tests/agent_core tests/architecture` → **465 passed**；ruff / mypy(296 files) clean（压缩器仅在 Run 有冻结配置与 Run 上下文时才装；默认配置下 snip 未达 50 组阈值、micro/summary 关 ⇒ 既有行为不变）。
+- [2026-10-04] **断点（未完成，任务保持 in-progress）**：
+  1. **`context_builder._trim` / `_drop_leading_tool` 尚未退场** —— 它与压缩器的 `trim_history` 目前是同一口径跑两遍（幂等，故回归全绿），但仍是 checklist 第 2 条点名要拆的「两处口径」。退场会牵动 `load_history(budget=)`、`RunService._load_history(budget_messages=)` 与 `tests/agent_runtime/test_context_memory.py` 的 `budget_messages=2` 断言，**未做**；
+  2. **S-01 E2E 测试文件尚未登记**（`tests/acceptance/im_gateway/test_context_compaction.py`）；
+  3. **Acceptance Contract 的 S-01 状态仍为 planned**，未走 `cf_task_workflow.py finish`；
+  4. 另有一笔**跨任务残留**（不在本任务 checklist 内，但功能上未闭环）：`ArtifactResultWriter.persist_round_results_with_session`（TASK-003 的整轮批次原语）**还没有调用方** —— 工具结果的「整轮合计超预算」仍未接进回合循环（`Runner._execute_tools` 逐 call 分派，单次调用看不到整轮边界）。需要单独一个任务承接。
+- [2026-10-04] 已勾选项：端口实现全在 runtime 适配器侧（`packages/*` 不 import app 包）；压缩整体包在 try 内、异常退化到不压缩、日志只记层级与字节数。
+- [2026-10-04] **收尾完成（本轮）**：
+  · **口径唯一落实**：`context_builder._trim` / `_drop_leading_tool` 退场，`load_history` 只装配不裁（`budget_messages` 降级为**取事件条数守卫**，与压缩层用同一个冻结值）；`trim_history` 成为唯一的条数兜底，并补上"硬切尾片按组净化"的 RULE-01 缺口（原实现会把切点处的 tool 结果留成孤儿）。E-04 的断言随之改成"装配不裁 + 压缩层按冻结值裁"；
+  · **受保护前缀**：新增 `split_protected_prefix`（开头连续的 SYSTEM 段 = 系统提示 + memory 注入 + 摘要前缀）。snip 与条数兜底只在它之后的**对话区**上工作——否则系统提示会被整段裁掉（失忆）、memory 注入被省略标记顶掉、摘要被省掉（它覆盖的那段历史净消失）。3 处扰动（去掉前缀切分 ×2、去掉硬切净化 ×1）逐一变红后还原复绿；
+  · **请求缝取证**：`tests/agent_core/test_runner.py` 新增两个用例——压缩产物进模型请求、且**不回沉**进 `state["messages"]`（多回合下每轮从权威历史重算，上一轮的省略标记不得沉淀）；去掉 `_call_model` 里的压缩调用 ⇒ 2 failed；
+  · **S-01 E2E 登记**（`tests/acceptance/im_gateway/test_context_compaction.py::test_s01_compaction_composes_on_the_real_chain`）：两个来回 + 4 个工具回合，只压 `max_groups` 触发阈值（保头保尾用生产默认 3/20），断言"探针记录的真实请求体里出现省略标记 + 开头诉求与本轮追问都还在 + 按序校验无孤儿 TOOL + `CONTEXT_COMPACTED` 落库"。**编码期只登记不执行**，延后 verify-e2e。
+  回归 `tests/agent_core tests/agent_runtime tests/architecture` → **472 passed**；ruff / mypy(296 files) clean。
+- [2026-10-04] **遗留（E2E 设计时发现，未改语义，需单独决策）**：snip 的尾部窗口只按**组数**（`keep_tail_groups`，默认 20）保留，**不锚定最近一条 user 消息**。一个回合内的工具轮次超过该窗口时，**当前正在回答的那个问题**会落进省略区（模型只看到工具名清单，看不到诉求）。生产默认值下需要"单回合 > 20 个工具组"才够得着（`max_tool_calls` 默认 30），可达但非高频。S-01 因此用生产默认的保尾值取证；本条与 `trim_history` 的"从最近一条 USER 起切"口径不对称，是否统一需另定（牵动已 verified 的 B-01）。
 
 - [2026-10-04] created (draft)
+- [2026-10-04] started
+- [2026-10-04] completed (done)
 
 ---
 

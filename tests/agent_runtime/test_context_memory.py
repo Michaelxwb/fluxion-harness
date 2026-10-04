@@ -10,6 +10,8 @@ from typing import Any
 import pytest
 import sqlalchemy as sa
 from muad_agent_core.context.builder import ContextInput
+from muad_agent_core.context.compactor import trim_history
+from muad_agent_core.model.provider import ModelRole
 from muad_agent_runtime.application.context_builder import (
     MAX_INJECTED_BYTES,
     MAX_INJECTED_MEMORIES,
@@ -215,7 +217,12 @@ async def test_s08_context_from_db_with_isolation_and_preview(seeded) -> None:
 
 
 async def test_s08_budget_trims_only_request_keeps_tool_pairs(seeded) -> None:
-    """[S-08] 预算裁剪仅作用于派生 request；Tool 消息配对保留。"""
+    """[S-08] 条数预算只作用于**派生请求**：成对性保住、库不动。
+
+    2026-10-04 订正：裁剪不再发生在历史装配侧（`load_history` 只装配、不裁），改由压缩层在
+    `AgentRunner` 组装 `ModelRequest` 的唯一处按冻结预算兜底——同一份历史只有一种口径。本用例
+    因此改成：把装配出来的消息喂给 `trim_history`，验成对性与"不写库"。
+    """
     builder = DbBackedContextBuilder(session_factory=get_session_factory)
     request = await builder.build(
         ContextInput(
@@ -227,7 +234,16 @@ async def test_s08_budget_trims_only_request_keeps_tool_pairs(seeded) -> None:
             budget_messages=2,
         ),
     )
-    assert len(request.messages) <= 2 + 2  # 预算 + 系统提示/配对容差
+    out = trim_history(request.messages, 2)
+
+    # 受保护前缀（系统提示 + memory 注入）不参与条数预算：裁掉的只能是对话区。
+    assert [m.role for m in out[:2]] == [ModelRole.SYSTEM, ModelRole.SYSTEM]
+
+    # 成对性：留下来的 tool 消息必须有声明它的 assistant 回合（切点落在组中间时整条丢弃）。
+    declared = {call.id for message in out for call in message.tool_calls}
+    orphans = [m for m in out if m.role is ModelRole.TOOL and m.tool_call_id not in declared]
+    assert not orphans, f"裁剪留下了孤儿 TOOL：{orphans}"
+
     # 裁剪不修改 DB（种入 4 条：USER_MESSAGE / ASSISTANT_TURN / TOOL_CALL / ASSISTANT_MESSAGE）
     assert await _count_events() == 4
 

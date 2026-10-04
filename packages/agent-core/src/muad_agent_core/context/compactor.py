@@ -10,6 +10,9 @@ design §3.2 的四层流水线里，这里是第 2、3 层（第 1 层是整轮
 
 micro 只降级**能被找回的**结果——即带 `artifact_id` 的外置产物。没外置的短结果换成占位
 等于净丢信息（模型无从回溯），故一律放行。
+
+第三层的**受保护前缀**见 `split_protected_prefix`：系统提示、memory 注入、摘要前缀都在其中，
+任何**会删消息**的层（snip、条数兜底）都只在它之后的对话区上工作。
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from ..model.provider import ModelMessage, ModelRole, text_of
 from .settings import MicroSettings, SnipSettings
@@ -81,6 +84,28 @@ def _sanitized(messages: Sequence[ModelMessage]) -> tuple[ModelMessage, ...]:
     层未触发时输出的是这份净化结果，不是原样的输入。
     """
     return tuple(message for group in split_groups(messages) for message in group)
+
+
+def split_protected_prefix(
+    messages: Sequence[ModelMessage],
+) -> tuple[tuple[ModelMessage, ...], tuple[ModelMessage, ...]]:
+    """切成（**受保护前缀**, 可压缩的对话区）。
+
+    前缀是开头连续的一段 `role=SYSTEM`：`AgentRunner` 的系统提示、memory 注入、摘要前缀
+    （`summary_message` 渲染出来也是 SYSTEM）都在这一段里。它们不是"历史"，而是每次请求都必须
+    原样带上的**权威上下文**：
+
+    - 系统提示被裁掉等于 agent 失忆（它定义了身份与指令）；
+    - memory 注入的既有口径就是"以 SYSTEM 前置且**不进预算**"（`context_builder` 的注入措辞
+      依赖这一点，否则用户可写内容会静默消失）；
+    - 摘要前缀本身就是"被压缩掉的那段历史"——裁掉它，那段历史净消失（FEAT-08 的确定性重建）。
+
+    所以压缩的边界是**对话区**，不是整条消息列表。只换内容不删消息的层（micro）不需要它。
+    """
+    index = 0
+    while index < len(messages) and messages[index].role is ModelRole.SYSTEM:
+        index += 1
+    return tuple(messages[:index]), tuple(messages[index:])
 
 
 def _artifact_id(content: Any) -> str | None:
@@ -162,14 +187,16 @@ def snip(messages: Sequence[ModelMessage], settings: SnipSettings) -> LayerOutco
     if not settings.enabled:
         return _unchanged("snip", sanitized, before)
 
-    groups = split_groups(sanitized)
+    prefix, region = split_protected_prefix(sanitized)
+    groups = split_groups(region)
     if len(groups) <= settings.max_groups:
         return _unchanged("snip", sanitized, before)
 
     head = groups[: settings.keep_head_groups]
     tail_count = min(settings.keep_tail_groups, len(groups) - len(head) - 1)
     omitted = groups[len(head) : len(groups) - tail_count]
-    emitted: list[ModelMessage] = [message for group in head for message in group]
+    emitted: list[ModelMessage] = [*prefix]
+    emitted.extend(message for group in head for message in group)
     emitted.append(_snip_marker(omitted))
     emitted.extend(
         message for group in groups[len(groups) - tail_count :] for message in group
@@ -246,11 +273,76 @@ def micro(messages: Sequence[ModelMessage], settings: MicroSettings) -> LayerOut
     )
 
 
+def trim_history(messages: Sequence[ModelMessage], budget: int) -> tuple[ModelMessage, ...]:
+    """消息条数兜底：**对话区**保留尾部 `budget` 条，并从最近一条 USER 起切（不产生半截回合）。
+
+    这是第一个任务里 `context_builder._trim` 搬到这里的版本——搬家的理由是"历史压缩只有一处"
+    （design §3.1 方案 A 的漂移面）：条数兜底与 snip/micro 同源、同口径、可单测，装配侧不再压第二遍。
+
+    受保护前缀（系统提示 / memory / 摘要）不参与这个预算，见 `split_protected_prefix`。
+    """
+    prefix, region = split_protected_prefix(_sanitized(messages))
+    if budget < 1 or len(region) <= budget:
+        return (*prefix, *region)
+    tail = region[-budget:]
+    for index, message in enumerate(tail):
+        if message.role is ModelRole.USER:
+            return (*prefix, *tail[index:])
+    # 尾部整段都在一个回合中间（没有任何 USER 可切）：切点只能落在组中间，故按组净化一次，
+    # 免得开头的工具结果失去它的 assistant 声明而变成孤儿（RULE-01）。
+    return (*prefix, *_sanitized(tail))
+
+
+def compact_history(
+    messages: Sequence[ModelMessage],
+    *,
+    snip_settings: SnipSettings,
+    micro_settings: MicroSettings,
+    history_budget_messages: int | None = None,
+) -> tuple[tuple[ModelMessage, ...], tuple[LayerOutcome, ...]]:
+    """前三层里可离线完成的部分：micro → snip（→ 条数兜底），返回新历史与各层结论。
+
+    顺序按 design §3.2 的流水线（先便宜后昂贵）：先降级旧结果，再按组裁头尾。摘要那一层要调
+    模型，由调用方在拿到这里的结果后决定要不要做。
+    """
+    layers: list[LayerOutcome] = []
+    current = _sanitized(messages)
+    for outcome in (micro(current, micro_settings), snip(current, snip_settings)):
+        layers.append(outcome)
+        current = outcome.messages
+    if history_budget_messages is not None:
+        bounded = trim_history(current, history_budget_messages)
+        if bounded != current:
+            before = history_bytes(current)
+            layers.append(
+                LayerOutcome(
+                    "budget", True, 0, before, history_bytes(bounded), bounded
+                )
+            )
+            current = bounded
+    return current, tuple(layers)
+
+
+@runtime_checkable
+class ContextCompactor(Protocol):
+    """请求构建缝上的压缩钩子（design §3.2 的第二条集成缝）。
+
+    实现**必须自己吞掉所有异常**（RULE-04：压缩失败一律退化到不压缩，不得让 Run 失败），
+    所以这里的契约就一句：拿到一段历史，返回一段可以发给模型的历史。
+    """
+
+    async def compact(self, messages: Sequence[ModelMessage]) -> tuple[ModelMessage, ...]: ...
+
+
 __all__ = [
+    "ContextCompactor",
     "LayerOutcome",
+    "compact_history",
     "history_bytes",
     "message_bytes",
     "micro",
     "snip",
     "split_groups",
+    "split_protected_prefix",
+    "trim_history",
 ]

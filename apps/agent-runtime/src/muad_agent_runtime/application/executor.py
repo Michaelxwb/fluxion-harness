@@ -18,6 +18,7 @@ from muad_agent_core.agent import (
     AgentRunRequest,
     RunnerCancelled,
 )
+from muad_agent_core.context.settings import CompactionSettings
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
     ModelContent,
@@ -57,6 +58,7 @@ from .attachments.archive_tools import ArchiveToolSet
 from .attachments.output_service import OutputArtifactWriter, OutputScope
 from .attachments.tool_results import TOOL_RESULT_ARTIFACT_BYTES, ArtifactResultWriter
 from .attachments.tools import AttachmentToolSet
+from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_service import MemoryService
 from .memory_tools import MemoryScope, MemoryToolSet, memory_write_enabled
@@ -99,6 +101,7 @@ class ExecutorRunContext:
     conversation_id: uuid.UUID
     user_id: uuid.UUID
     delivery_route: DeliveryRouteInput | None = None
+    submission_id: uuid.UUID | None = None
 
 
 def _with_current_turn(history: tuple[ModelMessage, ...], current: ModelMessage) -> tuple[ModelMessage, ...]:
@@ -141,6 +144,8 @@ class ExecutorRequest:
     history: tuple[ModelMessage, ...] = ()
     credentials: ExecutorCredentials = ExecutorCredentials()
     run_context: ExecutorRunContext | None = None
+    #: 本次 Run **冻结**的压缩配置（来自 `policy_json`）；None = 不压缩。
+    compaction: CompactionSettings | None = None
 
 
 class RunExecutor(Protocol):
@@ -768,7 +773,12 @@ async def default_executor_factory(
         task_client=task_client,
         delivery_client=delivery_client,
     )
-    runner = AgentRunner(provider=provider, registry=registry, hooks=HookPipeline())
+    runner = AgentRunner(
+        provider=provider,
+        registry=registry,
+        hooks=HookPipeline(),
+        context_compactor=_context_compactor(request, provider, artifact_root=settings.artifact_root),
+    )
 
     async def close() -> None:
         await provider.aclose()  # type: ignore[attr-defined]
@@ -779,6 +789,33 @@ async def default_executor_factory(
             await owned_delivery_client.aclose()
 
     return AgentRunnerExecutor(runner=runner, request=request, close=close)
+
+
+def _context_compactor(
+    request: ExecutorRequest, provider: ModelProvider, *, artifact_root: str
+) -> RuntimeContextCompactor | None:
+    """请求缝的压缩器：只在本次 Run 有冻结配置与 Run 上下文时才装。"""
+    context = request.run_context
+    if context is None or request.compaction is None:
+        return None
+    return RuntimeContextCompactor(
+        settings=request.compaction,
+        tenant_id=context.tenant_id,
+        run_id=context.run_id,
+        conversation_id=context.conversation_id,
+        artifact_root=artifact_root,
+        summary_runner=_summary_runner(provider, request),
+    )
+
+
+def _summary_runner(
+    provider: ModelProvider, request: ExecutorRequest
+) -> SummaryRunner | None:
+    """摘要模型调用：只在开了摘要且有 `model_ref` 时才装（不新增默认模型回退）。"""
+    settings = request.compaction.summary if request.compaction is not None else None
+    if settings is None or not settings.enabled or not settings.model_ref:
+        return None
+    return make_summary_runner(provider=provider, model_id=settings.model_ref)
 
 
 def _audit_writer_for(request: ExecutorRequest) -> RuntimeAuditWriter | None:

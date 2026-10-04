@@ -16,6 +16,8 @@ from muad_agent_core.context.compactor import (
     micro,
     snip,
     split_groups,
+    split_protected_prefix,
+    trim_history,
 )
 from muad_agent_core.context.settings import MicroSettings, SnipSettings
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
@@ -300,3 +302,71 @@ def test_outcome_payload_shape_matches_audit_event() -> None:
     assert payload["groups"] == 4
     assert payload["bytes_saved"] > 0
     assert set(payload) == {"layer", "fired", "groups", "bytes_saved"}
+
+
+# ---- 受保护前缀：系统提示 / memory 注入 / 摘要不参与压缩（FEAT-08 与注入措辞的前提） ----
+
+
+def _prefix() -> list[ModelMessage]:
+    """`AgentRunner` 组装出来的头部：系统提示 + 两条 memory 注入 + 摘要前缀，都是 SYSTEM。"""
+    return [
+        ModelMessage(role=ModelRole.SYSTEM, content="你是客服助手"),
+        ModelMessage(role=ModelRole.SYSTEM, content="[记忆·用户明确要求] 偏好 = zh-CN（仅供参考）"),
+        ModelMessage(role=ModelRole.SYSTEM, content="[历史摘要] 更早的对话已压缩"),
+    ]
+
+
+def test_protected_prefix_is_the_leading_system_run() -> None:
+    prefix, region = split_protected_prefix([*_prefix(), _user("你好"), _assistant("在的")])
+    assert [message.role for message in prefix] == [ModelRole.SYSTEM] * 3
+    assert [str(message.content) for message in region] == ["你好", "在的"]
+    # 没有 SYSTEM 开头（纯对话历史）时前缀为空，整段都可压
+    assert split_protected_prefix([_user("你好")])[0] == ()
+
+
+def test_snip_never_counts_or_omits_the_protected_prefix() -> None:
+    """snip 的"保头"是**对话区**的头：系统提示/memory/摘要既不被算进组数也不被省掉。"""
+    messages = [*_prefix(), *_messages()]
+    outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=2))
+
+    assert outcome.fired
+    assert [m.role for m in outcome.messages[:3]] == [ModelRole.SYSTEM] * 3, "前缀逐条原样保留"
+    assert str(outcome.messages[0].content) == "你是客服助手"
+    assert "省略" not in str(outcome.messages[1].content), "memory 注入不得被省略标记顶掉"
+
+
+def test_trim_history_keeps_prefix_and_cuts_the_conversation() -> None:
+    """条数兜底只裁对话区：前缀（系统提示/memory/摘要）不参与预算。"""
+    prefix = _prefix()
+    messages = [*prefix, _user("第一条"), _assistant("一"), _user("第二条"), _assistant("二")]
+    out = trim_history(messages, 2)
+
+    assert [m.role for m in out[:3]] == [ModelRole.SYSTEM] * 3
+    assert [str(m.content) for m in out[3:]] == ["第二条", "二"], "保留最近 2 条，且从 USER 起切"
+
+
+def test_trim_history_never_leaves_an_orphan_tool_message() -> None:
+    """切点落在一个工具回合中间时，半截的 tool 结果整条丢弃（RULE-01）。
+
+    尾部没有 USER 可切 ⇒ 只能按条数硬切；若直接返回尾片，开头那条 tool 结果就失去了声明它的
+    assistant 回合，供应商会拒绝**整个**请求。这里的尾部（预算 3）恰好从 call-0 的结果中间开始。
+    """
+    messages = [
+        *_prefix(),
+        _user("最初的诉求"),
+        *_tool_group("call-0", "tool_0", "回合 0"),
+        *_tool_group("call-1", "tool_1", "回合 1"),
+    ]
+    out = trim_history(messages, 3)
+
+    declared = {call.id for message in out for call in message.tool_calls}
+    orphans = [m for m in out if m.role is ModelRole.TOOL and m.tool_call_id not in declared]
+    assert not orphans, f"裁剪留下了孤儿 TOOL：{orphans}"
+    # 被切掉半截的那个回合整组退场，存活的那个回合成对留下
+    assert [m.role for m in out[3:]] == [ModelRole.ASSISTANT, ModelRole.TOOL]
+    assert out[4].tool_call_id == "call-1"
+
+
+def test_trim_history_is_identity_at_or_below_the_budget() -> None:
+    messages = [*_prefix(), _user("只说一句")]
+    assert trim_history(messages, 40) == tuple(messages)

@@ -11,6 +11,7 @@ from typing import Any, TypedDict, cast
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from ..context.compactor import ContextCompactor
 from ..hooks.pipeline import HookEvent, HookPipeline
 from ..model.errors import (
     ModelRateLimitedError,
@@ -191,11 +192,15 @@ class AgentRunner:
         registry: ToolRegistry,
         hooks: HookPipeline | None = None,
         prompt_builder: PromptBuilder | None = None,
+        context_compactor: ContextCompactor | None = None,
     ) -> None:
         self._provider = provider
         self._registry = registry
         self._hooks = hooks or HookPipeline()
         self._prompt_builder = prompt_builder or DefaultPromptBuilder()
+        # 压缩只作用于**派生请求**（design §3.1 ADR-01：这里是 `ModelRequest` 的唯一组装点），
+        # `state["messages"]` 这份权威历史一个字节都不动。
+        self._context_compactor = context_compactor
         self._stop_emitted = False
         self._graph = self._build_graph()
 
@@ -305,11 +310,14 @@ class AgentRunner:
             HookEvent.PRE_MODEL,
             {"model_id": state["model_id"], "messages": state["messages"], "turns": state["turns"]},
         )
+        outbound = tuple(state["messages"])
+        if self._context_compactor is not None:
+            outbound = await self._context_compactor.compact(outbound)
         response = await self._complete_with_recovery(
             state,
             ModelRequest(
                 model_id=state["model_id"],
-                messages=tuple(state["messages"]),
+                messages=outbound,
                 tools=self._registry.list(),
                 temperature=state["temperature"],
                 max_tokens=state["max_tokens"],

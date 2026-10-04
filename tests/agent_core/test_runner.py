@@ -374,3 +374,56 @@ def test_policy_from_runtime_config_reads_valid_overrides() -> None:
 def test_model_provider_protocol_accepts_scripted_provider() -> None:
     provider: ModelProvider = ScriptedModelProvider([_text("x")])
     assert provider is not None
+
+
+class RecordingCompactor:
+    """可观察的压缩假件：记下每次收到的派生历史，并在末尾接一条省略标记。"""
+
+    def __init__(self) -> None:
+        self.seen: list[tuple[ModelMessage, ...]] = []
+
+    async def compact(self, messages: Any) -> tuple[ModelMessage, ...]:
+        received = tuple(messages)
+        self.seen.append(received)
+        return (*received, ModelMessage(role=ModelRole.SYSTEM, content="[历史省略] 中间已压缩"))
+
+
+async def test_compaction_rewrites_only_the_outbound_request() -> None:
+    """压缩挂在 `ModelRequest` 的唯一组装点：改的是发出去的那份，`state` 里的权威历史不动。"""
+    provider = ScriptedModelProvider([_text("done")])
+    compactor = RecordingCompactor()
+    runner = AgentRunner(
+        provider=provider, registry=ToolRegistry(), context_compactor=compactor
+    )
+
+    await runner.run(_request())
+
+    sent = provider.requests[0].messages
+    assert sent[-1].content == "[历史省略] 中间已压缩", "压缩产物必须进模型请求"
+    # 压缩器收到的就是组装好的那份（系统提示 + 历史），不是另一份口径
+    assert [m.role for m in compactor.seen[0]] == [ModelRole.SYSTEM, ModelRole.USER]
+
+
+async def test_compaction_does_not_leak_back_into_the_authoritative_history() -> None:
+    """多回合下每轮都从权威历史重算：上一轮压出来的标记**不得沉淀**进 `state["messages"]`。
+
+    这正是"重建的那份 == 真正发出去的那份"能成立的前提——`state` 只有一个版本，压缩是纯派生。
+    """
+    provider = ScriptedModelProvider([_tool_call("c1", "echo", {"text": "ping"}), _text("done")])
+    registry = ToolRegistry()
+    _echo_tool(registry, [])
+    compactor = RecordingCompactor()
+    runner = AgentRunner(
+        provider=provider, registry=registry, context_compactor=compactor
+    )
+
+    await runner.run(_request())
+
+    assert len(compactor.seen) == 2, "两个模型回合各压一次"
+    assert [m.role for m in compactor.seen[1]] == [
+        ModelRole.SYSTEM,
+        ModelRole.USER,
+        ModelRole.ASSISTANT,
+        ModelRole.TOOL,
+    ], "第二轮的输入是原始历史 + 本轮工具回合，没有上一轮的压缩产物"
+    assert all("省略" not in str(m.content) for m in compactor.seen[1])

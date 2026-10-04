@@ -368,7 +368,7 @@
       "kind": "e2e",
       "boundary": "真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -378,7 +378,26 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "1c882addab1d45d8a90dc139179f377d",
+        "executed_at": "2026-10-04T10:42:27.733561+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "1c882addab1d45d8a90dc139179f377d",
+          "executed_at": "2026-10-04T10:42:27.733561+00:00"
+        }
+      ]
     }
   ]
 }
