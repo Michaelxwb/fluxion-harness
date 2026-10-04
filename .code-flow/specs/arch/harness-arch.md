@@ -47,6 +47,10 @@ verifiers:
 
 - **Console 部署单元是 `apps/console-platform/backend`，不是整个 `apps/console-platform`**：`CONSOLE = "apps/console-platform/backend"`（`tests/architecture/test_im_gateway_boundaries.py:16`），它与 Gateway/Runtime/Worker 同列 `DEPLOYMENT_UNITS`（`:17`，入口断言见 `:46-52`）。前端 `apps/console-platform/frontend` 不在部署单元的可检查范围里；新增跨单元边界检查时不要把整个 `console-platform` 目录当作 Console 单元。
 
+- **压缩的「受保护前缀」是开头连续的一段 `role=SYSTEM`**：系统提示、memory 注入、摘要前缀（`summary_message` 渲染出来也是 SYSTEM）都在这一段里，它们是每次请求必须原样带上的**权威上下文**，不是历史。所以任何**会删消息**的压缩层（snip、条数兜底）只能在其后的**对话区**上工作；只换内容不删消息的层（micro）不涉及这条边界。裁掉前缀＝agent 失忆（系统提示定义了身份与指令）、memory 注入措辞失效、被压缩掉的那段历史净消失。
+  - ✅ `prefix, region = split_protected_prefix(sanitized)`，snip 与条数兜底都只切 `region`（`packages/agent-core/src/muad_agent_core/context/compactor.py:89-108,203-204,305`）；memory 与摘要以 SYSTEM 前置、落在前缀里（`apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py:109-119`，措辞的唯一效力边界见 `:42-46`）
+  - ❌ 对整条消息列表（含开头 SYSTEM）直接 snip / 按条数裁剪 ⇒ 系统提示或摘要前缀被当历史省掉
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。

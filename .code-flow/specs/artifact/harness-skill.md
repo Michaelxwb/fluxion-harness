@@ -61,6 +61,15 @@ cleanup_orphan_files(known_keys, grace_seconds=0)  # 竞态删除进行中导入
   - 机检：`tests/agent_runtime/test_archive_tools.py::test_receipt_is_not_externalized_by_the_tool_result_wrapper`（含**前置条件**断言：未裁剪的回执必须确实越过阈值，否则这条用例会空转）
 - **singleflight 的作用域是「每进程」**：`SkillArtifactCache` 的锁是进程内 `asyncio.Lock` + 内存索引（`packages/artifact-store/src/muad_artifact_store/skill_cache.py:25-27`），对跨 Pod 的并发首次加载**没有互斥力**；跨进程正确性依赖 `os.replace` 幂等与 DB CAS。✅ 依靠 READY 标记与校验 checksum 判等；❌ 假设内存索引能跨副本去重。
 - **`NfsArtifactStore.resolve` 必须做越界防护**：解析后的路径必须落在 `root` 之内、且不得等于 `root` 本身，否则抛 `ValueError("invalid storage_key")`（`packages/artifact-store/src/muad_artifact_store/nfs.py:10-14`）。✅ 一律经 `resolve()` 取路径；❌ 用 `root / storage_key` 直接拼路径（`../` 可越出根目录）。
+- **工具结果外置的判定单元是「回合」而不是「单条调用」**：单条超阈值要外置，多条**合计**超整轮预算也要外置——后者只有把本轮全部结果放在一起看才算得出（`packages/agent-core/src/muad_agent_core/tools/round_results.py:1-9`）。执行顺序是硬约束：**整批判定 → 批量落盘（失败整批回滚）→ 把被外置的结果换成引用 → 再逐条写审计行 / 发 `tool.completed`**；产物 id 必须赶在 `tool.completed` 之前定下来，因为该事件（`STREAM_BUSINESS_TYPES["tool.completed"] = "TOOL_CALL"`）进了 canonical 的 `TOOL_CALL` 行，历史重建靠它把产物找回来。
+  - ✅ `ToolCallRecorder.finish_round` 一次 `_select` + `_persist` + `_flush_audit`（`apps/agent-runtime/src/muad_agent_runtime/application/executor.py:560-574`），`_finish_tool_round` 等端口改写完消息后才逐条 `_notify_tool_completed`（`packages/agent-core/src/muad_agent_core/agent/runner.py:398-421`）
+  - ❌ 在单条工具返回时立即外置并上报 `tool.completed`（整轮预算插不进来，产物 id 也追不上事件）
+- **外置结果的写入侧与重建侧必须共用同一个 `reference_payload()` 序列化**：模型可见形态恒为 `{"artifact": {artifact_id, size, checksum, preview}}` 这**四个键、不做二次截断**，写入时生成、重建时原样重现，才能保证「重建的那份 == 当时真正发出去的那份」。同时 canonical `TOOL_CALL` 行的 `artifact_id` **列**必须写入——重建读的是**列**，不是 `payload_json`。
+  - ✅ 写入侧 `ToolCallRecorder.finish_round` 与重建侧 `context_builder._to_messages` 都调 `reference_payload(...)`（`apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py:85-102`、`apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py:264-271,279-309`）；`_event_artifact_id` 把载荷里的 id 提上来写进列（`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py:192-207,1136`）
+  - ❌ 重建侧自己拼一份 JSON，或只把 id 留在 `payload_json` 而 `artifact_id` 列恒为 NULL（跨 Run 重建退化成 `[tool:名称]`）
+- **阈值一律按 UTF-8 字节判定，边界是「严格大于」**：一个汉字 3 字节，`len(str)` 会算成 1；尺寸**恰等于**阈值**不得**触发（用 `>` 而非 `>=`）。单条外置阈值、整轮预算、memory 注入预算、snip 的组数阈值同此口径。
+  - ✅ `message_bytes`/`history_bytes` 按 `encode("utf-8")` 计量（`packages/agent-core/src/muad_agent_core/context/compactor.py:35-50`）；`select_round_persists` 用 `>` 判必落盘（`apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py:57-82`）；memory 注入按 `len(line.encode("utf-8"))` 累加、`total_bytes + size > budget_bytes` 即停（`apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py:337-346`）；`snip` 用 `len(groups) <= max_groups` 判「不触发」、触发即严格大于（`compactor.py:205`）
+  - ❌ `len(text) > threshold`（字符数口径，把中文当 1 字节）或 `>= threshold`（恰等即触发）
 
 ## Avoid
 

@@ -51,6 +51,9 @@ verifiers:
   - 来源：用户 2026-10-01 明确要求（「migrations/中的脚本不要读取环境变量，直接改成读取 `migrations/alembic.ini` 中的配置」）；本条**无机检**，靠评审把关
 - **租户内存在性判断（规则正文在根 `CLAUDE.md` Core Principles；本 spec 已移除机检）**：任何「是否存在」判断（如启动自检）必须把 `count` 限定在目标租户内，不得用全库计数——全库判定会让任一租户有账号就掩盖「默认租户无账号 ⇒ 无法登录」的静默故障。**此处原先的 `no-global-count-in-tenant-check` 已删除**：它的 `pattern: 'count_all\('` 指向 13-console-auth 已移除的旧实现（全仓 0 命中），只防该法复活；而「无租户过滤的 count」这类通用形态正则在多行 SQL 上判不准、误报率高，留着是假防线。故本条**靠评审把关，不要以为有机检兜底**。
   - ✅ `await self._accounts.count(self._require_tenant()) > 0`；❌ `count_all() > 0`，或 `select(func.count())` 未带 `tenant_id` 条件
+- **摘要文本是权威历史（落库），transcript 是逐字存档（落共享产物）——二者不得互换**：`CONTEXT_SUMMARY` 事件把五字段摘要落 `runtime.canonical_event`，重建时取 `seq` 最大的一份作前缀、其后再按 seq 重放后续事件，因此换 Pod 得到的历史逐字节相同（`packages/agent-core/src/muad_agent_core/context/summary.py:1-6,147-152`；`apps/agent-runtime/src/muad_agent_runtime/application/context_events.py:6,29-56,85-100`）。被摘要覆盖掉的**逐字原文**另落共享产物（类型 `TRANSCRIPT`，DB 只留相对 `storage_key`），且**只写不读**——本需求不新增任何对外读取/下载/明文导出端点（`apps/agent-runtime/src/muad_agent_runtime/application/attachments/transcripts.py:1-6,126-132`）。**互换的后果**：产物过了保留期会被清理（文件与行一起删，`apps/console-platform/backend/src/muad_console_platform/application/artifact_cleanup_service.py:136-145`），若把摘要只存成文件，被压缩掉的那段历史就净丢了；若把 transcript 存进库，等于把逐字原文塞进事件表。
+  - ✅ 摘要在 `canonical_event`、逐字原文在产物存储（`CONTEXT_SUMMARY.payload.transcript_artifact_id` 只作引用字段）
+  - ❌ 摘要只写文件（保留期一过即失）／把 transcript 塞进 `canonical_event` 的 payload
 
 ## Avoid
 

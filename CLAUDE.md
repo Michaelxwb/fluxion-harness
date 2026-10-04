@@ -12,6 +12,7 @@
 - Handle errors explicitly
 - Tenant-scoped existence checks: scope `count` to the tenant (`count(tenant_id)`), never a global count — a global count lets another tenant's rows hide that the default tenant has no account and nobody can log in (instance: Console startup self-check `_warn_if_no_accounts()`)
 - Choose the optimal design over a compatibility shim — no back-compat layers, dual-write, or transitional adapters, and no keeping a wrong design just to match older spec text. **The spec follows the code's facts**: fix the code, then rewrite the spec to describe what is actually true. (Stated twice: 2026-09-17 and 2026-09-30; instances: row lock instead of retry-on-conflict, process-group kill instead of swallowing termination errors.)
+- Compaction must never fail a Run: every compression layer degrades to "no compression" — a failed summary keeps the original history, a failed batch artifact write rolls the whole round back so the results stay inline — and degrading stays visible (warning log + metric, e.g. `context_compaction_total{layer="*",status="FAILED"}`), never silently swallowed. (Instance: `RuntimeContextCompactor.compact` try/except in `apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py:111-121`; batch rollback in `apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py:198-239`.)
 
 ## Forbidden Patterns
 - Hard-coded secrets or credentials
