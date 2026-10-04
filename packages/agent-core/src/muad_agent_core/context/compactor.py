@@ -1,0 +1,256 @@
+"""请求构建缝的压缩前两层纯逻辑：snip（保头保尾 + 省略标记）与 micro（旧工具结果降级）。
+
+design §3.2 的四层流水线里，这里是第 2、3 层（第 1 层是整轮批次落盘，第 4 层是摘要）。纯函数：
+同输入同输出、不碰库、不读环境——"换 Pod 结果一致"（FEAT-08）靠的正是这一点。
+
+两条贯穿的不变量：
+- **成对性（RULE-01）**：任何切法都不得留下孤儿 `tool` 消息；组是"assistant(带 tool_calls) +
+  它的工具结果"这个最小不可分单元，压缩只在组边界上发生。
+- **字节口径（RULE-02）**：一律按 UTF-8 字节判定，不是字符数（一个汉字 3 字节）。
+
+micro 只降级**能被找回的**结果——即带 `artifact_id` 的外置产物。没外置的短结果换成占位
+等于净丢信息（模型无从回溯），故一律放行。
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any
+
+from ..model.provider import ModelMessage, ModelRole, text_of
+from .settings import MicroSettings, SnipSettings
+
+Group = tuple[ModelMessage, ...]
+
+#: 被省掉的历史用一条 SYSTEM 消息顶位，形状与语义都区别于真实历史。
+SNIP_MARKER_PREFIX = "[历史省略]"
+MICRO_PLACEHOLDER_SUFFIX = "，需要原文时用 read_attachment 读取。"
+
+
+def message_bytes(message: ModelMessage) -> int:
+    """单条消息在请求体里的 UTF-8 字节数（内容 + 思维链 + 工具名与参数）。"""
+    size = len(text_of(message.content).encode("utf-8"))
+    if message.reasoning_content:
+        size += len(message.reasoning_content.encode("utf-8"))
+    if message.tool_call_id:
+        size += len(message.tool_call_id.encode("utf-8"))
+    for call in message.tool_calls:
+        size += len(call.name.encode("utf-8"))
+        size += len(json.dumps(dict(call.arguments), ensure_ascii=False).encode("utf-8"))
+    return size
+
+
+def history_bytes(messages: Sequence[ModelMessage]) -> int:
+    """整段历史的字节数——**单遍**，不逐条重复编码（design §3.5 的性能口径）。"""
+    return sum(message_bytes(message) for message in messages)
+
+
+def _declares(group: Group, tool_call_id: str | None) -> bool:
+    if tool_call_id is None:
+        return False
+    return any(call.id == tool_call_id for message in group for call in message.tool_calls)
+
+
+def split_groups(messages: Sequence[ModelMessage]) -> tuple[Group, ...]:
+    """切成"最小不可分单元"：组从非 TOOL 消息开始，其后的 TOOL 结果并入该组。
+
+    孤儿 TOOL（前面没有任何声明它的 assistant `tool_calls`）整条丢弃——它是历史里既有的坏
+    形状，并进任何组都会让压缩产物被供应商直接拒绝。
+    """
+    groups: list[Group] = []
+    current: Group | None = None
+    for message in messages:
+        if message.role is ModelRole.TOOL:
+            if current is not None and _declares(current, message.tool_call_id):
+                current = (*current, message)
+            continue
+        if current is not None:
+            groups.append(current)
+        current = (message,)
+    if current is not None:
+        groups.append(current)
+    return tuple(groups)
+
+
+def _sanitized(messages: Sequence[ModelMessage]) -> tuple[ModelMessage, ...]:
+    """丢掉孤儿 TOOL 后的扁平历史——**每一层都以它为输入**。
+
+    这样"输出永不含孤儿 tool 消息"（RULE-01）成为压缩器的不变量，而不是"只在触发时才成立"：
+    层未触发时输出的是这份净化结果，不是原样的输入。
+    """
+    return tuple(message for group in split_groups(messages) for message in group)
+
+
+def _artifact_id(content: Any) -> str | None:
+    """从工具结果的 JSON 里取 `artifact.artifact_id`；不是外置结果就返回 None。"""
+    try:
+        payload = json.loads(text_of(content))
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(payload, Mapping):
+        return None
+    artifact = payload.get("artifact")
+    if not isinstance(artifact, Mapping):
+        return None
+    value = artifact.get("artifact_id")
+    return value if isinstance(value, str) and value else None
+
+
+@dataclass(frozen=True, slots=True)
+class LayerOutcome:
+    """一层压缩的结果。`groups` 的含义按层而定：snip 是**被省略**的组数，micro 是**被降级**的组数。"""
+
+    layer: str
+    fired: bool
+    groups: int
+    bytes_before: int
+    bytes_after: int
+    messages: tuple[ModelMessage, ...]
+
+    @property
+    def bytes_saved(self) -> int:
+        return max(0, self.bytes_before - self.bytes_after)
+
+    def as_layer_payload(self) -> dict[str, Any]:
+        """审计事件 `layers{layer: {fired, groups, bytes_saved}}` 的直接输入。"""
+        return {
+            "layer": self.layer,
+            "fired": self.fired,
+            "groups": self.groups,
+            "bytes_saved": self.bytes_saved,
+        }
+
+
+def _unchanged(layer: str, messages: Sequence[ModelMessage], size: int) -> LayerOutcome:
+    return LayerOutcome(layer, False, 0, size, size, tuple(messages))
+
+
+def _group_tool_names(group: Group) -> list[str]:
+    return [call.name for message in group for call in message.tool_calls]
+
+
+def _group_artifact_ids(group: Group) -> list[str]:
+    ids = [_artifact_id(message.content) for message in group if message.role is ModelRole.TOOL]
+    return [value for value in ids if value]
+
+
+def _snip_marker(omitted: Sequence[Group]) -> ModelMessage:
+    names = [name for group in omitted for name in _group_tool_names(group)]
+    artifacts = [value for group in omitted for value in _group_artifact_ids(group)]
+    detail = ""
+    if names:
+        detail += f" 工具：{'、'.join(dict.fromkeys(names))}；"
+    if artifacts:
+        detail += f" 产物：{'、'.join(dict.fromkeys(artifacts))}；"
+    content = (
+        f"{SNIP_MARKER_PREFIX} 中间 {len(omitted)} 组历史已省略（按消息组计）。{detail}"
+        "需要时用 read_attachment 取回产物原文。"
+    )
+    return ModelMessage(role=ModelRole.SYSTEM, content=content)
+
+
+def snip(messages: Sequence[ModelMessage], settings: SnipSettings) -> LayerOutcome:
+    """保留最前 `keep_head_groups` 组 + 最近 `keep_tail_groups` 组，中间换一条省略标记。
+
+    触发条件是**组数严格大于** `max_groups`（RULE-02 的严格大于口径；`max_groups` 是阈值不是
+    保留总数）。
+    """
+    sanitized = _sanitized(messages)
+    before = history_bytes(sanitized)
+    if not settings.enabled:
+        return _unchanged("snip", sanitized, before)
+
+    groups = split_groups(sanitized)
+    if len(groups) <= settings.max_groups:
+        return _unchanged("snip", sanitized, before)
+
+    head = groups[: settings.keep_head_groups]
+    tail_count = min(settings.keep_tail_groups, len(groups) - len(head) - 1)
+    omitted = groups[len(head) : len(groups) - tail_count]
+    emitted: list[ModelMessage] = [message for group in head for message in group]
+    emitted.append(_snip_marker(omitted))
+    emitted.extend(
+        message for group in groups[len(groups) - tail_count :] for message in group
+    )
+    compacted = tuple(emitted)
+    return LayerOutcome(
+        "snip", True, len(omitted), before, history_bytes(compacted), compacted
+    )
+
+
+def _micro_placeholder(tool_name: str, artifact_id: str) -> str:
+    return (
+        f"[工具结果已外置] {tool_name} 的返回内容已存为产物 artifact_id={artifact_id}"
+        f"{MICRO_PLACEHOLDER_SUFFIX}"
+    )
+
+
+def _degrade_group(group: Group) -> Group | None:
+    """把组里带 artifact 的 tool 结果换成占位；一条都换不动就返回 None（整组不动）。"""
+    declared = {call.id: call.name for message in group for call in message.tool_calls}
+    changed = False
+    degraded: list[ModelMessage] = []
+    for message in group:
+        artifact_id = _artifact_id(message.content) if message.role is ModelRole.TOOL else None
+        if artifact_id is None:
+            degraded.append(message)
+            continue
+        placeholder = _micro_placeholder(declared.get(message.tool_call_id or "", "工具"), artifact_id)
+        if len(placeholder.encode("utf-8")) >= message_bytes(message):
+            degraded.append(message)  # 占位不短于原文 ⇒ 跳过，免得历史反而变长
+            continue
+        changed = True
+        degraded.append(ModelMessage(
+            role=message.role,
+            content=placeholder,
+            tool_call_id=message.tool_call_id,
+        ))
+    return tuple(degraded) if changed else None
+
+
+def micro(messages: Sequence[ModelMessage], settings: MicroSettings) -> LayerOutcome:
+    """只保留最近 `keep_recent_tool_groups` 个工具交换组的原文，更早的结果内容换占位符。
+
+    `tool_calls` 与参数、`reasoning_content` 一律原样保留（RULE-01 的成对性，以及供应商对
+    思考模式回合的硬要求）。
+    """
+    sanitized = _sanitized(messages)
+    before = history_bytes(sanitized)
+    if not settings.enabled:
+        return _unchanged("micro", sanitized, before)
+
+    groups = split_groups(sanitized)
+    tool_group_indexes = [
+        index for index, group in enumerate(groups) if _group_artifact_ids(group)
+    ]
+    keep = max(0, settings.keep_recent_tool_groups)
+    targets = tool_group_indexes[: len(tool_group_indexes) - keep] if keep else tool_group_indexes
+
+    degraded_groups = 0
+    rebuilt: list[ModelMessage] = []
+    for index, group in enumerate(groups):
+        replacement = _degrade_group(group) if index in targets else None
+        if replacement is None:
+            rebuilt.extend(group)
+            continue
+        degraded_groups += 1
+        rebuilt.extend(replacement)
+
+    if degraded_groups == 0:
+        return _unchanged("micro", sanitized, before)
+    compacted = tuple(rebuilt)
+    return LayerOutcome(
+        "micro", True, degraded_groups, before, history_bytes(compacted), compacted
+    )
+
+
+__all__ = [
+    "LayerOutcome",
+    "history_bytes",
+    "message_bytes",
+    "micro",
+    "snip",
+    "split_groups",
+]

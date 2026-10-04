@@ -24,8 +24,8 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout |
 |---|---|---|---|---|---|---|---|---|
 | E-04 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：execution snapshot 的 `policy_json` | TASK-001 | verified | uv run pytest -q tests/agent_runtime/test_context_compaction_config.py | . | 600 |
-| B-01 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：消息组切分与头尾保留 | TASK-002 | planned | uv run pytest -q tests/agent_core/test_context_compactor.py | . | 600 |
-| B-03 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：micro 降级与占位符 | TASK-002 | planned | uv run pytest -q tests/agent_core/test_context_compactor.py | . | 600 |
+| B-01 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：消息组切分与头尾保留 | TASK-002 | verified | uv run pytest -q tests/agent_core/test_context_compactor.py | . | 600 |
+| B-03 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：micro 降级与占位符 | TASK-002 | verified | uv run pytest -q tests/agent_core/test_context_compactor.py | . | 600 |
 | B-02 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：整轮批次预算选取 | TASK-003 | planned | uv run pytest -q tests/agent_runtime/test_artifact_round_budget.py | . | 600 |
 | B-04 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：摘要五字段精确校验 | TASK-004 | planned | uv run pytest -q tests/agent_runtime/test_context_summary.py | . | 600 |
 | E-02 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 | TASK-004 | planned | uv run pytest -q tests/agent_runtime/test_context_compaction_artifacts.py | . | 600 |
@@ -93,7 +93,7 @@
 
 ## TASK-002: 压缩纯逻辑：字节统计 + snip + micro（FEAT-01/03）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: context-compaction.design.md#2.3 功能方案, context-compaction.design.md#3.1 方案选型, context-compaction.design.md#3.2 架构设计
@@ -106,29 +106,44 @@
 
 ### Checklist
 
-- [ ] [B-01][unit] 先登记并编写 tests/agent_core/test_context_compactor.py；真实边界：纯逻辑（消息组切分 / 头尾保留 / 省略标记按组报数）；验证设计约定并登记证据，记录 RED/GREEN
-- [ ] [B-03][unit] 同文件覆盖 micro 降级；真实边界：纯逻辑（占位替换 / 结构不变 / **占位不短于原文则跳过**）；记录 RED/GREEN
-- [ ] [RULE-01][unit] 作为唯一最终负责人：断言压缩后**不得出现孤儿 `tool` 消息**，带 `tool_calls` 的 assistant 回合与其工具结果**同进同出**（头尾裁剪边界、micro 替换边界各一组对照）
-- [ ] [RULE-02][unit] 作为唯一最终负责人：阈值一律按 **UTF-8 字节**判定（含中文用例：1 汉字 = 3 字节），边界为**严格大于**（恰好等于阈值 → 不触发）
-- [ ] 与既有 `apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py` 的 `_trim`/`_drop_leading_tool`/`_kept_tool_rounds` 口径对齐；被替换的旧路径不得留下第二套裁剪逻辑（design §3.1 方案 A 的漂移面）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [B-01][unit] 先登记并编写 tests/agent_core/test_context_compactor.py；真实边界：纯逻辑（消息组切分 / 头尾保留 / 省略标记按组报数）；验证设计约定并登记证据，记录 RED/GREEN
+- [x] [B-03][unit] 同文件覆盖 micro 降级；真实边界：纯逻辑（占位替换 / 结构不变 / **占位不短于原文则跳过**）；记录 RED/GREEN
+- [x] [RULE-01][unit] 作为唯一最终负责人：断言压缩后**不得出现孤儿 `tool` 消息**，带 `tool_calls` 的 assistant 回合与其工具结果**同进同出**（头尾裁剪边界、micro 替换边界各一组对照）
+- [x] [RULE-02][unit] 作为唯一最终负责人：阈值一律按 **UTF-8 字节**判定（含中文用例：1 汉字 = 3 字节），边界为**严格大于**（恰好等于阈值 → 不触发）
+- [x] 与既有 `apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py` 的 `_trim`/`_drop_leading_tool`/`_kept_tool_rounds` 口径对齐；被替换的旧路径不得留下第二套裁剪逻辑（design §3.1 方案 A 的漂移面）——**口径对齐已核对**：`_kept_tool_rounds` 的"完整回合"≡ `split_groups` 的组单元，`_drop_leading_tool` ≡ `split_groups` 丢弃孤儿 TOOL；**旧路径的物理移除**（`_trim` 退场、统一走压缩器）由 TASK-006 承接，其 Checklist 已写明"不得在 `context_builder` 里再压一遍，否则同一份历史两种口径"
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-01 | unit | 纯函数（消息组切分） | 保留头 3 组 + 尾 N 组；省略标记按组报数；无孤儿 TOOL | tests/agent_core/test_context_compactor.py | uv run pytest -q tests/agent_core/test_context_compactor.py | planned |
-| B-03 | unit | 纯函数（micro 降级） | 旧工具组内容换占位（含 artifact_id + 工具名）；结构不变；占位不短于原文则跳过 | tests/agent_core/test_context_compactor.py | uv run pytest -q tests/agent_core/test_context_compactor.py | planned |
-| RULE-01 | unit | 纯函数（成对性） | 无孤儿 tool；带 tool_calls 的 assistant 与工具结果同进同出 | tests/agent_core/test_context_compactor.py | uv run pytest -q tests/agent_core/test_context_compactor.py | planned |
-| RULE-02 | unit | 纯函数（字节口径） | UTF-8 字节判定；严格大于 | tests/agent_core/test_context_compactor.py | uv run pytest -q tests/agent_core/test_context_compactor.py | planned |
+| B-01 | unit | 纯函数（消息组切分） | 保留头 3 组 + 尾 N 组；省略标记按组报数；无孤儿 TOOL | tests/agent_core/test_context_compactor.py | uv run pytest -q tests/agent_core/test_context_compactor.py | verified |
+| B-03 | unit | 纯函数（micro 降级） | 旧工具组内容换占位（含 artifact_id + 工具名）；结构不变；占位不短于原文则跳过 | tests/agent_core/test_context_compactor.py | uv run pytest -q tests/agent_core/test_context_compactor.py | verified |
+| RULE-01 | unit | 纯函数（成对性） | 无孤儿 tool；带 tool_calls 的 assistant 与工具结果同进同出 | tests/agent_core/test_context_compactor.py | uv run pytest -q tests/agent_core/test_context_compactor.py | verified |
+| RULE-02 | unit | 纯函数（字节口径） | UTF-8 字节判定；严格大于 | tests/agent_core/test_context_compactor.py | uv run pytest -q tests/agent_core/test_context_compactor.py | verified |
 
 ### Acceptance Evidence
 
-> functional 的 RED/GREEN 与逐条断言证据由 `cf-task-start` 在编码期登记；全部 functional 状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-01 | **结构性 RED**：测试先写、实现后补；把 `compactor.py` 移走后 `uv run pytest -q tests/agent_core/test_context_compactor.py` → `Interrupted: 1 error during collection`（模块不存在时该 argv 必失败），逐字节还原后 17 passed。 | 17 passed | `test_b01_split_groups_keeps_assistant_and_its_tool_results_together`、`test_b01_snip_keeps_head_and_tail_and_counts_omitted_groups`、`test_b01_snip_is_off_at_or_below_the_threshold`、`test_b01_snip_disabled_is_identity` | 纯函数：1 条 USER + 5 个「assistant(tool_calls)+tool 结果」组 ⇒ 切成 6 组；头尾保留后中间只留**一条** SYSTEM 省略标记，且标记含 `2 组`、被省掉的工具名与产物名 | verified |
+| B-03 | 同上（结构性 RED）+ 扰动 ③（见下） | 17 passed | `test_b03_micro_degrades_only_older_tool_groups`、`test_b03_micro_preserves_tool_calls_and_arguments`、`test_b03_micro_skips_when_placeholder_is_not_shorter`、`test_b03_micro_lower_bound_skips_only_the_unshrinkable_group`、`test_b03_micro_never_degrades_a_result_without_artifact`、`test_b03_micro_disabled_is_identity` | 纯函数：最近 2 组留原文、更早 3 组换占位（占位含 `artifact_id=art-0` 与工具名 `tool_0`）；5 条 assistant 一条不删，`arguments` 与 `reasoning_content` 原样保留；没有 `artifact_id` 的结果一律不降级（换了就再也找不回） | verified |
+| RULE-01 | 扰动 ①（`split_groups` 去掉"必须被 assistant 声明"的判据，孤儿 TOOL 照收）→ **1 failed** | 17 passed | `test_rule01_snip_never_leaves_an_orphan_tool_message`（3×3 头尾切法全配）、`test_rule01_orphan_tool_in_input_is_dropped_not_propagated`、`test_rule01_assistant_with_tool_calls_survives_its_result` | 纯函数：`_assert_paired` 逐条校验每条 TOOL 都紧跟声明它的 assistant；输入含孤儿 TOOL（`ghost`）时输出里必须消失 | verified |
+| RULE-02 | 扰动 ②（`snip` 判据由 `<=` 改成 `<`，不再严格大于）→ **1 failed** | 17 passed | `test_rule02_byte_size_is_utf8_not_characters`（`"中文"*10` = 60 字节 ≠ 20 字符）、`test_rule02_message_bytes_counts_reasoning_and_tool_arguments`、`test_rule02_snip_reports_real_byte_savings`、`test_b01_snip_is_off_at_or_below_the_threshold` | 纯函数：中文按 UTF-8 3 字节/字计；组数恰等于 `max_groups` 时不触发 | verified |
+
+> **扰动取证 3 处**（均在最终文件版本上复验、逐字节还原后复跑 17 passed）：①`split_groups` 收下孤儿 TOOL ⇒ 1 failed；②`snip` 阈值判据非严格 ⇒ 1 failed；③`micro` 去掉"占位不短于原文则跳过"的判据 ⇒ 2 failed。
+> **前两轮扰动"不变红"，暴露并补齐了两处真实覆盖缺口**（这正是扰动取证的价值）：①输入里没有孤儿 TOOL ⇒ 证伪不了 RULE-01 的丢弃行为（补 `test_rule01_orphan_tool_in_input_is_dropped_not_propagated`，并由此发现**未触发层的 identity 路径会把孤儿原样带出**——已改为每层都以净化后的历史为输入，"输出永不含孤儿"升为不变量）；②"占位不短于原文"的用例**空转**（目标组根本没进降级集）⇒ 重构成"真会变长"的组 + 有效的 `keep_recent_tool_groups=1`。
+
+**回归**：`uv run pytest -q tests/agent_core tests/agent_runtime` → **390 passed**；`ruff check`（改动文件）与 `uv run mypy apps packages`（291 files）均 clean。
+- B-01: verified — automated command passed; run_id=a9192e8c6563494cb64aa78ae9825ce3 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=a9192e8c6563494cb64aa78ae9825ce3 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-04] created (draft)
+- [2026-10-04] started
+- [2026-10-04] 实现：`packages/agent-core/src/muad_agent_core/context/compactor.py`——`split_groups`（组 = assistant(带 tool_calls) + 其结果；孤儿 TOOL 整条丢弃）、`message_bytes`/`history_bytes`（UTF-8 单遍）、`snip`、`micro`、`LayerOutcome.as_layer_payload()`（审计事件形状）。每层以**净化后的历史**为输入，"输出永不含孤儿 TOOL" 成为不变量。B-01/B-03/RULE-01/RULE-02 共 17 passed；3 处扰动全部复现后还原复绿。
+- [2026-10-04] completed (done)
 
 ---
 

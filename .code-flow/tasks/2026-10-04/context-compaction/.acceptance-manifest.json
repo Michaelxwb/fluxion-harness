@@ -50,7 +50,7 @@
       "kind": "functional",
       "boundary": "纯逻辑：消息组切分与头尾保留",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -60,7 +60,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "a9192e8c6563494cb64aa78ae9825ce3",
+        "executed_at": "2026-10-04T10:17:03.948923+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "a9192e8c6563494cb64aa78ae9825ce3",
+          "executed_at": "2026-10-04T10:17:03.948923+00:00"
+        }
+      ]
     },
     {
       "id": "B-03",
@@ -69,7 +90,7 @@
       "kind": "functional",
       "boundary": "纯逻辑：micro 降级与占位符",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -79,7 +100,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "a9192e8c6563494cb64aa78ae9825ce3",
+        "executed_at": "2026-10-04T10:17:03.948923+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "a9192e8c6563494cb64aa78ae9825ce3",
+          "executed_at": "2026-10-04T10:17:03.948923+00:00"
+        }
+      ]
     },
     {
       "id": "B-02",
