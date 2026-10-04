@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "context-compaction.md",
-  "task_sha256": "0682b92caeaf5da24a700488ee9b34476dc1b488e92affa33ba47be4e7b49bd7",
+  "task_sha256": "5dea804aa9a06aabcd2b5e6730f79c37d7281646334d462b2ceac7a1dcc5561d",
   "scenarios": [
     {
       "id": "E-04",
@@ -20,28 +20,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "49092492ce474f52ba642f9ebce7b19c",
-        "executed_at": "2026-10-04T10:09:27.452641+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "49092492ce474f52ba642f9ebce7b19c",
-          "executed_at": "2026-10-04T10:09:27.452641+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-01",
@@ -60,28 +39,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "4533d6e75dce45daa740f741ff7d9189",
-        "executed_at": "2026-10-04T10:56:33.871373+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "4533d6e75dce45daa740f741ff7d9189",
-          "executed_at": "2026-10-04T10:56:33.871373+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-03",
@@ -100,28 +58,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "a9192e8c6563494cb64aa78ae9825ce3",
-        "executed_at": "2026-10-04T10:17:03.948923+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "a9192e8c6563494cb64aa78ae9825ce3",
-          "executed_at": "2026-10-04T10:17:03.948923+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-02",
@@ -140,28 +77,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "98ee1fb9013a41cc9e22e8d4d77030f9",
-        "executed_at": "2026-10-04T10:18:53.190161+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "98ee1fb9013a41cc9e22e8d4d77030f9",
-          "executed_at": "2026-10-04T10:18:53.190161+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-04",
@@ -180,28 +96,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "842f5139a86d47ff9bd8ffaff587efca",
-        "executed_at": "2026-10-04T10:24:07.946770+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "842f5139a86d47ff9bd8ffaff587efca",
-          "executed_at": "2026-10-04T10:24:07.946770+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-02",
@@ -220,28 +115,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "842f5139a86d47ff9bd8ffaff587efca",
-        "executed_at": "2026-10-04T10:24:07.946770+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "842f5139a86d47ff9bd8ffaff587efca",
-          "executed_at": "2026-10-04T10:24:07.946770+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-01",
@@ -260,28 +134,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "76252aca1d0c43659c06d104da2fa4e5",
-        "executed_at": "2026-10-04T10:29:28.494241+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "76252aca1d0c43659c06d104da2fa4e5",
-          "executed_at": "2026-10-04T10:29:28.494241+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-03",
@@ -300,28 +153,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "76252aca1d0c43659c06d104da2fa4e5",
-        "executed_at": "2026-10-04T10:29:28.494241+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "76252aca1d0c43659c06d104da2fa4e5",
-          "executed_at": "2026-10-04T10:29:28.494241+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-05",
@@ -340,28 +172,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-05",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "98dfad9e5ee94106b59aaf0bd1f06c5e",
-        "executed_at": "2026-10-04T11:24:57.828016+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "98dfad9e5ee94106b59aaf0bd1f06c5e",
-          "executed_at": "2026-10-04T11:24:57.828016+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-06",
@@ -380,28 +191,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-06",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "959664b3832b43dc9e0136b43aa41bf4",
-        "executed_at": "2026-10-04T11:40:59.795910+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "959664b3832b43dc9e0136b43aa41bf4",
-          "executed_at": "2026-10-04T11:40:59.795910+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-01",
@@ -410,7 +200,7 @@
       "kind": "e2e",
       "boundary": "真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针",
       "owner": "TASK-006",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -420,26 +210,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-01",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "1c882addab1d45d8a90dc139179f377d",
-        "executed_at": "2026-10-04T10:42:27.733561+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-01",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "1c882addab1d45d8a90dc139179f377d",
-          "executed_at": "2026-10-04T10:42:27.733561+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-07",
@@ -458,28 +229,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-07",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "3ceab6c1eb2143139edabbdb66d99ee4",
-        "executed_at": "2026-10-04T11:05:15.486890+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-07",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "3ceab6c1eb2143139edabbdb66d99ee4",
-          "executed_at": "2026-10-04T11:05:15.486890+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-08",
@@ -498,26 +248,55 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-09",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实任务文档与 manifest（收口清单交叉核对）",
+      "owner": "TASK-009",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/context_compaction_inventory.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
-        "id": "E-08",
+        "id": "E-09",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "522b6534e7444df991ced1ff0329b9f4",
-        "executed_at": "2026-10-04T11:16:16.369627+00:00"
+        "revision": 2,
+        "run_id": "85005635b015485b9b82663c90e6e7b7",
+        "executed_at": "2026-10-04T12:21:26.870940+00:00"
       },
       "runs": [
         {
-          "id": "E-08",
+          "id": "E-09",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": ".FF..F.....                                                              [100%]\n=================================== FAILURES ===================================\n__________________ test_coverage_rows_have_exactly_one_owner ___________________\n\n    def test_coverage_rows_have_exactly_one_owner() -> None:\n        \"\"\"覆盖表每个场景 ID 只出现一次，负责人是本需求真实存在的 TASK，且场景数与非空过达标。\"\"\"\n        rows = _coverage_rows()\n        known = set(_task_blocks())\n        duplicated = sorted({row[\"id\"] for row in rows if [r[\"id\"] for r in rows].count(row[\"id\"]) > 1})\n        assert not duplicated, f\"覆盖表出现重复场景 ID：{duplicated}\"\n    \n        unknown = sorted({row[\"owner\"] for row in rows} - known)\n        assert not unknown, f\"覆盖表负责人不是本需求的 TASK：{unknown}\"\n    \n        scenarios = sum(bool(SCENARIO_ROW.match(row[\"id\"])) for row in rows)\n>       assert scenarios == EXPECTED_SCENARIOS, f\"覆盖表场景行应为 {EXPECTED_SCENARIOS} 行，实为 {scenarios}\"\nE       AssertionError: 覆盖表场景行应为 13 行，实为 14\nE       assert 14 == 13\n\ntests/context_compaction_inventory.py:229: AssertionError\n_______________________ test_coverage_rows_are_terminal ________________________\n\n    def test_coverage_rows_are_terminal() -> None:\n        \"\"\"覆盖表**每一行**都终态——本清单不为收口任务 TASK-009 开豁免。\n    \n        TASK-009 自身没有覆盖行（它的两行是契约表里的 RULE 行），所以这里天然不会被豁免；\n        断言里也不写任何 `owner == TASK-009` 的短路，避免\"收口任务没终态\"静默通过。\n        \"\"\"\n        pending = [\n            f\"{row['id']}（{row['owner']}）={row['status']}\"\n            for row in _coverage_rows()\n            if row[\"status\"] not in TERMINAL\n        ]\n>       assert not pending, f\"覆盖表行未终态：{pending}\"\nE       AssertionError: 覆盖表行未终态：['E-09（TASK-009）=planned']\nE       assert not ['E-09（TASK-009）=planned']\n\ntests/context_compaction_inventory.py:244: AssertionError\n_____________ test_terminal_rows_are_registered_in_owner_evidence ______________\n\n    def test_terminal_rows_are_registered_in_owner_evidence() -> None:\n        \"\"\"终态的**每一行**（含契约表里的 RULE 规则行）都要在 owner 的证据表里有同 ID 的一行。\n    \n        只认证据表行，不认 runner 自动写的 `- <ID>: <状态> — …` 条目：条目形态会掩盖\"规则行没有\n        自己的证据行\"（13-console-auth 的 RULE-data-001 正是把 GREEN 挂在别人的行里）。\n        \"\"\"\n        blocks = _task_blocks()\n        owner_of_coverage = {row[\"id\"]: row[\"owner\"] for row in _coverage_rows()}\n        problems: list[str] = []\n        for task_id, block in sorted(blocks.items()):\n            for row_id, status in _contract_rows(block):\n                if status not in TERMINAL:\n                    continue\n                owner = owner_of_coverage.get(row_id, task_id)\n                evidence = dict(_evidence_rows(blocks[owner]))\n                if row_id not in evidence:\n                    problems.append(f\"{row_id}（owner={owner}，契约={status}）未出现在 {owner} 的 Evidence 小节\")\n                elif evidence[row_id] not in TERMINAL:\n                    problems.append(f\"{row_id} 在 {owner} 的 Evidence 状态为 {evidence[row_id]}\")\n>       assert not problems, f\"Evidence 登记缺口：{problems}\"\nE       AssertionError: Evidence 登记缺口：['E-09（owner=TASK-009，契约=verified）未出现在 TASK-009 的 Evidence 小节']\nE       assert not ['E-09（owner=TASK-009，契约=verified）未出现在 TASK-009 的 Evidence 小节']\n\ntests/context_compaction_inventory.py:306: AssertionError\n=========================== short test summary info ============================\nFAILED tests/context_compaction_inventory.py::test_coverage_rows_have_exactly_one_owner\nFAILED tests/context_compaction_inventory.py::test_coverage_rows_are_terminal\nFAILED tests/context_compaction_inventory.py::test_terminal_rows_are_registered_in_owner_evidence\n3 failed, 8 passed in 0.04s",
+          "revision": 1,
+          "run_id": "e375c75fdcca486781b504dc21520af1",
+          "executed_at": "2026-10-04T12:20:49.250650+00:00"
+        },
+        {
+          "id": "E-09",
           "kind": "functional",
           "status": "passed",
           "exit_code": 0,
-          "revision": 1,
-          "run_id": "522b6534e7444df991ced1ff0329b9f4",
-          "executed_at": "2026-10-04T11:16:16.369627+00:00"
+          "revision": 2,
+          "run_id": "85005635b015485b9b82663c90e6e7b7",
+          "executed_at": "2026-10-04T12:21:26.870940+00:00"
         }
       ]
     }

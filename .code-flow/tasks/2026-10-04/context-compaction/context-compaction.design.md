@@ -121,6 +121,7 @@
 | E-07 | FEAT-02 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | 一个回合里多条结果**各自都没超单条阈值**、但合计超整轮预算 ⇒ 超出的那些落盘、模型收到引用 JSON、canonical `TOOL_CALL` 行带 `artifact_id`（跨 Run 重建指得到那个产物） |
 | E-08 | FEAT-08 | integration | 真实 PG + 共享产物存储 + 真实两连 Run（同一会话） | 第一个 Run 外置过的工具结果，在**同一会话的下一个 Run** 的历史里被**逐字节**还原成当时那条引用 JSON（含 `artifact_id`）；canonical `TOOL_CALL` 行的 `artifact_id` 列已写入 |
 | S-01 | FEAT-01..05 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | 长会话 + 大工具结果 + 多工具回合后：开头诉求仍在、无孤儿 TOOL、模型收到的 prompt 含省略标记或摘要、压缩事件落库 |
+| E-09 | FEAT-01..09 | integration | 真实任务文档与 manifest（收口清单交叉核对） | 覆盖表 ↔ 契约表 ↔ 证据表三方闭环；manifest 与覆盖表同 ID/owner/命令且 level/boundary/cwd 一致；`-k` 令牌在真实用例名里命中；**不豁免收口任务自身** |
 
 非功能指标：压缩对单次请求的额外开销 O(历史条数) 单遍、无额外查库（配置走缓存）；摘要调用仅在开启且超阈值时发生。
 

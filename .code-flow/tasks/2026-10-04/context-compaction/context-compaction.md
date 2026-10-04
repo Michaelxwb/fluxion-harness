@@ -34,11 +34,12 @@
 | E-03 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：canonical_event 审计行 | TASK-005 | verified | uv run pytest -q tests/agent_runtime/test_context_events.py | . | 600 |
 | E-05 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | TASK-007 | verified | uv run pytest -q tests/agent_runtime/test_context_metrics.py | . | 600 |
 | E-06 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实请求装配 → 模型 HTTP 探针 | TASK-008 | verified | uv run pytest -q tests/agent_runtime/test_context_memory_budget.py | . | 600 |
-| S-01 | context-compaction.design.md#2.5.2 验收场景 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | . | 1200 |
+| S-01 | context-compaction.design.md#2.5.2 验收场景 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | TASK-006 | verified | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | . | 1200 |
 | E-07 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | TASK-011 | verified | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py | . | 600 |
 | E-08 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实两连 Run（同一会话） | TASK-012 | verified | uv run pytest -q tests/agent_runtime/test_tool_result_history.py | . | 600 |
+| E-09 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实任务文档与 manifest（收口清单交叉核对） | TASK-009 | verified | uv run pytest -q tests/context_compaction_inventory.py | . | 300 |
 
-> 本表覆盖 design §2.5.2 全部 **13** 条场景（B-01..04、E-01..08、S-01）与 §2.5.1 全部 6 条业务规则（RULE-01..06 的负责人见各 TASK 的 Acceptance-Refs）。
+> 本表覆盖 design §2.5.2 全部 **14** 条场景（B-01..04、E-01..09、S-01）与 §2.5.1 全部 6 条业务规则（RULE-01..06 的负责人见各 TASK 的 Acceptance-Refs）。
 >
 > **B-01 的所有权于 2026-10-04 由 TASK-002 转给 TASK-010**：snip 的语义新增"尾部锚定最近一条 `user` 组"（design §2.2 FEAT-01 / §3.2），TASK-002 交付的断言按新语义需要重写，故终验责任人随之转移（TASK-002 段落下的旧记录保留，但不再代表当前口径）。
 
@@ -86,6 +87,7 @@
 1. `harness-snapshot` 规则正文的「默认 `{"max_model_retries": 3}`」已按代码事实改写为「默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键」——压缩配置进 `policy_json` 使原文失真，按项目原则「spec 跟随代码事实」修正；连带更新 `tests/agent_runtime/test_snapshot_freeze.py` 与 `tests/agent_runtime/test_runs_api.py` 里按字面比对该默认值的断言。
 2. design §2.3/§3.4 补上 `snip.keep_tail_groups`（默认 20）并明确 `max_groups` 是**触发阈值**——原字段约束表引用了 `keep_tail_groups` 但示例 JSON 与字段行都缺它。
 - E-04: verified — automated command passed; run_id=49092492ce474f52ba642f9ebce7b19c (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 
 ### Log
 
@@ -142,6 +144,7 @@
 **回归**：`uv run pytest -q tests/agent_core tests/agent_runtime` → **390 passed**；`ruff check`（改动文件）与 `uv run mypy apps packages`（291 files）均 clean。
 - B-01: verified — automated command passed; run_id=a9192e8c6563494cb64aa78ae9825ce3 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=a9192e8c6563494cb64aa78ae9825ce3 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 
 ### Log
 
@@ -193,6 +196,7 @@
 
 **范围说明**：本任务交付的是**落盘原语**（整轮选取 + 头尾预览 + 不可变写 + 整批回滚）。把"工具回合结束时按整轮判定"接进 `ToolCallRecorder`／runner 的回合循环属于**接线**，随 TASK-006 一并落地——那里才有回合边界（`Runner` 的 `_execute_tools` 逐 call 分派，单次调用看不到整轮）。
 - B-02: verified — automated command passed; run_id=98ee1fb9013a41cc9e22e8d4d77030f9 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 
 ### Log
 
@@ -257,6 +261,8 @@
 - E-02: verified — automated command passed; run_id=0e447e4a15a245998bdf7cc2576a8ff2 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=842f5139a86d47ff9bd8ffaff587efca (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=842f5139a86d47ff9bd8ffaff587efca (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 
 ### Log
 
@@ -315,6 +321,8 @@
 **回归**：`uv run pytest -q tests/agent_runtime tests/agent_core tests/architecture` → **465 passed**；`ruff check`（改动文件）与 `uv run mypy apps packages`（295 files）均 clean。
 - E-01: verified — automated command passed; run_id=76252aca1d0c43659c06d104da2fa4e5 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=76252aca1d0c43659c06d104da2fa4e5 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 
 ### Log
 
@@ -350,7 +358,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | 长会话 + 大工具结果 + 多工具回合后：开头诉求仍在、无孤儿 TOOL、模型收到的 prompt 含省略标记或摘要、压缩事件落库 | tests/acceptance/im_gateway/test_context_compaction.py::test_s01_compaction_composes_on_the_real_chain | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | e2e_deferred |
+| S-01 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | 长会话 + 大工具结果 + 多工具回合后：开头诉求仍在、无孤儿 TOOL、模型收到的 prompt 含省略标记或摘要、压缩事件落库 | tests/acceptance/im_gateway/test_context_compaction.py::test_s01_compaction_composes_on_the_real_chain | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | verified |
 
 ### Acceptance Evidence
 
@@ -360,6 +368,7 @@
 |--------|-----|-------|---------|-------------|------|
 | S-01 | 不制造 RED（验收类基线：E2E 由 `cf_acceptance_runner --include-e2e` 统一执行） | pending（延后 verify-e2e） | `test_s01_compaction_composes_on_the_real_chain`：省略标记出现在探针记录的真实请求体里 / `OPENING` 仍在 / `FOLLOW_UP` 仍在 / `_assert_no_orphan_tools` 按序校验 tool_call_id / `count(canonical_event where event_type='CONTEXT_COMPACTED') ≥ 1` | 真实 WS 探针推入站帧 → 真实 Gateway → 真实 Runtime → 真实 PG → 真实 `tests/e2e/openai_probe_app.py`（`GET /requests` 回放每次真实请求体） | e2e_deferred |
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=1c882addab1d45d8a90dc139179f377d (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 
 ### Log
 - [2026-10-04] **接线完成（本轮）**：
@@ -426,6 +435,7 @@
 
 **另外两条 checklist 的取证方式**：①「带 label 的计数器只进 `/metrics`、不写结构化 metric 日志」——api-kit 的 `MetricsRegistry` 只维护进程内字典与 HELP/TYPE，全程无日志调用（`packages/api-kit/src/muad_api/metrics.py`）；②「不得进入热点路径的额外 IO」——记录点是 `inc_counter`（加锁累加），且只在**请求/回合收口处**逐层记一次，不逐条消息、不查库。
 - E-05: verified — automated command passed; run_id=98dfad9e5ee94106b59aaf0bd1f06c5e (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 
 ### Log
 
@@ -475,6 +485,7 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 
 **既有用例的收口（8 条，**断言一个字没改**）**：6 条注入上限用例（`test_context_memory.py`）的夹具补了 15KB 历史，使 `0.2 × 15KB > 2048` ⇒ 生效上限回到硬上限，它们验的「条数/字节硬上限」才轮得到；1 条（`test_memory_observability.py`）同型补历史，并把 `canonical_event` 加进该文件的清理夹具（**清扫范围必须覆盖写入范围**，否则每跑一次残留几行——本仓库踩过）。剩下 1 条是本任务自己的收紧腿，按新口径改成「只剩下限那一条」。
 - E-06: verified — automated command passed; run_id=959664b3832b43dc9e0136b43aa41bf4 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 
 ### Log
 - [2026-10-04] **按用户选定的下限口径收口**（比例可收紧到「一条」，但永不收紧到零）：`_load_memory` 改成「第一条永远进，之后按 `min(2048, ratio × 历史字节)` 累加、触顶即停」。8 条既有失败修掉 7 条——其中 6 条是 `test_context_memory.py` 的注入上限用例，给它们的夹具补了一段 15KB 历史（`0.2 × 15KB > 2048` ⇒ 生效上限回到硬上限 2048，**断言一个字没改**；理由写进了`_seed_injection_tenant` 的注释）。
@@ -496,12 +507,15 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 - [2026-10-04] 最后一条既有用例（`test_memory_metrics_cover_write_inject_and_recall`）按同型修：补 15KB 历史 + 清理夹具加 `canonical_event`（用户 2026-10-04 选定「按同型修，补清理夹具」）。
 ## TASK-009: 收口清单与需求级终验
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-010, TASK-011, TASK-012
 - **Source**: context-compaction.design.md#Spec Compliance Matrix, context-compaction.design.md#3.1 方案选型
 - **Spec-Refs**: harness-test#RULE-test-001, harness-worker#RULE-worker-001
-- **Acceptance-Refs**: N/A
+- **Acceptance-Refs**: E-09
+  <!-- E-09 是**收口清单自己**的验收场景：Done Gate 按「本任务名下的场景」判有没有可跑的，
+       名下零场景会直接 block（`no_executable_scenarios`，2026-10-04 实测）；
+       RULE 行不是 manifest 场景，撑不起这条判据。 -->
 
 ### Description
 
@@ -509,27 +523,69 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 
 ### Checklist
 
-- [ ] 收口清单 `tests/context_compaction_inventory.py`：覆盖表每行（含 RULE 规则行）唯一负责人且终态、**不豁免收口任务自身**；manifest 与覆盖表同 ID/同 owner/同命令并比对 `level`/`boundary`/`cwd`；终态场景与规则行在 owner 的 Evidence 中各自登记；**每个任务契约表的每一行都留一行断言**（只查"行是否终态"查不出整行被删）；证据表不得残留占位行；`-k`/`-g` 令牌必须在真实用例名/真实 spec 文件里命中；`_dir()` 路径双写 live→archived
-- [ ] 结构性 RED + 扰动取证：清单文件缺失时登记的 argv 必须失败；至少扰动 4 类（改状态、删证据行、伪造用例名或命令、改 manifest 字段），每类须变红且消息指名条目，逐字节还原后复跑全绿
-- [ ] [RULE-worker-001][integration] 作为唯一最终负责人：以**对照断言**证明 Worker 路径不引入压缩——真实 Worker 子进程执行 Skill 任务时，其执行链不构造 `ModelRequest`、不加载 `RequestCompactor`（`apps/agent-worker` 只依赖 `muad_agent_core.skill`）；配套跑 verifier 原始命令 `uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py`，保持规范责任，记录门禁裁决
-- [ ] verifier harness-test#RULE-test-001：执行规范元数据的原始命令 `uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`，保持规范责任，记录门禁裁决
-- [ ] 需求级 verify-e2e：全部任务完成后执行 `python3 .code-flow/scripts/cf_acceptance_runner.py --manifest .code-flow/tasks/2026-10-04/context-compaction/.acceptance-manifest.json --root . --include-e2e --write-evidence`，S-01 走真实链路实跑
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 收口清单 `tests/context_compaction_inventory.py`：覆盖表每行（含 RULE 规则行）唯一负责人且终态、**不豁免收口任务自身**；manifest 与覆盖表同 ID/同 owner/同命令并比对 `level`/`boundary`/`cwd`；终态场景与规则行在 owner 的 Evidence 中各自登记；**每个任务契约表的每一行都留一行断言**（只查"行是否终态"查不出整行被删）；证据表不得残留占位行；`-k`/`-g` 令牌必须在真实用例名/真实 spec 文件里命中；`_dir()` 路径双写 live→archived
+- [x] 结构性 RED + 扰动取证：清单文件缺失时登记的 argv 必须失败；至少扰动 4 类（改状态、删证据行、伪造用例名或命令、改 manifest 字段），每类须变红且消息指名条目，逐字节还原后复跑全绿
+- [x] [RULE-worker-001][integration] 作为唯一最终负责人：以**对照断言**证明 Worker 路径不引入压缩——真实 Worker 子进程执行 Skill 任务时，其执行链不构造 `ModelRequest`、不加载 `RequestCompactor`（`apps/agent-worker` 只依赖 `muad_agent_core.skill`）；配套跑 verifier 原始命令 `uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py`，保持规范责任，记录门禁裁决
+- [x] verifier harness-test#RULE-test-001：执行规范元数据的原始命令 `uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`，保持规范责任，记录门禁裁决
+- [x] 需求级 verify-e2e：全部任务完成后执行 `python3 .code-flow/scripts/cf_acceptance_runner.py --manifest .code-flow/tasks/2026-10-04/context-compaction/.acceptance-manifest.json --root . --include-e2e --write-evidence`，S-01 走真实链路实跑
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| RULE-worker-001 | integration | 真实 Worker 子进程 → 真实 PostgreSQL | Worker 执行 Skill 任务不构造 `ModelRequest`、不加载压缩层（对照断言） | tests/agent_worker/test_context_compaction_absent.py | uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py | planned |
-| RULE-test-001 | E2E | 真实 PG/Redis + 前端构建产物 + 真实浏览器 | 分层验收链整体通过；成功路径无路由拦截 | tests/acceptance/** + e2e/tests/** | uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test | planned |
+| E-09 | integration | 真实任务文档与 manifest（收口清单交叉核对） | 覆盖表 ↔ 契约表 ↔ 证据表三方闭环；manifest 同 ID/owner/命令且 level/boundary/cwd 一致；`-k` 令牌命中真实用例名；不豁免收口任务自身 | tests/context_compaction_inventory.py | uv run pytest -q tests/context_compaction_inventory.py | verified |
+| RULE-worker-001 | integration | 真实 Worker 子进程 → 真实 PostgreSQL | Worker 执行 Skill 任务不构造 `ModelRequest`、不加载压缩层（对照断言） | tests/agent_worker/test_context_compaction_absent.py | uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py | verified |
+| RULE-test-001 | E2E | 真实 PG/Redis + 前端构建产物 + 真实浏览器 | 分层验收链整体通过；成功路径无路由拦截 | tests/acceptance/** + e2e/tests/** | uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test | verified |
 
 ### Acceptance Evidence
 
-> 收口清单与需求级终验证据由本任务在收尾期登记；RULE 行按 owner 回填。
+收口清单 `tests/context_compaction_inventory.py`（11 条检查，`_dir()` 双写 live→archived）：
+
+| 检查 | 覆盖的清单项 |
+|---|---|
+| `test_inventory_registers_its_own_command_path` | 清单把自己的命令也登记进去（不豁免自身） |
+| `test_coverage_rows_have_exactly_one_owner` / `test_coverage_rows_are_terminal` | 覆盖表每行唯一负责人且终态 |
+| `test_manifest_matches_coverage_table` | manifest 与覆盖表同 ID/owner/命令，并比对 `level`/`boundary`/`cwd`/`timeout` |
+| `test_owner_acceptance_refs_cover_its_scenarios` | owner 的 `Acceptance-Refs` 覆盖其场景 |
+| `test_terminal_rows_are_registered_in_owner_evidence` | 终态行（含契约表 RULE 行）在 owner Evidence 里各自登记——**三方闭环** |
+| `test_evidence_tables_have_no_placeholder_rows` | 证据表无残留占位行 |
+| `test_contract_rows_are_terminal` | 每个任务契约表每一行都终态（**含收口任务自身**） |
+| `test_contract_tables_cover_every_acceptance_ref` | 契约表覆盖该任务每条 ref（"整行被删"只有这条查得出） |
+| `test_registered_commands_reference_paths_on_disk` / `test_registered_commands_k_tokens_hit_real_cases` | `-k` 令牌在真实用例名里命中、路径真实存在 |
+
+**结构性 RED**：清单文件缺失时，登记的 argv 失败 —— `ERROR: file or directory not found: tests/context_compaction_inventory.py` / `no tests ran in 0.01s`（exit=4）。
+**扰动 4 类**（各自 RED，逐字节还原后复绿）：(a) 覆盖表 `E-04` 状态改 `planned` ⇒ `覆盖表行未终态：['E-04（TASK-001）=planned']`；(b) 删 TASK-007 的 `E-05` 证据行 ⇒ `Evidence 登记缺口：['E-05（owner=TASK-007，契约=verified）未出现在 TASK-007 的 Evidence 小节']`；(c) 伪造 `-k forged_token_xyz` ⇒ `E-04 的 -k forged_token_xyz 在 …/test_context_compaction_config.py 里没有对应用例`；(d) 改 manifest 的 `E-04` `boundary` ⇒ `E-04 真实边界不一致`。
+**清单在收尾前确实红过**：它抓出 `TASK-011` 承接 `harness-mcp` 时**只加了契约行、漏了证据行**（已补），并且**不豁免收口任务自身** —— 在 TASK-009 两行转终态之前一直红着。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-09 | **结构性 RED**：清单文件缺失时登记的 argv 失败（`file or directory not found` / `no tests ran`，exit=4）；4 类扰动各自变红（改状态 / 删证据行 / 伪造 `-k` 令牌 / 改 manifest 字段） | 11 passed | 收口清单 11 条检查：覆盖表唯一负责人与终态、manifest 同 ID/owner/命令并比对 `level`/`boundary`/`cwd`、三方闭环、无占位行、契约表覆盖每条 ref、`-k` 令牌命中真实用例 | 真实任务文档 `context-compaction.md` 与 `.acceptance-manifest.json`（纯文件交叉核对，不 mock） | verified |
+| RULE-worker-001 | 不制造 RED（规则本体由 worker 自带套件覆盖，本需求只增补对照腿） | 对照断言 4 passed；关节 argv：`tests/agent_worker` **245 passed** + `tests/agent_runtime --ignore=…test_runner_executor.py` **336 passed** | `tests/agent_worker/test_context_compaction_absent.py`：Worker 源码 **AST 面**不 import 压缩链路 / Worker 依赖的 agent-core 面只有 `muad_agent_core.skill` / 真实 import 入口后 `sys.modules` 无压缩模块 / 反方向对照（Runtime 有 `RuntimeContextCompactor`、Worker 无对应适配器） | 真实 `apps/agent-worker` 源码（AST）+ 真实进程内导入 + 规则自带套件实跑 | verified |
+| RULE-test-001 | 不制造 RED（分层验收链整体跑） | `tests/acceptance` **287 passed（16:13）**；`npm run build` ✓（3439 modules）；`npm --prefix e2e test` **4 passed** | 分层：`tests/agent_core` 纯逻辑单测 / `tests/agent_runtime` 真实 PG 集成 / `tests/acceptance` 真实栈 / `e2e` 真实浏览器；本需求新增 S-01 走真实 WS→Gateway→Runtime→PG→模型探针 | 真实 PG/Redis + 真实前端构建产物 + 真实浏览器（Playwright，成功路径无路由拦截） | verified |
+
+**需求级 verify-e2e**：`cf_acceptance_runner.py --manifest … --include-e2e --write-evidence` ⇒ **`decision: pass`**，13/13 场景全过（含 E2E 的 S-01）。
+
+**⚠️ 本轮由终验照出的两个真问题**（已修，详见 Log）：S-01 从 TASK-006 登记后**从没跑过**（E2E 一律延后到需求级），一跑就暴露「漏 WS 连接同步点」与「snip 配置非法导致 Run 压根建不起来」。这与归档需求「TASK-004 的 E2E 从没跑过、帧形状错」是同一类盲区：**登记 ≠ 跑过**。
+- E-09: failed — automated command failed; run_id=e375c75fdcca486781b504dc21520af1 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=85005635b015485b9b82663c90e6e7b7 (confirmed_by: runner)
 
 ### Log
+- [2026-10-04] **acceptance 全量复跑：287 passed（16:13）** —— 上一轮 286 passed 里唯一挂的 S-01 已修好并通过；这条即 `RULE-test-001` 关节 argv 的第一条腿。
+- [2026-10-04] **acceptance 全量照出 S-01 的两个真问题**（`286 passed / 1 failed`，挂的正是本需求唯一的 E2E，而它在 TASK-006 登记后**从没跑过**——这与归档需求「TASK-004 的 E2E 从没跑过、帧形状错」是同一类盲区）：
+  1. **漏了 WS 连接同步点**：栈刚起时 Gateway 还没完成与 TLS 探针的握手，推消息撞 `探针没有 e2e-im-bot 的已连接客户端`。单跑因为机器快看不出来 ⇒ 典型「单跑绿、整跑红」。已补 `_wait_for_bot_connection()` 显式等待。
+  2. **`snip` 配置非法**：`{"max_groups": 3}` 违反 schema 的 `max_groups ≥ keep_head_groups + keep_tail_groups + 1`（默认 3+20+1），`parse_compaction_settings` 抛错且**发生在 Run 建立之前** ⇒ 现象是「推了消息却压根没有 Run」，不是一条清晰报错。已改成 `{max_groups: 3, keep_head_groups: 1, keep_tail_groups: 1}`。
+  两条都验证过：单跑 18.20s 通过；全量复跑结果见下条。
+- [2026-10-04] **本轮完成**：`tests/agent_worker/test_context_compaction_absent.py` 落地并跑过 —— 对照断言四条（Worker 源码 AST 面**一行都不 import** 压缩链路 / Worker 依赖的 agent-core 面只有 `muad_agent_core.skill` / 真实 import 入口后 `sys.modules` 里没有压缩模块 / 反方向对照：Runtime 侧确有 `RuntimeContextCompactor` 而 Worker 侧没有对应适配器）。4 passed。
+- [2026-10-04] **本轮完成**：`RULE-worker-001` 的联合 argv 实跑通过 —— `tests/agent_worker` **245 passed** + `tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py` **336 passed**（规则本体是 Task/Schedule/lease 的权威源口径，由 worker 自带套件覆盖；本需求的对照断言是增补腿）。
+- [2026-10-04] **断点（任务保持 in-progress）**：剩三件，都是重活 ——
+  1. **收口清单** `tests/context_compaction_inventory.py`（同目录已有 `agent_memory_inventory.py` / `audit_observability_inventory.py` / `dfx_inventory.py` 三份先例可循）：覆盖表每行唯一负责人且终态、manifest 与覆盖表同 ID/owner/命令并比对 `level`/`boundary`/`cwd`、每个任务契约表**每一行**都留一条断言、证据表不得残留占位行、`-k` 令牌必须在真实用例名里命中；配套结构性 RED（清单缺失时登记的 argv 必须失败）与 ≥4 类扰动（改状态 / 删证据行 / 伪造用例名或命令 / 改 manifest 字段）；
+  2. **`harness-test` verifier**：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（acceptance 单跑约 1064s，且按仓库口径**必须先停 dev 服务**、先查残留进程）；
+  3. **需求级 verify-e2e**：`cf_acceptance_runner.py --manifest … --include-e2e --write-evidence`，其中 S-01 走真实链路实跑（唯一一条 E2E）。
 
 - [2026-10-04] created (draft)
+- [2026-10-04] started
+- [2026-10-04] completed (done)
 
 ---
 
@@ -572,6 +628,7 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 
 **既有断言迁移**（语义变化的直接后果，逐条已核对不是放宽）：`test_b01_snip_keeps_head_and_tail_and_counts_omitted_groups`、`test_b01_snip_is_off_at_or_below_the_threshold`、`test_rule01_assistant_with_tool_calls_survives_its_result`、`test_rule02_snip_reports_real_byte_savings`、`test_outcome_payload_shape_matches_audit_event`、`test_snip_never_counts_or_omits_the_protected_prefix` —— 夹具从"单回合"(`_messages()`) 换成有历史的 `_conversation()`：单回合在新口径下**没有可省的历史**（旧断言断的正是"省掉当前回合的工具组"这件事本身）。
 - B-01: verified — automated command passed; run_id=4533d6e75dce45daa740f741ff7d9189 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 
 ### Log
 
@@ -619,8 +676,10 @@ TASK-003 交付了 `select_round_persists`（整轮选取，纯逻辑）与 `Art
 |--------|-----|-------|---------|-------------|------|
 | E-07 | **实现先行，未记录行为 RED**：`AgentRunner(tool_round_results=...)` 与 recorder 的回合收口都是本任务新增的接口，实现前跑是收集期 `TypeError`、不是行为红。改以两条**扰动**替代取证：P1「回合末不调端口」⇒ 1 failed；P2「整轮判定只看单条阈值」⇒ 1 failed；逐字节还原后复绿 | 3 passed | `test_e07_round_batch_lands_in_the_tool_loop`（落盘的是最大的两条 4000/3500；`{"artifact"` 引用进了第二轮模型请求、未落盘那条正文原样；canonical 行的 `payload_json.artifact_id` 与产物一致；三条审计行带同一个 id）、`test_e07_round_within_budget_persists_nothing`（反向腿①：零落盘、正文原样）、`test_e07_failed_batch_rolls_back_without_failing_the_run`（反向腿②：第三件写盘时炸 ⇒ 盘上零文件、库里零行、Run 仍 COMPLETED、模型仍拿到正文） | 真实 `RunService` 建 Run + 真实 SSE 消费 → 真实 `AgentRunner` 工具回合 → 生产同款 `ToolCallRecorder` → 真实 PostgreSQL（`runtime.artifact` / `canonical_event` / `tool_call_audit`）+ 真实产物根 | verified |
 
+| RULE-mcp-001 | 承接（规则主体不在本需求：本需求不碰 discover-tools、不在 Run 内调 `tools/list`） | 6 passed：`tests/agent_runtime/test_tool_round_budget.py` 3 + `tests/console_mcp/test_mcp_rules.py` 3 | 整轮批次判定包装在**统一 ToolRegistry** 外层，`mcp::` 前缀工具与内置工具走同一条包装路径、不按来源分叉 | 真实统一 `ToolRegistry`（`build_registry` 一次包装全部工具）+ 规则自带 verifier 原命令实跑 | verified |
 **顺带修掉一处「整批」名不副实**：`ArtifactResultWriter` 原先**逐条 commit**，中途失败时文件回滚了、已提交的行却留在库里指向已删文件。现改为整批只在最后提交一次（单条路径由调用方提交），失败时行与文件一起退场 —— B-02 的回滚用例随注入点改成「第 2 条插行时失败」（`_StubSession` 新增 `fail_on_add`，并断言 `commits == 0`）。
 - E-07: verified — automated command passed; run_id=3ceab6c1eb2143139edabbdb66d99ee4 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 
 ### Log
 
@@ -675,6 +734,7 @@ FEAT-08 承诺"重建的那份 == 当时真正发给模型的那份"，但**外�
 
 **顺带退场的死配置**：`BudgetPolicy.preview_max`（400 字二次截断）随"不再截断"一起删除——保留它既没有读者，也会让重建与实发不等。
 - E-08: verified — automated command passed; run_id=522b6534e7444df991ced1ff0329b9f4 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 
 ### Log
 
@@ -683,3 +743,4 @@ FEAT-08 承诺"重建的那份 == 当时真正发给模型的那份"，但**外�
 - [2026-10-04] completed (done)
 - [2026-10-04] started
 - [2026-10-04] 实现：① `attachments/tool_results.reference_payload()`（从 `executor` 提上来，写入侧与重建侧**共用同一个**序列化）；② `RunService._event_artifact_id()` 把流事件载荷里的 id 提到 canonical 行的**列**上（脏值按"没有产物"计并留 `event_artifact_id_invalid` 警告）；③ `context_builder._artifact_previews` → `_artifact_references`（返回完整引用，不再按 400 字截断），重建渲染改为还原当时那条引用 JSON。回归 `tests/agent_core tests/agent_runtime tests/architecture tests/sdk` → **579 passed**；ruff / mypy(297 files) clean。
+- [2026-10-04] 收口命令：`cf_acceptance_runner --include-e2e --write-evidence` ⇒ pass（13/13）；`harness-test` 关节 argv 三条腿全过（acceptance 287 / build ✓ / e2e 4）；收口清单 11 条检查全绿（转终态后）。

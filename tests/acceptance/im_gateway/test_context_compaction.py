@@ -50,7 +50,15 @@ TOOL_ROUNDS = 4
 
 #: 只压**触发阈值**（`max_groups` 的语义就是阈值，不是保留总数），保头保尾用生产默认值（3 / 20）：
 #: 短会话才会触发真实的 snip，而省略口径仍是线上那一套。
-SNIP_RUNTIME_CONFIG: dict[str, Any] = {"budget": {"compaction": {"snip": {"max_groups": 3}}}}
+#: 取值必须满足 schema 的 `max_groups ≥ keep_head + keep_tail + 1`（`_validate` 会拒，且
+#: 拒绝发生在 Run 建立之前 ⇒ 表现是"推了消息却压根没有 Run"，而不是一条清晰的报错）。
+SNIP_RUNTIME_CONFIG: dict[str, Any] = {
+    "budget": {
+        "compaction": {
+            "snip": {"max_groups": 3, "keep_head_groups": 1, "keep_tail_groups": 1}
+        }
+    }
+}
 
 WAIT_TIMEOUT_SEC = 150.0
 MARKER = "[历史省略]"
@@ -138,6 +146,21 @@ def _clear_script(stack: GatewayStack) -> None:
     httpx.post(f"{stack.llm_url}/script", json={}, timeout=10.0).raise_for_status()
 
 
+async def _wait_for_bot_connection(stack: GatewayStack, *, timeout: float = 30.0) -> None:
+    """等 Gateway 真的挂到 TLS 探针上再推。
+
+    栈刚起时 Gateway 的 WS 还没握手完，此时推送会撞 `探针没有 <bot> 的已连接客户端`
+    （2026-10-04 实测：acceptance 全量跑挂了这一条，单跑因为机器快而看不出来 —— 典型的
+    "本地绿、整跑红"）。同步点必须显式等，不能赌时序。
+    """
+    probe = stack.ws_probe
+    assert probe is not None
+    deadline = time.monotonic() + timeout
+    while stack.bot_id not in probe.connection_bots.values():  # type: ignore[attr-defined]
+        assert time.monotonic() < deadline, "Gateway 未在超时内连上 TLS 探针"
+        await asyncio.sleep(0.05)
+
+
 async def _push(stack: GatewayStack, *, text: str) -> None:
     probe = stack.ws_probe
     assert probe is not None
@@ -196,6 +219,7 @@ def _assert_no_orphan_tools(messages: list[dict[str, Any]]) -> None:
 async def test_s01_compaction_composes_on_the_real_chain(gateway_stack: GatewayStack) -> None:
     stack = gateway_stack
     _arm_early_snip(stack)
+    await _wait_for_bot_connection(stack)
 
     # 第一个来回：建立"会话开头"。这轮不调工具，让 OPENING 成为对话区的第一组。
     _clear_script(stack)
