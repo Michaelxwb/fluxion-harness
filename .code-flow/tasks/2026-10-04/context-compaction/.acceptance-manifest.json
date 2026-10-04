@@ -250,7 +250,7 @@
       "kind": "functional",
       "boundary": "真实 PG：从 canonical_event 重建",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -260,7 +260,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "76252aca1d0c43659c06d104da2fa4e5",
+        "executed_at": "2026-10-04T10:29:28.494241+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "76252aca1d0c43659c06d104da2fa4e5",
+          "executed_at": "2026-10-04T10:29:28.494241+00:00"
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -269,7 +290,7 @@
       "kind": "functional",
       "boundary": "真实 PG：canonical_event 审计行",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -279,7 +300,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "76252aca1d0c43659c06d104da2fa4e5",
+        "executed_at": "2026-10-04T10:29:28.494241+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "76252aca1d0c43659c06d104da2fa4e5",
+          "executed_at": "2026-10-04T10:29:28.494241+00:00"
+        }
+      ]
     },
     {
       "id": "E-05",

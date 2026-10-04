@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from muad_agent_core.context.builder import ContextInput
+from muad_agent_core.context.summary import summary_from_payload, summary_message
 from muad_agent_core.model.provider import ModelMessage, ModelRequest, ModelRole, ModelToolCall
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -16,6 +17,7 @@ from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import Artifact, CanonicalEvent
 from ..metrics import MEMORY_INJECT_METRIC, record_counter
 from .attachments.inbound import attachments_from_payload, render_attachment_reference
+from .context_events import covered_up_to, latest_summary
 from .memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
@@ -71,8 +73,14 @@ class DbBackedContextBuilder:
         `include_memory` 开关一并移除（2026-10-01）。
         """
         async with self._session_factory()() as session:
+            summary_row = await latest_summary(session, tenant_id, conversation_id)
+            covered = covered_up_to(summary_row.payload_json if summary_row is not None else None)
             events = await self._recent_events(
-                session, tenant_id, conversation_id, budget or self._budget.max_messages
+                session,
+                tenant_id,
+                conversation_id,
+                budget or self._budget.max_messages,
+                after_seq=covered,
             )
             history = await self._to_messages(session, tenant_id, events)
             memories = (
@@ -84,7 +92,14 @@ class DbBackedContextBuilder:
         memory_messages = [
             ModelMessage(role=ModelRole.SYSTEM, content=line) for line in memories
         ]
-        return tuple([*memory_messages, *trimmed])
+        # 摘要替掉它覆盖的那段原始事件——这是 FEAT-08 的"由库确定性重建"：前缀完全来自
+        # 落库的 CONTEXT_SUMMARY（渲染是纯函数），后续事件按 seq 顺序应用，不依赖进程内状态。
+        summary_messages: list[ModelMessage] = []
+        if summary_row is not None:
+            fields = summary_from_payload((summary_row.payload_json or {}).get("summary"))
+            if fields is not None:
+                summary_messages.append(summary_message(fields))
+        return tuple([*memory_messages, *summary_messages, *trimmed])
 
     async def build(self, context: ContextInput) -> ModelRequest:
         messages: list[ModelMessage] = [
@@ -130,8 +145,13 @@ class DbBackedContextBuilder:
         tenant_id: str,
         conversation_id: uuid.UUID,
         budget: int,
+        *,
+        after_seq: int = 0,
     ) -> list[CanonicalEvent]:
-        """取最近 budget*4 条业务事件（倒序取再反转），保证长会话保留最新轮次。"""
+        """取最近 budget*4 条业务事件（倒序取再反转），保证长会话保留最新轮次。
+
+        `after_seq` 是摘要覆盖边界：被摘要覆盖的原始事件不再进入装配（它们的历史由摘要承载）。
+        """
         rows = (
             await session.execute(
                 select(CanonicalEvent)
@@ -139,6 +159,7 @@ class DbBackedContextBuilder:
                     CanonicalEvent.tenant_id == tenant_id,
                     CanonicalEvent.conversation_id == conversation_id,
                     CanonicalEvent.event_type.in_(HISTORY_EVENT_TYPES),
+                    CanonicalEvent.seq > after_seq,
                 )
                 .order_by(CanonicalEvent.seq.desc())
                 .limit(max(budget, 1) * 4)
