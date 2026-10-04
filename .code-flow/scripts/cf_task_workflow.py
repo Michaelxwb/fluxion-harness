@@ -21,25 +21,10 @@ from cf_spec_verify import VerificationScope, _git_tracked_files, run_all_verifi
 from cf_task_index import parse_task_file
 from cf_task_runtime import _apply_evidence, _evidence_data, run_done_gate
 from cf_workflow_service import (FINISHED_STATUSES, _require_marker_task,
-                                 _sync_markdown, block_task, complete_task, locate_task_file, resume_task)
+                                 _sync_markdown, block_task, cleanup_session_projections,
+                                 complete_task, locate_task_file, remove_session_projection,
+                                 resume_task)
 from cf_workflow_transaction import recover_transition
-
-
-def _remove_session_projection(root: str, task_file: str) -> None:
-    """Done Gate 通过后删掉本任务在 `specs/_session/` 的投影。
-
-    该文件是**瞬态**的（被 `.gitignore` 忽略，也列在 `cf_spec_context.DEFAULT_ACTIVE_EXCLUDES`
-    里），但此前没有任何路径删它 —— 已归档任务的投影会一直留在 spec catalog 里，向后续每一个
-    会话注入一个**早已完结**任务的 Required Rules 与 Acceptance Contract（2026-10-03 实测：
-    `_session/task-attachment-round-trip.md` 在任务归档一个月后仍在注入）。
-
-    删不掉不影响裁决：Done Gate 的结论由规则/verifier 决定，不该被一次 unlink 反转。
-    """
-    projection = Path(root) / ".code-flow/specs/_session" / f"task-{Path(task_file).stem}.md"
-    try:
-        projection.unlink(missing_ok=True)
-    except OSError:
-        pass
 
 
 def finish_task(root: str, directory: str, task_file: str, task_id: str) -> dict[str, object]:
@@ -47,14 +32,16 @@ def finish_task(root: str, directory: str, task_file: str, task_id: str) -> dict
     gate = run_done_gate(root, directory, task_id=task_id)
     if gate.decision != "pass":
         return {"decision": "block", "reason": gate.message, "evidence": gate.evidence}
-    _remove_session_projection(root, task_file)
+    completed = complete_task(root, directory, task_file, task_id, True)
+    # 完成后清理本任务的 Spec Session 投影（瞬时文件，避免往期规则被后续会话读到）
     result = {
         "decision": "pass",
         "deferred_review": gate.deferred_review,
         "deferred_requirement": gate.deferred_requirement,
         "deferred_budget": gate.deferred_budget,
         "deferred_heavy": gate.deferred_heavy,
-        **complete_task(root, directory, task_file, task_id, True),
+        "session_projection": remove_session_projection(root, task_file),
+        **completed,
     }
     hints = []
     deferred_total = gate.deferred_review + gate.deferred_requirement + gate.deferred_budget
@@ -389,8 +376,9 @@ def confirm_manual(root: str, directory: str, refs: Sequence[str], scenarios: Se
 
 
 def main(argv: Optional[Sequence[str]] = None, stdout: IO[str] = sys.stdout) -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("finish", "block", "resume", "verify-e2e", "confirm-manual"))
+    parser = argparse.ArgumentParser(prog=os.environ.get("CF_RUNTIME_COMMAND") or None)
+    parser.add_argument("action", choices=("finish", "block", "resume", "verify-e2e", "confirm-manual", "cleanup-session"),
+                        metavar=os.environ.get("CF_RUNTIME_ACTION") or None)
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--task-dir", required=True)
     parser.add_argument("--task", default="")
@@ -410,6 +398,8 @@ def main(argv: Optional[Sequence[str]] = None, stdout: IO[str] = sys.stdout) -> 
         recover_transition(root)
         if args.action == "verify-e2e":
             result = verify_e2e(root, directory)
+        elif args.action == "cleanup-session":
+            result = cleanup_session_projections(root, directory)
         elif args.action == "confirm-manual":
             refs = [item.strip() for item in args.refs.split(",") if item.strip()]
             scenarios = [item.strip() for item in args.scenarios.split(",") if item.strip()]

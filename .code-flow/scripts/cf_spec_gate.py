@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -213,15 +214,8 @@ def validate_plan_coverage(context: SpecContext, artifact: str) -> GateResult:
     errors: list[GateIssue] = []
     for binding in context.bindings:
         for rule in binding.rules:
-            if rule.enforcement != "required" or "plan" not in rule.stage_status:
-                continue
-            # 与 `_status_issue` 同口径：**用户已确认 N/A** 的规则不需要责任 TASK。
-            # 此前两个检查对 N/A 的判断相反（`validate_stage` 读 decision、这里只数 owner），
-            # 于是"已确认不适用"的规则在 plan 阶段反而变成硬阻塞（2026-10-03 实测）。
-            status = rule.stage_status["plan"]
-            if status.status == "not_applicable" and _decision_valid(status.decision):
-                continue
-            errors.extend(_rule_plan_issues(binding, rule, sections))
+            if rule.enforcement == "required" and "plan" in rule.stage_status:
+                errors.extend(_rule_plan_issues(binding, rule, sections))
     refs = tuple(sorted(f"{item.spec_id}#{item.rule_ref}" for item in errors))
     return GateResult("block" if errors else "pass", tuple(errors), (), refs)
 
@@ -253,7 +247,7 @@ def _merge_results(first: GateResult, second: GateResult) -> GateResult:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="cf_spec_gate.py")
+    parser = argparse.ArgumentParser(prog=os.environ.get("CF_RUNTIME_COMMAND", "cf_spec_gate.py"))
     parser.add_argument("--task-dir", required=True)
     parser.add_argument("--stage", required=True)
     parser.add_argument("--task", default="")

@@ -12,4 +12,9 @@ specs/_session/
 worktrees/
 .task-projection-state.json
 .validation-cache.json
+backups/
+.artifact-hash-cache.json
+.runtime-install.json
+.runtime-migration.lock/
+.verifier-cache.json
 # <<< code-flow:runtime schema=1
