@@ -55,10 +55,11 @@ async def test_b111_large_result_persisted_not_in_prompt(
         tool_name="big_tool",
         result_text=result,
         user_id=USER_ID,
-        preview_limit=200,
+        preview_head_bytes=200,
+        preview_tail_bytes=0,
     )
     assert ref["artifact_id"]
-    assert len(ref["preview"]) == 200
+    assert ref["preview"].startswith("x" * 200)
     assert "x" * 200_000 not in ref["preview"]
     assert ref["checksum"].startswith("sha256:")
 

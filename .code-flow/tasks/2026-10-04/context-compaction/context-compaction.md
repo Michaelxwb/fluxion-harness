@@ -26,7 +26,7 @@
 | E-04 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：execution snapshot 的 `policy_json` | TASK-001 | verified | uv run pytest -q tests/agent_runtime/test_context_compaction_config.py | . | 600 |
 | B-01 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：消息组切分与头尾保留 | TASK-002 | verified | uv run pytest -q tests/agent_core/test_context_compactor.py | . | 600 |
 | B-03 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：micro 降级与占位符 | TASK-002 | verified | uv run pytest -q tests/agent_core/test_context_compactor.py | . | 600 |
-| B-02 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：整轮批次预算选取 | TASK-003 | planned | uv run pytest -q tests/agent_runtime/test_artifact_round_budget.py | . | 600 |
+| B-02 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：整轮批次预算选取 | TASK-003 | verified | uv run pytest -q tests/agent_runtime/test_artifact_round_budget.py | . | 600 |
 | B-04 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：摘要五字段精确校验 | TASK-004 | planned | uv run pytest -q tests/agent_runtime/test_context_summary.py | . | 600 |
 | E-02 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 | TASK-004 | planned | uv run pytest -q tests/agent_runtime/test_context_compaction_artifacts.py | . | 600 |
 | E-01 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：从 canonical_event 重建 | TASK-005 | planned | uv run pytest -q tests/agent_runtime/test_context_rebuild.py | . | 600 |
@@ -149,7 +149,7 @@
 
 ## TASK-003: 共享产物落盘原语：整轮批次预算 + 头尾预览（FEAT-02）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: context-compaction.design.md#2.3 功能方案, context-compaction.design.md#3.2 架构设计, context-compaction.design.md#3.5 质量实现方案
@@ -162,27 +162,39 @@
 
 ### Checklist
 
-- [ ] [B-02][unit] 先登记并编写 tests/agent_runtime/test_artifact_round_budget.py；真实边界：纯逻辑（选取序：按字节从大到小、进预算即停、恰好等于阈值不落盘）；验证设计约定并登记证据，记录 RED/GREEN
-- [ ] 扩 `apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py` 的 `ArtifactResultWriter` 为整轮批次口径；`TOOL_RESULT_ARTIFACT_BYTES` 保持**单一来源**（`tool_results.py:20`），executor 的外置判定与回执裁剪继续读同一常量
-- [ ] 预览改为头 `preview_head_bytes` + 尾 `preview_tail_bytes`（2000/2000），并保留既有"大结果外置不得截断内容投递类工具"的口径（`externalizable_result=False` 走 `MAX_INLINE_RESULT_BYTES`）
-- [ ] **不可变写**：`_write_immutable` 补存在性检查（同 `storage_key` 二次写入抛 `FileExistsError`），对齐 `packages/artifact-store/src/muad_artifact_store/nfs.py:21-39`；产物前缀显式声明（工具结果继续落 `tools/`，**不得**复用 `skills/`，否则会被 `cleanup_orphan_files` 误回收）
-- [ ] 整批中途失败回滚已写产物；DB 事务失败同步删除已写文件，不留孤儿
-- [ ] verifier harness-skill#RULE-skill-001：执行规范元数据的原始命令 `uv run pytest -q tests/test_skill_artifact_cache.py`，保持规范责任，记录门禁裁决
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [B-02][unit] 先登记并编写 tests/agent_runtime/test_artifact_round_budget.py；真实边界：纯逻辑（选取序：按字节从大到小、进预算即停、恰好等于阈值不落盘）；验证设计约定并登记证据，记录 RED/GREEN
+- [x] 扩 `apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py` 的 `ArtifactResultWriter` 为整轮批次口径；`TOOL_RESULT_ARTIFACT_BYTES` 保持**单一来源**（`tool_results.py:20`），executor 的外置判定与回执裁剪继续读同一常量
+- [x] 预览改为头 `preview_head_bytes` + 尾 `preview_tail_bytes`（2000/2000），并保留既有"大结果外置不得截断内容投递类工具"的口径（`externalizable_result=False` 走 `MAX_INLINE_RESULT_BYTES`）
+- [x] **不可变写**：`_write_immutable` 补存在性检查（同 `storage_key` 二次写入抛 `FileExistsError`），对齐 `packages/artifact-store/src/muad_artifact_store/nfs.py:21-39`；产物前缀显式声明（工具结果继续落 `tools/`，**不得**复用 `skills/`，否则会被 `cleanup_orphan_files` 误回收）
+- [x] 整批中途失败回滚已写产物；DB 事务失败同步删除已写文件，不留孤儿
+- [x] verifier harness-skill#RULE-skill-001：执行规范元数据的原始命令 `uv run pytest -q tests/test_skill_artifact_cache.py`，保持规范责任，记录门禁裁决
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-02 | unit | 纯函数（整轮批次选取） | 单条超阈值落盘；合计超预算时按字节从大到小、进预算即停；严格大于 | tests/agent_runtime/test_artifact_round_budget.py | uv run pytest -q tests/agent_runtime/test_artifact_round_budget.py | planned |
+| B-02 | unit | 纯函数（整轮批次选取）+ 真实临时产物根 | 单条超阈值落盘；合计超预算时按字节从大到小、进预算即停；严格大于 | tests/agent_runtime/test_artifact_round_budget.py | uv run pytest -q tests/agent_runtime/test_artifact_round_budget.py | verified |
 
 ### Acceptance Evidence
 
-> functional 的 RED/GREEN 与逐条断言证据由 `cf-task-start` 在编码期登记；全部 functional 状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-02 | **结构性 RED**：把 `select_round_persists` 改名后 `uv run pytest -q tests/agent_runtime/test_artifact_round_budget.py` → `1 error in 0.10s`（收集期 ImportError），逐字节还原后 14 passed。另做 **3 处扰动取证**：①阈值判据由 `>` 改 `>=` ⇒ 1 failed；②`persist_round_results_with_session` 去掉回滚 ⇒ 1 failed；③`_write_immutable` 去掉存在性检查 ⇒ 1 failed。 | 14 passed（本文件） | `test_b02_single_item_over_threshold_is_always_persisted`、`test_b02_threshold_boundary_is_strict`、`test_b02_within_round_budget_persists_nothing`、`test_b02_round_budget_persists_largest_first_and_stops_in_budget`、`test_b02_over_threshold_items_come_first_and_are_never_second_guessed`、`test_b02_selection_is_deterministic_on_equal_sizes`、`test_b02_oversized_round_never_drops_below_budget_when_it_cannot`、`test_b02_preview_keeps_head_and_tail`、`test_b02_preview_is_byte_based_and_never_splits_a_character`、`test_b02_preview_returns_text_verbatim_when_it_fits`、`test_rule_artifact_write_is_immutable`、`test_db_failure_removes_the_written_file`、`test_round_batch_rolls_back_every_file_it_wrote`、`test_round_batch_persists_every_selected_result` | 选取是**纯函数**：`{"a":5000,"b":4000,"c":3000,"d":1000}` 合计 13000，预算 6000 ⇒ 落 `a,b`（进预算即停）；预算 9000 ⇒ 只落 `a`；恰好等于 8 KiB 阈值**不**落盘。落盘侧用**真实临时产物根 + 真实文件系统**：同 key 二次写入抛 `FileExistsError` 且既有产物一字不动；DB 第 2 次 commit 失败时**本批两个文件都不留**（`session.commits == 2` 证明真写到了第 2 条，非空转）；产物前缀是 `tools/<tenant>/…`，未复用 `skills/`。 | verified |
+
+**规范责任（harness-skill#RULE-skill-001）verifier 实测**：`uv run pytest -q tests/test_skill_artifact_cache.py` → 见任务收尾的 Done Gate 记录（本任务 Done Gate 范围内执行）。
+
+**回归**：`uv run pytest -q tests/agent_runtime tests/agent_core tests/test_skill_artifact_cache.py` → **408 passed**；`ruff check`（改动文件）与 `uv run mypy apps packages`（291 files）均 clean。
+
+**范围说明**：本任务交付的是**落盘原语**（整轮选取 + 头尾预览 + 不可变写 + 整批回滚）。把"工具回合结束时按整轮判定"接进 `ToolCallRecorder`／runner 的回合循环属于**接线**，随 TASK-006 一并落地——那里才有回合边界（`Runner` 的 `_execute_tools` 逐 call 分派，单次调用看不到整轮）。
+- B-02: verified — automated command passed; run_id=98ee1fb9013a41cc9e22e8d4d77030f9 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-04] created (draft)
+- [2026-10-04] started
+- [2026-10-04] 实现：`tool_results.py` 增 `select_round_persists`（整轮批次纯选取）、`preview_head_tail`（按字节头尾预览，不切断多字节字符）、`_write_immutable` 补 `FileExistsError` 存在性检查、`persist_round_results_with_session`（整批 + 中途失败回滚）。`preview_limit`（头部 200 字符）由 `preview_head_bytes`/`preview_tail_bytes`（2000/2000）取代。B-02 14 passed；4 处取证（1 结构性 RED + 3 扰动）全部复现后还原复绿。
+- [2026-10-04] completed (done)
 
 ---
 

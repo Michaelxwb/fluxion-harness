@@ -130,7 +130,7 @@
       "kind": "functional",
       "boundary": "纯逻辑：整轮批次预算选取",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -140,7 +140,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "98ee1fb9013a41cc9e22e8d4d77030f9",
+        "executed_at": "2026-10-04T10:18:53.190161+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "98ee1fb9013a41cc9e22e8d4d77030f9",
+          "executed_at": "2026-10-04T10:18:53.190161+00:00"
+        }
+      ]
     },
     {
       "id": "B-04",
