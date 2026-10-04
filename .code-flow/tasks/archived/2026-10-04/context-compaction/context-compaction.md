@@ -47,7 +47,7 @@
 
 ## TASK-001: 压缩配置载体、冻结与读取（FEAT-07）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**:
 - **Source**: context-compaction.design.md#2.3 功能方案, context-compaction.design.md#3.4 接口设计, context-compaction.design.md#4 部署与运维
@@ -88,6 +88,7 @@
 2. design §2.3/§3.4 补上 `snip.keep_tail_groups`（默认 20）并明确 `max_groups` 是**触发阈值**——原字段约束表引用了 `keep_tail_groups` 但示例 JSON 与字段行都缺它。
 - E-04: verified — automated command passed; run_id=49092492ce474f52ba642f9ebce7b19c (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
 
 ### Log
 
@@ -100,7 +101,7 @@
 
 ## TASK-002: 压缩纯逻辑：字节统计 + snip + micro（FEAT-01/03）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: context-compaction.design.md#2.3 功能方案, context-compaction.design.md#3.1 方案选型, context-compaction.design.md#3.2 架构设计
@@ -145,6 +146,7 @@
 - B-01: verified — automated command passed; run_id=a9192e8c6563494cb64aa78ae9825ce3 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=a9192e8c6563494cb64aa78ae9825ce3 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
 
 ### Log
 
@@ -157,7 +159,7 @@
 
 ## TASK-003: 共享产物落盘原语：整轮批次预算 + 头尾预览（FEAT-02）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: context-compaction.design.md#2.3 功能方案, context-compaction.design.md#3.2 架构设计, context-compaction.design.md#3.5 质量实现方案
@@ -197,6 +199,7 @@
 **范围说明**：本任务交付的是**落盘原语**（整轮选取 + 头尾预览 + 不可变写 + 整批回滚）。把"工具回合结束时按整轮判定"接进 `ToolCallRecorder`／runner 的回合循环属于**接线**，随 TASK-006 一并落地——那里才有回合边界（`Runner` 的 `_execute_tools` 逐 call 分派，单次调用看不到整轮）。
 - B-02: verified — automated command passed; run_id=98ee1fb9013a41cc9e22e8d4d77030f9 (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
 
 ### Log
 
@@ -209,7 +212,7 @@
 
 ## TASK-004: 摘要层、SummaryPort 与 transcript（FEAT-04）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
 - **Source**: context-compaction.design.md#2.3 功能方案, context-compaction.design.md#3.3 数据设计, context-compaction.design.md#3.4 接口设计, context-compaction.design.md#3.5 质量实现方案
@@ -263,6 +266,8 @@
 - E-02: verified — automated command passed; run_id=842f5139a86d47ff9bd8ffaff587efca (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
 
 ### Log
 
@@ -276,7 +281,7 @@
 
 ## TASK-005: 压缩审计事件与确定性重建（FEAT-05/08）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-004
 - **Source**: context-compaction.design.md#2.3 功能方案, context-compaction.design.md#3.3 数据设计, context-compaction.design.md#3.5 质量实现方案
@@ -323,6 +328,8 @@
 - E-03: verified — automated command passed; run_id=76252aca1d0c43659c06d104da2fa4e5 (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
 
 ### Log
 
@@ -335,7 +342,7 @@
 
 ## TASK-006: 接线请求构建缝与端到端验收（FEAT-01..05 串联）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003, TASK-004, TASK-005
 - **Source**: context-compaction.design.md#3.1 方案选型, context-compaction.design.md#3.2 架构设计, context-compaction.design.md#2.5.2 验收场景
@@ -369,6 +376,8 @@
 | S-01 | 不制造 RED（验收类基线：E2E 由 `cf_acceptance_runner --include-e2e` 统一执行） | pending（延后 verify-e2e） | `test_s01_compaction_composes_on_the_real_chain`：省略标记出现在探针记录的真实请求体里 / `OPENING` 仍在 / `FOLLOW_UP` 仍在 / `_assert_no_orphan_tools` 按序校验 tool_call_id / `count(canonical_event where event_type='CONTEXT_COMPACTED') ≥ 1` | 真实 WS 探针推入站帧 → 真实 Gateway → 真实 Runtime → 真实 PG → 真实 `tests/e2e/openai_probe_app.py`（`GET /requests` 回放每次真实请求体） | e2e_deferred |
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=1c882addab1d45d8a90dc139179f377d (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=6fffe21ce2f04eb9bcb39ad954ad0475 (confirmed_by: runner)
 
 ### Log
 - [2026-10-04] **接线完成（本轮）**：
@@ -399,7 +408,7 @@
 
 ## TASK-007: 压缩指标（FEAT-06）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-003, TASK-004
 - **Source**: context-compaction.design.md#3.5 质量实现方案, context-compaction.design.md#2.5.2 验收场景
@@ -436,6 +445,7 @@
 **另外两条 checklist 的取证方式**：①「带 label 的计数器只进 `/metrics`、不写结构化 metric 日志」——api-kit 的 `MetricsRegistry` 只维护进程内字典与 HELP/TYPE，全程无日志调用（`packages/api-kit/src/muad_api/metrics.py`）；②「不得进入热点路径的额外 IO」——记录点是 `inc_counter`（加锁累加），且只在**请求/回合收口处**逐层记一次，不逐条消息、不查库。
 - E-05: verified — automated command passed; run_id=98dfad9e5ee94106b59aaf0bd1f06c5e (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
 
 ### Log
 
@@ -447,7 +457,7 @@
 - [2026-10-04] 实现：`metrics.py` 新增四个计数器（`context_compaction_total{layer,status}`、`context_compaction_bytes_saved_total{layer}`、`context_summary_total{status}`、`context_summary_tokens_total`，token 记在 **amount** 不进 label）并进 `CATALOG`；`context_compaction.py` 在收口处逐层记 CPU 无关的计数与省下字节，摘要层记 `OK`/`REJECTED`/`FAILED` 三种结局，整段退化路径记 `{layer="*",status="FAILED"}`（失败不静默）；token 用量记在**发起调用的一侧**（`make_summary_runner`，那里才有 `ModelResponse` 的 usage），且无论采不采用都记（钱已经花了）。回归 `tests/agent_core tests/agent_runtime tests/architecture tests/sdk` → **582 passed**；ruff / mypy(297 files) clean。
 ## TASK-008: memory 预算与 micro 豁免（FEAT-09）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-006
 - **Source**: context-compaction.design.md#2.3 功能方案, context-compaction.design.md#2.5.2 验收场景
@@ -486,6 +496,7 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 **既有用例的收口（8 条，**断言一个字没改**）**：6 条注入上限用例（`test_context_memory.py`）的夹具补了 15KB 历史，使 `0.2 × 15KB > 2048` ⇒ 生效上限回到硬上限，它们验的「条数/字节硬上限」才轮得到；1 条（`test_memory_observability.py`）同型补历史，并把 `canonical_event` 加进该文件的清理夹具（**清扫范围必须覆盖写入范围**，否则每跑一次残留几行——本仓库踩过）。剩下 1 条是本任务自己的收紧腿，按新口径改成「只剩下限那一条」。
 - E-06: verified — automated command passed; run_id=959664b3832b43dc9e0136b43aa41bf4 (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
 
 ### Log
 - [2026-10-04] **按用户选定的下限口径收口**（比例可收紧到「一条」，但永不收紧到零）：`_load_memory` 改成「第一条永远进，之后按 `min(2048, ratio × 历史字节)` 累加、触顶即停」。8 条既有失败修掉 7 条——其中 6 条是 `test_context_memory.py` 的注入上限用例，给它们的夹具补了一段 15KB 历史（`0.2 × 15KB > 2048` ⇒ 生效上限回到硬上限 2048，**断言一个字没改**；理由写进了`_seed_injection_tenant` 的注释）。
@@ -507,7 +518,7 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 - [2026-10-04] 最后一条既有用例（`test_memory_metrics_cover_write_inject_and_recall`）按同型修：补 15KB 历史 + 清理夹具加 `canonical_event`（用户 2026-10-04 选定「按同型修，补清理夹具」）。
 ## TASK-009: 收口清单与需求级终验
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-010, TASK-011, TASK-012
 - **Source**: context-compaction.design.md#Spec Compliance Matrix, context-compaction.design.md#3.1 方案选型
@@ -569,6 +580,7 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 **⚠️ 本轮由终验照出的两个真问题**（已修，详见 Log）：S-01 从 TASK-006 登记后**从没跑过**（E2E 一律延后到需求级），一跑就暴露「漏 WS 连接同步点」与「snip 配置非法导致 Run 压根建不起来」。这与归档需求「TASK-004 的 E2E 从没跑过、帧形状错」是同一类盲区：**登记 ≠ 跑过**。
 - E-09: failed — automated command failed; run_id=e375c75fdcca486781b504dc21520af1 (confirmed_by: runner)
 - E-09: verified — automated command passed; run_id=85005635b015485b9b82663c90e6e7b7 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
 
 ### Log
 - [2026-10-04] **acceptance 全量复跑：287 passed（16:13）** —— 上一轮 286 passed 里唯一挂的 S-01 已修好并通过；这条即 `RULE-test-001` 关节 argv 的第一条腿。
@@ -591,7 +603,7 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 
 ## TASK-010: snip 尾部锚定当前回合（当前问题不被省略）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: context-compaction.design.md#2.2 功能需求, context-compaction.design.md#3.2 架构设计
@@ -629,6 +641,7 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 **既有断言迁移**（语义变化的直接后果，逐条已核对不是放宽）：`test_b01_snip_keeps_head_and_tail_and_counts_omitted_groups`、`test_b01_snip_is_off_at_or_below_the_threshold`、`test_rule01_assistant_with_tool_calls_survives_its_result`、`test_rule02_snip_reports_real_byte_savings`、`test_outcome_payload_shape_matches_audit_event`、`test_snip_never_counts_or_omits_the_protected_prefix` —— 夹具从"单回合"(`_messages()`) 换成有历史的 `_conversation()`：单回合在新口径下**没有可省的历史**（旧断言断的正是"省掉当前回合的工具组"这件事本身）。
 - B-01: verified — automated command passed; run_id=4533d6e75dce45daa740f741ff7d9189 (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
 
 ### Log
 
@@ -641,7 +654,7 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 
 ## TASK-011: 工具结果的整轮批次预算接进回合循环
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-006
 - **Source**: context-compaction.design.md#3.2 架构设计（ADR-04）, context-compaction.design.md#2.5.2 验收场景
@@ -680,6 +693,7 @@ TASK-003 交付了 `select_round_persists`（整轮选取，纯逻辑）与 `Art
 **顺带修掉一处「整批」名不副实**：`ArtifactResultWriter` 原先**逐条 commit**，中途失败时文件回滚了、已提交的行却留在库里指向已删文件。现改为整批只在最后提交一次（单条路径由调用方提交），失败时行与文件一起退场 —— B-02 的回滚用例随注入点改成「第 2 条插行时失败」（`_StubSession` 新增 `fail_on_add`，并断言 `commits == 0`）。
 - E-07: verified — automated command passed; run_id=3ceab6c1eb2143139edabbdb66d99ee4 (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
 
 ### Log
 
@@ -694,7 +708,7 @@ TASK-003 交付了 `select_round_persists`（整轮选取，纯逻辑）与 `Art
 
 ## TASK-012: 外置过的工具结果可从 canonical 行逐字节重建
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-011
 - **Source**: context-compaction.design.md#3.2 架构设计（ADR-05）, context-compaction.design.md#3.3 数据设计, context-compaction.design.md#2.5.2 验收场景
@@ -735,6 +749,7 @@ FEAT-08 承诺"重建的那份 == 当时真正发给模型的那份"，但**外�
 **顺带退场的死配置**：`BudgetPolicy.preview_max`（400 字二次截断）随"不再截断"一起删除——保留它既没有读者，也会让重建与实发不等。
 - E-08: verified — automated command passed; run_id=522b6534e7444df991ced1ff0329b9f4 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=4089a919733a400bb15bb972779d1a3a (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=02d36e0aa6b94d41a65f876a5c79d6a2 (confirmed_by: runner)
 
 ### Log
 

@@ -1,7 +1,7 @@
 version: 1
 task: context-compaction
 enforcement: required
-updated_at: '2026-10-04T11:41:29.190082+00:00'
+updated_at: '2026-10-04T12:59:34.248963+00:00'
 sources:
 - type: cli
   ref: bind
@@ -36,7 +36,7 @@ bindings:
         - artifact: context-compaction.design.md
           section_id: 3.2 架构设计
           item_id: rebuild-and-shared-store
-          artifact_sha256: bfedd348d2a35413b90e78aedcfb1f9374661474b4a7d24103c4c2435c912ef2
+          artifact_sha256: 714f6db513b6b5a1b704e282cea8cef3f8d0f641670527ab6e639db600476786
         decision: null
         evidence: []
       plan:
@@ -45,11 +45,11 @@ bindings:
         - artifact: context-compaction.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 4b4f417284690bc71c0f361cc78feb6897f76aa39f68d2cd3fea4340976e40eb
+          artifact_sha256: 1fa381c593d34ccfa4dd7401bada37578640a2ba6e7eaf1fbf746afd8da0309c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -277,6 +277,29 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-04T13:19:28.940615+00:00'
+          status: verified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: head:fa952930d8c127b2303b280e54d5845bb766faae
+          result_sha256: 0aaee6aea87bd86385e66f79f1363c7382dbc5c650e1b615fb7e8d281fef7670
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: bf48980610a85178b9939bd2618a652b052101950d7b0efac57baa7055612788
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.................................                                        [100%]
+
+              33 passed in 0.69s
+
+              '
       review:
         status: pending
         refs: []
@@ -313,7 +336,7 @@ bindings:
         - artifact: context-compaction.design.md
           section_id: 3.3 数据设计
           item_id: canonical_event-and-artifact
-          artifact_sha256: bfedd348d2a35413b90e78aedcfb1f9374661474b4a7d24103c4c2435c912ef2
+          artifact_sha256: 714f6db513b6b5a1b704e282cea8cef3f8d0f641670527ab6e639db600476786
         decision: null
         evidence: []
       plan:
@@ -322,11 +345,11 @@ bindings:
         - artifact: context-compaction.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 4b4f417284690bc71c0f361cc78feb6897f76aa39f68d2cd3fea4340976e40eb
+          artifact_sha256: 1fa381c593d34ccfa4dd7401bada37578640a2ba6e7eaf1fbf746afd8da0309c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -542,6 +565,35 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-04T13:19:34.805697+00:00'
+          status: verified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: head:fa952930d8c127b2303b280e54d5845bb766faae
+          result_sha256: 8d5002295cc28fd6f1b261fb050807edbd34ce134a0e8ba6beec3271a5e6de4e
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: 7bb7fb36ccd41bc6938eb1091b94f2385e27ab06bdebdcf4877cdac49812b537
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "...................................                         \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              35 passed, 2118 deselected, 1 warning in 5.05s\n"
       review:
         status: pending
         refs: []
@@ -577,7 +629,7 @@ bindings:
         - artifact: context-compaction.design.md
           section_id: Spec Compliance Matrix
           item_id: mcp-unified-registry
-          artifact_sha256: bfedd348d2a35413b90e78aedcfb1f9374661474b4a7d24103c4c2435c912ef2
+          artifact_sha256: 714f6db513b6b5a1b704e282cea8cef3f8d0f641670527ab6e639db600476786
         decision: null
         evidence: []
       plan:
@@ -586,11 +638,11 @@ bindings:
         - artifact: context-compaction.md
           section_id: TASK-011
           item_id: TASK-011
-          artifact_sha256: 4b4f417284690bc71c0f361cc78feb6897f76aa39f68d2cd3fea4340976e40eb
+          artifact_sha256: 1fa381c593d34ccfa4dd7401bada37578640a2ba6e7eaf1fbf746afd8da0309c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -731,6 +783,29 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-04T13:19:35.764442+00:00'
+          status: verified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: head:fa952930d8c127b2303b280e54d5845bb766faae
+          result_sha256: 723a36d5fd2588e788ae97c8fd6f5bde6a2971215c3481dba4c41467e498e4d8
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_mcp/test_mcp_rules.py
+            exit_code: 0
+            stdout_sha256: e0a6ea218ea5d725ce7272da8d68d45a029e489423e03af6960c7bff0f7fe414
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 0.01s
+
+              '
       review:
         status: pending
         refs: []
@@ -766,7 +841,7 @@ bindings:
         - artifact: context-compaction.design.md
           section_id: 3.4 接口设计
           item_id: summary.model_ref
-          artifact_sha256: bfedd348d2a35413b90e78aedcfb1f9374661474b4a7d24103c4c2435c912ef2
+          artifact_sha256: 714f6db513b6b5a1b704e282cea8cef3f8d0f641670527ab6e639db600476786
         decision: null
         evidence: []
       plan:
@@ -775,11 +850,11 @@ bindings:
         - artifact: context-compaction.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 4b4f417284690bc71c0f361cc78feb6897f76aa39f68d2cd3fea4340976e40eb
+          artifact_sha256: 1fa381c593d34ccfa4dd7401bada37578640a2ba6e7eaf1fbf746afd8da0309c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -995,6 +1070,32 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-04T13:19:38.917028+00:00'
+          status: verified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: head:fa952930d8c127b2303b280e54d5845bb766faae
+          result_sha256: eb4f3d77bbebd895b6aac65c5bc8ccb7359ac1276ef4cd06a2c0a16ad4313548
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/console_platform/test_models_api.py && uv run
+              pytest -q tests/console_platform/test_agents_api.py -k disabled
+            exit_code: 0
+            stdout_sha256: 54400800b13e2a30135823bb71771752af39841f51a394eb89cc953b737ebd32
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........                                                                 [100%]
+
+              8 passed in 0.95s
+
+              .                                                                        [100%]
+
+              1 passed, 10 deselected in 0.23s
+
+              '
       review:
         status: pending
         refs: []
@@ -1031,7 +1132,7 @@ bindings:
         - artifact: context-compaction.design.md
           section_id: 3.5 质量实现方案
           item_id: no-new-egress
-          artifact_sha256: bfedd348d2a35413b90e78aedcfb1f9374661474b4a7d24103c4c2435c912ef2
+          artifact_sha256: 714f6db513b6b5a1b704e282cea8cef3f8d0f641670527ab6e639db600476786
         decision: null
         evidence: []
       plan:
@@ -1040,11 +1141,11 @@ bindings:
         - artifact: context-compaction.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 4b4f417284690bc71c0f361cc78feb6897f76aa39f68d2cd3fea4340976e40eb
+          artifact_sha256: 1fa381c593d34ccfa4dd7401bada37578640a2ba6e7eaf1fbf746afd8da0309c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1273,6 +1374,30 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-04T13:19:41.193460+00:00'
+          status: verified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: head:fa952930d8c127b2303b280e54d5845bb766faae
+          result_sha256: 95a42133d4b4c277d423c07a20badc46cc58dbf170ce773da871eba259e9c39f
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: c025d8b8ff3377b9f2ce3141ba09e44e2e7a1d6a9689507ed9ab5051313f228a
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 0.90s
+
+              '
       review:
         status: pending
         refs: []
@@ -1313,7 +1438,7 @@ bindings:
         - artifact: context-compaction.design.md
           section_id: 3.5 质量实现方案
           item_id: artifact-immutable-write
-          artifact_sha256: bfedd348d2a35413b90e78aedcfb1f9374661474b4a7d24103c4c2435c912ef2
+          artifact_sha256: 714f6db513b6b5a1b704e282cea8cef3f8d0f641670527ab6e639db600476786
         decision: null
         evidence: []
       plan:
@@ -1322,11 +1447,11 @@ bindings:
         - artifact: context-compaction.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 4b4f417284690bc71c0f361cc78feb6897f76aa39f68d2cd3fea4340976e40eb
+          artifact_sha256: 1fa381c593d34ccfa4dd7401bada37578640a2ba6e7eaf1fbf746afd8da0309c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1554,6 +1679,29 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-04T13:19:41.538794+00:00'
+          status: verified
+          rule_text_sha256: 27d60d2926408a023dd7e0fb752d69b924b80ac83118ec89f1c50e4332221235
+          artifact_sha256: null
+          diff_sha256: head:fa952930d8c127b2303b280e54d5845bb766faae
+          result_sha256: 2abdec2fae9882af0417f3735d2c6bc36135d9b00ff62182b9485603d8168ac2
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_skill_artifact_cache.py
+            exit_code: 0
+            stdout_sha256: 99cef98de12a8b8a90abbcb2033d076bfc563ea7951d4da90263da27288d16f6
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.02s
+
+              '
       review:
         status: pending
         refs: []
@@ -1591,7 +1739,7 @@ bindings:
         - artifact: context-compaction.design.md
           section_id: 3.4 接口设计
           item_id: budget.compaction
-          artifact_sha256: bfedd348d2a35413b90e78aedcfb1f9374661474b4a7d24103c4c2435c912ef2
+          artifact_sha256: 714f6db513b6b5a1b704e282cea8cef3f8d0f641670527ab6e639db600476786
         decision: null
         evidence: []
       plan:
@@ -1600,11 +1748,11 @@ bindings:
         - artifact: context-compaction.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 4b4f417284690bc71c0f361cc78feb6897f76aa39f68d2cd3fea4340976e40eb
+          artifact_sha256: 1fa381c593d34ccfa4dd7401bada37578640a2ba6e7eaf1fbf746afd8da0309c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1820,6 +1968,32 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-04T13:19:44.151021+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: head:fa952930d8c127b2303b280e54d5845bb766faae
+          result_sha256: 574af9b643cee18d10e3247446093e12c9ccaa8e6da65ea9323689bb056d30f9
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 06fb74b074626007fdbd69362f3b1caaa3d59a26e3f5caf6d45ab1a1826f4e4a
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.30s
+
+              ......................                                                   [100%]
+
+              22 passed, 322 deselected in 0.79s
+
+              '
       review:
         status: stale
         refs: []
@@ -1855,7 +2029,7 @@ bindings:
         - artifact: context-compaction.design.md
           section_id: 2.5.2 验收场景
           item_id: S-01/E-01/B-01
-          artifact_sha256: bfedd348d2a35413b90e78aedcfb1f9374661474b4a7d24103c4c2435c912ef2
+          artifact_sha256: 714f6db513b6b5a1b704e282cea8cef3f8d0f641670527ab6e639db600476786
         decision: null
         evidence: []
       plan:
@@ -1864,11 +2038,11 @@ bindings:
         - artifact: context-compaction.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 4b4f417284690bc71c0f361cc78feb6897f76aa39f68d2cd3fea4340976e40eb
+          artifact_sha256: 1fa381c593d34ccfa4dd7401bada37578640a2ba6e7eaf1fbf746afd8da0309c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -2084,6 +2258,64 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-04T13:35:48.714035+00:00'
+          status: verified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: head:fa952930d8c127b2303b280e54d5845bb766faae
+          result_sha256: 2bd95e83b768cf159b15e8edd3f1b5fd458d06ba465303a15c43e25d866d0020
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend
+              run build && npm --prefix e2e test
+            exit_code: 0
+            stdout_sha256: 9f7928bd09d942fde570d93b02d4f92ba02fed133b090faf55f579455d7c038e
+            stderr_sha256: dda444ac47993f39cfc960cd82f715295ea0d1c351fffd1a0eaab91695a4879c
+            output: "\n> muad-console-web@0.1.0 typecheck\n> tsc --noEmit\n\nvite\
+              \ v5.4.21 building for production...\ntransforming...\n✓ 3439 modules\
+              \ transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html\
+              \                     0.44 kB │ gzip:   0.30 kB\ndist/assets/index-CoC-ySjH.css\
+              \    715.84 kB │ gzip:  83.55 kB\ndist/assets/index-lc7t-nCp.js   1,683.18\
+              \ kB │ gzip: 476.40 kB\n✓ built in 2.75s\n\n> fluxion-harness-e2e@0.1.0\
+              \ test\n> playwright test\n\n\nRunning 4 tests using 1 worker\n\n  ✓\
+              \  1 tests/foundation.spec.ts:17:1 › S-03 切到 English 后触发错误时页面文案与后端 msg\
+              \ 同步为 en-US (872ms)\n  ✓  2 tests/foundation.spec.ts:36:1 › S-12 切换模块路由时\
+              \ Layout 不重建且菜单选中正确 (357ms)\n  ✓  3 tests/foundation.spec.ts:52:1 ›\
+              \ S-13 切换 English 后刷新语言保持且请求带 X-Locale=en-US (404ms)\n  ✓  4 tests/foundation.spec.ts:64:1\
+              \ › E-09 会话失效访问业务页跳转登录并保留 returnUrl，不渲染业务数据 (287ms)\n\n  4 passed (3.7s)\n\
+              [plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter]\
+              \ [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n\n(!) Some\
+              \ chunks are larger than 500 kB after minification. Consider:\n- Using\
+              \ dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n\
+              [WebServer] INFO:     Started server process [30290]\n[WebServer] INFO:\
+              \     Waiting for application startup.\n[WebServer] INFO:     Application\
+              \ startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4173\
+              \ (Press CTRL+C to quit)\n"
       review:
         status: pending
         refs: []
@@ -2120,7 +2352,7 @@ bindings:
         - artifact: context-compaction.design.md
           section_id: 3.1 方案选型
           item_id: ADR-01
-          artifact_sha256: bfedd348d2a35413b90e78aedcfb1f9374661474b4a7d24103c4c2435c912ef2
+          artifact_sha256: 714f6db513b6b5a1b704e282cea8cef3f8d0f641670527ab6e639db600476786
         decision: null
         evidence: []
       plan:
@@ -2129,11 +2361,11 @@ bindings:
         - artifact: context-compaction.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 4b4f417284690bc71c0f361cc78feb6897f76aa39f68d2cd3fea4340976e40eb
+          artifact_sha256: 1fa381c593d34ccfa4dd7401bada37578640a2ba6e7eaf1fbf746afd8da0309c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -2349,6 +2581,53 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-04T13:36:11.219143+00:00'
+          status: verified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: head:fa952930d8c127b2303b280e54d5845bb766faae
+          result_sha256: 62522321419f34a725dadb5c2ab1dc15d205ed79703970d4b26584dffc876cc3
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
+            exit_code: 0
+            stdout_sha256: 1ccd506bb2acb6b8e7a65f4050e351648adbe65372e7bf37071948b0e94062a6
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 29%]
+
+              ........................................................................
+              [ 58%]
+
+              ........................................................................
+              [ 88%]
+
+              .............................                                            [100%]
+
+              245 passed in 10.99s
+
+              ........................................................................
+              [ 21%]
+
+              ........................................................................
+              [ 42%]
+
+              ........................................................................
+              [ 64%]
+
+              ........................................................................
+              [ 85%]
+
+              ................................................                         [100%]
+
+              336 passed in 9.38s
+
+              '
       review:
         status: pending
         refs: []
