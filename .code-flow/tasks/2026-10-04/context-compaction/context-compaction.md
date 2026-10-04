@@ -15,7 +15,8 @@
   - **压缩只覆盖 Runtime 同步 Run**：代码事实是 `AgentRunner` 全仓只有 `apps/agent-runtime/.../executor.py:771` 一处构造，`apps/agent-worker` 只 import `muad_agent_core.skill`、不构建模型请求。design 早先"Runtime 与 Worker 共用压缩链路"的表述已按代码事实改写；`harness-worker` 绑定保留，由 TASK-009 以「Worker 路径不引入压缩」的对照断言承接，**本需求不新增 worker 代码**（用户 2026-10-04 选定）。
   - **补 E-05/E-06 两条 integration 场景**：FEAT-06（指标）与 FEAT-09（memory 预算）原无验收场景，已按用户决定回填 design §2.5.2（用户 2026-10-04 选定）。
 - **Non-goals**: Console 系统设置页（需求二）；上下文膨胀看板；非 OpenAI 兼容模型的精确 token 计数；跨会话记忆压缩；"prompt too long" 响应式恢复；Worker 侧压缩。
-- **Acceptance**: 11 条场景（B-01/02/03/04、E-01..06、S-01）+ 6 条业务规则（RULE-01..06）全部有唯一负责人与可执行命令。
+- **Acceptance**: 12 条场景（B-01/02/03/04、E-01..07、S-01）+ 6 条业务规则（RULE-01..06）全部有唯一负责人与可执行命令。
+- **补两条（2026-10-04，TASK-006 收尾时发现）**：① snip 的尾部窗口不锚定最近一条 user 消息 ⇒ 当前正在回答的问题可能被省略（B-01 语义收紧，终验责任转 TASK-010）；② TASK-003 的整轮批次原语从无调用方 ⇒ FEAT-02 在功能上没闭环（新增 E-07，TASK-011 按 ADR-04 把判定单元从单条改成回合）。
 
 ---
 
@@ -24,7 +25,7 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout |
 |---|---|---|---|---|---|---|---|---|
 | E-04 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：execution snapshot 的 `policy_json` | TASK-001 | verified | uv run pytest -q tests/agent_runtime/test_context_compaction_config.py | . | 600 |
-| B-01 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：消息组切分与头尾保留 | TASK-002 | verified | uv run pytest -q tests/agent_core/test_context_compactor.py | . | 600 |
+| B-01 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：消息组切分与头尾保留（尾部锚定最近一条 user 组） | TASK-010 | planned | uv run pytest -q tests/agent_core/test_context_compactor.py | . | 600 |
 | B-03 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：micro 降级与占位符 | TASK-002 | verified | uv run pytest -q tests/agent_core/test_context_compactor.py | . | 600 |
 | B-02 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：整轮批次预算选取 | TASK-003 | verified | uv run pytest -q tests/agent_runtime/test_artifact_round_budget.py | . | 600 |
 | B-04 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：摘要五字段精确校验 | TASK-004 | verified | uv run pytest -q tests/agent_runtime/test_context_summary.py | . | 600 |
@@ -34,8 +35,11 @@
 | E-05 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | TASK-007 | planned | uv run pytest -q tests/agent_runtime/test_context_metrics.py | . | 600 |
 | E-06 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实请求装配 → 模型 HTTP 探针 | TASK-008 | planned | uv run pytest -q tests/agent_runtime/test_context_memory_budget.py | . | 600 |
 | S-01 | context-compaction.design.md#2.5.2 验收场景 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | . | 1200 |
+| E-07 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | TASK-011 | planned | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py | . | 600 |
 
-> 本表覆盖 design §2.5.2 全部 11 条场景（B-01..04、E-01..06、S-01，含本次回填的 E-05/E-06）与 §2.5.1 全部 6 条业务规则（RULE-01..06 的负责人见各 TASK 的 Acceptance-Refs）。
+> 本表覆盖 design §2.5.2 全部 **12** 条场景（B-01..04、E-01..07、S-01，含回填的 E-05/E-06 与本次新增的 E-07）与 §2.5.1 全部 6 条业务规则（RULE-01..06 的负责人见各 TASK 的 Acceptance-Refs）。
+>
+> **B-01 的所有权于 2026-10-04 由 TASK-002 转给 TASK-010**：snip 的语义新增"尾部锚定最近一条 `user` 组"（design §2.2 FEAT-01 / §3.2），TASK-002 交付的断言按新语义需要重写，故终验责任人随之转移（TASK-002 段落下的旧记录保留，但不再代表当前口径）。
 
 ---
 
@@ -459,7 +463,7 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 
 - **Status**: draft
 - **Priority**: P0
-- **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008
+- **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-010, TASK-011
 - **Source**: context-compaction.design.md#Spec Compliance Matrix, context-compaction.design.md#3.1 方案选型
 - **Spec-Refs**: harness-test#RULE-test-001, harness-worker#RULE-worker-001
 - **Acceptance-Refs**: N/A
@@ -487,6 +491,84 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 ### Acceptance Evidence
 
 > 收口清单与需求级终验证据由本任务在收尾期登记；RULE 行按 owner 回填。
+
+### Log
+
+- [2026-10-04] created (draft)
+
+---
+
+## TASK-010: snip 尾部锚定当前回合（当前问题不被省略）
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-002
+- **Source**: context-compaction.design.md#2.2 功能需求, context-compaction.design.md#3.2 架构设计
+- **Spec-Refs**:
+- **Acceptance-Refs**: B-01
+
+### Description
+
+`snip` 的尾部窗口只按**组数**保留（`keep_tail_groups`，默认 20），**不锚定最近一条 `user` 消息**：一个回合内的工具轮次超过该窗口时，**当前正在回答的那个问题**会落进省略区，模型只看到一串工具名 —— 它得靠猜来回答。这与条数兜底"从最近一条 USER 起切"是同一条口径，却只有条数兜底实现了它（口径不对称是 TASK-006 收尾时发现的）。
+
+本任务把 snip 的尾部下界钉在"最近一条 `user` 消息所在的组"：**当前回合（从最近一条 user 起到末尾）永远全保**，中间只省得更早的历史。`max_groups` 仍是触发阈值不是保留总数；当对话区里除了头 N 组就只剩当前回合时，没有可省的历史 ⇒ **不触发**（层未触发时输出仍是净化后的输入，不得凭空插入标记）。
+
+### Checklist
+
+- [ ] [B-01][unit] 先写 RED：对话区 = 1 条 user + 超过尾窗口的工具组，断言"当前回合的每一组都还在"；现行实现必然红（会省掉中间的工具组），记录失败命令与原因
+- [ ] [B-01][unit] 三面对照：① 最近一条 user 组落在尾窗口之外 ⇒ 下界扩到它、被省的只剩更早的历史；② 它已在头 N 组内 ⇒ 行为与现行完全一致（不因锚定多留）；③ 对话区只有当前回合 ⇒ **不触发**（`fired is False`、输出逐字节等于净化后的输入）
+- [ ] [B-01][unit] 边界：历史里**一个 user 组都没有**（纯工具回合）⇒ 退化为按组数的原口径，不抛错；标记按组报数、无孤儿 TOOL（既有断言不得回退）
+- [ ] 实现：`snip` 的尾部下界取 `min(尾窗口下界, 最近一条 user 组下标)`，省略区为空则不触发；`keep_tail_groups` 的语义在配置表里写明"下界受最近一条 user 组限制"
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-01 | unit | 纯逻辑：消息组切分与头尾保留 | 头 N 组与当前回合全保；被省的只有更早的组；无 user 组时退化不炸；无孤儿 TOOL | tests/agent_core/test_context_compactor.py::test_b01_snip_keeps_the_current_turn_whole | uv run pytest -q tests/agent_core/test_context_compactor.py | planned |
+
+### Acceptance Evidence
+
+> functional 的 RED/GREEN 与逐条断言证据由 `cf-task-start` 在编码期登记；全部 functional 状态 verified 后任务才可 done。
+
+### Log
+
+- [2026-10-04] created (draft)
+
+---
+
+## TASK-011: 工具结果的整轮批次预算接进回合循环
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-003, TASK-006
+- **Source**: context-compaction.design.md#3.2 架构设计（ADR-04）, context-compaction.design.md#2.5.2 验收场景
+- **Spec-Refs**:
+- **Acceptance-Refs**: E-07
+
+### Description
+
+TASK-003 交付了 `select_round_persists`（整轮选取，纯逻辑）与 `ArtifactResultWriter.persist_round_results_with_session`（批量落盘 + 失败整批回滚），但**至今没有调用方**：工具结果仍由 `ToolCallRecorder` **逐条**判定外置，于是"每条都没超单条阈值、合计却超整轮预算"这个 FEAT-02 的主场景无人处理 —— 模型每轮都要吞下整批中等大小的结果。
+
+按 ADR-04 把判定单元从"单条"改成"回合"：`ToolCallRecorder` 不再逐条外置，改为缓存本回合的原始结果；`AgentRunner._execute_tools` 在**回合末**调一次端口，端口跑整轮选取 + 批量落盘，**然后**才逐条写审计行、发 `tool.completed`（带最终 `artifact_id`）。顺序是硬约束：产物 id 必须赶在 `tool.completed` 之前定下来，否则 canonical `TOOL_CALL` 行拿不到它，跨 Run 重建就指不到那个产物。
+
+### Checklist
+
+- [ ] [E-07][integration] 先写 RED：真实 PG + 真实产物根 + 真实 `AgentRunner`，一个回合里三条结果各自都没超单条阈值、合计超整轮预算，断言"超出的那些落盘、模型收到引用 JSON、canonical `TOOL_CALL` 行带 `artifact_id`"；现行实现必然红（一条都不落盘），记录失败命令与原因
+- [ ] [E-07][integration] 覆盖两条反向腿：① 整轮合计**未超**预算 ⇒ **一条都不落盘**（不得因为"整轮判定"把原本内联的结果无谓外置）；② 失败注入：本批落盘中途抛错 ⇒ **整批回滚**（盘上不留半截产物），且 Run 不因此失败（退化到"这批不外置"）
+- [ ] 端口与接线：`ToolCallRecorder` 缓存本回合原始结果（含 `externalizable_result=False` 的既有豁免口径），`AgentRunner._execute_tools` 在回合末调用端口一次；端口实现全在 runtime 侧，`packages/*` 不得 import app 包
+- [ ] 顺序约束：审计行与 `tool.completed` 在批次判定**之后**逐条发，且都带最终 `artifact_id`；单工具回合的事件时序与现状逐条等价（既有 `tests/agent_runtime/test_execution_activity.py` 的时序断言不得改）
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| E-07 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | 整轮合计超预算才落盘；落盘的那些被换成引用 JSON；canonical `TOOL_CALL` 行带 `artifact_id`；整批失败回滚且 Run 不失败 | tests/agent_runtime/test_tool_round_budget.py::test_e07_round_batch_lands_in_the_tool_loop | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py | planned |
+
+### Acceptance Evidence
+
+> functional 的 RED/GREEN 与逐条断言证据由 `cf-task-start` 在编码期登记；全部 functional 状态 verified 后任务才可 done。
 
 ### Log
 

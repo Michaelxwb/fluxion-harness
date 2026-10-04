@@ -52,7 +52,7 @@
 
 | 功能ID | 功能名称 | 功能描述 | 优先级 | 来源 |
 |---|---|---|---|---|
-| FEAT-01 | 保留头部 + 省略标记 | 裁剪改为"保留最前 `keep_head_groups` 组 + 最近 `keep_tail_groups` 组"，中间替换为一条省略标记；标记按**消息组**报数 | P0 | US-01 |
+| FEAT-01 | 保留头部 + 省略标记 | 裁剪改为"保留最前 `keep_head_groups` 组 + 最近 `keep_tail_groups` 组"，中间替换为一条省略标记；标记按**消息组**报数。**尾部下界不越过最近一条 `user` 消息所在的组**——当前回合不是"历史"，省掉它模型就不知道在回答什么（与条数兜底"从最近一条 USER 起切"同一条口径） | P0 | US-01 |
 | FEAT-02 | 整轮批次预算 | 工具回合结束时按**整轮**判定：单条 > `persist_threshold_bytes` 落盘；未落盘合计 > `round_budget_bytes` 则按字节**从大到小**逐条落盘，进预算即停 | P0 | US-01 |
 | FEAT-03 | 旧工具结果降级（micro） | 只保留最近 `keep_recent_tool_groups` 个工具交换组的原文，更早的**结果内容**换占位符；`tool_calls` 与参数**原样保留**；占位符含 `artifact_id` 与工具名 | P0 | US-01 |
 | FEAT-04 | 摘要 | 前三层后仍 > `threshold_bytes` 才调用摘要模型；五字段摘要（`user_goal` / `constraints` / `progress` / `open_items` / `artifacts`）+ 字段集合精确校验；失败**保持原历史**；摘要**作为权威历史落库**（事件），被压缩掉的逐字原文（transcript）落**共享产物存储** | P0 | US-01 |
@@ -69,7 +69,7 @@
 | `snip.enabled` | bool | `true` | — |
 | `snip.max_groups` | int | `50` | **触发阈值**（组数严格大于它才 snip）；≥ `keep_head_groups + keep_tail_groups + 1` |
 | `snip.keep_head_groups` | int | `3` | ≥ 1（保证开头诉求与最初约束） |
-| `snip.keep_tail_groups` | int | `20` | ≥ 1（保留最近若干组原文） |
+| `snip.keep_tail_groups` | int | `20` | ≥ 1（保留最近若干组原文）；**下界受最近一条 `user` 组限制**：当前回合（从最近一条 user 起到末尾）永远全保，实际保留组数可能多于它 |
 | `tool_result.persist_threshold_bytes` | int | `8192` | 严格大于才落盘（沿用现值） |
 | `tool_result.round_budget_bytes` | int | `200000` | ≥ `persist_threshold_bytes` |
 | `tool_result.preview_head_bytes` / `preview_tail_bytes` | int | `2000` / `2000` | ≥ 0 |
@@ -105,7 +105,7 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 预期结果 |
 |---|---|---|---|---|
-| B-01 | FEAT-01 | unit | 纯逻辑：消息组切分 | 保留头 3 组 + 尾 N 组；标记按组报数；无孤儿 TOOL |
+| B-01 | FEAT-01 | unit | 纯逻辑：消息组切分 | 保留头 3 组 + 尾 N 组，**尾部下界不越过最近一条 user 组**（当前回合全保）；标记按组报数；无孤儿 TOOL |
 | B-02 | FEAT-02 | unit | 纯逻辑：整轮批次预算 | 单条超阈值落盘；合计超预算时按字节从大到小、进预算即停 |
 | B-03 | FEAT-03 | unit | 纯逻辑：micro 降级 | 旧工具组内容换占位（含 artifact_id + 工具名）；结构不变；占位不短于原文则跳过 |
 | B-04 | FEAT-04 | unit | 纯逻辑：摘要校验 | 五字段精确匹配才接受；多/少字段、非 JSON、带 tool_calls、finish_reason≠stop 逐条拒绝 |
@@ -115,6 +115,7 @@
 | E-04 | FEAT-07 | integration | 真实 PG：execution snapshot | 配置改动只影响后续新 Run；在跑的 Run 用冻结值 |
 | E-05 | FEAT-06 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | 无流量也暴露四级计数器目录；label 低基数（layer/outcome）；触发后计数与省下字节递增 |
 | E-06 | FEAT-09 | integration | 真实 agent-runtime 请求装配 → 模型 HTTP 探针 | memory 注入段计入上下文预算（超限时参与裁剪）；注入段不参与 micro 降级、内容原样保留 |
+| E-07 | FEAT-02 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | 一个回合里多条结果**各自都没超单条阈值**、但合计超整轮预算 ⇒ 超出的那些落盘、模型收到引用 JSON、canonical `TOOL_CALL` 行带 `artifact_id`（跨 Run 重建指得到那个产物） |
 | S-01 | FEAT-01..05 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | 长会话 + 大工具结果 + 多工具回合后：开头诉求仍在、无孤儿 TOOL、模型收到的 prompt 含省略标记或摘要、压缩事件落库 |
 
 非功能指标：压缩对单次请求的额外开销 O(历史条数) 单遍、无额外查库（配置走缓存）；摘要调用仅在开启且超阈值时发生。
@@ -146,6 +147,12 @@
 - 依据：前三层是纯函数（同输入同输出），每次重建成本 O(n) 单遍；缓存反而引入一致性面。
 - 代价：每轮重建要做一次字节统计（可接受，见 §3.5）。
 
+**ADR-04：工具结果外置的判定单元是「回合」，不是「单条调用」**
+- 依据：FEAT-02 的"未落盘合计超 `round_budget_bytes` 则按字节从大到小逐条落盘"**必须在本轮所有结果都出来之后**才能算（要看到全部大小才能从大到小）。而现状是**逐条**外置：结果一超阈值就落盘、立刻写审计行、`AgentRunner` 立刻发 `tool.completed` —— 产物 id 就挂在那条事件上（`run_service.py` 映射成 canonical `TOOL_CALL` 行的 `artifact_id`，历史重建靠它把产物找回来）。整轮判定插不进这个时序。
+- 做法：`ToolCallRecorder` 不再逐条外置，改为**缓存本回合的原始结果**；`AgentRunner._execute_tools` 在回合末调一次端口，由它跑 `select_round_persists` + 批量落盘（失败整批回滚），**然后**才逐条写审计行、发 `tool.completed`（带最终 `artifact_id`）。
+- 代价：多工具回合里 `tool.completed` 帧会一起到（每个工具的最终结果、审计行内容都不变；**单工具回合与现状逐条等价**，故既有事件时序断言不受影响）。
+- 放弃：整轮判定放到请求缝——那时 `tool.completed` 早已发完，产物 id 进不了 canonical 事件，结果是"落了盘但跨 Run 重建指不到它"（模型在后续回合永远拿不到那个 `artifact_id`）。
+
 ### 3.2 架构设计 [必填]
 
 ```
@@ -167,7 +174,7 @@
   transcript / 工具结果           canonical_event（摘要事件 + 压缩审计事件）
 ```
 
-- **两个集成缝**：① 工具回合结束时（批次预算，扩既有 `ArtifactResultWriter`）；② 模型请求前（micro/snip/摘要，新增 `RequestCompactor`）。
+- **两个集成缝**：① 工具**回合**结束时（整轮批次预算，端口注入 runtime 适配器，复用既有 `ArtifactResultWriter`；见 ADR-04）；② 模型请求前（micro/snip/摘要，`RequestCompactor`）。
 - **不新增部署单元**；不新增表；迁移为空（新事件类型与产物类型都是字符串枚举）。
 
 ### 3.3 数据设计 [必填]
