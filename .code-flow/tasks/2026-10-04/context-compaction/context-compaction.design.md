@@ -55,7 +55,7 @@
 | FEAT-01 | 保留头部 + 省略标记 | 裁剪改为"保留最前 `keep_head_groups` 组 + 最近 `keep_tail_groups` 组"，中间替换为一条省略标记；标记按**消息组**报数 | P0 | US-01 |
 | FEAT-02 | 整轮批次预算 | 工具回合结束时按**整轮**判定：单条 > `persist_threshold_bytes` 落盘；未落盘合计 > `round_budget_bytes` 则按字节**从大到小**逐条落盘，进预算即停 | P0 | US-01 |
 | FEAT-03 | 旧工具结果降级（micro） | 只保留最近 `keep_recent_tool_groups` 个工具交换组的原文，更早的**结果内容**换占位符；`tool_calls` 与参数**原样保留**；占位符含 `artifact_id` 与工具名 | P0 | US-01 |
-| FEAT-04 | 摘要 | 前三层后仍 > `threshold_bytes` 才调用摘要模型；五字段摘要 + 字段集合精确校验；失败**保持原历史**；摘要**作为权威历史落库**（事件），被压缩掉的逐字原文（transcript）落**共享产物存储** | P0 | US-01 |
+| FEAT-04 | 摘要 | 前三层后仍 > `threshold_bytes` 才调用摘要模型；五字段摘要（`user_goal` / `constraints` / `progress` / `open_items` / `artifacts`）+ 字段集合精确校验；失败**保持原历史**；摘要**作为权威历史落库**（事件），被压缩掉的逐字原文（transcript）落**共享产物存储** | P0 | US-01 |
 | FEAT-05 | 压缩审计事件 | 压缩**真的发生**时落一行 `canonical_event`（层级、省下字节/组数、摘要引用） | P0 | US-02 |
 | FEAT-06 | 压缩指标 | 各层触发次数、省下字节、摘要调用与 token 数进各服务 metric catalog | P1 | US-02 |
 | FEAT-07 | 压缩配置 | 配置进 execution snapshot 的 `budget.compaction`（Run 侧等价载体 `policy_json`），仅影响后续新 Run；进程内缓存 + 短 TTL | P1 | US-03 |
@@ -176,7 +176,7 @@
 
 | 载体 | 用途 | 关键字段 |
 |---|---|---|
-| `runtime.canonical_event` | 摘要事件 + 压缩审计事件 | `event_type='CONTEXT_SUMMARY'`：`payload_json = {covers_up_to_seq, summary{5 fields}, transcript_artifact_id, bytes_before, bytes_after}`；`event_type='CONTEXT_COMPACTED'`：`payload_json = {layers{layer: {fired, groups, bytes_saved}}, summary_event_seq?}` |
+| `runtime.canonical_event` | 摘要事件 + 压缩审计事件 | `event_type='CONTEXT_SUMMARY'`：`payload_json = {covers_up_to_seq, summary{user_goal, constraints, progress, open_items, artifacts}, transcript_artifact_id, bytes_before, bytes_after}`；`event_type='CONTEXT_COMPACTED'`：`payload_json = {layers{layer: {fired, groups, bytes_saved}}, summary_event_seq?}` |
 | `runtime.artifact` | transcript / 工具结果 | 新增类型 `TRANSCRIPT`（既有 `TOOL_RESULT` 不动）；`storage_key` 相对路径 |
 
 - **重建语义**：`cover_up_to_seq` 表示"seq ≤ 该值的原始事件已被摘要覆盖"；重建时取**最新**一份覆盖事件作为前缀，其后再按 seq 顺序应用后续事件，最后跑前三层压缩 ⇒ 确定性。

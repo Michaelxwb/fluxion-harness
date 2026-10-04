@@ -27,8 +27,8 @@
 | B-01 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：消息组切分与头尾保留 | TASK-002 | verified | uv run pytest -q tests/agent_core/test_context_compactor.py | . | 600 |
 | B-03 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：micro 降级与占位符 | TASK-002 | verified | uv run pytest -q tests/agent_core/test_context_compactor.py | . | 600 |
 | B-02 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：整轮批次预算选取 | TASK-003 | verified | uv run pytest -q tests/agent_runtime/test_artifact_round_budget.py | . | 600 |
-| B-04 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：摘要五字段精确校验 | TASK-004 | planned | uv run pytest -q tests/agent_runtime/test_context_summary.py | . | 600 |
-| E-02 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 | TASK-004 | planned | uv run pytest -q tests/agent_runtime/test_context_compaction_artifacts.py | . | 600 |
+| B-04 | context-compaction.design.md#2.5.2 验收场景 | unit | 纯逻辑：摘要五字段精确校验 | TASK-004 | verified | uv run pytest -q tests/agent_runtime/test_context_summary.py | . | 600 |
+| E-02 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 | TASK-004 | verified | uv run pytest -q tests/agent_runtime/test_context_compaction_artifacts.py | . | 600 |
 | E-01 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：从 canonical_event 重建 | TASK-005 | planned | uv run pytest -q tests/agent_runtime/test_context_rebuild.py | . | 600 |
 | E-03 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：canonical_event 审计行 | TASK-005 | planned | uv run pytest -q tests/agent_runtime/test_context_events.py | . | 600 |
 | E-05 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | TASK-007 | planned | uv run pytest -q tests/agent_runtime/test_context_metrics.py | . | 600 |
@@ -200,7 +200,7 @@
 
 ## TASK-004: 摘要层、SummaryPort 与 transcript（FEAT-04）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
 - **Source**: context-compaction.design.md#2.3 功能方案, context-compaction.design.md#3.3 数据设计, context-compaction.design.md#3.4 接口设计, context-compaction.design.md#3.5 质量实现方案
@@ -213,32 +213,53 @@
 
 ### Checklist
 
-- [ ] [B-04][unit] 先登记并编写 tests/agent_runtime/test_context_summary.py；真实边界：纯逻辑（五字段精确匹配才接受；多/少字段、非 JSON、带 tool_calls、finish_reason≠stop 逐条拒绝）；验证设计约定并登记证据，记录 RED/GREEN
-- [ ] [E-02][integration] 先登记并编写 tests/agent_runtime/test_context_compaction_artifacts.py；真实边界：真实 PostgreSQL + 共享产物存储；断言整轮超预算时大结果落盘且**预览头尾都在**、transcript 可被运维按 id 直读且 **Console 无任何读取/下载入口**；记录 RED/GREEN
-- [ ] [RULE-03][unit] 作为唯一最终负责人：摘要输出必须字段集合**精确相等**；任何不符 ⇒ 本次摘要作废、历史逐字节不变
-- [ ] [RULE-04][integration] 作为唯一最终负责人：压缩失败（落盘失败、摘要失败）**一律退化到不压缩**，Run 不得因此失败（落盘失败回滚已写产物；摘要异常保持原历史）
-- [ ] [RULE-06][integration] 作为唯一最终负责人：transcript **不新增任何对外明文出口**（Console 无读取/下载端点）；summary model 调用走 OPENAI 兼容协议 + `model_ref` 引用的既有 `model_definition`
-- [ ] verifier harness-model#RULE-model-001：执行规范元数据的原始命令 `uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled`，保持规范责任，记录门禁裁决
-- [ ] verifier harness-secret#RULE-secret-001：执行规范元数据的原始命令 `uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py`，保持规范责任，记录门禁裁决
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [B-04][unit] 先登记并编写 tests/agent_runtime/test_context_summary.py；真实边界：纯逻辑（五字段精确匹配才接受；多/少字段、非 JSON、带 tool_calls、finish_reason≠stop 逐条拒绝）；验证设计约定并登记证据，记录 RED/GREEN
+- [x] [E-02][integration] 先登记并编写 tests/agent_runtime/test_context_compaction_artifacts.py；真实边界：真实 PostgreSQL + 共享产物存储；断言整轮超预算时大结果落盘且**预览头尾都在**、transcript 可被运维按 id 直读且 **Console 无任何读取/下载入口**；记录 RED/GREEN
+- [x] [RULE-03][unit] 作为唯一最终负责人：摘要输出必须字段集合**精确相等**；任何不符 ⇒ 本次摘要作废、历史逐字节不变
+- [x] [RULE-04][integration] 作为唯一最终负责人：压缩失败（落盘失败、摘要失败）**一律退化到不压缩**，Run 不得因此失败（落盘失败回滚已写产物；摘要异常保持原历史）
+- [x] [RULE-06][integration] 作为唯一最终负责人：transcript **不新增任何对外明文出口**（Console 无读取/下载端点）；summary model 调用走 OPENAI 兼容协议 + `model_ref` 引用的既有 `model_definition`
+- [x] verifier harness-model#RULE-model-001：执行规范元数据的原始命令 `uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled`，保持规范责任，记录门禁裁决
+- [x] verifier harness-secret#RULE-secret-001：执行规范元数据的原始命令 `uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py`，保持规范责任，记录门禁裁决
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-04 | unit | 纯逻辑（摘要校验） | 五字段精确匹配才接受；多/少字段、非 JSON、带 tool_calls、finish_reason≠stop 逐条拒绝 | tests/agent_runtime/test_context_summary.py | uv run pytest -q tests/agent_runtime/test_context_summary.py | planned |
-| E-02 | integration | 真实 PG + 共享产物存储 | 整轮超预算时大结果落盘且预览头尾都在；transcript 可按 id 直读、Console 无入口 | tests/agent_runtime/test_context_compaction_artifacts.py | uv run pytest -q tests/agent_runtime/test_context_compaction_artifacts.py | planned |
-| RULE-03 | unit | 纯逻辑（字段集合） | 精确相等才接受，否则历史不变 | tests/agent_runtime/test_context_summary.py | uv run pytest -q tests/agent_runtime/test_context_summary.py | planned |
-| RULE-04 | integration | 真实 PG + 共享产物存储（失败路径） | 落盘失败回滚产物；摘要失败保持原历史；Run 不失败 | tests/agent_runtime/test_context_compaction_artifacts.py | uv run pytest -q tests/agent_runtime/test_context_compaction_artifacts.py | planned |
-| RULE-06 | integration | 真实 PG + 共享产物存储 | transcript 无对外明文出口 | tests/agent_runtime/test_context_compaction_artifacts.py | uv run pytest -q tests/agent_runtime/test_context_compaction_artifacts.py | planned |
+| B-04 | unit | 纯逻辑（摘要校验） | 五字段精确匹配才接受；多/少字段、非 JSON、带 tool_calls、finish_reason≠stop 逐条拒绝 | tests/agent_runtime/test_context_summary.py | uv run pytest -q tests/agent_runtime/test_context_summary.py | verified |
+| E-02 | integration | 真实 PG + 共享产物存储 | 整轮超预算时大结果落盘且预览头尾都在；transcript 可按 id 直读、Console 无入口 | tests/agent_runtime/test_context_compaction_artifacts.py | uv run pytest -q tests/agent_runtime/test_context_compaction_artifacts.py | verified |
+| RULE-03 | unit | 纯逻辑（字段集合） | 精确相等才接受，否则历史不变 | tests/agent_runtime/test_context_summary.py | uv run pytest -q tests/agent_runtime/test_context_summary.py | verified |
+| RULE-04 | integration | 真实 PG + 共享产物存储（失败路径） | 落盘失败回滚产物；摘要失败保持原历史；Run 不失败 | tests/agent_runtime/test_context_compaction_artifacts.py | uv run pytest -q tests/agent_runtime/test_context_compaction_artifacts.py | verified |
+| RULE-06 | integration | 真实 PG + 共享产物存储 | transcript 无对外明文出口 | tests/agent_runtime/test_context_compaction_artifacts.py | uv run pytest -q tests/agent_runtime/test_context_compaction_artifacts.py | verified |
 
 ### Acceptance Evidence
 
-> functional 的 RED/GREEN 与逐条断言证据由 `cf-task-start` 在编码期登记；全部 functional 状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-04 | **结构性 RED**：三个模块（`context/summary.py`、`attachments/transcripts.py`、`attachments/immutable_store.py`）在写测试时都不存在 ⇒ 首跑收集期 ImportError。另做 **4 处扰动取证**（见下）。 | 22 passed（两个文件） | `test_b04_five_field_summary_is_accepted`、`test_rule03_any_shape_deviation_rejects_the_summary`（8 条参数化）、`test_b04_non_json_output_is_rejected`、`test_b04_tool_calls_in_the_summary_turn_are_rejected`、`test_b04_non_stop_finish_reason_is_rejected`、`test_b04_parse_raises_with_a_reason_for_callers_that_want_it` | 纯逻辑：合法五字段（`user_goal`/`constraints`/`progress`/`open_items`/`artifacts`）才接受；多字段、少字段、非 JSON 对象、`user_goal` 非字符串、`constraints` 非字符串数组、`artifacts` 项缺键/值非字符串、带 `tool_calls`、`finish_reason ∈ {length, content_filter, ""}` 逐条拒绝，且每条都带可归因 reason | verified |
+| E-02 | 同上（结构性 RED）；扰动 ④ 命中（transcript 复用 `skills/` 前缀 ⇒ 1 failed） | 22 passed | `test_e02_round_persist_keeps_head_and_tail_preview`、`test_e02_transcript_lands_in_shared_store_and_is_readable` | **真实 PostgreSQL + 真实产物根**：大结果落盘后逐列回读 `runtime.artifact`——`preview_text` 以「头」开头、以「尾」结尾且含"已省略"（只留头部会让模型看不到错误栈末行/汇总行/JSON 闭合）；盘上文件是**原文**而非预览。transcript 行 `artifact_type=TRANSCRIPT`、`preview_text IS NULL`、`size` 与引用一致、`checksum` 与盘上字节逐位相符；JSONL 按序还原逐字原文，且带 `tool_calls` 的回合连 `reasoning_content` 一起存档 | verified |
+| RULE-03 | 扰动 ①（字段集合判据由 `!=` 放宽成"包含"）⇒ **2 failed**；扰动 ②（摘掉 `finish_reason` 门）⇒ **1 failed** | 22 passed | `test_rule03_any_shape_deviation_rejects_the_summary`、`test_b04_non_stop_finish_reason_is_rejected` | 纯逻辑：`try_parse_summary` 返回 `(None, reason)`，调用方据此**保持原历史** | verified |
+| RULE-04 | 扰动 ③（transcript 落库失败改为向上抛）⇒ **1 failed** | 22 passed | `test_rule04_transcript_failure_degrades_without_raising`、`test_rule04_empty_history_produces_no_transcript` | 失败注入：DB `commit` 抛错 ⇒ `persist_with_session` **返回 None 不抛**，且盘上不留半截 `.jsonl`；失败显式 `logger.warning`（"退化成不压缩"不等于"悄悄吞掉"）；取消类 `BaseException` 不参与降级 | verified |
+| RULE-06 | 扰动 ④（`TRANSCRIPT_PREFIX` 改成 `skills`）⇒ **1 failed** | 22 passed | `test_rule06_console_exposes_no_transcript_endpoint`、`test_rule06_preview_helper_is_shared_by_both_writers`、`test_rule06_preview_bounds_are_honoured` | **Console 路由表实扫**：`muad_console_platform.main.app` 的全部 route path 里没有 `transcript`（无读取/下载出口）；产物前缀钉**字面** `transcripts/<tenant>/` 且显式断言不以 `skills/` 开头 | verified |
+
+> **扰动取证 4 处**（均在最终文件版本上复验、逐字节还原后复跑 22 passed）：①摘要字段集合判据放宽 ⇒ 2 failed；②摘掉 `finish_reason` 门 ⇒ 1 failed；③transcript 失败改为上抛 ⇒ 1 failed；④transcript 复用 `skills/` 前缀 ⇒ 1 failed。
+> **第 4 处首轮"不变红"，暴露一条自我循环断言**：我原先写的是 `startswith(f"{TRANSCRIPT_PREFIX}/...")`——断言跟着常量一起漂移，拆掉前缀它照样绿。已改成钉**字面** `transcripts/` 并补一条 `not startswith("skills/")`。
+
+**范围说明（RULE-04 的一条腿）**：本任务交付的是"失败**不抛**、不留半成品、调用方拿到 None 就放弃这次压缩"。**端到端那条腿**——压缩在请求缝上失败时 Run 仍然跑完——要等 TASK-006 把压缩接进 `AgentRunner` 才能证（当前没有任何生产路径调用压缩器）。
+
+**回归**：`uv run pytest -q tests/agent_runtime tests/agent_core tests/test_skill_artifact_cache.py tests/architecture` → **459 passed**；`ruff check`（改动文件）与 `uv run mypy apps packages`（294 files）均 clean。
+- B-04: verified — automated command passed; run_id=0e447e4a15a245998bdf7cc2576a8ff2 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=0e447e4a15a245998bdf7cc2576a8ff2 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=842f5139a86d47ff9bd8ffaff587efca (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=842f5139a86d47ff9bd8ffaff587efca (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-04] created (draft)
+- [2026-10-04] started
+- [2026-10-04] **口径回填（用户确认）**：design §2.3/§3.3 补上五字段名——`user_goal` / `constraints` / `progress` / `open_items` / `artifacts`（原文只写了"五字段"，没列名字，而它要冻进 `CONTEXT_SUMMARY` 的 payload）。design 改动只触发 `artifact_changed`，未重置阶段状态。
+- [2026-10-04] 实现：`packages/agent-core/.../context/summary.py`（五字段 schema + 精确校验 + 非抛出形态）、`apps/agent-runtime/.../attachments/immutable_store.py`（抽出共享不可变写原语，`tool_results.py` 改用）、`.../attachments/transcripts.py`（`TranscriptWriter`，类型 `TRANSCRIPT`、前缀 `transcripts/`、失败返回 None 并记日志）。B-04/E-02/RULE-03/04/06 共 22 passed；4 处扰动全部复现后还原复绿。
+- [2026-10-04] completed (done)
 
 ---
 

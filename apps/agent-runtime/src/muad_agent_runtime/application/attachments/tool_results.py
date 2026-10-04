@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -15,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...infrastructure.db import SessionFactoryProvider, get_session_factory
 from ...infrastructure.models.runtime import Artifact
 from ...metrics import ARTIFACT_BYTES_METRIC, record_counter
+from .immutable_store import discard_written, write_immutable
 
 #: 通用工具结果的外置阈值：超过它就换成 Artifact + 预览（`RULE-skill-001` 的产物侧）。
 #: **只有这一处定义**——`executor` 的外置判定与 `archive_tools` 的回执裁剪都用它，
@@ -94,20 +94,11 @@ class ArtifactResultWriter:
         与 `packages/artifact-store` 的 `NfsArtifactStore.write` 同口径——产物一旦落盘就是
         证据，覆盖写会让"这只 Run 当时看到了什么"永远查不回来。
         """
-        if path.exists():
-            raise FileExistsError(f"artifact already exists and is immutable: {path}")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temp = path.parent / f".tmp-{uuid.uuid4().hex}"
-        temp.write_bytes(data)
-        os.replace(temp, path)
+        write_immutable(path, data)
 
     def _discard(self, keys: Sequence[str]) -> None:
         """回滚已写文件（整批中途失败时用），不留半批。"""
-        for key in keys:
-            try:
-                (self._artifact_root / key).unlink(missing_ok=True)
-            except OSError:
-                pass
+        discard_written(self._artifact_root, keys)
 
     async def persist_tool_result(
         self,
