@@ -15,8 +15,8 @@
   - **压缩只覆盖 Runtime 同步 Run**：代码事实是 `AgentRunner` 全仓只有 `apps/agent-runtime/.../executor.py:771` 一处构造，`apps/agent-worker` 只 import `muad_agent_core.skill`、不构建模型请求。design 早先"Runtime 与 Worker 共用压缩链路"的表述已按代码事实改写；`harness-worker` 绑定保留，由 TASK-009 以「Worker 路径不引入压缩」的对照断言承接，**本需求不新增 worker 代码**（用户 2026-10-04 选定）。
   - **补 E-05/E-06 两条 integration 场景**：FEAT-06（指标）与 FEAT-09（memory 预算）原无验收场景，已按用户决定回填 design §2.5.2（用户 2026-10-04 选定）。
 - **Non-goals**: Console 系统设置页（需求二）；上下文膨胀看板；非 OpenAI 兼容模型的精确 token 计数；跨会话记忆压缩；"prompt too long" 响应式恢复；Worker 侧压缩。
-- **Acceptance**: 12 条场景（B-01/02/03/04、E-01..07、S-01）+ 6 条业务规则（RULE-01..06）全部有唯一负责人与可执行命令。
-- **补两条（2026-10-04，TASK-006 收尾时发现）**：① snip 的尾部窗口不锚定最近一条 user 消息 ⇒ 当前正在回答的问题可能被省略（B-01 语义收紧，终验责任转 TASK-010）；② TASK-003 的整轮批次原语从无调用方 ⇒ FEAT-02 在功能上没闭环（新增 E-07，TASK-011 按 ADR-04 把判定单元从单条改成回合）。
+- **Acceptance**: 13 条场景（B-01/02/03/04、E-01..08、S-01）+ 6 条业务规则（RULE-01..06）全部有唯一负责人与可执行命令。
+- **补第一、二条（2026-10-04，TASK-006 收尾时发现）**：① snip 的尾部窗口不锚定最近一条 user 消息 ⇒ 当前正在回答的问题可能被省略（B-01 语义收紧，终验责任转 TASK-010）；② TASK-003 的整轮批次原语从无调用方 ⇒ FEAT-02 在功能上没闭环（新增 E-07，TASK-011 按 ADR-04 把判定单元从单条改成回合）。
 
 ---
 
@@ -36,8 +36,9 @@
 | E-06 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实请求装配 → 模型 HTTP 探针 | TASK-008 | planned | uv run pytest -q tests/agent_runtime/test_context_memory_budget.py | . | 600 |
 | S-01 | context-compaction.design.md#2.5.2 验收场景 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | . | 1200 |
 | E-07 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | TASK-011 | verified | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py | . | 600 |
+| E-08 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实两连 Run（同一会话） | TASK-012 | planned | uv run pytest -q tests/agent_runtime/test_tool_result_history.py | . | 600 |
 
-> 本表覆盖 design §2.5.2 全部 **12** 条场景（B-01..04、E-01..07、S-01，含回填的 E-05/E-06 与本次新增的 E-07）与 §2.5.1 全部 6 条业务规则（RULE-01..06 的负责人见各 TASK 的 Acceptance-Refs）。
+> 本表覆盖 design §2.5.2 全部 **13** 条场景（B-01..04、E-01..08、S-01）与 §2.5.1 全部 6 条业务规则（RULE-01..06 的负责人见各 TASK 的 Acceptance-Refs）。
 >
 > **B-01 的所有权于 2026-10-04 由 TASK-002 转给 TASK-010**：snip 的语义新增"尾部锚定最近一条 `user` 组"（design §2.2 FEAT-01 / §3.2），TASK-002 交付的断言按新语义需要重写，故终验责任人随之转移（TASK-002 段落下的旧记录保留，但不再代表当前口径）。
 
@@ -463,7 +464,7 @@ memory 注入段当前**不进** `_trim` 预算（`apps/agent-runtime/src/muad_a
 
 - **Status**: draft
 - **Priority**: P0
-- **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-010, TASK-011
+- **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-010, TASK-011, TASK-012
 - **Source**: context-compaction.design.md#Spec Compliance Matrix, context-compaction.design.md#3.1 方案选型
 - **Spec-Refs**: harness-test#RULE-test-001, harness-worker#RULE-worker-001
 - **Acceptance-Refs**: N/A
@@ -593,5 +594,49 @@ TASK-003 交付了 `select_round_persists`（整轮选取，纯逻辑）与 `Art
 - [2026-10-04] started
 - [2026-10-04] 实现：`packages/agent-core` 新增端口 `ToolResultRoundPort`（`tools/round_results.py`）；`AgentRunner` 增 `tool_round_results`，在 `_execute_tools` 的 **finally** 里收口（中途被取消/超时打断时，已经跑完的那些同样要判定与审计）；逐条 `on_tool_completed` 移到收口之后，产物 id 因此赶得上事件。runtime 侧 `ToolCallRecorder` 改为「逐条缓冲 + `finish_round` 整批判定 / 批量落盘 / 写审计 / 替换引用」，`build_registry` 与 `default_executor_factory` 共用同一个 recorder（`build_registry` 新增可选 `recorder` 入参）。回归 `tests/agent_core tests/agent_runtime tests/architecture tests/sdk` → **577 passed**；ruff / mypy(297 files) clean。
 - [2026-10-04] **发现（不在本任务范围，需单独决策）**：canonical `TOOL_CALL` 行的 `artifact_id` **列**在生产里永远是 NULL —— `RunService._persist_event` 调 `EventWriter.append(...)` 时没传 `artifact_id=`，产物 id 只落在 `payload_json` 里；而 `context_builder._to_messages` 的 TOOL_CALL 预览查找读的是**列**（`previews.get(event.artifact_id)`）。后果：跨 Run 重建历史时**外置过的工具结果一律退化成 `[tool:名称]`** —— 既没有预览，也没有 id 去 `read_attachment`。E-01 的重建用例没有覆盖这条（它不种 TOOL_CALL 行），所以一直没被发现。本任务只保证 id 送到 `payload_json`（`tool.completed` 的真实载体），列的缺口留给单独决策。
+
+- **补第三条（2026-10-04，TASK-011 设计时核实）**：canonical `TOOL_CALL` 行的 `artifact_id` 列从不写入 ⇒ 跨 Run 重建时外置过的工具结果既没有预览也没有 id，模型拿不到产物。这是 ADR-05 要修的：列补写 + 重建改用与写入侧同一个 `payload` 序列化，**不留兼容层**。新增 E-08，TASK-012 承接。
+
+---
+
+## TASK-012: 外置过的工具结果可从 canonical 行逐字节重建
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-003, TASK-011
+- **Source**: context-compaction.design.md#3.2 架构设计（ADR-05）, context-compaction.design.md#3.3 数据设计, context-compaction.design.md#2.5.2 验收场景
+- **Spec-Refs**:
+- **Acceptance-Refs**: E-08
+
+### Description
+
+FEAT-08 承诺"重建的那份 == 当时真正发给模型的那份"，但**外置过的工具结果**在跨 Run 重建时两处都不成立：
+
+1. canonical `TOOL_CALL` 行的 `artifact_id` **列从不写入** —— `RunService._persist_event` 调 `EventWriter.append(...)` 时没传 `artifact_id=`，产物 id 只落在 `payload_json` 里；而重建读的是**列**（`previews.get(event.artifact_id)`），于是这条路径在生产里从来没命中过。
+2. 即便命中了，重建渲染的是 `[tool:名称] + 截断到 400 字的预览`，而模型当时看到的是一条**引用 JSON**（`artifact_id`/`size`/`checksum`/`preview` 四键）—— 既不等，又**不含 id**，模型下一轮拿不到 id 去 `read_attachment`。
+
+本任务按 ADR-05 一次修到底：列补写（工具返回的引用 JSON 不是可信 UUID，解析失败按"没有产物"计并留警告）；重建改用**与写入侧同一个** `reference_payload` 序列化，不再截断、不再丢 id。
+
+### Checklist
+
+- [ ] [E-08][integration] 先写 RED：真实 PG + 真实产物根 + 真实两连 Run（同一会话）——第一个 Run 的工具结果外置，断言"第二个 Run 的模型请求里那条 tool 消息**逐字节**等于第一个 Run 当时发出去的引用 JSON，且 canonical 行的 `artifact_id` 列已写入"；现行实现必然红（列是 NULL、重建只剩 `[tool:名称]`），记录失败命令与原因
+- [ ] [E-08][integration] 边界：① 引用 JSON 里的 `artifact_id` 不是合法 UUID（工具自己写的脏值）⇒ 列留空、记一条 warning、**Run 不受影响**；② 未外置的工具结果（`artifact_id` 为 NULL）⇒ 重建仍是 `[tool:名称]`，不凭空造引用
+- [ ] 实现：`RunService._persist_event` 从事件载荷取 `artifact_id` 提到列上；`reference_payload` 从 `executor` 提到 `attachments/tool_results`，写入侧与重建侧共用；重建取的预览**不再截断**（`BudgetPolicy.preview_max` 随之退场，不保留死配置）
+- [ ] 不留兼容层：不做"两处都读"的兜底，也不为旧数据补写；列与载荷是同一事实的两种表达，以列作重建的指针
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| E-08 | integration | 真实 PG + 共享产物存储 + 真实两连 Run（同一会话） | 第二个 Run 的请求里那条 tool 消息与第一个 Run 发出去的引用 JSON **逐字节相同**；canonical `TOOL_CALL` 行的 `artifact_id` 列非空且指向真实产物；脏 id 不影响 Run | tests/agent_runtime/test_tool_result_history.py::test_e08_externalized_result_rebuilds_byte_identically | uv run pytest -q tests/agent_runtime/test_tool_result_history.py | planned |
+
+### Acceptance Evidence
+
+> functional 的 RED/GREEN 与逐条断言证据由 `cf-task-start` 在编码期登记；全部 functional 状态 verified 后任务才可 done。
+
+### Log
+
+- [2026-10-04] created (draft)
 - [2026-10-04] resumed (in-progress)
 - [2026-10-04] completed (done)

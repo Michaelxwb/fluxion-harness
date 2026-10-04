@@ -19,6 +19,7 @@
 |---|---|---|---|
 | v0.1 | 2026-10-04 | Claude | 初始设计（来源：本会话对齐结论 + PRD v0.1） |
 | v0.2 | 2026-10-04 | Claude | 补 ADR-04（工具结果外置的判定单元是回合，非单条调用）与 TASK-010/011；承接 path-mapped 新绑定的 `harness-mcp`（新增 `tools/round_results.py` 命中其过宽的 tools 路径模式） |
+| v0.3 | 2026-10-04 | Claude | 补 ADR-05：外置过的工具结果必须能从 canonical 行逐字节重建（`_persist_event` 补写 `artifact_id` 列 + 重建改用与写入侧同一个 `reference_payload`，不再截断）；新增 E-08 与 TASK-012 |
 
 ## 2. 需求分析
 
@@ -117,6 +118,7 @@
 | E-05 | FEAT-06 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | 无流量也暴露四级计数器目录；label 低基数（layer/outcome）；触发后计数与省下字节递增 |
 | E-06 | FEAT-09 | integration | 真实 agent-runtime 请求装配 → 模型 HTTP 探针 | memory 注入段计入上下文预算（超限时参与裁剪）；注入段不参与 micro 降级、内容原样保留 |
 | E-07 | FEAT-02 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | 一个回合里多条结果**各自都没超单条阈值**、但合计超整轮预算 ⇒ 超出的那些落盘、模型收到引用 JSON、canonical `TOOL_CALL` 行带 `artifact_id`（跨 Run 重建指得到那个产物） |
+| E-08 | FEAT-08 | integration | 真实 PG + 共享产物存储 + 真实两连 Run（同一会话） | 第一个 Run 外置过的工具结果，在**同一会话的下一个 Run** 的历史里被**逐字节**还原成当时那条引用 JSON（含 `artifact_id`）；canonical `TOOL_CALL` 行的 `artifact_id` 列已写入 |
 | S-01 | FEAT-01..05 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | 长会话 + 大工具结果 + 多工具回合后：开头诉求仍在、无孤儿 TOOL、模型收到的 prompt 含省略标记或摘要、压缩事件落库 |
 
 非功能指标：压缩对单次请求的额外开销 O(历史条数) 单遍、无额外查库（配置走缓存）；摘要调用仅在开启且超阈值时发生。
@@ -154,6 +156,13 @@
 - 代价：多工具回合里 `tool.completed` 帧会一起到（每个工具的最终结果、审计行内容都不变；**单工具回合与现状逐条等价**，故既有事件时序断言不受影响）。
 - 放弃：整轮判定放到请求缝——那时 `tool.completed` 早已发完，产物 id 进不了 canonical 事件，结果是"落了盘但跨 Run 重建指不到它"（模型在后续回合永远拿不到那个 `artifact_id`）。
 
+> 2026-10-04 核实补记：本 ADR 依据段写的"`run_service.py` 映射成 canonical `TOOL_CALL` 行的 `artifact_id`"**当时并不成立** —— `_persist_event` 从来没把 id 传进那一列，id 只落在 `payload_json` 里。该缺口即 ADR-05。
+
+**ADR-05：外置过的工具结果必须能从 canonical 行**逐字节**重建**
+- 依据：FEAT-08 的"重建的那份 == 真正发出去的那份"。模型当时看到的是一条引用 JSON（`artifact_id`/`size`/`checksum`/`preview` 四键），而重建历史时渲染的是 `[tool:名称] + 截断到 400 字的预览` —— 既不等，又**不含 `artifact_id`**，模型下一轮拿不到 id 去 `read_attachment`。根因更早一层：canonical `TOOL_CALL` 行的 `artifact_id` **列从不写入**（id 只在 `payload_json` 里），而重建读的是**列**，于是这条路径在生产里根本没命中过（E-01 的重建用例不种 TOOL_CALL 行，所以一直没被发现）。
+- 做法：① `RunService._persist_event` 把流事件载荷里的 `artifact_id` 提到 canonical 行的**列**上——工具返回的引用 JSON 是**模型自己写的内容**，不是可信 UUID，解析失败按"没有产物"处理并留警告（一个坏 id 不该让整条 Run 挂掉）；② 重建用**与写入侧同一个** `reference_payload` 序列化，不再截断、不再丢 id。
+- 放弃：让重建改读 `payload_json`（同一事实两份来源，且列上还有别的写者）；保留 400 字截断（重建与实发永远不等）。
+
 ### 3.2 架构设计 [必填]
 
 ```
@@ -188,6 +197,7 @@
 | `runtime.artifact` | transcript / 工具结果 | 新增类型 `TRANSCRIPT`（既有 `TOOL_RESULT` 不动）；`storage_key` 相对路径 |
 
 - **重建语义**：`cover_up_to_seq` 表示"seq ≤ 该值的原始事件已被摘要覆盖"；重建时取**最新**一份覆盖事件作为前缀，其后再按 seq 顺序应用后续事件，最后跑前三层压缩 ⇒ 确定性。
+- **工具结果的产物指针落在 `canonical_event.artifact_id` 列**（不是只写在 `payload_json` 里）：重建按列取回 `runtime.artifact` 行，再用与写入侧同一个 `reference_payload` 还原成**当时那条引用 JSON**（ADR-05）。列没有外键，故清理产物时不会级联删事件。
 - 索引：沿用 `canonical_event(run_id, seq)` 既有索引，无需新增。
 
 ### 3.4 接口设计 [必填]
@@ -259,7 +269,7 @@
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景/verifier | 状态 |
 |---|---|---|---|---|---|
 | harness-snapshot#RULE-snapshot-001 | required | 压缩配置随 execution snapshot 冻结，仅影响后续新 Run | 3.4 接口设计（`budget.compaction`） | E-04 | applied |
-| harness-arch#RULE-arch-001 | required | 压缩结果可按库重建、跨 Pod 一致；transcript 落共享存储 | 3.2 架构设计、3.3 数据设计 | E-01、E-02 | applied |
+| harness-arch#RULE-arch-001 | required | 压缩结果可按库重建、跨 Pod 一致；transcript 落共享存储 | 3.2 架构设计、3.3 数据设计 | E-01、E-02、E-08 | applied |
 | harness-data#RULE-data-001 | required | 复用既有表；时间戳/jsonb 口径不变；软删唯一约束不涉及 | 3.3 数据设计 | E-03 | applied |
 | harness-skill#RULE-skill-001 | required | transcript/工具结果沿用共享产物不可变写与原子发布 | 3.5 质量实现方案（可靠性） | E-02 | applied |
 | harness-worker#RULE-worker-001 | required | Worker 只执行 Skill 脚本、不构建模型请求 ⇒ 本需求不新增 worker 代码；绑定保留，以「Worker 路径不引入压缩」对照断言承接 | 3.1 方案选型（ADR-01 的代码事实段） | E-01（对照断言） | applied |

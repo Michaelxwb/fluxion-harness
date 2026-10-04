@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "context-compaction.md",
-  "task_sha256": "e25ccf37d287a1c9247f4846b106735e0ead9e39c3165822da8da40f1092447b",
+  "task_sha256": "0682b92caeaf5da24a700488ee9b34476dc1b488e92affa33ba47be4e7b49bd7",
   "scenarios": [
     {
       "id": "E-04",
@@ -438,6 +438,25 @@
           "executed_at": "2026-10-04T11:05:15.486890+00:00"
         }
       ]
+    },
+    {
+      "id": "E-08",
+      "source": "context-compaction.design.md#2.5.2 验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG + 共享产物存储 + 真实两连 Run（同一会话）",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_tool_result_history.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
     }
   ]
 }
