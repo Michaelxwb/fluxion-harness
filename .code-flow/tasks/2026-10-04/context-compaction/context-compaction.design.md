@@ -234,7 +234,7 @@
 - **性能**：字节统计单遍 O(n)（一次 `encode('utf-8')`，不做逐条重复编码）；配置从进程内缓存读（TTL，无每轮查库）；落盘只发生在工具回合结束时（非每轮）；摘要仅在开启且超阈值时调用一次。**无 N+1、无循环内 IO**。
 - **可靠性**：落盘用既有不可变写（temp + `os.replace`）；**整批中途失败回滚已写产物**（不留半批引用）；摘要任何异常 → 记录指标、保持原历史；压缩整体包在 try 里，异常退化到"不压缩"。
 - **安全/隐私**：transcript 只写共享产物、**不新增任何对外读取端点**；摘要与事件 payload 不含密钥（与 `RULE-secret-001` 一致）；日志只记字节数与层级，不记内容。
-- **可观测性**：`context_compaction_total{layer,outcome}`、`context_compaction_bytes_saved_total{layer}`、`context_summary_total{outcome}`、`context_summary_tokens_total`（低基数 label，无资源 ID）；压缩发生时的审计事件见 §3.3。
+- **可观测性**：`context_compaction_total{layer,status}`、`context_compaction_bytes_saved_total{layer}`、`context_summary_total{status}`、`context_summary_tokens_total`（低基数 label，无资源 ID；**结局类 label 一律叫 `status`**，与 `agent_runs_total`/`tool_calls_total` 同族，不另起 `outcome`）；压缩发生时的审计事件见 §3.3。
 - **回放一致（FEAT-08）**：E-01 用"同一份 canonical_event 重建两次 + 与真实发出的请求对比"逐字节断言。
 
 ## 4. 部署与运维

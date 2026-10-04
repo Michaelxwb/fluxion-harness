@@ -330,7 +330,7 @@
       "kind": "functional",
       "boundary": "真实 agent-runtime `/metrics`（api-kit 目录）",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -340,7 +340,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "98dfad9e5ee94106b59aaf0bd1f06c5e",
+        "executed_at": "2026-10-04T11:24:57.828016+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "98dfad9e5ee94106b59aaf0bd1f06c5e",
+          "executed_at": "2026-10-04T11:24:57.828016+00:00"
+        }
+      ]
     },
     {
       "id": "E-06",

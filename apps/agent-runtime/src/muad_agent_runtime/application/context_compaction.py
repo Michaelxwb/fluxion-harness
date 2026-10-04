@@ -28,6 +28,14 @@ from sqlalchemy import func, select
 
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory
 from ..infrastructure.models.runtime import Conversation
+from ..metrics import (
+    CONTEXT_COMPACTION_BYTES_SAVED_METRIC,
+    CONTEXT_COMPACTION_METRIC,
+    CONTEXT_SUMMARY_METRIC,
+    CONTEXT_SUMMARY_TOKENS_METRIC,
+    record_counter,
+    record_outcome,
+)
 from .attachments.transcripts import TranscriptWriter
 from .context_events import record_compaction, record_summary
 from .run_events import EventWriter
@@ -60,6 +68,12 @@ def make_summary_runner(*, provider: ModelProvider, model_id: str) -> SummaryRun
                 ),
                 temperature=0.0,
             )
+        )
+        # token 用量只有发起调用的一侧知道，且**无论采不采用都已经花掉了**，所以记在这里；
+        # "采不采用"由压缩器记在 `context_summary_total{outcome}` 上。
+        record_counter(
+            CONTEXT_SUMMARY_TOKENS_METRIC,
+            float((response.input_tokens or 0) + (response.output_tokens or 0)),
         )
         fields, _ = try_parse_summary(
             response.content,
@@ -98,6 +112,8 @@ class RuntimeContextCompactor:
         try:
             return await self._compact(messages)
         except Exception as exc:  # noqa: BLE001 —— RULE-04：压缩失败必须退化，不得让 Run 失败
+            # 失败不可归因到某一层（异常可能出在任何一步），故 `layer="*"`；退化**不等于悄悄吞掉**。
+            record_outcome(CONTEXT_COMPACTION_METRIC, "FAILED", {"layer": "*"})
             logger.warning(
                 "context_compaction_failed",
                 extra={"run_id": str(self._run_id), "error": str(exc)},
@@ -117,6 +133,14 @@ class RuntimeContextCompactor:
             compacted, layers = summary_layer.messages, (*layers, summary_layer)
         fired = [layer for layer in layers if layer.fired]
         if fired:
+            # 记录点在**回合/请求的收口处**，不逐条进热点路径，也不做任何 IO
+            for layer in fired:
+                record_outcome(CONTEXT_COMPACTION_METRIC, "FIRED", {"layer": layer.layer})
+                record_counter(
+                    CONTEXT_COMPACTION_BYTES_SAVED_METRIC,
+                    float(layer.bytes_saved),
+                    {"layer": layer.layer},
+                )
             await self._record_layers(fired, compacted)
         return compacted
 
@@ -131,6 +155,8 @@ class RuntimeContextCompactor:
             return None
         fields = await self._summary_runner(compacted)
         if fields is None:
+            # 模型没按五字段给（RULE-03）：本次摘要作废，历史原样
+            record_outcome(CONTEXT_SUMMARY_METRIC, "REJECTED")
             return None
         # transcript 是摘要的存档：写不成就**放弃这次摘要**（RULE-05——只有摘要没有逐字原文
         # 等于把被覆盖的历史净丢掉）。
@@ -146,6 +172,8 @@ class RuntimeContextCompactor:
                 messages=compacted,
             )
             if transcript is None:
+                # 摘要有、逐字原文没有 ⇒ 放弃这次摘要（RULE-05），并把"没做成"记出来
+                record_outcome(CONTEXT_SUMMARY_METRIC, "FAILED")
                 return None
             covered = await session.scalar(
                 select(func.coalesce(func.max(Conversation.last_seq), 0)).where(
@@ -166,6 +194,7 @@ class RuntimeContextCompactor:
             )
             await session.commit()
         self._summary_event_seq = summary_seq
+        record_outcome(CONTEXT_SUMMARY_METRIC, "OK")
         outbound = (summary_message(fields),)
         return LayerOutcome(
             "summary",

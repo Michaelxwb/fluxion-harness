@@ -32,7 +32,7 @@
 | E-02 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 | TASK-004 | verified | uv run pytest -q tests/agent_runtime/test_context_compaction_artifacts.py | . | 600 |
 | E-01 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：从 canonical_event 重建 | TASK-005 | verified | uv run pytest -q tests/agent_runtime/test_context_rebuild.py | . | 600 |
 | E-03 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG：canonical_event 审计行 | TASK-005 | verified | uv run pytest -q tests/agent_runtime/test_context_events.py | . | 600 |
-| E-05 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | TASK-007 | planned | uv run pytest -q tests/agent_runtime/test_context_metrics.py | . | 600 |
+| E-05 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | TASK-007 | verified | uv run pytest -q tests/agent_runtime/test_context_metrics.py | . | 600 |
 | E-06 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实请求装配 → 模型 HTTP 探针 | TASK-008 | planned | uv run pytest -q tests/agent_runtime/test_context_memory_budget.py | . | 600 |
 | S-01 | context-compaction.design.md#2.5.2 验收场景 | E2E | 真实 WS → Gateway → Runtime → PG → 模型 HTTP 探针 | TASK-006 | e2e_deferred | uv run pytest -q tests/acceptance/im_gateway/test_context_compaction.py | . | 1200 |
 | E-07 | context-compaction.design.md#2.5.2 验收场景 | integration | 真实 PG + 共享产物存储 + 真实 `AgentRunner` 工具回合 | TASK-011 | verified | uv run pytest -q tests/agent_runtime/test_tool_round_budget.py | . | 600 |
@@ -390,7 +390,7 @@
 
 ## TASK-007: 压缩指标（FEAT-06）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-003, TASK-004
 - **Source**: context-compaction.design.md#3.5 质量实现方案, context-compaction.design.md#2.5.2 验收场景
@@ -403,27 +403,38 @@
 
 ### Checklist
 
-- [ ] [E-05][integration] 先登记并编写 tests/agent_runtime/test_context_metrics.py；真实边界：真实 agent-runtime `/metrics`（api-kit 目录）；断言**无流量也暴露目录**、触发后计数与省下字节递增、label 无高基数维度；验证设计约定并登记证据，记录 RED/GREEN
-- [ ] 指标名与 label 进 `CATALOG` 后经 `install_metrics` 暴露；带 label 的计数器只进 `/metrics`，不写结构化 metric 日志
-- [ ] 指标记录点不得进入热点路径的额外 IO（与 design §3.5 的"无 N+1、无循环内 IO"一致）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [E-05][integration] 先登记并编写 tests/agent_runtime/test_context_metrics.py；真实边界：真实 agent-runtime `/metrics`（api-kit 目录）；断言**无流量也暴露目录**、触发后计数与省下字节递增、label 无高基数维度；验证设计约定并登记证据，记录 RED/GREEN
+- [x] 指标名与 label 进 `CATALOG` 后经 `install_metrics` 暴露；带 label 的计数器只进 `/metrics`，不写结构化 metric 日志
+- [x] 指标记录点不得进入热点路径的额外 IO（与 design §3.5 的"无 N+1、无循环内 IO"一致）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-05 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | 无流量也可见四级计数器目录；label 低基数；触发后计数与省下字节递增 | tests/agent_runtime/test_context_metrics.py | uv run pytest -q tests/agent_runtime/test_context_metrics.py | planned |
+| E-05 | integration | 真实 agent-runtime `/metrics`（api-kit 目录） | 无流量也可见四级计数器目录；label 低基数；触发后计数与省下字节递增 | tests/agent_runtime/test_context_metrics.py | uv run pytest -q tests/agent_runtime/test_context_metrics.py | verified |
 
 ### Acceptance Evidence
 
-> functional 的 RED/GREEN 与逐条断言证据由 `cf-task-start` 在编码期登记；全部 functional 状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-05 | FAIL: `AssertionError: 压缩指标目录缺失：['context_compaction_total', 'context_compaction_bytes_saved_total', 'context_summary_total', 'context_summary_tokens_total']`（三条用例同因全红：四个计数器既没进 `CATALOG`、也没有任何记录点） | 3 passed | `test_e05_catalog_is_visible_without_any_traffic`（无流量下 `# TYPE … counter` 四条齐全）、`test_e05_compaction_counters_increase_on_a_real_run`（真实三连 Run 触发请求缝 snip ⇒ `context_compaction_total{layer=snip,status=FIRED}` +1、`context_compaction_bytes_saved_total{layer=snip}` > 0）、`test_e05_summary_counters_increase_on_a_real_compactor`（真实摘要层 ⇒ `context_summary_total{status=OK}` +1 且 `context_summary_tokens_total` += 模型回报的 input+output） | 真实 uvicorn 单进程（127.0.0.1 真实 socket）→ 真实 Runtime app/路由 → api-kit 进程内注册表 → `GET /metrics` Prometheus 文本；计数由真实链路产生（`RunService`→`AgentRunner`→压缩层；真实 `RuntimeContextCompactor` + 真实 `make_summary_runner` + 真实 PG + 真实产物根） | verified |
+
+**扰动取证**：P1（不记 compaction 计数与省下字节）⇒ **1 failed**；P2（四个计数器不进目录）⇒ **1 failed**；P3（摘要不记 token 用量）⇒ **1 failed**；逐字节还原后复跑 3 passed。
+
+**一处口径对齐（改的是设计文本，不是加适配层）**：design §3.5 原先写 `{layer,outcome}`，但仓库里所有结局类 label 一律叫 `status`（`agent_runs_total`/`tool_calls_total`/`memory_write_total`…），`record_outcome()` 也硬编码 `status`。为了让压缩指标与同族指标一致（而不是给这一个指标另起一套名字），把设计文本改成 `{layer,status}` / `{status}`。
+
+**另外两条 checklist 的取证方式**：①「带 label 的计数器只进 `/metrics`、不写结构化 metric 日志」——api-kit 的 `MetricsRegistry` 只维护进程内字典与 HELP/TYPE，全程无日志调用（`packages/api-kit/src/muad_api/metrics.py`）；②「不得进入热点路径的额外 IO」——记录点是 `inc_counter`（加锁累加），且只在**请求/回合收口处**逐层记一次，不逐条消息、不查库。
+- E-05: verified — automated command passed; run_id=98dfad9e5ee94106b59aaf0bd1f06c5e (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-04] created (draft)
+- [2026-10-04] started
+- [2026-10-04] completed (done)
 
 ---
-
+- [2026-10-04] 实现：`metrics.py` 新增四个计数器（`context_compaction_total{layer,status}`、`context_compaction_bytes_saved_total{layer}`、`context_summary_total{status}`、`context_summary_tokens_total`，token 记在 **amount** 不进 label）并进 `CATALOG`；`context_compaction.py` 在收口处逐层记 CPU 无关的计数与省下字节，摘要层记 `OK`/`REJECTED`/`FAILED` 三种结局，整段退化路径记 `{layer="*",status="FAILED"}`（失败不静默）；token 用量记在**发起调用的一侧**（`make_summary_runner`，那里才有 `ModelResponse` 的 usage），且无论采不采用都记（钱已经花了）。回归 `tests/agent_core tests/agent_runtime tests/architecture tests/sdk` → **582 passed**；ruff / mypy(297 files) clean。
 ## TASK-008: memory 预算与 micro 豁免（FEAT-09）
 
 - **Status**: draft

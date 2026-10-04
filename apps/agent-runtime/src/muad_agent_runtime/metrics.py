@@ -25,6 +25,10 @@ MEMORY_WRITE_METRIC: Final = "memory_write_total"
 MEMORY_INJECT_METRIC: Final = "memory_inject_total"
 MEMORY_RECALL_METRIC: Final = "memory_recall_total"
 MEMORY_RECALL_BYTES_METRIC: Final = "memory_recall_bytes_total"
+CONTEXT_COMPACTION_METRIC: Final = "context_compaction_total"
+CONTEXT_COMPACTION_BYTES_SAVED_METRIC: Final = "context_compaction_bytes_saved_total"
+CONTEXT_SUMMARY_METRIC: Final = "context_summary_total"
+CONTEXT_SUMMARY_TOKENS_METRIC: Final = "context_summary_tokens_total"
 
 COUNTER: Final = "counter"
 GAUGE: Final = "gauge"
@@ -54,6 +58,22 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     (MEMORY_INJECT_METRIC, COUNTER, (), "Memory entries injected into model requests"),
     (MEMORY_RECALL_METRIC, COUNTER, ("status",), "Recall tool calls by outcome"),
     (MEMORY_RECALL_BYTES_METRIC, COUNTER, (), "Bytes returned by the recall tool"),
+    # 压缩四级计数器（design §3.5 可观测性）：label 只有层名与结果，不带资源 ID。
+    (
+        CONTEXT_COMPACTION_METRIC,
+        COUNTER,
+        ("layer", "status"),
+        "Context compaction layers by layer and status",
+    ),
+    (
+        CONTEXT_COMPACTION_BYTES_SAVED_METRIC,
+        COUNTER,
+        ("layer",),
+        "Bytes saved by context compaction by layer",
+    ),
+    (CONTEXT_SUMMARY_METRIC, COUNTER, ("status",), "Summary layer runs by status"),
+    # token 用量记在 **amount**，不进 label（label 里放计数值会裂出无界时间序列）。
+    (CONTEXT_SUMMARY_TOKENS_METRIC, COUNTER, (), "Tokens spent on summary model calls"),
 )
 
 
