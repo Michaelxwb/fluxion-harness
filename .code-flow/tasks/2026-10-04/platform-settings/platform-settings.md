@@ -39,7 +39,7 @@
 | E-20 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | . | 600 | |
 | E-21 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 acceptance 栈（真实 Console API + 真实 PostgreSQL + 真实 Worker 进程） | TASK-014 | planned | ["uv","run","pytest","-q","tests/acceptance/dfx"] | . | 1200 | |
 | B-01 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实设置文档 schema 函数（无服务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | . | 300 | |
-| B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
+| B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
 | B-03 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | TASK-007 | verified | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | . | 300 | |
 | B-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（表内无该租户行） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","default_when_absent"] | . | 300 | |
 | B-05 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由 | TASK-010 | planned | - | . | 600 | |
@@ -689,7 +689,7 @@ GREEN：
 
 ## TASK-008: 模型执行预算层级
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: platform-settings.backend.design.md#3.1 方案选型
@@ -702,26 +702,70 @@ GREEN：
 
 ### Checklist
 
-- [ ] 定义预算层级解析函数（总 deadline → 单次请求预算 → 重试预算），落在 agent-core/agent-runtime 的模型调用装配侧
-- [ ] 三处重试常量合一为 `agent.max_model_retries`；`RETRY_BASE_SEC` 与 `DEFAULT_RETRY_BASE_SEC` 合一（退避基数不是设置项）
-- [ ] `ModelGateway.DEADLINE_DEFAULT_MS` / `executor.MODEL_TIMEOUT_SEC` / Provider I/O timeout 不再各自独立取默认，改由层级派生
-- [ ] [B-02][unit] 覆盖：单次预算 > 剩余总预算时被夹到剩余；重试预算之和不得超过总预算；总预算耗尽前停止重试；真实边界：**真实预算解析函数，不 mock**
-- [ ] 先写测试并记录 RED，再实现
-- [ ] 同步 `docs/configuration-inventory.csv` 与机检期望
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 定义预算层级解析函数（总 deadline → 单次请求预算 → 重试预算），落在 agent-core/agent-runtime 的模型调用装配侧
+- [x] 三处重试常量合一为 `agent.max_model_retries`；`RETRY_BASE_SEC` 与 `DEFAULT_RETRY_BASE_SEC` 合一（退避基数不是设置项）
+- [x] `ModelGateway.DEADLINE_DEFAULT_MS` / `executor.MODEL_TIMEOUT_SEC` / Provider I/O timeout 不再各自独立取默认，改由层级派生
+- [x] [B-02][unit] 覆盖：单次预算 > 剩余总预算时被夹到剩余；重试预算之和不得超过总预算；总预算耗尽前停止重试；真实边界：**真实预算解析函数，不 mock**
+- [x] 先写测试并记录 RED，再实现
+- [x] 同步 `docs/configuration-inventory.csv` 与机检期望
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-02 | unit | 真实预算层级解析函数（无服务） | 单次预算 ≤ 剩余总预算；重试预算不越总预算；耗尽即停止 | `tests/agent_runtime/test_model_budget_layers.py` | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | planned |
+| B-02 | unit | 真实预算层级解析函数（无服务） | 单次预算 ≤ 剩余总预算；重试预算不越总预算；耗尽即停止 | `tests/agent_runtime/test_model_budget_layers.py` | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | verified |
 
 ### Acceptance Evidence
 
-> 编码期填写 RED/GREEN 与断言位置。
+**层级实现落点与理由**：`packages/agent-core/src/muad_agent_core/model/budget.py`（`ModelBudget` + `resolve_*` 派生方法）。
+
+- 落 **agent-core 的 model 侧**：重试算法（`AgentRunner._complete_with_recovery`）、总预算/重试次数载体（`AgentPolicy`）、模型 Provider I/O 超时（`OpenAICompatibleProvider`）都在 agent-core；agent-runtime 依赖 agent-core，反向不成立。
+- 放 `model/` 而非 `agent/`：Provider（`model/openai_provider.py`）要从同一处取单次请求上限；若放 `agent/`，`model → agent.budget` 会经 `agent/__init__` 反向触发 `runner → model` 形成导入环。放 `model/budget.py` 两个消费方都只依赖 contracts，无环（已由全量 `tests/agent_core` / `tests/agent_runtime` 导入验证）。
+
+**RED（先写测试，未实现时真实输出）**：
+
+```
+$ uv run pytest -q tests/agent_runtime/test_model_budget_layers.py
+ERROR collecting tests/agent_runtime/test_model_budget_layers.py
+ImportError while importing test module
+tests/agent_runtime/test_model_budget_layers.py:12: in <module>
+    from muad_agent_core.agent.budget import (
+E   ModuleNotFoundError: No module named 'muad_agent_core.agent.budget'
+!!! Interrupted: 1 error during collection !!!
+1 error in 0.06s
+```
+
+（实现期把模块最终定为 `muad_agent_core.model.budget`，测试导入同步改为 `muad_agent_core.model`，理由见上。）
+
+**GREEN（命令与数字）**：
+
+- `uv run pytest -q tests/agent_runtime/test_model_budget_layers.py` → `7 passed in 0.01s`
+- `uv run pytest -q tests/agent_runtime` → `357 passed in 11.87s`（含 `test_snapshot_freeze.py` / `test_runs_api.py` / `test_context_compaction_config.py` / `test_platform_settings_source.py` 等被 `snapshot_policy` 改动辐射的用例）
+- `uv run pytest -q tests/agent_core` → `109 passed in 7.81s`（含 `test_runner.py` 既有重试/截止用例）
+- `uv run pytest -q tests/test_configuration_inventory.py` → `3 passed in 0.69s`
+- `uv run ruff check`（7 个改动文件）→ `All checks passed!`
+
+**关键断言位置（`tests/agent_runtime/test_model_budget_layers.py`，真实函数，无 mock）**：
+
+- 单次预算被夹到剩余：`test_request_budget_is_clamped_to_remaining_total_budget`（`request_timeout_ms(elapsed_ms=80_000)==10_000`、`elapsed_ms>=deadline` 时为 `0`）
+- 单次预算被算法上限夹住：`test_request_budget_is_capped_by_the_algorithm_ceiling`（`== MAX_MODEL_REQUEST_MS`）
+- 重试预算不越总预算：`test_retry_budget_never_exceeds_total_budget`（`retry_budget_ms() <= deadline_ms`，紧预算时被夹到 `deadline_ms`）
+- 耗尽即停止：`test_retries_stop_before_total_budget_is_exhausted`（累计退避 `sum(delays)*1000 <= deadline_ms` 且用不满次数）、`test_retry_stops_when_attempts_are_exhausted`
+- 退避基数单处：`test_retry_after_header_overrides_the_backoff_base`（`retry_delay_sec(0)==RETRY_BASE_SEC`、`(1)==RETRY_BASE_SEC*2`）
+- 三处常量同源：`test_defaults_and_policy_fields_track_the_platform_schema`（`DEFAULT_*` == `AgentSettings()` 默认；`AgentPolicy()` 同步）
+
+**真实边界（无服务）与落点证据**：
+
+- 层级派生由 `ModelBudget` 方法直接承担（`request_timeout_ms` / `retry_budget_ms` / `retry_delay_sec` / `fits_before_deadline` / `allows_retry`），两个重试循环与 Provider 超时均从它取数：`packages/agent-core/src/muad_agent_core/agent/runner.py`（`AgentPolicy` 默认值与 `_retry_delay`）、`apps/agent-runtime/.../application/model_gateway.py`（`self._budget`）、`apps/agent-runtime/.../application/executor.py`（`agent_policy_for` + `budget.request_timeout_sec()`）。
+- `snapshot_policy(compaction, agent_budget)` 冻结 `deadline_ms`/`max_model_retries`；`_create_run` 沿用 TASK-005 取好的快照（`agent_budget_from_platform(snapshot_settings.settings)`，无新取数方式、无 TTL）；`_resume_run` 经 `agent_budget_of(policy_json)` 读回冻结值。
+- 纯逻辑装配烟测（真实函数、无服务）：平台文档 `{"agent":{"deadline_ms":45000,"max_model_retries":7}}` → `agent_budget_from_platform` → `snapshot_policy` 冻结 `{deadline_ms:45000,max_model_retries:7}` → `agent_budget_of` 还原 → `agent_policy_for` 得 `AgentPolicy(deadline_ms=45000,max_model_retries=7)`；Agent `runtime_config.deadline_ms=9000` 覆盖为基值之上更高优先级（`deadline_ms=9000,max_model_retries=7`）。
+- B-02: verified — automated command passed; run_id=718d9ac0af6b475e9aea4b970cce1a4c (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 

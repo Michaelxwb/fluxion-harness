@@ -9,6 +9,9 @@ from collections.abc import Callable
 from typing import Any, Protocol
 
 from muad_agent_core.model import (
+    DEFAULT_DEADLINE_MS,
+    DEFAULT_MAX_MODEL_RETRIES,
+    ModelBudget,
     ModelRateLimitedError,
     ModelRequestError,
     ModelUnavailableError,
@@ -19,9 +22,6 @@ from muad_api.error_codes import ErrorCode
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 from ..metrics import MODEL_INVOCATIONS_METRIC, record_outcome
 
-MAX_RETRIES_DEFAULT = 3
-DEADLINE_DEFAULT_MS = 60_000
-RETRY_BASE_SEC = 0.05
 SUCCEEDED_STATUS = "SUCCEEDED"
 FAILED_STATUS = "FAILED"
 
@@ -50,15 +50,12 @@ class ModelGateway:
     def __init__(
         self,
         *,
-        max_retries: int = MAX_RETRIES_DEFAULT,
-        deadline_ms: int = DEADLINE_DEFAULT_MS,
+        max_retries: int = DEFAULT_MAX_MODEL_RETRIES,
+        deadline_ms: int = DEFAULT_DEADLINE_MS,
         audit_writer: RuntimeAuditWriter | None = None,
-        base_delay_sec: float = RETRY_BASE_SEC,
     ) -> None:
-        self._max_retries = max_retries
-        self._deadline_ms = deadline_ms
+        self._budget = ModelBudget(deadline_ms=deadline_ms, max_model_retries=max_retries)
         self._audit_writer = audit_writer
-        self._base_delay_sec = base_delay_sec
 
     async def complete(
         self,
@@ -75,6 +72,7 @@ class ModelGateway:
         user_id: uuid.UUID | None = None,
     ) -> Any:
         writer = self._audit_writer
+        budget = self._budget
         started = time.monotonic()
         attempt = 0
         while True:
@@ -104,22 +102,22 @@ class ModelGateway:
                 return response
             except ModelRateLimitedError as exc:
                 retry_reason = "rate_limited"
-                delay = getattr(exc, "retry_after", None) or self._base_delay_sec * (2**attempt)
+                delay = budget.retry_delay_sec(attempt - 1, getattr(exc, "retry_after", None))
             except ModelUnavailableError as exc:
                 retry_reason = "unavailable"
-                delay = self._base_delay_sec * (2**attempt)
-                if attempt > self._max_retries:
+                delay = budget.retry_delay_sec(attempt - 1)
+                if attempt > budget.max_model_retries:
                     await self._audit_failed(writer, provider_name, model, attempt, retry_reason)
                     raise AppError(ErrorCode.MODEL_UNAVAILABLE) from exc
             except ModelRequestError as exc:
                 await self._audit_failed(writer, provider_name, model, attempt, "request_rejected")
                 raise AppError(ErrorCode.MODEL_UNAVAILABLE) from exc
 
-            if attempt > self._max_retries:
+            if attempt > budget.max_model_retries:
                 await self._audit_failed(writer, provider_name, model, attempt, retry_reason)
                 raise AppError(ErrorCode.MODEL_UNAVAILABLE)
             elapsed_ms = (time.monotonic() - started) * 1000
-            if elapsed_ms + delay * 1000 >= self._deadline_ms:
+            if not budget.fits_before_deadline(elapsed_ms=elapsed_ms, delay_sec=delay):
                 await self._audit_failed(writer, provider_name, model, attempt, "deadline")
                 raise AppError(ErrorCode.MODEL_UNAVAILABLE)
             await asyncio.sleep(delay)

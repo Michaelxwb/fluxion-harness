@@ -465,7 +465,7 @@
       "kind": "functional",
       "boundary": "真实预算层级解析函数（无服务）",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -475,7 +475,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "718d9ac0af6b475e9aea4b970cce1a4c",
+        "executed_at": "2026-10-05T04:14:36.999581+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_model_budget_layers.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "1d3eb67ec150023e70e27f27601717537898fd8f4bd3d0c4c2d9094a2f28fe66"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "718d9ac0af6b475e9aea4b970cce1a4c",
+          "executed_at": "2026-10-05T04:14:36.999581+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_model_budget_layers.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "1d3eb67ec150023e70e27f27601717537898fd8f4bd3d0c4c2d9094a2f28fe66"
+        }
+      ]
     },
     {
       "id": "B-03",

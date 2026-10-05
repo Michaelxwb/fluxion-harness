@@ -21,6 +21,7 @@ from muad_agent_core.agent import (
 )
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
+    ModelBudget,
     ModelContent,
     ModelMessage,
     ModelProvider,
@@ -84,7 +85,6 @@ TOOL_COMPLETED_EVENT = "tool.completed"
 # 一个 assistant 回合（含 tool_calls 与思维链）原样落库；历史重建靠它产出**合法**的消息序列
 ASSISTANT_TURN_EVENT = "assistant.turn"
 CANCEL_POLL_INTERVAL_SEC = 0.25
-MODEL_TIMEOUT_SEC = 120.0
 # 内容投递类工具（`externalizable_result=False`）的内联上限：**不是无限直通**。
 # 超过它仍然外置，否则一个超大 SKILL.md 会直接打爆上下文；这也把「渐进式披露」从建议变成
 # 硬约束（正文放 SKILL.md / 大段规范放 references）。取值与 `MAX_RESOURCE_BYTES`（单次资源
@@ -154,6 +154,19 @@ class ExecutorRequest:
     run_context: ExecutorRunContext | None = None
     #: 本次 Run **冻结**的压缩配置（来自 `policy_json`）；None = 不压缩。
     compaction: CompactionSettings | None = None
+    #: 本次 Run **冻结**的模型执行预算层级（来自 `policy_json`）；None = schema 默认。
+    model_budget: ModelBudget | None = None
+
+
+def agent_policy_for(request: ExecutorRequest) -> AgentPolicy:
+    """执行期 AgentPolicy：平台设置（冻结后注入）为基，Agent runtime_config 覆盖优先级更高。
+
+    `model_budget` 由 Run 创建边界从平台设置快照冻结，经 `ExecutorRequest` 显式传入；缺失时
+    回落 schema 默认（等价 `agent.deadline_ms` / `agent.max_model_retries` 的默认值）。
+    """
+    budget = request.model_budget if request.model_budget is not None else ModelBudget()
+    base = AgentPolicy(deadline_ms=budget.deadline_ms, max_model_retries=budget.max_model_retries)
+    return AgentPolicy.from_runtime_config(request.agent.runtime_config, base=base)
 
 
 class RunExecutor(Protocol):
@@ -316,7 +329,7 @@ class AgentRunnerExecutor:
             instructions=self._request.agent.instructions,
             skills=tuple(_prompt_skill(skill) for skill in self._request.skills),
             messages=messages,
-            policy=AgentPolicy.from_runtime_config(self._request.agent.runtime_config),
+            policy=agent_policy_for(self._request),
             temperature=_float_param(params, "temperature"),
             max_tokens=_int_param(params, "max_tokens"),
             params=params,
@@ -743,7 +756,7 @@ def build_registry(
     delivery_client: GatewayDeliveryClient | None = None,
     recorder: ToolCallRecorder | None = None,
 ) -> ToolRegistry:
-    policy = AgentPolicy.from_runtime_config(request.agent.runtime_config)
+    policy = agent_policy_for(request)
     task_context = _task_submission_context(request)
     registry = build_skill_registry(
         cache=cache,
@@ -838,11 +851,13 @@ async def default_executor_factory(
     task_client: WorkerTaskClient | None = None,
     delivery_client: GatewayDeliveryClient | None = None,
 ) -> RunExecutor:
+    # 单次模型请求 I/O 超时由预算层级派生（单次请求预算被夹到剩余总预算），不再独立取默认。
+    budget = request.model_budget if request.model_budget is not None else ModelBudget()
     provider: ModelProvider = OpenAICompatibleProvider(
         base_url=request.model.base_url,
         model=request.model.model_id,
         api_key=await resolve_model_api_key(request.model),
-        timeout_sec=MODEL_TIMEOUT_SEC,
+        timeout_sec=budget.request_timeout_sec(),
     )
     audit_writer = _audit_writer_for(request)
     if audit_writer is not None:

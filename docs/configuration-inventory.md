@@ -135,15 +135,10 @@
 | `MAX_HISTORY_TOOL_ROUNDS` | `6` | [context_builder.py:35](../apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py#L35) |
 | `MAX_INJECTED_MEMORIES` | `10` | [context_builder.py:39](../apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py#L39) |
 | `MAX_INJECTED_BYTES` | `2048` | [context_builder.py:40](../apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py#L40) |
-| `MODEL_TIMEOUT_SEC` | `120.0` | [executor.py:87](../apps/agent-runtime/src/muad_agent_runtime/application/executor.py#L87) |
 | `MAX_INLINE_RESULT_BYTES` | `256 * 1024` | [executor.py:92](../apps/agent-runtime/src/muad_agent_runtime/application/executor.py#L92) |
 | `RECALL_DEFAULT_LIMIT` | `10` | [memory_tools.py:61](../apps/agent-runtime/src/muad_agent_runtime/application/memory_tools.py#L61) |
 | `RECALL_MAX_LIMIT` | `20` | [memory_tools.py:63](../apps/agent-runtime/src/muad_agent_runtime/application/memory_tools.py#L63) |
 | `MAX_RECALL_BYTES` | `4096` | [memory_tools.py:66](../apps/agent-runtime/src/muad_agent_runtime/application/memory_tools.py#L66) |
-| `MAX_RETRIES_DEFAULT` | `3` | [model_gateway.py:22](../apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py#L22) |
-| `DEADLINE_DEFAULT_MS` | `60000` | [model_gateway.py:23](../apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py#L23) |
-| `RETRY_BASE_SEC` | `0.05` | [model_gateway.py:24](../apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py#L24) |
-| `MAX_MODEL_RETRIES` | `3` | [run_service.py:96](../apps/agent-runtime/src/muad_agent_runtime/application/run_service.py#L96) |
 | `MAX_RESOURCE_BYTES` | `256 * 1024` | [skill_tools.py:38](../apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py#L38) |
 | `MAX_CASCADE_DEPTH` | `8` | [task_cancel.py:23](../apps/agent-worker/src/muad_agent_worker/application/task_cancel.py#L23) |
 | `INITIAL_PRIORITY` | `100` | [task_service.py:28](../apps/agent-worker/src/muad_agent_worker/application/task_service.py#L28) |
@@ -169,7 +164,6 @@
 | `PROGRESS_INTERVAL_SEC` | `5.0` | [progress.py:104](../apps/im-gateway/src/muad_im_gateway/application/progress.py#L104) |
 | `DELTA_FLUSH_INTERVAL_SEC` | `0.5` | [stream_renderer.py:24](../apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py#L24) |
 | `DEFAULT_STREAM_FLUSH_INTERVAL_SEC` | `0.5` | [adapter.py:76](../apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py#L76) |
-| `DEFAULT_RETRY_BASE_SEC` | `0.1` | [runner.py:40](../packages/agent-core/src/muad_agent_core/agent/runner.py#L40) |
 
 此外，`AgentPolicy.max_turns=20`、`max_tool_calls=30`、`deadline_ms=120000`、`max_model_retries=3` 作为平台默认可纳入执行策略；已有 `runtime_config` 覆盖继续优先。`BudgetPolicy.max_messages=40` 应复用 `compaction.history_budget_messages`，不新增另一个“历史条数”键。`memory_write` 是现有 Agent 级配置，未显式配置时默认 `True`（`application/memory_tools.py:104`）；需要平台默认时同样遵循“资源覆盖 > 平台设置 > schema 默认”。
 

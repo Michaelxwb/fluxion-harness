@@ -13,6 +13,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from ..context.compactor import ContextCompactor
 from ..hooks.pipeline import HookEvent, HookPipeline
+from ..model.budget import DEFAULT_DEADLINE_MS, DEFAULT_MAX_MODEL_RETRIES, ModelBudget
 from ..model.errors import (
     ModelRateLimitedError,
     ModelRequestError,
@@ -37,7 +38,6 @@ NODE_PREPARE_CONTEXT = "prepare_context"
 NODE_MODEL = "model"
 NODE_TOOLS = "tools"
 NODE_FINALIZE = "finalize"
-DEFAULT_RETRY_BASE_SEC = 0.1
 TOOL_BUDGET_EXHAUSTED = "tool call budget exhausted"
 UNKNOWN_TOOL_TEMPLATE = "unknown tool: {name}"
 TOOL_BLOCKED_TEMPLATE = "tool blocked before execution: {reason}"
@@ -92,12 +92,18 @@ class AgentRunStatus(StrEnum):
 class AgentPolicy:
     max_turns: int = 20
     max_tool_calls: int = 30
-    deadline_ms: int = 120_000
-    max_model_retries: int = 3
+    deadline_ms: int = DEFAULT_DEADLINE_MS
+    max_model_retries: int = DEFAULT_MAX_MODEL_RETRIES
 
     @classmethod
-    def from_runtime_config(cls, config: Mapping[str, Any]) -> AgentPolicy:
-        defaults = cls()
+    def from_runtime_config(
+        cls, config: Mapping[str, Any], *, base: AgentPolicy | None = None
+    ) -> AgentPolicy:
+        """从 Agent runtime_config 读覆盖；`base` 给出底层默认（缺省用平台设置/ schema 默认）。
+
+        平台设置冻结值经 `base` 注入，Agent 自身的 runtime_config 覆盖优先级更高。
+        """
+        defaults = base if base is not None else cls()
         return cls(
             max_turns=_limit(config, "max_turns", defaults.max_turns),
             max_tool_calls=_limit(config, "max_tool_calls", defaults.max_tool_calls),
@@ -580,10 +586,13 @@ class AgentRunner:
         retry_after: float | None,
     ) -> float:
         policy = state["policy"]
-        if attempt >= policy.max_model_retries:
+        budget = ModelBudget(
+            deadline_ms=policy.deadline_ms, max_model_retries=policy.max_model_retries
+        )
+        if attempt >= budget.max_model_retries:
             raise RunnerModelError(f"model retries exhausted: {attempt}")
-        delay = retry_after if retry_after is not None else DEFAULT_RETRY_BASE_SEC * (2**attempt)
+        delay = budget.retry_delay_sec(attempt, retry_after)
         elapsed_ms = (time.monotonic() - state["started_at"]) * 1000
-        if elapsed_ms + delay * 1000 >= policy.deadline_ms:
+        if not budget.fits_before_deadline(elapsed_ms=elapsed_ms, delay_sec=delay):
             raise RunnerDeadlineExceeded("retry would exceed the run deadline")
         return delay

@@ -7,6 +7,7 @@ import httpx
 from muad_platform_sdk.types import SecretValue
 
 from ..tools.registry import ToolDefinition
+from .budget import MAX_MODEL_REQUEST_MS
 from .errors import ModelRateLimitedError, ModelRequestError, ModelUnavailableError
 from .provider import (
     DeltaCallback,
@@ -41,7 +42,8 @@ def _render_content(content: ModelContent) -> str | list[dict[str, Any]]:
 CHAT_COMPLETIONS_PATH = "/chat/completions"
 RATE_LIMIT_STATUS = 429
 SERVER_ERROR_STATUS = 500
-DEFAULT_TIMEOUT_SEC = 60.0
+#: 单次请求 I/O 超时不再独立取默认：由预算层级的上限派生（见 `model/budget.py`）。
+DEFAULT_TIMEOUT_SEC = MAX_MODEL_REQUEST_MS / 1000.0
 
 
 class OpenAICompatibleProvider:

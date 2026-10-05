@@ -13,7 +13,7 @@ from typing import Any
 
 import sqlalchemy as sa
 from muad_agent_core.agent import RunnerModelError
-from muad_agent_core.model import ModelMessage
+from muad_agent_core.model import ModelBudget, ModelMessage
 from muad_api import AppError
 from muad_api.context import current_trace_id
 from muad_api.error_codes import ErrorCode
@@ -38,6 +38,7 @@ from muad_contracts.platform_settings import (
     compaction_payload,
     default_compaction_settings,
     parse_compaction_settings,
+    parse_platform_settings,
 )
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
@@ -98,20 +99,51 @@ logger = logging.getLogger(__name__)
 ACTIVE_RUN_STATUSES = (RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT)
 TERMINAL_RUN_STATUSES = (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)
 PROMPT_TEMPLATE_VERSION = "1"
-MAX_MODEL_RETRIES = 3
 
 
-def snapshot_policy(compaction: CompactionSettings | None = None) -> dict[str, Any]:
+def snapshot_policy(
+    compaction: CompactionSettings | None = None,
+    agent_budget: ModelBudget | None = None,
+) -> dict[str, Any]:
     """Run 侧 execution snapshot 的执行期策略——`policy_json` 的唯一构建口径。
 
-    压缩配置与 `max_model_retries` 一并冻结在这里：配置变更只影响后续新 Run，在飞的 Run 用的
-    是它自己那一份冻结值（`harness-snapshot#RULE-snapshot-001` 的"Run 侧等价载体"）。
+    模型执行预算（`agent.deadline_ms` / `agent.max_model_retries`，见 ADR-07）与压缩配置一并
+    冻结在这里：配置变更只影响后续新 Run，在飞的 Run 用的是它自己那一份冻结值
+    （`harness-snapshot#RULE-snapshot-001` 的"Run 侧等价载体"）。
     """
     settings = compaction if compaction is not None else default_compaction_settings()
+    budget = agent_budget if agent_budget is not None else ModelBudget()
     return {
-        "max_model_retries": MAX_MODEL_RETRIES,
+        "deadline_ms": budget.deadline_ms,
+        "max_model_retries": budget.max_model_retries,
         "compaction": compaction_payload(settings),
     }
+
+
+def agent_budget_of(policy: Mapping[str, Any] | None) -> ModelBudget | None:
+    """从**已冻结**的 `policy_json` 还原模型执行预算；缺键或形状坏返回 None（回落 schema 默认）。
+
+    resume 走这条：在跑的 Run 用的永远是它自己那一份冻结值，不吃当前平台设置。
+    """
+    if not isinstance(policy, Mapping):
+        return None
+    deadline_ms = policy.get("deadline_ms")
+    max_model_retries = policy.get("max_model_retries")
+    if not isinstance(deadline_ms, int) or isinstance(deadline_ms, bool):
+        return None
+    if not isinstance(max_model_retries, int) or isinstance(max_model_retries, bool):
+        return None
+    return ModelBudget(deadline_ms=deadline_ms, max_model_retries=max_model_retries)
+
+
+def agent_budget_from_platform(document: Mapping[str, Any] | None) -> ModelBudget:
+    """从平台设置快照（整份文档）解析模型执行预算，缺分组回落 schema 默认。
+
+    非法文档显式抛 `PlatformSettingsError`（Console 是唯一写入口，已在校验层把住）——与
+    "源不可读即明确失败"同一条纪律，绝不静默回退到过期默认值。
+    """
+    agent = parse_platform_settings(document).agent
+    return ModelBudget(deadline_ms=agent.deadline_ms, max_model_retries=agent.max_model_retries)
 
 
 def compaction_settings_of(policy: Mapping[str, Any] | None) -> CompactionSettings | None:
@@ -224,6 +256,7 @@ def build_snapshot(
     tenant_id: str,
     resolved: ResolveDefinitionResponse,
     compaction: CompactionSettings | None = None,
+    agent_budget: ModelBudget | None = None,
 ) -> RuntimeSnapshot:
     # 未显式传入时按「无平台设置」（`platform_overrides={}`）合并 Agent 覆盖——仅用于不经过
     # Run 创建边界的直构调用点；生产路径由 `_create_run` 在取到平台快照后显式传入。
@@ -232,7 +265,7 @@ def build_snapshot(
         if compaction is not None
         else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
-    policy = snapshot_policy(settings)
+    policy = snapshot_policy(settings, agent_budget)
     return RuntimeSnapshot(
         tenant_id=tenant_id,
         run_id=run_id,
@@ -660,6 +693,9 @@ class RunService:
             resolved.agent.runtime_config,
             platform_overrides=snapshot_settings.settings.get("compaction"),
         )
+        # 模型执行预算同样在此冻结一次（ADR-07）：`agent.deadline_ms` / `agent.max_model_retries`
+        # 既是本次装配的 AgentPolicy 基值，也冻进 policy_json 供 resume 读回。
+        agent_budget = agent_budget_from_platform(snapshot_settings.settings)
         model, mcp_secrets = await self._runtime_credentials(
             run_id,
             tenant_id,
@@ -686,7 +722,9 @@ class RunService:
         self._session.add(run)
         try:
             await self._session.flush()
-            snapshot = self._build_snapshot(run.id, tenant_id, resolved, compaction)
+            snapshot = self._build_snapshot(
+                run.id, tenant_id, resolved, compaction, agent_budget
+            )
             self._session.add(snapshot)
             await self._session.flush()
             run.snapshot_id = snapshot.id
@@ -761,6 +799,7 @@ class RunService:
                 submission_id=submission.id,
                 resumed=False,
                 compaction=compaction,
+                agent_budget=agent_budget,
             ),
         )
 
@@ -865,6 +904,7 @@ class RunService:
                 submission_id=submission.id,
                 resumed=True,
                 compaction=compaction_settings_of(snapshot.policy_json),
+                agent_budget=agent_budget_of(snapshot.policy_json),
                 current_text=input_text,
                 with_attachments=False,
             ),
@@ -988,9 +1028,14 @@ class RunService:
         tenant_id: str,
         resolved: ResolveDefinitionResponse,
         compaction: CompactionSettings | None = None,
+        agent_budget: ModelBudget | None = None,
     ) -> RuntimeSnapshot:
         return build_snapshot(
-            run_id=run_id, tenant_id=tenant_id, resolved=resolved, compaction=compaction
+            run_id=run_id,
+            tenant_id=tenant_id,
+            resolved=resolved,
+            compaction=compaction,
+            agent_budget=agent_budget,
         )
 
     def _event_writer(self) -> EventWriter:
@@ -1043,6 +1088,7 @@ class RunService:
         history: Sequence[ModelMessage],
         *,
         compaction: CompactionSettings | None = None,
+        agent_budget: ModelBudget | None = None,
         current_text: str | None = None,
         with_attachments: bool = True,
     ) -> RunExecutor:
@@ -1066,6 +1112,7 @@ class RunService:
                 mcp_servers=tuple(mcp_servers),
                 history=tuple(history),
                 compaction=compaction,
+                model_budget=agent_budget,
                 credentials=ExecutorCredentials(mcp_secrets=mcp_secrets),
                 run_context=ExecutorRunContext(
                     tenant_id=run.tenant_id,
@@ -1090,6 +1137,7 @@ class RunService:
         submission_id: uuid.UUID,
         resumed: bool,
         compaction: CompactionSettings | None = None,
+        agent_budget: ModelBudget | None = None,
         current_text: str | None = None,
         with_attachments: bool = True,
     ) -> AsyncIterator[ExecutorEvent]:
@@ -1116,6 +1164,7 @@ class RunService:
                 mcp_secrets,
                 history,
                 compaction=compaction,
+                agent_budget=agent_budget,
                 current_text=current_text,
                 with_attachments=with_attachments,
             )
