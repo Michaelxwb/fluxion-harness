@@ -12,15 +12,18 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
+from dataclasses import asdict
 
 import pytest
 from httpx import AsyncClient, Response
 from muad_common import SharedSettings
+from muad_console_platform.application.platform_settings_guard import find_secret_key
 from muad_console_platform.application.platform_settings_idempotency import (
     ENDPOINT_SAVE,
 )
 from muad_console_platform.infrastructure.db import get_session_factory
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -307,3 +310,95 @@ async def test_read_settings_revisions_and_limits_envelope(
 
     bad_page = await client.get(f"{SETTINGS_URL}/revisions", params={"page_size": 0})
     assert bad_page.status_code == 422
+
+
+# --------------------------------------------------------------------------- E-22
+def _leaf_paths(document: Mapping, prefix: str = "") -> list[str]:
+    """展开设置文档的全部叶子路径（分组/嵌套节也逐层进入）。"""
+    paths: list[str] = []
+    for key, value in document.items():
+        path = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, Mapping):
+            paths.extend(_leaf_paths(value, path))
+        else:
+            paths.append(path)
+    return paths
+
+
+def _nest(path: str, value: object) -> dict:
+    """把 `a.b.c` 还原成 `{"a": {"b": {"c": value}}}`，用于逐叶子喂给守卫。"""
+    nested: dict = {}
+    cursor = nested
+    *parents, leaf = path.split(".")
+    for name in parents:
+        cursor[name] = {}
+        cursor = cursor[name]
+    cursor[leaf] = value
+    return nested
+
+
+def test_business_key_boundary_default_schema_leaves_are_never_secret() -> None:
+    """[E-22] 结构性回归：默认文档每个叶子路径都不得被守卫判为敏感（防复发）。
+
+    只修 `min_password_length` 这一处是治标；这里遍历 schema 的全部叶子，任何未来新增的
+    合法业务键若落进敏感形状（整键等于敏感词或以敏感词结尾）都会在此被照出。
+    """
+    document = asdict(default_platform_settings())
+    assert list(document) == [
+        "compaction",
+        "agent",
+        "task",
+        "memory",
+        "artifact",
+        "auth",
+        "locale",
+        "im",
+        "mcp",
+    ], "分组集合变化时须复核本回归的覆盖面"
+    leaves = _leaf_paths(document)
+    assert len(leaves) == 41, "叶子数（design ADR-10：41）变化时须复核本回归的覆盖面"
+    for path in leaves:
+        assert find_secret_key(_nest(path, 0)) is None, f"合法业务键被误判为敏感：{path}"
+    assert find_secret_key(document) is None, "整份默认文档不得被判为敏感"
+
+
+async def test_business_key_boundary_full_default_document_saves_via_real_put(
+    client: AsyncClient, settings_tenant: TenantContext
+) -> None:
+    """[E-22] 整份默认文档（含 `auth` 分组）经真实 PUT 保存成功并产生新版本。"""
+    tenant_id = settings_tenant.tenant_id
+    document = asdict(default_platform_settings())
+    response = await _put(client, _bad_payload(0, document))
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["revision"] == 1, "整份文档保存须产生新版本"
+    assert data["settings"]["auth"]["min_password_length"] == 12
+    assert await _revisions(tenant_id) == [1], "真实 PostgreSQL 落了一行新版本"
+
+    current = await client.get(SETTINGS_URL)
+    assert current.status_code == 200
+    assert _field_value(current.json(), "auth.min_password_length") == 12
+    assert _field_value(current.json(), "auth.session_ttl_hours") == 12
+
+
+async def test_business_key_boundary_rejects_secret_shaped_and_unknown_keys(
+    client: AsyncClient, settings_tenant: TenantContext
+) -> None:
+    """[E-22] 真敏感形状键仍被拒且不回显键名/值；未知键仍被拒（fail-closed）。"""
+    tenant_id = settings_tenant.tenant_id
+    secret = "sk-LIVE-SECRET-6f2b"
+    secret_cases = ["password", "token", "dsn", "api_key", "db_password"]
+    for key in secret_cases:
+        response = await _put(client, _bad_payload(0, {"auth": {key: secret}}))
+        assert response.status_code == 400, (key, response.text)
+        assert response.json()["code"] == "PLATFORM_SETTINGS_SECRET_REJECTED", key
+        assert secret not in response.text, key
+        assert key not in response.text, "不得回显触发的键名"
+        assert "password" not in response.text, key
+    assert await _revisions(tenant_id) == [], "被拒的提交不得落版本"
+
+    unknown = await _put(client, _bad_payload(0, {"task": {"nope": 1}}))
+    assert unknown.status_code == 400, unknown.text
+    assert unknown.json()["code"] == "VALIDATION_FAILED"
+    assert unknown.json()["data"]["details"][0]["path"] == "task.nope"
+    assert await _revisions(tenant_id) == [], "被拒的未知键不得落版本"

@@ -1,7 +1,9 @@
 """平台设置的敏感键扫描与校验错误定位（design §3.4 API-02、§3.5 安全性）。
 
-- 敏感键扫描：任何分组/嵌套键名含 `password`/`secret`/`token`/`api_key`/`dsn`/`credential`
-  形状即拒绝（`PLATFORM_SETTINGS_SECRET_REJECTED`），**不回显**触发的键或值。
+- 敏感键扫描：**整键**恰好等于敏感词、或以敏感词结尾即拒绝
+  （`PLATFORM_SETTINGS_SECRET_REJECTED`），**不回显**触发的键或值。判定**不做子串匹配**：
+  平台自己的合法设置项可以带敏感词前缀（`auth.min_password_length` 归一化后含 `password`），
+  子串匹配会把它们连同真敏感键一并拒绝（TASK-015）。
 - 校验错误定位：把 `muad_contracts.platform_settings` 的 `PlatformSettingsError` 文本映射为
   `details[].path`，供前端把错误落到具体字段行（前端 design E-11）。
 """
@@ -16,7 +18,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.platform_settings import PlatformSettingsError
 
-#: 命中任一子串即判定为敏感键（归一化去掉 `_`/`-` 后比对）。
+#: 整键（归一化去掉 `_`/`-` 后）等于敏感词、或以敏感词结尾，即判定为敏感键。
 SECRET_MARKERS = ("password", "secret", "token", "apikey", "dsn", "credential")
 
 #: 错误文本前置的字段路径（如 `task.max_attempts`、`compaction.summary.model_ref`）。
@@ -29,12 +31,20 @@ def _normalize(key: str) -> str:
     return key.lower().replace("_", "").replace("-", "")
 
 
+def _is_secret_key(key: str) -> bool:
+    """只认「整键等于敏感词」或「整键以敏感词结尾」，不看子串（见模块 docstring）。"""
+    normalized = _normalize(key)
+    return any(
+        normalized == marker or normalized.endswith(marker) for marker in SECRET_MARKERS
+    )
+
+
 def _scan(document: Any, path: str) -> str | None:
     if not isinstance(document, Mapping):
         return None
     for key, value in document.items():
         child = f"{path}.{key}" if path else str(key)
-        if any(marker in _normalize(str(key)) for marker in SECRET_MARKERS):
+        if _is_secret_key(str(key)):
             return child
         nested = _scan(value, child)
         if nested is not None:

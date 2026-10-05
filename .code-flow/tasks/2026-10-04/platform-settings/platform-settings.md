@@ -38,7 +38,7 @@
 | E-19 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_defaults_from_settings.py","-k","new_task_defaults"] | . | 600 | |
 | E-20 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | . | 600 | |
 | E-21 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 acceptance 栈（真实 Console API + 真实 PostgreSQL + 真实 Worker 进程） | TASK-014 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx"] | . | 1200 | |
-| E-22 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Console API（真实 HTTP PUT）+ 真实 PostgreSQL | TASK-015 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","business_key_boundary"] | . | 300 | |
+| E-22 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Console API（真实 HTTP PUT）+ 真实 PostgreSQL | TASK-015 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","business_key_boundary"] | . | 300 | |
 | B-01 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实设置文档 schema 函数（无服务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | . | 300 | |
 | B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
 | B-03 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | TASK-007 | verified | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | . | 300 | |
@@ -1280,7 +1280,7 @@ E   assert 3 == 1                                          # test_dfx_fault_matr
 
 ## TASK-015: 敏感键守卫的业务键边界
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004
 - **Source**: platform-settings.backend.design.md#3.4 接口设计, platform-settings.backend.design.md#3.5 质量实现方案
@@ -1295,24 +1295,65 @@ TASK-010 的 E2E 照出的真缺陷：`application/platform_settings_guard.py` �
 
 ### Checklist
 
-- [ ] 修 `platform_settings_guard.py` 的判定：改成**分段感知**（只拒「恰好等于」敏感词、或「以 `_password`/`_secret`/`_token`/`_api_key` 结尾」这类形状），**或**改成以 schema 白名单为准、只对白名单之外的未知键做敏感扫描。二者择一，在证据里说明理由
-- [ ] **结构性回归（关键，防复发）**：新增用例遍历 `default_platform_settings()` 的**全部叶子路径**，断言无一被守卫判定为敏感——只修这一处是治标
-- [ ] 正向腿仍成立：真敏感形状的键（`auth.password`/`token`/`dsn`/`api_key` 一类）**仍被拒**，且**不回显**触发的键名或值
-- [ ] 未知键仍被拒（fail-closed）
-- [ ] [E-22][integration] 经**真实 `PUT /api/v1/platform-settings`** 保存整份默认文档 → 成功并产生新版本；随后真敏感键被拒、未知键被拒。真实边界：**真实 Console API（真实 HTTP）+ 真实 PostgreSQL**
-- [ ] 先写测试并记录 RED（改前整份文档保存必 400），再修
-- [ ] 修复后重跑 TASK-010 的 E2E 自检：`npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts`，目标是把 S-01 / E-11 / E-12 从 400 卡点解开（**这是自检，验收仍归需求级 `verify-e2e`**），实跑结果写进证据
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 修 `platform_settings_guard.py` 的判定：改成**分段感知**（只拒「恰好等于」敏感词、或「以 `_password`/`_secret`/`_token`/`_api_key` 结尾」这类形状），**或**改成以 schema 白名单为准、只对白名单之外的未知键做敏感扫描。二者择一，在证据里说明理由
+- [x] **结构性回归（关键，防复发）**：新增用例遍历 `default_platform_settings()` 的**全部叶子路径**，断言无一被守卫判定为敏感——只修这一处是治标
+- [x] 正向腿仍成立：真敏感形状的键（`auth.password`/`token`/`dsn`/`api_key` 一类）**仍被拒**，且**不回显**触发的键名或值
+- [x] 未知键仍被拒（fail-closed）
+- [x] [E-22][integration] 经**真实 `PUT /api/v1/platform-settings`** 保存整份默认文档 → 成功并产生新版本；随后真敏感键被拒、未知键被拒。真实边界：**真实 Console API（真实 HTTP）+ 真实 PostgreSQL**
+- [x] 先写测试并记录 RED（改前整份文档保存必 400），再修
+- [x] 修复后重跑 TASK-010 的 E2E 自检：`npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts`，目标是把 S-01 / E-11 / E-12 从 400 卡点解开（**这是自检，验收仍归需求级 `verify-e2e`**），实跑结果写进证据
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-22 | integration | 真实 Console API（真实 HTTP PUT）+ 真实 PostgreSQL | 整份默认文档可保存并产生新版本；真敏感键与未知键仍被拒；schema 全部叶子无一被误判 | `tests/console_platform/test_platform_settings_api.py -k business_key_boundary` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","business_key_boundary"] | planned |
+| E-22 | integration | 真实 Console API（真实 HTTP PUT）+ 真实 PostgreSQL | 整份默认文档可保存并产生新版本；真敏感键与未知键仍被拒；schema 全部叶子无一被误判 | `tests/console_platform/test_platform_settings_api.py -k business_key_boundary` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","business_key_boundary"] | verified |
 
 ### Acceptance Evidence
 
-> 编码期填写 RED/GREEN 与断言位置。
+**RED（改前，`uv run pytest -q tests/console_platform/test_platform_settings_api.py -k business_key_boundary`，2 failed / 1 passed）：**
+
+```
+FAILED test_business_key_boundary_full_default_document_saves_via_real_put
+  AssertionError: {"code":"PLATFORM_SETTINGS_SECRET_REJECTED","msg":"不允许保存敏感配置项","data":null,...}
+  assert 400 == 200
+FAILED test_business_key_boundary_default_schema_leaves_are_never_secret
+  AssertionError: 合法业务键被误判为敏感：auth.min_password_length
+  assert 'auth.min_password_length' is None
+```
+
+**修法：分段感知（整键形状），未选 schema 白名单。** 守卫是纯**键名策略**，改用 schema 白名单会让它依赖 `muad_contracts` 的私有结构枚举；且「未知键 fail-closed」已由 `parse_platform_settings` 兜底，白名单方案与既有校验重叠、diff 更大。新口径（`_is_secret_key`）：`_normalize(key)` 后**整键** `== 敏感词` 或 `endswith 敏感词` 才拒，不再子串匹配 ⇒ `min_password_length`(→`minpasswordlength`) 放行；`password`/`token`/`dsn`/`api_key`(→`apikey`)/`db_password`(→`dbpassword`，endswith `password`) 仍拒。
+
+**结构性回归写法**（`test_business_key_boundary_default_schema_leaves_are_never_secret`）：用 `asdict(default_platform_settings())` + `_leaf_paths` 递归展开 schema 全部 **41** 个叶子，逐叶子 `_nest(path, 0)` 还原嵌套后喂 `find_secret_key`，断言均 `None`；再对整份文档断言一次；并钉住 9 个分组与 41 叶子数，schema 变化时强制复核覆盖面。
+
+**GREEN（命令与数字）：**
+
+| 命令 | 结果 |
+|---|---|
+| `uv run pytest -q tests/console_platform/test_platform_settings_api.py -k business_key_boundary` | **3 passed**（0.38s） |
+| `uv run pytest -q tests/console_platform/test_platform_settings_api.py` | **8 passed**（`secret_rejected`/`invalid_payload`/`restore`/`idempotent_replay` 无回归） |
+| `uv run pytest -q tests/console_platform` | **176 passed**（认证策略用例经 service 写库，未受影响） |
+| `uv run pytest -q tests/test_configuration_inventory.py` | **3 passed**（守卫 4 个常量行号随修改位移，已同步 `docs/configuration-inventory.csv`） |
+
+**断言位置**（`tests/console_platform/test_platform_settings_api.py`）：
+
+- 整份默认文档经真实 PUT 保存并产生新版本：`:365` `test_business_key_boundary_full_default_document_saves_via_real_put` —— `status_code == 200`、`data["revision"] == 1`、`data["settings"]["auth"]["min_password_length"] == 12`、`_revisions(tenant_id) == [1]`、GET `auth.min_password_length`/`auth.session_ttl_hours`。
+- 真敏感形状仍拒 + 不回显：`:384` `test_business_key_boundary_rejects_secret_shaped_and_unknown_keys` —— 5 键（`password`/`token`/`dsn`/`api_key`/`db_password`）逐个 400 `PLATFORM_SETTINGS_SECRET_REJECTED`、`secret not in response.text`、`key not in response.text`。
+- 未知键 fail-closed：同用例 —— `{"task": {"nope": 1}}` → 400 `VALIDATION_FAILED`，`details[0].path == "task.nope"`，版本名单仍 `[]`。
+- 结构性回归：`:340`。
+
+**真实边界**：真实 Console API（`ASGITransport(app=app)` 走真实路由 + 真实 CSRF + 真实封套，真实 `PUT /api/v1/platform-settings`）+ 真实 PostgreSQL（`control.platform_setting` 真行，`_revisions` 直读库）。
+
+**TASK-010 E2E 自检**（`npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts`）：
+
+- 改前：**4 passed / 3 failed**（passed S-03/E-13/E-14/B-05；failed S-01/E-11/E-12，均卡在整份文档 PUT 400）。
+- 改后：**7 passed**（10.1s）——S-01 / E-11 / E-12 已从 400 卡点解开。真实边界：真实 Console + 真实 PostgreSQL + 真实构建产物（vite preview）。
+
+> 上述 E2E 为自检；功能验收仍归需求级 `verify-e2e`。
+- E-22: verified — automated command passed; run_id=8b27e36d1dff4325b6c5ae658d26d80d (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
