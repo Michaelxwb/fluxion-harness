@@ -1,7 +1,7 @@
 version: 1
 task: platform-settings
 enforcement: required
-updated_at: '2026-10-05T01:05:26.201230+00:00'
+updated_at: '2026-10-05T01:10:11.492721+00:00'
 sources:
 - type: cli
   ref: bind
@@ -43,7 +43,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.4 接口设计
           item_id: idempotent-save-and-restore
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -52,7 +52,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -91,7 +91,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.4 接口设计
           item_id: api-inventory
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -100,7 +100,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -155,7 +155,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.2 架构设计
           item_id: console-holds-authority
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -164,7 +164,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -220,7 +220,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.5 质量实现方案
           item_id: admin-and-tenant-gating
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -229,7 +229,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -284,7 +284,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.3 数据设计
           item_id: platform-setting-table
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -293,7 +293,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -360,7 +360,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-010
           item_id: TASK-010
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -423,7 +423,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-010
           item_id: TASK-010
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -477,7 +477,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.1 方案选型
           item_id: adr-04-im-reply-cadence
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -486,7 +486,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -526,7 +526,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.1 方案选型
           item_id: adr-04-channel-neutral-read
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -535,7 +535,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -591,7 +591,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.5 质量实现方案
           item_id: observability-design
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -600,7 +600,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -654,7 +654,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 2.3 功能方案
           item_id: mcp-group-boundary
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -663,7 +663,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -717,7 +717,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.1 方案选型
           item_id: adr-06-no-default-model
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -726,7 +726,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -781,7 +781,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.5 质量实现方案
           item_id: secret-key-rejection
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -790,7 +790,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -846,7 +846,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.2 架构设计
           item_id: read-boundaries
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         - artifact: platform-settings.backend.design.md
           section_id: 3.1 方案选型
           item_id: adr-03-drop-ttl-cache
@@ -859,7 +859,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -913,7 +913,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 2.5 验收条件
           item_id: acceptance-scenarios
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -922,7 +922,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-012
           item_id: TASK-012
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -976,7 +976,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.3 数据设计
           item_id: timestamptz-and-iana-timezone
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -985,7 +985,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -1064,7 +1064,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-010
           item_id: TASK-010
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:
@@ -1120,7 +1120,7 @@ bindings:
         - artifact: platform-settings.backend.design.md
           section_id: 3.2 架构设计
           item_id: read-boundaries
-          artifact_sha256: 754be6687d5f629f041e8b2782bb2664c231321b66c02345c1657eff4964ec3e
+          artifact_sha256: e053fc9202efdf579c83ef5ea196cfa10671078e73214fcab20ebed329309da5
         decision: null
         evidence: []
       plan:
@@ -1129,7 +1129,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: a0852be449efc0c5ac58e055601c1ba5cf668fb9c50c47ec5b5122305c3b6c2c
+          artifact_sha256: 2deaeccbdda732f1981f05001c73d1c25e30d53535f6dc4a7c151fb960346bfe
         decision: null
         evidence: []
       code:

@@ -41,6 +41,7 @@
 |------|------|------|---------|
 | v0.1 | 2026-10-04 | fluxion-harness | 初始草稿：归一需求二与配置盘点，确定权威源、读取边界、设置 schema 与收敛清单 |
 | v0.2 | 2026-10-05 | fluxion-harness | 依 §3.1 ADR-10：设置文档 schema 落到 `muad_contracts`（Console 不依赖 `muad-agent-core`，v0.1 的「复用 `muad_agent_core.context.settings._validate`」不可达），`muad_agent_core.context.settings` 整体迁移；场景编号去重（幂等场景改 `E-17`，新增边界场景 `B-07`） |
+| v0.3 | 2026-10-05 | fluxion-harness | 拆解阶段发现 `agent`(4 中余 2) / `memory`(5) / `artifact`(3) 共 9 个叶子没有承接任务，补验收场景 `E-20`（执行默认接入），由 TASK-013 负责 |
 
 ---
 
@@ -249,6 +250,7 @@
 | E-17 | FEAT-03 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | 本模块 | 同一 `Idempotency-Key` 重复提交保存（同指纹）；再用同键不同指纹提交一次 | 同指纹重放**首次**结果（revision 不变、不产生第二个版本）；不同指纹返回 `IDEMPOTENCY_MISMATCH` | 超时重试不会让管理员看到"版本冲突"，也不会写出两版 |
 | E-18 | FEAT-01..08 | integration | 真实任务文档与 manifest（收口清单交叉核对） | 本模块 | 运行收口清单 | 覆盖表 ↔ 契约表 ↔ 证据表三方闭环；manifest 与覆盖表同 ID/owner/命令且 level/boundary/cwd 一致；`-k` 令牌在真实用例名里命中；**不豁免收口任务自身** | 收口任务自己的契约行也必须终态 |
 | E-19 | FEAT-02/05 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | 本模块 | 保存 `task.max_attempts` / `task.default_deadline_hours` 新值后创建新 Task | 新 Task 用新默认；**既有 Task 行的 deadline/attempt 字段不被改写**；设置源不可读时任务创建明确失败 | 改平台默认不偷偷重写存量行 |
+| E-20 | FEAT-02/05 | integration | 真实 PostgreSQL + 真实 Runtime 装配（`context_builder`/`memory_tools`/`archive_tools`）+ 真实 Console 清理入口 | 本模块 | 改 `agent.max_turns`、`memory.max_injected_memories`、`artifact.max_archive_files`、`artifact.retention_days` 后新建 Run 与执行一次清理 | 新 Run 的轮次/记忆注入上限、归档文件上限用新值；下一次清理按新保留期挑选；**既有 Run/Task 行与已落库记忆不被改写** | 平台默认对新操作立刻生效，不重写存量数据 |
 
 **边界场景**
 
@@ -700,7 +702,7 @@ flowchart TD
 |----|------|-----|------|
 | US-01 | FEAT-01, FEAT-02, FEAT-03, FEAT-04 | API-01, API-02, API-06 | S-01, E-08, B-04 |
 | US-02 | FEAT-03, FEAT-04 | API-01 | E-07, S-03 |
-| US-03 | FEAT-04, FEAT-05 | API-02, API-05 | S-02, E-09, E-19 |
+| US-03 | FEAT-04, FEAT-05 | API-02, API-05 | S-02, E-09, E-19, E-20 |
 | US-04 | FEAT-01, FEAT-03 | API-02, API-03, API-04 | E-02, E-05, E-06, E-17, S-03 |
 | US-05 | FEAT-06, FEAT-07 | API-05 | E-09, E-16 |
 | US-06 | FEAT-02 | API-06 | S-01, S-02 |
@@ -723,7 +725,7 @@ flowchart TD
 | harness-secret#RULE-secret-001 | required | 设置文档 schema 白名单不含任何密钥键；审计/日志/响应不出现凭据；平台侧仍无自有密钥列 | 3.5 安全性设计（敏感键拒绝） | E-10 | applied |
 | harness-model#RULE-model-001 | required | 不引入平台默认模型；`compaction.summary.model_ref` 只引用既有 `model_definition` 且要求 enabled | 3.1 ADR-06、3.4 API-02 错误码 | E-01、E-07 | applied |
 | harness-log#RULE-log-001 | required | 保存/回滚走既有 logging-kit 日志并沿用脱敏清单；变更值全文不入日志 | 3.5 可观测性设计 | E-05、E-10 | applied |
-| harness-test#RULE-test-001 | required | 分层验收：纯逻辑 schema/预算单测 + 真实 PG 集成 + 浏览器→Console→PG→Runtime→模型探针 E2E | 2.5.2 验收场景 | S-01..S-03、E-01..E-19、B-01..B-07 | applied |
+| harness-test#RULE-test-001 | required | 分层验收：纯逻辑 schema/预算单测 + 真实 PG 集成 + 浏览器→Console→PG→Runtime→模型探针 E2E | 2.5.2 验收场景 | S-01..S-03、E-01..E-20、B-01..B-08 | applied |
 | harness-worker#RULE-worker-001 | required | Worker 在任务执行与投递尝试边界读设置；PG 仍是 Task/Schedule/lease 唯一权威源，设置不改变 claim/lease 语义 | 3.2 读取边界表 | S-02、E-08 | applied |
 | harness-im#RULE-im-001 | required | IM 展示节拍由 Gateway 读取，渠道适配器零改动；bot→Agent 路由与渠道中立不变 | 3.1 ADR-04 | B-03；verifier 见 `tests/architecture/test_channel_neutrality.py` | applied |
 | harness-im#RULE-im-002 | required | 读设置落在 Gateway `application/` 层与核心域，键名渠道中立（`im.progress_interval_sec`）；`channels/` 一行不改，核心域零渠道专有字样 | 3.1 ADR-04（渠道中立段）、3.2 读取边界表 | B-03；verifier `harness-im#RULE-im-002`（`tests -k channel_neutrality`） | applied |

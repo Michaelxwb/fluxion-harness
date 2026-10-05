@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "platform-settings.md",
-  "task_sha256": "0bbf8841ec72d75e11c452a6e4e8dbae9e060de834c04ff22441f9d165314a4a",
+  "task_sha256": "3b4f9d3556cdba5be6536c96e001bbf57d7360cb2421090188eaf0533a67c213",
   "scenarios": [
     {
       "id": "S-01",
@@ -402,6 +402,25 @@
       "depends_on": []
     },
     {
+      "id": "E-20",
+      "source": "platform-settings.backend.design.md#2.5.2 验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口",
+      "owner": "TASK-013",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_execution_defaults_settings.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
       "id": "B-01",
       "source": "platform-settings.backend.design.md#2.5.2 验收场景",
       "level": "unit",
@@ -418,48 +437,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "34b14f1e97944e019c2fc4e5e556cdf5",
-        "executed_at": "2026-10-05T01:08:34.752951+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/test_platform_settings_schema.py"
-        ],
-        "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "866874cbd041060d71d9f8b0f6f86657e6ca1f0d2ac86b6846c8b236bb2e2905"
-      },
-      "runs": [
-        {
-          "id": "B-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "34b14f1e97944e019c2fc4e5e556cdf5",
-          "executed_at": "2026-10-05T01:08:34.752951+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/test_platform_settings_schema.py"
-          ],
-          "cwd": ".",
-          "timeout": 300.0,
-          "fingerprint": "866874cbd041060d71d9f8b0f6f86657e6ca1f0d2ac86b6846c8b236bb2e2905"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-02",

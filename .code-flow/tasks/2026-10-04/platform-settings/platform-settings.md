@@ -36,6 +36,7 @@
 | E-17 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","idempotent_replay"] | . | 300 | |
 | E-18 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实任务文档与 manifest（收口清单交叉核对） | TASK-012 | planned | ["uv","run","pytest","-q","tests/platform_settings_inventory.py"] | . | 300 | |
 | E-19 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_defaults_from_settings.py","-k","new_task_defaults"] | . | 600 | |
+| E-20 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | . | 600 | |
 | B-01 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实设置文档 schema 函数（无服务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | . | 300 | |
 | B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
 | B-03 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | TASK-007 | planned | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | . | 300 | |
@@ -45,7 +46,7 @@
 | B-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实 `alembic upgrade 0001→0017` / `downgrade`） | TASK-002 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_table.py"] | . | 300 | |
 | B-08 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树（无服务） | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_shell_contract.py","tests/frontend/test_platform_settings_contract.py"] | . | 300 | |
 
-> 本表覆盖两份 design 的全部 **30** 条场景（S-01..S-03、E-01..E-19、B-01..B-08）。每条场景有且只有一个最终负责人；`E2E` 类（S-01..S-03、E-11..E-14、B-05）在编码期只登记，统一留给需求级 `verify-e2e`。
+> 本表覆盖两份 design 的全部 **31** 条场景（S-01..S-03、E-01..E-20、B-01..B-08）。每条场景有且只有一个最终负责人；`E2E` 类（S-01..S-03、E-11..E-14、B-05）在编码期只登记，统一留给需求级 `verify-e2e`。
 
 ---
 
@@ -64,18 +65,18 @@
 
 ### Checklist
 
-- [ ] 新建 `muad_contracts/platform_settings.py`：9 个分组的 dataclass/pydantic 模型 + `default_platform_settings()` + `parse_platform_settings()` + `validate_platform_settings()`，字段与默认值严格对齐 design §2.3.2 的 41 行表
-- [ ] 迁移 `muad_agent_core/context/settings.py` 的压缩分组定义与 `_validate` 到新模块；**删除原文件**，更新 11 处导入（`apps/agent-runtime` 6 处 + `tests` 5 处）
-- [ ] 联动校验：`snip.max_groups ≥ keep_head + keep_tail + 1`；`preview_head + preview_tail ≤ round_budget_bytes`；`summary.enabled` 需有效 `model_ref`；`batch_max_concurrency ≤ batch_platform_limit`（环境项）；`recall_default_limit ≤ RECALL_MAX_LIMIT`；**未知键一律拒绝**（fail-closed）
-- [ ] `locale.default_timezone` 只接受 IANA 时区（`Asia/Shanghai` 一类）；`locale.default_locale` 只接受 `zh-CN`/`en-US`
-- [ ] `compaction.summary.model_ref` 只作**主键引用**语义校验，不引入平台默认模型（`RULE-model-001`）
-- [ ] 敏感键（`password`/`secret`/`token`/`api_key`/`dsn`/`credential` 命名）在白名单之外 ⇒ 天然被拒；补充显式断言
-- [ ] [B-01][unit] 覆盖各叶子范围边界（下界-1/下界/上界/上界+1/未知键）与全部联动组合；真实边界：**真实 schema 函数，不 mock**（参考 `tests/test_settings.py` 的直调风格）
-- [ ] 先写测试并记录 RED（新模块不存在 ⇒ 收集失败），再实现
-- [ ] 同步 `docs/configuration-inventory.csv` 与 `tests/test_configuration_inventory.py` 的期望（`settings.py` 路径/行号迁移）
-- [ ] verifier `harness-time#RULE-time-001`：`uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity`（真实边界：真实前端契约源 + 真实迁移链；IANA 时区口径不得回退）
-- [ ] verifier `harness-model#RULE-model-001`：`uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled`（真实边界：真实 PG + 真实 Console API；不引入平台默认模型）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 新建 `muad_contracts/platform_settings.py`：9 个分组的 dataclass/pydantic 模型 + `default_platform_settings()` + `parse_platform_settings()` + `validate_platform_settings()`，字段与默认值严格对齐 design §2.3.2 的 41 行表
+- [x] 迁移 `muad_agent_core/context/settings.py` 的压缩分组定义与 `_validate` 到新模块；**删除原文件**，更新 11 处导入（`apps/agent-runtime` 6 处 + `tests` 5 处）
+- [x] 联动校验：`snip.max_groups ≥ keep_head + keep_tail + 1`；`preview_head + preview_tail ≤ round_budget_bytes`；`summary.enabled` 需有效 `model_ref`；`batch_max_concurrency ≤ batch_platform_limit`（环境项）；`recall_default_limit ≤ RECALL_MAX_LIMIT`；**未知键一律拒绝**（fail-closed）
+- [x] `locale.default_timezone` 只接受 IANA 时区（`Asia/Shanghai` 一类）；`locale.default_locale` 只接受 `zh-CN`/`en-US`
+- [x] `compaction.summary.model_ref` 只作**主键引用**语义校验，不引入平台默认模型（`RULE-model-001`）
+- [x] 敏感键（`password`/`secret`/`token`/`api_key`/`dsn`/`credential` 命名）在白名单之外 ⇒ 天然被拒；补充显式断言
+- [x] [B-01][unit] 覆盖各叶子范围边界（下界-1/下界/上界/上界+1/未知键）与全部联动组合；真实边界：**真实 schema 函数，不 mock**（参考 `tests/test_settings.py` 的直调风格）
+- [x] 先写测试并记录 RED（新模块不存在 ⇒ 收集失败），再实现
+- [x] 同步 `docs/configuration-inventory.csv` 与 `tests/test_configuration_inventory.py` 的期望（`settings.py` 路径/行号迁移）
+- [x] verifier `harness-time#RULE-time-001`：`uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity`（真实边界：真实前端契约源 + 真实迁移链；IANA 时区口径不得回退）
+- [x] verifier `harness-model#RULE-model-001`：`uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled`（真实边界：真实 PG + 真实 Console API；不引入平台默认模型）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -85,7 +86,32 @@
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 functional 的 RED/GREEN 结果、每个关键断言的位置和真实组件证据；E2E 场景只登记，统一留给 verify-e2e。
+> 编码期记录 functional 的 RED/GREEN、断言位置与真实组件证据；本任务无 E2E 场景。
+
+**RED**（先写测试、后实现；新模块不存在）：`uv run pytest -q tests/test_platform_settings_schema.py` 收集期失败 ——
+`ModuleNotFoundError: No module named 'muad_contracts.platform_settings'`（`Interrupted: 1 error`）。
+
+**GREEN**（★ = 复核人在提交后独立复跑）：
+- ★ `uv run pytest -q tests/test_platform_settings_schema.py` → **105 passed**（0.05s）
+- `uv run pytest -q tests/agent_core tests/agent_runtime -k "compaction or context"` → **84 passed, 370 deselected**
+- ★ `uv run pytest -q tests/test_configuration_inventory.py` → **3 passed**（0.71s，CSV 已随模块搬迁同步）
+- `uv run pytest -q tests/test_contracts.py` → 14 passed
+
+| 断言 | 位置 | 真实边界证据 |
+|------|------|-------------|
+| 9 分组 / 41 叶子的字段、类型、默认值 | `tests/test_platform_settings_schema.py` | 真实 `muad_contracts.platform_settings`（无 mock、无服务） |
+| 各叶子范围边界（下界-1 / 下界 / 上界 / 上界+1）与**未知键拒绝** | 同上 | 直调 `validate_platform_settings()`，fail-closed |
+| 联动校验：`max_groups ≥ head+tail+1`、`preview_head+preview_tail ≤ round_budget_bytes`、`summary.enabled` 需 `model_ref`、`budget_ratio ∈ [0,1]`、上界注入（`batch_platform_limit`/`RECALL_MAX_LIMIT`） | 同上 | 同上（上界由调用方注入，contracts 不反向依赖 app/env） |
+| `locale.default_timezone` 只收 IANA 时区、`default_locale` 只收 `zh-CN`/`en-US` | 同上 | 真实 `zoneinfo.ZoneInfo` 校验 |
+| 敏感键（`password`/`secret`/`token`/`api_key`/`dsn`/`credential`）被拒 | 同上 | 白名单之外的命名一律拒绝 |
+| 压缩分组契约不回归（搬迁后） | `tests/agent_core` + `tests/agent_runtime -k "compaction or context"` | 真实 Runtime 装配（真实 PostgreSQL） |
+
+**required Rule verifier（实跑）**：
+- `harness-time#RULE-time-001`：`uv run pytest -q tests/frontend/test_datetime_contract.py`（2 passed）`&& uv run pytest -q tests -k schema_parity`（35 passed）
+- `harness-model#RULE-model-001`：`uv run pytest -q tests/console_platform/test_models_api.py`（8 passed）`&& uv run pytest -q tests/console_platform/test_agents_api.py -k disabled`（1 passed, 10 deselected）
+
+**迁移范围与复核**：`muad_agent_core/context/settings.py`（253 行）整体搬迁为 `muad_contracts/platform_settings.py`（530 行），原文件删除；导入点 **13 处**（设计预估 11 处 —— `context/compactor.py` 的相对导入 `from .settings` 是普通 grep 漏掉的第 12/13 处）。复核 `grep -rn "muad_agent_core.context.settings"` 仅剩新模块 docstring 的一处说明，**无 re-export 薄壳**。
+
 - B-01: verified — automated command passed; run_id=34b14f1e97944e019c2fc4e5e556cdf5 (confirmed_by: runner)
 
 ### Log
@@ -545,7 +571,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 
 - **Status**: draft
 - **Priority**: P0
-- **Depends**: TASK-001..TASK-011
+- **Depends**: TASK-001..TASK-013
 - **Source**: platform-settings.backend.design.md#2.5 验收条件, platform-settings.frontend.design.md#2.4 验收条件
 - **Spec-Refs**: harness-test#RULE-test-001
 - **Acceptance-Refs**: E-18
@@ -556,7 +582,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 
 ### Checklist
 
-- [ ] 收口清单 `tests/platform_settings_inventory.py`：覆盖表每行唯一负责人且终态、manifest 与覆盖表同 ID/owner/命令并比对 `level`/`boundary`/`cwd`、每个 TASK 契约表**每一行**终态（含收口任务自身）、证据表无占位行、`-k` 令牌在真实用例名里命中、登记路径真实存在
+- [ ] 收口清单 `tests/platform_settings_inventory.py`：**每个 TASK 的 Checklist 全部勾选**、覆盖表每行唯一负责人且终态、manifest 与覆盖表同 ID/owner/命令并比对 `level`/`boundary`/`cwd`、每个 TASK 契约表**每一行**终态（含收口任务自身）、证据表无占位行、`-k` 令牌在真实用例名里命中、登记路径真实存在
 - [ ] 结构性 RED + ≥4 类扰动取证（改状态 / 删证据行 / 伪造用例名或命令 / 改 manifest 字段），逐字节还原后复绿
 - [ ] [E-18][integration] 覆盖收口清单自身的校验；真实边界：**真实任务文档与 manifest**（不豁免收口任务自身）
 - [ ] [harness-test#RULE-test-001][review] 运行分层验收链：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`；真实边界：**真实 PG/Redis + 真实构建产物 + 真实浏览器**
@@ -575,6 +601,45 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 ### Acceptance Evidence
 
 > 收口清单与需求级终验证据由本任务在收尾期登记；RULE 行按 owner 回填。
+
+### Log
+- [2026-10-05] created (draft)
+
+---
+
+## TASK-013: 执行默认接入（agent / memory / artifact 分组）
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-005
+- **Source**: platform-settings.backend.design.md#2.3 功能方案, platform-settings.backend.design.md#3.2 架构设计
+- **Spec-Refs**: N/A
+- **Acceptance-Refs**: E-20
+
+### Description
+
+把剩下的 9 个叶子接到既有消费点：`agent.max_turns`/`max_tool_calls`（Agent 执行预算）、`memory.write_enabled`/`max_injected_memories`/`max_injected_bytes`/`max_recall_bytes`/`recall_default_limit`、`artifact.retention_days`/`max_archive_files`/`cleanup_batch_size`。取值一律来自本 Run 冻结的 execution snapshot 或当次操作边界取到的快照，**不改写存量数据**。
+
+### Checklist
+
+- [ ] `agent.max_turns`/`agent.max_tool_calls`：替换 `AgentPolicy` 默认，Agent 显式 `runtime_config` 覆盖仍优先
+- [ ] `memory.write_enabled` 替换 `memory_tools` 的「未显式配置时默认 True」；`max_injected_memories`/`max_injected_bytes` 接入 `context_builder` 的记忆注入预算；`max_recall_bytes`/`recall_default_limit` 接入 `memory_tools`（`recall_default_limit ≤ RECALL_MAX_LIMIT`，上界单一来源见 TASK-011 收敛）
+- [ ] `artifact.max_archive_files` 接入 `archive_tools`；`artifact.retention_days`/`artifact.cleanup_batch_size` 接入 Console 清理入口（CLI 本次操作覆盖仍优先）
+- [ ] 全部取值来自冻结快照或操作边界快照，**不在每轮模型调用/每次工具执行里重新读取**
+- [ ] [E-20][integration] 覆盖：改这 9 个叶子后新 Run 与新一次清理使用新值；既有 Run/Task 行与已落库记忆不被改写；真实边界：**真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口**（不 mock）
+- [ ] 先写测试并记录 RED，再实现
+- [ ] 同步 `docs/configuration-inventory.csv` 与机检期望（`MAX_INJECTED_MEMORIES`/`MAX_ARCHIVE_FILES` 等常量改由设置提供）
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|--------|---------|--------------------|---------|----------------|---------|------|
+| E-20 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | 9 个叶子对新 Run / 新清理生效；存量 Run/Task/记忆不被改写 | `tests/agent_runtime/test_execution_defaults_settings.py` | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | planned |
+
+### Acceptance Evidence
+
+> 编码期填写 RED/GREEN 与断言位置。
 
 ### Log
 - [2026-10-05] created (draft)
