@@ -714,6 +714,8 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 
 ### Checklist
 
+- [ ] 把 `RunService(settings_client=None)` 的**隐式** Null 默认去掉（改为必填参数，或让 Null 在 Run 创建路径上显式失败），消除「新建调用点忘记注入真 client ⇒ 静默按空设置跑」的隐患——生产目前只有 `api/deps.py` 一处装配，但默认值本身就是个陷阱（TASK-005 落地后复核提出）
+- [ ] 校准 TASK-005 重生成 `docs/configuration-inventory.csv` 时给出的**保守分类**（新符号默认 `python-constant=code`、`settings=environment`）：按设计 §2.3.2 的九个分组逐项复核 `category`，把已接入平台设置的项标成 `business`
 - [ ] `overridden_by_resources` 目前只统计压缩组（Agent 的 `runtime_config_json.budget.compaction`），其余分组恒 0——按 design 逐个补齐或明确降级为「不展示覆盖数」（二者选一并写进证据）
 - [ ] 工具结果默认收敛：删除 `TOOL_RESULT_ARTIFACT_BYTES`/`PREVIEW_HEAD_BYTES`/`PREVIEW_TAIL_BYTES` 与 `ToolResultSettings` 的重复默认，只留 schema 单一来源；非请求上下文显式传入
 - [ ] 历史预算收敛：`compaction.history_budget_messages` 与 `BudgetPolicy.max_messages` 用同一冻结值
