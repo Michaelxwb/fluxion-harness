@@ -618,6 +618,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - [ ] 需求级 `verify-e2e`：`cf_acceptance_runner.py --manifest … --include-e2e --write-evidence`，28/28 场景全过
 - [ ] 先写清单并记录 RED（清单缺失时登记的 argv 必须失败），再补齐
 - [ ] verifier `harness-test#RULE-test-001`：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（真实边界：真实 PG/Redis + 真实构建产物 + 真实浏览器；acceptance 单跑约 1064s，跑前须停 dev 服务并查残留进程）
+- [ ] **规范沉淀**：把本次引入的事实性约束写进对应 live spec 的 `## Conventions`（已知至少三条：① `actor_user_id` 一类**操作者引用即使同 Owner Schema 也用逻辑引用**、不建物理 FK（先例 `ConfigAuditLog.actor_user_id`，与 `RULE-data-001` 字面口径的张力在此写明）；② 平台设置版本行的 append-only 口径（`is_deleted` 恒 `false`、当前版本 = 该租户 `max(revision)`、乐观并发由 partial unique 兜底、回滚产生新版本）；③ 平台业务默认只在**业务操作边界**取一次快照，执行中的 Run/Task 用冻结快照）
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
