@@ -607,3 +607,40 @@ class ArtifactDeliveryAudit(StandardColumnsMixin, Base):
         sa.String(64), nullable=False, server_default=sa.text("''")
     )
     trace_id: Mapped[str | None] = mapped_column(sa.String(64))
+
+
+class PlatformSetting(StandardColumnsMixin, Base):
+    """平台设置版本表（设计 §3.3 / ADR-02）：append-only 的权威设置源。
+
+    每次保存插入一行新版本，当前版本 = 该租户最大 `revision`（`revision` 从 1 起）；
+    `settings_json` 存整份设置文档，唯一查询键是独立的 `tenant_id + revision` 两列。
+
+    乐观并发**不用行锁**：落败的 `INSERT (tenant_id, revision=expected+1)` 撞
+    `uq_platform_setting_tenant_revision`（partial unique `WHERE is_deleted = false`）
+    即返回版本冲突。
+
+    `actor_user_id` 是 `console_account.id` 的**逻辑引用，不建物理 FK**：版本行不可变、
+    永不清理，物理 FK 会把保存过设置的管理员账号永久钉住；同 Schema 的既有先例为
+    ``ConfigAuditLog.actor_user_id``。
+    """
+
+    __tablename__ = "platform_setting"
+    __table_args__ = (
+        sa.Index(
+            "uq_platform_setting_tenant_revision",
+            "tenant_id",
+            "revision",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        # 读当前版本 / 版本历史分页；`sa.column` 形式的 DESC 让 model 与迁移建出的
+        # `(tenant_id, revision DESC)` 在反射下同形（`sa.text` 形式会被比对丢掉该列）。
+        sa.Index("ix_platform_setting_tenant_revision_desc", "tenant_id", sa.desc(sa.column("revision"))),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    revision: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    settings_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    #: 保存者（`console_account.id` 的逻辑引用；未认证写入路径留空）
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())

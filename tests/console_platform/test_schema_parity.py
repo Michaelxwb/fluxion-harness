@@ -6,6 +6,7 @@ from muad_console_platform.infrastructure.models.auth import ConsoleAccount, Con
 from muad_console_platform.infrastructure.models.control import (
     AgentDefinition,
     ModelDefinition,
+    PlatformSetting,
     ProjectPlatform,
     SharedCredentialRef,
     UserCredentialRef,
@@ -33,6 +34,10 @@ EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
     "console_session": (
         "uq_console_session_token_hash",
         "ix_console_session_account_expires",
+    ),
+    "platform_setting": (
+        "uq_platform_setting_tenant_revision",
+        "ix_platform_setting_tenant_revision_desc",
     ),
 }
 
@@ -171,3 +176,8 @@ async def test_user_credential_ref_schema_parity(database_guard: None) -> None:
 async def test_shared_credential_ref_schema_parity(database_guard: None) -> None:
     diffs = _compare(SharedCredentialRef.__table__, await _reflect("shared_credential_ref"))
     assert not diffs, "shared_credential_ref schema mismatch:\n" + "\n".join(diffs)
+
+
+async def test_platform_setting_schema_parity(database_guard: None) -> None:
+    diffs = _compare(PlatformSetting.__table__, await _reflect("platform_setting"))
+    assert not diffs, "platform_setting schema mismatch:\n" + "\n".join(diffs)

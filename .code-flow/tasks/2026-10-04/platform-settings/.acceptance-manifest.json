@@ -539,7 +539,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL（真实 `alembic upgrade 0001→0017` / `downgrade`）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -549,7 +549,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "de9a893dc3a14e9e864062e7f12c588d",
+        "executed_at": "2026-10-05T01:13:49.625206+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_platform/test_platform_settings_table.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "a743838f4bc8dcfe1aa7b16bfcba016e68da1867bd9ce81058a688e73d3ee8d5"
+      },
+      "runs": [
+        {
+          "id": "B-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "de9a893dc3a14e9e864062e7f12c588d",
+          "executed_at": "2026-10-05T01:13:49.625206+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_platform_settings_table.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "a743838f4bc8dcfe1aa7b16bfcba016e68da1867bd9ce81058a688e73d3ee8d5"
+        }
+      ]
     },
     {
       "id": "B-08",

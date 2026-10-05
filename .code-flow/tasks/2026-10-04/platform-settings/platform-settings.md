@@ -43,7 +43,7 @@
 | B-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（表内无该租户行） | TASK-003 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","default_when_absent"] | . | 300 | |
 | B-05 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由 | TASK-010 | planned | - | . | 600 | |
 | B-06 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树 + 真实词条文件（无服务） | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_platform_settings_contract.py","-k","applies_to_labels"] | . | 300 | |
-| B-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实 `alembic upgrade 0001→0017` / `downgrade`） | TASK-002 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_table.py"] | . | 300 | |
+| B-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实 `alembic upgrade 0001→0017` / `downgrade`） | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_table.py"] | . | 300 | |
 | B-08 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树（无服务） | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_shell_contract.py","tests/frontend/test_platform_settings_contract.py"] | . | 300 | |
 
 > 本表覆盖两份 design 的全部 **31** 条场景（S-01..S-03、E-01..E-20、B-01..B-08）。每条场景有且只有一个最终负责人；`E2E` 类（S-01..S-03、E-11..E-14、B-05）在编码期只登记，统一留给需求级 `verify-e2e`。
@@ -123,7 +123,7 @@
 
 ## TASK-002: 平台设置表与迁移
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: platform-settings.backend.design.md#3.3 数据设计, platform-settings.backend.design.md#4.4 数据迁移
@@ -136,26 +136,55 @@
 
 ### Checklist
 
-- [ ] 迁移 `migrations/versions/0017_platform_setting.py`（`revision="0017"`, `down_revision="0016"`）：建表 + `uq_platform_setting_tenant_revision`（partial unique `(tenant_id, revision) WHERE is_deleted = false`）+ `ix_platform_setting_tenant_revision_desc`；`downgrade` 干净删表
-- [ ] Console model 落在 `infrastructure/models/control.py`（`{"schema": "control"}`），列与 design §3.3 表一致（`id/tenant_id/revision/settings_json/actor_user_id/is_deleted/create_time/update_time`）
-- [ ] 登记进 `tests/console_platform/test_schema_parity.py` 的 `EXPECTED_INDEXES`（新增表必须纳入对等校验）
-- [ ] [B-07][integration] 真实 PG：`alembic upgrade 0001→0017` 后列/索引与 model 一致；重复 `(tenant_id, revision)` 插入被 partial unique 拒绝；`downgrade` 可回滚；真实边界：**真实 PostgreSQL + 真实 alembic**（不 mock）
-- [ ] 先跑一次 RED（表不存在 ⇒ 用例失败），再实现
-- [ ] verifier `harness-data#RULE-data-001`：`uv run pytest -q tests -k schema_parity`（真实边界：真实 PostgreSQL 迁移链 + 真实 model 定义）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 迁移 `migrations/versions/0017_platform_setting.py`（`revision="0017"`, `down_revision="0016"`）：建表 + `uq_platform_setting_tenant_revision`（partial unique `(tenant_id, revision) WHERE is_deleted = false`）+ `ix_platform_setting_tenant_revision_desc`；`downgrade` 干净删表
+- [x] Console model 落在 `infrastructure/models/control.py`（`{"schema": "control"}`），列与 design §3.3 表一致（`id/tenant_id/revision/settings_json/actor_user_id/is_deleted/create_time/update_time`）
+- [x] 登记进 `tests/console_platform/test_schema_parity.py` 的 `EXPECTED_INDEXES`（新增表必须纳入对等校验）
+- [x] [B-07][integration] 真实 PG：`alembic upgrade 0001→0017` 后列/索引与 model 一致；重复 `(tenant_id, revision)` 插入被 partial unique 拒绝；`downgrade` 可回滚；真实边界：**真实 PostgreSQL + 真实 alembic**（不 mock）
+- [x] 先跑一次 RED（表不存在 ⇒ 用例失败），再实现
+- [x] verifier `harness-data#RULE-data-001`：`uv run pytest -q tests -k schema_parity`（真实边界：真实 PostgreSQL 迁移链 + 真实 model 定义）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-07 | integration | 真实 PostgreSQL（真实 `alembic upgrade 0001→0017` / `downgrade`） | 列与索引与 model 定义一致；partial unique 真实拒绝重复 `(tenant_id, revision)`；`downgrade` 干净回滚 | `tests/console_platform/test_platform_settings_table.py` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_table.py"] | planned |
+| B-07 | integration | 真实 PostgreSQL（真实 `alembic upgrade 0001→0017` / `downgrade`） | 列与索引与 model 定义一致；partial unique 真实拒绝重复 `(tenant_id, revision)`；`downgrade` 干净回滚 | `tests/console_platform/test_platform_settings_table.py` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_table.py"] | verified |
 
 ### Acceptance Evidence
 
 > 编码期填写 RED/GREEN 与断言位置；E2E 场景只登记。
 
+**RED**（先写测试、后实现；model 尚未落地，收集期即失败）：
+`uv run pytest -q tests/console_platform/test_platform_settings_table.py` ——
+```
+ImportError while importing test module 'tests/console_platform/test_platform_settings_table.py'
+E   ImportError: cannot import name 'PlatformSetting' from 'muad_console_platform.infrastructure.models.control'
+!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 error in 0.07s
+```
+
+**GREEN**（★ = required verifier）：
+- ★ `harness-data#RULE-data-001`：`uv run pytest -q tests -k schema_parity` → **36 passed, 2230 deselected**（5.03s；TASK-001 基线 35，+1 即本需求新增的 `platform_setting` 对等用例）
+- B-07 验收命令：`uv run pytest -q tests/console_platform/test_platform_settings_table.py` → **3 passed**（1.70s）
+- `uv run pytest -q tests/console_platform/test_schema_parity.py` → **8 passed**（0.13s）
+- `uv run pytest -q tests/acceptance/test_foundation_schema_parity.py` → **3 passed**（2.93s，含单头校验与 `0001→0017` 链完整、注入列漂移可被检出）
+- `uv run ruff check migrations/versions/0017_platform_setting.py apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py tests/console_platform/test_platform_settings_table.py tests/console_platform/test_schema_parity.py` → All checks passed
+- `uv run mypy apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py` → Success: no issues found
+
+| 断言 | 位置 | 真实边界证据 |
+|------|------|-------------|
+| `alembic upgrade 0001→0017` 后的列集合 == 设计 §3.3 的 8 列、主键 == `id`、无物理 FK | `test_upgrade_to_head_creates_table_matching_orm_model` | 真实 PostgreSQL 反射（`inspect.get_columns/get_pk_constraint/get_foreign_keys`） |
+| 列可空性 / 索引名 / 唯一性 / partial 谓词 / 索引列与 ORM model 逐项一致（复用 `test_schema_parity.py` 的 `_compare`，两处不会漂移） | 同上 | 真实 model 定义 `control.PlatformSetting` vs 真实 DB |
+| 同 `(tenant_id, revision)` 的第二行被 partial unique 真实拒绝（`IntegrityError`）；软删后同一键可再插 ⇒ 谓词确实是 partial | `test_partial_unique_rejects_duplicate_tenant_revision` | 真实 PostgreSQL 唯一约束（`uq_platform_setting_tenant_revision`） |
+| `downgrade 0016` 干净删表（`alembic_version=0016` 且表消失）、`upgrade 0017` 重新建出同形表 | `test_downgrade_drops_table_and_upgrade_restores` | 真实 alembic 子进程往返 |
+
+**迁移往返用的库（隔离红线）**：`downgrade` **只在** `tests/acceptance/datastores.create_datastore()` 建出的临时库 `muad_pst_<uuid>`（空库 + 迁到 head；跑完 `DROP DATABASE ... WITH (FORCE)` 并归还 Redis 号位）上执行；往返用的 alembic ini 由用例自建、只含该临时 DSN（`migrations/` 只读 ini、不读环境变量）。共享 dev 库 `muad` 全程**只做过 `upgrade head`（0016→0017），未做任何 downgrade**；跑完确认无 `muad_pst_*` 残留库。
+- B-07: verified — automated command passed; run_id=de9a893dc3a14e9e864062e7f12c588d (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 
