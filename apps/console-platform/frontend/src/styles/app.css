@@ -320,7 +320,7 @@ body {
 
 .app-content {
   height: calc(100vh - 52px);
-  padding: 10px 24px 24px;
+  padding: 16px 24px 28px;
   overflow: auto;
 }
 
@@ -366,7 +366,7 @@ body {
 }
 
 .page-section .semi-card-body {
-  padding: 16px;
+  padding: 20px;
 }
 
 .page-section-header {
@@ -391,8 +391,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 320px;
-  padding: 32px 16px;
+  min-height: 220px;
+  padding: 28px 16px;
   text-align: center;
 }
 
@@ -434,7 +434,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .app-toolbar .semi-button {
@@ -447,13 +447,23 @@ body {
   border-radius: var(--app-radius-sm);
 }
 
+/* 表头给浅底色并禁止换行：多列表格（审计/任务）的中文列名换行后行高参差、视觉很碎 */
 .semi-table-thead > .semi-table-row > .semi-table-row-head {
-  background: transparent;
+  background: var(--semi-color-fill-0);
   font-size: 13px;
   font-weight: 600;
   color: var(--semi-color-text-2);
   padding: 10px 16px;
   border-bottom: 1px solid var(--semi-color-border);
+  white-space: nowrap;
+}
+
+.semi-table-thead > .semi-table-row > .semi-table-row-head:first-child {
+  border-top-left-radius: var(--app-radius-sm);
+}
+
+.semi-table-thead > .semi-table-row > .semi-table-row-head:last-child {
+  border-top-right-radius: var(--app-radius-sm);
 }
 
 .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
@@ -469,8 +479,18 @@ body {
   border-bottom: none;
 }
 
-.semi-sidesheet .semi-table-thead > .semi-table-row > .semi-table-row-head {
-  background: var(--semi-color-fill-0);
+/* 表格内的文字按钮降噪：危险动作（删除）常态用中性色，悬停才亮红——整列红字视觉噪音大 */
+.semi-table .semi-button.semi-button-borderless {
+  border-radius: var(--app-radius-sm);
+}
+
+.semi-table .semi-button.semi-button-borderless.semi-button-danger {
+  color: var(--semi-color-text-2);
+}
+
+.semi-table .semi-button.semi-button-borderless.semi-button-danger:hover {
+  color: var(--semi-color-danger);
+  background: var(--semi-color-danger-light-default);
 }
 
 .semi-sidesheet .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
@@ -978,8 +998,19 @@ body {
 .metric-card {
   padding: 14px 16px;
   background: var(--semi-color-fill-0);
-  border: 1px solid var(--semi-color-border);
+  border: 1px solid transparent;
   border-radius: var(--app-radius-sm);
+  transition: border-color 150ms ease;
+}
+
+.metric-card:hover {
+  border-color: var(--semi-color-primary-light-active);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metric-card {
+    transition: none;
+  }
 }
 
 .metric-card-label {

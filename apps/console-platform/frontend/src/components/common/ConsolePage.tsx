@@ -35,7 +35,7 @@ export interface PageSectionProps {
 
 export function PageSection({ title, extra, children }: PageSectionProps) {
   return (
-    <Card className="page-section" bordered shadows="hover">
+    <Card className="page-section" bordered>
       {title || extra ? (
         <div className="page-section-header">
           {title ? <span className="page-section-title">{title}</span> : null}
