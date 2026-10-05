@@ -613,7 +613,8 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - [ ] 回复期间节拍固定：不得在每次 tick 重新读取；下一条消息用新值
 - [ ] `PROGRESS_INTERVAL_SEC` / `im_progress_interval_sec` 的散落默认收敛为平台设置 + schema 默认；`im_progress_updates_per_second` **保留在环境**（服务资源预算上限）
 - [ ] Gateway 侧 `locale.default_locale`（回复渲染）改读平台设置快照
-- [ ] 一次性切换：`SharedSettings.im_progress_interval_sec` 随之删除、`.env.example` 同步移除（`im_progress_updates_per_second` 保留在环境）
+- [ ] 一次性切换：`SharedSettings.im_progress_interval_sec` 随之删除、`.env.example` 同步移除（`im_progress_updates_per_second` 保留在环境）；`.env.example` 的 `IM_PROGRESS_INTERVAL_SEC`（:19）一并摘掉
+- [ ] **改写被本改动打断的既有用例**：`tests/gateway/test_execution_progress.py:378-382` 现在直接断言 `SharedSettings().im_progress_interval_sec` 的 5.0/1.0，字段删除后会红——按新缝改写（`im_progress_updates_per_second` 保留在环境）
 - [ ] [B-03][unit] 覆盖节拍取值边界（`ge=1.0` 下界）与「一条回复内多次 tick 节拍不变、下一条消息用新值」；真实边界：**真实 Gateway 取值函数，不 mock**
 - [ ] 渠道中立：`channels/` 与适配器零改动；跑机检 `tests/architecture/test_channel_neutrality.py` 三条断言
 - [ ] 先写测试并记录 RED，再实现
@@ -692,7 +693,8 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 
 - [ ] 认证策略读平台设置：`SESSION_TTL` 与 Cookie `Max-Age` **同源**，`SLIDE_THRESHOLD` 保持派生；存量会话到期时间不变
 - [ ] `MIN_PASSWORD_LENGTH`/`MAX_FAILED_ATTEMPTS`/`LOCK_DURATION` 由平台设置提供，服务端校验为准
-- [ ] `mcp.max_tools_per_server` 接入发现/接入路径；MCP 连接参数（`connect_timeout_ms`/`tool_cache_ttl_sec`）**不改**，仍由 MCP 页面管理
+- [ ] `mcp.max_tools_per_server` 接入发现/接入路径；MCP 连接参数（`connect_timeout_ms`/`tool_cache_ttl_sec`）**不改**，仍由 MCP 页面管理；同批删除 `SharedSettings.mcp_max_tools_per_server`（消费者只有 `application/mcp_service.py:430`）并从 `.env.example` 摘掉同名键（若在）
+- [ ] **api-kit 的第二套 locale 默认**：`packages/api-kit` 的 `MessageCatalog`（`catalog.py:24-26`）与 `LocaleMiddleware`（`middleware.py:25-39`）各自带 `default_locale="zh-CN"`。按当前口径把平台设置的 `locale.default_locale` 装进 Console 的 `install_api_foundation`/catalog；若判断不该动（它只是"调用方没传时的兜底"），必须在证据里写明理由，不要沉默放过
 - [ ] API-05 已认证限额端点接入（供前端复用 Skill 导入限额）
 - [ ] [E-15][integration] 覆盖新签发会话按新 TTL、已签发会话到期不变、新密码按新长度校验；真实边界：**真实 PostgreSQL + 真实登录会话与 CSRF**
 - [ ] 先写测试并记录 RED，再实现
@@ -792,7 +794,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 ### Checklist
 
 - [ ] 把 `RunService(settings_client=None)` 的**隐式** Null 默认去掉（改为必填参数，或让 Null 在 Run 创建路径上显式失败），消除「新建调用点忘记注入真 client ⇒ 静默按空设置跑」的隐患——生产目前只有 `api/deps.py` 一处装配，但默认值本身就是个陷阱（TASK-005 落地后复核提出）
-- [ ] 校准 TASK-005 重生成 `docs/configuration-inventory.csv` 时给出的**保守分类**（新符号默认 `python-constant=code`、`settings=environment`）：按设计 §2.3.2 的九个分组逐项复核 `category`，把已接入平台设置的项标成 `business`
+- [ ] 校准 TASK-005 重生成 `docs/configuration-inventory.csv` 时给出的**保守分类**（新符号默认 `python-constant=code`、`settings=environment`）：按设计 §2.3.2 的九个分组逐项复核 `category`，把已接入平台设置的项标成 `business`；并同步 `docs/configuration-inventory.md` 里指向旧来源的散文（`:38`/`:46`/`:47`/`:50`/`:55`/`:211` 等）
 - [ ] `overridden_by_resources` 目前只统计压缩组（Agent 的 `runtime_config_json.budget.compaction`），其余分组恒 0——按 design 逐个补齐或明确降级为「不展示覆盖数」（二者选一并写进证据）
 - [ ] 工具结果默认收敛：删除 `TOOL_RESULT_ARTIFACT_BYTES`/`PREVIEW_HEAD_BYTES`/`PREVIEW_TAIL_BYTES` 与 `ToolResultSettings` 的重复默认，只留 schema 单一来源；非请求上下文显式传入
 - [ ] 历史预算收敛：`compaction.history_budget_messages` 与 `BudgetPolicy.max_messages` 用同一冻结值
@@ -843,7 +845,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - [ ] 需求级 `verify-e2e`：`cf_acceptance_runner.py --manifest … --include-e2e --write-evidence`，28/28 场景全过
 - [ ] 先写清单并记录 RED（清单缺失时登记的 argv 必须失败），再补齐
 - [ ] verifier `harness-test#RULE-test-001`：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（真实边界：真实 PG/Redis + 真实构建产物 + 真实浏览器；acceptance 单跑约 1064s，跑前须停 dev 服务并查残留进程）
-- [ ] **规范沉淀**：把本次引入的事实性约束写进对应 live spec 的 `## Conventions`（已知至少三条：① `actor_user_id` 一类**操作者引用即使同 Owner Schema 也用逻辑引用**、不建物理 FK（先例 `ConfigAuditLog.actor_user_id`，与 `RULE-data-001` 字面口径的张力在此写明）；② 平台设置版本行的 append-only 口径（`is_deleted` 恒 `false`、当前版本 = 该租户 `max(revision)`、乐观并发由 partial unique 兜底、回滚产生新版本）；③ 平台业务默认只在**业务操作边界**取一次快照，执行中的 Run/Task 用冻结快照）
+- [ ] **规范沉淀**：把本次引入的事实性约束写进对应 live spec 的 `## Conventions`（已知至少三条：① `actor_user_id` 一类**操作者引用即使同 Owner Schema 也用逻辑引用**、不建物理 FK（先例 `ConfigAuditLog.actor_user_id`，与 `RULE-data-001` 字面口径的张力在此写明）；② 平台设置版本行的 append-only 口径（`is_deleted` 恒 `false`、当前版本 = 该租户 `max(revision)`、乐观并发由 partial unique 兜底、回滚产生新版本）；③ 平台业务默认只在**业务操作边界**取一次快照，执行中的 Run/Task 用冻结快照）；④ 两份 live spec 的旧口径必须改写：`im/harness-im.md:83,89`（节拍来源写成 `IM_PROGRESS_INTERVAL_SEC` 环境变量，且把「验收栈注入 1s」当成 ✅ 示例）与 `mcp/harness-mcp.md:66`（单 server 工具上限来源写成 `settings.py:23`）
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
@@ -883,7 +885,8 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - [ ] `artifact.max_archive_files` 接入 `archive_tools`；`artifact.retention_days`/`artifact.cleanup_batch_size` 接入 Console 清理入口（CLI 本次操作覆盖仍优先）
 - [ ] 全部取值来自冻结快照或操作边界快照，**不在每轮模型调用/每次工具执行里重新读取**
 - [ ] Runtime 侧 `locale.default_timezone`（`executor.py` 装配 `TimeToolSet` 的 zone）改读冻结快照
-- [ ] 一次性切换收口：三个消费方（Worker 投递文案 / Gateway 回复渲染 / 本任务的 `TimeToolSet`）都切换后，删除 `SharedSettings.default_locale` 与 `default_timezone`、`.env.example` 同步移除；同批删掉本任务接管的 `artifact_retention_days`、`mcp_max_tools_per_server`
+- [ ] 一次性切换收口：三个消费方（Worker 投递文案 / Gateway 回复渲染 / 本任务的 `TimeToolSet`）都切换后，删除 `SharedSettings.default_locale` 与 `default_timezone`、`.env.example` 同步移除；同批删掉本任务接管的 `artifact_retention_days`、`mcp_max_tools_per_server`；**部署面也要摘**：`.env.example:4` 的 `DEFAULT_LOCALE` 与 `deploy/k8s/base/configmap.yaml:7` 的 `DEFAULT_LOCALE`（只改示例不改 ConfigMap，运维会以为改它还有效）；同批删掉本任务接管的 `artifact_retention_days`（`mcp_max_tools_per_server` 归 TASK-009，不要重复摘）
+- [ ] `apps/console-platform/.../cli.py:61,192` 的 `cleanup-artifacts --retention-days` 默认值改从平台设置取（CLI 本次操作覆盖仍优先）
 - [ ] [E-20][integration] 覆盖：改这 9 个叶子后新 Run 与新一次清理使用新值；既有 Run/Task 行与已落库记忆不被改写；真实边界：**真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口**（不 mock）
 - [ ] 先写测试并记录 RED，再实现
 - [ ] 同步 `docs/configuration-inventory.csv` 与机检期望（`MAX_INJECTED_MEMORIES`/`MAX_ARCHIVE_FILES` 等常量改由设置提供）
@@ -920,7 +923,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 ### Checklist
 
 - [ ] 全仓扫一遍：`grep -rn "<12 个已删键>" tests/acceptance e2e`，列出每一处 env 注入/常量来源
-- [ ] 各 acceptance 栈（`dfx` / `task_schedule` / `im_gateway` 及扫出的其他栈）在启动时按**该栈的租户**种一行 `control.platform_setting`，值取原先 env 注入的非默认值；删除这些栈里的 env 注入
+- [ ] 各 acceptance 栈（`dfx` / `task_schedule` / `im_gateway` 及扫出的其他栈）在启动时按**该栈的租户**种一行 `control.platform_setting`，值取原先 env 注入的非默认值；删除这些栈里的 env 注入。已扫出的具体落点：`tests/acceptance/im_gateway/environment.py:142`（`IM_PROGRESS_INTERVAL_SEC=1`；该栈 90s 超时对新窗口 80s 很紧）、`tests/acceptance/dfx/environment.py`（`DELIVERY_BACKOFF_BASE_SEC`）、`tests/acceptance/task_schedule/environment.py:46,423`（`DELIVERY_BACKOFF_BASE_SEC=2`）、`tests/acceptance/dfx/test_dfx_routing.py:112`（`BATCH_MAX_CONCURRENCY=2`）
 - [ ] `tests/acceptance/dfx/test_dfx_fault_matrix.py` 的 `TASK_MAX_ATTEMPTS=1` 臂：改由平台设置表达（同一租户不同 Worker 进程的覆盖）
 - [ ] 栈内断言改为从**种下的设置**推导期望值，不再依赖 env 常量
 - [ ] [E-21][integration] 覆盖：栈按种下的设置观察到退避窗口 / 并发上限 / 尝试次数；env 注入路径不存在；真实边界：**真实 acceptance 栈（真实 Console API + 真实 PG + 真实 Worker 进程）**
