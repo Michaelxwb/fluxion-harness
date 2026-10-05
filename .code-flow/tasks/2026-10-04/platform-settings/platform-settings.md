@@ -495,6 +495,8 @@ Worker 在**任务开始执行**与**投递记录开始尝试**两个边界各�
 - [ ] 任务默认接入：新建 Task 用平台默认；`batch_max_concurrency` 不得超过环境项 `batch_platform_limit`
 - [ ] 投递重试策略接入：尝试次数上限与退避基数读平台设置，**不重置已发生的尝试次数**（不新增冻结列）
 - [ ] 既有 Task 行的 deadline/attempt 字段**不被改写**
+- [ ] Worker 侧 `locale.default_locale`（投递文案 `build_delivery_message(task, locale, …)`）改读平台设置快照
+- [ ] **一次性切换、不留双源**：`SharedSettings` 的 `task_default_deadline_hours`/`task_max_attempts`/`batch_max_concurrency`/`misfire_grace_sec`/`delivery_max_attempts`/`delivery_backoff_base_sec` 六项随之删除，`.env.example` 同步移除（`batch_platform_limit` 保留作容量上界）
 - [ ] [E-19][integration] 覆盖新 Task 用新默认 + 存量行不变 + 设置源不可读时任务创建明确失败；真实边界：**真实 PostgreSQL + 真实 Worker 应用层**（真实 claim 语义）
 - [ ] [S-02][E2E] 编写 E2E 验收测试并登记可单独执行的命令（真实边界：Console API → PG → 真实 Worker 进程）；不在编码期执行 RED/GREEN，统一留给 verify-e2e
 - [ ] [S-02] 断言新 Task 使用新默认、既有 Task 行不变
@@ -537,6 +539,8 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - [ ] Gateway 取快照（复用 `application/console_client.py` 的服务身份口径），调用点只有「回复生命周期开始」一处
 - [ ] 回复期间节拍固定：不得在每次 tick 重新读取；下一条消息用新值
 - [ ] `PROGRESS_INTERVAL_SEC` / `im_progress_interval_sec` 的散落默认收敛为平台设置 + schema 默认；`im_progress_updates_per_second` **保留在环境**（服务资源预算上限）
+- [ ] Gateway 侧 `locale.default_locale`（回复渲染）改读平台设置快照
+- [ ] 一次性切换：`SharedSettings.im_progress_interval_sec` 随之删除、`.env.example` 同步移除（`im_progress_updates_per_second` 保留在环境）
 - [ ] [B-03][unit] 覆盖节拍取值边界（`ge=1.0` 下界）与「一条回复内多次 tick 节拍不变、下一条消息用新值」；真实边界：**真实 Gateway 取值函数，不 mock**
 - [ ] 渠道中立：`channels/` 与适配器零改动；跑机检 `tests/architecture/test_channel_neutrality.py` 三条断言
 - [ ] 先写测试并记录 RED，再实现
@@ -703,7 +707,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 
 - **Status**: draft
 - **Priority**: P1
-- **Depends**: TASK-005, TASK-006, TASK-007, TASK-008, TASK-009
+- **Depends**: TASK-005, TASK-006, TASK-007, TASK-008, TASK-009, TASK-013
 - **Source**: platform-settings.backend.design.md#3.1 方案选型, platform-settings.backend.design.md#4.4 数据迁移
 - **Spec-Refs**:
 - **Acceptance-Refs**: E-09, E-16
@@ -721,7 +725,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - [ ] 历史预算收敛：`compaction.history_budget_messages` 与 `BudgetPolicy.max_messages` 用同一冻结值
 - [ ] 产物路径收敛：删除裸 `getenv` 的第二套默认（`/mnt/muad-artifacts`、`/var/cache/muad/skills`），统一经启动 settings
 - [ ] 默认租户收敛：CLI 的 `DEFAULT_TENANT` 改读 `SharedSettings.default_tenant_id`
-- [ ] 环境项收口：改由业务设置接管的 12 个键从启动 settings 与 `.env.example` 移除（`context_settings_cache_ttl_sec`/`im_progress_interval_sec`/`artifact_retention_days`/`mcp_max_tools_per_server`/`task_default_deadline_hours`/`task_max_attempts`/`batch_max_concurrency`/`misfire_grace_sec`/`delivery_max_attempts`/`delivery_backoff_base_sec`/`default_locale`/`default_timezone`）；`batch_platform_limit` 与 `im_progress_updates_per_second` 保留
+- [ ] 环境项收口**复核**：改由业务设置接管的 12 个键按「谁切换谁摘除」已由前序任务一次性删除（`context_settings_cache_ttl_sec`→TASK-005、task 六项→TASK-006、`im_progress_interval_sec`→TASK-007、`artifact_retention_days`/`mcp_max_tools_per_server`/`default_locale`/`default_timezone`→TASK-013）——本任务逐条复核它们**确实不在启动 settings 与 `.env.example`**，且 `batch_platform_limit` 与 `im_progress_updates_per_second` 仍在环境
 - [ ] `.env.example` 补全为完整运维契约（覆盖余下全部环境类字段键名）
 - [ ] [E-09][integration] 机检：`.env.example` 键集与 `SharedSettings` 环境类字段一致；重复默认源已消除
 - [ ] [E-16][integration] 机检：`docs/configuration-inventory.csv` 与当前源码声明逐行一致，被删除/迁移的常量不再出现
@@ -790,6 +794,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - **Status**: draft
 - **Priority**: P0
 - **Depends**: TASK-005
+, TASK-006, TASK-007
 - **Source**: platform-settings.backend.design.md#2.3 功能方案, platform-settings.backend.design.md#3.2 架构设计
 - **Spec-Refs**:
 - **Acceptance-Refs**: E-20
@@ -804,6 +809,8 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - [ ] `memory.write_enabled` 替换 `memory_tools` 的「未显式配置时默认 True」；`max_injected_memories`/`max_injected_bytes` 接入 `context_builder` 的记忆注入预算；`max_recall_bytes`/`recall_default_limit` 接入 `memory_tools`（`recall_default_limit ≤ RECALL_MAX_LIMIT`，上界单一来源见 TASK-011 收敛）
 - [ ] `artifact.max_archive_files` 接入 `archive_tools`；`artifact.retention_days`/`artifact.cleanup_batch_size` 接入 Console 清理入口（CLI 本次操作覆盖仍优先）
 - [ ] 全部取值来自冻结快照或操作边界快照，**不在每轮模型调用/每次工具执行里重新读取**
+- [ ] Runtime 侧 `locale.default_timezone`（`executor.py` 装配 `TimeToolSet` 的 zone）改读冻结快照
+- [ ] 一次性切换收口：三个消费方（Worker 投递文案 / Gateway 回复渲染 / 本任务的 `TimeToolSet`）都切换后，删除 `SharedSettings.default_locale` 与 `default_timezone`、`.env.example` 同步移除；同批删掉本任务接管的 `artifact_retention_days`、`mcp_max_tools_per_server`
 - [ ] [E-20][integration] 覆盖：改这 9 个叶子后新 Run 与新一次清理使用新值；既有 Run/Task 行与已落库记忆不被改写；真实边界：**真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口**（不 mock）
 - [ ] 先写测试并记录 RED，再实现
 - [ ] 同步 `docs/configuration-inventory.csv` 与机检期望（`MAX_INJECTED_MEMORIES`/`MAX_ARCHIVE_FILES` 等常量改由设置提供）

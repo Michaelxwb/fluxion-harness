@@ -42,6 +42,7 @@
 | v0.1 | 2026-10-04 | fluxion-harness | 初始草稿：归一需求二与配置盘点，确定权威源、读取边界、设置 schema 与收敛清单 |
 | v0.2 | 2026-10-05 | fluxion-harness | 依 §3.1 ADR-10：设置文档 schema 落到 `muad_contracts`（Console 不依赖 `muad-agent-core`，v0.1 的「复用 `muad_agent_core.context.settings._validate`」不可达），`muad_agent_core.context.settings` 整体迁移；场景编号去重（幂等场景改 `E-17`，新增边界场景 `B-07`） |
 | v0.3 | 2026-10-05 | fluxion-harness | 拆解阶段发现 `agent`(4 中余 2) / `memory`(5) / `artifact`(3) 共 9 个叶子没有承接任务，补验收场景 `E-20`（执行默认接入），由 TASK-013 负责 |
+| v0.6 | 2026-10-05 | fluxion-harness | 补齐 `locale` 分组的落点：消费方是 Worker 投递文案 / Gateway 回复渲染 / Runtime `TimeToolSet` 时区，此前无任务承接；并入 E-19 / B-03 / E-20 三条既有场景的断言，环境键由最后一个切换的任务一次性摘除 |
 | v0.5 | 2026-10-05 | fluxion-harness | TASK-004 落地后更正取快照指标的归属：`failed` 分支只能由**调用方**（Runtime/Worker/Gateway 的 client）记录（端点被切断时 Console 收不到请求）；Console 侧只记 `ok`/`error` 服务分支并接受可选头 `X-Caller-Service` 供 `caller` 标签 |
 | v0.4 | 2026-10-05 | fluxion-harness | 更正审计登记口径：`AUDIT_TYPES` 是**审计来源枚举**不是 `resource_type` 注册表（v0.1 的「登记进两处」是错的）；`resource_type="PLATFORM_SETTING"` 真正要同步的是**前端登记域**（`RESOURCE_TYPES` + `audit.resourceType.*` 词条），由 `tests/frontend/test_audit_gap_contract.py` 机检 |
 
@@ -251,8 +252,8 @@
 | E-16 | FEAT-05/07 | integration | 真实源码树 + 真实 CSV + 真实机检（无服务） | 本模块 | 收敛与迁移完成后运行盘点机检 | `docs/configuration-inventory.csv` 与当前源码声明逐行一致（路径/行号/符号/默认值/分类）；被删除或迁移的常量不再出现；分类期望与迁移结论一致 | 盘点清单不因本次迁移变成过期文档 |
 | E-17 | FEAT-03 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | 本模块 | 同一 `Idempotency-Key` 重复提交保存（同指纹）；再用同键不同指纹提交一次 | 同指纹重放**首次**结果（revision 不变、不产生第二个版本）；不同指纹返回 `IDEMPOTENCY_MISMATCH` | 超时重试不会让管理员看到"版本冲突"，也不会写出两版 |
 | E-18 | FEAT-01..08 | integration | 真实任务文档与 manifest（收口清单交叉核对） | 本模块 | 运行收口清单 | 覆盖表 ↔ 契约表 ↔ 证据表三方闭环；manifest 与覆盖表同 ID/owner/命令且 level/boundary/cwd 一致；`-k` 令牌在真实用例名里命中；**不豁免收口任务自身** | 收口任务自己的契约行也必须终态 |
-| E-19 | FEAT-02/05 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | 本模块 | 保存 `task.max_attempts` / `task.default_deadline_hours` 新值后创建新 Task | 新 Task 用新默认；**既有 Task 行的 deadline/attempt 字段不被改写**；设置源不可读时任务创建明确失败 | 改平台默认不偷偷重写存量行 |
-| E-20 | FEAT-02/05 | integration | 真实 PostgreSQL + 真实 Runtime 装配（`context_builder`/`memory_tools`/`archive_tools`）+ 真实 Console 清理入口 | 本模块 | 改 `agent.max_turns`、`memory.max_injected_memories`、`artifact.max_archive_files`、`artifact.retention_days` 后新建 Run 与执行一次清理 | 新 Run 的轮次/记忆注入上限、归档文件上限用新值；下一次清理按新保留期挑选；**既有 Run/Task 行与已落库记忆不被改写** | 平台默认对新操作立刻生效，不重写存量数据 |
+| E-19 | FEAT-02/05 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | 本模块 | 保存 `task.max_attempts` / `task.default_deadline_hours` 新值后创建新 Task | 新 Task 用新默认；**既有 Task 行的 deadline/attempt 字段不被改写**；设置源不可读时任务创建明确失败；投递文案按新 `locale.default_locale` 渲染 | 改平台默认不偷偷重写存量行 |
+| E-20 | FEAT-02/05 | integration | 真实 PostgreSQL + 真实 Runtime 装配（`context_builder`/`memory_tools`/`archive_tools`）+ 真实 Console 清理入口 | 本模块 | 改 `agent.max_turns`、`memory.max_injected_memories`、`artifact.max_archive_files`、`artifact.retention_days` 后新建 Run 与执行一次清理；以及 `locale.default_timezone` 后新建 Run | 新 Run 的轮次/记忆注入上限、归档文件上限用新值；下一次清理按新保留期挑选；**既有 Run/Task 行与已落库记忆不被改写** | 平台默认对新操作立刻生效，不重写存量数据 |
 
 **边界场景**
 
@@ -260,7 +261,7 @@
 |--------|---------|-------------|------|----------|--------|---------|
 | B-01 | unit | schema 校验函数（含复用压缩 `_validate`） | 本模块 | 各叶子范围与跨字段联动 | 下界-1 / 下界 / 上界 / 上界+1 / 未知键 | 界内接受、界外拒绝；错误定位到字段路径 |
 | B-02 | unit | 预算层级解析函数 | 本模块 | 总 deadline 与单次/重试预算 | 单次预算 > 剩余总预算；重试预算之和 > 总预算 | 单次预算被夹到剩余总预算；重试在总预算耗尽前停止 |
-| B-03 | unit | Gateway 回复生命周期取值与节拍 | 本模块 | 一条回复内多次 tick | `im.progress_interval_sec = 1.0`（下界）与保存并发 | 回复期间节拍固定（不中途跳变）；下一条消息用新值 |
+| B-03 | unit | Gateway 回复生命周期取值与节拍 | 本模块 | 一条回复内多次 tick；并断言回复渲染的 locale 取自平台设置 | `im.progress_interval_sec = 1.0`（下界）与保存并发 | 回复期间节拍固定（不中途跳变）；下一条消息用新值 |
 | B-04 | integration | 真实 PostgreSQL（表内无该租户行） | 本模块 | 首次读取 | 租户无任何版本行 | 返回 schema 默认值（`revision=0` 语义），不报错；首次保存创建 revision 1 |
 | B-07 | integration | 真实 PostgreSQL（`alembic upgrade 0001→0017` / `downgrade`） | 本模块 | 迁移与 schema 对齐 | 升到 `0017` 后建表 | `control.platform_setting` 的列与索引与 model 定义一致；partial unique `(tenant_id, revision) WHERE is_deleted=false` 真实生效（重复 `(tenant_id, revision)` 插入被拒）；`downgrade` 可干净回滚 |
 
