@@ -467,7 +467,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL + 真实登录会话与 CSRF",
       "owner": "TASK-017",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -477,7 +477,48 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-23",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "b4aed9ead9c04227bb92045a62ffba1a",
+        "executed_at": "2026-10-05T09:37:27.910517+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/console_auth_flow/test_auth_acceptance.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "569ce871a5f218b9d8e7ccf34417bea89e402826b308126b7a976524464c7b8b"
+      },
+      "runs": [
+        {
+          "id": "E-23",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "b4aed9ead9c04227bb92045a62ffba1a",
+          "executed_at": "2026-10-05T09:37:27.910517+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/console_auth_flow/test_auth_acceptance.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "569ce871a5f218b9d8e7ccf34417bea89e402826b308126b7a976524464c7b8b"
+        }
+      ]
     },
     {
       "id": "B-01",

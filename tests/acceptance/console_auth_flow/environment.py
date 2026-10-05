@@ -51,6 +51,10 @@ BUILDER_PASSWORD = "console-auth-builder-password"
 DISABLED_PASSWORD = "console-auth-disabled-password"
 LOCKED_PASSWORD = "console-auth-locked-password"
 
+# 平台默认 `auth.session_ttl_hours=12`（本栈不种 `control.platform_setting`，读取侧回落默认）。
+# 会话窗口跨度恒为签发时 TTL（`issued_at = now - (SESSION_TTL - remaining)`）：滑动阈值是派生值
+# `(expires_at - issued_at)/2`（ADR-12），若签发时间取 `now` 则跨度退化成剩余、永不过中点。
+SESSION_TTL = timedelta(hours=12)
 # 会话临界：剩余 3h（< 6h 阈值）→ `/auth/me` 应续期；另备一个恰 6h 的供边界断言
 SESSION_REMAINING = timedelta(hours=3)
 SESSION_EDGE_REMAINING = timedelta(hours=6)
@@ -180,14 +184,14 @@ async def _seed(factory: async_sessionmaker[AsyncSession]) -> AuthSeed:
                     ConsoleSession(
                         account_id=builder.id,
                         token_hash=_token_hash(builder_token),
-                        issued_at=now,
+                        issued_at=now - (SESSION_TTL - SESSION_REMAINING),
                         expires_at=now + SESSION_REMAINING,
                         last_seen_at=now,
                     ),
                     ConsoleSession(
                         account_id=builder.id,
                         token_hash=_token_hash(edge_token),
-                        issued_at=now,
+                        issued_at=now - (SESSION_TTL - SESSION_EDGE_REMAINING),
                         expires_at=now + SESSION_EDGE_REMAINING,
                         last_seen_at=now,
                     ),

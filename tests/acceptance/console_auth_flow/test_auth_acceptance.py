@@ -295,7 +295,20 @@ BOUNDARY_ABOVE = timedelta(hours=6, seconds=5)
 BOUNDARY_BELOW = timedelta(hours=6, seconds=-5)
 
 
-async def _issue_session(account_id: uuid.UUID, *, remaining: timedelta) -> str:
+# 平台默认 `auth.session_ttl_hours=12`（本栈不种 `control.platform_setting`，读取侧回落默认）。
+SESSION_TTL = timedelta(hours=12)
+
+
+async def _issue_session(
+    account_id: uuid.UUID, *, remaining: timedelta, ttl: timedelta = SESSION_TTL
+) -> str:
+    """按**真实会话形状**造一行：窗口跨度恒为签发时 TTL，靠回推 `issued_at` 调节剩余。
+
+    滑动阈值是**派生值** `(expires_at - issued_at) / 2`（ADR-12），不是独立设置项。若像旧夹具
+    那样把签发时间设为 `now`，窗口跨度就退化成剩余、阈值恒为剩余的一半而**永不过中点**——
+    「剩余 <6h 应续期」的断言必挂（TASK-017）。这里把 `issued_at` 回推 `ttl - remaining`，
+    使「剩余低于窗口一半」真正等价于「过了窗口中点」。
+    """
     token = secrets.token_urlsafe(32)
     now = datetime.now(UTC)
     async with get_session_factory()() as session:
@@ -303,7 +316,7 @@ async def _issue_session(account_id: uuid.UUID, *, remaining: timedelta) -> str:
             ConsoleSession(
                 account_id=account_id,
                 token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest(),
-                issued_at=now,
+                issued_at=now - (ttl - remaining),
                 expires_at=now + remaining,
                 last_seen_at=now,
             )
