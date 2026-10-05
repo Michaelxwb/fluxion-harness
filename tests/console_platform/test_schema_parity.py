@@ -7,6 +7,7 @@ from muad_console_platform.infrastructure.models.control import (
     AgentDefinition,
     ModelDefinition,
     PlatformSetting,
+    PlatformSettingIdempotency,
     ProjectPlatform,
     SharedCredentialRef,
     UserCredentialRef,
@@ -38,6 +39,9 @@ EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
     "platform_setting": (
         "uq_platform_setting_tenant_revision",
         "ix_platform_setting_tenant_revision_desc",
+    ),
+    "platform_setting_idempotency": (
+        "uq_platform_setting_idempotency_tenant_key_endpoint",
     ),
 }
 
@@ -181,3 +185,10 @@ async def test_shared_credential_ref_schema_parity(database_guard: None) -> None
 async def test_platform_setting_schema_parity(database_guard: None) -> None:
     diffs = _compare(PlatformSetting.__table__, await _reflect("platform_setting"))
     assert not diffs, "platform_setting schema mismatch:\n" + "\n".join(diffs)
+
+
+async def test_platform_setting_idempotency_schema_parity(database_guard: None) -> None:
+    diffs = _compare(
+        PlatformSettingIdempotency.__table__, await _reflect("platform_setting_idempotency")
+    )
+    assert not diffs, "platform_setting_idempotency schema mismatch:\n" + "\n".join(diffs)

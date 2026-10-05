@@ -36,7 +36,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.models.control import PlatformSetting
+from ..infrastructure.models.control import ModelDefinition, PlatformSetting
 from .audit_service import AuditActor, AuditService
 
 #: 写入 `config_audit_log.resource_type` 的取值（审计页按此登记，见前端 RESOURCE_TYPES）。
@@ -64,6 +64,12 @@ class PlatformSettingsRevisionNotFound(PlatformSettingsServiceError):
     """`read_revision` / `restore` 的目标版本不存在。"""
 
     code = "PLATFORM_SETTINGS_REVISION_NOT_FOUND"
+
+
+class PlatformSettingsModelNotFound(PlatformSettingsServiceError):
+    """`compaction.summary.model_ref` 指向本租户不存在/未启用的模型（设计 §2.3.2 联动）。"""
+
+    code = "MODEL_NOT_FOUND"
 
 
 @dataclass(frozen=True)
@@ -141,6 +147,7 @@ class PlatformSettingsService:
     ) -> PlatformSettingsSnapshot:
         """校验 → 事务内比对版本 → `INSERT revision+1` → 同事务写审计。"""
         validate_platform_settings(settings, batch_platform_limit=_batch_platform_limit())
+        await self._require_summary_model(tenant_id, settings)
         current = await self._current_revision(tenant_id)
         if current != expected_revision:
             raise PlatformSettingsVersionConflict(
@@ -272,6 +279,22 @@ class PlatformSettingsService:
             updated_at=row.create_time,
             actor_user_id=row.actor_user_id,
         )
+
+    async def _require_summary_model(self, tenant_id: str, settings: PlatformSettings) -> None:
+        """摘要开启时 `model_ref` 必须指向本租户既有的启用模型（设计 §2.3.2 联动、RULE-model-001）。"""
+        summary = settings.compaction.summary
+        if not summary.enabled:
+            return
+        model_ref = (summary.model_ref or "").strip()
+        model = await self._session.scalar(
+            select(ModelDefinition).where(
+                ModelDefinition.id == uuid.UUID(model_ref),
+                ModelDefinition.tenant_id == tenant_id,
+                ModelDefinition.is_deleted.is_(False),
+            )
+        )
+        if model is None or not model.enabled:
+            raise PlatformSettingsModelNotFound(f"模型不存在或未启用：model_ref={model_ref}")
 
     async def _current_revision(self, tenant_id: str) -> int:
         value = await self._session.scalar(

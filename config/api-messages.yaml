@@ -83,6 +83,36 @@ codes:
       zh-CN: 配置版本已变化，请刷新后重试
       en-US: The configuration revision has changed. Refresh and try again.
 
+  VALIDATION_FAILED:
+    http_status: 400
+    messages:
+      zh-CN: 参数校验失败
+      en-US: Request validation failed
+
+  MODEL_NOT_FOUND:
+    http_status: 400
+    messages:
+      zh-CN: 模型不存在或未启用
+      en-US: The model does not exist or is disabled
+
+  PLATFORM_SETTINGS_VERSION_CONFLICT:
+    http_status: 409
+    messages:
+      zh-CN: 设置版本已变化，请刷新后重试
+      en-US: The settings revision has changed. Refresh and try again.
+
+  PLATFORM_SETTINGS_SECRET_REJECTED:
+    http_status: 400
+    messages:
+      zh-CN: 不允许保存敏感配置项
+      en-US: Saving sensitive configuration is not allowed
+
+  PLATFORM_SETTINGS_REVISION_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: 设置版本不存在
+      en-US: The settings revision does not exist
+
   SKILL_PACKAGE_INVALID:
     http_status: 400
     messages:

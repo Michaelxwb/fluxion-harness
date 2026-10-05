@@ -12,18 +12,39 @@ from contextlib import contextmanager
 from typing import Final
 
 from fastapi import FastAPI, Request, Response
-from muad_api import AppError, inc_counter, install_metrics
+from muad_api import AppError, declare_metric, inc_counter, install_metrics
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 API_REQUESTS_METRIC: Final = "console_api_requests_total"
 SKILL_IMPORT_METRIC: Final = "skill_import_total"
 RESOLVE_DEFINITION_METRIC: Final = "runtime_definition_resolve_total"
 BIND_METRIC: Final = "bind_total"
+# 平台设置（design §3.5 可观测性）：保存结局 + 内部取设置结局。
+PLATFORM_SETTINGS_SAVE_METRIC: Final = "platform_settings_save_total"
+PLATFORM_SETTINGS_FETCH_METRIC: Final = "platform_settings_fetch_total"
 
 SUCCESS_STATUS: Final = "SUCCESS"
 FAILED_STATUS: Final = "FAILED"
+COUNTER: Final = "counter"
 # 未命中任何路由时不记录具体路径：避免把用户可控路径（含标识符）当 label。
 UNMATCHED_PATH: Final = "unmatched"
+
+# 目录：(指标名, 类型, label 名, help)。安装时声明，使 `/metrics` 无流量时也暴露完整目录。
+CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
+    (
+        PLATFORM_SETTINGS_SAVE_METRIC,
+        COUNTER,
+        ("result",),
+        "Platform settings saves by result (ok/validation_failed/conflict)",
+    ),
+    (
+        PLATFORM_SETTINGS_FETCH_METRIC,
+        COUNTER,
+        ("caller", "result"),
+        "Platform settings snapshot fetches by caller and result",
+    ),
+)
+
 
 
 def record_outcome(name: str, status: str, labels: Mapping[str, str] | None = None) -> None:
@@ -66,5 +87,7 @@ class ApiRequestMetricsMiddleware(BaseHTTPMiddleware):
 
 def install_console_metrics(app: FastAPI) -> None:
     """注册真实 HTTP `GET /metrics` 与请求计数中间件（复用 api-kit 进程内注册表）。"""
+    for name, kind, _labels, help_text in CATALOG:
+        declare_metric(name, kind, help=help_text)
     install_metrics(app)
     app.add_middleware(ApiRequestMetricsMiddleware)

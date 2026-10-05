@@ -10,11 +10,14 @@ from .credentials import router as credentials_router
 from .deps import get_current_account, require_admin
 from .internal_artifacts import router as internal_artifacts_router
 from .internal_channel import router as internal_channel_router
+from .internal_platform_settings import router as internal_platform_settings_router
 from .internal_runtime import router as internal_runtime_router
 from .mcp_servers import router as mcp_servers_router
 from .models import router as models_router
 from .overview import router as overview_router
 from .platform_adapters import router as platform_adapters_router
+from .platform_settings import admin_router as platform_settings_admin_router
+from .platform_settings import router as platform_settings_router
 from .platform_test import router as platform_test_router
 from .platforms import router as platforms_router
 from .runs import router as runs_router
@@ -33,6 +36,7 @@ authenticated.include_router(agents_router)
 authenticated.include_router(models_router)
 authenticated.include_router(platform_adapters_router)
 authenticated.include_router(platforms_router)
+authenticated.include_router(platform_settings_router)
 authenticated.include_router(platform_test_router)
 authenticated.include_router(skills_router)
 authenticated.include_router(audits_router)
@@ -49,11 +53,14 @@ admin.include_router(accounts_router)
 admin.include_router(users_router)
 # 凭据类管理仅 ADMIN（13-console-auth 设计 §2.4：前端隐藏 + 后端 403 兜底）。
 admin.include_router(credentials_router)
+# 平台设置的读写/历史/回滚仅 ADMIN（平台设置是面向管理员的运维面）。
+admin.include_router(platform_settings_admin_router)
 router.include_router(admin)
 
 router.include_router(internal_runtime_router)
 router.include_router(internal_channel_router)
 router.include_router(internal_artifacts_router)
+router.include_router(internal_platform_settings_router)
 # 取件端点**不在** authenticated/admin 组里：它的调用方可能没有 Console 会话（签名令牌路径）。
 # 鉴权在路由内部二选一完成，见 `artifacts.authorize_artifact_fetch`。
 router.include_router(artifacts_router)

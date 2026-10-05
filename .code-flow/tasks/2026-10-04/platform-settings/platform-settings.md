@@ -17,23 +17,23 @@
 | S-01 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针 | TASK-010 | planned | - | . | 600 | |
 | S-02 | platform-settings.backend.design.md#2.5.2 验收场景 | E2E | 真实 Console API → 真实 PostgreSQL → 真实 Worker 进程（真实 lease/claim） | TASK-006 | planned | - | . | 600 | |
 | S-03 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | TASK-010 | planned | - | . | 600 | |
-| E-01 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 settings service | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","invalid_payload"] | . | 300 | |
+| E-01 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 settings service | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","invalid_payload"] | . | 300 | |
 | E-02 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实唯一约束） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","version_conflict"] | . | 300 | |
 | E-03 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Runtime 进程 + 被切断的 Console 内部端点 | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","source_unavailable"] | . | 600 | |
-| E-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Console API（真实服务身份校验） | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_internal/test_platform_settings_internal.py","-k","service_identity"] | . | 300 | |
+| E-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Console API（真实服务身份校验） | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_internal/test_platform_settings_internal.py","-k","service_identity"] | . | 300 | |
 | E-05 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（同一事务） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","audit_same_transaction"] | . | 300 | |
-| E-06 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","restore"] | . | 300 | |
+| E-06 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","restore"] | . | 300 | |
 | E-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Agent 定义行 | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","agent_override_precedence"] | . | 600 | |
 | E-08 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 独立进程（无 TTL 缓存、无重启） | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","new_revision_without_restart"] | . | 600 | |
 | E-09 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 `.env.example` + 真实 `SharedSettings` 字段集 | TASK-011 | planned | ["uv","run","pytest","-q","tests/test_configuration_convergence.py"] | . | 300 | |
-| E-10 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 HTTP 响应体 | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","secret_rejected"] | . | 300 | |
+| E-10 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 HTTP 响应体 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","secret_rejected"] | . | 300 | |
 | E-11 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | TASK-010 | planned | - | . | 600 | |
 | E-12 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（真实 409） | TASK-010 | planned | - | . | 600 | |
 | E-13 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许，成功路径禁止拦截） | TASK-010 | planned | - | . | 600 | |
 | E-14 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实登录会话（真实 403，无路由拦截） | TASK-010 | planned | - | . | 600 | |
 | E-15 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实登录会话与 CSRF | TASK-009 | planned | ["uv","run","pytest","-q","tests/console_platform/test_auth_policy_settings.py"] | . | 300 | |
 | E-16 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 CSV + 真实机检（无服务） | TASK-011 | planned | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | . | 300 | |
-| E-17 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","idempotent_replay"] | . | 300 | |
+| E-17 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","idempotent_replay"] | . | 300 | |
 | E-18 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实任务文档与 manifest（收口清单交叉核对） | TASK-012 | planned | ["uv","run","pytest","-q","tests/platform_settings_inventory.py"] | . | 300 | |
 | E-19 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_defaults_from_settings.py","-k","new_task_defaults"] | . | 600 | |
 | E-20 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | . | 600 | |
@@ -278,7 +278,7 @@ Rule"。同文件 TASK-008/011/013 仍是 `N/A`，属各自任务的范围，未
 
 ## TASK-004: Console API 与内部取设置端点
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: platform-settings.backend.design.md#3.4 接口设计
@@ -291,44 +291,105 @@ Rule"。同文件 TASK-008/011/013 仍是 `N/A`，属各自任务的范围，未
 
 ### Checklist
 
-- [ ] `api/platform_settings.py`：API-01..API-05，按 `api/router.py` 分组注册（读/写/历史/回滚进 admin 组，限额进 authenticated 组）；租户一律 `AccountTenantId`
-- [ ] API-06 进 internal 组（`api/internal_platform_settings.py`），复用 `require_service_identity` + `HeaderTenantId`；失败即失败，**不返回最后一次已知值**
-- [ ] 统一封套与错误码（`config/api-messages.yaml`）：`VALIDATION_FAILED`（含 `details[].path`）、`PLATFORM_SETTINGS_VERSION_CONFLICT`、`PLATFORM_SETTINGS_SECRET_REJECTED`、`PLATFORM_SETTINGS_REVISION_NOT_FOUND`、`MODEL_NOT_FOUND`、`IDEMPOTENCY_MISMATCH`
-- [ ] 幂等（`RULE-api-002`）：保存与回滚均支持 `Idempotency-Key`，复用既有幂等表与规范化 JSON 指纹口径（**必须含 endpoint 与 tenant_id**），落败者读首次结果
-- [ ] 敏感键扫描与拒绝；响应体/错误体不回显任何凭据形状（`RULE-secret-001`）
-- [ ] 审计与日志走既有原语与脱敏（`RULE-log-001`）；变更值全文不入日志
-- [ ] 版本历史按 `{items,page,page_size,total}` 返回并带 `changed_keys`（相邻版本 diff）
-- [ ] 幂等需要落库时，按既有形态新建 `control.platform_setting_idempotency`（partial unique `(tenant_id, idempotency_key, endpoint)`）+ 迁移 `0018`，并登记进 `test_schema_parity.py`；指纹口径照 `channel_service.bind_fingerprint`（规范化 JSON 含 endpoint 与 tenant_id）
-- [ ] 按 design §3.5 实现两个计数指标并登记进 `metrics.py` 的 CATALOG：`platform_settings_save_total`（`result=ok|validation_failed|conflict`）、`platform_settings_fetch_total`（`caller=runtime|worker|gateway`, `result=ok|failed`）——后者是 TASK-005 的 E-03 断言依赖
-- [ ] [E-01][integration] 覆盖非法/越界/联动/未知键 ⇒ 400 + 字段路径，**不产生新版本**
-- [ ] [E-04][integration] 覆盖内部端点无/错服务身份、错租户 ⇒ 403，不泄漏内容
-- [ ] [E-06][integration] 覆盖回滚产生新版本、历史全保留、按当前 schema 校验旧内容
-- [ ] [E-10][integration] 覆盖敏感键拒绝 + 审计/响应体/日志无敏感值
-- [ ] [E-17][integration] 覆盖 `Idempotency-Key` 同指纹重放（revision 不变）与不同指纹 `IDEMPOTENCY_MISMATCH`
-- [ ] 先写测试并记录 RED，再实现
-- [ ] verifier `harness-api#RULE-api-001`：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`（真实边界：真实 HTTP 封套与真实错误码目录）
-- [ ] verifier `harness-api#RULE-api-002`：`uv run pytest -q tests/console_skill/test_import_idempotency.py` ＋本任务新增的设置幂等用例（真实边界：真实 PG 幂等表 partial unique）
-- [ ] verifier `harness-auth#RULE-auth-001`：`uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity`（真实边界：真实授权关系表 + 真实登录会话）
-- [ ] verifier `harness-secret#RULE-secret-001`：`uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py`（真实边界：真实日志与审计落库）
-- [ ] verifier `harness-log#RULE-log-001`：`uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py`（真实边界：真实 logging-kit 输出）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] `api/platform_settings.py`：API-01..API-05，按 `api/router.py` 分组注册（读/写/历史/回滚进 admin 组，限额进 authenticated 组）；租户一律 `AccountTenantId`
+- [x] API-06 进 internal 组（`api/internal_platform_settings.py`），复用 `require_service_identity` + `HeaderTenantId`；失败即失败，**不返回最后一次已知值**
+- [x] 统一封套与错误码（`config/api-messages.yaml`）：`VALIDATION_FAILED`（含 `details[].path`）、`PLATFORM_SETTINGS_VERSION_CONFLICT`、`PLATFORM_SETTINGS_SECRET_REJECTED`、`PLATFORM_SETTINGS_REVISION_NOT_FOUND`、`MODEL_NOT_FOUND`、`IDEMPOTENCY_MISMATCH`
+- [x] 幂等（`RULE-api-002`）：保存与回滚均支持 `Idempotency-Key`，复用既有幂等表与规范化 JSON 指纹口径（**必须含 endpoint 与 tenant_id**），落败者读首次结果
+- [x] 敏感键扫描与拒绝；响应体/错误体不回显任何凭据形状（`RULE-secret-001`）
+- [x] 审计与日志走既有原语与脱敏（`RULE-log-001`）；变更值全文不入日志
+- [x] 版本历史按 `{items,page,page_size,total}` 返回并带 `changed_keys`（相邻版本 diff）
+- [x] 幂等需要落库时，按既有形态新建 `control.platform_setting_idempotency`（partial unique `(tenant_id, idempotency_key, endpoint)`）+ 迁移 `0018`，并登记进 `test_schema_parity.py`；指纹口径照 `channel_service.bind_fingerprint`（规范化 JSON 含 endpoint 与 tenant_id）
+- [x] 按 design §3.5 实现两个计数指标并登记进 `metrics.py` 的 CATALOG：`platform_settings_save_total`（`result=ok|validation_failed|conflict`）、`platform_settings_fetch_total`（`caller=runtime|worker|gateway`, `result=ok|failed`）——后者是 TASK-005 的 E-03 断言依赖
+- [x] [E-01][integration] 覆盖非法/越界/联动/未知键 ⇒ 400 + 字段路径，**不产生新版本**
+- [x] [E-04][integration] 覆盖内部端点无/错服务身份、错租户 ⇒ 403，不泄漏内容
+- [x] [E-06][integration] 覆盖回滚产生新版本、历史全保留、按当前 schema 校验旧内容
+- [x] [E-10][integration] 覆盖敏感键拒绝 + 审计/响应体/日志无敏感值
+- [x] [E-17][integration] 覆盖 `Idempotency-Key` 同指纹重放（revision 不变）与不同指纹 `IDEMPOTENCY_MISMATCH`
+- [x] 先写测试并记录 RED，再实现
+- [x] verifier `harness-api#RULE-api-001`：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`（真实边界：真实 HTTP 封套与真实错误码目录）
+- [x] verifier `harness-api#RULE-api-002`：`uv run pytest -q tests/console_skill/test_import_idempotency.py` ＋本任务新增的设置幂等用例（真实边界：真实 PG 幂等表 partial unique）
+- [x] verifier `harness-auth#RULE-auth-001`：`uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity`（真实边界：真实授权关系表 + 真实登录会话）
+- [x] verifier `harness-secret#RULE-secret-001`：`uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py`（真实边界：真实日志与审计落库）
+- [x] verifier `harness-log#RULE-log-001`：`uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py`（真实边界：真实 logging-kit 输出）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-01 | integration | 真实 PostgreSQL + 真实 settings service | 400 + `details[].path` 定位字段；版本数不变 | `tests/console_platform/test_platform_settings_api.py -k invalid_payload` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","invalid_payload"] | planned |
-| E-04 | integration | 真实 Console API（真实服务身份校验） | 无/错 `X-Internal-Service` ⇒ 403；`X-Tenant-Id` 非本租户 ⇒ 无数据 | `tests/console_internal/test_platform_settings_internal.py -k service_identity` | ["uv","run","pytest","-q","tests/console_internal/test_platform_settings_internal.py","-k","service_identity"] | planned |
-| E-06 | integration | 真实 PostgreSQL | 回滚产生新 revision（内容等于目标版本）；历史行全在；旧 schema 内容被拒 | `tests/console_platform/test_platform_settings_api.py -k restore` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","restore"] | planned |
-| E-10 | integration | 真实 PostgreSQL + 真实 HTTP 响应体 | 敏感键被拒；审计行/响应体/日志无敏感值 | `tests/console_platform/test_platform_settings_api.py -k secret_rejected` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","secret_rejected"] | planned |
-| E-17 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | 同键同指纹重放首次结果（revision 不变）；同键不同指纹 ⇒ `IDEMPOTENCY_MISMATCH` | `tests/console_platform/test_platform_settings_api.py -k idempotent_replay` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","idempotent_replay"] | planned |
+| E-01 | integration | 真实 PostgreSQL + 真实 settings service | 400 + `details[].path` 定位字段；版本数不变 | `tests/console_platform/test_platform_settings_api.py -k invalid_payload` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","invalid_payload"] | verified |
+| E-04 | integration | 真实 Console API（真实服务身份校验） | 无/错 `X-Internal-Service` ⇒ 403；`X-Tenant-Id` 非本租户 ⇒ 无数据 | `tests/console_internal/test_platform_settings_internal.py -k service_identity` | ["uv","run","pytest","-q","tests/console_internal/test_platform_settings_internal.py","-k","service_identity"] | verified |
+| E-06 | integration | 真实 PostgreSQL | 回滚产生新 revision（内容等于目标版本）；历史行全在；旧 schema 内容被拒 | `tests/console_platform/test_platform_settings_api.py -k restore` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","restore"] | verified |
+| E-10 | integration | 真实 PostgreSQL + 真实 HTTP 响应体 | 敏感键被拒；审计行/响应体/日志无敏感值 | `tests/console_platform/test_platform_settings_api.py -k secret_rejected` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","secret_rejected"] | verified |
+| E-17 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | 同键同指纹重放首次结果（revision 不变）；同键不同指纹 ⇒ `IDEMPOTENCY_MISMATCH` | `tests/console_platform/test_platform_settings_api.py -k idempotent_replay` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","idempotent_replay"] | verified |
 
 ### Acceptance Evidence
 
-> 编码期填写 RED/GREEN 与断言位置。
+**RED（真实失败原文；迁移 0018 应用前，dev 库 head=0017）**
+
+```
+$ uv run pytest -q tests/console_platform/test_platform_settings_api.py -k idempotent_replay
+E   sqlalchemy.exc.ProgrammingError: ... asyncpg.exceptions.UndefinedTableError:
+    relation "control.platform_setting_idempotency" does not exist
+    [SQL: SELECT control.platform_setting_idempotency.tenant_id, ... ]
+1 failed, 3 deselected, 1 error in 0.75s
+```
+
+同一次运行（`-k "invalid_payload or restore or secret_rejected"`）在 teardown 卸表时同样撞
+`UndefinedTableError`（`1 failed, 2 passed, 1 deselected, 3 errors`）——证明五条用例确实压在新表上。
+`tests/console_internal/test_platform_settings_internal.py` 首次运行返回 403（autouse 的
+`internal_service_token` 夹具未随 `service_headers` 一起 import 注册），补齐 import 后转绿。
+应用 `uv run alembic -c migrations/alembic.ini upgrade head`（→0018）后全部转 GREEN。
+
+**GREEN（五条验收命令逐条单跑，真实 PostgreSQL + 真实 HTTP）**
+
+| 场景 | 命令 | 结果 |
+|------|------|------|
+| E-01 | `uv run pytest -q tests/console_platform/test_platform_settings_api.py -k invalid_payload` | `1 passed` |
+| E-04 | `uv run pytest -q tests/console_internal/test_platform_settings_internal.py -k service_identity` | `1 passed` |
+| E-06 | `uv run pytest -q tests/console_platform/test_platform_settings_api.py -k restore` | `1 passed` |
+| E-10 | `uv run pytest -q tests/console_platform/test_platform_settings_api.py -k secret_rejected` | `1 passed` |
+| E-17 | `uv run pytest -q tests/console_platform/test_platform_settings_api.py -k idempotent_replay` | `1 passed` |
+
+非回归与配套：`tests/console_platform` → **168 passed**；`tests/console_internal` → **28 passed**；
+`tests/test_error_catalog.py tests/test_api_i18n.py` → **15 passed**；`test_schema_parity.py` → **9 passed**；
+`tests/test_platform_settings_table.py`（升级 head 断言改为 0018 后）随套件通过。
+
+verifier：RULE-api-001 → **18 passed**（api_i18n + error_catalog + foundation_api_envelope）；
+RULE-api-002 → **5 passed**（skill import 幂等）+ 本文件 `-k idempotent_replay`；
+RULE-auth-001 → `test_user_side_relations -k s04` **2 passed** + 全仓 `-k schema_parity` **37 passed**；
+RULE-secret-001 → **14 passed**；RULE-log-001 → **13 passed**。
+
+**关键断言位置**
+
+- E-01：`test_platform_settings_api.py:110-115`（400 + `data.details[0].path` ∈ {task.max_attempts, snip.max_groups, task.batch_max_concurrency, task.nope, bogus, snip.enabled}；`_revisions == []`）。
+- E-04：`test_platform_settings_internal.py:55-77`（无/错身份 403 FORBIDDEN 且 `data is None`；本租户 revision=1/值 9；错租户 revision=0 且回落 schema 默认 `max_attempts==3`）。
+- E-06：`test_platform_settings_api.py:131-158`（restore 返回 `{revision:3, restored_from:1}`；历史 `[1,2,3]` 全在；当前值=7；缺版本 404 `PLATFORM_SETTINGS_REVISION_NOT_FOUND`；注入旧 schema 行后回滚 400 且路径 `unknown_group`、历史 `[1,2,3,4]` 不变）。
+- E-10：`test_platform_settings_api.py:169-183`（400 `PLATFORM_SETTINGS_SECRET_REJECTED`；响应体/审计 JSON/`caplog` 均不含敏感值 `sk-LIVE-SECRET-6f2b`；被拒不得落版本/审计）。
+- E-17：`test_platform_settings_api.py:213-262`（同键同指纹重放返回首次结果且 `_revisions==[1]`；异指纹 409 `IDEMPOTENCY_MISMATCH`；同 `(tenant,key,endpoint)` 直插第二行抛 `IntegrityError`＝真实 partial unique；回滚幂等同口径）。
+
+**真实边界证据**
+
+- **真实 PostgreSQL**：版本表 `control.platform_setting` 与幂等表 `control.platform_setting_idempotency`
+  都是真实行；幂等 partial unique 由真实索引兜底（用例里直插重复 `(tenant_id,idempotency_key,endpoint)`
+  触发 `IntegrityError`）；回滚与审计同事务由 TASK-003 的 service 复用。
+- **真实 Console API**：五条用例都经 `ASGITransport(app=app)` 走真实路由与真实封套，未见 mock。
+- **真实服务身份**：API-06 用真实 `require_service_identity`（`X-Internal-Service`）与 `HeaderTenantId`；
+  无/错身份 403、错租户读不到本租户内容。
+- **迁移**：新建 `0018_platform_setting_idempotency`（`down_revision="0017"`），dev 库升级到 0018 建表；
+  `tests/console_platform/test_platform_settings_table.py` 的 head 断言随之改为 0018（表自身语义不变）。
+- **指标**：`platform_settings_save_total{result=ok|validation_failed|conflict}` 与
+  `platform_settings_fetch_total{caller,result}` 登记进 `metrics.py` 的 CATALOG（安装时 `declare_metric`）。
+- E-01: verified — automated command passed; run_id=01cb35ccb7ab48539e2a60a61d7080aa (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=01cb35ccb7ab48539e2a60a61d7080aa (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=01cb35ccb7ab48539e2a60a61d7080aa (confirmed_by: runner)
+- E-10: verified — automated command passed; run_id=01cb35ccb7ab48539e2a60a61d7080aa (confirmed_by: runner)
+- E-17: verified — automated command passed; run_id=01cb35ccb7ab48539e2a60a61d7080aa (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 

@@ -644,3 +644,30 @@ class PlatformSetting(StandardColumnsMixin, Base):
     settings_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     #: 保存者（`console_account.id` 的逻辑引用；未认证写入路径留空）
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+
+
+class PlatformSettingIdempotency(StandardColumnsMixin, Base):
+    """按 (tenant, Idempotency-Key, endpoint) 记录平台设置首次提交结果，供重放返回。
+
+    与 `SkillImportIdempotency` 同形；`endpoint` 存路由路径（save/restore），partial unique
+    `(tenant_id, idempotency_key, endpoint) WHERE is_deleted = false` 兜底并发提交。
+    """
+
+    __tablename__ = "platform_setting_idempotency"
+    __table_args__ = (
+        sa.Index(
+            "uq_platform_setting_idempotency_tenant_key_endpoint",
+            "tenant_id",
+            "idempotency_key",
+            "endpoint",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    endpoint: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    response_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
