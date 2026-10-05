@@ -682,6 +682,7 @@
   "audit.resourceType.MCP": "MCP",
   "audit.resourceType.MCP_SERVER": "MCP 服务",
   "audit.resourceType.MODEL": "模型",
+  "audit.resourceType.PLATFORM_SETTING": "平台设置",
   "audit.resourceType.PLATFORM_USER": "平台用户",
   "audit.resourceType.SKILL": "Skill",
   "audit.resourceType.SKILL_ARTIFACT": "技能制品",

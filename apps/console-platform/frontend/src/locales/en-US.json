@@ -682,6 +682,7 @@
   "audit.resourceType.MCP": "MCP",
   "audit.resourceType.MCP_SERVER": "MCP server",
   "audit.resourceType.MODEL": "Model",
+  "audit.resourceType.PLATFORM_SETTING": "Platform settings",
   "audit.resourceType.PLATFORM_USER": "Platform user",
   "audit.resourceType.SKILL": "Skill",
   "audit.resourceType.SKILL_ARTIFACT": "Skill artifact",

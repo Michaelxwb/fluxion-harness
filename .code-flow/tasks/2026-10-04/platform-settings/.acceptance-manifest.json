@@ -70,7 +70,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL（真实唯一约束）",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -82,7 +82,52 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
+        "executed_at": "2026-10-05T01:32:20.270700+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_platform/test_platform_settings_service.py",
+          "-k",
+          "version_conflict"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
+          "executed_at": "2026-10-05T01:32:20.270700+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_platform_settings_service.py",
+            "-k",
+            "version_conflict"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -133,7 +178,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL（同一事务）",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -145,7 +190,52 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
+        "executed_at": "2026-10-05T01:32:20.270700+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_platform/test_platform_settings_service.py",
+          "-k",
+          "audit_same_transaction"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
+          "executed_at": "2026-10-05T01:32:20.270700+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_platform_settings_service.py",
+            "-k",
+            "audit_same_transaction"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
+        }
+      ]
     },
     {
       "id": "E-06",
@@ -484,7 +574,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL（表内无该租户行）",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -496,7 +586,52 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
+        "executed_at": "2026-10-05T01:32:20.270700+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_platform/test_platform_settings_service.py",
+          "-k",
+          "default_when_absent"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
+      },
+      "runs": [
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
+          "executed_at": "2026-10-05T01:32:20.270700+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_platform_settings_service.py",
+            "-k",
+            "default_when_absent"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
+        }
+      ]
     },
     {
       "id": "B-05",

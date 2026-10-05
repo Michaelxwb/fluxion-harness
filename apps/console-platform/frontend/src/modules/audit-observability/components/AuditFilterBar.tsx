@@ -47,6 +47,7 @@ export const RESOURCE_TYPES = [
   'MCP',
   'MCP_SERVER',
   'MODEL',
+  'PLATFORM_SETTING',
   'PLATFORM_USER',
   'SKILL',
   'SKILL_ARTIFACT',

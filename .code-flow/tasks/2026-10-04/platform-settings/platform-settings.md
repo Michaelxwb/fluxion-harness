@@ -18,10 +18,10 @@
 | S-02 | platform-settings.backend.design.md#2.5.2 验收场景 | E2E | 真实 Console API → 真实 PostgreSQL → 真实 Worker 进程（真实 lease/claim） | TASK-006 | planned | - | . | 600 | |
 | S-03 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | TASK-010 | planned | - | . | 600 | |
 | E-01 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 settings service | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","invalid_payload"] | . | 300 | |
-| E-02 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实唯一约束） | TASK-003 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","version_conflict"] | . | 300 | |
+| E-02 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实唯一约束） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","version_conflict"] | . | 300 | |
 | E-03 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Runtime 进程 + 被切断的 Console 内部端点 | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","source_unavailable"] | . | 600 | |
 | E-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Console API（真实服务身份校验） | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_internal/test_platform_settings_internal.py","-k","service_identity"] | . | 300 | |
-| E-05 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（同一事务） | TASK-003 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","audit_same_transaction"] | . | 300 | |
+| E-05 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（同一事务） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","audit_same_transaction"] | . | 300 | |
 | E-06 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","restore"] | . | 300 | |
 | E-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Agent 定义行 | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","agent_override_precedence"] | . | 600 | |
 | E-08 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 独立进程（无 TTL 缓存、无重启） | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","new_revision_without_restart"] | . | 600 | |
@@ -40,7 +40,7 @@
 | B-01 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实设置文档 schema 函数（无服务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | . | 300 | |
 | B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
 | B-03 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | TASK-007 | planned | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | . | 300 | |
-| B-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（表内无该租户行） | TASK-003 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","default_when_absent"] | . | 300 | |
+| B-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（表内无该租户行） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","default_when_absent"] | . | 300 | |
 | B-05 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由 | TASK-010 | planned | - | . | 600 | |
 | B-06 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树 + 真实词条文件（无服务） | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_platform_settings_contract.py","-k","applies_to_labels"] | . | 300 | |
 | B-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实 `alembic upgrade 0001→0017` / `downgrade`） | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_table.py"] | . | 300 | |
@@ -190,11 +190,11 @@ E   ImportError: cannot import name 'PlatformSetting' from 'muad_console_platfor
 
 ## TASK-003: 设置 service：读取、保存、版本与审计
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: platform-settings.backend.design.md#3.4 接口设计, platform-settings.backend.design.md#3.5 质量实现方案
-- **Spec-Refs**: N/A
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-04, E-02, E-05
 
 ### Description
@@ -203,31 +203,76 @@ E   ImportError: cannot import name 'PlatformSetting' from 'muad_console_platfor
 
 ### Checklist
 
-- [ ] `application/platform_settings_service.py`：`read_current(tenant_id)`、`save(tenant_id, actor, revision, settings)`、`list_revisions(...)`、`read_revision(...)`、`restore(...)`
-- [ ] 读路径：无版本行 ⇒ 返回 `revision=0` + `default_platform_settings()`，不报错
-- [ ] 保存：先 `validate_platform_settings()`（复用 TASK-001），再事务内比对 `max(revision)`；不等 ⇒ `PLATFORM_SETTINGS_VERSION_CONFLICT`；`INSERT` 撞唯一约束同样归为冲突
-- [ ] 审计与业务**同一事务**：`AuditService.record_config_change`（`resource_type="PLATFORM_SETTING"`, `action ∈ {CREATE, UPDATE, RESTORE}`），失败一起回滚
-- [ ] `resource_type="PLATFORM_SETTING"` 写进 config 审计；**不要**动 `AUDIT_TYPES`（那是审计来源枚举，不是 `resource_type` 注册表，见 design v0.4）；按 `tests/frontend/test_audit_gap_contract.py` 的机检同步**前端登记域**：`AuditFilterBar.tsx` 的 `RESOURCE_TYPES` + zh-CN/en-US 的 `audit.resourceType.PLATFORM_SETTING` 词条，并跑 `uv run pytest -q tests/frontend/test_audit_gap_contract.py tests/frontend/test_audit_i18n_contract.py` 确认非红
-- [ ] [B-04][integration] 覆盖无版本行回落 schema 默认；真实边界：**真实 PostgreSQL**（不 mock session）
-- [ ] [E-02][integration] 覆盖真实并发保存：同 revision 两次提交，一次成功一次冲突，**不产生第二个版本**；真实边界：**真实 PostgreSQL 唯一约束**
-- [ ] [E-05][integration] 覆盖审计同事务落库（actor/revision/before/after 脱敏）与「审计写失败 ⇒ 保存一起回滚」
-- [ ] 先写测试并记录 RED，再实现
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] `application/platform_settings_service.py`：`read_current(tenant_id)`、`save(tenant_id, actor, revision, settings)`、`list_revisions(...)`、`read_revision(...)`、`restore(...)`
+- [x] 读路径：无版本行 ⇒ 返回 `revision=0` + `default_platform_settings()`，不报错
+- [x] 保存：先 `validate_platform_settings()`（复用 TASK-001），再事务内比对 `max(revision)`；不等 ⇒ `PLATFORM_SETTINGS_VERSION_CONFLICT`；`INSERT` 撞唯一约束同样归为冲突
+- [x] 审计与业务**同一事务**：`AuditService.record_config_change`（`resource_type="PLATFORM_SETTING"`, `action ∈ {CREATE, UPDATE, RESTORE}`），失败一起回滚
+- [x] `resource_type="PLATFORM_SETTING"` 写进 config 审计；**不要**动 `AUDIT_TYPES`（那是审计来源枚举，不是 `resource_type` 注册表，见 design v0.4）；按 `tests/frontend/test_audit_gap_contract.py` 的机检同步**前端登记域**：`AuditFilterBar.tsx` 的 `RESOURCE_TYPES` + zh-CN/en-US 的 `audit.resourceType.PLATFORM_SETTING` 词条，并跑 `uv run pytest -q tests/frontend/test_audit_gap_contract.py tests/frontend/test_audit_i18n_contract.py` 确认非红
+- [x] [B-04][integration] 覆盖无版本行回落 schema 默认；真实边界：**真实 PostgreSQL**（不 mock session）
+- [x] [E-02][integration] 覆盖真实并发保存：同 revision 两次提交，一次成功一次冲突，**不产生第二个版本**；真实边界：**真实 PostgreSQL 唯一约束**
+- [x] [E-05][integration] 覆盖审计同事务落库（actor/revision/before/after 脱敏）与「审计写失败 ⇒ 保存一起回滚」
+- [x] 先写测试并记录 RED，再实现
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-04 | integration | 真实 PostgreSQL（表内无该租户行） | `revision=0` + schema 默认；不抛错；首次保存创建 revision 1 | `tests/console_platform/test_platform_settings_service.py -k default_when_absent` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","default_when_absent"] | planned |
-| E-02 | integration | 真实 PostgreSQL（真实唯一约束） | 并发同 revision ⇒ 一成功一冲突；版本总数只 +1 | `tests/console_platform/test_platform_settings_service.py -k version_conflict` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","version_conflict"] | planned |
-| E-05 | integration | 真实 PostgreSQL（同一事务） | `config_audit_log` 同事务出现记录；审计失败 ⇒ 保存回滚 | `tests/console_platform/test_platform_settings_service.py -k audit_same_transaction` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","audit_same_transaction"] | planned |
+| B-04 | integration | 真实 PostgreSQL（表内无该租户行） | `revision=0` + schema 默认；不抛错；首次保存创建 revision 1 | `tests/console_platform/test_platform_settings_service.py -k default_when_absent` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","default_when_absent"] | verified |
+| E-02 | integration | 真实 PostgreSQL（真实唯一约束） | 并发同 revision ⇒ 一成功一冲突；版本总数只 +1 | `tests/console_platform/test_platform_settings_service.py -k version_conflict` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","version_conflict"] | verified |
+| E-05 | integration | 真实 PostgreSQL（同一事务） | `config_audit_log` 同事务出现记录；审计失败 ⇒ 保存回滚 | `tests/console_platform/test_platform_settings_service.py -k audit_same_transaction` | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","audit_same_transaction"] | verified |
 
 ### Acceptance Evidence
 
-> 编码期填写 RED/GREEN 与断言位置。
+> 编码期记录 functional 的 RED/GREEN、断言位置与真实边界证据；本任务无 E2E 场景。
+
+**RED**（先写测试、后实现；服务模块不存在，收集期即失败）：
+`uv run pytest -q tests/console_platform/test_platform_settings_service.py` ——
+```
+ImportError while importing test module '.../tests/console_platform/test_platform_settings_service.py'.
+E   ModuleNotFoundError: No module named 'muad_console_platform.application.platform_settings_service'
+!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 error in 0.08s
+```
+
+**GREEN**（★ = 复核人可独立复跑）：
+- ★ B-04：`uv run pytest -q tests/console_platform/test_platform_settings_service.py -k default_when_absent` → **1 passed, 7 deselected**
+- ★ E-02：`uv run pytest -q tests/console_platform/test_platform_settings_service.py -k version_conflict` → **2 passed, 6 deselected**
+- ★ E-05：`uv run pytest -q tests/console_platform/test_platform_settings_service.py -k audit_same_transaction` → **2 passed, 6 deselected**
+- 全文件：`uv run pytest -q tests/console_platform/test_platform_settings_service.py` → **8 passed**（0.69s）
+- 不回归：`uv run pytest -q tests/console_platform/test_platform_settings_table.py` → **3 passed**；`uv run pytest -q tests/console_platform -k audit` → **34 passed, 128 deselected**；`uv run pytest -q tests/console_platform` → **162 passed**（21.98s）
+- 前端登记域机检：`uv run pytest -q tests/frontend/test_audit_gap_contract.py tests/frontend/test_audit_i18n_contract.py` → **16 passed**（值域派生已含 `PLATFORM_SETTING`：`missing=[] extra=[]`）
+- 静态：`uv run ruff check platform_settings_service.py test_platform_settings_service.py` → All checks passed；`uv run mypy platform_settings_service.py` → Success: no issues found；`uv run pytest -q tests/test_error_catalog.py` → 10 passed
+
+| 断言 | 位置 | 真实边界证据 |
+|------|------|-------------|
+| 无版本行 ⇒ `revision=0` + schema 默认、不抛错、不落行；首次保存建立 revision 1 | `test_read_current_default_when_absent_then_first_save_creates_revision_one` | 真实 PostgreSQL：读后 `SELECT revision` 为空；保存后仅 `[1]` |
+| 同 revision 第二次提交 ⇒ 冲突、版本总数只 +1 | `test_version_conflict_stale_revision_is_rejected_without_second_version` | 真实 PostgreSQL：事务内 `max(revision)` 比对；`revision` 仍为 `[1]` |
+| 真实并发：两事务同 revision、落败者撞 partial unique ⇒ 归一为版本冲突 | `test_version_conflict_concurrent_save_loses_on_partial_unique` | 真实唯一索引 `uq_platform_setting_tenant_revision`：第一事务 flush 未提交时，第二事务卡在 `INSERT`（`assert not pending.done()`），提交后抛 `IntegrityError` 被归一；版本仍为 `[1]` |
+| 审计同事务落库：CREATE/UPDATE、actor、before/after 为脱敏后的设置文档 | `test_audit_same_transaction_records_create_then_update_with_before_after` | 真实 `control.config_audit_log`（真实 `write_config_audit` + `sanitize_audit_payload`）：action/actor/before/after 逐项比对，且含完整归一化文档 |
+| 审计写失败 ⇒ 已 flush 的版本行一并回滚 | `test_audit_same_transaction_write_failure_rolls_back_the_save` | 真实事务：失败时同 session 可见已 flush 的版本行（`staged == 1`），回滚后版本行与审计行均为空（注入的是 `write_config_audit` 抛错，业务路径不 mock） |
+| 版本历史倒序分页带相邻版本 `changed_keys`；`read_revision` 返回目标版本、缺失抛 `PLATFORM_SETTINGS_REVISION_NOT_FOUND` | `test_list_revisions_descending_with_changed_keys_and_read_revision` | 真实 PostgreSQL：`[2, 1]` 倒序、`task.max_attempts` 命中 diff |
+| 回滚生成**新** revision（内容等于目标版本）、写 RESTORE 审计、历史行全保留 | `test_restore_appends_new_revision_and_keeps_history` | 真实 PostgreSQL：`[1, 2, 3]`，RESTORE 审计 before/after 内容正确 |
+| 历史内容不合现行 schema ⇒ 拒绝回滚并说明原因，不产生新版本 | `test_restore_rejects_history_that_fails_current_schema` | 直接植入"旧 schema"行后 `restore` 抛 `PlatformSettingsError`（`未知分组`），版本仍为 `[1]` |
+
+**审计登记域（与 design v0.4 对齐）**：`resource_type="PLATFORM_SETTING"` 由模块常量
+`AUDIT_RESOURCE_TYPE`（`AUDIT_` 前缀供机检派生）写入 `config_audit_log`；**未**改动
+`AUDIT_TYPES`（它是审计来源枚举，非 `resource_type` 注册表）。真正需同步的是前端登记域，
+本任务已改且仅改这三处：`AuditFilterBar.tsx` 的 `RESOURCE_TYPES`、`locales/zh-CN.json`
+与 `locales/en-US.json` 的 `audit.resourceType.PLATFORM_SETTING`。
+
+**任务文档修正**：TASK-003 的 `- **Spec-Refs**: N/A` 改为**空**（本任务无 required Rule）。
+`cf_spec_context.py` 的 `_refs` 只按逗号切分，`N/A` 会被当成未知规则 ref ⇒ `unknown_spec_refs`；
+本仓 archived 任务（如 context-compaction、attachment-round-trip）均用空值表达"无 required
+Rule"。同文件 TASK-008/011/013 仍是 `N/A`，属各自任务的范围，未在本任务改动。
+- E-02: verified — automated command passed; run_id=0abc5bfd2e7d4e54a84e52fdfa30b5d8 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=0abc5bfd2e7d4e54a84e52fdfa30b5d8 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=0abc5bfd2e7d4e54a84e52fdfa30b5d8 (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 
