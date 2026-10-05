@@ -207,7 +207,7 @@ E   ImportError: cannot import name 'PlatformSetting' from 'muad_console_platfor
 - [ ] 读路径：无版本行 ⇒ 返回 `revision=0` + `default_platform_settings()`，不报错
 - [ ] 保存：先 `validate_platform_settings()`（复用 TASK-001），再事务内比对 `max(revision)`；不等 ⇒ `PLATFORM_SETTINGS_VERSION_CONFLICT`；`INSERT` 撞唯一约束同样归为冲突
 - [ ] 审计与业务**同一事务**：`AuditService.record_config_change`（`resource_type="PLATFORM_SETTING"`, `action ∈ {CREATE, UPDATE, RESTORE}`），失败一起回滚
-- [ ] `resource_type` 登记进 `application/audit_query_service.py` 与 `api/audits.py` 的 `AUDIT_TYPES` 两处
+- [ ] `resource_type="PLATFORM_SETTING"` 写进 config 审计；**不要**动 `AUDIT_TYPES`（那是审计来源枚举，不是 `resource_type` 注册表，见 design v0.4）；按 `tests/frontend/test_audit_gap_contract.py` 的机检同步**前端登记域**：`AuditFilterBar.tsx` 的 `RESOURCE_TYPES` + zh-CN/en-US 的 `audit.resourceType.PLATFORM_SETTING` 词条，并跑 `uv run pytest -q tests/frontend/test_audit_gap_contract.py tests/frontend/test_audit_i18n_contract.py` 确认非红
 - [ ] [B-04][integration] 覆盖无版本行回落 schema 默认；真实边界：**真实 PostgreSQL**（不 mock session）
 - [ ] [E-02][integration] 覆盖真实并发保存：同 revision 两次提交，一次成功一次冲突，**不产生第二个版本**；真实边界：**真实 PostgreSQL 唯一约束**
 - [ ] [E-05][integration] 覆盖审计同事务落库（actor/revision/before/after 脱敏）与「审计写失败 ⇒ 保存一起回滚」

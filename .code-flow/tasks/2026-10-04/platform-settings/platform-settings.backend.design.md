@@ -42,6 +42,7 @@
 | v0.1 | 2026-10-04 | fluxion-harness | 初始草稿：归一需求二与配置盘点，确定权威源、读取边界、设置 schema 与收敛清单 |
 | v0.2 | 2026-10-05 | fluxion-harness | 依 §3.1 ADR-10：设置文档 schema 落到 `muad_contracts`（Console 不依赖 `muad-agent-core`，v0.1 的「复用 `muad_agent_core.context.settings._validate`」不可达），`muad_agent_core.context.settings` 整体迁移；场景编号去重（幂等场景改 `E-17`，新增边界场景 `B-07`） |
 | v0.3 | 2026-10-05 | fluxion-harness | 拆解阶段发现 `agent`(4 中余 2) / `memory`(5) / `artifact`(3) 共 9 个叶子没有承接任务，补验收场景 `E-20`（执行默认接入），由 TASK-013 负责 |
+| v0.4 | 2026-10-05 | fluxion-harness | 更正审计登记口径：`AUDIT_TYPES` 是**审计来源枚举**不是 `resource_type` 注册表（v0.1 的「登记进两处」是错的）；`resource_type="PLATFORM_SETTING"` 真正要同步的是**前端登记域**（`RESOURCE_TYPES` + `audit.resourceType.*` 词条），由 `tests/frontend/test_audit_gap_contract.py` 机检 |
 
 ---
 
@@ -637,7 +638,11 @@ flowchart TD
 - 写路径：`require_admin` + CSRF；租户取自 `AccountTenantId`（**不信任请求头**）。
 - 内部路径：`require_service_identity`（`X-Internal-Service`）+ `HeaderTenantId`。
 - 敏感键拒绝：`password`/`secret`/`token`/`api_key`/`dsn`/`credential` 等命名的键一律拒绝（NFR-SEC-02），并从 schema 层就不存在这些字段（白名单校验，未知键即拒绝）。
-- 审计复用 `write_config_audit` 的 `sanitize_audit_payload`（既有脱敏）；`resource_type = "PLATFORM_SETTING"`，并登记进 `AUDIT_TYPES`（`application/audit_query_service.py:27` 与 `api/audits.py:129` 两处）。
+- 审计复用 `write_config_audit` 的 `sanitize_audit_payload`（既有脱敏）；`resource_type = "PLATFORM_SETTING"`。
+
+> **审计登记口径（v0.4 更正）**：`AUDIT_TYPES`（`application/audit_query_service.py:27`，`frozenset({"CONFIG","TOOL","EGRESS","MODEL"})`）是**审计来源类型**枚举——用在 `audit_query_service.py:48` 校验 `audit_type` 入参，**不是 `resource_type` 注册表**；后端根本没有 `resource_type` 注册表，`config_audit_log.resource_type` 是自由列，CONFIG 来源整类投影，新取值自动出现在审计列表里。v0.1 写的「登记进 `AUDIT_TYPES` 两处」是错的，照做还会打破 `tests/frontend/test_audit_i18n_contract.py`（它断言前后端来源枚举完全相同）。
+>
+> 真正必须同步的是**前端登记域**：`tests/frontend/test_audit_gap_contract.py` 从后端写入器的 `AUDIT_*` 常量与内联 `resource_type="..."` 字面量派生值域，强制 `modules/audit-observability/components/AuditFilterBar.tsx` 的 `RESOURCE_TYPES`（`:41`）与 zh-CN/en-US 的 `audit.resourceType.*` 词条覆盖它。新增 `PLATFORM_SETTING` 必须同时补这两处，否则该契约立即变红（这属于后端新增取值的直接后果，不是设置页的活）。
 - 响应只返回设置项与限额，**不回显**任何凭据形状。
 
 #### 可观测性设计 [按需]
