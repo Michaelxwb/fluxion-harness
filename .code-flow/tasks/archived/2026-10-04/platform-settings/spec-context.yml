@@ -1,7 +1,7 @@
 version: 1
 task: platform-settings
 enforcement: required
-updated_at: '2026-10-05T09:59:43.379100+00:00'
+updated_at: '2026-10-05T11:42:21.710235+00:00'
 sources:
 - type: cli
   ref: bind
@@ -52,7 +52,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -352,6 +352,29 @@ bindings:
               5 passed in 0.83s
 
               '
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-05T11:42:25.382890+00:00'
+          status: verified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: e926412157bfa756ab93dd40c9835f993941af72dc6d75795aecae0d96d859f9
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 2364162bacf28ecf5c5d745f87df40e14b0158119329e8b02fa8927440c52c0b
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 0.91s
+
+              '
       review:
         status: pending
         refs: []
@@ -381,7 +404,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -723,6 +746,35 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               18 passed, 1 warning in 1.40s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-05T11:42:27.198782+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 4b2f3f1a5350f4419b12a7792636f297b323c9f08986f64a7e89bb9c21c096e7
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 6f86de25a647c770b86c6efa7e7fd726abaa40bf847b0ac47fbe8412b7f83d33
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 1.45s\n"
       review:
         status: pending
         refs: []
@@ -768,7 +820,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -1020,6 +1072,29 @@ bindings:
               33 passed in 0.60s
 
               '
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-05T11:42:28.138894+00:00'
+          status: verified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 0d3972bdb6be7f2b3e51bff7906f989351465d43ea0f8c0e1cc28d076a38e96c
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: 187cf71c1cf65b8b05ae4062e51c16b3b3619617bda38c30120b6a10cdf266f8
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.................................                                        [100%]
+
+              33 passed in 0.60s
+
+              '
       review:
         status: pending
         refs: []
@@ -1066,7 +1141,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -1298,6 +1373,33 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               37 passed, 2303 deselected, 1 warning in 4.48s\n"
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-05T11:42:35.087750+00:00'
+          status: verified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 327ba32af5cdf651c3d2fcbdb60d7bd5ea5cec5e1328a7fec94a5e3f97273e7e
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/console_platform/test_user_side_relations.py
+              -k s04 && uv run pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: d74c5f14872528a51cc73e664c78bb4d5cd8e13c26d60ba7b1447ec3d2e06b22
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed, 1 deselected in 0.54s\n.....................................\
+              \                                    [100%]\n===============================\
+              \ warnings summary ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              37 passed, 2303 deselected, 1 warning in 4.66s\n"
       review:
         status: pending
         refs: []
@@ -1343,7 +1445,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -1577,6 +1679,35 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               37 passed, 2303 deselected, 1 warning in 4.61s\n"
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-05T11:42:40.685033+00:00'
+          status: verified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 4cd090730a341a73fbce138d180d0f6e3e13f594a1ead497c68f834abc4cfdc4
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: fa6cfc98e42944776e985b0e5c060842e07f6f64b611f1d98bfb4793bf9d3dcf
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: ".....................................                       \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              37 passed, 2303 deselected, 1 warning in 4.89s\n"
       review:
         status: pending
         refs: []
@@ -1625,7 +1756,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-010
           item_id: TASK-010
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -1863,6 +1994,39 @@ bindings:
 
 
               '
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-05T11:42:42.951492+00:00'
+          status: verified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 70161f3bc70bc76fb12d58f98d153732203c90728aa92fce8c446bd07ed7c7fd
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run
+              python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: c471e8a85ab540f7e457555c197850a1a2db39bebca7588b9a99ef9e40d64b1c
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.01s
+
+              frontend api usage check OK
+
+              i18n keys OK: 854
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
       review:
         status: pending
         refs: []
@@ -1907,7 +2071,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-010
           item_id: TASK-010
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -2162,6 +2326,30 @@ bindings:
               i18n keys OK: 854
 
               '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-05T11:42:44.162046+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 80a0e412a32a150a35dbf5f94ad35b8bdb46590436dd63c6594590d49214703b
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: ec7ee2f91d122b4470c88b2c154766fe5ab84481d125ef52921dbeb258ff5bf2
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 0.77s
+
+              i18n keys OK: 854
+
+              '
       review:
         status: pending
         refs: []
@@ -2206,7 +2394,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -2451,6 +2639,46 @@ bindings:
               \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
               \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               376 passed, 3 warnings in 70.56s (0:01:10)\n"
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-05T11:43:55.350014+00:00'
+          status: verified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 6341c3ecf05aa8fe56a177cd9403d20949818e2925a416e1a73af776dee2f0d7
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_channel
+            - tests/gateway
+            exit_code: 0
+            stdout_sha256: 03c0e24746dfc0eca12d31225903a032ffa615b3cb2c9ae68b2b8922f8ff973f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "........................................................................\
+              \ [ 19%]\n........................................................................\
+              \ [ 38%]\n........................................................................\
+              \ [ 57%]\n........................................................................\
+              \ [ 76%]\n........................................................................\
+              \ [ 95%]\n................                                         \
+              \                [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              376 passed, 3 warnings in 70.13s (0:01:10)\n"
       review:
         status: pending
         refs: []
@@ -2481,7 +2709,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -2721,6 +2949,29 @@ bindings:
               3 passed in 0.46s
 
               '
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-05T11:43:56.173568+00:00'
+          status: verified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: c828a6bf8ae82440fceecc2f0bf6a2c7ee02f6ec041a035310ca6cedf5b68356
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture/test_channel_neutrality.py
+            exit_code: 0
+            stdout_sha256: ba701459e2a6795d9139ba370568c64d01e017b4680e4f8a94e60b0cd7138117
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 0.49s
+
+              '
       review:
         status: pending
         refs: []
@@ -2767,7 +3018,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -3011,6 +3262,31 @@ bindings:
               13 passed in 1.23s
 
               '
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-05T11:43:57.408809+00:00'
+          status: verified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 5835675d74681f490211bf764c6a59cd0e98ba06ab1ba0790047f728190a9946
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging.py
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_logging.py
+            exit_code: 0
+            stdout_sha256: 8f6505c8042070ffc82eb77fbd4ac4f597e91e8ab209a28db5c2549e891b2502
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.............                                                            [100%]
+
+              13 passed in 0.89s
+
+              '
       review:
         status: pending
         refs: []
@@ -3055,7 +3331,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -3295,6 +3571,29 @@ bindings:
               3 passed in 0.01s
 
               '
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-05T11:43:58.222819+00:00'
+          status: verified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 723a36d5fd2588e788ae97c8fd6f5bde6a2971215c3481dba4c41467e498e4d8
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_mcp/test_mcp_rules.py
+            exit_code: 0
+            stdout_sha256: e0a6ea218ea5d725ce7272da8d68d45a029e489423e03af6960c7bff0f7fe414
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 0.01s
+
+              '
       review:
         status: pending
         refs: []
@@ -3339,7 +3638,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -3570,6 +3869,32 @@ bindings:
               1 passed, 10 deselected in 0.20s
 
               '
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-05T11:44:00.899592+00:00'
+          status: verified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: d23baff3c05c0bd4aa58f77cbb0582e68b2ed10b276de2baefd710e725ac2647
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/console_platform/test_models_api.py && uv run
+              pytest -q tests/console_platform/test_agents_api.py -k disabled
+            exit_code: 0
+            stdout_sha256: b4f403f168aaf7e1268a4e134ae41835cd4eecf944c085d7d9159f60549e53cf
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........                                                                 [100%]
+
+              8 passed in 0.86s
+
+              .                                                                        [100%]
+
+              1 passed, 10 deselected in 0.20s
+
+              '
       review:
         status: pending
         refs: []
@@ -3615,7 +3940,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -3883,6 +4208,30 @@ bindings:
               14 passed in 1.10s
 
               '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-05T11:44:02.311147+00:00'
+          status: verified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 58b6665c3408bb28d0c756be2e395df9fac1ede40bd1d35f36dc1897a984e277
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: b15d5388b07f92d4ece5b45fc8e7b02f2c2a751251bc7faa2cadc85cef174ee0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 1.01s
+
+              '
       review:
         status: pending
         refs: []
@@ -3933,7 +4282,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -4164,6 +4513,32 @@ bindings:
               24 passed, 340 deselected in 0.96s
 
               '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-05T11:44:05.187416+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: b82c03a6e95b9ddf53f5d4d6e27359205ea90c62eb351b0914feb9b105cd7d97
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 929783b6344c1c5c82ef334cffba1558d0c23ad063421daecdf3b0d7ca65ef08
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.25s
+
+              ........................                                                 [100%]
+
+              24 passed, 340 deselected in 1.01s
+
+              '
       review:
         status: pending
         refs: []
@@ -4208,7 +4583,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-012
           item_id: TASK-012
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -4471,6 +4846,64 @@ bindings:
               \     Waiting for application startup.\n[WebServer] INFO:     Application\
               \ startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4173\
               \ (Press CTRL+C to quit)\n"
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-05T12:00:20.242404+00:00'
+          status: verified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 17edba9b1cce08bab5bbdd7a894747f78ec89afae88dfaa6432c46589276931e
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend
+              run build && npm --prefix e2e test
+            exit_code: 0
+            stdout_sha256: c12cd15269a7e991bf08e5fe9292396c30284014430b0eddd1237c89d28364be
+            stderr_sha256: 54be2abbf2f973bee95126a764e111ba396237fdb3aa437d0e9b92148c2ea044
+            output: "\n> muad-console-web@0.1.0 typecheck\n> tsc --noEmit\n\nvite\
+              \ v5.4.21 building for production...\ntransforming...\n✓ 3453 modules\
+              \ transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html\
+              \                     0.44 kB │ gzip:   0.30 kB\ndist/assets/index-mgyg4qjV.css\
+              \    715.90 kB │ gzip:  83.68 kB\ndist/assets/index-D5Pdn9IJ.js   1,713.36\
+              \ kB │ gzip: 484.86 kB\n✓ built in 2.43s\n\n> fluxion-harness-e2e@0.1.0\
+              \ test\n> playwright test\n\n\nRunning 4 tests using 1 worker\n\n  ✓\
+              \  1 tests/foundation.spec.ts:17:1 › S-03 切到 English 后触发错误时页面文案与后端 msg\
+              \ 同步为 en-US (905ms)\n  ✓  2 tests/foundation.spec.ts:36:1 › S-12 切换模块路由时\
+              \ Layout 不重建且菜单选中正确 (346ms)\n  ✓  3 tests/foundation.spec.ts:52:1 ›\
+              \ S-13 切换 English 后刷新语言保持且请求带 X-Locale=en-US (397ms)\n  ✓  4 tests/foundation.spec.ts:64:1\
+              \ › E-09 会话失效访问业务页跳转登录并保留 returnUrl，不渲染业务数据 (267ms)\n\n  4 passed (3.6s)\n\
+              [plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter]\
+              \ [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n\n(!) Some\
+              \ chunks are larger than 500 kB after minification. Consider:\n- Using\
+              \ dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n\
+              [WebServer] INFO:     Started server process [83755]\n[WebServer] INFO:\
+              \     Waiting for application startup.\n[WebServer] INFO:     Application\
+              \ startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4173\
+              \ (Press CTRL+C to quit)\n"
       review:
         status: pending
         refs: []
@@ -4515,7 +4948,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -4843,6 +5276,33 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               37 passed, 2303 deselected, 1 warning in 4.63s\n"
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-05T12:00:25.880514+00:00'
+          status: verified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 4ed40a212603c85d263044e228ff74e35f9fc9b5bb2fa823253f043f55a30665
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 8d07ac8ca4c3d5486bbeb28dbbb9c3eeb8142641345c9631a6b6721fdc4041d1
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed in 0.01s\n.....................................\
+              \                                    [100%]\n===============================\
+              \ warnings summary ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              37 passed, 2303 deselected, 1 warning in 4.61s\n"
       review:
         status: pending
         refs: []
@@ -4887,7 +5347,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-010
           item_id: TASK-010
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -5143,6 +5603,57 @@ bindings:
               \ dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
               \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
               - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n"
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-05T12:00:30.341609+00:00'
+          status: verified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: 568dd3478051dffb19d65d528b75b3a01cfd334401cbe94c990e19f2119d4d81
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
+              && npm --prefix apps/console-platform/frontend run build
+            exit_code: 0
+            stdout_sha256: b8bc1fff0a4764e6c089374670bcf8891b1e67f10a3c184e78bbe71bce28ef1d
+            stderr_sha256: 5cca1eb16663f21b3842cf16b16a9da001d1240a85c73c5e1e8d43619b24c354
+            output: ".........                                                   \
+              \             [100%]\n9 passed in 0.02s\n\n> muad-console-web@0.1.0\
+              \ build\n> npm run typecheck && vite build\n\n\n> muad-console-web@0.1.0\
+              \ typecheck\n> tsc --noEmit\n\nvite v5.4.21 building for production...\n\
+              transforming...\n✓ 3453 modules transformed.\nrendering chunks...\n\
+              computing gzip size...\ndist/index.html                     0.44 kB\
+              \ │ gzip:   0.30 kB\ndist/assets/index-mgyg4qjV.css    715.90 kB │ gzip:\
+              \  83.68 kB\ndist/assets/index-D5Pdn9IJ.js   1,713.36 kB │ gzip: 484.86\
+              \ kB\n✓ built in 2.38s\n[plugin:vite:reporter] [plugin vite:reporter]\
+              \ \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter]\
+              \ [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n\n(!) Some\
+              \ chunks are larger than 500 kB after minification. Consider:\n- Using\
+              \ dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n"
       review:
         status: stale
         refs: []
@@ -5189,7 +5700,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: f3aa53a6faf09625e3a66408bfe67cb7e4a593cf63420aae2bb15f585785f096
+          artifact_sha256: ae12660e08ab69cddf72027cc08a569f1b2eb8f1fe109f547673a8ef5e7fa240
         decision: null
         evidence: []
       code:
@@ -5439,6 +5950,53 @@ bindings:
               ....................................................................     [100%]
 
               356 passed in 11.85s
+
+              '
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-05T12:00:54.791915+00:00'
+          status: verified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: head:c33efe9c0cb8a414c8116135cf0ef8b03ba20a21
+          result_sha256: ecf949804699db1f60af3f3e9550c449076e21c73ce5b1f69a0be954550f660d
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
+            exit_code: 0
+            stdout_sha256: 43bbceb9c4bf8aa05b27f7257865a34b7144af302ca78076dfc30041472fa7b1
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 28%]
+
+              ........................................................................
+              [ 57%]
+
+              ........................................................................
+              [ 86%]
+
+              ...................................                                      [100%]
+
+              251 passed in 11.42s
+
+              ........................................................................
+              [ 20%]
+
+              ........................................................................
+              [ 40%]
+
+              ........................................................................
+              [ 60%]
+
+              ........................................................................
+              [ 80%]
+
+              ....................................................................     [100%]
+
+              356 passed in 11.33s
 
               '
       review:
