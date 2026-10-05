@@ -328,7 +328,7 @@
       "kind": "functional",
       "boundary": "真实源码树 + 真实 CSV + 真实机检（无服务）",
       "owner": "TASK-016",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -338,7 +338,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-16",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "09372a0046014fa9bf66f4067db66311",
+        "executed_at": "2026-10-05T09:45:26.937726+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/test_configuration_inventory.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "356fcbf40f8b43925138320f37401aa31343cde6e84ab1903e82dbd719a53c40"
+      },
+      "runs": [
+        {
+          "id": "E-16",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "09372a0046014fa9bf66f4067db66311",
+          "executed_at": "2026-10-05T09:45:26.937726+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/test_configuration_inventory.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "356fcbf40f8b43925138320f37401aa31343cde6e84ab1903e82dbd719a53c40"
+        }
+      ]
     },
     {
       "id": "E-17",
