@@ -22,8 +22,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
+from muad_contracts.platform_settings import MicroSettings, SnipSettings
+
 from ..model.provider import ModelMessage, ModelRole, text_of
-from .settings import MicroSettings, SnipSettings
 
 Group = tuple[ModelMessage, ...]
 

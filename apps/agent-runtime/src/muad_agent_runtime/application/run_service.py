@@ -13,14 +13,6 @@ from typing import Any
 
 import sqlalchemy as sa
 from muad_agent_core.agent import RunnerModelError
-from muad_agent_core.context.settings import (
-    COMPACTION_POLICY_KEY,
-    CompactionConfigError,
-    CompactionSettings,
-    compaction_payload,
-    default_compaction_settings,
-    parse_compaction_settings,
-)
 from muad_agent_core.model import ModelMessage
 from muad_api import AppError
 from muad_api.context import current_trace_id
@@ -38,6 +30,14 @@ from muad_contracts import (
     ResolvedSkill,
     RunRequest,
     RunStatus,
+)
+from muad_contracts.platform_settings import (
+    COMPACTION_POLICY_KEY,
+    CompactionConfigError,
+    CompactionSettings,
+    compaction_payload,
+    default_compaction_settings,
+    parse_compaction_settings,
 )
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError

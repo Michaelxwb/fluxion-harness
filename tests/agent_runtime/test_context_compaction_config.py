@@ -171,7 +171,7 @@ async def test_e04_config_change_only_affects_new_runs(
 def test_e04_invalid_compaction_config_is_explicitly_rejected(
     override: Mapping[str, Any], reason: str
 ) -> None:
-    from muad_agent_core.context.settings import CompactionConfigError, parse_compaction_settings
+    from muad_contracts.platform_settings import CompactionConfigError, parse_compaction_settings
 
     with pytest.raises(CompactionConfigError) as excinfo:
         parse_compaction_settings(override)
@@ -235,10 +235,10 @@ async def test_e04_history_budget_from_frozen_config_actually_trims(
        没有这个键而炸）。
     """
     from muad_agent_core.context.compactor import compact_history
-    from muad_agent_core.context.settings import default_compaction_settings
     from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
     from muad_agent_runtime.application.run_service import history_budget_of
     from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent
+    from muad_contracts.platform_settings import default_compaction_settings
 
     conversation_id = uuid.uuid4()
     async with get_session_factory()() as session:

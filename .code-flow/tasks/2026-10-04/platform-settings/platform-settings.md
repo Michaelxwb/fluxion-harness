@@ -36,7 +36,7 @@
 | E-17 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","idempotent_replay"] | . | 300 | |
 | E-18 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实任务文档与 manifest（收口清单交叉核对） | TASK-012 | planned | ["uv","run","pytest","-q","tests/platform_settings_inventory.py"] | . | 300 | |
 | E-19 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_defaults_from_settings.py","-k","new_task_defaults"] | . | 600 | |
-| B-01 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实设置文档 schema 函数（无服务） | TASK-001 | planned | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | . | 300 | |
+| B-01 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实设置文档 schema 函数（无服务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | . | 300 | |
 | B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
 | B-03 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | TASK-007 | planned | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | . | 300 | |
 | B-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（表内无该租户行） | TASK-003 | planned | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","default_when_absent"] | . | 300 | |
@@ -51,7 +51,7 @@
 
 ## TASK-001: 平台设置文档 schema 与联动校验
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: platform-settings.backend.design.md#2.3 功能方案, platform-settings.backend.design.md#3.1 方案选型
@@ -81,14 +81,17 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-01 | unit | 真实设置文档 schema 函数（无服务） | 界内接受/界外拒绝；错误定位到字段路径；未知键拒绝；五类联动组合逐一验证；IANA 时区与 locale 枚举 | `tests/test_platform_settings_schema.py` | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | planned |
+| B-01 | unit | 真实设置文档 schema 函数（无服务） | 界内接受/界外拒绝；错误定位到字段路径；未知键拒绝；五类联动组合逐一验证；IANA 时区与 locale 枚举 | `tests/test_platform_settings_schema.py` | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | verified |
 
 ### Acceptance Evidence
 
 > `cf-task-start` 在编码期填写 functional 的 RED/GREEN 结果、每个关键断言的位置和真实组件证据；E2E 场景只登记，统一留给 verify-e2e。
+- B-01: verified — automated command passed; run_id=34b14f1e97944e019c2fc4e5e556cdf5 (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 

@@ -14,13 +14,13 @@ import time
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from muad_agent_core.context.settings import (
+from muad_common import SharedSettings
+from muad_contracts.platform_settings import (
     CompactionConfigError,
     CompactionSettings,
     merge_compaction_payload,
     parse_compaction_settings,
 )
-from muad_common import SharedSettings
 
 #: 平台级设置源：返回一份（部分）`compaction` 覆盖。
 ContextSettingsSource = Callable[[], Mapping[str, Any]]

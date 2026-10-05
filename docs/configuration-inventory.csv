@@ -744,30 +744,32 @@ packages/agent-core/src/muad_agent_core/agent/runner.py,93,AgentPolicy.max_turns
 packages/agent-core/src/muad_agent_core/agent/runner.py,94,AgentPolicy.max_tool_calls,30,policy-field,business,平台业务默认；已有资源级覆盖继续保留
 packages/agent-core/src/muad_agent_core/agent/runner.py,95,AgentPolicy.deadline_ms,120000,policy-field,business,平台业务默认；已有资源级覆盖继续保留
 packages/agent-core/src/muad_agent_core/agent/runner.py,96,AgentPolicy.max_model_retries,3,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/compactor.py,31,SNIP_MARKER_PREFIX,'[历史省略]',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/context/compactor.py,32,MICRO_PLACEHOLDER_SUFFIX,'，需要原文时用 read_attachment 读取。',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/context/settings.py,16,COMPACTION_POLICY_KEY,'compaction',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/context/settings.py,35,SnipSettings.enabled,True,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,36,SnipSettings.max_groups,50,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,37,SnipSettings.keep_head_groups,3,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,38,SnipSettings.keep_tail_groups,20,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,45,ToolResultSettings.persist_threshold_bytes,8 * 1024,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,46,ToolResultSettings.round_budget_bytes,200000,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,47,ToolResultSettings.preview_head_bytes,2000,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,48,ToolResultSettings.preview_tail_bytes,2000,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,55,MicroSettings.enabled,False,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,56,MicroSettings.keep_recent_tool_groups,3,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,63,SummarySettings.enabled,False,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,64,SummarySettings.threshold_bytes,50000,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,65,SummarySettings.model_ref,None,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,72,MemorySettings.budget_ratio,0.2,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,77,CompactionSettings.snip,field(default_factory=SnipSettings),policy-field,code,配置结构容器；具体叶子字段另列
-packages/agent-core/src/muad_agent_core/context/settings.py,78,CompactionSettings.tool_result,field(default_factory=ToolResultSettings),policy-field,code,配置结构容器；具体叶子字段另列
-packages/agent-core/src/muad_agent_core/context/settings.py,79,CompactionSettings.micro,field(default_factory=MicroSettings),policy-field,code,配置结构容器；具体叶子字段另列
-packages/agent-core/src/muad_agent_core/context/settings.py,80,CompactionSettings.summary,field(default_factory=SummarySettings),policy-field,code,配置结构容器；具体叶子字段另列
-packages/agent-core/src/muad_agent_core/context/settings.py,81,CompactionSettings.memory,field(default_factory=MemorySettings),policy-field,code,配置结构容器；具体叶子字段另列
-packages/agent-core/src/muad_agent_core/context/settings.py,82,CompactionSettings.history_budget_messages,40,policy-field,business,平台业务默认；已有资源级覆盖继续保留
-packages/agent-core/src/muad_agent_core/context/settings.py,85,_SECTIONS,"{'snip': SnipSettings, 'tool_result': ToolResultSettings, 'micro': MicroSettings, 'summary': SummarySettings, 'memory': MemorySettings}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/context/compactor.py,32,SNIP_MARKER_PREFIX,'[历史省略]',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/context/compactor.py,33,MICRO_PLACEHOLDER_SUFFIX,'，需要原文时用 read_attachment 读取。',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/platform_settings.py,25,COMPACTION_POLICY_KEY,'compaction',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/platform_settings.py,28,RECALL_MAX_LIMIT,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/platform_settings.py,55,SnipSettings.enabled,True,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,56,SnipSettings.max_groups,50,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,57,SnipSettings.keep_head_groups,3,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,58,SnipSettings.keep_tail_groups,20,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,65,ToolResultSettings.persist_threshold_bytes,8 * 1024,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,66,ToolResultSettings.round_budget_bytes,200000,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,67,ToolResultSettings.preview_head_bytes,2000,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,68,ToolResultSettings.preview_tail_bytes,2000,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,75,MicroSettings.enabled,False,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,76,MicroSettings.keep_recent_tool_groups,3,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,83,SummarySettings.enabled,False,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,84,SummarySettings.threshold_bytes,50000,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,85,SummarySettings.model_ref,None,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,92,MemorySettings.budget_ratio,0.2,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,97,CompactionSettings.snip,field(default_factory=SnipSettings),policy-field,code,配置结构容器；具体叶子字段另列
+packages/contracts/src/muad_contracts/platform_settings.py,98,CompactionSettings.tool_result,field(default_factory=ToolResultSettings),policy-field,code,配置结构容器；具体叶子字段另列
+packages/contracts/src/muad_contracts/platform_settings.py,99,CompactionSettings.micro,field(default_factory=MicroSettings),policy-field,code,配置结构容器；具体叶子字段另列
+packages/contracts/src/muad_contracts/platform_settings.py,100,CompactionSettings.summary,field(default_factory=SummarySettings),policy-field,code,配置结构容器；具体叶子字段另列
+packages/contracts/src/muad_contracts/platform_settings.py,101,CompactionSettings.memory,field(default_factory=MemorySettings),policy-field,code,配置结构容器；具体叶子字段另列
+packages/contracts/src/muad_contracts/platform_settings.py,102,CompactionSettings.history_budget_messages,40,policy-field,business,平台业务默认；已有资源级覆盖继续保留
+packages/contracts/src/muad_contracts/platform_settings.py,194,_SECTIONS,"{'snip': SnipSettings, 'tool_result': ToolResultSettings, 'micro': MicroSettings, 'summary': SummarySettings, 'memory': MemorySettings}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/platform_settings.py,202,_GROUPS,"{'agent': AgentSettings, 'task': TaskSettings, 'memory': MemoryPolicySettings, 'artifact': ArtifactSettings, 'auth': AuthSettings, 'locale': LocaleSettings, 'im': ImSettings, 'mcp': McpSettings}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/context/summary.py,18,SUMMARY_FIELDS,"('user_goal', 'constraints', 'progress', 'open_items', 'artifacts')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/context/summary.py,20,_LIST_FIELDS,"('constraints', 'progress', 'open_items')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/context/summary.py,21,ARTIFACT_FIELDS,"('artifact_id', 'tool', 'note')",python-constant,code,协议标识、枚举、schema、文本或实现常量

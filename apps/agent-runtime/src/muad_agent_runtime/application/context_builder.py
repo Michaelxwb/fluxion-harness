@@ -10,9 +10,9 @@ from typing import Any
 
 from muad_agent_core.context.builder import ContextInput
 from muad_agent_core.context.compactor import history_bytes
-from muad_agent_core.context.settings import default_compaction_settings
 from muad_agent_core.context.summary import summary_from_payload, summary_message
 from muad_agent_core.model.provider import ModelMessage, ModelRequest, ModelRole, ModelToolCall
+from muad_contracts.platform_settings import default_compaction_settings
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 

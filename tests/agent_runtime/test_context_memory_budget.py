@@ -28,12 +28,6 @@ import httpx
 import uvicorn
 from fastapi import FastAPI
 from muad_agent_core.agent import AgentRunner
-from muad_agent_core.context.settings import (
-    CompactionSettings,
-    MicroSettings,
-    SnipSettings,
-    ToolResultSettings,
-)
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import ModelProvider, OpenAICompatibleProvider
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
@@ -58,6 +52,12 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     UserMemory,
 )
 from muad_agent_runtime.main import app
+from muad_contracts.platform_settings import (
+    CompactionSettings,
+    MicroSettings,
+    SnipSettings,
+    ToolResultSettings,
+)
 from sqlalchemy import select
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse

@@ -21,7 +21,6 @@ import pytest
 import sqlalchemy as sa
 from httpx import AsyncClient
 from muad_agent_core.agent import AgentRunner
-from muad_agent_core.context.settings import ToolResultSettings
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
     ModelMessage,
@@ -44,6 +43,7 @@ from muad_agent_runtime.infrastructure.audit_writer import RuntimeAuditWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, CanonicalEvent, ToolCallAudit
 from muad_agent_runtime.main import app
+from muad_contracts.platform_settings import ToolResultSettings
 
 from agent_runtime.conftest import TenantContext, parse_sse
 

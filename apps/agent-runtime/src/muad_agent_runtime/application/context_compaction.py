@@ -15,7 +15,6 @@ from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 
 from muad_agent_core.context.compactor import LayerOutcome, compact_history, history_bytes
-from muad_agent_core.context.settings import CompactionSettings
 from muad_agent_core.context.summary import SummaryFields, summary_message, try_parse_summary
 from muad_agent_core.model import (
     ModelMessage,
@@ -24,6 +23,7 @@ from muad_agent_core.model import (
     ModelRole,
     text_of,
 )
+from muad_contracts.platform_settings import CompactionSettings
 from sqlalchemy import func, select
 
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory

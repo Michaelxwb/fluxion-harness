@@ -24,11 +24,6 @@ import httpx
 import uvicorn
 from fastapi import FastAPI
 from muad_agent_core.agent import AgentRunner
-from muad_agent_core.context.settings import (
-    CompactionSettings,
-    SnipSettings,
-    SummarySettings,
-)
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
     ModelMessage,
@@ -56,6 +51,11 @@ from muad_agent_runtime.application.executor import (
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Conversation
 from muad_agent_runtime.main import app
+from muad_contracts.platform_settings import (
+    CompactionSettings,
+    SnipSettings,
+    SummarySettings,
+)
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
 

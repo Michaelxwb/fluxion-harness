@@ -19,7 +19,6 @@ from muad_agent_core.agent import (
     AgentRunRequest,
     RunnerCancelled,
 )
-from muad_agent_core.context.settings import CompactionSettings, ToolResultSettings
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
     ModelContent,
@@ -48,6 +47,7 @@ from muad_contracts import (
     ResolvedModel,
     ResolvedSkill,
 )
+from muad_contracts.platform_settings import CompactionSettings, ToolResultSettings
 from muad_logging.redaction import redact_text
 from muad_platform_sdk.types import SecretValue
 

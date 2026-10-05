@@ -19,8 +19,8 @@ from muad_agent_core.context.compactor import (
     split_protected_prefix,
     trim_history,
 )
-from muad_agent_core.context.settings import MicroSettings, SnipSettings
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
+from muad_contracts.platform_settings import MicroSettings, SnipSettings
 
 
 def _user(text: str) -> ModelMessage:
