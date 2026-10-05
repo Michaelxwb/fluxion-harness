@@ -993,6 +993,7 @@ $ uv run pytest -q tests/console_internal tests/architecture tests/test_contract
 - [ ] 结构性 RED + ≥4 类扰动取证（改状态 / 删证据行 / 伪造用例名或命令 / 改 manifest 字段），逐字节还原后复绿
 - [ ] [E-18][integration] 覆盖收口清单自身的校验；真实边界：**真实任务文档与 manifest**（不豁免收口任务自身）
 - [ ] [harness-test#RULE-test-001][review] 运行分层验收链：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`；真实边界：**真实 PG/Redis + 真实构建产物 + 真实浏览器**
+- [ ] **如实披露两处已知覆盖缺口（TASK-014 报备，不得在收尾证据里含糊）**：① `im.progress_interval_sec` 在 **E2E 层没有断言**——B-03 只在单元层钉取值；E2E 里 `已执行 00:01` 来自相位切换帧（强制）而非 1s 节拍帧，去掉种下的覆盖后扰动用例照样通过（实测）；② `dfx` 的批次并发 E2E 语义变了：种下的 `task.batch_max_concurrency` 现在是唯一约束（原先计划里也请求 `max_concurrency`，两者取小后恰好相等，等于在验计划请求而不是平台上限），「计划请求低于平台上限」这一维改由 `tests/agent_worker/test_batch_fanout.py` 单测覆盖
 - [ ] 需求级 `verify-e2e`：`cf_acceptance_runner.py --manifest … --include-e2e --write-evidence`，28/28 场景全过
 - [ ] 先写清单并记录 RED（清单缺失时登记的 argv 必须失败），再补齐
 - [ ] verifier `harness-test#RULE-test-001`：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（真实边界：真实 PG/Redis + 真实构建产物 + 真实浏览器；acceptance 单跑约 1064s，跑前须停 dev 服务并查残留进程）
