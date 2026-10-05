@@ -42,7 +42,7 @@
 | v0.1 | 2026-10-04 | fluxion-harness | 初始草稿：归一需求二与配置盘点，确定权威源、读取边界、设置 schema 与收敛清单 |
 | v0.2 | 2026-10-05 | fluxion-harness | 依 §3.1 ADR-10：设置文档 schema 落到 `muad_contracts`（Console 不依赖 `muad-agent-core`，v0.1 的「复用 `muad_agent_core.context.settings._validate`」不可达），`muad_agent_core.context.settings` 整体迁移；场景编号去重（幂等场景改 `E-17`，新增边界场景 `B-07`） |
 | v0.3 | 2026-10-05 | fluxion-harness | 拆解阶段发现 `agent`(4 中余 2) / `memory`(5) / `artifact`(3) 共 9 个叶子没有承接任务，补验收场景 `E-20`（执行默认接入），由 TASK-013 负责 |
-| v0.6 | 2026-10-05 | fluxion-harness | 补齐 `locale` 分组的落点：消费方是 Worker 投递文案 / Gateway 回复渲染 / Runtime `TimeToolSet` 时区，此前无任务承接；并入 E-19 / B-03 / E-20 三条既有场景的断言，环境键由最后一个切换的任务一次性摘除 |
+| v0.6 | 2026-10-05 | fluxion-harness || v0.7 | 2026-10-05 | fluxion-harness | TASK-006 落地后补两条：① 新增 **ADR-11** 记录「投递队列跨租户 × 设置按租户」的取舍（设计原本没规定）；② 新增验收场景 **E-21**——各 acceptance 栈原先靠 env 注入 `DELIVERY_BACKOFF_BASE_SEC`/`TASK_MAX_ATTEMPTS`/`BATCH_MAX_CONCURRENCY` 等键，这些键删掉后注入静默失效（`dfx` 的并发上限断言会直接挂），改由「栈启动时按租户种一行 `control.platform_setting`」承接 | 补齐 `locale` 分组的落点：消费方是 Worker 投递文案 / Gateway 回复渲染 / Runtime `TimeToolSet` 时区，此前无任务承接；并入 E-19 / B-03 / E-20 三条既有场景的断言，环境键由最后一个切换的任务一次性摘除 |
 | v0.5 | 2026-10-05 | fluxion-harness | TASK-004 落地后更正取快照指标的归属：`failed` 分支只能由**调用方**（Runtime/Worker/Gateway 的 client）记录（端点被切断时 Console 收不到请求）；Console 侧只记 `ok`/`error` 服务分支并接受可选头 `X-Caller-Service` 供 `caller` 标签 |
 | v0.4 | 2026-10-05 | fluxion-harness | 更正审计登记口径：`AUDIT_TYPES` 是**审计来源枚举**不是 `resource_type` 注册表（v0.1 的「登记进两处」是错的）；`resource_type="PLATFORM_SETTING"` 真正要同步的是**前端登记域**（`RESOURCE_TYPES` + `audit.resourceType.*` 词条），由 `tests/frontend/test_audit_gap_contract.py` 机检 |
 
@@ -254,6 +254,7 @@
 | E-18 | FEAT-01..08 | integration | 真实任务文档与 manifest（收口清单交叉核对） | 本模块 | 运行收口清单 | 覆盖表 ↔ 契约表 ↔ 证据表三方闭环；manifest 与覆盖表同 ID/owner/命令且 level/boundary/cwd 一致；`-k` 令牌在真实用例名里命中；**不豁免收口任务自身** | 收口任务自己的契约行也必须终态 |
 | E-19 | FEAT-02/05 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | 本模块 | 保存 `task.max_attempts` / `task.default_deadline_hours` 新值后创建新 Task | 新 Task 用新默认；**既有 Task 行的 deadline/attempt 字段不被改写**；设置源不可读时任务创建明确失败；投递文案按新 `locale.default_locale` 渲染 | 改平台默认不偷偷重写存量行 |
 | E-20 | FEAT-02/05 | integration | 真实 PostgreSQL + 真实 Runtime 装配（`context_builder`/`memory_tools`/`archive_tools`）+ 真实 Console 清理入口 | 本模块 | 改 `agent.max_turns`、`memory.max_injected_memories`、`artifact.max_archive_files`、`artifact.retention_days` 后新建 Run 与执行一次清理；以及 `locale.default_timezone` 后新建 Run | 新 Run 的轮次/记忆注入上限、归档文件上限用新值；下一次清理按新保留期挑选；**既有 Run/Task 行与已落库记忆不被改写** | 平台默认对新操作立刻生效，不重写存量数据 |
+| E-21 | FEAT-05 | integration | 真实 acceptance 栈（真实 Console API + 真实 PostgreSQL + 真实 Worker 进程） | 本模块 | 栈启动时按租户种一行 `control.platform_setting`（非默认的退避基数 / 尝试次数 / 批次并发），并删除各栈对这些键的 env 注入 | 栈内用例按**种下的设置**观察到对应行为（投递退避窗口、并发上限、尝试次数）；env 注入路径不再存在；`dfx` 故障矩阵的 `TASK_MAX_ATTEMPTS=1` 臂改由设置表达 | 验收栈与生产同构：默认值来自平台设置而非环境变量 |
 
 **边界场景**
 
@@ -352,6 +353,9 @@ v0.1 写的「复用 `muad_agent_core.context.settings._validate`，不复制」
 `muad_contracts` 是 Console 与三个执行服务共同依赖的包（agent-core 也依赖它），把「平台设置文档」定义在这里，等于把它确立为**跨服务契约**——它本来就是。被否方案：① Console 依赖 `muad-agent-core`（把 langgraph 等重依赖拖进控制面镜像）；② 在 contracts 里复制一份压缩校验（两套默认源漂移，正是本需求要消灭的问题）；③ 保留 `muad_agent_core.context.settings` 作为转发薄壳（过渡适配层）。
 
 #### 技术栈
+
+**ADR-11 · 投递队列的跨租户取件（TASK-006 落地后补记）**
+投递队列的取件谓词原本不带租户，而平台设置**按租户**——若逐个租户取快照再判到期，某个租户停在退避窗口就会阻塞整条队列。取舍：取件时用**设置无关**的谓词取「有界租户前缀」（`MAX_TENANTS_PER_TICK=8`），再逐个租户取快照判到期。代价是这些租户在退避等待期内每拍仍各取一次快照（有界，空闲时零调用）。`MAX_TENANTS_PER_TICK` 是**有界并发参数**，属 `environment`/`code` 类，不进平台设置。
 
 Python 3.12 + FastAPI + SQLAlchemy 2（async）+ Alembic；`pydantic` 承载设置文档 schema；前端 React 18 + TypeScript + Semi Design（见前端设计）。
 
@@ -733,7 +737,7 @@ flowchart TD
 | harness-secret#RULE-secret-001 | required | 设置文档 schema 白名单不含任何密钥键；审计/日志/响应不出现凭据；平台侧仍无自有密钥列 | 3.5 安全性设计（敏感键拒绝） | E-10 | applied |
 | harness-model#RULE-model-001 | required | 不引入平台默认模型；`compaction.summary.model_ref` 只引用既有 `model_definition` 且要求 enabled | 3.1 ADR-06、3.4 API-02 错误码 | E-01、E-07 | applied |
 | harness-log#RULE-log-001 | required | 保存/回滚走既有 logging-kit 日志并沿用脱敏清单；变更值全文不入日志 | 3.5 可观测性设计 | E-05、E-10 | applied |
-| harness-test#RULE-test-001 | required | 分层验收：纯逻辑 schema/预算单测 + 真实 PG 集成 + 浏览器→Console→PG→Runtime→模型探针 E2E | 2.5.2 验收场景 | S-01..S-03、E-01..E-20、B-01..B-08 | applied |
+| harness-test#RULE-test-001 | required | 分层验收：纯逻辑 schema/预算单测 + 真实 PG 集成 + 浏览器→Console→PG→Runtime→模型探针 E2E | 2.5.2 验收场景 | S-01..S-03、E-01..E-21、B-01..B-08 | applied |
 | harness-worker#RULE-worker-001 | required | Worker 在任务执行与投递尝试边界读设置；PG 仍是 Task/Schedule/lease 唯一权威源，设置不改变 claim/lease 语义 | 3.2 读取边界表 | S-02、E-08 | applied |
 | harness-im#RULE-im-001 | required | IM 展示节拍由 Gateway 读取，渠道适配器零改动；bot→Agent 路由与渠道中立不变 | 3.1 ADR-04 | B-03；verifier 见 `tests/architecture/test_channel_neutrality.py` | applied |
 | harness-im#RULE-im-002 | required | 读设置落在 Gateway `application/` 层与核心域，键名渠道中立（`im.progress_interval_sec`）；`channels/` 一行不改，核心域零渠道专有字样 | 3.1 ADR-04（渠道中立段）、3.2 读取边界表 | B-03；verifier `harness-im#RULE-im-002`（`tests -k channel_neutrality`） | applied |

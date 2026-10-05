@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "platform-settings.md",
-  "task_sha256": "3b4f9d3556cdba5be6536c96e001bbf57d7360cb2421090188eaf0533a67c213",
+  "task_sha256": "0e2be9511995f8c0f7bcdd7f4eb56525f7415938f7da7f66f5931a9fbe9bf557",
   "scenarios": [
     {
       "id": "S-01",
@@ -27,32 +27,7 @@
       "command": null,
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-02",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "ab4a307ef81144fb84cfa6d170c459cb",
-        "executed_at": "2026-10-05T02:51:50.217699+00:00",
-        "command": null,
-        "cwd": ".",
-        "timeout": 600.0
-      },
-      "runs": [
-        {
-          "id": "S-02",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "ab4a307ef81144fb84cfa6d170c459cb",
-          "executed_at": "2026-10-05T02:51:50.217699+00:00",
-          "command": null,
-          "cwd": ".",
-          "timeout": 600.0
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-03",
@@ -86,52 +61,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "01cb35ccb7ab48539e2a60a61d7080aa",
-        "executed_at": "2026-10-05T01:45:06.427259+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/console_platform/test_platform_settings_api.py",
-          "-k",
-          "invalid_payload"
-        ],
-        "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "43b85d6520201d08eb087fdb39666c3aa2ad54e3962eec6040a55ed04e952ea3"
-      },
-      "runs": [
-        {
-          "id": "E-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "01cb35ccb7ab48539e2a60a61d7080aa",
-          "executed_at": "2026-10-05T01:45:06.427259+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/console_platform/test_platform_settings_api.py",
-            "-k",
-            "invalid_payload"
-          ],
-          "cwd": ".",
-          "timeout": 300.0,
-          "fingerprint": "43b85d6520201d08eb087fdb39666c3aa2ad54e3962eec6040a55ed04e952ea3"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-02",
@@ -152,52 +82,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
-        "executed_at": "2026-10-05T01:32:20.270700+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/console_platform/test_platform_settings_service.py",
-          "-k",
-          "version_conflict"
-        ],
-        "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
-      },
-      "runs": [
-        {
-          "id": "E-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
-          "executed_at": "2026-10-05T01:32:20.270700+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/console_platform/test_platform_settings_service.py",
-            "-k",
-            "version_conflict"
-          ],
-          "cwd": ".",
-          "timeout": 300.0,
-          "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-03",
@@ -218,52 +103,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "947676192dc945399f80be9e1ccfa260",
-        "executed_at": "2026-10-05T02:20:33.644572+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_platform_settings_source.py",
-          "-k",
-          "source_unavailable"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "97ebc952be8be8af479818dad7f41e34e7db7ac86642e32497f52a230688d32a"
-      },
-      "runs": [
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "947676192dc945399f80be9e1ccfa260",
-          "executed_at": "2026-10-05T02:20:33.644572+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_platform_settings_source.py",
-            "-k",
-            "source_unavailable"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "97ebc952be8be8af479818dad7f41e34e7db7ac86642e32497f52a230688d32a"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-04",
@@ -284,52 +124,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "01cb35ccb7ab48539e2a60a61d7080aa",
-        "executed_at": "2026-10-05T01:45:06.427259+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/console_internal/test_platform_settings_internal.py",
-          "-k",
-          "service_identity"
-        ],
-        "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "43b85d6520201d08eb087fdb39666c3aa2ad54e3962eec6040a55ed04e952ea3"
-      },
-      "runs": [
-        {
-          "id": "E-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "01cb35ccb7ab48539e2a60a61d7080aa",
-          "executed_at": "2026-10-05T01:45:06.427259+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/console_internal/test_platform_settings_internal.py",
-            "-k",
-            "service_identity"
-          ],
-          "cwd": ".",
-          "timeout": 300.0,
-          "fingerprint": "43b85d6520201d08eb087fdb39666c3aa2ad54e3962eec6040a55ed04e952ea3"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-05",
@@ -350,52 +145,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-05",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
-        "executed_at": "2026-10-05T01:32:20.270700+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/console_platform/test_platform_settings_service.py",
-          "-k",
-          "audit_same_transaction"
-        ],
-        "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
-      },
-      "runs": [
-        {
-          "id": "E-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
-          "executed_at": "2026-10-05T01:32:20.270700+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/console_platform/test_platform_settings_service.py",
-            "-k",
-            "audit_same_transaction"
-          ],
-          "cwd": ".",
-          "timeout": 300.0,
-          "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-06",
@@ -416,52 +166,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-06",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "01cb35ccb7ab48539e2a60a61d7080aa",
-        "executed_at": "2026-10-05T01:45:06.427259+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/console_platform/test_platform_settings_api.py",
-          "-k",
-          "restore"
-        ],
-        "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "43b85d6520201d08eb087fdb39666c3aa2ad54e3962eec6040a55ed04e952ea3"
-      },
-      "runs": [
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "01cb35ccb7ab48539e2a60a61d7080aa",
-          "executed_at": "2026-10-05T01:45:06.427259+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/console_platform/test_platform_settings_api.py",
-            "-k",
-            "restore"
-          ],
-          "cwd": ".",
-          "timeout": 300.0,
-          "fingerprint": "43b85d6520201d08eb087fdb39666c3aa2ad54e3962eec6040a55ed04e952ea3"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-07",
@@ -482,52 +187,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-07",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "947676192dc945399f80be9e1ccfa260",
-        "executed_at": "2026-10-05T02:20:33.644572+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_platform_settings_source.py",
-          "-k",
-          "agent_override_precedence"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "97ebc952be8be8af479818dad7f41e34e7db7ac86642e32497f52a230688d32a"
-      },
-      "runs": [
-        {
-          "id": "E-07",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "947676192dc945399f80be9e1ccfa260",
-          "executed_at": "2026-10-05T02:20:33.644572+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_platform_settings_source.py",
-            "-k",
-            "agent_override_precedence"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "97ebc952be8be8af479818dad7f41e34e7db7ac86642e32497f52a230688d32a"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-08",
@@ -548,52 +208,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-08",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "947676192dc945399f80be9e1ccfa260",
-        "executed_at": "2026-10-05T02:20:33.644572+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_platform_settings_source.py",
-          "-k",
-          "new_revision_without_restart"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "97ebc952be8be8af479818dad7f41e34e7db7ac86642e32497f52a230688d32a"
-      },
-      "runs": [
-        {
-          "id": "E-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "947676192dc945399f80be9e1ccfa260",
-          "executed_at": "2026-10-05T02:20:33.644572+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_platform_settings_source.py",
-            "-k",
-            "new_revision_without_restart"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "97ebc952be8be8af479818dad7f41e34e7db7ac86642e32497f52a230688d32a"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-09",
@@ -633,52 +248,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-10",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "01cb35ccb7ab48539e2a60a61d7080aa",
-        "executed_at": "2026-10-05T01:45:06.427259+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/console_platform/test_platform_settings_api.py",
-          "-k",
-          "secret_rejected"
-        ],
-        "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "43b85d6520201d08eb087fdb39666c3aa2ad54e3962eec6040a55ed04e952ea3"
-      },
-      "runs": [
-        {
-          "id": "E-10",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "01cb35ccb7ab48539e2a60a61d7080aa",
-          "executed_at": "2026-10-05T01:45:06.427259+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/console_platform/test_platform_settings_api.py",
-            "-k",
-            "secret_rejected"
-          ],
-          "cwd": ".",
-          "timeout": 300.0,
-          "fingerprint": "43b85d6520201d08eb087fdb39666c3aa2ad54e3962eec6040a55ed04e952ea3"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-11",
@@ -789,52 +359,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-17",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "01cb35ccb7ab48539e2a60a61d7080aa",
-        "executed_at": "2026-10-05T01:45:06.427259+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/console_platform/test_platform_settings_api.py",
-          "-k",
-          "idempotent_replay"
-        ],
-        "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "43b85d6520201d08eb087fdb39666c3aa2ad54e3962eec6040a55ed04e952ea3"
-      },
-      "runs": [
-        {
-          "id": "E-17",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "01cb35ccb7ab48539e2a60a61d7080aa",
-          "executed_at": "2026-10-05T01:45:06.427259+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/console_platform/test_platform_settings_api.py",
-            "-k",
-            "idempotent_replay"
-          ],
-          "cwd": ".",
-          "timeout": 300.0,
-          "fingerprint": "43b85d6520201d08eb087fdb39666c3aa2ad54e3962eec6040a55ed04e952ea3"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-18",
@@ -874,52 +399,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-19",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "ab4a307ef81144fb84cfa6d170c459cb",
-        "executed_at": "2026-10-05T02:51:50.217699+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_worker/test_task_defaults_from_settings.py",
-          "-k",
-          "new_task_defaults"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "efd94f780a80ad890813ee60a7a92c4db082500aee27b39f232e3e7f0e81173d"
-      },
-      "runs": [
-        {
-          "id": "E-19",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "ab4a307ef81144fb84cfa6d170c459cb",
-          "executed_at": "2026-10-05T02:51:50.217699+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_worker/test_task_defaults_from_settings.py",
-            "-k",
-            "new_task_defaults"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "efd94f780a80ad890813ee60a7a92c4db082500aee27b39f232e3e7f0e81173d"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-20",
@@ -938,6 +418,25 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-21",
+      "source": "platform-settings.backend.design.md#2.5.2 验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 acceptance 栈（真实 Console API + 真实 PostgreSQL + 真实 Worker 进程）",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/dfx"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
       "depends_on": []
     },
     {
@@ -1016,52 +515,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
-        "executed_at": "2026-10-05T01:32:20.270700+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/console_platform/test_platform_settings_service.py",
-          "-k",
-          "default_when_absent"
-        ],
-        "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
-      },
-      "runs": [
-        {
-          "id": "B-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "0abc5bfd2e7d4e54a84e52fdfa30b5d8",
-          "executed_at": "2026-10-05T01:32:20.270700+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/console_platform/test_platform_settings_service.py",
-            "-k",
-            "default_when_absent"
-          ],
-          "cwd": ".",
-          "timeout": 300.0,
-          "fingerprint": "9a2efcfe29cf6e68c1e6274d751506833239dfaf63752d8162e92a94a4d8cdcf"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-05",
@@ -1114,48 +568,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-07",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "de9a893dc3a14e9e864062e7f12c588d",
-        "executed_at": "2026-10-05T01:13:49.625206+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/console_platform/test_platform_settings_table.py"
-        ],
-        "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "a743838f4bc8dcfe1aa7b16bfcba016e68da1867bd9ce81058a688e73d3ee8d5"
-      },
-      "runs": [
-        {
-          "id": "B-07",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "de9a893dc3a14e9e864062e7f12c588d",
-          "executed_at": "2026-10-05T01:13:49.625206+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/console_platform/test_platform_settings_table.py"
-          ],
-          "cwd": ".",
-          "timeout": 300.0,
-          "fingerprint": "a743838f4bc8dcfe1aa7b16bfcba016e68da1867bd9ce81058a688e73d3ee8d5"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-08",

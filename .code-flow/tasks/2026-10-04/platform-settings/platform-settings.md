@@ -37,6 +37,7 @@
 | E-18 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实任务文档与 manifest（收口清单交叉核对） | TASK-012 | planned | ["uv","run","pytest","-q","tests/platform_settings_inventory.py"] | . | 300 | |
 | E-19 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_defaults_from_settings.py","-k","new_task_defaults"] | . | 600 | |
 | E-20 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | . | 600 | |
+| E-21 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 acceptance 栈（真实 Console API + 真实 PostgreSQL + 真实 Worker 进程） | TASK-014 | planned | ["uv","run","pytest","-q","tests/acceptance/dfx"] | . | 1200 | |
 | B-01 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实设置文档 schema 函数（无服务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | . | 300 | |
 | B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
 | B-03 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | TASK-007 | planned | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | . | 300 | |
@@ -46,7 +47,7 @@
 | B-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实 `alembic upgrade 0001→0017` / `downgrade`） | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_table.py"] | . | 300 | |
 | B-08 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树（无服务） | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_shell_contract.py","tests/frontend/test_platform_settings_contract.py"] | . | 300 | |
 
-> 本表覆盖两份 design 的全部 **31** 条场景（S-01..S-03、E-01..E-20、B-01..B-08）。每条场景有且只有一个最终负责人；`E2E` 类（S-01..S-03、E-11..E-14、B-05）在编码期只登记，统一留给需求级 `verify-e2e`。
+> 本表覆盖两份 design 的全部 **32** 条场景（S-01..S-03、E-01..E-21、B-01..B-08）。每条场景有且只有一个最终负责人；`E2E` 类（S-01..S-03、E-11..E-14、B-05）在编码期只登记，统一留给需求级 `verify-e2e`。
 
 ---
 
@@ -824,7 +825,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 
 - **Status**: draft
 - **Priority**: P0
-- **Depends**: TASK-001..TASK-013
+- **Depends**: TASK-001..TASK-014
 - **Source**: platform-settings.backend.design.md#2.5 验收条件, platform-settings.frontend.design.md#2.4 验收条件
 - **Spec-Refs**: harness-test#RULE-test-001
 - **Acceptance-Refs**: E-18
@@ -893,6 +894,44 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
 | E-20 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | 9 个叶子对新 Run / 新清理生效；存量 Run/Task/记忆不被改写 | `tests/agent_runtime/test_execution_defaults_settings.py` | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | planned |
+
+### Acceptance Evidence
+
+> 编码期填写 RED/GREEN 与断言位置。
+
+### Log
+- [2026-10-05] created (draft)
+
+---
+
+## TASK-014: 验收栈按租户种平台设置
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-006, TASK-007, TASK-013
+- **Source**: platform-settings.backend.design.md#2.5 验收条件, platform-settings.backend.design.md#3.2 架构设计
+- **Spec-Refs**:
+- **Acceptance-Refs**: E-21
+
+### Description
+
+`task.*` 与 `locale.*` 等键从启动 settings 删除后，各 acceptance 栈**原先靠 env 注入**这些键的做法静默失效：`tests/acceptance/dfx/test_dfx_routing.py` 的并发上限断言（`BATCH_MAX_CONCURRENCY = 2`，现由平台设置默认 8 驱动）会直接挂，`test_dfx_delivery.py` 的退避窗口（按 `DELIVERY_BACKOFF_BASE_SEC` 算）同样。正确形态是**栈启动时按租户种一行 `control.platform_setting`**，与生产同构。
+
+### Checklist
+
+- [ ] 全仓扫一遍：`grep -rn "<12 个已删键>" tests/acceptance e2e`，列出每一处 env 注入/常量来源
+- [ ] 各 acceptance 栈（`dfx` / `task_schedule` / `im_gateway` 及扫出的其他栈）在启动时按**该栈的租户**种一行 `control.platform_setting`，值取原先 env 注入的非默认值；删除这些栈里的 env 注入
+- [ ] `tests/acceptance/dfx/test_dfx_fault_matrix.py` 的 `TASK_MAX_ATTEMPTS=1` 臂：改由平台设置表达（同一租户不同 Worker 进程的覆盖）
+- [ ] 栈内断言改为从**种下的设置**推导期望值，不再依赖 env 常量
+- [ ] [E-21][integration] 覆盖：栈按种下的设置观察到退避窗口 / 并发上限 / 尝试次数；env 注入路径不存在；真实边界：**真实 acceptance 栈（真实 Console API + 真实 PG + 真实 Worker 进程）**
+- [ ] 先跑一次记录 RED（改前栈内断言会失败/失真），再改
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|--------|---------|--------------------|---------|----------------|---------|------|
+| E-21 | integration | 真实 acceptance 栈（真实 Console API + 真实 PostgreSQL + 真实 Worker 进程） | 栈内用例按种下的设置观察行为；已删键的 env 注入不复存在 | `tests/acceptance/dfx` + 扫出的其他栈 | ["uv","run","pytest","-q","tests/acceptance/dfx"] | planned |
 
 ### Acceptance Evidence
 
