@@ -42,6 +42,7 @@
 | v0.1 | 2026-10-04 | fluxion-harness | 初始草稿：归一需求二与配置盘点，确定权威源、读取边界、设置 schema 与收敛清单 |
 | v0.2 | 2026-10-05 | fluxion-harness | 依 §3.1 ADR-10：设置文档 schema 落到 `muad_contracts`（Console 不依赖 `muad-agent-core`，v0.1 的「复用 `muad_agent_core.context.settings._validate`」不可达），`muad_agent_core.context.settings` 整体迁移；场景编号去重（幂等场景改 `E-17`，新增边界场景 `B-07`） |
 | v0.3 | 2026-10-05 | fluxion-harness | 拆解阶段发现 `agent`(4 中余 2) / `memory`(5) / `artifact`(3) 共 9 个叶子没有承接任务，补验收场景 `E-20`（执行默认接入），由 TASK-013 负责 |
+| v0.5 | 2026-10-05 | fluxion-harness | TASK-004 落地后更正取快照指标的归属：`failed` 分支只能由**调用方**（Runtime/Worker/Gateway 的 client）记录（端点被切断时 Console 收不到请求）；Console 侧只记 `ok`/`error` 服务分支并接受可选头 `X-Caller-Service` 供 `caller` 标签 |
 | v0.4 | 2026-10-05 | fluxion-harness | 更正审计登记口径：`AUDIT_TYPES` 是**审计来源枚举**不是 `resource_type` 注册表（v0.1 的「登记进两处」是错的）；`resource_type="PLATFORM_SETTING"` 真正要同步的是**前端登记域**（`RESOURCE_TYPES` + `audit.resourceType.*` 词条），由 `tests/frontend/test_audit_gap_contract.py` 机检 |
 
 ---
@@ -605,6 +606,7 @@ flowchart TD
 |------|------|------|------|
 | Header `X-Internal-Service` | string | Y | 内部服务 token（`require_service_identity`） |
 | Header `X-Tenant-Id` | string | Y | 调用方租户（内部口用 `HeaderTenantId`） |
+| Header `X-Caller-Service` | string | N | 调用方标识（`runtime`/`worker`/`gateway`），缺省 `runtime`；只用于 `platform_settings_fetch_total` 的 `caller` 标签 |
 
 **响应**
 
@@ -647,7 +649,7 @@ flowchart TD
 
 #### 可观测性设计 [按需]
 
-- 指标：`platform_settings_save_total{result="ok|validation_failed|conflict"}`、`platform_settings_fetch_total{caller="runtime|worker|gateway", result="ok|failed"}`。~~`platform_settings_revision` gauge~~ **本期不做**（没有消费方/告警规则，按「无投机代码」砍掉；将来要加时按租户维度重新设计）。
+- 指标：`platform_settings_save_total{result="ok|validation_failed|conflict"}`、`platform_settings_fetch_total{caller="runtime|worker|gateway", result="ok|failed"}`。其中**取快照的失败分支由调用方记录**（Console 端点不可达时 Console 根本收不到请求，`result="failed"` 只能由 Runtime/Worker/Gateway 的 client 侧计数）；Console 侧只记服务到的分支，并接受可选头 `X-Caller-Service`（缺省 `runtime`）供 `caller` 标签。~~`platform_settings_revision` gauge~~ **本期不做**（没有消费方/告警规则，按「无投机代码」砍掉；将来要加时按租户维度重新设计）。
 - 日志：保存/回滚 INFO（revision、actor、变更键名），**不含变更值全文**；读取失败 WARNING + 失败原因。
 - 审计：`control.config_audit_log`，`action ∈ {CREATE, UPDATE, RESTORE}`，`before_json/after_json` 为脱敏后的设置文档。
 

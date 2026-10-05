@@ -409,6 +409,7 @@ RULE-secret-001 → **14 passed**；RULE-log-001 → **13 passed**。
 ### Checklist
 
 - [ ] 新增 `application/platform_settings_client.py`（内部 HTTP 取快照，复用 `ConsoleResolveClient` 的 `X-Internal-Service` 口径与超时常量风格）
+- [ ] client 调用带 `X-Caller-Service: runtime`，并在**客户端侧**记录 `platform_settings_fetch_total{caller="runtime", result="failed"}`——端点被切断时 Console 收不到请求，失败计数只能由这里记（design v0.5，E-03 的断言依赖它）
 - [ ] 删除 `application/context_settings.py` 的进程级 TTL 单例与 `_default_cache`；`_create_run` 改为先取快照再解析，压缩配置随 `snapshot_policy()` 冻结（解析一次、冻结值与实际用值不分叉）
 - [ ] `SharedSettings.context_settings_cache_ttl_sec` 删除（`packages/common/src/muad_common/settings.py`），`.env.example` 同步移除
 - [ ] `DEFAULT_POLICY` 的用途改为「无平台设置时的 schema 默认」，不得作为运行期动态默认源
@@ -620,7 +621,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - [ ] 字段控件按 API 返回的元数据渲染（`type/min/max/enum/default`），**组件内不得写默认值或范围字面量**
 - [ ] 页面不按列表页模板实现；版本历史用 SideSheet（`harness-ui-detail` 的详情形态）；回滚走二次确认
 - [ ] `src/config/menu.ts` 追加第 11 项 `{path:"/settings", key:"nav.settings", adminOnly:true}`；`src/App.tsx` 加路由并包 `RequireRole role="ADMIN"`；`AppLayout.tsx` 登记图标
-- [ ] i18n：`src/locales/{zh-CN,en-US}.json` 新增 `nav.settings`、`settings.*` 与五个生效方式标签（`applies_to` 全覆盖）
+- [ ] i18n：`src/locales/{zh-CN,en-US}.json` 新增 `nav.settings`、`settings.*` 与五个生效方式标签（`applies_to` 全覆盖）；**字段/分组的词条键名按 API-01 返回的 `label_key` 逐字对齐**（组 `settings.group.<key>`、字段 `settings.field.<path>`，压缩组内是组内相对路径如 `snip.max_groups`，其余为 `group.field`），不要自创键名
 - [ ] **改写** `tests/frontend/test_console_shell_contract.py`：`EXPECTED_KEYS` 十一项、`adminOnly` 项由 1 变 2、删除 `test_console_shell_has_no_system_settings_entry` 并替换为入口存在的正向断言 + 路由守卫断言
 - [ ] 新增 `tests/frontend/test_platform_settings_contract.py`：HTTP 只经 services 层、字段元数据驱动、`applies_to` 标签齐全
 - [ ] 同步事实文档 `docs/00-详细设计索引与设计基线.md` 与 `docs/README.md` 中「Console 不提供系统设置菜单」的表述
@@ -677,6 +678,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 
 ### Checklist
 
+- [ ] `overridden_by_resources` 目前只统计压缩组（Agent 的 `runtime_config_json.budget.compaction`），其余分组恒 0——按 design 逐个补齐或明确降级为「不展示覆盖数」（二者选一并写进证据）
 - [ ] 工具结果默认收敛：删除 `TOOL_RESULT_ARTIFACT_BYTES`/`PREVIEW_HEAD_BYTES`/`PREVIEW_TAIL_BYTES` 与 `ToolResultSettings` 的重复默认，只留 schema 单一来源；非请求上下文显式传入
 - [ ] 历史预算收敛：`compaction.history_budget_messages` 与 `BudgetPolicy.max_messages` 用同一冻结值
 - [ ] 产物路径收敛：删除裸 `getenv` 的第二套默认（`/mnt/muad-artifacts`、`/var/cache/muad/skills`），统一经启动 settings
