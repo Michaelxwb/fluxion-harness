@@ -6,7 +6,7 @@ HTTP 探针**承载（Runtime 经真实 HTTP 调用该端点；非拦截、非�
 
 覆盖（E-09，逐条对齐 design §3.4.6 的"代码现状"列）：
 - 429 + `Retry-After`：按其等待后重试（`_retry_delay` 优先用响应头值）；
-- 5xx / 连接重置：指数退避重试（`DEFAULT_RETRY_BASE_SEC * 2**attempt`）；
+- 5xx / 连接重置：指数退避重试（`RETRY_BASE_SEC * 2**attempt`）；
 - deadline 不足：**不重试**，Run 进失败终态（落库错误码 `COMMON_INTERNAL_ERROR`）；
 - cancel：每轮与退避 sleep 分片都检查取消 ⇒ **立即停止**，provider 调用数不再增长；
 - 审计：`runtime.model_invocation_audit` 逐 attempt 一行（`status`/`retry_reason`/`error_code`/`run_id`），

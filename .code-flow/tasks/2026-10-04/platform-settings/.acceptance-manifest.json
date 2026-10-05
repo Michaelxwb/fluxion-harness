@@ -509,7 +509,7 @@
       "kind": "functional",
       "boundary": "真实 acceptance 栈（真实 Console API + 真实 PostgreSQL + 真实 Worker 进程）",
       "owner": "TASK-014",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -519,7 +519,48 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-21",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "9a20db961ec64ce39510440d4660c121",
+        "executed_at": "2026-10-05T05:46:49.919494+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/dfx"
+        ],
+        "cwd": ".",
+        "timeout": 1200.0,
+        "fingerprint": "0c8829a8c08cc453e39f4ac3d8531980d6843ab36285ae5b9244ae4f79d09dd2"
+      },
+      "runs": [
+        {
+          "id": "E-21",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "9a20db961ec64ce39510440d4660c121",
+          "executed_at": "2026-10-05T05:46:49.919494+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/dfx"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "0c8829a8c08cc453e39f4ac3d8531980d6843ab36285ae5b9244ae4f79d09dd2"
+        }
+      ]
     },
     {
       "id": "B-01",

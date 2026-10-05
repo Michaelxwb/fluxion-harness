@@ -28,11 +28,10 @@ import pytest
 import redis.asyncio
 import sqlalchemy as sa
 from muad_common import SharedSettings
-from muad_contracts.platform_settings import default_platform_settings
 from muad_im_gateway.api.delivery import DELIVERY_DEDUPE_PREFIX, DELIVERY_DEDUPE_TTL_SEC
 
 from .environment import (
-    DELIVERY_BACKOFF_BASE_SEC,
+    PLATFORM_SETTINGS,
     TENANT,
     DfxStack,
     TaskSpec,
@@ -71,8 +70,14 @@ DELIVERY_EVENT_TYPES = ("DELIVERY_SENT", "DELIVERY_RETRY", "DELIVERY_FAILED")
 
 
 def _max_attempts() -> int:
-    # 平台设置接管后，投递尝试上限的唯一来源是 schema 默认（供验收栈计算"下一次尝试"）。
-    return default_platform_settings().task.delivery_max_attempts
+    # 投递尝试上限的唯一来源是验收栈**种下的平台设置**（本栈未覆盖该键 ⇒ schema 默认），
+    # 供用例计算"下一次尝试"。
+    return PLATFORM_SETTINGS.task.delivery_max_attempts
+
+
+def _backoff_base_sec() -> int:
+    # 退避窗口 = base × 2**attempts；base 取验收栈种下的设置（本栈种 2；生产默认 5）。
+    return PLATFORM_SETTINGS.task.delivery_backoff_base_sec
 
 
 def _route(bot_id: str) -> dict[str, Any]:
@@ -448,10 +453,12 @@ def test_e06_backoff_sequence_then_success(live_stack: DfxStack, http: httpx.Cli
             (events[index + 1][1] - events[index][1]).total_seconds()
             for index in range(len(events) - 1)
         ]
-        # 第 k 次失败后，下一次尝试的窗口是 `DELIVERY_BACKOFF_BASE_SEC * 2**k` 秒（attempts 已被自增并提交）。
-        # 该 base **从验收栈注入的同一份常量读取**，故窗口随注入值走，断言规律不变。
+        # 第 k 次失败后，下一次尝试的窗口是 `base * 2**k` 秒（attempts 已被自增并提交）。
+        # 该 base 取自**验收栈种下的平台设置**（`PLATFORM_SETTINGS.task.delivery_backoff_base_sec`），
+        # 故窗口随种下的值走，断言规律不变。
+        base = _backoff_base_sec()
         for index, gap in enumerate(gaps, start=1):
-            window = float(DELIVERY_BACKOFF_BASE_SEC * 2**index)
+            window = float(base * 2**index)
             assert window <= gap <= window + BACKOFF_SLACK_SEC, (
                 f"第 {index} 次失败后的退避间隔 {gap}s 不在 [{window}, {window + BACKOFF_SLACK_SEC}]"
             )
@@ -459,7 +466,7 @@ def test_e06_backoff_sequence_then_success(live_stack: DfxStack, http: httpx.Cli
         records = probe_deliveries(probe_url, bot_id)
         assert len(records) == 1, f"同一 delivery_key 不得重复成功发送：{records}"
         assert count_task_events(task_id, "DELIVERY_SENT") == 1
-        windows = [DELIVERY_BACKOFF_BASE_SEC * 2**index for index in range(1, attempts)]
+        windows = [base * 2**index for index in range(1, attempts)]
         print(f"[E-06] 退避实测间隔={gaps}s 窗口={windows}s attempts={attempts}")
     await_no_extra_services()
 

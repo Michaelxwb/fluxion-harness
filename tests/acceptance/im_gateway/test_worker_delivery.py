@@ -14,7 +14,6 @@ from typing import Any
 
 import httpx
 from muad_common import SharedSettings
-from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -22,6 +21,7 @@ from tests.acceptance.im_gateway.environment import (
     BOT_ID,
     BOUND_EXTERNAL_USER_ID,
     CHAT_ID,
+    PLATFORM_SETTINGS,
     GatewayStack,
     count_tenant_rows,
     purge_tenant,
@@ -175,7 +175,7 @@ async def test_s04_worker_delivers_to_route_with_7d_dedupe(
 async def test_b127_failure_retries_then_exhausts_without_swallowing_fact(
     gateway_stack: GatewayStack,
 ) -> None:
-    max_attempts = default_platform_settings().task.delivery_max_attempts
+    max_attempts = PLATFORM_SETTINGS.task.delivery_max_attempts
     seeded = await _seed(gateway_stack, SEND_FAILURE_INTENT)
     # 直接种到"下一次失败即耗尽"：attempts = max - 1
     await _execute(

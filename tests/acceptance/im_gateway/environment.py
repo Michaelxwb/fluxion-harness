@@ -13,9 +13,12 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from muad_common import SharedSettings
+from muad_contracts.platform_settings import PlatformSettings, parse_platform_settings
 
+from tests.acceptance.datastores import seed_platform_settings
 from tests.acceptance.task_schedule.environment import (  # 复用 09 真实验收栈原语
     CONTROL_CLEANUP,
     READY_TIMEOUT_SEC,
@@ -40,12 +43,29 @@ from tests.e2e.seed_im_gateway import (
 
 INTERNAL_TOKEN = "e2e-im-internal-service-token"
 
+# 本栈按租户种下的平台设置（与生产同构）：原先靠子进程 env 注入的业务默认已迁到
+# `control.platform_setting`（env 注入静默失效），改为 `start_gateway_stack` 启动时按本栈租户写一行
+# revision=1。只列**需要非默认**的键，其余由 schema 默认补全（部分文档语义，见
+# `tests.acceptance.datastores.seed_platform_settings`）。
+PLATFORM_SETTINGS_OVERRIDES: dict[str, Any] = {
+    # 展示节拍：生产默认 5s（客户端每帧整帧重排 + 滚动到底）；验收里压到 1s（schema 下界）——
+    # 一次几秒的运行在 5s 节拍下压根不会产生 tick 帧，那条路径（`iter_with_ticks` + tick 分支 +
+    # 令牌预算）在 E2E 里就没人走。生产默认值由毫秒级单测钉住。
+    "im": {"progress_interval_sec": 1},
+    # 投递退避 base：生产默认 5；压到 1（下界）省真实等待 —— 本栈没有任何用例断言窗口值
+    # （`test_b127` 只断言「耗尽后 FAILED 且任务不被吞掉」），仍在投递轮询粒度（1s）的 16 倍。
+    "task": {"delivery_backoff_base_sec": 1},
+}
+PLATFORM_SETTINGS: PlatformSettings = parse_platform_settings(PLATFORM_SETTINGS_OVERRIDES)
+
 __all__ = [
     "BOT_ID",
     "BOT_SECRET",
     "BOUND_EXTERNAL_USER_ID",
     "CHAT_ID",
     "INTERNAL_TOKEN",
+    "PLATFORM_SETTINGS",
+    "PLATFORM_SETTINGS_OVERRIDES",
     "READY_TIMEOUT_SEC",
     "TENANT",
     "UNBOUND_EXTERNAL_USER_ID",
@@ -136,10 +156,6 @@ def start_gateway_stack(
             "REDIS_URL": redis_url,
             "ARTIFACT_ROOT": str(artifact_root),
             "SKILL_CACHE_ROOT": str(skill_cache_root),
-            # 计时节拍：生产默认 5s（客户端每帧都整帧重排 + 滚动到底），验收里压到 1s ——
-            # 一次几秒的运行在 5s 节拍下压根不会产生 tick 帧，那条路径（`iter_with_ticks` +
-            # tick 分支 + 令牌预算）在 E2E 里就没人走。生产默认值由毫秒级单测钉住。
-            "IM_PROGRESS_INTERVAL_SEC": "1",
         }
     )
 
@@ -198,11 +214,6 @@ def start_gateway_stack(
         AGENT_RUNTIME_URL=runtime_url,
         IM_GATEWAY_URL=gateway_url,
         DELIVERY_POLL_INTERVAL_SEC="1",
-        # 投递退避窗口 = base × 2**attempts（生产默认 5）。本栈**没有任何用例断言窗口值**
-        # （`test_b127` 只断言「耗尽后 FAILED 且任务不被吞掉」），所以可以压到 int 下限：
-        # 原值下 attempt=4 的窗口是 5×16 = 80s，正是那条用例 81s 的全部来源；压到 1 → 16s，
-        # 仍是投递轮询粒度（1s）的 16 倍，退避路径照样被真实走过。
-        DELIVERY_BACKOFF_BASE_SEC="1",
     )
     gateway = spawn(
         "gateway",
@@ -219,6 +230,8 @@ def start_gateway_stack(
     llm_probe.start()
     cleanup(database_url)
     seeded = seed_control(llm_url)
+    # 与生产同构：把原先 env 注入的业务默认按本栈租户种一行平台设置（服务在此之后才起）。
+    seed_platform_settings(database_url, TENANT, PLATFORM_SETTINGS_OVERRIDES)
     console.start()
     runtime.start()
     runtime2.start()

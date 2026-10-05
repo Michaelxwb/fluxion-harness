@@ -35,9 +35,11 @@ from muad_contracts import (
     build_task_snapshot,
     snapshot_hash,
 )
+from muad_contracts.platform_settings import PlatformSettings, parse_platform_settings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from tests.acceptance.datastores import seed_platform_settings
 from tests.acceptance.task_schedule.environment import (
     CONTROL_CLEANUP,
     TASK_CLEANUP,
@@ -68,12 +70,20 @@ TASK_LEASE_SEC = 30
 TASK_HEARTBEAT_SEC = 1
 TASK_CANCEL_CHECK_SEC = 1
 WORKER_POLL_INTERVAL_SEC = 1
-# 投递重试退避窗口 = 本值 × 2**delivery_attempts（生产者侧是设置项 `delivery_backoff_base_sec`）。
-# **生产默认 5**（→ 5/10/20/40，4 次失败共 75s）；这里压到 2（→ 2/4/8/16，共 30s）。
-# 退避的**规律**不变：仍是同一条 SQL 表达式、同一条断言（实测间隔 ∈ [窗口, 窗口+粒度+余量]），
-# 只是把窗口整体缩小以省掉真实等待。窗口 2s 仍是投递轮询粒度（`DELIVERY_POLL_SEC=1`）的 2 倍，
-# 故断言仍能分辨各窗口。生产默认值由单测钉住（`tests/agent_worker/test_delivery_backoff_default.py`）。
-DELIVERY_BACKOFF_BASE_SEC = 2
+
+# 本栈按租户种下的平台设置（与生产同构）：原先靠子进程 env 注入的业务默认已迁到
+# `control.platform_setting`（env 注入静默失效），改为 `start_dfx_stack` 启动时按本栈租户写一行
+# revision=1。只列**需要非默认**的键，其余由 schema 默认补全（部分文档语义，见
+# `tests.acceptance.datastores.seed_platform_settings`）。栈内断言从 `PLATFORM_SETTINGS` 取期望值，
+# 不再镜像 env 常量。
+PLATFORM_SETTINGS_OVERRIDES: dict[str, Any] = {
+    # 任务尝试上限：生产默认 3；压到 1 让"一次失败即终态"成为故障矩阵可稳定观测的真实盘面
+    # （原先靠给单个 Worker 进程注入 `TASK_MAX_ATTEMPTS=1`，现改为租户级设置 —— 同租户所有
+    # Worker 进程读到同一值，与生产同构）。
+    # 投递退避 base：生产默认 5（→5/10/20/40）；压到 2 以省真实等待（几何规律不变）。
+    "task": {"max_attempts": 1, "delivery_backoff_base_sec": 2},
+}
+PLATFORM_SETTINGS: PlatformSettings = parse_platform_settings(PLATFORM_SETTINGS_OVERRIDES)
 # deadline sweep 周期 / scheduler 触发轮询：生产默认 30 / 10，这里压到 2。
 # 语义都是「多久扫一次」，压小只让「到期任务被扫到」「错过窗口被跳过」更快可观测。
 TASK_DEADLINE_SWEEP_INTERVAL_SEC = 2
@@ -582,7 +592,6 @@ def start_dfx_stack(root: Path) -> tuple[DfxStack, list[ServiceProcess]]:
         "TASK_HEARTBEAT_SEC": str(TASK_HEARTBEAT_SEC),
         "TASK_CANCEL_CHECK_SEC": str(TASK_CANCEL_CHECK_SEC),
         "WORKER_POLL_INTERVAL_SEC": str(WORKER_POLL_INTERVAL_SEC),
-        "DELIVERY_BACKOFF_BASE_SEC": str(DELIVERY_BACKOFF_BASE_SEC),
         "TASK_DEADLINE_SWEEP_INTERVAL_SEC": str(TASK_DEADLINE_SWEEP_INTERVAL_SEC),
         "SCHEDULER_POLL_INTERVAL_SEC": str(SCHEDULER_POLL_INTERVAL_SEC),
     }
@@ -611,6 +620,8 @@ def start_dfx_stack(root: Path) -> tuple[DfxStack, list[ServiceProcess]]:
         "worker", "muad_agent_worker.main", worker_port, CONSOLE_PLATFORM_URL=console_url
     )
     ids = seed_control(database_url, artifact_root)
+    # 与生产同构：把原先 env 注入的业务默认按本栈租户种一行平台设置（服务在此之后才起）。
+    seed_platform_settings(database_url, TENANT, PLATFORM_SETTINGS_OVERRIDES)
     start_service(console)
     start_service(worker)
     # 依赖就绪再把盘面交回用例：控制台（PG）与 Worker（PG + Artifact 根）都过 `/readyz` 才继续，
@@ -867,6 +878,8 @@ def probe_deliveries(probe_url: str, bot_id: str) -> list[dict[str, Any]]:
 __all__ = [
     "CROSS_TENANT",
     "DfxStack",
+    "PLATFORM_SETTINGS",
+    "PLATFORM_SETTINGS_OVERRIDES",
     "PROCESS_WAIT_SEC",
     "TENANT",
     "TENANT_PREFIX",

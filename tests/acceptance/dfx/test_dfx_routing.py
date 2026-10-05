@@ -58,6 +58,7 @@ from sqlalchemy import text
 
 from tests.acceptance.task_schedule.environment import (
     INTERNAL_TOKEN,
+    PLATFORM_SETTINGS,
     SCHEDULER_POLL_INTERVAL_SEC,
     LiveStack,
     cleanup,
@@ -93,9 +94,11 @@ SIDE_EFFECT_SCRIPT = (
     "print(json.dumps({'checked': payload}, ensure_ascii=False))\n"
 )
 
-# 慢速批量脚本：同一份真实批量协议（items/max_concurrency/aggregate_mode），
-# 但每个 item 携带 sleep_sec（Child 的输入就是 item 本身），使「停放中的 Child」成为
-# 可稳定观测的真实列状态。
+# 慢速批量脚本：同一份真实批量协议（items/aggregate_mode），每个 item 携带 sleep_sec
+# （Child 的输入就是 item 本身），使「停放中的 Child」成为可稳定观测的真实列状态。
+# **不再在计划里请求 `max_concurrency`**：并发上限改由验收栈按租户种下的平台设置
+# （`task.batch_max_concurrency = 2`）驱动 —— 这样「恰好 max_concurrency 个可行」这条断言
+# 观测到的正是**种下的设置**，而不是计划里的请求值（后者会把平台上限这条缝盖住）。
 BATCH_SKILL_SCRIPT = (
     "import json, sys, time\n"
     "payload = json.loads(sys.stdin.read() or '{}')\n"
@@ -103,13 +106,14 @@ BATCH_SKILL_SCRIPT = (
     "    items = [{'customer': c, 'sleep_sec': payload.get('sleep_sec', 0)}"
     " for c in payload['customers']]\n"
     "    print(json.dumps({'batch': {'items': items,"
-    " 'max_concurrency': 2, 'aggregate_mode': 'ALL'}}))\n"
+    " 'aggregate_mode': 'ALL'}}))\n"
     "else:\n"
     "    time.sleep(float(payload.get('sleep_sec', 0)))\n"
     "    print(json.dumps({'checked': payload.get('customer')}))\n"
 )
 BATCH_ITEMS = ("A", "B", "C", "D")
-BATCH_MAX_CONCURRENCY = 2
+# 并发上限从**种下的平台设置**推导（期望值唯一来源），不再镜像写死常量。
+BATCH_MAX_CONCURRENCY = PLATFORM_SETTINGS.task.batch_max_concurrency
 BATCH_ITEM_SLEEP_SEC = 6.0
 
 

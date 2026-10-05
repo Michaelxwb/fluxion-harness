@@ -22,8 +22,11 @@ from typing import Any, cast
 
 import httpx
 import pytest
+from muad_contracts.platform_settings import PlatformSettings, parse_platform_settings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+from tests.acceptance.datastores import seed_platform_settings
 
 TENANT = "e2e-task-schedule"
 INTERNAL_TOKEN = "e2e-internal-service-token"
@@ -43,7 +46,18 @@ WORKER_POLL_INTERVAL_SEC = 1
 SCHEDULER_POLL_INTERVAL_SEC = 2
 TASK_DEADLINE_SWEEP_INTERVAL_SEC = 2
 DELIVERY_POLL_INTERVAL_SEC = 1
-DELIVERY_BACKOFF_BASE_SEC = 2
+
+# 本栈按租户种下的平台设置（与生产同构）：原先靠子进程 env 注入的业务默认已迁到
+# `control.platform_setting`（env 注入静默失效），改为 `start_live_stack` 启动时按本栈租户写一行
+# revision=1。只列**需要非默认**的键，其余由 schema 默认补全（部分文档语义，见
+# `tests.acceptance.datastores.seed_platform_settings`）。栈内断言从 `PLATFORM_SETTINGS` 取期望值，
+# 不再镜像 env 常量（避免「默认一变、测试静默漂移」）。
+PLATFORM_SETTINGS_OVERRIDES: dict[str, Any] = {
+    # 投递退避 base：生产默认 5（→5/10/20/40）；压到 2 以省真实等待（几何规律不变）。
+    # 批次并发上限：生产默认 8；压到 2 让「恰好 max_concurrency 个可行」成为可稳定观测的真实列状态。
+    "task": {"delivery_backoff_base_sec": 2, "batch_max_concurrency": 2},
+}
+PLATFORM_SETTINGS: PlatformSettings = parse_platform_settings(PLATFORM_SETTINGS_OVERRIDES)
 
 BATCH_SKILL_SCRIPT = (
     "import json, sys\n"
@@ -87,6 +101,8 @@ RUNTIME_CLEANUP = (
 )
 
 CONTROL_CLEANUP = (
+    # 平台设置（本栈按租户种下的那行，见 PLATFORM_SETTINGS_OVERRIDES）：收尾清零，不污染后续运行。
+    "DELETE FROM control.platform_setting WHERE tenant_id = :t",
     "DELETE FROM control.agent_skill_binding WHERE agent_id IN "
     "(SELECT id FROM control.agent_definition WHERE tenant_id = :t)",
     "DELETE FROM control.agent_mcp_binding WHERE agent_id IN "
@@ -420,7 +436,6 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
         "SCHEDULER_POLL_INTERVAL_SEC": str(SCHEDULER_POLL_INTERVAL_SEC),
         "TASK_DEADLINE_SWEEP_INTERVAL_SEC": str(TASK_DEADLINE_SWEEP_INTERVAL_SEC),
         "DELIVERY_POLL_INTERVAL_SEC": str(DELIVERY_POLL_INTERVAL_SEC),
-        "DELIVERY_BACKOFF_BASE_SEC": str(DELIVERY_BACKOFF_BASE_SEC),
     }
 
     console_port = free_port()
@@ -494,6 +509,8 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
     channel_probe.start()
     cleanup(database_url, artifact_root)
     ids = seed_control(database_url, llm_url, artifact_root)
+    # 与生产同构：把原先 env 注入的业务默认按本栈租户种一行平台设置（服务在此之后才起）。
+    seed_platform_settings(database_url, TENANT, PLATFORM_SETTINGS_OVERRIDES)
     console.start()
     runtime.start()
     worker.start()
@@ -546,6 +563,8 @@ __all__ = [
     "BOT_ID",
     "INTERNAL_TOKEN",
     "LiveStack",
+    "PLATFORM_SETTINGS",
+    "PLATFORM_SETTINGS_OVERRIDES",
     "SKILL_KEY",
     "TENANT",
     "cleanup",

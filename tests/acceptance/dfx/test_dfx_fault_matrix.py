@@ -54,6 +54,7 @@ from sqlalchemy.engine import make_url
 from tests.acceptance.task_schedule.environment import ServiceProcess
 
 from .environment import (
+    PLATFORM_SETTINGS,
     DfxStack,
     TaskSpec,
     count_rows,
@@ -710,6 +711,10 @@ def _arm_cache_miss_fails_explicitly(
 
     启动校验要求 Artifact 根已挂载，故先复位存储让它起得来，再在提交前断掉存储，
     使故障窗口覆盖 cache miss 的整个发生过程。
+
+    `max_attempts=1`（"一次失败即终态"）**不再靠单进程 env 覆盖**：它由验收栈按租户种下的平台
+    设置 `task.max_attempts = 1` 表达（同租户所有 Worker 进程读到同一值，与生产同构），故本臂
+    换入的 Worker 只用基座环境即可。
     """
     _reattach_store(outage.store_root, outage.detached)
     with _degraded_worker(
@@ -718,7 +723,6 @@ def _arm_cache_miss_fails_explicitly(
         name="worker-nfs-cold",
         ARTIFACT_ROOT=str(outage.store_root),
         SKILL_CACHE_ROOT=str(outage.cold_cache),
-        TASK_MAX_ATTEMPTS="1",
     ) as cold:
         assert _await_readiness(cold.url, ready=True)["status"] == "ready"
         _detach_store(outage.store_root, outage.detached)
@@ -728,7 +732,7 @@ def _arm_cache_miss_fails_explicitly(
         assert row["error_code"] == "SKILL_ARTIFACT_UNAVAILABLE", row
         assert row["result_json"] is None, "失败路径不得返回假成功的结果"
         assert row["finished_at"] is not None
-        assert row["max_attempts"] == 1, row
+        assert row["max_attempts"] == PLATFORM_SETTINGS.task.max_attempts, row
         assert count_task_events(task_id, "FAILED") == 1
         assert list(outage.cold_cache.iterdir()) == [], "cache miss 不得留下半成品或假 READY"
         return task_id

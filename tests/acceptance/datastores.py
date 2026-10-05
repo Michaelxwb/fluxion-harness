@@ -28,7 +28,7 @@ import sys
 import tempfile
 import threading
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -306,6 +306,33 @@ def seed_console_admin(
             "预置 Console 管理员失败：\n"
             f"{completed.stdout[-2000:]}\n{completed.stderr[-2000:]}"
         )
+
+
+def seed_platform_settings(
+    database_url: str, tenant_id: str, settings: Mapping[str, Any], *, revision: int = 1
+) -> None:
+    """按租户种一行平台设置（design §3.3），与生产同构。
+
+    acceptance 栈原先靠子进程 env 注入的业务默认（`delivery_backoff_base_sec` 等）已迁到
+    `control.platform_setting`，env 注入静默失效 —— 栈启动时改为按**本栈租户**写入一行
+    revision=1 的设置。`settings` 可以是**部分文档**：读取侧 `parse_platform_settings` 会把
+    未给的键补成 schema 默认，故只需给出需要非默认的键（与生产保存路径同一份 schema）。
+    """
+
+    async def seed() -> None:
+        connection = await asyncpg.connect(_asyncpg_dsn(database_url), timeout=10)
+        try:
+            await connection.execute(
+                "INSERT INTO control.platform_setting (tenant_id, revision, settings_json)"
+                " VALUES ($1, $2, $3::jsonb)",
+                tenant_id,
+                revision,
+                json.dumps(settings),
+            )
+        finally:
+            await connection.close()
+
+    _run_in_thread(seed)
 
 
 def _cmd_start(args: argparse.Namespace) -> int:
