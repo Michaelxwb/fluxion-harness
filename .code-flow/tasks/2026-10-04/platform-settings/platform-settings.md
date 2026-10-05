@@ -466,7 +466,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: platform-settings.backend.design.md#3.1 方案选型
-- **Spec-Refs**: N/A
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-02
 
 ### Description
@@ -605,7 +605,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - **Priority**: P1
 - **Depends**: TASK-005, TASK-006, TASK-007, TASK-008, TASK-009
 - **Source**: platform-settings.backend.design.md#3.1 方案选型, platform-settings.backend.design.md#4.4 数据迁移
-- **Spec-Refs**: N/A
+- **Spec-Refs**:
 - **Acceptance-Refs**: E-09, E-16
 
 ### Description
@@ -688,7 +688,7 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 - **Priority**: P0
 - **Depends**: TASK-005
 - **Source**: platform-settings.backend.design.md#2.3 功能方案, platform-settings.backend.design.md#3.2 架构设计
-- **Spec-Refs**: N/A
+- **Spec-Refs**:
 - **Acceptance-Refs**: E-20
 
 ### Description
