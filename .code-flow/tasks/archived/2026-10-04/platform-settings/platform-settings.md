@@ -589,7 +589,7 @@ Worker 在**任务开始执行**与**投递记录开始尝试**两个边界各�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | E2E | 真实 Console API → 真实 PostgreSQL → 真实 Worker 进程（真实 lease/claim） | 新 Task 使用新默认；既有 Task 行字段不变 | planned | - | verified |
+| S-02 | E2E | 真实 Console API → 真实 PostgreSQL → 真实 Worker 进程（真实 lease/claim） | 新 Task 使用新默认；既有 Task 行字段不变 | `tests/acceptance/task_schedule/test_platform_settings_defaults.py -k s02` | ["uv", "run", "pytest", "-q", "tests/acceptance/task_schedule/test_platform_settings_defaults.py", "-k", "s02"] | verified |
 | E-19 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | 新 Task 用新默认；存量行不改写；设置源不可读 ⇒ 创建明确失败 | `tests/agent_worker/test_task_defaults_from_settings.py -k new_task_defaults` | ["uv","run","pytest","-q","tests/agent_worker/test_task_defaults_from_settings.py","-k","new_task_defaults"] | verified |
 
 ### Acceptance Evidence
@@ -1028,13 +1028,13 @@ $ uv run pytest -q tests/console_internal tests/architecture tests/test_contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | 真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针 | 保存后新 Run 用新值（`policy_json` 与探针请求体）；保存前已开始的 Run 不变 | planned | - | verified |
-| S-03 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | ADMIN 菜单有入口且在运行审计之后；BUILDER 无入口且直接访问被拒；跨租户不可见 | planned | - | verified |
-| E-11 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | 破坏联动组合 ⇒ 字段级错误定位；当前值不被覆盖；输入保留 | planned | - | verified |
-| E-12 | E2E | 真实浏览器 + 真实 Console API（真实 409） | 冲突提示 + 重新加载；不自动重试 | planned | - | verified |
-| E-13 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许） | 错误态文案 + 重试；**不渲染任何值** | planned | - | verified |
-| E-14 | E2E | 真实浏览器 + 真实登录会话（真实 403） | 被守卫拦截，不发设置请求 | planned | - | verified |
-| B-05 | E2E | 真实浏览器 + 真实路由 | 无改动时保存禁用；显示当前版本号 | planned | - | verified |
+| S-01 | E2E | 真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针 | 保存后新 Run 用新值（`policy_json` 与探针请求体）；保存前已开始的 Run 不变 | `e2e/tests/settings/settings.spec.ts` 的 `S-01 保存后版本号更新并提示新操作立即生效` | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | verified |
+| S-03 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | ADMIN 菜单有入口且在运行审计之后；BUILDER 无入口且直接访问被拒；跨租户不可见 | `e2e/tests/settings/settings.spec.ts` 的 `S-03 ADMIN 菜单有入口且排在运行审计之后；BUILDER 无入口且直接访问被拒；跨租户不可见` | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | verified |
+| E-11 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | 破坏联动组合 ⇒ 字段级错误定位；当前值不被覆盖；输入保留 | `e2e/tests/settings/settings.spec.ts` 的 `E-11 破坏联动组合 ⇒ 字段级错误定位且输入保留` | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | verified |
+| E-12 | E2E | 真实浏览器 + 真实 Console API（真实 409） | 冲突提示 + 重新加载；不自动重试 | `e2e/tests/settings/settings.spec.ts` 的 `E-12 版本冲突 ⇒ 明确提示 + 重新加载，不静默重试` | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | verified |
+| E-13 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许） | 错误态文案 + 重试；**不渲染任何值** | `e2e/tests/settings/settings.spec.ts` 的 `E-13 读取失败 ⇒ 错误态且不渲染任何值` | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | verified |
+| E-14 | E2E | 真实浏览器 + 真实登录会话（真实 403） | 被守卫拦截，不发设置请求 | `e2e/tests/settings/settings.spec.ts` 的 `E-14 BUILDER 直接访问 /settings 被守卫拦截且不发设置请求` | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | verified |
+| B-05 | E2E | 真实浏览器 + 真实路由 | 无改动时保存禁用；显示当前版本号 | `e2e/tests/settings/settings.spec.ts` 的 `B-05 无改动时保存按钮禁用且显示当前版本号` | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | verified |
 | B-06 | unit | 真实源码树 + 真实词条文件（无服务） | 五个 `applies_to` 标签齐全且 zh/en 都有词条 | `tests/frontend/test_platform_settings_contract.py -k applies_to_labels` | ["uv","run","pytest","-q","tests/frontend/test_platform_settings_contract.py","-k","applies_to_labels"]| verified |
 | B-08 | unit | 真实源码树（无服务） | 菜单十一项固定顺序；系统设置入口存在且 adminOnly；路由受 `RequireRole` 守卫；设置页无裸 axios/fetch | `tests/frontend/test_console_shell_contract.py` + `tests/frontend/test_platform_settings_contract.py` | ["uv","run","pytest","-q","tests/frontend/test_console_shell_contract.py","tests/frontend/test_platform_settings_contract.py"]| verified |
 

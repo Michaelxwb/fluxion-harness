@@ -167,6 +167,24 @@ api-kit 原语清单（上表之外的其余共享原语，同样禁止业务代
 
 ✅ 调用方显式传 `tenant_id=`（用户态路由请传**账号租户**）；❌ 省略 `tenant_id` 并依赖 `current_tenant_id()` 兜底。
 
+密码策略违规的错误码**统一为 `COMMON_VALIDATION_ERROR`（422）**，不因"被哪一层拦住"而分叉（2026-10-05 收口，实例：platform-settings 的收口期修正）。密码长度其实有**两个下界**：DTO 的绝对下界（`MIN_PASSWORD_LENGTH_FLOOR=8`，低于它 pydantic 直接 422）与平台策略下界（`auth.min_password_length`，`[8, 策略)` 由服务层判定）。两者必须返回**同一个码**，且 `create_account` 与 `change_password` 一致。
+
+✅ 服务层策略校验抛校验错，与 DTO 的 422 同码：
+
+```python
+if len(password) < policy.min_password_length:
+    raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)   # 与 DTO 下界同码
+```
+
+❌ 服务层抛 `COMMON_BAD_REQUEST`（400）：
+
+```python
+if len(password) < policy.min_password_length:
+    raise AppError(ErrorCode.COMMON_BAD_REQUEST)        # 同一违规两个码
+```
+
+**为什么这条值得写下来**：平台策略可配之后，下界可以下调（12 → 8），**拦截点会从 DTO 悄悄挪到服务层**——同一个输入从 422 变成 400，而没有任何人决策过这件事；下游只会看到"某条归档验收红了"，最省事的处置恰好是**改那条验收去迁就实现**，于是一次无人决策的行为变更被洗成事实。两个桶同码可以让这种漂移根本发生不了。
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
