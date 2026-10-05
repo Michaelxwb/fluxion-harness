@@ -950,6 +950,7 @@ $ uv run pytest -q tests/console_internal tests/architecture tests/test_contract
 - [ ] 历史预算收敛：`compaction.history_budget_messages` 与 `BudgetPolicy.max_messages` 用同一冻结值
 - [ ] 产物路径收敛：删除裸 `getenv` 的第二套默认（`/mnt/muad-artifacts`、`/var/cache/muad/skills`），统一经启动 settings
 - [ ] 默认租户收敛：CLI 的 `DEFAULT_TENANT` 改读 `SharedSettings.default_tenant_id`
+- [ ] **密码策略的两套来源（TASK-009 报备的真实冲突）**：`PasswordChangeRequest.new_password` 硬编码 `min_length=12`（`application/dto.py:20`），而 `auth.min_password_length` 的 schema 下界是 **8** ⇒ 把设置调到 8–11 时，页面上写 min=8、API 仍按 12 拦；这正是本需求要消灭的重复源。**建议解法**：DTO 的 `min_length` 退到 schema 绝对下界（8），策略下界改由服务层按平台设置校验、并**保持 422 `COMMON_VALIDATION_ERROR` 语义**——这样已归档需求 console-auth 的验收场景 S-04（9 位密码期望 422）仍然绿，同时设置真正生效。落地前先跑 `tests/acceptance/console_auth_flow/test_auth_acceptance.py` 确认 S-04 未被打穿
 - [ ] 环境项收口**复核**：改由业务设置接管的 12 个键按「谁切换谁摘除」已由前序任务一次性删除（`context_settings_cache_ttl_sec`→TASK-005、task 六项→TASK-006、`im_progress_interval_sec`→TASK-007、`artifact_retention_days`/`mcp_max_tools_per_server`/`default_locale`/`default_timezone`→TASK-013）——本任务逐条复核它们**确实不在启动 settings 与 `.env.example`**，且 `batch_platform_limit` 与 `im_progress_updates_per_second` 仍在环境
 - [ ] `.env.example` 补全为完整运维契约（覆盖余下全部环境类字段键名）
 - [ ] [E-09][integration] 机检：`.env.example` 键集与 `SharedSettings` 环境类字段一致；重复默认源已消除
@@ -995,7 +996,7 @@ $ uv run pytest -q tests/console_internal tests/architecture tests/test_contract
 - [ ] 需求级 `verify-e2e`：`cf_acceptance_runner.py --manifest … --include-e2e --write-evidence`，28/28 场景全过
 - [ ] 先写清单并记录 RED（清单缺失时登记的 argv 必须失败），再补齐
 - [ ] verifier `harness-test#RULE-test-001`：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（真实边界：真实 PG/Redis + 真实构建产物 + 真实浏览器；acceptance 单跑约 1064s，跑前须停 dev 服务并查残留进程）
-- [ ] **规范沉淀**：把本次引入的事实性约束写进对应 live spec 的 `## Conventions`（已知至少三条：① `actor_user_id` 一类**操作者引用即使同 Owner Schema 也用逻辑引用**、不建物理 FK（先例 `ConfigAuditLog.actor_user_id`，与 `RULE-data-001` 字面口径的张力在此写明）；② 平台设置版本行的 append-only 口径（`is_deleted` 恒 `false`、当前版本 = 该租户 `max(revision)`、乐观并发由 partial unique 兜底、回滚产生新版本）；③ 平台业务默认只在**业务操作边界**取一次快照，执行中的 Run/Task 用冻结快照）；④ 两份 live spec 的旧口径必须改写：`im/harness-im.md:83,89`（节拍来源写成 `IM_PROGRESS_INTERVAL_SEC` 环境变量，且把「验收栈注入 1s」当成 ✅ 示例）与 `mcp/harness-mcp.md:66`（单 server 工具上限来源写成 `settings.py:23`）；⑤ `model/harness-model.md` 的重试/退避 Conventions（`model_gateway.py:105-125` 的行号与「超过 `max_retries`」的表述）在 ADR-07 之后要复核——**语义变了就改语义，只是行号漂移就只修引用**，别把仍然正确的口径改坏
+- [ ] **规范沉淀**：把本次引入的事实性约束写进对应 live spec 的 `## Conventions`（已知至少三条：① `actor_user_id` 一类**操作者引用即使同 Owner Schema 也用逻辑引用**、不建物理 FK（先例 `ConfigAuditLog.actor_user_id`，与 `RULE-data-001` 字面口径的张力在此写明）；② 平台设置版本行的 append-only 口径（`is_deleted` 恒 `false`、当前版本 = 该租户 `max(revision)`、乐观并发由 partial unique 兜底、回滚产生新版本）；③ 平台业务默认只在**业务操作边界**取一次快照，执行中的 Run/Task 用冻结快照）；④ live spec 的旧口径必须改写：`im/harness-im.md:83,89`（节拍来源写成 `IM_PROGRESS_INTERVAL_SEC` 环境变量，且把「验收栈注入 1s」当成 ✅ 示例）——**`mcp/harness-mcp.md:66` 已由 TASK-009 顺手改掉，不必重复**；⑤ `model/harness-model.md` 的重试/退避 Conventions（`model_gateway.py:105-125` 的行号与「超过 `max_retries`」的表述）在 ADR-07 之后要复核——**语义变了就改语义，只是行号漂移就只修引用**，别把仍然正确的口径改坏
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract

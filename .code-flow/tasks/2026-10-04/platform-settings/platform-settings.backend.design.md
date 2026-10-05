@@ -43,7 +43,8 @@
 | v0.2 | 2026-10-05 | fluxion-harness | 依 §3.1 ADR-10：设置文档 schema 落到 `muad_contracts`（Console 不依赖 `muad-agent-core`，v0.1 的「复用 `muad_agent_core.context.settings._validate`」不可达），`muad_agent_core.context.settings` 整体迁移；场景编号去重（幂等场景改 `E-17`，新增边界场景 `B-07`） |
 | v0.3 | 2026-10-05 | fluxion-harness | 拆解阶段发现 `agent`(4 中余 2) / `memory`(5) / `artifact`(3) 共 9 个叶子没有承接任务，补验收场景 `E-20`（执行默认接入），由 TASK-013 负责 |
 | v0.6 | 2026-10-05 | fluxion-harness || v0.7 | 2026-10-05 | fluxion-harness |
-| v0.8 | 2026-10-05 | fluxion-harness | 记录 TASK-013 报备的两处取舍：① `packages/api-kit` 的 locale 兜底从 `SharedSettings.default_locale` 改为框架常量 `zh-CN`（它是「调用方没传」的兜底，不是业务平台默认）；② 清理入口省略 `--tenant` 时按 `default_tenant_id` 解析（单租户部署口径）。二者写进 §2.4 技术债 | TASK-006 落地后补两条：① 新增 **ADR-11** 记录「投递队列跨租户 × 设置按租户」的取舍（设计原本没规定）；② 新增验收场景 **E-21**——各 acceptance 栈原先靠 env 注入 `DELIVERY_BACKOFF_BASE_SEC`/`TASK_MAX_ATTEMPTS`/`BATCH_MAX_CONCURRENCY` 等键，这些键删掉后注入静默失效（`dfx` 的并发上限断言会直接挂），改由「栈启动时按租户种一行 `control.platform_setting`」承接 | 补齐 `locale` 分组的落点：消费方是 Worker 投递文案 / Gateway 回复渲染 / Runtime `TimeToolSet` 时区，此前无任务承接；并入 E-19 / B-03 / E-20 三条既有场景的断言，环境键由最后一个切换的任务一次性摘除 |
+| v0.8 | 2026-10-05 | fluxion-harness |
+| v0.9 | 2026-10-05 | fluxion-harness | 补 **ADR-12**：设置源不可读时「明确失败」的边界——**已认证会话的解析不得依赖设置可读**（TASK-009 实测：一条 schema 坏行会让 `resolve_session` 失败并掐断该租户**全部**已认证请求）。设置读取只发生在登录/续期这两个策略生效点 | 记录 TASK-013 报备的两处取舍：① `packages/api-kit` 的 locale 兜底从 `SharedSettings.default_locale` 改为框架常量 `zh-CN`（它是「调用方没传」的兜底，不是业务平台默认）；② 清理入口省略 `--tenant` 时按 `default_tenant_id` 解析（单租户部署口径）。二者写进 §2.4 技术债 | TASK-006 落地后补两条：① 新增 **ADR-11** 记录「投递队列跨租户 × 设置按租户」的取舍（设计原本没规定）；② 新增验收场景 **E-21**——各 acceptance 栈原先靠 env 注入 `DELIVERY_BACKOFF_BASE_SEC`/`TASK_MAX_ATTEMPTS`/`BATCH_MAX_CONCURRENCY` 等键，这些键删掉后注入静默失效（`dfx` 的并发上限断言会直接挂），改由「栈启动时按租户种一行 `control.platform_setting`」承接 | 补齐 `locale` 分组的落点：消费方是 Worker 投递文案 / Gateway 回复渲染 / Runtime `TimeToolSet` 时区，此前无任务承接；并入 E-19 / B-03 / E-20 三条既有场景的断言，环境键由最后一个切换的任务一次性摘除 |
 | v0.5 | 2026-10-05 | fluxion-harness | TASK-004 落地后更正取快照指标的归属：`failed` 分支只能由**调用方**（Runtime/Worker/Gateway 的 client）记录（端点被切断时 Console 收不到请求）；Console 侧只记 `ok`/`error` 服务分支并接受可选头 `X-Caller-Service` 供 `caller` 标签 |
 | v0.4 | 2026-10-05 | fluxion-harness | 更正审计登记口径：`AUDIT_TYPES` 是**审计来源枚举**不是 `resource_type` 注册表（v0.1 的「登记进两处」是错的）；`resource_type="PLATFORM_SETTING"` 真正要同步的是**前端登记域**（`RESOURCE_TYPES` + `audit.resourceType.*` 词条），由 `tests/frontend/test_audit_gap_contract.py` 机检 |
 
@@ -354,6 +355,10 @@ v0.1 写的「复用 `muad_agent_core.context.settings._validate`，不复制」
 `muad_contracts` 是 Console 与三个执行服务共同依赖的包（agent-core 也依赖它），把「平台设置文档」定义在这里，等于把它确立为**跨服务契约**——它本来就是。被否方案：① Console 依赖 `muad-agent-core`（把 langgraph 等重依赖拖进控制面镜像）；② 在 contracts 里复制一份压缩校验（两套默认源漂移，正是本需求要消灭的问题）；③ 保留 `muad_agent_core.context.settings` 作为转发薄壳（过渡适配层）。
 
 #### 技术栈
+
+**ADR-12 · 「设置不可读即明确失败」的边界（TASK-009 落地后补记）**
+RULE-06 要求设置源不可读时业务操作明确失败、不静默用旧值。但这条**不能推广到已认证会话的解析**：会话解析发生在每个请求上，若它也读设置，一条 schema 不认识的 `platform_setting` 行会让该租户的**全部**已认证请求失败——把「一次保存写坏」放大成「整个租户锁死」。
+因此边界是：**设置读取只发生在「策略生效点」**——登录（按当前值签发）与续期（按当前值续到 `now + ttl`）；**会话解析用本会话签发时冻结的 TTL**（`expires_at - issued_at`）判滑动阈值，不读设置。这样既满足「之后签发/续期的会话按新值」，又不动已签发会话，还让普通请求零额外设置读取（同时守 NFR-PERF-01）。E-06 的「回滚/保存被拒时不得污染既有能力」由此得到保证。
 
 **ADR-11 · 投递队列的跨租户取件（TASK-006 落地后补记）**
 投递队列的取件谓词原本不带租户，而平台设置**按租户**——若逐个租户取快照再判到期，某个租户停在退避窗口就会阻塞整条队列。取舍：取件时用**设置无关**的谓词取「有界租户前缀」（`MAX_TENANTS_PER_TICK=8`），再逐个租户取快照判到期。代价是这些租户在退避等待期内每拍仍各取一次快照（有界，空闲时零调用）。`MAX_TENANTS_PER_TICK` 是**有界并发参数**，属 `environment`/`code` 类，不进平台设置。
