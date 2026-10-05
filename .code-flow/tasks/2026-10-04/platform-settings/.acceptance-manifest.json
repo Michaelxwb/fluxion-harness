@@ -10,11 +10,36 @@
       "kind": "e2e",
       "boundary": "真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": null,
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "7f7930852d624ced9a9e97283ef6d730",
+        "executed_at": "2026-10-05T08:45:53.949421+00:00",
+        "command": null,
+        "cwd": ".",
+        "timeout": 600.0
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7f7930852d624ced9a9e97283ef6d730",
+          "executed_at": "2026-10-05T08:45:53.949421+00:00",
+          "command": null,
+          "cwd": ".",
+          "timeout": 600.0
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -36,11 +61,36 @@
       "kind": "e2e",
       "boundary": "真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": null,
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "7f7930852d624ced9a9e97283ef6d730",
+        "executed_at": "2026-10-05T08:45:53.949421+00:00",
+        "command": null,
+        "cwd": ".",
+        "timeout": 600.0
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7f7930852d624ced9a9e97283ef6d730",
+          "executed_at": "2026-10-05T08:45:53.949421+00:00",
+          "command": null,
+          "cwd": ".",
+          "timeout": 600.0
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -257,11 +307,36 @@
       "kind": "e2e",
       "boundary": "真实浏览器 + 真实 Console API（后端校验真实生效）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": null,
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-11",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "7f7930852d624ced9a9e97283ef6d730",
+        "executed_at": "2026-10-05T08:45:53.949421+00:00",
+        "command": null,
+        "cwd": ".",
+        "timeout": 600.0
+      },
+      "runs": [
+        {
+          "id": "E-11",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7f7930852d624ced9a9e97283ef6d730",
+          "executed_at": "2026-10-05T08:45:53.949421+00:00",
+          "command": null,
+          "cwd": ".",
+          "timeout": 600.0
+        }
+      ]
     },
     {
       "id": "E-12",
@@ -270,11 +345,36 @@
       "kind": "e2e",
       "boundary": "真实浏览器 + 真实 Console API（真实 409）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": null,
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-12",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "7f7930852d624ced9a9e97283ef6d730",
+        "executed_at": "2026-10-05T08:45:53.949421+00:00",
+        "command": null,
+        "cwd": ".",
+        "timeout": 600.0
+      },
+      "runs": [
+        {
+          "id": "E-12",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7f7930852d624ced9a9e97283ef6d730",
+          "executed_at": "2026-10-05T08:45:53.949421+00:00",
+          "command": null,
+          "cwd": ".",
+          "timeout": 600.0
+        }
+      ]
     },
     {
       "id": "E-13",
@@ -283,11 +383,36 @@
       "kind": "e2e",
       "boundary": "真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许，成功路径禁止拦截）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": null,
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-13",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "7f7930852d624ced9a9e97283ef6d730",
+        "executed_at": "2026-10-05T08:45:53.949421+00:00",
+        "command": null,
+        "cwd": ".",
+        "timeout": 600.0
+      },
+      "runs": [
+        {
+          "id": "E-13",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7f7930852d624ced9a9e97283ef6d730",
+          "executed_at": "2026-10-05T08:45:53.949421+00:00",
+          "command": null,
+          "cwd": ".",
+          "timeout": 600.0
+        }
+      ]
     },
     {
       "id": "E-14",
@@ -296,11 +421,36 @@
       "kind": "e2e",
       "boundary": "真实浏览器 + 真实登录会话（真实 403，无路由拦截）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": null,
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-14",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "7f7930852d624ced9a9e97283ef6d730",
+        "executed_at": "2026-10-05T08:45:53.949421+00:00",
+        "command": null,
+        "cwd": ".",
+        "timeout": 600.0
+      },
+      "runs": [
+        {
+          "id": "E-14",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7f7930852d624ced9a9e97283ef6d730",
+          "executed_at": "2026-10-05T08:45:53.949421+00:00",
+          "command": null,
+          "cwd": ".",
+          "timeout": 600.0
+        }
+      ]
     },
     {
       "id": "E-15",
@@ -729,11 +879,36 @@
       "kind": "e2e",
       "boundary": "真实浏览器 + 真实路由",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": null,
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-05",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "7f7930852d624ced9a9e97283ef6d730",
+        "executed_at": "2026-10-05T08:45:53.949421+00:00",
+        "command": null,
+        "cwd": ".",
+        "timeout": 600.0
+      },
+      "runs": [
+        {
+          "id": "B-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7f7930852d624ced9a9e97283ef6d730",
+          "executed_at": "2026-10-05T08:45:53.949421+00:00",
+          "command": null,
+          "cwd": ".",
+          "timeout": 600.0
+        }
+      ]
     },
     {
       "id": "B-06",
@@ -742,7 +917,7 @@
       "kind": "functional",
       "boundary": "真实源码树 + 真实词条文件（无服务）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -754,7 +929,50 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7f7930852d624ced9a9e97283ef6d730",
+        "executed_at": "2026-10-05T08:45:53.949421+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_platform_settings_contract.py",
+          "-k",
+          "applies_to_labels"
+        ],
+        "cwd": ".",
+        "timeout": 300.0
+      },
+      "runs": [
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7f7930852d624ced9a9e97283ef6d730",
+          "executed_at": "2026-10-05T08:45:53.949421+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_platform_settings_contract.py",
+            "-k",
+            "applies_to_labels"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        }
+      ]
     },
     {
       "id": "B-07",
@@ -782,7 +1000,7 @@
       "kind": "functional",
       "boundary": "真实源码树（无服务）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -793,7 +1011,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7f7930852d624ced9a9e97283ef6d730",
+        "executed_at": "2026-10-05T08:45:53.949421+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_console_shell_contract.py",
+          "tests/frontend/test_platform_settings_contract.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0
+      },
+      "runs": [
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7f7930852d624ced9a9e97283ef6d730",
+          "executed_at": "2026-10-05T08:45:53.949421+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_console_shell_contract.py",
+            "tests/frontend/test_platform_settings_contract.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        }
+      ]
     }
   ]
 }

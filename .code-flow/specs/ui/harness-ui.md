@@ -24,7 +24,7 @@ verifiers:
 
 ## Rules
 
-- [RULE-ui-001] Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表 + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计。
+- [RULE-ui-001] Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表 + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十一项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/系统设置。
 
 ## Conventions
 
@@ -63,18 +63,19 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
 ```
 
 - **`RemoteTable` 只约束「列表页」**：以「左上操作 + 右上搜索筛选 + 列表 + 右下分页」为形态的模块列表页必须用它；**仪表盘/概览类页面**（如 `overview-dashboard` 首页：KPI 卡片 + 若干 ≤5 行预览块，无工具栏/筛选/分页）不受该约束，其区块可用 Semi `Table` 并 `pagination={false}`，但区块内**不得**再用 `RemoteTable`/`ModuleToolbar`。契约测试以「显式声明的非列表页 + 反查其确实不含列表构件」实现，不得靠"不写 RemoteTable"蒙过。
-- **菜单 `adminOnly` 恰有一项**：`config/menu.ts` 里只有 `/users` 带 `adminOnly: true`，所以 ADMIN 见 10 项、非 ADMIN 见 9 项；`AppLayout` 用 `menuItems.filter((item) => !item.adminOnly || account?.role === 'ADMIN')` 过滤。菜单项本身只做可见性，权限边界仍由路由侧 `<RequireRole role="ADMIN">` 兜底。机检：`tests/frontend/test_console_shell_contract.py:31-38`。
+- **菜单 `adminOnly` 恰有两项**：`config/menu.ts` 里 `/users` 与 `/settings` 带 `adminOnly: true`，所以 ADMIN 见 11 项、非 ADMIN 见 9 项；`AppLayout` 用 `menuItems.filter((item) => !item.adminOnly || account?.role === 'ADMIN')` 过滤。菜单项本身只做可见性，权限边界仍由路由侧 `<RequireRole role="ADMIN">` 兜底。机检：`tests/frontend/test_console_shell_contract.py:31-38`。
 
-  ✅：唯一一项 `adminOnly` + 路由守卫
+  ✅：两项 `adminOnly`（`/users`、`/settings`）+ 各自路由守卫
 
   ```ts
   // config/menu.ts
   { path: '/users', key: 'nav.user', adminOnly: true }
+  { path: '/settings', key: 'nav.settings', adminOnly: true }
   ```
 
-  ❌：再加第二个 `adminOnly: true`（机检会红，且"非 ADMIN 可见 9 项"的语义被破坏）
+  ❌：再加第三项 `adminOnly: true`（机检会红，且"非 ADMIN 可见 9 项"的语义被破坏）
 
-- **Shell 不得出现「系统设置」入口**：`config/menu.ts` 与 `layout/AppLayout.tsx` 里连 `setting` 字样都不允许出现（含大小写变体）——防止在菜单来源之外硬编码第二处导航。机检：`tests/frontend/test_console_shell_contract.py:41-46`。
+- **「系统设置」入口只能来自 `config/menu.ts`**：`/settings` 菜单项必须由 `menuItems` 派生（不在 `AppLayout` 里硬编码第二处导航），路由在 `App.tsx` 受 `<RequireRole role="ADMIN">` 守卫；`AppLayout` 的 `MENU_ICONS` 登记对应 `semi-icons` 图标。机检：`tests/frontend/test_console_shell_contract.py::test_console_shell_has_system_settings_entry`。
 - **`AppLayout` 不得内联第二处导航项数组**：Nav items 只能由 `menuItems` 派生（`menuItems.filter(...)` → `visibleItems.map(...)`）；不得出现 `items={[{ itemKey: '/x', ... }]}` 这类内联数组。机检：`tests/frontend/test_console_shell_contract.py:58-64`。
 - **列表页加载必须有请求竞态守卫**：`const requestSeq = useRef(0)`，请求发出前 `++requestSeq.current` 存为局部常量，响应回来先比对 `seq !== requestSeq.current` 即丢弃（不得写入 state）。现网 19 个文件（`agent-management/AgentPage.tsx:30,42-44`、`project-platform/PlatformPage.tsx`、`user-identity/UserPage.tsx`、`skill-management/SkillPage.tsx`、`mcp-management/McpPage.tsx`、`model-management/ModelPage.tsx`、`task-schedule/TaskPage.tsx`、`SchedulePage.tsx`、`SelectedUserTable.tsx`、`PlatformCredentialTab.tsx` 及 `overview-dashboard`/`audit-observability` 的 hooks 等）都已收敛到该形态。
 - **列表筛选的生效时机统一为「选择即时、文本回车」**：下拉/日期类筛选**选中即**写入查询参数；关键字文本是**草稿**，只有**回车**才写入查询参数；两者都把页码复位到第 1 页。列表页**没有**独立搜索按钮——筛选控件本身就是搜索入口（对应设计 §3.3.1 的按钮表只有「搜索/筛选」「重置」「刷新」三行）。8 个模块列表页同款：`agent-management/AgentPage.tsx`、`model-management/ModelPage.tsx`、`user-identity/UserPage.tsx`、`skill-management/SkillPage.tsx`、`mcp-management/McpPage.tsx`、`project-platform/PlatformPage.tsx`、`audit-observability/components/AuditFilterBar.tsx`、`task-schedule/{TaskPage,SchedulePage}.tsx`。

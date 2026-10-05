@@ -21,7 +21,7 @@ V1.3 在 V1.2 基础上进一步吸收旧项目 `muad-openclaw/tools/session-man
 4. `credential_mode` 只表达“用户凭据/共享凭据如何选择”，不再与认证协议混在一个字段中。
 5. 一个逻辑 Agent 支持配置 **0..N 个 IM 通道账号**；每个 `bot_id` 仍只路由到一个 Agent；`bot_id` 与 Runtime/Worker Pod 永远无绑定。
 6. `control.bot_account` 移除 `(agent_id, channel)` 唯一约束，允许一个 Agent 配置多个同类 IM Bot。
-7. Console 删除“系统设置/中间件状态”菜单；PostgreSQL、Redis、NFS/PVC、Runtime/Worker Pod 状态属于运维体系，不进入业务 Console。
+7. Console 不提供“中间件状态”菜单：PostgreSQL、Redis、NFS/PVC、Runtime/Worker Pod 状态属于运维体系，不进入业务 Console。菜单固定十一项，末项「系统设置」（`adminOnly`）只管理平台级业务默认值，不承载中间件状态。
 8. Console 列表页不再重复展示页签标题/说明块，直接采用“左上操作 + 右上筛选 + 列表 + 右下分页”。
 9. Console 字段名统一中文；领域名词 `Agent / Skill / MCP / bot_id` 等保留。
 10. Background/Cron/Worker、单一意图与 ExecutionRouter 等 V1.2 结论保持不变。

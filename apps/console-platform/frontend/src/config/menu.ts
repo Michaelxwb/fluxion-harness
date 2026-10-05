@@ -14,5 +14,6 @@ export const menuItems: MenuItem[] = [
   { path: '/platforms', key: 'nav.platform' },
   { path: '/tasks', key: 'nav.task' },
   { path: '/schedules', key: 'nav.schedule' },
-  { path: '/audits', key: 'nav.audit' }
+  { path: '/audits', key: 'nav.audit' },
+  { path: '/settings', key: 'nav.settings', adminOnly: true }
 ];

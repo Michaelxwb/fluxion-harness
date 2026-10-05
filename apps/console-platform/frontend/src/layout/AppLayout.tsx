@@ -10,6 +10,7 @@ import {
   IconPuzzle,
   IconSearch,
   IconServer,
+  IconSetting,
   IconUserGroup
 } from '@douyinfe/semi-icons';
 import { Button, Dropdown, Layout, Nav, Tooltip } from '@douyinfe/semi-ui';
@@ -35,7 +36,8 @@ const MENU_ICONS: Record<string, JSX.Element> = {
   '/platforms': <IconBranch size="large" />,
   '/tasks': <IconClock size="large" />,
   '/schedules': <IconCalendar size="large" />,
-  '/audits': <IconSearch size="large" />
+  '/audits': <IconSearch size="large" />,
+  '/settings': <IconSetting size="large" />
 };
 
 function SidebarAccount(props: { collapsed: boolean; onToggle(): void }) {

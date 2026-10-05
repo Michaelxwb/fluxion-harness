@@ -14,9 +14,9 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | depends_on |
 |--------|---------|---------|-------------|---------|------|---------|-----|---------|-----------|
-| S-01 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针 | TASK-010 | planned | - | . | 600 | |
+| S-01 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针 | TASK-010 | e2e_deferred | - | . | 600 | |
 | S-02 | platform-settings.backend.design.md#2.5.2 验收场景 | E2E | 真实 Console API → 真实 PostgreSQL → 真实 Worker 进程（真实 lease/claim） | TASK-006 | e2e_deferred | - | . | 600 | |
-| S-03 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | TASK-010 | planned | - | . | 600 | |
+| S-03 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | TASK-010 | e2e_deferred | - | . | 600 | |
 | E-01 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 settings service | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","invalid_payload"] | . | 300 | |
 | E-02 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实唯一约束） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","version_conflict"] | . | 300 | |
 | E-03 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Runtime 进程 + 被切断的 Console 内部端点 | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","source_unavailable"] | . | 600 | |
@@ -27,10 +27,10 @@
 | E-08 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 独立进程（无 TTL 缓存、无重启） | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","new_revision_without_restart"] | . | 600 | |
 | E-09 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 `.env.example` + 真实 `SharedSettings` 字段集 | TASK-011 | planned | ["uv","run","pytest","-q","tests/test_configuration_convergence.py"] | . | 300 | |
 | E-10 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 HTTP 响应体 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","secret_rejected"] | . | 300 | |
-| E-11 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | TASK-010 | planned | - | . | 600 | |
-| E-12 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（真实 409） | TASK-010 | planned | - | . | 600 | |
-| E-13 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许，成功路径禁止拦截） | TASK-010 | planned | - | . | 600 | |
-| E-14 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实登录会话（真实 403，无路由拦截） | TASK-010 | planned | - | . | 600 | |
+| E-11 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | TASK-010 | e2e_deferred | - | . | 600 | |
+| E-12 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（真实 409） | TASK-010 | e2e_deferred | - | . | 600 | |
+| E-13 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许，成功路径禁止拦截） | TASK-010 | e2e_deferred | - | . | 600 | |
+| E-14 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实登录会话（真实 403，无路由拦截） | TASK-010 | e2e_deferred | - | . | 600 | |
 | E-15 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实登录会话与 CSRF | TASK-009 | verified | ["uv","run","pytest","-q","tests/console_platform/test_auth_policy_settings.py"] | . | 300 | |
 | E-16 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 CSV + 真实机检（无服务） | TASK-011 | planned | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | . | 300 | |
 | E-17 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","idempotent_replay"] | . | 300 | |
@@ -42,10 +42,10 @@
 | B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
 | B-03 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | TASK-007 | verified | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | . | 300 | |
 | B-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（表内无该租户行） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","default_when_absent"] | . | 300 | |
-| B-05 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由 | TASK-010 | planned | - | . | 600 | |
-| B-06 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树 + 真实词条文件（无服务） | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_platform_settings_contract.py","-k","applies_to_labels"] | . | 300 | |
+| B-05 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由 | TASK-010 | e2e_deferred | - | . | 600 | |
+| B-06 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树 + 真实词条文件（无服务） | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_platform_settings_contract.py","-k","applies_to_labels"] | . | 300 | |
 | B-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实 `alembic upgrade 0001→0017` / `downgrade`） | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_table.py"] | . | 300 | |
-| B-08 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树（无服务） | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_shell_contract.py","tests/frontend/test_platform_settings_contract.py"] | . | 300 | |
+| B-08 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树（无服务） | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_console_shell_contract.py","tests/frontend/test_platform_settings_contract.py"] | . | 300 | |
 
 > 本表覆盖两份 design 的全部 **32** 条场景（S-01..S-03、E-01..E-21、B-01..B-08）。每条场景有且只有一个最终负责人；`E2E` 类（S-01..S-03、E-11..E-14、B-05）在编码期只登记，统一留给需求级 `verify-e2e`。
 
@@ -869,7 +869,7 @@ $ uv run pytest -q tests/console_internal tests/architecture tests/test_contract
 
 ## TASK-010: Console 系统设置页
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004
 - **Source**: platform-settings.frontend.design.md#2.2 功能方案, platform-settings.frontend.design.md#3.2 页面与路由结构, platform-settings.frontend.design.md#3.3 组件设计, platform-settings.frontend.design.md#3.5 状态与数据流
@@ -882,49 +882,118 @@ $ uv run pytest -q tests/console_internal tests/architecture tests/test_contract
 
 ### Checklist
 
-- [ ] `src/modules/settings/`：`pages/SettingsPage.tsx` + `services/settingsApi.ts`（import 共享 `src/api/client.ts` 实例）+ hooks + types；组件树按 design §3.3（CMP-01..CMP-09，容器/展示分离）
-- [ ] 字段控件按 API 返回的元数据渲染（`type/min/max/enum/default`），**组件内不得写默认值或范围字面量**
-- [ ] 页面不按列表页模板实现；版本历史用 SideSheet（`harness-ui-detail` 的详情形态）；回滚走二次确认
-- [ ] `src/config/menu.ts` 追加第 11 项 `{path:"/settings", key:"nav.settings", adminOnly:true}`；`src/App.tsx` 加路由并包 `RequireRole role="ADMIN"`；`AppLayout.tsx` 登记图标
-- [ ] i18n：`src/locales/{zh-CN,en-US}.json` 新增 `nav.settings`、`settings.*` 与五个生效方式标签（`applies_to` 全覆盖）；**字段/分组的词条键名按 API-01 返回的 `label_key` 逐字对齐**（组 `settings.group.<key>`、字段 `settings.field.<path>`，压缩组内是组内相对路径如 `snip.max_groups`，其余为 `group.field`），不要自创键名
-- [ ] **改写** `tests/frontend/test_console_shell_contract.py`：`EXPECTED_KEYS` 十一项、`adminOnly` 项由 1 变 2、删除 `test_console_shell_has_no_system_settings_entry` 并替换为入口存在的正向断言 + 路由守卫断言
-- [ ] 新增 `tests/frontend/test_platform_settings_contract.py`：HTTP 只经 services 层、字段元数据驱动、`applies_to` 标签齐全
-- [ ] 同步事实文档 `docs/00-详细设计索引与设计基线.md` 与 `docs/README.md` 中「Console 不提供系统设置菜单」的表述
-- [ ] [B-08][unit] 契约机检：菜单十一项 + 入口存在 + 路由守卫 + 设置页 HTTP 只经 services 层；真实边界：**真实源码树（无服务）**
-- [ ] [B-06][unit] `applies_to` 五个取值的标签映射与 zh-CN/en-US 词条齐备
-- [ ] [S-01][E2E] 编写端到端验收（真实边界：真实浏览器 → Console → PG → Runtime → 模型探针），登记可执行命令；编码期只登记，留给 verify-e2e
-- [ ] [S-03][E2E] 编写权限/租户端到端验收（真实登录会话与角色，无路由拦截）
-- [ ] [E-11][E2E] 保存失败 ⇒ 字段级错误定位
-- [ ] [E-12][E2E] 版本冲突 ⇒ 明确提示 + 重新加载，不静默重试
-- [ ] [E-13][E2E] 读取失败 ⇒ 错误态**不渲染任何值**
-- [ ] [E-14][E2E] BUILDER 直接访问 `/settings` 被守卫拦截
-- [ ] [B-05][E2E] 无改动时保存按钮禁用；版本号显示当前版本
-- [ ] 先写测试并记录 RED（前端契约测试 + 构建），再实现
-- [ ] verifier `harness-frontend#RULE-front-001`：`uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck`（真实边界：真实源码树 + 真实 typecheck）
-- [ ] verifier `harness-ui#RULE-ui-001`：`uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build`（真实边界：真实 shell 契约 + 真实构建产物）
-- [ ] verifier `harness-i18n#RULE-i18n-001`：`uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py`（真实边界：真实词条文件与真实 i18n 机检）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] `src/modules/settings/`：`pages/SettingsPage.tsx` + `services/settingsApi.ts`（import 共享 `src/api/client.ts` 实例）+ hooks + types；组件树按 design §3.3（CMP-01..CMP-09，容器/展示分离）
+- [x] 字段控件按 API 返回的元数据渲染（`type/min/max/enum/default`），**组件内不得写默认值或范围字面量**
+- [x] 页面不按列表页模板实现；版本历史用 SideSheet（`harness-ui-detail` 的详情形态）；回滚走二次确认
+- [x] `src/config/menu.ts` 追加第 11 项 `{path:"/settings", key:"nav.settings", adminOnly:true}`；`src/App.tsx` 加路由并包 `RequireRole role="ADMIN"`；`AppLayout.tsx` 登记图标
+- [x] i18n：`src/locales/{zh-CN,en-US}.json` 新增 `nav.settings`、`settings.*` 与五个生效方式标签（`applies_to` 全覆盖）；**字段/分组的词条键名按 API-01 返回的 `label_key` 逐字对齐**（组 `settings.group.<key>`、字段 `settings.field.<path>`，压缩组内是组内相对路径如 `snip.max_groups`，其余为 `group.field`），不要自创键名
+- [x] **改写** `tests/frontend/test_console_shell_contract.py`：`EXPECTED_KEYS` 十一项、`adminOnly` 项由 1 变 2、删除 `test_console_shell_has_no_system_settings_entry` 并替换为入口存在的正向断言 + 路由守卫断言
+- [x] 新增 `tests/frontend/test_platform_settings_contract.py`：HTTP 只经 services 层、字段元数据驱动、`applies_to` 标签齐全
+- [x] 同步事实文档 `docs/00-详细设计索引与设计基线.md` 与 `docs/README.md` 中「Console 不提供系统设置菜单」的表述
+- [x] [B-08][unit] 契约机检：菜单十一项 + 入口存在 + 路由守卫 + 设置页 HTTP 只经 services 层；真实边界：**真实源码树（无服务）**
+- [x] [B-06][unit] `applies_to` 五个取值的标签映射与 zh-CN/en-US 词条齐备
+- [x] [S-01][E2E] 编写端到端验收（真实边界：真实浏览器 → Console → PG → Runtime → 模型探针），登记可执行命令；编码期只登记，留给 verify-e2e
+- [x] [S-03][E2E] 编写权限/租户端到端验收（真实登录会话与角色，无路由拦截）
+- [x] [E-11][E2E] 保存失败 ⇒ 字段级错误定位
+- [x] [E-12][E2E] 版本冲突 ⇒ 明确提示 + 重新加载，不静默重试
+- [x] [E-13][E2E] 读取失败 ⇒ 错误态**不渲染任何值**
+- [x] [E-14][E2E] BUILDER 直接访问 `/settings` 被守卫拦截
+- [x] [B-05][E2E] 无改动时保存按钮禁用；版本号显示当前版本
+- [x] 先写测试并记录 RED（前端契约测试 + 构建），再实现
+- [x] verifier `harness-frontend#RULE-front-001`：`uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck`（真实边界：真实源码树 + 真实 typecheck）
+- [x] verifier `harness-ui#RULE-ui-001`：`uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build`（真实边界：真实 shell 契约 + 真实构建产物）
+- [x] verifier `harness-i18n#RULE-i18n-001`：`uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py`（真实边界：真实词条文件与真实 i18n 机检）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | 真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针 | 保存后新 Run 用新值（`policy_json` 与探针请求体）；保存前已开始的 Run 不变 | planned | - | planned |
-| S-03 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | ADMIN 菜单有入口且在运行审计之后；BUILDER 无入口且直接访问被拒；跨租户不可见 | planned | - | planned |
-| E-11 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | 破坏联动组合 ⇒ 字段级错误定位；当前值不被覆盖；输入保留 | planned | - | planned |
-| E-12 | E2E | 真实浏览器 + 真实 Console API（真实 409） | 冲突提示 + 重新加载；不自动重试 | planned | - | planned |
-| E-13 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许） | 错误态文案 + 重试；**不渲染任何值** | planned | - | planned |
-| E-14 | E2E | 真实浏览器 + 真实登录会话（真实 403） | 被守卫拦截，不发设置请求 | planned | - | planned |
-| B-05 | E2E | 真实浏览器 + 真实路由 | 无改动时保存禁用；显示当前版本号 | planned | - | planned |
-| B-06 | unit | 真实源码树 + 真实词条文件（无服务） | 五个 `applies_to` 标签齐全且 zh/en 都有词条 | `tests/frontend/test_platform_settings_contract.py -k applies_to_labels` | ["uv","run","pytest","-q","tests/frontend/test_platform_settings_contract.py","-k","applies_to_labels"] | planned |
-| B-08 | unit | 真实源码树（无服务） | 菜单十一项固定顺序；系统设置入口存在且 adminOnly；路由受 `RequireRole` 守卫；设置页无裸 axios/fetch | `tests/frontend/test_console_shell_contract.py` + `tests/frontend/test_platform_settings_contract.py` | ["uv","run","pytest","-q","tests/frontend/test_console_shell_contract.py","tests/frontend/test_platform_settings_contract.py"] | planned |
+| S-01 | E2E | 真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针 | 保存后新 Run 用新值（`policy_json` 与探针请求体）；保存前已开始的 Run 不变 | planned | - | e2e_deferred |
+| S-03 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | ADMIN 菜单有入口且在运行审计之后；BUILDER 无入口且直接访问被拒；跨租户不可见 | planned | - | e2e_deferred |
+| E-11 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | 破坏联动组合 ⇒ 字段级错误定位；当前值不被覆盖；输入保留 | planned | - | e2e_deferred |
+| E-12 | E2E | 真实浏览器 + 真实 Console API（真实 409） | 冲突提示 + 重新加载；不自动重试 | planned | - | e2e_deferred |
+| E-13 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许） | 错误态文案 + 重试；**不渲染任何值** | planned | - | e2e_deferred |
+| E-14 | E2E | 真实浏览器 + 真实登录会话（真实 403） | 被守卫拦截，不发设置请求 | planned | - | e2e_deferred |
+| B-05 | E2E | 真实浏览器 + 真实路由 | 无改动时保存禁用；显示当前版本号 | planned | - | e2e_deferred |
+| B-06 | unit | 真实源码树 + 真实词条文件（无服务） | 五个 `applies_to` 标签齐全且 zh/en 都有词条 | `tests/frontend/test_platform_settings_contract.py -k applies_to_labels` | ["uv","run","pytest","-q","tests/frontend/test_platform_settings_contract.py","-k","applies_to_labels"]| verified |
+| B-08 | unit | 真实源码树（无服务） | 菜单十一项固定顺序；系统设置入口存在且 adminOnly；路由受 `RequireRole` 守卫；设置页无裸 axios/fetch | `tests/frontend/test_console_shell_contract.py` + `tests/frontend/test_platform_settings_contract.py` | ["uv","run","pytest","-q","tests/frontend/test_console_shell_contract.py","tests/frontend/test_platform_settings_contract.py"]| verified |
 
 ### Acceptance Evidence
 
-> functional（B-06/B-08）在编码期填写 RED/GREEN；S-01/S-03/E-11..E-14/B-05 为 E2E，只登记，留给 verify-e2e。
+#### 交付与 RED（先写测试、后实现）
+
+新增 `tests/frontend/test_platform_settings_contract.py` 并改写 `tests/frontend/test_console_shell_contract.py`；把实现整体回退（`git stash` 实现文件 + 移出 `src/modules/settings/`，保留新测试）后真实失败原文：
+
+```
+12 failed, 1 passed in 0.19s
+E   AssertionError: zh-CN missing menu keys: ['nav.settings']
+FAILED tests/frontend/test_platform_settings_contract.py::test_settings_http_only_through_services_layer
+FAILED tests/frontend/test_platform_settings_contract.py::test_backend_catalog_label_keys_are_translated_in_both_locales
+FAILED tests/frontend/test_console_shell_contract.py::test_console_shell_menu_is_the_fixed_eleven_items
+FAILED tests/frontend/test_console_shell_contract.py::test_console_shell_has_system_settings_entry
+```
+
+#### GREEN（实现后，实跑数字）
+
+| 命令 | 结果 |
+|------|------|
+| `uv run pytest -q tests/frontend/test_platform_settings_contract.py tests/frontend/test_console_shell_contract.py` | **13 passed in 0.12s** |
+| `uv run pytest -q tests/frontend/` | **274 passed in 0.27s** |
+| verifier `harness-frontend#RULE-front-001`（api_client 契约 + api 机检 + i18n 机检 + typecheck） | 4 passed；`frontend api usage check OK`；`i18n keys OK: 854`；`tsc --noEmit` 无输出 |
+| verifier `harness-ui#RULE-ui-001`（shell 契约 + ui style 契约 + build） | 9 passed；`✓ built in 2.57s` |
+| verifier `harness-i18n#RULE-i18n-001`（foundation i18n + i18n 机检） | 6 passed；`i18n keys OK: 854` |
+
+#### 断言位置（关键断言 → 文件/用例）
+
+| 断言 | 位置 |
+|------|------|
+| HTTP 只经 services 层（组件/hook/页面无 axios/fetch/client import） | `tests/frontend/test_platform_settings_contract.py::test_settings_http_only_through_services_layer` |
+| 字段控件元数据驱动、无默认值/范围字面量 | `::test_settings_field_control_reads_backend_metadata` |
+| 页面不内联字段清单；四态齐（加载失败先于分组渲染返回） | `::test_settings_page_does_not_hardcode_field_or_group_lists`、`::test_settings_page_has_four_ui_states` |
+| 保存携带 revision、冲突置位、字段错误映射 | `::test_save_uses_revision_and_maps_field_errors` |
+| 五个 `applies_to` 标签 zh/en 齐（B-06） | `::test_applies_to_labels_cover_all_five_values` |
+| 后端 catalog 每个 `label_key`/`unit_key`/readonly 词条两侧齐备 | `::test_backend_catalog_label_keys_are_translated_in_both_locales` |
+| 后端 `applies_to` 取值都已被前端映射 | `::test_backend_applies_to_values_are_known_to_frontend` |
+| 菜单 11 项固定顺序 + `adminOnly` 恰两项 | `tests/frontend/test_console_shell_contract.py::test_console_shell_menu_is_the_fixed_eleven_items` |
+| 系统设置入口正向断言 + 路由受 `RequireRole role="ADMIN"` 守卫（B-08） | `::test_console_shell_has_system_settings_entry`、`test_platform_settings_contract.py::test_settings_route_is_role_guarded_and_menu_has_entry` |
+
+#### 真实边界 / 事实同源
+
+- 契约测试**直接 `import muad_console_platform.application.platform_settings_catalog`**，遍历 `build_groups(PlatformSettings())` 的每个 `label_key`/`unit_key` 与 `readonly_notes()`，断言 zh-CN/en-US 两侧词条齐备——不是人工枚举，实现加字段即红。
+- i18n 词条由脚本追加，`check_frontend_i18n.py` 校验两侧键集齐平且 `t('字面量键')` 已定义。
+- **事实文档/规范随代码事实改写**（FEAT-08 要求）：`docs/00-详细设计索引与设计基线.md`、`docs/README.md` 的「不提供系统设置菜单」表述；`harness-ui.md` 的「菜单固定十项」「Shell 不得出现系统设置入口」两条改为「十一项 + 两项 `adminOnly`（/users、/settings）+ 系统设置入口只能来自 `menu.ts` 且受 `RequireRole` 守卫」。另更新了 `tests/frontend/test_overview_routing_contract.py`（它钉着旧的「十项」事实）。
+
+#### E2E（**只登记、未作为验收执行**）
+
+登记：`e2e/playwright.settings.config.ts`（真实 Console + 真实构建产物 + `MUAD_API_TARGET`，`preview --strictPort`，钉浏览器时区）+ `e2e/tests/settings/settings.spec.ts`（S-01 / S-03 / E-11..E-14 / B-05）+ `tests/e2e/seed_platform_settings.py`（真实 `PlatformSettingsService` 种两个租户）。执行命令：`npm --prefix e2e test -- --config playwright.settings.config.ts`（即 `make acceptance-e2e DOMAIN=settings`）。终验归需求级 `verify-e2e`，本任务 E2E **只登记，不作为验收证据**。
+
+**自检实跑**（仅自检、不计入验收证据）：先 `npm --prefix apps/console-platform/frontend run build`，再跑上条命令 → **4 passed, 3 failed**。
+- 通过：**S-03 / E-13 / E-14 / B-05**。
+- 失败：**S-01 / E-11 / E-12**——均卡在同一个保存 400（见下）。
+- 自检期当场修掉两处**自身**缺陷（非产品缺陷）：① `e2e/tests/settings/` 嵌套目录使 `REPO = new URL('../..')` off-by-one，改 `../../..`；② Semi `Nav` 不透传 `id`，`#app-navigation` 选择器改 `getByRole('menu')`（修前 S-03 也红，修后 S-03 过）。
+
+#### ⚠️ 发现的后端缺陷（阻断 S-01/E-11/E-12；本任务 E2E 因此只登记）
+
+1. **位置与判定逻辑**：`apps/console-platform/backend/src/muad_console_platform/application/platform_settings_guard.py:20` 的 `SECRET_MARKERS` 含 `"password"`，`_scan`（同文件 `:37`）对**归一化（去 `_`/`-` 后小写）的键名做子串匹配** ⇒ schema 正常键 `auth.min_password_length` → `minpasswordlength` 命中 `password` ⇒ `reject_secret_keys`（`api/platform_settings.py:192`，**先于** parse/白名单）抛 `PLATFORM_SETTINGS_SECRET_REJECTED`。
+2. **影响面**：任何**包含 `auth` 分组**的保存都被 400 拒绝，**包括后端设计 ADR-09 要求的整份文档保存**；`auth` 的 4 个字段在真实 PUT 下根本存不进去（E-15「改认证策略不重启」因此不可达）。
+3. **为什么既有测试没抓到**：`tests/console_platform/test_auth_policy_settings.py` 是**直接 import `PlatformSettingsService` 写库**（绕过真实 PUT 守卫），而 `tests/console_platform/test_platform_settings_api.py` 的 PUT 用例只存**不含 `auth` 的部分文档**——两侧各让一步，中间漏掉。本地无 HTTP 直接复现：`find_secret_key(asdict(default_platform_settings())) == "auth.min_password_length"`。
+4. **E2E 自检真实报错**（trace `*-trace.network` 实测）：请求体正确（`{"revision":1,"settings":{... "auth":{"min_password_length":12} ...}}`），`PUT /api/v1/platform-settings` → **400**，响应体 `{"code":"PLATFORM_SETTINGS_SECRET_REJECTED","msg":"不允许保存敏感配置项","data":null,...}`。
+5. **依赖与归属**：S-01 / E-11 / E-12 三条 E2E 场景**依赖待补的守卫修复**（由 **TASK-015「敏感键守卫的业务键边界」**承接，带新场景：整份默认文档经真实 PUT 可保存 + 真敏感形状仍拒 + 未知键仍拒，并加结构性回归遍历 schema 全部叶子断言无误判）。这三条**本任务只登记、未作为验收执行**，终验归 `verify-e2e`。
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=7f7930852d624ced9a9e97283ef6d730 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=7f7930852d624ced9a9e97283ef6d730 (confirmed_by: runner)
+- E-11: e2e_deferred — automated command e2e_deferred; run_id=7f7930852d624ced9a9e97283ef6d730 (confirmed_by: runner)
+- E-12: e2e_deferred — automated command e2e_deferred; run_id=7f7930852d624ced9a9e97283ef6d730 (confirmed_by: runner)
+- E-13: e2e_deferred — automated command e2e_deferred; run_id=7f7930852d624ced9a9e97283ef6d730 (confirmed_by: runner)
+- E-14: e2e_deferred — automated command e2e_deferred; run_id=7f7930852d624ced9a9e97283ef6d730 (confirmed_by: runner)
+- B-05: e2e_deferred — automated command e2e_deferred; run_id=7f7930852d624ced9a9e97283ef6d730 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=7f7930852d624ced9a9e97283ef6d730 (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=7f7930852d624ced9a9e97283ef6d730 (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 

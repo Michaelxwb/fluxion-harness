@@ -16,6 +16,7 @@ import { SchedulePage } from './modules/task-schedule/SchedulePage';
 import { TaskPage } from './modules/task-schedule/TaskPage';
 import { AuditPage } from './modules/audit-observability/pages/AuditPage';
 import { OverviewPage } from './modules/overview-dashboard/pages/OverviewPage';
+import { SettingsPage } from './modules/settings/pages/SettingsPage';
 
 export default function App() {
   const theme = useThemeMode();
@@ -56,6 +57,14 @@ export default function App() {
         <Route path="tasks" element={<TaskPage />} />
         <Route path="schedules" element={<SchedulePage />} />
         <Route path="audits" element={<AuditPage />} />
+        <Route
+          path="settings"
+          element={
+            <RequireRole role="ADMIN">
+              <SettingsPage />
+            </RequireRole>
+          }
+        />
       </Route>
     </Routes>
   );
