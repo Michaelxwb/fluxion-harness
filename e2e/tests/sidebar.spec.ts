@@ -13,7 +13,8 @@ async function openSidebar(page: Page, theme: string, role = 'ADMIN') {
     return route.fulfill({ json: { code: '0', msg: '', data } });
   });
   await page.goto('/models');
-  await expect(page.locator('.app-nav .semi-navigation-item')).toHaveCount(role === 'ADMIN' ? 10 : 9);
+  // 菜单固定 11 项（config/menu.ts），其中 /users 与 /settings 为 adminOnly ⇒ ADMIN 11、BUILDER 9。
+  await expect(page.locator('.app-nav .semi-navigation-item')).toHaveCount(role === 'ADMIN' ? 11 : 9);
 }
 
 async function expectToggleAtSidebarEdge(page: Page) {
