@@ -39,6 +39,7 @@
 | E-20 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | . | 600 | |
 | E-21 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 acceptance 栈（真实 Console API + 真实 PostgreSQL + 真实 Worker 进程） | TASK-014 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx"] | . | 1200 | |
 | E-22 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Console API（真实 HTTP PUT）+ 真实 PostgreSQL | TASK-015 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","business_key_boundary"] | . | 300 | |
+| E-23 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实登录会话与 CSRF | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py"] | . | 600 | |
 | B-01 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实设置文档 schema 函数（无服务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | . | 300 | |
 | B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
 | B-03 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | TASK-007 | verified | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | . | 300 | |
@@ -48,7 +49,7 @@
 | B-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实 `alembic upgrade 0001→0017` / `downgrade`） | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_table.py"] | . | 300 | |
 | B-08 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树（无服务） | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_console_shell_contract.py","tests/frontend/test_platform_settings_contract.py"] | . | 300 | |
 
-> 本表覆盖两份 design 的全部 **33** 条场景（S-01..S-03、E-01..E-22、B-01..B-08）。每条场景有且只有一个最终负责人；`E2E` 类（S-01..S-03、E-11..E-14、B-05）在编码期只登记，统一留给需求级 `verify-e2e`。
+> 本表覆盖两份 design 的全部 **34** 条场景（S-01..S-03、E-01..E-23、B-01..B-08）。每条场景有且只有一个最终负责人；`E2E` 类（S-01..S-03、E-11..E-14、B-05）在编码期只登记，统一留给需求级 `verify-e2e`。
 
 ---
 
@@ -1127,7 +1128,7 @@ $ uv run pytest -q tests/acceptance/console_auth_flow/test_auth_acceptance.py
 
 - **Status**: draft
 - **Priority**: P0
-- **Depends**: TASK-001..TASK-016
+- **Depends**: TASK-001..TASK-017
 - **Source**: platform-settings.backend.design.md#2.5 验收条件, platform-settings.frontend.design.md#2.4 验收条件
 - **Spec-Refs**: harness-test#RULE-test-001
 - **Acceptance-Refs**: E-18
@@ -1466,6 +1467,48 @@ TASK-005 为让机检转绿，按 AST 口径**整表重生**了 `docs/configurat
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
 | E-16 | integration | 真实源码树 + 真实 CSV + 真实机检（无服务） | 清单与源码声明逐行一致；分类期望与迁移结论一致；重复源清单无过期结论 | `tests/test_configuration_inventory.py` | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | planned |
+
+### Acceptance Evidence
+
+> 编码期填写 RED/GREEN 与断言位置。
+
+### Log
+- [2026-10-05] created (draft)
+
+---
+
+## TASK-017: 滑动续期阈值口径（修 TASK-009 语义变更打破的验收）
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-009, TASK-011
+- **Source**: platform-settings.backend.design.md#3.1 方案选型
+- **Spec-Refs**:
+- **Acceptance-Refs**: E-23
+
+### Description
+
+TASK-009 把滑动续期阈值从模块常量 `SLIDE_THRESHOLD = SESSION_TTL/2` 改成**会话自身窗口的一半**（ADR-12：会话解析不读设置，用 `expires_at - issued_at` 判中点）。对真实会话（窗口 = 12h）这与旧的 6h 规则**完全等价**。
+
+但它打破了已归档需求 console-auth 的两条验收（`test_s02_sliding_renewal_extends_expiry_when_under_half`、`test_b02_six_hour_boundary_renews_only_below`）：那条夹具用 `issued_at=now, expires_at=now+remaining` 造会话 ⇒ **窗口跨度就等于剩余** ⇒ 阈值恒为剩余的一半 ⇒ 永不过中点 ⇒ 断言「剩余 <6h 应续期」必挂。
+
+这是**夹具口径问题，不是实现错误**：把实现退回常量会让每个请求都要读平台设置，违背 ADR-12 与 NFR-PERF-01。正确做法是让夹具按**真实会话的形状**造数据——窗口跨度恒为平台 TTL，靠同时回推 `issued_at` 来调节剩余。
+
+### Checklist
+
+- [ ] 改 `tests/acceptance/console_auth_flow/test_auth_acceptance.py` 的 `_issue_session`：让窗口跨度恒为**签发时的平台 TTL**（`issued_at = now - (ttl - remaining)`，`expires_at = now + remaining`），从而在保持真实形状的前提下调节剩余
+- [ ] **保留 S-02 / B-02 的断言原样**——这是口径更新，不是放宽期望；任何断言的松动都要在证据里单独说明理由
+- [ ] 全文件跑绿：`uv run pytest -q tests/acceptance/console_auth_flow/test_auth_acceptance.py`（改前 2 failed / 21 passed）
+- [ ] 复核全仓还有没有别处依赖旧的常量阈值语义（`grep -rn "SLIDE_THRESHOLD\|issued_ttl" apps tests`），有就一并报告
+- [ ] [E-23][integration] 覆盖：窗口过了中点 ⇒ 续期到 `now + 当前平台 TTL`；未过中点 ⇒ 不续期仅更新 `last_seen_at`；改平台 TTL 不追改已签发会话到期时间。真实边界：**真实 PostgreSQL + 真实登录会话与 CSRF**
+- [ ] 先跑一次记录 RED，再改夹具
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|--------|---------|--------------------|---------|----------------|---------|------|
+| E-23 | integration | 真实 PostgreSQL + 真实登录会话与 CSRF | 过中点续期到 `now+当前 TTL`；未过中点不续期仅更新活跃时间；不追改已签发会话 | `tests/acceptance/console_auth_flow/test_auth_acceptance.py` | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py"] | planned |
 
 ### Acceptance Evidence
 

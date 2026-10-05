@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "platform-settings.md",
-  "task_sha256": "b9c8fab8de3a349e81e438fb0b04daa244b522cacc2d9c25c452a55f74c48e59",
+  "task_sha256": "f700a9ecc6d1339fed8889dd40688ee437eafb8686d7bfd1e2f91f01ef2f934e",
   "scenarios": [
     {
       "id": "S-01",
@@ -217,7 +217,7 @@
       "kind": "functional",
       "boundary": "真实源码树 + 真实 `.env.example` + 真实 `SharedSettings` 字段集",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -458,6 +458,25 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-23",
+      "source": "platform-settings.backend.design.md#2.5.2 验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PostgreSQL + 真实登录会话与 CSRF",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
       "depends_on": []
     },
     {
