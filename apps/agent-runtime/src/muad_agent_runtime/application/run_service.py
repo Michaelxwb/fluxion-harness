@@ -75,7 +75,12 @@ from .executor import (
     RunExecutor,
     default_executor_factory,
 )
-from .ports import CredentialsClient, ResolveClient
+from .ports import (
+    CredentialsClient,
+    NullPlatformSettingsClient,
+    PlatformSettingsClient,
+    ResolveClient,
+)
 from .run_events import EventWriter
 from .run_lease import RunLeaseService
 from .run_submission import (
@@ -135,6 +140,8 @@ def history_budget_of(policy: Mapping[str, Any] | None) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
+#: 「无平台设置时」的 schema 默认策略快照（导入期求值一次）。它不是运行期动态默认源：
+#: 新 Run 的 `policy_json` 一律由 Run 创建边界取到的平台快照 + Agent 覆盖解析后冻结（`_create_run`）。
 DEFAULT_POLICY: dict[str, Any] = snapshot_policy()
 RUN_ABANDONED = "RUN_ABANDONED"
 USER_MESSAGE_EVENT = "USER_MESSAGE"
@@ -218,10 +225,12 @@ def build_snapshot(
     resolved: ResolveDefinitionResponse,
     compaction: CompactionSettings | None = None,
 ) -> RuntimeSnapshot:
+    # 未显式传入时按「无平台设置」（`platform_overrides={}`）合并 Agent 覆盖——仅用于不经过
+    # Run 创建边界的直构调用点；生产路径由 `_create_run` 在取到平台快照后显式传入。
     settings = (
         compaction
         if compaction is not None
-        else resolve_compaction_settings(resolved.agent.runtime_config)
+        else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
     policy = snapshot_policy(settings)
     return RuntimeSnapshot(
@@ -314,6 +323,7 @@ class RunService:
         credentials_client: CredentialsClient | None = None,
         submissions: RunSubmissionService | None = None,
         context_builder: DbBackedContextBuilder | None = None,
+        settings_client: PlatformSettingsClient | None = None,
     ) -> None:
         self._session = session
         self._resolve_client = resolve_client
@@ -321,6 +331,8 @@ class RunService:
         self._executor_factory = executor_factory
         self._cancel_hints = cancel_hints or NullCancelHintStore()
         self._credentials_client = credentials_client
+        # 平台设置源：生产装配注入真实内部 HTTP client；直构调用点默认「无设置」（revision 0）。
+        self._settings_client: PlatformSettingsClient = settings_client or NullPlatformSettingsClient()
         self._submissions = submissions or RunSubmissionService(get_session_factory)
         self._context_builder = context_builder or DbBackedContextBuilder(
             session_factory=get_session_factory,
@@ -637,9 +649,17 @@ class RunService:
     ) -> RunStart:
         now = _utcnow()
         run_id = uuid.uuid4()
+        # 平台设置在此边界取一次（每个新 Run 一次），随即冻结进这一行的 snapshot。源不可读即
+        # 明确失败（RULE-06）——绝不回退到任何过期默认值，失败计数由 client 在调用方侧记。
+        snapshot_settings = await self._settings_client.fetch_snapshot(
+            tenant_id=tenant_id, trace_id=current_trace_id() or ""
+        )
         # 压缩配置在此解析一次：既冻进这一行的 snapshot，也供本次历史装配用同一个值——
         # 二者若各解析一次，配置恰好在两次之间变更就会让"冻结值"与"实际用的值"分叉。
-        compaction = resolve_compaction_settings(resolved.agent.runtime_config)
+        compaction = resolve_compaction_settings(
+            resolved.agent.runtime_config,
+            platform_overrides=snapshot_settings.settings.get("compaction"),
+        )
         model, mcp_secrets = await self._runtime_credentials(
             run_id,
             tenant_id,

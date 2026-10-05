@@ -19,12 +19,12 @@
 | S-03 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | TASK-010 | planned | - | . | 600 | |
 | E-01 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 settings service | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","invalid_payload"] | . | 300 | |
 | E-02 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实唯一约束） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","version_conflict"] | . | 300 | |
-| E-03 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Runtime 进程 + 被切断的 Console 内部端点 | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","source_unavailable"] | . | 600 | |
+| E-03 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Runtime 进程 + 被切断的 Console 内部端点 | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","source_unavailable"] | . | 600 | |
 | E-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Console API（真实服务身份校验） | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_internal/test_platform_settings_internal.py","-k","service_identity"] | . | 300 | |
 | E-05 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（同一事务） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","audit_same_transaction"] | . | 300 | |
 | E-06 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","restore"] | . | 300 | |
-| E-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Agent 定义行 | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","agent_override_precedence"] | . | 600 | |
-| E-08 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 独立进程（无 TTL 缓存、无重启） | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","new_revision_without_restart"] | . | 600 | |
+| E-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Agent 定义行 | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","agent_override_precedence"] | . | 600 | |
+| E-08 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 独立进程（无 TTL 缓存、无重启） | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","new_revision_without_restart"] | . | 600 | |
 | E-09 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 `.env.example` + 真实 `SharedSettings` 字段集 | TASK-011 | planned | ["uv","run","pytest","-q","tests/test_configuration_convergence.py"] | . | 300 | |
 | E-10 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 HTTP 响应体 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","secret_rejected"] | . | 300 | |
 | E-11 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | TASK-010 | planned | - | . | 600 | |
@@ -395,7 +395,7 @@ RULE-secret-001 → **14 passed**；RULE-log-001 → **13 passed**。
 
 ## TASK-005: Runtime 平台设置读取缝与冻结
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004
 - **Source**: platform-settings.backend.design.md#3.1 方案选型, platform-settings.backend.design.md#3.2 架构设计
@@ -408,35 +408,71 @@ RULE-secret-001 → **14 passed**；RULE-log-001 → **13 passed**。
 
 ### Checklist
 
-- [ ] 新增 `application/platform_settings_client.py`（内部 HTTP 取快照，复用 `ConsoleResolveClient` 的 `X-Internal-Service` 口径与超时常量风格）
-- [ ] client 调用带 `X-Caller-Service: runtime`，并在**客户端侧**记录 `platform_settings_fetch_total{caller="runtime", result="failed"}`——端点被切断时 Console 收不到请求，失败计数只能由这里记（design v0.5，E-03 的断言依赖它）
-- [ ] 删除 `application/context_settings.py` 的进程级 TTL 单例与 `_default_cache`；`_create_run` 改为先取快照再解析，压缩配置随 `snapshot_policy()` 冻结（解析一次、冻结值与实际用值不分叉）
-- [ ] `SharedSettings.context_settings_cache_ttl_sec` 删除（`packages/common/src/muad_common/settings.py`），`.env.example` 同步移除
-- [ ] `DEFAULT_POLICY` 的用途改为「无平台设置时的 schema 默认」，不得作为运行期动态默认源
-- [ ] 取设置**只**发生在 Run 创建边界：断言每 Run 恰好一次，不进入每轮模型调用/工具执行
-- [ ] [E-03][integration] 覆盖设置源不可读 ⇒ Run 创建明确失败 + 失败指标，**不回退过期默认值**
-- [ ] [E-07][integration] 覆盖 Agent 显式 `runtime_config.budget.compaction` 覆盖平台默认；读接口如实返回覆盖数量
-- [ ] [E-08][integration] 覆盖 Console 保存后**独立 Runtime 进程**的新 Run 读到新 revision（无 TTL、无重启）
-- [ ] 先写测试并记录 RED，再实现
-- [ ] 同步 `docs/configuration-inventory.csv` 与机检期望（`context_settings_cache_ttl_sec` 移除、`context_settings.py` 变更）
-- [ ] verifier `harness-snapshot#RULE-snapshot-001`：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"`（真实边界：真实 PG 冻结行 + 真实执行器装配）
-- [ ] verifier `harness-arch#RULE-arch-001`：`uv run pytest -q tests/architecture`（真实边界：真实源码树架构断言）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 新增取快照 client（内部 HTTP，复用 `ConsoleResolveClient` 的 `X-Internal-Service` 口径与超时常量风格）——按仓库分层落在 `infrastructure/platform_settings_client.py`（见 Evidence「落地位置」）
+- [x] client 调用带 `X-Caller-Service: runtime`，并在**客户端侧**记录 `platform_settings_fetch_total{caller="runtime", result="failed"}`——端点被切断时 Console 收不到请求，失败计数只能由这里记（design v0.5，E-03 的断言依赖它）
+- [x] 删除 `application/context_settings.py` 的进程级 TTL 单例与 `_default_cache`；`_create_run` 改为先取快照再解析，压缩配置随 `snapshot_policy()` 冻结（解析一次、冻结值与实际用值不分叉）
+- [x] `SharedSettings.context_settings_cache_ttl_sec` 删除（`packages/common/src/muad_common/settings.py`），`.env.example` 同步移除（该键本就不在 `.env.example`，无需删除）
+- [x] `DEFAULT_POLICY` 的用途改为「无平台设置时的 schema 默认」，不得作为运行期动态默认源
+- [x] 取设置**只**发生在 Run 创建边界：断言每 Run 恰好一次，不进入每轮模型调用/工具执行
+- [x] [E-03][integration] 覆盖设置源不可读 ⇒ Run 创建明确失败 + 失败指标，**不回退过期默认值**
+- [x] [E-07][integration] 覆盖 Agent 显式 `runtime_config.budget.compaction` 覆盖平台默认；读接口如实返回覆盖数量
+- [x] [E-08][integration] 覆盖 Console 保存后**独立 Runtime 进程**的新 Run 读到新 revision（无 TTL、无重启）
+- [x] 先写测试并记录 RED，再实现
+- [x] 同步 `docs/configuration-inventory.csv` 与机检期望（`context_settings_cache_ttl_sec` 移除、`context_settings.py` 变更）
+- [x] verifier `harness-snapshot#RULE-snapshot-001`：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"`（真实边界：真实 PG 冻结行 + 真实执行器装配）
+- [x] verifier `harness-arch#RULE-arch-001`：`uv run pytest -q tests/architecture`（真实边界：真实源码树架构断言）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-03 | integration | 真实 Runtime 进程 + 被切断的 Console 内部端点 | Run 创建明确失败（统一错误码）；指标 `platform_settings_fetch_total{result="failed"}` 递增；无过期默认值参与装配 | `tests/agent_runtime/test_platform_settings_source.py -k source_unavailable` | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","source_unavailable"] | planned |
-| E-07 | integration | 真实 PostgreSQL + 真实 Agent 定义行 | Agent 覆盖值优先；`policy_json` 反映覆盖值；读接口返回覆盖数量 | `tests/agent_runtime/test_platform_settings_source.py -k agent_override_precedence` | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","agent_override_precedence"] | planned |
-| E-08 | integration | 真实 PostgreSQL + 独立进程（无 TTL、无重启） | 保存后**新** Run 的 `policy_json` 用新 revision；跨进程无缓存等待窗口 | `tests/agent_runtime/test_platform_settings_source.py -k new_revision_without_restart` | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","new_revision_without_restart"] | planned |
+| E-03 | integration | 真实 Runtime 进程 + 被切断的 Console 内部端点 | Run 创建明确失败（统一错误码）；指标 `platform_settings_fetch_total{result="failed"}` 递增；无过期默认值参与装配 | `tests/agent_runtime/test_platform_settings_source.py -k source_unavailable` | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","source_unavailable"] | verified |
+| E-07 | integration | 真实 PostgreSQL + 真实 Agent 定义行 | Agent 覆盖值优先；`policy_json` 反映覆盖值；读接口返回覆盖数量 | `tests/agent_runtime/test_platform_settings_source.py -k agent_override_precedence` | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","agent_override_precedence"] | verified |
+| E-08 | integration | 真实 PostgreSQL + 独立进程（无 TTL、无重启） | 保存后**新** Run 的 `policy_json` 用新 revision；跨进程无缓存等待窗口 | `tests/agent_runtime/test_platform_settings_source.py -k new_revision_without_restart` | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","new_revision_without_restart"] | verified |
 
 ### Acceptance Evidence
 
-> 编码期填写 RED/GREEN 与断言位置。
+**RED（先写测试，未实现）**：`uv run pytest -q tests/agent_runtime/test_platform_settings_source.py -k "source_unavailable or agent_override_precedence or new_revision_without_restart"`
+```
+ImportError: cannot import name 'get_platform_settings_client' from 'muad_agent_runtime.api.deps'
+ERROR tests/agent_runtime/test_platform_settings_source.py
+1 error in 0.09s
+```
+
+**GREEN（逐条命令与数字）**
+- `uv run pytest -q tests/agent_runtime/test_platform_settings_source.py -k source_unavailable` → `1 passed, 4 deselected in 1.11s`
+- `uv run pytest -q tests/agent_runtime/test_platform_settings_source.py -k agent_override_precedence` → `1 passed, 4 deselected in 0.82s`
+- `uv run pytest -q tests/agent_runtime/test_platform_settings_source.py -k new_revision_without_restart` → `1 passed, 4 deselected in 0.75s`
+- 整个文件：`uv run pytest -q tests/agent_runtime/test_platform_settings_source.py` → `5 passed in 2.16s`
+- `uv run pytest -q tests/agent_runtime` → `350 passed in 11.19s`
+- `uv run pytest -q tests/agent_core` → `109 passed in 7.79s`
+- verifier `harness-snapshot#RULE-snapshot-001`：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py` → `4 passed in 0.28s`；`uv run pytest -q tests/agent_runtime -k "executor or resolve"` → `24 passed, 326 deselected`
+- verifier `harness-arch#RULE-arch-001`：`uv run pytest -q tests/architecture` → `33 passed in 0.69s`
+- 机检：`uv run pytest -q tests/test_configuration_inventory.py` → `3 passed`
+
+**落地位置（client）**：任务书写的是 `application/platform_settings_client.py`；按仓库分层（HTTP client 一律在 `infrastructure/`，端口协议在 `application/ports.py`）改落在 `apps/agent-runtime/src/muad_agent_runtime/infrastructure/platform_settings_client.py`，端口 `PlatformSettingsClient`/`PlatformSettingsSnapshot`/`NullPlatformSettingsClient` 在 `application/ports.py`。装配点 `main.py` lifespan 与 `api/deps.py::get_platform_settings_client`。
+
+**关键断言的断言位置**
+- 取快照失败即失败 + 调用方计数：`ConsolePlatformSettingsClient.fetch_snapshot` 的 `_record_failed()`（`infrastructure/platform_settings_client.py:82`）与 `_create_run` 首行的 `fetch_snapshot` 调用（`application/run_service.py:654`）。E-03 用例在真实 Runtime uvicorn（真实 socket）上 POST `/v1/runs`，断言 500 + `COMMON_INTERNAL_ERROR`，再从 `/metrics` 读 `platform_settings_fetch_total{caller="runtime",result="failed"}` 增量 `before+1`，并断言 `RuntimeSnapshot` 计数为 0（无默认值被冻结）。
+- 冻结值与实际用值不分叉、且只解析一次：`_create_run` 中 `snapshot_settings = fetch_snapshot(...)` → `resolve_compaction_settings(..., platform_overrides=snapshot_settings.settings.get("compaction"))` → `self._build_snapshot(..., compaction)`（`application/run_service.py:654-680`）；`resolve_compaction_settings` 改为纯函数、无缓存（`application/context_settings.py`）。
+- Agent 覆盖优先：`merge_compaction_payload(base=platform_overrides, override=budget.get("compaction"))`（`application/context_settings.py:31`）；E-07 用例断言 `policy_json["compaction"]["snip"]["max_groups"]==60`（Agent 值）而平台为 40，未覆盖的 `micro.enabled` 用平台 `True`。
+- 只发生一次、不进热路径：`test_run_creation_fetches_snapshot_exactly_once` 用计数 client 断言 `len(calls)==1`，执行器产出全部事件（含模型/工具回合）后计数不变。
+- 删 TTL：`ContextSettingsCache`/`_default_cache`/`default_settings_cache`/`context_settings_cache_ttl_sec` 全部删除（`grep` 零命中）；`resolve_compaction_settings` 不再有隐式默认源。
+
+**E-08 证伪旧设计（必做）**：临时在 client 内加回一个 10 秒进程级 TTL 缓存后复跑 `-k new_revision_without_restart`，用例立即变红 `assert 50 == 41`（读到缓存旧默认值而非新 revision 41）；移除该缓存后复绿。证明该用例确实能证伪「TTL 单例」旧设计（探针已还原，未进交付）。
+
+**真实边界**：真实 PostgreSQL（`control.platform_setting` 版本行、`control.agent_definition` 覆盖行、`runtime.runtime_snapshot.policy_json` 冻结行）；真实 Console 内部端点 `GET /internal/v1/platform-settings`（真实 uvicorn 单进程监听 127.0.0.1 真实 socket，Runtime 的 client 经真实 TCP 取快照，带 `X-Internal-Service` + `X-Tenant-Id` + `X-Caller-Service: runtime`）；E-03 的 Console 端点连到已释放端口（真实连接被拒）；E-08 每个新 Run 新建 service+client（无进程内缓存、无重启、10 秒窗口内立即生效）。E-07 的 admin 读接口经真实登录会话读取 `overridden_by_resources`。
+
+**CSV 同步说明**：运行机检发现 `docs/configuration-inventory.csv` 在本任务开工前已对多个文件过期（TASK-003/004 新增的 console 常量、`platform_settings` 契约字段、`error_codes` 等未回填，机检本就红）。为满足本任务机检项，按机检的 AST 口径整体重生成 CSV：派生的 `python-constant`/`settings` 行按源码行号重算，非派生行（frontend-constant/function-default 等）原样保留，并修正 `api/deps.py` 的 `POD_NAME` 行号（因新增 import 下移一行）。
+- E-03: verified — automated command passed; run_id=947676192dc945399f80be9e1ccfa260 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=947676192dc945399f80be9e1ccfa260 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=947676192dc945399f80be9e1ccfa260 (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 

@@ -178,45 +178,27 @@ def test_e04_invalid_compaction_config_is_explicitly_rejected(
     assert str(excinfo.value), reason  # 报错必须带可读原因，不能是空消息
 
 
-# ---- 设置源变更 ≤TTL 生效且不每轮读源 ----
+# ---- 设置读取缝：平台快照由调用方显式传入，Agent 覆盖优先（无进程内缓存）----
 
 
-def test_e04_settings_source_is_cached_within_ttl() -> None:
-    from muad_agent_runtime.application.context_settings import ContextSettingsCache
+def test_e04_resolve_uses_explicit_platform_overrides_and_agent_override_wins() -> None:
+    from muad_agent_runtime.application.context_settings import resolve_compaction_settings
 
-    reads: list[int] = []
-    clock = {"now": 100.0}
-
-    def source() -> Mapping[str, Any]:
-        reads.append(len(reads))
-        return {}
-
-    cache = ContextSettingsCache(ttl_sec=10.0, source=source, clock=lambda: clock["now"])
-
-    assert cache.platform_overrides() == {}
-    assert cache.platform_overrides() == {}
-    assert reads == [0], "TTL 内不得重复读源（否则每建一个 Run 就查一次）"
-
-    clock["now"] += 11.0
-    assert cache.platform_overrides() == {}
-    assert len(reads) == 2, "TTL 到期后必须重新读源（改动 ≤TTL 对下一个新 Run 生效）"
-
-
-def test_e04_settings_cache_merges_agent_override_over_platform_source() -> None:
-    from muad_agent_runtime.application.context_settings import ContextSettingsCache
-
-    cache = ContextSettingsCache(
-        ttl_sec=10.0,
-        source=lambda: {"micro": {"enabled": True}, "snip": {"max_groups": 40}},
-        clock=lambda: 0.0,
+    settings = resolve_compaction_settings(
+        {"budget": {"compaction": {"snip": {"max_groups": 60}}}},
+        platform_overrides={"micro": {"enabled": True}, "snip": {"max_groups": 40}},
     )
+    assert settings.micro.enabled is True, "平台快照生效"
+    assert settings.snip.max_groups == 60, "Agent 覆盖优先于平台快照"
+    assert settings.snip.keep_head_groups == 3, "未覆盖的键回落 schema 默认"
 
-    settings = cache.resolve(
-        {"budget": {"compaction": {"snip": {"max_groups": 60}}}}
-    )
-    assert settings.micro.enabled is True, "平台源生效"
-    assert settings.snip.max_groups == 60, "Agent 覆盖优先于平台源"
-    assert settings.snip.keep_head_groups == 3, "未覆盖的键回落默认"
+
+def test_e04_resolve_without_platform_overrides_uses_schema_defaults() -> None:
+    from muad_agent_runtime.application.context_settings import resolve_compaction_settings
+
+    settings = resolve_compaction_settings(None, platform_overrides=None)
+    assert settings.snip.max_groups == 50
+    assert settings.micro.enabled is False
 
 
 # ---- `history_budget_messages` 不是没人读的字段：条数真的按它裁 ----

@@ -29,6 +29,8 @@ CONTEXT_COMPACTION_METRIC: Final = "context_compaction_total"
 CONTEXT_COMPACTION_BYTES_SAVED_METRIC: Final = "context_compaction_bytes_saved_total"
 CONTEXT_SUMMARY_METRIC: Final = "context_summary_total"
 CONTEXT_SUMMARY_TOKENS_METRIC: Final = "context_summary_tokens_total"
+# 取平台设置快照的失败计数在**调用方**侧（Console 端点不可达时 Console 收不到请求）。
+PLATFORM_SETTINGS_FETCH_METRIC: Final = "platform_settings_fetch_total"
 
 COUNTER: Final = "counter"
 GAUGE: Final = "gauge"
@@ -74,6 +76,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     (CONTEXT_SUMMARY_METRIC, COUNTER, ("status",), "Summary layer runs by status"),
     # token 用量记在 **amount**，不进 label（label 里放计数值会裂出无界时间序列）。
     (CONTEXT_SUMMARY_TOKENS_METRIC, COUNTER, (), "Tokens spent on summary model calls"),
+    (
+        PLATFORM_SETTINGS_FETCH_METRIC,
+        COUNTER,
+        ("caller", "result"),
+        "Platform settings snapshot fetches by caller and result (ok/failed)",
+    ),
 )
 
 

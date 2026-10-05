@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 from muad_agent_runtime.api.deps import (
     get_credentials_client,
     get_executor_factory,
+    get_platform_settings_client,
     get_resolve_client,
 )
 from muad_agent_runtime.application.executor import (
@@ -17,6 +18,7 @@ from muad_agent_runtime.application.executor import (
     ExecutorRequest,
     RunExecutor,
 )
+from muad_agent_runtime.application.ports import NullPlatformSettingsClient
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.main import app
 from muad_api import AppError
@@ -198,6 +200,19 @@ async def fake_executor_factory(request: ExecutorRequest) -> RunExecutor:
 @pytest.fixture
 def executor_factory() -> ExecutorFactory:
     return fake_executor_factory
+
+
+@pytest.fixture(autouse=True)
+def no_platform_settings_client() -> AsyncIterator[None]:
+    """本套件默认「无平台设置」：Run 创建不真打内部端点（真实取值路径另有专门用例覆盖）。
+
+    真实 HTTP client 的装配与失败路径见 `test_platform_settings_source.py`。
+    """
+    app.dependency_overrides[get_platform_settings_client] = lambda: NullPlatformSettingsClient()
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(get_platform_settings_client, None)
 
 
 @pytest.fixture

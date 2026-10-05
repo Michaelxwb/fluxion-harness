@@ -11,12 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.attachments.tool_results import ArtifactResultWriter
 from ..application.executor import ExecutorFactory, default_executor_factory
-from ..application.ports import CredentialsClient, ResolveClient
+from ..application.ports import CredentialsClient, PlatformSettingsClient, ResolveClient
 from ..application.run_service import RunService
 from ..application.skill_tools import build_default_skill_cache
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.console_client import ConsoleResolveClient
 from ..infrastructure.db import get_session
+from ..infrastructure.platform_settings_client import ConsolePlatformSettingsClient
 
 
 def get_tenant_id() -> str:
@@ -36,6 +37,20 @@ def get_resolve_client(request: Request) -> ResolveClient:
             service_token=settings.internal_service_token,
         )
         request.app.state.resolve_client = client
+    return client
+
+
+def get_platform_settings_client(request: Request) -> PlatformSettingsClient:
+    client: PlatformSettingsClient | None = getattr(
+        request.app.state, "platform_settings_client", None
+    )
+    if client is None:
+        settings = SharedSettings()
+        client = ConsolePlatformSettingsClient(
+            settings.console_platform_url,
+            service_token=settings.internal_service_token,
+        )
+        request.app.state.platform_settings_client = client
     return client
 
 
@@ -82,6 +97,7 @@ SkillCacheDep = Annotated[SkillArtifactCache, Depends(get_skill_cache)]
 ExecutorFactoryDep = Annotated[ExecutorFactory, Depends(get_executor_factory)]
 CancelHintStoreDep = Annotated[CancelHintStore, Depends(get_cancel_hint_store)]
 CredentialsClientDep = Annotated[CredentialsClient | None, Depends(get_credentials_client)]
+PlatformSettingsClientDep = Annotated[PlatformSettingsClient, Depends(get_platform_settings_client)]
 
 
 def get_run_service(
@@ -91,6 +107,7 @@ def get_run_service(
     executor_factory: ExecutorFactoryDep,
     cancel_hints: CancelHintStoreDep,
     credentials_client: CredentialsClientDep,
+    settings_client: PlatformSettingsClientDep,
 ) -> RunService:
     return RunService(
         session,
@@ -99,6 +116,7 @@ def get_run_service(
         executor_factory=executor_factory,
         cancel_hints=cancel_hints,
         credentials_client=credentials_client,
+        settings_client=settings_client,
     )
 
 
