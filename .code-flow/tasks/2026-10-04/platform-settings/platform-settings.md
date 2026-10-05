@@ -787,7 +787,7 @@ E   ModuleNotFoundError: No module named 'muad_agent_core.agent.budget'
 - [ ] 认证策略读平台设置：`SESSION_TTL` 与 Cookie `Max-Age` **同源**，`SLIDE_THRESHOLD` 保持派生；存量会话到期时间不变
 - [ ] `MIN_PASSWORD_LENGTH`/`MAX_FAILED_ATTEMPTS`/`LOCK_DURATION` 由平台设置提供，服务端校验为准
 - [ ] `mcp.max_tools_per_server` 接入发现/接入路径；MCP 连接参数（`connect_timeout_ms`/`tool_cache_ttl_sec`）**不改**，仍由 MCP 页面管理；同批删除 `SharedSettings.mcp_max_tools_per_server`（消费者只有 `application/mcp_service.py:430`）并从 `.env.example` 摘掉同名键（若在）
-- [ ] **api-kit 的第二套 locale 默认**：`packages/api-kit` 的 `MessageCatalog`（`catalog.py:24-26`）与 `LocaleMiddleware`（`middleware.py:25-39`）各自带 `default_locale="zh-CN"`。按当前口径把平台设置的 `locale.default_locale` 装进 Console 的 `install_api_foundation`/catalog；若判断不该动（它只是"调用方没传时的兜底"），必须在证据里写明理由，不要沉默放过
+- [ ] **api-kit 的 locale 兜底（TASK-013 已改动，需复核）**：`install_api_foundation(app, default_locale=None)` 现在是 `default_locale or "zh-CN"`（`packages/api-kit/src/muad_api/app.py:18-28`），**不再**读 `SharedSettings.default_locale`。复核它与平台 `locale.default_locale` 的关系：请求级 `X-Locale`/`Accept-Language` 优先，平台默认语言应在**无语言信号**时生效——若判断 api-kit 只该做框架兜底、平台语言由别处承担，必须在证据里写明理由与承担位置，不要沉默放过
 - [ ] API-05 已认证限额端点接入（供前端复用 Skill 导入限额）
 - [ ] [E-15][integration] 覆盖新签发会话按新 TTL、已签发会话到期不变、新密码按新长度校验；真实边界：**真实 PostgreSQL + 真实登录会话与 CSRF**
 - [ ] 先写测试并记录 RED，再实现
