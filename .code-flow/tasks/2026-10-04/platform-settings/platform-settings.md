@@ -938,7 +938,7 @@ E   ModuleNotFoundError: No module named 'muad_agent_core.agent.budget'
 - [ ] 需求级 `verify-e2e`：`cf_acceptance_runner.py --manifest … --include-e2e --write-evidence`，28/28 场景全过
 - [ ] 先写清单并记录 RED（清单缺失时登记的 argv 必须失败），再补齐
 - [ ] verifier `harness-test#RULE-test-001`：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（真实边界：真实 PG/Redis + 真实构建产物 + 真实浏览器；acceptance 单跑约 1064s，跑前须停 dev 服务并查残留进程）
-- [ ] **规范沉淀**：把本次引入的事实性约束写进对应 live spec 的 `## Conventions`（已知至少三条：① `actor_user_id` 一类**操作者引用即使同 Owner Schema 也用逻辑引用**、不建物理 FK（先例 `ConfigAuditLog.actor_user_id`，与 `RULE-data-001` 字面口径的张力在此写明）；② 平台设置版本行的 append-only 口径（`is_deleted` 恒 `false`、当前版本 = 该租户 `max(revision)`、乐观并发由 partial unique 兜底、回滚产生新版本）；③ 平台业务默认只在**业务操作边界**取一次快照，执行中的 Run/Task 用冻结快照）；④ 两份 live spec 的旧口径必须改写：`im/harness-im.md:83,89`（节拍来源写成 `IM_PROGRESS_INTERVAL_SEC` 环境变量，且把「验收栈注入 1s」当成 ✅ 示例）与 `mcp/harness-mcp.md:66`（单 server 工具上限来源写成 `settings.py:23`）
+- [ ] **规范沉淀**：把本次引入的事实性约束写进对应 live spec 的 `## Conventions`（已知至少三条：① `actor_user_id` 一类**操作者引用即使同 Owner Schema 也用逻辑引用**、不建物理 FK（先例 `ConfigAuditLog.actor_user_id`，与 `RULE-data-001` 字面口径的张力在此写明）；② 平台设置版本行的 append-only 口径（`is_deleted` 恒 `false`、当前版本 = 该租户 `max(revision)`、乐观并发由 partial unique 兜底、回滚产生新版本）；③ 平台业务默认只在**业务操作边界**取一次快照，执行中的 Run/Task 用冻结快照）；④ 两份 live spec 的旧口径必须改写：`im/harness-im.md:83,89`（节拍来源写成 `IM_PROGRESS_INTERVAL_SEC` 环境变量，且把「验收栈注入 1s」当成 ✅ 示例）与 `mcp/harness-mcp.md:66`（单 server 工具上限来源写成 `settings.py:23`）；⑤ `model/harness-model.md` 的重试/退避 Conventions（`model_gateway.py:105-125` 的行号与「超过 `max_retries`」的表述）在 ADR-07 之后要复核——**语义变了就改语义，只是行号漂移就只修引用**，别把仍然正确的口径改坏
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
@@ -973,7 +973,7 @@ E   ModuleNotFoundError: No module named 'muad_agent_core.agent.budget'
 
 ### Checklist
 
-- [ ] `agent.max_turns`/`agent.max_tool_calls`：替换 `AgentPolicy` 默认，Agent 显式 `runtime_config` 覆盖仍优先
+- [ ] `agent.max_turns`/`agent.max_tool_calls`：替换 `AgentPolicy` 默认，Agent 显式 `runtime_config` 覆盖仍优先。**接口缝已由 TASK-008 留好**：`ExecutorRequest.model_budget` + `executor.agent_policy_for()` 目前只承接 `deadline_ms`/`max_model_retries`——把注入基值换成含四叶的载体即可，**不要新增取数方式或缓存**
 - [ ] `memory.write_enabled` 替换 `memory_tools` 的「未显式配置时默认 True」；`max_injected_memories`/`max_injected_bytes` 接入 `context_builder` 的记忆注入预算；`max_recall_bytes`/`recall_default_limit` 接入 `memory_tools`（`recall_default_limit ≤ RECALL_MAX_LIMIT`，上界单一来源见 TASK-011 收敛）
 - [ ] `artifact.max_archive_files` 接入 `archive_tools`；`artifact.retention_days`/`artifact.cleanup_batch_size` 接入 Console 清理入口（CLI 本次操作覆盖仍优先）
 - [ ] 全部取值来自冻结快照或操作边界快照，**不在每轮模型调用/每次工具执行里重新读取**
@@ -1015,7 +1015,7 @@ E   ModuleNotFoundError: No module named 'muad_agent_core.agent.budget'
 
 ### Checklist
 
-- [ ] 全仓扫一遍：`grep -rn "<12 个已删键>" tests/acceptance e2e`，列出每一处 env 注入/常量来源
+- [ ] 全仓扫一遍：`grep -rn "<12 个已删键>" tests/acceptance e2e`，列出每一处 env 注入/常量来源；已知一处：`tests/acceptance/dfx/test_dfx_model_recovery.py:9` 的 docstring 仍引用已删符号 `DEFAULT_RETRY_BASE_SEC`（TASK-008 报备，超其范围未改）
 - [ ] 各 acceptance 栈（`dfx` / `task_schedule` / `im_gateway` 及扫出的其他栈）在启动时按**该栈的租户**种一行 `control.platform_setting`，值取原先 env 注入的非默认值；删除这些栈里的 env 注入。已扫出的具体落点：`tests/acceptance/im_gateway/environment.py:142`（`IM_PROGRESS_INTERVAL_SEC=1`；该栈 90s 超时对新窗口 80s 很紧）、`tests/acceptance/dfx/environment.py`（`DELIVERY_BACKOFF_BASE_SEC`）、`tests/acceptance/task_schedule/environment.py:46,423`（`DELIVERY_BACKOFF_BASE_SEC=2`）、`tests/acceptance/dfx/test_dfx_routing.py:112`（`BATCH_MAX_CONCURRENCY=2`）
 - [ ] `tests/acceptance/dfx/test_dfx_fault_matrix.py` 的 `TASK_MAX_ATTEMPTS=1` 臂：改由平台设置表达（同一租户不同 Worker 进程的覆盖）
 - [ ] 栈内断言改为从**种下的设置**推导期望值，不再依赖 env 常量
