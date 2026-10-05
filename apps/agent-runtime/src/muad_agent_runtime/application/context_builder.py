@@ -12,7 +12,7 @@ from muad_agent_core.context.builder import ContextInput
 from muad_agent_core.context.compactor import history_bytes
 from muad_agent_core.context.summary import summary_from_payload, summary_message
 from muad_agent_core.model.provider import ModelMessage, ModelRequest, ModelRole, ModelToolCall
-from muad_contracts.platform_settings import default_compaction_settings
+from muad_contracts.platform_settings import MemoryPolicySettings, default_compaction_settings
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -34,10 +34,10 @@ HISTORY_EVENT_TYPES = ("USER_MESSAGE", "ASSISTANT_MESSAGE", "TOOL_CALL", "ASSIST
 # 超出的回合**整回合丢弃**（绝不半截保留，否则会造出孤儿 tool 消息 ⇒ 供应商直接拒绝）。
 MAX_HISTORY_TOOL_ROUNDS = 6
 
-# 自动注入的**双上限**：条数与字节各自兜底，按 `update_time DESC` 逐条累加、先到先得，
-# 任一触顶即停。字节上限才是中文内容的实际约束（512 字 ≈ 1.5KB），条数上限兜住短值场景。
-MAX_INJECTED_MEMORIES = 10
-MAX_INJECTED_BYTES = 2048
+# 自动注入的**双上限**（条数与字节）由本次 Run 冻结的 `memory` 平台设置提供
+# （`memory.max_injected_memories` / `memory.max_injected_bytes`，见 `MemoryPolicySettings`）：
+# 按 `update_time DESC` 逐条累加、先到先得，任一触顶即停。字节上限才是中文内容的实际约束
+# （512 字 ≈ 1.5KB），条数上限兜住短值场景。默认值直接取 contracts schema，不在此复制一份。
 
 # 注入措辞：记忆以 `role=SYSTEM` 前置，落在**受保护前缀**里，任何压缩层都不动它
 # （`compactor.split_protected_prefix`），所以这行字是唯一的效力边界表达。
@@ -71,6 +71,7 @@ class DbBackedContextBuilder:
         user_id: uuid.UUID | None,
         budget_messages: int | None = None,
         memory_budget_ratio: float | None = None,
+        memory_policy: MemoryPolicySettings | None = None,
     ) -> tuple[ModelMessage, ...]:
         """执行链使用：取最近事件（最新保留）+ 受控 Memory，返回可直接发送的消息序列。
 
@@ -83,8 +84,12 @@ class DbBackedContextBuilder:
         `ModelRequest` 的唯一处发生（design §3.1 ADR-01）。装配侧再压一遍会让同一份历史出现两种
         口径，"重建的那份 == 真正发出去的那份"就失去锚。`budget_messages` 因此只是**取事件的查询
         守卫**（按它 ×4 条限流），真正的裁剪由压缩层用**同一个冻结值**完成。
+
+        `memory_policy` 是本次 Run **冻结**的 `memory` 平台设置（条数/字节上限）；缺失回落 schema
+        默认——注入上限因此也只在本 Run 的冻结值里取，不在每轮对话重新读设置（NFR-PERF-01）。
         """
         budget = budget_messages or self._budget.max_messages
+        policy = memory_policy if memory_policy is not None else MemoryPolicySettings()
         async with self._session_factory()() as session:
             summary_row = await latest_summary(session, tenant_id, conversation_id)
             covered = covered_up_to(summary_row.payload_json if summary_row is not None else None)
@@ -101,7 +106,10 @@ class DbBackedContextBuilder:
                     session,
                     tenant_id,
                     user_id,
-                    budget_bytes=_memory_budget_bytes(history, memory_budget_ratio),
+                    limit=policy.max_injected_memories,
+                    budget_bytes=_memory_budget_bytes(
+                        history, memory_budget_ratio, hard_cap=policy.max_injected_bytes
+                    ),
                 )
                 if user_id is not None
                 else []
@@ -314,17 +322,19 @@ class DbBackedContextBuilder:
         tenant_id: str,
         user_id: uuid.UUID,
         *,
+        limit: int,
         budget_bytes: int,
     ) -> list[str]:
         """取自动注入的记忆：**只有 `USER_EXPLICIT`**，受条数/字节双上限，读失败则本轮不注入。
 
         分级过滤与排序在 SQL 层完成（`MemoryService.list_for_injection_with_session`），这里只做
-        预算累加与措辞拼接 —— 取回后再筛会让每轮对话把该用户的全部记忆读出来。
+        预算累加与措辞拼接 —— 取回后再筛会让每轮对话把该用户的全部记忆读出来。`limit` 是本次 Run
+        冻结的 `memory.max_injected_memories`（条数上限）。
         读失败**必须降级而不是上抛**：注入是每轮对话的必经查询，DB 抖动不该放大成"用户发不出消息"。
         """
         try:
             rows = await MemoryService.list_for_injection_with_session(
-                session, tenant_id, user_id, limit=MAX_INJECTED_MEMORIES
+                session, tenant_id, user_id, limit=limit
             )
         except SQLAlchemyError:
             logger.warning(
@@ -357,11 +367,14 @@ class DbBackedContextBuilder:
         return injected
 
 
-def _memory_budget_bytes(history: Sequence[ModelMessage], ratio: float | None) -> int:
+def _memory_budget_bytes(
+    history: Sequence[ModelMessage], ratio: float | None, *, hard_cap: int
+) -> int:
     """memory 注入可占的**字节**上限（FEAT-09）。
 
-    生效上限 = `min(MAX_INJECTED_BYTES, ratio × 装配出的历史字节)`：硬上限是绝对兜底（中文内容的
-    实际约束），比例是「别挤占历史」——两者取小，谁都不越谁。
+    生效上限 = `min(hard_cap, ratio × 装配出的历史字节)`：`hard_cap` 是本次 Run 冻结的
+    `memory.max_injected_bytes`（绝对兜底，中文内容的实际约束），比例是「别挤占历史」——两者取小，
+    谁都不越谁。
 
     历史为空（会话第一轮）时比例为 0 ⇒ 本轮不注入。这是"memory 不占历史预算"的直接后果，
     **不是 bug**；要放开就得给比例配一个下限（那是另一个口径决定）。
@@ -369,7 +382,7 @@ def _memory_budget_bytes(history: Sequence[ModelMessage], ratio: float | None) -
     effective = (
         default_compaction_settings().memory.budget_ratio if ratio is None else ratio
     )
-    return max(0, min(MAX_INJECTED_BYTES, int(history_bytes(history) * effective)))
+    return max(0, min(hard_cap, int(history_bytes(history) * effective)))
 
 
 def _render_memory(memory_key: str, value: str) -> str:

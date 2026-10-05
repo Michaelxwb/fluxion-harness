@@ -84,7 +84,6 @@ def test_configuration_inventory_has_valid_locations_and_classification() -> Non
         assert row["reason"].strip(), row
         assert ".env" not in path.name, "Do not inventory actual secret values"
     shared = {r["symbol"]: r["category"] for r in rows if r["kind"] == "shared-setting"}
-    assert shared["artifact_retention_days"] == "business"
     assert shared["database_url"] == "environment"
     chunks = [r for r in rows if r["symbol"] in {"UPLOAD_CHUNK_BYTES", "MAX_UPLOAD_CHUNKS"}]
     assert {r["symbol"] for r in chunks} == {"UPLOAD_CHUNK_BYTES", "MAX_UPLOAD_CHUNKS"}

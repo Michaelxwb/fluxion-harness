@@ -37,7 +37,6 @@ from muad_agent_runtime.application.memory_service import (
     MemoryService,
 )
 from muad_agent_runtime.application.memory_tools import (
-    MAX_RECALL_BYTES,
     RECALL_TOOL,
     REMEMBER_TOOL,
     MemoryScope,
@@ -49,12 +48,15 @@ from muad_agent_runtime.infrastructure.models.runtime import ToolCallAudit, User
 from muad_api import AppError
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_contracts import ResolvedAgent, ResolvedModel
+from muad_contracts.platform_settings import MemoryPolicySettings
 
 TENANT = f"memtool-{uuid.uuid4()}"
 RUN_ID = uuid.uuid4()
 CONV_ID = uuid.uuid4()
 USER_ID = uuid.uuid4()
 OTHER_USER_ID = uuid.uuid4()
+# `recall` 返回体字节上限现由平台设置提供；无冻结配置时回落 contracts schema 默认。
+MAX_RECALL_BYTES = MemoryPolicySettings().max_recall_bytes
 
 
 @pytest.fixture(autouse=True)

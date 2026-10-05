@@ -408,7 +408,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口",
       "owner": "TASK-013",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -418,7 +418,48 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-20",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "644f13d46cd046698b93fbd2d624033b",
+        "executed_at": "2026-10-05T04:38:13.054682+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_execution_defaults_settings.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "e8a6dadab7b89a649871531caab6a3fa88867af88b72875d68985819578d5dbd"
+      },
+      "runs": [
+        {
+          "id": "E-20",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "644f13d46cd046698b93fbd2d624033b",
+          "executed_at": "2026-10-05T04:38:13.054682+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_execution_defaults_settings.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "e8a6dadab7b89a649871531caab6a3fa88867af88b72875d68985819578d5dbd"
+        }
+      ]
     },
     {
       "id": "E-21",

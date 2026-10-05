@@ -4,7 +4,6 @@ metadata:
   name: muad-common
   namespace: muad
 data:
-  DEFAULT_LOCALE: zh-CN
   # 单租户部署的默认租户：Gateway 取 Bot 快照、Runtime/Worker 建会话都以它为准。
   # 不设会回落到设置默认值 `default`，多租户部署请按租户拆部署单元或改这里。
   DEFAULT_TENANT_ID: default

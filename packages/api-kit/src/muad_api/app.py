@@ -19,7 +19,9 @@ def install_api_foundation(
 ) -> MessageCatalog:
     settings = settings or SharedSettings()
     resolved_messages_file = messages_file or settings.api_messages_file
-    resolved_locale = default_locale or settings.default_locale
+    # API 错误文案的**兜底语言**是 per-request 头（X-Locale / Accept-Language）解析不到时的常量，
+    # 不是业务平台设置（`locale.default_locale` 供 Worker 投递/Gateway 渲染，见 TASK-006/007）。
+    resolved_locale = default_locale or "zh-CN"
 
     catalog = MessageCatalog(resolved_messages_file, default_locale=resolved_locale)
     app.state.message_catalog = catalog

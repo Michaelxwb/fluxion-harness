@@ -1,6 +1,8 @@
 from .budget import (
     DEFAULT_DEADLINE_MS,
     DEFAULT_MAX_MODEL_RETRIES,
+    DEFAULT_MAX_TOOL_CALLS,
+    DEFAULT_MAX_TURNS,
     MAX_MODEL_REQUEST_MS,
     RETRY_BASE_SEC,
     ModelBudget,
@@ -30,6 +32,8 @@ from .provider import (
 __all__ = [
     "DEFAULT_DEADLINE_MS",
     "DEFAULT_MAX_MODEL_RETRIES",
+    "DEFAULT_MAX_TOOL_CALLS",
+    "DEFAULT_MAX_TURNS",
     "MAX_MODEL_REQUEST_MS",
     "RETRY_BASE_SEC",
     "DeltaCallback",

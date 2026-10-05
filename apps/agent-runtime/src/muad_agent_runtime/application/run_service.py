@@ -12,8 +12,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import sqlalchemy as sa
-from muad_agent_core.agent import RunnerModelError
-from muad_agent_core.model import ModelBudget, ModelMessage
+from muad_agent_core.agent import AgentPolicy, RunnerModelError
+from muad_agent_core.model import ModelMessage
 from muad_api import AppError
 from muad_api.context import current_trace_id
 from muad_api.error_codes import ErrorCode
@@ -33,8 +33,12 @@ from muad_contracts import (
 )
 from muad_contracts.platform_settings import (
     COMPACTION_POLICY_KEY,
+    AgentSettings,
+    ArtifactSettings,
     CompactionConfigError,
     CompactionSettings,
+    LocaleSettings,
+    MemoryPolicySettings,
     compaction_payload,
     default_compaction_settings,
     parse_compaction_settings,
@@ -68,6 +72,7 @@ from .attachments.inbound import (
 from .context_builder import BudgetPolicy, DbBackedContextBuilder
 from .context_settings import resolve_compaction_settings
 from .executor import (
+    ExecutionDefaults,
     ExecutorCredentials,
     ExecutorEvent,
     ExecutorFactory,
@@ -103,47 +108,128 @@ PROMPT_TEMPLATE_VERSION = "1"
 
 def snapshot_policy(
     compaction: CompactionSettings | None = None,
-    agent_budget: ModelBudget | None = None,
+    execution: ExecutionDefaults | None = None,
 ) -> dict[str, Any]:
     """Run 侧 execution snapshot 的执行期策略——`policy_json` 的唯一构建口径。
 
-    模型执行预算（`agent.deadline_ms` / `agent.max_model_retries`，见 ADR-07）与压缩配置一并
-    冻结在这里：配置变更只影响后续新 Run，在飞的 Run 用的是它自己那一份冻结值
+    `agent` 分组四叶（`max_turns` / `max_tool_calls` / `deadline_ms` / `max_model_retries`，见
+    ADR-07）、`memory` 分组五叶、`artifact.max_archive_files`、`locale.default_timezone` 与压缩
+    配置一并冻结在这里：配置变更只影响后续新 Run，在飞的 Run 用的是它自己那一份冻结值
     （`harness-snapshot#RULE-snapshot-001` 的"Run 侧等价载体"）。
+
+    `artifact.retention_days` / `artifact.cleanup_batch_size` **不进本快照**：它们属 Console
+    清理（一条 CLI 操作，不是 Run），在操作边界从平台设置取。
     """
     settings = compaction if compaction is not None else default_compaction_settings()
-    budget = agent_budget if agent_budget is not None else ModelBudget()
+    defaults = execution if execution is not None else ExecutionDefaults()
+    agent = defaults.agent_policy
+    memory = defaults.memory_policy
     return {
-        "deadline_ms": budget.deadline_ms,
-        "max_model_retries": budget.max_model_retries,
+        "max_turns": agent.max_turns,
+        "max_tool_calls": agent.max_tool_calls,
+        "deadline_ms": agent.deadline_ms,
+        "max_model_retries": agent.max_model_retries,
+        "memory": {
+            "write_enabled": memory.write_enabled,
+            "max_injected_memories": memory.max_injected_memories,
+            "max_injected_bytes": memory.max_injected_bytes,
+            "max_recall_bytes": memory.max_recall_bytes,
+            "recall_default_limit": memory.recall_default_limit,
+        },
+        "artifact": {"max_archive_files": defaults.max_archive_files},
+        "locale": {"default_timezone": defaults.timezone},
         "compaction": compaction_payload(settings),
     }
 
 
-def agent_budget_of(policy: Mapping[str, Any] | None) -> ModelBudget | None:
-    """从**已冻结**的 `policy_json` 还原模型执行预算；缺键或形状坏返回 None（回落 schema 默认）。
+def _section(policy: Mapping[str, Any], key: str) -> Mapping[str, Any]:
+    value = policy.get(key)
+    return value if isinstance(value, Mapping) else {}
 
-    resume 走这条：在跑的 Run 用的永远是它自己那一份冻结值，不吃当前平台设置。
+
+def _frozen_int(source: Mapping[str, Any], key: str, default: int) -> int:
+    value = source.get(key)
+    return value if isinstance(value, int) and not isinstance(value, bool) else default
+
+
+def _frozen_bool(source: Mapping[str, Any], key: str, default: bool) -> bool:
+    value = source.get(key)
+    return value if isinstance(value, bool) else default
+
+
+def _frozen_str(source: Mapping[str, Any], key: str, default: str) -> str:
+    value = source.get(key)
+    return value if isinstance(value, str) and value else default
+
+
+def _frozen_memory_policy(policy: Mapping[str, Any]) -> MemoryPolicySettings:
+    section = _section(policy, "memory")
+    defaults = MemoryPolicySettings()
+    return MemoryPolicySettings(
+        write_enabled=_frozen_bool(section, "write_enabled", defaults.write_enabled),
+        max_injected_memories=_frozen_int(
+            section, "max_injected_memories", defaults.max_injected_memories
+        ),
+        max_injected_bytes=_frozen_int(section, "max_injected_bytes", defaults.max_injected_bytes),
+        max_recall_bytes=_frozen_int(section, "max_recall_bytes", defaults.max_recall_bytes),
+        recall_default_limit=_frozen_int(
+            section, "recall_default_limit", defaults.recall_default_limit
+        ),
+    )
+
+
+def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults:
+    """从**已冻结**的 `policy_json` 还原执行期平台默认；缺键逐叶回落 schema 默认。
+
+    resume 走这条：在跑的 Run 用的永远是它自己那一份冻结值，不吃当前平台设置。**逐叶**回落
+    （而不是整块 None）让本需求上线**前**创建的 Run 仍能读回它当时冻结的 `deadline_ms` /
+    `max_model_retries`（旧行没有 `max_turns` / `memory` 等键，这些按 schema 默认补齐）。
     """
     if not isinstance(policy, Mapping):
-        return None
-    deadline_ms = policy.get("deadline_ms")
-    max_model_retries = policy.get("max_model_retries")
-    if not isinstance(deadline_ms, int) or isinstance(deadline_ms, bool):
-        return None
-    if not isinstance(max_model_retries, int) or isinstance(max_model_retries, bool):
-        return None
-    return ModelBudget(deadline_ms=deadline_ms, max_model_retries=max_model_retries)
+        return ExecutionDefaults()
+    agent_defaults = AgentSettings()
+    return ExecutionDefaults(
+        agent_policy=AgentPolicy(
+            max_turns=_frozen_int(policy, "max_turns", agent_defaults.max_turns),
+            max_tool_calls=_frozen_int(policy, "max_tool_calls", agent_defaults.max_tool_calls),
+            deadline_ms=_frozen_int(policy, "deadline_ms", agent_defaults.deadline_ms),
+            max_model_retries=_frozen_int(
+                policy, "max_model_retries", agent_defaults.max_model_retries
+            ),
+        ),
+        memory_policy=_frozen_memory_policy(policy),
+        max_archive_files=_frozen_int(
+            _section(policy, "artifact"),
+            "max_archive_files",
+            ArtifactSettings().max_archive_files,
+        ),
+        timezone=_frozen_str(
+            _section(policy, "locale"),
+            "default_timezone",
+            LocaleSettings().default_timezone,
+        ),
+    )
 
 
-def agent_budget_from_platform(document: Mapping[str, Any] | None) -> ModelBudget:
-    """从平台设置快照（整份文档）解析模型执行预算，缺分组回落 schema 默认。
+def execution_defaults_from_platform(document: Mapping[str, Any] | None) -> ExecutionDefaults:
+    """从平台设置快照（整份文档）解析 Run 的执行期默认，缺分组回落 schema 默认。
 
     非法文档显式抛 `PlatformSettingsError`（Console 是唯一写入口，已在校验层把住）——与
     "源不可读即明确失败"同一条纪律，绝不静默回退到过期默认值。
     """
-    agent = parse_platform_settings(document).agent
-    return ModelBudget(deadline_ms=agent.deadline_ms, max_model_retries=agent.max_model_retries)
+    parsed = parse_platform_settings(document)
+    agent = parsed.agent
+    return ExecutionDefaults(
+        agent_policy=AgentPolicy(
+            max_turns=agent.max_turns,
+            max_tool_calls=agent.max_tool_calls,
+            deadline_ms=agent.deadline_ms,
+            max_model_retries=agent.max_model_retries,
+        ),
+        memory_policy=parsed.memory,
+        max_archive_files=parsed.artifact.max_archive_files,
+        timezone=parsed.locale.default_timezone,
+    )
 
 
 def compaction_settings_of(policy: Mapping[str, Any] | None) -> CompactionSettings | None:
@@ -256,7 +342,7 @@ def build_snapshot(
     tenant_id: str,
     resolved: ResolveDefinitionResponse,
     compaction: CompactionSettings | None = None,
-    agent_budget: ModelBudget | None = None,
+    execution: ExecutionDefaults | None = None,
 ) -> RuntimeSnapshot:
     # 未显式传入时按「无平台设置」（`platform_overrides={}`）合并 Agent 覆盖——仅用于不经过
     # Run 创建边界的直构调用点；生产路径由 `_create_run` 在取到平台快照后显式传入。
@@ -265,7 +351,7 @@ def build_snapshot(
         if compaction is not None
         else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
-    policy = snapshot_policy(settings, agent_budget)
+    policy = snapshot_policy(settings, execution)
     return RuntimeSnapshot(
         tenant_id=tenant_id,
         run_id=run_id,
@@ -693,9 +779,9 @@ class RunService:
             resolved.agent.runtime_config,
             platform_overrides=snapshot_settings.settings.get("compaction"),
         )
-        # 模型执行预算同样在此冻结一次（ADR-07）：`agent.deadline_ms` / `agent.max_model_retries`
-        # 既是本次装配的 AgentPolicy 基值，也冻进 policy_json 供 resume 读回。
-        agent_budget = agent_budget_from_platform(snapshot_settings.settings)
+        # 执行期平台默认（`agent`/`memory`/`artifact.max_archive_files`/`locale.default_timezone`）
+        # 同样在此冻结一次（ADR-07 等）：既是本次装配的基值，也冻进 policy_json 供 resume 读回。
+        execution = execution_defaults_from_platform(snapshot_settings.settings)
         model, mcp_secrets = await self._runtime_credentials(
             run_id,
             tenant_id,
@@ -723,7 +809,7 @@ class RunService:
         try:
             await self._session.flush()
             snapshot = self._build_snapshot(
-                run.id, tenant_id, resolved, compaction, agent_budget
+                run.id, tenant_id, resolved, compaction, execution
             )
             self._session.add(snapshot)
             await self._session.flush()
@@ -783,6 +869,7 @@ class RunService:
             request.platform_user_id,
             budget_messages=compaction.history_budget_messages,
             memory_budget_ratio=compaction.memory.budget_ratio,
+            memory_policy=execution.memory_policy,
         )
         return RunStart(
             run_id=run.id,
@@ -799,7 +886,7 @@ class RunService:
                 submission_id=submission.id,
                 resumed=False,
                 compaction=compaction,
-                agent_budget=agent_budget,
+                execution=execution,
             ),
         )
 
@@ -882,12 +969,14 @@ class RunService:
             raise AppError(ErrorCode.RUN_BUSY) from exc
         # resume 不重解析配置：历史预算从这一行已冻结的 `policy_json` 取，配置改动只影响后续新 Run。
         frozen = compaction_settings_of(snapshot.policy_json)
+        execution = execution_defaults_of(snapshot.policy_json)
         history = await self._load_history(
             run.conversation_id,
             run.tenant_id,
             run.user_id,
             budget_messages=history_budget_of(snapshot.policy_json),
             memory_budget_ratio=frozen.memory.budget_ratio if frozen is not None else None,
+            memory_policy=execution.memory_policy,
         )
         return RunStart(
             run_id=run.id,
@@ -903,8 +992,8 @@ class RunService:
                 history=history,
                 submission_id=submission.id,
                 resumed=True,
-                compaction=compaction_settings_of(snapshot.policy_json),
-                agent_budget=agent_budget_of(snapshot.policy_json),
+                compaction=frozen,
+                execution=execution,
                 current_text=input_text,
                 with_attachments=False,
             ),
@@ -1008,11 +1097,13 @@ class RunService:
         *,
         budget_messages: int | None = None,
         memory_budget_ratio: float | None = None,
+        memory_policy: MemoryPolicySettings | None = None,
     ) -> tuple[ModelMessage, ...]:
         """取装配用的历史。
 
         `budget_messages` 只做取数守卫；裁剪在压缩层（同一冻结值）。`memory_budget_ratio` 是
-        FEAT-09 的注入占比（分母是装配出的历史字节），同样来自这一行冻结的配置。
+        FEAT-09 的注入占比（分母是装配出的历史字节），`memory_policy` 是这一行冻结的注入条数/字节
+        上限，三者都来自本 Run 的冻结配置。
         """
         return await self._context_builder.load_history(
             tenant_id=tenant_id,
@@ -1020,6 +1111,7 @@ class RunService:
             user_id=user_id,
             budget_messages=budget_messages,
             memory_budget_ratio=memory_budget_ratio,
+            memory_policy=memory_policy,
         )
 
     def _build_snapshot(
@@ -1028,14 +1120,14 @@ class RunService:
         tenant_id: str,
         resolved: ResolveDefinitionResponse,
         compaction: CompactionSettings | None = None,
-        agent_budget: ModelBudget | None = None,
+        execution: ExecutionDefaults | None = None,
     ) -> RuntimeSnapshot:
         return build_snapshot(
             run_id=run_id,
             tenant_id=tenant_id,
             resolved=resolved,
             compaction=compaction,
-            agent_budget=agent_budget,
+            execution=execution,
         )
 
     def _event_writer(self) -> EventWriter:
@@ -1088,7 +1180,7 @@ class RunService:
         history: Sequence[ModelMessage],
         *,
         compaction: CompactionSettings | None = None,
-        agent_budget: ModelBudget | None = None,
+        execution: ExecutionDefaults | None = None,
         current_text: str | None = None,
         with_attachments: bool = True,
     ) -> RunExecutor:
@@ -1112,7 +1204,7 @@ class RunService:
                 mcp_servers=tuple(mcp_servers),
                 history=tuple(history),
                 compaction=compaction,
-                model_budget=agent_budget,
+                execution=execution,
                 credentials=ExecutorCredentials(mcp_secrets=mcp_secrets),
                 run_context=ExecutorRunContext(
                     tenant_id=run.tenant_id,
@@ -1137,7 +1229,7 @@ class RunService:
         submission_id: uuid.UUID,
         resumed: bool,
         compaction: CompactionSettings | None = None,
-        agent_budget: ModelBudget | None = None,
+        execution: ExecutionDefaults | None = None,
         current_text: str | None = None,
         with_attachments: bool = True,
     ) -> AsyncIterator[ExecutorEvent]:
@@ -1164,7 +1256,7 @@ class RunService:
                 mcp_secrets,
                 history,
                 compaction=compaction,
-                agent_budget=agent_budget,
+                execution=execution,
                 current_text=current_text,
                 with_attachments=with_attachments,
             )

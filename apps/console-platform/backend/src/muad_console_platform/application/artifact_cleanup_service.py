@@ -42,10 +42,6 @@ from ..infrastructure.repositories.artifact_retention_repository import (
     ExpiredArtifact,
 )
 
-#: 单轮默认处理多少个候选。有上界是刻意的：这条 CLI 会删盘上的字节，一次跑太久既不好中断
-#: 也不好核对；批量由运维重复执行控制。
-DEFAULT_CLEANUP_LIMIT = 500
-
 #: 原子写留在盘上的中间文件前缀（`os.replace` 之前的那一份）。
 #: **只有进程崩在 `write_bytes` 与 `os.replace` 之间才会残留**——正常路径与失败清理都会消掉它；
 #: 残留物也**不影响任何读取**（artifact 行指向的是最终 key），是纯盘上浪费。
@@ -114,9 +110,13 @@ class ArtifactCleanupService:
         *,
         retention_days: int,
         grace_seconds: float,
-        limit: int = DEFAULT_CLEANUP_LIMIT,
+        limit: int,
         tenant_id: str | None = None,
     ) -> None:
+        """`retention_days` / `limit` 由调用方（CLI）从**当次操作边界**取到的平台设置传入
+        （`artifact.retention_days` / `artifact.cleanup_batch_size`）——清理不是 Run，不冻结。
+        `limit` 保留为**每轮候选上界**：这条命令会删盘上的字节，一次跑太久既不好中断也不好核对。
+        """
         self._repository = ArtifactRetentionRepository(session)
         self._store = store
         self._retention = timedelta(days=retention_days)

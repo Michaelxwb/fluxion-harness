@@ -87,9 +87,8 @@ def test_archive_limits_use_utf8_bytes_and_count(monkeypatch: pytest.MonkeyPatch
     assert error.value.code == "ARCHIVE_TOO_LARGE"
     with pytest.raises(ArchiveToolError):
         build_archive(archive_files([{"path": "a", "content": ""}]))
-    monkeypatch.setattr(archive_tools, "MAX_ARCHIVE_FILES", 1)
     with pytest.raises(ArchiveToolError):
-        archive_files([{"path": "a", "content": ""}, {"path": "b", "content": ""}])
+        archive_files([{"path": "a", "content": ""}, {"path": "b", "content": ""}], max_files=1)
 
 
 async def test_archive_tool_persists_a_real_run_owned_zip(tenant: TenantContext, tmp_path: Path) -> None:

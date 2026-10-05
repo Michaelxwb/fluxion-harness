@@ -12,11 +12,7 @@ import sqlalchemy as sa
 from muad_agent_core.context.builder import ContextInput
 from muad_agent_core.context.compactor import trim_history
 from muad_agent_core.model.provider import ModelRole
-from muad_agent_runtime.application.context_builder import (
-    MAX_INJECTED_BYTES,
-    MAX_INJECTED_MEMORIES,
-    DbBackedContextBuilder,
-)
+from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
 from muad_agent_runtime.application.memory_service import MemoryService
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
@@ -25,6 +21,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     Conversation,
     UserMemory,
 )
+from muad_contracts.platform_settings import MemoryPolicySettings
 from sqlalchemy.exc import SQLAlchemyError
 
 TENANT = f"ctx-{uuid.uuid4()}"
@@ -36,6 +33,11 @@ SOURCE_USER_EXPLICIT = "USER_EXPLICIT"
 SOURCE_AGENT_INFERRED = "AGENT_INFERRED"
 # 历史取值：design §4.4 规定按「非 USER_EXPLICIT」处理（不自动注入），不得因历史数据放宽注入面
 LEGACY_SOURCE = "EXPLICIT"
+
+# 注入双上限现由平台设置 `memory.max_injected_*` 提供；无冻结配置时回落 contracts schema 默认。
+_MEMORY_DEFAULTS = MemoryPolicySettings()
+MAX_INJECTED_MEMORIES = _MEMORY_DEFAULTS.max_injected_memories
+MAX_INJECTED_BYTES = _MEMORY_DEFAULTS.max_injected_bytes
 
 
 @pytest.fixture()

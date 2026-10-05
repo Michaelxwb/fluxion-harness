@@ -48,7 +48,13 @@ from muad_contracts import (
     ResolvedModel,
     ResolvedSkill,
 )
-from muad_contracts.platform_settings import CompactionSettings, ToolResultSettings
+from muad_contracts.platform_settings import (
+    ArtifactSettings,
+    CompactionSettings,
+    LocaleSettings,
+    MemoryPolicySettings,
+    ToolResultSettings,
+)
 from muad_logging.redaction import redact_text
 from muad_platform_sdk.types import SecretValue
 
@@ -139,6 +145,25 @@ class ExecutorCredentials:
 
 
 @dataclass(frozen=True, slots=True)
+class ExecutionDefaults:
+    """一个 Run 的执行期平台默认（`agent` / `memory` / `artifact` / `locale` 四组里 Run 用到的叶）。
+
+    由 Run 创建边界从**本次取到的平台设置快照**解析一次，冻结进 `policy_json`；执行期只读这份
+    冻结值——不在每轮模型调用、每次工具执行里重新取设置（NFR-PERF-01）。resume 从已冻结的
+    `policy_json` 读回，配置变更只影响后续新 Run（`harness-snapshot#RULE-snapshot-001`）。
+
+    只装 Run 真正消费的叶：`artifact` 只带 `max_archive_files`（`retention_days`/
+    `cleanup_batch_size` 属 Console 清理，操作边界取，不进 Run 快照）；`locale` 只带
+    `default_timezone`（`default_locale` 的 Run 侧消费方不存在）。
+    """
+
+    agent_policy: AgentPolicy = field(default_factory=AgentPolicy)
+    memory_policy: MemoryPolicySettings = field(default_factory=MemoryPolicySettings)
+    max_archive_files: int = field(default_factory=lambda: ArtifactSettings().max_archive_files)
+    timezone: str = field(default_factory=lambda: LocaleSettings().default_timezone)
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutorRequest:
     agent: ResolvedAgent
     model: ResolvedModel
@@ -154,18 +179,23 @@ class ExecutorRequest:
     run_context: ExecutorRunContext | None = None
     #: 本次 Run **冻结**的压缩配置（来自 `policy_json`）；None = 不压缩。
     compaction: CompactionSettings | None = None
-    #: 本次 Run **冻结**的模型执行预算层级（来自 `policy_json`）；None = schema 默认。
-    model_budget: ModelBudget | None = None
+    #: 本次 Run **冻结**的执行期平台默认（来自 `policy_json`）；None = schema 默认。
+    execution: ExecutionDefaults | None = None
+
+
+def execution_defaults_for(request: ExecutorRequest) -> ExecutionDefaults:
+    """本次 Run 生效的执行期平台默认：注入的冻结值为准，缺失时回落 schema 默认。"""
+    return request.execution if request.execution is not None else ExecutionDefaults()
 
 
 def agent_policy_for(request: ExecutorRequest) -> AgentPolicy:
     """执行期 AgentPolicy：平台设置（冻结后注入）为基，Agent runtime_config 覆盖优先级更高。
 
-    `model_budget` 由 Run 创建边界从平台设置快照冻结，经 `ExecutorRequest` 显式传入；缺失时
-    回落 schema 默认（等价 `agent.deadline_ms` / `agent.max_model_retries` 的默认值）。
+    `execution.agent_policy` 由 Run 创建边界从平台设置快照冻结（四叶：`max_turns` /
+    `max_tool_calls` / `deadline_ms` / `max_model_retries`），经 `ExecutorRequest` 显式传入；
+    缺失时回落 schema 默认。
     """
-    budget = request.model_budget if request.model_budget is not None else ModelBudget()
-    base = AgentPolicy(deadline_ms=budget.deadline_ms, max_model_retries=budget.max_model_retries)
+    base = request.execution.agent_policy if request.execution is not None else AgentPolicy()
     return AgentPolicy.from_runtime_config(request.agent.runtime_config, base=base)
 
 
@@ -757,6 +787,7 @@ def build_registry(
     recorder: ToolCallRecorder | None = None,
 ) -> ToolRegistry:
     policy = agent_policy_for(request)
+    execution = execution_defaults_for(request)
     task_context = _task_submission_context(request)
     registry = build_skill_registry(
         cache=cache,
@@ -771,8 +802,8 @@ def build_registry(
             registry
         )
     # 内置时间工具：模型不知道"现在几点"，而 create_schedule 与相对时间（"明天早上 9 点"）都依赖它。
-    # 时区取平台默认的 IANA 名，与调度侧口径一致（harness-time#RULE-time-001）。
-    TimeToolSet(zone=resolve_zone(SharedSettings().default_timezone)).register(registry)
+    # 时区取**本次 Run 冻结的**平台默认 IANA 名，与调度侧口径一致（harness-time#RULE-time-001）。
+    TimeToolSet(zone=resolve_zone(execution.timezone)).register(registry)
     if request.run_context is not None:
         # 附件读取工具：类型无关、入口无关（AD-4-B）。租户从 Run 上下文取，**不进工具 schema**。
         AttachmentToolSet(
@@ -791,6 +822,7 @@ def build_registry(
             # 回执裁剪与外置判定必须用**同一个生效阈值**（否则调低阈值后回执自己会被外置，
             # 模型看不到 deliver_artifact 指引）
             receipt_limit_bytes=tool_result_settings(request).persist_threshold_bytes,
+            max_archive_files=execution.max_archive_files,
             writer=OutputArtifactWriter(
                 artifact_root=SharedSettings().artifact_root,
                 session_factory=get_session_factory,
@@ -822,7 +854,11 @@ def build_registry(
                 user_id=request.run_context.user_id,
                 run_id=request.run_context.run_id,
             ),
-            write_enabled=memory_write_enabled(request.agent.runtime_config),
+            write_enabled=memory_write_enabled(
+                request.agent.runtime_config, default=execution.memory_policy.write_enabled
+            ),
+            recall_default_limit=execution.memory_policy.recall_default_limit,
+            max_recall_bytes=execution.memory_policy.max_recall_bytes,
         ).register(registry)
     if request.run_context is not None:
         registry = _wrap_registry(
@@ -852,7 +888,12 @@ async def default_executor_factory(
     delivery_client: GatewayDeliveryClient | None = None,
 ) -> RunExecutor:
     # 单次模型请求 I/O 超时由预算层级派生（单次请求预算被夹到剩余总预算），不再独立取默认。
-    budget = request.model_budget if request.model_budget is not None else ModelBudget()
+    # 基值取冻结的 platform agent 策略（与 `AgentPolicy` 的 deadline 同源）；I/O 超时是**单次请求
+    # 上限**，不含 Agent 的 runtime_config 覆盖（覆盖由 `AgentRunner` 在重试/截止判定里生效）。
+    frozen = request.execution.agent_policy if request.execution is not None else AgentPolicy()
+    budget = ModelBudget(
+        deadline_ms=frozen.deadline_ms, max_model_retries=frozen.max_model_retries
+    )
     provider: ModelProvider = OpenAICompatibleProvider(
         base_url=request.model.base_url,
         model=request.model.model_id,

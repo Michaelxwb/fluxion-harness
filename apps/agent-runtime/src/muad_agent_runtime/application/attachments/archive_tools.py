@@ -13,12 +13,12 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_contracts.platform_settings import ArtifactSettings
 
 from .output_service import MAX_OUTPUT_BYTES, OutputArtifactError, OutputArtifactWriter
 from .tool_results import TOOL_RESULT_ARTIFACT_BYTES
 
 CREATE_ARCHIVE_TOOL = "create_archive"
-MAX_ARCHIVE_FILES = 2000
 MAX_ARCHIVE_PATH_BYTES = 1024
 ARCHIVE_BYTES_LIMIT = MAX_OUTPUT_BYTES
 #: `_utf8_capped` 的分块大小（按**字符**计）
@@ -100,9 +100,12 @@ def archive_filename(value: object) -> str:
     return name
 
 
-def archive_files(value: object) -> tuple[ArchiveFile, ...]:
-    if not isinstance(value, list) or not 1 <= len(value) <= MAX_ARCHIVE_FILES:
-        raise ArchiveToolError("ARCHIVE_FILES_INVALID", f"files 必须包含 1..{MAX_ARCHIVE_FILES} 个文本文件")
+def archive_files(value: object, *, max_files: int | None = None) -> tuple[ArchiveFile, ...]:
+    #: 文件数上限来自本次 Run 冻结的 `artifact.max_archive_files`；缺失时取 contracts schema 默认
+    #: （单一来源，不在此复制一份常量）。
+    limit = max_files if max_files is not None else ArtifactSettings().max_archive_files
+    if not isinstance(value, list) or not 1 <= len(value) <= limit:
+        raise ArchiveToolError("ARCHIVE_FILES_INVALID", f"files 必须包含 1..{limit} 个文本文件")
     files: list[ArchiveFile] = []
     names: set[str] = set()
     folded: set[str] = set()
@@ -150,9 +153,9 @@ def build_archive(files: tuple[ArchiveFile, ...]) -> bytes:
     return data
 
 
-def _prepare_archive(raw: object) -> tuple[Any, bytes]:
+def _prepare_archive(raw: object, max_files: int) -> tuple[Any, bytes]:
     """编码 + 校验 + 压缩（纯 CPU，交给 `asyncio.to_thread` 跑）。"""
-    files = archive_files(raw)
+    files = archive_files(raw, max_files=max_files)
     return files, build_archive(files)
 
 
@@ -162,6 +165,7 @@ class ArchiveToolSet:
         writer: OutputArtifactWriter,
         *,
         receipt_limit_bytes: int = TOOL_RESULT_ARTIFACT_BYTES,
+        max_archive_files: int | None = None,
     ) -> None:
         """`receipt_limit_bytes` = **本次 Run 生效的**外置阈值（冻结配置里的
         `tool_result.persist_threshold_bytes`）。
@@ -170,9 +174,17 @@ class ArchiveToolSet:
         「已生成 ZIP（附件 ID …）。需要发给用户时请调用 deliver_artifact」这句指引。
         与 `ToolCallRecorder` 用**同一个生效值**（`harness-skill` 的 RULE-skill-001 要求
         阈值只有一处事实来源；硬编码常量只在没有冻结配置时兜底）。
+
+        `max_archive_files` = **本次 Run 冻结的** `artifact.max_archive_files`；缺失时取 contracts
+        schema 默认（单一来源）。它同时钉住工具 schema 的 `maxItems` 与执行期校验，二者必须同值。
         """
         self._writer = writer
         self._receipt_limit_bytes = receipt_limit_bytes
+        self._max_archive_files = (
+            max_archive_files
+            if max_archive_files is not None
+            else ArtifactSettings().max_archive_files
+        )
 
     def register(self, registry: ToolRegistry) -> None:
         registry.register(
@@ -194,7 +206,7 @@ class ArchiveToolSet:
                         "files": {
                             "type": "array",
                             "minItems": 1,
-                            "maxItems": MAX_ARCHIVE_FILES,
+                            "maxItems": self._max_archive_files,
                             "items": {
                                 "type": "object",
                                 "required": ["path", "content"],
@@ -216,7 +228,9 @@ class ArchiveToolSet:
         # **整段**留在事件循环外：UTF-8 编码、逐项校验、压缩都是纯 CPU 且无 IO，
         # 而输入可达 50 MiB。只把 `build_archive` 挪进线程，等于把最贵的编码与校验留在循环上
         # （2026-10-03 review）。
-        files, data = await asyncio.to_thread(_prepare_archive, arguments["files"])
+        files, data = await asyncio.to_thread(
+            _prepare_archive, arguments["files"], self._max_archive_files
+        )
         try:
             row = await self._writer.save(
                 data, filename=filename, media_type="application/zip", kind="OTHER"

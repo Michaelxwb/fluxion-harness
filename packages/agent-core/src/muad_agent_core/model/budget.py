@@ -9,8 +9,9 @@
 
 - `MAX_MODEL_REQUEST_MS` 与 `RETRY_BASE_SEC` 是**算法参数**（单次请求上限、指数退避基数），
   不开放为平台设置。
-- 总预算与重试次数来自平台设置 `agent.deadline_ms` / `agent.max_model_retries`；默认值直接取
-  contracts 里 schema 的默认（`AgentSettings()`），三处常量因此同源。
+- `agent` 分组四叶（`agent.max_turns` / `agent.max_tool_calls` / `agent.deadline_ms` /
+  `agent.max_model_retries`）的默认值直接取 contracts 里 schema 的默认（`AgentSettings()`），
+  `DEFAULT_*` 常量因此与平台设置**同源**（`AgentPolicy` 的字段默认引用它们）。
 """
 
 from __future__ import annotations
@@ -25,6 +26,10 @@ MAX_MODEL_REQUEST_MS = 120_000
 RETRY_BASE_SEC = 0.1
 
 _AGENT_DEFAULTS = AgentSettings()
+#: 单次执行轮次上限默认（等价平台设置 `agent.max_turns` 的 schema 默认）。
+DEFAULT_MAX_TURNS = _AGENT_DEFAULTS.max_turns
+#: 单次执行工具调用上限默认（等价平台设置 `agent.max_tool_calls` 的 schema 默认）。
+DEFAULT_MAX_TOOL_CALLS = _AGENT_DEFAULTS.max_tool_calls
 #: 总预算默认（等价平台设置 `agent.deadline_ms` 的 schema 默认）。
 DEFAULT_DEADLINE_MS = _AGENT_DEFAULTS.deadline_ms
 #: 重试次数默认（等价平台设置 `agent.max_model_retries` 的 schema 默认）。
@@ -76,6 +81,8 @@ class ModelBudget:
 __all__ = [
     "DEFAULT_DEADLINE_MS",
     "DEFAULT_MAX_MODEL_RETRIES",
+    "DEFAULT_MAX_TOOL_CALLS",
+    "DEFAULT_MAX_TURNS",
     "MAX_MODEL_REQUEST_MS",
     "RETRY_BASE_SEC",
     "ModelBudget",

@@ -13,7 +13,13 @@ from langgraph.graph.state import CompiledStateGraph
 
 from ..context.compactor import ContextCompactor
 from ..hooks.pipeline import HookEvent, HookPipeline
-from ..model.budget import DEFAULT_DEADLINE_MS, DEFAULT_MAX_MODEL_RETRIES, ModelBudget
+from ..model.budget import (
+    DEFAULT_DEADLINE_MS,
+    DEFAULT_MAX_MODEL_RETRIES,
+    DEFAULT_MAX_TOOL_CALLS,
+    DEFAULT_MAX_TURNS,
+    ModelBudget,
+)
 from ..model.errors import (
     ModelRateLimitedError,
     ModelRequestError,
@@ -90,8 +96,8 @@ class AgentRunStatus(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class AgentPolicy:
-    max_turns: int = 20
-    max_tool_calls: int = 30
+    max_turns: int = DEFAULT_MAX_TURNS
+    max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS
     deadline_ms: int = DEFAULT_DEADLINE_MS
     max_model_retries: int = DEFAULT_MAX_MODEL_RETRIES
 

@@ -11,11 +11,9 @@ from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from sqlalchemy import text
 
-from .application.artifact_cleanup_service import (
-    DEFAULT_CLEANUP_LIMIT,
-    ArtifactCleanupService,
-)
+from .application.artifact_cleanup_service import ArtifactCleanupService
 from .application.auth_service import MIN_PASSWORD_LENGTH, AuthService
+from .application.platform_settings_service import PlatformSettingsService
 from .infrastructure.db import dispose_engine, get_session_factory
 from .infrastructure.models.auth import ROLE_ADMIN, ROLE_BUILDER
 
@@ -58,9 +56,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--retention-days",
         type=int,
         default=None,
-        help="override ARTIFACT_RETENTION_DAYS for this run",
+        help="override artifact.retention_days for this run",
     )
-    cleanup_artifacts.add_argument("--limit", type=int, default=DEFAULT_CLEANUP_LIMIT)
+    cleanup_artifacts.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="override artifact.cleanup_batch_size for this run",
+    )
     cleanup_artifacts.add_argument(
         "--tenant", default=None, help="only clean this tenant (default: every tenant)"
     )
@@ -188,16 +191,29 @@ async def _cleanup_skill_orphans(args: argparse.Namespace) -> int:
 
 async def _cleanup_artifacts(args: argparse.Namespace) -> int:
     settings = SharedSettings()
-    retention_days = (
-        args.retention_days if args.retention_days is not None else settings.artifact_retention_days
-    )
     async with get_session_factory()() as session:
+        # 保留期与批大小是**按租户**的业务设置（`artifact.retention_days` /
+        # `artifact.cleanup_batch_size`）：在**当次操作边界**取一次（清理不是 Run，不冻结）。
+        # `--tenant` 未给时按部署的默认租户取值——单租户部署的口径（见 configmap 的
+        # DEFAULT_TENANT_ID 说明：多租户部署按租户拆部署单元）。CLI 本次覆盖（`--retention-days`
+        # / `--limit`）仍优先。
+        artifact_settings = (
+            await PlatformSettingsService(session).read_current(
+                args.tenant or settings.default_tenant_id
+            )
+        ).settings.artifact
+        retention_days = (
+            args.retention_days
+            if args.retention_days is not None
+            else artifact_settings.retention_days
+        )
+        limit = args.limit if args.limit is not None else artifact_settings.cleanup_batch_size
         service = ArtifactCleanupService(
             session,
             NfsArtifactStore(settings.artifact_root),
             retention_days=retention_days,
             grace_seconds=args.grace_seconds,
-            limit=args.limit,
+            limit=limit,
             tenant_id=args.tenant,
         )
         report = await service.run(dry_run=args.dry_run)

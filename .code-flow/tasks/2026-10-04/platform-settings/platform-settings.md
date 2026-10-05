@@ -36,7 +36,7 @@
 | E-17 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","idempotent_replay"] | . | 300 | |
 | E-18 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实任务文档与 manifest（收口清单交叉核对） | TASK-012 | planned | ["uv","run","pytest","-q","tests/platform_settings_inventory.py"] | . | 300 | |
 | E-19 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_defaults_from_settings.py","-k","new_task_defaults"] | . | 600 | |
-| E-20 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | . | 600 | |
+| E-20 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | . | 600 | |
 | E-21 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 acceptance 栈（真实 Console API + 真实 PostgreSQL + 真实 Worker 进程） | TASK-014 | planned | ["uv","run","pytest","-q","tests/acceptance/dfx"] | . | 1200 | |
 | B-01 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实设置文档 schema 函数（无服务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | . | 300 | |
 | B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
@@ -959,7 +959,7 @@ E   ModuleNotFoundError: No module named 'muad_agent_core.agent.budget'
 
 ## TASK-013: 执行默认接入（agent / memory / artifact 分组）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005
 , TASK-006, TASK-007
@@ -973,30 +973,84 @@ E   ModuleNotFoundError: No module named 'muad_agent_core.agent.budget'
 
 ### Checklist
 
-- [ ] `agent.max_turns`/`agent.max_tool_calls`：替换 `AgentPolicy` 默认，Agent 显式 `runtime_config` 覆盖仍优先。**接口缝已由 TASK-008 留好**：`ExecutorRequest.model_budget` + `executor.agent_policy_for()` 目前只承接 `deadline_ms`/`max_model_retries`——把注入基值换成含四叶的载体即可，**不要新增取数方式或缓存**
-- [ ] `memory.write_enabled` 替换 `memory_tools` 的「未显式配置时默认 True」；`max_injected_memories`/`max_injected_bytes` 接入 `context_builder` 的记忆注入预算；`max_recall_bytes`/`recall_default_limit` 接入 `memory_tools`（`recall_default_limit ≤ RECALL_MAX_LIMIT`，上界单一来源见 TASK-011 收敛）
-- [ ] `artifact.max_archive_files` 接入 `archive_tools`；`artifact.retention_days`/`artifact.cleanup_batch_size` 接入 Console 清理入口（CLI 本次操作覆盖仍优先）
-- [ ] 全部取值来自冻结快照或操作边界快照，**不在每轮模型调用/每次工具执行里重新读取**
-- [ ] Runtime 侧 `locale.default_timezone`（`executor.py` 装配 `TimeToolSet` 的 zone）改读冻结快照
-- [ ] 一次性切换收口：三个消费方（Worker 投递文案 / Gateway 回复渲染 / 本任务的 `TimeToolSet`）都切换后，删除 `SharedSettings.default_locale` 与 `default_timezone`、`.env.example` 同步移除；同批删掉本任务接管的 `artifact_retention_days`、`mcp_max_tools_per_server`；**部署面也要摘**：`.env.example:4` 的 `DEFAULT_LOCALE` 与 `deploy/k8s/base/configmap.yaml:7` 的 `DEFAULT_LOCALE`（只改示例不改 ConfigMap，运维会以为改它还有效）；同批删掉本任务接管的 `artifact_retention_days`（`mcp_max_tools_per_server` 归 TASK-009，不要重复摘）
-- [ ] `apps/console-platform/.../cli.py:61,192` 的 `cleanup-artifacts --retention-days` 默认值改从平台设置取（CLI 本次操作覆盖仍优先）
-- [ ] [E-20][integration] 覆盖：改这 9 个叶子后新 Run 与新一次清理使用新值；既有 Run/Task 行与已落库记忆不被改写；真实边界：**真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口**（不 mock）
-- [ ] 先写测试并记录 RED，再实现
-- [ ] 同步 `docs/configuration-inventory.csv` 与机检期望（`MAX_INJECTED_MEMORIES`/`MAX_ARCHIVE_FILES` 等常量改由设置提供）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] `agent.max_turns`/`agent.max_tool_calls`：替换 `AgentPolicy` 默认，Agent 显式 `runtime_config` 覆盖仍优先。**接口缝已由 TASK-008 留好**：`ExecutorRequest.model_budget` + `executor.agent_policy_for()` 目前只承接 `deadline_ms`/`max_model_retries`——把注入基值换成含四叶的载体即可，**不要新增取数方式或缓存**
+- [x] `memory.write_enabled` 替换 `memory_tools` 的「未显式配置时默认 True」；`max_injected_memories`/`max_injected_bytes` 接入 `context_builder` 的记忆注入预算；`max_recall_bytes`/`recall_default_limit` 接入 `memory_tools`（`recall_default_limit ≤ RECALL_MAX_LIMIT`，上界单一来源见 TASK-011 收敛）
+- [x] `artifact.max_archive_files` 接入 `archive_tools`；`artifact.retention_days`/`artifact.cleanup_batch_size` 接入 Console 清理入口（CLI 本次操作覆盖仍优先）
+- [x] 全部取值来自冻结快照或操作边界快照，**不在每轮模型调用/每次工具执行里重新读取**
+- [x] Runtime 侧 `locale.default_timezone`（`executor.py` 装配 `TimeToolSet` 的 zone）改读冻结快照
+- [x] 一次性切换收口：三个消费方（Worker 投递文案 / Gateway 回复渲染 / 本任务的 `TimeToolSet`）都切换后，删除 `SharedSettings.default_locale` 与 `default_timezone`、`.env.example` 同步移除；同批删掉本任务接管的 `artifact_retention_days`、`mcp_max_tools_per_server`；**部署面也要摘**：`.env.example:4` 的 `DEFAULT_LOCALE` 与 `deploy/k8s/base/configmap.yaml:7` 的 `DEFAULT_LOCALE`（只改示例不改 ConfigMap，运维会以为改它还有效）；同批删掉本任务接管的 `artifact_retention_days`（`mcp_max_tools_per_server` 归 TASK-009，不要重复摘）
+- [x] `apps/console-platform/.../cli.py:61,192` 的 `cleanup-artifacts --retention-days` 默认值改从平台设置取（CLI 本次操作覆盖仍优先）
+- [x] [E-20][integration] 覆盖：改这 9 个叶子后新 Run 与新一次清理使用新值；既有 Run/Task 行与已落库记忆不被改写；真实边界：**真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口**（不 mock）
+- [x] 先写测试并记录 RED，再实现
+- [x] 同步 `docs/configuration-inventory.csv` 与机检期望（`MAX_INJECTED_MEMORIES`/`MAX_ARCHIVE_FILES` 等常量改由设置提供）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-20 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | 9 个叶子对新 Run / 新清理生效；存量 Run/Task/记忆不被改写 | `tests/agent_runtime/test_execution_defaults_settings.py` | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | planned |
+| E-20 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | 9 个叶子对新 Run / 新清理生效；存量 Run/Task/记忆不被改写 | `tests/agent_runtime/test_execution_defaults_settings.py` | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | verified |
 
 ### Acceptance Evidence
 
-> 编码期填写 RED/GREEN 与断言位置。
+#### RED（先写测试，实现前失败原文）
+
+在实现前（实现改动 `git stash` 掉后）跑契约命令，真实失败原文：
+
+```
+ERROR collecting tests/agent_runtime/test_execution_defaults_settings.py
+ImportError while importing test module '.../tests/agent_runtime/test_execution_defaults_settings.py'.
+tests/agent_runtime/test_execution_defaults_settings.py:47: in <module>
+    from muad_agent_runtime.application.run_service import (
+E   ImportError: cannot import name 'execution_defaults_from_platform' from 'muad_agent_runtime.application.run_service'
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.07s
+```
+
+（`ExecutionDefaults`/`execution_defaults_of`/`execution_defaults_from_platform` 与四叶冻结载体在实现前不存在。）
+
+#### GREEN（实现后）
+
+- `uv run pytest -q tests/agent_runtime/test_execution_defaults_settings.py` → **7 passed in 0.61s**
+- `uv run pytest -q tests/agent_runtime` → **364 passed in 11.89s**
+- `uv run pytest -q tests/agent_core` → **109 passed in 7.77s**
+- `uv run pytest -q tests/console_platform` → **168 passed in 19.32s**
+- `uv run pytest -q tests/agent_worker` → **251 passed**；`uv run pytest -q tests/gateway` → **323 passed**
+- `uv run pytest -q tests/test_configuration_inventory.py` → **3 passed**（CSV 已按源码重算）
+- 回归门禁：`uv run mypy apps packages` → **Success: no issues found in 311 source files**；`uv run ruff check apps/ packages/ tests/` → **All checks passed**
+- harness-snapshot verifier：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"` → **4 passed / 24 passed**
+
+#### 断言位置（关键断言逐条）
+
+| 断言 | 位置 |
+|------|------|
+| 新 Run 冻结 9 叶（`max_turns`/`max_tool_calls`/`deadline_ms`/`max_model_retries`/`memory.*` 5 叶/`max_archive_files`/`default_timezone`）；`retention_days`/`cleanup_batch_size` **不进** 快照 | `tests/agent_runtime/test_execution_defaults_settings.py::test_e20_new_run_freezes_nine_execution_leaves` |
+| agent 四叶经真实 `agent_policy_for` 成为执行期 `AgentPolicy` 基值 | `::test_e20_agent_policy_applies_frozen_defaults` |
+| 真实 `build_registry`：`create_archive` schema `maxItems` 与执行期拒收同值；`memory.write_enabled=false` ⇒ `remember` 不注册、`recall` 仍在；`current_time` 输出含新 IANA 时区 | `::test_e20_registry_uses_frozen_artifact_memory_and_locale` |
+| `recall_default_limit` 是缺省条数；`max_recall_bytes` 触顶压缩条数 | `::test_e20_recall_uses_frozen_limit_and_byte_cap` |
+| 真实 `DbBackedContextBuilder.load_history` 用冻结 `memory.max_injected_memories` 限注入条数 | `::test_e20_memory_injection_caps_from_frozen_policy` |
+| 既有 Run 的 `policy_json` 逐键不动、已落库记忆行逐列不变；新 Run 才用新值 | `::test_e20_existing_run_and_memories_not_rewritten` |
+| 真实 `_cleanup_artifacts`：保留期取自 `artifact.retention_days`、批大小取自 `artifact.cleanup_batch_size`（各只清 1 个、未过期不动） | `::test_e20_console_cleanup_uses_current_settings` |
+
+#### 冻结口径（哪些进 `policy_json`，哪些是操作边界取）
+
+- **进 `policy_json`（Run 侧冻结，resume 读回，配置变更只影响后续新 Run）**：`max_turns`、`max_tool_calls`、`deadline_ms`、`max_model_retries`（顶层）；`memory.{write_enabled,max_injected_memories,max_injected_bytes,max_recall_bytes,recall_default_limit}`；`artifact.max_archive_files`；`locale.default_timezone`；外加既有 `compaction`。
+- **操作边界取（不冻结，清理不是 Run）**：`artifact.retention_days`、`artifact.cleanup_batch_size`——在 `cli._cleanup_artifacts` 每次执行时经真实 Console `PlatformSettingsService.read_current` 取当前值，CLI `--retention-days`/`--limit` 本次覆盖仍优先。
+- 执行期不再重新读设置：`policy_json` 只在 `_create_run` 边界取一次平台快照并冻结；`build_registry`/`load_history` 只读冻结值（NFR-PERF-01）。
+
+#### 真实边界与收口
+
+- 真实 PostgreSQL：`control.platform_setting`（经真实 Console `PlatformSettingsService` 读写）、`runtime.runtime_snapshot.policy_json`、`runtime.user_memory`、`runtime.artifact`。
+- 真实 Runtime 装配：Run 经真实 `RunService.start` 创建；执行期经真实 `build_registry`（`MemoryToolSet`/`ArchiveToolSet`/`TimeToolSet`）与 `DbBackedContextBuilder.load_history`（仅替换模型调用这一环）。
+- 真实 Console 清理入口：`muad_console_platform.cli._cleanup_artifacts`（真命令协程 + 真 PG + 真文件系统 mtime）。
+- 一次性切换收口：`SharedSettings` 删除 `default_locale`/`default_timezone`/`artifact_retention_days`；`.env.example` 与 `deploy/k8s/base/configmap.yaml` 摘除 `DEFAULT_LOCALE`；api-kit 的 API 错误文案兜底语言改回框架常量 `zh-CN`（`locale.default_locale` 的业务消费方是 Worker 投递/Gateway 渲染，TASK-006/007 已切换）。`mcp_max_tools_per_server` 归 TASK-009，本次未动。
+- 常量收敛：删除 app 侧 `MAX_INJECTED_MEMORIES`/`MAX_INJECTED_BYTES`/`RECALL_DEFAULT_LIMIT`/`MAX_RECALL_BYTES`/`MAX_ARCHIVE_FILES`/`DEFAULT_CLEANUP_LIMIT`，默认值改从 `muad_contracts.platform_settings` schema 取；`RECALL_MAX_LIMIT` 单一来源改为 contracts（app 侧不再复制）；`AgentPolicy` 的 `max_turns`/`max_tool_calls` 默认改由 `budget.DEFAULT_MAX_TURNS`/`DEFAULT_MAX_TOOL_CALLS`（源自 `AgentSettings`）提供。`docs/configuration-inventory.csv` 按源码重算同步。
+- E-20: verified — automated command passed; run_id=644f13d46cd046698b93fbd2d624033b (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 
