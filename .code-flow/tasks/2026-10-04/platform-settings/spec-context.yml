@@ -1,7 +1,7 @@
 version: 1
 task: platform-settings
 enforcement: required
-updated_at: '2026-10-05T08:46:53.739347+00:00'
+updated_at: '2026-10-05T09:18:49.347121+00:00'
 sources:
 - type: cli
   ref: bind
@@ -52,7 +52,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -302,7 +302,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -598,7 +598,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -829,7 +829,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -1035,7 +1035,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -1244,7 +1244,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-010
           item_id: TASK-010
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -1449,7 +1449,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-010
           item_id: TASK-010
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -1680,7 +1680,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -1871,7 +1871,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -2090,7 +2090,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -2309,7 +2309,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -2526,7 +2526,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -2732,7 +2732,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -2982,7 +2982,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -3187,7 +3187,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-012
           item_id: TASK-012
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -3392,7 +3392,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -3677,7 +3677,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-010
           item_id: TASK-010
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:
@@ -3884,7 +3884,7 @@ bindings:
         - artifact: platform-settings.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 6f08fe254acc9f8b13d9711a81a2fc7f632c1274666eeb2189eb9d4281a3d0ee
+          artifact_sha256: 40232faf197b5cec085ff6268d246657dbd1b6147c08628743b345f6b49e164c
         decision: null
         evidence: []
       code:

@@ -32,7 +32,7 @@
 | E-13 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许，成功路径禁止拦截） | TASK-010 | e2e_deferred | - | . | 600 | |
 | E-14 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实登录会话（真实 403，无路由拦截） | TASK-010 | e2e_deferred | - | . | 600 | |
 | E-15 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实登录会话与 CSRF | TASK-009 | verified | ["uv","run","pytest","-q","tests/console_platform/test_auth_policy_settings.py"] | . | 300 | |
-| E-16 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 CSV + 真实机检（无服务） | TASK-011 | planned | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | . | 300 | |
+| E-16 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 CSV + 真实机检（无服务） | TASK-016 | planned | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | . | 300 | |
 | E-17 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","idempotent_replay"] | . | 300 | |
 | E-18 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实任务文档与 manifest（收口清单交叉核对） | TASK-012 | planned | ["uv","run","pytest","-q","tests/platform_settings_inventory.py"] | . | 300 | |
 | E-19 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_defaults_from_settings.py","-k","new_task_defaults"] | . | 600 | |
@@ -1005,7 +1005,7 @@ FAILED tests/frontend/test_console_shell_contract.py::test_console_shell_has_sys
 - **Depends**: TASK-005, TASK-006, TASK-007, TASK-008, TASK-009, TASK-013
 - **Source**: platform-settings.backend.design.md#3.1 方案选型, platform-settings.backend.design.md#4.4 数据迁移
 - **Spec-Refs**:
-- **Acceptance-Refs**: E-09, E-16
+- **Acceptance-Refs**: E-09
 
 ### Description
 
@@ -1014,7 +1014,6 @@ FAILED tests/frontend/test_console_shell_contract.py::test_console_shell_has_sys
 ### Checklist
 
 - [ ] 把 `RunService(settings_client=None)` 的**隐式** Null 默认去掉（改为必填参数，或让 Null 在 Run 创建路径上显式失败），消除「新建调用点忘记注入真 client ⇒ 静默按空设置跑」的隐患——生产目前只有 `api/deps.py` 一处装配，但默认值本身就是个陷阱（TASK-005 落地后复核提出）
-- [ ] 校准 TASK-005 重生成 `docs/configuration-inventory.csv` 时给出的**保守分类**（新符号默认 `python-constant=code`、`settings=environment`）：按设计 §2.3.2 的九个分组逐项复核 `category`，把已接入平台设置的项标成 `business`；并同步 `docs/configuration-inventory.md` 里指向旧来源的散文（`:38`/`:46`/`:47`/`:50`/`:55`/`:211` 等）
 - [ ] `overridden_by_resources` 目前只统计压缩组（Agent 的 `runtime_config_json.budget.compaction`），其余分组恒 0——按 design 逐个补齐或明确降级为「不展示覆盖数」（二者选一并写进证据）
 - [ ] 工具结果默认收敛：删除 `TOOL_RESULT_ARTIFACT_BYTES`/`PREVIEW_HEAD_BYTES`/`PREVIEW_TAIL_BYTES` 与 `ToolResultSettings` 的重复默认，只留 schema 单一来源；非请求上下文显式传入
 - [ ] 历史预算收敛：`compaction.history_budget_messages` 与 `BudgetPolicy.max_messages` 用同一冻结值
@@ -1024,7 +1023,6 @@ FAILED tests/frontend/test_console_shell_contract.py::test_console_shell_has_sys
 - [ ] 环境项收口**复核**：改由业务设置接管的 12 个键按「谁切换谁摘除」已由前序任务一次性删除（`context_settings_cache_ttl_sec`→TASK-005、task 六项→TASK-006、`im_progress_interval_sec`→TASK-007、`artifact_retention_days`/`mcp_max_tools_per_server`/`default_locale`/`default_timezone`→TASK-013）——本任务逐条复核它们**确实不在启动 settings 与 `.env.example`**，且 `batch_platform_limit` 与 `im_progress_updates_per_second` 仍在环境
 - [ ] `.env.example` 补全为完整运维契约（覆盖余下全部环境类字段键名）
 - [ ] [E-09][integration] 机检：`.env.example` 键集与 `SharedSettings` 环境类字段一致；重复默认源已消除
-- [ ] [E-16][integration] 机检：`docs/configuration-inventory.csv` 与当前源码声明逐行一致，被删除/迁移的常量不再出现
 - [ ] 先写检查并记录 RED，再收敛
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
@@ -1033,7 +1031,6 @@ FAILED tests/frontend/test_console_shell_contract.py::test_console_shell_has_sys
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
 | E-09 | integration | 真实源码树 + 真实 `.env.example` + 真实 `SharedSettings` 字段集 | 重复默认源消除；12 个键已从启动 settings 与示例移除；示例覆盖余下全部环境类字段 | `tests/test_configuration_convergence.py` | ["uv","run","pytest","-q","tests/test_configuration_convergence.py"] | planned |
-| E-16 | integration | 真实源码树 + 真实 CSV + 真实机检（无服务） | 清单与源码声明逐行一致；分类期望与迁移结论一致 | `tests/test_configuration_inventory.py` | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | planned |
 
 ### Acceptance Evidence
 
@@ -1043,12 +1040,11 @@ FAILED tests/frontend/test_console_shell_contract.py::test_console_shell_has_sys
 - [2026-10-05] created (draft)
 
 ---
-
 ## TASK-012: 收口清单与需求级终验
 
 - **Status**: draft
 - **Priority**: P0
-- **Depends**: TASK-001..TASK-015
+- **Depends**: TASK-001..TASK-016
 - **Source**: platform-settings.backend.design.md#2.5 验收条件, platform-settings.frontend.design.md#2.4 验收条件
 - **Spec-Refs**: harness-test#RULE-test-001
 - **Acceptance-Refs**: E-18
@@ -1357,3 +1353,40 @@ FAILED test_business_key_boundary_default_schema_leaves_are_never_secret
 - [2026-10-05] created (draft)
 - [2026-10-05] started
 - [2026-10-05] completed (done)
+
+---
+
+## TASK-016: 盘点清单分类校准与报告同步
+
+- **Status**: draft
+- **Priority**: P1
+- **Depends**: TASK-011
+- **Source**: platform-settings.backend.design.md#2.3 功能方案, platform-settings.backend.design.md#2.4 范围与边界
+- **Spec-Refs**:
+- **Acceptance-Refs**: E-16
+
+### Description
+
+TASK-005 为让机检转绿，按 AST 口径**整表重生**了 `docs/configuration-inventory.csv`（约 156 行），并给当时未分类的新符号用了**保守默认**（`python-constant=code`、`settings=environment`）。现在平台设置已接管 41 个叶子，这些行的 `category` 该按设计 §2.3.2 的九个分组逐一校准成 `business`；`docs/configuration-inventory.md` 里指向旧来源的散文也要同步（它在 TASK-006/013 之后已有多处失真）。本任务只做**盘点清单与报告**的口径校准，不再动生产代码。
+
+### Checklist
+
+- [ ] 按设计 §2.3.2 的九个分组逐项校准 `docs/configuration-inventory.csv` 的 `category`：已接入平台设置的标 `business`；仍属部署环境的标 `environment`；协议/枚举/第三方硬上限仍标 `code`
+- [ ] 同步 `docs/configuration-inventory.md` 的散文：`:38`/`:46`/`:47`/`:50`/`:55`/`:211` 等仍在讲旧来源（`default_locale`/`artifact_retention_days`/`mcp_max_tools_per_server`/`context_settings_cache_ttl_sec`/`im_progress_interval_sec` 的环境归属）的段落改为事实
+- [ ] 复核报告里「必须收敛的重复/冲突」清单：逐条标注现状（已收敛 / 未收敛 / 明确不做），**不得留过期结论**
+- [ ] [E-16][integration] 机检：`docs/configuration-inventory.csv` 与当前源码声明逐行一致，被删除/迁移的常量不再出现；分类期望与迁移结论一致。真实边界：**真实源码树 + 真实 CSV + 真实机检（无服务）**
+- [ ] 先跑一次记录 RED/基线，再校准
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|--------|---------|--------------------|---------|----------------|---------|------|
+| E-16 | integration | 真实源码树 + 真实 CSV + 真实机检（无服务） | 清单与源码声明逐行一致；分类期望与迁移结论一致；重复源清单无过期结论 | `tests/test_configuration_inventory.py` | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | planned |
+
+### Acceptance Evidence
+
+> 编码期填写 RED/GREEN 与断言位置。
+
+### Log
+- [2026-10-05] created (draft)
