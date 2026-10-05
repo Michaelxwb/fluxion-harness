@@ -63,7 +63,6 @@ def _pipeline(
         runtime=runtime,
         catalog=catalog,
         tenant_id=channel_ctx.tenant_id,
-        locale="zh-CN",
     )
     return pipeline, adapter
 

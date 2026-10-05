@@ -484,7 +484,7 @@
       "kind": "functional",
       "boundary": "真实 Gateway 回复生命周期取值函数（无服务）",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -494,7 +494,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ff1ef3adb97f4c9fbaeed76fbb9cb9fe",
+        "executed_at": "2026-10-05T03:57:11.154400+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/gateway/test_progress_settings.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "5d434740fa282a0e8a814af1b0efac9d463ddb0e2422c3359b1731420ae3d7c9"
+      },
+      "runs": [
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ff1ef3adb97f4c9fbaeed76fbb9cb9fe",
+          "executed_at": "2026-10-05T03:57:11.154400+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/gateway/test_progress_settings.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "5d434740fa282a0e8a814af1b0efac9d463ddb0e2422c3359b1731420ae3d7c9"
+        }
+      ]
     },
     {
       "id": "B-04",

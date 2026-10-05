@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import time
 from collections.abc import AsyncIterator, Sequence
@@ -57,8 +58,9 @@ from .attachment_gate import (
 )
 from .console_client import ConsoleClientPort
 from .inbound_attachments import InboundAttachmentStore
+from .platform_settings import ReplySettings, resolve_reply_settings
+from .ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .progress import (
-    PROGRESS_INTERVAL_SEC,
     ActivityMessages,
     ExecutionProgress,
     iter_with_ticks,
@@ -92,6 +94,13 @@ RUN_COMPLETED_EVENT = "run.completed"
 RUN_FAILED_EVENT = "run.failed"
 
 MAX_CONCURRENT_HANDLERS = 8
+
+#: 本回复生命周期内固定的展示设置（ADR-04）：`handle` 开始时取一次快照、set 一次，
+#: 整个回复期间（含 tick）都用它；下一条入站消息重新取。用 ContextVar 而非实例属性——
+#: 同一 pipeline 上同 bot 的并发回复各持自己那一份，互不串味。
+_REPLY_SETTINGS: contextvars.ContextVar[ReplySettings | None] = contextvars.ContextVar(
+    "gateway_reply_settings", default=None
+)
 
 # 指标（design §4.2；标签只含类型/错误码/原因，不含 Secret 或消息正文）
 MESSAGES_METRIC = "im_messages_total"
@@ -234,6 +243,8 @@ class _RunStreamState:
         self.renderer = renderer
         self.progress = ExecutionProgress()
         self.reply: ChannelReplySession | None = None
+        #: 本回复的状态文案目录（locale 随平台设置快照逐条固定，故归本条回复而非 pipeline）。
+        self.activity_messages: ActivityMessages | None = None
         #: 在飞的**计时状态**发送（见 `_update_progress`）：读取循环不等它，但它与正文
         #: 共用同一条会话流，所以正文/收尾写入前必须让它落地（否则两个写者并发写同一 stream）。
         self.status_task: asyncio.Task[None] | None = None
@@ -272,14 +283,10 @@ class InboundPipeline:
         catalog: MessageCatalog,
         attachment_store: InboundAttachmentStore | None = None,
         tenant_id: str,
-        locale: str = "zh-CN",
+        settings_client: PlatformSettingsClient | None = None,
         delta_flush_interval_sec: float = DELTA_FLUSH_INTERVAL_SEC,
-        progress_interval_sec: float = PROGRESS_INTERVAL_SEC,
     ) -> None:
-        if progress_interval_sec <= 0:
-            raise ValueError("progress interval must be positive")
-        self._progress_interval_sec = progress_interval_sec
-        self._activity_messages: ActivityMessages | None = None
+        self._activity_catalogs: dict[str, ActivityMessages] = {}
         self._delta_flush_interval_sec = delta_flush_interval_sec
         self._dedupe = dedupe
         self._console = console
@@ -288,8 +295,25 @@ class InboundPipeline:
         # 未配置时**不静默丢附件**：真收到媒体会记 ERROR（见 `_collect_attachments`）。
         self._attachment_store = attachment_store
         self._tenant_id = tenant_id
-        self._locale = locale
+        # 生产装配注入真实 HTTP client；直构调用点默认「该租户无记录」⇒ schema 默认。
+        self._settings_client: PlatformSettingsClient = settings_client or NullPlatformSettingsClient()
         self._route_locks: dict[tuple[str, str, str], asyncio.Lock] = {}
+
+    @property
+    def _reply(self) -> ReplySettings:
+        """本回复生命周期内固定的设置；只应在 `handle` 内访问（否则是漏取了快照）。"""
+        reply = _REPLY_SETTINGS.get()
+        if reply is None:
+            raise RuntimeError("reply settings accessed outside an inbound reply lifecycle")
+        return reply
+
+    @property
+    def _locale(self) -> str:
+        return self._reply.locale
+
+    @property
+    def _progress_interval_sec(self) -> float:
+        return self._reply.progress_interval_sec
 
     async def consume(self, adapter: ChannelAdapter) -> None:
         """有界并发消费入站事件：一个 Run 的长流不阻塞同 bot 的后续消息（含 /stop）。
@@ -361,19 +385,43 @@ class InboundPipeline:
             help="Inbound IM messages by type",
         )
         route = route_from_envelope(envelope)
-        if text == BIND_COMMAND or text.startswith(f"{BIND_COMMAND} "):
-            await self._handle_bind(adapter, route, envelope, text)
-            return
-        if text == NEW_COMMAND:
-            await self._handle_new(adapter, route, envelope)
-            return
-        if text == STOP_COMMAND:
-            await self._handle_stop(adapter, route, envelope)
-            return
-        if text == SKILLS_COMMAND:
-            await self._handle_skills(adapter, route, envelope)
-            return
-        await self._handle_message(adapter, route, envelope)
+        # 回复生命周期开始时**只此一处**取一次快照并固定（ADR-04）：整个回复期间（含 tick）
+        # 都用它，下一条入站消息重新取。
+        token = _REPLY_SETTINGS.set(await self._resolve_reply_settings())
+        try:
+            if text == BIND_COMMAND or text.startswith(f"{BIND_COMMAND} "):
+                await self._handle_bind(adapter, route, envelope, text)
+                return
+            if text == NEW_COMMAND:
+                await self._handle_new(adapter, route, envelope)
+                return
+            if text == STOP_COMMAND:
+                await self._handle_stop(adapter, route, envelope)
+                return
+            if text == SKILLS_COMMAND:
+                await self._handle_skills(adapter, route, envelope)
+                return
+            await self._handle_message(adapter, route, envelope)
+        finally:
+            _REPLY_SETTINGS.reset(token)
+
+    async def _resolve_reply_settings(self) -> ReplySettings:
+        """取该租户当前平台设置快照并解析出这份回复的 locale 与节拍。
+
+        源不可读 ⇒ 明确失败（`AppError`，由 `_consume_one` 记异常并留痕），绝不回退过期默认值。
+        """
+        snapshot = await self._settings_client.fetch_snapshot(
+            tenant_id=self._tenant_id, trace_id=current_trace_id()
+        )
+        return resolve_reply_settings(snapshot)
+
+    def _activity_messages(self, locale: str) -> ActivityMessages:
+        """按 locale 缓存状态文案目录（同 locale 只读一次 YAML；locale 逐条回复可能不同）。"""
+        catalog = self._activity_catalogs.get(locale)
+        if catalog is None:
+            catalog = ActivityMessages(self._catalog.file_path, locale)
+            self._activity_catalogs[locale] = catalog
+        return catalog
 
     async def _mark_seen(self, envelope: ChannelEnvelope) -> bool:
         key = f"{DEDUPE_PREFIX}:{envelope.channel}:{envelope.message_id}"
@@ -776,8 +824,7 @@ class InboundPipeline:
         if isinstance(adapter, ReplySessionFactory):
             try:
                 state.reply = adapter.open_reply(route, request.message.id)
-                if self._activity_messages is None:
-                    self._activity_messages = ActivityMessages(self._catalog.file_path, self._locale)
+                state.activity_messages = self._activity_messages(self._locale)
             except ChannelAdapterUnavailable:
                 logger.warning("channel_reply_session_unavailable channel=%s", route.channel)
         finalized = False
@@ -844,11 +891,11 @@ class InboundPipeline:
 
     async def _send_status(self, route: DeliveryRouteInput, state: _RunStreamState) -> None:
         reply = state.reply
-        if reply is None:  # 会话在任务起跑前被回收（收尾/停机）
+        activity_messages = state.activity_messages
+        if reply is None or activity_messages is None:  # 会话在任务起跑前被回收（收尾/停机）
             return
-        assert self._activity_messages is not None
         try:
-            await reply.update_status(self._activity_messages.render(state.progress))
+            await reply.update_status(activity_messages.render(state.progress))
         except ChannelAdapterUnavailable:
             logger.warning("channel_status_update_failed channel=%s", route.channel, exc_info=True)
 

@@ -276,7 +276,6 @@ def _build_stack(
         runtime=runtime,
         catalog=catalog,
         tenant_id=tenant_id,
-        locale="zh-CN",
     )
     return adapter, pipeline, console, runtime
 

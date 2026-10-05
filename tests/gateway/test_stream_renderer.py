@@ -121,7 +121,6 @@ def _pipeline(events: list[SseEvent], catalog: MessageCatalog) -> InboundPipelin
         runtime=FakeRuntimeClient(events),
         catalog=catalog,
         tenant_id="tenant-b115",
-        locale="zh-CN",
     )
 
 

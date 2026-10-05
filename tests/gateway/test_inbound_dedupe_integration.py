@@ -124,7 +124,6 @@ def _pipeline(
         runtime=RuntimeClient(receiver.url),
         catalog=catalog,
         tenant_id=TENANT_ID,
-        locale="zh-CN",
     )
     return pipeline, adapter
 

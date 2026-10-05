@@ -27,6 +27,7 @@ from .channels.base import ChannelRegistry
 from .channels.probe import HttpProbeChannelAdapter
 from .channels.wecom.adapter import WeComAdapter
 from .infrastructure.dedupe import DedupeStore, build_dedupe_store
+from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
 from .metrics import install_gateway_metrics
 
 SERVICE_NAME = "muad-im-gateway"
@@ -56,6 +57,7 @@ class _GatewayResources:
     registry: ChannelRegistry
     dedupe: DedupeStore
     console: ConsoleClient
+    settings_client: ConsolePlatformSettingsClient
     runtime: RuntimeClient
     snapshot: BotSnapshotCache
     inbound: InboundPipeline
@@ -75,6 +77,7 @@ class _GatewayResources:
         await self.registry.stop_all()
         await self.runtime.aclose()
         await self.console.aclose()
+        await self.settings_client.aclose()
         await self.dedupe.aclose()
 
 
@@ -88,6 +91,10 @@ async def _build_resources(
     registry.register(adapter)
     dedupe = await build_dedupe_store(settings.redis_url)
     runtime = RuntimeClient(settings.agent_runtime_url)
+    # 平台设置快照的唯一读取缝：每条入站消息的回复生命周期开始时取一次（ADR-04）。
+    settings_client = ConsolePlatformSettingsClient(
+        settings.console_platform_url, service_token=settings.internal_service_token
+    )
     snapshot = BotSnapshotCache(
         console,
         tenant_id=settings.default_tenant_id,
@@ -102,13 +109,13 @@ async def _build_resources(
         catalog=catalog,
         attachment_store=InboundAttachmentStore(NfsArtifactStore(settings.artifact_root)),
         tenant_id=settings.default_tenant_id,
-        locale=settings.default_locale,
-        progress_interval_sec=settings.im_progress_interval_sec,
+        settings_client=settings_client,
     )
     return _GatewayResources(
         registry=registry,
         dedupe=dedupe,
         console=console,
+        settings_client=settings_client,
         runtime=runtime,
         snapshot=snapshot,
         inbound=inbound,

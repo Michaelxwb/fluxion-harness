@@ -40,7 +40,7 @@
 | E-21 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 acceptance 栈（真实 Console API + 真实 PostgreSQL + 真实 Worker 进程） | TASK-014 | planned | ["uv","run","pytest","-q","tests/acceptance/dfx"] | . | 1200 | |
 | B-01 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实设置文档 schema 函数（无服务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_platform_settings_schema.py"] | . | 300 | |
 | B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
-| B-03 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | TASK-007 | planned | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | . | 300 | |
+| B-03 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | TASK-007 | verified | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | . | 300 | |
 | B-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（表内无该租户行） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","default_when_absent"] | . | 300 | |
 | B-05 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由 | TASK-010 | planned | - | . | 600 | |
 | B-06 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树 + 真实词条文件（无服务） | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_platform_settings_contract.py","-k","applies_to_labels"] | . | 300 | |
@@ -596,7 +596,7 @@ $ uv run pytest -q tests/agent_runtime -k platform_settings
 
 ## TASK-007: Gateway 读取缝与 IM 展示节拍
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004
 - **Source**: platform-settings.backend.design.md#3.1 方案选型, platform-settings.backend.design.md#3.2 架构设计
@@ -609,32 +609,81 @@ IM 进度节拍（`im.progress_interval_sec`）改由平台设置提供，Gatewa
 
 ### Checklist
 
-- [ ] Gateway 取快照（复用 `application/console_client.py` 的服务身份口径），调用点只有「回复生命周期开始」一处
-- [ ] 回复期间节拍固定：不得在每次 tick 重新读取；下一条消息用新值
-- [ ] `PROGRESS_INTERVAL_SEC` / `im_progress_interval_sec` 的散落默认收敛为平台设置 + schema 默认；`im_progress_updates_per_second` **保留在环境**（服务资源预算上限）
-- [ ] Gateway 侧 `locale.default_locale`（回复渲染）改读平台设置快照
-- [ ] 一次性切换：`SharedSettings.im_progress_interval_sec` 随之删除、`.env.example` 同步移除（`im_progress_updates_per_second` 保留在环境）；`.env.example` 的 `IM_PROGRESS_INTERVAL_SEC`（:19）一并摘掉
-- [ ] **改写被本改动打断的既有用例**：`tests/gateway/test_execution_progress.py:378-382` 现在直接断言 `SharedSettings().im_progress_interval_sec` 的 5.0/1.0，字段删除后会红——按新缝改写（`im_progress_updates_per_second` 保留在环境）
-- [ ] [B-03][unit] 覆盖节拍取值边界（`ge=1.0` 下界）与「一条回复内多次 tick 节拍不变、下一条消息用新值」；真实边界：**真实 Gateway 取值函数，不 mock**
-- [ ] 渠道中立：`channels/` 与适配器零改动；跑机检 `tests/architecture/test_channel_neutrality.py` 三条断言
-- [ ] 先写测试并记录 RED，再实现
-- [ ] 同步 `docs/configuration-inventory.csv` 与机检期望
-- [ ] verifier `harness-im#RULE-im-001`：`uv run pytest -q tests/console_channel tests/gateway`（真实边界：真实渠道绑定表 + 真实 Gateway）
-- [ ] verifier `harness-im#RULE-im-002`：`uv run pytest -q tests/architecture/test_channel_neutrality.py`（真实边界：真实源码树三条中立性断言）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] Gateway 取快照（复用 `application/console_client.py` 的服务身份口径），调用点只有「回复生命周期开始」一处
+- [x] 回复期间节拍固定：不得在每次 tick 重新读取；下一条消息用新值
+- [x] `PROGRESS_INTERVAL_SEC` / `im_progress_interval_sec` 的散落默认收敛为平台设置 + schema 默认；`im_progress_updates_per_second` **保留在环境**（服务资源预算上限）
+- [x] Gateway 侧 `locale.default_locale`（回复渲染）改读平台设置快照
+- [x] 一次性切换：`SharedSettings.im_progress_interval_sec` 随之删除、`.env.example` 同步移除（`im_progress_updates_per_second` 保留在环境）；`.env.example` 的 `IM_PROGRESS_INTERVAL_SEC`（:19）一并摘掉
+- [x] **改写被本改动打断的既有用例**：`tests/gateway/test_execution_progress.py:378-382` 现在直接断言 `SharedSettings().im_progress_interval_sec` 的 5.0/1.0，字段删除后会红——按新缝改写（`im_progress_updates_per_second` 保留在环境）
+- [x] [B-03][unit] 覆盖节拍取值边界（`ge=1.0` 下界）与「一条回复内多次 tick 节拍不变、下一条消息用新值」；真实边界：**真实 Gateway 取值函数，不 mock**
+- [x] 渠道中立：`channels/` 与适配器零改动；跑机检 `tests/architecture/test_channel_neutrality.py` 三条断言
+- [x] 先写测试并记录 RED，再实现
+- [x] 同步 `docs/configuration-inventory.csv` 与机检期望
+- [x] verifier `harness-im#RULE-im-001`：`uv run pytest -q tests/console_channel tests/gateway`（真实边界：真实渠道绑定表 + 真实 Gateway）
+- [x] verifier `harness-im#RULE-im-002`：`uv run pytest -q tests/architecture/test_channel_neutrality.py`（真实边界：真实源码树三条中立性断言）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-03 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | 下界 `1.0` 接受、更小被拒；回复期间节拍不变；下一条消息生效 | `tests/gateway/test_progress_settings.py` | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | planned |
+| B-03 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | 下界 `1.0` 接受、更小被拒；回复期间节拍不变；下一条消息生效 | `tests/gateway/test_progress_settings.py` | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | verified |
 
 ### Acceptance Evidence
 
-> 编码期填写 RED/GREEN 与断言位置。
+**B-03（unit · 真实 Gateway 回复生命周期取值函数，无服务）**
+
+RED（先写测试、后实现，`tests/gateway/test_progress_settings.py` 已落盘）：
+
+```
+$ uv run pytest -q tests/gateway/test_progress_settings.py
+ERROR collecting tests/gateway/test_progress_settings.py
+E   ModuleNotFoundError: No module named 'muad_im_gateway.application.ports'
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.06s
+```
+
+GREEN：
+
+- `uv run pytest -q tests/gateway/test_progress_settings.py` → **5 passed**
+- `uv run pytest -q tests/gateway` → **323 passed**（含按新缝改写的 `test_execution_progress.py`）
+- verifier `harness-im#RULE-im-001`：`uv run pytest -q tests/console_channel tests/gateway` → **376 passed**
+- verifier `harness-im#RULE-im-002`：`uv run pytest -q tests/architecture/test_channel_neutrality.py` → **3 passed**
+- `uv run pytest -q tests/test_configuration_inventory.py` → **3 passed**
+- `uv run pytest -q tests/test_settings.py tests/test_platform_settings_schema.py tests/test_configuration_inventory.py tests/gateway/test_gateway_metrics.py` → **113 passed**
+- `uv run ruff check apps/ packages/ tests/gateway` → **All checks passed**
+
+关键断言与位置（`tests/gateway/test_progress_settings.py`）：
+
+- **下界**：`test_b03_interval_floor_accepts_one_and_rejects_below`——`resolve_reply_settings` 走真实 `parse_platform_settings`（未 mock），`im.progress_interval_sec = 1.0` 接受；`0.5` / `0.0` 抛 `AppError`。
+- **默认单一来源**：`test_b03_defaults_when_tenant_has_no_record`——`revision 0` ⇒ `("zh-CN", 5.0)`。
+- **一回复一取 + 节拍固定 + 下一条用新值**：`test_b03_one_fetch_per_reply_and_next_message_uses_new_value`——两次 `handle` 断言 `settings_client.calls == ["tenant-1", "tenant-1"]`（tick 不重取快照）且 `recorded_intervals == [1.0, 5.0]`（每条回复只调一次 `iter_with_ticks`、值取自该条回复自身的快照，下一条入站消息改用新值）。
+- **locale 逐条切换**：`test_b03_reply_render_locale_comes_from_snapshot`——同一 pipeline 两条消息分别以 `en-US` / `zh-CN` 渲染错误文案，断言 `adapter.sent[-2]/-1` 等于各自 locale 的词条且互不相等（Gateway 不再读启动 settings 的 locale）。
+- **client 契约与失败计数（调用方侧）**：`test_b03_client_uses_internal_contract_and_records_failed_metric`——`httpx.MockTransport` 下断言真实路径 `GET /internal/v1/platform-settings`、头 `X-Internal-Service` / `X-Tenant-Id` / `X-Caller-Service: gateway`；失败后 `platform_settings_fetch_total{caller="gateway",result="failed"}` 恰 +1。
+
+真实边界说明：取值函数（`resolve_reply_settings` → `parse_platform_settings`）与设置源**未 mock**；测试仅对 `iter_with_ticks` 做**记录式包裹**（真实函数照常运行、逐帧透传），用于观测实际下发的节拍值，不改变行为。
+
+实现落点：
+
+- 端口协议：`apps/im-gateway/src/muad_im_gateway/application/ports.py`（`PlatformSettingsSnapshot` / `PlatformSettingsClient` / `NullPlatformSettingsClient`）
+- 解析缝：`apps/im-gateway/src/muad_im_gateway/application/platform_settings.py`（`resolve_reply_settings`，唯一解析缝）
+- 取快照 client：`apps/im-gateway/src/muad_im_gateway/infrastructure/platform_settings_client.py`（复用 `application/envelope.py` 的错误码解析与服务身份口径；`X-Caller-Service: gateway`）
+- **调用点唯一**：`application/inbound.py` 的 `handle`——`token = _REPLY_SETTINGS.set(await self._resolve_reply_settings())`（回复生命周期开始处一次），回复期间经 ContextVar 读取（并发回复各持一份，互不串味）；`_consume_run` 以 `iter_with_ticks(stream, interval=self._progress_interval_sec)` 取值。
+- 一次性切换：`SharedSettings.im_progress_interval_sec` 删除；`.env.example` 摘掉 `IM_PROGRESS_INTERVAL_SEC`；`application/progress.py` 的 `PROGRESS_INTERVAL_SEC` 常量删除（下界/默认只剩 schema 一处）；`im_progress_updates_per_second` 保留在环境。
+- 渠道中立：`channels/` 与适配器零改动（`git status` 无 `channels/` 变更）；读设置全在 `application/` 层。
+- 盘点：`docs/configuration-inventory.csv` 重算（新增 gateway client / metrics 常量行，删除 `PROGRESS_INTERVAL_SEC` 与 `inbound.__init__.progress_interval_sec` 行，行号重排）。
+
+设计偏差/交接（供 TASK-013/014 接手）：
+
+- 为兑现「locale 逐条回复固定」，`_activity_messages` 由 pipeline 实例级缓存改为**按 locale 缓存、随 `_RunStreamState` 绑定本条回复**（`_send_status` 从 `state.activity_messages` 取值）——否则并发两条不同 locale 的回复会互相串文案。
+- `test_execution_progress.py` 的 `_pipeline_with_progress(interval=0.01)` 改为 `interval=1.0`：节拍下界 `ge=1.0` 由 schema 把住，测试无法再注入亚秒值；该用例的「主路径状态先于 tick」语义不变（第 4 次写入仍是首个 tick，`armed` 在 ~1s 触发）。
+- `tests/acceptance/im_gateway/environment.py:142` 仍注入 `IM_PROGRESS_INTERVAL_SEC=1`（已失效）——该栈改「按租户种平台设置」归 **TASK-014**。
+- B-03: verified — automated command passed; run_id=ff1ef3adb97f4c9fbaeed76fbb9cb9fe (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 

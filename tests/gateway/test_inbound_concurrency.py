@@ -151,7 +151,6 @@ def _pipeline(runtime: Any, catalog: MessageCatalog) -> InboundPipeline:
         runtime=runtime,
         catalog=catalog,
         tenant_id="tenant-b116",
-        locale="zh-CN",
     )
 
 

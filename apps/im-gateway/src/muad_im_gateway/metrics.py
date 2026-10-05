@@ -28,6 +28,8 @@ from .application.inbound import (
 
 COUNTER: Final = "counter"
 GAUGE: Final = "gauge"
+#: 取平台设置快照的失败计数在**调用方**侧（Console 端点不可达时 Console 收不到请求）。
+PLATFORM_SETTINGS_FETCH_METRIC: Final = "platform_settings_fetch_total"
 
 #: 目录：(指标名, 类型, label 名, help)。help 与使用处 `inc_counter/set_gauge` 的 `help` 一致。
 CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
@@ -44,6 +46,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         "Runtime run request latency until first SSE event (ms)",
     ),
     (BACKGROUND_DELIVERY_METRIC, COUNTER, ("status",), "Background deliveries by status"),
+    (
+        PLATFORM_SETTINGS_FETCH_METRIC,
+        COUNTER,
+        ("caller", "result"),
+        "Platform settings snapshot fetches by caller and result (ok/failed)",
+    ),
 )
 
 

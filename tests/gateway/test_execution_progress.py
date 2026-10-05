@@ -7,9 +7,10 @@ import pytest
 from fakes import FakeConsoleClient, FakeRuntimeClient, FakeWeComSdkFactory, make_envelope, resolved_response
 from muad_api.catalog import MessageCatalog
 from muad_artifact_store import NfsArtifactStore
-from muad_common import SharedSettings
 from muad_contracts import AttachmentRef, BotSnapshotItem, DeliveryRouteInput
+from muad_contracts.platform_settings import parse_platform_settings
 from muad_im_gateway.application.inbound import InboundPipeline
+from muad_im_gateway.application.ports import PlatformSettingsSnapshot
 from muad_im_gateway.application.progress import ExecutionProgress, ProgressPhase, iter_with_ticks
 from muad_im_gateway.application.sse import SseEvent
 from muad_im_gateway.channels.base import ARTIFACT_DELIVERED
@@ -352,6 +353,20 @@ class IdleRuntime(FakeRuntimeClient):
         yield SseEvent("run.completed", {"status": "COMPLETED", "final_text": "答案"})
 
 
+class _StaticSettingsClient:
+    """固定节拍的设置源：快照里的 `im.progress_interval_sec` 取自平台设置 schema（下界 1.0）。"""
+
+    def __init__(self, interval: float) -> None:
+        self._interval = interval
+
+    async def fetch_snapshot(
+        self, *, tenant_id: str, trace_id: str = ""
+    ) -> PlatformSettingsSnapshot:
+        return PlatformSettingsSnapshot(
+            revision=1, settings={"im": {"progress_interval_sec": self._interval}}
+        )
+
+
 def _pipeline_with_progress(
     catalog: MessageCatalog, runtime: FakeRuntimeClient, interval: float
 ) -> InboundPipeline:
@@ -363,23 +378,22 @@ def _pipeline_with_progress(
         runtime=runtime,
         catalog=catalog,
         tenant_id="tenant-1",
-        locale="zh-CN",
+        settings_client=_StaticSettingsClient(interval),
         delta_flush_interval_sec=0.0,  # 增量立刻成帧：正文写入紧随"隐藏占位"的那一帧
-        progress_interval_sec=interval,
     )
 
 
-def test_b401_progress_interval_default_is_five_seconds(monkeypatch):
-    """生产默认节拍由毫秒级单测钉住（harness-test「常量值与行为规律分层验证」）。
+def test_b401_progress_interval_default_is_five_seconds():
+    """生产默认节拍只有一个来源：平台设置 schema 的 `im.progress_interval_sec`（=5.0）。
 
-    E2E 注入 1s 只证明「计时在走、秒数在涨」这条规律；「生产默认是 5 秒」这条**常量事实**
-    在这里钉——它同时也是客户端重排成本的取舍，改它要有意识地改。
+    E2E 用 1s 只证明「计时在走、秒数在涨」这条规律；「生产默认是 5 秒」这条**常量事实**
+    在这里钉——它同时也是客户端重排成本的取舍，改它要有意识地改（改 schema 默认即改此断言）。
     """
-    monkeypatch.delenv("IM_PROGRESS_INTERVAL_SEC", raising=False)
-    assert SharedSettings().im_progress_interval_sec == 5.0
-
-    monkeypatch.setenv("IM_PROGRESS_INTERVAL_SEC", "1")
-    assert SharedSettings().im_progress_interval_sec == 1.0
+    assert parse_platform_settings({}).im.progress_interval_sec == 5.0
+    assert (
+        parse_platform_settings({"im": {"progress_interval_sec": 1.0}}).im.progress_interval_sec
+        == 1.0
+    )
 
 
 async def test_b402_identical_status_frame_is_not_re_sent():
@@ -431,7 +445,7 @@ async def test_b401_in_flight_status_never_shares_the_stream_with_the_answer(
         [SseEvent("run.created", {"run_id": "run-1"}), SseEvent("model.started", {})],
         release,
     )
-    pipeline = _pipeline_with_progress(catalog, runtime, interval=0.01)
+    pipeline = _pipeline_with_progress(catalog, runtime, interval=1.0)
     consumer = asyncio.create_task(pipeline.consume(adapter))
     try:
         await adapter.push(make_envelope("检查设备"))

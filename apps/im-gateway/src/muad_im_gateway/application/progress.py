@@ -98,10 +98,8 @@ _STOP_PHASES = {
     "run.failed": ProgressPhase.FAILED,
 }
 
-#: 计时节拍默认值：IM 客户端每收到一帧都要**整帧重排并滚动到底**，1 秒一帧实测让对话框滚动
-#: 发涩，产品口径定为 5 秒。生产由 `SharedSettings.im_progress_interval_sec` 注入（同默认值），
-#: 验收栈按「可注入节拍一律注入小值」注入 1s。
-PROGRESS_INTERVAL_SEC = 5.0
+#: 计时节拍的默认值/下界不再有第二来源：由平台设置 `im.progress_interval_sec` 提供，
+#: schema（`muad_contracts.platform_settings`）的 `ge=1.0` 是唯一来源（ADR-04）。
 
 
 def _event_age(timestamp: str | None) -> float:

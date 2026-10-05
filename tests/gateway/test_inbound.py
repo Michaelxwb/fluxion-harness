@@ -86,7 +86,6 @@ def _pipeline(
         runtime=runtime,
         catalog=catalog,
         tenant_id="tenant-1",
-        locale="zh-CN",
         delta_flush_interval_sec=delta_flush_interval_sec,
     )
 

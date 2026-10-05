@@ -170,7 +170,6 @@ async def test_b109_unbound_and_unauthorized_are_normal_branches_without_run(
         runtime=runtime,
         catalog=catalog,
         tenant_id=channel.tenant_id,
-        locale="zh-CN",
     )
     try:
         # 未绑定：bound=false 属正常分支（提示绑定，不创建 Run）
@@ -217,7 +216,6 @@ async def test_b109_authorized_message_creates_run_with_matching_route(
         runtime=runtime,
         catalog=catalog,
         tenant_id=channel.tenant_id,
-        locale="zh-CN",
     )
     message_id = f"msg-route-{time.time_ns()}"
     envelope = make_envelope(

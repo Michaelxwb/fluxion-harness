@@ -184,7 +184,6 @@ def _build_pipeline(root: Path, dedupe: Any) -> tuple[InboundPipeline, FakeConso
         catalog=MessageCatalog(CATALOG_PATH),
         attachment_store=InboundAttachmentStore(NfsArtifactStore(root)),
         tenant_id=TENANT_ID,
-        locale="zh-CN",
     )
     return pipeline, console, runtime
 
