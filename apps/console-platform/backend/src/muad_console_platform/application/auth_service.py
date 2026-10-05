@@ -9,6 +9,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import Argon2Error, InvalidHashError
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts.platform_settings import AuthSettings
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,13 +18,9 @@ from ..infrastructure.models.auth import ROLE_ADMIN, ROLE_BUILDER, ConsoleAccoun
 from ..infrastructure.models.control import SkillImportIdempotency
 from ..infrastructure.repositories.console_account_repository import ConsoleAccountRepository
 from ..infrastructure.repositories.console_session_repository import ConsoleSessionRepository
+from .platform_settings_service import PlatformSettingsService
 
 ROLES = (ROLE_ADMIN, ROLE_BUILDER)
-MIN_PASSWORD_LENGTH = 12
-MAX_FAILED_ATTEMPTS = 5
-LOCK_DURATION = timedelta(minutes=15)
-SESSION_TTL = timedelta(hours=12)
-SLIDE_THRESHOLD = SESSION_TTL / 2
 
 _PASSWORD_HASHER = PasswordHasher()
 _logger = logging.getLogger(__name__)
@@ -57,7 +54,8 @@ class AuthService:
         username: str,
         password: str,
         source_ip: str | None,
-    ) -> tuple[ConsoleAccount, str]:
+    ) -> tuple[ConsoleAccount, str, timedelta]:
+        """登录成功返回 `(账号, 会话令牌, 会话时长)`：时长供 Cookie `Max-Age` **同源**使用。"""
         account = await self._find_login_account(username)
         if account is None:
             verify_password(_DUMMY_HASH, password)
@@ -68,24 +66,32 @@ class AuthService:
             raise AppError(ErrorCode.INVALID_CREDENTIALS)
         if account.locked_until is not None and account.locked_until > now:
             raise AppError(ErrorCode.ACCOUNT_LOCKED)
+        # 租户取自**账号**（不信任请求头）：认证策略是安全策略操作，按当前生效值走。
+        policy = await self._auth_policy(account.tenant_id)
         if not verify_password(account.password_hash, password):
-            await self._register_failure(account, now)
+            await self._register_failure(account, now, policy)
             raise AppError(ErrorCode.INVALID_CREDENTIALS)
         account.failed_attempts = 0
         account.locked_until = None
         account.last_login_at = now
         account.update_time = now
         token = secrets.token_urlsafe(32)
+        ttl = timedelta(hours=policy.session_ttl_hours)
         session_row = ConsoleSession(
             account_id=account.id,
             token_hash=hash_session_token(token),
             issued_at=now,
-            expires_at=now + SESSION_TTL,
+            expires_at=now + ttl,
             last_seen_at=now,
             source_ip=source_ip,
         )
         await self._sessions.add(session_row)
-        return account, token
+        return account, token, ttl
+
+    async def _auth_policy(self, tenant_id: str) -> AuthSettings:
+        """当前生效的认证策略（`auth` 分组），直接读平台设置——不引入新缓存或 TTL。"""
+        snapshot = await PlatformSettingsService(self._session).read_current(tenant_id)
+        return snapshot.settings.auth
 
     def _require_tenant(self) -> str:
         if not self._tenant_id:
@@ -102,11 +108,11 @@ class AuthService:
             _logger.warning("console_login_ambiguous_username candidates=%s", len(candidates))
         return None
 
-    async def _register_failure(self, account: ConsoleAccount, now: datetime) -> None:
+    async def _register_failure(self, account: ConsoleAccount, now: datetime, policy: AuthSettings) -> None:
         account.failed_attempts += 1
-        if account.failed_attempts >= MAX_FAILED_ATTEMPTS:
+        if account.failed_attempts >= policy.max_failed_attempts:
             account.failed_attempts = 0
-            account.locked_until = now + LOCK_DURATION
+            account.locked_until = now + timedelta(minutes=policy.lock_duration_minutes)
         account.update_time = now
         await self._session.commit()
 
@@ -118,8 +124,13 @@ class AuthService:
         account = await self._accounts.get(row.account_id)
         if account is None or not account.enabled:
             raise AppError(ErrorCode.UNAUTHORIZED)
-        if row.expires_at - now < SLIDE_THRESHOLD:
-            row.expires_at = now + SESSION_TTL
+        # 滑动阈值是**派生值**（本会话签发时的 TTL/2，即 `expires_at - issued_at`），不是独立设置项。
+        # 只有真要续期时才读当前平台设置：改会话时长只影响之后**签发/续期**的会话，
+        # 不追改已签发会话的到期时间；普通请求（未到续期点）不引入任何设置读。
+        issued_ttl = row.expires_at - row.issued_at
+        if row.expires_at - now < issued_ttl / 2:
+            policy = await self._auth_policy(account.tenant_id)
+            row.expires_at = now + timedelta(hours=policy.session_ttl_hours)
         row.last_seen_at = now
         row.update_time = now
         await self._session.flush()
@@ -148,9 +159,10 @@ class AuthService:
         """
         if role not in ROLES:
             raise AppError(ErrorCode.COMMON_BAD_REQUEST)
-        if len(password) < MIN_PASSWORD_LENGTH:
-            raise AppError(ErrorCode.COMMON_BAD_REQUEST)
         tenant_id = self._require_tenant()
+        policy = await self._auth_policy(tenant_id)
+        if len(password) < policy.min_password_length:
+            raise AppError(ErrorCode.COMMON_BAD_REQUEST)
         fingerprint = account_fingerprint(tenant_id, username, display_name, role)
         if idempotency_key:
             await _lock_account_idempotency(self._session, tenant_id, idempotency_key)
@@ -223,7 +235,8 @@ class AuthService:
             raise AppError(ErrorCode.UNAUTHORIZED)
         if not verify_password(account.password_hash, current_password):
             raise AppError(ErrorCode.INVALID_CREDENTIALS)
-        if len(new_password) < MIN_PASSWORD_LENGTH:
+        policy = await self._auth_policy(account.tenant_id)
+        if len(new_password) < policy.min_password_length:
             raise AppError(ErrorCode.COMMON_BAD_REQUEST)
         account.password_hash = hash_password(new_password)
         account.failed_attempts = 0

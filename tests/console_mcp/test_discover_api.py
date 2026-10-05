@@ -5,10 +5,39 @@
 
 from __future__ import annotations
 
+import uuid
+from dataclasses import replace
+
 import httpx
 import pytest
+from muad_console_platform.application.audit_service import AuditActor
+from muad_console_platform.application.platform_settings_service import PlatformSettingsService
+from muad_console_platform.infrastructure.db import get_session_factory
+from muad_contracts.platform_settings import McpSettings, default_platform_settings
+from sqlalchemy import text
 
 from console_mcp.conftest import create_mcp, tenant_headers
+
+
+async def _set_mcp_tool_limit(tenant_id: str, limit: int) -> None:
+    """把 `mcp.max_tools_per_server` 写入平台设置（真实落库）。"""
+    async with get_session_factory()() as session:
+        service = PlatformSettingsService(session)
+        revision = (await service.read_current(tenant_id)).revision
+        settings = replace(
+            default_platform_settings(), mcp=McpSettings(max_tools_per_server=limit)
+        )
+        await service.save(tenant_id, AuditActor(account_id=uuid.uuid4()), revision, settings)
+        await session.commit()
+
+
+async def _clear_platform_settings(tenant_id: str) -> None:
+    async with get_session_factory()() as session:
+        await session.execute(
+            text("DELETE FROM control.platform_setting WHERE tenant_id = :tenant_id"),
+            {"tenant_id": tenant_id},
+        )
+        await session.commit()
 
 
 async def _register(
@@ -194,6 +223,32 @@ async def test_e05_tool_limit_preserves_catalog(
         await client.get(f"/api/v1/mcp-servers/{mcp_id}/tools", headers=tenant_headers(env))
     ).json()["data"]
     assert tools["total"] == 2
+
+
+async def test_tool_limit_comes_from_platform_settings(
+    client: httpx.AsyncClient, env: dict[str, object], probe_url: str
+) -> None:
+    """[RULE-mcp-001] 上限来自平台设置 `mcp.max_tools_per_server`：调小即生效，超限仍走既有失败路径。
+
+    探针真实返回 2 个工具；平台设置上限设为 1（默认 200 会成功）⇒ 只有读到设置才会失败。
+    """
+    tenant_id = str(env["tenant_id"])
+    await _set_mcp_tool_limit(tenant_id, 1)
+    try:
+        mcp_id = await _register(client, env, probe_url)
+        failed = await client.post(
+            f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
+        )
+        assert failed.status_code == 502
+        assert failed.json()["code"] == "MCP_DISCOVERY_FAILED"
+
+        detail = (
+            await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env))
+        ).json()["data"]
+        assert detail["connection_status"] == "DISCOVERY_FAILED"
+        assert "limit 1" in (detail["last_discovery_error"] or "")
+    finally:
+        await _clear_platform_settings(tenant_id)
 
 
 async def test_b02_discover_is_only_catalog_writer(

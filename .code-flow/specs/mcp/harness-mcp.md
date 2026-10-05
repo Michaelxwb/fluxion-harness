@@ -63,7 +63,7 @@ Console 侧 `discover-tools` 的 Catalog 维护与缓存（PG 为权威源）：
 - **MCP catalog 存在 Redis 缓存层，PG 是权威源**：端口 `McpCatalogCache`（`application/mcp_ports.py:7-10`）与实现 `RedisMcpCatalogCache`（`infrastructure/mcp_catalog_cache.py`）；discover/delete 后按 revision 失效（`application/mcp_service.py:367,446-447`）。
   - **缓存失效失败不得影响目录事实源**：`_invalidate_cache` 吞掉异常并注释说明（`application/mcp_service.py:369-375`）——DB 已提交才是事实，缓存不可用只影响性能。
 - **工具 `effect` 归一化**：`annotations.readOnlyHint=True` → `READ`，`destructiveHint=True` → `DESTRUCTIVE`，否则 `WRITE`（`infrastructure/mcp_client.py:34-40`）；`tool_catalog_json` 元素固定四字段 `name`/`description`/`input_schema`/`effect`，按 `name` 排序（`:43-53`）。
-- **单 server 工具数上限走 `mcp_max_tools_per_server`（默认 200）**（`packages/common/src/muad_common/settings.py:23`；`application/mcp_service.py:417` 传入 `list_tools(max_tools=limit)`）。超限时**立即失败**（`McpClientError("protocol", ...)`，`infrastructure/mcp_client.py:150-182`），使无界拉取不可能发生——按既有失败路径落 `DISCOVERY_FAILED` 并保留上一成功 Catalog，而不是截断出一个不完整的 catalog。
+- **单 server 工具数上限走平台设置 `mcp.max_tools_per_server`（默认 200）**（`muad_contracts/platform_settings.py` 的 `McpSettings`；`application/mcp_service.py` 的 `discover_tools` 读当前值后传入 `list_tools(max_tools=limit)`）。超限时**立即失败**（`McpClientError("protocol", ...)`，`infrastructure/mcp_client.py:150-182`），使无界拉取不可能发生——按既有失败路径落 `DISCOVERY_FAILED` 并保留上一成功 Catalog，而不是截断出一个不完整的 catalog。
 
 ## Avoid
 

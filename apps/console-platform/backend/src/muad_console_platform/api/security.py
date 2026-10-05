@@ -10,7 +10,6 @@ SESSION_COOKIE = "muad_session"
 CSRF_COOKIE = "muad_csrf"
 CSRF_HEADER = "X-CSRF-Token"
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
-SESSION_MAX_AGE_SEC = 12 * 60 * 60
 
 
 def new_csrf_token() -> str:
@@ -21,12 +20,13 @@ def _cookie_secure() -> bool:
     return SharedSettings().env != "dev"
 
 
-def set_auth_cookies(response: Response, session_token: str, csrf_token: str) -> None:
+def set_auth_cookies(response: Response, session_token: str, csrf_token: str, max_age_sec: int) -> None:
+    """写认证 cookie；`max_age_sec` 由调用方传入，须与会话行的 TTL **同源**。"""
     secure = _cookie_secure()
     response.set_cookie(
         SESSION_COOKIE,
         session_token,
-        max_age=SESSION_MAX_AGE_SEC,
+        max_age=max_age_sec,
         httponly=True,
         samesite="strict",
         secure=secure,
@@ -35,7 +35,7 @@ def set_auth_cookies(response: Response, session_token: str, csrf_token: str) ->
     response.set_cookie(
         CSRF_COOKIE,
         csrf_token,
-        max_age=SESSION_MAX_AGE_SEC,
+        max_age=max_age_sec,
         httponly=False,
         samesite="strict",
         secure=secure,

@@ -20,7 +20,6 @@ class SharedSettings(BaseSettings):
     wecom_ws_ca_file: str | None = None
 
     artifact_root: str = "./.data/artifacts"
-    mcp_max_tools_per_server: int = 200
     skill_cache_root: str = "./.data/skill-cache"
     migrations_dir: str = "./migrations/versions"
 

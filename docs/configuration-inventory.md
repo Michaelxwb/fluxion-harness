@@ -44,7 +44,6 @@
 | `wecom_ws_ca_file` / `WECOM_WS_CA_FILE` | `None` | .env + 重启 |
 | `artifact_root` / `ARTIFACT_ROOT` | `'./.data/artifacts'` | .env + 重启 |
 | `artifact_retention_days` / `ARTIFACT_RETENTION_DAYS` | `30` | 系统设置 |
-| `mcp_max_tools_per_server` / `MCP_MAX_TOOLS_PER_SERVER` | `200` | 系统设置 |
 | `skill_cache_root` / `SKILL_CACHE_ROOT` | `'./.data/skill-cache'` | .env + 重启 |
 | `migrations_dir` / `MIGRATIONS_DIR` | `'./migrations/versions'` | .env + 重启 |
 | `context_settings_cache_ttl_sec` / `CONTEXT_SETTINGS_CACHE_TTL_SEC` | `10` | .env + 重启 |
@@ -147,14 +146,8 @@
 | `DEFAULT_WAIT_SEC` | `60` | [execution_outcomes.py:12](../apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py#L12) |
 | `EXECUTION_TIMEOUT_SEC` | `300.0` | [executor.py:28](../apps/agent-worker/src/muad_agent_worker/worker/executor.py#L28) |
 | `RETRY_BACKOFF_BASE_SEC` | `5` | [service.py:35](../apps/agent-worker/src/muad_agent_worker/worker/service.py#L35) |
-| `SESSION_MAX_AGE_SEC` | `12 * 60 * 60` | [security.py:13](../apps/console-platform/backend/src/muad_console_platform/api/security.py#L13) |
 | `DEFAULT_FETCH_TTL_SEC` | `300.0` | [artifact_fetch_tokens.py:27](../apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py#L27) |
 | `TTL_ENV` | `'ARTIFACT_FETCH_TTL_SEC'` | [artifact_fetch_tokens.py:32](../apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py#L32) |
-| `MIN_PASSWORD_LENGTH` | `12` | [auth_service.py:22](../apps/console-platform/backend/src/muad_console_platform/application/auth_service.py#L22) |
-| `MAX_FAILED_ATTEMPTS` | `5` | [auth_service.py:23](../apps/console-platform/backend/src/muad_console_platform/application/auth_service.py#L23) |
-| `LOCK_DURATION` | `timedelta(minutes=15)` | [auth_service.py:24](../apps/console-platform/backend/src/muad_console_platform/application/auth_service.py#L24) |
-| `SESSION_TTL` | `timedelta(hours=12)` | [auth_service.py:25](../apps/console-platform/backend/src/muad_console_platform/application/auth_service.py#L25) |
-| `SLIDE_THRESHOLD` | `SESSION_TTL / 2` | [auth_service.py:26](../apps/console-platform/backend/src/muad_console_platform/application/auth_service.py#L26) |
 | `BIND_CODE_TTL` | `timedelta(minutes=10)` | [channel_service.py:41](../apps/console-platform/backend/src/muad_console_platform/application/channel_service.py#L41) |
 | `ZIP_BYTES_LIMIT` | `50 * 1024 * 1024` | [skill_validator.py:23](../apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_validator.py#L23) |
 | `UNPACKED_BYTES_LIMIT` | `200 * 1024 * 1024` | [skill_validator.py:24](../apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_validator.py#L24) |
@@ -167,7 +160,7 @@
 
 此外，`AgentPolicy.max_turns=20`、`max_tool_calls=30`、`deadline_ms=120000`、`max_model_retries=3` 作为平台默认可纳入执行策略；已有 `runtime_config` 覆盖继续优先。`BudgetPolicy.max_messages=40` 应复用 `compaction.history_budget_messages`，不新增另一个“历史条数”键。`memory_write` 是现有 Agent 级配置，未显式配置时默认 `True`（`application/memory_tools.py:104`）；需要平台默认时同样遵循“资源覆盖 > 平台设置 > schema 默认”。
 
-`SESSION_TTL` 与 `SESSION_MAX_AGE_SEC` 必须共用一个会话策略；`SLIDE_THRESHOLD` 是派生值，不能作为独立输入。变更会话时长只影响之后签发/续期的会话，不应把所有已签发会话立即改成新到期时间。
+认证策略（`auth.min_password_length` / `max_failed_attempts` / `lock_duration_minutes` / `session_ttl_hours`）已改为**系统设置**项，服务端在登录/改密边界读当前值校验。`session_ttl_hours` 与 Cookie `Max-Age` 必须**同源**（登录时同一次读取）；滑动阈值是**派生值**（本会话签发 TTL/2），不是独立设置项。变更会话时长只影响之后签发/续期的会话，不应把所有已签发会话立即改成新到期时间。存量密码不回改。
 
 ### 已有资源页面继续管理的配置
 

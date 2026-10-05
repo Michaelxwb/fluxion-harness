@@ -12,7 +12,7 @@ from muad_common import SharedSettings
 from sqlalchemy import text
 
 from .application.artifact_cleanup_service import ArtifactCleanupService
-from .application.auth_service import MIN_PASSWORD_LENGTH, AuthService
+from .application.auth_service import AuthService
 from .application.platform_settings_service import PlatformSettingsService
 from .infrastructure.db import dispose_engine, get_session_factory
 from .infrastructure.models.auth import ROLE_ADMIN, ROLE_BUILDER
@@ -75,10 +75,15 @@ def _build_parser() -> argparse.ArgumentParser:
 
 async def _create_admin(args: argparse.Namespace) -> int:
     password: str = args.password or getpass.getpass("Console password: ")
-    if len(password) < MIN_PASSWORD_LENGTH:
-        print(f"password must be at least {MIN_PASSWORD_LENGTH} characters", file=sys.stderr)
-        return 2
     async with get_session_factory()() as session:
+        # 口令最小长度是**按租户**的业务设置（`auth.min_password_length`）：按目标租户当前值校验。
+        policy = (await PlatformSettingsService(session).read_current(args.tenant)).settings.auth
+        if len(password) < policy.min_password_length:
+            print(
+                f"password must be at least {policy.min_password_length} characters",
+                file=sys.stderr,
+            )
+            return 2
         service = AuthService(session, tenant_id=args.tenant)
         try:
             # CLI 不传 idempotency_key ⇒ replayed 恒为 False

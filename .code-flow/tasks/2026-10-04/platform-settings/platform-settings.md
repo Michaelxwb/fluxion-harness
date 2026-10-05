@@ -31,7 +31,7 @@
 | E-12 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（真实 409） | TASK-010 | planned | - | . | 600 | |
 | E-13 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许，成功路径禁止拦截） | TASK-010 | planned | - | . | 600 | |
 | E-14 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实登录会话（真实 403，无路由拦截） | TASK-010 | planned | - | . | 600 | |
-| E-15 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实登录会话与 CSRF | TASK-009 | planned | ["uv","run","pytest","-q","tests/console_platform/test_auth_policy_settings.py"] | . | 300 | |
+| E-15 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实登录会话与 CSRF | TASK-009 | verified | ["uv","run","pytest","-q","tests/console_platform/test_auth_policy_settings.py"] | . | 300 | |
 | E-16 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 CSV + 真实机检（无服务） | TASK-011 | planned | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | . | 300 | |
 | E-17 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","idempotent_replay"] | . | 300 | |
 | E-18 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实任务文档与 manifest（收口清单交叉核对） | TASK-012 | planned | ["uv","run","pytest","-q","tests/platform_settings_inventory.py"] | . | 300 | |
@@ -771,7 +771,7 @@ E   ModuleNotFoundError: No module named 'muad_agent_core.agent.budget'
 
 ## TASK-009: Console 侧业务默认接入（认证策略与 MCP 规模）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004
 - **Source**: platform-settings.backend.design.md#2.3 功能方案, platform-settings.backend.design.md#3.4 接口设计
@@ -784,29 +784,86 @@ E   ModuleNotFoundError: No module named 'muad_agent_core.agent.budget'
 
 ### Checklist
 
-- [ ] 认证策略读平台设置：`SESSION_TTL` 与 Cookie `Max-Age` **同源**，`SLIDE_THRESHOLD` 保持派生；存量会话到期时间不变
-- [ ] `MIN_PASSWORD_LENGTH`/`MAX_FAILED_ATTEMPTS`/`LOCK_DURATION` 由平台设置提供，服务端校验为准
-- [ ] `mcp.max_tools_per_server` 接入发现/接入路径；MCP 连接参数（`connect_timeout_ms`/`tool_cache_ttl_sec`）**不改**，仍由 MCP 页面管理；同批删除 `SharedSettings.mcp_max_tools_per_server`（消费者只有 `application/mcp_service.py:430`）并从 `.env.example` 摘掉同名键（若在）
-- [ ] **api-kit 的 locale 兜底（TASK-013 已改动，需复核）**：`install_api_foundation(app, default_locale=None)` 现在是 `default_locale or "zh-CN"`（`packages/api-kit/src/muad_api/app.py:18-28`），**不再**读 `SharedSettings.default_locale`。复核它与平台 `locale.default_locale` 的关系：请求级 `X-Locale`/`Accept-Language` 优先，平台默认语言应在**无语言信号**时生效——若判断 api-kit 只该做框架兜底、平台语言由别处承担，必须在证据里写明理由与承担位置，不要沉默放过
-- [ ] API-05 已认证限额端点接入（供前端复用 Skill 导入限额）
-- [ ] [E-15][integration] 覆盖新签发会话按新 TTL、已签发会话到期不变、新密码按新长度校验；真实边界：**真实 PostgreSQL + 真实登录会话与 CSRF**
-- [ ] 先写测试并记录 RED，再实现
-- [ ] 同步 `docs/configuration-inventory.csv` 与机检期望
-- [ ] verifier `harness-mcp#RULE-mcp-001`：`uv run pytest -q tests/console_mcp/test_mcp_rules.py`（真实边界：真实 MCP 规则套件；连接参数仍留 MCP 页面）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 认证策略读平台设置：`SESSION_TTL` 与 Cookie `Max-Age` **同源**，`SLIDE_THRESHOLD` 保持派生；存量会话到期时间不变
+- [x] `MIN_PASSWORD_LENGTH`/`MAX_FAILED_ATTEMPTS`/`LOCK_DURATION` 由平台设置提供，服务端校验为准
+- [x] `mcp.max_tools_per_server` 接入发现/接入路径；MCP 连接参数（`connect_timeout_ms`/`tool_cache_ttl_sec`）**不改**，仍由 MCP 页面管理；同批删除 `SharedSettings.mcp_max_tools_per_server`（消费者只有 `application/mcp_service.py:430`）并从 `.env.example` 摘掉同名键（若在）
+- [x] **api-kit 的 locale 兜底（TASK-013 已改动，需复核）**：`install_api_foundation(app, default_locale=None)` 现在是 `default_locale or "zh-CN"`（`packages/api-kit/src/muad_api/app.py:18-28`），**不再**读 `SharedSettings.default_locale`。复核它与平台 `locale.default_locale` 的关系：请求级 `X-Locale`/`Accept-Language` 优先，平台默认语言应在**无语言信号**时生效——若判断 api-kit 只该做框架兜底、平台语言由别处承担，必须在证据里写明理由与承担位置，不要沉默放过
+- [x] API-05 已认证限额端点接入（供前端复用 Skill 导入限额）
+- [x] [E-15][integration] 覆盖新签发会话按新 TTL、已签发会话到期不变、新密码按新长度校验；真实边界：**真实 PostgreSQL + 真实登录会话与 CSRF**
+- [x] 先写测试并记录 RED，再实现
+- [x] 同步 `docs/configuration-inventory.csv` 与机检期望
+- [x] verifier `harness-mcp#RULE-mcp-001`：`uv run pytest -q tests/console_mcp/test_mcp_rules.py`（真实边界：真实 MCP 规则套件；连接参数仍留 MCP 页面）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-15 | integration | 真实 PostgreSQL + 真实登录会话与 CSRF | 新会话按新 TTL（Cookie 与 Session 同源）；旧会话到期不变；密码长度新值生效、存量不回改 | `tests/console_platform/test_auth_policy_settings.py` | ["uv","run","pytest","-q","tests/console_platform/test_auth_policy_settings.py"] | planned |
+| E-15 | integration | 真实 PostgreSQL + 真实登录会话与 CSRF | 新会话按新 TTL（Cookie 与 Session 同源）；旧会话到期不变；密码长度新值生效、存量不回改 | `tests/console_platform/test_auth_policy_settings.py` | ["uv","run","pytest","-q","tests/console_platform/test_auth_policy_settings.py"] | verified |
 
 ### Acceptance Evidence
 
-> 编码期填写 RED/GREEN 与断言位置。
+#### RED（先写测试，实现前失败原文）
+
+实现前跑契约命令（`uv run pytest -q tests/console_platform/test_auth_policy_settings.py --tb=line`）：
+
+```
+4 failed, 1 passed
+test_auth_policy_settings.py:157: AssertionError: ['muad_session=...; HttpOnly; Max-Age=43200; Path=/; SameSite=strict', 'muad_csrf=...; Max-Age=43200; ...']   # 期望 10800（3h）
+test_auth_policy_settings.py:208: assert <expires_at> > (now + timedelta(days=1, seconds=82800))       # 未按当前 48h TTL 续期
+test_auth_policy_settings.py:241: assert 'INVALID_CREDENTIALS' == 'ACCOUNT_LOCKED'                    # max_failed_attempts=2 未生效
+test_auth_policy_settings.py:286: AssertionError: {...200 OK...}                                       # min_password_length=20 未生效，12 位新密码仍被接受
+```
+
+（`test_existing_session_expiry_unchanged_when_ttl_changes` 在 RED 时即通过——它断言的是"不改写已签发会话"的**不变式**，实现前后都必须成立。）
+
+#### GREEN（命令与数字）
+
+```
+$ uv run pytest -q tests/console_platform/test_auth_policy_settings.py
+5 passed in 0.74s
+$ uv run pytest -q tests/console_platform tests/console_auth
+206 passed in 24.81s
+$ uv run pytest -q tests/console_mcp/test_mcp_rules.py          # verifier harness-mcp#RULE-mcp-001
+3 passed in 0.01s
+$ uv run pytest -q tests/console_mcp
+36 passed in 8.47s
+$ uv run pytest -q tests/test_configuration_inventory.py
+3 passed in 0.65s
+$ uv run pytest -q tests/console_internal tests/architecture tests/test_contracts.py tests/test_platform_settings_schema.py
+180 passed in 3.19s
+```
+
+#### 断言位置（`tests/console_platform/test_auth_policy_settings.py`）
+
+- **Cookie 与 Session 同源**：`:150-164` —— 设置 `session_ttl_hours=3` 后 `POST /api/v1/auth/login`，两枚 cookie 的 `Max-Age` 都等于 10800（`security.set_auth_cookies` 用登录返回的同一个 `timedelta`），会话行 `expires_at - issued_at == timedelta(hours=3)`。
+- **已签发会话到期不变**：`:167-179` —— 登录后把设置改成 48h，直接读 `control.console_session.expires_at`，与改前逐值相等（未发生续期即不改写）。
+- **续期按当前 TTL、阈值派生**：`:182-224` —— 植入"签发 TTL 48h、剩余 1h"的会话 ⇒ 剩余 < 48/2=24h 触发续期，续期后到期 = now + **当前** 48h；另植入"签发 TTL 30h、剩余 30h"的会话 ⇒ 30h ≥ 15h 不续期、到期不变（未到续期点不读设置）。阈值是派生值，非独立设置项。
+- **失败锁定按设置**：`:227-245` —— `max_failed_attempts=2` / `lock_duration_minutes=30`：两次错密后第三次返回 `ACCOUNT_LOCKED`，`locked_until - now ∈ (29min, 30min]`。
+- **口令长度按设置、存量不回改**：`:248-300` —— 默认策略经真实 API + CSRF 建 12 位密码账号；收紧到 20 后同一 12 位新密码被**服务端**拒绝（400 `COMMON_BAD_REQUEST`），20 位被接受；收紧前建的 12 位账号仍能登录（`200`）。
+
+#### 实现落点
+
+- 认证策略读取：`application/auth_service.py` 的 `AuthService._auth_policy()`（`PlatformSettingsService.read_current(tenant).settings.auth`，无新缓存/TTL）；登录/改密/建号用 `account.tenant_id`（不信任请求头）。`login()` 现返回 `(account, token, ttl)`，`api/auth.py` 把同一 `ttl` 传给 `set_auth_cookies(..., max_age_sec=...)`——Cookie 与会话行同源。
+- 滑动阈值：`auth_service.resolve_session()` 用**本会话签发 TTL/2**（`expires_at - issued_at`）作阈值，仅当真要续期时才读当前设置续到 `now + 当前 ttl`；因此普通已认证请求**不**多读一次设置（守住 NFR-PERF-01），且已签发会话的到期时间不被追改。
+- 常量收敛：删除 `MIN_PASSWORD_LENGTH`/`MAX_FAILED_ATTEMPTS`/`LOCK_DURATION`/`SESSION_TTL`/`SLIDE_THRESHOLD`（`auth_service.py`）与 `SESSION_MAX_AGE_SEC`（`api/security.py`）；`cli.py` 改为按目标租户当前设置校验口令长度。
+- MCP：`application/mcp_service.py::discover_tools` 读 `mcp.max_tools_per_server`；`SharedSettings.mcp_max_tools_per_server` 已删除，`.env.example` 与 `deploy/k8s/base/configmap.yaml` 均无该键（复核无残留）。**连接参数 `connect_timeout_ms`/`tool_cache_ttl_sec` 未动**；超限仍走 `McpClientError("protocol", "tool count exceeds limit N")` → `MCP_DISCOVERY_FAILED` 且保留上一成功 Catalog（不截断）。
+  - 接线证据：`tests/console_mcp/test_discover_api.py::test_tool_limit_comes_from_platform_settings`（探针真实返回 2 个工具、平台设置上限设为 1 ⇒ 只有读到设置才会失败；断言 `last_discovery_error` 含 `limit 1`）。
+- 规范与清单同步：`docs/configuration-inventory.csv`（删 6 条认证常量 + `mcp_max_tools_per_server` 的 `shared-setting` 行，重算 38 处行号；机检 `tests/test_configuration_inventory.py` 绿）、`docs/configuration-inventory.md`、`.code-flow/specs/mcp/harness-mcp.md`（工具数上限来源由 `mcp_max_tools_per_server` 改为平台设置 `mcp.max_tools_per_server`）。
+
+#### 复核结论（两条 Checklist 专项）
+
+- **API-05 已认证限额端点**（`api/platform_settings.py:289-292`）：返回的 `skill_import` 三个限额直接取自 `infrastructure/skill_validator.py` 的 `ZIP_BYTES_LIMIT`/`UNPACKED_BYTES_LIMIT`/`ENTRY_LIMIT`——正是导入路径（`skill_validator.validate_skill_package`、`api/skills.py:27-28`）实际执行的同一组常量，**服务端单一来源**，无需改动；既有 `tests/console_platform/test_platform_settings_api.py:297` 覆盖。
+- **api-kit locale 兜底复核**：结论是"**api-kit 只做框架兜底，平台语言不由它承担**"，故不改 api-kit。理由与承担位置：
+  - `install_api_foundation` 在**进程导入期**调用（四个 `main.py`），且 API 错误文案是**每请求**由 `X-Locale`/`Accept-Language` 解析（`middleware.RequestContextMiddleware:38-39`）后回退到常量；该常量是**进程级**的，而 `locale.default_locale` 是**按租户**的 DB 值——中间件在解析语言时**拿不到**（也不应拿）租户（`/api/v1/auth/login` 等公开路由无主体），把按租户的值塞进进程常量在架构上不成立。
+  - Console 前端**总是**发 `X-Locale`（`apps/console-platform/frontend/src/api/client.ts:79`，取自用户当前 UI 语言）⇒ 浏览器请求不存在"无语言信号"的缺口；常量兜底只对不带语言头的调用者（curl/内部服务）生效。
+  - 平台默认语言的真正承担位置是**业务渲染边界**：Worker 投递文案（`apps/agent-worker/.../delivery/service.py:155` 读 `platform.locale.default_locale`）与 Gateway 回复渲染（`apps/im-gateway/.../application/platform_settings.py:46`），二者已由 TASK-006/007 切换（与 TASK-013 的收口说明一致）。**不沉默放过**：此处记录为"已复核、判定为不需要改动"，非遗漏。
+- E-15: verified — automated command passed; run_id=52e90b3cae384b4ab978a1cf209708b9 (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 

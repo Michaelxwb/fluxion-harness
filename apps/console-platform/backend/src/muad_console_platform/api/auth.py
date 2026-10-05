@@ -31,7 +31,7 @@ async def login(
     session: Session,
 ) -> ApiResponse[Any]:
     tenant_id = request.headers.get("X-Tenant-Id") or None
-    account, token = await AuthService(session, tenant_id=tenant_id).login(
+    account, token, session_ttl = await AuthService(session, tenant_id=tenant_id).login(
         payload.username,
         payload.password,
         get_source_ip(request),
@@ -47,7 +47,8 @@ async def login(
         before=None,
         after={"username": account.username, "role": account.role},
     )
-    set_auth_cookies(response, token, new_csrf_token())
+    # Cookie `Max-Age` 与会话行 TTL 同源（都来自同一次平台设置读取）。
+    set_auth_cookies(response, token, new_csrf_token(), int(session_ttl.total_seconds()))
     return ok(request.app.state.message_catalog, _account_payload(account))
 
 

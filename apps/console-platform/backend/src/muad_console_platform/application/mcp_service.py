@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_common import SharedSettings
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,6 +34,7 @@ from .dto import (
     McpUserGrantItem,
 )
 from .mcp_ports import McpCatalogCache, NullMcpCatalogCache
+from .platform_settings_service import PlatformSettingsService
 
 AUDIT_MCP = "MCP_SERVER"
 USER_SCOPE_SELECTED = "SELECTED"
@@ -427,7 +427,9 @@ class McpService:
     async def discover_tools(self, tenant_id: str, mcp_id: uuid.UUID) -> dict[str, Any]:
         """initialize + tools/list → 快照持久化；失败保留上一成功 Catalog。"""
         server = await self.get_server(tenant_id, mcp_id)
-        limit = SharedSettings().mcp_max_tools_per_server
+        # 接入规模默认来自平台设置（`mcp.max_tools_per_server`）；MCP 连接参数仍留 MCP 页面。
+        policy = await PlatformSettingsService(self._session).read_current(tenant_id)
+        limit = policy.settings.mcp.max_tools_per_server
         client = McpClient(
             server.endpoint, auth_secret=server.auth_secret, timeout_ms=server.connect_timeout_ms
         )
