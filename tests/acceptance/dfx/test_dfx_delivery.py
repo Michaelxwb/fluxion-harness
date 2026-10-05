@@ -28,6 +28,7 @@ import pytest
 import redis.asyncio
 import sqlalchemy as sa
 from muad_common import SharedSettings
+from muad_contracts.platform_settings import default_platform_settings
 from muad_im_gateway.api.delivery import DELIVERY_DEDUPE_PREFIX, DELIVERY_DEDUPE_TTL_SEC
 
 from .environment import (
@@ -70,7 +71,8 @@ DELIVERY_EVENT_TYPES = ("DELIVERY_SENT", "DELIVERY_RETRY", "DELIVERY_FAILED")
 
 
 def _max_attempts() -> int:
-    return SharedSettings().delivery_max_attempts
+    # 平台设置接管后，投递尝试上限的唯一来源是 schema 默认（供验收栈计算"下一次尝试"）。
+    return default_platform_settings().task.delivery_max_attempts
 
 
 def _route(bot_id: str) -> dict[str, Any]:

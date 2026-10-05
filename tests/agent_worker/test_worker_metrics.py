@@ -29,6 +29,7 @@ from muad_agent_worker.main import app as worker_app
 from muad_agent_worker.scheduler.service import SchedulerLoop, ScheduleService
 from muad_agent_worker.worker.service import WorkerLoop
 from muad_contracts import ScheduleSpec
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import update
 
 from agent_worker.conftest import TenantContext
@@ -248,7 +249,7 @@ async def test_b212_schedule_and_delivery_increment_counters(tenant: TenantConte
     await _set_next_fire_at(
         tenant,
         misfired.id,
-        now - timedelta(seconds=tenant.settings.misfire_grace_sec + 30),
+        now - timedelta(seconds=default_platform_settings().task.misfire_grace_sec + 30),
     )
     resolver = FakeResolver(build_resolve_response(schedule.skill_id, uuid.uuid4()))
     loop = SchedulerLoop(tenant.session_factory, resolver, tenant.settings)

@@ -9,6 +9,7 @@ from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskSche
 from muad_agent_worker.scheduler.service import SchedulerLoop, ScheduleService
 from muad_api import AppError
 from muad_contracts import REQUIRED_SNAPSHOT_KEYS, ScheduleSpec
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import func, select, update
 
 from agent_worker.conftest import TenantContext
@@ -190,7 +191,7 @@ async def test_once_schedule_completes_after_fire(tenant: TenantContext) -> None
 async def test_misfire_beyond_grace_skips_task_and_advances(tenant: TenantContext) -> None:
     now = datetime.now(UTC)
     schedule = await _create_schedule(tenant)
-    missed_at = now - timedelta(seconds=tenant.settings.misfire_grace_sec + 30)
+    missed_at = now - timedelta(seconds=default_platform_settings().task.misfire_grace_sec + 30)
     await _set_next_fire_at(tenant, schedule.id, missed_at)
     resolver = FakeResolver(build_resolve_response(schedule.skill_id, uuid.uuid4()))
     loop = SchedulerLoop(tenant.session_factory, resolver, tenant.settings)

@@ -17,12 +17,15 @@ from muad_contracts import (
     TaskStatus,
     TriggerType,
 )
+from muad_contracts.platform_settings import TaskSettings
 from sqlalchemy import CursorResult, false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import TaskEvent, TaskExecution
 from .delivery_routes import upsert_delivery_route
+from .platform_settings import resolve_platform_settings
+from .ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .task_events import TaskEventType, append_event
 
 INITIAL_PRIORITY = 100
@@ -58,15 +61,25 @@ def validate_execution_snapshot(snapshot: dict[str, Any]) -> None:
 
 
 class TaskService:
-    def __init__(self, session: AsyncSession, settings: SharedSettings | None = None) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        settings: SharedSettings | None = None,
+        settings_client: PlatformSettingsClient | None = None,
+    ) -> None:
         self._session = session
         self._settings = settings or SharedSettings()
+        self._settings_client: PlatformSettingsClient = (
+            settings_client or NullPlatformSettingsClient()
+        )
 
     async def create(self, payload: CreateTaskRequest) -> TaskExecution:
         validate_execution_snapshot(payload.execution_snapshot)
         existing = await self._find_by_idempotency_key(payload.tenant_id, payload.idempotency_key)
         if existing is not None:
             return existing
+        # 任务创建边界取一次平台设置快照：新 Task 用它冻结默认，存量行一律不动。
+        task_settings = await self._task_settings(payload.tenant_id)
         route_id = await self._resolve_route(payload)
         task_id = uuid.uuid4()
         now = datetime.now(UTC)
@@ -90,9 +103,9 @@ class TaskService:
             "idempotency_key": payload.idempotency_key,
             "priority": INITIAL_PRIORITY,
             "attempt": 0,
-            "max_attempts": self._settings.task_max_attempts,
+            "max_attempts": task_settings.max_attempts,
             "not_before": now,
-            "deadline_at": now + timedelta(hours=self._settings.task_default_deadline_hours),
+            "deadline_at": now + timedelta(hours=task_settings.default_deadline_hours),
             "delivery_route_id": route_id,
             "delivery_mode": str(payload.delivery_mode),
             "delivery_status": str(self._initial_delivery_status(payload.delivery_mode)),
@@ -372,6 +385,13 @@ class TaskService:
                 )
             )
         ).scalar_one_or_none()
+
+    async def _task_settings(self, tenant_id: str) -> TaskSettings:
+        """任务默认的唯一来源：该租户当前平台设置（源不可读即明确失败，RULE-06）。"""
+        snapshot = await self._settings_client.fetch_snapshot(tenant_id=tenant_id)
+        return resolve_platform_settings(
+            snapshot, batch_platform_limit=self._settings.batch_platform_limit
+        ).task
 
     async def _resolve_route(self, payload: CreateTaskRequest) -> uuid.UUID | None:
         if payload.delivery_route is None:

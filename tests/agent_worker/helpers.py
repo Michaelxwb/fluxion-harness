@@ -19,6 +19,7 @@ from muad_contracts import (
     SkillExecutionMode,
     TaskStatus,
 )
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import func, select
 
 from agent_worker.conftest import TenantContext
@@ -194,9 +195,9 @@ async def persist_task(
         "idempotency_key": f"persist-{uuid.uuid4()}",
         "priority": 100,
         "attempt": 0,
-        "max_attempts": tenant.settings.task_max_attempts,
+        "max_attempts": default_platform_settings().task.max_attempts,
         "not_before": now,
-        "deadline_at": now + timedelta(hours=tenant.settings.task_default_deadline_hours),
+        "deadline_at": now + timedelta(hours=default_platform_settings().task.default_deadline_hours),
         "delivery_mode": "FINAL_ONLY",
         "delivery_status": "PENDING",
         "delivery_key": f"task:{task_id}:final",

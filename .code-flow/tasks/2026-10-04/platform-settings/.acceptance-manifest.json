@@ -23,11 +23,36 @@
       "kind": "e2e",
       "boundary": "真实 Console API → 真实 PostgreSQL → 真实 Worker 进程（真实 lease/claim）",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": null,
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "ab4a307ef81144fb84cfa6d170c459cb",
+        "executed_at": "2026-10-05T02:51:50.217699+00:00",
+        "command": null,
+        "cwd": ".",
+        "timeout": 600.0
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "ab4a307ef81144fb84cfa6d170c459cb",
+          "executed_at": "2026-10-05T02:51:50.217699+00:00",
+          "command": null,
+          "cwd": ".",
+          "timeout": 600.0
+        }
+      ]
     },
     {
       "id": "S-03",
@@ -837,7 +862,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义）",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -849,7 +874,52 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-19",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ab4a307ef81144fb84cfa6d170c459cb",
+        "executed_at": "2026-10-05T02:51:50.217699+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_worker/test_task_defaults_from_settings.py",
+          "-k",
+          "new_task_defaults"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "efd94f780a80ad890813ee60a7a92c4db082500aee27b39f232e3e7f0e81173d"
+      },
+      "runs": [
+        {
+          "id": "E-19",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ab4a307ef81144fb84cfa6d170c459cb",
+          "executed_at": "2026-10-05T02:51:50.217699+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_worker/test_task_defaults_from_settings.py",
+            "-k",
+            "new_task_defaults"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "efd94f780a80ad890813ee60a7a92c4db082500aee27b39f232e3e7f0e81173d"
+        }
+      ]
     },
     {
       "id": "E-20",

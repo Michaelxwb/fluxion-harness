@@ -20,11 +20,13 @@ from .api.admin_schedules import router as admin_schedules_router
 from .api.admin_tasks import router as admin_tasks_router
 from .api.schedules import router as schedules_router
 from .api.tasks import router as tasks_router
+from .application.ports import NullPlatformSettingsClient
 from .delivery.artifact_client import ArtifactResolveClient
 from .delivery.client import HttpDeliveryClient
 from .delivery.service import DeliveryLoop
 from .infrastructure.cancel_hint import create_cancel_hint_store
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
+from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
 from .infrastructure.wakeup_hint import (
     RedisWakeupNotifier,
     create_wakeup_listener,
@@ -60,8 +62,17 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         "redis" if isinstance(wakeup_notifier, RedisWakeupNotifier) else "disabled"
     )
     async with httpx.AsyncClient() as http_client:
+        # 平台设置快照：任务创建/扇出与投递尝试两个边界各取一次（TASK-006）。
+        settings_client = ConsolePlatformSettingsClient(
+            settings.console_platform_url, service_token=settings.internal_service_token
+        )
+        app.state.platform_settings_client = settings_client
         worker = WorkerLoop(
-            session_factory, settings, cancel_hints=cancel_hints, wakeup=wakeup_listener
+            session_factory,
+            settings,
+            cancel_hints=cancel_hints,
+            wakeup=wakeup_listener,
+            settings_client=settings_client,
         )
         scheduler = SchedulerLoop(
             session_factory,
@@ -71,6 +82,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
                 service_token=settings.internal_service_token,
             ),
             settings,
+            settings_client=settings_client,
         )
         delivery = DeliveryLoop(
             session_factory,
@@ -80,6 +92,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             ArtifactResolveClient(
                 settings.agent_runtime_url, service_token=settings.internal_service_token
             ),
+            settings_client=settings_client,
         )
         background = [
             asyncio.create_task(worker.run_forever()),
@@ -97,6 +110,10 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             await wakeup_notifier.aclose()
             await wakeup_listener.aclose()
             await cancel_hints.aclose()
+            await settings_client.aclose()
+            # 退出后不留真实 Setting 源：同进程再次进入（测试/多次 lifespan）回落到空对象，
+            # 否则一个已切断的 Console 会被后续请求当成"当前设置源"。
+            app.state.platform_settings_client = NullPlatformSettingsClient()
     await dispose_engine()
 
 

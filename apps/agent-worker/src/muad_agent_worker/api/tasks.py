@@ -21,7 +21,7 @@ from ..application.submissions import (
 from ..application.task_service import TERMINAL_STATUSES, TaskService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.task import TaskEvent, TaskExecution
-from .deps import ActorUserId, ensure_tenant_consistent, get_tenant_id
+from .deps import ActorUserId, PlatformSettingsClientDep, ensure_tenant_consistent, get_tenant_id
 
 router = APIRouter(prefix="/internal/tasks", tags=["tasks"])
 
@@ -158,6 +158,7 @@ async def create_task(
     body: CreateTaskRequest,
     request: Request,
     session: Session,
+    settings_client: PlatformSettingsClientDep,
 ) -> ApiResponse[Any]:
     ensure_tenant_consistent(request, body.tenant_id)
     submissions = TaskSubmissionService(session)
@@ -183,7 +184,9 @@ async def create_task(
 
     try:
         async with session.begin_nested():
-            task = await TaskService(session).create(body)
+            task = await TaskService(
+                session, settings_client=settings_client
+            ).create(body)
             response = {"task_id": str(task.id), "status": task.status}
             await submissions.record_in(
                 tenant_id=body.tenant_id,

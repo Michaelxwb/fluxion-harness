@@ -25,12 +25,15 @@ from muad_contracts import (
     build_task_snapshot,
     snapshot_hash,
 )
+from muad_contracts.platform_settings import TaskSettings
 from sqlalchemy import false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.batch_fanin import settle_child
 from ..application.delivery_routes import upsert_delivery_route
+from ..application.platform_settings import resolve_platform_settings
+from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from ..application.task_events import TaskEventSeed, TaskEventType, append_event, append_events
 from ..application.task_service import (
     EXECUTION_MODE_ASYNC,
@@ -420,10 +423,14 @@ class SchedulerLoop:
         resolver: ResolveDefinitionProtocol,
         settings: SharedSettings | None = None,
         deadline_sweeper: DeadlineSweeper | None = None,
+        settings_client: PlatformSettingsClient | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._resolver = resolver
         self._settings = settings or SharedSettings()
+        self._settings_client: PlatformSettingsClient = (
+            settings_client or NullPlatformSettingsClient()
+        )
         self._deadline_sweeper = deadline_sweeper or DeadlineSweeper(
             session_factory, self._settings
         )
@@ -446,6 +453,13 @@ class SchedulerLoop:
             return 0
         self._last_sweep_at = moment
         return await self._deadline_sweeper.sweep(now=moment)
+
+    async def _task_settings(self, tenant_id: str) -> TaskSettings:
+        """任务默认的唯一来源：该租户当前平台设置（源不可读即明确失败，RULE-06）。"""
+        snapshot = await self._settings_client.fetch_snapshot(tenant_id=tenant_id)
+        return resolve_platform_settings(
+            snapshot, batch_platform_limit=self._settings.batch_platform_limit
+        ).task
 
     async def run_due(self, *, now: datetime | None = None) -> int:
         """一轮内连续处理全部到期 Schedule（上限 `scheduler_batch_size`），返回处理数。
@@ -478,7 +492,9 @@ class SchedulerLoop:
         fire_at = schedule.next_fire_at
         if fire_at is None:
             return None
-        if fire_at < moment - timedelta(seconds=self._settings.misfire_grace_sec):
+        # 任务开始执行的边界：为该租户取一次快照，misfire 宽限与新 Task 默认同源。
+        task_settings = await self._task_settings(schedule.tenant_id)
+        if fire_at < moment - timedelta(seconds=task_settings.misfire_grace_sec):
             logger.warning(
                 "schedule_misfire_skipped",
                 extra={"schedule_id": str(schedule.id), "scheduled_fire_at": fire_at.isoformat()},
@@ -503,7 +519,7 @@ class SchedulerLoop:
             )
             return None
         try:
-            return await self.fire(schedule, fire_at, resolved, now=moment)
+            return await self.fire(schedule, fire_at, resolved, task_settings, now=moment)
         except AppError as exc:
             # 冻结快照/模板渲染等确定性失败：同样 fail closed 并推进，不留热循环。
             await self._skip(schedule, fire_at, moment, str(exc.code), "task snapshot rejected")
@@ -514,6 +530,7 @@ class SchedulerLoop:
         schedule: TaskSchedule,
         scheduled_fire_at: datetime,
         resolved: ResolveDefinitionResponse,
+        task_settings: TaskSettings,
         *,
         now: datetime | None = None,
     ) -> uuid.UUID | None:
@@ -539,7 +556,7 @@ class SchedulerLoop:
                     )
                     return None
                 inserted_id = await self._insert_task(
-                    session, schedule, resolved, skill, scheduled_fire_at, moment
+                    session, schedule, resolved, skill, scheduled_fire_at, moment, task_settings
                 )
                 await self._advance(
                     session, schedule, scheduled_fire_at, moment, fired=True
@@ -556,6 +573,7 @@ class SchedulerLoop:
         skill: ResolvedSkill,
         scheduled_fire_at: datetime,
         moment: datetime,
+        task_settings: TaskSettings,
     ) -> uuid.UUID | None:
         snapshot, frozen_hash = build_scheduled_snapshot(resolved, skill)
         task_id = uuid.uuid4()
@@ -581,9 +599,9 @@ class SchedulerLoop:
             "idempotency_key": self._idempotency_key(schedule.id, scheduled_fire_at),
             "priority": INITIAL_PRIORITY,
             "attempt": 0,
-            "max_attempts": self._settings.task_max_attempts,
+            "max_attempts": task_settings.max_attempts,
             "not_before": moment,
-            "deadline_at": moment + timedelta(hours=self._settings.task_default_deadline_hours),
+            "deadline_at": moment + timedelta(hours=task_settings.default_deadline_hours),
             "delivery_route_id": schedule.delivery_route_id,
             "delivery_mode": "FINAL_ONLY",
             "delivery_status": str(DeliveryStatus.PENDING),

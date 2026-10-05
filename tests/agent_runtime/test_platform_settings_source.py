@@ -294,8 +294,14 @@ async def _login_admin(http: httpx.AsyncClient, tenant_id: str) -> None:
 
 
 def _failed_fetch_total(text: str) -> float:
+    #: 只看 Runtime 这一条 label：同一进程里 Worker/Gateway 侧也会记 failed（TASK-006），
+    #: 不带 `caller` 过滤会读到别的调用方的计数。
     for line in text.splitlines():
-        if line.startswith("platform_settings_fetch_total") and 'result="failed"' in line:
+        if (
+            line.startswith("platform_settings_fetch_total")
+            and 'caller="runtime"' in line
+            and 'result="failed"' in line
+        ):
             return float(line.rsplit(" ", 1)[1])
     return 0.0
 

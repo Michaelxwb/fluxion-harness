@@ -25,6 +25,7 @@ from muad_agent_worker.worker.executor import SkillTaskExecutor
 from muad_agent_worker.worker.service import WorkerLoop
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import SharedSettings
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import select
 
 from agent_worker.conftest import TenantContext
@@ -173,13 +174,14 @@ async def test_b118_concurrency_clamps_to_min_of_plan_system_and_platform(
     assert len(parked) == 2, "其余 Child 停放等待 fan-in 释放"
 
     service = BatchFanoutService(tenant.session_factory, tenant.settings)
-    assert service.effective_concurrency(2) == 2
-    assert service.effective_concurrency(1000) == tenant.settings.batch_max_concurrency
+    default_concurrency = default_platform_settings().task.batch_max_concurrency
+    assert service.effective_concurrency(2, default_concurrency) == 2
+    assert service.effective_concurrency(1000, default_concurrency) == default_concurrency
 
-    limited = SharedSettings(batch_max_concurrency=3, batch_platform_limit=1)
+    limited = SharedSettings(batch_platform_limit=1)
     limited_service = BatchFanoutService(tenant.session_factory, limited)
-    assert limited_service.effective_concurrency(10) == 1, "platform_limit 更低时取 platform_limit"
-    assert limited_service.effective_concurrency(None) == 1
+    assert limited_service.effective_concurrency(10, 3) == 1, "platform_limit 更低时取 platform_limit"
+    assert limited_service.effective_concurrency(None, 3) == 1
     tmpdir.cleanup()
 
 

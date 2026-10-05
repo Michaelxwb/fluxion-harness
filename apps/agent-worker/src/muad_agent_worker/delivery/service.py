@@ -17,9 +17,12 @@ from muad_contracts import (
     DeliveryStatus,
     TaskStatus,
 )
+from muad_contracts.platform_settings import PlatformSettings, TaskSettings
 from sqlalchemy import CursorResult, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..application.platform_settings import resolve_platform_settings
+from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from ..application.task_events import TaskEventType, append_event
 from ..infrastructure.models.task import DeliveryRoute, TaskExecution
 from ..metrics import DELIVERY_METRIC, increment, record_outcome
@@ -28,13 +31,15 @@ from .artifact_client import (
     ArtifactResolveClient,
     ArtifactResolveError,
 )
-from .client import DeliveryClientProtocol, DeliveryTransportError
+from .client import DeliveryClientProtocol, DeliveryResult, DeliveryTransportError
 from .messages import build_delivery_message
 
 logger = logging.getLogger(__name__)
 
 TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))
 RETRYABLE_DELIVERY_STATUSES = (str(DeliveryStatus.PENDING), str(DeliveryStatus.FAILED))
+#: 一轮内最多为多少个「有待投递记录」的租户取快照（投递队列跨租户、设置按租户）。
+MAX_TENANTS_PER_TICK = 8
 DELIVERY_ATTEMPT_TOTAL = "delivery_attempt_total"
 DELIVERY_FAILED_TOTAL = "delivery_failed_total"
 #: 产物引用解析不到（404）：退文本形态的计数——**看得见**才不会被当成"本来就没产物"
@@ -56,16 +61,20 @@ class DeliveryLoop:
         client: DeliveryClientProtocol,
         settings: SharedSettings | None = None,
         resolver: ArtifactResolveClient | None = None,
+        *,
+        settings_client: PlatformSettingsClient | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._client = client
         #: 产物引用解析（TASK-006）：worker 只有不透明的 artifact_id，解析口径在 runtime 一处
         self._resolver = resolver
         self._settings = settings or SharedSettings()
-
+        self._settings_client: PlatformSettingsClient = (
+            settings_client or NullPlatformSettingsClient()
+        )
 
     async def _resolve_artifact(
-        self, task: TaskExecution, *, now: datetime
+        self, task: TaskExecution, *, now: datetime, max_attempts: int
     ) -> AttachmentRef | DeliveryOutcome | None:
         """把 `result_artifact_id` 解析成渠道中立的引用。
 
@@ -84,7 +93,9 @@ class DeliveryLoop:
             logger.warning("delivery_artifact_gone task_id=%s", task.id)
             return None
         except ArtifactResolveError as exc:
-            await self._record_retryable_failure(task, error=f"artifact resolve: {exc}", now=now)
+            await self._record_retryable_failure(
+                task, error=f"artifact resolve: {exc}", now=now, max_attempts=max_attempts
+            )
             return DeliveryOutcome(
                 task_id=task.id, http_status=None, error=f"artifact resolve: {exc}", sent=False
             )
@@ -102,16 +113,37 @@ class DeliveryLoop:
 
     async def run_once(self, *, now: datetime | None = None) -> DeliveryOutcome | None:
         moment = now or datetime.now(UTC)
-        candidate = await self._reserve_candidate(moment)
-        if candidate is None:
-            return None
-        task, route = candidate
+        # 投递尝试边界：只有确实有可投递记录（设置无关谓词）时才取快照；空闲轮询零调用。
+        for tenant_id in await self._pending_tenants():
+            snapshot = await self._settings_client.fetch_snapshot(tenant_id=tenant_id)
+            platform = resolve_platform_settings(
+                snapshot, batch_platform_limit=self._settings.batch_platform_limit
+            )
+            candidate = await self._reserve_candidate(
+                moment, tenant_id=tenant_id, task_settings=platform.task
+            )
+            if candidate is None:
+                continue
+            return await self._attempt_delivery(
+                *candidate, platform=platform, now=moment
+            )
+        return None
+
+    async def _attempt_delivery(
+        self,
+        task: TaskExecution,
+        route: DeliveryRoute | None,
+        *,
+        platform: PlatformSettings,
+        now: datetime,
+    ) -> DeliveryOutcome:
+        max_attempts = platform.task.delivery_max_attempts
         increment(DELIVERY_ATTEMPT_TOTAL)
         if route is None:
             error = "delivery route missing"
-            await self._record_terminal_failure(task, error=error, now=moment)
+            await self._record_terminal_failure(task, error=error, now=now, max_attempts=max_attempts)
             return DeliveryOutcome(task_id=task.id, http_status=None, error=error, sent=False)
-        artifact = await self._resolve_artifact(task, now=moment)
+        artifact = await self._resolve_artifact(task, now=now, max_attempts=max_attempts)
         if isinstance(artifact, DeliveryOutcome):
             return artifact  # 解析没拿到结论：按可重试失败收场，**不降级成文本**
         request = DeliveryRequest(
@@ -119,41 +151,92 @@ class DeliveryLoop:
             task_id=task.id,
             delivery_key=task.delivery_key,
             route=_route_input(route),
-            message=build_delivery_message(task, self._settings.default_locale, artifact=artifact),
+            message=build_delivery_message(
+                task, platform.locale.default_locale, artifact=artifact
+            ),
             artifact_ids=[task.result_artifact_id] if task.result_artifact_id else [],
         )
         try:
             result = await self._client.deliver(request)
         except DeliveryTransportError as exc:
             error = str(exc)
-            await self._record_retryable_failure(task, error=error, now=moment)
+            await self._record_retryable_failure(
+                task, error=error, now=now, max_attempts=max_attempts
+            )
             return DeliveryOutcome(task_id=task.id, http_status=None, error=error, sent=False)
+        return await self._interpret_result(task, result, now=now, max_attempts=max_attempts)
+
+    async def _interpret_result(
+        self,
+        task: TaskExecution,
+        result: DeliveryResult,
+        *,
+        now: datetime,
+        max_attempts: int,
+    ) -> DeliveryOutcome:
         status_code = result.status_code
         if 200 <= status_code < 300 and result.delivered:
-            await self._record_sent(task, now=moment)
+            await self._record_sent(task, now=now)
             return DeliveryOutcome(task_id=task.id, http_status=status_code, error=None, sent=True)
         if 200 <= status_code < 300:
             # Gateway 只占位、未确认送达：不得置 SENT，按可重试失败退避后重试。
             error = "delivery accepted as in-flight placeholder, not delivered yet"
-            await self._record_retryable_failure(task, error=error, now=moment)
-            return DeliveryOutcome(
-                task_id=task.id, http_status=status_code, error=error, sent=False
+            await self._record_retryable_failure(
+                task, error=error, now=now, max_attempts=max_attempts
             )
+            return DeliveryOutcome(task_id=task.id, http_status=status_code, error=error, sent=False)
         error = f"delivery returned status {status_code}"
         if 400 <= status_code < 500:
-            await self._record_terminal_failure(task, error=error, now=moment)
+            await self._record_terminal_failure(
+                task, error=error, now=now, max_attempts=max_attempts
+            )
         else:
-            await self._record_retryable_failure(task, error=error, now=moment)
+            await self._record_retryable_failure(
+                task, error=error, now=now, max_attempts=max_attempts
+            )
         return DeliveryOutcome(task_id=task.id, http_status=status_code, error=error, sent=False)
+
+    async def _pending_tenants(self) -> list[str]:
+        """有可投递记录的租户（按最早记录排序，取有界前缀）。
+
+        投递队列**跨租户**、而设置按租户，故先按设置无关谓词选出待投递租户，再逐个取
+        快照判断是否到期；`MAX_TENANTS_PER_TICK` 让「某租户的记录停在退避窗口里」不会
+        让整条队列空转，也不会无限放大取快照的次数。
+        """
+        async with self._session_factory() as session:
+            rows = (
+                await session.execute(
+                    select(TaskExecution.tenant_id)
+                    .where(*self._detectable_conditions())
+                    .group_by(TaskExecution.tenant_id)
+                    .order_by(sa.func.min(TaskExecution.create_time).asc())
+                    .limit(MAX_TENANTS_PER_TICK)
+                )
+            ).all()
+        return [row[0] for row in rows]
+
+    @staticmethod
+    def _detectable_conditions() -> tuple[Any, ...]:
+        """设置无关的「这条记录还想被投递」谓词（退避/上限判断留到取到快照后）。"""
+        return (
+            TaskExecution.status.in_(TERMINAL_STATUSES),
+            TaskExecution.delivery_mode == str(DeliveryMode.FINAL_ONLY),
+            TaskExecution.delivery_status.in_(RETRYABLE_DELIVERY_STATUSES),
+            TaskExecution.is_deleted.is_(False),
+        )
 
     async def _reserve_candidate(
         self,
         moment: datetime,
+        *,
+        tenant_id: str,
+        task_settings: TaskSettings,
     ) -> tuple[TaskExecution, DeliveryRoute | None] | None:
         """先持久预留本次尝试再发送：多副本并发时只有一个能拿到候选。
 
         `delivery_attempts` 在调用 Gateway 之前自增并提交，因此进程崩溃或重启后
         退避进度与尝试上限都不会丢；重复请求在退避窗口内不会被再次选中。
+        退避窗口与尝试上限来自该租户的平台设置快照（本边界取一次）。
         """
         backoff = sa.func.make_interval(
             0,
@@ -162,20 +245,19 @@ class DeliveryLoop:
             0,
             0,
             0,
-            self._settings.delivery_backoff_base_sec * sa.func.power(2, TaskExecution.delivery_attempts),
+            task_settings.delivery_backoff_base_sec
+            * sa.func.power(2, TaskExecution.delivery_attempts),
         )
         candidate_id = (
             select(TaskExecution.id)
             .where(
-                TaskExecution.status.in_(TERMINAL_STATUSES),
-                TaskExecution.delivery_mode == str(DeliveryMode.FINAL_ONLY),
-                TaskExecution.delivery_status.in_(RETRYABLE_DELIVERY_STATUSES),
-                TaskExecution.delivery_attempts < self._settings.delivery_max_attempts,
+                *self._detectable_conditions(),
+                TaskExecution.tenant_id == tenant_id,
+                TaskExecution.delivery_attempts < task_settings.delivery_max_attempts,
                 or_(
                     TaskExecution.delivery_attempts == 0,
                     TaskExecution.update_time < moment - backoff,
                 ),
-                TaskExecution.is_deleted.is_(False),
             )
             .order_by(TaskExecution.create_time.asc())
             .with_for_update(skip_locked=True)
@@ -231,6 +313,7 @@ class DeliveryLoop:
         *,
         error: str,
         now: datetime,
+        max_attempts: int,
     ) -> None:
         increment(DELIVERY_FAILED_TOTAL)
         record_outcome(DELIVERY_METRIC, str(DeliveryStatus.FAILED))
@@ -238,7 +321,7 @@ class DeliveryLoop:
             task,
             values={
                 "delivery_status": str(DeliveryStatus.FAILED),
-                "delivery_attempts": self._settings.delivery_max_attempts,
+                "delivery_attempts": max_attempts,
                 "update_time": now,
             },
             event_type=TaskEventType.DELIVERY_FAILED,
@@ -251,9 +334,10 @@ class DeliveryLoop:
         *,
         error: str,
         now: datetime,
+        max_attempts: int,
     ) -> None:
         attempts = task.delivery_attempts
-        exhausted = attempts >= self._settings.delivery_max_attempts
+        exhausted = attempts >= max_attempts
         if exhausted:
             increment(DELIVERY_FAILED_TOTAL)
         record_outcome(

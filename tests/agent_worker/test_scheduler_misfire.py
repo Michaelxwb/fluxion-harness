@@ -17,6 +17,7 @@ from muad_agent_worker.scheduler.service import (
     ScheduleService,
 )
 from muad_contracts import CreateScheduleRequest, ScheduleSpec, UpdateScheduleRequest
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import select, update
 
 from agent_worker.conftest import TenantContext
@@ -68,7 +69,7 @@ async def _tasks(tenant: TenantContext, schedule_id: uuid.UUID) -> list[TaskExec
 
 
 def _misfired_at(tenant: TenantContext, now: datetime) -> datetime:
-    return now - timedelta(seconds=tenant.settings.misfire_grace_sec + 30)
+    return now - timedelta(seconds=default_platform_settings().task.misfire_grace_sec + 30)
 
 
 async def test_b116_cron_misfire_records_latest_skip_and_creates_no_task(

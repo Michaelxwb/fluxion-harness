@@ -14,6 +14,7 @@ from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.batch_fanin import settle_child
+from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from ..application.task_cancel import cancel_children
 from ..application.task_events import TaskEventSeed, TaskEventType, append_event, append_events
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
@@ -55,6 +56,7 @@ class WorkerLoop:
         instance_id: str | None = None,
         cancel_hints: CancelHintStore | None = None,
         wakeup: WakeupListener | None = None,
+        settings_client: PlatformSettingsClient | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings or SharedSettings()
@@ -63,6 +65,9 @@ class WorkerLoop:
         self._instance_id = instance_id or default_instance_id()
         self._cancel_hints: CancelHintStore = cancel_hints or NullCancelHintStore()
         self._wakeup: WakeupListener = wakeup or NullWakeupListener()
+        self._settings_client: PlatformSettingsClient = (
+            settings_client or NullPlatformSettingsClient()
+        )
 
     def _resolve_executor(self) -> TaskExecutorProtocol:
         if self._executor is None:
@@ -73,7 +78,11 @@ class WorkerLoop:
 
             self._executor = SkillTaskExecutor(
                 skill_artifact_cache,
-                fanout=BatchFanoutService(self._session_factory, self._settings),
+                fanout=BatchFanoutService(
+                    self._session_factory,
+                    self._settings,
+                    settings_client=self._settings_client,
+                ),
             )
         return self._executor
 

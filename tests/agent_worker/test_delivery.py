@@ -3,19 +3,42 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
+from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.delivery.artifact_client import ArtifactResolveClient
 from muad_agent_worker.delivery.client import HttpDeliveryClient
 from muad_agent_worker.delivery.service import DeliveryLoop
 from muad_agent_worker.infrastructure.models.task import TaskExecution
 from muad_agent_worker.metrics import value
-from muad_common import SharedSettings
+from muad_contracts.platform_settings import default_platform_settings, parse_platform_settings
 
 from agent_worker.conftest import TenantContext
 from agent_worker.helpers import fetch_events, fetch_task, persist_task, sample_route
+
+
+class _TaskSettingsClient:
+    """注入的桩快照源：按 schema 构造一份只覆盖 `task` 分组的平台设置文档。"""
+
+    def __init__(self, **task_overrides: int) -> None:
+        self._snapshot = PlatformSettingsSnapshot(
+            revision=1,
+            settings=asdict(parse_platform_settings({"task": task_overrides})),
+        )
+
+    async def fetch_snapshot(
+        self, *, tenant_id: str, trace_id: str = ""
+    ) -> PlatformSettingsSnapshot:
+        return self._snapshot
+
+
+def _task_settings_client(**task_overrides: int) -> _TaskSettingsClient:
+    return _TaskSettingsClient(**task_overrides)
+
+
 
 
 def _handler(status_code: int, calls: list[httpx.Request]) -> Any:
@@ -60,7 +83,7 @@ async def test_delivery_success_marks_sent(tenant: TenantContext) -> None:
 
 
 async def test_delivery_500_retries_with_backoff_then_gives_up(tenant: TenantContext) -> None:
-    settings = SharedSettings(delivery_max_attempts=2)
+    settings_client = _task_settings_client(delivery_max_attempts=2)
     task = await persist_task(
         tenant,
         status="FAILED",
@@ -75,7 +98,8 @@ async def test_delivery_500_retries_with_backoff_then_gives_up(tenant: TenantCon
         loop = DeliveryLoop(
             tenant.session_factory,
             HttpDeliveryClient("http://im-gateway", client),
-            settings,
+            tenant.settings,
+            settings_client=settings_client,
         )
         first = await loop.run_once(now=t0)
         assert first is not None
@@ -119,7 +143,7 @@ async def test_delivery_400_fails_immediately(tenant: TenantContext) -> None:
         assert outcome.http_status == 400
         refreshed = await fetch_task(tenant, task.id)
         assert refreshed.delivery_status == "FAILED"
-        assert refreshed.delivery_attempts == tenant.settings.delivery_max_attempts
+        assert refreshed.delivery_attempts == default_platform_settings().task.delivery_max_attempts
         assert await loop.run_once(now=t0 + timedelta(seconds=100)) is None
     assert len(calls) == 1
     events = await fetch_events(tenant, task.id)
@@ -235,7 +259,7 @@ async def test_b120_concurrent_loops_deliver_once(tenant: TenantContext) -> None
 
 async def test_b120_restart_preserves_backoff_and_attempt_limit(tenant: TenantContext) -> None:
     """进程重启后仍保留退避进度与尝试上限，不会提前重试或超限。"""
-    settings = SharedSettings(delivery_max_attempts=2)
+    settings_client = _task_settings_client(delivery_max_attempts=2)
     task = await persist_task(
         tenant,
         status="COMPLETED",
@@ -247,10 +271,12 @@ async def test_b120_restart_preserves_backoff_and_attempt_limit(tenant: TenantCo
     t0 = datetime.now(UTC)
     async with httpx.AsyncClient(transport=transport) as client:
         http = HttpDeliveryClient("http://im-gateway", client)
-        first = DeliveryLoop(tenant.session_factory, http, settings)
+        first = DeliveryLoop(tenant.session_factory, http, tenant.settings, settings_client=settings_client)
         assert await first.run_once(now=t0) is not None
         # 模拟重启：新实例读持久化进度
-        restarted = DeliveryLoop(tenant.session_factory, http, settings)
+        restarted = DeliveryLoop(
+            tenant.session_factory, http, tenant.settings, settings_client=settings_client
+        )
         assert await restarted.run_once(now=t0 + timedelta(seconds=1)) is None, "退避期内不得重试"
         assert await restarted.run_once(now=t0 + timedelta(seconds=11)) is not None
         assert await restarted.run_once(now=t0 + timedelta(seconds=100)) is None, "达到上限不得再扫"
@@ -320,7 +346,7 @@ async def test_b120_terminal_failure_records_metric_and_audit(tenant: TenantCont
     """投递失败留下审计事件并累加 delivery_attempt_total / delivery_failed_total。"""
     attempts_before = value("delivery_attempt_total")
     failed_before = value("delivery_failed_total")
-    settings = SharedSettings(delivery_max_attempts=1)
+    settings_client = _task_settings_client(delivery_max_attempts=1)
     task = await persist_task(
         tenant,
         status="COMPLETED",
@@ -333,7 +359,8 @@ async def test_b120_terminal_failure_records_metric_and_audit(tenant: TenantCont
         loop = DeliveryLoop(
             tenant.session_factory,
             HttpDeliveryClient("http://im-gateway", client),
-            settings,
+            tenant.settings,
+            settings_client=settings_client,
         )
         assert await loop.run_once() is not None
     assert value("delivery_attempt_total") == attempts_before + 1

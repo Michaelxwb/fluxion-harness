@@ -3,7 +3,7 @@
 Parent 在单个事务内创建 Child：`root_id=parent.root_id`、`parent_id=parent.id`、
 `idempotency_key=parent:{parent_id}:{item_key}`；partial unique
 `(parent_id, item_key) WHERE parent_id IS NOT NULL AND is_deleted=false` 保证同一
-Child 只创建一次。并发上限取 `min(plan.max_concurrency, system_max, platform_limit)`，
+Child 只创建一次。并发上限取 `min(plan.max_concurrency, platform_default, platform_limit)`，
 超出上限的 Child 先停放（`not_before` 置远期），由 fan-in 在兄弟终态时逐个释放。
 """
 
@@ -25,6 +25,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.models.task import TaskExecution
+from .platform_settings import resolve_platform_settings
+from .ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .task_events import TaskEventSeed, TaskEventType, append_events
 from .task_service import EXECUTION_MODE_ASYNC, INITIAL_PRIORITY, TASK_TYPE_SKILL
 
@@ -117,19 +119,31 @@ class BatchFanoutService:
         self,
         session_factory: async_sessionmaker[AsyncSession],
         settings: SharedSettings | None = None,
+        settings_client: PlatformSettingsClient | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings or SharedSettings()
+        self._settings_client: PlatformSettingsClient = (
+            settings_client or NullPlatformSettingsClient()
+        )
 
-    def effective_concurrency(self, requested: int | None) -> int:
-        candidates = [self._settings.batch_max_concurrency, self._settings.batch_platform_limit]
+    def effective_concurrency(self, requested: int | None, batch_max_concurrency: int) -> int:
+        """并发上限：计划请求、平台默认与平台容量上界三者取小。"""
+        candidates = [batch_max_concurrency, self._settings.batch_platform_limit]
         if requested is not None:
             candidates.append(requested)
         return max(1, min(candidates))
 
     async def fan_out(self, parent: TaskExecution, plan: BatchPlan) -> FanoutSummary:
         moment = datetime.now(UTC)
-        concurrency = self.effective_concurrency(plan.max_concurrency)
+        # 任务开始执行的边界：为父任务租户取一次快照，供本次扇出的并发上限使用。
+        snapshot = await self._settings_client.fetch_snapshot(tenant_id=parent.tenant_id)
+        platform_task = resolve_platform_settings(
+            snapshot, batch_platform_limit=self._settings.batch_platform_limit
+        ).task
+        concurrency = self.effective_concurrency(
+            plan.max_concurrency, platform_task.batch_max_concurrency
+        )
         async with self._session_factory() as session:
             async with session.begin():
                 locked = (

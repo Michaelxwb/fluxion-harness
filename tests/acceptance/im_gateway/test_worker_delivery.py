@@ -14,6 +14,7 @@ from typing import Any
 
 import httpx
 from muad_common import SharedSettings
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -174,12 +175,12 @@ async def test_s04_worker_delivers_to_route_with_7d_dedupe(
 async def test_b127_failure_retries_then_exhausts_without_swallowing_fact(
     gateway_stack: GatewayStack,
 ) -> None:
-    settings = SharedSettings()
+    max_attempts = default_platform_settings().task.delivery_max_attempts
     seeded = await _seed(gateway_stack, SEND_FAILURE_INTENT)
     # 直接种到"下一次失败即耗尽"：attempts = max - 1
     await _execute(
         "UPDATE task.task_execution SET delivery_attempts = :attempts WHERE id = :id",
-        {"attempts": settings.delivery_max_attempts - 1, "id": seeded["task_id"]},
+        {"attempts": max_attempts - 1, "id": seeded["task_id"]},
     )
     assert seeded["delivery_key"].startswith("task:")
     probe = gateway_stack.ws_probe
@@ -187,7 +188,7 @@ async def test_b127_failure_retries_then_exhausts_without_swallowing_fact(
     probe.fail_reply_bots.add(BOT_ID)  # 故障注入：SDK 发送失败
     try:
         await _wait_for(
-            lambda: _is_exhausted(seeded["task_id"], settings.delivery_max_attempts),
+            lambda: _is_exhausted(seeded["task_id"], max_attempts),
             what="投递未在耗尽次数后置 FAILED",
         )
     finally:
@@ -195,7 +196,7 @@ async def test_b127_failure_retries_then_exhausts_without_swallowing_fact(
 
     row = await _delivery_row(seeded["task_id"])
     assert row["delivery_status"] == "FAILED", row
-    assert int(row["attempts"] or 0) >= settings.delivery_max_attempts
+    assert int(row["attempts"] or 0) >= max_attempts
     # 不吞业务事实：Task 自身终态与投递失败事件都保留
     assert row["task_status"] == "COMPLETED", row
     events = await _scalar(

@@ -30,6 +30,8 @@ TASK_LEASE_EXPIRED_METRIC: Final = "task_lease_expired_total"
 SCHEDULED_FIRE_METRIC: Final = "scheduled_fire_total"
 SCHEDULED_MISFIRE_METRIC: Final = "scheduled_misfire_total"
 DELIVERY_METRIC: Final = "delivery_total"
+#: 取平台设置快照的失败计数在**调用方**侧（Console 端点不可达时 Console 收不到请求）。
+PLATFORM_SETTINGS_FETCH_METRIC: Final = "platform_settings_fetch_total"
 
 COUNTER: Final = "counter"
 GAUGE: Final = "gauge"
@@ -43,6 +45,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     (SCHEDULED_FIRE_METRIC, COUNTER, ("status",), "Schedule fires by outcome"),
     (SCHEDULED_MISFIRE_METRIC, COUNTER, (), "Schedules skipped for missing their fire time"),
     (DELIVERY_METRIC, COUNTER, ("status",), "Deliveries by resulting delivery status"),
+    (
+        PLATFORM_SETTINGS_FETCH_METRIC,
+        COUNTER,
+        ("caller", "result"),
+        "Platform settings snapshot fetches by caller and result (ok/failed)",
+    ),
 )
 
 

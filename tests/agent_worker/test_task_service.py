@@ -9,6 +9,7 @@ from muad_agent_worker.application.task_service import TaskService
 from muad_agent_worker.infrastructure.models.task import DeliveryRoute, TaskExecution
 from muad_agent_worker.main import app
 from muad_api import AppError
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import func, select
 
 from agent_worker.conftest import TenantContext
@@ -66,13 +67,15 @@ async def test_create_initial_fields(tenant: TenantContext) -> None:
     assert task.trigger_type == "IMMEDIATE"
     assert task.execution_mode == "ASYNC"
     assert task.attempt == 0
-    assert task.max_attempts == tenant.settings.task_max_attempts
+    assert task.max_attempts == default_platform_settings().task.max_attempts
     assert task.delivery_key == f"task:{task.id}:final"
     assert task.delivery_status == "PENDING"
     assert task.cancel_requested is False
     assert task.not_before >= before - timedelta(seconds=5)
     deadline = task.deadline_at
-    expected_deadline = before + timedelta(hours=tenant.settings.task_default_deadline_hours)
+    expected_deadline = before + timedelta(
+        hours=default_platform_settings().task.default_deadline_hours
+    )
     assert abs((deadline - expected_deadline).total_seconds()) < 30
     assert task.execution_snapshot_json == payload.execution_snapshot
     assert task.snapshot_hash == payload.snapshot_hash
