@@ -453,7 +453,7 @@ def _validate_artifact(artifact: ArtifactSettings) -> None:
 
 
 def _validate_auth(auth: AuthSettings) -> None:
-    _at_least("auth.min_password_length", auth.min_password_length, 8)
+    _at_least("auth.min_password_length", auth.min_password_length, MIN_PASSWORD_LENGTH_FLOOR)
     _at_least("auth.max_failed_attempts", auth.max_failed_attempts, 1)
     _at_least("auth.lock_duration_minutes", auth.lock_duration_minutes, 1)
     _at_least("auth.session_ttl_hours", auth.session_ttl_hours, 1)
@@ -500,9 +500,16 @@ def validate_platform_settings(
     _validate_mcp(settings.mcp)
 
 
+#: `auth.min_password_length` 的**绝对下界**（schema 不变量，不是策略值）：策略值由平台设置给出，
+#: 但任何租户都不得把它压到这条线以下。请求 DTO 只守这条线（形状校验），更严的策略下界由服务层
+#: 按平台设置执行——否则设置调到 8–11 时页面写 min=8、DTO 仍按旧值拦，设置就是假的。
+MIN_PASSWORD_LENGTH_FLOOR = 8
+
+
 __all__ = [
     "COMPACTION_POLICY_KEY",
     "RECALL_MAX_LIMIT",
+    "MIN_PASSWORD_LENGTH_FLOOR",
     "AgentSettings",
     "ArtifactSettings",
     "AuthSettings",

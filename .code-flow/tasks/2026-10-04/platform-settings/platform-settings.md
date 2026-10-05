@@ -25,7 +25,7 @@
 | E-06 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","restore"] | . | 300 | |
 | E-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Agent 定义行 | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","agent_override_precedence"] | . | 600 | |
 | E-08 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 独立进程（无 TTL 缓存、无重启） | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","new_revision_without_restart"] | . | 600 | |
-| E-09 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 `.env.example` + 真实 `SharedSettings` 字段集 | TASK-011 | planned | ["uv","run","pytest","-q","tests/test_configuration_convergence.py"] | . | 300 | |
+| E-09 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 `.env.example` + 真实 `SharedSettings` 字段集 | TASK-011 | verified | ["uv","run","pytest","-q","tests/test_configuration_convergence.py"] | . | 300 | |
 | E-10 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 HTTP 响应体 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","secret_rejected"] | . | 300 | |
 | E-11 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | TASK-010 | e2e_deferred | - | . | 600 | |
 | E-12 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（真实 409） | TASK-010 | e2e_deferred | - | . | 600 | |
@@ -1000,7 +1000,7 @@ FAILED tests/frontend/test_console_shell_contract.py::test_console_shell_has_sys
 
 ## TASK-011: 重复默认源收敛与配置收口
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-005, TASK-006, TASK-007, TASK-008, TASK-009, TASK-013
 - **Source**: platform-settings.backend.design.md#3.1 方案选型, platform-settings.backend.design.md#4.4 数据迁移
@@ -1013,31 +1013,114 @@ FAILED tests/frontend/test_console_shell_contract.py::test_console_shell_has_sys
 
 ### Checklist
 
-- [ ] 把 `RunService(settings_client=None)` 的**隐式** Null 默认去掉（改为必填参数，或让 Null 在 Run 创建路径上显式失败），消除「新建调用点忘记注入真 client ⇒ 静默按空设置跑」的隐患——生产目前只有 `api/deps.py` 一处装配，但默认值本身就是个陷阱（TASK-005 落地后复核提出）
-- [ ] `overridden_by_resources` 目前只统计压缩组（Agent 的 `runtime_config_json.budget.compaction`），其余分组恒 0——按 design 逐个补齐或明确降级为「不展示覆盖数」（二者选一并写进证据）
-- [ ] 工具结果默认收敛：删除 `TOOL_RESULT_ARTIFACT_BYTES`/`PREVIEW_HEAD_BYTES`/`PREVIEW_TAIL_BYTES` 与 `ToolResultSettings` 的重复默认，只留 schema 单一来源；非请求上下文显式传入
-- [ ] 历史预算收敛：`compaction.history_budget_messages` 与 `BudgetPolicy.max_messages` 用同一冻结值
-- [ ] 产物路径收敛：删除裸 `getenv` 的第二套默认（`/mnt/muad-artifacts`、`/var/cache/muad/skills`），统一经启动 settings
-- [ ] 默认租户收敛：CLI 的 `DEFAULT_TENANT` 改读 `SharedSettings.default_tenant_id`
-- [ ] **密码策略的两套来源（TASK-009 报备的真实冲突）**：`PasswordChangeRequest.new_password` 硬编码 `min_length=12`（`application/dto.py:20`），而 `auth.min_password_length` 的 schema 下界是 **8** ⇒ 把设置调到 8–11 时，页面上写 min=8、API 仍按 12 拦；这正是本需求要消灭的重复源。**建议解法**：DTO 的 `min_length` 退到 schema 绝对下界（8），策略下界改由服务层按平台设置校验、并**保持 422 `COMMON_VALIDATION_ERROR` 语义**——这样已归档需求 console-auth 的验收场景 S-04（9 位密码期望 422）仍然绿，同时设置真正生效。落地前先跑 `tests/acceptance/console_auth_flow/test_auth_acceptance.py` 确认 S-04 未被打穿
-- [ ] 环境项收口**复核**：改由业务设置接管的 12 个键按「谁切换谁摘除」已由前序任务一次性删除（`context_settings_cache_ttl_sec`→TASK-005、task 六项→TASK-006、`im_progress_interval_sec`→TASK-007、`artifact_retention_days`/`mcp_max_tools_per_server`/`default_locale`/`default_timezone`→TASK-013）——本任务逐条复核它们**确实不在启动 settings 与 `.env.example`**，且 `batch_platform_limit` 与 `im_progress_updates_per_second` 仍在环境
-- [ ] `.env.example` 补全为完整运维契约（覆盖余下全部环境类字段键名）
-- [ ] [E-09][integration] 机检：`.env.example` 键集与 `SharedSettings` 环境类字段一致；重复默认源已消除
-- [ ] 先写检查并记录 RED，再收敛
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 把 `RunService(settings_client=None)` 的**隐式** Null 默认去掉（改为必填参数，或让 Null 在 Run 创建路径上显式失败），消除「新建调用点忘记注入真 client ⇒ 静默按空设置跑」的隐患——生产目前只有 `api/deps.py` 一处装配，但默认值本身就是个陷阱（TASK-005 落地后复核提出）
+- [x] `overridden_by_resources` 目前只统计压缩组（Agent 的 `runtime_config_json.budget.compaction`），其余分组恒 0——按 design 逐个补齐或明确降级为「不展示覆盖数」（二者选一并写进证据）
+- [x] 工具结果默认收敛：删除 `TOOL_RESULT_ARTIFACT_BYTES`/`PREVIEW_HEAD_BYTES`/`PREVIEW_TAIL_BYTES` 与 `ToolResultSettings` 的重复默认，只留 schema 单一来源；非请求上下文显式传入
+- [x] 历史预算收敛：`compaction.history_budget_messages` 与 `BudgetPolicy.max_messages` 用同一冻结值
+- [x] 产物路径收敛：删除裸 `getenv` 的第二套默认（`/mnt/muad-artifacts`、`/var/cache/muad/skills`），统一经启动 settings
+- [x] 默认租户收敛：CLI 的 `DEFAULT_TENANT` 改读 `SharedSettings.default_tenant_id`
+- [x] **密码策略的两套来源（TASK-009 报备的真实冲突）**：`PasswordChangeRequest.new_password` 硬编码 `min_length=12`（`application/dto.py:20`），而 `auth.min_password_length` 的 schema 下界是 **8** ⇒ 把设置调到 8–11 时，页面上写 min=8、API 仍按 12 拦；这正是本需求要消灭的重复源。**建议解法**：DTO 的 `min_length` 退到 schema 绝对下界（8），策略下界改由服务层按平台设置校验、并**保持 422 `COMMON_VALIDATION_ERROR` 语义**——这样已归档需求 console-auth 的验收场景 S-04（9 位密码期望 422）仍然绿，同时设置真正生效。落地前先跑 `tests/acceptance/console_auth_flow/test_auth_acceptance.py` 确认 S-04 未被打穿
+- [x] 环境项收口**复核**：改由业务设置接管的 12 个键按「谁切换谁摘除」已由前序任务一次性删除（`context_settings_cache_ttl_sec`→TASK-005、task 六项→TASK-006、`im_progress_interval_sec`→TASK-007、`artifact_retention_days`/`mcp_max_tools_per_server`/`default_locale`/`default_timezone`→TASK-013）——本任务逐条复核它们**确实不在启动 settings 与 `.env.example`**，且 `batch_platform_limit` 与 `im_progress_updates_per_second` 仍在环境
+- [x] `.env.example` 补全为完整运维契约（覆盖余下全部环境类字段键名）
+- [x] [E-09][integration] 机检：`.env.example` 键集与 `SharedSettings` 环境类字段一致；重复默认源已消除
+- [x] 先写检查并记录 RED，再收敛
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-09 | integration | 真实源码树 + 真实 `.env.example` + 真实 `SharedSettings` 字段集 | 重复默认源消除；12 个键已从启动 settings 与示例移除；示例覆盖余下全部环境类字段 | `tests/test_configuration_convergence.py` | ["uv","run","pytest","-q","tests/test_configuration_convergence.py"] | planned |
+| E-09 | integration | 真实源码树 + 真实 `.env.example` + 真实 `SharedSettings` 字段集 | 重复默认源消除；12 个键已从启动 settings 与示例移除；示例覆盖余下全部环境类字段 | `tests/test_configuration_convergence.py` | ["uv","run","pytest","-q","tests/test_configuration_convergence.py"] | verified |
 
 ### Acceptance Evidence
 
-> 编码期填写 RED/GREEN 与断言位置。
+#### RED（先写检查，实现前真实失败）
+
+新增 `tests/test_configuration_convergence.py` 后、收敛前跑契约命令，真实输出（摘要）：
+
+```
+$ uv run pytest -q tests/test_configuration_convergence.py
+FAILED tests/test_configuration_convergence.py::test_env_example_is_complete_operations_contract
+FAILED tests/test_configuration_convergence.py::test_retained_resource_budgets_stay_in_environment
+FAILED tests/test_configuration_convergence.py::test_tool_result_defaults_have_single_source
+FAILED tests/test_configuration_convergence.py::test_budget_policy_default_derives_from_compaction_schema
+FAILED tests/test_configuration_convergence.py::test_run_service_requires_settings_client
+FAILED tests/test_configuration_convergence.py::test_no_bare_artifact_path_getenv_defaults
+FAILED tests/test_configuration_convergence.py::test_password_dto_floor_matches_schema_lower_bound
+FAILED tests/test_configuration_convergence.py::test_cli_default_tenant_reads_shared_settings
+8 failed, 1 passed in 0.91s
+```
+
+失败原文（关键三条）：
+- `E AssertionError: .../bootstrap/artifacts.py 仍带第二套产物路径默认 /mnt/muad-artifacts`（`/var/cache/muad/skills` 同理）；
+- `E pydantic ... String should have at least 12 characters [type=string_too_short, input_value='aaaaaaaa']` —— DTO 仍硬编码 12；
+- `E assert True = isinstance(<ast.Constant object>, <class 'ast.Constant'>)` —— `BudgetPolicy.max_messages` 仍是硬编码默认 `40`；
+- `.env.example` 键集缺 20 个 `SharedSettings` 环境类字段（如 `DEFAULT_TENANT_ID`/`BATCH_PLATFORM_LIMIT`/`RUN_LEASE_SEC`）。
+
+#### GREEN（命令与数字）
+
+```
+$ uv run pytest -q tests/test_configuration_convergence.py
+9 passed in 0.86s
+
+$ uv run pytest -q tests/test_configuration_inventory.py
+3 passed in 0.64s        # 盘点 CSV 按事实同步（只改 path/line/value，`category` 未动）
+
+$ uv run pytest -q tests/agent_runtime tests/agent_core tests/agent_worker tests/console_platform tests/gateway tests/test_settings.py
+1226 passed, 3 warnings in 116.80s
+
+$ uv run ruff check apps packages tests
+All checks passed!
+
+$ uv run pytest -q tests/acceptance/console_auth_flow/test_auth_acceptance.py
+2 failed, 21 passed      # S-04 两条腿全绿；红的是 S-02/B-02（既有失败，见下）
+```
+
+#### 每条断言的断言位置
+
+| 收敛项 | 断言用例 | 位置 |
+|--------|---------|------|
+| `.env.example` 键集 == `SharedSettings` 环境类字段 | `test_env_example_is_complete_operations_contract` | `tests/test_configuration_convergence.py:87-93` |
+| 12 个业务化键已离开 settings 与示例 | `test_migrated_environment_keys_are_gone` | `:96-102` |
+| `batch_platform_limit`/`im_progress_updates_per_second` 仍在环境 | `test_retained_resource_budgets_stay_in_environment` | `:105-110` |
+| 工具结果三常量已删（全仓 AST 扫描） | `test_tool_result_defaults_have_single_source` | `:113-116` |
+| `BudgetPolicy.max_messages` 派生自 compaction schema（非字面量） | `test_budget_policy_default_derives_from_compaction_schema` | `:133-143` |
+| `RunService.settings_client` 必填（签名无默认值） | `test_run_service_requires_settings_client` | `:146-150` |
+| 裸 `getenv` 产物路径默认已删 | `test_no_bare_artifact_path_getenv_defaults` | `:153-159` |
+| 口令 DTO 只守下界 8 | `test_password_dto_floor_matches_schema_lower_bound` | `:162-172` |
+| CLI `DEFAULT_TENANT` 非字面量 | `test_cli_default_tenant_reads_shared_settings` | `:175-189` |
+
+#### 真实边界证据（不 mock）
+- 真实 `.env.example`：显式赋值键 **13 → 33**，与 `SharedSettings.model_fields` 的 33 个字段一一对应（键名 = 字段名大写）；
+- 真实源码 AST：扫描 `apps/`+`packages/` 全部 `*.py` 的模块级/嵌套赋值与契约类字段（无 stub、无 mock、无 DB）；
+- 真实 PG/Redis：上表 1226 条用例经真实 PostgreSQL + Redis 全绿（含 E-07 的 `overridden_by_resources` 断言、E-15 的认证策略断言）。
+
+#### 收敛落点（逐条）
+1. `RunService.__init__` 的 `settings_client` 改**必填**（`run_service.py:439`），移除隐式 `NullPlatformSettingsClient` 默认与 import；直构点显式传 `NullPlatformSettingsClient()`（`tests/agent_runtime/{test_run_service,test_cancel_hint}.py`）；生产唯一装配 `api/deps.py:112`。
+2. `overridden_by_resources` **补齐**（取舍见下）：`count_resource_overrides`（`platform_settings_catalog.py`）+ `build_groups(settings, *, overrides=...)`。
+3. 删除 `TOOL_RESULT_ARTIFACT_BYTES`/`PREVIEW_HEAD_BYTES`/`PREVIEW_TAIL_BYTES`（`tool_results.py`）；`ArtifactResultWriter` 的预览参数与 `ArchiveToolSet.receipt_limit_bytes` 改必填（**不设第二套默认**），schema `ToolResultSettings` 是唯一来源。
+4. `BudgetPolicy.max_messages` 默认改 `default_compaction_settings().history_budget_messages`（与 `compaction.history_budget_messages` 同一冻结值）。
+5. 删除死模块 `apps/agent-runtime/src/muad_agent_runtime/bootstrap/{__init__,artifacts}.py`（全仓零引用，只存裸 `getenv` 第二套默认；产物路径统一经 `main.py` 的启动 settings）。worker 的同名模块本就用 `SharedSettings()`，保留。
+6. CLI `DEFAULT_TENANT = SharedSettings().default_tenant_id`（`cli.py:20`）。
+7. 口令：新增 schema 绝对下界常量 `MIN_PASSWORD_LENGTH_FLOOR = 8`（`contracts/platform_settings.py`），`PasswordChangeRequest.new_password` 与 `AccountCreateRequest.password` 的 `min_length` 退到它；`auth_service.change_password` 的策略校验改抛 `COMMON_VALIDATION_ERROR`（422）。`create_account` 的策略校验**保持** `COMMON_BAD_REQUEST`（400）——同需求的 E-15 明确断言「400 业务校验」，两条已归档场景各自保持原语义。
+8. 12 个环境键复核：均不在 `SharedSettings` 与 `.env.example`；`batch_platform_limit` / `im_progress_updates_per_second` 仍在。
+9. `.env.example` 补全为完整运维契约（33 键）。
+
+#### 第 2 项取舍：**补齐**（非降级）
+
+- 降级选项要求「不展示覆盖数」，而前端 `OverrideBadge`（`apps/console-platform/frontend/src/modules/settings/components/OverrideBadge.tsx:13-26`）对 `count=0` **无条件**渲染「无资源覆盖，全部使用平台默认」——不改前端无法真正隐藏，而本任务明令不碰前端；且存在真实覆盖时显示 0 是**假陈述**。
+- 覆盖载体只有 Agent 的 `runtime_config_json`：`budget.compaction`（compaction）、`max_turns`/`max_tool_calls`/`deadline_ms`/`max_model_retries`（agent）、`memory_write`（memory）。三组现按真实行数统计；`task`/`artifact`/`auth`/`locale`/`im`/`mcp` 无任何资源表存逐资源覆盖，0 是**结构事实**而非占位（已写进模块 docstring 与函数 docstring）。
+- E-07（`tests/agent_runtime/test_platform_settings_source.py::test_e07_...`）断言 compaction 组如实返回 1，仍绿。
+
+#### 第 7 项：是否打穿 console-auth S-04
+
+**未打穿。** S-04 两条腿（改密轮换成功；9 位 `too-short` → 422 `COMMON_VALIDATION_ERROR`）在 `uv run pytest -q tests/acceptance/console_auth_flow/test_auth_acceptance.py` 中均通过。同文件另有 2 条失败（`test_s02_sliding_renewal_extends_expiry_when_under_half`、`test_b02_six_hour_boundary_renews_only_below`，会话滑动续期）——已用 `git stash` 在**未改动的 HEAD** 上复跑，**同样失败**，属既有缺陷、与本任务无关；按纪律未放宽 S-04 期望、未改他人验收。
+- E-09: verified — automated command passed; run_id=b5fcf3ada1734893838ed1a4d75728ea (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 ## TASK-012: 收口清单与需求级终验

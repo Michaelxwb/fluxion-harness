@@ -17,10 +17,14 @@ from muad_agent_runtime.application.attachments.tool_results import (
     preview_head_tail,
     select_round_persists,
 )
+from muad_contracts.platform_settings import ToolResultSettings
 
 TENANT = "test-round-budget"
 RUN_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
 CONVERSATION_ID = uuid.UUID("22222222-2222-2222-2222-222222222222")
+
+#: 预览头尾字节只从 schema 取（TASK-011 收敛：源码里不再有第二套默认常量）。
+_PREVIEW = ToolResultSettings()
 
 
 def _select(sizes: dict[str, int], *, threshold: int = 8192, budget: int = 200_000) -> tuple[str, ...]:
@@ -134,6 +138,8 @@ async def _persist(writer: ArtifactResultWriter, session: Any, text: str = "x" *
         tool_name="t",
         result_text=text,
         user_id=uuid.uuid4(),
+        preview_head_bytes=_PREVIEW.preview_head_bytes,
+        preview_tail_bytes=_PREVIEW.preview_tail_bytes,
     )
 
 
@@ -171,6 +177,8 @@ async def test_round_batch_rolls_back_every_file_it_wrote(tmp_path: Path) -> Non
             run_id=RUN_ID,
             task_id=None,
             results=[("call-1", "t1", "a" * 100), ("call-2", "t2", "b" * 100)],
+            preview_head_bytes=_PREVIEW.preview_head_bytes,
+            preview_tail_bytes=_PREVIEW.preview_tail_bytes,
         )
     assert session.adds == 2, "确实写到了第 2 条才失败（否则本用例空转）"
     assert session.commits == 0, "中途失败 ⇒ 一行都不该提交"
@@ -187,6 +195,8 @@ async def test_round_batch_persists_every_selected_result(tmp_path: Path) -> Non
         run_id=RUN_ID,
         task_id=None,
         results=[("call-1", "t1", "a" * 100), ("call-2", "t2", "b" * 100)],
+        preview_head_bytes=_PREVIEW.preview_head_bytes,
+        preview_tail_bytes=_PREVIEW.preview_tail_bytes,
     )
     assert set(references) == {"call-1", "call-2"}
     assert len(list(tmp_path.rglob("*.bin"))) == 2

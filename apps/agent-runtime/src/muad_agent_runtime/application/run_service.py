@@ -83,7 +83,6 @@ from .executor import (
 )
 from .ports import (
     CredentialsClient,
-    NullPlatformSettingsClient,
     PlatformSettingsClient,
     ResolveClient,
 )
@@ -437,12 +436,12 @@ class RunService:
         session: AsyncSession,
         resolve_client: ResolveClient,
         instance_id: str,
+        settings_client: PlatformSettingsClient,
         executor_factory: ExecutorFactory = default_executor_factory,
         cancel_hints: CancelHintStore | None = None,
         credentials_client: CredentialsClient | None = None,
         submissions: RunSubmissionService | None = None,
         context_builder: DbBackedContextBuilder | None = None,
-        settings_client: PlatformSettingsClient | None = None,
     ) -> None:
         self._session = session
         self._resolve_client = resolve_client
@@ -450,8 +449,10 @@ class RunService:
         self._executor_factory = executor_factory
         self._cancel_hints = cancel_hints or NullCancelHintStore()
         self._credentials_client = credentials_client
-        # 平台设置源：生产装配注入真实内部 HTTP client；直构调用点默认「无设置」（revision 0）。
-        self._settings_client: PlatformSettingsClient = settings_client or NullPlatformSettingsClient()
+        # 平台设置源是**必填**：新 Run 在创建边界取一次快照并冻结。不留隐式 Null 默认——
+        # 新建调用点忘记注入真 client 会静默按空设置跑；取消/回收/直构的调用点若要
+        # 「无设置源」语义，显式传 `NullPlatformSettingsClient()`。
+        self._settings_client: PlatformSettingsClient = settings_client
         self._submissions = submissions or RunSubmissionService(get_session_factory)
         self._context_builder = context_builder or DbBackedContextBuilder(
             session_factory=get_session_factory,

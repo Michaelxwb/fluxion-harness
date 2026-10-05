@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from muad_agent_runtime.application.ports import NullPlatformSettingsClient
 from muad_agent_runtime.application.run_service import RunService
 from muad_agent_runtime.infrastructure.cancel_hint import (
     CANCEL_HINT_TTL_SEC,
@@ -137,7 +138,13 @@ async def test_cancel_running_run_writes_hint(
     run_id = await _insert_run(tenant, "RUNNING")
     hints = RecordingCancelHintStore()
     async with get_session_factory()() as session:
-        service = RunService(session, fake_resolve, "instance-a", cancel_hints=hints)
+        service = RunService(
+            session,
+            fake_resolve,
+            "instance-a",
+            NullPlatformSettingsClient(),
+            cancel_hints=hints,
+        )
         await service.cancel_run(run_id, tenant.tenant_id)
 
     assert hints.run_ids == [run_id]
@@ -150,7 +157,13 @@ async def test_cancel_waiting_input_run_skips_hint(
     run_id = await _insert_run(tenant, "WAITING_INPUT")
     hints = RecordingCancelHintStore()
     async with get_session_factory()() as session:
-        service = RunService(session, fake_resolve, "instance-a", cancel_hints=hints)
+        service = RunService(
+            session,
+            fake_resolve,
+            "instance-a",
+            NullPlatformSettingsClient(),
+            cancel_hints=hints,
+        )
         run = await service.cancel_run(run_id, tenant.tenant_id)
 
     assert run.status == "CANCELLED"
@@ -164,7 +177,13 @@ async def test_cancel_terminal_run_is_idempotent_without_hint(
     run_id = await _insert_run(tenant, "COMPLETED")
     hints = RecordingCancelHintStore()
     async with get_session_factory()() as session:
-        service = RunService(session, fake_resolve, "instance-a", cancel_hints=hints)
+        service = RunService(
+            session,
+            fake_resolve,
+            "instance-a",
+            NullPlatformSettingsClient(),
+            cancel_hints=hints,
+        )
         run = await service.cancel_run(run_id, tenant.tenant_id)
 
     assert run.status == "COMPLETED"
@@ -178,7 +197,13 @@ async def test_cancel_active_writes_hint(
     run_id = await _insert_run(tenant, "RUNNING")
     hints = RecordingCancelHintStore()
     async with get_session_factory()() as session:
-        service = RunService(session, fake_resolve, "instance-a", cancel_hints=hints)
+        service = RunService(
+            session,
+            fake_resolve,
+            "instance-a",
+            NullPlatformSettingsClient(),
+            cancel_hints=hints,
+        )
         await service.cancel_active(tenant.agent_id, tenant.platform_user_id, tenant.tenant_id)
 
     assert hints.run_ids == [run_id]
@@ -192,7 +217,13 @@ async def test_cancel_running_run_survives_hint_failure(
     run_id = await _insert_run(tenant, "RUNNING")
     hints = FailingCancelHintStore()
     async with get_session_factory()() as session:
-        service = RunService(session, fake_resolve, "instance-a", cancel_hints=hints)
+        service = RunService(
+            session,
+            fake_resolve,
+            "instance-a",
+            NullPlatformSettingsClient(),
+            cancel_hints=hints,
+        )
         run = await service.cancel_run(run_id, tenant.tenant_id)
 
     assert run.status == "RUNNING"

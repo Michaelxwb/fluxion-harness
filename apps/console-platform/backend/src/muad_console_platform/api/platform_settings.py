@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..application.audit_service import AuditActor
 from ..application.platform_settings_catalog import (
     build_groups,
-    count_compaction_overrides,
+    count_resource_overrides,
     readonly_notes,
 )
 from ..application.platform_settings_guard import reject_secret_keys, validation_detail
@@ -126,12 +126,12 @@ async def read_platform_settings(
         updated_by = (await _display_names(session, [snapshot.actor_user_id])).get(
             snapshot.actor_user_id
         )
-    overrides = await count_compaction_overrides(session, tenant_id)
+    overrides = await count_resource_overrides(session, tenant_id)
     data = {
         "revision": snapshot.revision,
         "updated_at": snapshot.updated_at.isoformat() if snapshot.updated_at else None,
         "updated_by": updated_by,
-        "groups": build_groups(snapshot.settings, compaction_overrides=overrides),
+        "groups": build_groups(snapshot.settings, overrides=overrides),
         "readonly_notes": readonly_notes(),
     }
     return ok(request.app.state.message_catalog, data)

@@ -16,7 +16,6 @@ from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_contracts.platform_settings import ArtifactSettings
 
 from .output_service import MAX_OUTPUT_BYTES, OutputArtifactError, OutputArtifactWriter
-from .tool_results import TOOL_RESULT_ARTIFACT_BYTES
 
 CREATE_ARCHIVE_TOOL = "create_archive"
 MAX_ARCHIVE_PATH_BYTES = 1024
@@ -164,7 +163,7 @@ class ArchiveToolSet:
         self,
         writer: OutputArtifactWriter,
         *,
-        receipt_limit_bytes: int = TOOL_RESULT_ARTIFACT_BYTES,
+        receipt_limit_bytes: int,
         max_archive_files: int | None = None,
     ) -> None:
         """`receipt_limit_bytes` = **本次 Run 生效的**外置阈值（冻结配置里的
@@ -173,7 +172,8 @@ class ArchiveToolSet:
         回执必须裁到这条线**以下**，否则它自己会被外置成引用，模型就拿不到
         「已生成 ZIP（附件 ID …）。需要发给用户时请调用 deliver_artifact」这句指引。
         与 `ToolCallRecorder` 用**同一个生效值**（`harness-skill` 的 RULE-skill-001 要求
-        阈值只有一处事实来源；硬编码常量只在没有冻结配置时兜底）。
+        阈值只有一处事实来源）：schema（`ToolResultSettings`）是唯一默认源，本类**不给第二套
+        默认**，调用点必须显式传入（ADR-05）。
 
         `max_archive_files` = **本次 Run 冻结的** `artifact.max_archive_files`；缺失时取 contracts
         schema 默认（单一来源）。它同时钉住工具 schema 的 `maxItems` 与执行期校验，二者必须同值。

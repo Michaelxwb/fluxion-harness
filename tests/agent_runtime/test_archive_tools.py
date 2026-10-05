@@ -20,18 +20,19 @@ from muad_agent_runtime.application.attachments.archive_tools import (
     validate_member_path,
 )
 from muad_agent_runtime.application.attachments.output_service import OutputArtifactWriter, OutputScope
-from muad_agent_runtime.application.attachments.tool_results import (
-    TOOL_RESULT_ARTIFACT_BYTES,
-    ArtifactResultWriter,
-)
+from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.attachments.tools import AttachmentToolError, AttachmentToolSet
 from muad_agent_runtime.application.executor import ExecutorRunContext, ToolCallRecorder
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact
 from muad_console_platform.infrastructure.skill_validator import validated_package
+from muad_contracts.platform_settings import ToolResultSettings
 
 from agent_runtime.conftest import TenantContext
 from agent_runtime.test_attachment_tools import _seed_run
+
+#: 外置阈值**只从 schema 取**（TASK-011 收敛：源码里不再有第二套默认常量）。
+TOOL_RESULT_ARTIFACT_BYTES = ToolResultSettings().persist_threshold_bytes
 
 FILES = [
     {"path": "SKILL.md", "content": "---\nname: greeting\ndescription: fixed greeting\n---\nHello"},
@@ -99,7 +100,7 @@ async def test_archive_tool_persists_a_real_run_owned_zip(tenant: TenantContext,
         scope=OutputScope(tenant.tenant_id, run_id, conversation_id),
     )
     registry = ToolRegistry()
-    ArchiveToolSet(writer).register(registry)
+    ArchiveToolSet(writer, receipt_limit_bytes=TOOL_RESULT_ARTIFACT_BYTES).register(registry)
     tool = registry.get(CREATE_ARCHIVE_TOOL)
     assert tool.effect is ToolEffect.WRITE
     assert tool.handler is not None
@@ -141,7 +142,7 @@ async def test_many_files_keep_a_compact_receipt(
         scope=OutputScope(tenant.tenant_id, run_id, conversation_id),
     )
     files = [{"path": str(index) + padding, "content": ""} for index in range(20)]
-    receipt = await ArchiveToolSet(writer).create_archive(
+    receipt = await ArchiveToolSet(writer, receipt_limit_bytes=TOOL_RESULT_ARTIFACT_BYTES).create_archive(
         {"filename": filename, "files": files}, call_id="many"
     )
     result = json.loads(receipt)
@@ -176,7 +177,7 @@ async def test_receipt_is_trimmed_to_the_effective_threshold(
     tight = await ArchiveToolSet(writer, receipt_limit_bytes=1200).create_archive(
         {"filename": "tight.zip", "files": files}, call_id="tight"
     )
-    default = await ArchiveToolSet(writer).create_archive(
+    default = await ArchiveToolSet(writer, receipt_limit_bytes=TOOL_RESULT_ARTIFACT_BYTES).create_archive(
         {"filename": "default.zip", "files": files}, call_id="default"
     )
 
@@ -304,7 +305,7 @@ async def test_archive_storage_failure_surfaces_the_archive_error(tmp_path: Path
     )
 
     with pytest.raises(ArchiveToolError) as error:
-        await ArchiveToolSet(writer).create_archive(
+        await ArchiveToolSet(writer, receipt_limit_bytes=TOOL_RESULT_ARTIFACT_BYTES).create_archive(
             {"filename": "greeting.zip", "files": FILES}, call_id="archive"
         )
 
@@ -328,7 +329,7 @@ async def test_receipt_is_not_externalized_by_the_tool_result_wrapper(
         scope=OutputScope(tenant.tenant_id, run_id, conversation_id),
     )
     registry = ToolRegistry()
-    ArchiveToolSet(writer).register(registry)
+    ArchiveToolSet(writer, receipt_limit_bytes=TOOL_RESULT_ARTIFACT_BYTES).register(registry)
     definition = registry.get(CREATE_ARCHIVE_TOOL)
     handler = definition.handler
     assert handler is not None

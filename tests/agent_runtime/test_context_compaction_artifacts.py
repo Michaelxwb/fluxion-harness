@@ -26,11 +26,15 @@ from muad_agent_runtime.application.attachments.transcripts import (
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact
+from muad_contracts.platform_settings import ToolResultSettings
 
 from agent_runtime.conftest import TenantContext
 
 RUN_ID = uuid.UUID("33333333-3333-3333-3333-333333333333")
 CONVERSATION_ID = uuid.UUID("44444444-4444-4444-4444-444444444444")
+
+#: 预览头尾字节只从 schema 取（TASK-011 收敛：源码里不再有第二套默认常量）。
+_PREVIEW = ToolResultSettings()
 
 
 def _messages(count: int = 4) -> list[ModelMessage]:
@@ -73,6 +77,8 @@ async def test_e02_round_persist_keeps_head_and_tail_preview(
             tool_name="big_tool",
             result_text=body,
             user_id=tenant.platform_user_id,
+            preview_head_bytes=_PREVIEW.preview_head_bytes,
+            preview_tail_bytes=_PREVIEW.preview_tail_bytes,
         )
         row = await session.get(Artifact, uuid.UUID(reference["artifact_id"]))
 

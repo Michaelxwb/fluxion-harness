@@ -17,7 +17,7 @@ from .application.platform_settings_service import PlatformSettingsService
 from .infrastructure.db import dispose_engine, get_session_factory
 from .infrastructure.models.auth import ROLE_ADMIN, ROLE_BUILDER
 
-DEFAULT_TENANT = "default"
+DEFAULT_TENANT = SharedSettings().default_tenant_id
 
 SECRET_TABLES = (
     ("model_definition", "secret_ref", "api_key", False),

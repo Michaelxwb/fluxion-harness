@@ -17,15 +17,9 @@ from ...infrastructure.models.runtime import Artifact
 from ...metrics import ARTIFACT_BYTES_METRIC, record_counter
 from .immutable_store import discard_written, write_immutable
 
-#: 通用工具结果的外置阈值：超过它就换成 Artifact + 预览（`RULE-skill-001` 的产物侧）。
-#: **只有这一处定义**——`executor` 的外置判定与 `archive_tools` 的回执裁剪都用它，
-#: 各写一份的话"回执刚好不被外置"这条保证会随两边改动而失效（2026-10-03 review）。
-TOOL_RESULT_ARTIFACT_BYTES = 8 * 1024
-
-#: 预览按**头尾各留一段**（design §2.3 FEAT-02）：只留头部会让模型看不到结果的结尾
-#: （错误栈末行、汇总行、JSON 的闭合结构都在尾部）。
-PREVIEW_HEAD_BYTES = 2000
-PREVIEW_TAIL_BYTES = 2000
+#: 通用工具结果的外置阈值、预览头尾字节数**只有 schema 一处来源**：
+#: `muad_contracts.platform_settings.ToolResultSettings`（本 Run 冻结后注入）。此模块不再
+#: 定义第二套默认常量——判定与裁剪都以调用方显式传入的生效值为准（ADR-05）。
 TOOL_RESULT_ARTIFACT_TYPE = "TOOL_RESULT"
 
 
@@ -131,8 +125,8 @@ class ArtifactResultWriter:
         tool_name: str,
         result_text: str,
         user_id: uuid.UUID,
-        preview_head_bytes: int = PREVIEW_HEAD_BYTES,
-        preview_tail_bytes: int = PREVIEW_TAIL_BYTES,
+        preview_head_bytes: int,
+        preview_tail_bytes: int,
     ) -> dict[str, Any]:
         factory: SessionFactoryProvider = self._session_factory
 
@@ -168,8 +162,8 @@ class ArtifactResultWriter:
         tool_name: str,
         result_text: str,
         user_id: uuid.UUID,
-        preview_head_bytes: int = PREVIEW_HEAD_BYTES,
-        preview_tail_bytes: int = PREVIEW_TAIL_BYTES,
+        preview_head_bytes: int,
+        preview_tail_bytes: int,
     ) -> dict[str, Any]:
         if run_id is not None and task_id is not None:
             raise ValueError("run_id/task_id are mutually exclusive (XOR)")
@@ -204,8 +198,8 @@ class ArtifactResultWriter:
         run_id: uuid.UUID,
         task_id: uuid.UUID | None,
         results: Sequence[tuple[str, str, str]],
-        preview_head_bytes: int = PREVIEW_HEAD_BYTES,
-        preview_tail_bytes: int = PREVIEW_TAIL_BYTES,
+        preview_head_bytes: int,
+        preview_tail_bytes: int,
     ) -> dict[str, dict[str, Any]]:
         """整轮批次落盘：一批一起写、**中途失败回滚本批已写产物**。
 

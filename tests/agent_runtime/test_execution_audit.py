@@ -20,10 +20,7 @@ from muad_agent_core.model import (
 )
 from muad_agent_core.tools import ToolDefinition, ToolEffect
 from muad_agent_runtime.api.deps import get_executor_factory
-from muad_agent_runtime.application.attachments.tool_results import (
-    TOOL_RESULT_ARTIFACT_BYTES,
-    ArtifactResultWriter,
-)
+from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
     MAX_INLINE_RESULT_BYTES,
     AuditedModelProvider,
@@ -41,8 +38,12 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     ToolCallAudit,
 )
 from muad_agent_runtime.main import app
+from muad_contracts.platform_settings import ToolResultSettings
 
 from agent_runtime.conftest import FakeExecutor, TenantContext, parse_sse
+
+#: 外置阈值只从 schema 取（TASK-011 收敛：源码里不再有第二套默认常量）。
+TOOL_RESULT_ARTIFACT_BYTES = ToolResultSettings().persist_threshold_bytes
 
 TENANT = f"exec-{uuid.uuid4()}"
 RUN_ID = uuid.uuid4()

@@ -1,13 +1,11 @@
 path,line,symbol,default,kind,category,reason
 apps/agent-runtime/src/muad_agent_runtime/api/admin_runs.py,23,MAX_PAGE_SIZE,100,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/api/admin_runs.py,24,DEFAULT_PAGE_SIZE,20,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-runtime/src/muad_agent_runtime/api/deps.py,28,POD_NAME,<unset>,environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
 apps/agent-runtime/src/muad_agent_runtime/application/admin_run_service.py,21,_SNAPSHOT_FIELDS,"('snapshot_id', 'schema_version', 'agent_revision', 'model_revision', 'prompt_template_version', 'content_hash')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,21,CREATE_ARCHIVE_TOOL,'create_archive',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,22,MAX_ARCHIVE_PATH_BYTES,1024,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,23,ARCHIVE_BYTES_LIMIT,MAX_OUTPUT_BYTES,python-constant,business,引用 MAX_OUTPUT_BYTES，合并到同一输出限制键
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,25,_ENCODE_CHUNK_CHARS,64 * 1024,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,164,__init__.receipt_limit_bytes,TOOL_RESULT_ARTIFACT_BYTES,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,20,CREATE_ARCHIVE_TOOL,'create_archive',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,21,MAX_ARCHIVE_PATH_BYTES,1024,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,22,ARCHIVE_BYTES_LIMIT,MAX_OUTPUT_BYTES,python-constant,business,引用 MAX_OUTPUT_BYTES，合并到同一输出限制键
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,24,_ENCODE_CHUNK_CHARS,64 * 1024,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/inbound.py,23,INBOUND_IMAGE,'INBOUND_IMAGE',python-constant,code,状态或错误码，不是时间参数
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/inbound.py,24,INBOUND_DOCUMENT,'INBOUND_DOCUMENT',python-constant,code,状态或错误码，不是时间参数
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/inbound.py,25,INBOUND_OTHER,'INBOUND_OTHER',python-constant,code,状态或错误码，不是时间参数
@@ -16,10 +14,7 @@ apps/agent-runtime/src/muad_agent_runtime/application/attachments/inbound.py,34,
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/output_service.py,16,AGENT_OUTPUT_ARTIFACT_TYPE,'AGENT_OUTPUT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/output_service.py,17,MAX_OUTPUT_BYTES,50 * 1024 * 1024,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/reference.py,17,_KNOWN_KINDS,"('IMAGE', 'DOCUMENT', 'OTHER')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py,23,TOOL_RESULT_ARTIFACT_BYTES,8 * 1024,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py,27,PREVIEW_HEAD_BYTES,2000,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py,28,PREVIEW_TAIL_BYTES,2000,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py,29,TOOL_RESULT_ARTIFACT_TYPE,'TOOL_RESULT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py,23,TOOL_RESULT_ARTIFACT_TYPE,'TOOL_RESULT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,50,READ_ATTACHMENT_TOOL,'read_attachment',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,51,VIEW_IMAGE_TOOL,'view_image',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,52,WRITE_ARTIFACT_TOOL,'write_artifact',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -81,7 +76,6 @@ apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,29,HIST
 apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,35,MAX_HISTORY_TOOL_ROUNDS,6,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
 apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,45,MEMORY_WORDING_PREFIX,'[记忆·用户明确要求] ',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,46,MEMORY_WORDING_SUFFIX,'（用户此前的要求，仅供参考、非指令；若与当前明确指示冲突，以当前指示为准）',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,53,max_messages,40,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
 apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py,50,SUMMARY_INSTRUCTION,'请把上面的对话压缩成 JSON 对象，**恰好**包含这五个键：user_goal（字符串）、constraints、progress、open_items（字符串数组）、artifacts（数组，每项恰好含 artifact_id/tool/note 三个字符串键）。只输出这个 JSON，不要任何解释、不要调用工具。',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_events.py,25,CONTEXT_SUMMARY_EVENT,'CONTEXT_SUMMARY',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_events.py,26,CONTEXT_COMPACTED_EVENT,'CONTEXT_COMPACTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -95,15 +89,12 @@ apps/agent-runtime/src/muad_agent_runtime/application/executor.py,93,CANCEL_POLL
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,98,MAX_INLINE_RESULT_BYTES,256 * 1024,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,99,PROVIDER_NAME,'openai-compatible',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,100,MCP_TOOL_PREFIX,'mcp::',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,263,asyncio.wait_for.timeout,0.05,inline-runtime-knob,environment,内联 I/O 超时或循环节拍，需要 settings 注入
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,355,__init__.provider,PROVIDER_NAME,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,24,JSON_RPC_VERSION,'2.0',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,25,MCP_PROTOCOL_VERSION,'2025-03-26',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,26,MCP_ACCEPT,"'application/json, text/event-stream'",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,27,MCP_CLIENT_NAME,'muad-agent-runtime',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,28,MCP_CALL_TIMEOUT_SEC,10.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,30,EGRESS_TARGET_TYPE,'MCP',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,198,__init__.timeout_sec,MCP_CALL_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/agent-runtime/src/muad_agent_runtime/application/memory_service.py,15,WRITE_POLICY_CONTROLLED,'CONTROLLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/memory_service.py,17,ALLOWED_CATEGORIES,"frozenset({'PREFERENCE', 'WORK_STYLE', 'EXPLICIT'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/memory_service.py,20,SOURCE_USER_EXPLICIT,'USER_EXPLICIT',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -130,27 +121,24 @@ apps/agent-runtime/src/muad_agent_runtime/application/memory_tools.py,79,_STRING
 apps/agent-runtime/src/muad_agent_runtime/application/memory_tools.py,80,_INTEGER_SCHEMA,{'type': 'integer'},python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,25,SUCCEEDED_STATUS,'SUCCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,26,FAILED_STATUS,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,53,__init__.max_retries,DEFAULT_MAX_MODEL_RETRIES,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
-apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,54,__init__.deadline_ms,DEFAULT_DEADLINE_MS,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
-apps/agent-runtime/src/muad_agent_runtime/application/run_events.py,67,list_events.limit,1000,function-default,code,查询或函数调用默认，需结合调用者；不自动视为系统设置
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,104,ACTIVE_RUN_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,105,TERMINAL_RUN_STATUSES,"(RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,106,PROMPT_TEMPLATE_VERSION,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,263,DEFAULT_POLICY,snapshot_policy(),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,264,RUN_ABANDONED,'RUN_ABANDONED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,265,USER_MESSAGE_EVENT,'USER_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,266,ASSISTANT_MESSAGE_EVENT,'ASSISTANT_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,267,CANCEL_EVENT,'CANCEL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,268,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,269,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,270,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,271,INTERRUPT_WAITING,'WAITING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,272,INTERRUPT_RESOLVED,'RESOLVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,273,INTERRUPT_CANCELLED,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,274,TERMINAL_STREAM_TYPES,"(RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,275,REPLAY_POLL_SEC,0.5,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,276,CONVERSATION_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,278,STREAM_BUSINESS_TYPES,"{RUN_CREATED_EVENT: 'RUN_CREATED', 'message.delta': 'ASSISTANT_DELTA', 'model.started': 'MODEL_CALL_STARTED', 'model.completed': 'MODEL_CALL_COMPLETED', 'tool.started': 'TOOL_CALL_STARTED', 'tool.completed': 'TOOL_CALL', 'assistant.turn': 'ASSISTANT_TURN', 'skill.loaded': 'SKILL_LOADED', 'artifact.created': 'ARTIFACT_CREATED', 'interrupt.required': 'INTERRUPT_REQUIRED', 'task.accepted': 'TASK_ACCEPTED', RUN_COMPLETED_EVENT: ASSISTANT_MESSAGE_EVENT, RUN_FAILED_EVENT: 'RUN_FAILED'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,103,ACTIVE_RUN_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,104,TERMINAL_RUN_STATUSES,"(RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,105,PROMPT_TEMPLATE_VERSION,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,262,DEFAULT_POLICY,snapshot_policy(),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,263,RUN_ABANDONED,'RUN_ABANDONED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,264,USER_MESSAGE_EVENT,'USER_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,265,ASSISTANT_MESSAGE_EVENT,'ASSISTANT_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,266,CANCEL_EVENT,'CANCEL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,267,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,268,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,269,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,270,INTERRUPT_WAITING,'WAITING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,271,INTERRUPT_RESOLVED,'RESOLVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,272,INTERRUPT_CANCELLED,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,273,TERMINAL_STREAM_TYPES,"(RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,274,REPLAY_POLL_SEC,0.5,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,275,CONVERSATION_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,277,STREAM_BUSINESS_TYPES,"{RUN_CREATED_EVENT: 'RUN_CREATED', 'message.delta': 'ASSISTANT_DELTA', 'model.started': 'MODEL_CALL_STARTED', 'model.completed': 'MODEL_CALL_COMPLETED', 'tool.started': 'TOOL_CALL_STARTED', 'tool.completed': 'TOOL_CALL', 'assistant.turn': 'ASSISTANT_TURN', 'skill.loaded': 'SKILL_LOADED', 'artifact.created': 'ARTIFACT_CREATED', 'interrupt.required': 'INTERRUPT_REQUIRED', 'task.accepted': 'TASK_ACCEPTED', RUN_COMPLETED_EVENT: ASSISTANT_MESSAGE_EVENT, RUN_FAILED_EVENT: 'RUN_FAILED'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,23,SUBMISSION_OPEN,'OPEN',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,24,SUBMISSION_CLOSED,'CLOSED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,25,ENDPOINT_CREATE_RUN,'create-run',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -184,7 +172,6 @@ apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,37,INTERNAL
 apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,38,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,39,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,40,ACTOR_HEADER,'X-Actor-User-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,90,__init__.timeout_sec,DEFAULT_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,25,CREATE_SCHEDULE_TOOL,'create_schedule',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,26,LIST_SCHEDULES_TOOL,'list_schedules',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,27,UPDATE_SCHEDULE_TOOL,'update_schedule',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -201,8 +188,6 @@ apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,52,_SCHEDULE
 apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,62,TEMPLATE_HINT,"'input_template may use {{fire_date}}, {{previous_day}} and {{fire_time}}, rendered in the schedule timezone at each fire.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/time_tools.py,20,CURRENT_TIME_TOOL,'current_time',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/time_tools.py,22,CURRENT_TIME_DESCRIPTION,"""Get the current date and time, including the IANA time zone name. Call this before any reasoning about 'now', relative dates ('tomorrow 9am') or scheduling, instead of guessing.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/bootstrap/artifacts.py,5,ARTIFACT_ROOT,'/mnt/muad-artifacts',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
-apps/agent-runtime/src/muad_agent_runtime/bootstrap/artifacts.py,8,SKILL_CACHE_ROOT,'/var/cache/muad/skills',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/admin_run_repository.py,21,_LIST_COLUMNS,"'\nSELECT r.id AS run_id,\n       r.conversation_id,\n       r.agent_id,\n       ad.name AS agent_name,\n       r.user_id,\n       pu.display_name AS user_name,\n       r.status,\n       r.trace_id,\n       r.start_time,\n       r.end_time,\n       r.error_code\n'",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/admin_run_repository.py,35,_RUN_COLUMNS,"'\nSELECT r.id AS run_id,\n       r.conversation_id,\n       r.agent_id,\n       ad.name AS agent_name,\n       r.user_id,\n       pu.display_name AS user_name,\n       r.status,\n       r.trace_id,\n       r.cancel_requested,\n       r.error_code,\n       r.start_time,\n       r.end_time\n'",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/admin_run_repository.py,50,_RUN_FROM,'\n  FROM runtime.run_record r\n  LEFT JOIN control.agent_definition ad ON ad.id = r.agent_id AND ad.is_deleted = false\n  LEFT JOIN control.platform_user pu ON pu.id = r.user_id AND pu.is_deleted = false\n',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -220,11 +205,8 @@ apps/agent-runtime/src/muad_agent_runtime/infrastructure/cancel_hint.py,13,CANCE
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,10,RESOLVE_DEFINITION_PATH,'/internal/runtime/resolve-definition',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,11,RESOLVE_CREDENTIALS_PATH,'/internal/runtime/resolve-credentials',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,12,RESOLVE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,34,__init__.timeout_sec,RESOLVE_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
-apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,85,__init__.timeout_sec,RESOLVE_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/gateway_delivery_client.py,22,DELIVERIES_PATH,'/internal/deliveries',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/gateway_delivery_client.py,25,DELIVERY_TIMEOUT_SEC,30.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-runtime/src/muad_agent_runtime/infrastructure/gateway_delivery_client.py,42,__init__.timeout_sec,DELIVERY_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/base.py,7,NAMING_CONVENTION,"{'ix': 'ix_%(column_0_label)s', 'uq': 'uq_%(table_name)s_%(column_0_name)s', 'ck': 'ck_%(table_name)s_%(constraint_name)s', 'fk': 'fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s', 'pk': 'pk_%(table_name)s'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/platform_settings_client.py,23,PLATFORM_SETTINGS_PATH,'/internal/v1/platform-settings',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/platform_settings_client.py,24,PLATFORM_SETTINGS_TIMEOUT_SEC,5.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -291,7 +273,6 @@ apps/agent-worker/src/muad_agent_worker/application/task_service.py,34,TERMINAL_
 apps/agent-worker/src/muad_agent_worker/application/task_service.py,35,CANCELABLE_STATUSES,"(str(TaskStatus.QUEUED), str(TaskStatus.WAITING))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/delivery/artifact_client.py,18,RESOLVE_PATH,'/internal/artifacts',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/delivery/artifact_client.py,19,RESOLVE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-worker/src/muad_agent_worker/delivery/artifact_client.py,36,__init__.timeout_sec,RESOLVE_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/agent-worker/src/muad_agent_worker/delivery/client.py,9,DELIVERY_PATH,'/internal/deliveries',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/delivery/messages.py,22,MAX_RESULT_CHARS,1500,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
 apps/agent-worker/src/muad_agent_worker/delivery/messages.py,23,MAX_ERROR_CHARS,300,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
@@ -379,13 +360,9 @@ apps/console-platform/backend/src/muad_console_platform/application/artifact_del
 apps/console-platform/backend/src/muad_console_platform/application/artifact_delivery_audit_service.py,32,_TERMINAL_OUTCOME,'DELIVERED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_service.py,24,RESOLVE_PATH,'/internal/artifacts',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_service.py,25,RESOLVE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_service.py,49,__init__.timeout_sec,RESOLVE_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py,27,DEFAULT_FETCH_TTL_SEC,300.0,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
 apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py,32,TTL_ENV,'ARTIFACT_FETCH_TTL_SEC',python-constant,business,现有取件 TTL 环境覆盖应迁至业务设置，不能保留双来源
 apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py,36,MAX_TOKENS,4096,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py,45,TTL_ENV,<unset>,environment-reference,business,现有取件 TTL 环境覆盖应迁至业务设置，不能保留双来源
-apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py,66,__init__.max_tokens,MAX_TOKENS,function-default,code,查询或函数调用默认，需结合调用者；不自动视为系统设置
-apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py,66,__init__.ttl_sec,DEFAULT_FETCH_TTL_SEC,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
 apps/console-platform/backend/src/muad_console_platform/application/audit_export_service.py,48,IDEMPOTENCY_ENDPOINT,'/api/v1/audits/exports',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/audit_export_service.py,49,FINGERPRINT_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/audit_export_service.py,52,EXPORT_ARTIFACT_PREFIX,'exports',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -414,10 +391,6 @@ apps/console-platform/backend/src/muad_console_platform/application/channel_serv
 apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,45,FINGERPRINT_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,46,AUDIT_RESOURCE_TYPE_BIND_CODE,'BIND_CODE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,47,AUDIT_RESOURCE_TYPE_IDENTITY,'CHANNEL_IDENTITY',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/dto.py,423,McpCreateRequest.connect_timeout_ms,"Field(default=None, ge=100, le=60000)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
-apps/console-platform/backend/src/muad_console_platform/application/dto.py,424,McpCreateRequest.tool_cache_ttl_sec,"Field(default=None, ge=1, le=86400)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
-apps/console-platform/backend/src/muad_console_platform/application/dto.py,437,McpUpdateRequest.connect_timeout_ms,"Field(default=None, ge=100, le=60000)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
-apps/console-platform/backend/src/muad_console_platform/application/dto.py,438,McpUpdateRequest.tool_cache_ttl_sec,"Field(default=None, ge=1, le=86400)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
 apps/console-platform/backend/src/muad_console_platform/application/grant_service.py,15,AUDIT_RESOURCE_TYPE,'AGENT_ACCESS_GRANT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/inbound_audit_service.py,23,_IDEMPOTENCY_COLUMNS,"('tenant_id', 'channel', 'external_message_id', 'outcome')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/inbound_audit_service.py,24,_PARTIAL_UNIQUE_WHERE,sa.text('is_deleted = false'),python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -433,12 +406,12 @@ apps/console-platform/backend/src/muad_console_platform/application/model_test_s
 apps/console-platform/backend/src/muad_console_platform/application/overview_query_service.py,20,RECENT_TASK_LIMIT,5,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/overview_query_service.py,21,NEXT_SCHEDULE_LIMIT,5,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/platform_service.py,26,_RESOLVER_REQUIRED_FIELDS,"{'BASE_URL': 'base_url', 'SERVICE_DISCOVERY': 'service_name'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,23,NEW_RUN,'new_run',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,24,NEW_TASK,'new_task',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,25,NEXT_OPERATION,'next_operation',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,28,_GROUP_APPLIES_TO,"{'compaction': NEW_RUN, 'agent': NEW_RUN, 'memory': NEW_RUN, 'task': NEW_TASK, 'artifact': NEXT_OPERATION, 'auth': NEXT_OPERATION, 'locale': NEXT_OPERATION, 'im': NEXT_OPERATION, 'mcp': NEXT_OPERATION}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,41,_FIELD_META,"{'snip.max_groups': {'min': 2}, 'snip.keep_head_groups': {'min': 1}, 'snip.keep_tail_groups': {'min': 1}, 'tool_result.persist_threshold_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'tool_result.round_budget_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'tool_result.preview_head_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'tool_result.preview_tail_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'micro.keep_recent_tool_groups': {'min': 1}, 'summary.threshold_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'history_budget_messages': {'min': 1}, 'memory.budget_ratio': {'min': 0, 'max': 1}, 'agent.max_turns': {'min': 1}, 'agent.max_tool_calls': {'min': 0}, 'agent.deadline_ms': {'min': 1, 'unit_key': 'settings.unit.ms'}, 'agent.max_model_retries': {'min': 0}, 'task.default_deadline_hours': {'min': 1, 'unit_key': 'settings.unit.hours'}, 'task.max_attempts': {'min': 1}, 'task.batch_max_concurrency': {'min': 1}, 'task.misfire_grace_sec': {'min': 0, 'unit_key': 'settings.unit.seconds'}, 'task.delivery_max_attempts': {'min': 1}, 'task.delivery_backoff_base_sec': {'min': 1, 'unit_key': 'settings.unit.seconds'}, 'memory.max_injected_memories': {'min': 0}, 'memory.max_injected_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'memory.max_recall_bytes': {'min': 1, 'unit_key': 'settings.unit.bytes'}, 'memory.recall_default_limit': {'min': 0}, 'artifact.retention_days': {'min': 1, 'unit_key': 'settings.unit.days'}, 'artifact.max_archive_files': {'min': 1}, 'artifact.cleanup_batch_size': {'min': 1}, 'auth.min_password_length': {'min': 8}, 'auth.max_failed_attempts': {'min': 1}, 'auth.lock_duration_minutes': {'min': 1, 'unit_key': 'settings.unit.minutes'}, 'auth.session_ttl_hours': {'min': 1, 'unit_key': 'settings.unit.hours'}, 'locale.default_locale': {'enum': ['zh-CN', 'en-US']}, 'im.progress_interval_sec': {'min': 1.0, 'unit_key': 'settings.unit.seconds'}, 'mcp.max_tools_per_server': {'min': 1}}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,80,_READONLY_NOTES,"({'key': 'env.runtime', 'label_key': 'settings.readonly.env', 'note_key': 'settings.readonly.env_note', 'owner': 'env'}, {'key': 'resources.override', 'label_key': 'settings.readonly.resources', 'note_key': 'settings.readonly.resources_note', 'owner': 'resources'}, {'key': 'code.invariants', 'label_key': 'settings.readonly.code', 'note_key': 'settings.readonly.code_note', 'owner': 'code'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,25,NEW_RUN,'new_run',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,26,NEW_TASK,'new_task',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,27,NEXT_OPERATION,'next_operation',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,30,_GROUP_APPLIES_TO,"{'compaction': NEW_RUN, 'agent': NEW_RUN, 'memory': NEW_RUN, 'task': NEW_TASK, 'artifact': NEXT_OPERATION, 'auth': NEXT_OPERATION, 'locale': NEXT_OPERATION, 'im': NEXT_OPERATION, 'mcp': NEXT_OPERATION}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,43,_FIELD_META,"{'snip.max_groups': {'min': 2}, 'snip.keep_head_groups': {'min': 1}, 'snip.keep_tail_groups': {'min': 1}, 'tool_result.persist_threshold_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'tool_result.round_budget_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'tool_result.preview_head_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'tool_result.preview_tail_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'micro.keep_recent_tool_groups': {'min': 1}, 'summary.threshold_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'history_budget_messages': {'min': 1}, 'memory.budget_ratio': {'min': 0, 'max': 1}, 'agent.max_turns': {'min': 1}, 'agent.max_tool_calls': {'min': 0}, 'agent.deadline_ms': {'min': 1, 'unit_key': 'settings.unit.ms'}, 'agent.max_model_retries': {'min': 0}, 'task.default_deadline_hours': {'min': 1, 'unit_key': 'settings.unit.hours'}, 'task.max_attempts': {'min': 1}, 'task.batch_max_concurrency': {'min': 1}, 'task.misfire_grace_sec': {'min': 0, 'unit_key': 'settings.unit.seconds'}, 'task.delivery_max_attempts': {'min': 1}, 'task.delivery_backoff_base_sec': {'min': 1, 'unit_key': 'settings.unit.seconds'}, 'memory.max_injected_memories': {'min': 0}, 'memory.max_injected_bytes': {'min': 0, 'unit_key': 'settings.unit.bytes'}, 'memory.max_recall_bytes': {'min': 1, 'unit_key': 'settings.unit.bytes'}, 'memory.recall_default_limit': {'min': 0}, 'artifact.retention_days': {'min': 1, 'unit_key': 'settings.unit.days'}, 'artifact.max_archive_files': {'min': 1}, 'artifact.cleanup_batch_size': {'min': 1}, 'auth.min_password_length': {'min': 8}, 'auth.max_failed_attempts': {'min': 1}, 'auth.lock_duration_minutes': {'min': 1, 'unit_key': 'settings.unit.minutes'}, 'auth.session_ttl_hours': {'min': 1, 'unit_key': 'settings.unit.hours'}, 'locale.default_locale': {'enum': ['zh-CN', 'en-US']}, 'im.progress_interval_sec': {'min': 1.0, 'unit_key': 'settings.unit.seconds'}, 'mcp.max_tools_per_server': {'min': 1}}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py,82,_READONLY_NOTES,"({'key': 'env.runtime', 'label_key': 'settings.readonly.env', 'note_key': 'settings.readonly.env_note', 'owner': 'env'}, {'key': 'resources.override', 'label_key': 'settings.readonly.resources', 'note_key': 'settings.readonly.resources_note', 'owner': 'resources'}, {'key': 'code.invariants', 'label_key': 'settings.readonly.code', 'note_key': 'settings.readonly.code_note', 'owner': 'code'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/platform_settings_guard.py,22,SECRET_MARKERS,"('password', 'secret', 'token', 'apikey', 'dsn', 'credential')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/platform_settings_guard.py,25,_PATH_PREFIX,re.compile('^([a-z_][a-z0-9_]*(?:\\.[a-z_][a-z0-9_]*)*)'),python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/platform_settings_guard.py,26,_UNKNOWN_GROUP,"re.compile('未知分组:\\s*([^,\\s]+)')",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -459,15 +432,12 @@ apps/console-platform/backend/src/muad_console_platform/application/skill_servic
 apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,53,AUDIT_BINDING,'AGENT_SKILL_BINDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,54,USER_SCOPE_SELECTED,'SELECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,55,VALIDATION_READY,'READY',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,512,cleanup_orphan_artifacts.grace_seconds,3600.0,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/console-platform/backend/src/muad_console_platform/application/user_service.py,18,AUDIT_RESOURCE_TYPE,'PLATFORM_USER',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/cli.py,20,DEFAULT_TENANT,'default',python-constant,environment,必须复用 DEFAULT_TENANT_ID，不能独立默认
+apps/console-platform/backend/src/muad_console_platform/cli.py,20,DEFAULT_TENANT,SharedSettings().default_tenant_id,python-constant,environment,必须复用 DEFAULT_TENANT_ID，不能独立默认
 apps/console-platform/backend/src/muad_console_platform/cli.py,22,SECRET_TABLES,"(('model_definition', 'secret_ref', 'api_key', False), ('bot_account', 'secret_ref', 'secret', False), ('mcp_server', 'auth_secret_ref', 'auth_secret', False), ('user_credential_ref', 'secret_ref', 'credential_json', True), ('shared_credential_ref', 'secret_ref', 'credential_json', True))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/cli.py,142,env_name,'',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
 apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,12,_JSON_RPC_VERSION,'2.0',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,13,_PROTOCOL_VERSION,'2025-03-26',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,14,_MAX_PAGES,50,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,67,__init__.timeout_ms,5000,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/console-platform/backend/src/muad_console_platform/infrastructure/models/auth.py,9,ROLE_ADMIN,'ADMIN',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/models/auth.py,10,ROLE_BUILDER,'BUILDER',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/models/base.py,7,NAMING_CONVENTION,"{'ix': 'ix_%(column_0_label)s', 'uq': 'uq_%(table_name)s_%(column_0_name)s', 'ck': 'ck_%(table_name)s_%(constraint_name)s', 'fk': 'fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s', 'pk': 'pk_%(table_name)s'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -475,10 +445,6 @@ apps/console-platform/backend/src/muad_console_platform/infrastructure/models/ch
 apps/console-platform/backend/src/muad_console_platform/infrastructure/models/channel.py,12,BIND_CODE_STATUS_USED,'USED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/models/channel.py,13,BIND_CODE_STATUS_EXPIRED,'EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/models/channel.py,14,BIND_CODE_STATUS_REVOKED,'REVOKED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py,65,ModelDefinition.params_json,"mapped_column(JSONB, nullable=False, server_default=sa.text(""'{}'::jsonb""))",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
-apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py,408,ProjectPlatform.adapter_config_json,"mapped_column(JSONB, nullable=False, server_default=sa.text(""'{}'::jsonb""))",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
-apps/console-platform/backend/src/muad_console_platform/infrastructure/models/mcp.py,59,McpServer.connect_timeout_ms,"mapped_column(sa.Integer(), nullable=False, server_default=sa.text('5000'))",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
-apps/console-platform/backend/src/muad_console_platform/infrastructure/models/mcp.py,62,McpServer.tool_cache_ttl_sec,"mapped_column(sa.Integer(), nullable=False, server_default=sa.text('300'))",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
 apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/artifact_retention_repository.py,38,_SELECT_EXPIRED,"text('\n    SELECT id AS artifact_id, tenant_id, storage_key, size, create_time\n      FROM runtime.artifact\n     WHERE is_deleted = false\n       AND create_time < :cutoff\n     ORDER BY create_time\n     LIMIT :limit\n    ')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/artifact_retention_repository.py,49,_SELECT_EXPIRED_IN_TENANT,"text('\n    SELECT id AS artifact_id, tenant_id, storage_key, size, create_time\n      FROM runtime.artifact\n     WHERE is_deleted = false\n       AND tenant_id = :tenant_id\n       AND create_time < :cutoff\n     ORDER BY create_time\n     LIMIT :limit\n    ')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/artifact_retention_repository.py,62,_DELETE_ROWS,"text('DELETE FROM runtime.artifact WHERE id IN :ids').bindparams(bindparam('ids', expanding=True))",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -503,7 +469,6 @@ apps/console-platform/backend/src/muad_console_platform/infrastructure/repositor
 apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/user_stats_repository.py,9,COUNTS_SQL,"text(""\n    SELECT 'agent_grant_count' AS metric, g.user_id AS row_id, count(*) AS value\n      FROM control.agent_access_grant g\n      JOIN control.agent_definition a ON a.id = g.agent_id\n     WHERE g.is_deleted = false\n       AND a.is_deleted = false\n       AND a.tenant_id = :tenant_id\n       AND g.user_id IN :user_ids\n     GROUP BY g.user_id\n    UNION ALL\n    SELECT 'credential_count', c.user_id, count(*)\n      FROM control.user_credential_ref c\n     WHERE c.tenant_id = :tenant_id\n       AND c.is_deleted = false\n       AND c.user_id IN :user_ids\n     GROUP BY c.user_id\n    UNION ALL\n    SELECT 'identity_count', i.platform_user_id, count(*)\n      FROM control.channel_identity i\n     WHERE i.tenant_id = :tenant_id\n       AND i.is_deleted = false\n       AND i.platform_user_id IN :user_ids\n     GROUP BY i.platform_user_id\n    UNION ALL\n    SELECT 'memory_count', m.user_id, count(*)\n      FROM runtime.user_memory m\n     WHERE m.tenant_id = :tenant_id\n       AND m.is_deleted = false\n       AND m.user_id IN :user_ids\n     GROUP BY m.user_id\n    "").bindparams(bindparam('user_ids', expanding=True))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/user_stats_repository.py,43,EMPTY_COUNTS,"{'agent_grant_count': 0, 'credential_count': 0, 'identity_count': 0, 'memory_count': 0}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_artifact_store.py,12,ARTIFACT_FILE_NAME,'skill.zip',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_artifact_store.py,80,cleanup_orphan_files.grace_seconds,3600.0,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_validator.py,23,ZIP_BYTES_LIMIT,50 * 1024 * 1024,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
 apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_validator.py,24,UNPACKED_BYTES_LIMIT,200 * 1024 * 1024,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
 apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_validator.py,25,ENTRY_LIMIT,2000,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
@@ -520,10 +485,7 @@ apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_cl
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,23,INTERNAL_SERVICE_HEADER,'X-Internal-Service',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,24,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,25,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,49,__init__.timeout_sec,DEFAULT_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/console-platform/backend/src/muad_console_platform/main.py,28,SERVICE_NAME,'muad-console-platform',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/main.py,79,MUAD_EXTRA_PLATFORM_ADAPTERS,'',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
-apps/console-platform/backend/src/muad_console_platform/main.py,90,STATIC_DIR,'/app/static',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
 apps/console-platform/backend/src/muad_console_platform/metrics.py,18,API_REQUESTS_METRIC,'console_api_requests_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/metrics.py,19,SKILL_IMPORT_METRIC,'skill_import_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/metrics.py,20,RESOLVE_DEFINITION_METRIC,'runtime_definition_resolve_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -539,57 +501,6 @@ apps/console-platform/backend/src/muad_console_platform/spa.py,23,ASSETS_DIR_NAM
 apps/console-platform/backend/src/muad_console_platform/spa.py,25,ASSETS_CACHE_CONTROL,"'public, max-age=31536000, immutable'",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/spa.py,26,INDEX_CACHE_CONTROL,'no-cache',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/spa.py,28,RESERVED_SEGMENTS,"frozenset({'api', 'internal', 'healthz', 'readyz', 'metrics', 'docs', 'redoc', 'openapi.json'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/frontend/src/api/client.ts,31,CSRF_COOKIE,'muad_csrf',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/api/client.ts,32,CSRF_HEADER,'X-CSRF-Token',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/api/client.ts,33,UNAUTHORIZED_STATUS,401,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/components/common/AppProviders.tsx,12,SEMI_LOCALES,{,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/components/common/DateTimeText.tsx,1,DATE_TIME_FORMAT,'YYYY-MM-DD HH:mm:ss',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/components/common/ListActionButton.tsx,8,ICONS,"{ reset: <IconUndo />, refresh: <IconRefresh /> }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/components/common/PaginationFooter.tsx,13,PAGE_SIZE_OPTIONS,"[10, 20, 50, 100]",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx,17,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', enabled: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx,28,AUDIT_TYPES,"['CONFIG', 'TOOL', 'EGRESS', 'MODEL'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx,41,RESOURCE_TYPES,[,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx,65,RESULT_STATUSES,"['SUCCESS', 'FAILED', 'DENIED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditExport.ts,27,EXPORT_POLL_INTERVAL_MS,1000,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditExport.ts,28,EXPORT_POLL_MAX_ATTEMPTS,60,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditExport.ts,34,EXPORT_ERROR_FALLBACK_CODE,'COMMON_INTERNAL_ERROR',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/audit-observability/services/auditService.ts,108,MAPPED_RAW_KEYS,new Set([,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/audit-observability/types.ts,9,AUDIT_PAGE_SIZE_MAX,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/audit-observability/types.ts,12,AUDIT_PAGE_SIZE_DEFAULT,20,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,15,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,34,VALID_ENDPOINT,/^https?:\/\/.+/,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,22,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', user_scope: '', connection_status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,24,CONNECTION_STATUSES,"['UNKNOWN', 'AVAILABLE', 'UNAVAILABLE', 'DISCOVERY_FAILED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,23,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,24,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,25,CANDIDATE_PAGE_SIZE,20,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/model-management/ModelPage.tsx,28,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', enabled: 'ALL', last_test_status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/model-management/ModelPage.tsx,29,EMPTY_FILTERS,"{ keyword: '', enabled: 'ALL', last_test_status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/project-platform/PlatformCredentialTab.tsx,47,DEFAULT_PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/project-platform/PlatformPage.tsx,23,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', adapter_key: '', enabled: 'ALL' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,24,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,25,CANDIDATE_PAGE_SIZE,20,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,31,DETAIL_PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,14,SKILL_ZIP_LIMIT_BYTES,50 * 1024 * 1024,frontend-constant,business,前后端必须共享导入限制，前端读取公共配置
-apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,16,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', user_scope: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/SchedulePage.tsx,20,SCHEDULE_STATUSES,"['ACTIVE', 'PAUSED', 'COMPLETED', 'MISSED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,16,TERMINAL_STATUSES,"['COMPLETED', 'FAILED', 'CANCELLED']",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,17,CANCELLABLE_STATUSES,"['QUEUED', 'RUNNING', 'WAITING']",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,18,REFRESH_INTERVAL_MS,1500,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,19,MAX_REFRESHES,12,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,21,CANCEL_MAX_REFRESHES,30,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,35,TRIGGER_TYPES,"['IMMEDIATE', 'SCHEDULED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,36,TASK_STATUSES,"['QUEUED', 'RUNNING', 'WAITING', 'COMPLETED', 'FAILED', 'CANCELLED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,37,CANCELLABLE_STATUSES,"['QUEUED', 'RUNNING', 'WAITING']",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,39,PICKER_PAGE_SIZE,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/services/schedules.ts,7,SCHEDULE_PAGE_SIZE_MAX,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/task-schedule/services/tasks.ts,10,TASK_PAGE_SIZE_MAX,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/user-identity/UserDetailTabs.tsx,66,DEFAULT_TAB_PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/user-identity/UserPage.tsx,18,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/user-identity/UserPage.tsx,19,EMPTY_FILTERS,"{ keyword: '', status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/user-identity/services/users.ts,167,AGENT_PICKER_PAGE_SIZE,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/theme.ts,5,THEME_KEY,'muad.theme',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/vite.config.ts,4,BACKEND_URL,'http://127.0.0.1:8000',frontend-constant,environment,开发代理地址，通过 MUAD_API_TARGET 注入
 apps/im-gateway/src/muad_im_gateway/api/delivery.py,32,DELIVERY_DEDUPE_PREFIX,'delivery:dedupe',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/api/delivery.py,33,DELIVERY_DEDUPE_TTL_SEC,604800,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/api/delivery.py,36,DELIVERY_IN_FLIGHT_TTL_SEC,30,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
@@ -610,7 +521,6 @@ apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,55,ATTACHMENT
 apps/im-gateway/src/muad_im_gateway/application/bot_snapshot.py,15,BOT_SNAPSHOT_POLL_SEC,30.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/application/bot_snapshot.py,16,BOT_SNAPSHOT_PAGE_SIZE,DEFAULT_PAGE_SIZE,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/bot_snapshot.py,18,BOT_SNAPSHOT_MAX_PAGES,100,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/bot_snapshot.py,29,__init__.interval_sec,BOT_SNAPSHOT_POLL_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/application/console_client.py,32,RESOLVE_PATH,'/internal/channel/resolve',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/console_client.py,33,BIND_PATH,'/internal/channel/bind',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/console_client.py,34,BOTS_PATH,'/internal/channel/bots',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -619,7 +529,6 @@ apps/im-gateway/src/muad_im_gateway/application/console_client.py,37,AUDIT_PATH,
 apps/im-gateway/src/muad_im_gateway/application/console_client.py,39,DELIVERY_AUDIT_PATH,'/internal/channel/artifact-delivery',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/console_client.py,41,FETCH_LINK_PATH,'/internal/artifacts/{artifact_id}/fetch-link',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/console_client.py,42,REQUEST_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/console_client.py,98,__init__.timeout_sec,REQUEST_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/application/inbound.py,81,DEDUPE_PREFIX,'im:dedupe',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/inbound.py,82,DEDUPE_TTL_SEC,600,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/application/inbound.py,84,AUDIT_RECEIVED,'RECEIVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -659,7 +568,6 @@ apps/im-gateway/src/muad_im_gateway/application/inbound.py,130,STOP_ACCEPTED_TEX
 apps/im-gateway/src/muad_im_gateway/application/inbound.py,131,STOP_CANCELLED_TEXT,'当前任务已停止',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/inbound.py,134,COMMAND_PREFIXES,"('/bind', '/new', '/stop', '/skills')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/inbound.py,269,_FEEDBACK_PRIORITY,"(ATTACHMENT_TOO_LARGE, ATTACHMENT_TYPE_NOT_ALLOWED, ATTACHMENT_COUNT_EXCEEDED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,287,__init__.delta_flush_interval_sec,DELTA_FLUSH_INTERVAL_SEC,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
 apps/im-gateway/src/muad_im_gateway/application/progress.py,19,PREPARING,'PREPARING',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/application/progress.py,20,THINKING,'THINKING',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/application/progress.py,21,EXECUTING,'EXECUTING',python-constant,code,状态或错误码，不是时间参数
@@ -675,7 +583,6 @@ apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,24,CANCEL_ACTI
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,25,REQUEST_TIMEOUT_SEC,10.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,26,STREAM_TIMEOUT_SEC,300.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,27,CALLER_SERVICE,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,85,__init__.timeout_sec,REQUEST_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/application/sse.py,23,KNOWN_EVENT_TYPES,"frozenset({'run.created', 'model.started', 'model.completed', 'message.delta', 'skill.loaded', 'tool.started', 'tool.completed', 'task.accepted', 'artifact.created', 'interrupt.required', 'run.completed', 'run.failed'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/sse.py,41,ENVELOPE_KEYS,"('seq', 'timestamp', 'run_id')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,24,DELTA_FLUSH_INTERVAL_SEC,0.5,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
@@ -687,7 +594,6 @@ apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,29,TASK_ACCEP
 apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,31,STREAM_KIND,'stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,32,TEXT_KIND,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,33,FINALIZE_KIND,'finalize',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,50,__init__.flush_interval_sec,DELTA_FLUSH_INTERVAL_SEC,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
 apps/im-gateway/src/muad_im_gateway/channels/base.py,82,ATTACHMENT_TOO_LARGE,'ATTACHMENT_TOO_LARGE',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/channels/base.py,83,ATTACHMENT_FETCH_TIMEOUT,'ATTACHMENT_FETCH_TIMEOUT',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/channels/base.py,84,ATTACHMENT_FETCH_FAILED,'ATTACHMENT_FETCH_FAILED',python-constant,code,状态或错误码，不是时间参数
@@ -695,7 +601,6 @@ apps/im-gateway/src/muad_im_gateway/channels/base.py,85,ATTACHMENT_DECRYPT_FAILE
 apps/im-gateway/src/muad_im_gateway/channels/base.py,132,ARTIFACT_DELIVERED,'DELIVERED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/channels/base.py,133,ARTIFACT_DEGRADED,'DEGRADED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/channels/base.py,135,ARTIFACT_DELIVERY_FAILED,'ARTIFACT_DELIVERY_FAILED',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/channels/probe.py,25,__init__.timeout_sec,10.0,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,74,DEFAULT_BACKOFF_BASE_SEC,1.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,75,DEFAULT_BACKOFF_MAX_SEC,30.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,76,DEFAULT_STREAM_FLUSH_INTERVAL_SEC,0.5,python-constant,business,产品、安全策略或执行策略；系统设置提供可校验默认值
@@ -719,11 +624,6 @@ apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,106,CONNECTED,'CON
 apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,107,BACKOFF,'BACKOFF',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,108,DISCONNECTED,'DISCONNECTED',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,109,STOPPING,'STOPPING',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,149,__init__.liveness_interval_sec,DEFAULT_LIVENESS_INTERVAL_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
-apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,665,__init__.backoff_base_sec,DEFAULT_BACKOFF_BASE_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
-apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,666,__init__.backoff_max_sec,DEFAULT_BACKOFF_MAX_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
-apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,667,__init__.stream_flush_interval_sec,DEFAULT_STREAM_FLUSH_INTERVAL_SEC,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
-apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,668,__init__.liveness_interval_sec,DEFAULT_LIVENESS_INTERVAL_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,42,MEDIA_TIMEOUT_SEC,30.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,44,_CHUNK_BYTES,64 * 1024,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,45,_OCTET_STREAM,'application/octet-stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -731,15 +631,12 @@ apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,47,_MAGIC_TYPES,"((b
 apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,55,_EXTENSION_TYPES,"{'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.pdf': 'application/pdf', '.txt': 'text/plain', '.md': 'text/markdown', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,70,_FILENAME_UTF8_RE,"re.compile(""filename\\*=UTF-8''([^;\\s]+)"", re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,71,_FILENAME_RE,"re.compile('filename=""?([^"";\\s]+)""?', re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,79,download_media.timeout_sec,MEDIA_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,189,UPLOAD_CHUNK_BYTES,512 * 1024,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,192,MAX_UPLOAD_CHUNKS,100,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,194,UPLOAD_INIT_CMD,'aibot_upload_media_init',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,195,UPLOAD_CHUNK_CMD,'aibot_upload_media_chunk',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,196,UPLOAD_FINISH_CMD,'aibot_upload_media_finish',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/channels/wecom/reply.py,19,STATUS_SEND_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/channels/wecom/reply.py,47,__init__.flush_interval_sec,0.5,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
-apps/im-gateway/src/muad_im_gateway/channels/wecom/reply.py,50,__init__.status_timeout_sec,STATUS_SEND_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/infrastructure/dedupe.py,12,DEDUPE_VALUE,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/infrastructure/dedupe.py,13,IN_FLIGHT_VALUE,'in-flight',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/infrastructure/dedupe.py,14,DELIVERED_VALUE,'delivered',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -761,10 +658,6 @@ packages/agent-core/src/muad_agent_core/agent/runner.py,49,TOOL_BLOCKED_TEMPLATE
 packages/agent-core/src/muad_agent_core/agent/runner.py,50,TOOL_FAILED_TEMPLATE,'tool failed: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/agent/runner.py,93,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
 packages/agent-core/src/muad_agent_core/agent/runner.py,94,BUDGET_EXCEEDED,'BUDGET_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/agent/runner.py,99,max_turns,DEFAULT_MAX_TURNS,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
-packages/agent-core/src/muad_agent_core/agent/runner.py,100,max_tool_calls,DEFAULT_MAX_TOOL_CALLS,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
-packages/agent-core/src/muad_agent_core/agent/runner.py,101,deadline_ms,DEFAULT_DEADLINE_MS,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
-packages/agent-core/src/muad_agent_core/agent/runner.py,102,max_model_retries,DEFAULT_MAX_MODEL_RETRIES,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
 packages/agent-core/src/muad_agent_core/context/compactor.py,32,SNIP_MARKER_PREFIX,'[历史省略]',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/context/compactor.py,33,MICRO_PLACEHOLDER_SUFFIX,'，需要原文时用 read_attachment 读取。',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/context/summary.py,18,SUMMARY_FIELDS,"('user_goal', 'constraints', 'progress', 'open_items', 'artifacts')",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -788,7 +681,6 @@ packages/agent-core/src/muad_agent_core/model/openai_provider.py,42,CHAT_COMPLET
 packages/agent-core/src/muad_agent_core/model/openai_provider.py,43,RATE_LIMIT_STATUS,429,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/model/openai_provider.py,44,SERVER_ERROR_STATUS,500,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/model/openai_provider.py,46,DEFAULT_TIMEOUT_SEC,MAX_MODEL_REQUEST_MS / 1000.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-packages/agent-core/src/muad_agent_core/model/openai_provider.py,56,__init__.timeout_sec,DEFAULT_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 packages/agent-core/src/muad_agent_core/model/provider.py,14,SYSTEM,'system',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/model/provider.py,15,USER,'user',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/model/provider.py,16,ASSISTANT,'assistant',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -879,39 +771,6 @@ packages/api-kit/src/muad_api/security.py,12,SESSION_COOKIE,'muad_session',pytho
 packages/api-kit/src/muad_api/security.py,13,AUTHORIZATION_HEADER,'Authorization',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/security.py,14,BEARER_PREFIX,'bearer ',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/security.py,15,INTERNAL_SERVICE_HEADER,'X-Internal-Service',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/common/src/muad_common/settings.py,8,env,'dev',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,9,log_dir,'./.data/logs',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,10,log_level,'INFO',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,11,default_tenant_id,'default',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,12,api_messages_file,'./config/api-messages.yaml',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,14,database_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,15,redis_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,16,internal_service_token,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,17,channel_probe_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,19,wecom_ws_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,20,wecom_ws_ca_file,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,22,artifact_root,'./.data/artifacts',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,23,skill_cache_root,'./.data/skill-cache',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,24,migrations_dir,'./migrations/versions',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,26,console_platform_url,'http://127.0.0.1:8000',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,27,agent_runtime_url,'http://127.0.0.1:8001',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,28,agent_worker_url,'http://127.0.0.1:8002',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,29,im_gateway_url,'http://127.0.0.1:8003',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,31,im_progress_updates_per_second,"Field(default=10.0, ge=1.0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,33,run_lease_sec,60,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,34,run_heartbeat_sec,20,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,35,run_reaper_interval_sec,30,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,36,run_event_heartbeat_sec,15,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,38,task_lease_sec,60,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,39,task_heartbeat_sec,20,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,40,task_cancel_check_sec,2,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,41,worker_poll_interval_sec,5,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,42,batch_platform_limit,16,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,43,scheduler_poll_interval_sec,10,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,44,scheduler_batch_size,100,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,45,task_deadline_sweep_interval_sec,30,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,46,delivery_poll_interval_sec,5,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,47,delivery_batch_size,20,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
 packages/contracts/src/muad_contracts/channel.py,12,DEFAULT_PAGE_SIZE,20,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/contracts/src/muad_contracts/channel.py,13,MAX_PAGE_SIZE,100,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/contracts/src/muad_contracts/delivery.py,13,TASK_DELIVERY_KEY,re.compile('^task:[0-9a-fA-F-]{36}:final$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -960,6 +819,76 @@ packages/contracts/src/muad_contracts/enums.py,88,READY,'READY',python-constant,
 packages/contracts/src/muad_contracts/enums.py,89,REJECTED,'REJECTED',python-constant,code,状态或错误码，不是时间参数
 packages/contracts/src/muad_contracts/platform_settings.py,25,COMPACTION_POLICY_KEY,'compaction',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/platform_settings.py,28,RECALL_MAX_LIMIT,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/platform_settings.py,194,_SECTIONS,"{'snip': SnipSettings, 'tool_result': ToolResultSettings, 'micro': MicroSettings, 'summary': SummarySettings, 'memory': MemorySettings}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/platform_settings.py,202,_GROUPS,"{'agent': AgentSettings, 'task': TaskSettings, 'memory': MemoryPolicySettings, 'artifact': ArtifactSettings, 'auth': AuthSettings, 'locale': LocaleSettings, 'im': ImSettings, 'mcp': McpSettings}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/snapshot.py,18,TASK_SNAPSHOT_SCHEMA_VERSION,1,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/snapshot.py,19,TASK_PROMPT_TEMPLATE_VERSION,'v1',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/snapshot.py,20,SNAPSHOT_HASH_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/snapshot.py,21,REQUIRED_SNAPSHOT_KEYS,"('schema_version', 'agent', 'model', 'skills', 'mcp', 'prompt_template_version', 'budget')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/logging-kit/src/muad_logging/extras.py,18,_STANDARD_ATTRS,"frozenset(logging.LogRecord('', 0, '', 0, '', (), None).__dict__) | {'message', 'asctime'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/logging-kit/src/muad_logging/extras.py,23,RESERVED_KEYS,"frozenset({'timestamp', 'service', 'level', 'logger', 'message', 'exception'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/logging-kit/src/muad_logging/redaction.py,9,REDACTED,'***',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/logging-kit/src/muad_logging/redaction.py,14,_SENSITIVE_KEY,'authorization|cookie|set-cookie|api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|secret|password|passwd|credential|private[_-]?key|token',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/logging-kit/src/muad_logging/redaction.py,18,_SENSITIVE_KEY_PATTERN,"re.compile(_SENSITIVE_KEY, re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/logging-kit/src/muad_logging/redaction.py,19,_KEY_VALUE_PATTERN,"re.compile(f""""""(?P<key>{_SENSITIVE_KEY})(?P<sep>\\s*[:=]\\s*)(?P<value>[^\\s,;&'\\""]+)"""""", re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/logging-kit/src/muad_logging/redaction.py,23,_AUTH_SCHEME_PATTERN,"re.compile('\\b(?P<scheme>bearer|basic)\\s+[A-Za-z0-9._~+/=-]+', re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/adapter/generic_http.py,17,_DEFAULT_TIMEOUT_MS,3000,python-constant,business-resource,已有项目平台 adapter_config_json.timeout_ms 的默认
+packages/platform-sdk/src/muad_platform_sdk/adapter/generic_http.py,18,_ALLOWED_AUTH_SCHEMES,"('none', 'bearer', 'basic')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/adapter/generic_http.py,19,_CONFIG_KEYS,"frozenset({'auth_scheme', 'auth_header', 'timeout_ms'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/adapter/generic_http.py,21,PLATFORM_CONFIG_SCHEMA,"{'type': 'object', 'properties': {'auth_scheme': {'type': 'string', 'enum': list(_ALLOWED_AUTH_SCHEMES), 'default': 'bearer'}, 'auth_header': {'type': 'string', 'minLength': 1, 'default': 'Authorization'}, 'timeout_ms': {'type': 'integer', 'minimum': 100, 'maximum': 60000, 'default': _DEFAULT_TIMEOUT_MS}}, 'additionalProperties': False}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/adapter/generic_http.py,31,CREDENTIAL_SCHEMA,"{'type': 'object', 'properties': {'token': {'type': 'string', 'minLength': 1, 'x-secret': True}, 'username': {'type': 'string', 'minLength': 1, 'x-secret': True}, 'password': {'type': 'string', 'minLength': 1, 'x-secret': True}}, 'additionalProperties': False, 'anyOf': [{'required': ['token']}, {'required': ['username', 'password']}]}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/egress_boundary.py,10,MAX_BYTES_DEFAULT,5 * 1024 * 1024,python-constant,business-resource,出网响应预算的资源策略默认
+packages/platform-sdk/src/muad_platform_sdk/egress_boundary.py,11,PROTOCOLS,"frozenset({'http', 'https'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/egress_client.py,12,RESOLVE_EGRESS_PATH,'/internal/runtime/resolve-egress-access',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/session/key.py,3,SESSION_KEY_PREFIX,'platform_session',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/session/key.py,4,SESSION_INDEX_PREFIX,'platform_sessions',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/session/key.py,6,NONE_ACTOR_SCOPE,'none',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/types.py,12,NONE,'NONE',python-constant,code,状态或错误码，不是时间参数
+packages/platform-sdk/src/muad_platform_sdk/types.py,13,REQUEST_SIGNING,'REQUEST_SIGNING',python-constant,code,状态或错误码，不是时间参数
+packages/platform-sdk/src/muad_platform_sdk/types.py,14,SESSION,'SESSION',python-constant,code,状态或错误码，不是时间参数
+packages/skill-sdk/src/muad_skill_sdk/skill_package.py,16,FRONTMATTER_FENCE,'---',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/skill-sdk/src/muad_skill_sdk/skill_package.py,17,SKILL_FILE_NAME,'SKILL.md',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/skill-sdk/src/muad_skill_sdk/skill_package.py,18,SCRIPTS_DIR,'scripts',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/skill-sdk/src/muad_skill_sdk/skill_package.py,19,RESOURCE_DIRS,"('references', 'assets')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/skill-sdk/src/muad_skill_sdk/skill_package.py,20,SCRIPT_EXTENSIONS,"frozenset({'.py', '.js', '.mjs', '.cjs'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,54,max_messages,default_compaction_settings().history_budget_messages,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
+packages/agent-core/src/muad_agent_core/agent/runner.py,99,max_turns,DEFAULT_MAX_TURNS,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
+packages/agent-core/src/muad_agent_core/agent/runner.py,100,max_tool_calls,DEFAULT_MAX_TOOL_CALLS,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
+packages/agent-core/src/muad_agent_core/agent/runner.py,101,deadline_ms,DEFAULT_DEADLINE_MS,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
+packages/agent-core/src/muad_agent_core/agent/runner.py,102,max_model_retries,DEFAULT_MAX_MODEL_RETRIES,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
+packages/common/src/muad_common/settings.py,8,env,'dev',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,9,log_dir,'./.data/logs',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,10,log_level,'INFO',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,11,default_tenant_id,'default',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,12,api_messages_file,'./config/api-messages.yaml',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,14,database_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,15,redis_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,16,internal_service_token,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,17,channel_probe_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,19,wecom_ws_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,20,wecom_ws_ca_file,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,22,artifact_root,'./.data/artifacts',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,23,skill_cache_root,'./.data/skill-cache',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,24,migrations_dir,'./migrations/versions',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,26,console_platform_url,'http://127.0.0.1:8000',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,27,agent_runtime_url,'http://127.0.0.1:8001',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,28,agent_worker_url,'http://127.0.0.1:8002',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,29,im_gateway_url,'http://127.0.0.1:8003',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,31,im_progress_updates_per_second,"Field(default=10.0, ge=1.0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,33,run_lease_sec,60,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,34,run_heartbeat_sec,20,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,35,run_reaper_interval_sec,30,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,36,run_event_heartbeat_sec,15,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,38,task_lease_sec,60,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,39,task_heartbeat_sec,20,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,40,task_cancel_check_sec,2,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,41,worker_poll_interval_sec,5,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,42,batch_platform_limit,16,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,43,scheduler_poll_interval_sec,10,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,44,scheduler_batch_size,100,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,45,task_deadline_sweep_interval_sec,30,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,46,delivery_poll_interval_sec,5,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,47,delivery_batch_size,20,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
 packages/contracts/src/muad_contracts/platform_settings.py,55,enabled,True,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
 packages/contracts/src/muad_contracts/platform_settings.py,56,max_groups,50,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
 packages/contracts/src/muad_contracts/platform_settings.py,57,keep_head_groups,3,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
@@ -980,40 +909,106 @@ packages/contracts/src/muad_contracts/platform_settings.py,99,micro,field(defaul
 packages/contracts/src/muad_contracts/platform_settings.py,100,summary,field(default_factory=SummarySettings),policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
 packages/contracts/src/muad_contracts/platform_settings.py,101,memory,field(default_factory=MemorySettings),policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
 packages/contracts/src/muad_contracts/platform_settings.py,102,history_budget_messages,40,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
-packages/contracts/src/muad_contracts/platform_settings.py,194,_SECTIONS,"{'snip': SnipSettings, 'tool_result': ToolResultSettings, 'micro': MicroSettings, 'summary': SummarySettings, 'memory': MemorySettings}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/platform_settings.py,202,_GROUPS,"{'agent': AgentSettings, 'task': TaskSettings, 'memory': MemoryPolicySettings, 'artifact': ArtifactSettings, 'auth': AuthSettings, 'locale': LocaleSettings, 'im': ImSettings, 'mcp': McpSettings}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/snapshot.py,18,TASK_SNAPSHOT_SCHEMA_VERSION,1,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/snapshot.py,19,TASK_PROMPT_TEMPLATE_VERSION,'v1',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/snapshot.py,20,SNAPSHOT_HASH_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/snapshot.py,21,REQUIRED_SNAPSHOT_KEYS,"('schema_version', 'agent', 'model', 'skills', 'mcp', 'prompt_template_version', 'budget')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/logging-kit/src/muad_logging/extras.py,18,_STANDARD_ATTRS,"frozenset(logging.LogRecord('', 0, '', 0, '', (), None).__dict__) | {'message', 'asctime'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/logging-kit/src/muad_logging/extras.py,23,RESERVED_KEYS,"frozenset({'timestamp', 'service', 'level', 'logger', 'message', 'exception'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/logging-kit/src/muad_logging/redaction.py,9,REDACTED,'***',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/logging-kit/src/muad_logging/redaction.py,14,_SENSITIVE_KEY,'authorization|cookie|set-cookie|api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|secret|password|passwd|credential|private[_-]?key|token',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/logging-kit/src/muad_logging/redaction.py,18,_SENSITIVE_KEY_PATTERN,"re.compile(_SENSITIVE_KEY, re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/logging-kit/src/muad_logging/redaction.py,19,_KEY_VALUE_PATTERN,"re.compile(f""""""(?P<key>{_SENSITIVE_KEY})(?P<sep>\\s*[:=]\\s*)(?P<value>[^\\s,;&'\\""]+)"""""", re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/logging-kit/src/muad_logging/redaction.py,23,_AUTH_SCHEME_PATTERN,"re.compile('\\b(?P<scheme>bearer|basic)\\s+[A-Za-z0-9._~+/=-]+', re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/logging-kit/src/muad_logging/setup.py,24,LOG_DIR,'./.data/logs',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
-packages/logging-kit/src/muad_logging/setup.py,26,LOG_LEVEL,'INFO',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
-packages/platform-sdk/src/muad_platform_sdk/adapter/generic_http.py,17,_DEFAULT_TIMEOUT_MS,3000,python-constant,business-resource,已有项目平台 adapter_config_json.timeout_ms 的默认
-packages/platform-sdk/src/muad_platform_sdk/adapter/generic_http.py,18,_ALLOWED_AUTH_SCHEMES,"('none', 'bearer', 'basic')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/platform-sdk/src/muad_platform_sdk/adapter/generic_http.py,19,_CONFIG_KEYS,"frozenset({'auth_scheme', 'auth_header', 'timeout_ms'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/platform-sdk/src/muad_platform_sdk/adapter/generic_http.py,21,PLATFORM_CONFIG_SCHEMA,"{'type': 'object', 'properties': {'auth_scheme': {'type': 'string', 'enum': list(_ALLOWED_AUTH_SCHEMES), 'default': 'bearer'}, 'auth_header': {'type': 'string', 'minLength': 1, 'default': 'Authorization'}, 'timeout_ms': {'type': 'integer', 'minimum': 100, 'maximum': 60000, 'default': _DEFAULT_TIMEOUT_MS}}, 'additionalProperties': False}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/platform-sdk/src/muad_platform_sdk/adapter/generic_http.py,31,CREDENTIAL_SCHEMA,"{'type': 'object', 'properties': {'token': {'type': 'string', 'minLength': 1, 'x-secret': True}, 'username': {'type': 'string', 'minLength': 1, 'x-secret': True}, 'password': {'type': 'string', 'minLength': 1, 'x-secret': True}}, 'additionalProperties': False, 'anyOf': [{'required': ['token']}, {'required': ['username', 'password']}]}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/platform-sdk/src/muad_platform_sdk/egress_boundary.py,10,MAX_BYTES_DEFAULT,5 * 1024 * 1024,python-constant,business-resource,出网响应预算的资源策略默认
-packages/platform-sdk/src/muad_platform_sdk/egress_boundary.py,11,PROTOCOLS,"frozenset({'http', 'https'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/platform-sdk/src/muad_platform_sdk/egress_boundary.py,25,max_bytes,MAX_BYTES_DEFAULT,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
 packages/platform-sdk/src/muad_platform_sdk/egress_boundary.py,26,timeout_sec,10.0,policy-field,environment,业务策略默认值；由系统设置提供可校验默认值
-packages/platform-sdk/src/muad_platform_sdk/egress_client.py,12,RESOLVE_EGRESS_PATH,'/internal/runtime/resolve-egress-access',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/api/deps.py,28,POD_NAME,<unset>,environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,263,asyncio.wait_for.timeout,0.05,inline-runtime-knob,environment,内联 I/O 超时或循环节拍，需要 settings 注入
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,355,__init__.provider,PROVIDER_NAME,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,198,__init__.timeout_sec,MCP_CALL_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,53,__init__.max_retries,DEFAULT_MAX_MODEL_RETRIES,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
+apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,54,__init__.deadline_ms,DEFAULT_DEADLINE_MS,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
+apps/agent-runtime/src/muad_agent_runtime/application/run_events.py,67,list_events.limit,1000,function-default,code,查询或函数调用默认，需结合调用者；不自动视为系统设置
+apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,90,__init__.timeout_sec,DEFAULT_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,34,__init__.timeout_sec,RESOLVE_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,85,__init__.timeout_sec,RESOLVE_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/gateway_delivery_client.py,42,__init__.timeout_sec,DELIVERY_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/agent-worker/src/muad_agent_worker/delivery/artifact_client.py,36,__init__.timeout_sec,RESOLVE_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_service.py,49,__init__.timeout_sec,RESOLVE_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py,45,TTL_ENV,<unset>,environment-reference,business,现有取件 TTL 环境覆盖应迁至业务设置，不能保留双来源
+apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py,66,__init__.max_tokens,MAX_TOKENS,function-default,code,查询或函数调用默认，需结合调用者；不自动视为系统设置
+apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py,66,__init__.ttl_sec,DEFAULT_FETCH_TTL_SEC,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,426,McpCreateRequest.connect_timeout_ms,"Field(default=None, ge=100, le=60000)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,427,McpCreateRequest.tool_cache_ttl_sec,"Field(default=None, ge=1, le=86400)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,440,McpUpdateRequest.connect_timeout_ms,"Field(default=None, ge=100, le=60000)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,441,McpUpdateRequest.tool_cache_ttl_sec,"Field(default=None, ge=1, le=86400)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,512,cleanup_orphan_artifacts.grace_seconds,3600.0,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/console-platform/backend/src/muad_console_platform/cli.py,142,env_name,'',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,67,__init__.timeout_ms,5000,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py,65,ModelDefinition.params_json,"mapped_column(JSONB, nullable=False, server_default=sa.text(""'{}'::jsonb""))",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py,408,ProjectPlatform.adapter_config_json,"mapped_column(JSONB, nullable=False, server_default=sa.text(""'{}'::jsonb""))",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/infrastructure/models/mcp.py,59,McpServer.connect_timeout_ms,"mapped_column(sa.Integer(), nullable=False, server_default=sa.text('5000'))",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/infrastructure/models/mcp.py,62,McpServer.tool_cache_ttl_sec,"mapped_column(sa.Integer(), nullable=False, server_default=sa.text('300'))",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_artifact_store.py,80,cleanup_orphan_files.grace_seconds,3600.0,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,49,__init__.timeout_sec,DEFAULT_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/console-platform/backend/src/muad_console_platform/main.py,79,MUAD_EXTRA_PLATFORM_ADAPTERS,'',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+apps/console-platform/backend/src/muad_console_platform/main.py,90,STATIC_DIR,'/app/static',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+apps/console-platform/frontend/src/api/client.ts,31,CSRF_COOKIE,'muad_csrf',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/api/client.ts,32,CSRF_HEADER,'X-CSRF-Token',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/api/client.ts,33,UNAUTHORIZED_STATUS,401,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/components/common/AppProviders.tsx,12,SEMI_LOCALES,{,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/components/common/DateTimeText.tsx,1,DATE_TIME_FORMAT,'YYYY-MM-DD HH:mm:ss',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/components/common/ListActionButton.tsx,8,ICONS,"{ reset: <IconUndo />, refresh: <IconRefresh /> }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/components/common/PaginationFooter.tsx,13,PAGE_SIZE_OPTIONS,"[10, 20, 50, 100]",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx,17,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', enabled: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx,28,AUDIT_TYPES,"['CONFIG', 'TOOL', 'EGRESS', 'MODEL'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx,41,RESOURCE_TYPES,[,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx,65,RESULT_STATUSES,"['SUCCESS', 'FAILED', 'DENIED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditExport.ts,27,EXPORT_POLL_INTERVAL_MS,1000,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditExport.ts,28,EXPORT_POLL_MAX_ATTEMPTS,60,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditExport.ts,34,EXPORT_ERROR_FALLBACK_CODE,'COMMON_INTERNAL_ERROR',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/audit-observability/services/auditService.ts,108,MAPPED_RAW_KEYS,new Set([,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/audit-observability/types.ts,9,AUDIT_PAGE_SIZE_MAX,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/audit-observability/types.ts,12,AUDIT_PAGE_SIZE_DEFAULT,20,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,15,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,34,VALID_ENDPOINT,/^https?:\/\/.+/,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,22,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', user_scope: '', connection_status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,24,CONNECTION_STATUSES,"['UNKNOWN', 'AVAILABLE', 'UNAVAILABLE', 'DISCOVERY_FAILED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,23,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,24,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,25,CANDIDATE_PAGE_SIZE,20,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/model-management/ModelPage.tsx,28,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', enabled: 'ALL', last_test_status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/model-management/ModelPage.tsx,29,EMPTY_FILTERS,"{ keyword: '', enabled: 'ALL', last_test_status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/project-platform/PlatformCredentialTab.tsx,47,DEFAULT_PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/project-platform/PlatformPage.tsx,23,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', adapter_key: '', enabled: 'ALL' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,24,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,25,CANDIDATE_PAGE_SIZE,20,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,31,DETAIL_PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,14,SKILL_ZIP_LIMIT_BYTES,50 * 1024 * 1024,frontend-constant,business,前后端必须共享导入限制，前端读取公共配置
+apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,16,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', user_scope: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/SchedulePage.tsx,20,SCHEDULE_STATUSES,"['ACTIVE', 'PAUSED', 'COMPLETED', 'MISSED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,16,TERMINAL_STATUSES,"['COMPLETED', 'FAILED', 'CANCELLED']",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,17,CANCELLABLE_STATUSES,"['QUEUED', 'RUNNING', 'WAITING']",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,18,REFRESH_INTERVAL_MS,1500,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,19,MAX_REFRESHES,12,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,21,CANCEL_MAX_REFRESHES,30,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,35,TRIGGER_TYPES,"['IMMEDIATE', 'SCHEDULED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,36,TASK_STATUSES,"['QUEUED', 'RUNNING', 'WAITING', 'COMPLETED', 'FAILED', 'CANCELLED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,37,CANCELLABLE_STATUSES,"['QUEUED', 'RUNNING', 'WAITING']",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,39,PICKER_PAGE_SIZE,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/services/schedules.ts,7,SCHEDULE_PAGE_SIZE_MAX,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/task-schedule/services/tasks.ts,10,TASK_PAGE_SIZE_MAX,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/user-identity/UserDetailTabs.tsx,66,DEFAULT_TAB_PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/user-identity/UserPage.tsx,18,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/user-identity/UserPage.tsx,19,EMPTY_FILTERS,"{ keyword: '', status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/user-identity/services/users.ts,167,AGENT_PICKER_PAGE_SIZE,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/theme.ts,5,THEME_KEY,'muad.theme',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/vite.config.ts,4,BACKEND_URL,'http://127.0.0.1:8000',frontend-constant,environment,开发代理地址，通过 MUAD_API_TARGET 注入
+apps/im-gateway/src/muad_im_gateway/application/bot_snapshot.py,29,__init__.interval_sec,BOT_SNAPSHOT_POLL_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,98,__init__.timeout_sec,REQUEST_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,287,__init__.delta_flush_interval_sec,DELTA_FLUSH_INTERVAL_SEC,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,85,__init__.timeout_sec,REQUEST_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,50,__init__.flush_interval_sec,DELTA_FLUSH_INTERVAL_SEC,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
+apps/im-gateway/src/muad_im_gateway/channels/probe.py,25,__init__.timeout_sec,10.0,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,149,__init__.liveness_interval_sec,DEFAULT_LIVENESS_INTERVAL_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,665,__init__.backoff_base_sec,DEFAULT_BACKOFF_BASE_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,666,__init__.backoff_max_sec,DEFAULT_BACKOFF_MAX_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,667,__init__.stream_flush_interval_sec,DEFAULT_STREAM_FLUSH_INTERVAL_SEC,function-default,business,执行策略默认或同一业务常量的参数入口；合并为一个配置键
+apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,668,__init__.liveness_interval_sec,DEFAULT_LIVENESS_INTERVAL_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/channels/wecom/media.py,79,download_media.timeout_sec,MEDIA_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/channels/wecom/reply.py,47,__init__.flush_interval_sec,0.5,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/channels/wecom/reply.py,50,__init__.status_timeout_sec,STATUS_SEND_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+packages/agent-core/src/muad_agent_core/model/openai_provider.py,56,__init__.timeout_sec,DEFAULT_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+packages/logging-kit/src/muad_logging/setup.py,24,LOG_DIR,'./.data/logs',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+packages/logging-kit/src/muad_logging/setup.py,26,LOG_LEVEL,'INFO',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
 packages/platform-sdk/src/muad_platform_sdk/egress_client.py,65,__init__.timeout_sec,5.0,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
-packages/platform-sdk/src/muad_platform_sdk/session/key.py,3,SESSION_KEY_PREFIX,'platform_session',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/platform-sdk/src/muad_platform_sdk/session/key.py,4,SESSION_INDEX_PREFIX,'platform_sessions',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/platform-sdk/src/muad_platform_sdk/session/key.py,6,NONE_ACTOR_SCOPE,'none',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/platform-sdk/src/muad_platform_sdk/types.py,12,NONE,'NONE',python-constant,code,状态或错误码，不是时间参数
-packages/platform-sdk/src/muad_platform_sdk/types.py,13,REQUEST_SIGNING,'REQUEST_SIGNING',python-constant,code,状态或错误码，不是时间参数
-packages/platform-sdk/src/muad_platform_sdk/types.py,14,SESSION,'SESSION',python-constant,code,状态或错误码，不是时间参数
-packages/skill-sdk/src/muad_skill_sdk/skill_package.py,16,FRONTMATTER_FENCE,'---',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/skill-sdk/src/muad_skill_sdk/skill_package.py,17,SKILL_FILE_NAME,'SKILL.md',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/skill-sdk/src/muad_skill_sdk/skill_package.py,18,SCRIPTS_DIR,'scripts',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/skill-sdk/src/muad_skill_sdk/skill_package.py,19,RESOURCE_DIRS,"('references', 'assets')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/skill-sdk/src/muad_skill_sdk/skill_package.py,20,SCRIPT_EXTENSIONS,"frozenset({'.py', '.js', '.mjs', '.cjs'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/platform_settings.py,506,MIN_PASSWORD_LENGTH_FLOOR,8,python-constant,code,协议标识、枚举、schema、文本或实现常量

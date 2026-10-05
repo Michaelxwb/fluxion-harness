@@ -122,7 +122,7 @@ def test_applies_to_labels_cover_all_five_values() -> None:
 
 def test_backend_catalog_label_keys_are_translated_in_both_locales() -> None:
     """遍历后端 catalog 的每个 label_key / unit_key，断言两侧词条齐备（最省事又最硬的覆盖）。"""
-    groups = build_groups(PlatformSettings(), compaction_overrides=0)
+    groups = build_groups(PlatformSettings(), overrides={})
     assert groups, "catalog 未返回分组：导入或构造规则可能已与后端脱节"
     required: set[str] = set()
     for group in groups:
@@ -144,7 +144,7 @@ def test_backend_catalog_label_keys_are_translated_in_both_locales() -> None:
 
 def test_backend_applies_to_values_are_known_to_frontend() -> None:
     """后端 catalog 用到的 `applies_to` 取值必须都在前端映射枚举内（新增取值须先补映射与词条）。"""
-    groups = build_groups(PlatformSettings(), compaction_overrides=0)
+    groups = build_groups(PlatformSettings(), overrides={})
     used = {group["applies_to"] for group in groups}
     source = APPLIES_TO_SOURCE.read_text(encoding="utf-8")
     for value in sorted(used):

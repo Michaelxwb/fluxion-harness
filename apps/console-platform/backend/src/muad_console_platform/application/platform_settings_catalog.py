@@ -4,8 +4,10 @@
 避免第二处权威）；本模块只补充前端预检与展示需要的**范围/枚举/生效方式/单位/词条键**。
 `applies_to` 取 {new_run / new_task / next_operation / restart_required / code}。
 
-`overridden_by_resources`：被多少资源显式覆盖。当前只有压缩分组有资源级覆盖载体
-（Agent 的 `runtime_config_json.budget.compaction`），其余分组返回 0。
+`overridden_by_resources`：被多少资源显式覆盖。当前**有资源级覆盖载体**的分组只有三个，
+载体都落在 Agent 定义的 `runtime_config_json`：`budget.compaction`（compaction 分组）、四个
+agent 执行预算键（agent 分组）、`memory_write`（memory 分组）。其余分组没有任何资源表存逐资源
+覆盖，计数**结构上就是 0**（不是"未实现"的占位）——`count_resource_overrides` 是唯一计数入口。
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from dataclasses import asdict
 from typing import Any
 
 from muad_contracts.platform_settings import PlatformSettings
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import AgentDefinition
@@ -146,9 +148,12 @@ def _field_meta(path: str, value: Any, applies_to: str) -> dict[str, Any]:
 
 
 def build_groups(
-    settings: PlatformSettings, *, compaction_overrides: int
+    settings: PlatformSettings, *, overrides: Mapping[str, int]
 ) -> list[dict[str, Any]]:
-    """构建 API-01 的 `data.groups[]`：默认值/类型取自 schema，范围/生效方式取自本模块。"""
+    """构建 API-01 的 `data.groups[]`：默认值/类型取自 schema，范围/生效方式取自本模块。
+
+    `overrides` 是**分组 → 资源覆盖数**（`count_resource_overrides`）；没有载体的分组缺省即 0。
+    """
     document = asdict(settings)
     groups: list[dict[str, Any]] = []
     for group_key, group_document in document.items():
@@ -156,8 +161,7 @@ def build_groups(
         fields = []
         for path, value in _flatten(group_key, group_document).items():
             field = _field_meta(path, value, applies_to)
-            if group_key == "compaction":
-                field["overridden_by_resources"] = compaction_overrides
+            field["overridden_by_resources"] = overrides.get(group_key, 0)
             fields.append(field)
         groups.append(
             {
@@ -175,16 +179,31 @@ def readonly_notes() -> list[dict[str, str]]:
     return [dict(note) for note in _READONLY_NOTES]
 
 
-async def count_compaction_overrides(session: AsyncSession, tenant_id: str) -> int:
-    """压缩分组的资源覆盖数：`runtime_config_json.budget.compaction` 非空的 Agent 数。"""
-    override = AgentDefinition.runtime_config["budget"]["compaction"]
-    value = await session.scalar(
+async def count_resource_overrides(session: AsyncSession, tenant_id: str) -> dict[str, int]:
+    """各分组的资源覆盖数：被多少**未删除的 Agent 定义**显式覆盖。
+
+    覆盖载体只有 Agent 的 `runtime_config_json`（见模块说明）：`budget.compaction` 计入
+    compaction 分组，四个执行预算键任一命中即计入 agent 分组，`memory_write` 计入 memory 分组。
+    其余分组无载体，返回 0——这是**结构事实**，不是未实现的占位。
+    """
+    runtime_config = AgentDefinition.runtime_config
+    base = (
         select(func.count())
         .select_from(AgentDefinition)
         .where(
             AgentDefinition.tenant_id == tenant_id,
             AgentDefinition.is_deleted.is_(False),
-            override.isnot(None),
         )
     )
-    return int(value or 0)
+    agent_override = or_(
+        *(
+            runtime_config[key].isnot(None)
+            for key in ("max_turns", "max_tool_calls", "deadline_ms", "max_model_retries")
+        )
+    )
+    queries = {
+        "compaction": base.where(runtime_config["budget"]["compaction"].isnot(None)),
+        "agent": base.where(agent_override),
+        "memory": base.where(runtime_config["memory_write"].isnot(None)),
+    }
+    return {group: int(await session.scalar(query) or 0) for group, query in queries.items()}

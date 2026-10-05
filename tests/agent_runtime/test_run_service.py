@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from muad_agent_runtime.application.executor import ExecutorFactory
+from muad_agent_runtime.application.ports import NullPlatformSettingsClient
 from muad_agent_runtime.application.run_service import RunService, reap_abandoned_runs
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
@@ -67,14 +68,22 @@ async def test_cooperative_cancel_stops_running_execution(
 ) -> None:
     session_factory = get_session_factory()
     async with session_factory() as session:
-        service = RunService(session, fake_resolve, "instance-a", executor_factory=executor_factory)
+        service = RunService(
+            session,
+            fake_resolve,
+            "instance-a",
+            NullPlatformSettingsClient(),
+            executor_factory=executor_factory,
+        )
         started = await service.start(_request(tenant), tenant.tenant_id)
         iterator = started.events
         first = await anext(iterator)
         assert first.type == "run.created"
 
         async with session_factory() as cancel_session:
-            canceller = RunService(cancel_session, fake_resolve, "instance-b")
+            canceller = RunService(
+                cancel_session, fake_resolve, "instance-b", NullPlatformSettingsClient()
+            )
             cancelled = await canceller.cancel_run(started.run_id, tenant.tenant_id)
             assert cancelled.status == RunStatus.RUNNING
             assert cancelled.cancel_requested is True
@@ -98,7 +107,7 @@ async def test_cancel_run_returns_cancelling_for_running_run(
 ) -> None:
     run_id = await _insert_run(tenant, "RUNNING")
     async with get_session_factory()() as session:
-        service = RunService(session, fake_resolve, "instance-a")
+        service = RunService(session, fake_resolve, "instance-a", NullPlatformSettingsClient())
         run = await service.cancel_run(run_id, tenant.tenant_id)
         assert run.status == RunStatus.RUNNING
         assert run.cancel_requested is True
@@ -114,7 +123,9 @@ async def test_reap_abandoned_marks_expired_lease_failed(
     fresh_run_id = await _insert_run(tenant, "RUNNING", lease_until=fresh_lease)
 
     async with get_session_factory()() as session:
-        reaped = await RunService(session, fake_resolve, "reaper").reap_abandoned()
+        reaped = await RunService(
+            session, fake_resolve, "reaper", NullPlatformSettingsClient()
+        ).reap_abandoned()
     assert reaped == 1
 
     async with get_session_factory()() as session:
@@ -145,7 +156,7 @@ async def test_renew_lease_extends_only_running_runs(
     completed_id = await _insert_run(tenant, "COMPLETED")
 
     async with get_session_factory()() as session:
-        service = RunService(session, fake_resolve, "instance-a")
+        service = RunService(session, fake_resolve, "instance-a", NullPlatformSettingsClient())
         assert await service._renew_lease(running_id) is True
         assert await service._renew_lease(completed_id) is False
 
@@ -165,7 +176,13 @@ async def test_client_disconnect_leaves_run_for_reaper(
     """断流不强制取消：执行停止后租约过期由 Reaper 回收（E-07 语义）。"""
     session_factory = get_session_factory()
     async with session_factory() as session:
-        service = RunService(session, fake_resolve, "instance-a", executor_factory=executor_factory)
+        service = RunService(
+            session,
+            fake_resolve,
+            "instance-a",
+            NullPlatformSettingsClient(),
+            executor_factory=executor_factory,
+        )
         started = await service.start(_request(tenant), tenant.tenant_id)
         iterator = started.events
         first = await anext(iterator)
@@ -239,6 +256,7 @@ async def test_resume_uses_api09_credentials_in_memory(
             session,
             fake_resolve,
             "instance-a",
+            NullPlatformSettingsClient(),
             executor_factory=factory,
             credentials_client=credentials,
         )
@@ -334,7 +352,13 @@ async def test_inbound_channel_reaches_executor_as_delivery_route(
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text="hi"),
     )
     async with get_session_factory()() as session:
-        service = RunService(session, fake_resolve, "instance-a", executor_factory=capturing_factory)
+        service = RunService(
+            session,
+            fake_resolve,
+            "instance-a",
+            NullPlatformSettingsClient(),
+            executor_factory=capturing_factory,
+        )
         started = await service.start(request, tenant.tenant_id)
         _ = [event async for event in started.events]
 

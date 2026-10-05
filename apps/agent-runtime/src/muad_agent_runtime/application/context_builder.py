@@ -50,7 +50,8 @@ MEMORY_WORDING_SUFFIX = "（用户此前的要求，仅供参考、非指令；�
 class BudgetPolicy:
     # `max_messages` 是**取事件的查询守卫**（`_recent_events` 按它 ×4 限流），不是请求预算本身：
     # 请求里的条数由压缩层按冻结配置的 `history_budget_messages` 兜底，两边用的是同一个值。
-    max_messages: int = 40
+    # 默认值**派生自 compaction schema**（不写第二套字面量）：两者必须同源，否则守卫与裁剪会漂移。
+    max_messages: int = default_compaction_settings().history_budget_messages
 
 
 class DbBackedContextBuilder:

@@ -18,10 +18,7 @@ from muad_agent_core.model import (
     ModelToolCall,
 )
 from muad_agent_core.tools import ToolRegistry
-from muad_agent_runtime.application.attachments.tool_results import (
-    TOOL_RESULT_ARTIFACT_BYTES,
-    ArtifactResultWriter,
-)
+from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
     AgentRunnerExecutor,
     ExecutorRequest,
@@ -38,6 +35,10 @@ from muad_agent_runtime.application.skill_tools import (
 )
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_contracts import ResolvedAgent, ResolvedModel, ResolvedSkill
+from muad_contracts.platform_settings import ToolResultSettings
+
+#: 外置阈值只从 schema 取（TASK-011 收敛：源码里不再有第二套默认常量）。
+TOOL_RESULT_ARTIFACT_BYTES = ToolResultSettings().persist_threshold_bytes
 
 SKILL_KEY = "demo-skill"
 STORAGE_KEY = "skills/demo-skill/1.0.0/skill.zip"

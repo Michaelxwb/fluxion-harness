@@ -8,11 +8,15 @@ import pytest
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, Conversation
+from muad_contracts.platform_settings import ToolResultSettings
 
 TENANT = f"art-{uuid.uuid4()}"
 CONV_ID = uuid.uuid4()
 RUN_ID = uuid.uuid4()
 USER_ID = uuid.uuid4()
+
+#: 预览头尾字节只从 schema 取（TASK-011 收敛：源码里不再有第二套默认常量）。
+_PREVIEW = ToolResultSettings()
 
 
 @pytest.fixture()
@@ -82,6 +86,8 @@ async def test_b111_duplicate_run_task_xor_rejected(writer, _conversation) -> No
             tool_name="t",
             result_text="data",
             user_id=USER_ID,
+            preview_head_bytes=_PREVIEW.preview_head_bytes,
+            preview_tail_bytes=_PREVIEW.preview_tail_bytes,
         )
 
 
@@ -117,6 +123,8 @@ async def test_b111_db_failure_cleans_file(writer, tmp_path, _conversation) -> N
             tool_name="t",
             result_text="will fail",
             user_id=USER_ID,
+            preview_head_bytes=_PREVIEW.preview_head_bytes,
+            preview_tail_bytes=_PREVIEW.preview_tail_bytes,
         )
 
     files = list(tmp_path.rglob("*"))

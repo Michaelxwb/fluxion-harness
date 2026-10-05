@@ -237,7 +237,7 @@ class AuthService:
             raise AppError(ErrorCode.INVALID_CREDENTIALS)
         policy = await self._auth_policy(account.tenant_id)
         if len(new_password) < policy.min_password_length:
-            raise AppError(ErrorCode.COMMON_BAD_REQUEST)
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         account.password_hash = hash_password(new_password)
         account.failed_attempts = 0
         account.locked_until = None

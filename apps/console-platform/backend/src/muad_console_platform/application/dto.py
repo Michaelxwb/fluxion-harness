@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from muad_contracts import ChannelName, CredentialMode
+from muad_contracts.platform_settings import MIN_PASSWORD_LENGTH_FLOOR
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -17,7 +18,8 @@ class PasswordChangeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     current_password: str = Field(min_length=1)
-    new_password: str = Field(min_length=12, max_length=256)
+    # 只守 schema **绝对下界**；更严的策略下界由服务层按平台设置执行（`auth.min_password_length`）。
+    new_password: str = Field(min_length=MIN_PASSWORD_LENGTH_FLOOR, max_length=256)
 
 
 class AccountCreateRequest(BaseModel):
@@ -25,7 +27,8 @@ class AccountCreateRequest(BaseModel):
 
     username: str = Field(min_length=1, max_length=128)
     display_name: str = Field(min_length=1, max_length=128)
-    password: str = Field(min_length=12, max_length=256)
+    # 同 `PasswordChangeRequest.new_password`：DTO 只守绝对下界，策略下界在服务层。
+    password: str = Field(min_length=MIN_PASSWORD_LENGTH_FLOOR, max_length=256)
     role: Literal["ADMIN", "BUILDER"] = "BUILDER"
 
 
