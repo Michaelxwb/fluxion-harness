@@ -1009,3 +1009,251 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ---------- Settings（系统设置：左分组导航 + 右单分组面板） ---------- */
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--semi-color-border);
+}
+
+.settings-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--semi-color-text-2);
+}
+
+.settings-header-revision {
+  font-weight: 600;
+  color: var(--semi-color-text-0);
+}
+
+.settings-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+.settings-notice-icon {
+  flex: 0 0 auto;
+  color: var(--semi-color-primary);
+}
+
+.settings-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.settings-nav {
+  display: flex;
+  flex: 0 0 176px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
+  border-right: 1px solid var(--semi-color-border);
+}
+
+.settings-nav-item {
+  height: 36px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--semi-color-text-1);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.settings-nav-item:hover {
+  color: var(--semi-color-text-0);
+  background: var(--semi-color-fill-0);
+}
+
+.settings-nav-item:focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: -2px;
+}
+
+.settings-nav-item-selected,
+.settings-nav-item-selected:hover {
+  color: var(--semi-color-primary);
+  background: var(--semi-color-primary-light-default);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-nav-item {
+    transition: none;
+  }
+}
+
+/* 右侧分组面板：占满导航以外的宽度（分组面板自身即面板容器） */
+.settings-layout .settings-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--semi-color-border);
+}
+
+.settings-panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--semi-color-text-0);
+}
+
+.settings-override {
+  font-size: 12px;
+  color: var(--semi-color-warning);
+}
+
+.settings-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 8px 0;
+}
+
+.settings-field:not(:last-child) {
+  border-bottom: 1px solid var(--semi-color-fill-1);
+}
+
+.settings-field-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  min-width: 0;
+}
+
+.settings-field-label {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--semi-color-text-0);
+}
+
+.settings-field-hint {
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--semi-color-text-2);
+}
+
+.settings-field-control {
+  justify-self: end;
+}
+
+.settings-field-flags {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-field-error {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--semi-color-danger);
+  overflow-wrap: anywhere;
+}
+
+/* 面板内容过长时保持视口内的可读宽度（13 个字段的压缩组是最长面板） */
+.settings-group-body {
+  max-width: 860px;
+}
+
+.settings-conflict {
+  margin-bottom: 12px;
+}
+
+.settings-readonly {
+  width: 380px;
+  max-width: 84vw;
+  padding: 4px 2px;
+}
+
+.settings-readonly-title {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--semi-color-text-0);
+}
+
+.settings-readonly-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-readonly-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-readonly-label {
+  font-size: 13px;
+  color: var(--semi-color-text-1);
+}
+
+.settings-readonly-note {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--semi-color-text-2);
+}
+
+@media (max-width: 768px) {
+  .settings-layout {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+    padding: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--semi-color-border);
+  }
+
+  .settings-field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-field-control {
+    justify-self: start;
+  }
+}

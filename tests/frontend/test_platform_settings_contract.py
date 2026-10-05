@@ -80,9 +80,15 @@ def test_settings_field_control_reads_backend_metadata() -> None:
 
 
 def test_settings_page_does_not_hardcode_field_or_group_lists() -> None:
-    """分组与字段必须由 API 返回的元数据渲染，页面不得内联字段清单。"""
+    """分组与字段必须由 API 返回的元数据渲染，页面不得内联字段清单。
+
+    单面板布局（左导航 + 右面板）下，页面不再 `state.groups.map` 平铺分组：导航的 `groups`
+    与面板的 `activeGroup` 都直接来自 `state.groups`，这里断言这条数据来源，防止页面自持
+    一份分组清单。
+    """
     page = (MODULE / "pages/SettingsPage.tsx").read_text(encoding="utf-8")
-    assert "state.groups.map" in page, "分组必须由元数据渲染"
+    assert "groups={state.groups}" in page, "分组导航必须由元数据渲染"
+    assert "state.groups.find" in page, "当前面板分组必须由元数据派生"
     assert "SettingsGroupPanel" in page
     # 页面不得出现具体字段路径字面量（如 'snip.max_groups'），否则即第二套字段清单。
     assert "snip." not in page, "页面不得内联字段路径"
@@ -94,10 +100,10 @@ def test_settings_page_has_four_ui_states() -> None:
     assert "state.loading" in page and "settings-loading" in page, "缺少 loading 态"
     assert "state.failed" in page and "ErrorState" in page, "缺少 error 态"
     assert "state.revision === 0" in page and "settings.empty" in page, "缺少 revision=0 的 empty 态"
-    assert "state.groups.map" in page, "缺少 success 态分组渲染"
+    assert "groups={state.groups}" in page, "缺少 success 态分组渲染"
     # 错误态必须在分组渲染之前 return：失败时不渲染任何值。
     failed_index = page.index("if (state.failed)")
-    assert failed_index < page.index("state.groups.map"), "错误态必须先于分组渲染返回（不渲染任何值）"
+    assert failed_index < page.index("groups={state.groups}"), "错误态必须先于分组渲染返回（不渲染任何值）"
 
 
 def test_save_uses_revision_and_maps_field_errors() -> None:

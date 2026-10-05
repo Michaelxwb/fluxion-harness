@@ -27,7 +27,6 @@ const SETTINGS_PATH = '/api/v1/platform-settings';
 const SAVE_SUCCESS_TEXT = '已保存，新操作立即生效';
 const CONFLICT_TEXT = '设置已被他人修改，请重新加载后再保存';
 const EMPTY_TEXT = '当前使用平台内置默认值，尚未保存过';
-const NEVER_SAVED_TEXT = '尚未保存过';
 
 interface Credentials {
   username: string;
@@ -102,8 +101,10 @@ async function openSettings(page: Page): Promise<void> {
   await expect(page.getByTestId('settings-page')).toBeVisible();
 }
 
-async function expandGroup(page: Page, key: string): Promise<void> {
-  await page.locator(`[data-testid="settings-group-${key}"] .semi-collapse-header`).click();
+/** 单面板布局：分组通过左侧导航打开，打开后面板与字段可见。 */
+async function openGroup(page: Page, key: string): Promise<void> {
+  await page.getByTestId(`settings-nav-${key}`).click();
+  await expect(page.getByTestId(`settings-group-${key}`)).toBeVisible();
 }
 
 function fieldInput(page: Page, path: string) {
@@ -121,7 +122,7 @@ test('S-01 保存后版本号更新并提示新操作立即生效', async ({ pag
   await openSettings(page);
   await expect(page.getByTestId('settings-revision')).toContainText('v1');
 
-  await expandGroup(page, 'compaction');
+  await openGroup(page, 'compaction');
   await setFieldValue(page, 'snip.max_groups', state.validMaxGroups);
 
   const save = page.getByTestId('settings-save');
@@ -175,8 +176,9 @@ test('S-03 ADMIN 菜单有入口且排在运行审计之后；BUILDER 无入口�
   await otherPage.goto('/settings');
   await expect(otherPage.getByTestId('settings-page')).toBeVisible();
   await expect(otherPage.getByTestId('settings-empty')).toContainText(EMPTY_TEXT);
-  await expect(otherPage.getByTestId('settings-revision')).toContainText(NEVER_SAVED_TEXT);
-  await expandGroup(otherPage, 'compaction');
+  // revision=0 不再渲染纯文本版本号（琥珀标签自身已含「尚未保存过」，不重复）
+  await expect(otherPage.getByTestId('settings-revision')).toHaveCount(0);
+  await openGroup(otherPage, 'compaction');
   await expect(fieldInput(otherPage, 'snip.max_groups')).toHaveValue('50');
   await otherContext.close();
 });
@@ -184,7 +186,7 @@ test('S-03 ADMIN 菜单有入口且排在运行审计之后；BUILDER 无入口�
 test('E-11 破坏联动组合 ⇒ 字段级错误定位且输入保留', async ({ page }) => {
   await login(page, state.account);
   await openSettings(page);
-  await expandGroup(page, 'compaction');
+  await openGroup(page, 'compaction');
   await setFieldValue(page, 'snip.max_groups', state.invalidMaxGroups);
   await page.getByTestId('settings-save').click();
 
@@ -201,7 +203,7 @@ test('E-11 破坏联动组合 ⇒ 字段级错误定位且输入保留', async (
 test('E-12 版本冲突 ⇒ 明确提示 + 重新加载，不静默重试', async ({ page }) => {
   await login(page, state.account);
   await openSettings(page);
-  await expandGroup(page, 'compaction');
+  await openGroup(page, 'compaction');
   await setFieldValue(page, 'snip.max_groups', state.validMaxGroups);
 
   // 真实并发：经 API 以当前 revision=1 提交一次，把库内推进到 revision=2（浏览器手里仍是 1）。

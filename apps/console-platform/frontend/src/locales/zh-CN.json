@@ -756,7 +756,6 @@
   "settings.title": "系统设置",
   "settings.subtitle": "查看并调整平台级默认值；资源级覆盖仍在各自页面维护",
   "settings.header.revision": "当前版本 v{{revision}}",
-  "settings.header.neverSaved": "尚未保存过",
   "settings.header.updatedBy": "保存者",
   "settings.header.updatedAt": "保存时间",
   "settings.header.viewHistory": "版本历史",
@@ -768,13 +767,12 @@
   "settings.error.loadFailed": "加载设置失败",
   "settings.error.conflict": "设置已被他人修改，请重新加载后再保存",
   "settings.error.reload": "重新加载",
-  "settings.field.default": "平台默认",
-  "settings.field.range": "范围",
+  "settings.field.default": "默认",
+  "settings.field.range": "{{min}} ~ {{max}}",
   "settings.value.none": "未设置",
   "settings.bool.true": "开启",
   "settings.bool.false": "关闭",
   "settings.override.count": "已被 {{count}} 个资源覆盖",
-  "settings.override.none": "无资源覆盖，全部使用平台默认",
   "settings.appliesTo.new_run": "新会话生效",
   "settings.appliesTo.new_task": "新任务生效",
   "settings.appliesTo.next_operation": "下一步操作生效",
@@ -852,5 +850,7 @@
   "settings.field.locale.default_locale": "默认语言",
   "settings.field.locale.default_timezone": "默认时区",
   "settings.field.im.progress_interval_sec": "进度节拍",
-  "settings.field.mcp.max_tools_per_server": "单服务最大工具数"
+  "settings.field.mcp.max_tools_per_server": "单服务最大工具数",
+  "settings.field.rangeMin": "≥ {{min}}",
+  "settings.field.rangeMax": "≤ {{max}}"
 }

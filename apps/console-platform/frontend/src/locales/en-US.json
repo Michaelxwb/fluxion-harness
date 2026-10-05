@@ -756,7 +756,6 @@
   "settings.title": "System settings",
   "settings.subtitle": "Review and adjust platform-wide defaults; resource-level overrides stay on their own pages",
   "settings.header.revision": "Current revision v{{revision}}",
-  "settings.header.neverSaved": "Never saved",
   "settings.header.updatedBy": "Updated by",
   "settings.header.updatedAt": "Updated at",
   "settings.header.viewHistory": "Version history",
@@ -768,13 +767,12 @@
   "settings.error.loadFailed": "Failed to load settings",
   "settings.error.conflict": "Settings were changed by someone else; reload before saving",
   "settings.error.reload": "Reload",
-  "settings.field.default": "Platform default",
-  "settings.field.range": "Range",
+  "settings.field.default": "Default",
+  "settings.field.range": "{{min}} ~ {{max}}",
   "settings.value.none": "Not set",
   "settings.bool.true": "On",
   "settings.bool.false": "Off",
   "settings.override.count": "Overridden by {{count}} resources",
-  "settings.override.none": "No resource overrides; all use the platform default",
   "settings.appliesTo.new_run": "Applies to new sessions",
   "settings.appliesTo.new_task": "Applies to new tasks",
   "settings.appliesTo.next_operation": "Applies to the next operation",
@@ -852,5 +850,7 @@
   "settings.field.locale.default_locale": "Default locale",
   "settings.field.locale.default_timezone": "Default timezone",
   "settings.field.im.progress_interval_sec": "Progress interval",
-  "settings.field.mcp.max_tools_per_server": "Max tools per server"
+  "settings.field.mcp.max_tools_per_server": "Max tools per server",
+  "settings.field.rangeMin": "≥ {{min}}",
+  "settings.field.rangeMax": "≤ {{max}}"
 }

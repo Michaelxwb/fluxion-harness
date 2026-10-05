@@ -94,6 +94,7 @@ def test_semi_components_are_the_only_ui_library() -> None:
 # 且下方会反查它确实不含任何列表构件——不能靠"不写 RemoteTable"混过去。
 NON_LIST_MODULE_PAGES = (
     "apps/console-platform/frontend/src/modules/overview-dashboard/pages/OverviewPage.tsx",
+    "apps/console-platform/frontend/src/modules/settings/pages/SettingsPage.tsx",
 )
 
 
