@@ -647,7 +647,7 @@ flowchart TD
 
 #### 可观测性设计 [按需]
 
-- 指标：`platform_settings_save_total{result="ok|validation_failed|conflict"}`、`platform_settings_fetch_total{caller="runtime|worker|gateway", result="ok|failed"}`、`platform_settings_revision`（gauge，按租户可观测当前版本）。
+- 指标：`platform_settings_save_total{result="ok|validation_failed|conflict"}`、`platform_settings_fetch_total{caller="runtime|worker|gateway", result="ok|failed"}`。~~`platform_settings_revision` gauge~~ **本期不做**（没有消费方/告警规则，按「无投机代码」砍掉；将来要加时按租户维度重新设计）。
 - 日志：保存/回滚 INFO（revision、actor、变更键名），**不含变更值全文**；读取失败 WARNING + 失败原因。
 - 审计：`control.config_audit_log`，`action ∈ {CREATE, UPDATE, RESTORE}`，`before_json/after_json` 为脱敏后的设置文档。
 

@@ -298,6 +298,8 @@ Rule"。同文件 TASK-008/011/013 仍是 `N/A`，属各自任务的范围，未
 - [ ] 敏感键扫描与拒绝；响应体/错误体不回显任何凭据形状（`RULE-secret-001`）
 - [ ] 审计与日志走既有原语与脱敏（`RULE-log-001`）；变更值全文不入日志
 - [ ] 版本历史按 `{items,page,page_size,total}` 返回并带 `changed_keys`（相邻版本 diff）
+- [ ] 幂等需要落库时，按既有形态新建 `control.platform_setting_idempotency`（partial unique `(tenant_id, idempotency_key, endpoint)`）+ 迁移 `0018`，并登记进 `test_schema_parity.py`；指纹口径照 `channel_service.bind_fingerprint`（规范化 JSON 含 endpoint 与 tenant_id）
+- [ ] 按 design §3.5 实现两个计数指标并登记进 `metrics.py` 的 CATALOG：`platform_settings_save_total`（`result=ok|validation_failed|conflict`）、`platform_settings_fetch_total`（`caller=runtime|worker|gateway`, `result=ok|failed`）——后者是 TASK-005 的 E-03 断言依赖
 - [ ] [E-01][integration] 覆盖非法/越界/联动/未知键 ⇒ 400 + 字段路径，**不产生新版本**
 - [ ] [E-04][integration] 覆盖内部端点无/错服务身份、错租户 ⇒ 403，不泄漏内容
 - [ ] [E-06][integration] 覆盖回滚产生新版本、历史全保留、按当前 schema 校验旧内容
