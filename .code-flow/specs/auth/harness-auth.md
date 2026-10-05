@@ -42,9 +42,10 @@ Console 身份、会话与凭据管理（每条末附机器检查）：
   - 登记缺口（实现待收敛）：`accounts`/`users`/`agents`/`models`/`skills`/`platforms`/`mcp_servers`/`overview`/`audits` 等已认证路由仍用 `get_tenant_id()` —— 未认证的公开登录入口按头收窄用户名查找（`api/auth.py:33`）不在此约束内。
   - 机检：`tests/console_platform/test_credentials_api.py::test_credentials_tenant_comes_from_account_not_header`
 - **CSRF 双提交 + Cookie 属性**：非安全方法（`GET/HEAD/OPTIONS/TRACE` 之外）必须比对 `muad_csrf` Cookie 与 `X-CSRF-Token` 头（`hmac.compare_digest`，失败 `403`）；会话 Cookie `muad_session` 为 `httponly`、CSRF Cookie 必须可读、两者 `samesite=strict`、`secure` 仅非 dev 打开。`authenticated` 与 `admin` 两组都挂 `require_csrf`（`api/security.py:9-13,20-47,52-58`；`api/router.py:27,42`；写 Cookie 见 `api/auth.py:50`）。
-- **会话唯一权威源是 PG `control.console_session`**：令牌只存 `sha256` 摘要、库里无明文列；TTL 12h，剩余不足 50% 时滑动续期；登出置 `revoked_at` 且幂等（重复登出不报错）。无状态 JWT 会绕过吊销与滑动续期，禁止引入（`application/auth_service.py:25-26,44-45,78-87,121-122,128-134`；`infrastructure/models/auth.py:49-80`）。
+- **会话唯一权威源是 PG `control.console_session`**：令牌只存 `sha256` 摘要、库里无明文列；登录按当前平台设置 `auth.session_ttl_hours`（默认 12h）签发，**滑动阈值是派生值**——本会话签发窗口（`expires_at - issued_at`）的一半，剩余低于一半时续期到 `now + 当前平台 TTL`；登出置 `revoked_at` 且幂等（重复登出不报错）。无状态 JWT 会绕过吊销与滑动续期，禁止引入（`application/auth_service.py:119-137`；`infrastructure/models/auth.py:49-80`）。
   - ✅ 库里只有 sha256 摘要；❌ 存明文或改用无状态 JWT
   - 机检：`tests/console_auth/test_login.py:99-102`
+- **已认证会话的解析不得依赖设置可读（ADR-12）**：会话解析发生在**每个**请求上，若它也读平台设置，一条 schema 坏掉的 `platform_setting` 行就会让该租户**全部**已认证请求失败——把「一次保存写坏」放大成「整个租户锁死」。因此 `RULE-06`「设置源不可读即明确失败」只约束**业务操作**与**登录/续期这两个策略生效点**，**不适用于普通请求的会话解析**：解析用本会话签发时冻结的 TTL（`expires_at - issued_at`）判滑动阈值，**只在真要续期时**才读当前 `auth.session_ttl_hours`（`application/auth_service.py:127-133`）。这样既满足「之后签发/续期的会话按新值」，又不动已签发会话，还让普通请求零额外设置读取（同守 NFR-PERF-01）。
 - **密码与失败锁定**：`argon2id`（`$argon2id$` 前缀）、最短 12 字符；连续 5 次失败锁 15 分钟且**锁定时把计数清零**（恢复后重新计 5 次）；未知用户与禁用账号都走 dummy hash 等化时序并统一回 `INVALID_CREDENTIALS`，不泄露账号是否存在（`application/auth_service.py:22-30,61-75,105-111`）。
   - ✅ 未知用户先 `verify_password(_DUMMY_HASH, password)` 再报错；❌ 提前 `return` 造成响应时间差
   - 机检：`tests/console_auth/test_login.py:106-112`；`tests/acceptance/console_auth_flow/test_auth_acceptance.py:220-239`

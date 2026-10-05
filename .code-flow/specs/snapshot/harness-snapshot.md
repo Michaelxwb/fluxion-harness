@@ -32,6 +32,9 @@ verifiers:
 - **`api_key` 必须从快照与 hash 中剥离**：`model_json` 与 `content_hash` 的输入都要 `pop("api_key")`，认证实时走 API-09 读取（`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py:172-176`；断言 `tests/agent_runtime/test_snapshot_freeze.py:33-46`）。这是 snapshot 与 secret 两个 spec 的接缝：✅ 快照只留 `base_url`/`model_id` 等非密钥字段；❌ 密钥进快照或进 hash，会造成密钥轮换即 hash 漂移且密钥落盘。
 - **非终态写入同样是 CAS**：「终态写入必须 CAS」不限于终态：resume 用 `status == WAITING_INPUT` 作条件把 `WAITING_INPUT→RUNNING`，落败者拿 `RUN_BUSY`；cancel 同样以预期状态为条件（`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py:673-686,765-806`）。✅ `UPDATE ... WHERE id = ? AND status = <预期>`；❌ 先读后写、或只按 id 更新。
 - **「配置或授权变更只影响后续新 Run/Task」由 resume 不重 resolve 承载**（resume 从已落库快照重建 Agent/Model/Skill/MCP，`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py:642-651`）。**该规则代码证实但验收缺位**：指定 verifier `tests/agent_runtime/test_snapshot_freeze.py` 只有 hash 稳定性与 `api_key` 剥离两例，没有「变更配置后旧 Run 仍用旧快照」的断言。
+- **平台业务默认在业务操作边界取一次快照并冻结**：Runtime 在 Run 创建事务内（`_create_run`）**一次**取平台设置快照，把 `compaction` / `agent` 四叶 / `memory` 五叶 / `artifact.max_archive_files` / `locale.default_timezone` 冻进 execution snapshot 的 `policy_json`；Worker 在新 Task / 投递 / 调度各边界各取一次；Gateway 在一条回复的生命周期边界取一次。执行期（每轮模型调用、每次工具执行）**不再重新读设置**（NFR-PERF-01），配置变更只影响后续新 Run/Task，执行中的对象继续用冻结值（`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py` 的 `_create_run`；`tests/agent_runtime/test_execution_defaults_settings.py`）。**「操作边界取」而非「冻结进 Run」**的是不属于某个 Run/Task 的场景——如 Console 产物清理的 `artifact.retention_days`/`cleanup_batch_size` 在每次清理执行时取当前值（清理不是 Run）。
+  - ✅ `snapshot_settings = fetch_snapshot(...)` 在 `_create_run` 里取一次、冻进 `policy_json`；执行器 / `context_builder` / tool set 只读冻结值
+  - ❌ 在 `build_registry`/`load_history`/每轮模型请求里重新 `fetch_snapshot`（把设置读取拖进热路径，且同一 Run 前后可能读到不同 revision）
 
 ## Avoid
 

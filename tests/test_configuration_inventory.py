@@ -55,6 +55,14 @@ def test_configuration_inventory_covers_shared_settings_and_policy_fields() -> N
         "SummarySettings",
         "MemorySettings",
         "CompactionSettings",
+        "AgentSettings",
+        "TaskSettings",
+        "MemoryPolicySettings",
+        "ArtifactSettings",
+        "AuthSettings",
+        "LocaleSettings",
+        "ImSettings",
+        "McpSettings",
     }
     for base in ("apps", "packages"):
         for path in (ROOT / base).rglob("*.py"):

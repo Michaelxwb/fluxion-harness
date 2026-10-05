@@ -34,6 +34,9 @@ MODEL_API_KEY = "e2e-model-key"
 SKILL_KEY = "e2e_policy_check"
 BOT_ID = "e2e-bot"
 BOT_SECRET = "e2e-bot-secret"
+# Console 管理员账号（S-02）：让栈内能走**真实 Console API** 保存平台设置（真实登录会话 + CSRF）。
+CONSOLE_ADMIN_USERNAME = "e2e-console-admin"
+CONSOLE_ADMIN_PASSWORD = "e2e-console-admin-password"
 READY_TIMEOUT_SEC = 45.0
 # 时序节拍：本栈此前**全部沿用生产默认**（worker poll 5s / scheduler 10s / deadline sweep 30s /
 # 投递 poll 5s / 投递退避 base 5），于是每条排队用例都要真等一个轮询周期、每条退避用例要真等
@@ -101,6 +104,11 @@ RUNTIME_CLEANUP = (
 )
 
 CONTROL_CLEANUP = (
+    # S-02 走真实 Console 登录/保存：会话（按账号归属，无 tenant_id 列）与账号连同登录/保存审计一并清零。
+    "DELETE FROM control.console_session WHERE account_id IN "
+    "(SELECT id FROM control.console_account WHERE tenant_id = :t)",
+    "DELETE FROM control.console_account WHERE tenant_id = :t",
+    "DELETE FROM control.config_audit_log WHERE tenant_id = :t",
     # 平台设置（本栈按租户种下的那行，见 PLATFORM_SETTINGS_OVERRIDES）：收尾清零，不污染后续运行。
     "DELETE FROM control.platform_setting WHERE tenant_id = :t",
     "DELETE FROM control.agent_skill_binding WHERE agent_id IN "
@@ -243,6 +251,8 @@ def seed_control(
     llm_url: str,
     artifact_root: Path,
 ) -> dict[str, Any]:
+    from muad_console_platform.application.auth_service import hash_password
+    from muad_console_platform.infrastructure.models.auth import ConsoleAccount
     from muad_console_platform.infrastructure.models.channel import BotAccount
     from muad_console_platform.infrastructure.models.control import (
         AgentAccessGrant,
@@ -339,6 +349,17 @@ def seed_control(
                     bot_id=BOT_ID,
                     secret=BOT_SECRET,
                     agent_id=agent.id,
+                    enabled=True,
+                )
+            )
+            # 真实 Console 管理员（S-02 用真实登录会话 + CSRF 走 Console API 保存设置）。
+            session.add(
+                ConsoleAccount(
+                    tenant_id=TENANT,
+                    username=CONSOLE_ADMIN_USERNAME,
+                    display_name="E2E Console Admin",
+                    password_hash=hash_password(CONSOLE_ADMIN_PASSWORD),
+                    role="ADMIN",
                     enabled=True,
                 )
             )

@@ -156,4 +156,4 @@ API 默认 page size=20、max=100 与某些 UI 默认 10 属当前接口 / 展�
 
 1. 前端 `SKILL_ZIP_LIMIT_BYTES` 副本尚未接线到只读限额端点（收敛项 4）。
 2. 请求内临时构造 `SharedSettings()` 的全仓收口是已知债，未在本次完成（`技术债②`）。
-3. `muad_contracts.platform_settings` 的 8 个非压缩分组（`agent` / `task` / `memory` / `artifact` / `auth` / `locale` / `im` / `mcp`）的 schema 默认值**尚未进入 CSV**——机检的类清单目前只覆盖 `SharedSettings`、`AgentPolicy`、`BudgetPolicy`、`EgressPolicy` 与压缩分组各 `*Settings`。补齐需同步扩展机检的 AST 类清单。
+3. ~~`muad_contracts.platform_settings` 的 8 个非压缩分组（`agent` / `task` / `memory` / `artifact` / `auth` / `locale` / `im` / `mcp`）的 schema 默认值尚未进入 CSV~~ **已补齐**（2026-10-05，TASK-012）：这 8 个分组的 26 个 schema 默认值已进入 CSV 并标 `business`，机检的 AST 类清单同步扩展（`tests/test_configuration_inventory.py`），E-16 机检绿。

@@ -14,9 +14,9 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | depends_on |
 |--------|---------|---------|-------------|---------|------|---------|-----|---------|-----------|
-| S-01 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针 | TASK-010 | e2e_deferred | - | . | 600 | |
-| S-02 | platform-settings.backend.design.md#2.5.2 验收场景 | E2E | 真实 Console API → 真实 PostgreSQL → 真实 Worker 进程（真实 lease/claim） | TASK-006 | e2e_deferred | - | . | 600 | |
-| S-03 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | TASK-010 | e2e_deferred | - | . | 600 | |
+| S-01 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针 | TASK-010 | verified | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | . | 600 | |
+| S-02 | platform-settings.backend.design.md#2.5.2 验收场景 | E2E | 真实 Console API → 真实 PostgreSQL → 真实 Worker 进程（真实 lease/claim） | TASK-006 | verified | ["uv","run","pytest","-q","tests/acceptance/task_schedule/test_platform_settings_defaults.py","-k","s02"] | . | 600 | |
+| S-03 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | TASK-010 | verified | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | . | 600 | |
 | E-01 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 settings service | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","invalid_payload"] | . | 300 | |
 | E-02 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实唯一约束） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","version_conflict"] | . | 300 | |
 | E-03 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 Runtime 进程 + 被切断的 Console 内部端点 | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","source_unavailable"] | . | 600 | |
@@ -27,14 +27,14 @@
 | E-08 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 独立进程（无 TTL 缓存、无重启） | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_platform_settings_source.py","-k","new_revision_without_restart"] | . | 600 | |
 | E-09 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 `.env.example` + 真实 `SharedSettings` 字段集 | TASK-011 | verified | ["uv","run","pytest","-q","tests/test_configuration_convergence.py"] | . | 300 | |
 | E-10 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 HTTP 响应体 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","secret_rejected"] | . | 300 | |
-| E-11 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | TASK-010 | e2e_deferred | - | . | 600 | |
-| E-12 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（真实 409） | TASK-010 | e2e_deferred | - | . | 600 | |
-| E-13 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许，成功路径禁止拦截） | TASK-010 | e2e_deferred | - | . | 600 | |
-| E-14 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实登录会话（真实 403，无路由拦截） | TASK-010 | e2e_deferred | - | . | 600 | |
+| E-11 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | TASK-010 | verified | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | . | 600 | |
+| E-12 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实 Console API（真实 409） | TASK-010 | verified | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | . | 600 | |
+| E-13 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许，成功路径禁止拦截） | TASK-010 | verified | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | . | 600 | |
+| E-14 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实登录会话（真实 403，无路由拦截） | TASK-010 | verified | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | . | 600 | |
 | E-15 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实登录会话与 CSRF | TASK-009 | verified | ["uv","run","pytest","-q","tests/console_platform/test_auth_policy_settings.py"] | . | 300 | |
 | E-16 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实源码树 + 真实 CSV + 真实机检（无服务） | TASK-016 | verified | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | . | 300 | |
 | E-17 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实幂等表与 partial unique）+ 真实 HTTP | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_api.py","-k","idempotent_replay"] | . | 300 | |
-| E-18 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实任务文档与 manifest（收口清单交叉核对） | TASK-012 | planned | ["uv","run","pytest","-q","tests/platform_settings_inventory.py"] | . | 300 | |
+| E-18 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实任务文档与 manifest（收口清单交叉核对） | TASK-012 | verified | ["uv","run","pytest","-q","tests/platform_settings_inventory.py"] | . | 300 | |
 | E-19 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_defaults_from_settings.py","-k","new_task_defaults"] | . | 600 | |
 | E-20 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL + 真实 Runtime 装配 + 真实 Console 清理入口 | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_execution_defaults_settings.py"] | . | 600 | |
 | E-21 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 acceptance 栈（真实 Console API + 真实 PostgreSQL + 真实 Worker 进程） | TASK-014 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx"] | . | 1200 | |
@@ -44,7 +44,7 @@
 | B-02 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实预算层级解析函数（无服务） | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_budget_layers.py"] | . | 300 | |
 | B-03 | platform-settings.backend.design.md#2.5.2 验收场景 | unit | 真实 Gateway 回复生命周期取值函数（无服务） | TASK-007 | verified | ["uv","run","pytest","-q","tests/gateway/test_progress_settings.py"] | . | 300 | |
 | B-04 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（表内无该租户行） | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_service.py","-k","default_when_absent"] | . | 300 | |
-| B-05 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由 | TASK-010 | e2e_deferred | - | . | 600 | |
+| B-05 | platform-settings.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 + 真实路由 | TASK-010 | verified | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts"] | . | 600 | |
 | B-06 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树 + 真实词条文件（无服务） | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_platform_settings_contract.py","-k","applies_to_labels"] | . | 300 | |
 | B-07 | platform-settings.backend.design.md#2.5.2 验收场景 | integration | 真实 PostgreSQL（真实 `alembic upgrade 0001→0017` / `downgrade`） | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_table.py"] | . | 300 | |
 | B-08 | platform-settings.frontend.design.md#2.4 验收条件 | unit | 真实源码树（无服务） | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_console_shell_contract.py","tests/frontend/test_platform_settings_contract.py"] | . | 300 | |
@@ -55,7 +55,7 @@
 
 ## TASK-001: 平台设置文档 schema 与联动校验
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: platform-settings.backend.design.md#2.3 功能方案, platform-settings.backend.design.md#3.1 方案选型
@@ -117,6 +117,15 @@
 
 - B-01: verified — automated command passed; run_id=34b14f1e97944e019c2fc4e5e556cdf5 (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| B-01 | `tests/test_platform_settings_schema.py` **105 passed**；真实 schema 直调（无 mock、无服务） | verified |
+- B-01: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -126,7 +135,7 @@
 
 ## TASK-002: 平台设置表与迁移
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: platform-settings.backend.design.md#3.3 数据设计, platform-settings.backend.design.md#4.4 数据迁移
@@ -184,6 +193,15 @@ E   ImportError: cannot import name 'PlatformSetting' from 'muad_console_platfor
 **迁移往返用的库（隔离红线）**：`downgrade` **只在** `tests/acceptance/datastores.create_datastore()` 建出的临时库 `muad_pst_<uuid>`（空库 + 迁到 head；跑完 `DROP DATABASE ... WITH (FORCE)` 并归还 Redis 号位）上执行；往返用的 alembic ini 由用例自建、只含该临时 DSN（`migrations/` 只读 ini、不读环境变量）。共享 dev 库 `muad` 全程**只做过 `upgrade head`（0016→0017），未做任何 downgrade**；跑完确认无 `muad_pst_*` 残留库。
 - B-07: verified — automated command passed; run_id=de9a893dc3a14e9e864062e7f12c588d (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| B-07 | `tests/console_platform/test_platform_settings_table.py` **3 passed**；真实 PG 反射 + alembic `0016↔0017` 往返（临时库） | verified |
+- B-07: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -193,7 +211,7 @@ E   ImportError: cannot import name 'PlatformSetting' from 'muad_console_platfor
 
 ## TASK-003: 设置 service：读取、保存、版本与审计
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: platform-settings.backend.design.md#3.4 接口设计, platform-settings.backend.design.md#3.5 质量实现方案
@@ -272,6 +290,23 @@ Rule"。同文件 TASK-008/011/013 仍是 `N/A`，属各自任务的范围，未
 - E-05: verified — automated command passed; run_id=0abc5bfd2e7d4e54a84e52fdfa30b5d8 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=0abc5bfd2e7d4e54a84e52fdfa30b5d8 (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| B-04 | `test_platform_settings_service.py -k default_when_absent` **1 passed**；真实 PG 无行 ⇒ `revision=0` + schema 默认 | verified |
+| E-02 | `test_platform_settings_service.py -k version_conflict` **2 passed**；真实 partial unique 兜底并发 | verified |
+| E-05 | `test_platform_settings_service.py -k audit_same_transaction` **2 passed**；真实 `config_audit_log` 同事务 | verified |
+- E-02: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -281,7 +316,7 @@ Rule"。同文件 TASK-008/011/013 仍是 `N/A`，属各自任务的范围，未
 
 ## TASK-004: Console API 与内部取设置端点
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: platform-settings.backend.design.md#3.4 接口设计
@@ -389,6 +424,31 @@ RULE-secret-001 → **14 passed**；RULE-log-001 → **13 passed**。
 - E-10: verified — automated command passed; run_id=01cb35ccb7ab48539e2a60a61d7080aa (confirmed_by: runner)
 - E-17: verified — automated command passed; run_id=01cb35ccb7ab48539e2a60a61d7080aa (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| E-01 | `test_platform_settings_api.py -k invalid_payload` **1 passed**；400 + `details[].path`、不产生新版本 | verified |
+| E-04 | `tests/console_internal/test_platform_settings_internal.py -k service_identity` **1 passed**；真实服务身份 403 | verified |
+| E-06 | `test_platform_settings_api.py -k restore` **1 passed**；回滚产生新 revision、历史全保留 | verified |
+| E-10 | `test_platform_settings_api.py -k secret_rejected` **1 passed**；审计/响应体/日志无敏感值 | verified |
+| E-17 | `test_platform_settings_api.py -k idempotent_replay` **1 passed**；真实幂等 partial unique | verified |
+- E-01: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-10: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-17: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-10: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-17: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-10: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-17: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -398,7 +458,7 @@ RULE-secret-001 → **14 passed**；RULE-log-001 → **13 passed**。
 
 ## TASK-005: Runtime 平台设置读取缝与冻结
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004
 - **Source**: platform-settings.backend.design.md#3.1 方案选型, platform-settings.backend.design.md#3.2 架构设计
@@ -472,6 +532,23 @@ ERROR tests/agent_runtime/test_platform_settings_source.py
 - E-07: verified — automated command passed; run_id=947676192dc945399f80be9e1ccfa260 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=947676192dc945399f80be9e1ccfa260 (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| E-03 | `tests/agent_runtime/test_platform_settings_source.py -k source_unavailable` **1 passed**；真实 Runtime uvicorn + 被切断端点 + 失败指标 | verified |
+| E-07 | `test_platform_settings_source.py -k agent_override_precedence` **1 passed**；真实 Agent 定义行覆盖优先 | verified |
+| E-08 | `test_platform_settings_source.py -k new_revision_without_restart` **1 passed**；无 TTL、新 Run 立即读到新 revision | verified |
+- E-03: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -481,7 +558,7 @@ ERROR tests/agent_runtime/test_platform_settings_source.py
 
 ## TASK-006: Worker 读取缝与任务默认接入
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004
 - **Source**: platform-settings.backend.design.md#3.2 架构设计, platform-settings.backend.design.md#2.3 功能方案
@@ -512,7 +589,7 @@ Worker 在**任务开始执行**与**投递记录开始尝试**两个边界各�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | E2E | 真实 Console API → 真实 PostgreSQL → 真实 Worker 进程（真实 lease/claim） | 新 Task 使用新默认；既有 Task 行字段不变 | planned | - | e2e_deferred |
+| S-02 | E2E | 真实 Console API → 真实 PostgreSQL → 真实 Worker 进程（真实 lease/claim） | 新 Task 使用新默认；既有 Task 行字段不变 | planned | - | verified |
 | E-19 | integration | 真实 PostgreSQL + 真实 Worker 应用层（真实 lease/claim 语义） | 新 Task 用新默认；存量行不改写；设置源不可读 ⇒ 创建明确失败 | `tests/agent_worker/test_task_defaults_from_settings.py -k new_task_defaults` | ["uv","run","pytest","-q","tests/agent_worker/test_task_defaults_from_settings.py","-k","new_task_defaults"] | verified |
 
 ### Acceptance Evidence
@@ -588,6 +665,19 @@ $ uv run pytest -q tests/agent_runtime -k platform_settings
 - S-02: e2e_deferred — automated command e2e_deferred; run_id=ab4a307ef81144fb84cfa6d170c459cb (confirmed_by: runner)
 - E-19: verified — automated command passed; run_id=ab4a307ef81144fb84cfa6d170c459cb (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| S-02 | 登记（E2E 交给需求级 `verify-e2e`，编码期不执行） | e2e_deferred |
+| E-19 | `tests/agent_worker/test_task_defaults_from_settings.py -k new_task_defaults` **8 passed**；真实 PG + 真实 lease/claim | verified |
+- S-02: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-19: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-19: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-19: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -598,7 +688,7 @@ $ uv run pytest -q tests/agent_runtime -k platform_settings
 
 ## TASK-007: Gateway 读取缝与 IM 展示节拍
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004
 - **Source**: platform-settings.backend.design.md#3.1 方案选型, platform-settings.backend.design.md#3.2 架构设计
@@ -682,6 +772,15 @@ GREEN：
 - `tests/acceptance/im_gateway/environment.py:142` 仍注入 `IM_PROGRESS_INTERVAL_SEC=1`（已失效）——该栈改「按租户种平台设置」归 **TASK-014**。
 - B-03: verified — automated command passed; run_id=ff1ef3adb97f4c9fbaeed76fbb9cb9fe (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| B-03 | `tests/gateway/test_progress_settings.py` **5 passed**；真实 Gateway 回复生命周期取值函数（无服务） | verified |
+- B-03: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -691,7 +790,7 @@ GREEN：
 
 ## TASK-008: 模型执行预算层级
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: platform-settings.backend.design.md#3.1 方案选型
@@ -764,6 +863,15 @@ E   ModuleNotFoundError: No module named 'muad_agent_core.agent.budget'
 - 纯逻辑装配烟测（真实函数、无服务）：平台文档 `{"agent":{"deadline_ms":45000,"max_model_retries":7}}` → `agent_budget_from_platform` → `snapshot_policy` 冻结 `{deadline_ms:45000,max_model_retries:7}` → `agent_budget_of` 还原 → `agent_policy_for` 得 `AgentPolicy(deadline_ms=45000,max_model_retries=7)`；Agent `runtime_config.deadline_ms=9000` 覆盖为基值之上更高优先级（`deadline_ms=9000,max_model_retries=7`）。
 - B-02: verified — automated command passed; run_id=718d9ac0af6b475e9aea4b970cce1a4c (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| B-02 | `tests/agent_runtime/test_model_budget_layers.py` **7 passed**；真实预算层级解析函数（无服务） | verified |
+- B-02: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -773,7 +881,7 @@ E   ModuleNotFoundError: No module named 'muad_agent_core.agent.budget'
 
 ## TASK-009: Console 侧业务默认接入（认证策略与 MCP 规模）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004
 - **Source**: platform-settings.backend.design.md#2.3 功能方案, platform-settings.backend.design.md#3.4 接口设计
@@ -862,6 +970,15 @@ $ uv run pytest -q tests/console_internal tests/architecture tests/test_contract
   - 平台默认语言的真正承担位置是**业务渲染边界**：Worker 投递文案（`apps/agent-worker/.../delivery/service.py:155` 读 `platform.locale.default_locale`）与 Gateway 回复渲染（`apps/im-gateway/.../application/platform_settings.py:46`），二者已由 TASK-006/007 切换（与 TASK-013 的收口说明一致）。**不沉默放过**：此处记录为"已复核、判定为不需要改动"，非遗漏。
 - E-15: verified — automated command passed; run_id=52e90b3cae384b4ab978a1cf209708b9 (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| E-15 | `tests/console_platform/test_auth_policy_settings.py` **5 passed**；真实 PG + 真实登录会话与 CSRF | verified |
+- E-15: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-15: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-15: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -871,7 +988,7 @@ $ uv run pytest -q tests/console_internal tests/architecture tests/test_contract
 
 ## TASK-010: Console 系统设置页
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004
 - **Source**: platform-settings.frontend.design.md#2.2 功能方案, platform-settings.frontend.design.md#3.2 页面与路由结构, platform-settings.frontend.design.md#3.3 组件设计, platform-settings.frontend.design.md#3.5 状态与数据流
@@ -911,13 +1028,13 @@ $ uv run pytest -q tests/console_internal tests/architecture tests/test_contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | 真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针 | 保存后新 Run 用新值（`policy_json` 与探针请求体）；保存前已开始的 Run 不变 | planned | - | e2e_deferred |
-| S-03 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | ADMIN 菜单有入口且在运行审计之后；BUILDER 无入口且直接访问被拒；跨租户不可见 | planned | - | e2e_deferred |
-| E-11 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | 破坏联动组合 ⇒ 字段级错误定位；当前值不被覆盖；输入保留 | planned | - | e2e_deferred |
-| E-12 | E2E | 真实浏览器 + 真实 Console API（真实 409） | 冲突提示 + 重新加载；不自动重试 | planned | - | e2e_deferred |
-| E-13 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许） | 错误态文案 + 重试；**不渲染任何值** | planned | - | e2e_deferred |
-| E-14 | E2E | 真实浏览器 + 真实登录会话（真实 403） | 被守卫拦截，不发设置请求 | planned | - | e2e_deferred |
-| B-05 | E2E | 真实浏览器 + 真实路由 | 无改动时保存禁用；显示当前版本号 | planned | - | e2e_deferred |
+| S-01 | E2E | 真实浏览器 → 真实 Console API → 真实 PostgreSQL → 真实 Runtime → 真实模型 HTTP 探针 | 保存后新 Run 用新值（`policy_json` 与探针请求体）；保存前已开始的 Run 不变 | planned | - | verified |
+| S-03 | E2E | 真实浏览器（真实登录会话与角色）→ 真实 Console API → 真实 PostgreSQL | ADMIN 菜单有入口且在运行审计之后；BUILDER 无入口且直接访问被拒；跨租户不可见 | planned | - | verified |
+| E-11 | E2E | 真实浏览器 + 真实 Console API（后端校验真实生效） | 破坏联动组合 ⇒ 字段级错误定位；当前值不被覆盖；输入保留 | planned | - | verified |
+| E-12 | E2E | 真实浏览器 + 真实 Console API（真实 409） | 冲突提示 + 重新加载；不自动重试 | planned | - | verified |
+| E-13 | E2E | 真实浏览器 + 真实路由；读取失败用真实网络失败注入（错误路径允许） | 错误态文案 + 重试；**不渲染任何值** | planned | - | verified |
+| E-14 | E2E | 真实浏览器 + 真实登录会话（真实 403） | 被守卫拦截，不发设置请求 | planned | - | verified |
+| B-05 | E2E | 真实浏览器 + 真实路由 | 无改动时保存禁用；显示当前版本号 | planned | - | verified |
 | B-06 | unit | 真实源码树 + 真实词条文件（无服务） | 五个 `applies_to` 标签齐全且 zh/en 都有词条 | `tests/frontend/test_platform_settings_contract.py -k applies_to_labels` | ["uv","run","pytest","-q","tests/frontend/test_platform_settings_contract.py","-k","applies_to_labels"]| verified |
 | B-08 | unit | 真实源码树（无服务） | 菜单十一项固定顺序；系统设置入口存在且 adminOnly；路由受 `RequireRole` 守卫；设置页无裸 axios/fetch | `tests/frontend/test_console_shell_contract.py` + `tests/frontend/test_platform_settings_contract.py` | ["uv","run","pytest","-q","tests/frontend/test_console_shell_contract.py","tests/frontend/test_platform_settings_contract.py"]| verified |
 
@@ -992,6 +1109,47 @@ FAILED tests/frontend/test_console_shell_contract.py::test_console_shell_has_sys
 - B-06: verified — automated command passed; run_id=7f7930852d624ced9a9e97283ef6d730 (confirmed_by: runner)
 - B-08: verified — automated command passed; run_id=7f7930852d624ced9a9e97283ef6d730 (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| S-01 | 登记（E2E 交给需求级 `verify-e2e`） | e2e_deferred |
+| S-03 | 登记（E2E 交给需求级 `verify-e2e`） | e2e_deferred |
+| E-11 | 登记（E2E 交给需求级 `verify-e2e`） | e2e_deferred |
+| E-12 | 登记（E2E 交给需求级 `verify-e2e`） | e2e_deferred |
+| E-13 | 登记（E2E 交给需求级 `verify-e2e`） | e2e_deferred |
+| E-14 | 登记（E2E 交给需求级 `verify-e2e`） | e2e_deferred |
+| B-05 | 登记（E2E 交给需求级 `verify-e2e`） | e2e_deferred |
+| B-06 | `tests/frontend/test_platform_settings_contract.py -k applies_to_labels` 通过 | verified |
+| B-08 | `tests/frontend/test_console_shell_contract.py tests/frontend/test_platform_settings_contract.py` **13 passed** | verified |
+- S-01: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-11: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-12: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-13: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-14: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-11: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-12: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-13: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-14: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-11: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-12: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-13: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- E-14: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -1001,7 +1159,7 @@ FAILED tests/frontend/test_console_shell_contract.py::test_console_shell_has_sys
 
 ## TASK-011: 重复默认源收敛与配置收口
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-005, TASK-006, TASK-007, TASK-008, TASK-009, TASK-013
 - **Source**: platform-settings.backend.design.md#3.1 方案选型, platform-settings.backend.design.md#4.4 数据迁移
@@ -1118,6 +1276,15 @@ $ uv run pytest -q tests/acceptance/console_auth_flow/test_auth_acceptance.py
 **未打穿。** S-04 两条腿（改密轮换成功；9 位 `too-short` → 422 `COMMON_VALIDATION_ERROR`）在 `uv run pytest -q tests/acceptance/console_auth_flow/test_auth_acceptance.py` 中均通过。同文件另有 2 条失败（`test_s02_sliding_renewal_extends_expiry_when_under_half`、`test_b02_six_hour_boundary_renews_only_below`，会话滑动续期）——已用 `git stash` 在**未改动的 HEAD** 上复跑，**同样失败**，属既有缺陷、与本任务无关；按纪律未放宽 S-04 期望、未改他人验收。
 - E-09: verified — automated command passed; run_id=b5fcf3ada1734893838ed1a4d75728ea (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| E-09 | `tests/test_configuration_convergence.py` **9 passed**；真实源码树 + `.env.example` + `SharedSettings` 字段集 | verified |
+- E-09: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -1126,7 +1293,7 @@ $ uv run pytest -q tests/acceptance/console_auth_flow/test_auth_acceptance.py
 ---
 ## TASK-012: 收口清单与需求级终验
 
-- **Status**: draft
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001..TASK-017
 - **Source**: platform-settings.backend.design.md#2.5 验收条件, platform-settings.frontend.design.md#2.4 验收条件
@@ -1139,37 +1306,131 @@ $ uv run pytest -q tests/acceptance/console_auth_flow/test_auth_acceptance.py
 
 ### Checklist
 
-- [ ] 收口清单 `tests/platform_settings_inventory.py`：**每个 TASK 的 Checklist 全部勾选**、覆盖表每行唯一负责人且终态、manifest 与覆盖表同 ID/owner/命令并比对 `level`/`boundary`/`cwd`、每个 TASK 契约表**每一行**终态（含收口任务自身）、证据表无占位行、`-k` 令牌在真实用例名里命中、登记路径真实存在
-- [ ] 结构性 RED + ≥4 类扰动取证（改状态 / 删证据行 / 伪造用例名或命令 / 改 manifest 字段），逐字节还原后复绿
-- [ ] [E-18][integration] 覆盖收口清单自身的校验；真实边界：**真实任务文档与 manifest**（不豁免收口任务自身）
-- [ ] [harness-test#RULE-test-001][review] 运行分层验收链：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`；真实边界：**真实 PG/Redis + 真实构建产物 + 真实浏览器**
-- [ ] **如实披露两处已知覆盖缺口（TASK-014 报备，不得在收尾证据里含糊）**：① `im.progress_interval_sec` 在 **E2E 层没有断言**——B-03 只在单元层钉取值；E2E 里 `已执行 00:01` 来自相位切换帧（强制）而非 1s 节拍帧，去掉种下的覆盖后扰动用例照样通过（实测）；② `dfx` 的批次并发 E2E 语义变了：种下的 `task.batch_max_concurrency` 现在是唯一约束（原先计划里也请求 `max_concurrency`，两者取小后恰好相等，等于在验计划请求而不是平台上限），「计划请求低于平台上限」这一维改由 `tests/agent_worker/test_batch_fanout.py` 单测覆盖
-- [ ] 需求级 `verify-e2e`：`cf_acceptance_runner.py --manifest … --include-e2e --write-evidence`，28/28 场景全过
-- [ ] 先写清单并记录 RED（清单缺失时登记的 argv 必须失败），再补齐
-- [ ] verifier `harness-test#RULE-test-001`：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（真实边界：真实 PG/Redis + 真实构建产物 + 真实浏览器；acceptance 单跑约 1064s，跑前须停 dev 服务并查残留进程）
-- [ ] **补齐盘点覆盖（TASK-016 报备的缺口）**：`tests/test_configuration_inventory.py` 的配置类清单只含 `SharedSettings`/`AgentPolicy`/`BudgetPolicy`/`EgressPolicy` 与压缩分组 `*Settings`，于是 `muad_contracts/platform_settings.py` 里**另外 8 个分组**（`agent`/`task`/`artifact`/`auth`/`locale`/`im`/`mcp` 等）的 schema 默认**一行都没进 CSV**（实测该文件只有 25 行、全是压缩分组）——而它们正是本需求「41 个叶子」的主要载体。把这些类加进机检清单、重生成对应行并标 `business`，然后**重跑 E-16 的机检命令**确认绿；否则「清单与真实源码声明一致」这句话对本需求新增的权威源是不成立的
-- [ ] **规范沉淀**：把本次引入的事实性约束写进对应 live spec 的 `## Conventions`（已知至少三条：① `actor_user_id` 一类**操作者引用即使同 Owner Schema 也用逻辑引用**、不建物理 FK（先例 `ConfigAuditLog.actor_user_id`，与 `RULE-data-001` 字面口径的张力在此写明）；② 平台设置版本行的 append-only 口径（`is_deleted` 恒 `false`、当前版本 = 该租户 `max(revision)`、乐观并发由 partial unique 兜底、回滚产生新版本）；③ 平台业务默认只在**业务操作边界**取一次快照，执行中的 Run/Task 用冻结快照）；④ live spec 的旧口径必须改写：`im/harness-im.md:83,89`（节拍来源写成 `IM_PROGRESS_INTERVAL_SEC` 环境变量，且把「验收栈注入 1s」当成 ✅ 示例）——**`mcp/harness-mcp.md:66` 已由 TASK-009 顺手改掉，不必重复**；⑤ `model/harness-model.md` 的重试/退避 Conventions（`model_gateway.py:105-125` 的行号与「超过 `max_retries`」的表述）在 ADR-07 之后要复核——**语义变了就改语义，只是行号漂移就只修引用**，别把仍然正确的口径改坏
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 收口清单 `tests/platform_settings_inventory.py`：**每个 TASK 的 Checklist 全部勾选**、覆盖表每行唯一负责人且终态、manifest 与覆盖表同 ID/owner/命令并比对 `level`/`boundary`/`cwd`、每个 TASK 契约表**每一行**终态（含收口任务自身）、证据表无占位行、`-k` 令牌在真实用例名里命中、登记路径真实存在
+- [x] 结构性 RED + ≥4 类扰动取证（改状态 / 删证据行 / 伪造用例名或命令 / 改 manifest 字段），逐字节还原后复绿
+- [x] [E-18][integration] 覆盖收口清单自身的校验；真实边界：**真实任务文档与 manifest**（不豁免收口任务自身）
+- [x] [harness-test#RULE-test-001][review] 运行分层验收链：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`；真实边界：**真实 PG/Redis + 真实构建产物 + 真实浏览器**
+- [x] **如实披露两处已知覆盖缺口（TASK-014 报备，不得在收尾证据里含糊）**：① `im.progress_interval_sec` 在 **E2E 层没有断言**——B-03 只在单元层钉取值；E2E 里 `已执行 00:01` 来自相位切换帧（强制）而非 1s 节拍帧，去掉种下的覆盖后扰动用例照样通过（实测）；② `dfx` 的批次并发 E2E 语义变了：种下的 `task.batch_max_concurrency` 现在是唯一约束（原先计划里也请求 `max_concurrency`，两者取小后恰好相等，等于在验计划请求而不是平台上限），「计划请求低于平台上限」这一维改由 `tests/agent_worker/test_batch_fanout.py` 单测覆盖
+- [x] 需求级 `verify-e2e`：`cf_acceptance_runner.py --manifest … --include-e2e --write-evidence`，34/34 场景全过
+- [x] 先写清单并记录 RED（清单缺失时登记的 argv 必须失败），再补齐
+- [x] verifier `harness-test#RULE-test-001`：`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`（真实边界：真实 PG/Redis + 真实构建产物 + 真实浏览器；acceptance 单跑约 1064s，跑前须停 dev 服务并查残留进程）
+- [x] **补齐盘点覆盖（TASK-016 报备的缺口）**：`tests/test_configuration_inventory.py` 的配置类清单只含 `SharedSettings`/`AgentPolicy`/`BudgetPolicy`/`EgressPolicy` 与压缩分组 `*Settings`，于是 `muad_contracts/platform_settings.py` 里**另外 8 个分组**（`agent`/`task`/`artifact`/`auth`/`locale`/`im`/`mcp` 等）的 schema 默认**一行都没进 CSV**（实测该文件只有 25 行、全是压缩分组）——而它们正是本需求「41 个叶子」的主要载体。把这些类加进机检清单、重生成对应行并标 `business`，然后**重跑 E-16 的机检命令**确认绿；否则「清单与真实源码声明一致」这句话对本需求新增的权威源是不成立的
+- [x] **规范沉淀**：把本次引入的事实性约束写进对应 live spec 的 `## Conventions`（已知至少三条：① `actor_user_id` 一类**操作者引用即使同 Owner Schema 也用逻辑引用**、不建物理 FK（先例 `ConfigAuditLog.actor_user_id`，与 `RULE-data-001` 字面口径的张力在此写明）；② 平台设置版本行的 append-only 口径（`is_deleted` 恒 `false`、当前版本 = 该租户 `max(revision)`、乐观并发由 partial unique 兜底、回滚产生新版本）；③ 平台业务默认只在**业务操作边界**取一次快照，执行中的 Run/Task 用冻结快照）；④ live spec 的旧口径必须改写：`im/harness-im.md:83,89`（节拍来源写成 `IM_PROGRESS_INTERVAL_SEC` 环境变量，且把「验收栈注入 1s」当成 ✅ 示例）——**`mcp/harness-mcp.md:66` 已由 TASK-009 顺手改掉，不必重复**；⑤ `model/harness-model.md` 的重试/退避 Conventions（`model_gateway.py:105-125` 的行号与「超过 `max_retries`」的表述）在 ADR-07 之后要复核——**语义变了就改语义，只是行号漂移就只修引用**，别把仍然正确的口径改坏
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-18 | integration | 真实任务文档与 manifest（收口清单交叉核对） | 覆盖表↔契约表↔证据表三方闭环；manifest 同 ID/owner/命令且 level/boundary/cwd 一致；`-k` 命中；不豁免收口任务自身 | `tests/platform_settings_inventory.py` | ["uv","run","pytest","-q","tests/platform_settings_inventory.py"] | planned |
-| RULE-test-001 | review | 真实 PG/Redis + 真实前端构建产物 + 真实浏览器 | 分层验收链三条腿全过；e2e 覆盖 S-01/S-02/S-03/E-11..E-14/B-05 | `tests/acceptance` + `apps/console-platform/frontend` + `e2e` | ["uv","run","pytest","-q","tests/acceptance"] | planned |
+| E-18 | integration | 真实任务文档与 manifest（收口清单交叉核对） | 覆盖表↔契约表↔证据表三方闭环；manifest 同 ID/owner/命令且 level/boundary/cwd 一致；`-k` 命中；不豁免收口任务自身 | `tests/platform_settings_inventory.py` | ["uv","run","pytest","-q","tests/platform_settings_inventory.py"] | verified |
+| RULE-test-001 | review | 真实 PG/Redis + 真实前端构建产物 + 真实浏览器 | 分层验收链三条腿全过；e2e 覆盖 S-01/S-02/S-03/E-11..E-14/B-05 | `tests/acceptance` + `apps/console-platform/frontend` + `e2e` | ["uv","run","pytest","-q","tests/acceptance"] | verified |
 
 ### Acceptance Evidence
 
 > 收口清单与需求级终验证据由本任务在收尾期登记；RULE 行按 owner 回填。
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| E-18 | `tests/platform_settings_inventory.py` **13 passed**；真实任务文档与 manifest 交叉核对（不豁免收口任务自身） | verified |
+| RULE-test-001 | 三条腿：`tests/acceptance` + `npm --prefix apps/console-platform/frontend run build` + `npm --prefix e2e test` | verified |
+- E-18: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-18: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-18: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
+#### 构件清单（收口清单 `tests/platform_settings_inventory.py`，13 条检查）
+
+| 检查 | 覆盖的收口项 |
+|------|-------------|
+| `test_inventory_registers_its_own_command_path` | 清单把自己的命令也登记进去（不豁免自身） |
+| `test_task_set_is_complete` | 17 个 TASK 段落都在盘（整段被删会静默绕过逐任务断言） |
+| `test_coverage_rows_have_exactly_one_owner` / `test_coverage_rows_are_terminal` | 覆盖表 34 行唯一负责人且终态 |
+| `test_manifest_matches_coverage_table` | manifest 与覆盖表同 ID/owner/命令，并比对 `level`/`boundary`/`cwd`/`timeout` |
+| `test_all_checklists_are_fully_checked` | 每个 TASK 的 Checklist 全部勾选（含收口任务自身） |
+| `test_owner_acceptance_refs_cover_its_scenarios` | owner 的 `Acceptance-Refs` 覆盖其名下场景 |
+| `test_terminal_rows_are_registered_in_owner_evidence` | 终态行（含契约表 RULE 行）在 owner 的 `### Acceptance Evidence` 里各有同 ID 的**证据表行**——三方闭环，**不接受 runner 自动写的 `- <ID>: <status>` 条目** |
+| `test_evidence_tables_have_no_placeholder_rows` | 证据表无残留占位行 |
+| `test_contract_rows_are_terminal` | 每个任务契约表**每一行**终态（**含收口任务自身**） |
+| `test_contract_tables_cover_every_acceptance_ref` | 契约表覆盖该任务每条 ref（「整行被删」只有这条查得出） |
+| `test_registered_commands_reference_paths_on_disk` / `test_registered_commands_k_tokens_hit_real_cases` | `-k` 令牌在真实用例名里命中、登记路径（含 `npm --prefix <dir>` 下的相对路径）真实存在 |
+
+**补齐盘点覆盖（TASK-016 报备的缺口）**：`tests/test_configuration_inventory.py` 的 AST 类清单补入 `AgentSettings`/`TaskSettings`/`MemoryPolicySettings`/`ArtifactSettings`/`AuthSettings`/`LocaleSettings`/`ImSettings`/`McpSettings`；`docs/configuration-inventory.csv` 增 26 行 `policy-field,business`（`platform_settings.py` 的 policy-field 20→46 行、该文件 25→51 行）；`docs/configuration-inventory.md` 的「尚未进入 CSV」遗留项随之收口。E-16 机检 **4 passed**。
+
+#### 结构性 RED
+
+清单文件缺失时，登记的 argv（`uv run pytest -q tests/platform_settings_inventory.py`）失败：`ERROR: file or directory not found: tests/platform_settings_inventory.py` / `no tests ran in 0.00s`（**exit=4**）。该判定基准由 `test_inventory_registers_its_own_command_path` 常驻兜住。
+
+#### ≥4 类扰动取证（各自 RED，逐字节还原后复绿 = 13 passed）
+
+| 类别 | 扰动 | RED 原文（渲染后） |
+|------|------|-------------------|
+| 改状态 | 覆盖表 E-01 `verified`→`planned` | `AssertionError: 覆盖表行未终态：['E-01（TASK-004）=planned']` |
+| 删证据行 | 删 TASK-007 证据里的 B-03 登记行 | `AssertionError: Evidence 登记缺口：['B-03（owner=TASK-007，契约=verified）未出现在 TASK-007 的 Evidence 小节']` |
+| 伪造 -k 令牌 | E-03 的 `-k source_unavailable`→`-k forged_token_xyz` | ``AssertionError: E-03 的 `-k forged_token_xyz` 在 …/tests/agent_runtime/test_platform_settings_source.py 里没有对应用例`` |
+| 改 manifest 字段 | manifest 的 E-04 `boundary` 篡改 | `AssertionError: E-04 真实边界不一致：` |
+
+每类扰动后 `shasum -a 256` 与扰动前逐字节相等，复跑 **13 passed**。
+
+#### 需求级终验（`cf_acceptance_runner --include-e2e --write-evidence`）
+
+**第 4 轮（干净全量）：`decision=pass`，34/34 场景全过**（33 条实跑 + E-16 按 owner 复验后内容指纹复用；8 条 E2E = S-01/S-02/S-03/E-11..E-14/B-05）。终验数字**只取这一轮**。
+
+前几轮为何作废（**不作为终验依据**）：
+- **第 1 轮**：`33 passed / 1 failed` —— E-21 撞上归档断言「账号创建短密码 = 422」，而当时的实现是 400（见下「密码口径」）。
+- **第 2 轮**：按协调者重定向**主动中止**（该轮我误把归档测试改成 400，方向被否）。
+- **第 3 轮**：`33 passed / 1 failed` —— E-16 因我在 `auth_service.py` 加注释使两个常量行号 262/263→265/266 漂移（同步 CSV 后由 `--owner TASK-016` 复验）。
+
+**E2E 命令登记（本任务补）**：覆盖表 8 条 E2E 的「执行命令」原为 `-`（skill 模板的「编码期延期」口径）——runner 对 `command=null` 返回 `not_configured`，**不可能 34/34**。7 条 Playwright 场景**共用同一条命令**（`npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.settings.config.ts`，**无 `--grep`** ⇒ runner 按相同 argv 在一次运行内复用，整套件只跑一次、`vite build` 也只跑一次；该套件跑过即覆盖这 7 条）；S-02 单独登记 `["uv","run","pytest","-q","tests/acceptance/task_schedule/test_platform_settings_defaults.py","-k","s02"]`。
+
+**S-02 专用 E2E 测试（本任务新增）**：`tests/acceptance/task_schedule/test_platform_settings_defaults.py` —— 经**真实 Console API**（栈内 seed 的 `e2e-console-admin` 真实登录 + 真实 CSRF）`PUT /api/v1/platform-settings` 保存 `task.max_attempts` → 经**真实 Worker 进程**新建 Task 用新默认 → **既有 `task.task_execution` 行逐字段不变**（`max_attempts` + `deadline_at`）。`-k s02` **1 passed in 6.51s**。两侧脚手架：`tests/acceptance/task_schedule/environment.py` 增补 Console 管理员种子与 `console_session`/`console_account`/`config_audit_log` 清理。
+
+#### `harness-test#RULE-test-001` verifier（三条腿，实跑）
+
+`uv run pytest -q tests/acceptance` **288 passed（954.11s）** && `npm --prefix apps/console-platform/frontend run build` ✓ **built in 2.44s**（3453 modules） && `npm --prefix e2e test` **4 passed（3.6s）**。
+
+#### 规范沉淀（live spec 落点）
+
+| # | 事实 | 落点 |
+|---|------|------|
+| ① | 操作者引用即使同 Owner Schema 也用逻辑引用、不建物理 FK | `persistence/harness-data.md` `## Conventions` |
+| ② | 平台设置版本表 append-only（`is_deleted` 恒 false、当前 = `max(revision)`、乐观并发由 partial unique、回滚产生新版本） | `persistence/harness-data.md` `## Conventions` |
+| ③ | 平台业务默认只在业务操作边界取一次快照，执行中对象用冻结快照 | `snapshot/harness-snapshot.md` `## Conventions` |
+| ④ | ADR-12：设置不可读即失败**不适用于已认证会话解析**（并订正该条的 TTL/滑动阈值旧口径） | `auth/harness-auth.md` `## Conventions` |
+| ⑤ | 节拍来源改为平台设置 `im.progress_interval_sec`（不再是 `IM_PROGRESS_INTERVAL_SEC` 环境变量） | `im/harness-im.md:83,89` |
+| ⑥ | `model_gateway.py` 重试/退避仅行号漂移（语义未变）→ 只修引用 105-125→103-123 | `model/harness-model.md` |
+
+改 spec 后 `cf_spec_context.py refresh` 自动 heal artifact hash；**design / plan gate 改后复跑均 pass**（无 `rule_changed`、无需 rebind）。
+
+#### 本轮引入并在收口期修正的行为变更（密码口径）
+
+- **事实**：TASK-011 把账号创建/改密的 DTO 下界从 12 降到 `MIN_PASSWORD_LENGTH_FLOOR`（8），使 11 位密码**穿过 DTO** 落到 TASK-009 新增的服务层策略校验（原为 `COMMON_BAD_REQUEST`/400）——同一个「密码短于平台策略」违规从 **422 静默变成 400**，无人决策。（已核对 `3b48d029`：改动前 DTO 是 `min_length=12`、服务层**没有**该策略校验。）
+- **若不修的两个后果**：① `create_account`(400) 与 `change_password`(422) 同违规不同码；② 归档需求 `14-dfx-acceptance` 的 E-08 断言（422）会红，只能靠**改归档验收**迁就——把一次无人决策的行为变更洗成事实。
+- **修正**：`apps/console-platform/backend/src/muad_console_platform/application/auth_service.py` 的服务层密码策略校验**两处统一为 `COMMON_VALIDATION_ERROR`（422）**；本需求的 E-15 断言 400→422；**归档 `tests/acceptance/dfx/test_dfx_api_security.py` 未改一行**（`git checkout` 还原）。两桶（<8 由 DTO、8..策略-1 由服务层）同码。
+- **回归绿**：`tests/console_platform + tests/console_auth + tests/console_internal` **237 passed**；`tests/acceptance/console_auth_flow` **33 passed**；`tests/acceptance/dfx` **54 passed**（E-21，与 TASK-014 基线一致）。
+- **副作用同步**：该注释使 `auth_service.py` 两个常量行号漂移，`docs/configuration-inventory.csv` 随之同步（262/263→265/266）——由 E-16 机检当场照出。
+
+#### 归档后的规范沉淀候选（本会话**不落** spec，避免动指纹废掉第 4 轮）
+
+1. **事实**：密码策略违规统一返回 **`422 COMMON_VALIDATION_ERROR`**（DTO 下界 8 与平台策略下界两个桶收敛到同一个码），`create_account` 与 `change_password` 一致。
+2. **为何值得进规范**：本轮正是**因为两个桶不一致**，才让一次无人决策的 422→400 变更几乎被「改归档测试」洗成事实；写进规范可让下一人不必重历。
+3. **落点建议**：`api/harness-api.md` 的 `## Conventions`（配 ✅/❌ 对照，**不引入 H3**）。与 `context-compaction` 的六条约束同法，归档后单独提交沉淀（先例 `5e26b226`）。
+
+#### 如实披露的两处已知覆盖缺口（TASK-014 报备）
+
+1. **`im.progress_interval_sec` 在 E2E 层没有断言**：B-03 只在单元层钉取值（`tests/gateway/test_progress_settings.py`）；E2E 的 `已执行 00:01` 来自**相位切换帧**（force 帧按真实 elapsed 渲染）而非 1s 节拍帧，去掉验收栈种下的覆盖后扰动用例照样通过（TASK-014 实测）。
+2. **`dfx` 批次并发 E2E 语义变了**：种下的 `task.batch_max_concurrency` 现在是唯一约束（计划里也请求 `max_concurrency`，两者取小后恰好相等 ⇒ 等于在验计划请求而非平台上限）；「计划请求低于平台上限」这一维改由 `tests/agent_worker/test_batch_fanout.py` 单测覆盖。
+
 ### Log
 - [2026-10-05] created (draft)
+- [2026-10-05] started
+- [2026-10-05] completed (done)
 
 ---
 
 ## TASK-013: 执行默认接入（agent / memory / artifact 分组）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-005
 , TASK-006, TASK-007
@@ -1257,6 +1518,15 @@ E   ImportError: cannot import name 'execution_defaults_from_platform' from 'mua
 - 常量收敛：删除 app 侧 `MAX_INJECTED_MEMORIES`/`MAX_INJECTED_BYTES`/`RECALL_DEFAULT_LIMIT`/`MAX_RECALL_BYTES`/`MAX_ARCHIVE_FILES`/`DEFAULT_CLEANUP_LIMIT`，默认值改从 `muad_contracts.platform_settings` schema 取；`RECALL_MAX_LIMIT` 单一来源改为 contracts（app 侧不再复制）；`AgentPolicy` 的 `max_turns`/`max_tool_calls` 默认改由 `budget.DEFAULT_MAX_TURNS`/`DEFAULT_MAX_TOOL_CALLS`（源自 `AgentSettings`）提供。`docs/configuration-inventory.csv` 按源码重算同步。
 - E-20: verified — automated command passed; run_id=644f13d46cd046698b93fbd2d624033b (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| E-20 | `tests/agent_runtime/test_execution_defaults_settings.py` **7 passed**；真实 PG + 真实 Runtime 装配 + 真实 Console 清理入口 | verified |
+- E-20: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-20: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-20: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -1266,7 +1536,7 @@ E   ImportError: cannot import name 'execution_defaults_from_platform' from 'mua
 
 ## TASK-014: 验收栈按租户种平台设置
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-006, TASK-007, TASK-013
 - **Source**: platform-settings.backend.design.md#2.5 验收条件, platform-settings.backend.design.md#3.2 架构设计
@@ -1352,6 +1622,15 @@ E   assert 3 == 1                                          # test_dfx_fault_matr
 - 去掉 `task.delivery_backoff_base_sec=1` 覆盖（回生产默认 5）单跑 `tests/acceptance/im_gateway/test_worker_delivery.py::test_b127_failure_retries_then_exhausts_without_swallowing_fact` → 用例**耗时 97s**（该用例等待上限 `WAIT_TIMEOUT_SEC=90`，退避窗口从 16s 退化到 80s，逼近超时）；种回 `=1` 后随整栈 72 passed 通过。
 - E-21: verified — automated command passed; run_id=9a20db961ec64ce39510440d4660c121 (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| E-21 | `tests/acceptance/dfx` **54 passed**；真实 acceptance 栈（真实 Console API + PG + Worker 进程） | verified |
+- E-21: failed — automated command failed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-21: verified — automated command passed; run_id=531d28a5d424400c8ddfdc95cac87b08 (confirmed_by: runner)
+- E-21: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -1361,7 +1640,7 @@ E   assert 3 == 1                                          # test_dfx_fault_matr
 
 ## TASK-015: 敏感键守卫的业务键边界
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004
 - **Source**: platform-settings.backend.design.md#3.4 接口设计, platform-settings.backend.design.md#3.5 质量实现方案
@@ -1434,6 +1713,15 @@ FAILED test_business_key_boundary_default_schema_leaves_are_never_secret
 > 上述 E2E 为自检；功能验收仍归需求级 `verify-e2e`。
 - E-22: verified — automated command passed; run_id=8b27e36d1dff4325b6c5ae658d26d80d (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| E-22 | `test_platform_settings_api.py -k business_key_boundary` **3 passed**；真实 HTTP PUT + 真实 PG | verified |
+- E-22: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-22: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-22: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -1443,7 +1731,7 @@ FAILED test_business_key_boundary_default_schema_leaves_are_never_secret
 
 ## TASK-016: 盘点清单分类校准与报告同步
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-011
 - **Source**: platform-settings.backend.design.md#2.3 功能方案, platform-settings.backend.design.md#2.4 范围与边界
@@ -1522,6 +1810,15 @@ TASK-005 为让机检转绿，按 AST 口径**整表重生**了 `docs/configurat
 `docs/configuration-inventory.md` 全篇按迁移后事实重写：开头「尚未实现系统设置页或迁移配置来源」句删除；`SharedSettings` 从「45 项归属」改为「当前 33 项全部环境项（12 个业务键已迁出）」；「系统设置应管理的业务默认」改为「已交付的 41 个叶子」；散落常量表改为「留在各服务代码的实现常量（本期不迁入）」；声明点计数由 995 更新为 **1013**；`.env.example` 由「17 键 / 21 项缺失」更新为「33 键与字段集一一对应」。
 - E-16: verified — automated command passed; run_id=09372a0046014fa9bf66f4067db66311 (confirmed_by: runner)
 
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| E-16 | `tests/test_configuration_inventory.py` **4 passed**；真实源码树 + 真实 CSV 机检（无服务） | verified |
+- E-16: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-16: failed — automated command failed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-16: verified — automated command passed; run_id=c510fe3c7556414fb92922d664b8f91a (confirmed_by: runner)
+
 ### Log
 - [2026-10-05] created (draft)
 - [2026-10-05] started
@@ -1531,7 +1828,7 @@ TASK-005 为让机检转绿，按 AST 口径**整表重生**了 `docs/configurat
 
 ## TASK-017: 滑动续期阈值口径（修 TASK-009 语义变更打破的验收）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-011
 - **Source**: platform-settings.backend.design.md#3.1 方案选型
@@ -1617,6 +1914,15 @@ FAILED tests/acceptance/console_auth_flow/test_auth_acceptance.py::test_b02_six_
 
 **未动 `apps/**` 生产代码；未对任何 dev 库做 DROP/DOWNGRADE（验收栈自建临时库）。**
 - E-23: verified — automated command passed; run_id=b4aed9ead9c04227bb92045a62ffba1a (confirmed_by: runner)
+
+**场景登记（覆盖表 ↔ 契约表 ↔ 本表；与 manifest 同 ID/owner/命令）**：
+
+| 场景ID | 证据 | 状态 |
+|--------|------|------|
+| E-23 | `tests/acceptance/console_auth_flow/test_auth_acceptance.py` **23 passed**；真实登录会话与 CSRF | verified |
+- E-23: verified — automated command passed; run_id=2f0d8a06b88347dcb92b066eb2cfbe8a (confirmed_by: runner)
+- E-23: verified — automated command passed; run_id=5ec6eae632fa4ce9af65d6f90e006d4c (confirmed_by: runner)
+- E-23: verified — automated command passed; run_id=fbb50e1fdc05458ab6f22f915e1f4b9a (confirmed_by: runner)
 
 ### Log
 - [2026-10-05] created (draft)

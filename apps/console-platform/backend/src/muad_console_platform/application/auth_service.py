@@ -161,8 +161,11 @@ class AuthService:
             raise AppError(ErrorCode.COMMON_BAD_REQUEST)
         tenant_id = self._require_tenant()
         policy = await self._auth_policy(tenant_id)
+        # 密码短于平台策略（`auth.min_password_length`）属**输入校验**：与 `change_password`
+        # 同码 `COMMON_VALIDATION_ERROR`（422）。DTO 只守绝对下界 `MIN_PASSWORD_LENGTH_FLOOR`（8），
+        # 故两桶（<8 由 DTO、8..策略-1 由服务层）都收敛到 422。
         if len(password) < policy.min_password_length:
-            raise AppError(ErrorCode.COMMON_BAD_REQUEST)
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         fingerprint = account_fingerprint(tenant_id, username, display_name, role)
         if idempotency_key:
             await _lock_account_idempotency(self._session, tenant_id, idempotency_key)

@@ -32,7 +32,7 @@ verifiers:
 - `enabled=false` 短路为 `FAILED + MODEL_DISABLED` 且不发请求；401/403 → `CREDENTIAL_MISSING`；超时/连接失败/5xx → `MODEL_UNAVAILABLE`；其它 → `COMMON_INTERNAL_ERROR`；单项失败不改变整体 HTTP 200。
 - 批量测试只更新 `last_test_status/last_test_at`，不递增 `revision`、不写 `model_invocation_audit`、不产生计费/上下文语义。
 - **`protocol` 创建后不可变更**：`PUT /api/v1/models/{id}` 带 `protocol` 或改 `key` 均返回 422 `COMMON_VALIDATION_ERROR`（`tests/console_platform/test_models_api.py:159-167`）。✅ 只更新 `base_url`/`params` 等可变字段；❌ 让 `protocol` 可改（同一模型的存量大面积调用语义会无声切换）。
-- **429 走有界重试而非直接失败**：provider 遇限流抛 `ModelRateLimitedError(retry_after=...)`（`packages/agent-core/src/muad_agent_core/model/openai_provider.py:189-190`），`ModelGateway` 按 `retry_after` 或 `base_delay * 2**attempt` 指数退避，超过 `max_retries` 或逼近 deadline 才抛 `MODEL_UNAVAILABLE`（`apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py:105-125`）。✅ 退避有上界（重试次数 + deadline 双约束）；❌ 无界重试或把 429 当终态失败。
+- **429 走有界重试而非直接失败**：provider 遇限流抛 `ModelRateLimitedError(retry_after=...)`（`packages/agent-core/src/muad_agent_core/model/openai_provider.py:189-190`），`ModelGateway` 按 `retry_after` 或 `base_delay * 2**attempt` 指数退避，超过 `max_retries` 或逼近 deadline 才抛 `MODEL_UNAVAILABLE`（`apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py:103-123`）。✅ 退避有上界（重试次数 + deadline 双约束）；❌ 无界重试或把 429 当终态失败。
 
 ❌ 错误（越层：批量测试探测不得复用 Runtime 的模型调用实现，`ModelGateway`/`AuditedModelProvider` 均由 Runtime 持有）：
 

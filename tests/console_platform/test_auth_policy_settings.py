@@ -265,7 +265,9 @@ async def test_password_length_from_settings_and_existing_password_unchanged(
     )
     assert created.status_code == 200, created.text
 
-    # 收紧到 20：12 位新密码被服务端拒绝（400 业务校验，非 DTO 形状校验）。
+    # 收紧到 20：12 位新密码被服务端拒绝（422 输入校验，非 DTO 形状校验）。
+    # 服务层策略违规与 DTO 形状违规（<8）**同码** `COMMON_VALIDATION_ERROR`（422），不因违规
+    # 由哪一层拦下而分叉；两处策略校验（`create_account` / `change_password`）也同码。
     await _save_auth(policy_env["tenant_id"], min_password_length=20)
     rejected = await client.post(
         "/api/v1/accounts",
@@ -277,8 +279,8 @@ async def test_password_length_from_settings_and_existing_password_unchanged(
         },
         headers=headers,
     )
-    assert rejected.status_code == 400, rejected.text
-    assert rejected.json()["code"] == "COMMON_BAD_REQUEST"
+    assert rejected.status_code == 422, rejected.text
+    assert rejected.json()["code"] == "COMMON_VALIDATION_ERROR"
 
     accepted = await client.post(
         "/api/v1/accounts",

@@ -54,6 +54,13 @@ verifiers:
 - **摘要文本是权威历史（落库），transcript 是逐字存档（落共享产物）——二者不得互换**：`CONTEXT_SUMMARY` 事件把五字段摘要落 `runtime.canonical_event`，重建时取 `seq` 最大的一份作前缀、其后再按 seq 重放后续事件，因此换 Pod 得到的历史逐字节相同（`packages/agent-core/src/muad_agent_core/context/summary.py:1-6,147-152`；`apps/agent-runtime/src/muad_agent_runtime/application/context_events.py:6,29-56,85-100`）。被摘要覆盖掉的**逐字原文**另落共享产物（类型 `TRANSCRIPT`，DB 只留相对 `storage_key`），且**只写不读**——本需求不新增任何对外读取/下载/明文导出端点（`apps/agent-runtime/src/muad_agent_runtime/application/attachments/transcripts.py:1-6,126-132`）。**互换的后果**：产物过了保留期会被清理（文件与行一起删，`apps/console-platform/backend/src/muad_console_platform/application/artifact_cleanup_service.py:136-145`），若把摘要只存成文件，被压缩掉的那段历史就净丢了；若把 transcript 存进库，等于把逐字原文塞进事件表。
   - ✅ 摘要在 `canonical_event`、逐字原文在产物存储（`CONTEXT_SUMMARY.payload.transcript_artifact_id` 只作引用字段）
   - ❌ 摘要只写文件（保留期一过即失）／把 transcript 塞进 `canonical_event` 的 payload
+- **操作者/审计引用即使同 Owner Schema 也用逻辑引用，不建物理 FK**：`actor_user_id` 一类字段记录「谁做的」，指向 `console_account.id`，但**不建物理 FK**——版本行/审计行不可变且永不清理，物理 FK 会把操作过的账号永久钉住（账号删不掉），而记录本身只需保留 UUID 形状。先例两处：`ConfigAuditLog.actor_user_id`、`PlatformSetting.actor_user_id`（`apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py:295,302,622-624,646`）。
+  - 与 `RULE-data-001`「同 Owner Schema 用物理 FK」的字面口径有张力：那条规则管的是**业务实体间**的归属关系（可级联、需一致性）；**操作者/审计引用**是显式例外，按「逻辑 UUID + 不建 FK」处理。
+  - ✅ `actor_user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())`（无 `ForeignKey`）
+  - ❌ 给审计/版本表的 `actor_user_id` 加 `ForeignKey("control.console_account.id")` ⇒ 账号一旦被清理，历史行要么被级联删、要么外键报错，审计链断裂。
+- **平台设置版本表是 append-only**：`control.platform_setting` 每次保存**插入**一行新 `revision`（从 1 起），当前版本 = 该租户 `max(revision)`；租户无任何版本行时按 `revision=0` + schema 默认语义处理。`is_deleted` **恒为 `false`**（版本行不软删、不物理删）；**乐观并发不用行锁**——落败的 `INSERT (tenant_id, revision=expected+1)` 撞 partial unique `uq_platform_setting_tenant_revision`（`WHERE is_deleted = false`）即归一为版本冲突；**回滚也是插入新版本**（内容等于目标版本、写 RESTORE 审计），历史行全部保留（`apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py` 的 `PlatformSetting`；`application/platform_settings_service.py`）。
+  - ✅ 保存/回滚都 `INSERT` 新 `revision`；读当前取 `max(revision)`；并发落败者靠 partial unique 报 `PLATFORM_SETTINGS_VERSION_CONFLICT`
+  - ❌ `UPDATE ... SET revision = revision + 1` 或 `UPDATE settings_json`（改写历史、丢 before/after）；把 `is_deleted` 置 `true`（使「当前 = `max(revision) WHERE is_deleted = false`」的谓词失去意义）
 
 ## Avoid
 
