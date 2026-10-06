@@ -212,7 +212,7 @@ export function TaskPage() {
               <Select
                 data-testid="task-filter-status"
                 value={params.status ?? undefined}
-                style={{ width: 150 }}
+                style={{ width: 120 }}
                 showClear
                 placeholder={t('task.filter.status')}
                 optionList={TASK_STATUSES.map((status) => ({
@@ -226,7 +226,7 @@ export function TaskPage() {
               <Select
                 data-testid="task-filter-trigger"
                 value={params.trigger_type ?? undefined}
-                style={{ width: 150 }}
+                style={{ width: 120 }}
                 showClear
                 placeholder={t('task.filter.triggerType')}
                 optionList={TRIGGER_TYPES.map((trigger) => ({
@@ -240,7 +240,7 @@ export function TaskPage() {
               <Select
                 data-testid="task-filter-agent"
                 value={params.agent_id ?? undefined}
-                style={{ width: 200 }}
+                style={{ width: 160 }}
                 showClear
                 filter
                 placeholder={t('task.filter.agent')}
@@ -251,7 +251,7 @@ export function TaskPage() {
               <Select
                 data-testid="task-filter-actor"
                 value={params.actor_user_id ?? undefined}
-                style={{ width: 200 }}
+                style={{ width: 160 }}
                 showClear
                 filter
                 placeholder={t('task.filter.actorUser')}
@@ -262,7 +262,7 @@ export function TaskPage() {
               <Select
                 data-testid="task-filter-skill"
                 value={params.skill_id ?? undefined}
-                style={{ width: 200 }}
+                style={{ width: 160 }}
                 showClear
                 filter
                 placeholder={t('task.filter.skill')}
@@ -273,7 +273,7 @@ export function TaskPage() {
               <DatePicker
                 data-testid="task-filter-create"
                 type="dateRange"
-                style={{ width: 240 }}
+                style={{ width: 220 }}
                 placeholder={[t('task.filter.createdFrom'), t('task.filter.createdTo')]}
                 onChange={(value) => {
                   const range = Array.isArray(value) ? (value as Date[]) : [];
@@ -286,7 +286,7 @@ export function TaskPage() {
               <DatePicker
                 data-testid="task-filter-deadline"
                 type="dateRange"
-                style={{ width: 260 }}
+                style={{ width: 220 }}
                 placeholder={[t('task.filter.deadlineFrom'), t('task.filter.deadlineTo')]}
                 onChange={(value) => {
                   const range = Array.isArray(value) ? (value as Date[]) : [];
