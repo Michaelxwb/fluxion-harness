@@ -25,7 +25,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        'MUAD_EXTRA_PLATFORM_ADAPTERS=alt-http uv run uvicorn muad_console_platform.main:app --app-dir apps/console-platform/backend/src --host 127.0.0.1 --port ${apiPort}',
+        `MUAD_EXTRA_PLATFORM_ADAPTERS=alt-http uv run uvicorn muad_console_platform.main:app --app-dir apps/console-platform/backend/src --host 127.0.0.1 --port ${apiPort}`,
       cwd: '..',
       url: `http://127.0.0.1:${apiPort}/healthz`,
       reuseExistingServer: false,
