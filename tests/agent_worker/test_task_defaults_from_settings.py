@@ -42,6 +42,7 @@ from sqlalchemy import func, select, update
 
 from agent_worker.conftest import TenantContext
 from agent_worker.helpers import (
+    DELIVERED_ENVELOPE,
     FakeResolver,
     build_resolve_response,
     create_schedule_payload,
@@ -242,7 +243,7 @@ async def test_new_task_defaults_apply_to_delivery_locale(tenant: TenantContext)
 
     def handle(request: httpx.Request) -> httpx.Response:
         bodies.append(_body(request))
-        return httpx.Response(200, json={"code": "0", "data": {"accepted": True}})
+        return httpx.Response(200, json=DELIVERED_ENVELOPE)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         loop = DeliveryLoop(
@@ -401,7 +402,14 @@ async def test_new_task_defaults_batch_concurrency_capped_by_platform_limit(
     assert capped.effective_concurrency(1000, 4) == 3
     assert capped.effective_concurrency(2, 4) == 2
 
-    parent = await persist_task(tenant, status="RUNNING", delivery_mode="NONE")
+    moment = datetime.now(UTC)
+    parent = await persist_task(
+        tenant,
+        status="RUNNING",
+        delivery_mode="NONE",
+        lease_owner="worker-batch",
+        lease_until=moment + timedelta(minutes=5),
+    )
     client = _StubSettingsClient(_snapshot(task={"batch_max_concurrency": 2}))
     service = BatchFanoutService(
         tenant.session_factory, SharedSettings(batch_platform_limit=8), settings_client=client

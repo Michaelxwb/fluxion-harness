@@ -10,6 +10,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 import sqlalchemy as sa
 from muad_agent_worker.infrastructure.models.task import TaskExecution
 from muad_agent_worker.worker.execution_outcomes import (
@@ -21,7 +22,7 @@ from muad_agent_worker.worker.executor import TaskExecutionError
 from muad_agent_worker.worker.service import WorkerLoop
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import persist_task
+from agent_worker.helpers import fetch_task, persist_task
 
 
 def _now() -> datetime:
@@ -301,3 +302,39 @@ async def test_keyboard_interrupt_stops_worker(tenant: TenantContext) -> None:
 
     state = await _row(tenant, task.id)
     assert state["status"] in {"QUEUED", "FAILED"}
+
+
+# ---------------------------------------------------- 评审回归（2026-10-06）
+
+
+async def test_malformed_wait_result_fails_the_task_instead_of_parking_it(
+    tenant: TenantContext,
+) -> None:
+    """Skill 结果违反协议 → 确定性 FAILED，而不是留在没有心跳的 RUNNING（评审 #14）。
+
+    `interpret_execution` 此前在 `run_once` 的 try 之外，`dict(wait["external_ref"])` 之类
+    的类型错会直接冒泡：既不记账也不失败，任务停在没有心跳的 RUNNING 等回收，然后重跑
+    同一个确定性错误。
+    """
+    task = await persist_task(tenant)
+    executor = _ScriptedExecutor(
+        {"status": "SUCCEEDED", "result": {"wait": {"external_ref": 123}}}
+    )
+    worker = WorkerLoop(
+        tenant.session_factory, tenant.settings, executor=executor, instance_id="worker-a"
+    )
+
+    assert await worker.run_once() == task.id
+
+    refreshed = await fetch_task(tenant, task.id)
+    assert refreshed.status == "FAILED", "协议违规必须收尾，不能留在 RUNNING"
+    assert refreshed.error_code == "SKILL_RESULT_INVALID"
+    assert refreshed.lease_owner is None
+
+
+async def test_result_must_be_an_object() -> None:
+    """`result` 不是对象即协议违规（评审 #14）——只认显式失败，不做宽容转换。"""
+    with pytest.raises(TaskExecutionError) as excinfo:
+        interpret_execution({"status": "SUCCEEDED", "result": ["not", "an", "object"]}, now=_now())
+
+    assert excinfo.value.code == "SKILL_RESULT_INVALID"

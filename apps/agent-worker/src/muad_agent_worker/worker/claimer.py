@@ -18,10 +18,17 @@ CLAIMABLE_STATUSES = (str(TaskStatus.QUEUED), str(TaskStatus.WAITING))
 
 
 def _claimable_conditions(moment: datetime) -> tuple[Any, ...]:
-    """可 claim 条件：`task_queue_depth` 与 claim 本身共用同一口径。"""
+    """可 claim 条件：`task_queue_depth` 与 claim 本身共用同一口径。
+
+    `deadline_at > moment` 是 2026-10-06 评审 #8 补上的一格：此前 claim 完全不看
+    deadline，已过期的任务照样能被领走、跑完、写成 COMPLETED——超时的业务副作用真的
+    发生了。过期行不在这里收尾（那是 Scheduler sweep 的职责，口径
+    `FAILED(TASK_DEADLINE_EXCEEDED)`），这里只保证**不再执行**它。
+    """
     return (
         TaskExecution.status.in_(CLAIMABLE_STATUSES),
         TaskExecution.not_before <= moment,
+        TaskExecution.deadline_at > moment,
         TaskExecution.cancel_requested.is_(False),
         TaskExecution.is_deleted.is_(False),
     )

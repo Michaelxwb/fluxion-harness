@@ -166,11 +166,15 @@ SELECT id
 FROM task.task_execution
 WHERE status IN ('QUEUED', 'WAITING')
   AND not_before <= now()
+  AND deadline_at > now()          -- 已过期的任务绝不执行（2026-10-06 评审 #8）
   AND cancel_requested = false
 ORDER BY priority ASC, create_time ASC
 FOR UPDATE SKIP LOCKED
 LIMIT :n;
 ```
+
+`deadline_at > now()` 是领取侧的必要条件：截止时间不能只靠稍后的 sweep 兜——否则过期任务
+照样被领走、跑完、写成 `COMPLETED`，超时的副作用真实发生，只是随后被判成失败而已。
 
 claim 后原子更新：
 
@@ -194,6 +198,15 @@ heartbeat_interval = 20s
 
 具体值通过压测校准。
 
+续租条件与终态 CAS 同口径：**当前租约必须仍然有效**（`lease_until > now`）。少了这一格，
+进程/DB 卡顿超过租期之后一次心跳就能把已经失效的执行权续到未来，让陈旧结果通过终态 CAS
+写成 `COMPLETED`（2026-10-06 评审 #2）；失约的实例只能停手，重新 claim 才能拿回执行权。
+
+执行与租约维护**共同受监督**：心跳一旦退出（续租连续失败或失约），Worker 立即叫停本地执行
+（终止 Skill 子进程组）并丢弃它的返回值——拿不出租约就没有资格写任何结论。续租的瞬时 DB
+错误有界重试，重试用尽才退出心跳；**绝不**让执行器脱离租约监控：终态 CAS 拦得住写库，
+拦不住已经发生的外部副作用（2026-10-06 评审 #3）。
+
 ### 5.3 Reclaim
 
 当：
@@ -204,7 +217,14 @@ AND lease_until < now()
 AND cancel_requested = false
 ```
 
-可由其他 Worker reclaim：CAS 置回 `QUEUED`（保留 `attempts`），由后续 claim 重新领取。
+可由其他 Worker reclaim，但**回收同样受重试预算与退避约束**：
+
+- `attempt < max_attempts` ⇒ CAS 置回 `QUEUED`（保留 `attempt`），`not_before` 推到
+  `now + RETRY_BACKOFF_BASE_SEC * 2**(attempt-1)`，由后续 claim 重新领取；
+- `attempt >= max_attempts` ⇒ 终态 `FAILED(TASK_ATTEMPTS_EXHAUSTED)` 并照常触发 fan-in。
+
+此前回收无条件置回 `QUEUED`、而 claim 只递增 `attempt` 从不看上限：一个反复崩溃的任务能在
+deadline 之前无限重启，反复触发未做好幂等的外部操作（2026-10-06 评审 #13）。
 
 进入 `WAITING` 时释放 lease（`lease_owner/lease_until` 置空），因此 `WAITING` 不参与 reclaim。
 
@@ -282,17 +302,28 @@ Backoff 默认采用指数退避 + jitter，并受 `max_attempts` 和 Task deadl
 
 Agent 使用 `cancel_task` Tool。
 
-取消流程按状态区分：
+取消流程按状态区分，但**只走一条语句**（2026-10-06 评审 #4）：
 
 ```text
+UPDATE task.task_execution
+   SET cancel_requested = true,
+       status  = CASE WHEN status IN ('QUEUED','WAITING') THEN 'CANCELLED' ELSE status END,
+       finished_at / lease_owner / lease_until 同步按同一条件处理
+ WHERE id = :id AND status NOT IN ('COMPLETED','FAILED','CANCELLED');
+
 QUEUED / WAITING（无执行者）
-  -> CAS status = CANCELLED
+  -> 上面那条语句顺带把状态落成 CANCELLED，并释放 lease
 RUNNING（协作取消）
-  -> task.cancel_requested = true
-  -> Redis cancel hint run:cancel:{run_id}=1
+  -> cancel_requested = true（状态保持 RUNNING）
+  -> Redis cancel hint
   -> Worker 在模型调用前/工具调用前/心跳处检查
   -> 协作停止后 CAS status = CANCELLED
 ```
+
+**为什么必须是一条语句**：先读状态再挑一条 CAS 分支时，取消读到 `QUEUED`、claim 抢先把行
+置成 `RUNNING`，两条 CAS 都不成立——接口回 `RUNNING/cancel_requested=false`，库里连取消
+标记都没有，用户明确喊停而任务继续跑到底。现在「任何非终态都落取消意图」与「空闲态即为
+终态」在同一次写入内完成，取消意图不可能在竞争中丢失。
 
 claim 与 reclaim 始终排除 `cancel_requested=true`。
 
@@ -459,7 +490,10 @@ persist result
 投递语义：
 
 - 终态按 `delivery_mode` 投递：`BEST_EFFORT` 聚合已成功 Child 的部分结果并投递，`FINAL_ONLY` 投递最终（含失败）结论；
-- Gateway Redis `delivery:dedupe:{delivery_key}` SET NX EX 7d 去重，重复请求直接返回 200；
+- **可投递状态只有 `PENDING`**：`SENT` 是已送达，`FAILED` 是终态（4xx / 路由缺失 / 次数耗尽）。可重试失败写回 `PENDING`——否则「还在退避中」与「已经没救了」在库里没有区别，预算耗尽的租户会永远占着跨租户扫描名额，把后面的租户挡死；
+- **HTTP 2xx 不等于送达**：只有封套里明确 `data.delivered == true` 才置 `SENT`，响应解析不了一律按可重试失败退避重投（`delivery/client.py`）；
+- 投递队列**跨租户**：按 `(最早待投递记录的 create_time, tenant_id)` 的前进游标逐租户取设置快照，单租户取快照失败只跳过它自己（不连坐整条队列）；
+- `delivery_attempts` 在发起请求**之前**自增并提交（崩溃不丢退避进度）：超过 `DELIVERY_RESERVATION_LEASE_SEC` 仍没有回执的预留按「那次尝试随进程没了」结算成 `FAILED`，不留永远无法再被领取的 `PENDING`；
 - Worker 失败按指数退避重试，最多 5 次，超过置 `delivery_status=FAILED` 并写审计；
 - Redis 不可用时按 at-least-once 处理，由 `delivery_key` 去重兜底。
 

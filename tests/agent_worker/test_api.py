@@ -5,16 +5,16 @@ import uuid
 from httpx import AsyncClient
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import create_schedule_payload, create_task_payload
+from agent_worker.helpers import create_schedule_payload, create_task_payload, internal_service_headers
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
-    return {"X-Tenant-Id": tenant.tenant_id}
+    return internal_service_headers(tenant.tenant_id)
 
 
 async def test_task_api_create_get_list_cancel(client: AsyncClient, tenant: TenantContext) -> None:
     payload = create_task_payload(tenant, idempotency_key="api-task").model_dump(mode="json")
-    created = await client.post("/internal/tasks", json=payload)
+    created = await client.post("/internal/tasks", json=payload, headers=_headers(tenant))
     assert created.status_code == 200
     data = created.json()["data"]
     assert data["status"] == "QUEUED"
@@ -53,7 +53,7 @@ async def test_task_api_rejects_unknown_and_invalid(client: AsyncClient, tenant:
 
     payload = create_task_payload(tenant, idempotency_key="api-invalid").model_dump(mode="json")
     payload["unexpected"] = True
-    invalid = await client.post("/internal/tasks", json=payload)
+    invalid = await client.post("/internal/tasks", json=payload, headers=_headers(tenant))
     assert invalid.status_code == 422
     assert invalid.json()["code"] == "COMMON_VALIDATION_ERROR"
 

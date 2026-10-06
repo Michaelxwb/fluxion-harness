@@ -230,9 +230,10 @@ async def test_b127_retryable_failure_recovers_after_injection_cleared(
             timeout=30.0,
         )
         row = await _delivery_row(seeded["task_id"])
-        # 可重试失败：状态为 FAILED（属 Worker 的可重试集合）且留 DELIVERY_RETRY 事件，
-        # 绝不误标 SENT；恢复后由退避重试补发
-        assert row["delivery_status"] == "FAILED", row
+        # 可重试失败：状态留在 PENDING（FAILED 是终态，只给 4xx / 路由缺失 / 次数耗尽——
+        # 2026-10-06 评审 #9/#12 的口径），且留 DELIVERY_RETRY 事件；绝不误标 SENT，
+        # 恢复后由退避重试补发
+        assert row["delivery_status"] == "PENDING", row
         assert int(row["attempts"] or 0) >= 1, row
         retry_events = await _scalar(
             "SELECT count(*) FROM task.task_event WHERE tenant_id = :t AND event_type = 'DELIVERY_RETRY'",

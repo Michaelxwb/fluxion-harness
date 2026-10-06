@@ -34,6 +34,7 @@ BATCH_PLAN_KEY = "batch"
 AGGREGATE_ALL = "ALL"
 AGGREGATE_BEST_EFFORT = "BEST_EFFORT"
 TASK_TYPE_BATCH = "BATCH"
+BATCH_FANOUT_STALE = "BATCH_FANOUT_STALE"
 ITEM_KEY_MAX_LENGTH = 128
 # 停放的 Child 不参与 claim（`not_before <= now()` 恒不成立），等待 fan-in 释放。
 PARKED_NOT_BEFORE = datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)
@@ -44,6 +45,33 @@ class BatchPlanError(Exception):
     """TaskPlan 结构非法：无法确定性 fan-out。"""
 
     code = "BATCH_PLAN_INVALID"
+
+
+class BatchFanoutStaleError(Exception):
+    """父任务已不再由**本次执行**持有（终态/已取消/租约失效/已换主）。
+
+    这不是任务失败，而是「这次执行已经无权提交任何东西」——终止它的 **CAS**
+    （`lease_owner` + `lease_until`）会拦住写库，所以调用方按不重试错误收场即可。
+    """
+
+    code = BATCH_FANOUT_STALE
+
+
+def _require_live_owner(locked: TaskExecution, claimed: TaskExecution, moment: datetime) -> None:
+    """扇出前的所有者校验（2026-10-06 评审 #5）。
+
+    此前只按 id 给父行加锁：对 CANCELLED 的父任务、或租约已过期 / owner 已换人的父任务，
+    照样能建出**可执行**的 Child —— 取消或回收赢了竞态，旧执行仍能提交这个副作用。四格
+    一起看才算证明「这次执行仍持有父任务」，任一条不成立就不许扇出。
+    """
+    if locked.status != str(TaskStatus.RUNNING):
+        raise BatchFanoutStaleError(f"parent task is {locked.status}, not RUNNING")
+    if locked.cancel_requested:
+        raise BatchFanoutStaleError("parent task has a pending cancel request")
+    if locked.lease_owner is None or locked.lease_until is None or locked.lease_until <= moment:
+        raise BatchFanoutStaleError("parent task lease is not held")
+    if claimed.lease_owner is not None and locked.lease_owner != claimed.lease_owner:
+        raise BatchFanoutStaleError("parent task is owned by another worker")
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +186,7 @@ class BatchFanoutService:
                 ).scalar_one_or_none()
                 if locked is None:
                     raise BatchPlanError(f"parent task {parent.id} not found")
+                _require_live_owner(locked, parent, moment)
                 created = await self._insert_children(session, locked, plan, moment, concurrency)
                 ref = FanoutSummary(
                     parent_id=locked.id,

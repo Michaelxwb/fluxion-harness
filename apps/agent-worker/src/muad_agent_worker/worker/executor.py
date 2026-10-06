@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 
 from muad_agent_core.skill import (
@@ -19,6 +20,7 @@ from ..application.batch_fanout import (
     PARKED_NOT_BEFORE,
     TASK_TYPE_BATCH,
     BatchFanoutProtocol,
+    BatchFanoutStaleError,
     BatchPlan,
     BatchPlanError,
     FanoutSummary,
@@ -26,14 +28,18 @@ from ..application.batch_fanout import (
 from ..infrastructure.models.task import TaskExecution
 
 EXECUTION_TIMEOUT_SEC = 300.0
+#: 剩余时间已经不够一秒时不再把它夹成 0：给子进程一个能正常启动/收尾的下限。
+MIN_EXECUTION_TIMEOUT_SEC = 1.0
 SKILL_ARTIFACT_KEYS = ("artifact_id", "storage_key", "checksum")
 # 确定性失败：重跑结果不会变（快照/计划/制品本身有问题），不消耗重试预算直接 FAILED。
 NON_RETRYABLE_CODES = frozenset(
     {
         "SKILL_SNAPSHOT_MISSING",
         "BATCH_PLAN_INVALID",
+        "BATCH_FANOUT_STALE",
         "BATCH_FANOUT_UNAVAILABLE",
         "SKILL_ARTIFACT_CHECKSUM_MISMATCH",
+        "SKILL_RESULT_INVALID",
     }
 )
 # 传给 Skill 子进程的 Task 上下文（环境变量，不改动 Skill 的 stdin 输入契约）。
@@ -126,7 +132,7 @@ class SkillTaskExecutor:
                 SkillExecutionRequest(
                     ready_dir=ready_dir,
                     input=task.input_json or {},
-                    timeout_sec=EXECUTION_TIMEOUT_SEC,
+                    timeout_sec=self._execution_timeout(task),
                     env=task_env(task),
                 )
             )
@@ -139,7 +145,11 @@ class SkillTaskExecutor:
                 raise TaskExecutionError(
                     "BATCH_FANOUT_UNAVAILABLE", "batch plan returned but fan-out is not configured"
                 )
-            summary = await self._fanout.fan_out(task, plan)
+            try:
+                summary = await self._fanout.fan_out(task, plan)
+            except BatchFanoutStaleError as exc:
+                # 父任务已经不归本次执行所有：不写任何东西，等 CAS 拦下收尾。
+                raise TaskExecutionError(exc.code, str(exc)) from exc
             return self._batch_envelope(task, summary)
         return {
             "status": str(result.status),
@@ -158,6 +168,15 @@ class SkillTaskExecutor:
             return BatchPlan.parse(payload.get(BATCH_PLAN_KEY))
         except BatchPlanError as exc:
             raise TaskExecutionError(exc.code, str(exc)) from exc
+
+    def _execution_timeout(self, task: TaskExecution) -> float:
+        """Skill 超时 = `min(单次上限, 到 deadline 的剩余时间)`（评审 #8）。
+
+        不夹这一下，deadline 只剩 10 秒的任务照样能再跑满 300 秒——超时的副作用真实发生
+        了，只是最后被写成 FAILED 而已；夹住它，过期之后执行器主动收手。
+        """
+        remaining = (task.deadline_at - datetime.now(UTC)).total_seconds()
+        return max(MIN_EXECUTION_TIMEOUT_SEC, min(EXECUTION_TIMEOUT_SEC, remaining))
 
     def _batch_envelope(
         self, task: TaskExecution, summary: FanoutSummary | None = None

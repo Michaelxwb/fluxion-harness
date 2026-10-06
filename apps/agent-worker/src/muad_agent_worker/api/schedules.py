@@ -6,6 +6,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, AppError, ok, paginate
 from muad_api.error_codes import ErrorCode
+from muad_api.security import require_internal_service
 from muad_contracts import CreateScheduleRequest, ScheduleStatus, UpdateScheduleRequest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,9 +20,20 @@ from ..application.submissions import (
 from ..infrastructure.db import get_session
 from ..infrastructure.models.task import TaskSchedule
 from ..scheduler.service import ScheduleService
-from .deps import ActorUserId, RequiredActorUserId, ensure_tenant_consistent, get_tenant_id
+from .deps import (
+    ActorUserId,
+    RequiredActorUserId,
+    ensure_tenant_consistent,
+    get_tenant_id,
+)
 
-router = APIRouter(prefix="/internal/schedules", tags=["schedules"])
+# 同 `/internal/tasks`（2026-10-06 评审 #1）：Schedule 的增删改此前只需要一个可伪造的
+# UUID 头就当作 actor，等于任何人都能改别人的定时任务。
+router = APIRouter(
+    prefix="/internal/schedules",
+    tags=["schedules"],
+    dependencies=[Depends(require_internal_service)],
+)
 
 TenantId = Annotated[str, Depends(get_tenant_id)]
 Session = Annotated[AsyncSession, Depends(get_session)]

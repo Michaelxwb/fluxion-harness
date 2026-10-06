@@ -15,6 +15,7 @@ import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import sqlalchemy as sa
 from muad_agent_worker.application.batch_fanin import BATCH_CHILD_FAILED, settle_child
 from muad_agent_worker.application.batch_fanout import (
     AGGREGATE_ALL,
@@ -386,3 +387,98 @@ async def test_b119_release_counts_backoff_and_waiting_children_as_active(
     )
     assert (await fetch_task(tenant, waiting.id)).status == "WAITING"
     assert (await fetch_task(tenant, parked.id)).not_before == PARKED_NOT_BEFORE
+
+
+# ---------------------------------------------------- 评审回归（2026-10-06）
+
+
+async def test_last_child_finalizes_a_parent_that_was_reclaimed(tenant: TenantContext) -> None:
+    """父任务被回收成 QUEUED 时，最后一个 Child 终态仍要聚合（评审 #7）。
+
+    `reclaim` 会把崩溃的父任务置回 QUEUED（或它被重新领取），而 `_cas_parent` 此前只认
+    WAITING/RUNNING：此时最后一个 Child 终态无法聚合，父任务又再没有下一个事件可以触发
+    fan-in，只能一路停到 deadline。
+    """
+    parent = await persist_task(
+        tenant,
+        status="QUEUED",
+        task_type="BATCH",
+        external_ref_json={
+            "batch": {"concurrency": 2, "aggregate_mode": AGGREGATE_ALL, "item_count": 1}
+        },
+    )
+    child = await persist_task(
+        tenant,
+        parent_id=parent.id,
+        status="RUNNING",
+        delivery_mode="NONE",
+        lease_owner="worker-a",
+        lease_until=datetime.now(UTC) + timedelta(minutes=5),
+    )
+    worker = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="worker-a")
+
+    await worker._handle_success(child, {"ok": True}, now=datetime.now(UTC))
+
+    refreshed = await fetch_task(tenant, parent.id)
+    assert refreshed.status == "COMPLETED", "Child 全部终态却没人聚合父任务"
+    assert refreshed.result_json == {
+        "mode": AGGREGATE_ALL,
+        "total": 1,
+        "succeeded": 1,
+        "failed": 0,
+        "cancelled": 0,
+    }
+
+
+async def test_child_completion_takes_the_parent_lock_before_the_child_row(
+    tenant: TenantContext,
+) -> None:
+    """子任务终态与父任务取消的加锁顺序一致，不再互相等成死锁（评审 #6）。
+
+    取消路径先锁 Parent 再动 Child；子任务终态此前先 UPDATE Child（持子锁）再在
+    `settle_child` 里锁 Parent —— 两条交错就是 Parent→Child 与 Child→Parent 的循环等待，
+    PostgreSQL 实测判死锁并回滚一方。这里用真实并发事务固定那个交错：持父锁的一方随后
+    要动 Child 行，若子任务终态事务已经握住 Child 锁，旧实现必然死锁。
+    """
+    parent = await persist_task(
+        tenant,
+        status="RUNNING",
+        task_type="BATCH",
+        lease_owner="worker-a",
+        lease_until=datetime.now(UTC) + timedelta(minutes=5),
+        external_ref_json={
+            "batch": {"concurrency": 2, "aggregate_mode": AGGREGATE_ALL, "item_count": 1}
+        },
+    )
+    child = await persist_task(
+        tenant,
+        parent_id=parent.id,
+        status="RUNNING",
+        delivery_mode="NONE",
+        lease_owner="worker-a",
+        lease_until=datetime.now(UTC) + timedelta(minutes=5),
+    )
+    worker = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="worker-a")
+
+    async with tenant.session_factory() as blocker:
+        async with blocker.begin():
+            # 取消路径的第一步：锁住父行
+            await blocker.execute(
+                sa.select(TaskExecution.id)
+                .where(TaskExecution.id == parent.id)
+                .with_for_update()
+            )
+            completing = asyncio.create_task(
+                worker._handle_success(child, {"ok": True}, now=datetime.now(UTC))
+            )
+            await asyncio.sleep(0.3)
+            # 取消路径的第二步：动子行。旧实现里子任务终态事务已经握住这一行 → 死锁。
+            await blocker.execute(
+                sa.update(TaskExecution)
+                .where(TaskExecution.id == child.id)
+                .values(update_time=datetime.now(UTC))
+            )
+        await asyncio.wait_for(completing, timeout=10)
+
+    assert (await fetch_task(tenant, child.id)).status == "COMPLETED"
+    assert (await fetch_task(tenant, parent.id)).status == "COMPLETED"

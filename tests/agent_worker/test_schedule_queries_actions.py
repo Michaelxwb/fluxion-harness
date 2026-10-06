@@ -12,14 +12,14 @@ import sqlalchemy as sa
 from httpx import AsyncClient
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import create_schedule_payload, persist_task
+from agent_worker.helpers import create_schedule_payload, internal_service_headers, persist_task
 
 # Runtime 代表 Schedule owner 调用：Internal 变更接口必须带 X-Actor-User-Id（API-07/08）。
 OWNER = uuid.UUID("5a1d0c1e-0000-4000-8000-00000000a001")
 
 
 def _headers(tenant: TenantContext, **extra: str) -> dict[str, str]:
-    return {"X-Tenant-Id": tenant.tenant_id, "X-Actor-User-Id": str(OWNER), **extra}
+    return internal_service_headers(tenant.tenant_id, **{"X-Actor-User-Id": str(OWNER), **extra})
 
 
 def _schedule_body(tenant: TenantContext, **overrides: object) -> dict[str, object]:
@@ -130,7 +130,7 @@ async def test_detail_returns_schedule_and_is_tenant_isolated(
 
     foreign = await client.get(
         f"/internal/schedules/{schedule_id}",
-        headers={"X-Tenant-Id": f"{tenant.tenant_id}-other"},
+        headers=internal_service_headers(f"{tenant.tenant_id}-other"),
     )
     assert foreign.status_code == 404
 

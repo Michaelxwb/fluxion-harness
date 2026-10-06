@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from httpx import AsyncClient
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import create_task_payload
+from agent_worker.helpers import create_task_payload, internal_service_headers
 
 IDEMPOTENCY_HEADER = "Idempotency-Key"
 
@@ -23,7 +23,7 @@ COUNT_TASKS = sa.text("SELECT count(*) FROM task.task_execution WHERE tenant_id 
 
 
 def _headers(tenant: TenantContext, **extra: str) -> dict[str, str]:
-    return {"X-Tenant-Id": tenant.tenant_id, **extra}
+    return internal_service_headers(tenant.tenant_id, **extra)
 
 
 async def _scalar(tenant: TenantContext, statement: sa.TextClause) -> int:

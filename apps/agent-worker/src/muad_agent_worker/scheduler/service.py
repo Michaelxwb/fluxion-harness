@@ -437,12 +437,30 @@ class SchedulerLoop:
         self._last_sweep_at: datetime | None = None
 
     async def run_forever(self) -> None:
+        """两个**互相独立**的循环：到期 Schedule 的执行，与 deadline sweep。
+
+        串成一个循环时，一整轮 `run_due`（最多 `scheduler_batch_size` 条 Schedule，每条
+        都要取一次设置并解析有效定义）会把 sweep 一直往后推——
+        `task_deadline_sweep_interval_sec` 于是不是实际最大延迟，一次慢的外部解析就能让
+        它迟到整轮（评审 #15 实测：阻塞 resolver 后 1.2s 仍未 sweep，`_last_sweep_at`
+        还是 None）。deadline 是**用户承诺**，不能排在外部调用后面。
+        """
+        await asyncio.gather(self._fire_forever(), self._sweep_forever())
+
+    async def _fire_forever(self) -> None:
         while True:
             try:
                 await self.run_due()
-                await self.sweep_deadlines_if_due()
             except Exception:
                 logger.exception("scheduler_loop_tick_failed")
+            await asyncio.sleep(self._settings.scheduler_poll_interval_sec)
+
+    async def _sweep_forever(self) -> None:
+        while True:
+            try:
+                await self.sweep_deadlines_if_due()
+            except Exception:
+                logger.exception("deadline_sweep_tick_failed")
             await asyncio.sleep(self._settings.scheduler_poll_interval_sec)
 
     async def sweep_deadlines_if_due(self, *, now: datetime | None = None) -> int:

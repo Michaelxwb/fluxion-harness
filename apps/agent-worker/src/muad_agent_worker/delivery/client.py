@@ -59,10 +59,18 @@ class HttpDeliveryClient:
 
 
 def _delivered(response: httpx.Response) -> bool:
-    """兼容旧响应：缺少 `delivered` 字段时按已送达处理。"""
+    """只有**明确** `data.delivered == true` 才算送达（2026-10-06 评审 #11）。
+
+    HTTP 200 只说明请求被受理，不说明渠道真的发出去了。此前非法 JSON、缺 `delivered`
+    字段、字段类型不对一律按「已送达」处理——于是 Worker 把行置成 `SENT`，却**没有任何
+    可信回执**：任务结果再也不会重投，用户就是收不到。现在解析不了一律按未送达处理，
+    走既有的可重试失败 + 退避；`delivery_key` 稳定，重投仍由网关去重。
+    """
     try:
-        data = response.json().get("data") or {}
+        payload = response.json()
     except ValueError:
-        return True
-    value = data.get("delivered")
-    return bool(value) if isinstance(value, bool) else True
+        return False
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, dict):
+        return False
+    return data.get("delivered") is True

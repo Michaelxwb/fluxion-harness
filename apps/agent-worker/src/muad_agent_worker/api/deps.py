@@ -10,8 +10,13 @@ from muad_common import SharedSettings
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 
 TENANT_HEADER = "X-Tenant-Id"
-INTERNAL_SERVICE_HEADER = "X-Internal-Service"
 ACTOR_HEADER = "X-Actor-User-Id"
+
+# 内部服务身份门控一律用 api-kit 原语（RULE-api-001「服务底座统一复用 api-kit 原语」）：
+# 本模块此前自带一份同形实现，而 `/internal/admin/*` 用了它、`/internal/tasks` 与
+# `/internal/schedules` 没用 —— 两处并行正是 2026-10-06 评审 #1 的成因（普通 Task/Schedule
+# 接口可被任意内网调用方伪造租户头读写）。现在只有一份实现（`muad_api.security`），各路由
+# 直接 `from muad_api.security import require_internal_service`。
 
 
 def get_platform_settings_client(request: Request) -> PlatformSettingsClient:
@@ -39,18 +44,6 @@ def ensure_tenant_consistent(request: Request, expected_tenant_id: str) -> None:
     header_tenant_id = request.headers.get(TENANT_HEADER, "")
     if header_tenant_id and header_tenant_id != expected_tenant_id:
         raise AppError(ErrorCode.COMMON_BAD_REQUEST)
-
-
-def require_internal_service(
-    x_internal_service: Annotated[str | None, Header()] = None,
-) -> None:
-    """Admin API 只允许受信内部调用方；缺失或错误身份一律 FORBIDDEN。"""
-    expected = SharedSettings().internal_service_token
-    if not expected or x_internal_service != expected:
-        raise AppError(ErrorCode.FORBIDDEN)
-
-
-InternalServiceDep = Annotated[None, Depends(require_internal_service)]
 
 
 def get_actor_user_id(

@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok, paginate
+from muad_api.security import require_internal_service
 from muad_contracts import CreateTaskRequest, TaskStatus, TriggerType
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,9 +22,21 @@ from ..application.submissions import (
 from ..application.task_service import TERMINAL_STATUSES, TaskService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.task import TaskEvent, TaskExecution
-from .deps import ActorUserId, PlatformSettingsClientDep, ensure_tenant_consistent, get_tenant_id
+from .deps import (
+    ActorUserId,
+    PlatformSettingsClientDep,
+    ensure_tenant_consistent,
+    get_tenant_id,
+)
 
-router = APIRouter(prefix="/internal/tasks", tags=["tasks"])
+# 内部业务路由与 `/internal/admin/*` 同一门控（2026-10-06 评审 #1）：租户与 actor 都来自
+# 请求头，只有确认调用方是受信服务（Runtime/Console）才谈得上「可信上下文」——此前这些
+# 路由完全无门控，任何能连上 Worker 端口、知道目标租户/任务 id 的调用方都能读、建、取消。
+router = APIRouter(
+    prefix="/internal/tasks",
+    tags=["tasks"],
+    dependencies=[Depends(require_internal_service)],
+)
 
 logger = logging.getLogger(__name__)
 

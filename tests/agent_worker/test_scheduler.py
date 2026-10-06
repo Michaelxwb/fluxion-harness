@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
 from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskSchedule
-from muad_agent_worker.scheduler.service import SchedulerLoop, ScheduleService
+from muad_agent_worker.scheduler.client import ResolveTransportError
+from muad_agent_worker.scheduler.service import (
+    TASK_DEADLINE_EXCEEDED,
+    SchedulerLoop,
+    ScheduleService,
+)
 from muad_api import AppError
+from muad_common import SharedSettings
 from muad_contracts import REQUIRED_SNAPSHOT_KEYS, ScheduleSpec
 from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import func, select, update
@@ -18,6 +26,8 @@ from agent_worker.helpers import (
     build_resolve_response,
     create_schedule_payload,
     fetch_schedule,
+    fetch_task,
+    persist_task,
 )
 
 
@@ -397,3 +407,54 @@ async def test_once_rejected_by_authorization_ends_missed_with_reason(tenant: Te
     assert refreshed.completed_at is None and refreshed.next_fire_at is None
     assert refreshed.last_error_code == "AGENT_ACCESS_DENIED"
     assert await _schedule_tasks(tenant, schedule.id) == []
+
+
+# ---------------------------------------------------- 评审回归（2026-10-06）
+
+
+async def test_deadline_sweep_is_not_blocked_by_a_slow_schedule_resolution(
+    tenant: TenantContext,
+) -> None:
+    """慢的 Schedule 解析不得拖住 deadline sweep（评审 #15）。
+
+    此前 `run_forever` 先 `await` 整轮 `run_due` 再 sweep：一轮最多 `scheduler_batch_size`
+    条 Schedule、每条都要取设置并解析有效定义，于是 `task_deadline_sweep_interval_sec` 不是
+    实际最大延迟——一次慢的外部调用就能让它迟到整轮。
+    """
+    now = datetime.now(UTC)
+    schedule = await _create_schedule(tenant, skill_id=uuid.uuid4())
+    await _set_next_fire_at(tenant, schedule.id, now - timedelta(seconds=1))
+    expired = await persist_task(
+        tenant, status="QUEUED", deadline_at=now - timedelta(seconds=1)
+    )
+
+    blocked = asyncio.Event()
+    release = asyncio.Event()
+
+    class _BlockingResolver:
+        async def resolve(self, agent_id: object, actor_user_id: object, tenant_id: str) -> object:
+            blocked.set()
+            await release.wait()
+            raise ResolveTransportError("cancelled while blocked")
+
+    settings = SharedSettings(
+        scheduler_poll_interval_sec=1, task_deadline_sweep_interval_sec=1
+    )
+    loop = SchedulerLoop(tenant.session_factory, _BlockingResolver(), settings)  # type: ignore[arg-type]
+    running = asyncio.create_task(loop.run_forever())
+    try:
+        await asyncio.wait_for(blocked.wait(), timeout=10)
+        deadline = datetime.now(UTC) + timedelta(seconds=10)
+        while datetime.now(UTC) < deadline:
+            if (await fetch_task(tenant, expired.id)).error_code == TASK_DEADLINE_EXCEEDED:
+                break
+            await asyncio.sleep(0.1)
+        refreshed = await fetch_task(tenant, expired.id)
+        assert refreshed.status == "FAILED", "解析卡住时 sweep 也没跑"
+        assert refreshed.error_code == TASK_DEADLINE_EXCEEDED
+        assert loop._last_sweep_at is not None
+    finally:
+        release.set()
+        running.cancel()
+        with suppress(asyncio.CancelledError):
+            await running

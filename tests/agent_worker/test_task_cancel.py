@@ -12,15 +12,17 @@ from typing import Any
 
 import sqlalchemy as sa
 from httpx import AsyncClient
+from muad_agent_worker.application.task_service import TaskService
 from muad_agent_worker.infrastructure.models.task import TaskExecution
+from muad_agent_worker.worker.claimer import TaskClaimer
 from muad_agent_worker.worker.service import WorkerLoop
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import persist_task
+from agent_worker.helpers import internal_service_headers, persist_task
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
-    return {"X-Tenant-Id": tenant.tenant_id}
+    return internal_service_headers(tenant.tenant_id)
 
 
 async def _row(tenant: TenantContext, task_id: uuid.UUID) -> dict[str, Any]:
@@ -343,3 +345,46 @@ async def test_running_cancel_race_reports_real_status(tenant: TenantContext) ->
             assert exc.code == "REVISION_CONFLICT"
         else:
             raise AssertionError("CAS 落败后应回读真实终态并冲突")
+
+
+# ---------------------------------------------------- 评审回归（2026-10-06）
+
+
+async def test_cancel_intent_survives_a_racing_claim(
+    tenant: TenantContext, monkeypatch: Any
+) -> None:
+    """取消与 claim 抢跑：取消意图必须落库（评审 #4）。
+
+    此前按"第一次读到的状态"挑一条 CAS 分支：取消先读到 QUEUED，claim 抢先把行置成
+    RUNNING，两条 CAS 都不成立——接口回 `RUNNING/cancel_requested=False`，库里连取消标记
+    都没有，用户明确喊停而任务继续跑到底。
+    """
+    task = await persist_task(tenant)
+    original_get = TaskService.get
+    raced = False
+
+    async def get_with_racing_claim(
+        self: TaskService, tenant_id: str, task_id: uuid.UUID, **kwargs: Any
+    ) -> TaskExecution:
+        nonlocal raced
+        loaded = await original_get(self, tenant_id, task_id, **kwargs)
+        if not raced:
+            raced = True
+            # 让 claim 抢在取消的写之前把行置成 RUNNING
+            claimed = await TaskClaimer(tenant.session_factory, tenant.settings).claim_one("worker-a")
+            assert claimed is not None and claimed.id == task.id
+        return loaded
+
+    monkeypatch.setattr(TaskService, "get", get_with_racing_claim)
+
+    async with tenant.session_factory() as session:
+        service = TaskService(session)
+        status, cancel_requested = await service.cancel(tenant.tenant_id, task.id)
+        await session.commit()
+
+    assert status == "RUNNING", "claim 赢了就还是 RUNNING（协作取消）"
+    assert cancel_requested is True, "取消意图丢了"
+
+    state = await _row(tenant, task.id)
+    assert state["status"] == "RUNNING"
+    assert state["cancel_requested"] is True, "库里必须留下取消标记"

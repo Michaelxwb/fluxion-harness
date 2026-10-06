@@ -12,13 +12,17 @@ import hashlib
 import tempfile
 import uuid
 import zipfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+import sqlalchemy as sa
 from muad_agent_worker.application.batch_fanout import (
     AGGREGATE_ALL,
     PARKED_NOT_BEFORE,
     BatchFanoutService,
+    BatchFanoutStaleError,
+    BatchPlan,
 )
 from muad_agent_worker.infrastructure.models.task import TaskExecution
 from muad_agent_worker.worker.executor import SkillTaskExecutor
@@ -78,6 +82,24 @@ def _snapshot(checksum: str) -> dict[str, object]:
     }
 
 
+async def _claim_parent(tenant: TenantContext, parent: TaskExecution) -> TaskExecution:
+    """把父任务置成「本次执行已持有」：`fan_out` 的所有者守卫要求它真的在跑（评审 #5）。"""
+    moment = datetime.now(UTC)
+    async with tenant.session_factory() as session, session.begin():
+        await session.execute(
+            sa.update(TaskExecution)
+            .where(TaskExecution.id == parent.id)
+            .values(
+                status="RUNNING",
+                lease_owner="worker-batch",
+                lease_until=moment + timedelta(minutes=5),
+                attempt=1,
+                started_at=moment,
+            )
+        )
+    return await fetch_task(tenant, parent.id)
+
+
 def _batch_executor(tenant: TenantContext, cache: SkillArtifactCache) -> SkillTaskExecutor:
     return SkillTaskExecutor(
         cache, fanout=BatchFanoutService(tenant.session_factory, tenant.settings)
@@ -123,6 +145,7 @@ async def test_b118_executor_fans_out_idempotent_children_inheriting_root_and_in
     """Skill 返回 BATCH plan：同事务幂等创建 Child，root/intent/snapshot 继承，重放不增。"""
     _, tmpdir, cache, parent = await _parent_with_batch_plan(tenant)
     executor = _batch_executor(tenant, cache)
+    parent = await _claim_parent(tenant, parent)
 
     envelope = await executor.execute(parent)
     assert envelope["result"]["wait"]["external_ref"]["batch"]["aggregate_mode"] == AGGREGATE_ALL
@@ -164,7 +187,7 @@ async def test_b118_concurrency_clamps_to_min_of_plan_system_and_platform(
     """并发上限 = min(plan.max_concurrency, system_max, platform_limit)，超出项先停放。"""
     _, tmpdir, cache, parent = await _parent_with_batch_plan(tenant)
     executor = _batch_executor(tenant, cache)
-    await executor.execute(parent)
+    await executor.execute(await _claim_parent(tenant, parent))
 
     now = datetime.now(UTC)
     children = await _children(tenant, parent.id)
@@ -206,3 +229,55 @@ async def test_b118_parent_waits_without_lease_after_fanout(tenant: TenantContex
     assert all(child.delivery_mode == "NONE" for child in children)
     assert all(child.delivery_status == "NONE" for child in children)
     tmpdir.cleanup()
+
+
+# ---------------------------------------------------- 评审回归（2026-10-06）
+
+
+def _plan(items: int = 2) -> BatchPlan:
+    plan = BatchPlan.parse(
+        {
+            "items": [{"customer": chr(ord("A") + index)} for index in range(items)],
+            "aggregate_mode": AGGREGATE_ALL,
+        }
+    )
+    assert plan is not None
+    return plan
+
+
+async def test_fanout_refuses_a_parent_that_is_no_longer_owned(
+    tenant: TenantContext,
+) -> None:
+    """已取消 / 已失约的父任务不得扇出（评审 #5）。
+
+    `fan_out` 此前只按 id 给父行加锁：对 CANCELLED 的父任务、或租约已过期 / owner 已换人的
+    父任务，照样能建出**可执行**的 Child ——取消或回收赢了竞态，旧执行仍能提交这个副作用。
+    """
+    service = BatchFanoutService(tenant.session_factory, tenant.settings)
+
+    cancelled = await persist_task(tenant, status="CANCELLED", cancel_requested=True)
+    with pytest.raises(BatchFanoutStaleError):
+        await service.fan_out(cancelled, _plan())
+    assert await _children(tenant, cancelled.id) == []
+
+    expired = await persist_task(
+        tenant,
+        status="RUNNING",
+        lease_owner="dead-worker",
+        lease_until=datetime.now(UTC) - timedelta(minutes=1),
+    )
+    with pytest.raises(BatchFanoutStaleError):
+        await service.fan_out(expired, _plan())
+    assert await _children(tenant, expired.id) == []
+
+    reassigned = await persist_task(
+        tenant,
+        status="RUNNING",
+        lease_owner="worker-b",
+        lease_until=datetime.now(UTC) + timedelta(minutes=5),
+    )
+    stale_view = await fetch_task(tenant, reassigned.id)
+    stale_view.lease_owner = "worker-a"
+    with pytest.raises(BatchFanoutStaleError):
+        await service.fan_out(stale_view, _plan())
+    assert await _children(tenant, reassigned.id) == []

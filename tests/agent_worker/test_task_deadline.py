@@ -9,18 +9,26 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from muad_agent_worker.delivery.client import HttpDeliveryClient
 from muad_agent_worker.delivery.service import DeliveryLoop
 from muad_agent_worker.metrics import value
 from muad_agent_worker.scheduler.service import DeadlineSweeper, SchedulerLoop
+from muad_agent_worker.worker.claimer import TaskClaimer
+from muad_agent_worker.worker.executor import SkillTaskExecutor
 from muad_agent_worker.worker.service import WorkerLoop
 from muad_common import SharedSettings
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import fetch_events, fetch_task, persist_task, sample_route
+from agent_worker.helpers import (
+    DELIVERED_ENVELOPE,
+    fetch_events,
+    fetch_task,
+    persist_task,
+    sample_route,
+)
 
 TASK_DEADLINE_EXCEEDED = "TASK_DEADLINE_EXCEEDED"
 DEADLINE_TOTAL = "task_deadline_exceeded_total"
@@ -29,7 +37,7 @@ DEADLINE_TOTAL = "task_deadline_exceeded_total"
 def _handler(status_code: int, calls: list[httpx.Request]) -> Any:
     def handle(request: httpx.Request) -> httpx.Response:
         calls.append(request)
-        return httpx.Response(status_code, json={"code": "0", "data": {"accepted": True}})
+        return httpx.Response(status_code, json=DELIVERED_ENVELOPE)
 
     return handle
 
@@ -212,3 +220,61 @@ async def test_e03_scheduler_loop_runs_sweep_on_its_own_cadence(tenant: TenantCo
 class _NoopResolver:
     async def resolve(self, agent_id: Any, actor_user_id: Any, tenant_id: str) -> Any:
         raise AssertionError("sweep 测试不应触发 resolve")
+
+
+# ---------------------------------------------------- 评审回归（2026-10-06）
+
+
+class _SlowExecutor:
+    """执行得比 deadline 慢，但**会**正常返回结果。"""
+
+    def __init__(self, seconds: float) -> None:
+        self._seconds = seconds
+
+    async def execute(self, task: Any) -> dict[str, Any]:
+        await asyncio.sleep(self._seconds)
+        return {"status": "SUCCEEDED", "result": {"done": True}, "stderr": "", "exit_code": 0}
+
+
+async def test_expired_task_is_never_claimed(tenant: TenantContext) -> None:
+    """过了 deadline 的任务不得被领取（评审 #8）。
+
+    此前 claim 条件只有 status/not_before/cancel：已过期的任务照样能被领走、跑完、写成
+    COMPLETED——超时的业务副作用真的发生了，只是稍后被 sweep 判成失败而已。
+    """
+    await persist_task(tenant, deadline_at=datetime.now(UTC) - timedelta(seconds=1))
+
+    claimer = TaskClaimer(tenant.session_factory, tenant.settings)
+    assert await claimer.claim_one("worker-a") is None
+
+
+async def test_run_past_the_deadline_is_recorded_as_deadline_exceeded(
+    tenant: TenantContext,
+) -> None:
+    """执行跨过 deadline 不得写 COMPLETED（评审 #8）。"""
+    task = await persist_task(tenant, deadline_at=datetime.now(UTC) + timedelta(seconds=0.3))
+    worker = WorkerLoop(
+        tenant.session_factory,
+        tenant.settings,
+        executor=_SlowExecutor(0.8),
+        instance_id="worker-a",
+    )
+
+    assert await worker.run_once() == task.id
+
+    refreshed = await fetch_task(tenant, task.id)
+    assert refreshed.status == "FAILED"
+    assert refreshed.error_code == TASK_DEADLINE_EXCEEDED
+    assert refreshed.result_json is None, "超时的结果不得被当成成功结论"
+
+
+async def test_skill_timeout_is_clamped_to_the_remaining_deadline(
+    tenant: TenantContext,
+) -> None:
+    """Skill 超时 = min(单次上限, 到 deadline 的剩余时间)（评审 #8）。"""
+    task = await persist_task(tenant, deadline_at=datetime.now(UTC) + timedelta(seconds=30))
+    executor = SkillTaskExecutor(cast("Any", None))
+
+    remaining = executor._execution_timeout(task)
+
+    assert 25 <= remaining <= 30, remaining

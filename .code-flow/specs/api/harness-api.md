@@ -163,6 +163,25 @@ return ok(catalog, data)          # code == "0"
 
 api-kit 原语清单（上表之外的其余共享原语，同样禁止业务代码自建）：`require_internal_service` / `INTERNAL_SERVICE_HEADER`、`require_session` / `require_roles`（`packages/api-kit/src/muad_api/security.py:15,18-31,58-79`）、`install_metrics` / `declare_metric` / `inc_counter`（`packages/api-kit/src/muad_api/metrics.py`）、`database_readiness` / `ReadinessDetail`（`packages/api-kit/src/muad_api/probes.py:14-33`）。
 
+`/internal/*` 的**每个业务路由**都要有服务身份门控（2026-10-06 评审 #1）：这些端点的租户与 actor 都从请求头取，只有先确认调用方是受信服务（Runtime / Console / 网关）之后，那些头才谈得上「可信上下文」。门控本身只有一份实现（api-kit 的 `require_internal_service`），路由可以按路由器挂（`APIRouter(dependencies=[Depends(require_internal_service)])`）或按端点挂（`InternalServiceDep`），但**不能有例外**——只给 `/internal/admin/*` 加门控、把业务路由留在外面，等于任何能连上内网端口、知道目标租户/资源 id 的人都能读、建、取消别人的东西。
+
+✅ 路由器级门控，一处生效全部端点：
+
+```python
+router = APIRouter(
+    prefix="/internal/tasks",
+    tags=["tasks"],
+    dependencies=[Depends(require_internal_service)],
+)
+```
+
+❌ 只在 Admin 面做门控，业务路由裸奔：
+
+```python
+admin = APIRouter(prefix="/internal/admin/tasks", dependencies=[Depends(require_internal_service)])
+tasks = APIRouter(prefix="/internal/tasks")     # 同样的租户/actor 头，却没有门控
+```
+
 `write_config_audit` 的**租户归属不得取自请求头**（2026-09-28 收口）：`tenant_id` 缺省时只回落部署默认租户，**不再**回落 `current_tenant_id()`——后者是中间件从 `X-Tenant-Id` 写入 contextvar 的值（客户端可任意改写）。读数据还能靠租户谓词兜，而审计归属被污染是合规问题：会产出「调用方自选租户」的审计行。
 
 ✅ 调用方显式传 `tenant_id=`（用户态路由请传**账号租户**）；❌ 省略 `tenant_id` 并依赖 `current_tenant_id()` 兜底。

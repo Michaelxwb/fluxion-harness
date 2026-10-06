@@ -12,12 +12,13 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok, paginate
+from muad_api.security import InternalServiceDep
 from muad_contracts import TaskStatus, TriggerType
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.task_service import TaskService
 from ..infrastructure.db import get_session
-from .deps import InternalServiceDep, get_tenant_id
+from .deps import get_tenant_id
 from .tasks import _publish_cancel_hint, detail_payload, list_payloads
 
 router = APIRouter(prefix="/internal/admin/tasks", tags=["admin-tasks"])

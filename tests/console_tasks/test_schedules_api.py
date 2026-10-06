@@ -16,6 +16,8 @@ from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskSche
 from muad_agent_worker.main import app as worker_app
 from sqlalchemy import text, update
 
+from console_tasks.conftest import TOKEN
+
 
 async def _create_schedule(tenant_id: str, *, cron: str = "0 9 * * *") -> uuid.UUID:
     body = {
@@ -36,7 +38,10 @@ async def _create_schedule(tenant_id: str, *, cron: str = "0 9 * * *") -> uuid.U
         transport=httpx.ASGITransport(app=worker_app), base_url="http://worker"
     ) as worker:
         response = await worker.post(
-            "/internal/schedules", json=body, headers={"X-Tenant-Id": tenant_id}
+            "/internal/schedules",
+            json=body,
+            # 内部业务路由与 Admin 面同一门控（2026-10-06 评审 #1）
+            headers={"X-Tenant-Id": tenant_id, "X-Internal-Service": TOKEN},
         )
     assert response.status_code == 200, response.text
     return uuid.UUID(response.json()["data"]["schedule_id"])

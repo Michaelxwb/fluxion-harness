@@ -180,7 +180,14 @@ async def _cas_parent(
         update(TaskExecution)
         .where(
             TaskExecution.id == parent.id,
-            TaskExecution.status.in_((str(TaskStatus.WAITING), str(TaskStatus.RUNNING))),
+            # 父任务的**全部非终态**都接受（含 QUEUED）：`reclaim` 会把崩溃的父任务置回
+            # QUEUED，此时最后一个 Child 终态若还不肯聚合，父任务就再没有下一个事件可以
+            # 触发 fan-in——只能一路停到 deadline（评审 #7 实测）。已经请求取消的父任务
+            # 不在此列：那要由它自己的取消路径收尾成 CANCELLED，不能被扇入改写成成功/失败。
+            TaskExecution.status.in_(
+                (str(TaskStatus.QUEUED), str(TaskStatus.WAITING), str(TaskStatus.RUNNING))
+            ),
+            TaskExecution.cancel_requested.is_(False),
             TaskExecution.is_deleted.is_(False),
         )
         .values(

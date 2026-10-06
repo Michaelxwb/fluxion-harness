@@ -4,7 +4,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import sqlalchemy as sa
@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.platform_settings import resolve_platform_settings
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
-from ..application.task_events import TaskEventType, append_event
+from ..application.task_events import TaskEventSeed, TaskEventType, append_event, append_events
 from ..infrastructure.models.task import DeliveryRoute, TaskExecution
 from ..metrics import DELIVERY_METRIC, increment, record_outcome
 from .artifact_client import (
@@ -37,13 +37,21 @@ from .messages import build_delivery_message
 logger = logging.getLogger(__name__)
 
 TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))
-RETRYABLE_DELIVERY_STATUSES = (str(DeliveryStatus.PENDING), str(DeliveryStatus.FAILED))
+#: **还会被投递的状态：只有 PENDING**。`FAILED` 是终态（4xx / 路由缺失 / 次数耗尽），
+#: 此前把「可重试失败」也写成 FAILED，于是耗尽预算的租户永远留在检测集合里，又按最早
+#: `create_time` 排在最前面，把后面所有租户挡死（2026-10-06 评审 #9）。可重试失败现在
+#: 写 PENDING —— 与 `DELIVERY_METRIC` 本来就没断过的口径一致（design docs/10：**超过
+#: 次数才置 FAILED**）。
+DELIVERABLE_STATUSES = (str(DeliveryStatus.PENDING),)
 #: 一轮内最多为多少个「有待投递记录」的租户取快照（投递队列跨租户、设置按租户）。
 MAX_TENANTS_PER_TICK = 8
 DELIVERY_ATTEMPT_TOTAL = "delivery_attempt_total"
 DELIVERY_FAILED_TOTAL = "delivery_failed_total"
 #: 产物引用解析不到（404）：退文本形态的计数——**看得见**才不会被当成"本来就没产物"
 ARTIFACT_GONE_TOTAL = "delivery_artifact_gone_total"
+#: 预留之后多久没回执就认定「那次尝试随进程一起没了」（评审 #12）。取值远大于一次
+#: HTTP 投递的超时，避免把**正在发送**的记录误判成滞留。
+DELIVERY_RESERVATION_LEASE_SEC = 300
 
 
 @dataclass(frozen=True)
@@ -72,6 +80,9 @@ class DeliveryLoop:
         self._settings_client: PlatformSettingsClient = (
             settings_client or NullPlatformSettingsClient()
         )
+        #: 跨租户公平游标 `(该租户最早待投递记录的 create_time, tenant_id)`：每轮从这一格
+        #: **之后**继续取，取空则回到开头。见 `_pending_tenants`。
+        self._tenant_cursor: tuple[datetime, str] | None = None
 
     async def _resolve_artifact(
         self, task: TaskExecution, *, now: datetime, max_attempts: int
@@ -114,20 +125,42 @@ class DeliveryLoop:
     async def run_once(self, *, now: datetime | None = None) -> DeliveryOutcome | None:
         moment = now or datetime.now(UTC)
         # 投递尝试边界：只有确实有可投递记录（设置无关谓词）时才取快照；空闲轮询零调用。
-        for tenant_id in await self._pending_tenants():
-            snapshot = await self._settings_client.fetch_snapshot(tenant_id=tenant_id)
-            platform = resolve_platform_settings(
-                snapshot, batch_platform_limit=self._settings.batch_platform_limit
-            )
+        for tenant_id, first_seen in await self._pending_tenants():
+            # 游标只记「这一格已经看过了」：无论它有没有可投递候选，下一轮都从这里往后走。
+            # 于是「前 N 个租户的记录都在退避窗口里」不会永远挡住后面的租户（评审 #9）。
+            self._tenant_cursor = (first_seen, tenant_id)
+            platform = await self._platform_for(tenant_id)
+            if platform is None:
+                # 一个租户读不到设置，不能连坐整条跨租户队列（评审 #10）。
+                continue
+            await self._settle_stranded(moment, tenant_id, platform.task)
             candidate = await self._reserve_candidate(
                 moment, tenant_id=tenant_id, task_settings=platform.task
             )
             if candidate is None:
                 continue
-            return await self._attempt_delivery(
-                *candidate, platform=platform, now=moment
-            )
+            return await self._attempt_delivery(*candidate, platform=platform, now=moment)
         return None
+
+    async def _platform_for(self, tenant_id: str) -> PlatformSettings | None:
+        """取该租户的平台设置；失败**只影响这个租户**，且仍是 fail-closed（不猜默认值）。
+
+        此前异常直接冒到 `run_forever` 的外层：较老的租户读设置失败，后面所有健康租户这一轮
+        以及下一轮（同样的顺序）全部停摆（评审 #10 实测：设置调用列表里只有坏租户）。失败
+        本身已经由设置客户端记进
+        `platform_settings_fetch_total{caller="worker",result="failed"}`；游标保证坏租户每轮
+        最多被重试一次，不会挤占健康租户的名额。
+        """
+        try:
+            snapshot = await self._settings_client.fetch_snapshot(tenant_id=tenant_id)
+            return resolve_platform_settings(
+                snapshot, batch_platform_limit=self._settings.batch_platform_limit
+            )
+        except Exception:
+            logger.warning(
+                "delivery_platform_settings_unavailable tenant_id=%s", tenant_id, exc_info=True
+            )
+            return None
 
     async def _attempt_delivery(
         self,
@@ -196,24 +229,96 @@ class DeliveryLoop:
             )
         return DeliveryOutcome(task_id=task.id, http_status=status_code, error=error, sent=False)
 
-    async def _pending_tenants(self) -> list[str]:
-        """有可投递记录的租户（按最早记录排序，取有界前缀）。
+    async def _pending_tenants(self) -> list[tuple[str, datetime]]:
+        """有可投递记录的租户 `[(tenant_id, 该租户最早待投递记录的 create_time)]`。
 
-        投递队列**跨租户**、而设置按租户，故先按设置无关谓词选出待投递租户，再逐个取
-        快照判断是否到期；`MAX_TENANTS_PER_TICK` 让「某租户的记录停在退避窗口里」不会
-        让整条队列空转，也不会无限放大取快照的次数。
+        投递队列**跨租户**、而设置按租户，故先按设置无关谓词选出待投递租户，再逐个取快照
+        判断是否到期；`MAX_TENANTS_PER_TICK` 让「某租户的记录停在退避窗口里」不会让整条
+        队列空转，也不会无限放大取快照的次数。
+
+        **游标是这里唯一的公平性来源**（评审 #9）：固定取「最早的前 8 个」时，只要有 8 个
+        租户的记录永远选不出候选（例如次数耗尽），后面的租户就永远轮不到。现在每轮从上一
+        轮看过的**下一格**继续（按 `(create_time, tenant_id)` 排序），取空就回到开头——窗口
+        永远在前进，最坏情况下每个租户每 `租户数/8` 轮被看一次。
         """
-        async with self._session_factory() as session:
-            rows = (
-                await session.execute(
-                    select(TaskExecution.tenant_id)
-                    .where(*self._detectable_conditions())
-                    .group_by(TaskExecution.tenant_id)
-                    .order_by(sa.func.min(TaskExecution.create_time).asc())
-                    .limit(MAX_TENANTS_PER_TICK)
+        rows = await self._query_pending_tenants(after=self._tenant_cursor)
+        if not rows and self._tenant_cursor is not None:
+            self._tenant_cursor = None
+            rows = await self._query_pending_tenants(after=None)
+        return [(row[0], row[1]) for row in rows]
+
+    async def _query_pending_tenants(self, *, after: tuple[datetime, str] | None) -> list[Any]:
+        first_seen = sa.func.min(TaskExecution.create_time).label("first_seen")
+        statement = (
+            select(TaskExecution.tenant_id, first_seen)
+            .where(*self._detectable_conditions())
+            .group_by(TaskExecution.tenant_id)
+            .order_by(first_seen.asc(), TaskExecution.tenant_id.asc())
+            .limit(MAX_TENANTS_PER_TICK)
+        )
+        if after is not None:
+            seen_at, seen_tenant = after
+            statement = statement.having(
+                or_(
+                    first_seen > seen_at,
+                    sa.and_(first_seen == seen_at, TaskExecution.tenant_id > seen_tenant),
                 )
-            ).all()
-        return [row[0] for row in rows]
+            )
+        async with self._session_factory() as session:
+            return list((await session.execute(statement)).all())
+
+    async def _settle_stranded(
+        self, moment: datetime, tenant_id: str, task_settings: TaskSettings
+    ) -> int:
+        """结算「预留后崩溃」的滞留记录（评审 #12）。
+
+        `_reserve_candidate` 在发送**之前**就自增 `delivery_attempts` 并提交（崩溃不丢退避
+        进度，这是对的），但它同时把状态留在 PENDING：若这次正好用掉最后一次预算，崩溃后
+        候选条件 `delivery_attempts < max` 永远为假——既不重投，也没有任何路径把它结算成
+        FAILED，记录就永远停在 PENDING。超过预留租约仍未回执的，判定为「那次尝试随进程没
+        了」，这里直接终态失败。
+        """
+        stale_before = moment - timedelta(seconds=DELIVERY_RESERVATION_LEASE_SEC)
+        async with self._session_factory() as session:
+            async with session.begin():
+                settled = (
+                    await session.execute(
+                        update(TaskExecution)
+                        .where(
+                            *self._detectable_conditions(),
+                            TaskExecution.tenant_id == tenant_id,
+                            TaskExecution.delivery_attempts
+                            >= task_settings.delivery_max_attempts,
+                            TaskExecution.update_time < stale_before,
+                        )
+                        .values(
+                            delivery_status=str(DeliveryStatus.FAILED),
+                            update_time=moment,
+                        )
+                        .returning(TaskExecution.id, TaskExecution.tenant_id)
+                        .execution_options(synchronize_session=False)
+                    )
+                ).all()
+                if not settled:
+                    return 0
+                await append_events(
+                    session,
+                    [
+                        TaskEventSeed(
+                            tenant_id=row_tenant,
+                            task_id=task_id,
+                            event_type=TaskEventType.DELIVERY_FAILED,
+                            payload={"terminal": True, "reason": "reservation_abandoned"},
+                        )
+                        for task_id, row_tenant in settled
+                    ],
+                )
+        increment(DELIVERY_FAILED_TOTAL, len(settled))
+        record_outcome(DELIVERY_METRIC, str(DeliveryStatus.FAILED))
+        logger.warning(
+            "delivery_reservation_abandoned tenant_id=%s count=%d", tenant_id, len(settled)
+        )
+        return len(settled)
 
     @staticmethod
     def _detectable_conditions() -> tuple[Any, ...]:
@@ -221,7 +326,7 @@ class DeliveryLoop:
         return (
             TaskExecution.status.in_(TERMINAL_STATUSES),
             TaskExecution.delivery_mode == str(DeliveryMode.FINAL_ONLY),
-            TaskExecution.delivery_status.in_(RETRYABLE_DELIVERY_STATUSES),
+            TaskExecution.delivery_status.in_(DELIVERABLE_STATUSES),
             TaskExecution.is_deleted.is_(False),
         )
 
@@ -347,7 +452,9 @@ class DeliveryLoop:
         await self._apply(
             task,
             values={
-                "delivery_status": str(DeliveryStatus.FAILED),
+                "delivery_status": str(
+                    DeliveryStatus.FAILED if exhausted else DeliveryStatus.PENDING
+                ),
                 "delivery_attempts": attempts,
                 "update_time": now,
             },
@@ -371,7 +478,7 @@ class DeliveryLoop:
                     update(TaskExecution)
                     .where(
                         TaskExecution.id == task.id,
-                        TaskExecution.delivery_status.in_(RETRYABLE_DELIVERY_STATUSES),
+                        TaskExecution.delivery_status.in_(DELIVERABLE_STATUSES),
                         TaskExecution.delivery_attempts == task.delivery_attempts,
                         TaskExecution.is_deleted.is_(False),
                     )

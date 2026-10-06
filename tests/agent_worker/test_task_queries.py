@@ -13,11 +13,11 @@ from muad_agent_worker.application.task_events import TaskEventType, append_even
 from muad_agent_worker.scheduler.service import ScheduleService
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import create_schedule_payload, persist_task
+from agent_worker.helpers import create_schedule_payload, internal_service_headers, persist_task
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
-    return {"X-Tenant-Id": tenant.tenant_id}
+    return internal_service_headers(tenant.tenant_id)
 
 
 async def _create_schedule(tenant: TenantContext) -> uuid.UUID:
@@ -92,7 +92,8 @@ async def test_detail_is_tenant_isolated(client: AsyncClient, tenant: TenantCont
     task = await persist_task(tenant)
 
     foreign = await client.get(
-        f"/internal/tasks/{task.id}", headers={"X-Tenant-Id": f"{tenant.tenant_id}-other"}
+        f"/internal/tasks/{task.id}",
+        headers=internal_service_headers(f"{tenant.tenant_id}-other"),
     )
 
     assert foreign.status_code == 404

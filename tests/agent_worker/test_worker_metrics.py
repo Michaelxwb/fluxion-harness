@@ -34,6 +34,7 @@ from sqlalchemy import update
 
 from agent_worker.conftest import TenantContext
 from agent_worker.helpers import (
+    DELIVERED_ENVELOPE,
     FakeResolver,
     RecordingExecutor,
     build_resolve_response,
@@ -263,7 +264,7 @@ async def test_b212_schedule_and_delivery_increment_counters(tenant: TenantConte
     )
 
     def handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"code": "0", "data": {"accepted": True}})
+        return httpx.Response(200, json=DELIVERED_ENVELOPE)
 
     async with _serve_http(worker_app) as http:
         await loop.run_due(now=now)

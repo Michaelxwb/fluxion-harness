@@ -16,7 +16,7 @@ from muad_contracts import ScheduleSpec
 from pydantic import ValidationError
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import create_schedule_payload, persist_task
+from agent_worker.helpers import create_schedule_payload, internal_service_headers, persist_task
 
 IDEMPOTENCY_HEADER = "Idempotency-Key"
 
@@ -28,7 +28,7 @@ OWNER = uuid.UUID("5a1d0c1e-0000-4000-8000-00000000a002")
 
 
 def _headers(tenant: TenantContext, **extra: str) -> dict[str, str]:
-    return {"X-Tenant-Id": tenant.tenant_id, "X-Actor-User-Id": str(OWNER), **extra}
+    return internal_service_headers(tenant.tenant_id, **{"X-Actor-User-Id": str(OWNER), **extra})
 
 
 async def _scalar(tenant: TenantContext, statement: sa.TextClause) -> int:

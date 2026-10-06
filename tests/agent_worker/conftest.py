@@ -47,6 +47,18 @@ async def database_guard() -> AsyncIterator[None]:
         await engine.dispose()
 
 
+#: 内部业务路由的测试用服务身份（2026-10-06 评审 #1 起 `/internal/tasks` 与
+#: `/internal/schedules` 与 Admin 面同一门控）。`.env` 里通常有值，但测试不依赖它：
+#: CI 是干净检出，少了这一格所有内部路由用例都会 403。
+TEST_INTERNAL_SERVICE_TOKEN = "test-internal-service-token"
+
+
+@pytest.fixture(autouse=True)
+def internal_service_token(monkeypatch: pytest.MonkeyPatch) -> str:
+    monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", TEST_INTERNAL_SERVICE_TOKEN)
+    return TEST_INTERNAL_SERVICE_TOKEN
+
+
 @pytest.fixture(autouse=True)
 async def sweep_stale_test_rows(database_guard: None) -> None:
     """claim 是全局的：清掉崩溃测试残留的到期 Schedule 与可 claim Task，避免跨测试串扰。"""

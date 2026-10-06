@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any
 
 from muad_api import AppError
 from muad_api.audit import SENSITIVE_KEY_MARKERS
@@ -18,7 +18,7 @@ from muad_contracts import (
     TriggerType,
 )
 from muad_contracts.platform_settings import TaskSettings
-from sqlalchemy import CursorResult, false, func, select, update
+from sqlalchemy import case, false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -284,96 +284,79 @@ class TaskService:
     ) -> tuple[str, bool]:
         """返回 `(status, cancel_requested)`。
 
-        `QUEUED/WAITING` 直接 CAS 置 `CANCELLED`；`RUNNING` 只打取消标记、响应保持
-        `RUNNING` 由 Worker 在检查点协作停止；已 `CANCELLED` 幂等；`COMPLETED/FAILED`
-        等其它终态返回 `REVISION_CONFLICT`。CAS 落败（并发推进）时回读真实状态。
-        Parent 的取消同事务级联到所有非终态 Child。
+        **取消是一次原子写入**（2026-10-06 评审 #4）：一条 UPDATE 同时做三件事——
+        任何非终态都写 `cancel_requested=true`（用户的取消意图因此**不可能**在竞争中丢）；
+        `QUEUED/WAITING` 顺带落 `CANCELLED`（没人在跑，取消就是终态，lease 一并释放）；
+        `RUNNING` 保持状态，由 Worker 在检查点协作停止。
+
+        此前是「按第一次读到的状态挑一条 CAS 分支」：取消先读到 `QUEUED`，claim 抢先把行
+        置成 `RUNNING`，两条 CAS 都不成立——接口回 `RUNNING/cancel_requested=False`，库里
+        连取消标记都没有，任务继续跑到底。
+
+        `CANCELLED` 幂等返回；`COMPLETED/FAILED` 抛 `REVISION_CONFLICT`。Parent 的取消
+        同事务级联到所有非终态 Child。
         """
         task = await self.get(tenant_id, task_id, actor_user_id=actor_user_id)
-        if task.status == str(TaskStatus.CANCELLED):
-            return str(TaskStatus.CANCELLED), bool(task.cancel_requested)
         if task.status in TERMINAL_STATUSES:
+            if task.status == str(TaskStatus.CANCELLED):
+                return str(TaskStatus.CANCELLED), bool(task.cancel_requested)
             raise AppError(ErrorCode.REVISION_CONFLICT)
         now = datetime.now(UTC)
-        if task.status in CANCELABLE_STATUSES and await self._cancel_idle(task, now):
-            return str(TaskStatus.CANCELLED), True
-        if task.status == str(TaskStatus.RUNNING) and await self._request_cancel(task, now):
-            return str(TaskStatus.RUNNING), True
-        # identity map 里的对象是 CAS 前读到的旧值，必须从库里刷新才是真实状态。
-        await self._session.refresh(task)
-        if task.status in TERMINAL_STATUSES and task.status != str(TaskStatus.CANCELLED):
+        settled = await self._apply_cancel_intent(task, now)
+        if settled is None:
+            # 唯一会落空的情况：并发把它推进到终态了（语句只匹配非终态行）。
+            await self._session.refresh(task)
+            if task.status == str(TaskStatus.CANCELLED):
+                return str(TaskStatus.CANCELLED), True
             raise AppError(ErrorCode.REVISION_CONFLICT)
-        return task.status, bool(task.cancel_requested)
+        await self._session.refresh(task)
+        await self._record_cancel(task, settled=settled, now=now)
+        return (str(TaskStatus.CANCELLED) if settled else str(TaskStatus.RUNNING)), True
 
-    async def _cancel_idle(self, task: TaskExecution, now: datetime) -> bool:
+    async def _apply_cancel_intent(self, task: TaskExecution, now: datetime) -> bool | None:
+        """原子落下取消意图，返回「是否已就地为终态」；行已不在非终态时返回 None。"""
+        idle = TaskExecution.status.in_(CANCELABLE_STATUSES)
+        statement = (
+            update(TaskExecution)
+            .where(
+                TaskExecution.id == task.id,
+                TaskExecution.tenant_id == task.tenant_id,
+                TaskExecution.status.not_in(TERMINAL_STATUSES),
+                TaskExecution.is_deleted.is_(False),
+            )
+            .values(
+                cancel_requested=True,
+                status=case((idle, str(TaskStatus.CANCELLED)), else_=TaskExecution.status),
+                finished_at=case((idle, now), else_=TaskExecution.finished_at),
+                lease_owner=case((idle, None), else_=TaskExecution.lease_owner),
+                lease_until=case((idle, None), else_=TaskExecution.lease_until),
+                update_time=now,
+            )
+            .returning(TaskExecution.status)
+            # 值表达式是 CASE：交给 `evaluate` 只会失败，且下面显式 refresh 才是真口径。
+            .execution_options(synchronize_session=False)
+        )
+        new_status = (await self._session.execute(statement)).scalar_one_or_none()
+        if new_status is None:
+            return None
+        return new_status == str(TaskStatus.CANCELLED)
+
+    async def _record_cancel(self, task: TaskExecution, *, settled: bool, now: datetime) -> None:
+        """写事件并按需级联——状态本身已由 `_apply_cancel_intent` 落库，这里只记随附事实。"""
         # 局部导入：batch_fanout/batch_fanin 依赖本模块的常量，顶层导入会形成环。
         from .batch_fanin import settle_child
         from .task_cancel import cancel_children
 
-        rowcount = await self._cas_status(
-            task.tenant_id,
-            task.id,
-            expected=CANCELABLE_STATUSES,
-            values={
-                "status": str(TaskStatus.CANCELLED),
-                "cancel_requested": True,
-                "finished_at": now,
-                "lease_owner": None,
-                "lease_until": None,
-                "update_time": now,
-            },
-        )
-        if rowcount != 1:
-            return False
         await append_event(
             self._session,
             tenant_id=task.tenant_id,
             task_id=task.id,
-            event_type=TaskEventType.CANCELLED,
+            event_type=TaskEventType.CANCELLED if settled else TaskEventType.CANCEL_REQUESTED,
         )
         await cancel_children(self._session, task, now)
-        await settle_child(self._session, task, now)
-        return True
-
-    async def _request_cancel(self, task: TaskExecution, now: datetime) -> bool:
-        from .task_cancel import cancel_children
-
-        rowcount = await self._cas_status(
-            task.tenant_id,
-            task.id,
-            expected=(str(TaskStatus.RUNNING),),
-            values={"cancel_requested": True, "update_time": now},
-        )
-        if rowcount != 1:
-            return False
-        await append_event(
-            self._session,
-            tenant_id=task.tenant_id,
-            task_id=task.id,
-            event_type=TaskEventType.CANCEL_REQUESTED,
-        )
-        await cancel_children(self._session, task, now)
-        return True
-
-    async def _cas_status(
-        self,
-        tenant_id: str,
-        task_id: uuid.UUID,
-        *,
-        expected: tuple[str, ...],
-        values: dict[str, Any],
-    ) -> int:
-        result = await self._session.execute(
-            update(TaskExecution)
-            .where(
-                TaskExecution.id == task_id,
-                TaskExecution.tenant_id == tenant_id,
-                TaskExecution.status.in_(expected),
-                TaskExecution.is_deleted.is_(False),
-            )
-            .values(**values)
-        )
-        return int(cast(CursorResult[Any], result).rowcount)
+        if settled:
+            # 取消掉的是一个 Parent：它自己终态了，扇入要看一眼 Child 是否都已终态。
+            await settle_child(self._session, task, now)
 
     async def _find_by_idempotency_key(self, tenant_id: str, key: str) -> TaskExecution | None:
         return (

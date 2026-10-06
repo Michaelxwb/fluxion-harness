@@ -397,6 +397,7 @@ def _sigkill_reclaim_arm(
     )
     victim_owner = instance_id(victim)
     task_id = _submit(live_stack, http, spec, sleep_sec=VICTIM_SLEEP_SEC, probe="killed")
+    _grant_crash_retry_budget(task_id)  # 被杀之后要由接手者跑完，不能一次崩溃就用光预算
     # 前置：这一行必须真的被**被杀进程**领走（判据是 PG 的 lease_owner，不是进程状态）。
     held = _await_row(
         task_id,
@@ -418,6 +419,28 @@ def _sigkill_reclaim_arm(
     return task_id
 
 
+def _grant_crash_retry_budget(task_id: uuid.UUID, *, attempts: int = 3) -> None:
+    """给这一行留出崩溃重试预算（真实列写入）。
+
+    回收**要过重试预算**（2026-10-06 评审 #13：崩溃回收此前会无限重启），而验收栈按租户
+    种的是 `task.max_attempts = 1`（E-01/E-02 用它表达「一次失败即终态」）。本用例观测的是
+    「崩溃后由**别人**接手并跑完」，所以只给这两行放预算，不动栈级设置。
+    """
+
+    async def update(factory: Any) -> None:
+        async with factory() as session:
+            await session.execute(
+                sa.text(
+                    "UPDATE task.task_execution SET max_attempts = :attempts"
+                    " WHERE tenant_id = :t AND id = :id"
+                ),
+                {"attempts": attempts, "t": TENANT, "id": task_id},
+            )
+            await session.commit()
+
+    run_db(update)
+
+
 def _stale_write_control_sample(
     live_stack: DfxStack,
     http: httpx.Client,
@@ -434,6 +457,7 @@ def _stale_write_control_sample(
         timeout_sec=RUNNING_TIMEOUT_SEC,
     )
     stale_id = _submit(live_stack, http, spec, sleep_sec=0, probe="stale")
+    _grant_crash_retry_budget(stale_id)  # 下面要让存活 Worker 回收并接手这一行
     fresh_id = _submit(live_stack, http, spec, sleep_sec=0, probe="fresh")
     claimable = _claimable_task_ids()
     assert set(claimable) == {stale_id, fresh_id}, (

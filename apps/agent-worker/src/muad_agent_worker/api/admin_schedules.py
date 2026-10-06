@@ -11,12 +11,13 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok, paginate
+from muad_api.security import InternalServiceDep
 from muad_contracts import ScheduleStatus
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import get_session
 from ..scheduler.service import ScheduleService
-from .deps import InternalServiceDep, ensure_tenant_consistent, get_tenant_id
+from .deps import ensure_tenant_consistent, get_tenant_id
 from .schedules import _payload
 
 router = APIRouter(prefix="/internal/admin/schedules", tags=["admin-schedules"])

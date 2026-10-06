@@ -22,9 +22,26 @@ from muad_contracts import (
 from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import func, select
 
-from agent_worker.conftest import TenantContext
+from agent_worker.conftest import TEST_INTERNAL_SERVICE_TOKEN, TenantContext
+
+#: 网关投递响应的真实封套（contracts `DeliveryResponse`）：`accepted` 只说明被受理，
+#: `delivered` 才是「渠道真的发出去了」——Worker 只认后者（2026-10-06 评审 #11）。
+DELIVERED_ENVELOPE: dict[str, object] = {
+    "code": "0",
+    "data": {"accepted": True, "delivered": True, "duplicated": False, "duplicate": False},
+}
+
 
 SNAPSHOT_HASH = "sha256:" + hashlib.sha256(b"snapshot").hexdigest()
+
+
+def internal_service_headers(tenant_id: str | None = None, **extra: str) -> dict[str, str]:
+    """内部业务路由的调用头：受信服务身份 + 租户（+ 可选 actor / 幂等键）。"""
+    headers = {"X-Internal-Service": TEST_INTERNAL_SERVICE_TOKEN}
+    if tenant_id is not None:
+        headers["X-Tenant-Id"] = tenant_id
+    headers.update(extra)
+    return headers
 
 
 def sample_route(external_user_id: str = "wotv-001") -> DeliveryRouteInput:

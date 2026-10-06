@@ -13,7 +13,14 @@ from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import func, select
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import create_task_payload, fetch_events, fetch_task, persist_task, sample_route
+from agent_worker.helpers import (
+    create_task_payload,
+    fetch_events,
+    fetch_task,
+    internal_service_headers,
+    persist_task,
+    sample_route,
+)
 
 
 async def test_create_dedupes_by_idempotency_key(tenant: TenantContext) -> None:
@@ -288,7 +295,7 @@ async def test_wakeup_hint_failure_does_not_lose_task(
     try:
         payload = create_task_payload(tenant, idempotency_key="hint-fail").model_dump(mode="json")
         response = await client.post(
-            "/internal/tasks", json=payload, headers={"X-Tenant-Id": tenant.tenant_id}
+            "/internal/tasks", json=payload, headers=internal_service_headers(tenant.tenant_id)
         )
         assert response.status_code == 200, response.text
         assert notifier.calls >= 1, "提交后应尝试发布 wakeup hint"
