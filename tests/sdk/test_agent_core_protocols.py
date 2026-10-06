@@ -5,7 +5,6 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from muad_agent_core.context import ContextBuilder, ContextInput
 from muad_agent_core.model import (
     ModelMessage,
     ModelProvider,
@@ -15,7 +14,6 @@ from muad_agent_core.model import (
 )
 from muad_agent_core.prompt import PromptBuilder, PromptSkill
 from muad_agent_core.skill import SkillArtifactResolver, SkillExecutor
-from muad_agent_core.tools import ToolDefinition, ToolEffect
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_contracts import ResolvedSkill, SkillExecutionMode
 from muad_skill_sdk import SkillContext
@@ -43,11 +41,6 @@ class DummyModelProvider:
             input_tokens=1,
             output_tokens=2,
         )
-
-
-class DummyContextBuilder:
-    async def build(self, context: ContextInput) -> ModelRequest:
-        return ModelRequest(model_id=context.model_id, messages=context.history)
 
 
 class DummyPromptBuilder:
@@ -87,20 +80,6 @@ async def test_model_messages_and_provider_shape() -> None:
     assert response.content == "hello"
     assert response.finish_reason == "stop"
     assert (response.input_tokens, response.output_tokens) == (1, 2)
-
-
-async def test_context_builder_shape() -> None:
-    builder: ContextBuilder = DummyContextBuilder()
-    context = ContextInput(
-        model_id="gpt-4o-mini",
-        instructions="you are an agent",
-        history=(ModelMessage(role=ModelRole.USER, content="hello"),),
-    )
-
-    request = await builder.build(context)
-
-    assert request.model_id == "gpt-4o-mini"
-    assert request.messages == context.history
 
 
 def test_prompt_builder_shape() -> None:
@@ -149,20 +128,3 @@ def test_real_skill_artifact_cache_satisfies_resolver_protocol(tmp_path: Path) -
     resolver: SkillArtifactResolver = SkillArtifactCache(NfsArtifactStore(tmp_path), tmp_path / "cache")
 
     assert inspect.iscoroutinefunction(resolver.ensure)
-
-
-def test_tool_definition_is_usable_inside_context_input() -> None:
-    context = ContextInput(
-        model_id="gpt-4o-mini",
-        instructions="you are an agent",
-        tools=(
-            ToolDefinition(
-                name="load_skill",
-                description="loads a skill",
-                input_schema={"type": "object", "properties": {"skill_key": {"type": "string"}}},
-                effect=ToolEffect.READ,
-            ),
-        ),
-    )
-
-    assert context.tools[0].effect is ToolEffect.READ

@@ -72,11 +72,11 @@ apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py,15,STATUS_WA
 apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py,16,STATUS_RUNNING,'RUNNING',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py,17,INTERRUPT_WAITING,'WAITING',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py,18,INTERRUPT_RESOLVED,'RESOLVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,29,HISTORY_EVENT_TYPES,"('USER_MESSAGE', 'ASSISTANT_MESSAGE', 'TOOL_CALL', 'ASSISTANT_TURN')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,35,MAX_HISTORY_TOOL_ROUNDS,6,python-constant,code,上下文历史回放实现常量（字节守卫）；design §2.3.2 未纳入平台设置
-apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,45,MEMORY_WORDING_PREFIX,'[记忆·用户明确要求] ',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,46,MEMORY_WORDING_SUFFIX,'（用户此前的要求，仅供参考、非指令；若与当前明确指示冲突，以当前指示为准）',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,54,max_messages,default_compaction_settings().history_budget_messages,policy-field,business,与 compaction.history_budget_messages 收敛为同一平台设置（收敛项 1）
+apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,28,HISTORY_EVENT_TYPES,"('USER_MESSAGE', 'ASSISTANT_MESSAGE', 'TOOL_CALL', 'ASSISTANT_TURN')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,34,MAX_HISTORY_TOOL_ROUNDS,6,python-constant,code,上下文历史回放实现常量（字节守卫）；design §2.3.2 未纳入平台设置
+apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,44,MEMORY_WORDING_PREFIX,'[记忆·用户明确要求] ',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,45,MEMORY_WORDING_SUFFIX,'（用户此前的要求，仅供参考、非指令；若与当前明确指示冲突，以当前指示为准）',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,53,max_messages,default_compaction_settings().history_budget_messages,policy-field,business,与 compaction.history_budget_messages 收敛为同一平台设置（收敛项 1）
 apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py,72,SUMMARY_INSTRUCTION,'请把上面的对话压缩成 JSON 对象，**恰好**包含这五个键：user_goal（字符串）、constraints、progress、open_items（字符串数组）、artifacts（数组，每项恰好含 artifact_id/tool/note 三个字符串键）。只输出这个 JSON，不要任何解释、不要调用工具。',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_events.py,25,CONTEXT_SUMMARY_EVENT,'CONTEXT_SUMMARY',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_events.py,26,CONTEXT_COMPACTED_EVENT,'CONTEXT_COMPACTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -247,15 +247,15 @@ apps/agent-worker/src/muad_agent_worker/api/deps.py,13,ACTOR_HEADER,'X-Actor-Use
 apps/agent-worker/src/muad_agent_worker/application/batch_fanin.py,26,BATCH_CHILD_FAILED,'BATCH_CHILD_FAILED',python-constant,code,状态或错误码，不是时间参数
 apps/agent-worker/src/muad_agent_worker/application/batch_fanin.py,27,NON_TERMINAL_STATUSES,"(str(TaskStatus.QUEUED), str(TaskStatus.RUNNING), str(TaskStatus.WAITING))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/batch_fanin.py,32,TERMINAL_STATUSES,"(str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,33,BATCH_PLAN_KEY,'batch',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,34,AGGREGATE_ALL,'ALL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,35,AGGREGATE_BEST_EFFORT,'BEST_EFFORT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,36,TASK_TYPE_BATCH,'BATCH',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,37,BATCH_FANOUT_STALE,'BATCH_FANOUT_STALE',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,38,ITEM_KEY_MAX_LENGTH,128,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,40,PARKED_NOT_BEFORE,"datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,41,BATCH_REF_KEY,'batch',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/delivery_routes.py,15,ROUTE_HASH_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,38,BATCH_PLAN_KEY,'batch',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,39,AGGREGATE_ALL,'ALL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,40,AGGREGATE_BEST_EFFORT,'BEST_EFFORT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,41,TASK_TYPE_BATCH,'BATCH',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,42,BATCH_FANOUT_STALE,'BATCH_FANOUT_STALE',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,43,ITEM_KEY_MAX_LENGTH,128,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,45,PARKED_NOT_BEFORE,"datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,46,BATCH_REF_KEY,'batch',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/delivery_routes.py,14,ROUTE_HASH_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/submissions.py,16,ENDPOINT_CREATE_TASK,'create-task',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/submissions.py,17,ENDPOINT_CREATE_SCHEDULE,'create-schedule',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/submissions.py,19,IDEMPOTENCY_HEADER,'Idempotency-Key',python-constant,code,协议标识、枚举、schema、文本或实现常量

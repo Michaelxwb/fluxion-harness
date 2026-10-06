@@ -1,6 +1,5 @@
 import asyncio
 import hashlib
-import json
 import logging
 import time
 from contextlib import suppress
@@ -14,6 +13,7 @@ from muad_contracts import (
     ArtifactDeliveryAuditRequest,
     DeliveryAuditOutcome,
     DeliveryRequest,
+    canonical_json,
 )
 
 from ..channels.base import (
@@ -180,7 +180,7 @@ def _fingerprint(body: DeliveryRequest) -> str:
         "artifact_id": str(artifact.artifact_id) if artifact is not None else None,
         "artifact_storage_key": artifact.storage_key if artifact is not None else None,
     }
-    canonical = json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    canonical = canonical_json(identity)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 

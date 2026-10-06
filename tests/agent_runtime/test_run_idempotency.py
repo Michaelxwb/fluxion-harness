@@ -21,6 +21,8 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     RunRecord,
     RunSubmission,
 )
+from muad_api import AppError
+from muad_api.error_codes import ErrorCode
 
 TENANT = f"idem-{uuid.uuid4()}"
 USER = uuid.uuid4()
@@ -212,3 +214,15 @@ async def test_b01_http_create_run_replays_and_rejects_mismatch(
     mismatch = await client.post("/v1/runs", json=changed, headers=headers)
     assert mismatch.status_code == 409
     assert mismatch.json()["code"] == "IDEMPOTENCY_MISMATCH"
+
+
+def test_fingerprint_rejects_non_finite_numbers() -> None:
+    """非严格 JSON 的载荷在**请求边界**就被拒（`muad_contracts.canonical`）。
+
+    Python 的 `json` 默认既接受也生成 `NaN`/`Infinity`，而 `json.dumps` 会把不同的 NaN 都写成
+    `NaN`——两份语义不同的载荷会命中同一个指纹；写进 jsonb 也会被 PostgreSQL 直接拒。
+    """
+    with pytest.raises(AppError) as excinfo:
+        submission_fingerprint(endpoint="create-run", key_payload={"threshold": float("nan")})
+
+    assert excinfo.value.code == str(ErrorCode.COMMON_VALIDATION_ERROR)

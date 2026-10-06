@@ -19,7 +19,6 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.context.builder import ContextInput
 from muad_agent_core.model import ModelMessage, ModelRole, text_of
 from muad_agent_core.tools import ToolDefinition, ToolRegistry
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
@@ -176,15 +175,11 @@ async def test_rule_log_001_memory_value_is_never_written_to_logs(caplog: pytest
         )
         await _handler(recall)({}, call_id="call-log-2")
         builder = DbBackedContextBuilder(session_factory=get_session_factory)
-        await builder.build(
-            ContextInput(
-                model_id="gpt-4o-mini",
-                instructions="be helpful",
-                conversation_id=CONV_ID,
-                tenant_id=TENANT,
-                user_id=USER_ID,
-                budget_messages=10,
-            )
+        await builder.load_history(
+            tenant_id=TENANT,
+            conversation_id=CONV_ID,
+            user_id=USER_ID,
+            budget_messages=10,
         )
 
     memory_records = [r for r in caplog.records if r.name.startswith("muad_agent_runtime")]
@@ -242,15 +237,11 @@ async def test_memory_metrics_cover_write_inject_and_recall() -> None:
         )
         await session.commit()
     builder = DbBackedContextBuilder(session_factory=get_session_factory)
-    await builder.build(
-        ContextInput(
-            model_id="gpt-4o-mini",
-            instructions="be helpful",
-            conversation_id=CONV_ID,
-            tenant_id=TENANT,
-            user_id=USER_ID,
-            budget_messages=10,
-        )
+    await builder.load_history(
+        tenant_id=TENANT,
+        conversation_id=CONV_ID,
+        user_id=USER_ID,
+        budget_messages=10,
     )
 
     write_labels = {"source_type": SOURCE_USER_EXPLICIT, "status": "OK"}
@@ -380,17 +371,19 @@ async def test_agent_inferred_write_is_not_counted_as_injected() -> None:
     await _seed_memory("模型自行归纳", source_type=SOURCE_AGENT_INFERRED)
     before = _metric_value(MEMORY_INJECT_METRIC)
     builder = DbBackedContextBuilder(session_factory=get_session_factory)
-    context = ContextInput(
-        model_id="gpt-4o-mini",
-        instructions="be helpful",
-        conversation_id=CONV_ID,
+    await builder.load_history(
         tenant_id=TENANT,
+        conversation_id=CONV_ID,
         user_id=USER_ID,
         budget_messages=10,
     )
-    await builder.build(context)
     assert _metric_value(MEMORY_INJECT_METRIC) == before  # 腿一：推断类不注入
 
     await _seed_memory("用户明确要求", source_type=SOURCE_USER_EXPLICIT, memory_key="reply.tone")
-    await builder.build(context)
+    await builder.load_history(
+        tenant_id=TENANT,
+        conversation_id=CONV_ID,
+        user_id=USER_ID,
+        budget_messages=10,
+    )
     assert _metric_value(MEMORY_INJECT_METRIC) == before + 1  # 腿二：显式类注入，且只注这一条

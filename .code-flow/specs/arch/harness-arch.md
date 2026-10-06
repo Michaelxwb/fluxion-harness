@@ -51,6 +51,22 @@ verifiers:
   - ✅ `prefix, region = split_protected_prefix(sanitized)`，snip 与条数兜底都只切 `region`（`packages/agent-core/src/muad_agent_core/context/compactor.py:89-108,203-204,305`）；memory 与摘要以 SYSTEM 前置、落在前缀里（`apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py:109-119`，措辞的唯一效力边界见 `:42-46`）
   - ❌ 对整条消息列表（含开头 SYSTEM）直接 snip / 按条数裁剪 ⇒ 系统提示或摘要前缀被当历史省掉
 
+- **系统提示的 section 顺序是契约**（2026-10-07 借鉴 P10 的动态提示设计）：装配出来的提示由**具名段落按固定顺序**组成，唯一实现在 `DefaultPromptBuilder.build`（`packages/agent-core/src/muad_agent_core/prompt/builder.py`）：`instructions` → `## Available skills`（目录）→ `<!-- prompt_template_version -->`（尾标）。加段落**只在尾部追加**，不得插队——顺序一旦只是 `append` 的副产物，任何重构都能悄悄挪动它。用例断言**相对位置**（`prompt.index(A) < prompt.index(B)`），不要断言「包含某段文本」：后者在顺序错乱、甚至同一段出现两次时同样通过。
+  - ✅ `prompt.index("be helpful") < prompt.index("## Available skills") < prompt.index("<!-- prompt_template_version")`（`tests/agent_core/test_prompt_builder.py`）
+  - ❌ `assert "## Available skills" in prompt` —— 段落被挪到 instructions 之前也照样绿
+
+- **段落为空怎么办：看模型的行为该不该变**（同上，2026-10-07）。核心能力缺失 ⇒ **显式说明**（`tools` 为空要写 `(none)`，否则模型会去调一个不存在的工具）；补充信息缺失 ⇒ **整段省略**，不留占位（Skill 目录、记忆为空时什么都没发生，写「当前没有可用技能」只是噪音，还稀释注意力）。
+  - ✅ `if skills:` 才追加 Skill 段（`builder.py`）；`test_empty_skill_catalog_is_omitted` 钉住省略
+  - ❌ 空段落也输出「（无）」「暂无」之类占位
+
+- **自由形态的 JSON 载荷必须是严格 JSON，且**只在一处**判它**（2026-10-07）：`input` / `execution_snapshot` / `input_template` 这类 `dict[str, Any]` 走不到类型检查，必须在**入参**（契约 DTO 的 `field_validator`，见 `muad_contracts.canonical.ensure_strict_json`）就拒掉非 JSON 值。两个下游看过**同一份表示**是硬要求：实测 `CreateTaskRequest.model_dump(mode="json")` 会把 `NaN` 静默转成 `None`，于是**幂等指纹算的是 `{"threshold": null}`，真正写进 jsonb 的却是 `{"threshold": NaN}`**——同一份载荷在两个消费者眼里不是同一份。
+  - ✅ 非有限数/未知类型在 DTO 层 422（`tests/agent_worker/test_api.py::test_non_standard_json_payload_is_rejected_at_the_boundary`）；`instructions` 先 `strip()` 再判空（`min_length=1` 挡不住 `"   "`，而装配侧会 strip ⇒ 保存合法、发出空提示）
+  - ❌ 让 `NaN` 一路穿过 DTO 与指纹、直到 `INSERT ... ::jsonb` 才被 PostgreSQL 拒（`invalid input syntax for type json`）⇒ 调用方的错报成 500
+
+- **降级必须**语义等价**，否则不许降级**（2026-10-07）：判断"能不能退"的判据不是"退之后还跑得动吗"，而是"退之后还是不是同一个 Agent"。压缩失败 ⇒ 原文照发（只是没省 token，同一个 Agent）**该退**；系统提示拿不到 ⇒ 回退到构建期那段不含工具/工作目录/记忆的字符串，是**换了个 Agent**，**必须炸**。
+  - ✅ `RuntimeContextCompactor.compact` 失败保留原历史 + `context_compaction_total{status="FAILED"}`（`apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py:111-121`）
+  - ❌ 拿"能跑"当借口把缺能力的那份兜底喂给模型 —— 静默换 Agent 比直接失败危险得多
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。

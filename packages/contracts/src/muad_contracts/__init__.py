@@ -1,3 +1,4 @@
+from .canonical import NonCanonicalJsonError, canonical_json
 from .channel import (
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
@@ -103,6 +104,7 @@ __all__ = [
     "DeliveryStatus",
     "InterruptStatus",
     "MessageInput",
+    "NonCanonicalJsonError",
     "PageMeta",
     "ResolveDefinitionRequest",
     "ResolveDefinitionResponse",
@@ -125,5 +127,6 @@ __all__ = [
     "UpdateScheduleRequest",
     "UserScope",
     "build_task_snapshot",
+    "canonical_json",
     "snapshot_hash",
 ]

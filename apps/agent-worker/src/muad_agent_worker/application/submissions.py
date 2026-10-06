@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import uuid
 from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts import NonCanonicalJsonError, canonical_json
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,12 +40,13 @@ def submission_fingerprint(endpoint: str, payload: BaseModel | dict[str, Any]) -
     `sha256:` 前缀）。body 已包含 tenant/actor 与关键参数。
     """
     body = payload.model_dump(mode="json") if isinstance(payload, BaseModel) else payload
-    canonical = json.dumps(
-        {"endpoint": endpoint, "payload": body},
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    )
+    try:
+        canonical = canonical_json({"endpoint": endpoint, "payload": body})
+    except NonCanonicalJsonError as exc:
+        # 规范化 JSON 只认严格 JSON（见 `muad_contracts.canonical`）：非有限数/未知类型在
+        # **请求边界**就翻成校验错。此前 NaN 能一路穿过指纹计算，直到写 `input_json` 的
+        # jsonb 列才被 PG 拒——用户拿到的是 500，而这是调用方送错了载荷。
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from exc
     return FINGERPRINT_PREFIX + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 

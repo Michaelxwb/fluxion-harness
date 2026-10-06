@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import uuid
 from typing import Any
 
-from muad_contracts import DeliveryRouteInput
+from muad_contracts import DeliveryRouteInput, canonical_json
 from sqlalchemy import false, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +17,7 @@ ROUTE_HASH_PREFIX = "sha256:"
 def canonical_route_tuple(
     tenant_id: str, platform_user_id: uuid.UUID, route: DeliveryRouteInput
 ) -> str:
-    return json.dumps(
+    return canonical_json(
         {
             "tenant_id": tenant_id,
             "platform_user_id": str(platform_user_id),
@@ -26,10 +25,7 @@ def canonical_route_tuple(
             "bot_id": route.bot_id,
             "external_user_id": route.external_user_id,
             "external_conversation_id": route.external_conversation_id,
-        },
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
+        }
     )
 
 

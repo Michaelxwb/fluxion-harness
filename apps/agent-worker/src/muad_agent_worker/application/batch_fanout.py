@@ -10,7 +10,6 @@ Child 只创建一次。并发上限取 `min(plan.max_concurrency, platform_defa
 from __future__ import annotations
 
 import hashlib
-import json
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -19,7 +18,13 @@ from typing import Any, Protocol
 
 import sqlalchemy as sa
 from muad_common import SharedSettings
-from muad_contracts import DeliveryMode, DeliveryStatus, TaskStatus
+from muad_contracts import (
+    DeliveryMode,
+    DeliveryStatus,
+    NonCanonicalJsonError,
+    TaskStatus,
+    canonical_json,
+)
 from sqlalchemy import false, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -134,11 +139,19 @@ class BatchFanoutProtocol(Protocol):
 
 
 def item_key_of(index: int, item: Mapping[str, Any]) -> str:
-    """确定性项键：显式 `item_key` 优先，否则对规范化 JSON 取 sha256 前缀。"""
+    """确定性项键：显式 `item_key` 优先，否则对规范化 JSON 取 sha256 前缀。
+
+    这里**不再**用 `default=str` 兜底（`muad_contracts.canonical` 的规矩）：静默字符串化会让
+    `date(2026,1,1)` 与 `"2026-01-01"` 落到同一个 `item_key`，而 partial unique 会把第二条
+    Child 静默合并掉——**少跑一条**是最难查的失败形态。键算不出来说明计划本身不合法。
+    """
     explicit = item.get("item_key")
     if isinstance(explicit, str) and explicit:
         return explicit[:ITEM_KEY_MAX_LENGTH]
-    canonical = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    try:
+        canonical = canonical_json(item)
+    except NonCanonicalJsonError as exc:
+        raise BatchPlanError(f"batch item is not expressible as canonical JSON: {exc}") from exc
     return "item-" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:32]
 
 

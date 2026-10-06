@@ -8,10 +8,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from muad_agent_core.context.builder import ContextInput
 from muad_agent_core.context.compactor import history_bytes
 from muad_agent_core.context.summary import summary_from_payload, summary_message
-from muad_agent_core.model.provider import ModelMessage, ModelRequest, ModelRole, ModelToolCall
+from muad_agent_core.model.provider import ModelMessage, ModelRole, ModelToolCall
 from muad_contracts.platform_settings import MemoryPolicySettings, default_compaction_settings
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -76,10 +75,10 @@ class DbBackedContextBuilder:
     ) -> tuple[ModelMessage, ...]:
         """执行链使用：取最近事件（最新保留）+ 受控 Memory，返回可直接发送的消息序列。
 
-        这是**唯一**的记忆注入路径。此前 `build()` 还有一条 `ContextInput.memory`（调用方传入
-        预先拼好的字符串）的旁路，措辞是旧的 `[memory] key: value`（形如系统指令）；该字段全仓
-        零生产者，两条路并存会让"注入措辞"这一 NFR-SEC-02 的唯一落点分叉，故已连同
-        `include_memory` 开关一并移除（2026-10-01）。
+        这是**唯一**的记忆注入路径。此前装配入参上还有一条旁路（调用方传入预先拼好的字符串），
+        措辞是旧的 `[memory] key: value`（形如系统指令）；那个字段全仓零生产者，两条路并存会让
+        "注入措辞"这一 NFR-SEC-02 的唯一落点分叉，故已连同 `include_memory` 开关一并移除
+        （2026-10-01）。
 
         **这里不做任何压缩**（2026-10-04）：条数、snip、micro、摘要全部只在 `AgentRunner` 组装
         `ModelRequest` 的唯一处发生（design §3.1 ADR-01）。装配侧再压一遍会让同一份历史出现两种
@@ -126,44 +125,6 @@ class DbBackedContextBuilder:
             if fields is not None:
                 summary_messages.append(summary_message(fields))
         return tuple([*memory_messages, *summary_messages, *history])
-
-    async def build(self, context: ContextInput) -> ModelRequest:
-        messages: list[ModelMessage] = [
-            ModelMessage(role=ModelRole.SYSTEM, content=context.instructions)
-        ]
-        for skill_instruction in context.skill_instructions:
-            messages.append(
-                ModelMessage(role=ModelRole.SYSTEM, content=skill_instruction)
-            )
-        for preview in context.artifact_previews:
-            messages.append(
-                ModelMessage(role=ModelRole.USER, content=f"[artifact preview] {preview}")
-            )
-
-        if getattr(context, "conversation_id", None):
-            history = await self.load_history(
-                tenant_id=getattr(context, "tenant_id", ""),
-                conversation_id=context.conversation_id,  # type: ignore[arg-type]
-                user_id=getattr(context, "user_id", None),
-                budget_messages=getattr(context, "budget_messages", None),
-            )
-            messages.extend(history)
-
-        for tool in context.tools:
-            schema = {
-                "type": "object",
-                "properties": dict(tool.input_schema.get("properties") or {}),
-                "required": list(tool.input_schema.get("required") or []),
-            }
-            messages.append(
-                ModelMessage(role=ModelRole.SYSTEM, content=f"[tool:{tool.name}] {json_compact(schema)}")
-            )
-
-        return ModelRequest(
-            model_id=context.model_id,
-            messages=tuple(messages),
-            tools=tuple(context.tools),
-        )
 
     async def _recent_events(
         self,
@@ -449,8 +410,3 @@ def _kept_tool_rounds(present: list[int]) -> set[int]:
     rounds = sorted({value for value in present if value > 0})
     return set(rounds[-MAX_HISTORY_TOOL_ROUNDS:])
 
-
-def json_compact(value: Any) -> str:
-    import json
-
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))

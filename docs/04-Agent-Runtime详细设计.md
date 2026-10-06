@@ -651,31 +651,45 @@ mcp::<server_key>::<tool_name>
 
 ## 10. ContextBuilder
 
+**装配分两处，各有唯一实现**（2026-10-07 按代码事实改写）：
+
+| 装什么 | 谁装 | 代码 |
+|---|---|---|
+| system 提示（Agent instructions + Skill 目录 + 模板版本尾标） | `AgentRunner` 每轮调 `PromptBuilder` | `packages/agent-core/src/muad_agent_core/prompt/builder.py`、`agent/runner.py` |
+| 历史 / memory 注入 / 摘要前缀 | `DbBackedContextBuilder.load_history` | `apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py` |
+| tool schema | **不进消息**，走 `ModelRequest.tools` 交给 provider | `agent/runner.py` |
+
 ### 10.1 输入来源
 
 ```mermaid
 flowchart LR
-    HIST[Canonical Events] --> CB[ContextBuilder]
-    MEM[User Memory] --> CB
-    SK[Loaded Skill Instructions] --> CB
-    ART[Artifact Previews] --> CB
-    SYS[Agent Instructions] --> CB
-    TOOLS[Tool Schema] --> CB
-    CB --> REQ[LLM Request Context]
+    HIST[Canonical Events] --> LH[load_history]
+    MEM[User Memory] --> LH
+    ART[Artifact 引用：正文走 Artifact Store，历史里只有 preview] --> LH
+    LH --> MSG[消息序列：memory / 摘要 / 历史]
+    SYS[Agent Instructions] --> PB[DefaultPromptBuilder]
+    SK[Skill 目录：名称 + 一行描述] --> PB
+    PB --> SYSMSG[system 消息]
+    MSG --> REQ[ModelRequest]
+    SYSMSG --> REQ
+    TOOLS[Tool Schema] --> REQ
 ```
+
+**此前的写法（一份把 Skill 正文、产物预览、Tool Schema 全都当消息塞进请求的单一 builder）描述的是
+一套从未接线的接口**，已于 2026-10-07 删除：它没有调用方、git 历史里也从未有过，而测试在为它作证。
+技能在生产里是**目录**（正文靠按需 `load_skill` 加载），产物预览随历史走，工具 schema 是 provider
+参数——三者都不该变成额外的 system/user 消息。
 
 ### 10.2 Context Budget
 
-预算优先级：
+**受保护前缀永不参与裁剪**：开头连续的一段 `role=SYSTEM`（system 提示 / memory 注入 / 摘要前缀）
+是每次请求必须原样带上的权威上下文，任何**会删消息**的压缩层只能在它之后的对话区里工作
+（`harness-arch` 的同名约定；实现见 `packages/agent-core/src/muad_agent_core/context/compactor.py`
+的 `split_protected_prefix`）。
 
-```text
-1. System/Agent Instructions
-2. 当前用户输入
-3. 当前 Run 必要 Tool/Skill 结果
-4. 最近对话
-5. User Memory
-6. 较旧历史摘要
-```
+memory 注入另有自己的**双上限**（条数 `memory.max_injected_memories` × 字节
+`min(max_injected_bytes, ratio × 历史字节)`，由本次 Run 的冻结设置给出），且**第一条永远注入**
+（短会话的比例预算会小到一条都放不下，那等于静默关掉 memory）。
 
 不得修改 CanonicalEvent 以实现压缩。
 

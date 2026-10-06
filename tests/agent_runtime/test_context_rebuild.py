@@ -226,3 +226,4 @@ async def test_rule05_summary_is_authoritative_and_transcript_is_only_an_archive
     assert [message.content for message in swapped] != [
         message.content for message in rebuilt
     ], "摘要与 transcript 一旦互换，重建结果必然不同——二者不是同一种东西"
+

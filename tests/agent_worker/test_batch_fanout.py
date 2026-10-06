@@ -12,7 +12,7 @@ import hashlib
 import tempfile
 import uuid
 import zipfile
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -23,6 +23,8 @@ from muad_agent_worker.application.batch_fanout import (
     BatchFanoutService,
     BatchFanoutStaleError,
     BatchPlan,
+    BatchPlanError,
+    item_key_of,
 )
 from muad_agent_worker.infrastructure.models.task import TaskExecution
 from muad_agent_worker.worker.executor import SkillTaskExecutor
@@ -281,3 +283,19 @@ async def test_fanout_refuses_a_parent_that_is_no_longer_owned(
     with pytest.raises(BatchFanoutStaleError):
         await service.fan_out(stale_view, _plan())
     assert await _children(tenant, reassigned.id) == []
+
+
+def test_item_key_refuses_values_that_are_not_json() -> None:
+    """项键算不出来 = 计划本身不合法（不再用 `default=str` 静默字符串化）。
+
+    `default=str` 会让 `date(2026,1,1)` 与 `"2026-01-01"` 落到同一个 `item_key`，而 partial
+    unique `(parent_id, item_key)` 会把第二条 Child **静默合并掉**——少跑一条，且没有任何报错。
+    """
+    with pytest.raises(BatchPlanError):
+        item_key_of(0, {"when": date(2026, 1, 1)})
+
+
+def test_item_key_is_deterministic_for_semantically_equal_items() -> None:
+    """同语义 ⇒ 同键；不同语义 ⇒ 不同键（键序无关，但值不能撞）。"""
+    assert item_key_of(0, {"a": 1, "b": 2}) == item_key_of(3, {"b": 2, "a": 1})
+    assert item_key_of(0, {"when": "2026-01-01"}) != item_key_of(0, {"when": "2026-1-1"})

@@ -27,7 +27,7 @@ verifiers:
 
 ## Conventions
 
-- **Parent-Child 批量幂等**：Parent 在**单事务**内创建 Child（带 `root_id`/`parent_id`/`item_key`），Child 幂等键为 `parent:{parent_id}:{item_key}`；partial unique `(parent_id, item_key) WHERE parent_id IS NOT NULL AND is_deleted = false` 保证同一 Child 只创建一次。reclaim 后已有 Child 只等待 fan-in，**不重复 fan-out**。（`application/batch_fanout.py`、`batch_fanin.py`）
+- **Parent-Child 批量幂等**：Parent 在**单事务**内创建 Child（带 `root_id`/`parent_id`/`item_key`），Child 幂等键为 `parent:{parent_id}:{item_key}`；partial unique `(parent_id, item_key) WHERE parent_id IS NOT NULL AND is_deleted = false` 保证同一 Child 只创建一次。reclaim 后已有 Child 只等待 fan-in，**不重复 fan-out**。（`application/batch_fanout.py`、`batch_fanin.py`）**`item_key` 只由严格 JSON 派生**（`muad_contracts.canonical`，2026-10-07）：显式 `item_key` 优先，否则规范化 JSON 的 sha256 前缀。❌ 用 `default=str` 兜底——`date(2026,1,1)` 与 `"2026-01-01"` 会撞成同一个键，partial unique 把第二条 Child **静默合并掉**（少跑一条且不报错）；键算不出来一律 `BATCH_PLAN_INVALID`（确定性失败）。
 - **父子事务只允许「父 → 子」的加锁顺序**：取消路径先锁 Parent 再动 Child，因此子任务终态事务也必须在子行 CAS **之前**取父行锁（`worker/service.py:533` 的 `_lock_parent`），否则两条路径互为循环等待，PostgreSQL 判死锁并回滚一方（完成或取消的结果一起丢）；`reclaim_expired` 同理分两段提交、根任务在前。✅ 先 `SELECT … FOR UPDATE` 父行再 CAS 子行；❌ 先 UPDATE 子行、到 `settle_child` 才锁父行。
 - **扇出前必须证明「本次执行仍持有父任务」**：父行锁内四格一起看——`status=RUNNING`、`cancel_requested=false`、`lease_until > now`、`lease_owner` 与本执行一致；已取消/已失约的父任务**不得**建出可执行的 Child（`application/batch_fanout.py:60`）。✅ `_require_live_owner(locked, claimed, moment)`；❌ 只按 `id` 加锁就插 Child。
 - **fan-in 接受父任务的全部非终态（含 `QUEUED`）**：`reclaim` 会把崩溃的父任务置回 `QUEUED`，此时最后一个 Child 终态若不肯聚合，父任务再没有下一个事件可触发 fan-in，只能停到 deadline；已请求取消的父任务除外（那要由它自己的取消路径收尾成 `CANCELLED`，不能被扇入改写成成功/失败）（`application/batch_fanin.py:170`）。

@@ -355,3 +355,44 @@ async def test_s01_revision_bumps_and_frozen_snapshot_not_drifted(
                 text("DELETE FROM control.platform_user WHERE id = :uid"), {"uid": user_id}
             )
             await session.commit()
+
+
+async def test_blank_instructions_is_rejected_at_save_time(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """`min_length=1` 挡不住 `"   "`：空白必须在**保存时**就被拒（2026-10-07）。
+
+    装配侧 `DefaultPromptBuilder.build` 会 `instructions.strip()`，所以纯空白保存成功之后，
+    发出去的是一条**空的系统提示**——模型没有任何行为基线，且不报错。
+    """
+    payload = _payload(tenant, "agent-blank")
+    payload["instructions"] = "   \n  "
+
+    created = await client.post("/api/v1/agents", json=payload, headers=_headers(tenant))
+
+    assert created.status_code == 422, created.text
+
+    agent = (
+        await client.post(
+            "/api/v1/agents", json=_payload(tenant, "agent-blank-2"), headers=_headers(tenant)
+        )
+    ).json()["data"]
+    updated = await client.put(
+        f"/api/v1/agents/{agent['id']}",
+        json={"instructions": "  ", "expected_revision": agent["revision"]},
+        headers=_headers(tenant),
+    )
+    assert updated.status_code == 422, updated.text
+
+
+async def test_instructions_are_trimmed_before_storage(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """前后空白在保存时被规范化：多打的空格不该变成另一个定义。"""
+    payload = _payload(tenant, "agent-trim")
+    payload["instructions"] = "  You are helpful.  "
+
+    created = await client.post("/api/v1/agents", json=payload, headers=_headers(tenant))
+
+    assert created.status_code == 200, created.text
+    assert created.json()["data"]["instructions"] == "You are helpful."

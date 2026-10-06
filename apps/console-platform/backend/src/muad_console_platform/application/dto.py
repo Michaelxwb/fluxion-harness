@@ -41,6 +41,24 @@ class ConsoleAccountInfo(BaseModel):
     role: str
 
 
+def _non_blank_instructions(value: str | None) -> str | None:
+    """`instructions` 先 trim 再判空（2026-10-07）。
+
+    `min_length=1` 只挡空串：`"   "` 能通过，而装配侧 `DefaultPromptBuilder.build` 会
+    `instructions.strip()` —— 于是**保存时合法、发出去是空系统提示**，模型没有任何行为基线，
+    而且不报错（症状只会是「这个 Agent 不太听话」，没有任何日志指向它）。
+
+    这正是 `harness-api` 记过的那条教训的形状：**同一个违规不能按下界分在两个层判定**
+    （密码长度那两个下界——拦截点会从 DTO 悄悄挪到服务层，同一个输入从 422 变成 400）。
+    """
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("instructions must not be blank")
+    return stripped
+
+
 class AgentCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -51,6 +69,11 @@ class AgentCreateRequest(BaseModel):
     model_id: uuid.UUID
     runtime_config: dict[str, Any] = Field(default_factory=dict)
     enabled: bool = True
+
+    @field_validator("instructions")
+    @classmethod
+    def _instructions_not_blank(cls, value: str) -> str:
+        return _non_blank_instructions(value)  # type: ignore[return-value]
 
 
 class AgentUpdateRequest(BaseModel):
@@ -63,6 +86,11 @@ class AgentUpdateRequest(BaseModel):
     runtime_config: dict[str, Any] | None = None
     enabled: bool | None = None
     expected_revision: int = Field(ge=1)
+
+    @field_validator("instructions")
+    @classmethod
+    def _instructions_not_blank(cls, value: str | None) -> str | None:
+        return _non_blank_instructions(value)
 
 
 class AgentListItem(BaseModel):

@@ -184,6 +184,24 @@ tasks = APIRouter(prefix="/internal/tasks")     # 同样的租户/actor 头，�
 
 `write_config_audit` 的**租户归属不得取自请求头**（2026-09-28 收口）：`tenant_id` 缺省时只回落部署默认租户，**不再**回落 `current_tenant_id()`——后者是中间件从 `X-Tenant-Id` 写入 contextvar 的值（客户端可任意改写）。读数据还能靠租户谓词兜，而审计归属被污染是合规问题：会产出「调用方自选租户」的审计行。
 
+**规范化 JSON 只认严格 JSON，且语义 ↔ 文本必须一一对应**（2026-10-07）。指纹/确定性键的口径唯一实现是 `muad_contracts.canonical.canonical_json`（`sort_keys` + 紧凑分隔符 + `ensure_ascii=False` + **`allow_nan=False`**），**不接受** `default=str` 之类的兜底。这条规矩有两面，两面都会出血：
+
+- **漏**（键少了决定性输入）⇒ 复用别人的结果：`RULE-api-002` 要求判别键含 `endpoint`/`tenant_id`；
+- **多**（键含了良性变化的输入）⇒ 把良性重试判成 `IDEMPOTENCY_MISMATCH`：投递指纹**不含正文文案**，因为 Worker 每次尝试都按当前 locale 重渲染它（`apps/im-gateway/src/muad_im_gateway/api/delivery.py:161-182`）。
+
+Python 的三个陷阱要一起堵：`sort_keys`（键序）、`allow_nan=False`（`json` 默认既接受也生成 `NaN`/`Infinity`——不同的 NaN 会序列化成同一个 `"NaN"`，两份语义不同的载荷拿到同一个键；这串文本写进 `jsonb` 还会被 PostgreSQL 直接拒 ⇒ **用户拿 500 而不是 422**）、**不用** `default=str`（`date(2026,1,1)` 与 `"2026-01-01"` 会撞成同一个键）。自由形态字段（`input`/`execution_snapshot`/`input_template`）在**契约 DTO** 上用 `ensure_strict_json` 拒一次，别指望持久层兜底。
+
+✅ 边界即拒（契约里的 `field_validator`，非有限数 → 422 `COMMON_VALIDATION_ERROR`）：
+
+```python
+@field_validator("input", "execution_snapshot")
+@classmethod
+def _strict_json(cls, value: dict[str, Any]) -> dict[str, Any]:
+    return ensure_strict_json(value)
+```
+
+❌ 让 `NaN` 穿过 DTO 与指纹，直到 `INSERT ... input_json::jsonb` 才炸（`invalid input syntax for type json`）。**同一份载荷在不同层有不同表示**是这条最贵的形态：`model_dump(mode="json")` 会把 `NaN` 静默转成 `None`，于是指纹算的是 `{"threshold": null}`，而落库用的是原始 `{"threshold": NaN}`。
+
 ✅ 调用方显式传 `tenant_id=`（用户态路由请传**账号租户**）；❌ 省略 `tenant_id` 并依赖 `current_tenant_id()` 兜底。
 
 密码策略违规的错误码**统一为 `COMMON_VALIDATION_ERROR`（422）**，不因"被哪一层拦住"而分叉（2026-10-05 收口，实例：platform-settings 的收口期修正）。密码长度其实有**两个下界**：DTO 的绝对下界（`MIN_PASSWORD_LENGTH_FLOOR=8`，低于它 pydantic 直接 422）与平台策略下界（`auth.min_password_length`，`[8, 策略)` 由服务层判定）。两者必须返回**同一个码**，且 `create_account` 与 `change_password` 一致。

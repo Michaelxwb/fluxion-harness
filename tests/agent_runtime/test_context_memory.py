@@ -1,17 +1,17 @@
-"""[S-08] 上下文重建与预算裁剪（真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request）。"""
+"""[S-08] 上下文重建与预算裁剪（真实 CanonicalEvent/Memory/Artifact→装配→LLM request）。"""
 
 from __future__ import annotations
 
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+from itertools import takewhile
 from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.context.builder import ContextInput
 from muad_agent_core.context.compactor import trim_history
-from muad_agent_core.model.provider import ModelRole
+from muad_agent_core.model.provider import ModelRequest, ModelRole
 from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
 from muad_agent_runtime.application.memory_service import MemoryService
 from muad_agent_runtime.infrastructure.db import get_session_factory
@@ -180,20 +180,17 @@ async def test_s08_context_from_db_with_isolation_and_preview(seeded) -> None:
     builder = DbBackedContextBuilder(session_factory=get_session_factory)
     before = await _count_events()
 
-    request = await builder.build(
-        ContextInput(
-            model_id="gpt-4o-mini",
-            instructions="be helpful",
-            conversation_id=CONV_ID,
-            tenant_id=TENANT,
-            user_id=USER_ID,
-            budget_messages=10,
-        ),
+    # 走**生产路径**（`load_history`）：`ContextBuilder.build()` 那条约 2026-10-07 删除，
+    # 它没有生产调用方，还会额外塞 system 消息与 `[tool:...]` 目录——生产一个都不发。
+    messages = await builder.load_history(
+        tenant_id=TENANT,
+        conversation_id=CONV_ID,
+        user_id=USER_ID,
+        budget_messages=10,
     )
-    assert request.model_id == "gpt-4o-mini"
 
     # 历史：USER/ASSISTANT 消息按 seq 进入；stream_type=tool.started 不进业务上下文
-    content = " ".join(str(m.content) for m in request.messages)
+    content = " ".join(str(m.content) for m in messages)
     assert "hello" in content
     assert "found it" in content
     assert "leak?" not in content  # 跨租户隔离
@@ -208,10 +205,10 @@ async def test_s08_context_from_db_with_isolation_and_preview(seeded) -> None:
 
     # assistant 回合连 tool_calls 与思维链一起进历史：思考模式要求带 tool_calls 的消息
     # 必须回传 reasoning_content，否则整条请求被供应商拒绝
-    turn = next(m for m in request.messages if m.tool_calls)
+    turn = next(m for m in messages if m.tool_calls)
     assert [call.id for call in turn.tool_calls] == ["c1"]
     assert turn.reasoning_content == "REASONING-CHUNK"
-    assert [m.tool_call_id for m in request.messages if m.tool_call_id is not None] == ["c1"]
+    assert [m.tool_call_id for m in messages if m.tool_call_id is not None] == ["c1"]
 
     # append-only：构建后事件数不变
     after = await _count_events()
@@ -226,20 +223,22 @@ async def test_s08_budget_trims_only_request_keeps_tool_pairs(seeded) -> None:
     因此改成：把装配出来的消息喂给 `trim_history`，验成对性与"不写库"。
     """
     builder = DbBackedContextBuilder(session_factory=get_session_factory)
-    request = await builder.build(
-        ContextInput(
-            model_id="gpt-4o-mini",
-            instructions="be helpful",
-            conversation_id=CONV_ID,
-            tenant_id=TENANT,
-            user_id=USER_ID,
-            budget_messages=2,
-        ),
+    messages = await builder.load_history(
+        tenant_id=TENANT,
+        conversation_id=CONV_ID,
+        user_id=USER_ID,
+        budget_messages=2,
     )
-    out = trim_history(request.messages, 2)
+    out = trim_history(messages, 2)
 
-    # 受保护前缀（系统提示 + memory 注入）不参与条数预算：裁掉的只能是对话区。
-    assert [m.role for m in out[:2]] == [ModelRole.SYSTEM, ModelRole.SYSTEM]
+    # 受保护前缀（本层是 memory 注入；系统提示由 `AgentRunner` 另加）不参与条数预算：
+    # 裁掉的只能是对话区。断言"开局连续那段 SYSTEM 一条不少"。
+    protected_roles = [
+        str(message.role)
+        for message in takewhile(lambda item: item.role is ModelRole.SYSTEM, messages)
+    ]
+    assert protected_roles, "样本前提：本层至少注入了一条 SYSTEM（memory）"
+    assert [str(message.role) for message in out[: len(protected_roles)]] == protected_roles
 
     # 成对性：留下来的 tool 消息必须有声明它的 assistant 回合（切点落在组中间时整条丢弃）。
     declared = {call.id for message in out for call in message.tool_calls}
@@ -305,20 +304,17 @@ async def test_orphan_tool_messages_are_dropped_from_history() -> None:
 
     try:
         builder = DbBackedContextBuilder(session_factory=get_session_factory)
-        request = await builder.build(
-            ContextInput(
-                model_id="gpt-4o-mini",
-                instructions="be helpful",
-                conversation_id=conv_id,
-                tenant_id=tenant,
-                user_id=USER_ID,
-                budget_messages=20,
-            ),
+        messages = await builder.load_history(
+            tenant_id=tenant,
+            conversation_id=conv_id,
+            user_id=USER_ID,
+            budget_messages=20,
         )
-        roles = [str(message.role) for message in request.messages]
-        assert roles == ["system", "user", "assistant"], roles
-        assert all(message.tool_call_id is None for message in request.messages)
-        assert all(not message.tool_calls for message in request.messages)
+        roles = [str(message.role) for message in messages]
+        # 系统提示不在这里（由 `AgentRunner` 的 `DefaultPromptBuilder` 负责）
+        assert roles == ["user", "assistant"], roles
+        assert all(message.tool_call_id is None for message in messages)
+        assert all(not message.tool_calls for message in messages)
     finally:
         async with get_session_factory()() as session:
             await session.execute(
@@ -401,17 +397,19 @@ async def _purge_injection_tenant(tenant: str) -> None:
 
 
 async def _request_for(tenant: str, conversation_id: uuid.UUID, user_id: uuid.UUID) -> Any:
+    """测试侧的「一次完整装配」：把生产的两条装配合起来，便于一起断言。
+
+    生产里这两段是**分开**的——system 提示由 `AgentRunner` 用 `DefaultPromptBuilder` 渲染，
+    历史/记忆/摘要由 `load_history` 装。这里拼成一个 `ModelRequest` 只是因为用例要一起看。
+    """
     builder = DbBackedContextBuilder(session_factory=get_session_factory)
-    return await builder.build(
-        ContextInput(
-            model_id="gpt-4o-mini",
-            instructions="be helpful",
-            conversation_id=conversation_id,
-            tenant_id=tenant,
-            user_id=user_id,
-            budget_messages=10,
-        )
+    messages = await builder.load_history(
+        tenant_id=tenant,
+        conversation_id=conversation_id,
+        user_id=user_id,
+        budget_messages=10,
     )
+    return ModelRequest(model_id="gpt-4o-mini", messages=messages, tools=())
 
 
 def _memory_lines(request: Any) -> list[str]:
@@ -657,28 +655,22 @@ async def test_unanswered_tool_calls_are_dropped_from_history() -> None:
 
     try:
         builder = DbBackedContextBuilder(session_factory=get_session_factory)
-        request = await builder.build(
-            ContextInput(
-                model_id="gpt-4o-mini",
-                instructions="be helpful",
-                conversation_id=conv_id,
-                tenant_id=tenant,
-                user_id=USER_ID,
-                budget_messages=20,
-            ),
+        messages = await builder.load_history(
+            tenant_id=tenant,
+            conversation_id=conv_id,
+            user_id=USER_ID,
+            budget_messages=20,
         )
-        declared = [call.id for message in request.messages for call in message.tool_calls]
+        declared = [call.id for message in messages for call in message.tool_calls]
         answered = [
-            message.tool_call_id
-            for message in request.messages
-            if message.role is ModelRole.TOOL
+            message.tool_call_id for message in messages if message.role is ModelRole.TOOL
         ]
         assert declared == ["a"], "只有真有结果的声明能回放"
         assert answered == ["a"]
         assert declared == answered, "声明与结果必须严格成对"
         # 整条没跑的回合不出现；有结果的那条 assistant 正文照留
-        assert not any("再查一下" in str(message.content) for message in request.messages)
-        assert any("我先看看" in str(message.content) for message in request.messages)
+        assert not any("再查一下" in str(message.content) for message in messages)
+        assert any("我先看看" in str(message.content) for message in messages)
     finally:
         async with get_session_factory()() as session:
             await session.execute(

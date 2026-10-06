@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import uuid
 from typing import Any
 
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts import NonCanonicalJsonError, canonical_json
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,17 +35,18 @@ def submission_fingerprint(
     message_id: str | None = None,
 ) -> str:
     """规范化 JSON 指纹：键序无关，同一逻辑请求稳定。"""
-    canonical = json.dumps(
-        {
-            "endpoint": endpoint,
-            "run_id": str(run_id) if run_id else None,
-            "payload": key_payload or {},
-            "message_id": message_id or "",
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    )
+    try:
+        canonical = canonical_json(
+            {
+                "endpoint": endpoint,
+                "run_id": str(run_id) if run_id else None,
+                "payload": key_payload or {},
+                "message_id": message_id or "",
+            }
+        )
+    except NonCanonicalJsonError as exc:
+        # 严格 JSON 的口径见 `muad_contracts.canonical`：非有限数/未知类型在请求边界拒绝。
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from exc
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 

@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .canonical import ensure_strict_json
 from .enums import ChannelName, DeliveryMode, ScheduleStatus, TaskStatus, TriggerType
 
 
@@ -36,6 +37,13 @@ class CreateTaskRequest(ContractModel):
     idempotency_key: str = Field(min_length=1, max_length=256)
     delivery_route: DeliveryRouteInput | None = None
     delivery_mode: DeliveryMode = DeliveryMode.FINAL_ONLY
+
+    @field_validator("input", "execution_snapshot")
+    @classmethod
+    def _strict_json(cls, value: dict[str, Any]) -> dict[str, Any]:
+        # 自由形态载荷只认严格 JSON：非有限数（NaN/Infinity）与未知类型在**入参**就拒，
+        # 否则它会一路穿过指纹、直到写 jsonb 才被 PG 拒（500 而不是 422）。
+        return ensure_strict_json(value)  # type: ignore[no-any-return]
 
     @model_validator(mode="after")
     def _require_route_for_delivery(self) -> Self:
@@ -78,6 +86,11 @@ class CreateScheduleRequest(ContractModel):
     schedule: ScheduleSpec
     delivery_route: DeliveryRouteInput
 
+    @field_validator("input_template")
+    @classmethod
+    def _strict_json(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return ensure_strict_json(value)  # type: ignore[no-any-return]
+
 
 class UpdateScheduleRequest(ContractModel):
     """更新 Schedule（API-07）：字段全部可选，但至少提供一项。"""
@@ -86,6 +99,11 @@ class UpdateScheduleRequest(ContractModel):
     input_template: dict[str, Any] | None = None
     schedule: ScheduleSpec | None = None
     delivery_route: DeliveryRouteInput | None = None
+
+    @field_validator("input_template")
+    @classmethod
+    def _strict_json(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        return None if value is None else ensure_strict_json(value)
 
     @model_validator(mode="after")
     def _require_at_least_one(self) -> Self:
