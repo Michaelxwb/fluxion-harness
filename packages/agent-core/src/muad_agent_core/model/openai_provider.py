@@ -77,6 +77,7 @@ class OpenAICompatibleProvider:
                 f"{self._base_url}{CHAT_COMPLETIONS_PATH}",
                 json=payload,
                 headers=self._headers(),
+                **self._timeout_kwargs(request),
             ) as response:
                 if response.status_code == RATE_LIMIT_STATUS:
                     await response.aread()
@@ -115,14 +116,20 @@ class OpenAICompatibleProvider:
         content_parts: list[str] = []
         reasoning_parts: list[str] = []
         tool_calls: dict[int, dict[str, Any]] = {}
-        finish_reason = "stop"
+        # 收尾信号：见过 `finish_reason` 或见过 `[DONE]` 才算**正常收尾**（见下面返回值处的注释）。
+        # 初值刻意不是 "stop"：那会把"流被截断"伪装成正常收尾。
+        finish_reason: str | None = None
+        saw_done = False
         input_tokens: int | None = None
         output_tokens: int | None = None
         async for line in response.aiter_lines():
             if not line.startswith("data:"):
                 continue
             raw = line[len("data:") :].strip()
-            if not raw or raw == "[DONE]":
+            if not raw:
+                continue
+            if raw == "[DONE]":
+                saw_done = True
                 continue
             try:
                 chunk = json.loads(raw)
@@ -158,7 +165,10 @@ class OpenAICompatibleProvider:
             self._accumulate_tool_calls(tool_calls, delta.get("tool_calls"))
         return ModelResponse(
             content="".join(content_parts),
-            finish_reason=finish_reason,
+            # 正常收尾 = 见过 `finish_reason`，或见过 `[DONE]`。两者都没有 ⇒ 这条流**没有收尾信息**
+            # （上游被切断/代理提前关流），返回空串让调用方按"没跑完"处理；恒返回 "stop" 会把残缺
+            # 回答伪装成正常收尾、直接落成 COMPLETED（2026-10-06 review）。
+            finish_reason=finish_reason or ("stop" if saw_done else ""),
             tool_calls=self._assembled_tool_calls(tool_calls),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
@@ -217,6 +227,7 @@ class OpenAICompatibleProvider:
                 f"{self._base_url}{CHAT_COMPLETIONS_PATH}",
                 json=self._payload(request),
                 headers=self._headers(),
+                **self._timeout_kwargs(request),
             )
         except httpx.TimeoutException as exc:
             raise ModelUnavailableError("model request timed out") from exc
@@ -235,6 +246,15 @@ class OpenAICompatibleProvider:
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
         return headers
+
+    @staticmethod
+    def _timeout_kwargs(request: ModelRequest) -> dict[str, Any]:
+        """逐请求 I/O 超时：只有调用方给了才覆盖。
+
+        `timeout=None` 在 httpx 里是**禁用超时**，不是"用 client 的默认值"，所以没给就一个键都不传。
+        值类型留 `Any`：httpx 的 `post`/`stream` 是多重载，`dict[str, float]` 展开会让重载解析失败。
+        """
+        return {} if request.timeout_sec is None else {"timeout": request.timeout_sec}
 
     def _payload(self, request: ModelRequest) -> dict[str, Any]:
         payload: dict[str, Any] = {

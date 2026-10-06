@@ -81,6 +81,10 @@ class ModelRequest:
     temperature: float | None = None
     max_tokens: int | None = None
     params: Mapping[str, Any] = field(default_factory=dict)
+    #: 这一次请求的 I/O 超时（秒）。由调用方按**剩余总预算**算出（ADR-07：单次请求预算 =
+    #: min(上限, 剩余总预算)）；None = 用 provider 建立时的默认值。provider 必须**逐请求**生效，
+    #: 否则总 deadline 就约束不到正在飞的那次调用。
+    timeout_sec: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

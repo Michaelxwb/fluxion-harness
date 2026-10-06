@@ -5,9 +5,15 @@ from typing import Any
 import httpx
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import ResolveDefinitionRequest, ResolveDefinitionResponse
+from muad_contracts import (
+    ResolveDefinitionRequest,
+    ResolveDefinitionResponse,
+    ResolveModelRequest,
+    ResolveModelResponse,
+)
 
 RESOLVE_DEFINITION_PATH = "/internal/runtime/resolve-definition"
+RESOLVE_MODEL_PATH = "/internal/runtime/resolve-model"
 RESOLVE_CREDENTIALS_PATH = "/internal/runtime/resolve-credentials"
 RESOLVE_TIMEOUT_SEC = 5.0
 
@@ -69,6 +75,32 @@ class ConsoleResolveClient:
             return response.json()
         except ValueError:
             return None
+
+    async def resolve_model(
+        self,
+        request: ResolveModelRequest,
+        *,
+        tenant_id: str,
+        trace_id: str = "",
+    ) -> ResolveModelResponse:
+        """按既有模型定义的主键解析单个模型（摘要模型）；响应含明文 `api_key`，同门控。"""
+        headers = {"X-Tenant-Id": tenant_id}
+        if self._service_token:
+            headers["X-Internal-Service"] = self._service_token
+        if trace_id:
+            headers["X-Trace-Id"] = trace_id
+        response = await self._client.post(
+            RESOLVE_MODEL_PATH,
+            json=request.model_dump(mode="json"),
+            headers=headers,
+        )
+        payload = self._decode(response)
+        if response.status_code >= 400:
+            raise AppError(error_code_from_payload(payload))
+        data = payload.get("data") if isinstance(payload, dict) else None
+        if not isinstance(data, dict):
+            raise AppError(str(ErrorCode.COMMON_INTERNAL_ERROR))
+        return ResolveModelResponse.model_validate(data)
 
     async def aclose(self) -> None:
         await self._client.aclose()

@@ -25,6 +25,7 @@ from typing import Any, Protocol, runtime_checkable
 from muad_contracts.platform_settings import MicroSettings, SnipSettings
 
 from ..model.provider import ModelMessage, ModelRole, text_of
+from .summary import SUMMARY_MESSAGE_PREFIX
 
 Group = tuple[ModelMessage, ...]
 
@@ -107,6 +108,52 @@ def split_protected_prefix(
     while index < len(messages) and messages[index].role is ModelRole.SYSTEM:
         index += 1
     return tuple(messages[:index]), tuple(messages[index:])
+
+
+@dataclass(frozen=True, slots=True)
+class SummaryScopes:
+    """摘要层的三段切分（`split_summary_scopes` 的返回）。"""
+
+    #: 受保护前缀（系统提示 / memory 注入），**已剔除旧摘要**。
+    prefix: tuple[ModelMessage, ...]
+    #: 可以被这次摘要取代的更早历史。
+    older: tuple[ModelMessage, ...]
+    #: 当前回合（最近一条 USER 起到末尾）：摘要不动它，原样进请求。
+    current_turn: tuple[ModelMessage, ...]
+
+
+def _is_summary_message(message: ModelMessage) -> bool:
+    return message.role is ModelRole.SYSTEM and text_of(message.content).startswith(
+        SUMMARY_MESSAGE_PREFIX
+    )
+
+
+def split_summary_scopes(messages: Sequence[ModelMessage]) -> SummaryScopes:
+    """按摘要层的需要切成三段：受保护前缀 / 可摘要的更早历史 / 当前回合。
+
+    摘要是唯一"把一整段历史换成一条消息"的层，所以边界必须由它自己划（其余会删消息的层只在
+    对话区工作，见 `split_protected_prefix`）：
+
+    - **受保护前缀**原样保留 —— 裁掉系统提示等于 agent 失忆（`harness-arch`）；
+    - **当前回合**原样保留（与 snip 的 `_current_turn_start` 同一口径）—— 否则模型不知道自己在
+      回答什么，带内联图片的当前消息也会一并消失；
+    - 前缀里若已有上一份摘要（`summary_message` 渲染出来的 SYSTEM，带固定标记），它**不留在
+      前缀**里：新摘要会连它一起重述，留着就是两份摘要在同一个请求里并存。调用方仍要把旧摘要
+      连同历史喂给摘要模型（传整段进去），否则它覆盖的那段事实没人记得。
+    """
+    sanitized = _sanitized(messages)
+    prefix, region = split_protected_prefix(sanitized)
+    head = tuple(message for message in prefix if not _is_summary_message(message))
+    groups = split_groups(region)
+    start = _current_turn_start(groups)
+    if start is None:
+        # 没有 user 消息：整段都是"更早历史"，没有当前回合要保
+        return SummaryScopes(head, tuple(message for group in groups for message in group), ())
+    return SummaryScopes(
+        head,
+        tuple(message for group in groups[:start] for message in group),
+        tuple(message for group in groups[start:] for message in group),
+    )
 
 
 def _artifact_id(content: Any) -> str | None:
@@ -359,6 +406,7 @@ class ContextCompactor(Protocol):
 __all__ = [
     "ContextCompactor",
     "LayerOutcome",
+    "SummaryScopes",
     "compact_history",
     "history_bytes",
     "message_bytes",
@@ -366,5 +414,6 @@ __all__ = [
     "snip",
     "split_groups",
     "split_protected_prefix",
+    "split_summary_scopes",
     "trim_history",
 ]

@@ -4,7 +4,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from muad_contracts import ResolveDefinitionRequest, ResolveDefinitionResponse
+from muad_contracts import (
+    ResolveDefinitionRequest,
+    ResolveDefinitionResponse,
+    ResolveModelRequest,
+    ResolveModelResponse,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +52,19 @@ class ResolveClient(Protocol):
         tenant_id: str,
         trace_id: str = "",
     ) -> ResolveDefinitionResponse: ...
+
+    async def resolve_model(
+        self,
+        request: ResolveModelRequest,
+        *,
+        tenant_id: str,
+        trace_id: str = "",
+    ) -> ResolveModelResponse:
+        """按既有模型定义的主键解析单个模型（摘要模型，ADR-06）。
+
+        与 `resolve` 分开：摘要在 Run 创建边界**额外**解析自己那条模型定义并冻进快照。
+        """
+        ...
 
 
 class CredentialsClient(Protocol):

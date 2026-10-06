@@ -576,3 +576,113 @@ async def test_e07_platform_secrets_never_reach_the_model_request_through_memory
         assert line.endswith("）")
     finally:
         await _purge_injection_tenant(tenant)
+
+
+async def test_unanswered_tool_calls_are_dropped_from_history() -> None:
+    """[RULE-01] assistant 声明了、却**没有结果落库**的调用不得回放。
+
+    中断/取消打断一个多工具回合、或工具预算耗尽时，`ASSISTANT_TURN` 已经落库而某个结果没有
+    （canonical 行只为真正跑过的调用写）。整份回放就会发出「声明 2 个、只答 1 个」的请求 ——
+    与「孤儿 tool 消息」是同一类形状问题，供应商同样会拒**整个**请求（2026-10-06 review）。
+    """
+    tenant = f"unanswered-{uuid.uuid4()}"
+    conv_id = uuid.uuid4()
+    async with get_session_factory()() as session:
+        session.add(
+            Conversation(
+                id=conv_id,
+                tenant_id=tenant,
+                user_id=USER_ID,
+                agent_id=uuid.uuid4(),
+                status="ACTIVE",
+                last_seq=5,
+            )
+        )
+        session.add_all(
+            [
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=1,
+                    event_type="USER_MESSAGE",
+                    payload_json={"text": "看图并搜索"},
+                ),
+                # 声明了两个调用，只有 `a` 有结果（`b` 被中断吞掉）
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=2,
+                    event_type="ASSISTANT_TURN",
+                    payload_json={
+                        "text": "我先看看",
+                        "tool_calls": [
+                            {"id": "a", "name": "view_image", "arguments": {}},
+                            {"id": "b", "name": "search_attachment", "arguments": {}},
+                        ],
+                    },
+                ),
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=3,
+                    event_type="TOOL_CALL",
+                    payload_json={"tool_name": "view_image", "tool_call_id": "a"},
+                ),
+                # 第二个 assistant 回合**整条都没跑**：声明与结果一条都没有
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=4,
+                    event_type="ASSISTANT_TURN",
+                    payload_json={
+                        "text": "再查一下",
+                        "tool_calls": [{"id": "c", "name": "search_attachment", "arguments": {}}],
+                    },
+                ),
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=5,
+                    event_type="ASSISTANT_MESSAGE",
+                    payload_json={"text": "done"},
+                ),
+            ]
+        )
+        await session.commit()
+
+    try:
+        builder = DbBackedContextBuilder(session_factory=get_session_factory)
+        request = await builder.build(
+            ContextInput(
+                model_id="gpt-4o-mini",
+                instructions="be helpful",
+                conversation_id=conv_id,
+                tenant_id=tenant,
+                user_id=USER_ID,
+                budget_messages=20,
+            ),
+        )
+        declared = [call.id for message in request.messages for call in message.tool_calls]
+        answered = [
+            message.tool_call_id
+            for message in request.messages
+            if message.role is ModelRole.TOOL
+        ]
+        assert declared == ["a"], "只有真有结果的声明能回放"
+        assert answered == ["a"]
+        assert declared == answered, "声明与结果必须严格成对"
+        # 整条没跑的回合不出现；有结果的那条 assistant 正文照留
+        assert not any("再查一下" in str(message.content) for message in request.messages)
+        assert any("我先看看" in str(message.content) for message in request.messages)
+    finally:
+        async with get_session_factory()() as session:
+            await session.execute(
+                sa.delete(CanonicalEvent).where(CanonicalEvent.tenant_id == tenant)
+            )
+            await session.execute(sa.delete(Conversation).where(Conversation.id == conv_id))
+            await session.commit()

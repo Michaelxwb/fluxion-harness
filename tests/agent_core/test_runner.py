@@ -14,6 +14,7 @@ from muad_agent_core.agent import (
     RunnerDeadlineExceeded,
     RunnerModelError,
 )
+from muad_agent_core.context.compactor import split_groups
 from muad_agent_core.hooks import HookEvent, HookPipeline
 from muad_agent_core.model import (
     ModelMessage,
@@ -24,6 +25,7 @@ from muad_agent_core.model import (
     ModelRole,
     ModelToolCall,
     ModelUnavailableError,
+    text_of,
 )
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 
@@ -87,6 +89,38 @@ def _echo_tool(registry: ToolRegistry, calls: list[dict[str, Any]]) -> None:
     )
 
 
+def _multi_tool_call(*calls: tuple[str, str]) -> ModelResponse:
+    """一次模型响应里声明**多个**工具调用（元组顺序即执行顺序）。"""
+    return ModelResponse(
+        content="",
+        finish_reason="tool_calls",
+        tool_calls=tuple(
+            ModelToolCall(id=call_id, name=name, arguments={}) for call_id, name in calls
+        ),
+    )
+
+
+def _image_tool(registry: ToolRegistry) -> None:
+    """带 `follow_up_messages` 的工具（`view_image` 的形态）：结果之后补一条 user 消息。"""
+
+    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        return f"IMG:{call_id}"
+
+    async def follow_up(result: str) -> tuple[ModelMessage, ...]:
+        return (ModelMessage(role=ModelRole.USER, content="[重看附件] pic.png"),)
+
+    registry.register(
+        ToolDefinition(
+            name="view_image",
+            description="re-open an image attachment",
+            input_schema={"type": "object"},
+            effect=ToolEffect.READ,
+            handler=handler,
+            follow_up_messages=follow_up,
+        )
+    )
+
+
 def _request(policy: AgentPolicy | None = None) -> AgentRunRequest:
     return AgentRunRequest(
         model_id="gpt-4o-mini",
@@ -133,6 +167,38 @@ async def test_tool_call_then_final_answer_and_hook_order() -> None:
     assert "be helpful" in provider.requests[0].messages[0].content
     assert provider.requests[1].messages[-1].role is ModelRole.TOOL
     assert provider.requests[1].messages[-1].tool_call_id == "c1"
+
+
+async def test_rule01_follow_up_message_does_not_orphan_sibling_tool_result() -> None:
+    """[RULE-01] 同轮「看图 + 其他工具」：补消息落在**回合末**，两条结果都留得住。
+
+    补消息是 `user` 角色（tool 角色带不了图像块）。它若插在两条 tool 结果之间，后面那条就与
+    声明它的 assistant 隔开了 —— 压缩器的 `split_groups` 只把「当前组声明过的」tool 消息收进组，
+    被隔开的那条会被当孤儿**整条丢掉**（2026-10-06 review 实测：同轮 search 结果消失）。
+    """
+    provider = ScriptedModelProvider(
+        [_multi_tool_call(("c1", "view_image"), ("c2", "echo")), _text("done")]
+    )
+    registry = ToolRegistry()
+    calls: list[dict[str, Any]] = []
+    _echo_tool(registry, calls)
+    _image_tool(registry)
+
+    runner = AgentRunner(provider=provider, registry=registry)
+    result = await runner.run(_request())
+
+    assert result.final_text == "done"
+    assert result.tool_calls == 2
+    sent = provider.requests[1].messages
+    # ① 两条工具结果都在，且顺序与声明一致
+    assert [m.tool_call_id for m in sent if m.role is ModelRole.TOOL] == ["c1", "c2"]
+    # ② 补消息在整回合之后，不在两条结果中间
+    assert sent[-1].role is ModelRole.USER
+    assert "重看附件" in text_of(sent[-1].content)
+    # ③ 压缩器的分组视角：整回合仍是一个不可分单元，没有任何 tool 消息被判成孤儿
+    round_group = [group for group in split_groups(sent) if any(m.tool_calls for m in group)]
+    assert len(round_group) == 1
+    assert {m.tool_call_id for m in round_group[0] if m.role is ModelRole.TOOL} == {"c1", "c2"}
 
 
 async def test_tool_budget_stops_further_execution() -> None:
@@ -311,6 +377,33 @@ async def test_deadline_exceeded_between_steps() -> None:
         await AgentRunner(provider=SlowProvider(), registry=registry).run(_request(policy))
 
 
+async def test_deadline_is_enforced_on_the_in_flight_model_call() -> None:
+    """[ADR-07] 总 deadline 约束**正在飞的那次调用**：超了就不许以 COMPLETED 收尾。
+
+    修复前 `_ensure_runnable` 只在步与步之间检查，模型调用返回后直接进 finalize ⇒ deadline 20ms、
+    调用 ~50ms 的 Run 照样 COMPLETED（2026-10-06 review 实测：20ms 配 95ms 调用 → COMPLETED）。
+    """
+
+    class _SlowProvider:
+        def __init__(self) -> None:
+            self.request: ModelRequest | None = None
+
+        async def complete(self, request: ModelRequest) -> ModelResponse:
+            self.request = request
+            await asyncio.sleep(0.05)
+            return _text("done")
+
+    provider = _SlowProvider()
+    runner = AgentRunner(provider=provider, registry=ToolRegistry())
+
+    with pytest.raises(RunnerDeadlineExceeded):
+        await runner.run(_request(AgentPolicy(deadline_ms=20)))
+
+    # 逐请求超时按**剩余总预算**派生（ADR-07：单次请求预算 = min(上限, 剩余总预算)）
+    assert provider.request is not None and provider.request.timeout_sec is not None
+    assert 0 < provider.request.timeout_sec <= 0.02
+
+
 async def test_external_cancellation_is_checked_between_steps() -> None:
     provider = ScriptedModelProvider([_tool_call("c1", "echo"), _text("never")])
     registry = ToolRegistry()
@@ -427,3 +520,20 @@ async def test_compaction_does_not_leak_back_into_the_authoritative_history() ->
         ModelRole.TOOL,
     ], "第二轮的输入是原始历史 + 本轮工具回合，没有上一轮的压缩产物"
     assert all("省略" not in str(m.content) for m in compactor.seen[1])
+
+
+async def test_incomplete_model_stream_is_not_reported_as_success() -> None:
+    """[审查 2026-10-06] provider 报"没有收尾信息"（空 finish_reason）⇒ 不得落成 COMPLETED。
+
+    半截流被当成功会让残缺回答直接变成 Run 的终态。这里**不重试**：增量已经外发，重试等于把
+    同一段话再吐一遍。
+    """
+
+    class _TruncatedProvider:
+        async def complete(self, request: ModelRequest) -> ModelResponse:
+            return ModelResponse(content="说到一半", finish_reason="")
+
+    runner = AgentRunner(provider=_TruncatedProvider(), registry=ToolRegistry())
+
+    with pytest.raises(RunnerModelError):
+        await runner.run(_request())

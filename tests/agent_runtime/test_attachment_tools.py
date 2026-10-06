@@ -21,6 +21,7 @@ from muad_agent_runtime.application.attachments.tools import (
     ATTACHMENT_DIRECTION_INVALID,
     ATTACHMENT_EXTRACT_FAILED,
     ATTACHMENT_LIMIT_INVALID,
+    ATTACHMENT_NOT_FOUND,
     ATTACHMENT_OFFSET_INVALID,
     ATTACHMENT_SCOPE_INVALID,
     ATTACHMENT_TOO_LARGE,
@@ -79,14 +80,16 @@ async def _seed_artifact(
     filename: str,
     into: tuple[uuid.UUID, uuid.UUID] | None = None,
     artifact_type: str | None = None,
+    user_id: uuid.UUID | None = None,
 ) -> uuid.UUID:
     """落一条入站附件。`into=(run_id, conversation_id)` 可挂进既有 Run/会话（S-02 需要
     让入站与自产**同处一个会话**，否则枚举范围无从谈起）。"""
     async with get_session_factory()() as session:
         if into is None:
+            owner = user_id or tenant.platform_user_id
             conversation = Conversation(
                 tenant_id=tenant.tenant_id,
-                user_id=tenant.platform_user_id,
+                user_id=owner,
                 agent_id=tenant.agent_id,
                 status="ACTIVE",
                 last_seq=0,
@@ -96,7 +99,7 @@ async def _seed_artifact(
             run = RunRecord(
                 tenant_id=tenant.tenant_id,
                 conversation_id=conversation.id,
-                user_id=tenant.platform_user_id,
+                user_id=owner,
                 agent_id=tenant.agent_id,
                 status="RUNNING",
                 input_text="x",
@@ -135,6 +138,8 @@ def _tool_set(tenant: TenantContext, root) -> AttachmentToolSet:
         session_factory=get_session_factory,
         artifact_root=root,
         tenant_id=tenant.tenant_id,
+        # 归属用户取本 Run 的（生产里由 `ExecutorRunContext.user_id` 注入）：按 id 取附件要判"是不是我的"
+        user_id=tenant.platform_user_id,
     )
 
 
@@ -180,6 +185,43 @@ async def test_e05_cross_tenant_read_is_rejected_without_leaking_existence(
 
     assert "secret.txt" not in str(exc.value), "错误信息不得回显对方的文件名"
     assert str(artifact_id) not in str(exc.value), "错误信息不得回显标识本身"
+
+
+async def test_same_tenant_other_user_cannot_read_by_id(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """[R-05] 同租户**另一个用户**拿到 artifact id 也读不到：归属按用户判定。
+
+    `tenant_id` 是租户（一个组织），同租户下有多个用户；附件没有 user 列，归属由它的会话或它的
+    Run 的 `user_id` 推出。修复前只校验 tenant_id ⇒ 同租户任一用户提供 UUID 就能读到别人的文件
+    （2026-10-06 review）。越权一律按"不存在"处理，不回显存在性。
+    """
+    artifact_id = await _seed_artifact(
+        tenant, artifact_root, data=b"secret", kind="DOCUMENT",
+        media_type="text/plain", filename="mine.txt", user_id=uuid.uuid4(),
+    )
+
+    mine = _tool_set(tenant, artifact_root)
+    with pytest.raises(AttachmentToolError) as exc:
+        await _call(mine, READ_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id)})
+
+    assert exc.value.code == ATTACHMENT_NOT_FOUND
+    assert "mine.txt" not in str(exc.value), "错误信息不得回显对方的文件名"
+
+
+async def test_same_user_other_conversation_is_still_readable(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """收紧到**用户维度**，不是会话维度：同一用户**另一个会话**里的附件仍然可读。"""
+    other_conversation = await _seed_artifact(
+        tenant, artifact_root, data="另一个会话的内容".encode(),
+        kind="DOCUMENT", media_type="text/plain", filename="older.txt",
+    )
+
+    mine = _tool_set(tenant, artifact_root)
+    content = await _call(mine, READ_ATTACHMENT_TOOL, {"artifact_id": str(other_conversation)})
+
+    assert "另一个会话的内容" in content
 
 
 async def test_e06_corrupt_document_yields_a_clear_error(
@@ -284,6 +326,7 @@ def _writer_tool_set(tenant: TenantContext, root, run_id, conversation_id, *, ha
         tenant_id=tenant.tenant_id,
         run_id=run_id,
         conversation_id=conversation_id,
+        user_id=tenant.platform_user_id,
         has_delivery_route=has_route,
     )
 
@@ -862,6 +905,7 @@ async def _deliverable(tenant, artifact_root, *, client, route=_DELIVERY_ROUTE):
         tenant_id=tenant.tenant_id,
         run_id=run_id,
         conversation_id=conversation_id,
+        user_id=tenant.platform_user_id,
         has_delivery_route=route is not None,
         delivery_route=route,
         delivery_client=client,
@@ -939,6 +983,7 @@ def _delivery_tool_set(tenant, artifact_root, *, run_id, conversation_id, client
     return AttachmentToolSet(
         session_factory=get_session_factory, artifact_root=artifact_root,
         tenant_id=tenant.tenant_id, run_id=run_id, conversation_id=conversation_id,
+        user_id=tenant.platform_user_id,
         has_delivery_route=True, delivery_route=_DELIVERY_ROUTE, delivery_client=client,
     )
 

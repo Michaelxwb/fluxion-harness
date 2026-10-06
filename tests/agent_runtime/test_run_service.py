@@ -4,14 +4,25 @@ from typing import Any
 
 from muad_agent_runtime.application.executor import ExecutorFactory
 from muad_agent_runtime.application.ports import NullPlatformSettingsClient
-from muad_agent_runtime.application.run_service import RunService, reap_abandoned_runs
+from muad_agent_runtime.application.run_service import (
+    RunService,
+    build_snapshot,
+    reap_abandoned_runs,
+)
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
+    Artifact,
     CanonicalEvent,
     Conversation,
     RunRecord,
 )
-from muad_contracts import ChannelContext, MessageInput, RunRequest, RunStatus
+from muad_contracts import (
+    AttachmentRef,
+    ChannelContext,
+    MessageInput,
+    RunRequest,
+    RunStatus,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -372,3 +383,183 @@ async def test_inbound_channel_reaches_executor_as_delivery_route(
     async with get_session_factory()() as session:
         run = await session.get(RunRecord, started.run_id)
     assert run is not None and run.channel_json["external_user_id"] == "wotv-9"
+
+
+async def test_reaped_run_stops_the_executor_liveness_check(
+    tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+) -> None:
+    """[RULE-snapshot-001] Run 离开 RUNNING/WAITING_INPUT ⇒ 执行器必须停。
+
+    这是执行器唯一的存活回调：它为 True 时 runner 在每次模型调用/工具调用前中止。此前它只看
+    `cancel_requested`，于是被 Reaper 置 FAILED 的 Run 仍会继续建任务、发消息、写产物 —— 与
+    接管它的那条 Run 同时产生副作用（2026-10-06 review）。
+    """
+    run_id = await _insert_run(tenant, "RUNNING")
+    async with get_session_factory()() as session:
+        service = RunService(session, fake_resolve, "instance-a", NullPlatformSettingsClient())
+        assert await service._is_cancel_requested(run_id) is False, "RUNNING ⇒ 照跑"
+
+        row = await session.get(RunRecord, run_id)
+        assert row is not None
+        row.status = "FAILED"  # Reaper 按租约回收
+        await session.commit()
+        assert await service._is_cancel_requested(run_id) is True, "已被回收 ⇒ 停"
+
+        row.status = "WAITING_INPUT"  # 暂停等输入仍算"在跑"：那一轮要跑完收尾
+        await session.commit()
+        assert await service._is_cancel_requested(run_id) is False
+
+
+async def test_cancel_that_loses_the_cas_writes_no_fake_terminal_state(
+    tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+) -> None:
+    """[RULE-snapshot-001] cancel 的 CAS 零行 ⇒ 一行事件都不写，按事实返回。
+
+    复现：Run 停在 WAITING_INPUT，用户取消的同时另一条 resume 抢先把状态翻成 RUNNING。
+    此前零行更新的结果被丢弃，照旧写 CANCEL + RUN_COMPLETED(CANCELLED) ⇒ 库里 Run 是 RUNNING、
+    事件日志却宣称已取消（2026-10-06 review）。
+    """
+    run_id = await _insert_run(tenant, "WAITING_INPUT")
+    async with get_session_factory()() as session:
+        service = RunService(session, fake_resolve, "instance-a", NullPlatformSettingsClient())
+        stale = await session.get(RunRecord, run_id)
+        assert stale is not None and stale.status == "WAITING_INPUT"
+
+        # 并发 resume 抢先：它的 CAS 条件正是 WAITING_INPUT
+        async with get_session_factory()() as winner:
+            row = await winner.get(RunRecord, run_id)
+            assert row is not None
+            row.status = "RUNNING"
+            await winner.commit()
+
+        cancelled = await service._cancel(stale)
+
+    assert cancelled.status == "RUNNING", "CAS 落败 ⇒ 不谎报已取消"
+    async with get_session_factory()() as session:
+        row = await session.get(RunRecord, run_id)
+        assert row is not None and row.status == "RUNNING"
+        events = (
+            await session.scalars(select(CanonicalEvent).where(CanonicalEvent.run_id == run_id))
+        ).all()
+    assert [e.event_type for e in events if e.event_type in ("CANCEL", "RUN_COMPLETED")] == []
+
+
+async def test_finalize_with_lost_terminal_cas_does_not_crash(
+    tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+) -> None:
+    """[RULE-snapshot-001] 终态 CAS 落败的收尾路径不得碰已过期的 ORM 对象。
+
+    此前 rollback 之后继续用 `row`（`_terminal_event` 要读 id/conversation_id/status），异步
+    会话下抛 MissingGreenlet（2026-10-06 review）。让 Run 停在 WAITING_INPUT，CAS（只认
+    RUNNING）必然零行，确定性地走这条分支。
+    """
+    run_id = await _insert_run(tenant, "WAITING_INPUT")
+    async with get_session_factory()() as session:
+        service = RunService(session, fake_resolve, "instance-a", NullPlatformSettingsClient())
+        run = await session.get(RunRecord, run_id)
+        assert run is not None
+        event = await service._finalize_run(run, uuid.uuid4(), "done", agent_key="agent")
+
+    assert event.type == "run.completed"
+    assert event.data["status"] == "WAITING_INPUT", "按库里的事实说话，不伪造终态"
+    async with get_session_factory()() as session:
+        rows = (
+            await session.scalars(select(CanonicalEvent).where(CanonicalEvent.run_id == run_id))
+        ).all()
+    assert [r.event_type for r in rows if r.event_type in ("RUN_COMPLETED", "RUN_FAILED")] == []
+
+
+async def test_auto_resume_keeps_attachments_of_the_new_message(
+    tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+    executor_factory: ExecutorFactory,
+) -> None:
+    """[审查 2026-10-06] `WAITING_INPUT` 期间用户发来的附件必须与新文本一起进去。
+
+    自动 resume 此前只取 `message.text`：附件既不落 `artifact` 行、也不进事件、更没进执行器，
+    等于**静默丢弃**（用户以为把文件发出去了）。
+    """
+    run_id = await _insert_run(tenant, "WAITING_INPUT")
+    async with get_session_factory()() as session:
+        # 续跑从**已落库的快照**重建 Agent/Model/Skill/MCP ⇒ 这一行必须真的存在
+        snapshot = build_snapshot(
+            run_id=run_id, tenant_id=tenant.tenant_id, resolved=fake_resolve.response
+        )
+        session.add(snapshot)
+        await session.flush()
+        run = await session.get(RunRecord, run_id)
+        assert run is not None
+        run.snapshot_id = snapshot.id
+        conversation_id = run.conversation_id
+        await session.commit()
+    captured: list[Any] = []
+
+    async def capturing_factory(request: Any) -> Any:
+        captured.append(request)
+        return await executor_factory(request)
+
+    request = RunRequest(
+        agent_id=tenant.agent_id,
+        platform_user_id=tenant.platform_user_id,
+        conversation_id=conversation_id,
+        channel=ChannelContext(type="WECOM", bot_id="bot-1"),
+        message=MessageInput(
+            id=f"msg-{uuid.uuid4()}",
+            type="attachment",
+            text="补充一句",
+            attachments=[
+                AttachmentRef(
+                    storage_key="inbound/resume/0",
+                    kind="DOCUMENT",
+                    media_type="text/plain",
+                    size=12,
+                    filename="补充.txt",
+                    checksum="sha256:" + "c" * 64,
+                    source_channel="WECOM",
+                )
+            ],
+        ),
+    )
+    async with get_session_factory()() as session:
+        service = RunService(
+            session,
+            fake_resolve,
+            "instance-a",
+            NullPlatformSettingsClient(),
+            executor_factory=capturing_factory,
+        )
+        started = await service.start(request, tenant.tenant_id)
+        events = [event async for event in started.events]
+    assert events[0].data["resumed"] is True
+
+    # ① 附件行落在**这个 Run** 上（与文本、事件同一事务）
+    async with get_session_factory()() as session:
+        rows = (
+            await session.scalars(select(Artifact).where(Artifact.run_id == run_id))
+        ).all()
+        assert [row.storage_key for row in rows] == ["inbound/resume/0"]
+
+        # ② 事件载荷带上附件（历史装配据此渲染文本引用，不必回查产物表）
+        event = (
+            await session.scalars(
+                select(CanonicalEvent)
+                .where(
+                    CanonicalEvent.run_id == run_id,
+                    CanonicalEvent.event_type == "USER_MESSAGE",
+                )
+                .order_by(CanonicalEvent.seq.desc())
+                .limit(1)
+            )
+        ).one()
+    assert event.payload_json["text"] == "补充一句"
+    assert [item["artifact_id"] for item in event.payload_json["attachments"]] == [
+        str(rows[0].id)
+    ]
+
+    # ③ 执行器看到的当前消息里带着它
+    assert captured, "自动 resume 必须真的起执行器"
+    content = captured[-1].input_content
+    assert content is not None and "补充.txt" in str(content)

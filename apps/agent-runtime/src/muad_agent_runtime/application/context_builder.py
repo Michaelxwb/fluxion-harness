@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -210,13 +210,24 @@ class DbBackedContextBuilder:
         # 请求 —— 实测：`Messages with role 'tool' must be a response to a preceding message
         # with 'tool_calls'`。本事件类型上线前的存量会话全是这种孤儿，故一律跳过（丢那几轮
         # 的工具上下文，换取会话立刻可用）。
+        #
+        # `answered` 是这层校验的**反向**：assistant 声明了、但库里没有对应 `TOOL_CALL` 行的
+        # 调用不能回放。中断/取消打断一个多工具回合、或工具预算耗尽时，声明已经落库而结果没有，
+        # 整份回放就得到「声明 2 个、只答 1 个」的请求 —— 同一类形状问题，供应商同样会拒整个请求
+        # （2026-10-06 review）。声明与结果必须成对：成不了对的那条声明整条丢掉，与
+        # `compactor.split_groups` 的孤儿口径同源。
         declared: set[str] = set()
+        answered: set[str] = set()
         for event in events:
-            if event.event_type != "ASSISTANT_TURN":
-                continue
-            for call in (event.payload_json or {}).get("tool_calls") or []:
-                if isinstance(call, dict) and isinstance(call.get("id"), str):
-                    declared.add(call["id"])
+            payload = event.payload_json or {}
+            if event.event_type == "ASSISTANT_TURN":
+                for call in payload.get("tool_calls") or []:
+                    if isinstance(call, dict) and isinstance(call.get("id"), str):
+                        declared.add(call["id"])
+            elif event.event_type == "TOOL_CALL":
+                call_id = payload.get("tool_call_id")
+                if isinstance(call_id, str):
+                    answered.add(call_id)
 
         # round_no 标记「属于哪个 tool 回合」；0 = 与工具无关的普通消息（永远保留）
         entries: list[tuple[int, ModelMessage]] = []
@@ -242,7 +253,11 @@ class DbBackedContextBuilder:
                     (0, ModelMessage(role=ModelRole.ASSISTANT, content=str(payload.get("text", ""))))
                 )
             elif event.event_type == "ASSISTANT_TURN":
-                calls = _tool_calls(payload.get("tool_calls"))
+                # 只回放**真有结果落库**的调用（见上面 `answered` 的注释）：声明与 tool 结果
+                # 成不了对的那条声明整条丢弃，否则供应商会拒掉整个请求。
+                calls = tuple(
+                    call for call in _tool_calls(payload.get("tool_calls")) if call.id in answered
+                )
                 if not calls:
                     continue
                 round_no += 1
@@ -268,18 +283,21 @@ class DbBackedContextBuilder:
                 if not isinstance(call_id, str) or call_id not in declared:
                     continue  # 孤儿 tool 消息：整条请求会因此被拒
                 # 外置过的结果按**当时发出去的那条引用 JSON** 还原（ADR-05）：模型据此既能
-                # 看到预览，也拿得到 `artifact_id` 去 `read_attachment`。没外置的没有产物可指，
-                # 只留工具名。
+                # 看到预览，也拿得到 `artifact_id` 去 `read_attachment`。没外置的按落库时那份
+                # **有界预览**还原（2026-10-06 review）：不落预览，这条结果过了一个 Run 就只剩
+                # 工具名，任务 id / 查询结论 / 短正文全部找不回来。
                 artifact_ref = (
                     references.get(event.artifact_id) if event.artifact_id else None
                 )
-                content = (
-                    reference_payload(artifact_ref)
-                    if artifact_ref is not None
-                    else f"[tool:{payload.get('tool_name')}]"
-                )
                 entries.append(
-                    (round_no, ModelMessage(role=ModelRole.TOOL, content=content, tool_call_id=call_id))
+                    (
+                        round_no,
+                        ModelMessage(
+                            role=ModelRole.TOOL,
+                            content=_tool_message_content(payload, artifact_ref),
+                            tool_call_id=call_id,
+                        ),
+                    )
                 )
 
         keep = _kept_tool_rounds([value for value, _ in entries])
@@ -410,6 +428,20 @@ def _tool_calls(raw: Any) -> tuple[ModelToolCall, ...]:
             )
         )
     return tuple(calls)
+
+
+def _tool_message_content(payload: Mapping[str, Any], artifact_ref: dict[str, Any] | None) -> str:
+    """TOOL 消息的正文：外置过 ⇒ 当时那条引用 JSON；没外置 ⇒ 落库的有界预览；都没有才回落工具名。
+
+    第三条兜底只该出现在**老数据**（预览上线前落的行）与工具自己写脏引用的场景：那时
+    `artifact_id` 解析得出、Artifact 行却不存在，既没有引用也没有预览。
+    """
+    if artifact_ref is not None:
+        return reference_payload(artifact_ref)
+    preview = payload.get("preview")
+    if isinstance(preview, str) and preview:
+        return preview
+    return f"[tool:{payload.get('tool_name')}]"
 
 
 def _kept_tool_rounds(present: list[int]) -> set[int]:

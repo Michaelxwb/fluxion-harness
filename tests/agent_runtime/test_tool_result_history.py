@@ -56,6 +56,10 @@ FIRST_TEXT = "第一轮：我去取一下"
 SECOND_TEXT = "第二轮：接着聊"
 DIRTY_TOOL_NAME = "dirty"
 DIRTY_CALL_ID = "call-dirty"
+#: 小到不被外置的结果：它没有产物可指，跨 Run 只能靠落库的那份预览找回来。
+SMALL_TOOL_NAME = "peek"
+SMALL_CALL_ID = "call-peek"
+SMALL_RESULT_TEXT = "查询结论：共 3 条，任务 id=T-1，最近一条在 10:05"
 
 
 class _TwoRunProvider:
@@ -88,7 +92,7 @@ DIRTY_RESULT = json.dumps({"artifact": {"artifact_id": "not-a-uuid"}})
 
 def _registry(recorder: ToolCallRecorder) -> ToolRegistry:
     registry = ToolRegistry()
-    results = {TOOL_NAME: RESULT_TEXT, DIRTY_TOOL_NAME: DIRTY_RESULT}
+    results = {TOOL_NAME: RESULT_TEXT, DIRTY_TOOL_NAME: DIRTY_RESULT, SMALL_TOOL_NAME: SMALL_RESULT_TEXT}
     for name, result_text in results.items():
 
         async def handler(
@@ -251,3 +255,42 @@ async def test_e08_dirty_artifact_id_does_not_break_the_run(
             )
         ).scalars().one()
     assert row.artifact_id is None, "解析不出 UUID ⇒ 按\"没有产物\"计，列留空"
+
+
+async def test_small_tool_result_survives_across_runs_via_preview(
+    client: AsyncClient,
+    tenant: TenantContext,
+    tmp_path: Path,
+) -> None:
+    """未外置的小结果跨 Run 仍读得回正文（落库那份有界预览），不再只剩 `[tool:名称]`。
+
+    此前 canonical 行只有工具名 ⇒ 任务 id、查询结论、短正文过了一个 Run 全部找不回来
+    （2026-10-06 review）。预览只在**没外置**时落：外置过的有 `artifact_id`，重建按引用还原。
+    """
+    provider = _TwoRunProvider(first_tool=SMALL_TOOL_NAME, first_call_id=SMALL_CALL_ID)
+    app.dependency_overrides[get_executor_factory] = lambda: _factory(tmp_path, provider)
+    try:
+        first = await _send(client, tenant, "第一轮：查一下")
+        second = await _send(client, tenant, "第二轮：接着聊")
+    finally:
+        app.dependency_overrides.pop(get_executor_factory, None)
+
+    assert first["final_text"] == FIRST_TEXT
+    assert second["final_text"] == SECOND_TEXT
+    # 第一轮发出去的就是正文本身（小结果不外置）
+    assert _tool_content(provider.requests[1], SMALL_CALL_ID) == SMALL_RESULT_TEXT
+    # 第二轮从库里重建：小到没超任何阈值，却必须仍然读得回正文
+    assert _tool_content(provider.requests[2], SMALL_CALL_ID) == SMALL_RESULT_TEXT
+
+    async with get_session_factory()() as session:
+        row = (
+            await session.execute(
+                sa.select(CanonicalEvent).where(
+                    CanonicalEvent.tenant_id == tenant.tenant_id,
+                    CanonicalEvent.event_type == "TOOL_CALL",
+                    CanonicalEvent.run_id == first["run_id"],
+                )
+            )
+        ).scalars().one()
+    assert row.artifact_id is None, "没外置 ⇒ 列留空，重建走预览那条腿"
+    assert (row.payload_json or {}).get("preview") == SMALL_RESULT_TEXT

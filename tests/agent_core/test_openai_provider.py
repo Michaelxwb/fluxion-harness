@@ -498,3 +498,66 @@ async def test_multimodal_content_becomes_parts_array() -> None:
         {"type": "text", "text": "看看这张图"},
         {"type": "image_url", "image_url": {"url": "data:image/png;base64,QUJD"}},
     ]
+
+
+async def test_per_request_timeout_overrides_the_client_default() -> None:
+    """[ADR-07] `ModelRequest.timeout_sec` **逐请求**生效，没给就一个字都不覆盖。
+
+    httpx 的 `timeout=None` 是"禁用超时"而不是"用 client 默认值"，所以实现只能按需传键。
+    """
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"finish_reason": "stop", "message": {"role": "assistant", "content": "ok"}}
+                ]
+            },
+        )
+
+    provider = _provider(handler, timeout_sec=30.0)
+    await provider.complete(
+        ModelRequest(model_id="gpt-4o-mini", messages=_request().messages, timeout_sec=0.02)
+    )
+    await provider.complete(ModelRequest(model_id="gpt-4o-mini", messages=_request().messages))
+
+    assert seen[0].extensions["timeout"] == {
+        "connect": 0.02,
+        "read": 0.02,
+        "write": 0.02,
+        "pool": 0.02,
+    }, "调用方给的剩余预算必须落到这次请求上"
+    assert seen[1].extensions["timeout"]["read"] == 30.0, "没给就沿用 client 的默认超时"
+
+
+async def test_stream_without_a_completion_signal_is_not_reported_as_stopped() -> None:
+    """[审查 2026-10-06] 流里既没有 `finish_reason` 也没有 `[DONE]` ⇒ 报"没有收尾信息"。
+
+    此前 `finish_reason` 初值是 `"stop"` 且只被非空值覆盖 ⇒ 被截断的流与正常收尾逐字相同，
+    残缺回答会被当成功。`[DONE]` 仍在时按正常收尾（有些服务端不发 `finish_reason`）。
+    """
+    deltas: list[str] = []
+
+    async def on_delta(text: str) -> None:
+        deltas.append(text)
+
+    def _body(chunks: list[dict[str, Any]], tail: str) -> bytes:
+        return ("".join(f"data: {json.dumps(c)}\n\n" for c in chunks) + tail).encode()
+
+    truncated = [{"choices": [{"delta": {"content": "说到一半"}}]}]
+    done_only = [{"choices": [{"delta": {"content": "说完了"}}]}]
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = _body(truncated, "") if len(deltas) == 0 else _body(done_only, "data: [DONE]\n\n")
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    provider = _provider(handler)
+
+    cut = await provider.stream(_request(), on_delta)
+    assert cut.finish_reason == "", "没有收尾信号 ⇒ 空串（不得伪装成 stop）"
+
+    finished = await provider.stream(_request(), on_delta)
+    assert finished.finish_reason == "stop", "[DONE] 就是收尾信号"

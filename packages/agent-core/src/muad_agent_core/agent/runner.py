@@ -165,7 +165,9 @@ class AgentGraphState(TypedDict):
     # 每次模型响应触发一次，带完整 assistant 消息（含 tool_calls 与 reasoning_content）：
     # 调用方据此把「一个 assistant 回合」原样持久化，供后续 Run 重建**合法**历史。
     on_assistant_turn: Callable[[ModelMessage], Awaitable[None]] | None
-    on_tool_completed: Callable[[str, str, str, str | None], Awaitable[None]] | None
+    #: `(call_id, 工具名, 状态, 产物 id, 未外置时的那条结果正文)`。最后一个参数只在结果
+    #: **没有被外置**时给出——那种结果没有产物可指，正文是它唯一能被后续 Run 找回来的载体。
+    on_tool_completed: Callable[[str, str, str, str | None, str | None], Awaitable[None]] | None
     last_response: dict[str, Any] | None
     post_model_pending: bool
 
@@ -231,7 +233,8 @@ class AgentRunner:
         on_model_started: Callable[[], Awaitable[None]] | None = None,
         on_model_completed: Callable[[], Awaitable[None]] | None = None,
         on_assistant_turn: Callable[[ModelMessage], Awaitable[None]] | None = None,
-        on_tool_completed: Callable[[str, str, str, str | None], Awaitable[None]] | None = None,
+        on_tool_completed: Callable[[str, str, str, str | None, str | None], Awaitable[None]]
+        | None = None,
     ) -> AgentRunResult:
         system = self._prompt_builder.build(instructions=request.instructions, skills=request.skills)
         initial = AgentGraphState(
@@ -339,8 +342,18 @@ class AgentRunner:
                 temperature=state["temperature"],
                 max_tokens=state["max_tokens"],
                 params=state["params"],
+                timeout_sec=self._request_timeout_sec(state),
             ),
         )
+        if not response.finish_reason:
+            # 流里没有任何收尾信息（上游被切断）：残缺回答不得当成功落成 COMPLETED。**不重试**——
+            # 增量已经外发给用户了，重试会把同一段话再吐一遍（2026-10-06 review）。
+            raise RunnerModelError("model stream ended without a completion signal")
+        # 调用返回时总预算已经耗尽 ⇒ 就此收手（ADR-07 的 deadline 是硬预算）。检查点放在**调用
+        # 之后、登记响应之前**：`_finalize` 阶段再判就成了"答案已经产出来还判它失败"，而
+        # `_invoke_model` 里面的 provider 未必理会超时（stub / 自定义实现），不在这里兜一次，
+        # 超预算的调用就会被当成功（2026-10-06 review）。
+        self._ensure_runnable(state)
         assistant = ModelMessage(
             role=ModelRole.ASSISTANT,
             content=response.content,
@@ -375,6 +388,8 @@ class AgentRunner:
         # 本回合真正执行过的调用：(消息下标, 调用 id, 工具名, 状态)。整批判定与完成事件都在
         # 回合末一次性收口（ADR-04）——不在循环里逐条报，否则产物 id 赶不上那条事件。
         executed: list[tuple[int, str, str, str]] = []
+        # 补消息（`ToolDefinition.follow_up_messages`）**攒到回合末再落**，理由见 finally 里的注释。
+        followed: list[ModelMessage] = []
         try:
             for call in state["pending_tool_calls"]:
                 self._ensure_runnable(state)
@@ -393,8 +408,14 @@ class AgentRunner:
                 except LookupError:
                     definition = None
                 if definition is not None and definition.follow_up_messages is not None:
-                    messages.extend(await definition.follow_up_messages(text_of(result.content)))
+                    followed.extend(await definition.follow_up_messages(text_of(result.content)))
         finally:
+            # 补消息**必须先于回合收口、且落在整回合之后**：它是 `user` 角色，若插在两条 tool
+            # 结果之间，后面那条结果就与声明它的 assistant 隔开了 —— 压缩器的 `split_groups`
+            # 只把「当前组声明过的」tool 消息收进组，隔开的那条会被当孤儿**整条丢掉**（同轮
+            # 「看图 + 其他工具」因此稳定丢结果，2026-10-06 review）。回合末追加后，这一回合
+            # 仍是「assistant(声明) + 它的全部 tool 结果」这个不可分单元。
+            messages.extend(followed)
             # 回合收口**必须走 finally**：中途被取消/超时打断时，已经跑完的那些同样是"发生过的事"
             # ——此前审计是逐条写的，中断时那些行已经落了；不收口等于把它们抹掉。
             await self._finish_tool_round(state, messages, executed)
@@ -428,8 +449,17 @@ class AgentRunner:
             for index, message in zip(indexes, replaced, strict=True):
                 messages[index] = message
         for index, call_id, name, status in executed:
+            content = text_of(messages[index].content)
+            artifact_id = _artifact_ref(content)
             await self._notify_tool_completed(
-                state, call_id, name, status, _artifact_ref(text_of(messages[index].content))
+                state,
+                call_id,
+                name,
+                status,
+                artifact_id,
+                # 没外置 ⇒ 正文必须随事件带走：库里那条 canonical 行若只留工具名，下一 Run 重建
+                # 历史时这条结果就**净丢了**（任务 id、查询结论、短正文都找不回来）。
+                None if artifact_id is not None else content,
             )
 
     async def _emit_post_model(self, state: AgentGraphState) -> None:
@@ -468,10 +498,11 @@ class AgentRunner:
         name: str,
         status: str,
         artifact_id: str | None,
+        result_text: str | None,
     ) -> None:
         callback = state["on_tool_completed"]
         if callback is not None:
-            await callback(call_id, name, status, artifact_id)
+            await callback(call_id, name, status, artifact_id, result_text)
 
     async def _execute_tool(
         self, state: AgentGraphState, call: ModelToolCall, arguments: dict[str, Any]
@@ -585,16 +616,28 @@ class AgentRunner:
             await asyncio.sleep(step)
             remaining -= step
 
+    def _budget(self, state: AgentGraphState) -> ModelBudget:
+        policy = state["policy"]
+        return ModelBudget(
+            deadline_ms=policy.deadline_ms, max_model_retries=policy.max_model_retries
+        )
+
+    def _request_timeout_sec(self, state: AgentGraphState) -> float:
+        """这一次模型请求的 I/O 超时 = min(单次上限, **剩余**总预算)（ADR-07）。
+
+        不夹到剩余预算，总 deadline 就约束不到正在飞的那次调用：单次调用可以一路跑到（甚至跑过）
+        整个 deadline 而没有任何一层拦它（2026-10-06 review）。
+        """
+        elapsed_ms = (time.monotonic() - state["started_at"]) * 1000
+        return self._budget(state).request_timeout_sec(elapsed_ms)
+
     def _retry_delay(
         self,
         state: AgentGraphState,
         attempt: int,
         retry_after: float | None,
     ) -> float:
-        policy = state["policy"]
-        budget = ModelBudget(
-            deadline_ms=policy.deadline_ms, max_model_retries=policy.max_model_retries
-        )
+        budget = self._budget(state)
         if attempt >= budget.max_model_retries:
             raise RunnerModelError(f"model retries exhausted: {attempt}")
         delay = budget.retry_delay_sec(attempt, retry_after)

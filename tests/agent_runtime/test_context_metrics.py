@@ -19,8 +19,11 @@ import uuid
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 import httpx
+import pytest
+import sqlalchemy as sa
 import uvicorn
 from fastapi import FastAPI
 from muad_agent_core.agent import AgentRunner
@@ -38,6 +41,7 @@ from muad_agent_runtime.api.deps import (
     get_executor_factory,
     get_resolve_client,
 )
+from muad_agent_runtime.application import context_compaction
 from muad_agent_runtime.application.context_compaction import (
     RuntimeContextCompactor,
     make_summary_runner,
@@ -49,7 +53,7 @@ from muad_agent_runtime.application.executor import (
     RunExecutor,
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import Conversation
+from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, Conversation
 from muad_agent_runtime.main import app
 from muad_contracts.platform_settings import (
     CompactionSettings,
@@ -320,8 +324,12 @@ async def test_e05_summary_counters_increase_on_a_real_compactor(
         summary_runner=make_summary_runner(provider=provider, model_id="probe-model"),
     )
     history = (
-        ModelMessage(role=ModelRole.USER, content="很长的诉求" * 200),
-        ModelMessage(role=ModelRole.ASSISTANT, content="很长的回答" * 200),
+        # 受保护前缀（系统提示）与当前回合都必须留在换出去的那条请求里：整段换成一条摘要等于
+        # agent 失忆 + 模型不知道自己该回答什么
+        ModelMessage(role=ModelRole.SYSTEM, content="be helpful"),
+        ModelMessage(role=ModelRole.USER, content="更早那轮：很长的诉求" * 200),
+        ModelMessage(role=ModelRole.ASSISTANT, content="更早那轮：很长的回答" * 200),
+        ModelMessage(role=ModelRole.USER, content="当前这一轮：接着聊"),
     )
 
     async with _serve_http(app) as client:
@@ -329,7 +337,14 @@ async def test_e05_summary_counters_increase_on_a_real_compactor(
         compacted = await compactor.compact(history)
         after = _parse_samples(await _metrics(client))
 
-    assert len(compacted) == 1, "摘要层真的生效了（历史被换成一条摘要前缀）"
+    assert [message.role for message in compacted] == [
+        ModelRole.SYSTEM,
+        ModelRole.SYSTEM,
+        ModelRole.USER,
+    ], "前缀 + 摘要 + 当前回合"
+    assert "be helpful" in str(compacted[0].content), "系统提示不得被摘要吞掉"
+    assert str(compacted[1].content).startswith("[历史摘要]")
+    assert "当前这一轮" in str(compacted[2].content), "当前用户消息必须原样保留"
     assert provider.requests, "摘要模型确实被调了一次"
     ok = {"status": "OK"}
     assert (
@@ -339,3 +354,72 @@ async def test_e05_summary_counters_increase_on_a_real_compactor(
         _value(before, "context_summary_tokens_total", {}) + SUMMARY_TOKENS
     ), "token 用量要按模型回报的 input+output 计"
     _assert_label_hygiene(after)
+
+
+async def test_compaction_audit_failure_rolls_the_summary_back_too(
+    tenant: TenantContext, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """[RULE-04/RULE-05] 压缩审计写失败 ⇒ 这次压缩**整个不生效**。
+
+    以前摘要在自己的事务里先 commit、审计随后另开事务：审计失败时本轮返回原历史，摘要的
+    `covers_up_to_seq` 却已经落库 —— 下一轮据此排除原始事件，等于一半的压缩悄悄生效
+    （2026-10-06 review）。现在三处写（transcript / 摘要事件 / 审计）一个事务，要么全落、
+    要么全不落，并按 FAILED 记出来。
+    """
+    conversation_id = uuid.uuid4()
+    async with get_session_factory()() as session:
+        session.add(
+            Conversation(
+                id=conversation_id,
+                tenant_id=tenant.tenant_id,
+                user_id=tenant.platform_user_id,
+                agent_id=tenant.agent_id,
+                last_seq=0,
+            )
+        )
+        await session.commit()
+
+    provider = _SummaryProvider()
+    compactor = RuntimeContextCompactor(
+        settings=CompactionSettings(
+            summary=SummarySettings(enabled=True, threshold_bytes=1, model_ref="probe-model"),
+            snip=SnipSettings(enabled=False),
+        ),
+        tenant_id=tenant.tenant_id,
+        run_id=uuid.uuid4(),
+        conversation_id=conversation_id,
+        artifact_root=tmp_path,
+        summary_runner=make_summary_runner(provider=provider, model_id="probe-model"),
+    )
+    history = (
+        ModelMessage(role=ModelRole.USER, content="更早那轮：很长的诉求" * 200),
+        ModelMessage(role=ModelRole.ASSISTANT, content="更早那轮：很长的回答" * 200),
+        ModelMessage(role=ModelRole.USER, content="当前这一轮：接着聊"),
+    )
+
+    async def _boom(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("audit write failed")
+
+    monkeypatch.setattr(context_compaction, "record_compaction", _boom)
+
+    async with _serve_http(app) as client:
+        before = _parse_samples(await _metrics(client))
+        compacted = await compactor.compact(history)
+        after = _parse_samples(await _metrics(client))
+
+    assert compacted == history, "压缩失败一律退化成不压缩，且不得只退一半"
+    assert provider.requests, "摘要模型确实被调过（失败发生在落库阶段）"
+    failed = {"layer": "*", "status": "FAILED"}
+    assert _value(after, "context_compaction_total", failed) == (
+        _value(before, "context_compaction_total", failed) + 1
+    ), "退化必须可见"
+    async with get_session_factory()() as session:
+        rows = (
+            await session.scalars(
+                sa.select(CanonicalEvent).where(
+                    CanonicalEvent.conversation_id == conversation_id,
+                    CanonicalEvent.event_type.in_(("CONTEXT_SUMMARY", "CONTEXT_COMPACTED")),
+                )
+            )
+        ).all()
+    assert list(rows) == [], "摘要事件不得单独落库（下一次装配才不会以为那段历史已被覆盖）"

@@ -36,6 +36,19 @@ def _payload(tenant: TenantContext, text: str = "hello runtime") -> dict[str, An
     }
 
 
+def _attachment_ref(storage_key: str) -> dict[str, Any]:
+    """入站附件引用（形状来自 contracts；`kind=DOCUMENT` 不触发内联读盘）。"""
+    return {
+        "storage_key": storage_key,
+        "kind": "DOCUMENT",
+        "media_type": "text/plain",
+        "size": 12,
+        "filename": "note.txt",
+        "checksum": "sha256:" + "b" * 64,
+        "source_channel": "WECOM",
+    }
+
+
 def _expected_hash(resolved: ResolveDefinitionResponse) -> str:
     canonical = json.dumps(
         {
@@ -377,6 +390,60 @@ async def test_create_run_same_key_different_fingerprint_conflicts(
     assert first.status_code == 200
 
     changed = {**payload, "message": {**payload["message"], "text": "different text"}}
+    second = await client.post("/v1/runs", json=changed, headers=headers)
+    assert second.status_code == 409
+    assert second.json()["code"] == "IDEMPOTENCY_MISMATCH"
+
+
+async def test_create_run_same_key_with_a_different_attachment_conflicts(
+    client: AsyncClient,
+    tenant: TenantContext,
+) -> None:
+    """[审查 2026-10-06] 同 key 换了附件 ⇒ `IDEMPOTENCY_MISMATCH`（不得当成同一请求重放）。
+
+    指纹此前只覆盖文本与 message_id：换了附件会被静默丢掉（重放第一个 Run 的结果），用户以为
+    自己把文件发出去了。
+    """
+    payload = _payload(tenant)
+    payload["message"] = {
+        **payload["message"],
+        "type": "attachment",
+        "attachments": [_attachment_ref("inbound/a/0")],
+    }
+    headers = {**_headers(tenant), "Idempotency-Key": "create-idem-attachment"}
+    first = await client.post("/v1/runs", json=payload, headers=headers)
+    assert first.status_code == 200, first.text
+
+    changed = {
+        **payload,
+        "message": {
+            **payload["message"],
+            "attachments": [_attachment_ref("inbound/b/1")],
+        },
+    }
+    second = await client.post("/v1/runs", json=changed, headers=headers)
+    assert second.status_code == 409
+    assert second.json()["code"] == "IDEMPOTENCY_MISMATCH"
+
+
+async def test_create_run_same_key_for_another_recipient_conflicts(
+    client: AsyncClient,
+    tenant: TenantContext,
+) -> None:
+    """[审查 2026-10-06] 同 key 换了接收方 ⇒ `IDEMPOTENCY_MISMATCH`。
+
+    投递路由（`bot_id` / `external_user_id` / 外部会话）此前不在指纹里：同 key 的重放会把回复
+    发给**上一个人**。
+    """
+    payload = _payload(tenant)
+    headers = {**_headers(tenant), "Idempotency-Key": "create-idem-route"}
+    first = await client.post("/v1/runs", json=payload, headers=headers)
+    assert first.status_code == 200, first.text
+
+    changed = {
+        **payload,
+        "channel": {**payload["channel"], "external_user_id": "another-user"},
+    }
     second = await client.post("/v1/runs", json=changed, headers=headers)
     assert second.status_code == 409
     assert second.json()["code"] == "IDEMPOTENCY_MISMATCH"

@@ -34,7 +34,7 @@ from ...infrastructure.gateway_delivery_client import (
     DeliveryUnavailableError,
     GatewayDeliveryClient,
 )
-from ...infrastructure.models.runtime import Artifact
+from ...infrastructure.models.runtime import Artifact, Conversation, RunRecord
 from .inbound import INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER
 from .output_service import (
     AGENT_OUTPUT_ARTIFACT_TYPE,
@@ -267,6 +267,7 @@ class AttachmentToolSet:
         tenant_id: str,
         run_id: uuid.UUID | None = None,
         conversation_id: uuid.UUID | None = None,
+        user_id: uuid.UUID | None = None,
         has_delivery_route: bool = False,
         delivery_route: DeliveryRouteInput | None = None,
         delivery_client: GatewayDeliveryClient | None = None,
@@ -276,6 +277,8 @@ class AttachmentToolSet:
         self._tenant_id = tenant_id
         self._run_id = run_id
         self._conversation_id = conversation_id
+        #: 本 Run 的归属用户：按 id 取附件时用它判定"这一行是不是我的"（见 `_owned_by_actor`）。
+        self._user_id = user_id
         self._has_delivery_route = has_delivery_route
         #: 会话的交付路由（来自 Run 上下文）。**只有交付动作依赖它**——写不需要。
         self._delivery_route = delivery_route
@@ -717,15 +720,58 @@ class AttachmentToolSet:
             return f"{_filename(row)}：只能交付本会话里收到的附件"
         return f"{_filename(row)}：这类产物不能交付给用户"
 
-    async def _load(self, artifact_id: object) -> Artifact:
-        """按标识取附件行。**租户隔离**：越权一律按"不存在"处理 —— 不回显对方的存在性、
-        文件名或标识本身（`harness-auth#RULE-auth-001`：未授权资源不得进入 ToolRegistry 视野）。"""
+    def _owned_by_actor(self, user_id: uuid.UUID) -> Any:
+        """归属谓词：这一行附件属于 `user_id` 吗？
+
+        **用户维度**：`tenant_id` 是租户（一个组织），同租户下有多个用户；`artifact` 没有 user 列，
+        归属由它的会话（`conversation.user_id`）或它的 Run（`run_record.user_id`）推出。两个 EXISTS
+        走既有 `ix_artifact_conversation` / `ix_artifact_run`，不做"先查全量再内存过滤"（NFR-PERF-02）。
+        """
+        by_conversation = (
+            sa.select(sa.literal(1))
+            .where(
+                Conversation.id == Artifact.conversation_id,
+                Conversation.tenant_id == self._tenant_id,
+                Conversation.user_id == user_id,
+                Conversation.is_deleted.is_(False),
+            )
+            .exists()
+        )
+        by_run = (
+            sa.select(sa.literal(1))
+            .where(
+                RunRecord.id == Artifact.run_id,
+                RunRecord.tenant_id == self._tenant_id,
+                RunRecord.user_id == user_id,
+                RunRecord.is_deleted.is_(False),
+            )
+            .exists()
+        )
+        return sa.or_(by_conversation, by_run)
+
+    def _scoped_query(self, artifact_id: object) -> sa.Select[tuple[Artifact]]:
+        """按 id 取附件行的**唯一**口径：租户 + 未软删 + **归属本人**；标识非法即按"不存在"。
+
+        少任何一条都会造出越权读取：只按 id 取 ⇒ 同租户任一用户拿到一个 UUID 就能读到别人的
+        文件（2026-10-06 review）。拿不到本 Run 的用户身份时 **fail closed**（一律不认）。
+        """
         try:
             parsed = uuid.UUID(str(artifact_id))
         except (ValueError, TypeError) as exc:
             raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "附件不存在或不可访问") from exc
+        owned: Any = sa.false() if self._user_id is None else self._owned_by_actor(self._user_id)
+        return sa.select(Artifact).where(
+            Artifact.id == parsed,
+            Artifact.tenant_id == self._tenant_id,
+            Artifact.is_deleted.is_(False),
+            owned,
+        )
+
+    async def _load(self, artifact_id: object) -> Artifact:
+        """按标识取附件行。**租户 + 归属**：越权一律按"不存在"处理 —— 不回显对方的存在性、
+        文件名或标识本身（`harness-auth#RULE-auth-001`：未授权资源不得进入 ToolRegistry 视野）。"""
         async with self._session_factory()() as session:
-            row = await session.get(Artifact, parsed)
+            row = (await session.execute(self._scoped_query(artifact_id))).scalar_one_or_none()
         if row is None or row.is_deleted or row.tenant_id != self._tenant_id:
             raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "附件不存在或不可访问")
         return row
@@ -733,16 +779,12 @@ class AttachmentToolSet:
     async def _load_for_update(self, session: AsyncSession, artifact_id: object) -> Artifact:
         """`_load` 的**加锁**版本：读-改-写路径必须持有这一行的锁直到提交。
 
-        租户/软删的判定与 `_load` 完全一致，唯一的差别是 `SELECT … FOR UPDATE`。追加写的
+        租户/归属/软删的判定与 `_load` 完全一致，唯一的差别是 `SELECT … FOR UPDATE`。追加写的
         `storage_key`、`size`、`checksum`、`metadata_json` 全由旧值推出，没有这把锁时两个并发
         追加会各自读到同一份旧值，后提交的把前一个覆盖掉（2026-10-03 review）。
         """
-        try:
-            parsed = uuid.UUID(str(artifact_id))
-        except (ValueError, TypeError) as exc:
-            raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "附件不存在或不可访问") from exc
         row = (
-            await session.execute(sa.select(Artifact).where(Artifact.id == parsed).with_for_update())
+            await session.execute(self._scoped_query(artifact_id).with_for_update())
         ).scalar_one_or_none()
         if row is None or row.is_deleted or row.tenant_id != self._tenant_id:
             raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "附件不存在或不可访问")

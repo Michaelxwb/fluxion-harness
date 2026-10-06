@@ -22,6 +22,7 @@ from muad_agent_runtime.application.ports import NullPlatformSettingsClient
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.main import app
 from muad_api import AppError
+from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
 from muad_contracts import (
     ResolvedAgent,
@@ -30,6 +31,8 @@ from muad_contracts import (
     ResolvedMcpServer,
     ResolvedModel,
     ResolvedSkill,
+    ResolveModelRequest,
+    ResolveModelResponse,
 )
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -59,6 +62,9 @@ class FakeResolveClient:
     response: ResolveDefinitionResponse
     error: AppError | None = None
     calls: list[ResolveDefinitionRequest] = field(default_factory=list)
+    #: `resolve_model`（ADR-06 摘要模型）按主键给出的定义；空 ⇒ 一律 COMMON_NOT_FOUND
+    summary_models: dict[uuid.UUID, ResolvedModel] = field(default_factory=dict)
+    model_calls: list[ResolveModelRequest] = field(default_factory=list)
 
     async def resolve(
         self,
@@ -71,6 +77,19 @@ class FakeResolveClient:
         if self.error is not None:
             raise self.error
         return self.response
+
+    async def resolve_model(
+        self,
+        request: ResolveModelRequest,
+        *,
+        tenant_id: str,
+        trace_id: str = "",
+    ) -> ResolveModelResponse:
+        self.model_calls.append(request)
+        model = self.summary_models.get(request.model_id)
+        if model is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        return ResolveModelResponse(model=model)
 
 
 def parse_sse(body: str) -> list[dict[str, Any]]:

@@ -17,6 +17,9 @@ from ..model.provider import ModelMessage, ModelRole
 #: 五字段摘要的字段集合——**精确相等**才接受，多一个少一个都不行（RULE-03）。
 SUMMARY_FIELDS = ("user_goal", "constraints", "progress", "open_items", "artifacts")
 
+#: 摘要前缀的固定标记（`summary_message` 的首行）：重建与压缩都靠它认出"这一段是被压掉的历史"。
+SUMMARY_MESSAGE_PREFIX = "[历史摘要]"
+
 _LIST_FIELDS = ("constraints", "progress", "open_items")
 ARTIFACT_FIELDS = ("artifact_id", "tool", "note")
 
@@ -155,7 +158,7 @@ def summary_message(fields: SummaryFields) -> ModelMessage:
     )
     content = "\n".join(
         (
-            "[历史摘要] 更早的对话已压缩，以下是权威摘要：",
+            f"{SUMMARY_MESSAGE_PREFIX} 更早的对话已压缩，以下是权威摘要：",
             f"用户目标：{fields.user_goal}",
             f"约束与偏好：{'；'.join(fields.constraints) or '无'}",
             f"已完成：{'；'.join(fields.progress) or '无'}",
@@ -186,6 +189,7 @@ def try_parse_summary(
 __all__ = [
     "ARTIFACT_FIELDS",
     "SUMMARY_FIELDS",
+    "SUMMARY_MESSAGE_PREFIX",
     "SummaryArtifact",
     "SummaryFields",
     "SummaryRejected",

@@ -20,6 +20,7 @@ from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_contracts import (
+    AttachmentRef,
     ChannelContext,
     DeliveryRouteInput,
     ResolvedAgent,
@@ -28,6 +29,7 @@ from muad_contracts import (
     ResolvedMcpServer,
     ResolvedModel,
     ResolvedSkill,
+    ResolveModelRequest,
     RunRequest,
     RunStatus,
 )
@@ -59,7 +61,13 @@ from ..infrastructure.models.runtime import (
     RunSubmission,
     RuntimeSnapshot,
 )
-from ..metrics import AGENT_RUNS_METRIC, RUN_RECLAIM_METRIC, record_counter, record_outcome
+from ..metrics import (
+    AGENT_RUNS_METRIC,
+    CONTEXT_SUMMARY_METRIC,
+    RUN_RECLAIM_METRIC,
+    record_counter,
+    record_outcome,
+)
 from .attachments.inbound import (
     INBOUND_DOCUMENT,
     INBOUND_IMAGE,
@@ -108,6 +116,7 @@ PROMPT_TEMPLATE_VERSION = "1"
 def snapshot_policy(
     compaction: CompactionSettings | None = None,
     execution: ExecutionDefaults | None = None,
+    summary_model: ResolvedModel | None = None,
 ) -> dict[str, Any]:
     """Run 侧 execution snapshot 的执行期策略——`policy_json` 的唯一构建口径。
 
@@ -116,6 +125,10 @@ def snapshot_policy(
     配置一并冻结在这里：配置变更只影响后续新 Run，在飞的 Run 用的是它自己那一份冻结值
     （`harness-snapshot#RULE-snapshot-001` 的"Run 侧等价载体"）。
 
+    `summary_model` 是 `compaction.summary.model_ref` 指向的那条模型定义**解析后的结果**（ADR-06）：
+    摘要要打到自己那个 endpoint / 凭据上，所以在 Run 创建边界解析一次、连同非密钥字段一起冻进
+    本快照（`api_key` 剥离，认证走 API-09 实时读）。
+
     `artifact.retention_days` / `artifact.cleanup_batch_size` **不进本快照**：它们属 Console
     清理（一条 CLI 操作，不是 Run），在操作边界从平台设置取。
     """
@@ -123,7 +136,7 @@ def snapshot_policy(
     defaults = execution if execution is not None else ExecutionDefaults()
     agent = defaults.agent_policy
     memory = defaults.memory_policy
-    return {
+    policy = {
         "max_turns": agent.max_turns,
         "max_tool_calls": agent.max_tool_calls,
         "deadline_ms": agent.deadline_ms,
@@ -139,6 +152,28 @@ def snapshot_policy(
         "locale": {"default_timezone": defaults.timezone},
         "compaction": compaction_payload(settings),
     }
+    if summary_model is not None:
+        # 只在真的解析出摘要模型时写这个键：老快照没有它 ⇔ 该 Run 的摘要层没跑（`summary_model_of`
+        # 读回 None），语义与"配置里没开摘要"一致。
+        policy["summary_model"] = _snapshot_model(summary_model)
+    return policy
+
+
+def summary_model_of(policy: Mapping[str, Any] | None) -> ResolvedModel | None:
+    """从**已冻结**的 `policy_json` 还原摘要模型（resume 与执行期都走这条）。
+
+    没有这个键（未开摘要 / 解析失败 / 本需求上线前创建的行）⇒ 返回 None：摘要层本轮不跑。
+    **绝不**退回主模型——那正是修复前的行为（配置写了却不生效）。
+    """
+    if not isinstance(policy, Mapping):
+        return None
+    section = policy.get("summary_model")
+    if not isinstance(section, Mapping):
+        return None
+    try:
+        return ResolvedModel.model_validate(dict(section))
+    except ValidationError:
+        return None
 
 
 def _section(policy: Mapping[str, Any], key: str) -> Mapping[str, Any]:
@@ -342,6 +377,7 @@ def build_snapshot(
     resolved: ResolveDefinitionResponse,
     compaction: CompactionSettings | None = None,
     execution: ExecutionDefaults | None = None,
+    summary_model: ResolvedModel | None = None,
 ) -> RuntimeSnapshot:
     # 未显式传入时按「无平台设置」（`platform_overrides={}`）合并 Agent 覆盖——仅用于不经过
     # Run 创建边界的直构调用点；生产路径由 `_create_run` 在取到平台快照后显式传入。
@@ -350,7 +386,7 @@ def build_snapshot(
         if compaction is not None
         else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
-    policy = snapshot_policy(settings, execution)
+    policy = snapshot_policy(settings, execution, summary_model)
     return RuntimeSnapshot(
         tenant_id=tenant_id,
         run_id=run_id,
@@ -470,12 +506,27 @@ class RunService:
         fingerprint = submission_fingerprint(
             endpoint=ENDPOINT_CREATE_RUN,
             key_payload={
+                # `tenant_id` 与 `endpoint` 是 RULE-api-002 要求的两个判别键
+                "tenant_id": tenant_id,
                 "agent_id": str(request.agent_id),
                 "platform_user_id": str(request.platform_user_id),
                 "conversation_id": str(request.conversation_id) if request.conversation_id else None,
                 "channel": request.channel.type,
                 "message_type": request.message.type,
                 "message_text": request.message.text,
+                # 附件与投递路由**都是请求语义的一部分**：同一个 key 换了附件、或换了接收方，
+                # 就不是同一个请求 —— 必须撞 `IDEMPOTENCY_MISMATCH`，而不是把新附件悄悄丢掉、
+                # 或把回复发给上一个人（2026-10-06 review）。附件取存储键 + 校验和（字节的稳定
+                # 标识），路由取 `delivery_route_of` 用的那三个判别字段。
+                "attachments": sorted(
+                    (ref.storage_key, ref.checksum, str(ref.kind), ref.media_type, ref.size)
+                    for ref in request.message.attachments
+                ),
+                "route": {
+                    "bot_id": request.channel.bot_id,
+                    "external_user_id": request.channel.external_user_id,
+                    "external_conversation_id": request.channel.external_conversation_id,
+                },
             },
             message_id=request.message.id,
         )
@@ -496,6 +547,8 @@ class RunService:
                 return await self._resume_run(
                     active,
                     request.message.text,
+                    # 暂停期间这条消息带的附件必须与文本一起进去（否则等于静默丢弃）
+                    attachments=request.message.attachments,
                     submission_key=key,
                     request_fingerprint=fingerprint,
                     endpoint=ENDPOINT_CREATE_RUN,
@@ -599,7 +652,12 @@ class RunService:
         """新建会话；带 Idempotency-Key 时按设计 §3.4.2 持久重放，不创建第二会话。"""
         fingerprint = submission_fingerprint(
             endpoint=ENDPOINT_CREATE_CONVERSATION,
-            key_payload={"agent_id": str(agent_id), "platform_user_id": str(platform_user_id)},
+            # `tenant_id` 与 `endpoint` 是 RULE-api-002 要求的两个判别键
+            key_payload={
+                "tenant_id": tenant_id,
+                "agent_id": str(agent_id),
+                "platform_user_id": str(platform_user_id),
+            },
         )
         if idempotency_key:
             replay = await self._submissions.find_replay_in(
@@ -783,12 +841,18 @@ class RunService:
         # 执行期平台默认（`agent`/`memory`/`artifact.max_archive_files`/`locale.default_timezone`）
         # 同样在此冻结一次（ADR-07 等）：既是本次装配的基值，也冻进 policy_json 供 resume 读回。
         execution = execution_defaults_from_platform(snapshot_settings.settings)
-        model, mcp_secrets = await self._runtime_credentials(
+        # 摘要模型（`compaction.summary.model_ref`）同样在这个边界解析一次：它是一条普通的模型
+        # 定义，endpoint / 凭据都与主模型不同，必须随快照冻结（ADR-06）。
+        summary_model = await self._resolve_summary_model(
+            tenant_id, compaction, run_id=run_id, actor_user_id=request.platform_user_id
+        )
+        model, summary_model, mcp_secrets = await self._runtime_credentials(
             run_id,
             tenant_id,
             request.platform_user_id,
             resolved.model,
             resolved.mcp_servers,
+            summary_model=summary_model,
         )
         run = RunRecord(
             id=run_id,
@@ -810,7 +874,7 @@ class RunService:
         try:
             await self._session.flush()
             snapshot = self._build_snapshot(
-                run.id, tenant_id, resolved, compaction, execution
+                run.id, tenant_id, resolved, compaction, execution, summary_model
             )
             self._session.add(snapshot)
             await self._session.flush()
@@ -888,6 +952,7 @@ class RunService:
                 resumed=False,
                 compaction=compaction,
                 execution=execution,
+                summary_model=summary_model,
             ),
         )
 
@@ -896,6 +961,7 @@ class RunService:
         run: RunRecord,
         input_text: str,
         *,
+        attachments: Sequence[AttachmentRef] = (),
         submission_key: str,
         request_fingerprint: str,
         endpoint: str,
@@ -907,8 +973,14 @@ class RunService:
         mcp_servers = [
             ResolvedMcpServer.model_validate(item) for item in snapshot.mcp_catalog_json
         ]
-        model, mcp_secrets = await self._runtime_credentials(
-            run.id, run.tenant_id, run.user_id, model, mcp_servers
+        model, summary_model, mcp_secrets = await self._runtime_credentials(
+            run.id,
+            run.tenant_id,
+            run.user_id,
+            model,
+            mcp_servers,
+            # 摘要模型从**已冻结**的快照读回（`config 变更只影响后续新 Run`）：没冻结过即不跑
+            summary_model=summary_model_of(snapshot.policy_json),
         )
         now = _utcnow()
         try:
@@ -922,12 +994,26 @@ class RunService:
                 conversation_id=run.conversation_id,
                 request_fingerprint=request_fingerprint,
             )
+            # 续跑同样要落**这一次**的入站附件：`WAITING_INPUT` 期间用户发来的文件不能只取文本
+            # （2026-10-06 review：此前附件既不落 artifact 行、也不进事件，等于静默丢弃）。
+            # 与事件同事务，保证"事件说带了附件"与"行真的在"永远一致。
+            persisted = await persist_inbound_attachments(
+                self._session,
+                tenant_id=run.tenant_id,
+                run_id=run.id,
+                conversation_id=run.conversation_id,
+                refs=attachments,
+            )
             seq = await self._event_writer().append(
                 tenant_id=run.tenant_id,
                 conversation_id=run.conversation_id,
                 run_id=run.id,
                 event_type=USER_MESSAGE_EVENT,
-                payload={"text": input_text, "resumed": True},
+                payload={
+                    "text": input_text,
+                    "resumed": True,
+                    "attachments": attachment_payload(persisted),
+                },
                 submission_id=submission.id,
             )
             submission.first_seq = seq
@@ -995,8 +1081,10 @@ class RunService:
                 resumed=True,
                 compaction=frozen,
                 execution=execution,
+                summary_model=summary_model,
                 current_text=input_text,
-                with_attachments=False,
+                # 只带**本次新落的**那批：上一轮的字节已经进过上下文，重放会把旧图再内联一次
+                current_attachments=persisted,
             ),
         )
 
@@ -1007,10 +1095,16 @@ class RunService:
         actor_user_id: uuid.UUID,
         model: ResolvedModel,
         mcp_servers: Sequence[ResolvedMcpServer],
-    ) -> tuple[ResolvedModel, dict[str, str]]:
-        """API-09 读取当前认证值；未配置客户端时使用定义内密钥（测试/本地）。"""
+        *,
+        summary_model: ResolvedModel | None = None,
+    ) -> tuple[ResolvedModel, ResolvedModel | None, dict[str, str]]:
+        """API-09 读取当前认证值；未配置客户端时使用定义内密钥（测试/本地）。
+
+        摘要模型（`summary_model`）走**同一个端点再取一次**：它是另一条模型定义，凭据与主模型
+        无关。凭据只进内存（`ExecutorRequest`），不写快照。
+        """
         if self._credentials_client is None:
-            return model, {}
+            return model, summary_model, {}
         data = await self._credentials_client.resolve_credentials(
             tenant_id=tenant_id,
             payload={
@@ -1030,18 +1124,93 @@ class RunService:
             for item in data.get("mcp_servers") or []
             if item.get("auth_secret")
         }
-        return model.model_copy(update={"api_key": str(api_key)}), secrets
+        if summary_model is not None:
+            summary_model = await self._summary_model_with_credentials(
+                run_id, tenant_id, actor_user_id, summary_model
+            )
+        return model.model_copy(update={"api_key": str(api_key)}), summary_model, secrets
+
+    async def _summary_model_with_credentials(
+        self,
+        run_id: uuid.UUID,
+        tenant_id: str,
+        actor_user_id: uuid.UUID,
+        summary_model: ResolvedModel,
+    ) -> ResolvedModel | None:
+        """给摘要模型取一次凭据；取不到就**关掉这一层**（RULE-04），不让 Run 失败。"""
+        assert self._credentials_client is not None
+        data = await self._credentials_client.resolve_credentials(
+            tenant_id=tenant_id,
+            payload={
+                "execution_ref": {"type": "RUN", "id": str(run_id)},
+                "actor_user_id": str(actor_user_id),
+                "model_id": str(summary_model.id),
+                "mcp_server_ids": [],
+            },
+            trace_id=current_trace_id(),
+        )
+        api_key = (data.get("model") or {}).get("api_key")
+        if not api_key:
+            logger.warning(
+                "summary_model_credential_missing",
+                extra={"run_id": str(run_id), "model_id": str(summary_model.id)},
+            )
+            record_outcome(CONTEXT_SUMMARY_METRIC, "SKIPPED")
+            return None
+        return summary_model.model_copy(update={"api_key": str(api_key)})
+
+    async def _resolve_summary_model(
+        self,
+        tenant_id: str,
+        compaction: CompactionSettings,
+        *,
+        run_id: uuid.UUID,
+        actor_user_id: uuid.UUID,
+    ) -> ResolvedModel | None:
+        """解析 `compaction.summary.model_ref` 指向的模型（ADR-06：既有 `model_definition` 主键）。
+
+        **解析失败不让 Run 失败**（RULE-04：压缩是尽力而为）：记 warning + 指标后返回 None，
+        该 Run 的摘要层就不跑。**绝不退回主模型**——那正是修复前的行为（配置写了却不生效，
+        2026-10-06 review）。解析出的非密钥字段随 `policy_json` 冻结，resume 读回同一份。
+        """
+        settings = compaction.summary
+        if not settings.enabled or not settings.model_ref:
+            return None
+        try:
+            request = ResolveModelRequest(
+                model_id=uuid.UUID(settings.model_ref), actor_user_id=actor_user_id
+            )
+            resolved = await self._resolve_client.resolve_model(
+                request, tenant_id=tenant_id, trace_id=current_trace_id() or ""
+            )
+        except (AppError, ValueError) as exc:
+            logger.warning(
+                "summary_model_unresolved",
+                extra={"run_id": str(run_id), "error": type(exc).__name__},
+            )
+            record_outcome(CONTEXT_SUMMARY_METRIC, "SKIPPED")
+            return None
+        return resolved.model
 
     async def _cancel(self, run: RunRecord) -> RunRecord:
         if run.status in TERMINAL_RUN_STATUSES:
             return run
         now = _utcnow()
         if run.status == RunStatus.WAITING_INPUT:
-            await self._session.execute(
+            cancelled = await self._session.execute(
                 sa.update(RunRecord)
                 .where(RunRecord.id == run.id, RunRecord.status == RunStatus.WAITING_INPUT)
                 .values(status=RunStatus.CANCELLED, end_time=now, update_time=now)
+                .returning(RunRecord.id)
             )
+            if cancelled.scalar_one_or_none() is None:
+                # CAS 零行：并发的 resume 抢先把 WAITING_INPUT→RUNNING（或状态已被别处改走）。
+                # 此时**一行事件都不能写** —— 写了就是"Run 实际 RUNNING、事件却宣称已取消"的假
+                # 终态（2026-10-06 review）。回滚掉本事务里已排队的 interrupt 更新，按当前事实
+                # （未取消）返回，由调用方按状态说话（Gateway 见非 CANCELLED 即回"已受理"）。
+                await self._session.rollback()
+                await self._session.refresh(run)
+                return run
             await self._session.execute(
                 sa.update(RunInterrupt)
                 .where(RunInterrupt.run_id == run.id, RunInterrupt.status == INTERRUPT_WAITING)
@@ -1122,6 +1291,7 @@ class RunService:
         resolved: ResolveDefinitionResponse,
         compaction: CompactionSettings | None = None,
         execution: ExecutionDefaults | None = None,
+        summary_model: ResolvedModel | None = None,
     ) -> RuntimeSnapshot:
         return build_snapshot(
             run_id=run_id,
@@ -1129,20 +1299,41 @@ class RunService:
             resolved=resolved,
             compaction=compaction,
             execution=execution,
+            summary_model=summary_model,
         )
 
     def _event_writer(self) -> EventWriter:
         return EventWriter(self._session)
 
     async def _is_cancel_requested(self, run_id: uuid.UUID) -> bool:
-        # Redis hint 仅加速；权威事实是 DB cancel_requested
+        """执行期的唯一存活判据：True ⇒ **立刻停止**再产生任何副作用。
+
+        名字沿用既有的回调契约，但语义比"用户按了停止"宽——它回答的是"这个 Run 还该由本实例
+        继续跑吗"：
+
+        - Redis hint：仅加速通道；
+        - DB `cancel_requested`：协作式取消的权威事实；
+        - **状态已离开 {RUNNING, WAITING_INPUT} / 行不存在**：这个 Run 已经不由我们负责了。
+          Reaper 会把租约过期的 RUNNING 直接置 FAILED（`reap_abandoned_runs`），此时旧执行器
+          若只看取消标记，就会继续建任务、发消息、写产物，与接管方同时产生副作用
+          （2026-10-06 review）。WAITING_INPUT 仍算"在跑"，因为暂停的那一轮要跑完收尾。
+        """
         if await self._cancel_hints.is_set(run_id):
             return True
         async with get_session_factory()() as session:
-            value = await session.scalar(
-                sa.select(RunRecord.cancel_requested).where(RunRecord.id == run_id)
-            )
-        return bool(value)
+            row = (
+                await session.execute(
+                    sa.select(RunRecord.status, RunRecord.cancel_requested).where(
+                        RunRecord.id == run_id
+                    )
+                )
+            ).one_or_none()
+        if row is None:
+            return True
+        status, cancel_requested = row
+        if cancel_requested:
+            return True
+        return status not in (RunStatus.RUNNING, RunStatus.WAITING_INPUT)
 
     async def _load_inbound_attachments(self, run: RunRecord) -> tuple[PersistedAttachment, ...]:
         """本 Run 的入站附件（渠道侧已写好字节，这里只回读引用）。"""
@@ -1160,9 +1351,25 @@ class RunService:
         return NfsArtifactStore(self._settings.artifact_root).resolve(storage_key).read_bytes()
 
     async def _renew_lease_loop(self, run_id: uuid.UUID) -> None:
+        """续租心跳：**失去租约才退出**，瞬时故障不退出。
+
+        以前 `_renew_lease` 一抛错就让这个后台任务带着异常结束（异常只在 `_stream_run` 的
+        finally 里 `await` 时才炸出来），租约随之到期、Reaper 把**仍在执行**的 Run 置 FAILED
+        —— 那正是"回收后旧执行器还在跑"的可达路径（2026-10-06 review）。瞬时故障下一轮照续；
+        返回 False 才是真的不再由本实例负责（状态已变 / owner 被接管），此时退出，交给
+        `_is_cancel_requested` 的状态判据让执行器停下。
+        """
         while True:
             await asyncio.sleep(self._settings.run_heartbeat_sec)
-            if not await self._renew_lease(run_id):
+            try:
+                renewed = await self._renew_lease(run_id)
+            except Exception as exc:  # noqa: BLE001 —— 心跳是后台任务，异常不得带走整条流
+                logger.warning(
+                    "run_lease_renew_failed",
+                    extra={"run_id": str(run_id), "error": type(exc).__name__},
+                )
+                continue
+            if not renewed:
                 return
 
     async def _renew_lease(self, run_id: uuid.UUID) -> bool:
@@ -1182,13 +1389,18 @@ class RunService:
         *,
         compaction: CompactionSettings | None = None,
         execution: ExecutionDefaults | None = None,
+        summary_model: ResolvedModel | None = None,
         current_text: str | None = None,
-        with_attachments: bool = True,
+        current_attachments: tuple[PersistedAttachment, ...] | None = None,
     ) -> RunExecutor:
         text = run.input_text if current_text is None else current_text
-        # 续跑（WAITING_INPUT 的补充输入）**不重放**原消息的入站附件：那一轮的字节已经进过
-        # 上下文，重放会把旧图再内联一次，而用户这一轮说的通常是别的事。
-        attachments = await self._load_inbound_attachments(run) if with_attachments else ()
+        # `None` ⇒ 取本 Run 全部的入站附件（新建 Run 的常规路径）；续跑显式传**本次新落的**那批，
+        # 不重放上一轮的入站附件——那一轮的字节已经进过上下文，重放会把旧图再内联一次。
+        attachments = (
+            await self._load_inbound_attachments(run)
+            if current_attachments is None
+            else current_attachments
+        )
         return await self._executor_factory(
             ExecutorRequest(
                 agent=agent,
@@ -1206,6 +1418,7 @@ class RunService:
                 history=tuple(history),
                 compaction=compaction,
                 execution=execution,
+                summary_model=summary_model,
                 credentials=ExecutorCredentials(mcp_secrets=mcp_secrets),
                 run_context=ExecutorRunContext(
                     tenant_id=run.tenant_id,
@@ -1231,8 +1444,9 @@ class RunService:
         resumed: bool,
         compaction: CompactionSettings | None = None,
         execution: ExecutionDefaults | None = None,
+        summary_model: ResolvedModel | None = None,
         current_text: str | None = None,
-        with_attachments: bool = True,
+        current_attachments: tuple[PersistedAttachment, ...] | None = None,
     ) -> AsyncIterator[ExecutorEvent]:
         yield await self._persist_event(
             run,
@@ -1258,8 +1472,9 @@ class RunService:
                 history,
                 compaction=compaction,
                 execution=execution,
+                summary_model=summary_model,
                 current_text=current_text,
-                with_attachments=with_attachments,
+                current_attachments=current_attachments,
             )
             async for event in executor.run():
                 if event.type == "message.delta":
@@ -1321,7 +1536,15 @@ class RunService:
             )
             if updated.scalar_one_or_none() is None:
                 await session.rollback()
-                return await self._terminal_event(session, row)
+                # rollback 之后 `row` 已过期：异步会话下碰它的任何属性都会抛 MissingGreenlet
+                # （2026-10-06 review）。与 `_finalize_failed` 同形——重新取一行再交给
+                # `_terminal_event`（它要读 id/conversation_id/status）。
+                fresh = await session.scalar(
+                    sa.select(RunRecord).where(RunRecord.id == run.id)
+                )
+                if fresh is None:
+                    raise AppError(ErrorCode.COMMON_NOT_FOUND)
+                return await self._terminal_event(session, fresh)
             writer = EventWriter(session)
             # 业务事实行（ContextBuilder 读取）与对外 SSE 行分开，保证重放与历史互不混淆
             await writer.append(

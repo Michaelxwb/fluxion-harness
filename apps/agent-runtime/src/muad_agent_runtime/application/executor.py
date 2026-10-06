@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import Any, Protocol, cast
 
+import httpx
 from muad_agent_core.agent import (
     AgentPolicy,
     AgentRunner,
@@ -67,6 +68,7 @@ from .attachments.output_service import OutputArtifactWriter, OutputScope
 from .attachments.tool_results import (
     ArtifactResultWriter,
     RoundCandidate,
+    preview_head_tail,
     reference_payload,
     select_round_persists,
 )
@@ -179,6 +181,9 @@ class ExecutorRequest:
     run_context: ExecutorRunContext | None = None
     #: 本次 Run **冻结**的压缩配置（来自 `policy_json`）；None = 不压缩。
     compaction: CompactionSettings | None = None
+    #: 摘要模型（`compaction.summary.model_ref` 解析后的那条模型定义 + API-09 实时凭据）。None =
+    #: 摘要层本轮不跑；**没有"退回主模型"这个分支**（ADR-06）。
+    summary_model: ResolvedModel | None = None
     #: 本次 Run **冻结**的执行期平台默认（来自 `policy_json`）；None = schema 默认。
     execution: ExecutionDefaults | None = None
 
@@ -274,18 +279,30 @@ class AgentRunnerExecutor:
                 )
             )
 
-        async def on_tool_completed(call_id: str, name: str, status: str, artifact_id: str | None) -> None:
-            await emit(
-                ExecutorEvent(
-                    type=TOOL_COMPLETED_EVENT,
-                    data={
-                        "tool_call_id": call_id,
-                        "tool_name": name,
-                        "status": status,
-                        "artifact_id": artifact_id,
-                    },
+        async def on_tool_completed(
+            call_id: str,
+            name: str,
+            status: str,
+            artifact_id: str | None,
+            result_text: str | None,
+        ) -> None:
+            data: dict[str, Any] = {
+                "tool_call_id": call_id,
+                "tool_name": name,
+                "status": status,
+                "artifact_id": artifact_id,
+            }
+            if result_text is not None:
+                # 未外置的结果：正文在这里留一份**有界预览**（沿用引用预览的同一组字节上限）。
+                # 不留就只有工具名进 canonical 行，下一 Run 重建历史时这条结果净丢（2026-10-06
+                # review）。外置过的结果不带这个键——它有 artifact_id，重建按引用还原。
+                settings = tool_result_settings(self._request)
+                data["preview"] = preview_head_tail(
+                    result_text,
+                    head_bytes=settings.preview_head_bytes,
+                    tail_bytes=settings.preview_tail_bytes,
                 )
-            )
+            await emit(ExecutorEvent(type=TOOL_COMPLETED_EVENT, data=data))
 
         task = asyncio.create_task(
             self._execute(
@@ -329,7 +346,7 @@ class AgentRunnerExecutor:
         on_delta: Callable[[str], Awaitable[None]],
         on_tool_started: Callable[[str, str], Awaitable[None]],
         on_assistant_turn: Callable[[ModelMessage], Awaitable[None]],
-        on_tool_completed: Callable[[str, str, str, str | None], Awaitable[None]],
+        on_tool_completed: Callable[[str, str, str, str | None, str | None], Awaitable[None]],
         on_model_started: Callable[[], Awaitable[None]],
         on_model_completed: Callable[[], Awaitable[None]],
     ) -> Any:
@@ -805,13 +822,15 @@ def build_registry(
     # 时区取**本次 Run 冻结的**平台默认 IANA 名，与调度侧口径一致（harness-time#RULE-time-001）。
     TimeToolSet(zone=resolve_zone(execution.timezone)).register(registry)
     if request.run_context is not None:
-        # 附件读取工具：类型无关、入口无关（AD-4-B）。租户从 Run 上下文取，**不进工具 schema**。
+        # 附件读取工具：类型无关、入口无关（AD-4-B）。租户与**归属用户**都从 Run 上下文取，
+        # **不进工具 schema**（归属一旦成为模型可填的参数，越权就只剩一层校验，NFR-SEC-01）。
         AttachmentToolSet(
             session_factory=get_session_factory,
             artifact_root=SharedSettings().artifact_root,
             tenant_id=request.run_context.tenant_id,
             run_id=request.run_context.run_id,
             conversation_id=request.run_context.conversation_id,
+            user_id=request.run_context.user_id,
             # TASK-005 起「写」不再依赖交付路由；`has_delivery_route` 只喂返回文案里的提示。
             has_delivery_route=request.run_context.delivery_route is not None,
             # 交付动作才需要路由与客户端（TASK-006）：没有路由时 `deliver_artifact` 明确报错
@@ -886,6 +905,7 @@ async def default_executor_factory(
     artifact_writer: ArtifactResultWriter | None = None,
     task_client: WorkerTaskClient | None = None,
     delivery_client: GatewayDeliveryClient | None = None,
+    model_transport: httpx.AsyncBaseTransport | None = None,
 ) -> RunExecutor:
     # 单次模型请求 I/O 超时由预算层级派生（单次请求预算被夹到剩余总预算），不再独立取默认。
     # 基值取冻结的 platform agent 策略（与 `AgentPolicy` 的 deadline 同源）；I/O 超时是**单次请求
@@ -894,15 +914,27 @@ async def default_executor_factory(
     budget = ModelBudget(
         deadline_ms=frozen.deadline_ms, max_model_retries=frozen.max_model_retries
     )
-    provider: ModelProvider = OpenAICompatibleProvider(
-        base_url=request.model.base_url,
-        model=request.model.model_id,
-        api_key=await resolve_model_api_key(request.model),
-        timeout_sec=budget.request_timeout_sec(),
+    provider: ModelProvider = await _model_provider(
+        request.model, timeout_sec=budget.request_timeout_sec(), transport=model_transport
     )
     audit_writer = _audit_writer_for(request)
     if audit_writer is not None:
         provider = AuditedModelProvider(provider, audit_writer, model=request.model.model_id)
+    # 摘要模型是**另一条模型定义**（ADR-06）：endpoint / 模型名 / 凭据都取自它自己那一份，凭据
+    # 由 API-09 在 Run 边界取到、随 `ExecutorRequest` 进内存。没有它就不装摘要层，绝不退回主模型。
+    owned_summary_provider: ModelProvider | None = None
+    summary_provider: ModelProvider | None = None
+    if request.summary_model is not None:
+        owned_summary_provider = await _model_provider(
+            request.summary_model,
+            timeout_sec=budget.request_timeout_sec(),
+            transport=model_transport,
+        )
+        summary_provider = owned_summary_provider
+        if audit_writer is not None:
+            summary_provider = AuditedModelProvider(
+                summary_provider, audit_writer, model=request.summary_model.model_id
+            )
     mcp_adapter = McpRuntimeAdapter(audit_writer=audit_writer)
     settings = SharedSettings()
     # 交付客户端：**只有本次 Run 有交付路由时才建**（没路由的 Run 谈不上交付）。
@@ -942,12 +974,16 @@ async def default_executor_factory(
         provider=provider,
         registry=registry,
         hooks=HookPipeline(),
-        context_compactor=_context_compactor(request, provider, artifact_root=settings.artifact_root),
+        context_compactor=_context_compactor(
+            request, summary_provider, artifact_root=settings.artifact_root
+        ),
         tool_round_results=recorder,
     )
 
     async def close() -> None:
         await provider.aclose()  # type: ignore[attr-defined]
+        if owned_summary_provider is not None:
+            await owned_summary_provider.aclose()  # type: ignore[attr-defined]
         await mcp_adapter.aclose()
         if owned_task_client is not None:
             await owned_task_client.aclose()
@@ -958,7 +994,10 @@ async def default_executor_factory(
 
 
 def _context_compactor(
-    request: ExecutorRequest, provider: ModelProvider, *, artifact_root: str
+    request: ExecutorRequest,
+    summary_provider: ModelProvider | None,
+    *,
+    artifact_root: str,
 ) -> RuntimeContextCompactor | None:
     """请求缝的压缩器：只在本次 Run 有冻结配置与 Run 上下文时才装。"""
     context = request.run_context
@@ -970,18 +1009,42 @@ def _context_compactor(
         run_id=context.run_id,
         conversation_id=context.conversation_id,
         artifact_root=artifact_root,
-        summary_runner=_summary_runner(provider, request),
+        summary_runner=_summary_runner(summary_provider, request),
     )
 
 
 def _summary_runner(
-    provider: ModelProvider, request: ExecutorRequest
+    provider: ModelProvider | None, request: ExecutorRequest
 ) -> SummaryRunner | None:
-    """摘要模型调用：只在开了摘要且有 `model_ref` 时才装（不新增默认模型回退）。"""
+    """摘要模型调用：只在开了摘要、且**冻结的摘要模型**与它的 provider 都在时才装。
+
+    摘要跑在自己那条模型定义上（endpoint / 模型名 / 凭据都不同，ADR-06 的 `model_ref`）。
+    缺模型或缺凭据就返回 None ⇒ 这一层本轮不跑；**绝不退回主模型**——那正是修复前的行为
+    （`model_ref` 写了却不生效，2026-10-06 review）。
+    """
     settings = request.compaction.summary if request.compaction is not None else None
     if settings is None or not settings.enabled or not settings.model_ref:
         return None
-    return make_summary_runner(provider=provider, model_id=settings.model_ref)
+    model = request.summary_model
+    if model is None or provider is None:
+        return None
+    return make_summary_runner(provider=provider, model_id=model.model_id)
+
+
+async def _model_provider(
+    model: ResolvedModel,
+    *,
+    timeout_sec: float,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> ModelProvider:
+    """按**一条模型定义**建 provider：endpoint / 模型名 / 凭据全部取自它自己那一份。"""
+    return OpenAICompatibleProvider(
+        base_url=model.base_url,
+        model=model.model_id,
+        api_key=await resolve_model_api_key(model),
+        timeout_sec=timeout_sec,
+        transport=transport,
+    )
 
 
 def _audit_writer_for(request: ExecutorRequest) -> RuntimeAuditWriter | None:
