@@ -139,6 +139,54 @@ def _stored(root: Path, message_id: str) -> dict[str, bytes]:
     return {path.name: path.read_bytes() for path in sorted(folder.iterdir()) if path.is_file()}
 
 
+def _log_tail(process: Any, *, lines: int = 120) -> str:
+    path = getattr(process, "log_path", None)
+    if path is None:
+        return "(该服务没有 log_path)"
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return f"(读不到 {path}: {exc})"
+    return "\n".join(text.splitlines()[-lines:])
+
+
+async def _diagnose(stack: GatewayStack, message_id: str) -> str:
+    """断言失败时把**那一刻的运行时状态**带出来，而不是只报"0 行"。
+
+    S-01 是唯一「红过两次却从未在本地复现」的用例（本机跑全量一直绿）。按 `run_service.py`
+    的硬判据——入站 artifact 行与 Run 行**同事务**、在模型循环之前落库——查到 0 行只可能是
+    「**Run 创建整个没成功**」：那时网关侧文件已落盘、回复是**错误文案**，`assert reply` 照样过。
+    所以要看的正是：run 行到底有没有、状态与错误码是什么、两个服务的日志尾部说了什么。
+
+    **不要把这条断言改成"等一会儿再查"**：真失败时那只把它变成「慢一点仍红」，或更糟——假绿。
+    诊断本身**永不抛错**（查询失败就返回那句话），否则会把真正的失败盖掉。
+    """
+    try:
+        runs = await _fetch(
+            "SELECT id, status, error_code, create_time FROM runtime.run_record "
+            "WHERE tenant_id = :t ORDER BY create_time DESC LIMIT 3",
+            {"t": stack.tenant_id},
+        )
+        submissions = await _fetch(
+            "SELECT endpoint, response_status, run_id, create_time FROM runtime.run_submission "
+            "WHERE tenant_id = :t ORDER BY create_time DESC LIMIT 3",
+            {"t": stack.tenant_id},
+        )
+    except Exception as exc:  # 诊断失败不该盖掉真正的失败
+        return f"(诊断查询失败: {exc})"
+    return "\n".join(
+        [
+            f"message_id={message_id} tenant_id={stack.tenant_id}",
+            f"runtime.run_record 最近 3 条: {runs}",
+            f"runtime.run_submission 最近 3 条: {submissions}",
+            *(
+                f"--- {name}.log 尾部 ---\n{_log_tail(stack.processes.get(name))}"
+                for name in ("runtime", "gateway")
+            ),
+        ]
+    )
+
+
 async def _wait_reply(probe: Any, reply_id: str, *, timeout: float = WAIT_SEC) -> str:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -281,7 +329,10 @@ async def test_s01_image_is_persisted_and_sent_to_the_model_as_a_content_block(
         "WHERE tenant_id = :t AND storage_key LIKE :k AND is_deleted = false",
         {"t": gateway_stack.tenant_id, "k": f"inbound/{message_id}/%"},
     )
-    assert len(rows) == 1
+    if len(rows) != 1:
+        raise AssertionError(
+            f"入站 artifact 行应恰有 1 条，实际 {len(rows)}\n{await _diagnose(gateway_stack, message_id)}"
+        )
     assert rows[0]["checksum"] == hashlib.sha256(PNG_S01).hexdigest()
     assert rows[0]["artifact_type"] == "INBOUND_IMAGE"
 
@@ -342,7 +393,10 @@ async def test_s02_document_is_extracted_by_the_real_tool_and_answered(
         "AND is_deleted = false",
         {"t": gateway_stack.tenant_id, "k": f"inbound/{message_id}/%"},
     )
-    assert len(rows) == 1
+    if len(rows) != 1:
+        raise AssertionError(
+            f"入站 artifact 行应恰有 1 条，实际 {len(rows)}\n{await _diagnose(gateway_stack, message_id)}"
+        )
     artifact_id = str(rows[0]["id"])
     bodies = await _wait_requests(
         gateway_stack,
