@@ -123,11 +123,14 @@ export function SchedulePage() {
         />
         <RemoteTable<ScheduleListItem>
           rowKey="schedule_id"
+          className="app-table-nowrap"
+          scroll={{ x: 1820 }}
           loading={loading}
           columns={[
             {
               title: t('schedule.columns.name'),
               dataIndex: 'name',
+              width: 160,
               render: (value: string, record: ScheduleListItem) => (
                 <EntityLink
                   testId={`schedule-link-${record.schedule_id}`}
@@ -137,29 +140,48 @@ export function SchedulePage() {
                 </EntityLink>
               )
             },
-            { title: t('schedule.columns.agent'), dataIndex: 'agent_id' },
-            { title: t('schedule.columns.actorUser'), dataIndex: 'actor_user_id' },
-            { title: t('schedule.columns.skill'), dataIndex: 'skill_id' },
-            { title: t('schedule.columns.intent'), dataIndex: 'intent_key' },
+            {
+              title: t('schedule.columns.agent'),
+              dataIndex: 'agent_id',
+              width: 190,
+              render: (value: string) => <span title={value}>{value}</span>
+            },
+            {
+              title: t('schedule.columns.actorUser'),
+              dataIndex: 'actor_user_id',
+              width: 190,
+              render: (value: string) => <span title={value}>{value}</span>
+            },
+            {
+              title: t('schedule.columns.skill'),
+              dataIndex: 'skill_id',
+              width: 190,
+              render: (value: string) => <span title={value}>{value}</span>
+            },
+            { title: t('schedule.columns.intent'), dataIndex: 'intent_key', width: 90 },
             {
               title: t('schedule.columns.scheduleType'),
-              dataIndex: 'schedule_type'
+              dataIndex: 'schedule_type',
+              width: 90
             },
             {
               title: t('schedule.columns.cron'),
               dataIndex: 'cron_expr',
+              width: 140,
               render: (_: unknown, record: ScheduleListItem) =>
                 record.cron_expr ?? (record.run_at ? <DateTimeText value={record.run_at} /> : '-')
             },
-            { title: t('schedule.columns.timezone'), dataIndex: 'timezone' },
+            { title: t('schedule.columns.timezone'), dataIndex: 'timezone', width: 110 },
             {
               title: t('schedule.columns.status'),
               dataIndex: 'status',
+              width: 92,
               render: (value: string) => <StatusTag status={value} options={statusOptions} />
             },
             {
               title: t('schedule.columns.nextFireAt'),
               dataIndex: 'next_fire_at',
+              width: 185,
               render: (value: string | null, record: ScheduleListItem) => (
                 <span data-testid={`schedule-next-fire-${record.schedule_id}`}>
                   {value ? <DateTimeText value={value} /> : '-'}
@@ -169,11 +191,13 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.lastFireAt'),
               dataIndex: 'last_fire_at',
+              width: 185,
               render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
             },
             {
               title: t('schedule.columns.updateTime'),
               dataIndex: 'update_time',
+              width: 185,
               render: (value: string) => <DateTimeText value={value} />
             }
           ]}

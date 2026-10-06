@@ -318,35 +318,55 @@ export function TaskPage() {
         ) : null}
         <RemoteTable<TaskListItem>
           rowKey="task_id"
-          scroll={{ x: 1800 }}
+          className="app-table-nowrap"
+          scroll={{ x: 2220 }}
           loading={loading}
           columns={[
             {
               title: t('task.columns.taskId'),
               dataIndex: 'task_id',
+              width: 320,
               render: (value: string) => (
                 <EntityLink testId={`task-link-${value}`} onClick={() => setDetailTaskId(value)}>
                   {value}
                 </EntityLink>
               )
             },
-            { title: t('task.columns.intent'), dataIndex: 'intent_key' },
-            { title: t('task.columns.agent'), dataIndex: 'agent_id' },
-            { title: t('task.columns.actorUser'), dataIndex: 'actor_user_id' },
-            { title: t('task.columns.skill'), dataIndex: 'skill_id' },
+            { title: t('task.columns.intent'), dataIndex: 'intent_key', width: 90 },
+            {
+              title: t('task.columns.agent'),
+              dataIndex: 'agent_id',
+              width: 190,
+              render: (value: string) => <span title={value}>{value}</span>
+            },
+            {
+              title: t('task.columns.actorUser'),
+              dataIndex: 'actor_user_id',
+              width: 190,
+              render: (value: string) => <span title={value}>{value}</span>
+            },
+            {
+              title: t('task.columns.skill'),
+              dataIndex: 'skill_id',
+              width: 190,
+              render: (value: string) => <span title={value}>{value}</span>
+            },
             {
               title: t('task.columns.triggerType'),
               dataIndex: 'trigger_type',
+              width: 90,
               render: (value: string) => t(`task.trigger.${value}`)
             },
             {
               title: t('task.columns.status'),
               dataIndex: 'status',
+              width: 92,
               render: (value: string) => <StatusTag status={value} options={statusOptions} />
             },
             {
               title: t('task.columns.childProgress'),
               dataIndex: 'child_finished',
+              width: 88,
               render: (_: unknown, record: TaskListItem) => (
                 <span data-testid={`task-children-${record.task_id}`}>
                   {`${record.child_finished ?? 0}/${record.child_total ?? 0}`}
@@ -356,16 +376,19 @@ export function TaskPage() {
             {
               title: t('task.columns.startedAt'),
               dataIndex: 'started_at',
+              width: 185,
               render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
             },
             {
               title: t('task.columns.finishedAt'),
               dataIndex: 'finished_at',
+              width: 185,
               render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
             },
             {
               title: t('task.columns.deadlineAt'),
               dataIndex: 'deadline_at',
+              width: 185,
               render: (value: string, record: TaskListItem) => (
                 <span data-testid={`task-deadline-${record.task_id}`}>
                   <DateTimeText value={value} />
@@ -375,15 +398,18 @@ export function TaskPage() {
             {
               title: t('task.columns.deliveryStatus'),
               dataIndex: 'delivery_status',
+              width: 96,
               render: (value: string) => t(`task.delivery.${value}`)
             },
             {
               title: t('task.columns.error'),
               dataIndex: 'error_message',
+              width: 220,
               render: (_: unknown, record: TaskListItem) => record.error_message ?? record.error_code ?? '-'
             },
             {
               title: t('task.columns.actions'),
+              width: 96,
               render: (_: unknown, record: TaskListItem) =>
                 CANCELLABLE_STATUSES.includes(record.status) && !record.cancel_requested ? (
                   <ConfirmAction

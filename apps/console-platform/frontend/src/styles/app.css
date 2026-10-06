@@ -493,6 +493,20 @@ body {
   background: var(--semi-color-danger-light-default);
 }
 
+/* 长标识宽表（后台任务/定时任务的 UUID 列）：数据行单行省略。
+   Semi 的 scroll.x 不会自动开 fixed 布局，auto 下 nowrap 内容会把列撑到比 colgroup 宽、
+   省略号永远不触发——必须显式 fixed，配合 RemoteTable 传入的显式列宽才稳定。
+   全文经单元格 title 悬停可查，详情抽屉里也有完整字段。 */
+.app-table-nowrap table {
+  table-layout: fixed;
+}
+
+.app-table-nowrap .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .semi-sidesheet .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
   background: transparent;
 }
