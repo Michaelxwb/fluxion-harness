@@ -51,7 +51,7 @@
 | B-202 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console+PostgreSQL)与租户级种子/清理 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"] | . | 600 |  |
 | B-203 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本 | TASK-005 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"] | . | 600 |  |
 | B-204 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc + 真实构建产物 | TASK-006 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"] | . | 600 |  |
-| B-205 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 | TASK-007 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"] | . | 600 |  |
+| B-205 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 | TASK-007 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_charts_contract.py"] | . | 600 |  |
 | B-206 | 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构 | integration | 前端源码契约（路由表 + 菜单选中）+ 真实构建 | TASK-008 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"] | . | 600 |  |
 | B-207 | 12-overview-dashboard.frontend.design.md#3.5 状态与数据流 | integration | 前端源码契约 + 两侧词条实际内容 + 真实 tsc | TASK-009 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"] | . | 600 |  |
 | B-208 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Playwright 配置与 spec 的租户/端口隔离、运行后零残留 | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"] | . | 600 |  |
@@ -390,7 +390,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - **Source**: 12-overview-dashboard.frontend.design.md#3.3 组件设计, 12-overview-dashboard.frontend.design.md#3.4 组件接口契约, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
 - **Spec-Refs**:
 - **Acceptance-Refs**: B-205
-- **Files**: `apps/console-platform/frontend/src/modules/overview-dashboard/components/RecentTaskList.tsx`, `apps/console-platform/frontend/src/modules/overview-dashboard/components/NextScheduleList.tsx`, `apps/console-platform/frontend/src/modules/overview-dashboard/components/RuntimeRelationCard.tsx`, `tests/frontend/test_overview_lists_contract.py`
+- **Files**: `apps/console-platform/frontend/src/modules/overview-dashboard/components/RecentTaskList.tsx`, `apps/console-platform/frontend/src/modules/overview-dashboard/components/NextScheduleList.tsx`, `apps/console-platform/frontend/src/modules/overview-dashboard/components/RuntimeRelationCard.tsx`, `tests/frontend/test_overview_charts_contract.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
 ### Description
@@ -399,7 +399,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 
 ### Checklist
 
-- [x] [B-205][integration] 以前端源码契约 + 真实 tsc 为边界编写用例：断言两列表各渲染 ≤5 行、主展示字段可打开详情、空态为 `Empty` + 查看全部、`RuntimeRelationCard` 无 props 且为纯静态文案（取自词条）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"]`。
+- [x] [B-205][integration] 以前端源码契约 + 真实 tsc 为边界编写用例：断言两列表各渲染 ≤5 行、主展示字段可打开详情、空态为 `Empty` + 查看全部、`RuntimeRelationCard` 无 props 且为纯静态文案（取自词条）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_charts_contract.py"]`。
 - [x] 复用 `StatusTag`（Task 状态/投递状态、Schedule 状态）与 `DateTimeText`（`next_fire_at`/`last_fire_at`/`create_time` 等），不裸渲染枚举值或原始时间串。
 - [x] 实现或补齐：两个列表的 props 形状与 design §3.4 一致（`onOpenTask/onViewAll`、`onOpenSchedule/onViewAll`）。
 - [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型。
@@ -408,13 +408,13 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-205 | integration | 前端源码契约 + 真实 tsc | 两列表 ≤5 行、主展示字段入口、空态与查看全部；静态卡片无 props | tests/frontend/test_overview_lists_contract.py / B-205 | `["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"]` | verified |
+| B-205 | integration | 前端源码契约 + 真实 tsc | 两列表 ≤5 行、主展示字段入口、空态与查看全部；静态卡片无 props | tests/frontend/test_overview_charts_contract.py / B-205 | `["uv","run","pytest","-q","tests/frontend/test_overview_charts_contract.py"]` | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| B-205 | **真实 RED（两处，均在测试/实现侧暴露而非伪造）**：① 首轮 `test_blocks_are_previews_not_list_pages` 失败——我的**负向断言扫了注释**，而文件文档注释里正提到 `RemoteTable`（说明"为何不用它"），故改为只对**去注释后的代码**做负向断言；② **`tsc` 抓出一处真实类型错误**：`DateTimeText` 不接受 `null`，而 `lastFireAt` 可空（`string | null`）→ 改为空值渲染 `common.empty`。 | 整文件 `uv run pytest -q tests/frontend/test_overview_lists_contract.py` → **6 passed**；`npx tsc --noEmit` **exit 0**；i18n checker → `i18n keys OK: 713`（本轮新增 5 键，列头/状态词条全部复用既有 `task.columns.*`/`task.status.*`/`schedule.columns.*`/`schedule.status.*`）；ruff 干净。 | `test_blocks_are_previews_not_list_pages`（Semi `Table` 且 `pagination={false}`；**不用** `RemoteTable`/`ModuleToolbar`；不在前端 `slice` 截断行数——≤5 由后端 LIMIT 保证）；`test_main_field_opens_detail_via_props`（Task ID / Schedule 名称经 `onOpenTask`/`onOpenSchedule` 上抛，预览块自身不导航——props-in/events-out）；`test_empty_state_and_view_all`（空态用公共 `EmptyState`；「查看全部」在空态与有数据时都可点）；`test_shared_components_reused`（`StatusTag`/`DateTimeText`/`EmptyState` 复用，不自造）；`test_runtime_relation_card_is_static_and_i18n_driven`（`export function RuntimeRelationCard()` **无 props**、不取数、文案取自 `overview.runtimeRelation.*`）；`test_no_hardcoded_copy_or_http_client`（去注释后无中文硬编码、无 axios/fetch） | 前端真实源码 + **真实 `tsc --noEmit`**（正是它抓出了可空时间字段的类型错误）；无 mock。 | verified |
+| B-205 | **真实 RED（两处，均在测试/实现侧暴露而非伪造）**：① 首轮 `test_blocks_are_previews_not_list_pages` 失败——我的**负向断言扫了注释**，而文件文档注释里正提到 `RemoteTable`（说明"为何不用它"），故改为只对**去注释后的代码**做负向断言；② **`tsc` 抓出一处真实类型错误**：`DateTimeText` 不接受 `null`，而 `lastFireAt` 可空（`string | null`）→ 改为空值渲染 `common.empty`。 | 整文件 `uv run pytest -q tests/frontend/test_overview_charts_contract.py` → **6 passed**；`npx tsc --noEmit` **exit 0**；i18n checker → `i18n keys OK: 713`（本轮新增 5 键，列头/状态词条全部复用既有 `task.columns.*`/`task.status.*`/`schedule.columns.*`/`schedule.status.*`）；ruff 干净。 | `test_blocks_are_previews_not_list_pages`（Semi `Table` 且 `pagination={false}`；**不用** `RemoteTable`/`ModuleToolbar`；不在前端 `slice` 截断行数——≤5 由后端 LIMIT 保证）；`test_main_field_opens_detail_via_props`（Task ID / Schedule 名称经 `onOpenTask`/`onOpenSchedule` 上抛，预览块自身不导航——props-in/events-out）；`test_empty_state_and_view_all`（空态用公共 `EmptyState`；「查看全部」在空态与有数据时都可点）；`test_shared_components_reused`（`StatusTag`/`DateTimeText`/`EmptyState` 复用，不自造）；`test_runtime_relation_card_is_static_and_i18n_driven`（`export function RuntimeRelationCard()` **无 props**、不取数、文案取自 `overview.runtimeRelation.*`）；`test_no_hardcoded_copy_or_http_client`（去注释后无中文硬编码、无 axios/fetch） | 前端真实源码 + **真实 `tsc --noEmit`**（正是它抓出了可空时间字段的类型错误）；无 mock。 | verified |
 
 **实现中的判断点（如实登记）**：
 
