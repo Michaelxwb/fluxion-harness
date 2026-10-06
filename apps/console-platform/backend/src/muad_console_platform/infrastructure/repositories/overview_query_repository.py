@@ -74,6 +74,26 @@ SELECT s.id AS schedule_id,
  LIMIT :limit
 """
 
+# 指标趋势：按「平台默认时区」的日历日分桶（与页面展示时区一致，RULE-time-001）；
+# 时间窗起点 = 本地今天往前推 days-1 天的 00:00，再换算回 timestamptz 与列比较。
+_TREND_SQL = """
+SELECT to_char(t.create_time AT TIME ZONE :tz, 'YYYY-MM-DD') AS day,
+       count(*) AS total,
+       count(*) FILTER (WHERE t.status = 'FAILED') AS failed
+  FROM task.task_execution t
+ WHERE t.tenant_id = :tenant_id AND NOT t.is_deleted
+   AND t.create_time >= ((now() AT TIME ZONE :tz)::date - (:days - 1)) AT TIME ZONE :tz
+ GROUP BY day
+ ORDER BY day
+"""
+
+_STATUS_COUNTS_SQL = """
+SELECT t.status, count(*) AS total
+  FROM task.task_execution t
+ WHERE t.tenant_id = :tenant_id AND NOT t.is_deleted
+ GROUP BY t.status
+"""
+
 
 @dataclass(frozen=True)
 class OverviewKpis:
@@ -115,6 +135,19 @@ class NextScheduleRow:
     timezone: str
 
 
+@dataclass(frozen=True)
+class TrendDayRow:
+    day: str
+    total: int
+    failed: int
+
+
+@dataclass(frozen=True)
+class StatusCountRow:
+    status: str
+    total: int
+
+
 class OverviewQueryRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -134,6 +167,18 @@ class OverviewQueryRepository:
             text(_NEXT_SCHEDULES_SQL), {"tenant_id": tenant_id, "limit": limit}
         )
         return [NextScheduleRow(**self._row(mapping)) for mapping in rows.mappings()]
+
+    async def task_trend(self, tenant_id: str, *, days: int, tz: str) -> list[TrendDayRow]:
+        rows = await self._session.execute(
+            text(_TREND_SQL), {"tenant_id": tenant_id, "days": days, "tz": tz}
+        )
+        return [TrendDayRow(**self._row(mapping)) for mapping in rows.mappings()]
+
+    async def task_status_counts(self, tenant_id: str) -> list[StatusCountRow]:
+        rows = await self._session.execute(
+            text(_STATUS_COUNTS_SQL), {"tenant_id": tenant_id}
+        )
+        return [StatusCountRow(**self._row(mapping)) for mapping in rows.mappings()]
 
     @staticmethod
     def _row(mapping: Any) -> dict[str, Any]:

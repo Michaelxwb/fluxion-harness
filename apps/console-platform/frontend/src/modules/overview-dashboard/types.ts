@@ -1,11 +1,11 @@
 /**
- * 概览与运营入口类型契约（设计 §3.4 组件接口契约）。
+ * 概览模块类型契约（设计 §3.4 组件接口契约）。
  *
  * 只表达结构：文案一律由组件用 i18n key 承载；后端 snake_case → 前端 camelCase 的映射
  * 只发生在 `services/overviewService.ts`，组件不直接消费原始 Envelope。
  *
- * 与设计的精度差异（如实登记）：设计把 `agentName`/时间字段写成非空 `string`，但后端是
- * LEFT JOIN + 可空时间列，实际会返回 `null`；本契约按**实际出参**标注可空，避免下游误判。
+ * v2（指标化改造）：页面为纯指标页——KPI + 两块图表；列表与运行关系说明卡已按对齐结论移除，
+ * 明细一律去后台任务 / 定时任务 / 运行审计页看。`/overview` 聚合接口仍返回两组列表，前端不再消费。
  */
 
 export interface OverviewKpis {
@@ -19,46 +19,8 @@ export interface OverviewKpis {
   activeSchedules: number;
 }
 
-export type TaskTriggerType = 'IMMEDIATE' | 'SCHEDULED';
-export type TaskDeliveryStatus = 'PENDING' | 'SENT' | 'FAILED' | 'NONE';
-
-export interface RecentTaskItem {
-  taskId: string;
-  intentKey: string;
-  agentId: string;
-  agentName: string | null;
-  actorUserId: string;
-  actorUserName: string | null;
-  status: string;
-  triggerType: TaskTriggerType;
-  deliveryStatus: TaskDeliveryStatus;
-  /** YYYY-MM-DD HH:mm:ss */
-  startedAt: string | null;
-  finishedAt: string | null;
-  deadlineAt: string | null;
-  createTime: string;
-}
-
-export interface NextScheduleItem {
-  scheduleId: string;
-  name: string;
-  agentId: string;
-  agentName: string | null;
-  actorUserId: string;
-  actorUserName: string | null;
-  intentKey: string;
-  /** 列表仅含 ACTIVE */
-  status: string;
-  /** YYYY-MM-DD HH:mm:ss */
-  nextFireAt: string;
-  lastFireAt: string | null;
-  timezone: string;
-}
-
 export interface OverviewData {
   kpis: OverviewKpis;
-  recentTasks: RecentTaskItem[];
-  nextSchedules: NextScheduleItem[];
 }
 
 export interface KpiCardsProps {
@@ -66,19 +28,24 @@ export interface KpiCardsProps {
   loading: boolean;
 }
 
-export interface RecentTaskListProps {
-  items: RecentTaskItem[];
-  loading: boolean;
-  onOpenTask(taskId: string): void;
-  onViewAll(): void;
+/** 单日任务趋势点（后端按平台默认时区的日历日聚合，无数据日补零）。 */
+export interface TaskTrendPoint {
+  /** YYYY-MM-DD */
+  date: string;
+  total: number;
+  failed: number;
 }
 
-export interface NextScheduleListProps {
-  items: NextScheduleItem[];
-  loading: boolean;
-  onOpenSchedule(scheduleId: string): void;
-  onViewAll(): void;
+export interface OverviewMetrics {
+  /** 实际窗口天数（= 请求的 days） */
+  days: number;
+  /** 分桶所用 IANA 时区（平台默认时区，非法时降级 UTC） */
+  timezone: string;
+  taskTrend: TaskTrendPoint[];
+  /** 全量状态计数（键为任务状态枚举，可能含未知新增值） */
+  taskStatus: Record<string, number>;
 }
 
-/** 纯静态说明卡：无 props。 */
-export type RuntimeRelationCardProps = Record<string, never>;
+export interface OverviewMetricsQuery {
+  days?: number;
+}

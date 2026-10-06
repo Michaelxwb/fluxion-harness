@@ -1,17 +1,15 @@
 /**
- * 概览与运营入口 service 层（设计 §3.4/§3.5）。
+ * 概览 service 层（设计 §3.4/§3.5）。
  *
  * 全部请求经共享 apiClient（自动 X-Locale/X-Request-Id/CSRF 头）；后端 snake_case 与前端
  * camelCase 的字段映射只在本层发生，组件不直接消费原始 Envelope。
+ *
+ * v2（指标化改造）：`getOverview` 只消费 KPI（接口仍返回两组列表，前端已不使用）；
+ * `getOverviewMetrics` 供指标图取数（任务趋势 + 状态分布）。
  */
 
 import { api, type ApiResponse } from '../../../api/client';
-import type {
-  NextScheduleItem,
-  OverviewData,
-  OverviewKpis,
-  RecentTaskItem
-} from '../types';
+import type { OverviewData, OverviewKpis, OverviewMetrics } from '../types';
 
 /** KPI 出参（`overview_query_service.get_overview` 的 `kpis`）。 */
 interface RawKpis {
@@ -21,42 +19,23 @@ interface RawKpis {
   active_schedules: number;
 }
 
-/** `recent_tasks[]` 出参。 */
-interface RawTask {
-  task_id: string;
-  intent_key: string;
-  agent_id: string;
-  agent_name: string | null;
-  actor_user_id: string;
-  actor_user_name: string | null;
-  status: string;
-  trigger_type: RecentTaskItem['triggerType'];
-  delivery_status: RecentTaskItem['deliveryStatus'];
-  started_at: string | null;
-  finished_at: string | null;
-  deadline_at: string | null;
-  create_time: string;
-}
-
-/** `next_schedules[]` 出参。 */
-interface RawSchedule {
-  schedule_id: string;
-  name: string;
-  agent_id: string;
-  agent_name: string | null;
-  actor_user_id: string;
-  actor_user_name: string | null;
-  intent_key: string;
-  status: string;
-  next_fire_at: string;
-  last_fire_at: string | null;
-  timezone: string;
-}
-
 interface RawOverview {
   kpis: RawKpis;
-  recent_tasks: RawTask[];
-  next_schedules: RawSchedule[];
+}
+
+/** `task_trend[]` 出参（按平台默认时区的日历日分桶，无数据日由后端补零）。 */
+interface RawTrendPoint {
+  date: string;
+  total: number;
+  failed: number;
+}
+
+/** `GET /overview/metrics` 出参。 */
+interface RawMetrics {
+  days: number;
+  timezone: string;
+  task_trend: RawTrendPoint[];
+  task_status: Record<string, number>;
 }
 
 async function unwrap<T>(response: { data: ApiResponse<T> }): Promise<T> {
@@ -73,46 +52,29 @@ export function toKpis(raw: RawKpis): OverviewKpis {
   };
 }
 
-export function toTask(raw: RawTask): RecentTaskItem {
+export function toMetrics(raw: RawMetrics): OverviewMetrics {
   return {
-    taskId: raw.task_id,
-    intentKey: raw.intent_key,
-    agentId: raw.agent_id,
-    agentName: raw.agent_name,
-    actorUserId: raw.actor_user_id,
-    actorUserName: raw.actor_user_name,
-    status: raw.status,
-    triggerType: raw.trigger_type,
-    deliveryStatus: raw.delivery_status,
-    startedAt: raw.started_at,
-    finishedAt: raw.finished_at,
-    deadlineAt: raw.deadline_at,
-    createTime: raw.create_time
+    days: raw.days,
+    timezone: raw.timezone,
+    taskTrend: raw.task_trend.map((point) => ({
+      date: point.date,
+      total: point.total,
+      failed: point.failed
+    })),
+    taskStatus: { ...raw.task_status }
   };
 }
 
-export function toSchedule(raw: RawSchedule): NextScheduleItem {
-  return {
-    scheduleId: raw.schedule_id,
-    name: raw.name,
-    agentId: raw.agent_id,
-    agentName: raw.agent_name,
-    actorUserId: raw.actor_user_id,
-    actorUserName: raw.actor_user_name,
-    intentKey: raw.intent_key,
-    status: raw.status,
-    nextFireAt: raw.next_fire_at,
-    lastFireAt: raw.last_fire_at,
-    timezone: raw.timezone
-  };
-}
-
-/** 一次聚合取全 4 个 KPI 与两组列表（不按实体循环拉取）。 */
+/** 一次聚合取全 4 个 KPI（不按实体循环拉取；列表出参前端已不消费）。 */
 export async function getOverview(): Promise<OverviewData> {
   const raw = await unwrap(await api.get<ApiResponse<RawOverview>>('/overview'));
-  return {
-    kpis: toKpis(raw.kpis),
-    recentTasks: raw.recent_tasks.map(toTask),
-    nextSchedules: raw.next_schedules.map(toSchedule)
-  };
+  return { kpis: toKpis(raw.kpis) };
+}
+
+/** 指标图聚合：默认近 7 天任务趋势 + 全量任务状态分布（后端按平台默认时区分桶）。 */
+export async function getOverviewMetrics(days = 7): Promise<OverviewMetrics> {
+  const raw = await unwrap(
+    await api.get<ApiResponse<RawMetrics>>('/overview/metrics', { params: { days } })
+  );
+  return toMetrics(raw);
 }

@@ -42,10 +42,12 @@ def _string_literals(source: str) -> list[str]:
 
 
 def test_page_uses_documented_skeleton() -> None:
-    """[RULE-ui-001] 页面骨架：PageHeader（标题+说明）→ PageSection，且不重复套壳。"""
+    """[RULE-ui-001] 页面骨架：PageHeader → KPI 区 → 图表区（两个图表卡各自是 PageSection）。"""
     page = _source(PAGE)
     assert "PageHeader" in page and "PageSection" in page
-    assert page.index("<PageHeader") < page.index("<PageSection"), "PageHeader 必须在 PageSection 之前"
+    # 视觉次序：页头 → KPI 卡 → 图表区（列表已移除，图表区有自己的栅格容器）
+    assert page.index("<PageHeader") < page.index("<KpiCards") < page.index("overview-charts")
+    assert page.count("<PageSection") == 3, "KPI 一节 + 两块图表卡"
     assert "AppLayout" not in page, "壳层由路由承载，页面不得重复套壳"
     # 只渲染一个标题块（不重复页签标题/说明块）
     assert _strip_comments(page).count("<PageHeader") == 1
@@ -70,13 +72,13 @@ def test_kpi_cards_cover_design_kpis_and_link_targets() -> None:
 
 
 def test_loading_and_error_states_do_not_fabricate_values() -> None:
-    """[设计 §3.6] loading 用 Skeleton；首载失败整页 ErrorState + 重试（不伪造 0）。"""
+    """[设计 §3.6] loading 用 Skeleton；首载失败 ErrorState + 重试（不伪造 0）。"""
     cards = _source(KPIS)
     page = _source(PAGE)
     assert "Skeleton" in cards, "loading 态须用 Skeleton 占位"
-    assert "<ErrorState" in page and "onRetry={reload}" in page, "失败须给整页 ErrorState 与重试"
+    assert "<ErrorState" in page and "onRetry={overview.reload}" in page, "失败须给 ErrorState 与重试"
     # 失败分支渲染 ErrorState 而非 KPI 卡片：错误态不得显示 0
-    error_branch = page[page.index("error && data === null") :]
+    error_branch = page[page.index("overview.error && overview.data === null") :]
     branch_body = error_branch[: error_branch.index(") : (")]
     assert "<KpiCards" not in branch_body, "错误态不得渲染 KPI 卡片（避免显示伪造的 0）"
 

@@ -23,12 +23,11 @@ SCHEDULE_PAGE = SRC / "modules/task-schedule/SchedulePage.tsx"
 TASK_DETAIL = SRC / "modules/task-schedule/TaskDetailSideSheet.tsx"
 SCHEDULE_DETAIL = SRC / "modules/task-schedule/ScheduleDetailSideSheet.tsx"
 AUDIT_DETAIL = SRC / "modules/audit-observability/components/AuditDetailSideSheet.tsx"
-OVERVIEW_PAGE = SRC / "modules/overview-dashboard/pages/OverviewPage.tsx"
 
 #: (发出方文件, 发出的字面量, 目标页, 接收方必须读取的键)
+#: 概览页曾是深链发出方（列表条目 → /tasks?taskId=）；v2 指标化改造移除列表后不再发出，
+#: 深链入口收敛到运行审计详情与定时任务详情。
 DEEP_LINKS = (
-    (OVERVIEW_PAGE, "/tasks?taskId=", TASK_PAGE, "taskId"),
-    (OVERVIEW_PAGE, "/schedules?scheduleId=", SCHEDULE_PAGE, "scheduleId"),
     (SCHEDULE_DETAIL, "/tasks?scheduleId=", TASK_PAGE, "scheduleId"),
 )
 

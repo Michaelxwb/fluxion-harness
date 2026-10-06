@@ -1,8 +1,8 @@
-"""[B-207][RULE-i18n-001] 概览模块词条覆盖与语言切换安全源码契约（设计 §3.5/§3.6）。
+"""[B-207 v2][RULE-i18n-001] 概览模块词条覆盖与语言切换安全源码契约（指标化改造后的事实）。
 
 - 模块全部文案取自词条，zh-CN / en-US **两侧齐备且非空**，值真实（不是键名回显）；
-- **动态键族必须枚举齐全**：列表块用 `task.status.*` / `task.delivery.*` / `schedule.status.*`
-  与 `task.trigger.*`，其变体由源码里的色表/label 表决定 —— 新增状态却漏了词条即失败；
+- **动态键族必须枚举齐全**：状态分布图的图例复用 `task.status.*`，变体由源码里的
+  `STATUS_COLOR_KEY` 色表决定——新增状态却漏了词条即失败；
 - 语言切换安全：文案经 `useTranslation()` 每次渲染取得，不缓存译文、不直接 import i18n 实例。
 """
 
@@ -21,10 +21,10 @@ CJK = re.compile(r"[　-〿一-鿿！-～]")
 MODULE_SOURCES = (
     MODULE / "pages/OverviewPage.tsx",
     MODULE / "components/KpiCards.tsx",
-    MODULE / "components/RecentTaskList.tsx",
-    MODULE / "components/NextScheduleList.tsx",
-    MODULE / "components/RuntimeRelationCard.tsx",
+    MODULE / "components/TaskTrendChart.tsx",
+    MODULE / "components/TaskStatusDonut.tsx",
     MODULE / "hooks/useOverview.ts",
+    MODULE / "hooks/useOverviewMetrics.ts",
 )
 
 # 模块自有词条（必须两侧齐备）
@@ -32,15 +32,27 @@ MODULE_KEYS = (
     "overview.title",
     "overview.subtitle",
     "overview.loadFailed",
+    "overview.kpi.enabledAgents",
+    "overview.kpi.enabledSkills",
+    "overview.kpi.activeTasks",
+    "overview.kpi.activeSchedules",
+    "overview.charts.taskTrend",
+    "overview.charts.taskStatus",
+    "overview.charts.seriesTotal",
+    "overview.charts.seriesFailed",
+    "overview.charts.trendSummary",
+    "overview.charts.statusEmpty",
+    "overview.charts.other",
+    "overview.charts.loadFailed",
+)
+
+# 已随列表/运行关系卡移除的词条：不得再出现（防止死词条回流）
+REMOVED_KEYS = (
     "overview.viewAll",
     "overview.recentTasks.empty",
     "overview.nextSchedules.empty",
     "overview.runtimeRelation.title",
     "overview.runtimeRelation.description",
-    "overview.kpi.enabledAgents",
-    "overview.kpi.enabledSkills",
-    "overview.kpi.activeTasks",
-    "overview.kpi.activeSchedules",
 )
 
 
@@ -79,19 +91,22 @@ def test_module_keys_exist_in_both_locales_with_real_values() -> None:
             assert value != key, f"{locale} 的 {key} 值是键名回显"
 
 
+def test_removed_list_keys_are_gone() -> None:
+    """随列表移除的词条不得残留（死词条回流即失败）。"""
+    for locale in ("zh-CN", "en-US"):
+        data = _locale(locale)
+        leftovers = [key for key in REMOVED_KEYS if key in data]
+        assert leftovers == [], f"{locale} 残留已移除的词条：{leftovers}"
+
+
 def test_dynamic_key_families_are_fully_enumerated() -> None:
     """动态键族按源码里的变体逐一枚举——新增状态漏词条即失败。"""
-    families = (
-        _enum_keys(MODULE / "components/RecentTaskList.tsx", "STATUS_COLORS", "task.status"),
-        _enum_keys(MODULE / "components/RecentTaskList.tsx", "DELIVERY_COLORS", "task.delivery"),
-        _enum_keys(MODULE / "components/NextScheduleList.tsx", "STATUS_COLORS", "schedule.status"),
-        _enum_keys(MODULE / "components/RecentTaskList.tsx", "TRIGGER_LABELS", "task.trigger"),
-    )
-    for keys in families:
-        for locale in ("zh-CN", "en-US"):
-            data = _locale(locale)
-            missing = [key for key in keys if key not in data]
-            assert missing == [], f"{locale} 缺动态键变体：{missing}"
+    keys = _enum_keys(MODULE / "components/TaskStatusDonut.tsx", "STATUS_COLOR_KEY", "task.status")
+    assert keys, "状态色表未解析出任何变体"
+    for locale in ("zh-CN", "en-US"):
+        data = _locale(locale)
+        missing = [key for key in keys if key not in data]
+        assert missing == [], f"{locale} 缺动态键变体：{missing}"
 
 
 def test_language_switch_safety() -> None:

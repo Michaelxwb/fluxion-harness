@@ -1,9 +1,13 @@
 /**
- * 概览模块浏览器验收。
+ * 概览模块浏览器验收（v2 指标化改造后的事实）。
  *
- * 成功路径（S-02/S-03/S-04）走**真实后端与真实构建产物**；失败/边界路径（E-02/E-04 失效目标、
- * E-03 聚合失败）按设计允许用路由拦截或既成失效数据制造，且必须在 manifest 中登记为
- * 相关场景（E-02..E-04）。
+ * 概览是**纯指标页**：4 个 KPI + 两块图表（近 7 天任务趋势、任务状态分布），运营列表与
+ * 运行关系说明卡已移除。成功路径（S-02/S-03/S-04）走**真实后端与真实构建产物**；失败/边界
+ * 路径（E-02/E-04 失效目标、E-03 聚合失败、E-05 指标失败）按设计允许用路由拦截或既成失效
+ * 数据制造。
+ *
+ * 图表本体在 canvas 里，**e2e/辅助技术不可读**：可断言的数据出口是图表卡的 DOM ——
+ * 趋势 summary（`overview-trend-summary`）与状态图例（`overview-status-*`，带计数）。
  */
 
 import { execFileSync } from 'node:child_process';
@@ -13,8 +17,6 @@ import { expect, test, type Page } from '@playwright/test';
 const REPO = fileURLToPath(new URL('../..', import.meta.url));
 const USERNAME = process.env.E2E_OVERVIEW_USERNAME ?? 'overview-browser-admin';
 const PASSWORD = process.env.E2E_OVERVIEW_PASSWORD ?? 'overview-browser-password';
-const AGENT_NAME = '概览浏览器助手';
-const SCHEDULE_NAME = '概览浏览器定时';
 
 function seed(action: string): void {
   execFileSync('uv', ['run', 'python', '-m', 'tests.e2e.seed_overview', action], {
@@ -51,12 +53,13 @@ test.afterAll(() => {
   seed('cleanup');
 });
 
-test('S-03 首页一次加载 4 个 KPI 与两组列表，无前端 N+1', async ({ page }) => {
+test('S-03 首页一次加载 4 个 KPI 与两块指标图，各聚合接口只请求一次', async ({ page }) => {
   await login(page);
   const overviewCalls: string[] = [];
   page.on('request', (request) => {
-    if (request.url().includes('/api/v1/overview')) {
-      overviewCalls.push(request.url());
+    const url = request.url();
+    if (url.includes('/api/v1/overview')) {
+      overviewCalls.push(url);
     }
   });
 
@@ -72,68 +75,49 @@ test('S-03 首页一次加载 4 个 KPI 与两组列表，无前端 N+1', async 
     await expect(page.getByTestId(`kpi-value-${name}`)).toHaveText(expected);
   }
 
-  // 两组列表都已渲染（各 1 行种子）
-  await expect(page.getByTestId('runtime-relation-card')).toBeVisible();
-  await expect(page.getByText(AGENT_NAME).first()).toBeVisible();
-  await expect(page.getByText(SCHEDULE_NAME).first()).toBeVisible();
+  // 两块指标图的数据出口（DOM）已渲染；canvas 不可断言，断言它的 DOM 图例与 summary
+  await expect(page.getByTestId('overview-trend-summary')).toContainText('1');
+  await expect(page.getByTestId('overview-status-running')).toContainText('1');
 
-  // 无前端 N+1：聚合接口只被请求一次
-  expect(overviewCalls.length).toBe(1);
+  // 指标页不回流列表数据：两个列表块与运行关系卡都不存在
+  await expect(page.locator('[data-testid^="recent-task-"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid^="next-schedule-"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="runtime-relation-card"]')).toHaveCount(0);
+
+  // 无前端 N+1：两个聚合接口各只请求一次
+  expect(overviewCalls.filter((url) => url.includes('/overview/metrics')).length).toBe(1);
+  expect(overviewCalls.filter((url) => !url.includes('/overview/metrics')).length).toBe(1);
 });
 
-test('S-02 点击最近任务/下次调度条目进入对应模块', async ({ page }) => {
+test('S-02 趋势窗口为连续 7 天且与种子数据一致', async ({ page }) => {
   await login(page);
   await page.goto('/');
 
-  // 本域只起 Console（**没有 agent-worker**），任务/定时任务的**详情接口没有后端**，
-  // 详情内容永远渲染不出来。所以这里不断言"详情打开了"，而是断言更强的、与后端无关的事实：
-  // 目标页**按 URL 里那个 id 发了详情请求**——只改 URL 不读参数的旧实现会被这条打红。
-  const detailCalls: string[] = [];
-  page.on('request', (request) => {
-    const url = request.url();
-    if (/\/api\/v1\/(tasks|schedules)\/[0-9a-f-]{36}$/.test(url)) {
-      detailCalls.push(url);
-    }
-  });
+  // 趋势 summary 由前端对 7 天窗口求和得到：种子恰有 1 个任务 → 共 1、失败 0
+  const summary = page.getByTestId('overview-trend-summary');
+  await expect(summary).toContainText('7');
+  await expect(summary).toContainText('共 1 个任务');
+  await expect(summary).toContainText('失败 0 个');
 
-  const taskLink = page.locator('[data-testid^="recent-task-"]').first();
-  await expect(taskLink).toBeVisible();
-  await taskLink.click();
-  await expect(page).toHaveURL(/\/tasks\?taskId=/);
-  const taskId = new URL(page.url()).searchParams.get('taskId') as string;
-  await expect
-    .poll(() => detailCalls.filter((url) => url.endsWith(`/api/v1/tasks/${taskId}`)).length, {
-      timeout: 15_000
-    })
-    .toBe(1);
-  await expectNotBlank(page);
-
-  await page.goBack();
-  const scheduleLink = page.locator('[data-testid^="next-schedule-"]').first();
-  await expect(scheduleLink).toBeVisible();
-  await scheduleLink.click();
-  await expect(page).toHaveURL(/\/schedules\?scheduleId=/);
-  const scheduleId = new URL(page.url()).searchParams.get('scheduleId') as string;
-  await expect
-    .poll(
-      () => detailCalls.filter((url) => url.endsWith(`/api/v1/schedules/${scheduleId}`)).length,
-      { timeout: 15_000 }
-    )
-    .toBe(1);
-  await expectNotBlank(page);
+  // 状态图例覆盖五个已知状态（种子任务为 RUNNING）
+  for (const status of ['succeeded', 'running', 'queued', 'failed', 'cancelled']) {
+    await expect(page.getByTestId(`overview-status-${status}`)).toBeVisible();
+  }
+  await expect(page.getByTestId('overview-status-succeeded')).toContainText('0');
+  await expect(page.getByTestId('overview-status-running')).toContainText('1');
 });
 
-test('S-04 点击查看全部进入 tasks/schedules 且菜单选中正确', async ({ page }) => {
+test('S-04 KPI 卡跳转进入 tasks/schedules 且菜单选中正确', async ({ page }) => {
   await login(page);
   await page.goto('/');
 
-  await page.getByTestId('recent-tasks-view-all').first().click();
-  await expect(page).toHaveURL(/\/tasks(\?.*)?$/);
+  await page.getByTestId('kpi-agents').first().click();
+  await expect(page).toHaveURL(/\/agents(\?.*)?$/);
   await expect(page.locator('.semi-navigation-item-selected')).toHaveCount(1);
 
   await page.goBack();
-  await page.getByTestId('next-schedules-view-all').first().click();
-  await expect(page).toHaveURL(/\/schedules(\?.*)?$/);
+  await page.getByTestId('kpi-tasks').first().click();
+  await expect(page).toHaveURL(/\/tasks(\?.*)?$/);
   await expect(page.locator('.semi-navigation-item-selected')).toHaveCount(1);
 });
 
@@ -181,4 +165,38 @@ test('E-03 聚合接口失败展示整页 ErrorState 并可就地重试，不伪
   await expect.poll(() => attempts, { timeout: 15_000 }).toBeGreaterThan(before);
   await expect(page.getByTestId('error-state')).toBeVisible();
   await expect(page.getByTestId('kpi-agents')).toHaveCount(0);
+});
+
+test('E-05 指标接口失败只影响图表区，KPI 正常渲染且可就地重试', async ({ page }) => {
+  await login(page);
+
+  let attempts = 0;
+  await page.route('**/api/v1/overview/metrics**', async (route) => {
+    attempts += 1;
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 'COMMON_INTERNAL_ERROR',
+        msg: 'metrics unavailable',
+        data: null,
+        trace_id: 'e2e-trace',
+        request_id: 'e2e-request',
+        timestamp: '2026-09-27T00:00:00+00:00'
+      })
+    });
+  });
+
+  await page.goto('/');
+
+  // KPI 不受指标失败影响（两个取数各自分流，不把图表错误放大成整页错误）
+  await expect(page.getByTestId('kpi-agents')).toBeVisible();
+  // 图表区渲染错误态而非全零图
+  await expect(page.getByTestId('error-state').first()).toBeVisible();
+  await expect(page.getByTestId('overview-trend-summary')).toHaveCount(0);
+
+  const before = attempts;
+  await page.getByTestId('error-retry').first().click();
+  await expect.poll(() => attempts, { timeout: 15_000 }).toBeGreaterThan(before);
+  await expect(page.getByTestId('kpi-agents')).toBeVisible();
 });

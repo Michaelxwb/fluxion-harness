@@ -16,9 +16,6 @@ APP = SRC / "App.tsx"
 MENU = SRC / "config/menu.ts"
 PAGE = SRC / "modules/overview-dashboard/pages/OverviewPage.tsx"
 
-# 设计 §3.3.1 / §3.5：跳转目标
-NAV_TARGETS = ("/tasks?taskId=", "/schedules?scheduleId=", "'/tasks'", "'/schedules'")
-
 
 def _source(path: Path) -> str:
     assert path.exists(), f"缺少前端文件：{path}"
@@ -47,25 +44,25 @@ def test_menu_overview_is_the_first_item() -> None:
     assert len(entries) == 11, f"菜单须固定十一项，实际 {len(entries)}"
 
 
-def test_page_does_not_re_shell_and_wires_navigation() -> None:
-    """[RULE-ui-001] 页面不重复套壳；跳转集中在容器且目标符合设计。"""
+def test_page_does_not_re_shell_and_mounts_metric_blocks() -> None:
+    """[RULE-ui-001] 页面不重复套壳；KPI 与两块指标卡挂载，列表不再回流。"""
     page = _source(PAGE)
     assert "AppLayout" not in page, "壳层由路由承载，页面不得重复套壳"
-    for target in NAV_TARGETS:
-        assert target in page, f"缺少跳转目标 {target}"
-    assert "useNavigate" in page, "导航须集中在容器"
-    # 四个块都要挂上，且回调交给块（块自身不导航）
-    for component in ("KpiCards", "RuntimeRelationCard", "RecentTaskList", "NextScheduleList"):
+    assert "useNavigate" not in page, "概览不再承载列表跳转（KPI 卡内自导航）"
+    # 三个内容块：KPI + 两块指标图（各自 PageSection）
+    for component in ("KpiCards", "TaskTrendCard", "TaskStatusCard"):
         assert f"<{component}" in page, f"页面未挂载 {component}"
-    for callback in ("onOpenTask={openTask}", "onOpenSchedule={openSchedule}", "onViewAll="):
-        assert callback in page, f"缺少回调接线 {callback}"
+    # 指标只在页面取一次（两块卡片 props 共享，不得各自发请求）
+    assert page.count("useOverviewMetrics()") == 1, "指标取数必须收敛为一次"
+    for removed in ("RecentTaskList", "NextScheduleList", "RuntimeRelationCard"):
+        assert removed not in page, f"指标页不得再挂载 {removed}"
 
 
 def test_first_load_failure_shows_page_error_state_with_retry() -> None:
-    """[E-03 / 设计 §3.6] 首载失败整页 ErrorState + 重试；失败分支不渲染 KPI（不伪造 0）。"""
+    """[E-03 / 设计 §3.6] 首载失败 ErrorState + 重试；失败分支不渲染 KPI（不伪造 0）。"""
     page = _source(PAGE)
-    assert "const firstLoadFailed = error && data === null;" in page
-    assert "<ErrorState" in page and "onRetry={reload}" in page
+    assert "const firstLoadFailed = overview.error && overview.data === null;" in page
+    assert "<ErrorState" in page and "onRetry={overview.reload}" in page
     branch = page[page.index("firstLoadFailed ?") :]
     branch = branch[: branch.index(") : (")]
     assert "<KpiCards" not in branch, "失败分支不得渲染 KPI 卡片（避免显示伪造的 0）"

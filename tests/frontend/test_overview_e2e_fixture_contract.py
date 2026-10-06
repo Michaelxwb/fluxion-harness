@@ -15,8 +15,9 @@ CONFIG = ROOT / "e2e/playwright.overview-dashboard.config.ts"
 SPEC = ROOT / "e2e/tests/overview-dashboard.spec.ts"
 SEED = ROOT / "tests/e2e/seed_overview.py"
 
-# manifest 里由本文件承载的场景
-OWNED_SCENARIOS = ("S-02", "S-03", "S-04", "E-02", "E-03", "E-04")
+# manifest 里由本文件承载的场景（S-02 图表数据出口 / S-03 聚合一次 / S-04 KPI 跳转 /
+# E-02、E-04 失效深链 / E-03 聚合失败 / E-05 指标失败只影响图表区）
+OWNED_SCENARIOS = ("S-02", "S-03", "S-04", "E-02", "E-03", "E-04", "E-05")
 # 成功路径：不得用路由拦截
 SUCCESS_SCENARIOS = ("S-02", "S-03", "S-04")
 

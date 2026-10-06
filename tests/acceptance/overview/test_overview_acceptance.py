@@ -13,6 +13,7 @@ import os
 import re
 import uuid
 from collections.abc import Iterator
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -259,3 +260,91 @@ async def test_risk03_overview_serves_without_reachable_redis(
         assert process._process is not None and process._process.poll() is not None, (
             "no-redis 进程未退出（孤儿）"
         )
+
+
+async def _count_metrics_statements() -> int:
+    """与 `_count_statements` 同口径，但测量 `get_metrics()`（指标图聚合）。"""
+    captured: list[str] = []
+    engine = get_engine()
+
+    def capture(*args: Any) -> None:
+        captured.append(str(args[2]))
+
+    event.listen(engine.sync_engine, "before_cursor_execute", capture)
+    try:
+        async with get_session_factory()() as session:
+            await OverviewQueryService(session, tenant_id=TENANT).get_metrics(days=7)
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", capture)
+    return len(captured)
+
+
+async def test_metrics_trend_and_status_match_independent_reads(
+    overview_stack: OverviewStack,
+) -> None:
+    """[S-05] 指标聚合：趋势为连续日窗（补零）、数值与独立 SQL 回读一致、状态分布总量一致。"""
+    client = await console_login(overview_stack.console_url)
+    try:
+        response = await client.get("/api/v1/overview/metrics")
+    finally:
+        await client.aclose()
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["code"] == "0"
+    data = body["data"]
+    assert data["days"] == 7
+
+    trend = data["task_trend"]
+    assert len(trend) == 7
+    days = [item["date"] for item in trend]
+    assert days == sorted(days), "趋势必须按日期升序"
+    assert (date.fromisoformat(days[-1]) - date.fromisoformat(days[0])).days == 6, (
+        "趋势窗口必须是连续 7 天（无数据日补零，不允许断日）"
+    )
+
+    # 与独立 SQL 回读一致：时区用**服务端返回值**，避免两端各自取时区造成口径漂移
+    tz = data["timezone"]
+    window_total = sum(item["total"] for item in trend)
+
+    async def read_window(factory: async_sessionmaker[AsyncSession]) -> int:
+        async with factory() as session:
+            return int(
+                await session.scalar(
+                    text(
+                        "SELECT count(*) FROM task.task_execution WHERE tenant_id = :t "
+                        "AND NOT is_deleted "
+                        "AND create_time >= ((now() AT TIME ZONE :tz)::date - 6) AT TIME ZONE :tz"
+                    ),
+                    {"t": TENANT, "tz": tz},
+                )
+            )
+
+    assert window_total == run_db(read_window)
+
+    status: dict[str, int] = data["task_status"]
+    assert sum(status.values()) == _scalar(
+        "SELECT count(*) FROM task.task_execution WHERE tenant_id = :t AND NOT is_deleted"
+    )
+    assert status.get("FAILED", 0) >= sum(item["failed"] for item in trend), (
+        "趋势窗口内的失败数不得超过 FAILED 存量（窗口可能早于历史）"
+    )
+
+
+async def test_metrics_aggregate_sql_count_is_bounded_and_row_independent(
+    overview_stack: OverviewStack,
+) -> None:
+    """[RISK-01 同口径] 指标聚合 SQL 条数有界，且追加行数后不增长（无 N+1）。"""
+    baseline = await _count_metrics_statements()
+    assert 0 < baseline <= MAX_AGGREGATE_SQL, f"指标聚合用了 {baseline} 条 SQL"
+
+    agent_id = uuid.UUID(
+        str(_scalar("SELECT id FROM control.agent_definition WHERE tenant_id = :t LIMIT 1"))
+    )
+    actor_id = uuid.UUID(
+        str(_scalar("SELECT id FROM control.platform_user WHERE tenant_id = :t LIMIT 1"))
+    )
+    _insert_extra_tasks(agent_id, actor_id, 12)
+
+    grown = await _count_metrics_statements()
+    assert grown == baseline, f"追加行后指标聚合 SQL 由 {baseline} 增至 {grown} —— 存在 N+1"

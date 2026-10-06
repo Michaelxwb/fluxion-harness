@@ -1302,3 +1302,89 @@ body {
     justify-self: start;
   }
 }
+
+/* ---------- Overview（概览：KPI + 指标图） ---------- */
+
+.overview-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.overview-charts .page-section {
+  margin-bottom: 0;
+}
+
+.overview-chart-body {
+  min-height: 280px;
+}
+
+.overview-chart-summary {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+.overview-chart-canvas {
+  height: 240px;
+}
+
+.overview-donut {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.overview-donut-canvas {
+  flex: 0 0 55%;
+  height: 240px;
+}
+
+.overview-donut-legend {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.overview-donut-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--semi-color-text-1);
+}
+
+.overview-donut-dot {
+  flex: 0 0 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.overview-donut-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--semi-color-text-0);
+}
+
+@media (max-width: 1100px) {
+  .overview-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .overview-donut {
+    flex-direction: column;
+  }
+
+  .overview-donut-canvas {
+    width: 100%;
+  }
+}
