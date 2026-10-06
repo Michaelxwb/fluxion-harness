@@ -302,10 +302,22 @@ POST /internal/deliveries
 请求必须携带 `delivery_key`（格式 `task:{task_id}:final`）。IM Gateway 根据 `bot_id + external_user_id/external_conversation_id` 使用官方 WeCom SDK 主动推送，并用 Redis 去重：
 
 ```text
-SET delivery:dedupe:{delivery_key} 1 NX EX 604800
+SET delivery:dedupe:{delivery_key} in-flight:<owner-token> NX EX 30   # 占位（有主）
+→ 发送成功 → 比较值再 SET 成 delivered:<首次交付结果> EX 604800        # 升级（CAS）
+→ 发送失败 → 比较值再 DEL                                             # 释放（CAS）
 ```
 
 重复请求直接返回 200；Redis 不可用时按 at-least-once 继续发送。
+
+**投递端点 2026-10-06 起的三道门**（此前无鉴权，且完全相信请求体）：
+
+1. **服务身份**：要求 `X-Internal-Service`（与 `resolve-credentials` 同门控）。
+2. **租户绑定**：请求里的 `tenant_id` 必须等于本网关部署的租户（网关按单租户部署）。
+3. **产物归属**：产物形态投递按 `artifact_id` 经 Runtime 的 `GET /internal/artifacts/{id}` 在本租户内解析出权威引用；请求体里自带的 `storage_key` 只用于比对，不一致即拒 —— 调用方不能自己指定要读哪个文件。
+
+成功键里存着**首次交付的身份指纹**（租户 / 路由 / 交付键 / 产物，**不含正文文案**——文案会按当下的默认语言重渲染）：同 key 换收件人或换产物 → `IDEMPOTENCY_MISMATCH`，同 key 重渲染文案仍按同一次交付去重。
+
+占位与成功键都**带所有者**：释放/升级/续租都是"比较值再动作"，过期占位的旧主人动不了新主人的键；长发送期间的占位按 10 秒续租。成功键里存首次交付结果（`outcome`/`fallback_url`），重放原样回放。
 
 ```mermaid
 sequenceDiagram
