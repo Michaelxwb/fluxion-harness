@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Request
 from muad_api import ApiResponse, ok
-from muad_contracts import ResolveDefinitionRequest
+from muad_contracts import ResolveDefinitionRequest, ResolveModelRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.resolve_egress_service import resolve_egress_access
@@ -34,6 +34,24 @@ async def resolve_definition(
     require_service_identity(x_internal_service)
     with count_outcome(RESOLVE_DEFINITION_METRIC):
         resolved = await ResolveService(session).resolve_definition(tenant_id, payload)
+    return ok(request.app.state.message_catalog, resolved.model_dump(mode="json"))
+
+
+@router.post("/resolve-model")
+async def resolve_model(
+    payload: ResolveModelRequest,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    x_internal_service: Annotated[str | None, Header()] = None,
+) -> ApiResponse[Any]:
+    """按既有模型定义的主键解析单个模型（摘要模型）。
+
+    响应含模型明文 `api_key`，故与 `resolve-definition` / API-09 同门控。摘要模型是 Run 快照
+    的一部分（ADR-06），因此必须由 Runtime 在 Run 创建边界取一次、冻进去。
+    """
+    require_service_identity(x_internal_service)
+    resolved = await ResolveService(session).resolve_model(tenant_id, payload)
     return ok(request.app.state.message_catalog, resolved.model_dump(mode="json"))
 
 

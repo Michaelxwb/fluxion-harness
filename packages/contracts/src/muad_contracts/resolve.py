@@ -64,3 +64,18 @@ class ResolveDefinitionResponse(ContractModel):
     model: ResolvedModel
     skills: list[ResolvedSkill] = Field(default_factory=list)
     mcp_servers: list[ResolvedMcpServer] = Field(default_factory=list)
+
+
+class ResolveModelRequest(ContractModel):
+    """按**既有模型定义的主键**解析单个模型（ADR-06：`compaction.summary.model_ref`）。
+
+    摘要模型不是"另一条通道上的默认模型"，它就是一条普通的模型定义：同租户、必须 enabled、
+    解析失败即失败（`harness-model#RULE-model-001`：不存在平台默认模型回退）。
+    """
+
+    model_id: UUID
+    actor_user_id: UUID
+
+
+class ResolveModelResponse(ContractModel):
+    model: ResolvedModel

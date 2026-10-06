@@ -42,6 +42,8 @@ from .resolve import (
     ResolvedMcpServer,
     ResolvedModel,
     ResolvedSkill,
+    ResolveModelRequest,
+    ResolveModelResponse,
 )
 from .runtime import ChannelContext, MessageInput, RunRequest
 from .snapshot import (
@@ -107,6 +109,8 @@ __all__ = [
     "ResolvedAgent",
     "ResolvedMcpServer",
     "ResolvedModel",
+    "ResolveModelRequest",
+    "ResolveModelResponse",
     "ResolvedSkill",
     "RunRequest",
     "RunStatus",
