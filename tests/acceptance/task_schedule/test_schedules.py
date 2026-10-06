@@ -99,7 +99,16 @@ def _wait_task(live_stack: LiveStack, schedule_id: str, timeout_sec: float = 60.
 def test_s02_cron_fire_creates_single_task_with_current_artifact(
     live_stack: LiveStack, http: httpx.Client
 ) -> None:
-    schedule_id = _create_schedule(live_stack, http)
+    # cron 取「下一次触发在几小时之外」，而不是默认的每分钟。`_make_due` 只是把 `next_fire_at`
+    # 拨到 1 秒前好让它**立刻 fire 一次**；但 fire 之后 `_advance` 会用
+    # `_next_cron_fire(cron, moment)` 把槽位推到下一个。每分钟的 cron 于是把下一个槽位放在最近
+    # 的一个整分上——下面那个 3 秒窗口一旦跨过整分，看到的就是第二次**合法**触发（不同
+    # fire_time ⇒ 不同 idempotency_key，去重拦不住），表现为偶发假红（实测 1/20，且严格落在
+    # 「`_make_due` 处于整分前约 3 秒内」这个窗口）。「同一 fire_time 只创建一个 Task」这条
+    # 不变式不靠这里守：真实并发的
+    # `tests/agent_worker/test_schedule_trigger.py::test_b115_two_schedulers_create_exactly_one_task`
+    # 已经确定性钉住它（含 CREATED 事件唯一、next_fire_at 只推进一次）。
+    schedule_id = _create_schedule(live_stack, http, cron="0 3 * * *")
     _make_due(live_stack, schedule_id)
 
     first = _wait_task(live_stack, schedule_id)
