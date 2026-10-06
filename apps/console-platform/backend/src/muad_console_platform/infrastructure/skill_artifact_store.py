@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import os
 import time
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
-from muad_artifact_store import NfsArtifactStore
+from muad_artifact_store import NfsArtifactStore, publish_if_absent
 from muad_common import SharedSettings
 
 ARTIFACT_FILE_NAME = "skill.zip"
@@ -25,17 +24,17 @@ def artifact_path(storage_key: str, *, root: Path | str | None = None) -> Path:
 
 
 def write_artifact(storage_key: str, data: bytes, *, root: Path | str | None = None) -> None:
+    """不可变写：同一 `storage_key` 二次写入抛 `FileExistsError`（`RULE-skill-001`）。
+
+    发布走共享原语 `publish_if_absent`（临时文件 + `os.link`，原子判定交给内核）。**技能的键是
+    确定性的**（`skills/{skill_id}/{artifact_id}/skill.zip`），导入重试/并发导入会让同一个键被
+    写到第二次 —— 而"先检查再替换"在那个场景下两个写者都能"成功"，后者静默覆盖前者。
+    """
     target = artifact_path(storage_key, root=root)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists():
-        raise FileExistsError(f"artifact already exists and is immutable: {storage_key}")
-    temp_path = target.parent / f".tmp-{uuid.uuid4().hex}"
     try:
-        temp_path.write_bytes(data)
-        os.replace(temp_path, target)
-    except BaseException:
-        temp_path.unlink(missing_ok=True)
-        raise
+        publish_if_absent(target, data)
+    except FileExistsError as exc:
+        raise FileExistsError(f"artifact already exists and is immutable: {storage_key}") from exc
 
 
 def remove_artifact(storage_key: str, *, root: Path | str | None = None) -> None:

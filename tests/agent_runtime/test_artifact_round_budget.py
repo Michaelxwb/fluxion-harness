@@ -6,11 +6,15 @@
 
 from __future__ import annotations
 
+import pathlib
+import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
 import pytest
+from muad_agent_runtime.application.attachments import immutable_store
 from muad_agent_runtime.application.attachments.tool_results import (
     ArtifactResultWriter,
     RoundCandidate,
@@ -152,6 +156,42 @@ async def test_rule_artifact_write_is_immutable(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError):
         writer._write_immutable(target, b"second")
     assert target.read_bytes() == b"first", "既有产物必须一字不动"
+
+
+async def test_rule_artifact_write_is_atomic_under_concurrency(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """并发写同一个键：**只有一个赢家**，另一个明确失败——不得两边都"成功"（2026-10-06）。
+
+    这条走的是共享原语 `publish_if_absent`（`os.link` 原子判定）：此前的实现是
+    `path.exists()` 再 `os.replace`，两个写者都能通过检查、都能返回成功，后者静默覆盖前者
+    （网关那处正是因此产出过"两次 persist 都成功、内容只剩一份、checksum 对不上"）。
+    """
+    writer = ArtifactResultWriter(tmp_path, session_factory=None)
+    target = tmp_path / "tools/t/x/y/result.bin"
+    barrier = threading.Barrier(2)
+    original = immutable_store.publish_if_absent
+
+    def synchronized(path: pathlib.Path, data: bytes) -> None:
+        barrier.wait(timeout=5)
+        original(path, data)
+
+    monkeypatch.setattr(immutable_store, "publish_if_absent", synchronized)
+    outcomes: list[object] = []
+
+    def attempt(data: bytes) -> None:
+        try:
+            writer._write_immutable(target, data)
+            outcomes.append(data)
+        except FileExistsError as exc:
+            outcomes.append(exc)
+
+    with ThreadPoolExecutor(2) as pool:
+        list(pool.map(attempt, [b"first", b"second"]))
+
+    winners = [item for item in outcomes if not isinstance(item, FileExistsError)]
+    assert len(winners) == 1, outcomes
+    assert target.read_bytes() == winners[0], "磁盘内容必须就是赢家写的那份"
 
 
 async def test_db_failure_removes_the_written_file(tmp_path: Path) -> None:

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -35,6 +37,43 @@ def test_write_artifact_is_immutable(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError):
         write_artifact(key, b"second", root=tmp_path)
     assert artifact_path(key, root=tmp_path).read_bytes() == b"first"
+
+
+def test_concurrent_imports_of_one_skill_have_exactly_one_writer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """同一 `storage_key` 并发写入：**只有一个赢家**，另一个明确失败（2026-10-06）。
+
+    技能的键是**确定性**的（`skills/{skill_id}/{artifact_id}/skill.zip`），导入重试与并发导入
+    都会落到同一个键上。此前的实现是 `exists()` 再 `os.replace`：检查与发布之间的窗口让两个
+    写者都能返回成功，后者静默覆盖前者 —— 而 DB 行记的 checksum 只有一个，磁盘上却是另一份。
+    """
+    from muad_console_platform.infrastructure import skill_artifact_store
+
+    key = f"skills/{uuid.uuid4()}/{uuid.uuid4()}/skill.zip"
+    barrier = threading.Barrier(2)
+    original = skill_artifact_store.publish_if_absent
+
+    def synchronized(path: Path, data: bytes) -> None:
+        barrier.wait(timeout=5)
+        original(path, data)
+
+    monkeypatch.setattr(skill_artifact_store, "publish_if_absent", synchronized)
+    outcomes: list[object] = []
+
+    def attempt(data: bytes) -> None:
+        try:
+            write_artifact(key, data, root=tmp_path)
+            outcomes.append(data)
+        except FileExistsError as exc:
+            outcomes.append(exc)
+
+    with ThreadPoolExecutor(2) as pool:
+        list(pool.map(attempt, [b"first", b"second"]))
+
+    winners = [item for item in outcomes if not isinstance(item, FileExistsError)]
+    assert len(winners) == 1, outcomes
+    assert artifact_path(key, root=tmp_path).read_bytes() == winners[0]
 
 
 async def test_cleanup_orphan_artifacts_removes_only_stale_orphans(

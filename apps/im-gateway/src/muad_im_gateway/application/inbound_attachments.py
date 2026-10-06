@@ -17,17 +17,18 @@
 2. **并发写不能互相覆盖**：此前是 `path.exists()` 判断 + `os.replace` 发布，两者之间没有原子性
    —— 两个写者都能通过检查、都能"成功"，后写的静默覆盖先写的，于是两份 `AttachmentRef` 里有
    一份的 checksum 与磁盘内容对不上（实测：两次 persist 都返回成功、内容只剩一份）。
+
+发布本身走共享原语 `muad_artifact_store.publish_if_absent`（原子判定交给内核的 `os.link`）：
+本模块只保留产物侧的语义——**同内容复用 / 不同内容冲突**。
 """
 
 from __future__ import annotations
 
 import hashlib
-import os
-import uuid
 from pathlib import Path
 from typing import Literal
 
-from muad_artifact_store import NfsArtifactStore
+from muad_artifact_store import NfsArtifactStore, publish_if_absent
 from muad_contracts import AttachmentRef, ChannelName
 
 from ..channels.base import FetchedAttachment
@@ -65,9 +66,8 @@ class InboundAttachmentStore:
     ) -> AttachmentRef:
         storage_key = build_storage_key(token=token, index=index)
         path = self._store.resolve(storage_key)
-        path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            self._publish_new(path, content.data)
+            publish_if_absent(path, content.data)
         except FileExistsError:
             return self._reuse_existing(path, storage_key, content, source_channel)
         return AttachmentRef(
@@ -104,18 +104,3 @@ class InboundAttachmentStore:
             checksum=content.checksum,
             source_channel=source_channel,
         )
-
-    @staticmethod
-    def _publish_new(path: Path, data: bytes) -> None:
-        """**目标不存在才发布**：临时文件 + `os.link`。
-
-        `os.link` 在目标已存在时抛 `FileExistsError`，这是内核级的一次判定 —— 两个并发写者
-        只有一个能赢。不能用 `os.replace`：它会**替换**已存在的目标，于是"不可变"只写在注释里。
-        临时文件先落盘再建链，所以读方要么看不到文件，要么看到完整内容（不会读到半截）。
-        """
-        tmp = path.with_name(f".tmp-{os.getpid()}-{uuid.uuid4().hex}")
-        try:
-            tmp.write_bytes(data)
-            os.link(tmp, path)
-        finally:
-            tmp.unlink(missing_ok=True)

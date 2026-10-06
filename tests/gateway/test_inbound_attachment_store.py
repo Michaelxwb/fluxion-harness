@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import AttachmentRef
+from muad_im_gateway.application import inbound_attachments
 from muad_im_gateway.application.attachment_gate import (
     ATTACHMENT_COUNT_EXCEEDED,
     MAX_ATTACHMENTS_PER_MESSAGE,
@@ -136,7 +137,9 @@ def test_persist_refuses_to_reuse_the_key_for_different_content(tmp_path) -> Non
 
 
 @pytest.mark.integration
-def test_concurrent_writers_publish_exactly_once(tmp_path) -> None:
+def test_concurrent_writers_publish_exactly_once(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """并发写同一个键：**只有一个赢**，另一个要么复用、要么冲突——绝不静默覆盖。
 
     旧实现是 `path.exists()` 再 `os.replace`：两个写者都能通过存在性检查、都能"成功"，
@@ -144,13 +147,13 @@ def test_concurrent_writers_publish_exactly_once(tmp_path) -> None:
     """
     store = InboundAttachmentStore(NfsArtifactStore(tmp_path))
     barrier = threading.Barrier(2)
-    original = store._publish_new
+    original = inbound_attachments.publish_if_absent
 
     def synchronized(path, data):  # type: ignore[no-untyped-def]
         barrier.wait(timeout=5)
         original(path, data)
 
-    store._publish_new = synchronized  # type: ignore[method-assign]
+    monkeypatch.setattr(inbound_attachments, "publish_if_absent", synchronized)
     contents = [_content(b"first"), _content(b"second")]
     results: list[object] = []
 
