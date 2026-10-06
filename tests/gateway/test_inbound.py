@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from contextlib import suppress
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from fakes import FakeConsoleClient, FakeRuntimeClient, make_envelope, resolved_response
@@ -22,10 +24,12 @@ from muad_im_gateway.application.inbound import (
     UNBOUND_TEXT,
     InboundPipeline,
 )
+from muad_im_gateway.application.ports import NullPlatformSettingsClient
 from muad_im_gateway.application.runtime_client import SseEvent
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable
 from muad_im_gateway.channels.fake import FakeChannelAdapter
 from muad_im_gateway.infrastructure.dedupe import (
+    DEDUPE_VALUE,
     DedupeStore,
     DedupeStoreError,
     InMemoryDedupeStore,
@@ -53,7 +57,18 @@ class _FinalizingAdapter(FakeChannelAdapter):
 
 
 class _BrokenDedupeStore:
-    async def set_if_absent(self, key: str, ttl_sec: int) -> bool:
+    """Redis 不可用：**每个方法**都抛（含占位）。"""
+
+    async def reserve(self, key: str, ttl_sec: int) -> str | None:
+        raise DedupeStoreError("redis down")
+
+    async def mark(self, key: str, owner: str, value: str, ttl_sec: int) -> bool:
+        raise DedupeStoreError("redis down")
+
+    async def release(self, key: str, owner: str) -> bool:
+        raise DedupeStoreError("redis down")
+
+    async def renew(self, key: str, owner: str, ttl_sec: int) -> bool:
         raise DedupeStoreError("redis down")
 
     async def aclose(self) -> None:
@@ -61,11 +76,24 @@ class _BrokenDedupeStore:
 
 
 class _RecordingDedupeStore:
+    """记录"占位 → 受理"两次写入，用来钉住键的形态与 TTL。"""
+
     def __init__(self) -> None:
         self.calls: list[tuple[str, int]] = []
+        self.accepted: list[tuple[str, str, int]] = []
 
-    async def set_if_absent(self, key: str, ttl_sec: int) -> bool:
+    async def reserve(self, key: str, ttl_sec: int) -> str | None:
         self.calls.append((key, ttl_sec))
+        return "owner-1"
+
+    async def mark(self, key: str, owner: str, value: str, ttl_sec: int) -> bool:
+        self.accepted.append((key, value, ttl_sec))
+        return True
+
+    async def release(self, key: str, owner: str) -> bool:
+        return True
+
+    async def renew(self, key: str, owner: str, ttl_sec: int) -> bool:
         return True
 
     async def aclose(self) -> None:
@@ -79,6 +107,7 @@ def _pipeline(
     catalog: MessageCatalog,
     dedupe: DedupeStore | None = None,
     delta_flush_interval_sec: float = DELTA_FLUSH_INTERVAL_SEC,
+    settings_client: Any = None,
 ) -> InboundPipeline:
     return InboundPipeline(
         dedupe=dedupe if dedupe is not None else InMemoryDedupeStore(),
@@ -86,6 +115,7 @@ def _pipeline(
         runtime=runtime,
         catalog=catalog,
         tenant_id="tenant-1",
+        settings_client=settings_client,
         delta_flush_interval_sec=delta_flush_interval_sec,
     )
 
@@ -391,7 +421,9 @@ async def test_dedupe_key_uses_channel_and_message_id_with_ttl(catalog: MessageC
 
     await pipeline.handle(adapter, make_envelope(message_id="msg-42"))
 
+    # 占位在入口占（TTL 600s），受理之后才升级成终值 —— 键的形态与 TTL 两处一致
     assert store.calls == [("im:dedupe:WECOM:msg-42", 600)]
+    assert store.accepted == [("im:dedupe:WECOM:msg-42", DEDUPE_VALUE, 600)]
 
 
 async def test_null_dedupe_store_stays_at_least_once(catalog: MessageCatalog) -> None:
@@ -660,3 +692,81 @@ async def test_app_error_keeps_partial_body_before_the_error_text(catalog: Messa
         "text:当前会话已有任务执行中，可发送 /stop 停止",
     ]
 
+
+
+async def test_dependency_failure_before_acceptance_keeps_the_message_retryable(
+    catalog: MessageCatalog,
+) -> None:
+    """受理**之前**的依赖故障不得把消息标成"处理过了"（2026-10-06）。
+
+    原实现是"看一眼就写 10 分钟去重键"，而它发生在设置获取、授权解析、附件落盘、Runtime 受理
+    **之前**：设置源一抖，这条消息就被永久标记成处理过，平台重投直接被去重跳过 —— 用户既没有
+    Run，也收不到任何反馈（实测 `runtime_submissions=0`、`user_feedback=0`，键 TTL 还剩 600 秒）。
+    """
+
+    class _FailingSettings:
+        async def fetch_snapshot(self, **kwargs: Any) -> Any:
+            raise AppError(str(ErrorCode.COMMON_INTERNAL_ERROR))
+
+    console = FakeConsoleClient()
+    console.resolve_response = resolved_response()
+    runtime = FakeRuntimeClient([])
+    adapter = FakeChannelAdapter()
+    store = InMemoryDedupeStore()
+    pipeline = _pipeline(
+        console, runtime, catalog=catalog, dedupe=store, settings_client=_FailingSettings()
+    )
+    envelope = make_envelope(message_id="transient")
+
+    await pipeline.handle(adapter, envelope)
+
+    assert runtime.run_requests == []
+    assert _sent_texts(adapter), "依赖故障也必须让用户看见（此前只落一条 unexpected 日志）"
+
+    # 依赖恢复后重投同一条消息：必须能真正被处理（占位已被释放）
+    pipeline._settings_client = NullPlatformSettingsClient()  # noqa: SLF001 - 模拟依赖恢复
+    await pipeline.handle(adapter, envelope)
+    assert len(runtime.run_requests) == 1, "受理前的失败不该让重投被去重跳过"
+    assert store is not None  # 键最终落成"已受理"
+    value = await store.get_value("im:dedupe:WECOM:transient")
+    assert value is not None and value != "in-flight:"
+
+
+async def test_idle_tick_flushes_the_buffered_delta(catalog: MessageCatalog) -> None:
+    """正文不能"等下一条增量"才出去（2026-10-06）。
+
+    实测：只收到一个 delta 后保持 SSE 打开 1.2 秒（合并窗口 50ms）、期间经历多次真实 tick，
+    客户端**一个正文帧都没收到** —— tick 只更新了计时状态，从没冲过正文缓冲。模型一思考、
+    一跑工具，用户的等待就变成了"什么都没发生"。
+    """
+    gate = asyncio.Event()
+    buffered = asyncio.Event()
+
+    class _GatedRuntime(FakeRuntimeClient):
+        async def create_run(
+            self, request: Any, *, tenant_id: str, trace_id: str = ""
+        ) -> AsyncIterator[SseEvent]:
+            self.run_requests.append(request)
+            yield SseEvent("run.created", {"run_id": "run-idle"})
+            yield SseEvent("message.delta", {"delta": "缓冲的正文"})
+            buffered.set()
+            await gate.wait()
+            yield SseEvent("run.completed", {"status": "COMPLETED", "final_text": "缓冲的正文"})
+
+    runtime = _GatedRuntime()
+    console = FakeConsoleClient()
+    console.resolve_response = resolved_response()
+    adapter = FakeChannelAdapter()
+    pipeline = _pipeline(console, runtime, catalog=catalog)
+    task = asyncio.create_task(pipeline.handle(adapter, make_envelope(message_id="idle-delta")))
+    try:
+        await buffered.wait()
+        deadline = asyncio.get_running_loop().time() + 5.0
+        while not adapter.streamed and asyncio.get_running_loop().time() < deadline:
+            await asyncio.sleep(0.05)
+        assert adapter.streamed, "静默期间正文必须已经出去（否则要等下一条模型增量）"
+        assert "缓冲的正文" in adapter.streamed[0][1]
+    finally:
+        gate.set()
+        if not task.done():
+            await asyncio.wait_for(task, timeout=5.0)

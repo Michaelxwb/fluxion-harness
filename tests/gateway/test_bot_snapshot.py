@@ -8,7 +8,11 @@ from fakes import ConsoleProcess, FakeConsoleClient
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import BotSnapshotItem, BotSnapshotResponse
-from muad_im_gateway.application.bot_snapshot import BotSnapshotCache
+from muad_im_gateway.application.bot_snapshot import (
+    BOT_SNAPSHOT_MAX_PAGES,
+    BOT_SNAPSHOT_PAGE_SIZE,
+    BotSnapshotCache,
+)
 
 
 async def test_snapshot_starts_empty() -> None:
@@ -78,7 +82,8 @@ def make_item(secret: str = "wecom-bot-1") -> BotSnapshotItem:
 async def test_revision_change_invokes_snapshot_callback() -> None:
     item = make_item()
     console = FakeConsoleClient()
-    console.bot_snapshot = BotSnapshotResponse(revision="r1", items=[item])
+    # total 必须声明：快照"收齐了没有"是按 total 判的，少读一页就等于把那些 bot 当已删除
+    console.bot_snapshot = BotSnapshotResponse(revision="r1", items=[item], total=1)
     calls: list[tuple[BotSnapshotItem, ...]] = []
 
     async def on_change(items: tuple[BotSnapshotItem, ...]) -> None:
@@ -91,7 +96,7 @@ async def test_revision_change_invokes_snapshot_callback() -> None:
     await cache.refresh()
     assert len(calls) == 1
 
-    console.bot_snapshot = BotSnapshotResponse(revision="r2", items=[item])
+    console.bot_snapshot = BotSnapshotResponse(revision="r2", items=[item], total=1)
     await cache.refresh()
     assert calls == [(item,), (item,)]
 
@@ -452,3 +457,97 @@ async def test_b105_console_failure_keeps_previous_snapshot() -> None:
     finally:
         await console.aclose()
         server.stop()
+
+
+async def test_failed_publication_is_retried_on_the_next_tick() -> None:
+    """适配器应用失败 ⇒ **不认定这个 revision 已生效**，下一轮重试（2026-10-06）。
+
+    原实现先提交 `_revision`/`_items`、再 `await` 回调：回调一抛错，新 revision 已经被记成
+    "完成"，下一轮同 revision 直接跳过 ⇒ 连接管理器永远停在旧配置（实测：回调只被调用一次，
+    而 `is_ready()` 已经是 True）。
+    """
+    item = make_item()
+    console = FakeConsoleClient()
+    console.bot_snapshot = BotSnapshotResponse(revision="r1", items=[item], total=1)
+    attempts: list[tuple[BotSnapshotItem, ...]] = []
+
+    async def on_change(items: tuple[BotSnapshotItem, ...]) -> None:
+        attempts.append(items)
+        if len(attempts) == 1:
+            raise RuntimeError("adapter update interrupted")
+
+    cache = BotSnapshotCache(console, tenant_id="t1", on_snapshot_changed=on_change)
+
+    await cache.refresh()
+
+    assert len(attempts) == 1
+    assert cache.revision is None, "应用没成功就不算生效"
+    assert cache.is_ready() is False, "没生效的快照不得被当成可用"
+
+    await cache.refresh()  # 下一轮必须重试同一个 revision
+
+    assert len(attempts) == 2
+    assert cache.revision == "r1"
+    assert cache.is_ready() is True
+    assert cache.items == (item,)
+
+
+async def test_snapshot_beyond_the_page_cap_is_not_published() -> None:
+    """超过有界读取能力的分页结果**不得**当成完整配置发布（2026-10-06）。
+
+    截断结果交给 `apply_snapshot` 时语义是"这份就是全部" ⇒ 没读到的那批 bot 会被当成已删除
+    而**断开连接**（实测：声明 2001 个 bot 时，旧缓存里位于最后一页的那个 bot 被移除）。
+    """
+    total = BOT_SNAPSHOT_PAGE_SIZE * BOT_SNAPSHOT_MAX_PAGES + 1
+
+    class _OverCapacity(FakeConsoleClient):
+        async def bots(self, tenant_id, *, page=1, page_size=BOT_SNAPSHOT_PAGE_SIZE):  # type: ignore[no-untyped-def]
+            start = (page - 1) * page_size
+            items = [
+                BotSnapshotItem(
+                    bot_account_id=uuid4(),
+                    bot_id=f"bot-{index}",
+                    secret="s",
+                    agent_id=uuid4(),
+                )
+                for index in range(start, min(start + page_size, total))
+            ]
+            return BotSnapshotResponse(
+                revision="new", items=items, total=total, page=page, page_size=page_size
+            )
+
+    published: list[tuple[BotSnapshotItem, ...]] = []
+
+    async def on_change(items: tuple[BotSnapshotItem, ...]) -> None:
+        published.append(items)
+
+    cache = BotSnapshotCache(_OverCapacity(), tenant_id="t1", on_snapshot_changed=on_change)
+    old = make_item()
+    cache._revision = "old"  # noqa: SLF001 - 预置一份"上一轮完整快照"
+    cache._items = (old,)  # noqa: SLF001
+
+    await cache.refresh()
+
+    assert published == [], "截断的分页结果不得发布"
+    assert cache.revision == "old"
+    assert cache.items == (old,), "保留上一份完整快照（连接不能被误断）"
+
+
+async def test_snapshot_whose_count_does_not_match_total_is_not_published() -> None:
+    """收齐的条目数与声明的 `total` 对不上（后端漂移/空页）⇒ 同样**不发布**。"""
+    console = FakeConsoleClient()
+    # 声明 3 条、实际只给 1 条：当成"完整配置"就会把另外两个 bot 判成已删除
+    console.bot_snapshot = BotSnapshotResponse(
+        revision="r1", items=[make_item()], total=3, page=1, page_size=BOT_SNAPSHOT_PAGE_SIZE
+    )
+    published: list[tuple[BotSnapshotItem, ...]] = []
+
+    async def on_change(items: tuple[BotSnapshotItem, ...]) -> None:
+        published.append(items)
+
+    cache = BotSnapshotCache(console, tenant_id="t1", on_snapshot_changed=on_change)
+
+    await cache.refresh()
+
+    assert published == []
+    assert cache.is_ready() is False

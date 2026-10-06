@@ -64,21 +64,23 @@ def resolved_response() -> Any:
 class _NullDedupe:
     """不干扰的幂等键：S-07 比的是编排行为，不是去重（E-07 用真实 Redis 单独验）。"""
 
-    async def set_if_absent(self, key: str, ttl_sec: int) -> bool:
-        return True
+    async def reserve(self, key: str, ttl_sec: int) -> str | None:
+        return "owner"
 
     async def exists(self, key: str) -> bool:
         return False
 
-    async def mark(self, key: str, ttl_sec: int) -> None: ...
-
-    async def reserve(self, key: str, ttl_sec: int) -> bool:
+    async def mark(self, key: str, owner: str, value: str, ttl_sec: int) -> bool:
         return True
 
     async def get_value(self, key: str) -> str | None:
         return None
 
-    async def release(self, key: str) -> None: ...
+    async def release(self, key: str, owner: str) -> bool:
+        return True
+
+    async def renew(self, key: str, owner: str, ttl_sec: int) -> bool:
+        return True
 
     async def aclose(self) -> None: ...
 
@@ -292,6 +294,38 @@ def media_server() -> AsyncIterator[MediaServer]:
         yield server
     finally:
         server.close()
+
+
+class _ReceiptFailingRawClient(_StubRawClient):
+    """回执发送必失败：官方 SDK 用**任意异常**回传发送失败（实测 `RuntimeError`）。"""
+
+    async def reply_stream(
+        self, frame: dict[str, object], stream_id: str, content: str, finish: bool = False
+    ) -> object:
+        if finish:
+            raise RuntimeError("Reply ack error: errcode=40008")
+        return {}
+
+
+def _wecom_frame_with_text(message_id: str, text: str, server: MediaServer) -> dict[str, Any]:
+    """图文混排：一个文本项 + 一张图（文本必须活到 Run 建出来）。"""
+    url = server.serve(f"/{message_id}/0", wecom_ciphertext(PNG), filename="shot.png")
+    return {
+        "cmd": "aibot_msg_callback",
+        "headers": {"req_id": f"req-{message_id}"},
+        "body": {
+            "msgid": message_id,
+            "chatid": "conv-s07",
+            "from": {"userid": "ext-s07"},
+            "msgtype": "mixed",
+            "mixed": {
+                "msg_item": [
+                    {"msgtype": "text", "text": {"content": text}},
+                    {"msgtype": "image", "image": {"url": url, "aeskey": AES_KEY}},
+                ]
+            },
+        },
+    }
 
 
 # ------------------------------------------------------------------ S-07 行为一致
@@ -534,4 +568,87 @@ async def test_e07_redelivery_creates_no_second_run_and_no_duplicate_artifact(
         ttl = await redis_store._client.ttl(key)  # noqa: SLF001 - 断言真实 Redis TTL
         assert 0 < ttl <= DEDUPE_TTL_SEC
     finally:
-        await redis_store.release(key)
+        await redis_store._client.delete(key)  # noqa: SLF001 - 清场用原始 DEL（release 带所有权）
+
+
+@pytest.mark.integration
+async def test_disconnected_bot_becomes_a_visible_attachment_failure(
+    tmp_path: Path, media_server: MediaServer
+) -> None:
+    """取件时 bot 断了 ⇒ **翻译成渠道中立的取件失败**：反馈 + 审计（2026-10-06）。
+
+    原实现里 `ChannelAdapterUnavailable` 直接冒出 `fetch_attachment`（应用层只捕获
+    `AttachmentFetchError`）⇒ 整条入站处理中止：库里没有审计、Runtime 也没收到任何东西
+    （实测 audits=0、user_feedback=0、runtime_submissions=0）。
+
+    这条链路里用户反馈本来就发不出去（bot 是断的）——**审计才是耐久的那份证据**，所以断言
+    落在"失败被记下来了"上。
+    """
+    raw = _StubRawClient()
+    bot = BotSnapshotItem(
+        bot_account_id=uuid4(), bot_id=BOT_ID, secret="s", agent_id=uuid4(), enabled=True
+    )
+    adapter = WeComAdapter(
+        sdk_factory=lambda _bot_id, _secret: _AibotClientPort(raw, bot_id=BOT_ID), bots=(bot,)
+    )
+    await adapter.start()
+    try:
+        raw.handlers["message"](_wecom_frame("msg-down", list(CASE), media_server))
+        envelope = await asyncio.wait_for((await adapter.iter_events()).__anext__(), timeout=5)
+        raw.handlers["disconnected"]("code: 1006")  # 取件之前掉线 → 连接不可用
+
+        outcome = await _drive(
+            adapter=adapter,
+            envelope=envelope,
+            root=tmp_path,
+            dedupe=_NullDedupe(),
+            outbound=lambda: tuple(raw.sent),
+        )
+    finally:
+        await adapter.stop()
+
+    assert outcome.refs == () and outcome.stored == {}, "取不到就是取不到，不许拿空字节充数"
+    assert len(outcome.audits) == 1, "取件失败必须留下一条审计（此前一条都没有）"
+    assert outcome.audits[0].outcome == "FAILED"
+    assert outcome.audits[0].external_message_id == "msg-down"
+    assert outcome.run_message is None, "没有可取内容时不建 Run"
+
+
+@pytest.mark.integration
+async def test_sdk_receipt_failure_does_not_abort_the_valid_request(
+    tmp_path: Path, media_server: MediaServer
+) -> None:
+    """附件回执发送失败（SDK 原始异常）⇒ 有效请求**照常受理**（2026-10-06）。
+
+    原实现里 `WeComAdapter.send` 直接透传 SDK 异常，而应用层只捕获 `ChannelAdapterUnavailable`
+    ⇒ 一次回执发送失败就把有效文本、附件审计与 Run 创建**一起带走**（实测：字节已落盘、
+    audits=0、runtime_submissions=0）。依赖抖动不该被放大成"用户这条消息白发了"。
+    """
+    raw = _ReceiptFailingRawClient()
+    bot = BotSnapshotItem(
+        bot_account_id=uuid4(), bot_id=BOT_ID, secret="s", agent_id=uuid4(), enabled=True
+    )
+    adapter = WeComAdapter(
+        sdk_factory=lambda _bot_id, _secret: _AibotClientPort(raw, bot_id=BOT_ID), bots=(bot,)
+    )
+    await adapter.start()
+    try:
+        raw.handlers["message"](
+            _wecom_frame_with_text("msg-receipt", "这条文本必须活着", media_server)
+        )
+        envelope = await asyncio.wait_for((await adapter.iter_events()).__anext__(), timeout=5)
+
+        outcome = await _drive(
+            adapter=adapter,
+            envelope=envelope,
+            root=tmp_path,
+            dedupe=_NullDedupe(),
+            outbound=lambda: tuple(raw.sent),
+        )
+    finally:
+        await adapter.stop()
+
+    assert outcome.audits, "回执发不出去也要写审计"
+    assert outcome.run_message is not None, "有效文本必须真的进模型"
+    assert outcome.run_message[1], "落盘的附件仍要交给 Runtime"
+    assert outcome.stored, "字节照常落盘"

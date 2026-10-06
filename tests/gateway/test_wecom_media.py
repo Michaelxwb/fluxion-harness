@@ -394,10 +394,44 @@ async def test_success_logs_metadata_without_credentials(
 
 
 @pytest.mark.integration
+async def test_plaintext_at_the_limit_is_accepted(media_server: MediaServer) -> None:
+    """边界：明文**恰好等于**上限必须收下。
+
+    加密填充会让密文比明文长一个分组，所以"读的时候比密文、解密后又比明文"两处口径不一致时，
+    恰好卡在边界上的合法附件会被自己的开销挤掉（2026-10-06 实测：1024 字节明文 → 1040 字节
+    密文 ⇒ 报超限；生产 50 MiB 边界同理）。
+    """
+    plain = b"x" * 1024
+    ciphertext = wecom_ciphertext(plain)
+    assert len(ciphertext) > len(plain), "测试前提：密文确实比明文长（否则这条用例是恒真的）"
+    url = media_server.serve("/at-limit", ciphertext)
+
+    content = await download_media(url, AES_KEY, max_bytes=1024)
+
+    assert content.data == plain
+
+
+@pytest.mark.integration
+async def test_plaintext_over_the_limit_is_still_rejected(media_server: MediaServer) -> None:
+    """上限仍按**明文**判：多一个字节即超限（放宽的只是传输阶段的加密开销）。"""
+    plain = b"x" * 1025
+    url = media_server.serve("/over-limit", wecom_ciphertext(plain))
+
+    with pytest.raises(WeComMediaTooLargeError) as failure:
+        await download_media(url, AES_KEY, max_bytes=1024)
+
+    assert failure.value.max_bytes == 1024
+
+
+@pytest.mark.integration
 async def test_oversized_body_is_aborted_before_the_whole_response_is_read(
     media_server: MediaServer,
 ) -> None:
-    """大小上限在**流式读取时**执行：超限立即中止，服务端因此写不完整个响应体。"""
+    """大小上限在**流式读取时**执行：超限立即中止，服务端因此写不完整个响应体。
+
+    上限说的是**明文**：流里流的是密文，所以读取时允许一个分组的加密开销（`+16`）——
+    否则"恰好等于上限"的合法附件会被自己的填充挤掉。
+    """
     body = b"x" * (8 * 1024 * 1024)
     url = media_server.serve("/huge", body)
     media_server.chunk_delay = 0.002
@@ -405,7 +439,7 @@ async def test_oversized_body_is_aborted_before_the_whole_response_is_read(
     with pytest.raises(WeComMediaTooLargeError) as failure:
         await download_media(url, AES_KEY, max_bytes=1024 * 1024)
 
-    assert failure.value.max_bytes == 1024 * 1024
+    assert failure.value.max_bytes == 1024 * 1024  # 报给用户的是**产品上限**，不是含开销的读取上限
     path = url.split(media_server.base_url, 1)[1]
     deadline = time.monotonic() + 2.0
     while path not in media_server.sent and time.monotonic() < deadline:

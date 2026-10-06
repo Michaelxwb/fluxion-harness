@@ -1,6 +1,6 @@
 # 全仓配置盘点与生效边界
 
-审计日期：2026-10-04；2026-10-05 随平台设置需求（TASK-001..TASK-015）迁移结果校准；2026-10-06 随概览指标化（`/overview/metrics` 聚合常量与 SQL）校准；同日随后续全站列表页量统一 15（前端分页展示契约）校准。基于当前 `main`。
+审计日期：2026-10-04；2026-10-05 随平台设置需求（TASK-001..TASK-015）迁移结果校准；2026-10-06 随概览指标化（`/overview/metrics` 聚合常量与 SQL）校准；同日随后续全站列表页量统一 15（前端分页展示契约）校准；**同日再随 im-gateway 评审修复校准**（投递鉴权与产物归属解析、入站排队调度、去重占位所有权、终帧重试、明文尺寸口径等新增常量）。基于当前 `main`。
 本文件是**迁移后的现状盘点与分类结论**：Console 系统设置页已交付，平台设置文档按租户持久化（`control.platform_setting`，append-only 版本行），41 个叶子已接入该唯一源，散落的重复默认已按收敛清单收敛。逐项清单见 [configuration-inventory.csv](configuration-inventory.csv)。
 
 ## 分类结论
@@ -16,13 +16,13 @@
 
 ## 盘点范围与完整明细
 
-遍历 `apps/`、`packages/` 下全部 **309** 个 Python 文件与 **113** 个 TS/TSX 文件（不含 `node_modules`）：Python 大写命名常量（含类内枚举）、配置/策略类默认值、带 timeout/ttl/limit/budget 等语义的函数默认参数、直接环境读取和部分内联 I/O 参数，以及前端大写命名常量。另人工核对 `.env.example`、`scripts/dev.sh`、Vite 和 k8s 部署配置。
+遍历 `apps/`、`packages/` 下全部 **310** 个 Python 文件与 **114** 个 TS/TSX 文件（不含 `node_modules`）：Python 大写命名常量（含类内枚举）、配置/策略类默认值、带 timeout/ttl/limit/budget 等语义的函数默认参数、直接环境读取和部分内联 I/O 参数，以及前端大写命名常量。另人工核对 `.env.example`、`scripts/dev.sh`、Vite 和 k8s 部署配置。
 
 完整声明明细见 [configuration-inventory.csv](configuration-inventory.csv)。CSV 每行包含源码路径、行号、名称、当前默认表达式、声明类型、目标分类和理由；重复声明不等于独立设置项。只读取 `.env.example` 的键名，不读取或输出真实 `.env` 的秘密值。
 
 扫描不把每个 SQL `.limit(1)`、计数器初始零、CSS 尺寸或循环算术都当作配置；调用方传入且没有默认值的参数不属于常量默认。本清单是当前源码快照，不能宣称通过语法扫描穷尽所有隐含业务策略。
 
-**当前声明点合计 1013**：`code` 855、`environment` 114、`business` 32、`business-resource` 12。其中大量 `code` 行是状态码、事件名、协议文本与各服务持有的实现常量。分类由 `tests/test_configuration_inventory.py` 的机检与分类断言兜底（路径/行号/符号/默认值直接与源码 AST 对齐；分类主张逐条钉住）。
+**当前声明点合计 1067**：`code` 883、`environment` 114、`business` 58、`business-resource` 12。其中大量 `code` 行是状态码、事件名、协议文本与各服务持有的实现常量。分类由 `tests/test_configuration_inventory.py` 的机检与分类断言兜底（路径/行号/符号/默认值直接与源码 AST 对齐；分类主张逐条钉住）。
 
 ## SharedSettings：当前 33 项全部是环境设置
 

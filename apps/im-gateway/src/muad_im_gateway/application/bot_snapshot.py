@@ -61,28 +61,51 @@ class BotSnapshotCache:
             logger.warning("bot_snapshot_refresh_failed code=%s", exc.code)
             return
         if collected is None:
-            # 跨页 revision/total 不一致：丢弃本次不完整读取，保留旧快照到下一节拍重拉
+            # 不完整/超容量的读取：丢弃本次，保留旧快照到下一节拍重拉
             self._console_reachable = True
-            logger.warning("bot_snapshot_inconsistent_discarded revision=%s", self._revision)
+            logger.warning("bot_snapshot_incomplete_discarded revision=%s", self._revision)
             return
         revision, items = collected
         self._console_reachable = True
-        changed = revision != self._revision
+        if revision == self._revision:
+            return
+        # **先应用、成功了才算这个 revision 生效**（2026-10-06 修）。此前是先提交 `_revision`
+        # 再 `await` 回调：回调一抛错，新 revision 已经被记成"完成"，下一轮同 revision 直接
+        # 跳过 ⇒ 连接管理器永远停在旧配置（实测：回调只被调用一次，`is_ready()` 却是 True）。
+        # 也**不能**让异常冒出去：那样 `run_forever` 的下一拍会重来、但启动期的 `refresh` 会
+        # 把整个进程带下去。这里记 ERROR 并保留待应用状态，下一轮重试。
+        if self._on_snapshot_changed is not None:
+            try:
+                await self._on_snapshot_changed(items)
+            except Exception:
+                logger.exception("bot_snapshot_apply_failed revision=%s", revision)
+                return
         self._revision = revision
         self._items = items
-        if changed and self._on_snapshot_changed is not None:
-            await self._on_snapshot_changed(self._items)
 
     async def _collect_snapshot(self) -> tuple[str, tuple[BotSnapshotItem, ...]] | None:
-        """按 total 有界收齐同一 revision 的所有页；不一致返回 None（不发布）。"""
+        """按 total 有界收齐同一 revision 的所有页；**收不齐就返回 None（不发布）**。
+
+        "不完整不发布"是硬要求：`apply_snapshot` 的语义是"这份就是全部"，少读了谁，谁就会被
+        当成已删除而**断开连接**。所以两条不完整路径都要拦住：① 页数超过有界读取能力
+        （截断）；② 实际收齐的条目数与声明的 `total` 对不上。
+        """
         first = await self._console.bots(
             self._tenant_id, page=1, page_size=BOT_SNAPSHOT_PAGE_SIZE
         )
         revision = first.revision
         total = first.total
         page_size = first.page_size or BOT_SNAPSHOT_PAGE_SIZE
+        pages = ceil(total / page_size)
+        if pages > BOT_SNAPSHOT_MAX_PAGES:
+            logger.warning(
+                "bot_snapshot_over_capacity total=%s pages=%s cap=%s",
+                total,
+                pages,
+                BOT_SNAPSHOT_MAX_PAGES,
+            )
+            return None
         items = list(first.items)
-        pages = min(max(ceil(total / page_size), 1), BOT_SNAPSHOT_MAX_PAGES)
         for page in range(2, pages + 1):
             nxt = await self._console.bots(
                 self._tenant_id, page=page, page_size=page_size
@@ -90,6 +113,9 @@ class BotSnapshotCache:
             if nxt.revision != revision or nxt.total != total:
                 return None
             items.extend(nxt.items)
+        if len(items) != total:
+            logger.warning("bot_snapshot_incomplete total=%s collected=%s", total, len(items))
+            return None
         return revision, tuple(items)
 
     async def run_forever(self) -> None:

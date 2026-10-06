@@ -41,6 +41,12 @@ logger = logging.getLogger(__name__)
 #: 单文件下载超时。超时是**传输安全**属性（不是产品策略），故写死在这里而不由调用方注入。
 MEDIA_TIMEOUT_SEC = 30.0
 
+#: 加密带来的**固定**长度增量：AES-CBC + PKCS#7 最多多出整整一个分组。
+#: 流式读取的上限要允许它 —— 上限说的是**明文**，而流里流的是密文。此前两处口径不一致
+#: （读的时候比密文、解密后又比明文），于是"恰好等于上限"的合法附件被自己的加密开销挤掉：
+#: 实测 1024 字节明文 → 1040 字节密文 ⇒ 报 `WeComMediaTooLargeError`（生产 50 MiB 边界同理）。
+ENCRYPTION_OVERHEAD_BYTES = 16
+
 _CHUNK_BYTES = 64 * 1024
 _OCTET_STREAM = "application/octet-stream"
 
@@ -83,6 +89,10 @@ async def download_media(
     `max_bytes` 由调用方给定（产品策略常量的唯一来源是门控 `MAX_ATTACHMENT_BYTES`），
     本函数在**流式读取时**执行它：累计超限立刻中止，不把整个响应体读完。
 
+    上限说的是**明文**：传输中允许 `ENCRYPTION_OVERHEAD_BYTES` 的加密开销（流里流的是密文），
+    解密之后**再严格比一次明文长度**——两个阶段的尺寸口径必须一致，否则边界上的合法附件会被
+    自己的加密开销挤掉。
+
     成功与失败**都留一条日志**（失败按原因分类）。日志里只有类型、字节数与失败原因——
     `url`/`aes_key`/文件名都不在其中，这样"日志不含凭据"才是可被检验的事实而不是空断言。
     """
@@ -91,6 +101,8 @@ async def download_media(
             url, max_bytes=max_bytes, timeout_sec=timeout_sec
         )
         data = _decrypt(encrypted, aes_key)
+        if len(data) > max_bytes:
+            raise WeComMediaTooLargeError(max_bytes)
     except WeComMediaError as exc:
         logger.warning("wecom_media_failed reason=%s error=%s", type(exc).__name__, exc)
         raise
@@ -112,8 +124,12 @@ async def _fetch_encrypted(
 ) -> tuple[bytes, str | None]:
     """取回**未解密**的原始字节与文件名（文件名来自 `Content-Disposition`）。
 
+    `max_bytes` 是**明文**上限：流式累计到"明文上限 + 加密开销"即中止（密文必然略长），
+    但报出去的仍是产品上限 —— 这一层不该让调用方看到内部余量。
+
     异常消息里**不含 `url`**：httpx 的异常文本可能带完整地址（含签名），只取类名。
     """
+    abort_at = max_bytes + ENCRYPTION_OVERHEAD_BYTES
     try:
         async with httpx.AsyncClient(timeout=timeout_sec, follow_redirects=True) as client:
             async with client.stream("GET", url) as response:
@@ -123,7 +139,7 @@ async def _fetch_encrypted(
                 total = 0
                 async for chunk in response.aiter_bytes(_CHUNK_BYTES):
                     total += len(chunk)
-                    if total > max_bytes:
+                    if total > abort_at:
                         # 立刻退出 async with ⇒ 中断响应流，不读完剩余字节
                         raise WeComMediaTooLargeError(max_bytes)
                     chunks.append(chunk)

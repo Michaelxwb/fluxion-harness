@@ -107,6 +107,7 @@ def test_s03_final_delivery_reaches_probe_once_and_is_deduped(
     # 同一 delivery_key 重放：真实 Gateway + 真实 Redis 去重，不重复触达渠道
     replay = http.post(
         f"{live_stack.gateway_url}/internal/deliveries",
+        headers=live_stack.service_headers(),
         json={
             # 交付契约要求 `tenant_id`（交付审计的幂等键要用它）
             "tenant_id": TENANT,

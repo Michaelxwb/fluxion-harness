@@ -67,6 +67,8 @@ def recorded_intervals(monkeypatch: pytest.MonkeyPatch) -> list[float]:
 
 
 def _pipeline(catalog, console, runtime, settings_client) -> InboundPipeline:  # type: ignore[no-untyped-def]
+    # 正文合并窗口取得比任何计时节拍都大：读取循环的醒来节拍 = min(计时, 正文窗口)，
+    # 这样本文件测到的 interval 就是**这条回复快照里的计时值**（否则会恒为正文窗口）。
     return InboundPipeline(
         dedupe=NullDedupeStore(),
         console=console,
@@ -74,6 +76,7 @@ def _pipeline(catalog, console, runtime, settings_client) -> InboundPipeline:  #
         catalog=catalog,
         settings_client=settings_client,
         tenant_id="tenant-1",
+        delta_flush_interval_sec=30.0,
     )
 
 
@@ -124,6 +127,35 @@ async def test_b03_one_fetch_per_reply_and_next_message_uses_new_value(
     assert settings_client.calls == ["tenant-1", "tenant-1"]
     # 一条回复内 `iter_with_ticks` 只被调用一次、节拍取自该回复的快照；下一条用新值
     assert recorded_intervals == [1.0, 5.0]
+
+
+async def test_b03_tick_is_the_smaller_of_progress_and_delta_window(
+    catalog, recorded_intervals
+) -> None:
+    """读取循环的醒来节拍取**更小的那个**：正文要快，计时要省。
+
+    正文此前只在下一条增量到来时才可能被冲出去，模型一思考/一跑工具就整段挂在缓冲里
+    （实测：只收一个 delta 后静默 1.2 秒，客户端一个正文帧都没收到）。所以正文的合并窗口
+    必须能单独驱动读取循环；而计时节拍仍按快照里的值节流（见上一条用例）。
+    """
+    console = FakeConsoleClient()
+    console.resolve_response = resolved_response()
+    runtime = FakeRuntimeClient(_run_events())
+    settings_client = FakePlatformSettingsClient([_snapshot({"im": {"progress_interval_sec": 5.0}})])
+    adapter = FakeChannelAdapter()
+    pipeline = InboundPipeline(
+        dedupe=NullDedupeStore(),
+        console=console,
+        runtime=runtime,
+        catalog=catalog,
+        settings_client=settings_client,
+        tenant_id="tenant-1",
+        delta_flush_interval_sec=0.25,
+    )
+
+    await pipeline.handle(adapter, make_envelope("hi", message_id="msg-tick"))
+
+    assert recorded_intervals == [0.25]
 
 
 async def test_b03_reply_render_locale_comes_from_snapshot(catalog) -> None:

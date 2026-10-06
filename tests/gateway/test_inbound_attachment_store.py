@@ -4,22 +4,30 @@
 
 - **预检**只判数量。输入是"本消息识别出几个媒体项"——取件之前唯一的已知量（企微回调不带
   `size`/MIME/文件名，设计 §3.2.2）。边界与 `B-03` 同口径：恰好 5 个接收、第 6 个起按位置丢弃。
-- **落盘**只写字节不写库（AD-1-B）：原子（临时文件 + `os.replace`）、不可变（同 storage_key
-  二次写入抛 `FileExistsError`）、且**用户文件名不参与路径拼接**（B-04 同族）。
+- **落盘**只写字节不写库（AD-1-B）：**目标不存在才发布**（临时文件 + `os.link`，内核级原子）、
+  同键**同内容**重放复用已有产物、同键**不同内容**抛 `AttachmentConflictError`（谁也不覆盖谁），
+  且**用户文件名不参与路径拼接**（B-04 同族）。
 """
 
 from __future__ import annotations
 
 import hashlib
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from muad_artifact_store import NfsArtifactStore
+from muad_contracts import AttachmentRef
 from muad_im_gateway.application.attachment_gate import (
     ATTACHMENT_COUNT_EXCEEDED,
     MAX_ATTACHMENTS_PER_MESSAGE,
     evaluate_precheck,
 )
-from muad_im_gateway.application.inbound_attachments import InboundAttachmentStore, kind_for
+from muad_im_gateway.application.inbound_attachments import (
+    AttachmentConflictError,
+    InboundAttachmentStore,
+    kind_for,
+)
 from muad_im_gateway.channels.base import FetchedAttachment
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"pixels" * 3
@@ -92,21 +100,80 @@ def test_persist_is_atomic_and_leaves_no_temporary_files(tmp_path) -> None:
 
 
 @pytest.mark.integration
-def test_persist_is_immutable_for_the_same_storage_key(tmp_path) -> None:
-    """不可变：同一 storage_key 二次写入必须抛 `FileExistsError`，且**原内容不变**。
+def test_persist_reuses_the_existing_bytes_for_a_same_content_replay(tmp_path) -> None:
+    """同键**同内容**重放：复用已有产物，不报错 —— 消息重投必须能走到 Runtime 的幂等提交。
 
-    E-07 的第一道防线是消息去重（Redis），这是第二道——两道都失效时宁可报错，也不能让后到的
-    字节悄悄覆盖先到的（那会让 `artifact` 行与磁盘内容对不上）。
+    此前是"存在即 `FileExistsError`"：Redis 降级（fail-open 不去重）或去重键过期后，同一条媒体
+    消息**永远**走不到 Runtime（实测：重投直接抛 `FileExistsError`，Runtime 只收到第一次那次
+    失败请求）。
+    """
+    store = InboundAttachmentStore(NfsArtifactStore(tmp_path))
+    first = store.persist(token="msg-3", index=0, content=_content(), source_channel="WECOM")
+
+    replayed = store.persist(token="msg-3", index=0, content=_content(), source_channel="WECOM")
+
+    assert replayed.storage_key == first.storage_key
+    assert replayed.checksum == first.checksum
+    assert replayed.size == len(PNG)
+    assert (tmp_path / "inbound/msg-3/0").read_bytes() == PNG
+
+
+@pytest.mark.integration
+def test_persist_refuses_to_reuse_the_key_for_different_content(tmp_path) -> None:
+    """同键**不同内容**：明确冲突，既不覆盖别人的字节，也不把那些字节当成自己的。
+
+    文件在、但内容不同是两回事：前者是重投，后者说明有人在同一个键上换了东西。
     """
     store = InboundAttachmentStore(NfsArtifactStore(tmp_path))
     store.persist(token="msg-3", index=0, content=_content(), source_channel="WECOM")
 
-    with pytest.raises(FileExistsError):
+    with pytest.raises(AttachmentConflictError):
         store.persist(
             token="msg-3", index=0, content=_content(b"different"), source_channel="WECOM"
         )
 
     assert (tmp_path / "inbound/msg-3/0").read_bytes() == PNG
+
+
+@pytest.mark.integration
+def test_concurrent_writers_publish_exactly_once(tmp_path) -> None:
+    """并发写同一个键：**只有一个赢**，另一个要么复用、要么冲突——绝不静默覆盖。
+
+    旧实现是 `path.exists()` 再 `os.replace`：两个写者都能通过存在性检查、都能"成功"，
+    后写的覆盖先写的（实测：两份引用里有一份的 checksum 与磁盘内容对不上）。
+    """
+    store = InboundAttachmentStore(NfsArtifactStore(tmp_path))
+    barrier = threading.Barrier(2)
+    original = store._publish_new
+
+    def synchronized(path, data):  # type: ignore[no-untyped-def]
+        barrier.wait(timeout=5)
+        original(path, data)
+
+    store._publish_new = synchronized  # type: ignore[method-assign]
+    contents = [_content(b"first"), _content(b"second")]
+    results: list[object] = []
+
+    def write(content: FetchedAttachment) -> None:
+        try:
+            results.append(
+                store.persist(token="race", index=0, content=content, source_channel="WECOM")
+            )
+        except AttachmentConflictError as exc:
+            results.append(exc)
+
+    with ThreadPoolExecutor(2) as pool:
+        list(pool.map(write, contents))
+
+    written = (tmp_path / "inbound/race/0").read_bytes()
+    assert written in (b"first", b"second")
+    winners = [r for r in results if not isinstance(r, AttachmentConflictError)]
+    losers = [r for r in results if isinstance(r, AttachmentConflictError)]
+    assert len(winners) == 1 and len(losers) == 1, results
+    winner = winners[0]
+    assert isinstance(winner, AttachmentRef)
+    # 赢家给出的引用必须与磁盘内容一致（否则调用方会拿着对不上的 checksum 往下走）
+    assert winner.checksum == hashlib.sha256(written).hexdigest()
 
 
 @pytest.mark.integration

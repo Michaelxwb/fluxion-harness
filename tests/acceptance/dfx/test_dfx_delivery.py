@@ -31,6 +31,7 @@ from muad_common import SharedSettings
 from muad_im_gateway.api.delivery import DELIVERY_DEDUPE_PREFIX, DELIVERY_DEDUPE_TTL_SEC
 
 from .environment import (
+    INTERNAL_TOKEN,
     PLATFORM_SETTINGS,
     TENANT,
     DfxStack,
@@ -309,6 +310,7 @@ def _replay(
     """
     response = http.post(
         f"{gateway_url}/internal/deliveries",
+        headers={"X-Tenant-Id": tenant_id, "X-Internal-Service": INTERNAL_TOKEN},
         json={
             "tenant_id": tenant_id,
             "task_id": str(task_id),

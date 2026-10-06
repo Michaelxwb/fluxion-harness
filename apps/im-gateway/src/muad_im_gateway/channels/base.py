@@ -69,6 +69,15 @@ class ChannelReplySession(Protocol):
 
     async def send(self, text: str) -> None: ...
 
+    async def reply_once(self, text: str) -> None:
+        """发一条**独立、已收尾**的文本（命令回执 / 附件回执 / 错误文案）。
+
+        与 `send` 的区别是它**不参与流式累积**：这类文本没有后续，客户端应当一次收到完整
+        内容。没有这个能力就等于每条回执都被追加上去、且要等一次 finalize —— 回执、错误
+        文案与正文会粘成一条不断增长的流。
+        """
+        ...
+
     async def finish(self) -> None: ...
 
 

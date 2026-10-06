@@ -22,7 +22,13 @@ from muad_api import AppError
 from muad_api.catalog import MessageCatalog
 from muad_api.error_codes import ErrorCode
 from muad_contracts import BotSnapshotItem
-from muad_im_gateway.api.deps import get_console_client, get_dedupe_store, get_registry
+from muad_im_gateway.api.deps import (
+    get_artifact_resolver,
+    get_console_client,
+    get_dedupe_store,
+    get_gateway_tenant,
+    get_registry,
+)
 from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.sse import SseEvent
 from muad_im_gateway.channels.base import ChannelRegistry
@@ -31,6 +37,8 @@ from muad_im_gateway.infrastructure.dedupe import InMemoryDedupeStore
 from muad_im_gateway.main import app as gateway_app
 
 from tests.e2e.wecom_probe_app import WeComProbe
+from tests.internal_service import TOKEN as INTERNAL_TOKEN
+from tests.internal_service import internal_service_token  # noqa: F401  (fixture 注册)
 
 B119_BOT = "bot-b119"
 B119_SECRET = "b119-secret-value"
@@ -40,6 +48,16 @@ B119_BODY_CANARY = "b119-消息正文-不得进指标"
 METRICS_PATH = "/metrics"
 DELIVERIES_PATH = "/internal/deliveries"
 WAIT_TIMEOUT_SEC = 20.0
+
+
+class _NoArtifacts:
+    """本文件的投递都是文本形态，不该走到产物解析（走到即失败，防止静默放过）。"""
+
+    async def resolve(self, artifact_id: Any, *, tenant_id: str) -> Any:
+        raise AssertionError("text delivery must not resolve artifacts")
+
+    async def aclose(self) -> None:
+        return None
 
 
 class _OnceRuntime:
@@ -131,6 +149,8 @@ async def metrics_http(adapter: WeComAdapter) -> AsyncIterator[httpx.AsyncClient
     gateway_app.dependency_overrides[get_registry] = lambda: registry
     gateway_app.dependency_overrides[get_dedupe_store] = lambda: _DELIVERY_DEDUPE["store"]
     gateway_app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
+    gateway_app.dependency_overrides[get_gateway_tenant] = lambda: "tenant-1"
+    gateway_app.dependency_overrides[get_artifact_resolver] = lambda: _NoArtifacts()
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = int(sock.getsockname()[1])
@@ -144,7 +164,11 @@ async def metrics_http(adapter: WeComAdapter) -> AsyncIterator[httpx.AsyncClient
         while not server.started and time.monotonic() < deadline:
             await asyncio.sleep(0.02)
         assert server.started, "gateway 未在超时内监听"
-        async with httpx.AsyncClient(base_url=f"http://127.0.0.1:{port}", timeout=30.0) as client:
+        async with httpx.AsyncClient(
+            base_url=f"http://127.0.0.1:{port}",
+            timeout=30.0,
+            headers={"X-Internal-Service": INTERNAL_TOKEN},
+        ) as client:
             yield client
     finally:
         server.should_exit = True

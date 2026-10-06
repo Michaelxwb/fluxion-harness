@@ -26,6 +26,7 @@ from .application.runtime_client import RuntimeClient
 from .channels.base import ChannelRegistry
 from .channels.probe import HttpProbeChannelAdapter
 from .channels.wecom.adapter import WeComAdapter
+from .infrastructure.artifact_resolver import HttpArtifactResolver
 from .infrastructure.dedupe import DedupeStore, build_dedupe_store
 from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
 from .metrics import install_gateway_metrics
@@ -62,6 +63,8 @@ class _GatewayResources:
     snapshot: BotSnapshotCache
     inbound: InboundPipeline
     adapter: WeComAdapter | HttpProbeChannelAdapter
+    artifacts: HttpArtifactResolver
+    tenant_id: str
 
     def publish(self, app: FastAPI) -> None:
         """初始化成功后才公开运行时状态：探针与投递 API 都从这里读依赖。"""
@@ -72,12 +75,15 @@ class _GatewayResources:
         app.state.bot_snapshot = self.snapshot
         app.state.inbound_pipeline = self.inbound
         app.state.wecom_adapter = self.adapter
+        app.state.artifact_resolver = self.artifacts
+        app.state.tenant_id = self.tenant_id
 
     async def aclose(self) -> None:
         await self.registry.stop_all()
         await self.runtime.aclose()
         await self.console.aclose()
         await self.settings_client.aclose()
+        await self.artifacts.aclose()
         await self.dedupe.aclose()
 
 
@@ -111,6 +117,11 @@ async def _build_resources(
         tenant_id=settings.default_tenant_id,
         settings_client=settings_client,
     )
+    # 产物交付前按 `artifact_id` 解析归属（跨租户拿不到东西）：解析口径在 Runtime 那一处，
+    # 网关只做调用方 —— 详见 `infrastructure/artifact_resolver.py` 的头注。
+    artifacts = HttpArtifactResolver(
+        settings.agent_runtime_url, service_token=settings.internal_service_token
+    )
     return _GatewayResources(
         registry=registry,
         dedupe=dedupe,
@@ -120,6 +131,8 @@ async def _build_resources(
         snapshot=snapshot,
         inbound=inbound,
         adapter=adapter,
+        artifacts=artifacts,
+        tenant_id=settings.default_tenant_id,
     )
 
 

@@ -13,7 +13,7 @@ from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.ports import PlatformSettingsSnapshot
 from muad_im_gateway.application.progress import ExecutionProgress, ProgressPhase, iter_with_ticks
 from muad_im_gateway.application.sse import SseEvent
-from muad_im_gateway.channels.base import ARTIFACT_DELIVERED
+from muad_im_gateway.channels.base import ARTIFACT_DELIVERED, ChannelAdapterUnavailable
 from muad_im_gateway.channels.fake import FakeChannelAdapter
 from muad_im_gateway.channels.wecom.adapter import WeComAdapter
 from muad_im_gateway.channels.wecom.reply import ReplySession, StatusBudget
@@ -625,3 +625,123 @@ async def test_b402_artifact_replies_to_the_message_that_started_its_run(tmp_pat
         assert client.sent_media == []
     finally:
         await adapter.stop()
+
+
+async def test_b402_a_finished_runs_artifact_does_not_jump_to_another_message(
+    tmp_path: Path,
+) -> None:
+    """Run **收尾之后**，它的产物仍然回到起它的那条消息（2026-10-06）。
+
+    原实现里会话一收尾就从活跃集合消失，`_reply_target` 于是退回"本路由最新回调" —— 实测：
+    old-run 的交付目标变成了后来那条消息的 req_id（老任务的产物挂到了别人的消息上）。
+    保留窗口内的映射仍然有效；真过期了就**明确降级为主动投递**，而不是冒充某条消息的回调。
+    """
+    factory = FakeWeComSdkFactory()
+    store = NfsArtifactStore(tmp_path)
+    adapter = WeComAdapter(
+        sdk_factory=factory,
+        bots=[
+            BotSnapshotItem(
+                bot_account_id=uuid4(),
+                bot_id=PROGRESS_BOT,
+                secret="progress-secret",
+                agent_id=uuid4(),
+            )
+        ],
+        artifact_store=store,
+        backoff_base_sec=0.01,
+        backoff_max_sec=0.02,
+    )
+    await adapter.start()
+    try:
+        client = factory.latest()
+        client.push_message(_inbound("first", reply_id="req-first"))
+        client.push_message(_inbound("second", reply_id="req-second"))
+        route = DeliveryRouteInput(
+            channel="WECOM",
+            bot_id=PROGRESS_BOT,
+            external_user_id=PROGRESS_EXTERNAL_USER,
+            external_conversation_id="conv-progress",
+        )
+        session = adapter.open_reply(route, "first")
+        session.bind_run("run-1")
+        await session.finish()  # Run 收尾：会话结束
+
+        storage_key = "outbound/run-1/artifact-1/v1"
+        target = store.resolve(storage_key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"payload")
+
+        closed_run = await adapter.deliver_artifact(
+            route, _artifact_ref(storage_key), tenant_id="tenant-1", run_id="run-1"
+        )
+        assert closed_run.outcome == ARTIFACT_DELIVERED
+        assert [row[0] for row in client.replied_media] == ["req-first"], (
+            "收尾后的产物必须回到起这个 Run 的那条消息，而不是本路由最新回调"
+        )
+
+        # 映射已过期（不认识这个 Run）：**降级为主动投递**，不冒充任何一条消息的回调
+        expired = await adapter.deliver_artifact(
+            route, _artifact_ref(storage_key), tenant_id="tenant-1", run_id="run-unknown"
+        )
+        assert expired.outcome == ARTIFACT_DELIVERED
+        assert [row[0] for row in client.replied_media] == ["req-first"], "不得挂到别的消息上"
+        assert [row[0] for row in client.sent_media] == ["conv-progress"], "走主动投递（发给会话）"
+    finally:
+        await adapter.stop()
+
+
+async def test_b402_a_failed_finish_frame_is_retried_instead_of_written_off() -> None:
+    """终帧发送失败 ⇒ **不关闭会话、有界重试**（2026-10-06）。
+
+    原实现先置 `_closed = True` 再发终帧：发送一失败，会话已关，之后任何 `finish()` 都直接返回
+    —— 一次瞬时断线就让这条回复永远停在未收尾状态（客户端一直挂着占位），而且没有任何补偿路径
+    （实测：终帧总共只尝试过一次）。
+    """
+    client = Sdk()
+    attempts: list[bool] = []
+    original = client.send_stream
+
+    async def flaky(reply_id, stream_id, content, *, finish):  # type: ignore[no-untyped-def]
+        attempts.append(finish)
+        if finish and attempts.count(True) == 1:
+            raise RuntimeError("transient disconnect")
+        await original(reply_id, stream_id, content, finish=finish)
+
+    client.send_stream = flaky  # type: ignore[method-assign]
+    reply = ReplySession(
+        client=lambda: client,
+        reply_ref="req",
+        flush_interval_sec=0,
+        finish_retry_delay_sec=0,
+    )
+    await reply.stream("answer")
+
+    await reply.finish()
+
+    assert attempts.count(True) == 2, "终帧必须重试一次并成功"
+    assert client.frames[-1][2] == "answer" and client.frames[-1][3] is True
+
+
+async def test_b402_a_finish_that_never_succeeds_stays_reported_not_silently_closed() -> None:
+    """重试仍失败 ⇒ **不假装已收尾**（不置 `_closed`），并把失败显式抛给调用方。"""
+    client = Sdk()
+
+    async def always_fail(reply_id, stream_id, content, *, finish):  # type: ignore[no-untyped-def]
+        if finish:
+            raise RuntimeError("still down")
+        client.frames.append((reply_id, stream_id, content, finish))
+
+    client.send_stream = always_fail  # type: ignore[method-assign]
+    reply = ReplySession(
+        client=lambda: client,
+        reply_ref="req",
+        flush_interval_sec=0,
+        finish_retry_delay_sec=0,
+    )
+    await reply.stream("answer")
+
+    with pytest.raises(ChannelAdapterUnavailable):
+        await reply.finish()
+
+    assert reply._closed is False  # noqa: SLF001 - 收尾没成功就不算关闭

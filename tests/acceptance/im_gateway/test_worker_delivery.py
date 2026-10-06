@@ -151,7 +151,12 @@ async def test_s04_worker_delivers_to_route_with_7d_dedupe(
         },
         "message": {"type": "text", "text": "重放投递"},
     }
-    async with httpx.AsyncClient(base_url=gateway_stack.gateway_url, timeout=30.0) as client:
+    # 直投也要带服务身份：`/internal/deliveries` 与 resolve-credentials 同门控（2026-10-06）
+    async with httpx.AsyncClient(
+        base_url=gateway_stack.gateway_url,
+        timeout=30.0,
+        headers=gateway_stack.service_headers(),
+    ) as client:
         replay = await client.post(DELIVERIES_PATH, json=body)
     assert replay.status_code == 200, replay.text
     assert replay.json()["data"]["deduplicated"] is True

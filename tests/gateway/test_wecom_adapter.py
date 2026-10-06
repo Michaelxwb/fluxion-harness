@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator, Callable
 from uuid import uuid4
 
 import pytest
-from fakes import FakeConsoleClient, FakeWeComSdkFactory
+from fakes import FakeConsoleClient, FakeRuntimeClient, FakeWeComSdkFactory, resolved_response
 from muad_contracts import (
     BotSnapshotItem,
     BotSnapshotResponse,
@@ -16,9 +16,11 @@ from muad_contracts import (
     DeliveryRouteInput,
 )
 from muad_im_gateway.application.bot_snapshot import BotSnapshotCache
+from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable
 from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.channels.wecom.sdk_port import WeComInboundEvent, WeComInboundMessage
+from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
 
 BOT_ID = "bot-1"
 SECRET_VALUE = "super-secret-token-9f"
@@ -393,7 +395,7 @@ async def test_apply_snapshot_removes_disabled_bot() -> None:
 async def test_snapshot_revision_change_refreshes_adapter() -> None:
     console = FakeConsoleClient()
     bot = make_bot()
-    console.bot_snapshot = BotSnapshotResponse(revision="r1", items=[bot])
+    console.bot_snapshot = BotSnapshotResponse(revision="r1", items=[bot], total=1)
     factory = FakeWeComSdkFactory()
     adapter = build_adapter(factory, bots=[])
     cache = BotSnapshotCache(
@@ -409,6 +411,7 @@ async def test_snapshot_revision_change_refreshes_adapter() -> None:
         console.bot_snapshot = BotSnapshotResponse(
             revision="r2",
             items=[bot.model_copy(update={"secret": SECRET_VALUE_V2})],
+            total=1,
         )
         await cache.refresh()
 
@@ -553,3 +556,79 @@ async def test_b106_reconnect_attempts_are_backed_off_not_a_tight_loop(monkeypat
     finally:
         await adapter.stop()
         await probe.stop()
+
+
+async def test_command_receipt_goes_back_to_its_own_message(catalog) -> None:  # type: ignore[no-untyped-def]
+    """命令回执必须回到**发起它的那条消息**（2026-10-06）。
+
+    原实现里命令回执走 `adapter.send` → 适配器的"本路由最新回调"：把第一条 `/bind` 的 Console
+    调用挂起、再送第二条同会话消息，第一条的绑定成功回执就发到了**第二条**的 req_id 上
+    （实测 `bind_target=req-later`）。现在每条消息在入站那一刻固定自己的回复会话。
+    """
+    factory = FakeWeComSdkFactory()
+    adapter = build_adapter(factory)
+    await adapter.start()
+    try:
+        client = factory.latest()
+        console = FakeConsoleClient()
+        console.resolve_response = resolved_response()
+        entered, release = asyncio.Event(), asyncio.Event()
+        original_bind = console.bind
+
+        async def slow_bind(*args, **kwargs):  # type: ignore[no-untyped-def]
+            entered.set()
+            await release.wait()
+            return await original_bind(*args, **kwargs)
+
+        console.bind = slow_bind  # type: ignore[method-assign]
+        pipeline = InboundPipeline(
+            dedupe=NullDedupeStore(),
+            console=console,
+            runtime=FakeRuntimeClient([]),
+            catalog=catalog,
+            tenant_id="tenant-1",
+        )
+
+        client.push_message(make_message(message_id="bind-message", text="/bind CODE", reply_id="req-bind"))
+        first = await adapter._events.get()  # noqa: SLF001 - 直接取本条的 envelope
+        handler = asyncio.create_task(pipeline.handle(adapter, first))
+        await entered.wait()
+
+        # 同一会话又来了第二条消息：它顶掉路由级"最新回调"（这正是原来的破坏路径）
+        client.push_message(make_message(message_id="later-message", text="后来的问题", reply_id="req-later"))
+        later = await adapter._events.get()  # noqa: SLF001
+
+        release.set()
+        await handler
+        await pipeline.handle(adapter, later)
+
+        assert client.replied_texts[0] == ("req-bind", "绑定成功"), (
+            f"绑定回执必须回到发起 /bind 的那条消息，实际：{client.replied_texts}"
+        )
+    finally:
+        release.set()
+        await adapter.stop()
+
+
+async def test_send_translates_raw_sdk_failures_into_the_channel_port_error() -> None:
+    """适配器的发送出口把**官方 SDK 的任意异常**翻成渠道端口错误（2026-10-06）。
+
+    SDK 用 `RuntimeError('Reply ack error: errcode=40008')` 这类异常回传发送失败；不翻译就会
+    越过渠道能力边界（应用层只捕获 `ChannelAdapterUnavailable`），一次回执失败就把整条有效
+    请求带走。
+    """
+    factory = FakeWeComSdkFactory()
+    adapter = build_adapter(factory)
+    await adapter.start()
+    try:
+        client = factory.latest()
+        client.push_message(make_message(message_id="m-send", reply_id="req-send"))
+
+        async def boom(*args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("Reply ack error: errcode=40008")
+
+        client.reply_text = boom  # type: ignore[method-assign]
+        with pytest.raises(ChannelAdapterUnavailable):
+            await adapter.send(route(), DeliveryMessage(text="回执"))
+    finally:
+        await adapter.stop()

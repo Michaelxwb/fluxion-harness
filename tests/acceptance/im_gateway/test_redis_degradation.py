@@ -171,7 +171,11 @@ async def test_e06_inbound_and_delivery_continue_at_least_once_without_redis(
         "message": {"type": "text", "text": "降级投递"},
     }
     delivered_before = len(_sent_texts(gateway_stack))
-    async with httpx.AsyncClient(base_url=degraded_gateway.url, timeout=30.0) as client:
+    async with httpx.AsyncClient(
+        base_url=degraded_gateway.url,
+        timeout=30.0,
+        headers=gateway_stack.service_headers(),
+    ) as client:
         first = await client.post(DELIVERIES_PATH, json=body)
         second = await client.post(DELIVERIES_PATH, json=body)
     assert first.status_code == 200, first.text

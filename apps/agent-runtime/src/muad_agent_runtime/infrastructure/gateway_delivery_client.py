@@ -10,13 +10,15 @@ runtime 只有 `/runs`、`/resume`、`/cancel`、`GET /runs/{id}`，**没有回�
 **一条交付契约两个调用方**：本客户端与既有 worker 投递打同一个 `/internal/deliveries`，
 差别只在 `delivery_key` 的形态（`run:{run_id}:{artifact_id}` vs `task:{task_id}:final`）。
 
-> 该端点目前**没有鉴权**（既有缺口，本期不修）——所以这里不带内部服务令牌；
-> 这是记录在案的现状，不是本模块的选择。
+> 2026-10-06：该端点**已加服务身份门控**（`X-Internal-Service`），本客户端随之带上内部服务令牌
+> —— 与 Console 的 `resolve-definition`/`resolve-credentials` 同一口径。此前它无鉴权、且完全
+> 相信请求体里自带的 `storage_key`（可被用来转发别的租户的产物）。
 """
 
 from __future__ import annotations
 
 import httpx
+from muad_api.security import INTERNAL_SERVICE_HEADER
 from muad_contracts import DeliveryRequest, DeliveryResponse
 
 DELIVERIES_PATH = "/internal/deliveries"
@@ -39,9 +41,11 @@ class GatewayDeliveryClient:
         self,
         base_url: str,
         *,
+        service_token: str | None = None,
         timeout_sec: float = DELIVERY_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
+        self._service_token = service_token
         self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_sec, transport=transport)
 
     async def aclose(self) -> None:
@@ -50,6 +54,8 @@ class GatewayDeliveryClient:
     async def deliver(self, request: DeliveryRequest, *, trace_id: str = "") -> DeliveryResponse:
         """同步投递并拿回**真实结论**。任何没拿到结论的情形都抛 `DeliveryUnavailableError`。"""
         headers = {"X-Trace-Id": trace_id} if trace_id else {}
+        if self._service_token:
+            headers[INTERNAL_SERVICE_HEADER] = self._service_token
         try:
             response = await self._client.post(
                 DELIVERIES_PATH, json=request.model_dump(mode="json"), headers=headers

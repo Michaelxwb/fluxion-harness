@@ -9,6 +9,10 @@
 它**不替换** Gateway / Redis / 渠道探针：请求原样转发给真实 Gateway（真实 Redis 去重、
 真实渠道探针收件），只在**回程**延迟/改写响应。延迟刻意放在回程——此刻真实渠道已经收到
 请求（或已失败），而 Worker 仍在等待响应，于是「投递预留已提交」成为可观测的库内事实。
+
+**请求头原样转发**（2026-10-06）：`/internal/deliveries` 现在要求 `X-Internal-Service`，
+代理吞掉它就等于把每一条 E-06 路径都变成 403 —— 而 403 看起来像"投递失败"，会把故障注入的
+结论整个带偏。
 """
 
 from __future__ import annotations
@@ -21,6 +25,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
 DELIVERIES_PATH = "/internal/deliveries"
+#: 透传的请求头：调用方身份与链路标识。**不放行**的内容类型由 httpx 自己按 json 重设。
+FORWARDED_HEADERS = ("x-internal-service", "x-tenant-id", "x-trace-id", "x-request-id", "x-caller-service")
 ENV_UPSTREAM = "REWRITE_UPSTREAM_GATEWAY_URL"
 ENV_DELAY_SEC = "REWRITE_DELAY_SEC"
 ENV_FORCE_NOT_DELIVERED = "REWRITE_FORCE_NOT_DELIVERED"
@@ -41,6 +47,14 @@ def _delay_sec() -> float:
 
 def _force_not_delivered() -> bool:
     return os.environ.get(ENV_FORCE_NOT_DELIVERED) == "1"
+
+
+def _forwarded_headers(request: Request) -> dict[str, str]:
+    return {
+        name: value
+        for name, value in request.headers.items()
+        if name.lower() in FORWARDED_HEADERS
+    }
 
 
 def _placeholder_envelope() -> dict[str, object]:
@@ -64,7 +78,11 @@ async def healthz() -> dict[str, str]:
 async def deliver(request: Request) -> Response:
     payload = await request.json()
     async with httpx.AsyncClient(timeout=30.0) as client:
-        upstream = await client.post(f"{_upstream_gateway_url()}{DELIVERIES_PATH}", json=payload)
+        upstream = await client.post(
+            f"{_upstream_gateway_url()}{DELIVERIES_PATH}",
+            json=payload,
+            headers=_forwarded_headers(request),
+        )
     if _delay_sec() > 0:
         await asyncio.sleep(_delay_sec())
     if _force_not_delivered():

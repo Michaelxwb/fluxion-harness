@@ -942,7 +942,9 @@ async def default_executor_factory(
     owned_delivery_client: GatewayDeliveryClient | None = None
     if delivery_client is None and request.run_context is not None:
         if request.run_context.delivery_route is not None:
-            owned_delivery_client = GatewayDeliveryClient(settings.im_gateway_url)
+            owned_delivery_client = GatewayDeliveryClient(
+                settings.im_gateway_url, service_token=settings.internal_service_token
+            )
             delivery_client = owned_delivery_client
     owned_task_client: WorkerTaskClient | None = None
     if task_client is None:

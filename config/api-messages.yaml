@@ -283,6 +283,14 @@ codes:
       zh-CN: 当前没有执行中的任务
       en-US: There is no active task to cancel
 
+  # 网关排队积压时的**用户可见**拒绝（RULE-01：不静默丢）。429 只是封套里的状态码，这条文案
+  # 实际是发给 IM 用户的：网关被瞬时打满时，让用户知道该重发，而不是以为机器人坏了。
+  CHANNEL_BUSY:
+    http_status: 429
+    messages:
+      zh-CN: 当前消息较多，请稍后重发
+      en-US: The service is busy right now. Please send your message again shortly.
+
   UNSUPPORTED_MEDIA:
     http_status: 400
     messages:

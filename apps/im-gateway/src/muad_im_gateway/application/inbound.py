@@ -6,7 +6,7 @@ import logging
 import time
 from collections.abc import AsyncIterator, Sequence
 from contextlib import aclosing, suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import ceil
 from uuid import UUID
 
@@ -44,7 +44,7 @@ from ..channels.base import (
     ReplySessionFactory,
     StreamFinalizer,
 )
-from ..infrastructure.dedupe import DedupeStore, DedupeStoreError, is_duplicate
+from ..infrastructure.dedupe import DEDUPE_VALUE, DedupeStore, DedupeStoreError
 from .attachment_gate import (
     ATTACHMENT_COUNT_EXCEEDED,
     ATTACHMENT_RECEIPT_ALL,
@@ -57,7 +57,7 @@ from .attachment_gate import (
     evaluate_precheck,
 )
 from .console_client import ConsoleClientPort
-from .inbound_attachments import InboundAttachmentStore
+from .inbound_attachments import AttachmentConflictError, InboundAttachmentStore
 from .platform_settings import ReplySettings, resolve_reply_settings
 from .ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .progress import (
@@ -85,6 +85,10 @@ AUDIT_RECEIVED = "RECEIVED"
 AUDIT_REJECTED = "REJECTED"
 AUDIT_FAILED = "FAILED"
 UNSUPPORTED_MEDIA_CODE = "UNSUPPORTED_MEDIA"
+#: 排队积压时的用户可见反馈（RULE-01：不得静默丢）：网关过载时的**显式**拒绝。
+CHANNEL_BUSY = "CHANNEL_BUSY"
+#: 排队拒绝/设置读取失败发生在**回复设置快照之前**，此时只能用目录的默认语言（zh-CN）。
+DEFAULT_REPLY_LOCALE = "zh-CN"
 
 RUN_CREATED_EVENT = "run.created"
 MESSAGE_DELTA_EVENT = "message.delta"
@@ -93,13 +97,28 @@ INTERRUPT_REQUIRED_EVENT = "interrupt.required"
 RUN_COMPLETED_EVENT = "run.completed"
 RUN_FAILED_EVENT = "run.failed"
 
+#: 真正**在跑**的消息处理上限（不含排队等待）。等待不再占用名额——见 `consume`。
 MAX_CONCURRENT_HANDLERS = 8
+#: 全局排队上限：读循环永不阻塞，但内存必须有界。超出即**可见拒绝**（CHANNEL_BUSY），
+#: 不静默丢——丢了用户不知道，只会以为机器人坏了。
+MAX_PENDING_HANDLERS = 256
+#: 同一路由（bot+用户+会话）的排队上限：一个用户狂发不该把别人挤出去。
+MAX_PENDING_PER_ROUTE = 8
+#: 命令的排队上限。命令很短，且读取循环必须能一直读到它们（/stop 的可用性由这条保证）。
+MAX_PENDING_COMMANDS = 32
 
 #: 本回复生命周期内固定的展示设置（ADR-04）：`handle` 开始时取一次快照、set 一次，
 #: 整个回复期间（含 tick）都用它；下一条入站消息重新取。用 ContextVar 而非实例属性——
 #: 同一 pipeline 上同 bot 的并发回复各持自己那一份，互不串味。
 _REPLY_SETTINGS: contextvars.ContextVar[ReplySettings | None] = contextvars.ContextVar(
     "gateway_reply_settings", default=None
+)
+
+#: 本条目消息**自己的**回复会话（2026-10-06 修）。此前只有走 Run 的那条路径开会话，命令回执、
+#: 附件回执、错误文案一律走"本路由最新回调"，于是同会话后来的消息会把前面那条消息的回执顶掉
+#: （实测：`/bind` 的成功回执发到了后来的那条消息上）。现在 `_send_text` 一律优先用本会话。
+_REPLY_SESSION: contextvars.ContextVar[ChannelReplySession | None] = contextvars.ContextVar(
+    "gateway_reply_session", default=None
 )
 
 # 指标（design §4.2；标签只含类型/错误码/原因，不含 Secret 或消息正文）
@@ -172,6 +191,62 @@ def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
         external_user_id=envelope.external_user_id,
         external_conversation_id=envelope.external_conversation_id,
     )
+
+
+def _route_key(envelope: ChannelEnvelope) -> tuple[str, str, str]:
+    """按路由（渠道 + bot + 用户）串行：同会话的多条消息不交叉。"""
+    return (envelope.channel, envelope.bot_id, envelope.external_user_id)
+
+
+@dataclass(slots=True)
+class _Backlog:
+    """排队计数：读循环靠它做**有界但不阻塞**的准入判断。
+
+    读循环不能被队列拖住（那正是 /stop 饥饿的成因），所以它只做计数与转交，计数由任务自己
+    在收尾时归还。两级上限同时生效：全局一级防内存无界，每路由一级防单个用户挤掉别人。
+    """
+
+    pending: int = 0
+    commands: int = 0
+    by_route: dict[tuple[str, str, str], int] = field(default_factory=dict)
+
+    def admits(self, key: tuple[str, str, str], *, command: bool) -> bool:
+        if command:
+            return self.commands < MAX_PENDING_COMMANDS
+        return (
+            self.pending < MAX_PENDING_HANDLERS
+            and self.by_route.get(key, 0) < MAX_PENDING_PER_ROUTE
+        )
+
+    def take(self, key: tuple[str, str, str], *, command: bool) -> None:
+        if command:
+            self.commands += 1
+            return
+        self.pending += 1
+        self.by_route[key] = self.by_route.get(key, 0) + 1
+
+    def release(self, key: tuple[str, str, str], *, command: bool) -> None:
+        if command:
+            self.commands -= 1
+            return
+        self.pending -= 1
+        remaining = self.by_route.get(key, 0) - 1
+        if remaining > 0:
+            self.by_route[key] = remaining
+        else:
+            self.by_route.pop(key, None)
+
+
+@dataclass(frozen=True, slots=True)
+class _SeenReservation:
+    """入站去重的占位句柄。
+
+    `owner` 为 `None` = 去重存储不可用（fail-open）：照常处理，但没有可升级/可释放的键
+    —— 丢消息比重复消息更严重，不能因 Redis 抖动把用户消息吞掉。
+    """
+
+    key: str
+    owner: str | None
 
 
 def _attachment_count(adapter: ChannelAdapter, envelope: ChannelEnvelope) -> int:
@@ -252,6 +327,8 @@ class _RunStreamState:
         self.awaiting_input = False
         self.terminal = False
         self.started_at = time.monotonic()
+        #: 上一次**真的**发了计时帧的时刻（读取循环醒得比计时节拍快，靠它节流）。
+        self.last_progress_at = 0.0
         self.first_event_at: float | None = None
         self.first_chunk_at: float | None = None
 
@@ -298,6 +375,8 @@ class InboundPipeline:
         # 生产装配注入真实 HTTP client；直构调用点默认「该租户无记录」⇒ schema 默认。
         self._settings_client: PlatformSettingsClient = settings_client or NullPlatformSettingsClient()
         self._route_locks: dict[tuple[str, str, str], asyncio.Lock] = {}
+        #: **在飞**处理的并发闸（排队等锁的不算）：封顶同时跑的模型流数量。
+        self._handlers = asyncio.Semaphore(MAX_CONCURRENT_HANDLERS)
 
     @property
     def _reply(self) -> ReplySettings:
@@ -318,19 +397,30 @@ class InboundPipeline:
     async def consume(self, adapter: ChannelAdapter) -> None:
         """有界并发消费入站事件：一个 Run 的长流不阻塞同 bot 的后续消息（含 /stop）。
 
-        - 非命令消息按 route 串行（同 route 的流不交叉）；
-        - 命令（/bind /new /stop /skills）不加 route 锁，长流期间仍可即时处理；
+        **读循环永不阻塞**（2026-10-06 修）。原口径是「活跃任务满 8 个就在 `asyncio.wait` 上
+        等下一个完成」，而同路由**排队等锁**的消息同样是"活跃任务"——7 条排队消息就能占满 8 个
+        槽，读取循环于是再也读不到 `/stop`（实测：长流 + 7 条同路由消息之后，取消接口的调用
+        次数恒为 0，直到人工放行长流才开始处理）。
+
+        现在等待发生在**任务内部**，读循环只做计数与转交：
+
+        - 非命令消息按 route 串行（同 route 的流不交叉），在飞处理由 `_handlers` 信号量封顶；
+        - 命令（/bind /new /stop /skills）**不排队等锁**，长流期间仍即时处理；
+        - 排队**有界**（全局 + 每路由），队满给用户一条明确反馈并留痕，不静默丢；
         - Runtime 决定 RUN_BUSY/resume：Gateway 不缓存活跃 Run 事实。
         """
         events = await adapter.iter_events()
+        backlog = _Backlog()
         active: set[asyncio.Task[None]] = set()
         try:
             async for envelope in events:
-                if len(active) >= MAX_CONCURRENT_HANDLERS:
-                    _done, active = await asyncio.wait(
-                        active, return_when=asyncio.FIRST_COMPLETED
-                    )
-                task = asyncio.create_task(self._consume_one(adapter, envelope))
+                key = _route_key(envelope)
+                command = _is_command(envelope.text)
+                if not backlog.admits(key, command=command):
+                    await self._refuse_overloaded(adapter, envelope)
+                    continue
+                backlog.take(key, command=command)
+                task = asyncio.create_task(self._consume_one(adapter, envelope, backlog, key))
                 active.add(task)
                 task.add_done_callback(active.discard)
         finally:
@@ -339,34 +429,94 @@ class InboundPipeline:
             if active:
                 await asyncio.gather(*active, return_exceptions=True)
 
-    async def _consume_one(self, adapter: ChannelAdapter, envelope: ChannelEnvelope) -> None:
+    async def _consume_one(
+        self,
+        adapter: ChannelAdapter,
+        envelope: ChannelEnvelope,
+        backlog: _Backlog,
+        key: tuple[str, str, str],
+    ) -> None:
+        """一条消息一个任务；**排队等锁在任务里**，不占读循环。"""
         try:
             if _is_command(envelope.text):
                 await self.handle(adapter, envelope)
                 return
-            async with self._route_lock(envelope):
+            async with self._route_lock(envelope), self._handlers:
                 await self.handle(adapter, envelope)
         except Exception:
-            metrics.inc_counter(
-                MESSAGE_FAILURES_METRIC, 1, {"reason": "unexpected"}, help="IM message failures"
-            )
-            logger.exception(
-                "inbound_message_failed channel=%s message_id=%s",
-                envelope.channel,
-                envelope.message_id,
-            )
+            self._record_unexpected(envelope)
+        finally:
+            backlog.release(key, command=_is_command(envelope.text))
+
+    def _record_unexpected(self, envelope: ChannelEnvelope) -> None:
+        metrics.inc_counter(
+            MESSAGE_FAILURES_METRIC, 1, {"reason": "unexpected"}, help="IM message failures"
+        )
+        logger.exception(
+            "inbound_message_failed channel=%s message_id=%s",
+            envelope.channel,
+            envelope.message_id,
+        )
+
+    async def _refuse_overloaded(
+        self, adapter: ChannelAdapter, envelope: ChannelEnvelope
+    ) -> None:
+        """排队积压：**可见**拒绝（指标 + 日志 + 用户反馈），不静默丢。
+
+        静默丢最坏：用户以为机器人坏了，而我们连一条痕迹都没有。给一条"稍后再试"至少让用户
+        知道该重发；留指标与日志让"网关被打爆"在监控上看得见。
+        """
+        metrics.inc_counter(
+            MESSAGE_FAILURES_METRIC, 1, {"reason": "overloaded"}, help="IM message failures"
+        )
+        logger.warning(
+            "inbound_backlog_full channel=%s message_id=%s", envelope.channel, envelope.message_id
+        )
+        await self._send_text(
+            adapter,
+            route_from_envelope(envelope),
+            self._catalog.message(CHANNEL_BUSY, DEFAULT_REPLY_LOCALE),
+        )
 
     def _route_lock(self, envelope: ChannelEnvelope) -> asyncio.Lock:
-        key = (envelope.channel, envelope.bot_id, envelope.external_user_id)
+        key = _route_key(envelope)
         lock = self._route_locks.get(key)
         if lock is None:
             lock = asyncio.Lock()
             self._route_locks[key] = lock
         return lock
 
-    async def handle(self, adapter: ChannelAdapter, envelope: ChannelEnvelope) -> None:
-        if not await self._mark_seen(envelope):
-            return
+    async def handle(self, adapter: ChannelAdapter, envelope: ChannelEnvelope) -> bool:
+        """处理一条入站消息，返回**是否已受理**。
+
+        **去重的时机**（2026-10-06 修）：占位在入口占，终值只在**受理之后**写。此前是"看一眼
+        就写 10 分钟去重键"，于是受理前的故障（平台设置拉取失败、授权解析失败、附件落盘失败）
+        会把这条消息永久标成"处理过"：平台重投被去重跳过，用户既没有 Run、也收不到任何反馈
+        （实测 `runtime_submissions=0, user_feedback=0`，键的 TTL 还剩 600 秒）。
+
+        未受理即释放占位，让重投能真正重试；受理之后的重复由下游幂等键兜底（`message_id` 作为
+        `Idempotency-Key` 沿链路透传到 Console 与 Runtime）。
+        """
+        seen = await self._reserve_seen(envelope)
+        if seen is None:
+            return True
+        session = self._open_reply_session(adapter, envelope)
+        session_token = _REPLY_SESSION.set(session)
+        try:
+            accepted = await self._dispatch(adapter, envelope)
+        except BaseException:
+            await self._release_seen(seen, envelope)
+            raise
+        finally:
+            _REPLY_SESSION.reset(session_token)
+            await self._close_reply_session(session, envelope)
+        if accepted:
+            await self._mark_accepted(seen, envelope)
+        else:
+            await self._release_seen(seen, envelope)
+        return accepted
+
+    async def _dispatch(self, adapter: ChannelAdapter, envelope: ChannelEnvelope) -> bool:
         if _carries_no_payload(adapter, envelope):
             # 既无文本也无附件、渠道也说没有待取件的内容 ⇒ 没有可运行的东西：**不**建 Run、
             # **不**回复（用户没发任何可回应的内容）。带载荷的消息不会走到这里：它的取件、
@@ -376,7 +526,7 @@ class InboundPipeline:
                 envelope.message_id,
                 envelope.channel,
             )
-            return
+            return True
         text = envelope.text.strip()
         metrics.inc_counter(
             MESSAGES_METRIC,
@@ -387,28 +537,65 @@ class InboundPipeline:
         route = route_from_envelope(envelope)
         # 回复生命周期开始时**只此一处**取一次快照并固定（ADR-04）：整个回复期间（含 tick）
         # 都用它，下一条入站消息重新取。
-        token = _REPLY_SETTINGS.set(await self._resolve_reply_settings())
+        try:
+            settings = await self._resolve_reply_settings()
+        except AppError as exc:
+            # 设置读取失败也要**让用户看见**：此前它发生在业务异常处理之外，只落一条 unexpected
+            # 日志（用户既不建 Run 也收不到任何提示），而消息却已被去重键标记成处理过。
+            await self._reply_error(adapter, route, exc, locale=DEFAULT_REPLY_LOCALE)
+            return False
+        token = _REPLY_SETTINGS.set(settings)
         try:
             if text == BIND_COMMAND or text.startswith(f"{BIND_COMMAND} "):
-                await self._handle_bind(adapter, route, envelope, text)
-                return
+                return await self._handle_bind(adapter, route, envelope, text)
             if text == NEW_COMMAND:
-                await self._handle_new(adapter, route, envelope)
-                return
+                return await self._handle_new(adapter, route, envelope)
             if text == STOP_COMMAND:
-                await self._handle_stop(adapter, route, envelope)
-                return
+                return await self._handle_stop(adapter, route, envelope)
             if text == SKILLS_COMMAND:
-                await self._handle_skills(adapter, route, envelope)
-                return
-            await self._handle_message(adapter, route, envelope)
+                return await self._handle_skills(adapter, route, envelope)
+            return await self._handle_message(adapter, route, envelope)
         finally:
             _REPLY_SETTINGS.reset(token)
+
+    def _open_reply_session(
+        self, adapter: ChannelAdapter, envelope: ChannelEnvelope
+    ) -> ChannelReplySession | None:
+        """固定**本条消息自己的**回复会话：命令回执、附件回执、错误文案都回到它自己的回调上。
+
+        此前只有走 Run 的路径开会话，其余一律走"本路由最新回调"，于是同会话后来的消息会把前
+        面那条消息的回执顶掉（实测：`/bind` 的成功回执发到了后来的那条消息上）。
+
+        打不开就退回适配器默认路径（那是"主动投递"）：渠道没有会话内回复能力、或该回调已过期
+        （TTL 5 分钟）都会走到这里，此时退回本路由最新回调是唯一还能把话说出去的路径。
+        """
+        if not isinstance(adapter, ReplySessionFactory):
+            return None
+        try:
+            return adapter.open_reply(route_from_envelope(envelope), envelope.message_id)
+        except ChannelAdapterUnavailable:
+            logger.warning("channel_reply_session_unavailable channel=%s", envelope.channel)
+            return None
+
+    async def _close_reply_session(
+        self, session: ChannelReplySession | None, envelope: ChannelEnvelope
+    ) -> None:
+        """收尾并**释放**本会话（`finish` 幂等；Run 路径已经在 finalize 里收过尾）。
+
+        不释放会让会话一直挂在适配器的活跃集合里：命令回执这类一次性文本没有别的收尾点。
+        """
+        if session is None:
+            return
+        try:
+            await session.finish()
+        except ChannelAdapterUnavailable:
+            logger.warning("channel_reply_close_failed channel=%s", envelope.channel, exc_info=True)
 
     async def _resolve_reply_settings(self) -> ReplySettings:
         """取该租户当前平台设置快照并解析出这份回复的 locale 与节拍。
 
-        源不可读 ⇒ 明确失败（`AppError`，由 `_consume_one` 记异常并留痕），绝不回退过期默认值。
+        源不可读 ⇒ 明确失败（`AppError`，由 `_dispatch` 转成用户可见反馈并放行重投），
+        绝不回退过期默认值。
         """
         snapshot = await self._settings_client.fetch_snapshot(
             tenant_id=self._tenant_id, trace_id=current_trace_id()
@@ -423,20 +610,44 @@ class InboundPipeline:
             self._activity_catalogs[locale] = catalog
         return catalog
 
-    async def _mark_seen(self, envelope: ChannelEnvelope) -> bool:
+    async def _reserve_seen(self, envelope: ChannelEnvelope) -> _SeenReservation | None:
+        """占位；`None` = **已在处理/已受理**（重复投递，丢弃）。
+
+        只占位、不写终值：终值（"已受理"）由 `_mark_accepted` 在真正受理之后写。见 `handle`。
+        """
         key = f"{DEDUPE_PREFIX}:{envelope.channel}:{envelope.message_id}"
         try:
-            duplicate = await is_duplicate(self._dedupe, key, DEDUPE_TTL_SEC)
+            owner = await self._dedupe.reserve(key, DEDUPE_TTL_SEC)
         except DedupeStoreError as exc:
             metrics.inc_counter(
                 MESSAGE_FAILURES_METRIC, 1, {"reason": "dedupe_unavailable"}, help="IM message failures"
             )
             logger.warning("dedupe_store_failed message_id=%s error=%s", envelope.message_id, exc)
-            return True
-        if duplicate:
+            # fail-open：照常处理。丢消息比重复消息更严重（RULE-13 的同一条口径）。
+            return _SeenReservation(key=key, owner=None)
+        if owner is None:
             metrics.inc_counter(DEDUPE_HITS_METRIC, 1, help="Inbound dedupe hits")
             logger.debug("duplicate_message_ignored message_id=%s", envelope.message_id)
-        return not duplicate
+            return None
+        return _SeenReservation(key=key, owner=owner)
+
+    async def _mark_accepted(self, seen: _SeenReservation, envelope: ChannelEnvelope) -> None:
+        """把占位升级成"已受理"（TTL 600s）。此后同 `message_id` 的重投不再重复处理。"""
+        if seen.owner is None:  # 去重存储不可用：没有可升级的键
+            return
+        try:
+            await self._dedupe.mark(seen.key, seen.owner, DEDUPE_VALUE, DEDUPE_TTL_SEC)
+        except DedupeStoreError as exc:
+            logger.warning("dedupe_mark_failed message_id=%s error=%s", envelope.message_id, exc)
+
+    async def _release_seen(self, seen: _SeenReservation, envelope: ChannelEnvelope) -> None:
+        """**未受理就释放占位**，让平台的重投能真正重试（CAS：只释放属于自己的占位）。"""
+        if seen.owner is None:
+            return
+        try:
+            await self._dedupe.release(seen.key, seen.owner)
+        except DedupeStoreError as exc:
+            logger.warning("dedupe_release_failed message_id=%s error=%s", envelope.message_id, exc)
 
     async def _resolve(
         self,
@@ -462,11 +673,11 @@ class InboundPipeline:
         route: DeliveryRouteInput,
         envelope: ChannelEnvelope,
         text: str,
-    ) -> None:
+    ) -> bool:
         code = text[len(BIND_COMMAND) :].strip()
         if not code:
             await self._send_text(adapter, route, BIND_USAGE_TEXT)
-            return
+            return True
         request = ChannelBindRequest(
             channel=envelope.channel,
             bot_id=envelope.bot_id,
@@ -481,24 +692,26 @@ class InboundPipeline:
             )
         except AppError as exc:
             await self._reply_error(adapter, route, exc)
-            return
+            # 依赖调用没成功 ⇒ **未受理**：平台重投时重跑（Console 侧幂等键=message_id，不会重复绑定）
+            return False
         await self._send_text(adapter, route, BIND_SUCCESS_TEXT)
+        return True
 
     async def _handle_new(
         self,
         adapter: ChannelAdapter,
         route: DeliveryRouteInput,
         envelope: ChannelEnvelope,
-    ) -> None:
+    ) -> bool:
         resolved = await self._resolve(adapter, route, envelope)
         if resolved is None:
-            return
+            return False
         if resolved.platform_user_id is None or resolved.agent_id is None:
             await self._send_text(adapter, route, UNBOUND_TEXT)
-            return
+            return True
         if not resolved.authorized:
             await self._send_text(adapter, route, NO_PERMISSION_TEXT)
-            return
+            return True
         try:
             await self._runtime.create_conversation(
                 resolved.agent_id,
@@ -509,24 +722,25 @@ class InboundPipeline:
             )
         except AppError as exc:
             await self._reply_error(adapter, route, exc)
-            return
+            return False
         await self._send_text(adapter, route, NEW_CONVERSATION_TEXT)
+        return True
 
     async def _handle_stop(
         self,
         adapter: ChannelAdapter,
         route: DeliveryRouteInput,
         envelope: ChannelEnvelope,
-    ) -> None:
+    ) -> bool:
         resolved = await self._resolve(adapter, route, envelope)
         if resolved is None:
-            return
+            return False
         if resolved.platform_user_id is None or resolved.agent_id is None:
             await self._send_text(adapter, route, UNBOUND_TEXT)
-            return
+            return True
         if not resolved.authorized:
             await self._send_text(adapter, route, NO_PERMISSION_TEXT)
-            return
+            return True
         try:
             result = await self._runtime.cancel_active(
                 resolved.agent_id,
@@ -540,9 +754,9 @@ class InboundPipeline:
                     route,
                     self._catalog.message(exc.code, self._locale),
                 )
-                return
+                return True
             await self._reply_error(adapter, route, exc)
-            return
+            return False
         # 设计 §3.4.2：WAITING_INPUT 已被 Runtime 直接 CAS 为 CANCELLED（立即"已停止"），
         # CREATED/RUNNING 只受理；Gateway 不猜测也不缓存活跃 Run
         await self._send_text(
@@ -552,22 +766,23 @@ class InboundPipeline:
             if str(result.get("status") or "") == str(RunStatus.CANCELLED)
             else STOP_ACCEPTED_TEXT,
         )
+        return True
 
     async def _handle_skills(
         self,
         adapter: ChannelAdapter,
         route: DeliveryRouteInput,
         envelope: ChannelEnvelope,
-    ) -> None:
+    ) -> bool:
         resolved = await self._resolve(adapter, route, envelope)
         if resolved is None:
-            return
+            return False
         if resolved.platform_user_id is None or resolved.agent_id is None:
             await self._send_text(adapter, route, UNBOUND_TEXT)
-            return
+            return True
         if not resolved.authorized:
             await self._send_text(adapter, route, NO_PERMISSION_TEXT)
-            return
+            return True
         try:
             catalog = await fetch_skill_catalog(
                 self._console,
@@ -578,31 +793,32 @@ class InboundPipeline:
         except AppError as exc:
             logger.warning("channel_skills_failed code=%s", exc.code)
             await self._send_text(adapter, route, SKILLS_UNAVAILABLE_TEXT)
-            return
+            return False
         await self._send_text(adapter, route, format_skills(catalog))
+        return True
 
     async def _handle_message(
         self,
         adapter: ChannelAdapter,
         route: DeliveryRouteInput,
         envelope: ChannelEnvelope,
-    ) -> None:
+    ) -> bool:
         resolved = await self._resolve(adapter, route, envelope)
         if resolved is None:
-            return
+            return False
         if resolved.platform_user_id is None or resolved.agent_id is None:
             await self._send_text(adapter, route, UNBOUND_TEXT)
-            return
+            return True
         if not resolved.authorized:
             await self._send_text(adapter, route, NO_PERMISSION_TEXT)
-            return
+            return True
         # 附件链路放在**授权之后**：未绑定/无权限那两条早退路径不会取件，"能收才去拉"，
         # 把 AD-1-B 下（字节先于 Run 落盘）的无主产物压到最小（设计 §3.2.1）。
         collected = await self._collect_attachments(adapter, route, envelope)
         if not collected.refs and not envelope.text.strip():
             # 没有可跑的内容（附件全部被拒/取件失败，且文本为空）：反馈与审计已由
             # `_collect_attachments` 闭环，这里只是**不**把空消息当用户输入发给模型。
-            return
+            return True
         request = RunRequest(
             agent_id=resolved.agent_id,
             platform_user_id=resolved.platform_user_id,
@@ -619,7 +835,7 @@ class InboundPipeline:
                 attachments=list(collected.refs),
             ),
         )
-        await self._consume_run(adapter, route, request, resolved.platform_user_id)
+        return await self._consume_run(adapter, route, request, resolved.platform_user_id)
 
     async def _collect_attachments(
         self, adapter: ChannelAdapter, route: DeliveryRouteInput, envelope: ChannelEnvelope
@@ -690,21 +906,40 @@ class InboundPipeline:
 
         refs: list[AttachmentRef] = []
         total_bytes = 0
+        codes = [*failures, *(rejection.code for rejection in precheck.rejected)]
+        codes.extend(rejection.code for rejection in decision.rejected)
         for position, (index, _candidate, content) in enumerate(graded):
             if position in rejected_positions:
                 continue
-            refs.append(
-                store.persist(
+            try:
+                ref = store.persist(
                     token=envelope.message_id,
                     index=index,
                     content=content,
                     source_channel=envelope.channel,
                 )
-            )
-            total_bytes += len(content.data)
+            except AttachmentConflictError:
+                # 同一个键上已经有**别的**字节：既不覆盖也不当成自己的，这一份按未收下处理。
+                logger.error(
+                    "inbound_attachment_conflict message_id=%s index=%s",
+                    envelope.message_id,
+                    index,
+                )
+                codes.append(ATTACHMENT_FETCH_FAILED)
+                continue
+            except OSError as exc:
+                # 落盘是本地副作用：一份写不进去只影响这一份，不该把整条消息（含有效文本）丢掉
+                logger.error(
+                    "inbound_attachment_write_failed message_id=%s index=%s error=%s",
+                    envelope.message_id,
+                    index,
+                    type(exc).__name__,
+                )
+                codes.append(ATTACHMENT_FETCH_FAILED)
+                continue
+            refs.append(ref)
+            total_bytes += ref.size
 
-        codes = [*failures, *(rejection.code for rejection in precheck.rejected)]
-        codes.extend(rejection.code for rejection in decision.rejected)
         # RULE-04：同一条入站消息**至多一条**附件相关反馈。全收下也要回一条收据（否则用户
         # 不知道东西到底到没到），部分接收把原因**并进同一条**——绝不拆成"回执 + 拒绝说明"两条。
         if refs or codes:
@@ -819,21 +1054,30 @@ class InboundPipeline:
         route: DeliveryRouteInput,
         request: RunRequest,
         platform_user_id: UUID,
-    ) -> None:
+    ) -> bool:
+        """跑完一次 Run 的 SSE 流；返回 **Run 是否已被 Runtime 受理**（见 `handle` 的去重口径）。
+
+        "受理"的判据是**提交没被拒**：`create_run` 抛 `AppError`（连不上、4xx/5xx）才算没受理，
+        此时放行平台重投去真正重试；流开出来之后无论跑成什么样，Runtime 那边都已经有这条 Run
+        （幂等键就是 `message_id`），重投只会被它按幂等重放——所以那时该去重，不该重来一遍。
+        """
         state = _RunStreamState(self._build_renderer())
-        if isinstance(adapter, ReplySessionFactory):
-            try:
-                state.reply = adapter.open_reply(route, request.message.id)
-                state.activity_messages = self._activity_messages(self._locale)
-            except ChannelAdapterUnavailable:
-                logger.warning("channel_reply_session_unavailable channel=%s", route.channel)
+        # 会话由 `handle` 在入站那一刻固定（`_REPLY_SESSION`）：本条消息的所有回复——回执、错误、
+        # 状态、正文——都回到**它自己的**回调上，不受同会话后续消息影响。
+        state.reply = _REPLY_SESSION.get()
+        if state.reply is not None:
+            state.activity_messages = self._activity_messages(self._locale)
         finalized = False
         try:
             await self._update_progress(route, state, force=True)
             stream = self._runtime.create_run(request, tenant_id=self._tenant_id)
-            async with aclosing(iter_with_ticks(stream, interval=self._progress_interval_sec)) as events:
+            async with aclosing(iter_with_ticks(stream, interval=self._tick_interval_sec)) as events:
                 async for event in events:
                     if event is None:
+                        # 计时拍：**同一拍里也要把到点的正文缓冲发出去**。正文此前只在下一条
+                        # 增量到来时才可能被冲出去，模型一思考/一跑工具就整段挂在缓冲里
+                        # （实测：只收一个 delta 后静默 1.2 秒，客户端一个正文帧都没收到）。
+                        await self._flush(adapter, route, state)
                         await self._update_progress(route, state)
                         continue
                     await self._apply_run_event(adapter, route, platform_user_id, state, event)
@@ -852,7 +1096,7 @@ class InboundPipeline:
                 await self._run_actions(adapter, route, state, state.renderer.finalize())
                 finalized = True
             await self._reply_error(adapter, route, exc, reply=state.reply)
-            return
+            return False
         finally:
             if not finalized:
                 await self._run_actions(adapter, route, state, state.renderer.finalize())
@@ -861,6 +1105,22 @@ class InboundPipeline:
             _elapsed_ms(state.started_at),
             help="Whole-stream latency until finalize (ms)",
         )
+        return True
+
+    @property
+    def _tick_interval_sec(self) -> float:
+        """SSE 读取循环的醒来的节拍：**计时与正文刷新取更小的那个**。
+
+        正文档节拍（5s）只决定"计时状态多久更新一次"，不该顺带决定正文多久能出去一次；
+        正文的合并窗口是 `delta_flush_interval_sec`（0.5s）。计时仍按 `_progress_interval_sec`
+        节流（见 `_update_progress`），所以客户端看到的计时粒度不变。
+        """
+        flush = self._delta_flush_interval_sec
+        if flush <= 0:
+            # 直构的调用方把合并窗口设成 0（每条增量立即 flush）：那正文不需要定时器，
+            # 读取循环按计时节拍醒来即可 —— 但**必须为正**（`iter_with_ticks` 不接受 0）。
+            return self._progress_interval_sec
+        return min(self._progress_interval_sec, flush)
 
     async def _update_progress(
         self,
@@ -885,9 +1145,16 @@ class InboundPipeline:
         if force:
             await self._drain_status(state)
             await self._send_status(route, state)
+            state.last_progress_at = time.monotonic()
+            return
+        # 读取循环的醒来节拍（0.5s，为了及时冲正文）**不等于**计时节拍（5s）：正文要快，
+        # 计时帧要少（每帧都让客户端整帧重排）。这里按 `im.progress_interval_sec` 节流。
+        now = time.monotonic()
+        if now - state.last_progress_at < self._progress_interval_sec:
             return
         if state.status_task is None or state.status_task.done():
             state.status_task = asyncio.create_task(self._send_status(route, state))
+            state.last_progress_at = now
 
     async def _send_status(self, route: DeliveryRouteInput, state: _RunStreamState) -> None:
         reply = state.reply
@@ -1036,7 +1303,23 @@ class InboundPipeline:
         route: DeliveryRouteInput,
         text: str,
     ) -> None:
+        """一条独立文本（命令回执 / 附件回执 / 错误文案）。
+
+        **优先走本消息自己的回复会话**（`_REPLY_SESSION`）：回执必须落在**发起它的那条消息**上。
+        此前这里一律走 `adapter.send` → 适配器的"本路由最新回调"，于是同会话后来的消息会把前面
+        那条的回执顶掉（实测：`/bind` 的成功回执发到了后来的那条消息上）。
+
+        没有会话（渠道不支持会话内回复、或本消息的回调已过期）才退回 `adapter.send` —— 那是
+        适配器里的"主动投递"路径，与"回到某条消息"是两回事。
+        """
         if not text:
+            return
+        session = _REPLY_SESSION.get()
+        if session is not None:
+            try:
+                await session.reply_once(text)
+            except ChannelAdapterUnavailable as exc:
+                logger.warning("channel_reply_unavailable channel=%s error=%s", route.channel, exc)
             return
         message = DeliveryMessage(text=text)
         try:
@@ -1063,11 +1346,17 @@ class InboundPipeline:
         exc: AppError,
         *,
         reply: ChannelReplySession | None = None,
+        locale: str | None = None,
     ) -> None:
+        """把依赖错误转成用户可见文案。
+
+        `locale` 显式传入只用于**回复设置本身取不到**的那条路径：那时 `_REPLY_SETTINGS` 还没
+        建立，只能退回目录默认语言——但**不能因此不回复**（用户看不见错误等于消息被吞了）。
+        """
         metrics.inc_counter(RUNTIME_ERRORS_METRIC, 1, {"code": exc.code}, help="Runtime error codes observed")
         metrics.inc_counter(MESSAGE_FAILURES_METRIC, 1, {"reason": exc.code}, help="IM message failures")
         logger.warning("inbound_dependency_error code=%s", exc.code)
-        text = self._catalog.message(exc.code, self._locale)
+        text = self._catalog.message(exc.code, locale or self._locale)
         if reply is None:
             await self._send_text(adapter, route, text)
         else:

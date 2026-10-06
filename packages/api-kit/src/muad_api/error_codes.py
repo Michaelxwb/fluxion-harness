@@ -50,6 +50,8 @@ class ErrorCode(StrEnum):
     PLATFORM_ADAPTER_NOT_FOUND = "PLATFORM_ADAPTER_NOT_FOUND"
     RUN_BUSY = "RUN_BUSY"
     NO_ACTIVE_RUN = "NO_ACTIVE_RUN"
+    # 网关入站排队积压（im-gateway）：过载时的**用户可见**拒绝（RULE-01：不静默丢）。
+    CHANNEL_BUSY = "CHANNEL_BUSY"
     # 入站附件（wecom-inbound-media）：消息目录里的码与枚举必须一一对应
     # （tests/test_error_catalog.py 双向断言），因此新增词条必须同时在这里登记。
     UNSUPPORTED_MEDIA = "UNSUPPORTED_MEDIA"

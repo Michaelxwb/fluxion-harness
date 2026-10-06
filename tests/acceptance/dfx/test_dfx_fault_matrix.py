@@ -8,7 +8,8 @@
   用例内以「测试进程自己仍能 `SELECT 1`」为正对照，证明故障只发生在被测服务的边界上。
 - **E-02 `Redis → PG`**：被测 Worker 的 `REDIS_URL` 指向不可达端点 `redis://127.0.0.1:1/0`
   （与 `tests/acceptance/im_gateway/test_redis_degradation.py` 同口径）。去重口径直接用生产的
-  `build_dedupe_store`/`is_duplicate`（网关启动时的同一构造路径）取证降级与恢复，不手写替身。
+  `build_dedupe_store` + `reserve`（网关启动与投递时的同一构造与同一条路径）取证降级与恢复，
+  不手写替身。
 - **E-03 `emptyDir cache → NFS`**：被测 Worker 的 Artifact 根先真实存在，随后**换成同名普通文件**
   （`is_dir()` 变假、`resolve/open` 得到 `ENOTDIR` —— 写入与 cache miss 都真实失败），复位时换回目录；
   既有 READY 的本地缓存仍可执行，cache miss 与新写入以 `SKILL_ARTIFACT_UNAVAILABLE` 明确失败。
@@ -45,7 +46,6 @@ from muad_im_gateway.infrastructure.dedupe import (
     DedupeStoreError,
     RedisDedupeStore,
     build_dedupe_store,
-    is_duplicate,
 )
 from redis.exceptions import RedisError
 from sqlalchemy import text
@@ -533,7 +533,8 @@ async def _unreachable_redis_probe() -> dict[str, str]:
     try:
         key = f"{DELIVERY_DEDUPE_PREFIX}:{_new_key(FAULT_KEY_PREFIX)}"
         outcome["startup_store"] = type(startup).__name__
-        outcome["startup_duplicate"] = str(await is_duplicate(startup, key, DELIVERY_DEDUPE_TTL_SEC))
+        # 与生产同一条路径：占位拿不到 = 重复；Null 降级永远拿得到（fail-open）
+        outcome["startup_duplicate"] = str(await startup.reserve(key, DELIVERY_DEDUPE_TTL_SEC) is None)
     finally:
         await startup.aclose()
     return outcome
@@ -544,16 +545,23 @@ async def _dedupe_degrade_and_restore() -> dict[str, Any]:
     key = f"{DELIVERY_DEDUPE_PREFIX}:{_new_key(FAULT_KEY_PREFIX)}"
     degraded = await build_dedupe_store(DEAD_REDIS_URL)
     restored = await build_dedupe_store(_redis_url())
+    restored_owner: str | None = None
     try:
+        degraded_owner = await degraded.reserve(key, DELIVERY_DEDUPE_TTL_SEC)
+        restored_owner = await restored.reserve(key, DELIVERY_DEDUPE_TTL_SEC)
         return {
             "degraded_store": type(degraded).__name__,
-            "degraded_duplicate": await is_duplicate(degraded, key, DELIVERY_DEDUPE_TTL_SEC),
+            "degraded_duplicate": degraded_owner is None,
             "restored_store": type(restored).__name__,
-            "restored_first_duplicate": await is_duplicate(restored, key, DELIVERY_DEDUPE_TTL_SEC),
-            "restored_second_duplicate": await is_duplicate(restored, key, DELIVERY_DEDUPE_TTL_SEC),
+            "restored_first_duplicate": restored_owner is None,
+            "restored_second_duplicate": (
+                await restored.reserve(key, DELIVERY_DEDUPE_TTL_SEC)
+            ) is None,
+            "restored_owner": restored_owner,
         }
     finally:
-        await restored.release(key)
+        if restored_owner is not None:
+            await restored.release(key, restored_owner)
         await degraded.aclose()
         await restored.aclose()
 

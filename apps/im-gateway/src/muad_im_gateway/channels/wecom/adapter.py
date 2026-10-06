@@ -82,6 +82,12 @@ DEFAULT_LIVENESS_INTERVAL_SEC = 1.0
 MEDIA_REF_TTL_SEC = 300.0
 # 待取件引用的容量上限：TTL 之内消息量突增时仍有硬边界（按插入顺序淘汰最旧的）。
 MEDIA_REF_CAPACITY = 256
+# Run → 「起这个 Run 的那条消息的回调」的保留窗口（2026-10-06）。产物交付可能比 Run 收尾还晚
+# （模型拿到工具结果之后才交付，失败还要重试），所以会话结束后映射不能立刻丢；过期则明确
+# 降级成**主动投递**，而不是回落到"本路由最新回调"——那会把老任务的产物挂到另一条消息上。
+RUN_REPLY_TTL_SEC = 3600.0
+# 同一份映射的容量上限（按时间淘汰最旧的），与 `_message_refs` 同一套纪律。
+RUN_REPLY_CAPACITY = 512
 TEXT_MESSAGE_TYPE = "text"
 IMAGE_MESSAGE_TYPE = "image"
 FILE_MESSAGE_TYPE = "file"
@@ -691,6 +697,9 @@ class WeComAdapter:
         self._connections: dict[str, _BotConnection] = {}
         self._events: asyncio.Queue[ChannelEnvelope] = asyncio.Queue()
         self._reply_refs: dict[RouteKey, str] = {}
+        #: Run → (该 Run 那条消息的回调, 记录时刻, bot_id)。会话收尾后仍然保留一个窗口
+        #: （见 `_reply_target`）：产物交付可能比收尾还晚。
+        self._run_reply_refs: dict[str, tuple[str, float, str]] = {}
         self._streams: dict[RouteKey, _StreamState] = {}
         self._pending_media: dict[str, _PendingMedia] = {}
         self._started = False
@@ -773,6 +782,7 @@ class WeComAdapter:
             await connection.stop()
         self._connections.clear()
         self._reply_refs.clear()
+        self._run_reply_refs.clear()
 
     async def apply_snapshot(self, items: Sequence[BotSnapshotItem]) -> None:
         desired = {item.bot_id: item for item in items if item.enabled}
@@ -805,10 +815,24 @@ class WeComAdapter:
         # （2026-09-30 真机复验：「绑定成功」回执即因此失败）。仅真正的主动投递
         # （无回调上下文）才用 `send_text`。
         reply_ref = self._reply_refs.get(route_key(route))
-        if reply_ref is not None:
-            await client.reply_text(reply_ref, message.text)
-            return
-        await client.send_text(_chat_id(route), message.text)
+        try:
+            if reply_ref is not None:
+                await client.reply_text(reply_ref, message.text)
+                return
+            await client.send_text(_chat_id(route), message.text)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            # 官方 SDK 用**任意异常**回传发送失败（实测 `RuntimeError: Reply ack error: errcode=40008`）。
+            # 不翻译的话它会越过渠道能力边界：应用层只捕获 `ChannelAdapterUnavailable`，于是一次
+            # 回执发送失败就把整条有效请求（含有效文本、附件反馈、审计、Run 创建）一起带走。
+            logger.warning(
+                "wecom_send_failed bot_id=%s error=%s: %s",
+                route.bot_id,
+                type(exc).__name__,
+                exc,
+            )
+            raise ChannelAdapterUnavailable("wecom send failed") from exc
 
     def route_key(self, route: DeliveryRouteInput) -> str:
         """企微的交付路由标识：`{bot_id}:{external_user_id}`（可读、不透明）。"""
@@ -866,15 +890,39 @@ class WeComAdapter:
     def _reply_target(self, route: DeliveryRouteInput, run_id: str | None) -> str | None:
         """本条出站消息该回哪个回调。
 
-        产物带着起它的 Run ⇒ 用**起这个 Run 的那条入站消息**的回调：同一路由后来再来消息，
-        只把路由级「最新回调」顶掉，不该把老任务的产物挂到新消息上。Run 已收尾（会话已结束）
-        或键里没有 Run 时，退回路由级最新回调——那是本适配器一直以来的语义。
+        产物带着起它的 Run ⇒ 用**起这个 Run 的那条入站消息**的回调。同路由后来再来消息只把
+        路由级「最新回调」顶掉，不该把老任务的产物挂到新消息上。
+
+        **带 Run 时不再退回路由级最新回调**（2026-10-06 修）：会话已结束就说明"那条消息的回调
+        已经不在了"，此时退回最新回调等于把 old-run 的产物发到**另一条消息**头上（实测：
+        `closed_run_target` 变成了后来那条消息的 req_id）。映射在
+        `RUN_REPLY_TTL_SEC` 内保留，覆盖交付重试窗口；真的过期了就返回 `None`，
+        由调用方走**主动投递**（发给会话，不冒充某条消息的回调）。键里没有 Run（后台任务投递）
+        才退回路由级最新回调——那是本适配器一直以来的语义。
         """
-        if run_id is not None:
-            for session in self._replies:
-                if session.run_id == run_id:
-                    return session.reply_ref
-        return self._reply_refs.get(route_key(route))
+        if run_id is None:
+            return self._reply_refs.get(route_key(route))
+        self._prune_run_replies()
+        remembered = self._run_reply_refs.get(run_id)
+        if remembered is None:
+            logger.warning("wecom_run_reply_target_expired run_id=%s", run_id)
+            return None
+        return remembered[0]
+
+    def _prune_run_replies(self) -> None:
+        """按 TTL 与容量淘汰 Run→回调映射（与 `_message_refs` 同一套纪律，避免无界增长）。"""
+        now = time.monotonic()
+        self._run_reply_refs = {
+            run_id: entry
+            for run_id, entry in self._run_reply_refs.items()
+            if now - entry[1] < RUN_REPLY_TTL_SEC
+        }
+        while len(self._run_reply_refs) > RUN_REPLY_CAPACITY:
+            oldest = min(self._run_reply_refs, key=lambda key: self._run_reply_refs[key][1])
+            del self._run_reply_refs[oldest]
+
+    def _remember_run_reply(self, run_id: str, bot_id: str, reply_ref: str) -> None:
+        self._run_reply_refs[run_id] = (reply_ref, time.monotonic(), bot_id)
 
     async def _degrade_to_fetch_link(
         self,
@@ -918,6 +966,8 @@ class WeComAdapter:
             flush_interval_sec=self._stream_flush_interval_sec,
             budget=budget,
             on_finish=lambda: self._replies.discard(session),
+            # Run 绑定即记下"这条消息的回调"：会话收尾后仍要在交付窗口内查得到（见 `_reply_target`）
+            on_run_bound=lambda run_id: self._remember_run_reply(run_id, route.bot_id, ref[0]),
         )
         self._replies.add(session)
         return session
@@ -1002,6 +1052,9 @@ class WeComAdapter:
         for key in tuple(self._reply_refs):
             if key[0] == bot_id:
                 del self._reply_refs[key]
+        for run_id, entry in tuple(self._run_reply_refs.items()):
+            if entry[2] == bot_id:  # bot 没了，它的回调一个也不该再用
+                del self._run_reply_refs[run_id]
 
     def _handle_inbound(self, message: WeComInboundMessage) -> None:
         if not message.message_id or not message.external_user_id:
@@ -1059,13 +1112,17 @@ class WeComAdapter:
     async def fetch_attachment(
         self, envelope: ChannelEnvelope, index: int, *, max_bytes: int
     ) -> FetchedAttachment:
-        """取回并解密第 `index` 个附件。**凭据不出这个函数**——调用方只拿到字节与元信息。"""
+        """取回并解密第 `index` 个附件。**凭据不出这个函数**——调用方只拿到字节与元信息。
+
+        **一切失败都必须翻成 `AttachmentFetchError`**（渠道中立的词汇表）：应用层只认识这一个
+        类型，漏出去的任何异常都会越过附件反馈与审计，把整条请求（含有效文本）一起中止
+        （实测：bot 处于 BACKOFF 时 `ChannelAdapterUnavailable` 直接冒到 `_consume_one`，
+        用户既没收到反馈、也没写审计、更没建 Run）。
+        """
         pending = self._pending_media.get(envelope.message_id)
         if pending is None or index < 0 or index >= len(pending.refs):
             # 过期/已驱逐/越界：明确失败，不静默给空字节（上层据此走 E-03 的失败反馈）
-            raise WeComSdkError(
-                f"wecom media ref unavailable message_id={envelope.message_id} index={index}"
-            )
+            raise AttachmentFetchError(ATTACHMENT_FETCH_FAILED)
         ref = pending.refs[index]
         try:
             content = await self._require_client(envelope.bot_id).download_media(
@@ -1077,7 +1134,8 @@ class WeComAdapter:
             raise AttachmentFetchError(ATTACHMENT_FETCH_TIMEOUT) from exc
         except WeComMediaDecryptError as exc:
             raise AttachmentFetchError(ATTACHMENT_DECRYPT_FAILED) from exc
-        except WeComMediaNetworkError as exc:
+        except (WeComMediaNetworkError, WeComSdkError, ChannelAdapterUnavailable) as exc:
+            # 断线/退避中（`ChannelAdapterUnavailable`）、其他 SDK 异常（引用失效、协议错误）
             raise AttachmentFetchError(ATTACHMENT_FETCH_FAILED) from exc
         return FetchedAttachment(
             data=content.data,

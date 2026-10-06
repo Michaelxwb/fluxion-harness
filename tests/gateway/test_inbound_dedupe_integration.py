@@ -129,8 +129,9 @@ def _pipeline(
 
 
 async def _cleanup_keys(store: RedisDedupeStore, message_ids: list[str]) -> None:
+    """清场用原始 `DEL`：`release` 是**带所有权**的业务动作，测试清理不该受它约束。"""
     for message_id in message_ids:
-        await store.release(f"{DEDUPE_PREFIX}:WECOM:{message_id}")
+        await store._client.delete(f"{DEDUPE_PREFIX}:WECOM:{message_id}")  # noqa: SLF001
 
 
 async def test_b108_duplicate_message_is_ignored_with_single_downstream_call(
@@ -168,8 +169,8 @@ async def test_s05_set_nx_ex600_and_second_delivery_creates_no_second_run(
     envelope = make_envelope(text="普通消息", message_id=message_id)
     key = f"{DEDUPE_PREFIX}:WECOM:{message_id}"
     try:
-        assert await redis_store.set_if_absent(key, DEDUPE_TTL_SEC) is True  # SET NX 首次成功
-        assert await redis_store.set_if_absent(key, DEDUPE_TTL_SEC) is False  # 第二次 NX 失败
+        assert await redis_store.reserve(key, DEDUPE_TTL_SEC) is not None  # SET NX 首次成功
+        assert await redis_store.reserve(key, DEDUPE_TTL_SEC) is None  # 第二次 NX 失败
         ttl = await redis_store._client.ttl(key)  # noqa: SLF001
         assert 595 <= ttl <= 600
 

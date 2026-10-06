@@ -86,7 +86,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         )
         delivery = DeliveryLoop(
             session_factory,
-            HttpDeliveryClient(settings.im_gateway_url, http_client),
+            HttpDeliveryClient(
+                settings.im_gateway_url,
+                http_client,
+                service_token=settings.internal_service_token,
+            ),
             settings,
             # 产物引用解析：worker 只有不透明的 artifact_id，解析口径在 runtime 一处
             ArtifactResolveClient(

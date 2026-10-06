@@ -166,8 +166,10 @@ def test_dedupe_mode_maps_concrete_stores() -> None:
 
 def test_dedupe_mode_maps_unknown_store_to_disabled() -> None:
     class _CustomStore:
-        async def set_if_absent(self, key: str, ttl_sec: int) -> bool:
-            return False
+        """既不是 Redis 也不是内存实现的自建 store：`dedupe_mode` 必须报 `disabled`。"""
+
+        async def reserve(self, key: str, ttl_sec: int) -> str | None:
+            return "owner"
 
         async def aclose(self) -> None:
             return None

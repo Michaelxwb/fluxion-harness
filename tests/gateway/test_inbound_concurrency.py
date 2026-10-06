@@ -20,7 +20,12 @@ from muad_api import AppError
 from muad_api.catalog import MessageCatalog
 from muad_api.error_codes import ErrorCode
 from muad_contracts import BotSnapshotItem, RunRequest
-from muad_im_gateway.application.inbound import InboundPipeline
+from muad_im_gateway.application.inbound import (
+    CHANNEL_BUSY,
+    DEFAULT_REPLY_LOCALE,
+    MAX_PENDING_PER_ROUTE,
+    InboundPipeline,
+)
 from muad_im_gateway.application.sse import SseEvent
 from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
@@ -266,6 +271,108 @@ async def test_b116_runtime_decides_run_busy(
             what=f"未按 catalog 回 RUN_BUSY 文案（{expected}）",
         )
     finally:
+        consumer.cancel()
+        with suppress(asyncio.CancelledError):
+            await consumer
+
+
+def _route_waiters(pipeline: InboundPipeline) -> int:
+    """同路由上"已进来、还在等锁"的消息数（白盒但精确：断言的是**排队**这件事本身）。"""
+    return max((len(lock._waiters or []) for lock in pipeline._route_locks.values()), default=0)
+
+
+async def test_b116_same_route_backlog_does_not_starve_stop(
+    adapter: WeComAdapter, probe: WeComProbe, catalog: MessageCatalog
+) -> None:
+    """同路由排队消息**不得**堵住 `/stop`（2026-10-06）。
+
+    原实现里读取循环在"活跃任务满 8 个"时 `await asyncio.wait(...)`，而**排队等锁的任务同样
+    算活跃任务** ⇒ 一条长流 + 7 条排队消息就把 8 个槽占满，读取循环再也读不到 /stop（实测：
+    取消接口的调用次数恒为 0，直到人工放行长流）。现在等待发生在任务内部，读循环只做计数。
+    """
+    runtime = GatedRuntimeClient()
+    pipeline = _pipeline(runtime, catalog)
+    consumer = asyncio.create_task(pipeline.consume(adapter))
+    try:
+        await _push(probe, external_user_id=USER_A, text="长任务", chat_id=CHAT_A)
+        await _wait_for(lambda: "长任务" in runtime.started, what="长流未开始")
+        for index in range(7):
+            await _push(probe, external_user_id=USER_A, text=f"排队{index}", chat_id=CHAT_A)
+        await _wait_for(lambda: _route_waiters(pipeline) >= 7, what="7 条消息未排到路由锁上")
+        assert runtime.started == ["长任务"], "长流未放行时同路由不该有第二条流开跑"
+
+        await _push(probe, external_user_id=USER_A, text="/stop", chat_id=CHAT_A)
+
+        # 关键断言：**长流仍然没放行**，而 /stop 已经被处理了
+        await _wait_for(lambda: runtime.cancel_calls >= 1, what="/stop 被同路由排队消息堵住了")
+        assert runtime.started == ["长任务"], "断言前提：长流始终没放行"
+    finally:
+        runtime.gate("长任务").set()
+        for index in range(7):
+            runtime.gate(f"排队{index}").set()
+        consumer.cancel()
+        with suppress(asyncio.CancelledError):
+            await consumer
+
+
+async def test_b116_backlog_overflow_is_refused_visibly(
+    adapter: WeComAdapter, probe: WeComProbe, catalog: MessageCatalog
+) -> None:
+    """排队积压时**可见拒绝**（CHANNEL_BUSY），不静默丢：用户至少知道该重发。"""
+    runtime = GatedRuntimeClient()
+    pipeline = _pipeline(runtime, catalog)
+    consumer = asyncio.create_task(pipeline.consume(adapter))
+    since = len(probe.received)
+    try:
+        await _push(probe, external_user_id=USER_A, text="长任务", chat_id=CHAT_A)
+        await _wait_for(lambda: "长任务" in runtime.started, what="长流未开始")
+        # 跑到**刚好占满**该路由的排队上限（在跑的那条也算一个名额）
+        for index in range(MAX_PENDING_PER_ROUTE - 1):
+            await _push(probe, external_user_id=USER_A, text=f"排队{index}", chat_id=CHAT_A)
+        await _wait_for(
+            lambda: _route_waiters(pipeline) >= MAX_PENDING_PER_ROUTE - 1, what="排队未填满"
+        )
+
+        await _push(probe, external_user_id=USER_A, text="再一条", chat_id=CHAT_A)
+
+        expected = catalog.message(CHANNEL_BUSY, DEFAULT_REPLY_LOCALE)
+        await _wait_for(
+            lambda: expected in _outbound_texts(probe, since), what="溢出未被可见拒绝"
+        )
+        assert "再一条" not in runtime.started
+    finally:
+        runtime.gate("长任务").set()
+        for index in range(MAX_PENDING_PER_ROUTE - 1):
+            runtime.gate(f"排队{index}").set()
+        consumer.cancel()
+        with suppress(asyncio.CancelledError):
+            await consumer
+
+
+async def test_b116_another_user_is_not_blocked_by_a_full_route(
+    adapter: WeComAdapter, probe: WeComProbe, catalog: MessageCatalog
+) -> None:
+    """一个路由排满**不影响别的用户**：排队上限是**每路由**的。"""
+    runtime = GatedRuntimeClient()
+    pipeline = _pipeline(runtime, catalog)
+    consumer = asyncio.create_task(pipeline.consume(adapter))
+    try:
+        await _push(probe, external_user_id=USER_A, text="长任务", chat_id=CHAT_A)
+        await _wait_for(lambda: "长任务" in runtime.started, what="长流未开始")
+        for index in range(MAX_PENDING_PER_ROUTE - 1):
+            await _push(probe, external_user_id=USER_A, text=f"排队{index}", chat_id=CHAT_A)
+        await _wait_for(
+            lambda: _route_waiters(pipeline) >= MAX_PENDING_PER_ROUTE - 1, what="排队未填满"
+        )
+
+        await _push(probe, external_user_id=USER_B, text="B 的问题", chat_id=CHAT_B)
+
+        await _wait_for(lambda: "B 的问题" in runtime.started, what="另一用户被别家的积压挡住")
+    finally:
+        runtime.gate("长任务").set()
+        runtime.gate("B 的问题").set()
+        for index in range(MAX_PENDING_PER_ROUTE - 1):
+            runtime.gate(f"排队{index}").set()
         consumer.cancel()
         with suppress(asyncio.CancelledError):
             await consumer

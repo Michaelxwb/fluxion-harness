@@ -15,8 +15,15 @@ import pytest
 import uvicorn
 from fakes import FakeConsoleClient
 from httpx import ASGITransport, AsyncClient
-from muad_contracts import BotSnapshotItem, DeliveryResponse
-from muad_im_gateway.api.deps import get_console_client, get_dedupe_store, get_registry
+from muad_agent_worker.delivery.client import HttpDeliveryClient
+from muad_contracts import AttachmentRef, BotSnapshotItem, DeliveryResponse
+from muad_im_gateway.api.deps import (
+    get_artifact_resolver,
+    get_console_client,
+    get_dedupe_store,
+    get_gateway_tenant,
+    get_registry,
+)
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable, ChannelRegistry
 from muad_im_gateway.channels.fake import FakeChannelAdapter
 from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
@@ -25,10 +32,35 @@ from muad_im_gateway.infrastructure.dedupe import (
     DedupeStoreError,
     InMemoryDedupeStore,
     NullDedupeStore,
+    delivered_value,
+    parse_delivered,
 )
 from muad_im_gateway.main import app
 
 from tests.e2e.wecom_probe_app import WeComProbe, frame_text
+from tests.internal_service import TOKEN as INTERNAL_TOKEN
+from tests.internal_service import internal_service_token  # noqa: F401  (fixture 注册)
+
+GATEWAY_TENANT = "tenant-1"
+#: 每个投递请求都要带服务身份：`/internal/deliveries` 与 resolve-credentials 同门控（2026-10-06）。
+SERVICE_HEADERS = {"X-Internal-Service": INTERNAL_TOKEN}
+
+
+class _FakeResolver:
+    """产物解析替身：按 `artifact_id` 给出**权威引用**（调用方声明只用来比对）。"""
+
+    def __init__(self, ref: AttachmentRef | None = None, error: Exception | None = None) -> None:
+        self._ref = ref
+        self._error = error
+
+    async def resolve(self, artifact_id: uuid.UUID, *, tenant_id: str) -> AttachmentRef:
+        if self._error is not None:
+            raise self._error
+        assert self._ref is not None, "文本投递不该走到产物解析"
+        return self._ref
+
+    async def aclose(self) -> None:
+        return None
 
 
 class _FailingAdapter(FakeChannelAdapter):
@@ -36,23 +68,35 @@ class _FailingAdapter(FakeChannelAdapter):
         raise ChannelAdapterUnavailable("sdk missing")
 
 
+class _RecordingDeliveryClient(HttpDeliveryClient):
+    """记下 Worker 真正发出去的那份请求体，供测试逐字节重放（指纹比对需要同一份请求）。"""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.last_body: dict[str, Any] | None = None
+
+    async def deliver(self, request: Any) -> Any:
+        self.last_body = request.model_dump(mode="json")
+        return await super().deliver(request)
+
+
 class _FailingDedupeStore:
-    async def set_if_absent(self, key: str, ttl_sec: int) -> bool:
+    async def reserve(self, key: str, ttl_sec: int) -> str | None:
         raise DedupeStoreError("redis down")
 
     async def exists(self, key: str) -> bool:
         raise DedupeStoreError("redis down")
 
-    async def mark(self, key: str, ttl_sec: int) -> None:
-        raise DedupeStoreError("redis down")
-
-    async def reserve(self, key: str, ttl_sec: int) -> bool:
+    async def mark(self, key: str, owner: str, value: str, ttl_sec: int) -> bool:
         raise DedupeStoreError("redis down")
 
     async def get_value(self, key: str) -> str | None:
         raise DedupeStoreError("redis down")
 
-    async def release(self, key: str) -> None:
+    async def release(self, key: str, owner: str) -> bool:
+        raise DedupeStoreError("redis down")
+
+    async def renew(self, key: str, owner: str, ttl_sec: int) -> bool:
         raise DedupeStoreError("redis down")
 
     async def aclose(self) -> None:
@@ -83,13 +127,22 @@ def delivery_body(
 async def api_client(
     registry: ChannelRegistry,
     dedupe: DedupeStore,
+    resolver: _FakeResolver | None = None,
+    tenant: str = GATEWAY_TENANT,
+    headers: dict[str, str] | None = None,
 ) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides[get_registry] = lambda: registry
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe
     app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
+    app.dependency_overrides[get_gateway_tenant] = lambda: tenant
+    app.dependency_overrides[get_artifact_resolver] = lambda: resolver or _FakeResolver()
     transport = ASGITransport(app=app)
     try:
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://test",
+            headers=SERVICE_HEADERS if headers is None else headers,
+        ) as client:
             yield client
     finally:
         app.dependency_overrides.clear()
@@ -99,6 +152,74 @@ def _registry_with(adapter: FakeChannelAdapter) -> ChannelRegistry:
     registry = ChannelRegistry()
     registry.register(adapter)
     return registry
+
+
+async def test_delivery_without_service_identity_is_forbidden() -> None:
+    """**没有服务身份就进不来**（2026-10-06 加固）。
+
+    此前这个端点没有鉴权：任何能连上内网、知道产物键与一个有效 bot 的人，声明任意 `tenant_id`
+    就能让网关把共享存储里的任意文件发给用户（实测：不带任何认证头、声明 `attacker-tenant`
+    + 受害租户的存储键，HTTP 200，44 字节受害产物被真的发出去）。
+    """
+    adapter = FakeChannelAdapter()
+    async with api_client(_registry_with(adapter), InMemoryDedupeStore(), headers={}) as client:
+        response = await client.post("/internal/deliveries", json=delivery_body())
+
+    assert response.status_code == 403, response.text
+    assert not adapter.sent, "被拒的请求不得产生任何发送"
+
+    # 错令牌同样拒（只有"配了且对得上"才放行）
+    async with api_client(
+        _registry_with(adapter), InMemoryDedupeStore(), headers={"X-Internal-Service": "wrong"}
+    ) as client:
+        wrong = await client.post("/internal/deliveries", json=delivery_body())
+    assert wrong.status_code == 403
+
+
+async def test_delivery_declaring_another_tenant_is_forbidden() -> None:
+    """网关按**单租户**部署：投递声明的租户必须是它自己那个（否则就是在借它够别人的数据）。"""
+    adapter = FakeChannelAdapter()
+    body = delivery_body() | {"tenant_id": "attacker-tenant"}
+    async with api_client(_registry_with(adapter), InMemoryDedupeStore()) as client:
+        response = await client.post("/internal/deliveries", json=body)
+
+    assert response.status_code == 403, response.text
+    assert not adapter.sent
+
+
+async def test_a_re_rendered_body_is_still_the_same_delivery() -> None:
+    """同 key **换文案**仍算同一次交付（重新渲染不该变成不可重试的 409）。
+
+    Worker 每次投递尝试都按**当下的**平台设置默认语言重新渲染正文
+    （`build_delivery_message(task, locale)`）：语言一变，同一个 task/delivery_key 就会渲染出
+    不同文案。指纹取的是**交付身份**（租户 / 路由 / 交付键 / 产物），不是正文 —— 否则一次无害的
+    重试会被判成"另一个请求"，而 `409` 是不可重试的，投递就此永久失败。
+    """
+    adapter = FakeChannelAdapter()
+    store = InMemoryDedupeStore()
+    body = delivery_body()
+    rerendered = {
+        **body,
+        "message": {**body["message"], "text": "Task finished: 18 succeeded, 2 failed."},
+    }
+    async with api_client(_registry_with(adapter), store) as client:
+        first = await client.post("/internal/deliveries", json=body)
+        second = await client.post("/internal/deliveries", json=rerendered)
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert second.json()["data"]["deduplicated"] is True
+    assert len(adapter.sent) == 1, "重放不得再发一次"
+
+
+async def test_service_identity_header_is_the_only_gate_before_the_tenant_check() -> None:
+    """顺序：身份 → 租户。带对令牌 + 对租户才真正投出去（正控制，防上面两条恒真）。"""
+    adapter = FakeChannelAdapter()
+    async with api_client(_registry_with(adapter), InMemoryDedupeStore()) as client:
+        response = await client.post("/internal/deliveries", json=delivery_body())
+
+    assert response.status_code == 200, response.text
+    assert len(adapter.sent) == 1
 
 
 async def test_first_delivery_is_accepted_and_sent() -> None:
@@ -441,6 +562,38 @@ async def test_b121_crash_window_releases_placeholder_without_faking_delivery() 
         probe.stop()
 
 
+async def test_expired_placeholder_cannot_delete_a_newer_delivered_marker() -> None:
+    """**过期的旧主人不能动新主人的键**（2026-10-06；真实 Redis，不缩短 TTL、真等占位过期）。
+
+    原实现里 `release` 是无条件 `DEL`、`mark` 是无条件 `SET`：A 占位后挂起、占位过期、B 完成
+    真实发送并写下送达标记，A 随后失败释放 —— B 的标记被删掉，C 于是又真发一次（实测：三次
+    调用发出两条真消息）。现在释放/升级都带所有者条件。
+    """
+    redis_client, store = await _redis_store()
+    key = f"delivery:dedupe:{uuid.uuid4()}"
+    try:
+        stale = await store.reserve(key, 1)
+        assert stale is not None
+        await asyncio.sleep(1.1)  # 占位过期（真实 TTL，不 mock 时钟）
+        fresh = await store.reserve(key, 60)
+        assert fresh is not None and fresh != stale
+        assert await store.mark(key, fresh, delivered_value({"outcome": "DELIVERED"}), 3600) is True
+
+        assert await store.release(key, stale) is False, "旧主人不得删掉新主人的标记"
+        assert parse_delivered(await store.get_value(key)) is not None, "成功标记必须还在"
+        assert await store.mark(key, stale, delivered_value({}), 3600) is False
+
+        # 正控制：自己的占位仍然归自己管（否则上面那些 False 可能只是"什么都没生效"）
+        own_key = f"delivery:dedupe:{uuid.uuid4()}"
+        owner = await store.reserve(own_key, 60)
+        assert owner is not None
+        assert await store.release(own_key, owner) is True
+        assert await store.get_value(own_key) is None
+    finally:
+        await redis_client.delete(key)
+        await redis_client.aclose()
+
+
 async def test_b121_redis_unavailable_degrades_to_at_least_once() -> None:
     """Redis 不可用：不宣称 exactly-once，可能重复但每次都是真实发送。"""
     probe = _HttpProbe()
@@ -469,7 +622,6 @@ async def test_b121_redis_unavailable_degrades_to_at_least_once() -> None:
 async def test_e05_worker_http_to_gateway_redis_probe_end_to_end() -> None:
     """E-05：Worker HTTP → 真实 Gateway（ASGI）→ 真实 Redis → 本地渠道探针。"""
     from muad_agent_worker.application.delivery_routes import upsert_delivery_route
-    from muad_agent_worker.delivery.client import HttpDeliveryClient
     from muad_agent_worker.delivery.service import DeliveryLoop
     from muad_agent_worker.infrastructure.db import get_session_factory
     from muad_agent_worker.infrastructure.models.task import TaskExecution
@@ -531,18 +683,20 @@ async def test_e05_worker_http_to_gateway_redis_probe_end_to_end() -> None:
                         finished_at=now,
                     )
                 )
-        body = delivery_body(task_id=task_id)
-        async with api_client(_registry_with(adapter), store) as gateway_http:
-            worker = DeliveryLoop(
-                session_factory,
-                HttpDeliveryClient("http://gateway", gateway_http),
-                settings,
+        # 网关按**单租户**部署：投递声明的租户必须等于它配置的租户（这条链路里就是任务租户）
+        async with api_client(_registry_with(adapter), store, tenant=tenant_id) as gateway_http:
+            # 重放要**逐字节用 Worker 真正发过的那份请求体**：投递端点现在按请求指纹判
+            # "同 key 是不是同一次请求"，自己另拼一份等于换了个请求（会正确地报 IDEMPOTENCY_MISMATCH）。
+            worker_client = _RecordingDeliveryClient(
+                "http://gateway", gateway_http, service_token=INTERNAL_TOKEN
             )
+            worker = DeliveryLoop(session_factory, worker_client, settings)
             first = await worker.run_once()
             assert first is not None and first.sent is True
             assert len(probe.requests) == 1
 
-            replay = await gateway_http.post("/internal/deliveries", json=body)
+            assert worker_client.last_body is not None
+            replay = await gateway_http.post("/internal/deliveries", json=worker_client.last_body)
             assert replay.status_code == 200
             assert replay.json()["data"] == {
                 "accepted": True,
@@ -614,6 +768,8 @@ async def _b117_gateway_http(registry: ChannelRegistry, dedupe: Any) -> AsyncIte
     app.dependency_overrides[get_registry] = lambda: registry
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe
     app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
+    app.dependency_overrides[get_gateway_tenant] = lambda: GATEWAY_TENANT
+    app.dependency_overrides[get_artifact_resolver] = lambda: _FakeResolver()
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = int(sock.getsockname()[1])
@@ -625,7 +781,9 @@ async def _b117_gateway_http(registry: ChannelRegistry, dedupe: Any) -> AsyncIte
         while not server.started and time.monotonic() < deadline:
             await asyncio.sleep(0.02)
         assert server.started, "gateway 未在超时内监听"
-        async with AsyncClient(base_url=f"http://127.0.0.1:{port}", timeout=30.0) as client:
+        async with AsyncClient(
+            base_url=f"http://127.0.0.1:{port}", timeout=30.0, headers=SERVICE_HEADERS
+        ) as client:
             yield client
     finally:
         server.should_exit = True
@@ -795,7 +953,8 @@ async def test_b117_in_flight_duplicate_is_not_reported_as_success(
         async with _b117_wecom_stack([B117_BOT_A], monkeypatch) as (registry, adapter, probe):
             await _b117_wait_connected(adapter, B117_BOT_A)
             # 只占位、未送达（模拟另一实例正在发送或上一轮崩溃窗口）
-            assert await store.reserve(key, int(DELIVERY_IN_FLIGHT_WAIT_SEC * 5)) is True
+            owner = await store.reserve(key, int(DELIVERY_IN_FLIGHT_WAIT_SEC * 5))
+            assert owner is not None
             async with _b117_gateway_http(registry, store) as http:
                 started = time.monotonic()
                 pending = await http.post("/internal/deliveries", json=body)
@@ -806,7 +965,7 @@ async def test_b117_in_flight_duplicate_is_not_reported_as_success(
                 assert probe.replies == [], "占位中的重复不得触发发送"
 
                 # 成功键落库后，同一 key 的重放按去重成功返回
-                await store.mark(key, DELIVERY_TTL_SEC)
+                assert await store.mark(key, owner, delivered_value({}), DELIVERY_TTL_SEC) is True
                 replayed = await http.post("/internal/deliveries", json=body)
                 assert replayed.status_code == 200, replayed.text
                 assert replayed.json()["data"]["deduplicated"] is True

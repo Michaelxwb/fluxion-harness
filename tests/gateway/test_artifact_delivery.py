@@ -15,7 +15,13 @@ from typing import Any
 from fakes import FakeConsoleClient
 from httpx import ASGITransport, AsyncClient
 from muad_contracts import AttachmentRef
-from muad_im_gateway.api.deps import get_console_client, get_dedupe_store, get_registry
+from muad_im_gateway.api.deps import (
+    get_artifact_resolver,
+    get_console_client,
+    get_dedupe_store,
+    get_gateway_tenant,
+    get_registry,
+)
 from muad_im_gateway.channels.base import (
     ARTIFACT_DEGRADED,
     ARTIFACT_DELIVERED,
@@ -24,11 +30,17 @@ from muad_im_gateway.channels.base import (
     ChannelRegistry,
 )
 from muad_im_gateway.channels.fake import FakeChannelAdapter
+from muad_im_gateway.infrastructure.artifact_resolver import ArtifactGoneError
 from muad_im_gateway.infrastructure.dedupe import InMemoryDedupeStore
 from muad_im_gateway.main import app
 
+from tests.internal_service import TOKEN as INTERNAL_TOKEN
+from tests.internal_service import internal_service_token  # noqa: F401  (fixture 注册)
+
 DELIVERIES_URL = "/internal/deliveries"
 ROUTE = {"channel": "WECOM", "bot_id": "bot-1", "external_user_id": "ext-1"}
+GATEWAY_TENANT = "tenant-1"
+SERVICE_HEADERS = {"X-Internal-Service": INTERNAL_TOKEN}
 
 
 class _ArtifactAdapter(FakeChannelAdapter):
@@ -61,20 +73,44 @@ class _FailingArtifactAdapter(FakeChannelAdapter):
         raise ArtifactDeliveryError("ARTIFACT_DELIVERY_FAILED")
 
 
+class _ArtifactResolver:
+    """产物解析替身：`artifact_id` → **权威引用**（存储键由它给出，调用方声明只用来比对）。"""
+
+    def __init__(self, *, missing: set[uuid.UUID] | None = None) -> None:
+        self._missing = missing or set()
+        self.calls: list[tuple[uuid.UUID, str]] = []
+
+    async def resolve(self, artifact_id: uuid.UUID, *, tenant_id: str) -> AttachmentRef:
+        self.calls.append((artifact_id, tenant_id))
+        if artifact_id in self._missing:
+            raise ArtifactGoneError(str(artifact_id))
+        return _artifact(artifact_id)
+
+    async def aclose(self) -> None:
+        return None
+
+
 @asynccontextmanager
 async def _client(
     adapter: FakeChannelAdapter,
     dedupe: InMemoryDedupeStore | None = None,
     console: FakeConsoleClient | None = None,
+    resolver: _ArtifactResolver | None = None,
+    tenant: str = GATEWAY_TENANT,
 ) -> AsyncIterator[AsyncClient]:
     registry = ChannelRegistry()
     registry.register(adapter)
     app.dependency_overrides[get_registry] = lambda: registry
+    # 不传 `dedupe` 时**每个请求**各拿一个新 store（这些用例比的是分发与审计，不是去重）
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe or InMemoryDedupeStore()
     app.dependency_overrides[get_console_client] = lambda: console or FakeConsoleClient()
+    app.dependency_overrides[get_gateway_tenant] = lambda: tenant
+    app.dependency_overrides[get_artifact_resolver] = lambda: resolver or _ArtifactResolver()
     transport = ASGITransport(app=app)
     try:
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://test", headers=SERVICE_HEADERS
+        ) as client:
             yield client
     finally:
         app.dependency_overrides.clear()
@@ -92,13 +128,68 @@ def _artifact(artifact_id: uuid.UUID) -> AttachmentRef:
     )
 
 
-def _body(artifact_id: uuid.UUID, *, run_id: uuid.UUID | None = None) -> dict[str, Any]:
+def _body(
+    artifact_id: uuid.UUID,
+    *,
+    run_id: uuid.UUID | None = None,
+    storage_key: str | None = None,
+) -> dict[str, Any]:
+    artifact = _artifact(artifact_id)
+    if storage_key is not None:
+        artifact = artifact.model_copy(update={"storage_key": storage_key})
     return {
         "tenant_id": "tenant-1",
         "delivery_key": f"run:{run_id or uuid.uuid4()}:{artifact_id}",
         "route": ROUTE,
-        "message": {"type": "artifact", "artifact": _artifact(artifact_id).model_dump(mode="json")},
+        "message": {"type": "artifact", "artifact": artifact.model_dump(mode="json")},
     }
+
+
+async def test_a_storage_key_that_is_not_the_artifacts_is_refused() -> None:
+    """**调用方不能自己指定存储键**（2026-10-06 加固）。
+
+    此前网关完全相信请求体里的 `storage_key` 并按它直读共享存储：实测不带任何凭据、声明一个
+    受害租户的键，文件就被上传给了用户。现在存储键只有一个权威来源——按 `artifact_id` 在本租户
+    内解析；调用方声明的那份只用来**比对**，不一致即拒（也不泄露产物是否存在）。
+    """
+    artifact_id = uuid.uuid4()
+    resolver = _ArtifactResolver()
+    adapter = _ArtifactAdapter(ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED))
+    body = _body(artifact_id, storage_key="attacker-tenant/private/report.txt")
+
+    async with _client(adapter, resolver=resolver) as client:
+        response = await client.post(DELIVERIES_URL, json=body)
+
+    assert response.status_code == 404, response.text
+    assert response.json()["code"] == "COMMON_NOT_FOUND"
+    assert resolver.calls == [(artifact_id, "tenant-1")], "必须先按 artifact_id 解析"
+    assert adapter.received == [], "键对不上时一个字节都不该发出去"
+
+
+async def test_an_artifact_that_does_not_resolve_is_refused() -> None:
+    """解析不到（不存在 / 跨租户 / 已删）⇒ 拒绝，且**不发**。"""
+    artifact_id = uuid.uuid4()
+    adapter = _ArtifactAdapter(ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED))
+
+    async with _client(adapter, resolver=_ArtifactResolver(missing={artifact_id})) as client:
+        response = await client.post(DELIVERIES_URL, json=_body(artifact_id))
+
+    assert response.status_code == 404, response.text
+    assert adapter.received == []
+
+
+async def test_the_resolved_reference_is_what_gets_delivered() -> None:
+    """往下走的是**解析出来的**引用：存储键/类型/文件名不再是调用方说了算。"""
+    artifact_id = uuid.uuid4()
+    adapter = _ArtifactAdapter(ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED))
+
+    async with _client(adapter) as client:
+        response = await client.post(DELIVERIES_URL, json=_body(artifact_id))
+
+    assert response.status_code == 200, response.text
+    delivered = adapter.received[0][1]
+    assert delivered.storage_key == _artifact(artifact_id).storage_key
+    assert delivered.artifact_id == artifact_id
 
 
 async def test_artifact_message_goes_through_the_optional_capability() -> None:
@@ -299,3 +390,61 @@ async def test_e06_failed_delivery_then_retry_succeeds_and_the_user_gets_it_once
 
     # ③ 用户恰好收到一次：失败那次**没有**发出去，重试发了且只发了一次
     assert len(adapter.received) == 1
+
+
+async def test_replay_returns_the_first_delivery_outcome_and_fallback_link() -> None:
+    """重放必须回放**首次的业务结果**（含降级链接）。
+
+    降级链接只在那一次响应里出现过：调用方没收到响应时重放，它必须还能拿到"用户实际收到了
+    什么"。此前重放固定回四个布尔字段，`outcome` 与 `fallback_url` 直接消失——首投响应一丢，
+    那条链接就永远查不到了（实测：首投 `DEGRADED` + URL，重放两者皆 null）。
+    """
+    artifact_id = uuid.uuid4()
+    link = "https://console.invalid/api/v1/artifacts/x/content?token=t"
+    adapter = _ArtifactAdapter(
+        ArtifactDeliveryOutcome(outcome=ARTIFACT_DEGRADED, fallback_url=link)
+    )
+    body = _body(artifact_id)
+
+    async with _client(adapter, dedupe=InMemoryDedupeStore()) as client:
+        first = (await client.post(DELIVERIES_URL, json=body)).json()["data"]
+        replay = (await client.post(DELIVERIES_URL, json=body)).json()["data"]
+
+    assert (first["outcome"], first["fallback_url"]) == (ARTIFACT_DEGRADED, link)
+    assert replay["deduplicated"] is True
+    assert (replay["outcome"], replay["fallback_url"]) == (ARTIFACT_DEGRADED, link)
+    assert len(adapter.received) == 1, "重放不得再发一次"
+
+
+async def test_the_same_key_with_a_different_request_is_not_reported_as_success() -> None:
+    """同 `delivery_key` 换请求体 ⇒ `IDEMPOTENCY_MISMATCH`，不能拿上一次的成功冒充这一次。"""
+    artifact_id = uuid.uuid4()
+    adapter = _ArtifactAdapter(ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED))
+    body = _body(artifact_id)
+    other_route = {**body, "route": {**ROUTE, "external_user_id": "ext-2"}}
+
+    async with _client(adapter, dedupe=InMemoryDedupeStore()) as client:
+        first = await client.post(DELIVERIES_URL, json=body)
+        mismatched = await client.post(DELIVERIES_URL, json=other_route)
+
+    assert first.status_code == 200, first.text
+    assert mismatched.status_code == 409, mismatched.text
+    assert mismatched.json()["code"] == "IDEMPOTENCY_MISMATCH"
+    assert len(adapter.received) == 1
+
+
+async def test_a_completed_delivery_survives_a_late_release_from_an_expired_holder() -> None:
+    """成功标记不会被过期的旧占位删掉（端点级；存储级的证明在 `test_dedupe` / `test_delivery_api`）。"""
+    artifact_id = uuid.uuid4()
+    adapter = _ArtifactAdapter(ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED))
+    dedupe = InMemoryDedupeStore()
+    body = _body(artifact_id)
+
+    async with _client(adapter, dedupe=dedupe) as client:
+        first = await client.post(DELIVERIES_URL, json=body)
+        assert first.status_code == 200, first.text
+        # 另一个"旧主人"（占位早已不存在）尝试清理同一个键：必须落空
+        assert await dedupe.release(f"delivery:dedupe:{body['delivery_key']}", "ghost") is False
+        replay = await client.post(DELIVERIES_URL, json=body)
+
+    assert replay.json()["data"]["deduplicated"] is True
