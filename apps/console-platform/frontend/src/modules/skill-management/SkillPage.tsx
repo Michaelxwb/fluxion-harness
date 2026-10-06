@@ -13,7 +13,7 @@ import { SkillDetailSideSheet } from './SkillDetailSideSheet';
 import { SkillImportModal } from './SkillImportModal';
 import { listSkills, updateSkill, type SkillListItem } from './services/skills';
 
-const DEFAULT_PARAMS = { page: 1, page_size: 10, keyword: '', user_scope: '' };
+const DEFAULT_PARAMS = { page: 1, page_size: 15, keyword: '', user_scope: '' };
 
 export function SkillPage() {
   const { t } = useTranslation();

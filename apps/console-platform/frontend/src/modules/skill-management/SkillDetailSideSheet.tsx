@@ -28,7 +28,7 @@ export interface SkillDetailSideSheetProps {
   onSkillMutated?(): void;
 }
 
-const DETAIL_PAGE_SIZE = 10;
+const DETAIL_PAGE_SIZE = 15;
 
 function SkillAgentsTable(props: { skillId: string }) {
   const { t } = useTranslation();

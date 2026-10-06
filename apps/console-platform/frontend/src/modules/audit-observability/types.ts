@@ -9,7 +9,7 @@
 export const AUDIT_PAGE_SIZE_MAX = 100;
 
 /** 列表默认页大小；页面初始筛选持有（设计 §3.4）。 */
-export const AUDIT_PAGE_SIZE_DEFAULT = 20;
+export const AUDIT_PAGE_SIZE_DEFAULT = 15;
 
 export interface AuditListQuery {
   keyword?: string;

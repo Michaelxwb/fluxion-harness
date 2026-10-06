@@ -21,7 +21,7 @@ import { TaskDetailSideSheet } from './TaskDetailSideSheet';
 import { useTaskActions } from './useTaskActions';
 import { listTasks, type TaskListItem, type TaskListParams } from './services/tasks';
 
-const DEFAULT_PARAMS: TaskListParams = { page: 1, page_size: 10 };
+const DEFAULT_PARAMS: TaskListParams = { page: 1, page_size: 15 };
 
 const STATUS_COLORS: Record<string, StatusTagOption['color']> = {
   QUEUED: 'grey',

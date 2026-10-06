@@ -19,7 +19,7 @@ import {
   type McpServerListItem
 } from './services/mcpServers';
 
-const DEFAULT_PARAMS = { page: 1, page_size: 10, keyword: '', user_scope: '', connection_status: '' };
+const DEFAULT_PARAMS = { page: 1, page_size: 15, keyword: '', user_scope: '', connection_status: '' };
 
 const CONNECTION_STATUSES = ['UNKNOWN', 'AVAILABLE', 'UNAVAILABLE', 'DISCOVERY_FAILED'] as const;
 

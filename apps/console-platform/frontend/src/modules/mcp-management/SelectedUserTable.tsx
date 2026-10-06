@@ -21,8 +21,8 @@ export interface McpSelectedUserTableProps {
   onChanged?(): void;
 }
 
-const PAGE_SIZE = 10;
-const CANDIDATE_PAGE_SIZE = 20;
+const PAGE_SIZE = 15;
+const CANDIDATE_PAGE_SIZE = 15;
 
 export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
   const { t } = useTranslation();

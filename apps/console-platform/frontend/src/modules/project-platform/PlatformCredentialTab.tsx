@@ -44,7 +44,7 @@ function statusTag(status: string): { color: 'green' | 'red' | 'grey'; key: stri
   return { color: 'grey', key: 'platform.credentials.notConfigured' };
 }
 
-const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 15;
 
 export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
   const { t } = useTranslation();

@@ -29,7 +29,7 @@ export function ScheduleHistoryTable(props: ScheduleHistoryTableProps) {
   const [items, setItems] = useState<TaskListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const requestSeq = useRef(0);

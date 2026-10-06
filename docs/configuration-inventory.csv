@@ -977,8 +977,8 @@ apps/console-platform/frontend/src/api/client.ts,33,UNAUTHORIZED_STATUS,401,fron
 apps/console-platform/frontend/src/components/common/AppProviders.tsx,12,SEMI_LOCALES,{,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/components/common/DateTimeText.tsx,1,DATE_TIME_FORMAT,'YYYY-MM-DD HH:mm:ss',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/components/common/ListActionButton.tsx,8,ICONS,"{ reset: <IconUndo />, refresh: <IconRefresh /> }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/components/common/PaginationFooter.tsx,13,PAGE_SIZE_OPTIONS,"[10, 20, 50, 100]",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx,17,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', enabled: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/components/common/PaginationFooter.tsx,13,PAGE_SIZE_OPTIONS,"[15, 30, 50, 100]",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx,17,DEFAULT_PARAMS,"{ page: 1, page_size: 15, keyword: '', enabled: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx,28,AUDIT_TYPES,"['CONFIG', 'TOOL', 'EGRESS', 'MODEL'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx,41,RESOURCE_TYPES,[,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx,65,RESULT_STATUSES,"['SUCCESS', 'FAILED', 'DENIED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
@@ -987,23 +987,23 @@ apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditExp
 apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditExport.ts,34,EXPORT_ERROR_FALLBACK_CODE,'COMMON_INTERNAL_ERROR',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/audit-observability/services/auditService.ts,108,MAPPED_RAW_KEYS,new Set([,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/audit-observability/types.ts,9,AUDIT_PAGE_SIZE_MAX,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/audit-observability/types.ts,12,AUDIT_PAGE_SIZE_DEFAULT,20,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,15,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/audit-observability/types.ts,12,AUDIT_PAGE_SIZE_DEFAULT,15,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,15,PAGE_SIZE,15,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,34,VALID_ENDPOINT,/^https?:\/\/.+/,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,22,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', user_scope: '', connection_status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,22,DEFAULT_PARAMS,"{ page: 1, page_size: 15, keyword: '', user_scope: '', connection_status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,24,CONNECTION_STATUSES,"['UNKNOWN', 'AVAILABLE', 'UNAVAILABLE', 'DISCOVERY_FAILED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,23,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,24,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,25,CANDIDATE_PAGE_SIZE,20,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/model-management/ModelPage.tsx,28,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', enabled: 'ALL', last_test_status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,23,PAGE_SIZE,15,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,24,PAGE_SIZE,15,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,25,CANDIDATE_PAGE_SIZE,15,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/model-management/ModelPage.tsx,28,DEFAULT_PARAMS,"{ page: 1, page_size: 15, keyword: '', enabled: 'ALL', last_test_status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/model-management/ModelPage.tsx,29,EMPTY_FILTERS,"{ keyword: '', enabled: 'ALL', last_test_status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/project-platform/PlatformCredentialTab.tsx,47,DEFAULT_PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/project-platform/PlatformPage.tsx,23,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', adapter_key: '', enabled: 'ALL' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,24,PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,25,CANDIDATE_PAGE_SIZE,20,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,31,DETAIL_PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/project-platform/PlatformCredentialTab.tsx,47,DEFAULT_PAGE_SIZE,15,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/project-platform/PlatformPage.tsx,23,DEFAULT_PARAMS,"{ page: 1, page_size: 15, keyword: '', adapter_key: '', enabled: 'ALL' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,24,PAGE_SIZE,15,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,25,CANDIDATE_PAGE_SIZE,15,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,31,DETAIL_PAGE_SIZE,15,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,14,SKILL_ZIP_LIMIT_BYTES,50 * 1024 * 1024,frontend-constant,code,Skill 导入限额实现常量；经已认证只读端点暴露（design §2.4 技术债③，服务端单一来源）
-apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,16,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', user_scope: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,16,DEFAULT_PARAMS,"{ page: 1, page_size: 15, keyword: '', user_scope: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/task-schedule/SchedulePage.tsx,20,SCHEDULE_STATUSES,"['ACTIVE', 'PAUSED', 'COMPLETED', 'MISSED'] as const",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,16,TERMINAL_STATUSES,"['COMPLETED', 'FAILED', 'CANCELLED']",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx,17,CANCELLABLE_STATUSES,"['QUEUED', 'RUNNING', 'WAITING']",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
@@ -1016,8 +1016,8 @@ apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,37,CANCELL
 apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,39,PICKER_PAGE_SIZE,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/task-schedule/services/schedules.ts,7,SCHEDULE_PAGE_SIZE_MAX,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/task-schedule/services/tasks.ts,10,TASK_PAGE_SIZE_MAX,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/user-identity/UserDetailTabs.tsx,66,DEFAULT_TAB_PAGE_SIZE,10,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
-apps/console-platform/frontend/src/modules/user-identity/UserPage.tsx,18,DEFAULT_PARAMS,"{ page: 1, page_size: 10, keyword: '', status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/user-identity/UserDetailTabs.tsx,66,DEFAULT_TAB_PAGE_SIZE,15,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
+apps/console-platform/frontend/src/modules/user-identity/UserPage.tsx,18,DEFAULT_PARAMS,"{ page: 1, page_size: 15, keyword: '', status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/user-identity/UserPage.tsx,19,EMPTY_FILTERS,"{ keyword: '', status: '' }",frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/modules/user-identity/services/users.ts,167,AGENT_PICKER_PAGE_SIZE,100,frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键
 apps/console-platform/frontend/src/theme.ts,5,THEME_KEY,'muad.theme',frontend-constant,code,UI 常量或请求轮询默认；不另建全局设置键

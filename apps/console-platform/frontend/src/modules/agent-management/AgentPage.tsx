@@ -14,7 +14,7 @@ import { deleteAgent, getAgent, listAgents, type AgentDetail, type AgentListItem
 import { AgentDetailSideSheet } from './AgentDetailSideSheet';
 import { AgentFormModal } from './AgentFormModal';
 
-const DEFAULT_PARAMS = { page: 1, page_size: 10, keyword: '', enabled: '' };
+const DEFAULT_PARAMS = { page: 1, page_size: 15, keyword: '', enabled: '' };
 
 export function AgentPage() {
   const { t } = useTranslation();

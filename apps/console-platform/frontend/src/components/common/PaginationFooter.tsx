@@ -10,7 +10,7 @@ export interface PaginationFooterProps {
   onPageSizeChange?(pageSize: number): void;
 }
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const PAGE_SIZE_OPTIONS = [15, 30, 50, 100];
 
 export function PaginationFooter(props: PaginationFooterProps) {
   const { t } = useTranslation();

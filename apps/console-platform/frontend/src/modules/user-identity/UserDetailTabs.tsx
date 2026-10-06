@@ -63,7 +63,7 @@ export interface UserDetailTabsProps {
   onEdit(): void;
 }
 
-const DEFAULT_TAB_PAGE_SIZE = 10;
+const DEFAULT_TAB_PAGE_SIZE = 15;
 
 interface AsyncList<T> {
   items: T[];

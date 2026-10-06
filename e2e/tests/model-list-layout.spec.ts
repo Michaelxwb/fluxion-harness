@@ -50,6 +50,10 @@ for (const width of [1280, 2048]) {
       const userRow = page.locator('.semi-table-tbody .semi-table-row').first();
       await expect(userRow).toContainText('layout-user');
       const referenceHeight = await userRow.evaluate((node) => node.getBoundingClientRect().height);
+      // 紧凑行高护栏：表格内按钮 24px + 单元格 8px 内边距 + 1px 行边框 ⇒ 40~41px。
+      // 若 app.css 的 .semi-table 作用域被移除（semi 运行时 table.css 会反超优先级），
+      // 两侧行会一起变高，仅比较等高会漏掉，所以这里锁上界。
+      expect(referenceHeight).toBeLessThanOrEqual(44);
       await page.goto('/models');
       const rows = page.locator('.model-table .semi-table-tbody .semi-table-row');
       await expect(rows).toHaveCount(3);

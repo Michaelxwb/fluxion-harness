@@ -16,7 +16,7 @@ import { ScheduleDetailSideSheet } from './ScheduleDetailSideSheet';
 import { TaskDetailSideSheet } from './TaskDetailSideSheet';
 import { listSchedules, type ScheduleListItem, type ScheduleListParams } from './services/schedules';
 
-const DEFAULT_PARAMS: ScheduleListParams = { page: 1, page_size: 10 };
+const DEFAULT_PARAMS: ScheduleListParams = { page: 1, page_size: 15 };
 const SCHEDULE_STATUSES = ['ACTIVE', 'PAUSED', 'COMPLETED', 'MISSED'] as const;
 
 const STATUS_COLORS: Record<string, StatusTagOption['color']> = {

@@ -128,10 +128,10 @@ def test_service_paths_match_backend_contract() -> None:
 
 
 def test_query_page_size_is_clamped_to_100() -> None:
-    """设计 §3.4：`pageSize <= 100`，默认 20（默认值由页面初始筛选持有）。"""
+    """设计 §3.4：`pageSize <= 100`，默认 15（默认值由页面初始筛选持有；2026-10-06 全站页量统一 15）。"""
     types = _source(TYPES)
     assert "AUDIT_PAGE_SIZE_MAX=100" in _compact(types)
-    assert "AUDIT_PAGE_SIZE_DEFAULT=20" in _compact(types)
+    assert "AUDIT_PAGE_SIZE_DEFAULT=15" in _compact(types)
     assert "Math.min(" in _source(SERVICE)
     assert "AUDIT_PAGE_SIZE_MAX" in _source(SERVICE)
 

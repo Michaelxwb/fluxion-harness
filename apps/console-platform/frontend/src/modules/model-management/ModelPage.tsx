@@ -25,7 +25,7 @@ import {
   type ModelTestResult
 } from './services/models';
 
-const DEFAULT_PARAMS = { page: 1, page_size: 10, keyword: '', enabled: 'ALL', last_test_status: '' };
+const DEFAULT_PARAMS = { page: 1, page_size: 15, keyword: '', enabled: 'ALL', last_test_status: '' };
 const EMPTY_FILTERS = { keyword: '', enabled: 'ALL', last_test_status: '' };
 
 export function ModelPage() {

@@ -20,7 +20,7 @@ import {
   type PlatformItem
 } from './services/platforms';
 
-const DEFAULT_PARAMS = { page: 1, page_size: 10, keyword: '', adapter_key: '', enabled: 'ALL' };
+const DEFAULT_PARAMS = { page: 1, page_size: 15, keyword: '', adapter_key: '', enabled: 'ALL' };
 
 export function PlatformPage() {
   const { t } = useTranslation();

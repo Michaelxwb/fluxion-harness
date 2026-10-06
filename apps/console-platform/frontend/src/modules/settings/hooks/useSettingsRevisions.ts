@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { listSettingsRevisions, restoreSettingsRevision } from '../services/settingsApi';
 import type { SettingsRevision } from '../types';
 
-export const REVISION_PAGE_SIZE_DEFAULT = 20;
+export const REVISION_PAGE_SIZE_DEFAULT = 15;
 
 export interface SettingsRevisionsState {
   items: SettingsRevision[];

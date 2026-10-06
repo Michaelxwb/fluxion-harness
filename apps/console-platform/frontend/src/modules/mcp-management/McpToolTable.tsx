@@ -20,7 +20,7 @@ export interface McpToolTableProps {
   reloadKey?: number;
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 
 export function McpToolTable(props: McpToolTableProps) {
   const { t } = useTranslation();
