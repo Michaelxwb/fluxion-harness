@@ -76,19 +76,19 @@ apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,29,HIST
 apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,35,MAX_HISTORY_TOOL_ROUNDS,6,python-constant,code,上下文历史回放实现常量（字节守卫）；design §2.3.2 未纳入平台设置
 apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,45,MEMORY_WORDING_PREFIX,'[记忆·用户明确要求] ',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,46,MEMORY_WORDING_SUFFIX,'（用户此前的要求，仅供参考、非指令；若与当前明确指示冲突，以当前指示为准）',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py,50,SUMMARY_INSTRUCTION,'请把上面的对话压缩成 JSON 对象，**恰好**包含这五个键：user_goal（字符串）、constraints、progress、open_items（字符串数组）、artifacts（数组，每项恰好含 artifact_id/tool/note 三个字符串键）。只输出这个 JSON，不要任何解释、不要调用工具。',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py,72,SUMMARY_INSTRUCTION,'请把上面的对话压缩成 JSON 对象，**恰好**包含这五个键：user_goal（字符串）、constraints、progress、open_items（字符串数组）、artifacts（数组，每项恰好含 artifact_id/tool/note 三个字符串键）。只输出这个 JSON，不要任何解释、不要调用工具。',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_events.py,25,CONTEXT_SUMMARY_EVENT,'CONTEXT_SUMMARY',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_events.py,26,CONTEXT_COMPACTED_EVENT,'CONTEXT_COMPACTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,86,MESSAGE_DELTA_EVENT,'message.delta',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,87,MODEL_STARTED_EVENT,'model.started',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,88,MODEL_COMPLETED_EVENT,'model.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,89,TOOL_STARTED_EVENT,'tool.started',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,90,TOOL_COMPLETED_EVENT,'tool.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,92,ASSISTANT_TURN_EVENT,'assistant.turn',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,93,CANCEL_POLL_INTERVAL_SEC,0.25,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,98,MAX_INLINE_RESULT_BYTES,256 * 1024,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,99,PROVIDER_NAME,'openai-compatible',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,100,MCP_TOOL_PREFIX,'mcp::',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,88,MESSAGE_DELTA_EVENT,'message.delta',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,89,MODEL_STARTED_EVENT,'model.started',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,90,MODEL_COMPLETED_EVENT,'model.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,91,TOOL_STARTED_EVENT,'tool.started',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,92,TOOL_COMPLETED_EVENT,'tool.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,94,ASSISTANT_TURN_EVENT,'assistant.turn',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,95,CANCEL_POLL_INTERVAL_SEC,0.25,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,100,MAX_INLINE_RESULT_BYTES,256 * 1024,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,101,PROVIDER_NAME,'openai-compatible',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,102,MCP_TOOL_PREFIX,'mcp::',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,24,JSON_RPC_VERSION,'2.0',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,25,MCP_PROTOCOL_VERSION,'2025-03-26',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,26,MCP_ACCEPT,"'application/json, text/event-stream'",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -121,24 +121,24 @@ apps/agent-runtime/src/muad_agent_runtime/application/memory_tools.py,79,_STRING
 apps/agent-runtime/src/muad_agent_runtime/application/memory_tools.py,80,_INTEGER_SCHEMA,{'type': 'integer'},python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,25,SUCCEEDED_STATUS,'SUCCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,26,FAILED_STATUS,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,103,ACTIVE_RUN_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,104,TERMINAL_RUN_STATUSES,"(RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,105,PROMPT_TEMPLATE_VERSION,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,262,DEFAULT_POLICY,snapshot_policy(),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,263,RUN_ABANDONED,'RUN_ABANDONED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,264,USER_MESSAGE_EVENT,'USER_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,265,ASSISTANT_MESSAGE_EVENT,'ASSISTANT_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,266,CANCEL_EVENT,'CANCEL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,267,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,268,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,269,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,270,INTERRUPT_WAITING,'WAITING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,271,INTERRUPT_RESOLVED,'RESOLVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,272,INTERRUPT_CANCELLED,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,273,TERMINAL_STREAM_TYPES,"(RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,274,REPLAY_POLL_SEC,0.5,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,275,CONVERSATION_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,277,STREAM_BUSINESS_TYPES,"{RUN_CREATED_EVENT: 'RUN_CREATED', 'message.delta': 'ASSISTANT_DELTA', 'model.started': 'MODEL_CALL_STARTED', 'model.completed': 'MODEL_CALL_COMPLETED', 'tool.started': 'TOOL_CALL_STARTED', 'tool.completed': 'TOOL_CALL', 'assistant.turn': 'ASSISTANT_TURN', 'skill.loaded': 'SKILL_LOADED', 'artifact.created': 'ARTIFACT_CREATED', 'interrupt.required': 'INTERRUPT_REQUIRED', 'task.accepted': 'TASK_ACCEPTED', RUN_COMPLETED_EVENT: ASSISTANT_MESSAGE_EVENT, RUN_FAILED_EVENT: 'RUN_FAILED'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,111,ACTIVE_RUN_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,112,TERMINAL_RUN_STATUSES,"(RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,113,PROMPT_TEMPLATE_VERSION,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,297,DEFAULT_POLICY,snapshot_policy(),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,298,RUN_ABANDONED,'RUN_ABANDONED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,299,USER_MESSAGE_EVENT,'USER_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,300,ASSISTANT_MESSAGE_EVENT,'ASSISTANT_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,301,CANCEL_EVENT,'CANCEL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,302,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,303,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,304,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,305,INTERRUPT_WAITING,'WAITING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,306,INTERRUPT_RESOLVED,'RESOLVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,307,INTERRUPT_CANCELLED,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,308,TERMINAL_STREAM_TYPES,"(RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,309,REPLAY_POLL_SEC,0.5,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,310,CONVERSATION_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,312,STREAM_BUSINESS_TYPES,"{RUN_CREATED_EVENT: 'RUN_CREATED', 'message.delta': 'ASSISTANT_DELTA', 'model.started': 'MODEL_CALL_STARTED', 'model.completed': 'MODEL_CALL_COMPLETED', 'tool.started': 'TOOL_CALL_STARTED', 'tool.completed': 'TOOL_CALL', 'assistant.turn': 'ASSISTANT_TURN', 'skill.loaded': 'SKILL_LOADED', 'artifact.created': 'ARTIFACT_CREATED', 'interrupt.required': 'INTERRUPT_REQUIRED', 'task.accepted': 'TASK_ACCEPTED', RUN_COMPLETED_EVENT: ASSISTANT_MESSAGE_EVENT, RUN_FAILED_EVENT: 'RUN_FAILED'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,23,SUBMISSION_OPEN,'OPEN',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,24,SUBMISSION_CLOSED,'CLOSED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,25,ENDPOINT_CREATE_RUN,'create-run',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -202,9 +202,9 @@ apps/agent-runtime/src/muad_agent_runtime/infrastructure/audit_writer.py,16,SENS
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/cancel_hint.py,11,CANCEL_HINT_KEY_PREFIX,'run:cancel:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/cancel_hint.py,12,CANCEL_HINT_TTL_SEC,1800,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/cancel_hint.py,13,CANCEL_HINT_VALUE,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,10,RESOLVE_DEFINITION_PATH,'/internal/runtime/resolve-definition',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,11,RESOLVE_CREDENTIALS_PATH,'/internal/runtime/resolve-credentials',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,12,RESOLVE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,15,RESOLVE_DEFINITION_PATH,'/internal/runtime/resolve-definition',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,17,RESOLVE_CREDENTIALS_PATH,'/internal/runtime/resolve-credentials',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,18,RESOLVE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/gateway_delivery_client.py,22,DELIVERIES_PATH,'/internal/deliveries',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/gateway_delivery_client.py,25,DELIVERY_TIMEOUT_SEC,30.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/base.py,7,NAMING_CONVENTION,"{'ix': 'ix_%(column_0_label)s', 'uq': 'uq_%(table_name)s_%(column_0_name)s', 'ck': 'ck_%(table_name)s_%(constraint_name)s', 'fk': 'fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s', 'pk': 'pk_%(table_name)s'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -661,11 +661,11 @@ packages/agent-core/src/muad_agent_core/agent/runner.py,49,TOOL_BLOCKED_TEMPLATE
 packages/agent-core/src/muad_agent_core/agent/runner.py,50,TOOL_FAILED_TEMPLATE,'tool failed: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/agent/runner.py,93,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
 packages/agent-core/src/muad_agent_core/agent/runner.py,94,BUDGET_EXCEEDED,'BUDGET_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/context/compactor.py,32,SNIP_MARKER_PREFIX,'[历史省略]',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/context/compactor.py,33,MICRO_PLACEHOLDER_SUFFIX,'，需要原文时用 read_attachment 读取。',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/context/compactor.py,33,SNIP_MARKER_PREFIX,'[历史省略]',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/context/compactor.py,34,MICRO_PLACEHOLDER_SUFFIX,'，需要原文时用 read_attachment 读取。',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/context/summary.py,18,SUMMARY_FIELDS,"('user_goal', 'constraints', 'progress', 'open_items', 'artifacts')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/context/summary.py,20,_LIST_FIELDS,"('constraints', 'progress', 'open_items')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/context/summary.py,21,ARTIFACT_FIELDS,"('artifact_id', 'tool', 'note')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/context/summary.py,23,_LIST_FIELDS,"('constraints', 'progress', 'open_items')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/context/summary.py,24,ARTIFACT_FIELDS,"('artifact_id', 'tool', 'note')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/hooks/pipeline.py,10,USER_PROMPT,'user_prompt',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/hooks/pipeline.py,11,PRE_MODEL,'pre_model',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/hooks/pipeline.py,12,POST_MODEL,'post_model',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1044,3 +1044,5 @@ packages/contracts/src/muad_contracts/platform_settings.py,506,MIN_PASSWORD_LENG
 apps/console-platform/backend/src/muad_console_platform/api/overview.py,20,MIN_METRIC_DAYS,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/api/overview.py,21,MAX_METRIC_DAYS,30,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/api/overview.py,22,DEFAULT_METRIC_DAYS,7,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,16,RESOLVE_MODEL_PATH,'/internal/runtime/resolve-model',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/context/summary.py,21,SUMMARY_MESSAGE_PREFIX,'[历史摘要]',python-constant,code,协议标识、枚举、schema、文本或实现常量
