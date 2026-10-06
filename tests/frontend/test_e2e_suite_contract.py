@@ -15,6 +15,8 @@
    `preview` 服务的是 `dist/`，Makefile 必须先 build。
 3. 域配置必须钉死浏览器时区（`use.timezoneId`）—— 展示值按浏览器本地时区渲染，不钉就出现
    「同一份断言本地绿、CI 红」（CI runner 是 UTC，开发机是 UTC+8）。
+4. 域配置里的 `${...}` 必须写在**模板字面量**（反引号）里，不能留在单引号里 —— 单引号不插值，
+   会原样交给 shell 并展开为空（`--port` 缺参数），只在跑该域时才炸。
 
 **不在此覆盖**：断言里的文案与容器类漂移（`.semi-modal` → `.semi-sidesheet`、`revision` →
 「修订版本」）。它们依赖真实渲染（且 `.semi-*` 是库类，不在本仓源码内），静态不可判，只能
@@ -37,6 +39,8 @@ _TESTID_LITERAL = re.compile(r'(?:data-testid|testId)="([^"]+)"')
 _TESTID_TEMPLATE = re.compile(r"(?:data-testid|testId)=\{`([^`]*?)\$\{")
 # 用例侧的引用（实测 292 处全部是静态字面量，无模板串）
 _TESTID_USAGE = re.compile(r"getByTestId\(\s*['\"]([^'\"]+)['\"]\s*\)")
+# 单引号字符串（TS 的单引号串不跨行；`\\` 转义先吃掉，避免把 `\'` 当收尾）
+_SINGLE_QUOTED = re.compile(r"'(?:[^'\\\n]|\\.)*'")
 
 
 def _source_text() -> str:
@@ -126,6 +130,33 @@ def test_domain_configs_pin_frontend_api_target() -> None:
     assert not offenders, (
         "以下域配置起了真实 Console 却没给前端注入 MUAD_API_TARGET（前端流量会落到 "
         "vite.config.ts 的默认后端，而非本域实例）：\n  " + "\n  ".join(offenders)
+    )
+
+
+def test_domain_configs_keep_interpolation_out_of_single_quotes() -> None:
+    """域配置里的 `${...}` 必须写在**模板字面量**（反引号）里，不能留在单引号里。
+
+    单引号在 JS/TS 里**不插值**：`'… --port ${apiPort}'` 把字面量 `${apiPort}` 原样交给 Playwright
+    的 shell，而 shell 里没有同名变量 ⇒ 展开成空 ⇒ `uvicorn … --port ` ⇒
+    `Error: Option '--port' requires an argument.`（Playwright 给它加 `[WebServer]` 前缀）。
+    2026-10-06 实测：`35159dac` 给 platform/agent/mcp/skill 四域批量加端口 env 覆盖时，只有
+    platform 那行的引号没跟着改 ⇒ CI 的 e2e job 连红两轮（每轮 14.6 分钟），而失败信息只有那句
+    shell 报错，看不出根因；同域的 skill/mcp/agent 用的是反引号，所以只有 platform 挂。
+
+    规则刻意收在「单引号字符串里出现 `${`」：全仓现在 **0 处**。将来若确实要把展开**推迟给子
+    shell**（`bash -c '…${X}…'`），请在这里显式放行并写明理由，而不是靠人记得。
+    """
+    assert E2E_CONFIGS, "未发现任何域配置：glob 规则可能已与目录结构脱节"
+    offenders: list[str] = []
+    for config in E2E_CONFIGS:
+        for number, line in enumerate(config.read_text(encoding="utf-8").splitlines(), start=1):
+            for literal in _SINGLE_QUOTED.findall(line):
+                if "${" in literal:
+                    offenders.append(f"{config.name}:{number}: {line.strip()}")
+    assert not offenders, (
+        "以下域配置把 `${...}` 写在了单引号字符串里（JS 不插值 ⇒ 原样交给 shell ⇒ 展开为空）：\n  "
+        + "\n  ".join(offenders)
+        + "\n改用模板字面量（反引号），或把变量显式放进 env。"
     )
 
 
