@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from muad_agent_core.agent import AgentPolicy
+from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill, render_skill_entry
 from muad_agent_core.skill import (
     ScriptSkillExecutor,
     SkillExecutionError,
@@ -27,6 +28,7 @@ LOAD_SKILL_TOOL = "load_skill"
 READ_SKILL_RESOURCE_TOOL = "read_skill_resource"
 EXECUTE_SKILL_TOOL = "execute_skill"
 RUN_SKILL_SCRIPT_TOOL = "run_skill_script"
+SEARCH_SKILLS_TOOL = "search_skills"
 
 LOAD_SKILL_DESCRIPTION = "Load a skill's manifest and full SKILL.md instructions by skill key."
 READ_SKILL_RESOURCE_TOOL_DESCRIPTION = (
@@ -34,6 +36,13 @@ READ_SKILL_RESOURCE_TOOL_DESCRIPTION = (
 )
 EXECUTE_SKILL_DESCRIPTION = "Execute a skill's deterministic entry script with a normalized JSON input."
 RUN_SKILL_SCRIPT_DESCRIPTION = "Execute a named script under a skill package's scripts directory."
+# 工具描述里写清**何时用**：系统提示里的目录只列了靠前的一部分，其余技能只能从这里找到。
+SEARCH_SKILLS_DESCRIPTION = (
+    "Search the available skills by keyword (matches key, name and description). "
+    "The system prompt lists only the leading part of the skill catalog; use this to find any "
+    "skill that is not listed there. Returns catalog entries, so a match can be passed straight "
+    "to load_skill or execute_skill."
+)
 
 MAX_RESOURCE_BYTES = 256 * 1024
 SCRIPTS_PREFIX = "scripts/"
@@ -112,6 +121,10 @@ class SkillToolSet:
 
     def registry(self) -> ToolRegistry:
         registry = ToolRegistry()
+        if not self._skills:
+            # 一个生效技能都没有时，这几个工具**全都无从调用**（key 从哪来？），目录段也是空的
+            # —— 模型只能猜一个 key，白跑一轮换回 `SKILL_NOT_EFFECTIVE`。能力不存在就不提供工具。
+            return registry
         for definition in self._definitions():
             registry.register(definition)
         return registry
@@ -171,8 +184,42 @@ class SkillToolSet:
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
 
+    async def search_skills(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """按关键词检索**本次 Run 的全部生效技能**，返回目录条目。
+
+        存在的理由：目录有上限（`MAX_CATALOG_BYTES` / `MAX_CATALOG_ENTRIES`），装不下的技能模型
+        看不见 key 就等于不存在。数据本来就在手上（`self._skills` 是全量），所以这里只是一次
+        本地过滤——不查库、不新增端点。
+        """
+        query = _require_string(arguments, "query")
+        terms = [term for term in query.casefold().split() if term]
+        matches = tuple(skill for skill in self._catalog() if _matches(skill, terms))
+        kept, dropped = bounded_catalog(matches)
+        result: dict[str, Any] = {
+            "total_matches": len(matches),
+            "skills": [render_skill_entry(skill) for skill in kept],
+        }
+        if dropped:
+            # 结果同样有上限：否则技能一多，"检索"只是把上下文膨胀从提示词搬进工具结果。
+            result["truncated"] = True
+            result["hint"] = "only the leading matches are shown; narrow the query"
+        return json.dumps(result, ensure_ascii=False)
+
+    def _catalog(self) -> tuple[PromptSkill, ...]:
+        """全部生效技能 → 目录条目，顺序与提示词目录一致（`sort_order, key`）。"""
+        return tuple(prompt_skill(skill) for skill in self._skills.values())
+
     def _definitions(self) -> tuple[ToolDefinition, ...]:
         return (
+            ToolDefinition(
+                name=SEARCH_SKILLS_TOOL,
+                description=SEARCH_SKILLS_DESCRIPTION,
+                input_schema=_input_schema({"query": _STRING_SCHEMA}, ("query",)),
+                effect=ToolEffect.READ,
+                handler=self.search_skills,
+                # 内容投递：返回的目录条目就是要给模型读的，不得被大结果外置换成预览
+                externalizable_result=False,
+            ),
             ToolDefinition(
                 name=LOAD_SKILL_TOOL,
                 description=LOAD_SKILL_DESCRIPTION,
@@ -339,6 +386,20 @@ def _require_input(arguments: Mapping[str, Any]) -> Mapping[str, Any]:
             "input must be a JSON object",
         )
     return value
+
+
+def _matches(skill: PromptSkill, terms: Sequence[str]) -> bool:
+    """空白切词后**每个词都要命中**（`key`/`name`/`description`/`platform_label`，大小写不敏感）。
+
+    取 AND 不取 OR：中文没有词边界，多词查询本就少见，而 OR 会让「策略 检查」匹配一大片无关
+    技能、把结果上限吃满。子串匹配是不引入分词器的唯一可靠做法。
+    """
+    haystack = " ".join(
+        part
+        for part in (skill.key, skill.name, skill.description, skill.platform_label or "")
+        if part
+    ).casefold()
+    return all(term in haystack for term in terms)
 
 
 def _resolve_resource(root: Path, relative: str) -> Path:

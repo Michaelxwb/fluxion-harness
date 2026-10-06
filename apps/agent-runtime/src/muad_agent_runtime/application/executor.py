@@ -35,7 +35,7 @@ from muad_agent_core.model import (
     StreamingModelProvider,
     text_of,
 )
-from muad_agent_core.prompt import PromptSkill
+from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill
 from muad_agent_core.tools import ToolDefinition, ToolRegistry
 from muad_api import AppError
 from muad_api.context import current_locale, current_trace_id
@@ -62,7 +62,13 @@ from muad_platform_sdk.types import SecretValue
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 from ..infrastructure.db import get_session_factory
 from ..infrastructure.gateway_delivery_client import GatewayDeliveryClient
-from ..metrics import MODEL_INVOCATIONS_METRIC, TOOL_CALLS_METRIC, record_outcome
+from ..metrics import (
+    MODEL_INVOCATIONS_METRIC,
+    SKILL_CATALOG_TRUNCATED_METRIC,
+    TOOL_CALLS_METRIC,
+    record_counter,
+    record_outcome,
+)
 from .attachments.archive_tools import ArchiveToolSet
 from .attachments.output_service import OutputArtifactWriter, OutputScope
 from .attachments.tool_results import (
@@ -374,13 +380,36 @@ class AgentRunnerExecutor:
         return AgentRunRequest(
             model_id=self._request.model.model_id,
             instructions=self._request.agent.instructions,
-            skills=tuple(_prompt_skill(skill) for skill in self._request.skills),
+            skills=self._catalog_skills(),
             messages=messages,
             policy=agent_policy_for(self._request),
             temperature=_float_param(params, "temperature"),
             max_tokens=_int_param(params, "max_tokens"),
             params=params,
         )
+
+    def _catalog_skills(self) -> tuple[PromptSkill, ...]:
+        """生效技能 → 目录条目，并给被上限丢掉的那些**留痕**。
+
+        上限本身在 `DefaultPromptBuilder.build` 里收口（提示词唯一的装配点）；这里再算一次只为
+        拿到 `dropped` —— agent-core 里没有 metrics 设施，而静默丢弃正是这一族里最难查的故障：
+        被丢的技能模型看不见 key，对模型等于不存在。两处调的是同一个纯函数、同一组常量。
+        """
+        catalog = tuple(prompt_skill(skill) for skill in self._request.skills)
+        _, dropped = bounded_catalog(catalog)
+        if dropped:
+            record_counter(SKILL_CATALOG_TRUNCATED_METRIC, len(dropped))
+            logger.warning(
+                "skill_catalog_truncated",
+                extra={
+                    "agent_key": self._request.agent.key,
+                    "dropped_count": len(dropped),
+                    # 丢弃规则是"取前缀"，所以第一个被丢的就是边界：报它一条即可定位，
+                    # 不必把可能上百个 key 全打进日志。
+                    "first_dropped_skill": dropped[0].key,
+                },
+            )
+        return catalog
 
     async def _poll_cancel(self, cancelled: asyncio.Event) -> None:
         while not cancelled.is_set():
@@ -506,22 +535,6 @@ class AuditedModelProvider:
 
 def _tool_kind(name: str) -> str:
     return "MCP" if name.startswith(MCP_TOOL_PREFIX) else "SKILL"
-
-
-def _prompt_skill(skill: ResolvedSkill) -> PromptSkill:
-    """把生效 Skill 投影成提示词目录项（只带名称/描述，产物细节不进提示词）。
-
-    缺了这一步，`DefaultPromptBuilder` 的 `## Available skills` 段永远为空 —— 模型不知道
-    自己有哪些技能可按名加载（症状：用户自然语言问"你有哪些技能"时，模型只能答"我无法
-    列出，请告诉我 key"）。授权判定仍在上游（生效集合），本函数只做投影。
-    """
-    label = skill.frontmatter.get("platform_label")
-    return PromptSkill(
-        key=skill.key,
-        name=skill.name,
-        description=skill.description,
-        platform_label=str(label) if label else None,
-    )
 
 
 def _args_hash(arguments: Mapping[str, Any]) -> str:

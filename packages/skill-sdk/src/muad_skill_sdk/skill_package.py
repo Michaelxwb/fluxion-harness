@@ -19,6 +19,15 @@ SCRIPTS_DIR = "scripts"
 RESOURCE_DIRS = ("references", "assets")
 SCRIPT_EXTENSIONS = frozenset({".py", ".js", ".mjs", ".cjs"})
 
+# 目录条目字段的上限（UTF-8 字节，口径同 `harness-skill` 的「阈值一律按字节判定」，边界为
+# **严格大于**）。`name`/`platform_label` 取 128：`control.skill` 的同名列是 varchar(128)
+# （字符），字节口径更严——列宽只保证能落库，这里要保证目录条目本身不失控。`description`
+# 取 500 是给目录预算用的：在「超限丢整条」的规则下，一条超长 description 排在队首就能把整个
+# 预算吃光、把其余条目全挤掉。（现网最长：description 254 B、name 21 B、label 无。）
+MAX_NAME_BYTES = 128
+MAX_PLATFORM_LABEL_BYTES = 128
+MAX_DESCRIPTION_BYTES = 500
+
 
 def is_script_path(path: Path) -> bool:
     """这个路径是不是可执行脚本？**扩展名判定只有这一处**。
@@ -185,6 +194,23 @@ def _parse_yaml(raw: str) -> Mapping[str, Any]:
     return data
 
 
+def _catalog_field(value: str, field: str, max_bytes: int) -> str:
+    """目录条目字段必须是**单行且有界**——它们会被逐字插进系统提示的目录行。
+
+    多行不是排版问题：`description: |` 后面跟一段任意文本，就等于让上传 SKILL.md 的人往
+    **系统提示**里写一个"段落"，而系统提示落在压缩的受保护前缀里、任何层都不会动它。
+    实测（2026-10-07）：多行 description 让装配出的提示里出现了伪造的 `## 新规则` 段。
+
+    长度按 UTF-8 字节、边界为**严格大于**（同 `harness-skill` 的阈值规则）。
+    """
+    text = value.strip()
+    if "\n" in text or "\r" in text:
+        raise SkillPackageError(f"frontmatter '{field}' must be a single line")
+    if len(text.encode("utf-8")) > max_bytes:
+        raise SkillPackageError(f"frontmatter '{field}' must not exceed {max_bytes} UTF-8 bytes")
+    return text
+
+
 def _build_manifest(frontmatter: Mapping[str, Any]) -> SkillManifest:
     name = frontmatter.get("name")
     description = frontmatter.get("description")
@@ -196,10 +222,14 @@ def _build_manifest(frontmatter: Mapping[str, Any]) -> SkillManifest:
     if platform_label is not None and not isinstance(platform_label, str):
         raise SkillPackageError("frontmatter 'platform_label' must be a string")
     return SkillManifest(
-        name=name,
-        description=description,
+        name=_catalog_field(name, "name", MAX_NAME_BYTES),
+        description=_catalog_field(description, "description", MAX_DESCRIPTION_BYTES),
         execution=_execution_mode(frontmatter.get("execution")),
-        platform_label=platform_label,
+        platform_label=(
+            None
+            if platform_label is None
+            else _catalog_field(platform_label, "platform_label", MAX_PLATFORM_LABEL_BYTES)
+        ),
     )
 
 

@@ -72,6 +72,7 @@ Agent 级 `runtime_config.budget.compaction` 仍按 `merge_compaction_payload` �
 - IM 展示节拍（非 `im.progress_interval_sec`）：`DELTA_FLUSH_INTERVAL_SEC` / `DEFAULT_STREAM_FLUSH_INTERVAL_SEC`
 - TTL：`BIND_CODE_TTL`、取件 token 的默认 TTL（`DEFAULT_FETCH_TTL_SEC`，可经环境变量 `ARTIFACT_FETCH_TTL_SEC` 覆盖）
 - 上下文历史回放守卫：`MAX_HISTORY_TOOL_ROUNDS`
+- 提示词侧的三组预算（2026-10-08）：目录 `MAX_CATALOG_ENTRIES` / `MAX_CATALOG_BYTES`（agent-core，装配点收口，超限丢整条）、生效技能为空时的工具注册判据同在该处；SKILL.md 目录字段 `MAX_NAME_BYTES` / `MAX_PLATFORM_LABEL_BYTES` / `MAX_DESCRIPTION_BYTES`（skill-sdk，导入与加载共用）；Agent 系统提示 `MAX_INSTRUCTIONS_BYTES`（Console DTO，**保存时拒、装配时不截**）
 
 这些值随代码发布；如需运营可调，须另立需求把它们纳入平台设置 schema（`RULE-10`：同一业务语义只有一处权威声明）。
 

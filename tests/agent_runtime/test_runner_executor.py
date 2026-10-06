@@ -1,4 +1,5 @@
 import dataclasses
+import logging
 import uuid
 from typing import Any
 
@@ -12,7 +13,13 @@ from muad_agent_core.model import (
     ModelResponse,
     ModelUnavailableError,
 )
-from muad_agent_core.prompt import DefaultPromptBuilder
+from muad_agent_core.prompt import (
+    CATALOG_TRUNCATED_NOTE,
+    MAX_CATALOG_ENTRIES,
+    DefaultPromptBuilder,
+    prompt_skill,
+    render_skill_entry,
+)
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.api.deps import get_executor_factory
 from muad_agent_runtime.application.executor import (
@@ -266,3 +273,61 @@ def test_effective_skills_enter_the_model_prompt() -> None:
     )
     assert "## Available skills" in system
     assert "demo-skill" in system and "做演示用" in system
+
+
+def test_skill_catalog_is_bounded_and_the_drop_is_reported(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """生效技能再多，系统提示里的目录也**有界**——它是上下文里唯一只增不减的部分。
+
+    被丢掉的必须留痕：模型看不见 key 就等于那个技能不存在（仍可 `search_skills` 找到）。
+    """
+    skills = tuple(
+        ResolvedSkill(
+            skill_id=uuid.uuid4(),
+            artifact_id=uuid.uuid4(),
+            key=f"skill-{index:03d}",
+            name="Demo Skill",
+            description="说明" * 40,
+            version="1.0.0",
+            checksum="sha256:" + "0" * 64,
+            storage_key=f"skills/{index}/1.0.0/skill.zip",
+        )
+        for index in range(MAX_CATALOG_ENTRIES + 5)
+    )
+
+    async def _never_cancelled() -> bool:
+        return False
+
+    request = ExecutorRequest(
+        agent=ResolvedAgent(id=uuid.uuid4(), key="demo", revision=1, instructions="be helpful"),
+        model=ResolvedModel(
+            id=uuid.uuid4(),
+            revision=1,
+            model_id="gpt-4o-mini",
+            base_url="https://api.example.com/v1",
+        ),
+        input_text="hi",
+        is_cancel_requested=_never_cancelled,
+        skills=skills,
+    )
+    executor = AgentRunnerExecutor(
+        runner=AgentRunner(provider=StaticProvider(content="ok"), registry=ToolRegistry()),
+        request=request,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="muad_agent_runtime.application.executor"):
+        run_request = executor._build_run_request()
+
+    # 装配点仍拿到**全量**（`load_skill` / `search_skills` 靠它才对所有技能有效）
+    assert len(run_request.skills) == MAX_CATALOG_ENTRIES + 5
+
+    system = DefaultPromptBuilder().build(
+        instructions=run_request.instructions, skills=run_request.skills
+    )
+    assert render_skill_entry(prompt_skill(skills[0])) in system
+    assert render_skill_entry(prompt_skill(skills[-1])) not in system
+    assert CATALOG_TRUNCATED_NOTE in system
+    # 全量渲染约 20 KiB，收口后必须落在目录预算内
+    assert len(system.encode("utf-8")) < 9000
+    assert "skill_catalog_truncated" in caplog.text

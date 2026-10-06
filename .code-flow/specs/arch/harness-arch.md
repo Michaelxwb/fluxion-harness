@@ -55,9 +55,9 @@ verifiers:
   - ✅ `prompt.index("be helpful") < prompt.index("## Available skills") < prompt.index("<!-- prompt_template_version")`（`tests/agent_core/test_prompt_builder.py`）
   - ❌ `assert "## Available skills" in prompt` —— 段落被挪到 instructions 之前也照样绿
 
-- **段落为空怎么办：看模型的行为该不该变**（同上，2026-10-07）。核心能力缺失 ⇒ **显式说明**（`tools` 为空要写 `(none)`，否则模型会去调一个不存在的工具）；补充信息缺失 ⇒ **整段省略**，不留占位（Skill 目录、记忆为空时什么都没发生，写「当前没有可用技能」只是噪音，还稀释注意力）。
-  - ✅ `if skills:` 才追加 Skill 段（`builder.py`）；`test_empty_skill_catalog_is_omitted` 钉住省略
-  - ❌ 空段落也输出「（无）」「暂无」之类占位
+- **段落为空怎么办：看模型的行为该不该变**（同上，2026-10-07）。核心能力缺失 ⇒ **显式说明**（`tools` 为空要写 `(none)`，否则模型会去调一个不存在的工具）；补充信息缺失 ⇒ **整段省略**，不留占位（Skill 目录、记忆为空时什么都没发生，写「当前没有可用技能」只是噪音，还稀释注意力）。**同一判据也管「段落被截断」**：目录超出预算时模型会以为看到的就是全部，属于行为会变的缺失 ⇒ 必须在段尾说明还有技能未列出、用 `search_skills` 找（`CATALOG_TRUNCATED_NOTE`，**只在真的丢了条目时出现**）。
+  - ✅ `if skills:` 才追加 Skill 段（`builder.py`）；`test_empty_skill_catalog_is_omitted` 钉住省略；`test_truncation_is_announced_only_when_something_was_dropped` 钉住「被截断才说明」
+  - ❌ 空段落也输出「（无）」「暂无」之类占位；❌ 截断了却不说（模型按不完整的清单行事）
 
 - **自由形态的 JSON 载荷必须是严格 JSON，且**只在一处**判它**（2026-10-07）：`input` / `execution_snapshot` / `input_template` 这类 `dict[str, Any]` 走不到类型检查，必须在**入参**（契约 DTO 的 `field_validator`，见 `muad_contracts.canonical.ensure_strict_json`）就拒掉非 JSON 值。两个下游看过**同一份表示**是硬要求：实测 `CreateTaskRequest.model_dump(mode="json")` 会把 `NaN` 静默转成 `None`，于是**幂等指纹算的是 `{"threshold": null}`，真正写进 jsonb 的却是 `{"threshold": NaN}`**——同一份载荷在两个消费者眼里不是同一份。
   - ✅ 非有限数/未知类型在 DTO 层 422（`tests/agent_worker/test_api.py::test_non_standard_json_payload_is_rejected_at_the_boundary`）；`instructions` 先 `strip()` 再判空（`min_length=1` 挡不住 `"   "`，而装配侧会 strip ⇒ 保存合法、发出空提示）

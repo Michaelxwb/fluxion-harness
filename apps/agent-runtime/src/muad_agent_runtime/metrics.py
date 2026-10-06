@@ -18,6 +18,9 @@ AGENT_RUNS_METRIC: Final = "agent_runs_total"
 MODEL_INVOCATIONS_METRIC: Final = "model_invocations_total"
 TOOL_CALLS_METRIC: Final = "tool_calls_total"
 SKILL_LOAD_METRIC: Final = "skill_load_total"
+# 被目录上限丢掉的技能条数记在 **amount**（同 memory 注入/摘要 token 的口径：条数进 label 会
+# 裂出无界时间序列）。它不是"某条技能失败"，而是"这一轮有多少技能没能进提示词"。
+SKILL_CATALOG_TRUNCATED_METRIC: Final = "skill_catalog_truncated_total"
 EGRESS_CALLS_METRIC: Final = "egress_calls_total"
 ARTIFACT_BYTES_METRIC: Final = "artifact_bytes_total"
 RUN_RECLAIM_METRIC: Final = "run_reclaim_total"
@@ -46,6 +49,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     ),
     (TOOL_CALLS_METRIC, COUNTER, ("kind", "tool", "status"), "Tool calls by kind, tool and status"),
     (SKILL_LOAD_METRIC, COUNTER, ("skill", "status"), "Skill package loads by skill key and status"),
+    (
+        SKILL_CATALOG_TRUNCATED_METRIC,
+        COUNTER,
+        (),
+        "Skills dropped from the prompt catalog by the catalog budget",
+    ),
     (EGRESS_CALLS_METRIC, COUNTER, ("platform", "status"), "Egress calls by platform and status"),
     (ARTIFACT_BYTES_METRIC, COUNTER, ("type",), "Artifact bytes written by artifact type"),
     (RUN_RECLAIM_METRIC, COUNTER, (), "Abandoned runs reaped back by the run reaper"),

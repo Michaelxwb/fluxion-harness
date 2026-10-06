@@ -6,6 +6,11 @@ from muad_contracts import ChannelName, CredentialMode
 from muad_contracts.platform_settings import MIN_PASSWORD_LENGTH_FLOOR
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+# Agent 系统提示的字节上限。**故意取宽**：目的是接住「误贴了一整份手册」，不是塑造正常用法
+# （dev 库可校准的样本只有 2 行、最长 32 字节 ⇒ 这是判断不是测量）。取 UTF-8 字节而非字符数，
+# 与仓库里所有提示词侧阈值同口径（目录预算是 8 KiB，两者可以直接比）。
+MAX_INSTRUCTIONS_BYTES = 32 * 1024
+
 
 class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -42,7 +47,7 @@ class ConsoleAccountInfo(BaseModel):
 
 
 def _non_blank_instructions(value: str | None) -> str | None:
-    """`instructions` 先 trim 再判空（2026-10-07）。
+    """`instructions` 先 trim 再判空，并卡住字节上限（2026-10-07）。
 
     `min_length=1` 只挡空串：`"   "` 能通过，而装配侧 `DefaultPromptBuilder.build` 会
     `instructions.strip()` —— 于是**保存时合法、发出去是空系统提示**，模型没有任何行为基线，
@@ -50,12 +55,18 @@ def _non_blank_instructions(value: str | None) -> str | None:
 
     这正是 `harness-api` 记过的那条教训的形状：**同一个违规不能按下界分在两个层判定**
     （密码长度那两个下界——拦截点会从 DTO 悄悄挪到服务层，同一个输入从 422 变成 400）。
+
+    上限**只能在保存边界拒，不能在装配时截**：截断系统提示等于换了一个 Agent
+    （`harness-arch`：降级必须语义等价，否则不许降级）。取 UTF-8 字节而非字符数，与目录预算
+    （agent-core 的 `MAX_CATALOG_BYTES`）同一口径，两者可以直接比。
     """
     if value is None:
         return None
     stripped = value.strip()
     if not stripped:
         raise ValueError("instructions must not be blank")
+    if len(stripped.encode("utf-8")) > MAX_INSTRUCTIONS_BYTES:
+        raise ValueError(f"instructions must not exceed {MAX_INSTRUCTIONS_BYTES} UTF-8 bytes")
     return stripped
 
 

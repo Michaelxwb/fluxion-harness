@@ -1,6 +1,7 @@
 import uuid
 
 from httpx import AsyncClient
+from muad_console_platform.application.dto import MAX_INSTRUCTIONS_BYTES
 from sqlalchemy import text
 
 from console_platform.conftest import TenantContext
@@ -355,6 +356,34 @@ async def test_s01_revision_bumps_and_frozen_snapshot_not_drifted(
                 text("DELETE FROM control.platform_user WHERE id = :uid"), {"uid": user_id}
             )
             await session.commit()
+
+
+async def test_instructions_are_capped_by_utf8_bytes(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """`instructions` 是「租户数据进系统提示」的另一半：目录有预算，它同样必须有界。
+
+    上限**只能在保存边界拒**——装配时截断系统提示等于换了一个 Agent（`harness-arch`：
+    降级必须语义等价，否则不许降级）。口径按 UTF-8 字节、边界严格大于。
+    """
+    at_limit = _payload(tenant, "agent-at-limit")
+    at_limit["instructions"] = "x" * MAX_INSTRUCTIONS_BYTES
+    assert (
+        await client.post("/api/v1/agents", json=at_limit, headers=_headers(tenant))
+    ).status_code == 200
+
+    over = _payload(tenant, "agent-over-limit")
+    over["instructions"] = "x" * (MAX_INSTRUCTIONS_BYTES + 1)
+    assert (
+        await client.post("/api/v1/agents", json=over, headers=_headers(tenant))
+    ).status_code == 422
+
+    # 字符数只有上限的 1/3，字节数却越界 —— 按字符判会放它过去
+    wide = _payload(tenant, "agent-wide")
+    wide["instructions"] = "说" * (MAX_INSTRUCTIONS_BYTES // 3 + 1)
+    assert (
+        await client.post("/api/v1/agents", json=wide, headers=_headers(tenant))
+    ).status_code == 422
 
 
 async def test_blank_instructions_is_rejected_at_save_time(

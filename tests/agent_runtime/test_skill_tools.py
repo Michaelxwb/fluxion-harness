@@ -17,7 +17,8 @@ from muad_agent_core.model import (
     ModelRole,
     ModelToolCall,
 )
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.prompt import MAX_CATALOG_ENTRIES
+from muad_agent_core.tools import ToolEffect, ToolRegistry
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
     AgentRunnerExecutor,
@@ -31,6 +32,7 @@ from muad_agent_runtime.application.skill_tools import (
     MAX_RESOURCE_BYTES,
     READ_SKILL_RESOURCE_TOOL,
     RUN_SKILL_SCRIPT_TOOL,
+    SEARCH_SKILLS_TOOL,
     build_skill_registry,
 )
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
@@ -410,6 +412,7 @@ async def test_full_run_executes_skill_tool_and_feeds_result_to_model(skill_env:
     assert final_text == "final answer"
     assert len(provider.requests) == 2
     assert [tool.name for tool in provider.requests[0].tools] == [
+        SEARCH_SKILLS_TOOL,
         LOAD_SKILL_TOOL,
         READ_SKILL_RESOURCE_TOOL,
         EXECUTE_SKILL_TOOL,
@@ -421,3 +424,82 @@ async def test_full_run_executes_skill_tool_and_feeds_result_to_model(skill_env:
     payload = json.loads(tool_message.content)
     assert payload["status"] == "SUCCEEDED"
     assert payload["result"] == {"echo": {"question": "hi"}, "script": "main"}
+
+
+def _registry_with_keys(tmp_path: Path, *keys: str) -> ToolRegistry:
+    """按给定 key 造一个技能工具集（检索不碰产物缓存，故不建 zip）。"""
+    skills = tuple(
+        ResolvedSkill(
+            skill_id=uuid.uuid4(),
+            artifact_id=uuid.uuid4(),
+            key=key,
+            name=f"Name {key}",
+            description=f"description for {key}",
+            version="1.0.0",
+            checksum="sha256:" + "0" * 64,
+            storage_key=f"skills/{key}/1.0.0/skill.zip",
+            execution_mode="SYNC",
+        )
+        for key in keys
+    )
+    return build_skill_registry(
+        cache=SkillArtifactCache(NfsArtifactStore(tmp_path / "artifacts"), tmp_path / "cache"),
+        skills=skills,
+        policy=AgentPolicy(deadline_ms=30_000),
+    )
+
+
+async def test_search_skills_returns_entries_the_model_can_act_on(tmp_path: Path) -> None:
+    """返回的必须是**目录同一行格式**：模型据此拿到 key 就能 load_skill / execute_skill。"""
+    registry = _registry_with_keys(tmp_path, "weather-query", "policy-check")
+
+    payload = await _call(registry, SEARCH_SKILLS_TOOL, {"query": "policy"})
+
+    assert payload["total_matches"] == 1
+    assert payload["skills"] == ["- policy-check: Name policy-check - description for policy-check"]
+    assert "truncated" not in payload
+
+
+async def test_search_skills_requires_every_term(tmp_path: Path) -> None:
+    """多词取 AND：取 OR 会让「weather policy」匹配一大片无关技能，把结果上限吃满。"""
+    registry = _registry_with_keys(tmp_path, "weather-query", "policy-check")
+
+    both = await _call(registry, SEARCH_SKILLS_TOOL, {"query": "WEATHER query"})
+    assert both["total_matches"] == 1
+
+    neither = await _call(registry, SEARCH_SKILLS_TOOL, {"query": "weather policy"})
+    assert neither["total_matches"] == 0
+    assert neither["skills"] == []
+
+
+async def test_search_skills_bounds_its_own_result(tmp_path: Path) -> None:
+    """结果同目录预算收口：否则技能一多，"检索"只是把上下文膨胀从提示词搬进工具结果。"""
+    registry = _registry_with_keys(
+        tmp_path, *(f"skill-{index:03d}" for index in range(MAX_CATALOG_ENTRIES + 3))
+    )
+
+    payload = await _call(registry, SEARCH_SKILLS_TOOL, {"query": "skill"})
+
+    assert payload["total_matches"] == MAX_CATALOG_ENTRIES + 3
+    assert len(payload["skills"]) == MAX_CATALOG_ENTRIES
+    assert payload["truncated"] is True
+
+
+def test_search_skills_is_content_delivery_over_a_strict_schema(tmp_path: Path) -> None:
+    """内容投递（不得被大结果外置换成预览）＋ 严格入参（多一个字段整体拒绝）。"""
+    definition = _registry_with_keys(tmp_path, "policy-check").get(SEARCH_SKILLS_TOOL)
+
+    assert definition.effect is ToolEffect.READ
+    assert definition.externalizable_result is False
+    assert definition.input_schema["additionalProperties"] is False
+    assert definition.input_schema["required"] == ["query"]
+
+
+def test_skill_tools_are_not_registered_without_effective_skills(tmp_path: Path) -> None:
+    """一个生效技能都没有时，这几个工具**全都无从调用**（key 从哪来？），目录段也是空的。
+
+    注册它们只会让模型猜一个 key、白跑一轮换回 `SKILL_NOT_EFFECTIVE`。
+    """
+    registry = _registry_with_keys(tmp_path)
+
+    assert registry.list() == ()
