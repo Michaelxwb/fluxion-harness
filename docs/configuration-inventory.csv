@@ -405,11 +405,11 @@ apps/console-platform/backend/src/muad_console_platform/application/audit_query_
 apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py,27,AUDIT_TYPES,"frozenset({'CONFIG', 'TOOL', 'EGRESS', 'MODEL'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py,29,RESULT_STATUSES,"frozenset({'SUCCESS', 'FAILED', 'DENIED'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py,31,_TIME_FIELDS,"('occurred_at', 'started_at', 'finished_at')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,23,ROLES,"(ROLE_ADMIN, ROLE_BUILDER)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,25,_PASSWORD_HASHER,PasswordHasher(),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,27,_DUMMY_HASH,_PASSWORD_HASHER.hash('muad-console-timing-equalizer'),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,265,ACCOUNT_IDEMPOTENCY_ENDPOINT,'/api/v1/accounts',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,266,FINGERPRINT_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,24,ROLES,"(ROLE_ADMIN, ROLE_BUILDER)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,26,_PASSWORD_HASHER,PasswordHasher(),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,28,_DUMMY_HASH,_PASSWORD_HASHER.hash('muad-console-timing-equalizer'),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,277,ACCOUNT_IDEMPOTENCY_ENDPOINT,'/api/v1/accounts',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,278,FINGERPRINT_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/channel_admin_service.py,19,AUDIT_RESOURCE_TYPE,'AGENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,39,HASH_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,40,PLATFORM_USER_STATUS_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -467,10 +467,10 @@ apps/console-platform/backend/src/muad_console_platform/application/user_service
 apps/console-platform/backend/src/muad_console_platform/cli.py,20,DEFAULT_TENANT,SharedSettings().default_tenant_id,python-constant,environment,必须复用 DEFAULT_TENANT_ID，不能独立默认
 apps/console-platform/backend/src/muad_console_platform/cli.py,22,SECRET_TABLES,"(('model_definition', 'secret_ref', 'api_key', False), ('bot_account', 'secret_ref', 'secret', False), ('mcp_server', 'auth_secret_ref', 'auth_secret', False), ('user_credential_ref', 'secret_ref', 'credential_json', True), ('shared_credential_ref', 'secret_ref', 'credential_json', True))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/cli.py,142,env_name,'',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
-apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,12,_JSON_RPC_VERSION,'2.0',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,13,_PROTOCOL_VERSION,'2025-03-26',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,14,_MAX_PAGES,50,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,67,__init__.timeout_ms,5000,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,13,_JSON_RPC_VERSION,'2.0',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,14,_PROTOCOL_VERSION,'2025-03-26',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,15,_MAX_PAGES,50,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py,68,__init__.timeout_ms,5000,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/console-platform/backend/src/muad_console_platform/infrastructure/models/auth.py,9,ROLE_ADMIN,'ADMIN',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/models/auth.py,10,ROLE_BUILDER,'BUILDER',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/models/base.py,7,NAMING_CONVENTION,"{'ix': 'ix_%(column_0_label)s', 'uq': 'uq_%(table_name)s_%(column_0_name)s', 'ck': 'ck_%(table_name)s_%(constraint_name)s', 'fk': 'fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s', 'pk': 'pk_%(table_name)s'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -522,9 +522,9 @@ apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_cl
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,24,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,25,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,49,__init__.timeout_sec,DEFAULT_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
-apps/console-platform/backend/src/muad_console_platform/main.py,28,SERVICE_NAME,'muad-console-platform',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/main.py,79,MUAD_EXTRA_PLATFORM_ADAPTERS,'',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
-apps/console-platform/backend/src/muad_console_platform/main.py,90,STATIC_DIR,'/app/static',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+apps/console-platform/backend/src/muad_console_platform/main.py,29,SERVICE_NAME,'muad-console-platform',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/main.py,80,MUAD_EXTRA_PLATFORM_ADAPTERS,'',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+apps/console-platform/backend/src/muad_console_platform/main.py,92,STATIC_DIR,'/app/static',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
 apps/console-platform/backend/src/muad_console_platform/metrics.py,18,API_REQUESTS_METRIC,'console_api_requests_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/metrics.py,19,SKILL_IMPORT_METRIC,'skill_import_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/metrics.py,20,RESOLVE_DEFINITION_METRIC,'runtime_definition_resolve_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -986,11 +986,11 @@ packages/skill-sdk/src/muad_skill_sdk/skill_package.py,20,SCRIPT_EXTENSIONS,"fro
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,27,MAX_NAME_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,28,MAX_PLATFORM_LABEL_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,29,MAX_DESCRIPTION_BYTES,500,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/dto.py,12,MAX_INSTRUCTIONS_BYTES,32 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/dto.py,426,McpCreateRequest.connect_timeout_ms,"Field(default=None, ge=100, le=60000)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
-apps/console-platform/backend/src/muad_console_platform/application/dto.py,427,McpCreateRequest.tool_cache_ttl_sec,"Field(default=None, ge=1, le=86400)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
-apps/console-platform/backend/src/muad_console_platform/application/dto.py,440,McpUpdateRequest.connect_timeout_ms,"Field(default=None, ge=100, le=60000)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
-apps/console-platform/backend/src/muad_console_platform/application/dto.py,441,McpUpdateRequest.tool_cache_ttl_sec,"Field(default=None, ge=1, le=86400)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,13,MAX_INSTRUCTIONS_BYTES,32 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,485,McpCreateRequest.connect_timeout_ms,"Field(default=None, ge=100, le=60000)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,486,McpCreateRequest.tool_cache_ttl_sec,"Field(default=None, ge=1, le=86400)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,498,McpUpdateRequest.connect_timeout_ms,"Field(default=None, ge=100, le=60000)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,499,McpUpdateRequest.tool_cache_ttl_sec,"Field(default=None, ge=1, le=86400)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
 packages/common/src/muad_common/settings.py,8,env,'dev',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
 packages/common/src/muad_common/settings.py,9,log_dir,'./.data/logs',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
 packages/common/src/muad_common/settings.py,10,log_level,'INFO',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务

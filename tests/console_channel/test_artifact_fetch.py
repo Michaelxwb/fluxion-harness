@@ -21,6 +21,7 @@ import hashlib
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from urllib.parse import unquote
 
 import httpx
@@ -38,7 +39,9 @@ from muad_console_platform.application.artifact_fetch_service import (
     ArtifactResolvePort,
 )
 from muad_console_platform.application.artifact_fetch_tokens import ArtifactFetchTokens
+from muad_console_platform.application.auth_service import hash_session_token
 from muad_console_platform.infrastructure.db import get_session_factory
+from muad_console_platform.infrastructure.models.auth import ConsoleSession
 from muad_console_platform.main import app
 
 from console_channel.conftest import ChannelContext
@@ -194,6 +197,29 @@ async def test_console_session_path_returns_the_original_bytes(
     assert response.content == fetch_env.mine.content
     assert response.headers["content-type"].startswith(MEDIA_TYPE)
     assert FILENAME in unquote(response.headers["content-disposition"])
+
+
+async def test_file_response_refreshes_renewed_session_cookies(
+    client: AsyncClient, fetch_env: FetchEnv, fetch_service: ArtifactFetchService,
+) -> None:
+    token = client.cookies.get("muad_session")
+    csrf = client.cookies.get("muad_csrf")
+    now = datetime.now(UTC)
+    async with get_session_factory()() as session:
+        await session.execute(
+            sa.update(ConsoleSession).where(ConsoleSession.token_hash == hash_session_token(token)).values(
+                issued_at=now - timedelta(hours=7), expires_at=now + timedelta(hours=5),
+            )
+        )
+        await session.commit()
+    response = await _fetch(client, fetch_env.mine.artifact_id)
+    assert response.status_code == 200
+    assert response.content == fetch_env.mine.content
+    cookies = response.headers.get_list("set-cookie")
+    assert len(cookies) == 2
+    assert all("Max-Age=43200" in cookie for cookie in cookies)
+    assert client.cookies.get("muad_session") == token
+    assert client.cookies.get("muad_csrf") == csrf
 
 
 async def test_signed_token_path_returns_the_original_bytes(

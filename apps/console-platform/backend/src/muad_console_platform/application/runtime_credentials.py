@@ -54,9 +54,7 @@ async def resolve_runtime_credentials(
             server = by_id.get(server_id)
             if server is None or server.is_deleted:
                 raise AppError(ErrorCode.COMMON_NOT_FOUND)
-            if not server.auth_secret:
-                raise AppError(ErrorCode.CREDENTIAL_MISSING)
-            # 仅认证字段；enabled/catalog 变更不重新筛选
+            # 凭据可选：无鉴权 MCP 返回 None；enabled/catalog 变更不重新筛选。
             mcp_servers.append(
                 {"mcp_server_id": str(server_id), "auth_secret": server.auth_secret}
             )

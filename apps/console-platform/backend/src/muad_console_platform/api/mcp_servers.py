@@ -4,7 +4,8 @@ import uuid
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request
-from muad_api import ApiResponse, ok, paginate
+from muad_api import ApiResponse, AppError, ok, paginate
+from muad_api.error_codes import ErrorCode
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
@@ -74,6 +75,8 @@ async def create_server(
     session: Session,
     idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ApiResponse[Any]:
+    if payload.user_scope == "ALL" and account.role != "ADMIN":
+        raise AppError(ErrorCode.FORBIDDEN)
     data = await McpService(session).create_server(
         tenant_id, payload, _actor(account, request), idempotency_key=idempotency_key
     )

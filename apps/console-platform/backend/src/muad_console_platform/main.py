@@ -19,6 +19,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .api.deps import ConsoleRoleResolver, ConsoleSessionVerifier
 from .api.router import router
+from .api.session_renewal import SessionRenewalMiddleware
 from .application.auth_service import AuthService
 from .application.platform_adapter_service import build_default_registry
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
@@ -82,6 +83,7 @@ app.state.platform_adapters = build_default_registry(
 )
 install_api_foundation(app)
 install_console_security(app, ConsoleSessionVerifier(), ConsoleRoleResolver())
+app.add_middleware(SessionRenewalMiddleware)
 install_health_probes(app, {"database": database_readiness(get_engine)})
 install_console_metrics(app)
 app.include_router(router)

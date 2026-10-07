@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from muad_contracts import ChannelName, CredentialMode
+from muad_contracts.canonical import ensure_strict_json
 from muad_contracts.platform_settings import MIN_PASSWORD_LENGTH_FLOOR
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -81,6 +82,12 @@ class AgentCreateRequest(BaseModel):
     runtime_config: dict[str, Any] = Field(default_factory=dict)
     enabled: bool = True
 
+    @field_validator("runtime_config")
+    @classmethod
+    def _strict_runtime_config(cls, value: dict[str, Any]) -> dict[str, Any]:
+        ensure_strict_json(value)
+        return value
+
     @field_validator("instructions")
     @classmethod
     def _instructions_not_blank(cls, value: str) -> str:
@@ -97,6 +104,19 @@ class AgentUpdateRequest(BaseModel):
     runtime_config: dict[str, Any] | None = None
     enabled: bool | None = None
     expected_revision: int = Field(ge=1)
+
+    @field_validator("name", "instructions", "model_id", "runtime_config", "enabled", mode="before")
+    @classmethod
+    def _required_fields_not_null(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("field must not be null")
+        return value
+
+    @field_validator("runtime_config")
+    @classmethod
+    def _strict_runtime_config(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        ensure_strict_json(value)
+        return value
 
     @field_validator("instructions")
     @classmethod
@@ -472,7 +492,6 @@ class McpUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     endpoint: str | None = None
     transport: str | None = None
-    user_scope: Literal["ALL", "SELECTED"] | None = None
     enabled: bool | None = None
     auth_secret: str | None = None
     auth_config: dict[str, Any] | None = None

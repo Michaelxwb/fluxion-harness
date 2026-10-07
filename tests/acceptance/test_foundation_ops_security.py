@@ -78,6 +78,32 @@ def test_s10_valid_session_passes_cookie_and_bearer() -> None:
     assert client.get("/session").status_code == 401
 
 
+def test_session_and_role_dependencies_verify_once_per_request() -> None:
+    class CountingVerifier(StubSessionVerifier):
+        calls = 0
+
+        async def verify(self, session_token: str) -> Principal | None:
+            self.calls += 1
+            return await super().verify(session_token)
+
+    app = FastAPI()
+    verifier = CountingVerifier()
+    install_api_foundation(app, messages_file=MESSAGES_FILE)
+    install_console_security(app, verifier, StubRoleResolver())
+
+    @app.get("/both")
+    async def both(session: SessionUser, admin: AdminUser) -> Principal:
+        assert session is admin
+        return session
+
+    with TestClient(app) as client:
+        for expected in (1, 2):
+            assert client.get("/both", headers={"Authorization": "Bearer good-token"}).status_code == 200
+            assert verifier.calls == expected
+        assert client.get("/both", headers={"Authorization": "Bearer bad-token"}).status_code == 401
+        assert verifier.calls == 3
+
+
 def test_s10_real_console_app_uses_api_kit_security_primitive() -> None:
     """RULE-14：真实 console app 必须装配 api-kit 的会话/RBAC 原语（而不是自建依赖层）。"""
     import importlib

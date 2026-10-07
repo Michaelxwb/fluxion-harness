@@ -69,7 +69,9 @@ await session.execute(audit_insert, {"after": {"api_key": ...}})      # 进入�
 return {"api_key": model.api_key}                                     # 出现在 API 响应
 ```
 
-- 运行时凭据解析走内部 API-09（`POST /internal/runtime/resolve-credentials`）：按冻结主键（`model_id`/`mcp_server_ids`）实时读取 Owner 表当前密钥，仅在执行内存使用；密钥清空或资源移除明确 `CREDENTIAL_MISSING`/`COMMON_NOT_FOUND`，禁止退回环境变量；新 Run 用 resolve-definition 返回值，resume/重试必须重新读取，保证密钥轮换即时生效。
+- 运行时凭据解析走内部 API-09（`POST /internal/runtime/resolve-credentials`）：按冻结主键（`model_id`/`mcp_server_ids`）实时读取 Owner 表当前密钥，仅在执行内存使用；模型密钥清空明确 `CREDENTIAL_MISSING`，资源移除明确 `COMMON_NOT_FOUND`，禁止退回环境变量。MCP 鉴权可选，未配置时返回 `auth_secret: null`，客户端不发送 Authorization；已配置时读取当前值，轮换即时生效。新 Run 与 resume/重试均按运行流程实时解析。
+  - ✅ 无鉴权 MCP 的 Owner 行存在且 `auth_secret=None` 时正常返回；❌ 把可选 MCP 凭据缺失当成模型密钥缺失。
+  - 机检：`tests/console_internal/test_runtime_credentials.py::test_runtime_credentials_support_mcp_without_auth`。
 
 ✅ 内存凭据（轮换后 resume 用新值）：
 

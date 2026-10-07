@@ -2,6 +2,7 @@ import { Button, Select, Spin, Table, Tabs, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '../../auth/AuthContext';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
@@ -182,6 +183,8 @@ function RelationPicker({
 
 export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
   const { t } = useTranslation();
+  const { account } = useAuth();
+  const isAdmin = account?.role === 'ADMIN';
   const [detail, setDetail] = useState<AgentDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -410,7 +413,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
         <Tabs.TabPane itemKey="users" tab={t('agent.detail.tabs.users')}>
           <div className="detail-section-title">{t('agent.detail.tabs.users')}</div>
           {relationFailed ? <ErrorState onRetry={() => void reload()} /> : null}
-          <RelationPicker
+          {isAdmin ? <RelationPicker
             testId="grant-user-select"
             refreshToken={pickerToken}
             onLoad={async () => {
@@ -428,7 +431,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
               await grantAgentUser(props.agentId, value);
               await mutate();
             }}
-          />
+          /> : null}
           {grants.length === 0 ? (
             <EmptyState title={t('common.empty')} />
           ) : (
@@ -447,7 +450,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                 },
                 {
                   title: t('agent.columns.actions'),
-                  render: (_: unknown, record: AgentGrantItem) => (
+                  render: (_: unknown, record: AgentGrantItem) => isAdmin ? (
                     <ConfirmAction
                       danger
                       title={t('agent.relation.confirmRevoke')}
@@ -458,7 +461,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                     >
                       {t('agent.relation.revoke')}
                     </ConfirmAction>
-                  )
+                  ) : null
                 }
               ]}
             />

@@ -3,6 +3,7 @@ import json
 import logging
 import secrets
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from argon2 import PasswordHasher
@@ -40,6 +41,12 @@ def verify_password(password_hash: str, password: str) -> bool:
 
 def hash_session_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedConsoleSession:
+    account: ConsoleAccount
+    renewed_ttl: timedelta | None = None
 
 
 class AuthService:
@@ -100,13 +107,15 @@ class AuthService:
 
     async def _find_login_account(self, username: str) -> ConsoleAccount | None:
         if self._tenant_id:
-            return await self._accounts.find_by_username(self._require_tenant(), username)
-        candidates = await self._accounts.find_by_username_global(username)
-        if len(candidates) == 1:
-            return candidates[0]
-        if len(candidates) > 1:
-            _logger.warning("console_login_ambiguous_username candidates=%s", len(candidates))
-        return None
+            account = await self._accounts.find_by_username(self._require_tenant(), username)
+        else:
+            candidates = await self._accounts.find_by_username_global(username)
+            account = candidates[0] if len(candidates) == 1 else None
+            if len(candidates) > 1:
+                _logger.warning("console_login_ambiguous_username candidates=%s", len(candidates))
+        if account is None:
+            return None
+        return await self._accounts.get_for_update(account.tenant_id, account.id)
 
     async def _register_failure(self, account: ConsoleAccount, now: datetime, policy: AuthSettings) -> None:
         account.failed_attempts += 1
@@ -116,7 +125,7 @@ class AuthService:
         account.update_time = now
         await self._session.commit()
 
-    async def resolve_session(self, token: str) -> ConsoleAccount:
+    async def resolve_session(self, token: str) -> ResolvedConsoleSession:
         now = datetime.now(UTC)
         row = await self._sessions.find_by_token_hash(hash_session_token(token))
         if row is None or row.revoked_at is not None or row.expires_at <= now:
@@ -128,13 +137,16 @@ class AuthService:
         # 只有真要续期时才读当前平台设置：改会话时长只影响之后**签发/续期**的会话，
         # 不追改已签发会话的到期时间；普通请求（未到续期点）不引入任何设置读。
         issued_ttl = row.expires_at - row.issued_at
+        renewed_ttl = None
         if row.expires_at - now < issued_ttl / 2:
             policy = await self._auth_policy(account.tenant_id)
-            row.expires_at = now + timedelta(hours=policy.session_ttl_hours)
+            renewed_ttl = timedelta(hours=policy.session_ttl_hours)
+            row.issued_at = now
+            row.expires_at = now + renewed_ttl
         row.last_seen_at = now
         row.update_time = now
         await self._session.flush()
-        return account
+        return ResolvedConsoleSession(account, renewed_ttl)
 
     async def logout(self, token: str) -> None:
         row = await self._sessions.find_by_token_hash(hash_session_token(token))

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from types import TracebackType
 from typing import Any, cast
 
 import httpx
@@ -70,11 +71,17 @@ class McpClient:
         self._headers = {"Accept": "application/json, text/event-stream"}
         if auth_secret:
             self._headers["Authorization"] = f"Bearer {auth_secret}"
-        self._client = httpx.Client(headers=self._headers, timeout=httpx.Timeout(timeout_ms / 1000))
+        self._client = httpx.AsyncClient(headers=self._headers, timeout=httpx.Timeout(timeout_ms / 1000))
         self._session_id: str | None = None
 
-    def close(self) -> None:
-        self._client.close()
+    async def __aenter__(self) -> McpClient:
+        return self
+
+    async def __aexit__(
+        self, exc_type: type[BaseException] | None,
+        exc: BaseException | None, traceback: TracebackType | None,
+    ) -> None:
+        await self._client.aclose()
 
     def _request_headers(self) -> dict[str, str]:
         headers = dict(self._headers)
@@ -83,10 +90,10 @@ class McpClient:
         headers["MCP-Protocol-Version"] = _PROTOCOL_VERSION
         return headers
 
-    def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
         expects_response = payload.get("id") is not None
         try:
-            response = self._client.post(
+            response = await self._client.post(
                 self._endpoint, json=payload, headers=self._request_headers()
             )
         except httpx.TimeoutException as exc:
@@ -127,8 +134,8 @@ class McpClient:
             raise McpClientError("protocol", "empty sse payload")
         return cast(dict[str, Any], response.json())
 
-    def initialize(self) -> dict[str, Any]:
-        body = self._post(
+    async def initialize(self) -> dict[str, Any]:
+        body = await self._post(
             {
                 "jsonrpc": _JSON_RPC_VERSION,
                 "id": 1,
@@ -144,10 +151,10 @@ class McpClient:
         server_info = result.get("serverInfo")
         if not isinstance(server_info, dict):
             raise McpClientError("protocol", "initialize missing serverInfo")
-        self._post({"jsonrpc": _JSON_RPC_VERSION, "method": "notifications/initialized"})
+        await self._post({"jsonrpc": _JSON_RPC_VERSION, "method": "notifications/initialized"})
         return server_info
 
-    def list_tools(self, *, max_tools: int | None = None) -> list[McpToolSpec]:
+    async def list_tools(self, *, max_tools: int | None = None) -> list[McpToolSpec]:
         """按 cursor 分页拉取全部工具；超过 max_tools 立即失败（避免无界拉取）。"""
         specs: list[McpToolSpec] = []
         cursor: str | None = None
@@ -162,7 +169,7 @@ class McpClient:
             }
             if params:
                 payload["params"] = params
-            body = self._post(payload)
+            body = await self._post(payload)
             result = body.get("result") or {}
             tools = result.get("tools") or []
             if not isinstance(tools, list):

@@ -22,7 +22,7 @@ from ..application.grant_service import GrantService
 from ..application.skill_service import SkillService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.control import AgentDefinition
-from .deps import AccountTenantId, CurrentAccount, get_source_ip
+from .deps import AccountTenantId, AdminAccount, CurrentAccount, get_source_ip
 
 TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -266,7 +266,7 @@ async def grant_agent_user(
     agent_id: uuid.UUID,
     user_id: uuid.UUID,
     request: Request,
-    account: CurrentAccount,
+    account: AdminAccount,
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
@@ -294,7 +294,7 @@ async def revoke_agent_user(
     agent_id: uuid.UUID,
     user_id: uuid.UUID,
     request: Request,
-    account: CurrentAccount,
+    account: AdminAccount,
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:

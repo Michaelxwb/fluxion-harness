@@ -56,6 +56,9 @@ tools = await client.post(endpoint, json={"method": "tools/list"})     # 运行�
 
 Console 侧 `discover-tools` 的 Catalog 维护与缓存（PG 为权威源）：
 
+- **连接测试与目录发现必须异步且关闭连接**：`McpClient` 使用 `httpx.AsyncClient`，调用方 `async with` 后 await `initialize`/`list_tools`；正常、协议错误、超时与取消均退出上下文释放连接。无凭据 MCP 不发送 Authorization，API-09 返回可空的 `auth_secret`。
+  - ✅ `async with McpClient(...) as client: await client.initialize()`；❌ 在 async 服务中调用同步 `httpx.Client.post`，或构造客户端后不关闭。
+  - 机检：`tests/console_mcp/test_mcp_client.py::test_slow_mcp_yields_and_closes`、`test_failed_mcp_closes_connections`。
 - **发现失败必须保留上一成功 Catalog**：失败时置 `connection_status=DISCOVERY_FAILED` 并写 `last_discovery_error`，`tool_catalog_json`/`hash`/`revision` 一概不动（`application/mcp_service.py:426-432`）。
   - 关键实现约束：失败状态必须用**独立事务**持久化（`_write_failure_state`，`application/mcp_service.py:94-106`）——`discover_tools` 随后抛 `AppError`，主事务会被回滚，同事务写等于没写。
   - 机检：`tests/console_mcp/test_discover_api.py:94-122`

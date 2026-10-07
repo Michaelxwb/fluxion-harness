@@ -202,3 +202,28 @@ async def test_b128_invalid_execution_ref_type(
     payload["execution_ref"] = {"type": "SESSION", "id": str(uuid.uuid4())}
     response = await client.post(URL, json=payload, headers=_service_headers(tenant))
     assert response.status_code in (403, 422)
+
+
+async def test_runtime_credentials_support_mcp_without_auth(
+    client: AsyncClient, tenant: TenantContext,
+) -> None:
+    async with get_session_factory()() as session:
+        server = McpServer(
+            tenant_id=tenant.tenant_id, key=f"no-auth-{uuid.uuid4()}", name="No auth",
+            endpoint="http://127.0.0.1:9/mcp", auth_secret=None,
+        )
+        session.add(server)
+        await session.commit()
+        server_id = server.id
+    try:
+        payload = _payload(tenant)
+        payload["mcp_server_ids"] = [str(server_id)]
+        response = await client.post(URL, json=payload, headers=_service_headers(tenant))
+        assert response.status_code == 200
+        assert response.json()["data"]["mcp_servers"] == [
+            {"mcp_server_id": str(server_id), "auth_secret": None},
+        ]
+    finally:
+        async with get_session_factory()() as session:
+            await session.execute(McpServer.__table__.delete().where(McpServer.id == server_id))
+            await session.commit()

@@ -222,6 +222,10 @@ if len(password) < policy.min_password_length:
 
 **为什么这条值得写下来**：平台策略可配之后，下界可以下调（12 → 8），**拦截点会从 DTO 悄悄挪到服务层**——同一个输入从 422 变成 400，而没有任何人决策过这件事；下游只会看到"某条归档验收红了"，最省事的处置恰好是**改那条验收去迁就实现**，于是一次无人决策的行为变更被洗成事实。两个桶同码可以让这种漂移根本发生不了。
 
+- Agent 更新的 `name/instructions/model_id/runtime_config/enabled` 可省略但不可显式 null；`description` 可清空为 null。创建与更新的 `runtime_config` 在 DTO 用 `ensure_strict_json` 递归拒绝非有限数，创建指纹复用 `canonical_json`。
+  - ✅ `{"expected_revision": 1, "description": null}`；❌ 必填字段 null 或嵌套 NaN/Infinity 穿过请求边界，直到 JSONB 写入才返回 500。
+  - 机检：`tests/console_platform/test_agent_input_validation.py`。
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。

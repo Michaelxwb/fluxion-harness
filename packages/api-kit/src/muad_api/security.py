@@ -56,6 +56,9 @@ def _extract_session_token(request: Request) -> str:
 
 
 async def require_session(request: Request) -> Any:
+    cached = getattr(request.state, "verified_session_principal", None)
+    if cached is not None:
+        return cached
     verifier = getattr(request.app.state, "session_verifier", None)
     resolver = getattr(request.app.state, "role_resolver", None)
     if verifier is None or resolver is None:
@@ -66,6 +69,7 @@ async def require_session(request: Request) -> Any:
         raise AppError(ErrorCode.UNAUTHORIZED)
     request.state.principal = principal
     request.state.roles = frozenset(await resolver.roles_for(principal))
+    request.state.verified_session_principal = principal
     return principal
 
 

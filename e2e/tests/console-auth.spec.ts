@@ -38,6 +38,37 @@ async function csrfHeaders(page: Page): Promise<Record<string, string>> {
   return csrf ? { 'X-CSRF-Token': csrf.value } : {};
 }
 
+async function createReviewResources(page: Page, key: string) {
+  const headers = await csrfHeaders(page);
+  const model = await page.request.post('/api/v1/models', {
+    headers, data: { key, name: key, model_id: 'review', base_url: 'http://127.0.0.1:9/v1' }
+  });
+  expect(model.status(), await model.text()).toBe(200);
+  const modelId = (await model.json()).data.id as string;
+  const agent = await page.request.post('/api/v1/agents', {
+    headers, data: { key, name: key, model_id: modelId, instructions: 'review' }
+  });
+  expect(agent.status(), await agent.text()).toBe(200);
+  const server = await page.request.post('/api/v1/mcp-servers', {
+    headers, data: { key, name: key, endpoint: 'http://127.0.0.1:9/mcp' }
+  });
+  expect(server.status(), await server.text()).toBe(200);
+  return { modelId, agentId: (await agent.json()).data.id as string,
+    serverId: (await server.json()).data.mcp_id as string };
+}
+
+async function cleanupReviewResources(page: Page, resources: Awaited<ReturnType<typeof createReviewResources>>) {
+  await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  const headers = await csrfHeaders(page);
+  for (const path of [
+    `/api/v1/agents/${resources.agentId}`, `/api/v1/mcp-servers/${resources.serverId}`,
+    `/api/v1/models/${resources.modelId}`
+  ]) {
+    const response = await page.request.delete(path, { headers });
+    expect(response.status(), await response.text()).toBe(200);
+  }
+}
+
 test.beforeAll(() => {
   seed('create');
 });
@@ -317,6 +348,37 @@ test('S-12 ADMIN 与 BUILDER 的菜单/路由差异：用户入口仅 ADMIN', as
   // 后端兜底：用户接口位于 admin 路由组，BUILDER 直连被拒
   const forbidden = await page.request.get('/api/v1/users');
   expect(forbidden.status()).toBe(403);
+});
+
+test('review BUILDER 看不到授权维护控件，普通 MCP 编辑保留范围', async ({ page }) => {
+  await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  const key = `e2e-review-${Date.now()}`;
+  const resources = await createReviewResources(page, key);
+  try {
+    await loginAs(page, BUILDER_USERNAME, BUILDER_PASSWORD);
+    await page.goto('/agents');
+    await page.getByTestId(`agent-link-${key}`).click();
+    await page.getByRole('tab', { name: '用户授权' }).click();
+    await expect(page.getByTestId('grant-user-select')).toHaveCount(0);
+    await page.goto('/mcp');
+    await page.getByTestId(`mcp-link-${key}`).click();
+    await expect(page.getByTestId('change-mcp-scope')).toHaveCount(0);
+    await page.getByRole('tab', { name: '指定用户' }).click();
+    await expect(page.getByTestId('mcp-add-selected-user')).toHaveCount(0);
+    await page.getByTestId('edit-mcp').click();
+    const modal = page.locator('.semi-modal');
+    await expect(modal.getByRole('combobox', { name: /用户范围/ })).toHaveCount(0);
+    await modal.getByRole('textbox', { name: /名称/ }).fill('review edited');
+    const saved = page.waitForResponse((response) =>
+      response.request().method() === 'PUT' && response.url().endsWith(`/mcp-servers/${resources.serverId}`));
+    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    const response = await saved;
+    expect(response.status(), await response.text()).toBe(200);
+    expect(response.request().postDataJSON()).not.toHaveProperty('user_scope');
+    expect((await response.json()).data.user_scope).toBe('SELECTED');
+  } finally {
+    await cleanupReviewResources(page, resources);
+  }
 });
 
 test('S-13 Header 下拉退出返回 /login，再访问受保护路由仍跳登录页', async ({ page }) => {

@@ -2,6 +2,7 @@ import { Banner, Button, Spin, Tabs } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '../../auth/AuthContext';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
@@ -25,6 +26,8 @@ export interface McpDetailSideSheetProps {
 
 export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
   const { t } = useTranslation();
+  const { account } = useAuth();
+  const isAdmin = account?.role === 'ADMIN';
   const [detail, setDetail] = useState<McpServerDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -110,13 +113,13 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
             <Button data-testid="test-mcp" onClick={() => setTestVisible(true)}>
               {t('mcp.test.action')}
             </Button>
-            <Button
+            {isAdmin ? <Button
               data-testid="change-mcp-scope"
               disabled={detail === null}
               onClick={() => setScopeVisible(true)}
             >
               {t('mcp.scope.changeAction')}
-            </Button>
+            </Button> : null}
             <Button
               theme="solid"
               data-testid="discover-mcp"

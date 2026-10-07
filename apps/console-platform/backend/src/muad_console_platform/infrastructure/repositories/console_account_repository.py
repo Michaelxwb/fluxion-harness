@@ -47,6 +47,15 @@ class ConsoleAccountRepository:
         )
         return account
 
+    async def get_for_update(self, tenant_id: str, account_id: uuid.UUID) -> ConsoleAccount | None:
+        account: ConsoleAccount | None = await self._session.scalar(
+            select(ConsoleAccount)
+            .where(ConsoleAccount.id == account_id, *self._active_conditions(tenant_id))
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        return account
+
     async def list(self, tenant_id: str, *, limit: int, offset: int) -> list[ConsoleAccount]:
         result = await self._session.scalars(
             select(ConsoleAccount)

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { apiErrorBody, newRequestId } from '../../api/client';
+import { useAuth } from '../../auth/AuthContext';
 import { FormModal } from '../../components/common/FormModal';
 import {
   createMcpServer,
@@ -35,6 +36,8 @@ const VALID_ENDPOINT = /^https?:\/\/.+/;
 
 export function McpFormModal(props: McpFormModalProps) {
   const { t } = useTranslation();
+  const { account } = useAuth();
+  const isAdmin = account?.role === 'ADMIN';
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const formApi = useRef<FormApi | null>(null);
@@ -85,7 +88,6 @@ export function McpFormModal(props: McpFormModalProps) {
     const base = {
       name: values.name,
       endpoint: values.endpoint,
-      user_scope: values.user_scope,
       enabled: values.enabled === 'true',
       auth_config: authConfig,
       connect_timeout_ms: values.connect_timeout_ms,
@@ -100,7 +102,10 @@ export function McpFormModal(props: McpFormModalProps) {
         await updateMcpServer(props.server.mcp_id, input);
       } else {
         const created = await createMcpServer(
-          { ...base, key: values.key, auth_secret: values.auth_secret || undefined },
+          {
+            ...base, key: values.key, auth_secret: values.auth_secret || undefined,
+            user_scope: isAdmin ? values.user_scope : 'SELECTED'
+          },
           newRequestId()
         );
         // 交互稿「保存并发现工具」：注册成功后立即执行一次目录发现；
@@ -167,7 +172,7 @@ export function McpFormModal(props: McpFormModalProps) {
             extraText={t('mcp.form.transportHint')}
           />
         </div>
-        <Form.Select
+        {!props.server && isAdmin ? <Form.Select
           field="user_scope"
           label={t('mcp.columns.userScope')}
           initValue="SELECTED"
@@ -175,7 +180,7 @@ export function McpFormModal(props: McpFormModalProps) {
             { value: 'SELECTED', label: t('mcp.scope.selected') },
             { value: 'ALL', label: t('mcp.scope.all') }
           ]}
-        />
+        /> : null}
         <Form.Select
           field="enabled"
           label={t('mcp.columns.enabled')}

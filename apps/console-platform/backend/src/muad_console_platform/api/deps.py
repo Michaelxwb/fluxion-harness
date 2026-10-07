@@ -11,7 +11,7 @@ from muad_platform_sdk import PlatformAdapterRegistry, RedisPlatformSessionInval
 
 from ..application.artifact_fetch_service import ArtifactFetchService, ArtifactResolvePort
 from ..application.artifact_fetch_tokens import ArtifactFetchTokens, configured_ttl_sec
-from ..application.auth_service import AuthService
+from ..application.auth_service import AuthService, ResolvedConsoleSession
 from ..application.mcp_ports import McpCatalogCache, NullMcpCatalogCache
 from ..application.platform_adapter_service import build_default_registry
 from ..application.platform_ports import NullPlatformSessionInvalidator, PlatformSessionInvalidator
@@ -25,10 +25,10 @@ class ConsoleSessionVerifier:
     """把 api-kit 的 `SessionVerifier` 协议适配到 Console 的账号/会话业务。
 
     会话校验原语（取 token、UNAUTHORIZED/FORBIDDEN 语义）由 api-kit 提供；
-    本类只负责"token → ConsoleAccount"这一段业务，并持有自己的短事务提交滑动续期。
+    本类返回账号与续期结果，并持有自己的短事务提交滑动续期。
     """
 
-    async def verify(self, session_token: str) -> ConsoleAccount | None:
+    async def verify(self, session_token: str) -> ResolvedConsoleSession | None:
         tenant_id = current_tenant_id() or SharedSettings().default_tenant_id
         try:
             async with get_session_factory()() as session:
@@ -43,8 +43,7 @@ class ConsoleRoleResolver:
     """把 Console 的单一 `role` 字段适配成 api-kit 需要的角色集合。"""
 
     async def roles_for(self, principal: Any) -> tuple[str, ...]:
-        role = getattr(principal, "role", None)
-        return (role,) if isinstance(role, str) else ()
+        return (principal.account.role,) if isinstance(principal, ResolvedConsoleSession) else ()
 
 
 def get_header_tenant_id() -> str:
@@ -63,9 +62,9 @@ def get_source_ip(request: Request) -> str | None:
 
 
 async def get_current_account(principal: Annotated[Any, Depends(require_session)]) -> ConsoleAccount:
-    if not isinstance(principal, ConsoleAccount):
+    if not isinstance(principal, ResolvedConsoleSession):
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
-    return principal
+    return principal.account
 
 
 CurrentAccount = Annotated[ConsoleAccount, Depends(get_current_account)]
@@ -87,9 +86,9 @@ HeaderTenantId = Annotated[str, Depends(get_header_tenant_id)]
 async def require_admin(
     principal: Annotated[Any, Depends(require_roles(ROLE_ADMIN))],
 ) -> ConsoleAccount:
-    if not isinstance(principal, ConsoleAccount):
+    if not isinstance(principal, ResolvedConsoleSession):
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
-    return principal
+    return principal.account
 
 
 AdminAccount = Annotated[ConsoleAccount, Depends(require_admin)]

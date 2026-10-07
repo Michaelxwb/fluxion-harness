@@ -2,6 +2,7 @@ import { Banner, Button, Select, Table } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '../../auth/AuthContext';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -26,6 +27,8 @@ const CANDIDATE_PAGE_SIZE = 15;
 
 export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
   const { t } = useTranslation();
+  const { account } = useAuth();
+  const isAdmin = account?.role === 'ADMIN';
   const [items, setItems] = useState<McpGrantItem[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -76,7 +79,7 @@ export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
   }, [searchInput]);
 
   useEffect(() => {
-    if (props.userScope === 'ALL') {
+    if (props.userScope === 'ALL' || !isAdmin) {
       return;
     }
     let cancelled = false;
@@ -99,7 +102,7 @@ export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
     return () => {
       cancelled = true;
     };
-  }, [props.userScope, search]);
+  }, [props.userScope, search, isAdmin]);
 
   if (props.userScope === 'ALL') {
     return <Banner type="info" closeIcon={null} description={t('mcp.users.allScopeHint')} />;
@@ -135,7 +138,7 @@ export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      {isAdmin ? <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <Select
           data-testid="mcp-grant-user-select"
           style={{ width: 280 }}
@@ -151,7 +154,7 @@ export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
         <Button theme="solid" loading={adding} data-testid="mcp-add-selected-user" onClick={() => void add()}>
           {t('mcp.users.add')}
         </Button>
-      </div>
+      </div> : null}
       {failed ? (
         <ErrorState onRetry={() => void reload()} />
       ) : (
@@ -172,7 +175,7 @@ export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
               },
               {
                 title: t('mcp.columns.actions'),
-                render: (_: unknown, record: McpGrantItem) => (
+                render: (_: unknown, record: McpGrantItem) => isAdmin ? (
                   <ConfirmAction
                     danger
                     title={t('mcp.users.confirmRemove')}
@@ -180,7 +183,7 @@ export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
                   >
                     {t('mcp.users.remove')}
                   </ConfirmAction>
-                )
+                ) : null
               }
             ]}
           />

@@ -336,7 +336,7 @@ class McpService:
         if payload.endpoint is not None:
             _validate_endpoint(payload.endpoint)
         before = mcp_snapshot(server)
-        for field in ("name", "endpoint", "user_scope", "enabled",
+        for field in ("name", "endpoint", "enabled",
                       "connect_timeout_ms", "tool_cache_ttl_sec"):
             value = getattr(payload, field)
             if value is not None:
@@ -392,15 +392,13 @@ class McpService:
     ) -> dict[str, Any]:
         server = await self.get_server(tenant_id, mcp_id)
         effective_timeout = timeout_ms or server.connect_timeout_ms
-        client = McpClient(
-            server.endpoint,
-            auth_secret=server.auth_secret,
-            timeout_ms=effective_timeout,
-        )
         tested_at = datetime.now(UTC)
         started = time.monotonic()
         try:
-            server_info = client.initialize()
+            async with McpClient(
+                server.endpoint, auth_secret=server.auth_secret, timeout_ms=effective_timeout,
+            ) as client:
+                server_info = await client.initialize()
         except McpClientError as exc:
             latency_ms = int((time.monotonic() - started) * 1000)
             server.connection_status = "UNAVAILABLE"
@@ -430,14 +428,14 @@ class McpService:
         # 接入规模默认来自平台设置（`mcp.max_tools_per_server`）；MCP 连接参数仍留 MCP 页面。
         policy = await PlatformSettingsService(self._session).read_current(tenant_id)
         limit = policy.settings.mcp.max_tools_per_server
-        client = McpClient(
-            server.endpoint, auth_secret=server.auth_secret, timeout_ms=server.connect_timeout_ms
-        )
         discovered_at = datetime.now(UTC)
 
         try:
-            client.initialize()
-            tools = client.list_tools(max_tools=limit)
+            async with McpClient(
+                server.endpoint, auth_secret=server.auth_secret, timeout_ms=server.connect_timeout_ms,
+            ) as client:
+                await client.initialize()
+                tools = await client.list_tools(max_tools=limit)
         except McpClientError as exc:
             summary = exc.detail[:500]
             await _write_failure_state(server.id, discovered_at, summary)

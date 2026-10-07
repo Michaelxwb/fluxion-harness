@@ -1,11 +1,11 @@
 import hashlib
-import json
 import uuid
 from datetime import UTC, datetime
 from typing import Any, cast
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts.canonical import canonical_json
 from sqlalchemy import func, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
@@ -153,15 +153,12 @@ class AgentService:
 
     def _fingerprint(self, tenant_id: str, payload: AgentCreateRequest) -> str:
         """创建请求的规范化指纹（口径同 auth_service）：含 endpoint/tenant_id 判别键，键序无关。"""
-        canonical = json.dumps(
+        canonical = canonical_json(
             {
                 "endpoint": "agent-create",
                 "tenant_id": tenant_id,
                 "payload": payload.model_dump(mode="json"),
             },
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
         )
         return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
