@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from tests.acceptance.datastores import create_datastore, drop_datastore
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def async_tool_datastore() -> Iterator[dict[str, str]]:
     info = create_datastore()
     try:

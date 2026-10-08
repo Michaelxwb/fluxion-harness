@@ -10,7 +10,8 @@ from typing import Any, cast
 
 import sqlalchemy as sa
 from muad_common import SharedSettings
-from muad_contracts import TaskStatus
+from muad_contracts import TaskStatus, TerminalStatus
+from pydantic import JsonValue
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -18,15 +19,14 @@ from ..application.batch_fanin import settle_child
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from ..application.task_cancel import cancel_children
 from ..application.task_events import TaskEventSeed, TaskEventType, append_event, append_events
+from ..application.terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.wakeup_hint import NullWakeupListener, WakeupListener
 from ..metrics import (
     TASK_LEASE_EXPIRED_METRIC,
     TASK_RECLAIM_METRIC,
-    TASKS_METRIC,
     increment,
-    record_outcome,
 )
 from ..scheduler.service import TASK_DEADLINE_EXCEEDED
 from .claimer import TaskClaimer
@@ -85,9 +85,7 @@ class WorkerLoop:
         self._instance_id = instance_id or default_instance_id()
         self._cancel_hints: CancelHintStore = cancel_hints or NullCancelHintStore()
         self._wakeup: WakeupListener = wakeup or NullWakeupListener()
-        self._settings_client: PlatformSettingsClient = (
-            settings_client or NullPlatformSettingsClient()
-        )
+        self._settings_client: PlatformSettingsClient = settings_client or NullPlatformSettingsClient()
 
     def _resolve_executor(self) -> TaskExecutorProtocol:
         if self._executor is None:
@@ -272,159 +270,85 @@ class WorkerLoop:
                 )
 
     async def reclaim_expired(self, *, now: datetime | None = None) -> int:
-        """lease 过期的 RUNNING：未取消的置回 QUEUED（保留 attempt，返回其数量）；已请求取消的直接收尾。
-
-        设计 reclaim 条件排除 `cancel_requested=true`，但持有者已崩溃时没有 Worker
-        会再走到检查点——若不在这里收尾，它会卡在 RUNNING 直到 24h deadline 被判
-        `TASK_DEADLINE_EXCEEDED`，而用户看到的应是 CANCELLED。
-
-        **两段提交、根任务在前**：子任务终态事务的加锁顺序是「父 → 子」（`_lock_parent`
-        与 `settle_child`），回收若在同一事务里同时锁父与子，就与它形成循环等待。先只动
-        根任务并提交，再动子任务——父锁在取子锁之前已经释放，环不存在。
-        """
+        """Bounded PG scan; each root tree is settled in its own ordered transaction."""
         moment = now or datetime.now(UTC)
-        requeued = 0
-        expired = 0  # 本轮的过期租约总数：回队列的 + 预算耗尽终态的 + 直接取消的
-        for roots_only in (True, False):
-            async with self._session_factory() as session:
-                async with session.begin():
-                    added, exhausted = await self._requeue_expired(
-                        session, moment, roots_only=roots_only
-                    )
-                    requeued += added
-                    expired += added + exhausted
-                    expired += await self._cancel_abandoned(session, moment, roots_only=roots_only)
-        if requeued:
-            increment(TASK_RECLAIM_METRIC, requeued)
-        if expired:
-            # 预算耗尽而终态失败的也是一条「被观察到的过期租约」——不记它就等于把这次回收
-            # 从指标面抹掉（降级必须可见）。
-            increment(TASK_LEASE_EXPIRED_METRIC, expired)
-        return requeued
-
-    @staticmethod
-    def _parent_scope(roots_only: bool) -> Any:
-        return (
-            TaskExecution.parent_id.is_(None)
-            if roots_only
-            else TaskExecution.parent_id.is_not(None)
-        )
-
-    async def _requeue_expired(
-        self, session: AsyncSession, moment: datetime, *, roots_only: bool
-    ) -> tuple[int, int]:
-        """把租约过期的 RUNNING 送回队列——**但要先过重试预算这一关**（评审 #13）。
-
-        此前回收无条件置回 QUEUED，而 claim 只递增 attempt、从不看上限：一个反复崩溃的
-        任务可以在 deadline 之前无限重启。现在超过上限一律终态 `FAILED`，并且回收本身也
-        按 `RETRY_BACKOFF_BASE_SEC * 2**(attempt-1)` 退避，不再立刻被再次领走。
-        """
-        base = (
-            TaskExecution.status == str(TaskStatus.RUNNING),
-            TaskExecution.lease_until < moment,
-            TaskExecution.cancel_requested.is_(False),
-            TaskExecution.is_deleted.is_(False),
-            self._parent_scope(roots_only),
-        )
-        retryable = (
-            await session.execute(
-                update(TaskExecution)
-                .where(*base, TaskExecution.attempt < TaskExecution.max_attempts)
-                .values(
-                    status=str(TaskStatus.QUEUED),
-                    lease_owner=None,
-                    lease_until=None,
-                    not_before=moment + _reclaim_backoff(),
-                    update_time=moment,
-                )
-                .returning(TaskExecution.id, TaskExecution.tenant_id)
-            )
-        ).all()
-        await append_events(
-            session,
-            [
-                TaskEventSeed(tenant_id=tenant_id, task_id=task_id, event_type=TaskEventType.RECLAIMED)
-                for task_id, tenant_id in retryable
-            ],
-        )
-        exhausted = await self._fail_exhausted(session, moment, base)
-        return len(retryable), exhausted
-
-    async def _fail_exhausted(
-        self, session: AsyncSession, moment: datetime, base: tuple[Any, ...]
-    ) -> int:
-        """回收时重试预算已耗尽的行：终态失败，并照常触发 fan-in（子任务终态会让父任务聚合）。"""
-        exhausted = list(
-            (
-                await session.execute(
-                    update(TaskExecution)
-                    .where(*base, TaskExecution.attempt >= TaskExecution.max_attempts)
-                    .values(
-                        status=str(TaskStatus.FAILED),
-                        error_code=TASK_ATTEMPTS_EXHAUSTED,
-                        error_message="attempts exhausted by crash reclaim",
-                        lease_owner=None,
-                        lease_until=None,
-                        finished_at=moment,
-                        update_time=moment,
-                    )
-                    .returning(TaskExecution)
-                    .execution_options(synchronize_session=False)
-                )
-            ).scalars()
-        )
-        for task in exhausted:
-            record_outcome(TASKS_METRIC, str(TaskStatus.FAILED), {"type": task.task_type})
-            await append_event(
-                session,
-                tenant_id=task.tenant_id,
-                task_id=task.id,
-                event_type=TaskEventType.FAILED,
-                payload={
-                    "attempt": task.attempt,
-                    "error_code": TASK_ATTEMPTS_EXHAUSTED,
-                },
-            )
-            await settle_child(session, task, moment)
-        return len(exhausted)
-
-    async def _cancel_abandoned(
-        self, session: AsyncSession, moment: datetime, *, roots_only: bool
-    ) -> int:
-        tasks = list(
-            (
-                await session.execute(
-                    update(TaskExecution)
+        async with self._session_factory() as session:
+            tasks = list(
+                await session.scalars(
+                    select(TaskExecution)
                     .where(
                         TaskExecution.status == str(TaskStatus.RUNNING),
                         TaskExecution.lease_until < moment,
-                        TaskExecution.cancel_requested.is_(True),
                         TaskExecution.is_deleted.is_(False),
-                        self._parent_scope(roots_only),
                     )
-                    .values(
-                        status=str(TaskStatus.CANCELLED),
-                        lease_owner=None,
-                        lease_until=None,
-                        finished_at=moment,
-                        update_time=moment,
+                    .order_by(
+                        TaskExecution.parent_id.is_not(None), TaskExecution.lease_until, TaskExecution.id
                     )
-                    .returning(TaskExecution)
-                    .execution_options(synchronize_session=False)
+                    .limit(128)
                 )
-            ).scalars()
-        )
-        for task in tasks:
-            await append_event(
-                session,
-                tenant_id=task.tenant_id,
-                task_id=task.id,
-                event_type=TaskEventType.CANCELLED,
-                payload={"reason": "lease_expired_after_cancel_request"},
             )
-            await cancel_children(session, task, moment)
-            await settle_child(session, task, moment)
-        return len(tasks)
+        requeued, expired = 0, 0
+        for task in tasks:
+            async with self._session_factory() as session, session.begin():
+                added, observed = await self._reclaim_task(session, task, moment)
+                requeued += added
+                expired += observed
+        if requeued:
+            increment(TASK_RECLAIM_METRIC, requeued)
+        if expired:
+            increment(TASK_LEASE_EXPIRED_METRIC, expired)
+        return requeued
+
+    async def _reclaim_task(
+        self, session: AsyncSession, task: TaskExecution, moment: datetime
+    ) -> tuple[int, int]:
+        await lock_task_tree(session, task)
+        locked = await session.scalar(
+            select(TaskExecution)
+            .where(
+                TaskExecution.id == task.id,
+                TaskExecution.tenant_id == task.tenant_id,
+                TaskExecution.status == str(TaskStatus.RUNNING),
+                TaskExecution.lease_until < moment,
+                TaskExecution.is_deleted.is_(False),
+            )
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if locked is None:
+            return 0, 0
+        conditions = (TaskExecution.status == str(TaskStatus.RUNNING), TaskExecution.lease_until < moment)
+        if locked.cancel_requested or locked.attempt >= locked.max_attempts:
+            change = (
+                TerminalChange(status=TerminalStatus.CANCELLED, cancel_requested=True)
+                if locked.cancel_requested
+                else TerminalChange(
+                    status=TerminalStatus.FAILED,
+                    error_code=TASK_ATTEMPTS_EXHAUSTED,
+                    error_message="attempts exhausted by crash reclaim",
+                )
+            )
+            if await write_terminal(session, locked, change, moment, conditions=conditions):
+                if locked.cancel_requested:
+                    await cancel_children(session, locked, moment)
+                await settle_child(session, locked, moment)
+                return 0, 1
+            return 0, 0
+        await session.execute(
+            update(TaskExecution)
+            .where(TaskExecution.id == locked.id, TaskExecution.tenant_id == locked.tenant_id, *conditions)
+            .values(
+                status=str(TaskStatus.QUEUED),
+                lease_owner=None,
+                lease_until=None,
+                not_before=moment + _reclaim_backoff(),
+                update_time=moment,
+            )
+        )
+        await append_event(
+            session, tenant_id=locked.tenant_id, task_id=locked.id, event_type=TaskEventType.RECLAIMED
+        )
+        return 1, 1
 
     async def _handle_success(
         self,
@@ -435,44 +359,13 @@ class WorkerLoop:
         result_artifact_id: uuid.UUID | None = None,
     ) -> None:
         moment = now or datetime.now(UTC)
-        async with self._session_factory() as session:
-            async with session.begin():
-                await self._lock_parent(session, task)
-                rowcount = await self._cas(
-                    session,
-                    task.id,
-                    {
-                        "status": str(TaskStatus.COMPLETED),
-                        "result_json": result,
-                        "result_artifact_id": result_artifact_id,
-                        "finished_at": moment,
-                        "lease_owner": None,
-                        "lease_until": None,
-                        "update_time": moment,
-                    },
-                    moment=moment,
-                    require_not_cancelled=True,
-                )
-                if rowcount == 1:
-                    record_outcome(
-                        TASKS_METRIC,
-                        str(TaskStatus.COMPLETED),
-                        {"type": task.task_type},
-                    )
-                    await append_events(
-                        session,
-                        [
-                            TaskEventSeed(
-                                tenant_id=task.tenant_id,
-                                task_id=task.id,
-                                event_type=TaskEventType.COMPLETED,
-                                payload={"attempt": task.attempt},
-                            )
-                        ],
-                    )
-                    await settle_child(session, task, moment)
-                    return
-                # 已被请求取消：不覆写取消标记，按取消收尾（用户在结果出来前已经喊停）
+        change = TerminalChange(
+            status=TerminalStatus.COMPLETED,
+            result=cast(dict[str, JsonValue], result),
+            result_artifact_id=result_artifact_id,
+        )
+        async with self._session_factory() as session, session.begin():
+            if not await self._terminal(session, task, change, moment, require_not_cancelled=True):
                 await self._mark_cancelled(session, task, moment)
 
     async def _handle_failure(
@@ -495,60 +388,24 @@ class WorkerLoop:
                 await self._mark_cancelled(session, task, moment)
 
     async def _mark_deadline_exceeded(self, task: TaskExecution, *, now: datetime | None) -> None:
-        """执行**已经跑过** deadline 时的收尾（评审 #8）。
-
-        副作用收不回，但结论必须是失败：此前这条路径会照常写 `COMPLETED`，于是「超时的业务
-        操作仍然做成了」在库里留下一个成功的样子。码与 Scheduler sweep 一致（同一常量），
-        两条路径同形。
-        """
         moment = now or datetime.now(UTC)
-        async with self._session_factory() as session:
-            async with session.begin():
-                await self._lock_parent(session, task)
-                rowcount = await self._cas(
-                    session,
-                    task.id,
-                    {
-                        "status": str(TaskStatus.FAILED),
-                        "error_code": TASK_DEADLINE_EXCEEDED,
-                        "error_message": "task deadline exceeded",
-                        "finished_at": moment,
-                        "lease_owner": None,
-                        "lease_until": None,
-                        "update_time": moment,
-                    },
-                    moment=moment,
-                    require_not_cancelled=True,
-                )
-                if rowcount != 1:
-                    return
-                record_outcome(TASKS_METRIC, str(TaskStatus.FAILED), {"type": task.task_type})
-                await append_events(
-                    session,
-                    [
-                        TaskEventSeed(
-                            tenant_id=task.tenant_id,
-                            task_id=task.id,
-                            event_type=TaskEventType.DEADLINE_EXCEEDED,
-                            payload={"attempt": task.attempt},
-                        )
-                    ],
-                )
-                await settle_child(session, task, moment)
+        change = TerminalChange(
+            status=TerminalStatus.FAILED,
+            error_code=TASK_DEADLINE_EXCEEDED,
+            error_message="task deadline exceeded",
+        )
+        async with self._session_factory() as session, session.begin():
+            await self._terminal(
+                session,
+                task,
+                change,
+                moment,
+                require_not_cancelled=True,
+                event_type=TaskEventType.DEADLINE_EXCEEDED,
+            )
 
     async def _lock_parent(self, session: AsyncSession, task: TaskExecution) -> None:
-        """终态写入前先取父行锁——**父 → 子**是父子事务唯一允许的加锁顺序（评审 #6）。
-
-        取消路径（`cancel` 先锁 Parent 再 `cancel_children`）与本路径此前正好相反：本路径
-        先 UPDATE 子行（持子锁）再在 `settle_child` 里锁父行，两条交错就构成 Parent→Child
-        与 Child→Parent 的循环等待，PostgreSQL 实测判死锁并回滚一方（完成或取消的结果一起
-        丢）。在子行 CAS **之前**拿父锁，环就不存在。
-        """
-        if task.parent_id is None:
-            return
-        await session.execute(
-            select(TaskExecution.id).where(TaskExecution.id == task.parent_id).with_for_update()
-        )
+        await lock_task_tree(session, task)
 
     async def _schedule_retry(
         self,
@@ -601,76 +458,50 @@ class WorkerLoop:
         error_message: str,
         moment: datetime,
     ) -> bool:
-        await self._lock_parent(session, task)
-        rowcount = await self._cas(
+        return await self._terminal(
             session,
-            task.id,
-            {
-                "status": str(TaskStatus.FAILED),
-                "lease_owner": None,
-                "lease_until": None,
-                "finished_at": moment,
-                "error_code": error_code,
-                "error_message": error_message,
-                "update_time": moment,
-            },
-            moment=moment,
+            task,
+            TerminalChange(status=TerminalStatus.FAILED, error_code=error_code, error_message=error_message),
+            moment,
             require_not_cancelled=True,
         )
-        if rowcount != 1:
-            return False
-        record_outcome(TASKS_METRIC, str(TaskStatus.FAILED), {"type": task.task_type})
-        await append_events(
-            session,
-            [
-                TaskEventSeed(
-                    tenant_id=task.tenant_id,
-                    task_id=task.id,
-                    event_type=TaskEventType.FAILED,
-                    payload={"attempt": task.attempt, "error_code": error_code},
-                )
-            ],
-        )
-        await settle_child(session, task, moment)
-        return True
 
-    async def _mark_cancelled(
+    async def _mark_cancelled(self, session: AsyncSession, task: TaskExecution, moment: datetime) -> bool:
+        return await self._terminal(
+            session, task, TerminalChange(status=TerminalStatus.CANCELLED, cancel_requested=True), moment
+        )
+
+    async def _terminal(
         self,
         session: AsyncSession,
         task: TaskExecution,
+        change: TerminalChange,
         moment: datetime,
+        *,
+        require_not_cancelled: bool = False,
+        event_type: TaskEventType | None = None,
     ) -> bool:
-        await self._lock_parent(session, task)
-        rowcount = await self._cas(
+        conditions = [
+            TaskExecution.status == str(TaskStatus.RUNNING),
+            TaskExecution.lease_owner == self._instance_id,
+            TaskExecution.lease_until > moment,
+        ]
+        if require_not_cancelled:
+            conditions.append(TaskExecution.cancel_requested.is_(False))
+        written = await write_terminal(
             session,
-            task.id,
-            {
-                "status": str(TaskStatus.CANCELLED),
-                "cancel_requested": True,
-                "lease_owner": None,
-                "lease_until": None,
-                "finished_at": moment,
-                "update_time": moment,
-            },
-            moment=moment,
+            task,
+            change,
+            moment,
+            conditions=conditions,
+            event_type=event_type,
+            event_payload={"attempt": task.attempt, "error_code": change.error_code},
         )
-        if rowcount != 1:
-            return False
-        record_outcome(TASKS_METRIC, str(TaskStatus.CANCELLED), {"type": task.task_type})
-        await append_events(
-            session,
-            [
-                TaskEventSeed(
-                    tenant_id=task.tenant_id,
-                    task_id=task.id,
-                    event_type=TaskEventType.CANCELLED,
-                    payload={"attempt": task.attempt},
-                )
-            ],
-        )
-        await cancel_children(session, task, moment)
-        await settle_child(session, task, moment)
-        return True
+        if written:
+            if change.status is TerminalStatus.CANCELLED:
+                await cancel_children(session, task, moment)
+            await settle_child(session, task, moment)
+        return written
 
     async def _cas(
         self,

@@ -20,6 +20,7 @@ from muad_contracts import (
     ScheduleSpec,
     ScheduleStatus,
     TaskStatus,
+    TerminalStatus,
     TriggerType,
     UpdateScheduleRequest,
     build_task_snapshot,
@@ -34,18 +35,18 @@ from ..application.batch_fanin import settle_child
 from ..application.delivery_routes import upsert_delivery_route
 from ..application.platform_settings import resolve_platform_settings
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
-from ..application.task_events import TaskEventSeed, TaskEventType, append_event, append_events
+from ..application.task_events import TaskEventType, append_event
 from ..application.task_service import (
     EXECUTION_MODE_ASYNC,
     INITIAL_PRIORITY,
     TASK_TYPE_SKILL,
     validate_execution_snapshot,
 )
+from ..application.terminal_tasks import TerminalChange, write_terminal
 from ..infrastructure.models.task import TaskExecution, TaskSchedule
 from ..metrics import (
     SCHEDULED_FIRE_METRIC,
     SCHEDULED_MISFIRE_METRIC,
-    TASKS_METRIC,
     increment,
     record_outcome,
 )
@@ -86,51 +87,42 @@ class DeadlineSweeper:
 
     async def sweep(self, *, now: datetime | None = None) -> int:
         moment = now or datetime.now(UTC)
+        conditions = (
+            TaskExecution.status.in_(NON_TERMINAL_TASK_STATUSES),
+            TaskExecution.deadline_at < moment,
+            TaskExecution.is_deleted.is_(False),
+        )
         async with self._session_factory() as session:
-            async with session.begin():
-                rows = (
-                    await session.execute(
-                        update(TaskExecution)
-                        .where(
-                            TaskExecution.status.in_(NON_TERMINAL_TASK_STATUSES),
-                            TaskExecution.deadline_at < moment,
-                            TaskExecution.is_deleted.is_(False),
-                        )
-                        .values(
-                            status=str(TaskStatus.FAILED),
-                            error_code=TASK_DEADLINE_EXCEEDED,
-                            error_message="task deadline exceeded",
-                            finished_at=moment,
-                            lease_owner=None,
-                            lease_until=None,
-                            update_time=moment,
-                        )
-                        .returning(
-                            TaskExecution.id, TaskExecution.tenant_id, TaskExecution.task_type
-                        )
-                    )
-                ).all()
-                if not rows:
-                    return 0
-                await append_events(
-                    session,
-                    [
-                        TaskEventSeed(
-                            tenant_id=tenant_id,
-                            task_id=task_id,
-                            event_type=TaskEventType.DEADLINE_EXCEEDED,
-                        )
-                        for task_id, tenant_id, _task_type in rows
-                    ],
+            tasks = list(
+                await session.scalars(
+                    select(TaskExecution)
+                    .where(*conditions)
+                    .order_by(TaskExecution.deadline_at, TaskExecution.id)
+                    .limit(128)
                 )
-                for task_id, _, _task_type in rows:
-                    expired = await session.get(TaskExecution, task_id)
-                    if expired is not None:
-                        await settle_child(session, expired, moment)
-        for _task_id, _tenant_id, task_type in rows:
-            record_outcome(TASKS_METRIC, str(TaskStatus.FAILED), {"type": task_type})
-        increment(TASK_DEADLINE_EXCEEDED_TOTAL, len(rows))
-        return len(rows)
+            )
+        affected = 0
+        # One root tree per transaction: scans never retain locks across unrelated operations.
+        for task in tasks:
+            async with self._session_factory() as session, session.begin():
+                written = await write_terminal(
+                    session,
+                    task,
+                    TerminalChange(
+                        status=TerminalStatus.FAILED,
+                        error_code=TASK_DEADLINE_EXCEEDED,
+                        error_message="task deadline exceeded",
+                    ),
+                    moment,
+                    conditions=conditions,
+                    event_type=TaskEventType.DEADLINE_EXCEEDED,
+                )
+                if written:
+                    affected += 1
+                    await settle_child(session, task, moment)
+        if affected:
+            increment(TASK_DEADLINE_EXCEEDED_TOTAL, affected)
+        return affected
 
 
 class ScheduleResolutionError(Exception):
@@ -348,9 +340,7 @@ class ScheduleService:
             .all()
         )
         total = (
-            await self._session.execute(
-                select(func.count()).select_from(TaskSchedule).where(*conditions)
-            )
+            await self._session.execute(select(func.count()).select_from(TaskSchedule).where(*conditions))
         ).scalar_one()
         return list(items), int(total)
 
@@ -406,9 +396,7 @@ class ScheduleService:
         actor_user_id: uuid.UUID | None = None,
     ) -> None:
         """软删除；已删除再次调用幂等成功，未知 id 仍为 404。"""
-        schedule = await self._lock_for_change(
-            tenant_id, schedule_id, actor_user_id, include_deleted=True
-        )
+        schedule = await self._lock_for_change(tenant_id, schedule_id, actor_user_id, include_deleted=True)
         if schedule.is_deleted:
             return
         schedule.is_deleted = True
@@ -428,12 +416,8 @@ class SchedulerLoop:
         self._session_factory = session_factory
         self._resolver = resolver
         self._settings = settings or SharedSettings()
-        self._settings_client: PlatformSettingsClient = (
-            settings_client or NullPlatformSettingsClient()
-        )
-        self._deadline_sweeper = deadline_sweeper or DeadlineSweeper(
-            session_factory, self._settings
-        )
+        self._settings_client: PlatformSettingsClient = settings_client or NullPlatformSettingsClient()
+        self._deadline_sweeper = deadline_sweeper or DeadlineSweeper(session_factory, self._settings)
         self._last_sweep_at: datetime | None = None
 
     async def run_forever(self) -> None:
@@ -532,9 +516,7 @@ class SchedulerLoop:
                 "schedule_trigger_resolve_failed",
                 extra={"schedule_id": str(schedule.id), "reason_code": exc.code},
             )
-            await self._skip(
-                schedule, fire_at, moment, exc.code, f"resolve-definition failed: {exc.code}"
-            )
+            await self._skip(schedule, fire_at, moment, exc.code, f"resolve-definition failed: {exc.code}")
             return None
         try:
             return await self.fire(schedule, fire_at, resolved, task_settings, now=moment)
@@ -576,9 +558,7 @@ class SchedulerLoop:
                 inserted_id = await self._insert_task(
                     session, schedule, resolved, skill, scheduled_fire_at, moment, task_settings
                 )
-                await self._advance(
-                    session, schedule, scheduled_fire_at, moment, fired=True
-                )
+                await self._advance(session, schedule, scheduled_fire_at, moment, fired=True)
         if inserted_id is not None:
             record_outcome(SCHEDULED_FIRE_METRIC, FIRED_STATUS)
         return inserted_id
@@ -746,9 +726,7 @@ class SchedulerLoop:
         if schedule.schedule_type == CRON_TYPE:
             if not schedule.cron_expr:
                 raise ScheduleResolutionError(f"schedule {schedule.id} missing cron expression")
-            values["next_fire_at"] = _next_cron_fire(
-                schedule.cron_expr, moment, ZoneInfo(schedule.timezone)
-            )
+            values["next_fire_at"] = _next_cron_fire(schedule.cron_expr, moment, ZoneInfo(schedule.timezone))
         elif fired:
             values.update(
                 status=str(ScheduleStatus.COMPLETED),

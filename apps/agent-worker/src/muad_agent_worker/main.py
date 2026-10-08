@@ -15,24 +15,29 @@ from muad_api import (
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_logging import configure_logging
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from .api.admin_results import router as admin_results_router
 from .api.admin_schedules import router as admin_schedules_router
 from .api.admin_tasks import router as admin_tasks_router
+from .api.runtime_operations import router as runtime_operations_router
 from .api.schedules import router as schedules_router
 from .api.tasks import router as tasks_router
-from .application.ports import NullPlatformSettingsClient
+from .application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .delivery.artifact_client import ArtifactResolveClient
 from .delivery.client import HttpDeliveryClient
 from .delivery.service import DeliveryLoop
-from .infrastructure.cancel_hint import create_cancel_hint_store
+from .infrastructure.cancel_hint import CancelHintStore, create_cancel_hint_store
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
 from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
 from .infrastructure.wakeup_hint import (
     RedisWakeupNotifier,
+    WakeupListener,
     create_wakeup_listener,
     create_wakeup_notifier,
 )
 from .metrics import install_worker_metrics
+from .results.dispatcher import ResultDispatcher, ResultDispatchPolicy
 from .scheduler.client import ConsoleResolveClient
 from .scheduler.service import SchedulerLoop
 from .worker.service import WorkerLoop
@@ -58,51 +63,16 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     cancel_hints = await create_cancel_hint_store(settings.redis_url)
     app.state.cancel_hints = cancel_hints
     # Redis 只是低延迟 hint：不可用时降级为 PG 扫描，不阻塞就绪；仅作为诊断详情上报。
-    app.state.wakeup_mode = (
-        "redis" if isinstance(wakeup_notifier, RedisWakeupNotifier) else "disabled"
-    )
+    app.state.wakeup_mode = "redis" if isinstance(wakeup_notifier, RedisWakeupNotifier) else "disabled"
     async with httpx.AsyncClient() as http_client:
         # 平台设置快照：任务创建/扇出与投递尝试两个边界各取一次（TASK-006）。
         settings_client = ConsolePlatformSettingsClient(
             settings.console_platform_url, service_token=settings.internal_service_token
         )
         app.state.platform_settings_client = settings_client
-        worker = WorkerLoop(
-            session_factory,
-            settings,
-            cancel_hints=cancel_hints,
-            wakeup=wakeup_listener,
-            settings_client=settings_client,
+        background = _start_background(
+            session_factory, settings, settings_client, http_client, cancel_hints, wakeup_listener
         )
-        scheduler = SchedulerLoop(
-            session_factory,
-            ConsoleResolveClient(
-                settings.console_platform_url,
-                http_client,
-                service_token=settings.internal_service_token,
-            ),
-            settings,
-            settings_client=settings_client,
-        )
-        delivery = DeliveryLoop(
-            session_factory,
-            HttpDeliveryClient(
-                settings.im_gateway_url,
-                http_client,
-                service_token=settings.internal_service_token,
-            ),
-            settings,
-            # 产物引用解析：worker 只有不透明的 artifact_id，解析口径在 runtime 一处
-            ArtifactResolveClient(
-                settings.agent_runtime_url, service_token=settings.internal_service_token
-            ),
-            settings_client=settings_client,
-        )
-        background = [
-            asyncio.create_task(worker.run_forever()),
-            asyncio.create_task(scheduler.run_forever()),
-            asyncio.create_task(delivery.run_forever()),
-        ]
         try:
             yield
         finally:
@@ -119,6 +89,63 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             # 否则一个已切断的 Console 会被后续请求当成"当前设置源"。
             app.state.platform_settings_client = NullPlatformSettingsClient()
     await dispose_engine()
+
+
+def _start_background(
+    session_factory: async_sessionmaker[AsyncSession],
+    settings: SharedSettings,
+    settings_client: PlatformSettingsClient,
+    http_client: httpx.AsyncClient,
+    cancel_hints: CancelHintStore,
+    wakeup_listener: WakeupListener,
+) -> list[asyncio.Task[None]]:
+    worker = WorkerLoop(
+        session_factory,
+        settings,
+        cancel_hints=cancel_hints,
+        wakeup=wakeup_listener,
+        settings_client=settings_client,
+    )
+    scheduler = SchedulerLoop(
+        session_factory,
+        ConsoleResolveClient(
+            settings.console_platform_url,
+            http_client,
+            service_token=settings.internal_service_token,
+        ),
+        settings,
+        settings_client=settings_client,
+    )
+    delivery = DeliveryLoop(
+        session_factory,
+        HttpDeliveryClient(
+            settings.im_gateway_url,
+            http_client,
+            service_token=settings.internal_service_token,
+        ),
+        settings,
+        # 产物引用解析：worker 只有不透明的 artifact_id，解析口径在 runtime 一处
+        ArtifactResolveClient(settings.agent_runtime_url, service_token=settings.internal_service_token),
+        settings_client=settings_client,
+    )
+    return [
+        asyncio.create_task(worker.run_forever()),
+        asyncio.create_task(scheduler.run_forever()),
+        asyncio.create_task(delivery.run_forever()),
+        asyncio.create_task(_result_dispatcher(session_factory, http_client, settings).run_forever()),
+    ]
+
+
+def _result_dispatcher(
+    factory: async_sessionmaker[AsyncSession], client: httpx.AsyncClient, settings: SharedSettings
+) -> ResultDispatcher:
+    return ResultDispatcher(
+        factory,
+        client,
+        settings.agent_runtime_url,
+        service_token=settings.internal_service_token,
+        policy=ResultDispatchPolicy.from_settings(settings),
+    )
 
 
 def artifact_storage_readiness() -> bool:
@@ -145,6 +172,8 @@ install_health_probes(
     detail=wakeup_detail,
 )
 app.include_router(tasks_router)
+app.include_router(runtime_operations_router)
 app.include_router(schedules_router)
 app.include_router(admin_tasks_router)
+app.include_router(admin_results_router)
 app.include_router(admin_schedules_router)

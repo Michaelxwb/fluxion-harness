@@ -181,7 +181,7 @@
       "kind": "e2e",
       "boundary": "Worker 真实进程、PG outbox、Runtime HTTP",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -191,7 +191,44 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "9d982107824f4e57b6bb1130fcabc972",
+        "executed_at": "2026-10-08T07:00:44.566076+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_background_result_delivery.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "9d982107824f4e57b6bb1130fcabc972",
+          "executed_at": "2026-10-08T07:00:44.566076+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_delivery.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-04",
@@ -276,7 +313,7 @@
       "kind": "e2e",
       "boundary": "ScriptSkillExecutor、真实子孙进程、管道、HTTP",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -286,7 +323,44 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-08",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "9d982107824f4e57b6bb1130fcabc972",
+        "executed_at": "2026-10-08T07:00:44.566076+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_worker/test_skill_cancellation_real_subprocess.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "9d982107824f4e57b6bb1130fcabc972",
+          "executed_at": "2026-10-08T07:00:44.566076+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_worker/test_skill_cancellation_real_subprocess.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-09",
@@ -409,7 +483,7 @@
       "kind": "e2e",
       "boundary": "Redis 故障代理、PG 队列和结果发件",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -419,7 +493,44 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-15",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "9d982107824f4e57b6bb1130fcabc972",
+        "executed_at": "2026-10-08T07:00:44.566076+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_redis_unavailable.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-15",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "9d982107824f4e57b6bb1130fcabc972",
+          "executed_at": "2026-10-08T07:00:44.566076+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_redis_unavailable.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-16",
@@ -621,7 +732,7 @@
       "kind": "functional",
       "boundary": "inbox/outbox 租约、PG、故障代理",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -631,7 +742,48 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "9d982107824f4e57b6bb1130fcabc972",
+        "executed_at": "2026-10-08T07:00:44.566076+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_worker/test_runtime_operation_races.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "fab0bdf789dba0240940bb6c21f382bee49eddaa937a7095596f9f735bc0cfaf"
+      },
+      "runs": [
+        {
+          "id": "B-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "9d982107824f4e57b6bb1130fcabc972",
+          "executed_at": "2026-10-08T07:00:44.566076+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_worker/test_runtime_operation_races.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "fab0bdf789dba0240940bb6c21f382bee49eddaa937a7095596f9f735bc0cfaf"
+        }
+      ]
     },
     {
       "id": "B-08",

@@ -30,11 +30,13 @@ class EventWriter:
         submission_id: uuid.UUID | None = None,
         stream_type: str | None = None,
         artifact_id: uuid.UUID | None = None,
+        source_event_id: uuid.UUID | None = None,
     ) -> int:
         seq = await self._session.scalar(
             sa.update(Conversation)
             .where(
                 Conversation.id == conversation_id,
+                Conversation.tenant_id == tenant_id,
                 Conversation.is_deleted.is_(False),
             )
             .values(last_seq=Conversation.last_seq + 1, update_time=sa.func.now())
@@ -53,6 +55,7 @@ class EventWriter:
                 event_type=event_type,
                 payload_json=payload,
                 artifact_id=artifact_id,
+                source_event_id=source_event_id,
             )
         )
         return int(seq)

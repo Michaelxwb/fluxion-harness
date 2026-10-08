@@ -23,19 +23,19 @@
 | S-07 | backend#2.5.2 场景清单 | integration | 真实 MCP HTTP 探针、Runtime adapter | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
 | E-01 | backend#2.5.2 场景清单 | E2E | 冻结授权、Worker HTTP、PG、审计 | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-02 | backend#2.5.2 场景清单 | E2E | Runtime 控制发件、Worker 创建事务、故障代理 | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
-| E-03 | backend#2.5.2 场景清单 | E2E | Worker 真实进程、PG outbox、Runtime HTTP | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_delivery.py"] |
+| E-03 | backend#2.5.2 场景清单 | E2E | Worker 真实进程、PG outbox、Runtime HTTP | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_delivery.py"] |
 | E-04 | backend#2.5.2 场景清单 | E2E | Runtime 等待事务、结果回流 HTTP、PG | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | E-05 | backend#2.5.2 场景清单 | E2E | 两个 Runtime 真实进程、PG lease、LLM HTTP | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | E-06 | backend#2.5.2 场景清单 | E2E | 真实 deadline sweep、Worker、Runtime、PG | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | E-07 | backend#2.5.2 场景清单 | E2E | Runtime cancel、Worker operation 行锁、真实 HTTP | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
-| E-08 | backend#2.5.2 场景清单 | E2E | ScriptSkillExecutor、真实子孙进程、管道、HTTP | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_skill_cancellation_real_subprocess.py"] |
+| E-08 | backend#2.5.2 场景清单 | E2E | ScriptSkillExecutor、真实子孙进程、管道、HTTP | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_skill_cancellation_real_subprocess.py"] |
 | E-09 | backend#2.5.2 场景清单 | integration | ContextBuilder、真实 provider 消息序列化 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
 | E-10 | backend#2.5.2 场景清单 | integration | 真实制品发布/DB 事务、压缩端口 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
 | E-11 | backend#2.5.2 场景清单 | E2E | 内部服务门控、Runtime/Console HTTP、PG | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/security/test_internal_service_identity.py"] |
 | E-12 | backend#2.5.2 场景清单 | E2E | API-09、日志、inbox/outbox/checkpoint/canonical、制品 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | E-13 | backend#2.5.2 场景清单 | E2E | SSE socket、Runtime supervisor、Gateway/重连客户端 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
 | E-14 | backend#2.5.2 场景清单 | integration | MCP HTTP 探针、客户端关闭 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
-| E-15 | backend#2.5.2 场景清单 | E2E | Redis 故障代理、PG 队列和结果发件 | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_redis_unavailable.py"] |
+| E-15 | backend#2.5.2 场景清单 | E2E | Redis 故障代理、PG 队列和结果发件 | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_redis_unavailable.py"] |
 | E-16 | backend#2.5.2 场景清单 | E2E | Worker HTTP 故障代理、控制发件、PG tombstone | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-17 | backend#2.5.2 场景清单 | E2E | Gateway/Runtime HTTP、PG 活跃会话约束 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
 | B-01 | backend#2.5.2 场景清单 | integration | PG 行锁、并发提交、关闭屏障 | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] |
@@ -44,7 +44,7 @@
 | B-04 | backend#2.5.2 场景清单 | integration | PG wait_generation、epoch、canonical seq | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] |
 | B-05 | backend#2.5.2 场景清单 | integration | 持久检查点、注入时钟、真实 budget 判定 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] |
 | B-06 | backend#2.5.2 场景清单 | integration | 并行规划器、Runner、资源声明 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] |
-| B-07 | backend#2.5.2 场景清单 | integration | inbox/outbox 租约、PG、故障代理 | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] |
+| B-07 | backend#2.5.2 场景清单 | integration | inbox/outbox 租约、PG、故障代理 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] |
 | B-08 | backend#2.5.2 场景清单 | integration | 真实 PG、Alembic、迁移前置检查 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/migrations/test_runtime_wait_parity.py"] |
 | B-09 | backend#2.5.2 场景清单 | integration | 真实需求文件、manifest、inventory runner | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/async_tool_runtime_inventory.py"] |
 | S-20 | frontend#2.4 验收条件 | E2E | Browser→Console→PG；Runtime/Worker/LLM HTTP | TASK-008 | planned | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
@@ -119,7 +119,7 @@
 
 ## TASK-002: Worker 终态原子发件与取消 Tombstone
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: async-tool-runtime.backend.design.md#3.2 架构设计, async-tool-runtime.backend.design.md#3.5 质量实现方案
@@ -132,26 +132,26 @@
 
 ### Checklist
 
-- [ ] 新增/收口根 Task 终态记录函数：success、deterministic failure、retry exhaust、deadline sweep、queued/waiting cancel、reclaim terminal、BATCH fan-in 均走同一事务路劲
-- [ ] JOIN root task 在终态事务写入 `runtime_result_outbox`；Child 不重复发 root 结果；DETACH 保留现有 final delivery
-- [ ] `event_id` 由 `tenant/task_id/terminal TaskEvent seq` 稳定派生；同 event_id 正文不同返回 409；persisted=true 才 ack
-- [ ] Dispatcher 只有 `persisted=true` 且同 event_id 才认成功；2xx/Redis hint 不是入库证据
-- [ ] `task.runtime_operation` 取消可先到：同 operation 行锁内允许空 submission_hash cancel；后续同可信来源 submit 只能恢复既定取消结果，不得绕过 tombstone
-- [ ] [E-03][E2E] 在终态事务提交后、发件前 SIGKILL；另一 Worker 重投；Runtime canonical恰一条；响应丢失后的重投不重写
-- [ ] [E-08][E2E] 运行中取消/超时回收真实子孙进程；直接子进程退出但孙进程持 stdout 时收尾有界；不声称远端副作用已停止
-- [ ] [E-15][E2E] Redis wake-up 丢失或不可用时 PG 扫描仍使创建/取消/结果投递/恢复前进；有日志与指标
-- [ ] [B-07][integration] inbox/outbox lease、PG fault injector：同事件改正文 409；ack only durable；重投耗尽保留 FAILED 出站告警，不产生第二 canonical
-- [ ] verifier harness-worker#RULE-worker-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
-- [ ] verifier harness-skill#RULE-skill-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] 新增/收口根 Task 终态记录函数：success、deterministic failure、retry exhaust、deadline sweep、queued/waiting cancel、reclaim terminal、BATCH fan-in 均走同一事务路劲
+- [x] JOIN root task 在终态事务写入 `runtime_result_outbox`；Child 不重复发 root 结果；DETACH 保留现有 final delivery
+- [x] `event_id` 由 `tenant/task_id/terminal TaskEvent seq` 稳定派生；同 event_id 正文不同返回 409；persisted=true 才 ack
+- [x] Dispatcher 只有 `persisted=true` 且同 event_id 才认成功；2xx/Redis hint 不是入库证据
+- [x] `task.runtime_operation` 取消可先到：同 operation 行锁内允许空 submission_hash cancel；后续同可信来源 submit 只能恢复既定取消结果，不得绕过 tombstone
+- [x] [E-03][E2E] 在终态事务提交后、发件前 SIGKILL；另一 Worker 重投；Runtime canonical恰一条；响应丢失后的重投不重写
+- [x] [E-08][E2E] 运行中取消/超时回收真实子孙进程；直接子进程退出但孙进程持 stdout 时收尾有界；不声称远端副作用已停止
+- [x] [E-15][E2E] Redis wake-up 丢失或不可用时 PG 扫描仍使创建/取消/结果投递/恢复前进；有日志与指标
+- [x] [B-07][integration] inbox/outbox lease、PG fault injector：同事件改正文 409；ack only durable；重投耗尽保留 FAILED 出站告警，不产生第二 canonical
+- [x] verifier harness-worker#RULE-worker-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] verifier harness-skill#RULE-skill-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-03 | E2E | Worker 真实进程、PG outbox、Runtime HTTP | 终态事务提交后 SIGKILL，另一 Worker 重投；Runtime canonical 恰一条；响应丢失重投不重写 | `tests/acceptance/runtime/test_background_result_delivery.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_delivery.py"] | planned |
-| E-08 | E2E | ScriptSkillExecutor、真实子孙进程、管道、HTTP | 取消/超时整组回收；直接子进程退出且孙进程持 stdout 仍有界；协作取消不声称强制停止所有远端副作用 | `tests/agent_worker/test_skill_cancellation_real_subprocess.py` | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_skill_cancellation_real_subprocess.py"] | planned |
-| E-15 | E2E | Redis fault proxy、PG queue/outbox、真实 dispatch | Redis 丢失/不可用时提交、结果投递、等待恢复仍前进；异常有日志与指标 | `tests/acceptance/runtime/test_redis_unavailable.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_redis_unavailable.py"] | planned |
-| B-07 | integration | inbox/outbox lease rows、PG、fault proxy | 同事件改正文 409；ack only durable；重投耗尽保留 FAILED/告警；可操作恢复不制造第二 canonical | `tests/agent_worker/test_runtime_operation_races.py` | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] | planned |
+| E-03 | E2E | Worker 真实进程、PG outbox、Runtime HTTP | 终态事务提交后 SIGKILL，另一 Worker 重投；Runtime canonical 恰一条；响应丢失重投不重写 | `tests/acceptance/runtime/test_background_result_delivery.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_delivery.py"] | e2e_deferred |
+| E-08 | E2E | ScriptSkillExecutor、真实子孙进程、管道、HTTP | 取消/超时整组回收；直接子进程退出且孙进程持 stdout 仍有界；协作取消不声称强制停止所有远端副作用 | `tests/agent_worker/test_skill_cancellation_real_subprocess.py` | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_skill_cancellation_real_subprocess.py"] | e2e_deferred |
+| E-15 | E2E | Redis fault proxy、PG queue/outbox、真实 dispatch | Redis 丢失/不可用时提交、结果投递、等待恢复仍前进；异常有日志与指标 | `tests/acceptance/runtime/test_redis_unavailable.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_redis_unavailable.py"] | e2e_deferred |
+| B-07 | integration | inbox/outbox lease rows、PG、fault proxy | 同事件改正文 409；ack only durable；重投耗尽保留 FAILED/告警；可操作恢复不制造第二 canonical | `tests/agent_worker/test_runtime_operation_races.py` | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -160,9 +160,27 @@
 - [E-15][E2E] planned — defer to verify-e2e after relevant TASK verified
 - [B-07][integration] planned — RED/GREEN pending
 
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-07 | `uv run pytest -q tests/agent_worker/test_runtime_operation_races.py`，2026-10-08，exit 2：缺少 `muad_agent_runtime.api.tool_results`，新结果回流入口尚未实现 | PASS：19 passed（独立空库） | `test_b07_atomic_terminal_rollback_and_single_event`、`test_b07_each_terminal_shape_is_durable`、`test_b07_real_http_durable_ack_conflict_exhaustion_and_recovery`、`test_b07_lease_reservation_blocks_stale_ack` | 独立 PostgreSQL + 实际终态写入/收件服务 + TCP Runtime 路由与 HTTP 故障代理 | verified |
+| E-03 | E2E 不在 coding 阶段执行 | deferred | `test_e03_killed_worker_replay_and_lost_response_exactly_once` | Worker 子进程终态提交、SIGKILL、独立 Dispatcher 进程、Runtime HTTP、PG 唯一事件 | e2e_deferred |
+| E-08 | E2E 不在 coding 阶段执行 | deferred | `test_e08_descendant_reclaimed_and_output_drain_bounded`（3 参数） | ScriptSkillExecutor + 真实子孙进程/继承管道 + HTTP 取消信号 | e2e_deferred |
+| E-15 | E2E 不在 coding 阶段执行 | deferred | `test_e15_pg_progress_with_redis_connection_rejected` | Redis RESP 故障代理 + PG claim/cancel/outbox + 实际 HTTP Dispatcher；真实 claim_continuation 恢复断言，依赖 TASK-004 接线 | e2e_deferred |
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=9d982107824f4e57b6bb1130fcabc972 (confirmed_by: runner)
+- E-08: e2e_deferred — automated command e2e_deferred; run_id=9d982107824f4e57b6bb1130fcabc972 (confirmed_by: runner)
+- E-15: e2e_deferred — automated command e2e_deferred; run_id=9d982107824f4e57b6bb1130fcabc972 (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=9d982107824f4e57b6bb1130fcabc972 (confirmed_by: runner)
+
 ### Log
 
+- [2026-10-08] functional GREEN：`tests/agent_worker/test_runtime_operation_races.py` 共 19 用例；覆盖事务回滚、全部根终态路径、DETACH/Child 排除、取消 tombstone、同事件改正文 409、durable ack、租约失效、保留 FAILED/告警、审计重投与公平前进游标。HTTP fault proxy 使用 TCP 转发真实结果路由，收件落真实 PostgreSQL。
+- [2026-10-08] 原始 worker verifier argv 实际执行：294 passed；Runtime 回归 376 passed。coding 环境设置 `PYTEST_ADDOPTS=-m "not e2e"`，新 E-08 留到终验，未执行 E2E。skill verifier 原始 argv 对应用例 4 passed；与启动配置/Task-001 契约和迁移回归合计 28 passed。
+- [2026-10-08] Runtime 附件回归曾 RED（严格 canonical 拒绝 tuple），已把附件指纹构造改为原生 JSON 数组；原恢复与幂等冲突用例随 376 项回归通过。
+- [2026-10-08] `uv run mypy apps packages`（323 文件）、ruff、`code-flow validate --no-heavy --json` 和 `git diff --check` 通过。E-03/E-08/E-15 测试已写，E-03 含真正丢弃 HTTP 回执的 TCP 故障代理，E-15 的 PG 接续 claim 依赖 TASK-004；统一留到 verify-e2e。
+
 - [2026-10-07] created (draft)
+- [2026-10-08] started
+- [2026-10-08] completed (done)
 
 ---
 

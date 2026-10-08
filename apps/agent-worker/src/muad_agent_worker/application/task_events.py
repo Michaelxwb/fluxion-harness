@@ -68,26 +68,28 @@ async def _seq_floor(session: AsyncSession, task_ids: Sequence[UUID]) -> dict[UU
     return {task_id: int(max_seq) for task_id, max_seq in rows.all()}
 
 
-async def append_events(session: AsyncSession, seeds: Sequence[TaskEventSeed]) -> None:
+async def append_events(session: AsyncSession, seeds: Sequence[TaskEventSeed]) -> list[TaskEvent]:
     if not seeds:
-        return
+        return []
     unique_ids = tuple(sorted({seed.task_id for seed in seeds}, key=str))
     await _lock_tasks(session, unique_ids)
     floor = await _seq_floor(session, unique_ids)
     counters: dict[UUID, int] = {}
+    events: list[TaskEvent] = []
     for seed in seeds:
         seq = counters.get(seed.task_id, floor.get(seed.task_id, 0)) + 1
         counters[seed.task_id] = seq
-        session.add(
-            TaskEvent(
-                tenant_id=seed.tenant_id,
-                task_id=seed.task_id,
-                seq=seq,
-                event_type=str(seed.event_type),
-                payload_json=redact_value(seed.payload),
-                trace_id=seed.trace_id,
-            )
+        event = TaskEvent(
+            tenant_id=seed.tenant_id,
+            task_id=seed.task_id,
+            seq=seq,
+            event_type=str(seed.event_type),
+            payload_json=redact_value(seed.payload),
+            trace_id=seed.trace_id,
         )
+        session.add(event)
+        events.append(event)
+    return events
 
 
 async def append_event(
@@ -98,8 +100,8 @@ async def append_event(
     event_type: TaskEventType,
     payload: dict[str, Any] | None = None,
     trace_id: str | None = None,
-) -> None:
-    await append_events(
+) -> TaskEvent:
+    events = await append_events(
         session,
         [
             TaskEventSeed(
@@ -111,3 +113,4 @@ async def append_event(
             )
         ],
     )
+    return events[0]

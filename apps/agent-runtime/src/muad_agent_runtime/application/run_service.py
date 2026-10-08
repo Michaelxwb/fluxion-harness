@@ -519,7 +519,7 @@ class RunService:
                 # 或把回复发给上一个人（2026-10-06 review）。附件取存储键 + 校验和（字节的稳定
                 # 标识），路由取 `delivery_route_of` 用的那三个判别字段。
                 "attachments": sorted(
-                    (ref.storage_key, ref.checksum, str(ref.kind), ref.media_type, ref.size)
+                    [ref.storage_key, ref.checksum, str(ref.kind), ref.media_type, ref.size]
                     for ref in request.message.attachments
                 ),
                 "route": {
@@ -1751,4 +1751,3 @@ def _persisted_from_row(row: Artifact) -> PersistedAttachment:
         size=row.size,
         storage_key=row.storage_key,
     )
-

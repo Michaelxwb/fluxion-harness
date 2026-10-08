@@ -38,6 +38,8 @@ GAUGE: Final = "gauge"
 
 # 目录：(指标名, 类型, label 名, help)。安装时声明，使 `/metrics` 无流量时也暴露完整目录。
 CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
+    ("runtime_result_dispatch_total", COUNTER, ("status",), "Durable result dispatch outcomes"),
+    ("task_hint_degraded_total", COUNTER, ("status",), "Redis task hint degradations"),
     (TASKS_METRIC, COUNTER, ("type", "status"), "Task executions by task type and terminal status"),
     (TASK_QUEUE_DEPTH_METRIC, GAUGE, (), "Claimable tasks observed at the last claim poll"),
     (TASK_RECLAIM_METRIC, COUNTER, (), "Tasks requeued after their lease expired"),

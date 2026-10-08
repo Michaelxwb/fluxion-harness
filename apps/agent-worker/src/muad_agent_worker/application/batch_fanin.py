@@ -14,14 +14,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
 
-from muad_contracts import TaskStatus
-from sqlalchemy import CursorResult, select, update
+from muad_contracts import TaskStatus, TerminalStatus
+from pydantic import JsonValue
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import TaskExecution
-from ..metrics import TASKS_METRIC, record_outcome
 from .batch_fanout import AGGREGATE_ALL, AGGREGATE_BEST_EFFORT, BATCH_REF_KEY, PARKED_NOT_BEFORE
-from .task_events import TaskEventType, append_event
+from .task_events import TaskEventType
+from .terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 
 BATCH_CHILD_FAILED = "BATCH_CHILD_FAILED"
 NON_TERMINAL_STATUSES = (
@@ -51,6 +52,7 @@ async def settle_child(
     """Child 终态后的同事务收尾；非 Child 或 Parent 已终态时是 no-op。"""
     if child.parent_id is None:
         return FaninOutcome(aggregated=False, parent_status=None, released=0)
+    await lock_task_tree(session, child)
     parent = (
         await session.execute(
             select(TaskExecution)
@@ -82,19 +84,9 @@ async def settle_child(
         released = await _release_parked(session, parent, siblings, moment)
         return FaninOutcome(aggregated=False, parent_status=parent.status, released=released)
     status, result, error_code, error_message = _aggregate(parent, siblings)
-    rowcount = await _cas_parent(
-        session, parent, status, result, error_code, error_message, moment
-    )
+    rowcount = await _cas_parent(session, parent, status, result, error_code, error_message, moment)
     if rowcount != 1:
         return FaninOutcome(aggregated=False, parent_status=None, released=0)
-    record_outcome(TASKS_METRIC, status, {"type": parent.task_type})
-    await append_event(
-        session,
-        tenant_id=parent.tenant_id,
-        task_id=parent.id,
-        event_type=TaskEventType.FAN_IN,
-        payload=dict(result),
-    )
     return FaninOutcome(aggregated=True, parent_status=status, released=0)
 
 
@@ -115,11 +107,7 @@ async def _release_parked(
     中的 WAITING；否则它们到期后会和新释放的 Child 一起跑，突破并发上限。
     """
     concurrency = _concurrency(parent)
-    active = [
-        item
-        for item in siblings
-        if item.status in NON_TERMINAL_STATUSES and not _is_parked(item)
-    ]
+    active = [item for item in siblings if item.status in NON_TERMINAL_STATUSES and not _is_parked(item)]
     slots = concurrency - len(active)
     if slots <= 0:
         return 0
@@ -148,9 +136,7 @@ def _concurrency(parent: TaskExecution) -> int:
 def _aggregate(
     parent: TaskExecution, siblings: list[TaskExecution]
 ) -> tuple[str, dict[str, Any], str | None, str | None]:
-    mode = ((parent.external_ref_json or {}).get(BATCH_REF_KEY) or {}).get(
-        "aggregate_mode", AGGREGATE_ALL
-    )
+    mode = ((parent.external_ref_json or {}).get(BATCH_REF_KEY) or {}).get("aggregate_mode", AGGREGATE_ALL)
     succeeded = sum(1 for item in siblings if item.status == str(TaskStatus.COMPLETED))
     failed = sum(1 for item in siblings if item.status == str(TaskStatus.FAILED))
     cancelled = sum(1 for item in siblings if item.status == str(TaskStatus.CANCELLED))
@@ -176,32 +162,21 @@ async def _cas_parent(
     error_message: str | None,
     moment: datetime,
 ) -> int:
-    updated = await session.execute(
-        update(TaskExecution)
-        .where(
-            TaskExecution.id == parent.id,
-            # 父任务的**全部非终态**都接受（含 QUEUED）：`reclaim` 会把崩溃的父任务置回
-            # QUEUED，此时最后一个 Child 终态若还不肯聚合，父任务就再没有下一个事件可以
-            # 触发 fan-in——只能一路停到 deadline（评审 #7 实测）。已经请求取消的父任务
-            # 不在此列：那要由它自己的取消路径收尾成 CANCELLED，不能被扇入改写成成功/失败。
-            TaskExecution.status.in_(
-                (str(TaskStatus.QUEUED), str(TaskStatus.WAITING), str(TaskStatus.RUNNING))
-            ),
-            TaskExecution.cancel_requested.is_(False),
-            TaskExecution.is_deleted.is_(False),
-        )
-        .values(
-            status=status,
-            result_json=result,
+    written = await write_terminal(
+        session,
+        parent,
+        TerminalChange(
+            status=TerminalStatus(status),
+            result=cast(dict[str, JsonValue], result),
             error_code=error_code,
             error_message=error_message,
-            finished_at=moment,
-            lease_owner=None,
-            lease_until=None,
-            update_time=moment,
-        )
+        ),
+        moment,
+        conditions=(TaskExecution.cancel_requested.is_(False),),
+        event_type=TaskEventType.FAN_IN,
+        event_payload=cast(dict[str, JsonValue], result),
     )
-    return int(cast(CursorResult[Any], updated).rowcount)
+    return int(written)
 
 
 __all__ = [

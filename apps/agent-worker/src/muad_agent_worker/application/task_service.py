@@ -15,10 +15,11 @@ from muad_contracts import (
     DeliveryMode,
     DeliveryStatus,
     TaskStatus,
+    TerminalStatus,
     TriggerType,
 )
 from muad_contracts.platform_settings import TaskSettings
-from sqlalchemy import case, false, func, select, update
+from sqlalchemy import false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,7 +27,9 @@ from ..infrastructure.models.task import TaskEvent, TaskExecution
 from .delivery_routes import upsert_delivery_route
 from .platform_settings import resolve_platform_settings
 from .ports import NullPlatformSettingsClient, PlatformSettingsClient
+from .runtime_operations import prepare_submission
 from .task_events import TaskEventType, append_event
+from .terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 
 INITIAL_PRIORITY = 100
 EXECUTION_MODE_ASYNC = "ASYNC"
@@ -60,6 +63,15 @@ def validate_execution_snapshot(snapshot: dict[str, Any]) -> None:
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
 
 
+def _source_identity(payload: CreateTaskRequest) -> dict[str, object]:
+    source = payload.runtime_operation
+    return {
+        "source_operation_id": source.operation_id if source else None,
+        "source_tool_call_id": source.source_tool_call_id if source else None,
+        "completion_mode": source.completion_mode if source else None,
+    }
+
+
 class TaskService:
     def __init__(
         self,
@@ -69,49 +81,18 @@ class TaskService:
     ) -> None:
         self._session = session
         self._settings = settings or SharedSettings()
-        self._settings_client: PlatformSettingsClient = (
-            settings_client or NullPlatformSettingsClient()
-        )
+        self._settings_client: PlatformSettingsClient = settings_client or NullPlatformSettingsClient()
 
     async def create(self, payload: CreateTaskRequest) -> TaskExecution:
         validate_execution_snapshot(payload.execution_snapshot)
+        operation = await prepare_submission(self._session, payload)
         existing = await self._find_by_idempotency_key(payload.tenant_id, payload.idempotency_key)
         if existing is not None:
             return existing
         # 任务创建边界取一次平台设置快照：新 Task 用它冻结默认，存量行一律不动。
         task_settings = await self._task_settings(payload.tenant_id)
         route_id = await self._resolve_route(payload)
-        task_id = uuid.uuid4()
-        now = datetime.now(UTC)
-        values = {
-            "id": task_id,
-            "tenant_id": payload.tenant_id,
-            "source_run_id": payload.source_run_id,
-            "agent_id": payload.agent_id,
-            "actor_user_id": payload.actor_user_id,
-            "intent_key": payload.intent_key,
-            "skill_id": payload.skill_id,
-            "skill_artifact_id": payload.skill_artifact_id,
-            "trigger_type": str(TriggerType.IMMEDIATE),
-            "execution_mode": EXECUTION_MODE_ASYNC,
-            "task_type": TASK_TYPE_SKILL,
-            "status": str(TaskStatus.QUEUED),
-            "input_json": payload.input,
-            "execution_snapshot_schema_version": payload.execution_snapshot_schema_version,
-            "execution_snapshot_json": payload.execution_snapshot,
-            "snapshot_hash": payload.snapshot_hash,
-            "idempotency_key": payload.idempotency_key,
-            "priority": INITIAL_PRIORITY,
-            "attempt": 0,
-            "max_attempts": task_settings.max_attempts,
-            "not_before": now,
-            "deadline_at": now + timedelta(hours=task_settings.default_deadline_hours),
-            "delivery_route_id": route_id,
-            "delivery_mode": str(payload.delivery_mode),
-            "delivery_status": str(self._initial_delivery_status(payload.delivery_mode)),
-            "delivery_key": f"task:{task_id}:final",
-            "delivery_attempts": 0,
-        }
+        values = self._creation_values(payload, task_settings, route_id)
         statement = (
             pg_insert(TaskExecution)
             .values(**values)
@@ -138,7 +119,46 @@ class TaskService:
         task = await self._session.get(TaskExecution, inserted_id)
         if task is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        if operation is not None:
+            operation.task_id = task.id
+            await self._session.flush()
         return task
+
+    def _creation_values(
+        self, payload: CreateTaskRequest, task_settings: TaskSettings, route_id: uuid.UUID | None
+    ) -> dict[str, object]:
+        task_id = uuid.uuid4()
+        now = datetime.now(UTC)
+        return {
+            "id": task_id,
+            "tenant_id": payload.tenant_id,
+            "source_run_id": payload.source_run_id,
+            **_source_identity(payload),
+            "agent_id": payload.agent_id,
+            "actor_user_id": payload.actor_user_id,
+            "intent_key": payload.intent_key,
+            "skill_id": payload.skill_id,
+            "skill_artifact_id": payload.skill_artifact_id,
+            "trigger_type": str(TriggerType.IMMEDIATE),
+            "execution_mode": EXECUTION_MODE_ASYNC,
+            "task_type": TASK_TYPE_SKILL,
+            "status": str(TaskStatus.QUEUED),
+            "input_json": payload.input,
+            "execution_snapshot_schema_version": payload.execution_snapshot_schema_version,
+            "execution_snapshot_json": payload.execution_snapshot,
+            "snapshot_hash": payload.snapshot_hash,
+            "idempotency_key": payload.idempotency_key,
+            "priority": INITIAL_PRIORITY,
+            "attempt": 0,
+            "max_attempts": task_settings.max_attempts,
+            "not_before": now,
+            "deadline_at": now + timedelta(hours=task_settings.default_deadline_hours),
+            "delivery_route_id": route_id,
+            "delivery_mode": str(payload.delivery_mode),
+            "delivery_status": str(self._initial_delivery_status(payload.delivery_mode)),
+            "delivery_key": f"task:{task_id}:final",
+            "delivery_attempts": 0,
+        }
 
     async def get(
         self, tenant_id: str, task_id: uuid.UUID, *, actor_user_id: uuid.UUID | None = None
@@ -151,9 +171,7 @@ class TaskService:
         ]
         if actor_user_id is not None:
             conditions.append(TaskExecution.actor_user_id == actor_user_id)
-        task = (
-            await self._session.execute(select(TaskExecution).where(*conditions))
-        ).scalar_one_or_none()
+        task = (await self._session.execute(select(TaskExecution).where(*conditions))).scalar_one_or_none()
         if task is None:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return task
@@ -249,9 +267,7 @@ class TaskService:
             .all()
         )
         total = (
-            await self._session.execute(
-                select(func.count()).select_from(TaskExecution).where(*conditions)
-            )
+            await self._session.execute(select(func.count()).select_from(TaskExecution).where(*conditions))
         ).scalar_one()
         return list(items), int(total)
 
@@ -282,21 +298,15 @@ class TaskService:
     async def cancel(
         self, tenant_id: str, task_id: uuid.UUID, *, actor_user_id: uuid.UUID | None = None
     ) -> tuple[str, bool]:
-        """返回 `(status, cancel_requested)`。
+        """Lock operation/ancestors before the Task and persist cooperative cancellation.
 
-        **取消是一次原子写入**（2026-10-06 评审 #4）：一条 UPDATE 同时做三件事——
-        任何非终态都写 `cancel_requested=true`（用户的取消意图因此**不可能**在竞争中丢）；
-        `QUEUED/WAITING` 顺带落 `CANCELLED`（没人在跑，取消就是终态，lease 一并释放）；
-        `RUNNING` 保持状态，由 Worker 在检查点协作停止。
-
-        此前是「按第一次读到的状态挑一条 CAS 分支」：取消先读到 `QUEUED`，claim 抢先把行
-        置成 `RUNNING`，两条 CAS 都不成立——接口回 `RUNNING/cancel_requested=False`，库里
-        连取消标记都没有，任务继续跑到底。
-
-        `CANCELLED` 幂等返回；`COMPLETED/FAILED` 抛 `REVISION_CONFLICT`。Parent 的取消
-        同事务级联到所有非终态 Child。
+        Idle Tasks settle atomically with the terminal event/outbox; RUNNING Tasks
+        retain their state and get cancel_requested. The row lock covers the status
+        decision so a concurrent claim cannot make a cancel intent disappear.
         """
         task = await self.get(tenant_id, task_id, actor_user_id=actor_user_id)
+        await lock_task_tree(self._session, task)
+        await self._session.refresh(task, with_for_update=True)
         if task.status in TERMINAL_STATUSES:
             if task.status == str(TaskStatus.CANCELLED):
                 return str(TaskStatus.CANCELLED), bool(task.cancel_requested)
@@ -315,31 +325,27 @@ class TaskService:
 
     async def _apply_cancel_intent(self, task: TaskExecution, now: datetime) -> bool | None:
         """原子落下取消意图，返回「是否已就地为终态」；行已不在非终态时返回 None。"""
-        idle = TaskExecution.status.in_(CANCELABLE_STATUSES)
-        statement = (
+        if task.status in CANCELABLE_STATUSES:
+            written = await write_terminal(
+                self._session,
+                task,
+                TerminalChange(status=TerminalStatus.CANCELLED, cancel_requested=True),
+                now,
+                conditions=(TaskExecution.status.in_(CANCELABLE_STATUSES),),
+            )
+            return True if written else None
+        changed = await self._session.scalar(
             update(TaskExecution)
             .where(
                 TaskExecution.id == task.id,
                 TaskExecution.tenant_id == task.tenant_id,
-                TaskExecution.status.not_in(TERMINAL_STATUSES),
+                TaskExecution.status == str(TaskStatus.RUNNING),
                 TaskExecution.is_deleted.is_(False),
             )
-            .values(
-                cancel_requested=True,
-                status=case((idle, str(TaskStatus.CANCELLED)), else_=TaskExecution.status),
-                finished_at=case((idle, now), else_=TaskExecution.finished_at),
-                lease_owner=case((idle, None), else_=TaskExecution.lease_owner),
-                lease_until=case((idle, None), else_=TaskExecution.lease_until),
-                update_time=now,
-            )
-            .returning(TaskExecution.status)
-            # 值表达式是 CASE：交给 `evaluate` 只会失败，且下面显式 refresh 才是真口径。
-            .execution_options(synchronize_session=False)
+            .values(cancel_requested=True, update_time=now)
+            .returning(TaskExecution.id)
         )
-        new_status = (await self._session.execute(statement)).scalar_one_or_none()
-        if new_status is None:
-            return None
-        return new_status == str(TaskStatus.CANCELLED)
+        return False if changed is not None else None
 
     async def _record_cancel(self, task: TaskExecution, *, settled: bool, now: datetime) -> None:
         """写事件并按需级联——状态本身已由 `_apply_cancel_intent` 落库，这里只记随附事实。"""
@@ -347,12 +353,13 @@ class TaskService:
         from .batch_fanin import settle_child
         from .task_cancel import cancel_children
 
-        await append_event(
-            self._session,
-            tenant_id=task.tenant_id,
-            task_id=task.id,
-            event_type=TaskEventType.CANCELLED if settled else TaskEventType.CANCEL_REQUESTED,
-        )
+        if not settled:
+            await append_event(
+                self._session,
+                tenant_id=task.tenant_id,
+                task_id=task.id,
+                event_type=TaskEventType.CANCEL_REQUESTED,
+            )
         await cancel_children(self._session, task, now)
         if settled:
             # 取消掉的是一个 Parent：它自己终态了，扇入要看一眼 Child 是否都已终态。

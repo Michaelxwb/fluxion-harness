@@ -45,6 +45,14 @@ class SharedSettings(BaseSettings):
     task_deadline_sweep_interval_sec: int = 30
     delivery_poll_interval_sec: int = 5
     delivery_batch_size: int = 20
+    # Technical dispatcher settings are frozen at service startup, never model controlled.
+    async_tool_dispatch_timeout_sec: float = Field(default=5, gt=0)
+    async_tool_dispatch_lease_sec: float = Field(default=30, gt=5)
+    async_tool_dispatch_poll_sec: float = Field(default=1, gt=0)
+    async_tool_dispatch_batch_size: int = Field(default=32, ge=1, le=1000)
+    async_tool_dispatch_retry_base_sec: float = Field(default=1, gt=0)
+    async_tool_dispatch_retry_cap_sec: float = Field(default=30, gt=0)
+    async_tool_dispatch_max_attempts: int = Field(default=20, ge=1)
 
     def require_database_url(self) -> str:
         if not self.database_url:

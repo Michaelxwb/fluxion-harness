@@ -9,6 +9,8 @@ from typing import Protocol, cast
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from ..metrics import record_outcome
+
 TASK_WAKEUP_KEY = "task:wakeup"
 LISTEN_RETRY_SEC = 5.0
 
@@ -49,6 +51,7 @@ class RedisWakeupNotifier:
         except RedisError:
             # hint 只是低延迟优化，权威状态在 PG；发不出去不影响已提交的任务。
             logger.warning("task_wakeup_hint_failed")
+            record_outcome("task_hint_degraded_total", "TASK_WAKEUP_HINT_FAILED")
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -69,6 +72,7 @@ async def create_wakeup_notifier(
         await client.ping()
     except RedisError:
         logger.warning("task_wakeup_redis_unavailable")
+        record_outcome("task_hint_degraded_total", "TASK_WAKEUP_REDIS_UNAVAILABLE")
         await client.aclose()
         return NullWakeupNotifier()
     return RedisWakeupNotifier(client)
@@ -138,6 +142,7 @@ async def create_wakeup_listener(redis_url: str | None) -> WakeupListener:
         await client.ping()
     except RedisError:
         logger.warning("task_wakeup_redis_unavailable")
+        record_outcome("task_hint_degraded_total", "TASK_WAKEUP_REDIS_UNAVAILABLE")
         await client.aclose()
         return NullWakeupListener()
     listener = RedisWakeupListener(client)

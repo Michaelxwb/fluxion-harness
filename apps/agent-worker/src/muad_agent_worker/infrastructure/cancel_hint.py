@@ -14,6 +14,8 @@ from typing import Protocol, cast
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from ..metrics import record_outcome
+
 TASK_CANCEL_KEY_PREFIX = "task:cancel:"
 TASK_CANCEL_TTL_SEC = 1800
 TASK_CANCEL_VALUE = "1"
@@ -61,12 +63,14 @@ class RedisCancelHintStore:
             )
         except RedisError:
             logger.warning("task_cancel_hint_write_failed")
+            record_outcome("task_hint_degraded_total", "TASK_CANCEL_HINT_WRITE_FAILED")
 
     async def is_marked(self, task_id: uuid.UUID) -> bool:
         try:
             return bool(await self._client.exists(f"{TASK_CANCEL_KEY_PREFIX}{task_id}"))
         except RedisError:
             logger.warning("task_cancel_hint_read_failed")
+            record_outcome("task_hint_degraded_total", "TASK_CANCEL_HINT_READ_FAILED")
             return False
 
     async def aclose(self) -> None:
@@ -88,6 +92,7 @@ async def create_cancel_hint_store(
         await client.ping()
     except RedisError:
         logger.warning("task_cancel_hint_redis_unavailable")
+        record_outcome("task_hint_degraded_total", "TASK_CANCEL_HINT_REDIS_UNAVAILABLE")
         await client.aclose()
         return NullCancelHintStore()
     return RedisCancelHintStore(client)

@@ -10,6 +10,8 @@ from muad_common import SharedSettings
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from tests.async_tool_datastores import async_tool_database, async_tool_datastore  # noqa: F401
+
 SCHEMA = "task"
 TABLES = ("delivery_route", "task_schedule", "task_execution", "task_event", "task_submission")
 
