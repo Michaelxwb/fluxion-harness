@@ -464,7 +464,7 @@
       "kind": "e2e",
       "boundary": "Gateway、Runtime SSE、Worker、原消息回复探针",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -474,7 +474,44 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "8c5d28cf411f4500bcf5d878fde72ff6",
+        "executed_at": "2026-10-08T15:25:14.865730+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/gateway/test_waiting_resume.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8c5d28cf411f4500bcf5d878fde72ff6",
+          "executed_at": "2026-10-08T15:25:14.865730+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/gateway/test_waiting_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "S-07",
@@ -1479,7 +1516,7 @@
       "kind": "e2e",
       "boundary": "SSE socket、Runtime supervisor、Gateway/重连客户端",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1489,7 +1526,44 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-13",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "8c5d28cf411f4500bcf5d878fde72ff6",
+        "executed_at": "2026-10-08T15:25:14.865730+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/gateway/test_waiting_resume.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-13",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8c5d28cf411f4500bcf5d878fde72ff6",
+          "executed_at": "2026-10-08T15:25:14.865730+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/gateway/test_waiting_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-14",
@@ -1687,7 +1761,7 @@
       "kind": "e2e",
       "boundary": "Gateway/Runtime HTTP、PG 活跃会话约束",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1697,7 +1771,44 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-17",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "8c5d28cf411f4500bcf5d878fde72ff6",
+        "executed_at": "2026-10-08T15:25:14.865730+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/gateway/test_waiting_resume.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-17",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8c5d28cf411f4500bcf5d878fde72ff6",
+          "executed_at": "2026-10-08T15:25:14.865730+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/gateway/test_waiting_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "B-01",

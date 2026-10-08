@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Header, Request
+from fastapi import APIRouter, Header, Query, Request
 from fastapi.responses import StreamingResponse
 from muad_api import ApiResponse, ok
 from muad_common import SharedSettings
@@ -89,6 +89,19 @@ async def cancel_run(
         request.app.state.message_catalog,
         run_cancel_view(run, include_cancel_requested=True),
     )
+
+
+@router.get("/runs/{run_id}/events")
+async def run_events(
+    run_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantDep,
+    service: RunServiceDep,
+    after_seq: Annotated[int, Query(ge=0)] = 0,
+) -> StreamingResponse:
+    """API-04：按已确认 canonical seq 重放/续跟既有 Run 的持久事件（SSE 重连，不重新执行）。"""
+    run = await service.tail_run_events(run_id, tenant_id, after_seq=after_seq)
+    return _sse_response(service, run, request)
 
 
 @router.get("/runs/{run_id}")

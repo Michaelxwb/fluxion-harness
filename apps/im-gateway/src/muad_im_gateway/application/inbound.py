@@ -57,6 +57,7 @@ from .attachment_gate import (
     evaluate_precheck,
 )
 from .console_client import ConsoleClientPort
+from .final_delivery import ActiveFinalDelivery, FinalDeliveryPort
 from .inbound_attachments import AttachmentConflictError, InboundAttachmentStore
 from .platform_settings import ReplySettings, resolve_reply_settings
 from .ports import NullPlatformSettingsClient, PlatformSettingsClient
@@ -129,6 +130,7 @@ MESSAGE_FAILURES_METRIC = "im_message_failures_total"
 STREAM_FIRST_CHUNK_METRIC = "im_stream_first_chunk_ms"
 STREAM_LATENCY_METRIC = "im_stream_latency_ms"
 RUNTIME_REQUEST_LATENCY_METRIC = "im_runtime_request_latency_ms"
+FINAL_DELIVERY_METRIC = "im_final_delivery_total"
 METRIC_HELP = "IM gateway runtime metric"
 
 BIND_COMMAND = "/bind"
@@ -331,6 +333,14 @@ class _RunStreamState:
         self.last_progress_at = 0.0
         self.first_event_at: float | None = None
         self.first_chunk_at: float | None = None
+        #: 已确认的 canonical seq：断流重连从它之后回放，不重复也不跳事件。
+        self.last_seq: int = 0
+        #: 声明了回复会话能力却**打不开/写不进**（回调过期）：正文不落路由级最新回调，
+        #: 终态文本改走渠道中立主动投递（`run:{run_id}:final`）。
+        self.reply_lost = False
+        #: `run.completed` 带回的最终文本（会话失联时的兜底投递内容）。
+        self.final_text = ""
+        self.final_delivery_done = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -362,6 +372,9 @@ class InboundPipeline:
         tenant_id: str,
         settings_client: PlatformSettingsClient | None = None,
         delta_flush_interval_sec: float = DELTA_FLUSH_INTERVAL_SEC,
+        final_delivery: FinalDeliveryPort | None = None,
+        runtime_reconnect_attempts: int = 5,
+        runtime_reconnect_delay_sec: float = 0.5,
     ) -> None:
         self._activity_catalogs: dict[str, ActivityMessages] = {}
         self._delta_flush_interval_sec = delta_flush_interval_sec
@@ -377,6 +390,13 @@ class InboundPipeline:
         self._route_locks: dict[tuple[str, str, str], asyncio.Lock] = {}
         #: **在飞**处理的并发闸（排队等锁的不算）：封顶同时跑的模型流数量。
         self._handlers = asyncio.Semaphore(MAX_CONCURRENT_HANDLERS)
+        #: ReplySession 失效时的主动投递端口（默认复用网关自己的去重存储）。
+        self._final_delivery: FinalDeliveryPort = (
+            final_delivery if final_delivery is not None else ActiveFinalDelivery(dedupe)
+        )
+        #: 断流重连：有界尝试；重试窗口由 delay × attempts 决定（读超时保活由 heartbeat 兜底）。
+        self._reconnect_attempts = max(0, runtime_reconnect_attempts)
+        self._reconnect_delay_sec = max(0.0, runtime_reconnect_delay_sec)
 
     @property
     def _reply(self) -> ReplySettings:
@@ -1065,27 +1085,29 @@ class InboundPipeline:
         # 会话由 `handle` 在入站那一刻固定（`_REPLY_SESSION`）：本条消息的所有回复——回执、错误、
         # 状态、正文——都回到**它自己的**回调上，不受同会话后续消息影响。
         state.reply = _REPLY_SESSION.get()
+        # 渠道声明了回复会话能力却打不开（回调过期）：这条回复已经失联，终态文本改走主动投递。
+        state.reply_lost = state.reply is None and isinstance(adapter, ReplySessionFactory)
         if state.reply is not None:
             state.activity_messages = self._activity_messages(self._locale)
         finalized = False
         try:
             await self._update_progress(route, state, force=True)
             stream = self._runtime.create_run(request, tenant_id=self._tenant_id)
-            async with aclosing(iter_with_ticks(stream, interval=self._tick_interval_sec)) as events:
-                async for event in events:
-                    if event is None:
-                        # 计时拍：**同一拍里也要把到点的正文缓冲发出去**。正文此前只在下一条
-                        # 增量到来时才可能被冲出去，模型一思考/一跑工具就整段挂在缓冲里
-                        # （实测：只收一个 delta 后静默 1.2 秒，客户端一个正文帧都没收到）。
-                        await self._flush(adapter, route, state)
-                        await self._update_progress(route, state)
-                        continue
-                    await self._apply_run_event(adapter, route, platform_user_id, state, event)
-                    if state.terminal:
-                        break
+            try:
+                await self._consume_stream(adapter, route, platform_user_id, state, stream)
+            except AppError:
+                if state.run_id is None:
+                    raise
+                # Run 已受理（拿到了 run_id）：流内错误按断流处理，交给重连，不当作提交失败。
+                logger.warning("run_stream_error_will_reconnect run_id=%s", state.run_id)
+            await self._reconnect_until_terminal(adapter, route, platform_user_id, state)
             if not state.terminal and not state.awaiting_input:
                 state.progress.apply(SseEvent("run.failed", {}))
                 await self._update_progress(route, state, force=True)
+                if state.reply is None:
+                    # 非状态能力渠道：正文尾段先落、流先收尾，错误文案在后（与提交错误同序）。
+                    await self._run_actions(adapter, route, state, state.renderer.finalize())
+                    finalized = True
                 await self._send_run_text(adapter, route, state, BROKEN_STREAM_TEXT)
         except AppError as exc:
             state.progress.apply(SseEvent("run.failed", {}))
@@ -1106,6 +1128,83 @@ class InboundPipeline:
             help="Whole-stream latency until finalize (ms)",
         )
         return True
+
+    async def _consume_stream(
+        self,
+        adapter: ChannelAdapter,
+        route: DeliveryRouteInput,
+        platform_user_id: UUID,
+        state: _RunStreamState,
+        stream: AsyncIterator[SseEvent],
+    ) -> None:
+        """消费一段 SSE：计时拍里顺带冲正文；终态到达即停止读流。"""
+        async with aclosing(iter_with_ticks(stream, interval=self._tick_interval_sec)) as events:
+            async for event in events:
+                if event is None:
+                    # 计时拍：**同一拍里也要把到点的正文缓冲发出去**。正文此前只在下一条
+                    # 增量到来时才可能被冲出去，模型一思考/一跑工具就整段挂在缓冲里
+                    # （实测：只收一个 delta 后静默 1.2 秒，客户端一个正文帧都没收到）。
+                    await self._flush(adapter, route, state)
+                    await self._update_progress(route, state)
+                    continue
+                await self._apply_run_event(adapter, route, platform_user_id, state, event)
+                if state.terminal:
+                    break
+
+    async def _reconnect_until_terminal(
+        self,
+        adapter: ChannelAdapter,
+        route: DeliveryRouteInput,
+        platform_user_id: UUID,
+        state: _RunStreamState,
+    ) -> None:
+        """断流重连：按**最后已确认 canonical seq** tail 现有 Run，绝不重复 POST 创建。
+
+        等待期的 socket 断开不是取消：Run 在 Runtime 侧继续（heartbeat 保活正常连接，
+        这里只处理真正断掉的流）。有界尝试后就地报"服务暂时中断"，不假装成功、不新建 Run。
+        """
+        attempts = 0
+        while (
+            not state.terminal
+            and not state.awaiting_input
+            and state.run_id is not None
+            and attempts < self._reconnect_attempts
+        ):
+            attempts += 1
+            await asyncio.sleep(self._reconnect_delay_sec)
+            after_seq = state.last_seq
+            logger.warning(
+                "run_stream_reconnecting run_id=%s after_seq=%s attempt=%s",
+                state.run_id,
+                after_seq,
+                attempts,
+            )
+            stream = self._runtime.open_events(
+                state.run_id,
+                tenant_id=self._tenant_id,
+                after_seq=after_seq,
+            )
+            try:
+                await self._consume_stream(adapter, route, platform_user_id, state, stream)
+            except AppError as exc:
+                logger.warning(
+                    "run_stream_reconnect_failed run_id=%s after_seq=%s attempt=%s code=%s",
+                    state.run_id,
+                    after_seq,
+                    attempts,
+                    exc.code,
+                )
+                continue
+            logger.warning(
+                "run_stream_reconnected run_id=%s after_seq=%s attempts=%s",
+                state.run_id,
+                after_seq,
+                attempts,
+            )
+        if attempts >= self._reconnect_attempts and not state.terminal and not state.awaiting_input:
+            logger.error(
+                "run_stream_reconnect_exhausted run_id=%s attempts=%s", state.run_id, attempts
+            )
 
     @property
     def _tick_interval_sec(self) -> float:
@@ -1138,7 +1237,7 @@ class InboundPipeline:
         - `force=False`（1 秒 tick）**不等**：发送者忙就整条丢掉（不排队、不积压），下一拍用
           当时的最新阶段重算。读取循环因此不会被计时拖住，正文与终态可以随时插进来。
         """
-        if state.reply is None or (not force and not state.progress.active):
+        if state.reply is None or state.reply_lost or (not force and not state.progress.active):
             return
         if not state.progress.visible:
             return
@@ -1185,12 +1284,13 @@ class InboundPipeline:
         state: _RunStreamState,
         text: str,
     ) -> None:
-        if state.reply is None:
+        if state.reply is None or state.reply_lost:
             await self._send_text(adapter, route, text)
             return
         try:
             await state.reply.send(text)
         except ChannelAdapterUnavailable:
+            state.reply_lost = True
             logger.warning("channel_reply_failed channel=%s", route.channel, exc_info=True)
 
     def _build_renderer(self) -> StreamRenderer:
@@ -1207,6 +1307,9 @@ class InboundPipeline:
         state: _RunStreamState,
         event: SseEvent,
     ) -> None:
+        if event.seq is not None:
+            # 已确认 canonical seq：断流重连从它之后回放（重复/乱序帧由解析器在连接内丢弃）。
+            state.last_seq = max(state.last_seq, event.seq)
         changed = state.progress.apply(event)
         if changed:
             await self._update_progress(route, state, force=True)
@@ -1225,11 +1328,47 @@ class InboundPipeline:
                 if state.reply is not None:
                     state.reply.bind_run(state.run_id)
             return
+        if event.type == RUN_COMPLETED_EVENT:
+            state.final_text = str((event.data or {}).get("final_text") or "")
         await self._run_actions(adapter, route, state, state.renderer.apply(event))
         if event.type == INTERRUPT_REQUIRED_EVENT:
             state.awaiting_input = True
         if event.type in (TASK_ACCEPTED_EVENT, RUN_COMPLETED_EVENT, RUN_FAILED_EVENT):
+            # run.waiting_tool / run.resumed 是**非终态**事实：不在这里收尾、不发完成帧。
             state.terminal = True
+        if state.terminal:
+            await self._deliver_final_text(adapter, route, state)
+
+    async def _deliver_final_text(
+        self,
+        adapter: ChannelAdapter,
+        route: DeliveryRouteInput,
+        state: _RunStreamState,
+    ) -> None:
+        """ReplySession 失联时的兜底：终态文本按稳定投递键主动投递（每条 Run 只尝试一次）。
+
+        渠道没有主动投递能力或发送失败：**显式失败**（ERROR 日志 + 指标），不把"已尝试"
+        当成"已送达"——用户没收到就是没收到。
+        """
+        if not state.reply_lost or state.final_delivery_done:
+            return
+        if state.run_id is None:
+            logger.error("final_delivery_missing_run_id channel=%s", route.channel)
+            return
+        state.final_delivery_done = True
+        delivered = await self._final_delivery.deliver(
+            adapter,
+            route,
+            tenant_id=self._tenant_id,
+            run_id=state.run_id,
+            text=state.final_text,
+        )
+        metrics.inc_counter(
+            FINAL_DELIVERY_METRIC,
+            1,
+            {"status": "delivered" if delivered else "failed"},
+            help="Run final text active deliveries",
+        )
 
     async def _run_actions(
         self,
@@ -1238,7 +1377,7 @@ class InboundPipeline:
         state: _RunStreamState,
         actions: Sequence[RenderAction],
     ) -> None:
-        if state.reply is not None:
+        if state.reply is not None and not state.reply_lost:
             actions = tuple(action for action in actions if action.kind != FINALIZE_KIND) + tuple(
                 action for action in actions if action.kind == FINALIZE_KIND
             )
@@ -1246,6 +1385,15 @@ class InboundPipeline:
                 # 真要写了才等在飞的 tick。force 路径**挡不住这一帧**：正文一出现状态即转为
                 # 不可见，此后的 force 调用都在可见性检查处直接返回，只有这里能兜住。
                 await self._drain_status(state)
+        elif state.reply_lost:
+            # 会话失联：正文不落"本路由最新回调"（那可能是同会话**另一条**消息的回调）；
+            # 终态文本由 `_deliver_final_text` 按 `run:{run_id}:final` 主动投递。
+            actions = tuple(
+                action
+                for action in actions
+                if action.kind != STREAM_KIND
+                and not (action.kind == TEXT_KIND and action.text == state.final_text)
+            )
         for action in actions:
             if action.kind == STREAM_KIND:
                 if state.first_chunk_at is None:
@@ -1255,25 +1403,29 @@ class InboundPipeline:
                         _elapsed_ms(state.started_at, state.first_chunk_at),
                         help="Time to first streamed chunk (ms)",
                     )
-                if state.reply is None:
-                    await self._stream_text(adapter, route, action.text)
-                else:
+                if state.reply is not None and not state.reply_lost:
                     try:
                         await state.reply.stream(action.text)
                     except ChannelAdapterUnavailable:
-                        logger.warning("channel_reply_stream_failed channel=%s", route.channel, exc_info=True)
+                        state.reply_lost = True
+                        logger.warning(
+                            "channel_reply_stream_failed channel=%s", route.channel, exc_info=True
+                        )
+                elif state.reply is None:
+                    await self._stream_text(adapter, route, action.text)
             elif action.kind == TEXT_KIND and action.text:
                 await self._send_run_text(adapter, route, state, action.text)
             elif action.kind == FINALIZE_KIND:
-                if state.reply is None:
-                    await self._finalize_stream(adapter, route)
-                else:
+                if state.reply is not None and not state.reply_lost:
                     try:
                         await state.reply.finish()
                     except ChannelAdapterUnavailable:
+                        state.reply_lost = True
                         logger.warning(
                             "channel_reply_finalize_failed channel=%s", route.channel, exc_info=True
                         )
+                elif state.reply is None:
+                    await self._finalize_stream(adapter, route)
 
     async def _flush(
         self,

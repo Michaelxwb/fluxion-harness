@@ -34,6 +34,7 @@ class FakeChannelAdapter:
         self.started = False
         self._events: asyncio.Queue[ChannelEnvelope] = asyncio.Queue()
         self._sent: list[tuple[DeliveryRouteInput, DeliveryMessage]] = []
+        self._active_sent: list[tuple[DeliveryRouteInput, DeliveryMessage]] = []
         self._streamed: list[tuple[DeliveryRouteInput, tuple[str, ...]]] = []
         self._pending: dict[str, tuple[FakeBlob, ...]] = {}
 
@@ -80,6 +81,10 @@ class FakeChannelAdapter:
     async def send(self, route: DeliveryRouteInput, message: DeliveryMessage) -> None:
         self._sent.append((route, message))
 
+    async def send_active(self, route: DeliveryRouteInput, message: DeliveryMessage) -> None:
+        """主动投递（不借入站回调）：单独记账，便于断言终态文本走的是哪条路径。"""
+        self._active_sent.append((route, message))
+
     async def stream(self, route: DeliveryRouteInput, chunks: AsyncIterator[str]) -> None:
         collected = tuple([chunk async for chunk in chunks])
         self._streamed.append((route, collected))
@@ -87,6 +92,10 @@ class FakeChannelAdapter:
     @property
     def sent(self) -> tuple[tuple[DeliveryRouteInput, DeliveryMessage], ...]:
         return tuple(self._sent)
+
+    @property
+    def sent_active(self) -> tuple[tuple[DeliveryRouteInput, DeliveryMessage], ...]:
+        return tuple(self._active_sent)
 
     @property
     def streamed(self) -> tuple[tuple[DeliveryRouteInput, tuple[str, ...]], ...]:

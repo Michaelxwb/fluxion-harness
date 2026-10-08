@@ -265,7 +265,8 @@ def test_e02_cancel_requested_waiting_input_writes_events(
     got = http.get(f"{live_stack.runtime_url}/v1/runs/{run_id}", headers=_headers(live_stack))
     assert got.status_code == 200
     assert got.json()["data"]["status"] == "CANCELLED"
-    assert got.json()["data"]["cancel_requested"] is False
+    # 立即取消同样记录"取消被请求过"（`_cancel_waiting` 的 CAS 口径）。
+    assert got.json()["data"]["cancel_requested"] is True
 
 
 def test_e03_concurrent_create_run_one_busy(live_stack: LiveStack, http: httpx.Client) -> None:

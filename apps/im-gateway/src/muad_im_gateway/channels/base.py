@@ -157,6 +157,18 @@ class ArtifactDeliveryError(Exception):
         self.code = code
 
 
+@runtime_checkable
+class ActiveTextDelivery(Protocol):
+    """可选能力：**不借任何入站回调**，直接向会话主动发送一条文本。
+
+    `ReplySession` 失效（回调过期、或同会话后来的消息把路由级回调顶掉）时，Run 的终态文本
+    走这条缝：适配器自己决定往哪发（企微 = `aibot_send_msg` 发给会话）。没实现 = 本通道
+    不能主动投递 —— 调用方必须**显式失败**，不得把文本悄悄塞回"最新回调"或假装已送达。
+    """
+
+    async def send_active(self, route: DeliveryRouteInput, message: DeliveryMessage) -> None: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ArtifactDeliveryOutcome:
     """一次产物交付的结局。

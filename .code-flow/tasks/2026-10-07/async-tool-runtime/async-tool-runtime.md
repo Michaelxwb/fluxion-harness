@@ -19,7 +19,7 @@
 | S-03 | backend#2.5.2 场景清单 | E2E | 实际 provider 请求、canonical 历史、制品存储 | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | S-04 | backend#2.5.2 场景清单 | integration | 真实 Runner、可控异步工具处理器 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] |
 | S-05 | backend#2.5.2 场景清单 | E2E | Console resolve/API-09、等待恢复、LLM/MCP HTTP | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
-| S-06 | backend#2.5.2 场景清单 | E2E | Gateway、Runtime SSE、Worker、原消息回复探针 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
+| S-06 | backend#2.5.2 场景清单 | E2E | Gateway、Runtime SSE、Worker、原消息回复探针 | TASK-006 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
 | S-07 | backend#2.5.2 场景清单 | integration | 真实 MCP HTTP 探针、Runtime adapter | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
 | E-01 | backend#2.5.2 场景清单 | E2E | 冻结授权、Worker HTTP、PG、审计 | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-02 | backend#2.5.2 场景清单 | E2E | Runtime 控制发件、Worker 创建事务、故障代理 | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
@@ -33,11 +33,11 @@
 | E-10 | backend#2.5.2 场景清单 | integration | 真实制品发布/DB 事务、压缩端口 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
 | E-11 | backend#2.5.2 场景清单 | E2E | 内部服务门控、Runtime/Console HTTP、PG | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/security/test_internal_service_identity.py"] |
 | E-12 | backend#2.5.2 场景清单 | E2E | API-09、日志、inbox/outbox/checkpoint/canonical、制品 | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
-| E-13 | backend#2.5.2 场景清单 | E2E | SSE socket、Runtime supervisor、Gateway/重连客户端 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
+| E-13 | backend#2.5.2 场景清单 | E2E | SSE socket、Runtime supervisor、Gateway/重连客户端 | TASK-006 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
 | E-14 | backend#2.5.2 场景清单 | integration | MCP HTTP 探针、客户端关闭 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
 | E-15 | backend#2.5.2 场景清单 | E2E | Redis 故障代理、PG 队列和结果发件 | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_redis_unavailable.py"] |
 | E-16 | backend#2.5.2 场景清单 | E2E | Worker HTTP 故障代理、控制发件、PG tombstone | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
-| E-17 | backend#2.5.2 场景清单 | E2E | Gateway/Runtime HTTP、PG 活跃会话约束 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
+| E-17 | backend#2.5.2 场景清单 | E2E | Gateway/Runtime HTTP、PG 活跃会话约束 | TASK-006 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
 | B-01 | backend#2.5.2 场景清单 | integration | PG 行锁、并发提交、关闭屏障 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] |
 | B-02 | backend#2.5.2 场景清单 | integration | 严格 JSON DTO、幂等表、PG 唯一约束 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_runtime_strict_json.py"] |
 | B-03 | backend#2.5.2 场景清单 | integration | UTF-8 字节预算、共享制品、历史重建 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
@@ -477,7 +477,7 @@
 
 ## TASK-006: Gateway 等待态、重连与主动投递
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003, TASK-004
 - **Source**: async-tool-runtime.backend.design.md#3.4 接口设计, async-tool-runtime.backend.design.md#3.2 架构设计
@@ -490,35 +490,47 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 
 ### Checklist
 
-- [ ] Runtime SSE只在 after事件入库后发出；等待期间 run.waiting non-terminal, no completion frame; run.resumed starts new timing segment; total Run time includes interrupted segments
-- [ ] Client reconnect uses latest confirmed canonical seq, no duplicate POST create; same after_seq replaydoes not重复提交 Run/tool
-- [ ] Gateway doesn't own business DB orexecution归属 mapping; background tasks continue during SSE disconnect; terminal only once
-- [ ] hit WAITING_INPUT:explicit human resume same type; ordinary new message follows既有 route queue, no direct Runtime new Run; direct call returns RUN_BUSY
-- [ ] /stop沿现有command容量可取消waiting；不能解释成会话可同时第二个 Run
-- [ ] ReplySession失效 then channel-neutral port stable `run:{run_id}:final` active delivery key; adapter能力不存在时显式投递失败，不能回“已送达”
-- [ ] [S-06][E2E] JOIN等待阶段不发完成帧；接续后在同消息回复输出最终文本，无额外 Worker FINAL_ONLY通知;/stop不被排队阻塞
-- [ ] [E-13][E2E] 等待期间断开SSE，任务仍执行；新连接从已确认seq回放；无新Task/模型预算重置，终态只输出一次
-- [ ] [E-17][E2E] WAITING_TOOL时explicit human resume被RUN_BUSY拒绝；普通新消息沿既有路由队列且不替换等待输入；/stop可取消，之后新Run可正常创建
-- [ ] verifier harness-im#RULE-im-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
-- [ ] verifier harness-im#RULE-im-002：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] Runtime SSE只在 after事件入库后发出；等待期间 run.waiting non-terminal, no completion frame; run.resumed starts new timing segment; total Run time includes interrupted segments
+- [x] Client reconnect uses latest confirmed canonical seq, no duplicate POST create; same after_seq replaydoes not重复提交 Run/tool
+- [x] Gateway doesn't own business DB orexecution归属 mapping; background tasks continue during SSE disconnect; terminal only once
+- [x] hit WAITING_INPUT:explicit human resume same type; ordinary new message follows既有 route queue, no direct Runtime new Run; direct call returns RUN_BUSY
+- [x] /stop沿现有command容量可取消waiting；不能解释成会话可同时第二个 Run
+- [x] ReplySession失效 then channel-neutral port stable `run:{run_id}:final` active delivery key; adapter能力不存在时显式投递失败，不能回“已送达”
+- [x] [S-06][E2E] JOIN等待阶段不发完成帧；接续后在同消息回复输出最终文本，无额外 Worker FINAL_ONLY通知;/stop不被排队阻塞
+- [x] [E-13][E2E] 等待期间断开SSE，任务仍执行；新连接从已确认seq回放；无新Task/模型预算重置，终态只输出一次
+- [x] [E-17][E2E] WAITING_TOOL时explicit human resume被RUN_BUSY拒绝；普通新消息沿既有路由队列且不替换等待输入；/stop可取消，之后新Run可正常创建
+- [x] verifier harness-im#RULE-im-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] verifier harness-im#RULE-im-002：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-06 | E2E | Gateway、Runtime SSE、Worker、原消息回复探针 | 等待期间不发完成帧；接续后同消息回复最终文本；无额外 Worker FINAL_ONLY通知；/stop不被排队阻塞 | `tests/acceptance/gateway/test_waiting_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] | planned |
-| E-13 | E2E | SSE socket、Runtime supervisor、Gateway/重连客户端 | 等待期间断开SSE任务仍执行；新连接从已确认seq回放；无新Task/模型预算重置，终态只输出一次 | `tests/acceptance/gateway/test_waiting_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] | planned |
-| E-17 | E2E | Gateway/Runtime HTTP、PG活跃会话约束 | WAITING_TOOL时explicit resume RUN_BUSY；普通新消息沿既有 route queue不替换等待输入；/stop可取消，之后新Run正常创建 | `tests/acceptance/gateway/test_waiting_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] | planned |
+| S-06 | E2E | Gateway、Runtime SSE、Worker、原消息回复探针 | 等待期间不发完成帧；接续后同消息回复最终文本；无额外 Worker FINAL_ONLY通知；/stop不被排队阻塞 | `tests/acceptance/gateway/test_waiting_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] | e2e_deferred |
+| E-13 | E2E | SSE socket、Runtime supervisor、Gateway/重连客户端 | 等待期间断开SSE任务仍执行；新连接从已确认seq回放；无新Task/模型预算重置，终态只输出一次 | `tests/acceptance/gateway/test_waiting_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] | e2e_deferred |
+| E-17 | E2E | Gateway/Runtime HTTP、PG活跃会话约束 | WAITING_TOOL时explicit resume RUN_BUSY；普通新消息沿既有 route queue不替换等待输入；/stop可取消，之后新Run正常创建 | `tests/acceptance/gateway/test_waiting_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] | e2e_deferred |
 
 ### Acceptance Evidence
 
-- [S-06][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-13][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-17][E2E] planned — defer to verify-e2e after relevant TASK verified
+- [S-06][E2E] e2e_deferred — 已登记 `test_s06_join_waiting_holds_silence_and_replies_on_original_message`（`tests/acceptance/gateway/test_waiting_resume.py`）；真实边界：真实 Gateway 进程（官方 WeCom SDK ↔ 真实 WS 探针）→ 真实 Runtime SSE、真实 Worker 执行 gate 化 ASYNC JOIN Skill、真实 PG/Redis、原消息回复探针；命令见 Acceptance Contract。coding 阶段不执行 RED/GREEN，留 verify-e2e。
+- [E-13][E2E] e2e_deferred — 已登记 `test_e13_sse_drop_during_waiting_replays_without_new_task_or_budget_reset`；真实边界：TCP 中继强制断开在飞 SSE（不杀进程）、Runtime `GET /v1/runs/{id}/events?after_seq=` 重放、PG canonical seq/预算计数；断言重连日志 `after_seq`、单 Run/单 Task、turns 只前进不回退、终态只输出一次。
+- [E-17][E2E] e2e_deferred — 已登记 `test_e17_waiting_tool_rejects_resume_queues_message_and_recovers_after_stop`；真实边界：真实 Runtime HTTP（显式 resume → 409 RUN_BUSY）、Gateway 路由队列、PG 活跃会话约束、/stop 独立命令容量与取消后新 Run。
+- 回归（独立库，`-m "not e2e"`）：`uv run python /tmp/async_tool_check.py uv run pytest -q tests/gateway tests/agent_runtime tests/agent_worker` → 1089 passed, 3 deselected (194.90s)。
+- 功能用例（coding 阶段实际执行）：`tests/gateway/test_waiting_resume.py` 9 passed；`tests/agent_runtime/test_runs_api.py -k "run_events or waiting_tool"` 3 passed。
+- verifier `harness-im#RULE-im-001` 原始 argv（独立库）：`uv run pytest -q tests/console_channel tests/gateway` → 413 passed。
+- verifier `harness-im#RULE-im-002` 原始 argv（独立库）：`uv run pytest -q tests/architecture/test_channel_neutrality.py` → 3 passed。
+- 静态检查：`uv run mypy apps packages scripts` → 339 source files 通过；`uv run ruff check apps packages tests` 全绿；`git diff --check` rc=0。
+- 陈旧断言修正（无实现改动）：`tests/gateway/test_stop_integration.py::test_s06_stop_on_waiting_input_cancels_immediately_with_readable_events` 与 `tests/acceptance/runtime/test_run_lifecycle.py::test_e02_cancel_requested_waiting_input_writes_events` 期望 WAITING_INPUT 立即取消后 `cancel_requested=False`；自 TASK-003 `_cancel_waiting` CAS 同时置 `cancel_requested=True` 起已过时，按代码事实改为 True（回归中实际暴露）。
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=8c5d28cf411f4500bcf5d878fde72ff6 (confirmed_by: runner)
+- E-13: e2e_deferred — automated command e2e_deferred; run_id=8c5d28cf411f4500bcf5d878fde72ff6 (confirmed_by: runner)
+- E-17: e2e_deferred — automated command e2e_deferred; run_id=8c5d28cf411f4500bcf5d878fde72ff6 (confirmed_by: runner)
 
 ### Log
 
-- [2026-10-07] created (draft)
+- [2026-10-08] E2E 登记（不执行）：新增 `tests/acceptance/gateway/`（conftest 复用 task-schedule 真栈 + join 模型探针 + WS 网关进程 + TCP 断流中继）与三个用例；`uv run pytest --collect-only -q` 收集 3 项。E2E 标记在 coding 阶段不产生 RED/GREEN，统一留 verify-e2e。
+- [2026-10-08] 实现要点：Runtime 新增 `GET /v1/runs/{id}/events?after_seq=`（只读持久 canonical、等待态保活、终态排空关闭、不重新执行）与 `tail_run_events`；`resume` 对 WAITING_TOOL 明确 `RUN_BUSY`。Gateway 解析器识别 `run.waiting_tool`/`run.resumed`/异步工具轮廓事件；`ExecutionProgress` 改为执行段计时（等待停段、接续开新段、`total_seconds` 起止另算）并新增 WAITING_TOOL 状态文案（zh-CN/en-US）；断流按最后确认 seq 走 `open_events` 有界重连（绝不重复 POST 创建 Run、终态只出一次）；ReplySession 失效（开不出/写不进）时终态文本按稳定键 `run:{run_id}:final` 经渠道中立端口 `ActiveTextDelivery.send_active` 主动投递并去重，无能力/发送失败显式失败，不回“已送达”。
+- [2026-10-08] completed (done)
+
 
 ---
 

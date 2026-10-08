@@ -578,3 +578,99 @@ async def test_resolve_error_propagates_as_envelope(
     response = await client.post("/v1/runs", json=_payload(tenant), headers=_headers(tenant))
     assert response.status_code == 403
     assert response.json()["code"] == "AGENT_ACCESS_DENIED"
+
+
+async def _insert_events(
+    tenant: TenantContext,
+    conversation_id: uuid.UUID,
+    run_id: uuid.UUID,
+    rows: list[tuple[int, str, str, dict[str, Any]]],
+) -> None:
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        for seq, event_type, stream_type, payload in rows:
+            session.add(
+                CanonicalEvent(
+                    tenant_id=tenant.tenant_id,
+                    conversation_id=conversation_id,
+                    run_id=run_id,
+                    seq=seq,
+                    event_type=event_type,
+                    stream_type=stream_type,
+                    payload_json=payload,
+                )
+            )
+        await session.commit()
+
+
+async def test_run_events_endpoint_replays_after_confirmed_seq_and_closes_on_terminal(
+    client: AsyncClient,
+    tenant: TenantContext,
+) -> None:
+    """API-04：GET 事件流从 `after_seq` 之后回放持久事件；终态排空后关闭，不重新执行。"""
+    conversation_id, run_id = await _insert_run(tenant, "COMPLETED")
+    await _insert_events(
+        tenant,
+        conversation_id,
+        run_id,
+        [
+            (1, "RUN_CREATED", "run.created", {"resumed": False}),
+            (2, "RUN_WAITING_TOOL", "run.waiting_tool", {"status": "WAITING_TOOL"}),
+            (3, "RUN_RESUMED", "run.resumed", {"execution_epoch": 2}),
+            (4, "RUN_COMPLETED", "run.completed", {"status": "COMPLETED", "final_text": "ok"}),
+        ],
+    )
+
+    full = await client.get(f"/v1/runs/{run_id}/events", headers=_headers(tenant))
+    assert full.status_code == 200
+    assert full.headers["content-type"].startswith("text/event-stream")
+    assert [event["type"] for event in parse_sse(full.text)] == [
+        "run.created",
+        "run.waiting_tool",
+        "run.resumed",
+        "run.completed",
+    ]
+
+    replay = await client.get(
+        f"/v1/runs/{run_id}/events?after_seq=2", headers=_headers(tenant)
+    )
+    assert replay.status_code == 200
+    events = parse_sse(replay.text)
+    assert [event["type"] for event in events] == ["run.resumed", "run.completed"]
+    assert [event["seq"] for event in events] == [3, 4]
+    assert events[-1]["run_id"] == str(run_id)
+
+
+async def test_run_events_endpoint_is_tenant_scoped_and_validates_after_seq(
+    client: AsyncClient,
+    tenant: TenantContext,
+) -> None:
+    _, run_id = await _insert_run(tenant, "COMPLETED")
+    other = await client.get(
+        f"/v1/runs/{run_id}/events",
+        headers={"X-Tenant-Id": f"other-{uuid.uuid4().hex}"},
+    )
+    assert other.status_code == 404
+
+    negative = await client.get(
+        f"/v1/runs/{run_id}/events?after_seq=-1", headers=_headers(tenant)
+    )
+    assert negative.status_code == 422
+
+
+async def test_resume_endpoint_rejects_waiting_tool_run_with_run_busy(
+    client: AsyncClient,
+    tenant: TenantContext,
+) -> None:
+    """显式人类 resume 只接受 WAITING_INPUT；工具等待由结果驱动接续，明确 RUN_BUSY。"""
+    _, run_id = await _insert_run(tenant, "WAITING_TOOL")
+    response = await client.post(
+        f"/v1/runs/{run_id}/resume",
+        json={"input": {"type": "text", "text": "answer"}},
+        headers={
+            **_headers(tenant),
+            "Idempotency-Key": f"resume-waiting-tool-{uuid.uuid4().hex[:6]}",
+        },
+    )
+    assert response.status_code == 409
+    assert response.json()["code"] == "RUN_BUSY"

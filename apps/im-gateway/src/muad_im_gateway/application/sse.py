@@ -29,6 +29,16 @@ KNOWN_EVENT_TYPES = frozenset(
         "skill.loaded",
         "tool.started",
         "tool.completed",
+        # 异步工具轮廓（FEAT-09）：只带 operation/task/status 元信息，不含结果正文。
+        # 等待/接续是**非终态**事实；metadata 事件不改变终态判定。
+        "tool.submission_pending",
+        "tool.submitted",
+        "tool.submission.failed",
+        "tool.result.received",
+        "tool.result",
+        "tool.result.late",
+        "run.waiting_tool",
+        "run.resumed",
         "task.accepted",
         "artifact.created",
         "interrupt.required",

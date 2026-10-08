@@ -834,6 +834,28 @@ class WeComAdapter:
             )
             raise ChannelAdapterUnavailable("wecom send failed") from exc
 
+    async def send_active(self, route: DeliveryRouteInput, message: DeliveryMessage) -> None:
+        """主动投递：**不借任何入站回调**，直接发到会话（`aibot_send_msg`）。
+
+        用于 Run 终态文本的兜底：会话回调已过期/被顶掉时，回复体（`aibot_respond_msg`）
+        在服务端必然失败；"本路由最新回调"又可能是同会话另一条消息的回调 —— 把这条消息的
+        答案挂到别人头上。这里明确发给会话，不冒充任何一条消息的回调。
+        """
+        self._ensure_started()
+        client = self._require_client(route.bot_id)
+        try:
+            await client.send_text(_chat_id(route), message.text)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "wecom_send_active_failed bot_id=%s error=%s: %s",
+                route.bot_id,
+                type(exc).__name__,
+                exc,
+            )
+            raise ChannelAdapterUnavailable("wecom active send failed") from exc
+
     def route_key(self, route: DeliveryRouteInput) -> str:
         """企微的交付路由标识：`{bot_id}:{external_user_id}`（可读、不透明）。"""
         return f"{route.bot_id}:{route.external_user_id}"

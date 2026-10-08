@@ -319,9 +319,10 @@ async def test_s06_stop_on_waiting_input_cancels_immediately_with_readable_event
     )
     replies = await _stop(adapter, pipeline, console, runtime, channel)
 
-    # WAITING_INPUT 已被 Runtime 直接 CAS 为 CANCELLED：立即"已停止"，不是"正在停止"
+    # WAITING_INPUT 已被 Runtime 直接 CAS 为 CANCELLED：立即"已停止"，不是"正在停止"；
+    # cancel_requested 如实记录"这次取消被请求过"（TASK-003 的 `_cancel_waiting` 口径）。
     assert replies == [STOP_CANCELLED_TEXT]
-    assert await _run_row(run_id) == {"status": "CANCELLED", "cancel_requested": False}
+    assert await _run_row(run_id) == {"status": "CANCELLED", "cancel_requested": True}
     interrupt = await _interrupt_row(run_id)
     assert interrupt["status"] == "CANCELLED"
     assert interrupt["resolution"] == {"reason": "cancelled"}

@@ -120,7 +120,11 @@ class FakeConsoleClient:
 class FakeRuntimeClient:
     def __init__(self, events: list[SseEvent] | None = None) -> None:
         self.events = list(events or [])
+        #: 断流重连（API-04）要回放的事件：默认空 ⇒ 重连立刻 EOF，由调用方决定尝试次数。
+        self.reconnect_events: list[SseEvent] = []
+        self.open_calls: list[tuple[str, int]] = []
         self.run_error: AppError | None = None
+        self.reconnect_error: AppError | None = None
         self.conversation_error: AppError | None = None
         self.cancel_error: AppError | None = None
         self.run_requests: list[RunRequest] = []
@@ -139,6 +143,22 @@ class FakeRuntimeClient:
         if self.run_error is not None:
             raise self.run_error
         for event in self.events:
+            yield event
+
+    async def open_events(
+        self,
+        run_id: str,
+        *,
+        tenant_id: str,
+        after_seq: int = 0,
+        trace_id: str = "",
+    ) -> AsyncIterator[SseEvent]:
+        self.open_calls.append((run_id, after_seq))
+        if self.reconnect_error is not None:
+            raise self.reconnect_error
+        for event in self.reconnect_events:
+            if event.seq is not None and event.seq <= after_seq:
+                continue
             yield event
 
     async def create_conversation(

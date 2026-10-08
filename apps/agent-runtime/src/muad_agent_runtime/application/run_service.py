@@ -637,6 +637,10 @@ class RunService:
             return self._replay_start(replay)
         if run.status in TERMINAL_RUN_STATUSES:
             return self._terminal_start(run)
+        if run.status == RunStatus.WAITING_TOOL:
+            # 工具等待由结果驱动接续（ContinuationPump），不能靠显式人类 resume 绕过：
+            # 这是"会话仍有一个活跃 Run"的明确拒绝（RUN_BUSY），而不是把它解释成唤醒。
+            raise AppError(ErrorCode.RUN_BUSY)
         if run.status != RunStatus.WAITING_INPUT:
             raise AppError(ErrorCode.REVISION_CONFLICT)
         return await self._resume_run(
@@ -645,6 +649,30 @@ class RunService:
             submission_key=key,
             request_fingerprint=fingerprint,
             endpoint=ENDPOINT_RESUME_RUN,
+        )
+
+    async def tail_run_events(
+        self,
+        run_id: uuid.UUID,
+        tenant_id: str,
+        *,
+        after_seq: int = 0,
+    ) -> RunStart:
+        """API-04：按已确认 canonical seq 重放/续跟既有 Run 的持久事件流。
+
+        只读持久事件，不重新执行、不分配新序号、不重新 resolve 配置；终态排空后关闭。
+        """
+        run = await self._load_run(run_id, tenant_id)
+        return RunStart(
+            run_id=run.id,
+            conversation_id=run.conversation_id,
+            resumed=True,
+            events=self._tail_events(
+                tenant_id=run.tenant_id,
+                conversation_id=run.conversation_id,
+                run_id=run.id,
+                after_seq=max(0, after_seq),
+            ),
         )
 
     async def cancel_run(self, run_id: uuid.UUID, tenant_id: str) -> RunRecord:
@@ -1874,22 +1902,40 @@ class RunService:
 
     async def _replay_events(self, submission: RunSubmission) -> AsyncIterator[ExecutorEvent]:
         """重放已持久化事件并接续未结束流；不调用 LLM/Tool，不分配新序号。"""
-        if submission.conversation_id is None:
+        if submission.conversation_id is None or submission.run_id is None:
             return
-        after = (submission.first_seq or 1) - 1
+        async for event in self._tail_events(
+            tenant_id=submission.tenant_id,
+            conversation_id=submission.conversation_id,
+            run_id=submission.run_id,
+            after_seq=(submission.first_seq or 1) - 1,
+        ):
+            yield event
+
+    async def _tail_events(
+        self,
+        *,
+        tenant_id: str,
+        conversation_id: uuid.UUID,
+        run_id: uuid.UUID,
+        after_seq: int,
+    ) -> AsyncIterator[ExecutorEvent]:
+        """tail 持久 canonical 事件直到终态排空；等待态保持连接（heartbeat 由 HTTP 层加）。
+
+        `after_seq` 是调用方**已确认**的 canonical seq：只在它之后回放，不重复不跳跃。
+        """
+        after = max(0, after_seq)
         while True:
             emitted_terminal = False
             async with get_session_factory()() as session:
                 rows = await EventWriter(session).list_events(
-                    submission.conversation_id,
-                    tenant_id=submission.tenant_id,
+                    conversation_id,
+                    tenant_id=tenant_id,
                     after_seq=after,
                 )
                 for row in rows:
                     after = int(row.seq)
-                    if row.run_id != submission.run_id:
-                        continue
-                    if row.stream_type is None:
+                    if row.run_id != run_id or row.stream_type is None:
                         continue
                     yield ExecutorEvent(
                         type=str(row.stream_type),
@@ -1901,13 +1947,13 @@ class RunService:
                         emitted_terminal = True
                 if emitted_terminal:
                     return
-                run = await session.scalar(sa.select(RunRecord).where(RunRecord.id == submission.run_id))
-                if run is None:
+                fresh = await session.scalar(sa.select(RunRecord).where(RunRecord.id == run_id))
+                if fresh is None:
                     return
-                if run.status in TERMINAL_RUN_STATUSES:
-                    yield await self._terminal_event(session, run)
+                if fresh.status in TERMINAL_RUN_STATUSES:
+                    yield await self._terminal_event(session, fresh)
                     return
-                if run.status == RunStatus.WAITING_INPUT:
+                if fresh.status == RunStatus.WAITING_INPUT:
                     return
             await asyncio.sleep(REPLAY_POLL_SEC)
 

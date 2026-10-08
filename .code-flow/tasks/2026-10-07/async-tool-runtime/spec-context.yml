@@ -1,7 +1,7 @@
 version: 1
 task: async-tool-runtime
 enforcement: required
-updated_at: '2026-10-08T14:32:19.330169+00:00'
+updated_at: '2026-10-08T14:38:15.847833+00:00'
 sources:
 - type: cli
   ref: bind
@@ -52,11 +52,11 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -163,6 +163,29 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-08T15:25:16.927233+00:00'
+          status: verified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: 414dcf56dce9a25141e2e7108b2a6bc7e7517032c28e6da0a802299cc5e98136
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: b41f5289e05bfc39de949fd886e9345eff8395618de78c2ea86db03a0fadf16d
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.00s
+
+              '
       review:
         status: pending
         refs: []
@@ -192,11 +215,11 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -327,6 +350,35 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-08T15:25:18.928411+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: dd70432fa74d839739f2b87d551e4e8c3b0a6f19a844fdf301c940af293604bc
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: ae9528086892c982b214db2de5843dc1829bfc56fe66ab6c657fffc13b570b43
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 1.51s\n"
       review:
         status: pending
         refs: []
@@ -371,7 +423,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -446,6 +498,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-08T15:25:18.929510+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -492,7 +555,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -555,6 +618,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-08T15:25:18.930224+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -600,7 +674,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -663,6 +737,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-08T15:25:18.930916+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -711,7 +796,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -774,6 +859,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-08T15:25:18.931637+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -818,7 +914,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -881,6 +977,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-08T15:25:18.932279+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -925,7 +1032,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -988,6 +1095,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-08T15:25:18.933271+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1018,11 +1136,11 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1081,6 +1199,29 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-08T15:25:19.813344+00:00'
+          status: verified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: fa74549a08926dd0e08e1dd9d9de923f398aaf02db7565f9b00b1138e135048b
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture/test_channel_neutrality.py
+            exit_code: 0
+            stdout_sha256: a2781fcf8f9c65bdb27d0edf589ab8df478ce510960a3dcee3c456a717c0f5ed
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 0.57s
+
+              '
       review:
         status: pending
         refs: []
@@ -1127,7 +1268,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -1204,6 +1345,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-08T15:25:19.814576+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1248,11 +1400,11 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -1335,6 +1487,17 @@ bindings:
               3 passed in 0.01s
 
               '
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-08T15:25:19.815564+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1379,7 +1542,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -1442,6 +1605,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-08T15:25:19.816264+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1496,6 +1670,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-08T15:25:19.816936+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1541,7 +1726,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -1630,6 +1815,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-08T15:25:19.817864+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1679,7 +1875,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -1754,6 +1950,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-08T15:25:19.818588+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1800,7 +2007,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -1863,6 +2070,17 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-08T15:25:19.819286+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1907,7 +2125,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -1970,6 +2188,17 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-08T15:25:19.820186+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2014,7 +2243,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -2141,6 +2370,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-08T15:25:19.820852+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2185,7 +2425,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -2248,6 +2488,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-08T15:25:19.821548+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2291,7 +2542,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -2354,6 +2605,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-08T15:25:19.822247+00:00'
+          status: unverified
+          rule_text_sha256: 8dcac2de2d48280e57007cf8a1fb4eb70be2741a2d4e2295bbe4252fdc6f60b1
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2401,7 +2663,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 4e547199649b53fe2c916e9b9bcf693c76b21916f392da7a350a0c3e8e7b3ffc
+          artifact_sha256: cffaea4b05af4eb9b955c726e530b77957040f754660490cf9fe3b62b2bef0d9
         decision: null
         evidence: []
       code:
@@ -2459,6 +2721,17 @@ bindings:
           rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
           artifact_sha256: null
           diff_sha256: 553b8c9d0be969d764c3ca9c7b1b7459b2ca7b79ef779d4e5866fcf02f903b25
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-08T15:25:19.822946+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: bc284e519edfaa830f73eb758a019a1d4ddb545a85d26049761b91e02625d44e
           result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
           error_code: deferred_to_review
           details:

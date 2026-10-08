@@ -19,6 +19,7 @@ class ProgressPhase(StrEnum):
     PREPARING = "PREPARING"
     THINKING = "THINKING"
     EXECUTING = "EXECUTING"
+    WAITING_TOOL = "WAITING_TOOL"
     WAITING_INPUT = "WAITING_INPUT"
     ACCEPTED = "ACCEPTED"
     COMPLETED = "COMPLETED"
@@ -27,9 +28,17 @@ class ProgressPhase(StrEnum):
 
 
 class ExecutionProgress:
+    """执行阶段与计时。
+
+    计时按**执行段**累计：`run.waiting_tool` 停本段，`run.resumed` 开新段；等待空档不计入
+    「已执行」，也不伪造模型/工具活动。墙钟总耗时由 `total_seconds`（起止另算）给出。
+    """
+
     def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
         self._clock = clock
         self._started: float | None = None
+        self._segment_started: float | None = None
+        self._accumulated = 0.0
         self._stopped: float | None = None
         self._tools: set[str] = set()
         self._model_active = False
@@ -46,6 +55,17 @@ class ExecutionProgress:
 
     @property
     def elapsed_seconds(self) -> int:
+        """执行段累计秒数（等待空档不计）。"""
+        if self._started is None:
+            return 0
+        total = self._accumulated
+        if self._stopped is None and self._segment_started is not None:
+            total += max(0.0, self._clock() - self._segment_started)
+        return max(0, int(total))
+
+    @property
+    def total_seconds(self) -> int:
+        """墙钟总耗时（含等待空档）：由起止另算，不与执行段计时混用一个读数。"""
         if self._started is None:
             return 0
         end = self._stopped if self._stopped is not None else self._clock()
@@ -57,7 +77,19 @@ class ExecutionProgress:
         previous = (self.phase, self.visible)
         if event.type == "run.created":
             if self._started is None:
-                self._started = self._clock() - _event_age(event.timestamp)
+                self._started = self._moment(event)
+                self._start_segment(self._started)
+        elif event.type == "run.waiting_tool":
+            # 非终态等待：停本段执行计时，不伪造模型/工具活动（结果回来走 run.resumed）。
+            self._stop_segment(self._moment(event))
+            self._model_active = False
+            self.phase = ProgressPhase.WAITING_TOOL
+            self.visible = True
+        elif event.type == "run.resumed":
+            # 开新执行段：从事件时刻起重新累计，等待空档不进入「已执行」。
+            self._model_active = False
+            self._start_segment(self._moment(event))
+            self._execution_phase()
         elif event.type in ("model.started", "model.completed"):
             self._model_active = event.type == "model.started"
             self._model_started = self._model_started or self._model_active
@@ -73,12 +105,27 @@ class ExecutionProgress:
         elif event.type == "message.delta":
             self.visible = False
         elif event.type in _STOP_PHASES:
+            self._stop_segment(self._moment(event))
             self.phase = _STOP_PHASES[event.type]
             if event.data.get("status") == "CANCELLED":
                 self.phase = ProgressPhase.CANCELLED
-            self._stopped = self._clock()
+            self._stopped = self._moment(event)
             self.visible = not bool(event.data.get("final_text")) and self.visible
         return previous != (self.phase, self.visible) or event.type == "run.created"
+
+    def _moment(self, event: SseEvent) -> float:
+        """事件在 monotonic 时钟上的时刻（无时间戳的合成事件退化为“现在”）。"""
+        return self._clock() - _event_age(event.timestamp)
+
+    def _start_segment(self, moment: float) -> None:
+        if self._segment_started is None and self._stopped is None:
+            self._segment_started = moment
+
+    def _stop_segment(self, moment: float) -> None:
+        if self._segment_started is None:
+            return
+        self._accumulated += max(0.0, moment - self._segment_started)
+        self._segment_started = None
 
     def _execution_phase(self) -> None:
         if self._tools:

@@ -121,6 +121,9 @@ def _pipeline(events: list[SseEvent], catalog: MessageCatalog) -> InboundPipelin
         runtime=FakeRuntimeClient(events),
         catalog=catalog,
         tenant_id="tenant-b115",
+        # 本文件聚焦渲染与出站协议；断流重连由 test_waiting_resume 覆盖（关闭重连保持语义纯粹）。
+        runtime_reconnect_attempts=0,
+        runtime_reconnect_delay_sec=0.0,
     )
 
 

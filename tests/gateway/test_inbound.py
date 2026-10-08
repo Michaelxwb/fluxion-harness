@@ -108,6 +108,7 @@ def _pipeline(
     dedupe: DedupeStore | None = None,
     delta_flush_interval_sec: float = DELTA_FLUSH_INTERVAL_SEC,
     settings_client: Any = None,
+    runtime_reconnect_attempts: int = 0,
 ) -> InboundPipeline:
     return InboundPipeline(
         dedupe=dedupe if dedupe is not None else InMemoryDedupeStore(),
@@ -117,6 +118,8 @@ def _pipeline(
         tenant_id="tenant-1",
         settings_client=settings_client,
         delta_flush_interval_sec=delta_flush_interval_sec,
+        runtime_reconnect_attempts=runtime_reconnect_attempts,
+        runtime_reconnect_delay_sec=0.0,
     )
 
 
@@ -671,7 +674,11 @@ class _MidStreamFailingRuntime(FakeRuntimeClient):
 
 
 async def test_app_error_keeps_partial_body_before_the_error_text(catalog: MessageCatalog) -> None:
-    """错误路径不得把非状态能力渠道的顺序改掉：正文尾段先落，错误文案在后。"""
+    """流内错误按断流处理：正文尾段先落、流先收尾，随后给"重发"文案。
+
+    等待期断流不是取消：Run 已受理（run_id 已到），先按已确认 seq 重连；本管道关闭重连
+    （attempts=0）时才就地报"服务暂时中断"。顺序仍是：正文尾段 → 收尾 → 错误文案。
+    """
     console = FakeConsoleClient()
     console.resolve_response = resolved_response()
     runtime = _MidStreamFailingRuntime(
@@ -689,7 +696,7 @@ async def test_app_error_keeps_partial_body_before_the_error_text(catalog: Messa
     assert adapter.actions == [
         "stream:半句",
         "finish",
-        "text:当前会话已有任务执行中，可发送 /stop 停止",
+        "text:服务暂时中断，请重发消息",
     ]
 
 

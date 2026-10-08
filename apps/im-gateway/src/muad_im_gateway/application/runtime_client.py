@@ -20,6 +20,7 @@ from .sse import iter_sse_events as iter_sse_events
 logger = logging.getLogger(__name__)
 
 RUNS_PATH = "/v1/runs"
+RUN_EVENTS_PATH = "/v1/runs/{run_id}/events"
 CONVERSATIONS_PATH = "/v1/conversations"
 CANCEL_ACTIVE_PATH = "/v1/runs/cancel-active"
 REQUEST_TIMEOUT_SEC = 10.0
@@ -35,6 +36,17 @@ class RuntimeClientPort(Protocol):
         tenant_id: str,
         trace_id: str = "",
     ) -> AsyncIterator[SseEvent]: ...
+
+    def open_events(
+        self,
+        run_id: str,
+        *,
+        tenant_id: str,
+        after_seq: int = 0,
+        trace_id: str = "",
+    ) -> AsyncIterator[SseEvent]:
+        """API-04 断流重连：按已确认 canonical seq tail 现有 Run，不重复 POST 创建。"""
+        ...
 
     async def create_conversation(
         self,
@@ -112,6 +124,33 @@ class RuntimeClient:
                     payload = await decode_error_payload(response)
                     raise AppError(error_code_from_payload(payload))
                 # 分片文本（非行原子）：解析器自行切行，跨 chunk 的帧不丢
+                async for event in iter_sse_events(response.aiter_text()):
+                    yield event
+        except httpx.HTTPError as exc:
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+
+    async def open_events(
+        self,
+        run_id: str,
+        *,
+        tenant_id: str,
+        after_seq: int = 0,
+        trace_id: str = "",
+    ) -> AsyncIterator[SseEvent]:
+        """按已确认 seq 重连既有 Run 的持久事件流；不创建 Run、不重复执行。"""
+        headers = build_headers(tenant_id, trace_id)
+        headers["Accept"] = "text/event-stream"
+        try:
+            async with self._client.stream(
+                "GET",
+                RUN_EVENTS_PATH.format(run_id=run_id),
+                params={"after_seq": str(max(0, after_seq))},
+                headers=headers,
+                timeout=httpx.Timeout(STREAM_TIMEOUT_SEC, connect=REQUEST_TIMEOUT_SEC),
+            ) as response:
+                if response.status_code >= 400:
+                    payload = await decode_error_payload(response)
+                    raise AppError(error_code_from_payload(payload))
                 async for event in iter_sse_events(response.aiter_text()):
                     yield event
         except httpx.HTTPError as exc:

@@ -385,6 +385,9 @@ activity_messages:
   EXECUTING:
     zh-CN: '⚙️ 执行中 · 已执行 {elapsed}'
     en-US: '⚙️ Executing · elapsed {elapsed}'
+  WAITING_TOOL:
+    zh-CN: '⏳ 等待任务结果 · 已执行 {elapsed}'
+    en-US: '⏳ Waiting for task result · elapsed {elapsed}'
   WAITING_INPUT:
     zh-CN: '⏸ 等待你的确认 · 已执行 {elapsed}'
     en-US: '⏸ Awaiting your confirmation · elapsed {elapsed}'
