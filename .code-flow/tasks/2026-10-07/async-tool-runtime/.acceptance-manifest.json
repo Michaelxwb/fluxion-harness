@@ -1,0 +1,886 @@
+{
+  "schema": 2,
+  "task_file": "async-tool-runtime.md",
+  "task_sha256": "f0a1fb3bb9b323fce664d63e36159e9ddff66636d3bd693dcc4a77f2945c671a",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime/Worker HTTP、PG、Redis、LLM 探针、SSE",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_background_result_resume.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "四服务 HTTP、真实 Task、渠道出站探针",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_submission_hardening.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-03",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "实际 provider 请求、canonical 历史、制品存储",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_background_result_resume.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Runner、可控异步工具处理器",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_tool_parallel_planner.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-05",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Console resolve/API-09、等待恢复、LLM/MCP HTTP",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_background_result_resume.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-06",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Gateway、Runtime SSE、Worker、原消息回复探针",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/gateway/test_waiting_resume.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-07",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 MCP HTTP 探针、Runtime adapter",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_mcp_request_correlation.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "冻结授权、Worker HTTP、PG、审计",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_submission_hardening.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime 控制发件、Worker 创建事务、故障代理",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_submission_hardening.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Worker 真实进程、PG outbox、Runtime HTTP",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_background_result_delivery.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime 等待事务、结果回流 HTTP、PG",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_background_result_resume.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "两个 Runtime 真实进程、PG lease、LLM HTTP",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_background_result_resume.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 deadline sweep、Worker、Runtime、PG",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_background_result_resume.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-07",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime cancel、Worker operation 行锁、真实 HTTP",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_submission_hardening.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-08",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "ScriptSkillExecutor、真实子孙进程、管道、HTTP",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_skill_cancellation_real_subprocess.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-09",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ContextBuilder、真实 provider 消息序列化",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_tool_result_materialization.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-10",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实制品发布/DB 事务、压缩端口",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_tool_result_materialization.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-11",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "内部服务门控、Runtime/Console HTTP、PG",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/security/test_internal_service_identity.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-12",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "API-09、日志、inbox/outbox/checkpoint/canonical、制品",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_background_result_resume.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-13",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "SSE socket、Runtime supervisor、Gateway/重连客户端",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/gateway/test_waiting_resume.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-14",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "MCP HTTP 探针、客户端关闭",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_mcp_request_correlation.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-15",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Redis 故障代理、PG 队列和结果发件",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_redis_unavailable.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-16",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Worker HTTP 故障代理、控制发件、PG tombstone",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_submission_hardening.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-17",
+      "source": "backend#2.5.2 场景清单",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Gateway/Runtime HTTP、PG 活跃会话约束",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/gateway/test_waiting_resume.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-01",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "PG 行锁、并发提交、关闭屏障",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_runtime_operation_races.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-02",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "严格 JSON DTO、幂等表、PG 唯一约束",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/contracts/test_runtime_strict_json.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "1333a2e3ea64472b884582f043044bc9",
+        "executed_at": "2026-10-08T02:01:07.396530+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_runtime_strict_json.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "7781db1cc2700d3c6d51dc43573b6e9de863f61adf661ac3b3589fba626cf065"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1333a2e3ea64472b884582f043044bc9",
+          "executed_at": "2026-10-08T02:01:07.396530+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_runtime_strict_json.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "7781db1cc2700d3c6d51dc43573b6e9de863f61adf661ac3b3589fba626cf065"
+        }
+      ]
+    },
+    {
+      "id": "B-03",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "UTF-8 字节预算、共享制品、历史重建",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_tool_result_materialization.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-04",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "PG wait_generation、epoch、canonical seq",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_tool_wait_state_machine.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-05",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "持久检查点、注入时钟、真实 budget 判定",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_tool_wait_state_machine.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-06",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "并行规划器、Runner、资源声明",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_tool_parallel_planner.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-07",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "inbox/outbox 租约、PG、故障代理",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_runtime_operation_races.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-08",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG、Alembic、迁移前置检查",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/migrations/test_runtime_wait_parity.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "1333a2e3ea64472b884582f043044bc9",
+        "executed_at": "2026-10-08T02:01:07.396530+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/migrations/test_runtime_wait_parity.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "7781db1cc2700d3c6d51dc43573b6e9de863f61adf661ac3b3589fba626cf065"
+      },
+      "runs": [
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1333a2e3ea64472b884582f043044bc9",
+          "executed_at": "2026-10-08T02:01:07.396530+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/migrations/test_runtime_wait_parity.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "7781db1cc2700d3c6d51dc43573b6e9de863f61adf661ac3b3589fba626cf065"
+        }
+      ]
+    },
+    {
+      "id": "B-09",
+      "source": "backend#2.5.2 场景清单",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实需求文件、manifest、inventory runner",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/async_tool_runtime_inventory.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-20",
+      "source": "frontend#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→Console→PG；Runtime/Worker/LLM HTTP",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-21",
+      "source": "frontend#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→Router/面板控制→Console Run/Task API→PG",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-22",
+      "source": "frontend#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser、真实 Console 分页、PG count",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-23",
+      "source": "frontend#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser language/timezone、HTTP 请求头、真实 DTO",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-24",
+      "source": "frontend#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser、Console 真实只读投影、PG",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-20",
+      "source": "frontend#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "故障代理、Browser、真实 Console 重试",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-21",
+      "source": "frontend#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser、账号租户、Console API",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-22",
+      "source": "frontend#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "延迟真实响应的代理、Browser、服务请求",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-20",
+      "source": "frontend#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 PG 空列表/分页",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-21",
+      "source": "frontend#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Chrome 键盘、实际 Semi SideSheet/Tab/链接",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    }
+  ]
+}

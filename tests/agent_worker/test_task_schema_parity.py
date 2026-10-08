@@ -41,6 +41,7 @@ EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
 }
 
 EXPECTED_CHECKS: dict[str, tuple[str, ...]] = {
+    "task_execution": ("ck_task_execution_completion_mode",),
     "task_schedule": ("ck_task_schedule_trigger",),
 }
 
@@ -260,4 +261,3 @@ async def test_task_execution_server_defaults(database_guard: None) -> None:
     task_type = columns["task_type"]
     assert task_type["nullable"] is False, "task_type must be NOT NULL"
     assert "SKILL" in str(task_type["default"]), f"task_type default: {task_type['default']}"
-

@@ -35,6 +35,7 @@ class NonCanonicalJsonError(ValueError):
 def canonical_json(value: Any) -> str:
     """规范化 JSON 文本：键序无关、拒绝非有限数与未知类型。"""
     try:
+        _check_json_types(value, set())
         return json.dumps(
             value,
             sort_keys=True,
@@ -50,7 +51,28 @@ def canonical_json(value: Any) -> str:
         raise NonCanonicalJsonError(str(exc)) from exc
 
 
-def ensure_strict_json(value: Any) -> Any:
+def _check_json_types(value: object, ancestors: set[int]) -> None:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return
+    if type(value) not in (list, dict):
+        raise NonCanonicalJsonError(f"unsupported JSON type: {type(value).__name__}")
+    identity = id(value)
+    if identity in ancestors:
+        raise NonCanonicalJsonError("circular JSON reference")
+    ancestors.add(identity)
+    try:
+        if isinstance(value, dict):
+            if any(type(key) is not str for key in value):
+                raise NonCanonicalJsonError("JSON object keys must be strings")
+        else:
+            assert isinstance(value, list)
+        for child in value.values() if isinstance(value, dict) else value:
+            _check_json_types(child, ancestors)
+    finally:
+        ancestors.remove(identity)
+
+
+def ensure_strict_json[JsonInput](value: JsonInput) -> JsonInput:
     """校验并原样返回：给 pydantic 的 `field_validator` 用。
 
     为什么要有这一层：自由形态的 `dict[str, Any]` 字段（任务 `input`、`execution_snapshot`、

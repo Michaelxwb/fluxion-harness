@@ -235,6 +235,7 @@ def test_enum_members_spot_check():
         'CREATED',
         'RUNNING',
         'WAITING_INPUT',
+        'WAITING_TOOL',
         'COMPLETED',
         'FAILED',
         'CANCELLED',

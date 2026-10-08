@@ -6,14 +6,15 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from muad_contracts import RunStatus
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory
 from ..infrastructure.models.runtime import RunInterrupt, RunRecord
 
-STATUS_WAITING_INPUT = "WAITING_INPUT"
-STATUS_RUNNING = "RUNNING"
+STATUS_WAITING_INPUT = RunStatus.WAITING_INPUT
+STATUS_RUNNING = RunStatus.RUNNING
 INTERRUPT_WAITING = "WAITING"
 INTERRUPT_RESOLVED = "RESOLVED"
 

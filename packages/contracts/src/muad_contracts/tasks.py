@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from .canonical import ensure_strict_json
 from .enums import ChannelName, DeliveryMode, ScheduleStatus, TaskStatus, TriggerType
+from .tool_runtime import RuntimeOperationInput
 
 
 class ContractModel(BaseModel):
@@ -27,6 +28,7 @@ class CreateTaskRequest(ContractModel):
     agent_id: UUID
     actor_user_id: UUID
     source_run_id: UUID | None = None
+    runtime_operation: RuntimeOperationInput | None = None
     intent_key: str = Field(min_length=1)
     skill_id: UUID
     skill_artifact_id: UUID
@@ -38,15 +40,17 @@ class CreateTaskRequest(ContractModel):
     delivery_route: DeliveryRouteInput | None = None
     delivery_mode: DeliveryMode = DeliveryMode.FINAL_ONLY
 
-    @field_validator("input", "execution_snapshot")
+    @field_validator("input", "execution_snapshot", mode="before")
     @classmethod
     def _strict_json(cls, value: dict[str, Any]) -> dict[str, Any]:
         # 自由形态载荷只认严格 JSON：非有限数（NaN/Infinity）与未知类型在**入参**就拒，
         # 否则它会一路穿过指纹、直到写 jsonb 才被 PG 拒（500 而不是 422）。
-        return ensure_strict_json(value)  # type: ignore[no-any-return]
+        return ensure_strict_json(value)
 
     @model_validator(mode="after")
     def _require_route_for_delivery(self) -> Self:
+        if self.runtime_operation is not None and self.runtime_operation.source_run_id != self.source_run_id:
+            raise ValueError("runtime operation must reference the task source Run")
         if self.delivery_mode is DeliveryMode.FINAL_ONLY and self.delivery_route is None:
             raise ValueError("delivery_route is required when delivery_mode=FINAL_ONLY")
         return self
@@ -86,10 +90,10 @@ class CreateScheduleRequest(ContractModel):
     schedule: ScheduleSpec
     delivery_route: DeliveryRouteInput
 
-    @field_validator("input_template")
+    @field_validator("input_template", mode="before")
     @classmethod
     def _strict_json(cls, value: dict[str, Any]) -> dict[str, Any]:
-        return ensure_strict_json(value)  # type: ignore[no-any-return]
+        return ensure_strict_json(value)
 
 
 class UpdateScheduleRequest(ContractModel):
@@ -100,7 +104,7 @@ class UpdateScheduleRequest(ContractModel):
     schedule: ScheduleSpec | None = None
     delivery_route: DeliveryRouteInput | None = None
 
-    @field_validator("input_template")
+    @field_validator("input_template", mode="before")
     @classmethod
     def _strict_json(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
         return None if value is None else ensure_strict_json(value)

@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
+from muad_contracts.enums import RunStatus
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -39,7 +40,7 @@ class RunRecord(StandardColumnsMixin, Base):
             "conversation_id",
             unique=True,
             postgresql_where=sa.text(
-                "status IN ('CREATED', 'RUNNING', 'WAITING_INPUT') AND is_deleted = false"
+                "status IN ('CREATED', 'RUNNING', 'WAITING_TOOL', 'WAITING_INPUT') AND is_deleted = false"
             ),
         ),
         sa.Index("ix_run_record_conversation_create_time", "conversation_id", sa.text("create_time DESC")),
@@ -50,6 +51,8 @@ class RunRecord(StandardColumnsMixin, Base):
             postgresql_where=sa.text("status = 'RUNNING'"),
         ),
         sa.Index("ix_run_record_trace_id", "trace_id"),
+        sa.Index("ix_run_record_waiting_deadline", "deadline_at",
+                 postgresql_where=sa.text("status IN ('WAITING_TOOL','WAITING_INPUT') AND is_deleted = false")),
         {"schema": "runtime"},
     )
 
@@ -62,7 +65,10 @@ class RunRecord(StandardColumnsMixin, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     agent_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     snapshot_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
-    status: Mapped[str] = mapped_column(sa.String(24), nullable=False)
+    status: Mapped[RunStatus] = mapped_column(
+        sa.Enum(RunStatus, native_enum=False, create_constraint=True, name="run_status", length=24))
+    deadline_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    execution_epoch: Mapped[int] = mapped_column(sa.BigInteger(), server_default=sa.text("0"))
     input_text: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     trace_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     start_time: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
@@ -112,6 +118,8 @@ class CanonicalEvent(StandardColumnsMixin, Base):
         sa.UniqueConstraint("conversation_id", "seq", name="uq_canonical_event_conversation_seq"),
         sa.Index("ix_canonical_event_run_seq", "run_id", "seq"),
         sa.Index("ix_canonical_event_conversation_create_time", "conversation_id", "create_time"),
+        sa.Index("uq_canonical_event_source", "tenant_id", "source_event_id", unique=True,
+                 postgresql_where=sa.text("source_event_id IS NOT NULL AND is_deleted = false")),
         {"schema": "runtime"},
     )
 
@@ -119,6 +127,7 @@ class CanonicalEvent(StandardColumnsMixin, Base):
     conversation_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     seq: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    source_event_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     submission_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid(), sa.ForeignKey("runtime.run_submission.id")
     )

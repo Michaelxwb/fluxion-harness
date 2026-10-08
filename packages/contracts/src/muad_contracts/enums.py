@@ -10,6 +10,7 @@ ChannelName = Literal["WECOM"]
 class RunStatus(StrEnum):
     CREATED = "CREATED"
     RUNNING = "RUNNING"
+    WAITING_TOOL = "WAITING_TOOL"
     WAITING_INPUT = "WAITING_INPUT"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -23,6 +24,60 @@ class TaskStatus(StrEnum):
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
+
+
+class CompletionMode(StrEnum):
+    JOIN = "JOIN"
+    DETACH = "DETACH"
+
+
+class TerminalStatus(StrEnum):
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class OperationStatus(StrEnum):
+    SUBMIT_PENDING = "SUBMIT_PENDING"
+    SUBMITTED = "SUBMITTED"
+    TASK_ACCEPTED = "TASK_ACCEPTED"
+    RUNNING = "RUNNING"
+    RESULT_RECEIVED = "RESULT_RECEIVED"
+    MATERIALIZED = "MATERIALIZED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    LATE = "LATE"
+
+
+class ControlOutboxStatus(StrEnum):
+    PENDING = "PENDING"
+    SENT = "SENT"
+    FAILED = "FAILED"
+
+
+class ControlCommand(StrEnum):
+    SUBMIT = "SUBMIT"
+    CANCEL_OPERATION = "CANCEL_OPERATION"
+
+
+class InboxMaterializationState(StrEnum):
+    PENDING = "PENDING"
+    RECEIVED = "RECEIVED"
+    MATERIALIZED = "MATERIALIZED"
+    LATE = "LATE"
+    FAILED = "FAILED"
+
+
+class WaitReason(StrEnum):
+    SUBMISSION = "SUBMISSION"
+    TASK_RESULT = "TASK_RESULT"
+    RESUME_READY = "RESUME_READY"
+
+
+class OperationErrorPhase(StrEnum):
+    SUBMIT = "SUBMIT"
+    EXECUTE = "EXECUTE"
 
 
 class TaskType(StrEnum):

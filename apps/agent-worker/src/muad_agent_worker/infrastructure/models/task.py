@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
+from muad_contracts.enums import CompletionMode
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -152,6 +153,10 @@ class TaskExecution(StandardColumnsMixin, Base):
         sa.ForeignKey("task.task_schedule.id"),
     )
     source_run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    source_operation_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    source_tool_call_id: Mapped[str | None] = mapped_column(sa.String(256))
+    completion_mode: Mapped[CompletionMode | None] = mapped_column(
+        sa.Enum(CompletionMode, native_enum=False, create_constraint=True, name="completion_mode"))
     agent_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     actor_user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     intent_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)

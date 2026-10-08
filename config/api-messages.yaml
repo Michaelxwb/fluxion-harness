@@ -348,6 +348,32 @@ codes:
       zh-CN: 已收到 {accepted} 个附件，{rejected} 个未接收：{reason}
       en-US: "Received {accepted} attachment(s); {rejected} were not accepted: {reason}"
 
+  TOOL_COMPLETION_MODE_INVALID:
+    http_status: 422
+    messages:
+      zh-CN: 该 Skill 不支持所选完成模式
+      en-US: This Skill does not support the selected completion mode
+  TOOL_OPERATION_CAPACITY_EXCEEDED:
+    http_status: 409
+    messages:
+      zh-CN: 当前 Run 的异步操作额度已满
+      en-US: This Run has reached its asynchronous operation limit
+  TASK_OPERATION_CANCELLED:
+    http_status: 409
+    messages:
+      zh-CN: 该操作已取消，无法创建任务
+      en-US: This operation was cancelled and cannot create a task
+  TOOL_RESULT_BINDING_MISMATCH:
+    http_status: 403
+    messages:
+      zh-CN: 任务结果的来源与操作不匹配
+      en-US: The task result source does not match the operation
+  RUN_CHECKPOINT_INVALID:
+    http_status: 500
+    messages:
+      zh-CN: 等待检查点损坏，无法安全恢复
+      en-US: The waiting checkpoint is invalid and cannot be safely resumed
+
 # Transient IM activity presentation; these are UI templates, not API error codes.
 activity_messages:
   PREPARING:
