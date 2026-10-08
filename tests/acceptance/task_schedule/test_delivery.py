@@ -36,7 +36,10 @@ def _submit_final_only(live_stack: LiveStack) -> str:
         client = WorkerTaskClient(live_stack.worker_url, service_token=INTERNAL_TOKEN)
         try:
             return await client.submit_task(
-                context, skill=resolved["skill"], input_data={"case": "final-delivery"}
+                context,
+                call_id="standalone-call",
+                skill=resolved["skill"],
+                input_data={"case": "final-delivery"},
             )
         finally:
             await client.aclose()
@@ -128,9 +131,7 @@ def test_s03_final_delivery_reaches_probe_once_and_is_deduped(
     assert http.get(f"{live_stack.channel_url}/probe/deliveries").json()["deliveries"] == deliveries
 
 
-def test_e05_channel_failure_retries_without_fake_sent(
-    live_stack: LiveStack, http: httpx.Client
-) -> None:
+def test_e05_channel_failure_retries_without_fake_sent(live_stack: LiveStack, http: httpx.Client) -> None:
     http.post(f"{live_stack.channel_url}/probe/reset")
     http.post(f"{live_stack.channel_url}/probe/fail-next", json={"count": 1})
     task_id = _submit_final_only(live_stack)

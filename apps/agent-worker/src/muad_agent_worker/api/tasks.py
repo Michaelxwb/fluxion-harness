@@ -72,6 +72,9 @@ def _payload(task: TaskExecution, progress: tuple[int, int] | None = None) -> di
         "actor_user_id": str(task.actor_user_id),
         "schedule_id": str(task.schedule_id) if task.schedule_id else None,
         "source_run_id": str(task.source_run_id) if task.source_run_id else None,
+        "source_operation_id": str(task.source_operation_id) if task.source_operation_id else None,
+        "source_tool_call_id": task.source_tool_call_id,
+        "snapshot_hash": task.snapshot_hash,
         "intent_key": task.intent_key,
         "skill_id": str(task.skill_id),
         "status": task.status,
@@ -175,9 +178,7 @@ async def create_task(
 ) -> ApiResponse[Any]:
     ensure_tenant_consistent(request, body.tenant_id)
     submissions = TaskSubmissionService(session)
-    idempotency_key = resolve_idempotency_key(
-        request.headers.get(IDEMPOTENCY_HEADER), body.idempotency_key
-    )
+    idempotency_key = resolve_idempotency_key(request.headers.get(IDEMPOTENCY_HEADER), body.idempotency_key)
     fingerprint = submission_fingerprint(ENDPOINT_CREATE_TASK, body)
 
     async def replay() -> ApiResponse[Any] | None:
@@ -197,10 +198,8 @@ async def create_task(
 
     try:
         async with session.begin_nested():
-            task = await TaskService(
-                session, settings_client=settings_client
-            ).create(body)
-            response = {"task_id": str(task.id), "status": task.status}
+            task = await TaskService(session, settings_client=settings_client).create(body)
+            response = _admission_payload(task)
             await submissions.record_in(
                 tenant_id=body.tenant_id,
                 idempotency_key=idempotency_key,
@@ -219,6 +218,18 @@ async def create_task(
     await session.commit()
     await _publish_wakeup(request)
     return ok(request.app.state.message_catalog, response)
+
+
+def _admission_payload(task: TaskExecution) -> dict[str, object]:
+    return {
+        "task_id": str(task.id),
+        "status": task.status,
+        "source_run_id": str(task.source_run_id) if task.source_run_id else None,
+        "source_operation_id": str(task.source_operation_id) if task.source_operation_id else None,
+        "source_tool_call_id": task.source_tool_call_id,
+        "actor_user_id": str(task.actor_user_id),
+        "snapshot_hash": task.snapshot_hash,
+    }
 
 
 @router.get("")
@@ -276,9 +287,7 @@ async def get_task(
     session: Session,
     caller_actor: ActorUserId,
 ) -> ApiResponse[Any]:
-    task, events, children = await TaskService(session).detail(
-        tenant_id, task_id, actor_user_id=caller_actor
-    )
+    task, events, children = await TaskService(session).detail(tenant_id, task_id, actor_user_id=caller_actor)
     return ok(request.app.state.message_catalog, detail_payload(task, events, children))
 
 

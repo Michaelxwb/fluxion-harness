@@ -16,7 +16,7 @@ from muad_agent_core.tools.pipeline import (
 CALLS: list[dict[str, Any]] = []
 
 
-def _echo_handler(arguments: dict[str, Any], *, call_id: str) -> str:
+async def _echo_handler(arguments: dict[str, Any], *, call_id: str) -> str:
     CALLS.append(dict(arguments))
     return json.dumps({"echo": arguments.get("text")})
 
@@ -51,7 +51,13 @@ class RecordingAudit:
         self.events: list[dict[str, Any]] = []
 
     async def record(self, event: dict[str, Any]) -> None:
-        self.events.append(event)
+        self.events.append(
+            {
+                "status": event.status,
+                "prepared_args_hash": event.prepared.args_hash,
+                "error_code": event.error_code,
+            }
+        )
 
 
 def _pipeline(audit: RecordingAudit, policy=None) -> ToolExecutionPipeline:
@@ -62,9 +68,7 @@ async def test_b113_happy_path_schema_then_handler_then_audit() -> None:
     """[B-113] schema 校验→handler→审计成功终态。"""
     audit = RecordingAudit()
     pipeline = _pipeline(audit)
-    prepared = pipeline.prepare(
-        call_id="c1", tool_name="echo", arguments={"text": "ping"}
-    )
+    prepared = pipeline.prepare(call_id="c1", tool_name="echo", arguments={"text": "ping"})
     assert isinstance(prepared, PreparedToolCall)
     assert prepared.arguments == {"text": "ping"}
     assert prepared.args_hash.startswith("sha256:")
@@ -106,9 +110,7 @@ async def test_b113_policy_deny_never_calls_handler() -> None:
 async def test_b113_args_hash_stable_and_redacted() -> None:
     """[B-113] prepared_args_hash 稳定且脱敏：api_key 值不改变 hash。"""
     pipeline = _pipeline(RecordingAudit())
-    hash_plain = pipeline.prepare(
-        call_id="c4", tool_name="echo", arguments={"text": "same"}
-    ).args_hash
+    hash_plain = pipeline.prepare(call_id="c4", tool_name="echo", arguments={"text": "same"}).args_hash
     hash_with_key = pipeline.prepare(
         call_id="c5", tool_name="echo", arguments={"text": "same", "api_key": "sk-very-secret"}
     ).args_hash
@@ -120,7 +122,7 @@ async def test_b113_args_hash_stable_and_redacted() -> None:
 async def test_b113_handler_failure_audits_and_reraises() -> None:
     """[B-113] handler 异常：审计失败终态后异常向上传播（不吞）。"""
 
-    def bad_handler(arguments: dict[str, Any], *, call_id: str) -> str:
+    async def bad_handler(arguments: dict[str, Any], *, call_id: str) -> str:
         raise RuntimeError("boom")
 
     registry = ToolRegistry()
@@ -140,3 +142,42 @@ async def test_b113_handler_failure_audits_and_reraises() -> None:
         await pipeline.execute(prepared)
     assert len(audit.events) == 1
     assert audit.events[0]["status"] == "FAILED"  # 失败终态先落审计
+
+
+@pytest.mark.parametrize("rewritten", [{"text": 4}, {"text": "changed"}])
+async def test_final_hook_parameters_are_revalidated_before_authorization(rewritten):
+    from muad_agent_core.hooks import HookContext, HookEvent, HookPipeline
+
+    hooks, authorized, audit = HookPipeline(), [], RecordingAudit()
+
+    async def rewrite(context):
+        return HookContext(context.event, {**context.payload, "arguments": rewritten})
+
+    def policy(call):
+        authorized.append(call.arguments)
+        return ToolPolicyDecision(False, "deny changed arguments")
+
+    hooks.register(HookEvent.PRE_TOOL_USE, rewrite)
+    pipeline = ToolExecutionPipeline(registry=_registry(), audit=audit, hooks=hooks, policy=policy)
+    result = await pipeline.execute(
+        pipeline.prepare(call_id="rewritten", tool_name="echo", arguments={"text": "original"})
+    )
+    assert CALLS == [] and len(audit.events) == 1
+    if isinstance(rewritten["text"], str):
+        assert authorized == [rewritten] and result.status == "POLICY_DENIED"
+    else:
+        assert authorized == [] and result.error_code == "SCHEMA_INVALID"
+
+
+async def test_invalid_original_arguments_never_reach_hook():
+    from muad_agent_core.hooks import HookEvent, HookPipeline
+
+    hooks, calls = HookPipeline(), []
+
+    async def hook(context):
+        calls.append(context)
+
+    hooks.register(HookEvent.PRE_TOOL_USE, hook)
+    pipeline = ToolExecutionPipeline(registry=_registry(), hooks=hooks)
+    result = await pipeline.execute(pipeline.prepare(call_id="bad", tool_name="echo", arguments={"text": 4}))
+    assert result.error_code == "SCHEMA_INVALID" and calls == [] and CALLS == []

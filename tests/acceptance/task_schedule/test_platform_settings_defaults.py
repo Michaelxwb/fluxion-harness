@@ -57,7 +57,7 @@ def _submit_task(live_stack: LiveStack, probe: str) -> str:
         client = WorkerTaskClient(live_stack.worker_url, service_token=INTERNAL_TOKEN)
         try:
             return await client.submit_task(
-                context, skill=resolved["skill"], input_data={"probe": probe}
+                context, call_id="standalone-call", skill=resolved["skill"], input_data={"probe": probe}
             )
         finally:
             await client.aclose()

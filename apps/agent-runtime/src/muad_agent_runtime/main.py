@@ -3,6 +3,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
+import httpx
 from fastapi import FastAPI
 from muad_api import (
     database_readiness,
@@ -18,6 +19,9 @@ from .api.admin_runs import router as admin_runs_router
 from .api.artifacts import router as artifacts_router
 from .api.runs import router as runs_router
 from .api.tool_results import router as tool_results_router
+from .application.async_tools.control_dispatcher import ControlDispatcher, ControlDispatchPolicy
+from .application.async_tools.runtime import set_control_dispatcher
+from .application.async_tools.supervisor import ExecutionSupervisor
 from .application.run_service import reap_abandoned_runs
 from .infrastructure.cancel_hint import create_cancel_hint_store
 from .infrastructure.console_client import ConsoleCredentialsClient, ConsoleResolveClient
@@ -69,10 +73,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.platform_settings_client = platform_settings_client
     app.state.cancel_hint_store = cancel_hints
     app.state.skill_cache = SkillArtifactCache(artifact_store, settings.skill_cache_root)
+    control_client = httpx.AsyncClient(trust_env=False)
+    dispatcher = ControlDispatcher(
+        get_session_factory(),
+        control_client,
+        settings.agent_worker_url,
+        service_token=settings.internal_service_token,
+        policy=ControlDispatchPolicy.from_settings(settings),
+    )
+    set_control_dispatcher(dispatcher)
+    app.state.execution_supervisor = ExecutionSupervisor()
+    control_sender = asyncio.create_task(dispatcher.run_forever())
     reaper = asyncio.create_task(_reaper_loop(settings.run_reaper_interval_sec))
     try:
         yield
     finally:
+        await app.state.execution_supervisor.close()
+        control_sender.cancel()
+        with suppress(asyncio.CancelledError):
+            await control_sender
+        set_control_dispatcher(None)
+        await control_client.aclose()
         reaper.cancel()
         with suppress(asyncio.CancelledError):
             await reaper

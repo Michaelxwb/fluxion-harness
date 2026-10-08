@@ -29,7 +29,7 @@
       "kind": "e2e",
       "boundary": "四服务 HTTP、真实 Task、渠道出站探针",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -39,7 +39,61 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-02",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "767b07bb229e474ab40382242ba04513",
+        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_submission_hardening.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8a3404530c1b4dfe882b23493d7ea580",
+          "executed_at": "2026-10-08T07:33:23.827334+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "767b07bb229e474ab40382242ba04513",
+          "executed_at": "2026-10-08T07:35:41.908681+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "S-03",
@@ -143,7 +197,7 @@
       "kind": "e2e",
       "boundary": "冻结授权、Worker HTTP、PG、审计",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -153,7 +207,61 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "767b07bb229e474ab40382242ba04513",
+        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_submission_hardening.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8a3404530c1b4dfe882b23493d7ea580",
+          "executed_at": "2026-10-08T07:33:23.827334+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "767b07bb229e474ab40382242ba04513",
+          "executed_at": "2026-10-08T07:35:41.908681+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -162,7 +270,7 @@
       "kind": "e2e",
       "boundary": "Runtime 控制发件、Worker 创建事务、故障代理",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -172,7 +280,61 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-02",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "767b07bb229e474ab40382242ba04513",
+        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_submission_hardening.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8a3404530c1b4dfe882b23493d7ea580",
+          "executed_at": "2026-10-08T07:33:23.827334+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "767b07bb229e474ab40382242ba04513",
+          "executed_at": "2026-10-08T07:35:41.908681+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -294,7 +456,7 @@
       "kind": "e2e",
       "boundary": "Runtime cancel、Worker operation 行锁、真实 HTTP",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -304,7 +466,61 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-07",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "767b07bb229e474ab40382242ba04513",
+        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_submission_hardening.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8a3404530c1b4dfe882b23493d7ea580",
+          "executed_at": "2026-10-08T07:33:23.827334+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "767b07bb229e474ab40382242ba04513",
+          "executed_at": "2026-10-08T07:35:41.908681+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-08",
@@ -539,7 +755,7 @@
       "kind": "e2e",
       "boundary": "Worker HTTP 故障代理、控制发件、PG tombstone",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -549,7 +765,61 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-16",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "767b07bb229e474ab40382242ba04513",
+        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_submission_hardening.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-16",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8a3404530c1b4dfe882b23493d7ea580",
+          "executed_at": "2026-10-08T07:33:23.827334+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-16",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "767b07bb229e474ab40382242ba04513",
+          "executed_at": "2026-10-08T07:35:41.908681+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-17",
@@ -577,7 +847,7 @@
       "kind": "functional",
       "boundary": "PG 行锁、并发提交、关闭屏障",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -587,7 +857,67 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "767b07bb229e474ab40382242ba04513",
+        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_worker/test_runtime_operation_races.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "ba2dbad5dc5e97ed489f1e049c95d548952251cbae81115eef8a0d741ef64a94"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "8a3404530c1b4dfe882b23493d7ea580",
+          "executed_at": "2026-10-08T07:33:23.827334+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_worker/test_runtime_operation_races.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "d45547ce8b37f14f31399e27bf7c35d2f12c9025caf2c13b8181b3b435f8ba4a"
+        },
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "767b07bb229e474ab40382242ba04513",
+          "executed_at": "2026-10-08T07:35:41.908681+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_worker/test_runtime_operation_races.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "ba2dbad5dc5e97ed489f1e049c95d548952251cbae81115eef8a0d741ef64a94"
+        }
+      ]
     },
     {
       "id": "B-02",

@@ -20,6 +20,7 @@ from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_contracts import (
+    AsyncToolPolicy,
     AttachmentRef,
     ChannelContext,
     DeliveryRouteInput,
@@ -108,7 +109,7 @@ from .run_submission import (
 
 logger = logging.getLogger(__name__)
 
-ACTIVE_RUN_STATUSES = (RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT)
+ACTIVE_RUN_STATUSES = (RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)
 TERMINAL_RUN_STATUSES = (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)
 PROMPT_TEMPLATE_VERSION = "1"
 
@@ -137,6 +138,7 @@ def snapshot_policy(
     agent = defaults.agent_policy
     memory = defaults.memory_policy
     policy = {
+        "async_tools": AsyncToolPolicy().model_dump(mode="json"),
         "max_turns": agent.max_turns,
         "max_tool_calls": agent.max_tool_calls,
         "deadline_ms": agent.deadline_ms,
@@ -201,14 +203,10 @@ def _frozen_memory_policy(policy: Mapping[str, Any]) -> MemoryPolicySettings:
     defaults = MemoryPolicySettings()
     return MemoryPolicySettings(
         write_enabled=_frozen_bool(section, "write_enabled", defaults.write_enabled),
-        max_injected_memories=_frozen_int(
-            section, "max_injected_memories", defaults.max_injected_memories
-        ),
+        max_injected_memories=_frozen_int(section, "max_injected_memories", defaults.max_injected_memories),
         max_injected_bytes=_frozen_int(section, "max_injected_bytes", defaults.max_injected_bytes),
         max_recall_bytes=_frozen_int(section, "max_recall_bytes", defaults.max_recall_bytes),
-        recall_default_limit=_frozen_int(
-            section, "recall_default_limit", defaults.recall_default_limit
-        ),
+        recall_default_limit=_frozen_int(section, "recall_default_limit", defaults.recall_default_limit),
     )
 
 
@@ -227,9 +225,7 @@ def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults
             max_turns=_frozen_int(policy, "max_turns", agent_defaults.max_turns),
             max_tool_calls=_frozen_int(policy, "max_tool_calls", agent_defaults.max_tool_calls),
             deadline_ms=_frozen_int(policy, "deadline_ms", agent_defaults.deadline_ms),
-            max_model_retries=_frozen_int(
-                policy, "max_model_retries", agent_defaults.max_model_retries
-            ),
+            max_model_retries=_frozen_int(policy, "max_model_retries", agent_defaults.max_model_retries),
         ),
         memory_policy=_frozen_memory_policy(policy),
         max_archive_files=_frozen_int(
@@ -387,6 +383,11 @@ def build_snapshot(
         else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
     policy = snapshot_policy(settings, execution, summary_model)
+    from muad_contracts import AsyncToolPolicy
+
+    policy["async_tools"] = AsyncToolPolicy.model_validate(
+        resolved.agent.runtime_config.get("async_tools", {})
+    ).model_dump(mode="json")
     return RuntimeSnapshot(
         tenant_id=tenant_id,
         run_id=run_id,
@@ -401,7 +402,6 @@ def build_snapshot(
         prompt_template_version=PROMPT_TEMPLATE_VERSION,
         content_hash=_snapshot_hash(resolved, policy),
     )
-
 
 
 def delivery_route_of(channel_json: dict[str, Any] | None) -> DeliveryRouteInput | None:
@@ -420,6 +420,7 @@ def delivery_route_of(channel_json: dict[str, Any] | None) -> DeliveryRouteInput
         external_user_id=channel.external_user_id,
         external_conversation_id=channel.external_conversation_id,
     )
+
 
 def _snapshot_model(model: Any) -> dict[str, Any]:
     """Snapshot/hash 中的模型信息剥离认证字段（api_key 只走 API-09 实时读取）。"""
@@ -444,26 +445,66 @@ def _snapshot_hash(resolved: ResolveDefinitionResponse, policy: dict[str, Any]) 
 
 async def reap_abandoned_runs(session_factory: async_sessionmaker[AsyncSession]) -> int:
     async with session_factory() as session:
-        result = await session.execute(
+        candidates = list(
+            await session.scalars(
+                sa.select(RunRecord)
+                .where(
+                    RunRecord.status == RunStatus.RUNNING,
+                    RunRecord.lease_until < sa.func.now(),
+                    RunRecord.is_deleted.is_(False),
+                )
+                .order_by(RunRecord.lease_until, RunRecord.id)
+                .limit(128)
+            )
+        )
+    reaped = 0
+    for candidate in candidates:
+        reaped += await _reap_one(session_factory, candidate)
+    if reaped:
+        record_counter(RUN_RECLAIM_METRIC, reaped)
+    return reaped
+
+
+async def _reap_one(factory: async_sessionmaker[AsyncSession], candidate: RunRecord) -> int:
+    from .async_tools.operations import cancel_operations
+    from .tool_result_receipts import lock_run_source
+
+    async with factory() as session, session.begin():
+        run, _ = await lock_run_source(session, candidate.tenant_id, candidate)
+        now = _utcnow()
+        if run.status != RunStatus.RUNNING or run.lease_until is None or run.lease_until >= now:
+            return 0
+        await cancel_operations(session, run)
+        changed = await session.scalar(
             sa.update(RunRecord)
             .where(
-                RunRecord.status == RunStatus.RUNNING,
-                RunRecord.lease_until < sa.func.now(),
+                RunRecord.id == run.id,
+                RunRecord.tenant_id == run.tenant_id,
                 RunRecord.is_deleted.is_(False),
+                RunRecord.status == RunStatus.RUNNING,
+                RunRecord.lease_until < now,
             )
             .values(
                 status=RunStatus.FAILED,
                 error_code=RUN_ABANDONED,
-                end_time=sa.func.now(),
-                update_time=sa.func.now(),
+                end_time=now,
+                lease_owner=None,
+                lease_until=None,
+                update_time=now,
             )
             .returning(RunRecord.id)
         )
-        reaped = list(result.scalars())
-        await session.commit()
-    if reaped:
-        record_counter(RUN_RECLAIM_METRIC, len(reaped))
-    return len(reaped)
+        if changed is None:
+            return 0
+        await EventWriter(session).append(
+            tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id,
+            run_id=run.id,
+            event_type="RUN_FAILED",
+            stream_type=RUN_FAILED_EVENT,
+            payload={"status": str(RunStatus.FAILED), "error_code": RUN_ABANDONED},
+        )
+    return 1
 
 
 class RunService:
@@ -864,6 +905,12 @@ class RunService:
             input_text=request.message.text,
             trace_id=current_trace_id() or uuid.uuid4().hex,
             start_time=now,
+            deadline_at=now
+            + timedelta(
+                milliseconds=AgentPolicy.from_runtime_config(
+                    resolved.agent.runtime_config, base=execution.agent_policy
+                ).deadline_ms
+            ),
             cancel_requested=False,
             lease_owner=self._instance_id,
             lease_until=_lease_deadline(self._settings.run_lease_sec),
@@ -873,9 +920,7 @@ class RunService:
         self._session.add(run)
         try:
             await self._session.flush()
-            snapshot = self._build_snapshot(
-                run.id, tenant_id, resolved, compaction, execution, summary_model
-            )
+            snapshot = self._build_snapshot(run.id, tenant_id, resolved, compaction, execution, summary_model)
             self._session.add(snapshot)
             await self._session.flush()
             run.snapshot_id = snapshot.id
@@ -970,9 +1015,7 @@ class RunService:
         agent = ResolvedAgent.model_validate(snapshot.agent_json)
         model = ResolvedModel.model_validate(snapshot.model_json)
         skills = [ResolvedSkill.model_validate(item) for item in snapshot.skill_catalog_json]
-        mcp_servers = [
-            ResolvedMcpServer.model_validate(item) for item in snapshot.mcp_catalog_json
-        ]
+        mcp_servers = [ResolvedMcpServer.model_validate(item) for item in snapshot.mcp_catalog_json]
         model, summary_model, mcp_secrets = await self._runtime_credentials(
             run.id,
             run.tenant_id,
@@ -1177,9 +1220,7 @@ class RunService:
         if not settings.enabled or not settings.model_ref:
             return None
         try:
-            request = ResolveModelRequest(
-                model_id=uuid.UUID(settings.model_ref), actor_user_id=actor_user_id
-            )
+            request = ResolveModelRequest(model_id=uuid.UUID(settings.model_ref), actor_user_id=actor_user_id)
             resolved = await self._resolve_client.resolve_model(
                 request, tenant_id=tenant_id, trace_id=current_trace_id() or ""
             )
@@ -1193,64 +1234,86 @@ class RunService:
         return resolved.model
 
     async def _cancel(self, run: RunRecord) -> RunRecord:
+        from .async_tools.operations import cancel_operations
+        from .tool_result_receipts import lock_run_source
+
+        run, _ = await lock_run_source(self._session, run.tenant_id, run)
         if run.status in TERMINAL_RUN_STATUSES:
             return run
+        await cancel_operations(self._session, run)
         now = _utcnow()
-        if run.status == RunStatus.WAITING_INPUT:
-            cancelled = await self._session.execute(
-                sa.update(RunRecord)
-                .where(RunRecord.id == run.id, RunRecord.status == RunStatus.WAITING_INPUT)
-                .values(status=RunStatus.CANCELLED, end_time=now, update_time=now)
-                .returning(RunRecord.id)
-            )
-            if cancelled.scalar_one_or_none() is None:
-                # CAS 零行：并发的 resume 抢先把 WAITING_INPUT→RUNNING（或状态已被别处改走）。
-                # 此时**一行事件都不能写** —— 写了就是"Run 实际 RUNNING、事件却宣称已取消"的假
-                # 终态（2026-10-06 review）。回滚掉本事务里已排队的 interrupt 更新，按当前事实
-                # （未取消）返回，由调用方按状态说话（Gateway 见非 CANCELLED 即回"已受理"）。
-                await self._session.rollback()
-                await self._session.refresh(run)
-                return run
-            await self._session.execute(
-                sa.update(RunInterrupt)
-                .where(RunInterrupt.run_id == run.id, RunInterrupt.status == INTERRUPT_WAITING)
-                .values(
-                    status=INTERRUPT_CANCELLED,
-                    resolution_json={"reason": "cancelled"},
-                    resolved_at=now,
-                    update_time=now,
-                )
-            )
-            writer = self._event_writer()
-            await writer.append(
-                tenant_id=run.tenant_id,
-                conversation_id=run.conversation_id,
-                run_id=run.id,
-                event_type=CANCEL_EVENT,
-                payload={"reason": "cancelled"},
-            )
-            await writer.append(
-                tenant_id=run.tenant_id,
-                conversation_id=run.conversation_id,
-                run_id=run.id,
-                event_type="RUN_COMPLETED",
-                payload={"status": str(RunStatus.CANCELLED), "final_text": "", "reason": "cancelled"},
-                stream_type=RUN_COMPLETED_EVENT,
-            )
-            await self._session.commit()
+        waiting = run.status in (RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)
+        if run.status in (RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL):
+            await self._cancel_waiting(run, now)
         else:
             await self._session.execute(
                 sa.update(RunRecord)
                 .where(
                     RunRecord.id == run.id,
+                    RunRecord.tenant_id == run.tenant_id,
+                    RunRecord.is_deleted.is_(False),
                     RunRecord.status.in_((RunStatus.CREATED, RunStatus.RUNNING)),
                 )
                 .values(cancel_requested=True, update_time=now)
             )
-            await self._session.commit()
+        await self._session.commit()
+        if not waiting:
             await self._safe_set_cancel_hint(run.id)
         await self._session.refresh(run)
         return run
+
+    async def _cancel_waiting(self, run: RunRecord, now: datetime) -> None:
+        changed = await self._session.scalar(
+            sa.update(RunRecord)
+            .where(
+                RunRecord.id == run.id,
+                RunRecord.tenant_id == run.tenant_id,
+                RunRecord.is_deleted.is_(False),
+                RunRecord.status == run.status,
+            )
+            .values(
+                status=RunStatus.CANCELLED,
+                cancel_requested=True,
+                end_time=now,
+                lease_owner=None,
+                lease_until=None,
+                update_time=now,
+            )
+            .returning(RunRecord.id)
+        )
+        if changed is None:
+            raise AppError(ErrorCode.RUN_BUSY)
+        await self._session.execute(
+            sa.update(RunInterrupt)
+            .where(
+                RunInterrupt.run_id == run.id,
+                RunInterrupt.tenant_id == run.tenant_id,
+                RunInterrupt.status == INTERRUPT_WAITING,
+                RunInterrupt.is_deleted.is_(False),
+            )
+            .values(
+                status=INTERRUPT_CANCELLED,
+                resolution_json={"reason": "cancelled"},
+                resolved_at=now,
+                update_time=now,
+            )
+        )
+        writer = self._event_writer()
+        await writer.append(
+            tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id,
+            run_id=run.id,
+            event_type=CANCEL_EVENT,
+            payload={"reason": "cancelled"},
+        )
+        await writer.append(
+            tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id,
+            run_id=run.id,
+            event_type="RUN_COMPLETED",
+            stream_type=RUN_COMPLETED_EVENT,
+            payload={"status": str(RunStatus.CANCELLED), "final_text": "", "reason": "cancelled"},
+        )
 
     async def _safe_set_cancel_hint(self, run_id: uuid.UUID) -> None:
         try:
@@ -1323,9 +1386,7 @@ class RunService:
         async with get_session_factory()() as session:
             row = (
                 await session.execute(
-                    sa.select(RunRecord.status, RunRecord.cancel_requested).where(
-                        RunRecord.id == run_id
-                    )
+                    sa.select(RunRecord.status, RunRecord.cancel_requested).where(RunRecord.id == run_id)
                 )
             ).one_or_none()
         if row is None:
@@ -1338,13 +1399,17 @@ class RunService:
     async def _load_inbound_attachments(self, run: RunRecord) -> tuple[PersistedAttachment, ...]:
         """本 Run 的入站附件（渠道侧已写好字节，这里只回读引用）。"""
         rows = (
-            await self._session.execute(
-                sa.select(Artifact).where(
-                    Artifact.run_id == run.id,
-                    Artifact.artifact_type.in_((INBOUND_IMAGE, INBOUND_DOCUMENT, INBOUND_OTHER)),
+            (
+                await self._session.execute(
+                    sa.select(Artifact).where(
+                        Artifact.run_id == run.id,
+                        Artifact.artifact_type.in_((INBOUND_IMAGE, INBOUND_DOCUMENT, INBOUND_OTHER)),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         return tuple(_persisted_from_row(row) for row in rows)
 
     def _read_artifact_bytes(self, storage_key: str) -> bytes:
@@ -1397,9 +1462,7 @@ class RunService:
         # `None` ⇒ 取本 Run 全部的入站附件（新建 Run 的常规路径）；续跑显式传**本次新落的**那批，
         # 不重放上一轮的入站附件——那一轮的字节已经进过上下文，重放会把旧图再内联一次。
         attachments = (
-            await self._load_inbound_attachments(run)
-            if current_attachments is None
-            else current_attachments
+            await self._load_inbound_attachments(run) if current_attachments is None else current_attachments
         )
         return await self._executor_factory(
             ExecutorRequest(
@@ -1513,9 +1576,7 @@ class RunService:
                 artifact_id=_event_artifact_id(data),
             )
             await session.commit()
-        return ExecutorEvent(
-            type=sse_type, data=data, seq=int(seq), timestamp=_utcnow().isoformat()
-        )
+        return ExecutorEvent(type=sse_type, data=data, seq=int(seq), timestamp=_utcnow().isoformat())
 
     async def _finalize_run(
         self, run: RunRecord, submission_id: uuid.UUID, final_text: str, *, agent_key: str
@@ -1526,7 +1587,13 @@ class RunService:
                 raise AppError(ErrorCode.COMMON_NOT_FOUND)
             if row.status in TERMINAL_RUN_STATUSES:
                 return await self._terminal_event(session, row)
+            from .async_tools.operations import cancel_operations
+            from .tool_result_receipts import lock_run_source
+
+            row, _ = await lock_run_source(session, run.tenant_id, row)
             cancelled = row.cancel_requested
+            if cancelled:
+                await cancel_operations(session, row)
             target = RunStatus.CANCELLED if cancelled else RunStatus.COMPLETED
             updated = await session.execute(
                 sa.update(RunRecord)
@@ -1539,9 +1606,7 @@ class RunService:
                 # rollback 之后 `row` 已过期：异步会话下碰它的任何属性都会抛 MissingGreenlet
                 # （2026-10-06 review）。与 `_finalize_failed` 同形——重新取一行再交给
                 # `_terminal_event`（它要读 id/conversation_id/status）。
-                fresh = await session.scalar(
-                    sa.select(RunRecord).where(RunRecord.id == run.id)
-                )
+                fresh = await session.scalar(sa.select(RunRecord).where(RunRecord.id == run.id))
                 if fresh is None:
                     raise AppError(ErrorCode.COMMON_NOT_FOUND)
                 return await self._terminal_event(session, fresh)
@@ -1588,13 +1653,20 @@ class RunService:
     ) -> ExecutorEvent:
         code = _error_code_for(exc)
         async with get_session_factory()() as session:
+            from .async_tools.operations import cancel_operations
+            from .tool_result_receipts import lock_run_source
+
+            current, _ = await lock_run_source(session, run.tenant_id, run)
+            if current.status in TERMINAL_RUN_STATUSES:
+                return await self._terminal_event(session, current)
+            await cancel_operations(session, current)
             updated = await session.execute(
                 sa.update(RunRecord)
                 .where(RunRecord.id == run.id, RunRecord.status == RunStatus.RUNNING)
                 .values(
                     status=RunStatus.FAILED,
                     error_code=code,
-                    error_message=str(exc),
+                    error_message=code,
                     end_time=sa.func.now(),
                     update_time=sa.func.now(),
                 )
@@ -1720,9 +1792,7 @@ class RunService:
                         emitted_terminal = True
                 if emitted_terminal:
                     return
-                run = await session.scalar(
-                    sa.select(RunRecord).where(RunRecord.id == submission.run_id)
-                )
+                run = await session.scalar(sa.select(RunRecord).where(RunRecord.id == submission.run_id))
                 if run is None:
                     return
                 if run.status in TERMINAL_RUN_STATUSES:

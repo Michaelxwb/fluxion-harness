@@ -11,6 +11,7 @@ import tempfile
 import uuid
 from collections.abc import AsyncGenerator
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -56,6 +57,8 @@ def internal_token(monkeypatch: pytest.MonkeyPatch) -> None:
 async def clean_task_schema(database_guard: None) -> AsyncGenerator[None, None]:
     session_factory = worker_session_factory()
     for statement in (
+        "DELETE FROM task.runtime_result_outbox WHERE tenant_id = :t",
+        "DELETE FROM task.runtime_operation WHERE tenant_id = :t",
         "DELETE FROM task.task_event WHERE tenant_id = :t",
         "DELETE FROM task.task_submission WHERE tenant_id = :t",
         "DELETE FROM task.task_execution WHERE tenant_id = :t",
@@ -67,6 +70,8 @@ async def clean_task_schema(database_guard: None) -> AsyncGenerator[None, None]:
             await session.commit()
     yield
     for statement in (
+        "DELETE FROM task.runtime_result_outbox WHERE tenant_id = :t",
+        "DELETE FROM task.runtime_operation WHERE tenant_id = :t",
         "DELETE FROM task.task_event WHERE tenant_id = :t",
         "DELETE FROM task.task_submission WHERE tenant_id = :t",
         "DELETE FROM task.task_execution WHERE tenant_id = :t",
@@ -110,9 +115,7 @@ def _submission_context(
     return TaskSubmissionContext(
         tenant_id=TENANT,
         actor_user_id=actor_user_id,
-        agent=ResolvedAgent(
-            id=uuid.uuid4(), key="agent", revision=1, instructions="hi", runtime_config={}
-        ),
+        agent=ResolvedAgent(id=uuid.uuid4(), key="agent", revision=1, instructions="hi", runtime_config={}),
         model=ResolvedModel(
             id=uuid.uuid4(),
             revision=1,
@@ -142,17 +145,52 @@ def _tool_set(
         cache=cache,
         skills=[*extra_skills, skill],
         timeout_sec=10.0,
-        task_client=client,
+        task_client=_durable_client(client),
         task_context=context,
     )
 
 
-async def _call_tool(tool_set: SkillToolSet, name: str, arguments: dict[str, object]) -> dict[str, Any]:
+def _durable_client(client):
+    from muad_agent_runtime.application.async_tools.control_dispatcher import ControlDispatcher
+    from muad_agent_runtime.application.async_tools.operations import DurableTaskSubmitter
+
+    return DurableTaskSubmitter(
+        worker_session_factory(),
+        ControlDispatcher(worker_session_factory(), client._client, "http://worker", service_token=TOKEN),
+    )
+
+
+async def _call_tool(
+    tool_set: SkillToolSet, name: str, arguments: dict[str, object], *, call_id=None
+) -> dict[str, Any]:
+    from muad_agent_runtime.infrastructure.models.runtime import RunRecord
+    from muad_contracts import ResolveDefinitionResponse
+
+    from tests.async_tool_submissions import seed_submission
+
+    context = tool_set._task_context
+    async with worker_session_factory()() as session:
+        exists = await session.get(RunRecord, context.source_run_id)
+    if exists is None:
+        await seed_submission(
+            worker_session_factory(),
+            resolved=ResolveDefinitionResponse(
+                agent=context.agent,
+                model=context.model,
+                skills=list(context.skills),
+                mcp_servers=list(context.mcp_servers),
+            ),
+            tenant=context.tenant_id,
+            actor=context.actor_user_id,
+            run_id=context.source_run_id,
+            pending_limit=4,
+        )
     definition = tool_set.registry().get(name)
     assert definition.handler is not None
-    return cast(dict[str, Any], json.loads(await definition.handler(
-        arguments, call_id=f"call-{uuid.uuid4()}"
-    )))
+    return cast(
+        dict[str, Any],
+        json.loads(await definition.handler(arguments, call_id=call_id or f"call-{uuid.uuid4()}")),
+    )
 
 
 async def _task_row(task_id: uuid.UUID) -> TaskExecution:
@@ -169,9 +207,7 @@ async def test_b123_async_skill_tool_submits_task_with_frozen_snapshot() -> None
     context = _submission_context(
         actor_user_id=actor,
         skill=skill,
-        delivery_route=DeliveryRouteInput(
-            channel="WECOM", bot_id="bot-1", external_user_id="wotv-1"
-        ),
+        delivery_route=DeliveryRouteInput(channel="WECOM", bot_id="bot-1", external_user_id="wotv-1"),
     )
     tool_set = _tool_set(skill=skill, client=client, context=context)
     try:
@@ -193,8 +229,9 @@ async def test_b123_async_skill_tool_submits_task_with_frozen_snapshot() -> None
     assert task.skill_artifact_id == skill.artifact_id
     assert task.snapshot_hash.startswith("sha256:")
     assert task.execution_snapshot_json["skills"][0]["artifact_id"] == str(skill.artifact_id)
-    assert task.delivery_mode == "FINAL_ONLY"
-    assert task.delivery_route_id is not None
+    assert task.delivery_mode == "NONE", "JOIN results go to the Run, without independent delivery"
+    assert task.delivery_route_id is None
+    assert task.max_attempts == 1 and task.deadline_at <= datetime.now(UTC) + timedelta(minutes=10)
 
 
 async def test_b123_multi_skill_agent_freezes_only_submitted_skill() -> None:
@@ -208,9 +245,7 @@ async def test_b123_multi_skill_agent_freezes_only_submitted_skill() -> None:
     )
     tool_set = _tool_set(skill=target, client=client, context=context, extra_skills=(first,))
     try:
-        payload = await _call_tool(
-            tool_set, EXECUTE_SKILL_TOOL, {"skill_key": target.key, "input": {}}
-        )
+        payload = await _call_tool(tool_set, EXECUTE_SKILL_TOOL, {"skill_key": target.key, "input": {}})
     finally:
         await client.aclose()
 
@@ -221,31 +256,42 @@ async def test_b123_multi_skill_agent_freezes_only_submitted_skill() -> None:
     ]
 
 
-async def test_b123_repeated_async_submit_reuses_same_task() -> None:
+async def test_b123_equal_inputs_have_distinct_calls_and_retry_reuses_operation() -> None:
     skill = _async_skill()
     client = _client()
     context = _submission_context(actor_user_id=uuid.uuid4(), skill=skill, delivery_route=None)
     tool_set = _tool_set(skill=skill, client=client, context=context)
     try:
         first = await _call_tool(
-            tool_set, EXECUTE_SKILL_TOOL, {"skill_key": skill.key, "input": {"customers": ["A"]}}
+            tool_set,
+            EXECUTE_SKILL_TOOL,
+            {"skill_key": skill.key, "input": {"customers": ["A"]}},
+            call_id="first",
         )
         second = await _call_tool(
-            tool_set, EXECUTE_SKILL_TOOL, {"skill_key": skill.key, "input": {"customers": ["A"]}}
+            tool_set,
+            EXECUTE_SKILL_TOOL,
+            {"skill_key": skill.key, "input": {"customers": ["A"]}},
+            call_id="second",
+        )
+        replay = await _call_tool(
+            tool_set,
+            EXECUTE_SKILL_TOOL,
+            {"skill_key": skill.key, "input": {"customers": ["A"]}},
+            call_id="first",
         )
     finally:
         await client.aclose()
 
-    assert first["task_id"] == second["task_id"], "同一 Run 同输入重试不得重复建 Task"
+    assert first["task_id"] != second["task_id"]
+    assert replay["operation_id"] == first["operation_id"] and replay["task_id"] == first["task_id"]
     async with worker_session_factory()() as session:
         total = (
             await session.execute(
-                select(func.count())
-                .select_from(TaskExecution)
-                .where(TaskExecution.tenant_id == TENANT)
+                select(func.count()).select_from(TaskExecution).where(TaskExecution.tenant_id == TENANT)
             )
         ).scalar_one()
-    assert total == 1
+    assert total == 2
 
 
 async def test_b123_query_and_cancel_read_back_through_worker_http() -> None:
@@ -254,9 +300,7 @@ async def test_b123_query_and_cancel_read_back_through_worker_http() -> None:
     context = _submission_context(actor_user_id=uuid.uuid4(), skill=skill, delivery_route=None)
     tool_set = _tool_set(skill=skill, client=client, context=context)
     try:
-        submitted = await _call_tool(
-            tool_set, EXECUTE_SKILL_TOOL, {"skill_key": skill.key, "input": {}}
-        )
+        submitted = await _call_tool(tool_set, EXECUTE_SKILL_TOOL, {"skill_key": skill.key, "input": {}})
         task_id = uuid.UUID(submitted["task_id"])
 
         detail = await client.get_task(tenant_id=TENANT, task_id=task_id)
@@ -287,9 +331,7 @@ async def test_b123_schedule_create_retry_is_idempotent_and_manageable() -> None
             skill=skill,
             input_template={"customer": "A"},
             schedule={"type": "CRON", "cron": "0 9 * * *", "timezone": "Asia/Shanghai"},
-            delivery_route=DeliveryRouteInput(
-                channel="WECOM", bot_id="bot-1", external_user_id="wotv-1"
-            ),
+            delivery_route=DeliveryRouteInput(channel="WECOM", bot_id="bot-1", external_user_id="wotv-1"),
             idempotency_key="run:schedule:1",
         )
         replay = await client.create_schedule(
@@ -300,9 +342,7 @@ async def test_b123_schedule_create_retry_is_idempotent_and_manageable() -> None
             skill=skill,
             input_template={"customer": "A"},
             schedule={"type": "CRON", "cron": "0 9 * * *", "timezone": "Asia/Shanghai"},
-            delivery_route=DeliveryRouteInput(
-                channel="WECOM", bot_id="bot-1", external_user_id="wotv-1"
-            ),
+            delivery_route=DeliveryRouteInput(channel="WECOM", bot_id="bot-1", external_user_id="wotv-1"),
             idempotency_key="run:schedule:1",
         )
     finally:
@@ -312,9 +352,7 @@ async def test_b123_schedule_create_retry_is_idempotent_and_manageable() -> None
     async with worker_session_factory()() as session:
         total = (
             await session.execute(
-                select(func.count())
-                .select_from(TaskSchedule)
-                .where(TaskSchedule.tenant_id == TENANT)
+                select(func.count()).select_from(TaskSchedule).where(TaskSchedule.tenant_id == TENANT)
             )
         ).scalar_one()
     assert total == 1
@@ -330,9 +368,7 @@ async def test_b123_schedule_create_retry_is_idempotent_and_manageable() -> None
             name="renamed",
         )
         assert paused["name"] == "renamed"
-        deleted = await client.delete_schedule(
-            tenant_id=TENANT, schedule_id=schedule_id, actor_user_id=actor
-        )
+        deleted = await client.delete_schedule(tenant_id=TENANT, schedule_id=schedule_id, actor_user_id=actor)
         assert deleted == {"schedule_id": str(schedule_id), "deleted": True}
     finally:
         await client.aclose()
@@ -348,7 +384,7 @@ async def test_b123_actor_cannot_be_forged_through_tool_arguments() -> None:
     try:
         definition = tool_set.registry().get(EXECUTE_SKILL_TOOL)
         schema = definition.input_schema
-        assert set(schema["properties"]) == {"skill_key", "input"}
+        assert set(schema["properties"]) == {"skill_key", "input", "completion_mode"}
         assert "actor_user_id" not in json.dumps(schema)
 
         payload = await _call_tool(
@@ -365,9 +401,7 @@ async def test_b123_actor_cannot_be_forged_through_tool_arguments() -> None:
 
 
 async def test_b123_runtime_task_client_does_not_touch_task_schema() -> None:
-    source = (
-        Path("apps/agent-runtime/src/muad_agent_runtime/application/task_client.py").read_text()
-    )
+    source = Path("apps/agent-runtime/src/muad_agent_runtime/application/task_client.py").read_text()
     assert "muad_agent_worker" not in source
     assert "get_session" not in source
     assert "infrastructure.models" not in source
@@ -387,9 +421,7 @@ def _task_tools(
 async def _invoke(registry: ToolRegistry, name: str, arguments: dict[str, object]) -> dict[str, Any]:
     handler = registry.get(name).handler
     assert handler is not None
-    return cast(dict[str, Any], json.loads(await handler(
-        arguments, call_id=f"call-{uuid.uuid4()}"
-    )))
+    return cast(dict[str, Any], json.loads(await handler(arguments, call_id=f"call-{uuid.uuid4()}")))
 
 
 async def test_b123_create_schedule_tool_uses_run_actor_and_route() -> None:
@@ -456,13 +488,13 @@ async def test_b123_tools_cannot_touch_other_users_schedule_or_task() -> None:
                 "schedule": {"type": "CRON", "cron": "0 9 * * *", "timezone": "Asia/Shanghai"},
             },
         )
-        task = await client.submit_task(owner_ctx, skill=skill, input_data={"x": 1})
+        task = await client.submit_task(
+            owner_ctx, skill=skill, input_data={"x": 1}, call_id="standalone-call"
+        )
         update = await _invoke(
             intruder_tools, UPDATE_SCHEDULE_TOOL, {"schedule_id": schedule["schedule_id"], "name": "x"}
         )
-        delete = await _invoke(
-            intruder_tools, DELETE_SCHEDULE_TOOL, {"schedule_id": schedule["schedule_id"]}
-        )
+        delete = await _invoke(intruder_tools, DELETE_SCHEDULE_TOOL, {"schedule_id": schedule["schedule_id"]})
         peek = await _invoke(intruder_tools, GET_TASK_TOOL, {"task_id": task["task_id"]})
         cancel = await _invoke(intruder_tools, CANCEL_TASK_TOOL, {"task_id": task["task_id"]})
         listed = await _invoke(intruder_tools, LIST_TASKS_TOOL, {})

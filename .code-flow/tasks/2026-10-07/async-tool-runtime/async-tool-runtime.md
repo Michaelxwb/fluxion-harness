@@ -15,19 +15,19 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 |
 |--------|---------|---------|-------------|---------|------|---------|
 | S-01 | backend#2.5.2 场景清单 | E2E | Runtime/Worker HTTP、PG、Redis、LLM 探针、SSE | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
-| S-02 | backend#2.5.2 场景清单 | E2E | 四服务 HTTP、真实 Task、渠道出站探针 | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
+| S-02 | backend#2.5.2 场景清单 | E2E | 四服务 HTTP、真实 Task、渠道出站探针 | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | S-03 | backend#2.5.2 场景清单 | E2E | 实际 provider 请求、canonical 历史、制品存储 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | S-04 | backend#2.5.2 场景清单 | integration | 真实 Runner、可控异步工具处理器 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] |
 | S-05 | backend#2.5.2 场景清单 | E2E | Console resolve/API-09、等待恢复、LLM/MCP HTTP | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | S-06 | backend#2.5.2 场景清单 | E2E | Gateway、Runtime SSE、Worker、原消息回复探针 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
 | S-07 | backend#2.5.2 场景清单 | integration | 真实 MCP HTTP 探针、Runtime adapter | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
-| E-01 | backend#2.5.2 场景清单 | E2E | 冻结授权、Worker HTTP、PG、审计 | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
-| E-02 | backend#2.5.2 场景清单 | E2E | Runtime 控制发件、Worker 创建事务、故障代理 | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
+| E-01 | backend#2.5.2 场景清单 | E2E | 冻结授权、Worker HTTP、PG、审计 | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
+| E-02 | backend#2.5.2 场景清单 | E2E | Runtime 控制发件、Worker 创建事务、故障代理 | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-03 | backend#2.5.2 场景清单 | E2E | Worker 真实进程、PG outbox、Runtime HTTP | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_delivery.py"] |
 | E-04 | backend#2.5.2 场景清单 | E2E | Runtime 等待事务、结果回流 HTTP、PG | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | E-05 | backend#2.5.2 场景清单 | E2E | 两个 Runtime 真实进程、PG lease、LLM HTTP | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | E-06 | backend#2.5.2 场景清单 | E2E | 真实 deadline sweep、Worker、Runtime、PG | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
-| E-07 | backend#2.5.2 场景清单 | E2E | Runtime cancel、Worker operation 行锁、真实 HTTP | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
+| E-07 | backend#2.5.2 场景清单 | E2E | Runtime cancel、Worker operation 行锁、真实 HTTP | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-08 | backend#2.5.2 场景清单 | E2E | ScriptSkillExecutor、真实子孙进程、管道、HTTP | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_skill_cancellation_real_subprocess.py"] |
 | E-09 | backend#2.5.2 场景清单 | integration | ContextBuilder、真实 provider 消息序列化 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
 | E-10 | backend#2.5.2 场景清单 | integration | 真实制品发布/DB 事务、压缩端口 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
@@ -36,9 +36,9 @@
 | E-13 | backend#2.5.2 场景清单 | E2E | SSE socket、Runtime supervisor、Gateway/重连客户端 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
 | E-14 | backend#2.5.2 场景清单 | integration | MCP HTTP 探针、客户端关闭 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
 | E-15 | backend#2.5.2 场景清单 | E2E | Redis 故障代理、PG 队列和结果发件 | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_redis_unavailable.py"] |
-| E-16 | backend#2.5.2 场景清单 | E2E | Worker HTTP 故障代理、控制发件、PG tombstone | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
+| E-16 | backend#2.5.2 场景清单 | E2E | Worker HTTP 故障代理、控制发件、PG tombstone | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-17 | backend#2.5.2 场景清单 | E2E | Gateway/Runtime HTTP、PG 活跃会话约束 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
-| B-01 | backend#2.5.2 场景清单 | integration | PG 行锁、并发提交、关闭屏障 | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] |
+| B-01 | backend#2.5.2 场景清单 | integration | PG 行锁、并发提交、关闭屏障 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] |
 | B-02 | backend#2.5.2 场景清单 | integration | 严格 JSON DTO、幂等表、PG 唯一约束 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_runtime_strict_json.py"] |
 | B-03 | backend#2.5.2 场景清单 | integration | UTF-8 字节预算、共享制品、历史重建 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
 | B-04 | backend#2.5.2 场景清单 | integration | PG wait_generation、epoch、canonical seq | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] |
@@ -186,7 +186,7 @@
 
 ## TASK-003: Runtime 统一工具执行入口、提交取消与容量
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: async-tool-runtime.backend.design.md#3.2 架构设计, async-tool-runtime.backend.design.md#3.4 接口设计
@@ -199,33 +199,33 @@
 
 ### Checklist
 
-- [ ] Runner 默认接入统一 PORT-02/pipeline；不可只提供未接线的可选 pipeline
-- [ ] 最终参数经过校验 → PRE_TOOL_USE Hook → 对改写后参数复验 → 冻结 EffectiveCapabilities 授权 → Run 行锁预留额度 → 执行/operation → ToolResultRoundPort；授权不可被模型覆盖 tenant/actor/run/snapshot
-- [ ] `execute_skill` 对 ASYNC 新增 `completion_mode: JOIN | DETACH`，默认 JOIN；SYNC 显式携带 completion_mode 明确 422；回执包含 operation_id/task_id/task_status/completion_mode
-- [ ] 5 秒内未拿到 Worker durable admission 时返回 `SUBMISSION_PENDING`，task_id 为 null；不得伪造 QUEUED
-- [ ] 提交成功前同事务写 `runtime.tool_operation(SUBMIT_PENDING)` 与 `tool_control_outbox(SUBMIT)`；operation_id 每次真实 tool_call 一个，重试用原 ID
-- [ ] 提交幂等键 `runtime-op:{operation_id}:submit`；取消幂等键 `runtime-op:{operation_id}:cancel`；同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`
-- [ ] Worker `runtime_operation` 先写取消 tombstone；Task 创建与取消在同 operation 行锁内复检，取消先到不得再启动 Task
-- [ ] Run 取消级联 JOIN 和未受理提交；已受理 DETACH 不级联；晚到 submit/result 只记 LATE，不复活或唤醒终态 Run
-- [ ] `pending_operation_limit` 包含 SUBMIT_PENDING(DETACH/JOIN)+未终态 JOIN，在 Run 行锁内原子预留；DETACH 受理后释放
-- [ ] [S-02][E2E] 明确 DETACH受理后原Run完成；其后取消原Run不取消Task；DETACH Run routed final result when available
-- [ ] [E-01][E2E] 未授权 Skill、非法参数、Hook改写后非法参数分别拒绝；业务 Task/operation/outbox 均不创建，DENY/ERROR 审计存在
-- [ ] [E-02][E2E] Worker 创建后丢提交响应：模型收到 SUBMISSION_PENDING，不收 COMPLETED；重试得到同 task_id，只建一条 Task，最终可回流
-- [ ] [E-07][E2E] Worker cancellation tombstone阻止新任务启动；控制取消与提交交错明确；BATCH取消与final fan-in同时到达无死锁/状态反转
-- [ ] [E-16][E2E] 提交响应持续丢失至重试耗尽：operation明确 SUBMIT失败，不伪造Task失败；取消意图持久，晚到 submit/result不恢复依赖或启动另一 Task
-- [ ] [B-01][integration] pending_limit=1 同时申请两次只接受一个；关闭与提交交错后无未登记本地任务，等待意图全部可查
-- [ ] verifier harness-auth#RULE-auth-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] Runner 默认接入统一 PORT-02/pipeline；不可只提供未接线的可选 pipeline
+- [x] 最终参数经过校验 → PRE_TOOL_USE Hook → 对改写后参数复验 → 冻结 EffectiveCapabilities 授权 → Run 行锁预留额度 → 执行/operation → ToolResultRoundPort；授权不可被模型覆盖 tenant/actor/run/snapshot
+- [x] `execute_skill` 对 ASYNC 新增 `completion_mode: JOIN | DETACH`，默认 JOIN；SYNC 显式携带 completion_mode 明确 422；回执包含 operation_id/task_id/task_status/completion_mode
+- [x] 5 秒内未拿到 Worker durable admission 时返回 `SUBMISSION_PENDING`，task_id 为 null；不得伪造 QUEUED
+- [x] 提交成功前同事务写 `runtime.tool_operation(SUBMIT_PENDING)` 与 `tool_control_outbox(SUBMIT)`；operation_id 每次真实 tool_call 一个，重试用原 ID
+- [x] 提交幂等键 `runtime-op:{operation_id}:submit`；取消幂等键 `runtime-op:{operation_id}:cancel`；同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`
+- [x] Worker `runtime_operation` 先写取消 tombstone；Task 创建与取消在同 operation 行锁内复检，取消先到不得再启动 Task
+- [x] Run 取消级联 JOIN 和未受理提交；已受理 DETACH 不级联；晚到 submit/result 只记 LATE，不复活或唤醒终态 Run
+- [x] `pending_operation_limit` 包含 SUBMIT_PENDING(DETACH/JOIN)+未终态 JOIN，在 Run 行锁内原子预留；DETACH 受理后释放
+- [x] [S-02][E2E] 明确 DETACH受理后原Run完成；其后取消原Run不取消Task；DETACH Run routed final result when available（已编写登记，终验执行）
+- [x] [E-01][E2E] 未授权 Skill、非法参数、Hook改写后非法参数分别拒绝；业务 Task/operation/outbox 均不创建，DENY/ERROR 审计存在（已编写登记，终验执行）
+- [x] [E-02][E2E] Worker 创建后丢提交响应：模型收到 SUBMISSION_PENDING，不收 COMPLETED；重试得到同 task_id，只建一条 Task，最终可回流（已编写登记，终验执行）
+- [x] [E-07][E2E] Worker cancellation tombstone阻止新任务启动；控制取消与提交交错明确；BATCH取消与final fan-in同时到达无死锁/状态反转（已编写登记，终验执行）
+- [x] [E-16][E2E] 提交响应持续丢失至重试耗尽：operation明确 SUBMIT失败，不伪造Task失败；取消意图持久，晚到 submit/result不恢复依赖或启动另一 Task（已编写登记，终验执行）
+- [x] [B-01][integration] pending_limit=1 同时申请两次只接受一个；关闭与提交交错后无未登记本地任务，等待意图全部可查
+- [x] verifier harness-auth#RULE-auth-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-02 | E2E | 四服务 HTTP、真实 Task、渠道出站探针 | DETACH 受理后原 Run 完成；取消原 Run 不取消 Task；Worker按 FINAL_ONLY/NONE delivery 一次；无路由时不重复 | `tests/acceptance/runtime/test_submission_hardening.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] | planned |
-| E-01 | E2E | 冻结授权、Worker HTTP、PG、审计 | 未授权/非法参数/Hook改写后拒绝；业务任务不创建；DENY/ERROR 审计存在 | `tests/acceptance/runtime/test_submission_hardening.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] | planned |
-| E-02 | E2E | Runtime 控制发件、Worker 创建事务、故障代理 | Worker 创建后丢提交响应；模型收到 SUBMISSION_PENDING；重试同 task_id，只建一条 Task；最终回流 | `tests/acceptance/runtime/test_submission_hardening.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] | planned |
-| E-07 | E2E | Runtime cancel、Worker operation 行锁、真实 HTTP | 控制取消先到 tombstone阻止新任务；已创建 Task进入真实取消路径；BATCH取消与fan-in无死锁/反转 | `tests/acceptance/runtime/test_submission_hardening.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] | planned |
-| E-16 | E2E | Worker HTTP 故障代理、控制发件、PG tombstone | 提交响应持续丢失直到重试耗尽；operation明确“提交未确认”failed；取消意图持久；晚到不复活 | `tests/acceptance/runtime/test_submission_hardening.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] | planned |
-| B-01 | integration | PG 行锁、并发提交、关闭屏障 | pending_limit=1并发申请只接一个；关闭与提交交错后无未登记本地任务，等待意图可查 | `tests/agent_worker/test_runtime_operation_races.py` | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] | planned |
+| S-02 | E2E | 四服务 HTTP、真实 Task、渠道出站探针 | DETACH 受理后原 Run 完成；取消原 Run 不取消 Task；Worker按 FINAL_ONLY/NONE delivery 一次；无路由时不重复 | `tests/acceptance/runtime/test_submission_hardening.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] | e2e_deferred |
+| E-01 | E2E | 冻结授权、Worker HTTP、PG、审计 | 未授权/非法参数/Hook改写后拒绝；业务任务不创建；DENY/ERROR 审计存在 | `tests/acceptance/runtime/test_submission_hardening.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] | e2e_deferred |
+| E-02 | E2E | Runtime 控制发件、Worker 创建事务、故障代理 | Worker 创建后丢提交响应；模型收到 SUBMISSION_PENDING；重试同 task_id，只建一条 Task；最终回流 | `tests/acceptance/runtime/test_submission_hardening.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] | e2e_deferred |
+| E-07 | E2E | Runtime cancel、Worker operation 行锁、真实 HTTP | 控制取消先到 tombstone阻止新任务；已创建 Task进入真实取消路径；BATCH取消与fan-in无死锁/反转 | `tests/acceptance/runtime/test_submission_hardening.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] | e2e_deferred |
+| E-16 | E2E | Worker HTTP 故障代理、控制发件、PG tombstone | 提交响应持续丢失直到重试耗尽；operation明确“提交未确认”failed；取消意图持久；晚到不复活 | `tests/acceptance/runtime/test_submission_hardening.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] | e2e_deferred |
+| B-01 | integration | PG 行锁、并发提交、关闭屏障 | pending_limit=1并发申请只接一个；关闭与提交交错后无未登记本地任务，等待意图可查 | `tests/agent_worker/test_runtime_operation_races.py` | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -234,11 +234,30 @@
 - [E-02][E2E] planned — defer to verify-e2e after relevant TASK verified
 - [E-07][E2E] planned — defer to verify-e2e after relevant TASK verified
 - [E-16][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [B-01][integration] planned — RED/GREEN pending
+- [B-01][integration] RED: `uv run pytest -q tests/agent_worker/test_runtime_operation_races.py -k b01` — 2 failed: operation reservation and supervisor modules absent (`ModuleNotFoundError`); real isolated PG fixture initialized successfully. Cases `test_b01_pending_limit_row_lock_and_distinct_tool_calls`, `test_b01_close_registration_barrier_keeps_durable_intents`; GREEN pending.
+- [S-02/E-01/E-02/E-07/E-16][E2E] Tests written in `tests/acceptance/runtime/test_submission_hardening.py`; real task-schedule live stack (Console/Runtime/Worker/Gateway/channel), TCP response-drop proxy and PG sources. Coding stage does not execute E2E; deferred to verify-e2e.
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=8a3404530c1b4dfe882b23493d7ea580 (confirmed_by: runner)
+- E-01: e2e_deferred — automated command e2e_deferred; run_id=8a3404530c1b4dfe882b23493d7ea580 (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=8a3404530c1b4dfe882b23493d7ea580 (confirmed_by: runner)
+- E-07: e2e_deferred — automated command e2e_deferred; run_id=8a3404530c1b4dfe882b23493d7ea580 (confirmed_by: runner)
+- E-16: e2e_deferred — automated command e2e_deferred; run_id=8a3404530c1b4dfe882b23493d7ea580 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=8a3404530c1b4dfe882b23493d7ea580 (confirmed_by: runner)
+- GREEN: B-01 real isolated PostgreSQL reservation races/close barrier + full functional command 21 passed. Assertions: one accepted operation/outbox at limit=1, same call replay stable, changed fingerprint rejected, max_attempts=1 frozen, closing seals admission and keeps queryable durable intentions.
+- Regression: isolated empty migrated DB + Redis, `uv run pytest -q tests/agent_worker tests/agent_runtime` — 681 passed, 3 E2E deselected; subsequent Run cancellation/Reaper changes — 13 passed. Core pipeline/Runner — 28 passed. `uv run mypy apps packages scripts` — 330 files pass; Ruff, diff check and light validation pass.
+- Required auth verifier original argv executed under isolated datastore wrapper: `uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity` — 2 + 38 passed. PYTEST_ADDOPTS excludes E2E during coding; commands unchanged.
+- E2E registration: collect-only found 11 executable cases (DETACH routed/NONE; unauthorized/invalid/or Hook rewritten args; TCP admission drop/replay/exhaustion; Runtime cancel, Worker tombstone before/after admission and concurrent BATCH fan-in). Actual E2E assertions remain deferred, with no claimed execution.
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=767b07bb229e474ab40382242ba04513 (confirmed_by: runner)
+- E-01: e2e_deferred — automated command e2e_deferred; run_id=767b07bb229e474ab40382242ba04513 (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=767b07bb229e474ab40382242ba04513 (confirmed_by: runner)
+- E-07: e2e_deferred — automated command e2e_deferred; run_id=767b07bb229e474ab40382242ba04513 (confirmed_by: runner)
+- E-16: e2e_deferred — automated command e2e_deferred; run_id=767b07bb229e474ab40382242ba04513 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=767b07bb229e474ab40382242ba04513 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-07] created (draft)
+- [2026-10-08] started
+- [2026-10-08] completed (done)
 
 ---
 

@@ -35,9 +35,7 @@ def _wait_status(
     return detail
 
 
-def test_b141_stale_lease_is_taken_over_by_live_worker(
-    live_stack: LiveStack, http: httpx.Client
-) -> None:
+def test_b141_stale_lease_is_taken_over_by_live_worker(live_stack: LiveStack, http: httpx.Client) -> None:
     """失约 Worker 的 RUNNING 任务被运行中的 Worker reclaim 后仍能 COMPLETED。"""
     context, resolved = submission_context(live_stack)
 
@@ -45,7 +43,7 @@ def test_b141_stale_lease_is_taken_over_by_live_worker(
         client = WorkerTaskClient(live_stack.worker_url, service_token=INTERNAL_TOKEN)
         try:
             return await client.submit_task(
-                context, skill=resolved["skill"], input_data={"case": "takeover"}
+                context, call_id="standalone-call", skill=resolved["skill"], input_data={"case": "takeover"}
             )
         finally:
             await client.aclose()
@@ -89,9 +87,7 @@ def test_b141_stale_lease_is_taken_over_by_live_worker(
     assert lease_owner is None and lease_until is None
 
 
-def test_b141_both_workers_share_same_authoritative_queue(
-    live_stack: LiveStack, http: httpx.Client
-) -> None:
+def test_b141_both_workers_share_same_authoritative_queue(live_stack: LiveStack, http: httpx.Client) -> None:
     """双 Worker 同进程组：同一 Task 只被一个 Worker 执行一次（PG claim 权威）。"""
     context, resolved = submission_context(live_stack)
     side_effect = live_stack.artifact_root / "probe" / f"takeover-{uuid.uuid4().hex}.log"
@@ -102,6 +98,7 @@ def test_b141_both_workers_share_same_authoritative_queue(
         try:
             return await client.submit_task(
                 context,
+                call_id="standalone-call",
                 skill=resolved["skill"],
                 input_data={"side_effect_path": str(side_effect)},
             )

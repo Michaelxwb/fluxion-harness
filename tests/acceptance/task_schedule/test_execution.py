@@ -46,6 +46,7 @@ def test_s01_runtime_submits_async_skill_and_worker_completes_once(
         try:
             return await client.submit_task(
                 context,
+                call_id="standalone-call",
                 skill=resolved["skill"],
                 input_data={"side_effect_path": str(side_effect)},
             )
@@ -60,9 +61,7 @@ def test_s01_runtime_submits_async_skill_and_worker_completes_once(
     assert detail["status"] == "COMPLETED", detail
     assert detail["result"]["checked"]["side_effect_path"] == str(side_effect)
     assert detail["deadline_at"]
-    assert detail["execution_snapshot"]["skills"][0]["artifact_id"] == str(
-        resolved["skill"].artifact_id
-    )
+    assert detail["execution_snapshot"]["skills"][0]["artifact_id"] == str(resolved["skill"].artifact_id)
     assert "api_key" not in str(detail["execution_snapshot"])
 
     lines = side_effect.read_text(encoding="utf-8").splitlines()
@@ -82,7 +81,7 @@ def test_b141_worker_authority_queued_to_completed_without_redis_hint(
         client = WorkerTaskClient(live_stack.worker_url, service_token=INTERNAL_TOKEN)
         try:
             return await client.submit_task(
-                context, skill=resolved["skill"], input_data={"case": "authority"}
+                context, call_id="standalone-call", skill=resolved["skill"], input_data={"case": "authority"}
             )
         finally:
             await client.aclose()

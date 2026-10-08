@@ -10,7 +10,6 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from functools import partial
 from typing import Any, Protocol, cast
 
 import httpx
@@ -37,6 +36,13 @@ from muad_agent_core.model import (
 )
 from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill
 from muad_agent_core.tools import ToolDefinition, ToolRegistry
+from muad_agent_core.tools.pipeline import (
+    PreparedToolCall,
+    ToolExecutionAudit,
+    ToolExecutionPipeline,
+    ToolPolicyDecision,
+)
+from muad_agent_core.tools.registry import ToolHandler
 from muad_api import AppError
 from muad_api.context import current_locale, current_trace_id
 from muad_api.error_codes import ErrorCode
@@ -83,7 +89,7 @@ from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_sum
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_service import MemoryService
 from .memory_tools import MemoryScope, MemoryToolSet, memory_write_enabled
-from .skill_tools import build_default_skill_cache, build_skill_registry
+from .skill_tools import TaskSubmissionProtocol, build_default_skill_cache, build_skill_registry
 from .task_client import TaskSubmissionContext, WorkerTaskClient
 from .task_tools import BackgroundTaskToolSet
 from .time_tools import TimeToolSet, resolve_zone
@@ -599,36 +605,49 @@ class ToolCallRecorder:
         self,
         definition: ToolDefinition,
         arguments: Mapping[str, Any],
-        handler: Any,
+        handler: ToolHandler,
         *,
         call_id: str,
     ) -> str:
         """执行一次工具并**只做缓冲**：落盘与否要等本轮结果到齐（ADR-04）。"""
-        started_wall = datetime.now(UTC)
-        started = time.monotonic()
-        status = "OK"
-        error_code: str | None = None
-        try:
-            return str(await handler(arguments, call_id=call_id))
-        except Exception as exc:
-            status = "ERROR"
-            error_code = _tool_error_code(exc)
-            raise
-        finally:
-            record_outcome(
-                TOOL_CALLS_METRIC,
-                status,
-                {"kind": _tool_kind(definition.name), "tool": definition.name},
-            )
-            self._round[call_id] = _RoundCall(
-                definition=definition,
-                status=status,
-                error_code=error_code,
-                started_wall=started_wall,
-                latency_ms=int((time.monotonic() - started) * 1000),
-                args_hash=_args_hash(arguments),
-                args_preview=_preview_args(arguments),
-            )
+        registry = ToolRegistry()
+        registry.register(replace(definition, handler=handler))
+        pipeline = ToolExecutionPipeline(registry=registry, audit=self)
+        prepared = pipeline.prepare(call_id=call_id, tool_name=definition.name, arguments=arguments)
+        return (await pipeline.execute(prepared)).content
+
+    async def record(self, event: ToolExecutionAudit) -> None:
+        call = event.prepared
+        status = (
+            "OK" if event.status == "SUCCEEDED" else "DENY" if event.status == "POLICY_DENIED" else "ERROR"
+        )
+        record_outcome(
+            TOOL_CALLS_METRIC, status, {"kind": _tool_kind(call.tool_name), "tool": call.tool_name}
+        )
+        if event.definition is None or status == "DENY":
+            if self._audit is not None:
+                await self._audit.record_tool_call(
+                    tool_call_id=call.call_id,
+                    tool_name=call.tool_name,
+                    tool_kind=_tool_kind(call.tool_name),
+                    prepared_args_hash=call.args_hash,
+                    args_preview_json=_preview_args(call.arguments),
+                    status=status,
+                    start_time=event.started_at,
+                    end_time=datetime.now(UTC),
+                    latency_ms=event.latency_ms,
+                    error_code=event.error_code,
+                )
+            return
+        self._round[call.call_id] = _RoundCall(
+            definition=event.definition,
+            status=status,
+            error_code=event.error_code,
+            started_wall=event.started_at,
+            latency_ms=event.latency_ms,
+            args_hash=call.args_hash,
+            args_preview=_preview_args(call.arguments),
+        )
 
     async def finish_round(self, results: Sequence[ModelMessage]) -> Sequence[ModelMessage]:
         """整轮判定 → 批量落盘 → 替换内容 → 逐条写审计行。返回与入参**等长同序**的消息序列。"""
@@ -679,8 +698,7 @@ class ToolCallRecorder:
         if not selected or self._artifacts is None:
             return {}
         payload = [
-            (call_ids[index], self._tool_name(call_ids[index]), contents[index])
-            for index in sorted(selected)
+            (call_ids[index], self._tool_name(call_ids[index]), contents[index]) for index in sorted(selected)
         ]
         try:
             async with get_session_factory()() as session:
@@ -705,9 +723,7 @@ class ToolCallRecorder:
         record = self._round.get(call_id)
         return record.definition.name if record is not None else ""
 
-    async def _flush_audit(
-        self, call_ids: list[str], references: Mapping[str, Mapping[str, Any]]
-    ) -> None:
+    async def _flush_audit(self, call_ids: list[str], references: Mapping[str, Mapping[str, Any]]) -> None:
         """逐条写审计行（带最终 `artifact_id`）并清空本回合缓冲。"""
         for call_id in call_ids:
             record = self._round.pop(call_id, None)
@@ -746,20 +762,6 @@ def _preview_args(arguments: Mapping[str, Any]) -> dict[str, Any]:
         text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
         preview[str(key)] = redact_text(text[:200])
     return preview
-
-
-def _wrap_registry(
-    registry: ToolRegistry,
-    recorder: ToolCallRecorder,
-) -> ToolRegistry:
-    wrapped = ToolRegistry()
-    for definition in registry.list():
-        handler = definition.handler
-        if handler is None:
-            wrapped.register(definition)
-            continue
-        wrapped.register(replace(definition, handler=partial(recorder, definition, handler=handler)))
-    return wrapped
 
 
 def _mcp_server_definition(
@@ -813,6 +815,7 @@ def build_registry(
     mcp_adapter: McpRuntimeAdapter | None,
     artifact_writer: ArtifactResultWriter | None = None,
     task_client: WorkerTaskClient | None = None,
+    task_submitter: TaskSubmissionProtocol | None = None,
     delivery_client: GatewayDeliveryClient | None = None,
     recorder: ToolCallRecorder | None = None,
 ) -> ToolRegistry:
@@ -823,7 +826,7 @@ def build_registry(
         cache=cache,
         skills=request.skills,
         policy=policy,
-        task_client=task_client,
+        task_client=task_submitter,
         task_context=task_context,
     )
     if task_client is not None and task_context is not None:
@@ -863,7 +866,7 @@ def build_registry(
                     request.run_context.run_id,
                     request.run_context.conversation_id,
                 ),
-            )
+            ),
         ).register(registry)
     if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:
         mcp_adapter.register_catalog(
@@ -892,17 +895,6 @@ def build_registry(
             recall_default_limit=execution.memory_policy.recall_default_limit,
             max_recall_bytes=execution.memory_policy.max_recall_bytes,
         ).register(registry)
-    if request.run_context is not None:
-        registry = _wrap_registry(
-            registry,
-            recorder
-            or ToolCallRecorder(
-                context=request.run_context,
-                audit_writer=audit_writer,
-                artifact_writer=artifact_writer,
-                settings=tool_result_settings(request),
-            ),
-        )
     return registry
 
 
@@ -924,9 +916,7 @@ async def default_executor_factory(
     # 基值取冻结的 platform agent 策略（与 `AgentPolicy` 的 deadline 同源）；I/O 超时是**单次请求
     # 上限**，不含 Agent 的 runtime_config 覆盖（覆盖由 `AgentRunner` 在重试/截止判定里生效）。
     frozen = request.execution.agent_policy if request.execution is not None else AgentPolicy()
-    budget = ModelBudget(
-        deadline_ms=frozen.deadline_ms, max_model_retries=frozen.max_model_retries
-    )
+    budget = ModelBudget(deadline_ms=frozen.deadline_ms, max_model_retries=frozen.max_model_retries)
     provider: ModelProvider = await _model_provider(
         request.model, timeout_sec=budget.request_timeout_sec(), transport=model_transport
     )
@@ -982,16 +972,19 @@ async def default_executor_factory(
         mcp_adapter=mcp_adapter,
         artifact_writer=artifact_writer,
         task_client=task_client,
+        task_submitter=_durable_submitter(settings, request),
         delivery_client=delivery_client,
         recorder=recorder,
     )
+    hooks = HookPipeline()
     runner = AgentRunner(
         provider=provider,
         registry=registry,
-        hooks=HookPipeline(),
-        context_compactor=_context_compactor(
-            request, summary_provider, artifact_root=settings.artifact_root
+        hooks=hooks,
+        tool_pipeline=ToolExecutionPipeline(
+            registry=registry, audit=recorder, policy=_frozen_tool_policy(request), hooks=hooks
         ),
+        context_compactor=_context_compactor(request, summary_provider, artifact_root=settings.artifact_root),
         tool_round_results=recorder,
     )
 
@@ -1006,6 +999,42 @@ async def default_executor_factory(
             await owned_delivery_client.aclose()
 
     return AgentRunnerExecutor(runner=runner, request=request, close=close)
+
+
+def _frozen_tool_policy(request: ExecutorRequest) -> Callable[[PreparedToolCall], ToolPolicyDecision]:
+    skills = {skill.key: skill for skill in request.skills}
+
+    def authorize(call: PreparedToolCall) -> ToolPolicyDecision:
+        if call.tool_name in ("load_skill", "read_skill_resource", "execute_skill", "run_skill_script"):
+            key = call.arguments.get("skill_key")
+            skill = skills.get(key) if isinstance(key, str) else None
+            if skill is None:
+                return ToolPolicyDecision(False, "Skill is not effective for this Run", "FORBIDDEN")
+            if (
+                call.tool_name == "execute_skill"
+                and skill.execution_mode.value == "SYNC"
+                and "completion_mode" in call.arguments
+            ):
+                return ToolPolicyDecision(
+                    False, "SYNC Skill does not accept completion_mode", "TOOL_COMPLETION_MODE_INVALID"
+                )
+        return ToolPolicyDecision(True)
+
+    return authorize
+
+
+def _durable_submitter(settings: SharedSettings, request: ExecutorRequest) -> TaskSubmissionProtocol | None:
+    if request.run_context is None or not any(
+        skill.execution_mode.value == "ASYNC" for skill in request.skills
+    ):
+        return None
+    from .async_tools.operations import DurableTaskSubmitter
+
+    # Client belongs to the process lifespan, so it survives suspended Run segments.
+    from .async_tools.runtime import get_control_dispatcher
+
+    dispatcher = get_control_dispatcher()
+    return DurableTaskSubmitter(get_session_factory(), dispatcher)
 
 
 def _context_compactor(
@@ -1028,9 +1057,7 @@ def _context_compactor(
     )
 
 
-def _summary_runner(
-    provider: ModelProvider | None, request: ExecutorRequest
-) -> SummaryRunner | None:
+def _summary_runner(provider: ModelProvider | None, request: ExecutorRequest) -> SummaryRunner | None:
     """摘要模型调用：只在开了摘要、且**冻结的摘要模型**与它的 provider 都在时才装。
 
     摘要跑在自己那条模型定义上（endpoint / 模型名 / 凭据都不同，ADR-06 的 `model_ref`）。

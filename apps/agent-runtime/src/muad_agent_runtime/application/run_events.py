@@ -8,6 +8,7 @@ from typing import Any
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts import canonical_json
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.runtime import CanonicalEvent, Conversation
@@ -32,6 +33,16 @@ class EventWriter:
         artifact_id: uuid.UUID | None = None,
         source_event_id: uuid.UUID | None = None,
     ) -> int:
+        if source_event_id is not None:
+            existing = await self._source_event(tenant_id, conversation_id, source_event_id)
+            if existing is not None:
+                if (
+                    existing.run_id != run_id
+                    or existing.event_type != event_type
+                    or canonical_json(existing.payload_json) != canonical_json(payload)
+                ):
+                    raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
+                return int(existing.seq)
         seq = await self._session.scalar(
             sa.update(Conversation)
             .where(
@@ -60,6 +71,27 @@ class EventWriter:
         )
         return int(seq)
 
+    async def _source_event(
+        self, tenant: str, conversation_id: uuid.UUID, source_id: uuid.UUID
+    ) -> CanonicalEvent | None:
+        await self._session.execute(
+            sa.select(Conversation.id)
+            .where(
+                Conversation.id == conversation_id,
+                Conversation.tenant_id == tenant,
+                Conversation.is_deleted.is_(False),
+            )
+            .with_for_update()
+        )
+        event: CanonicalEvent | None = await self._session.scalar(
+            sa.select(CanonicalEvent).where(
+                CanonicalEvent.source_event_id == source_id,
+                CanonicalEvent.tenant_id == tenant,
+                CanonicalEvent.is_deleted.is_(False),
+            )
+        )
+        return event
+
     async def list_events(
         self,
         conversation_id: uuid.UUID,
@@ -79,9 +111,6 @@ class EventWriter:
         if submission_id is not None:
             conditions.append(CanonicalEvent.submission_id == submission_id)
         rows = await self._session.execute(
-            sa.select(CanonicalEvent)
-            .where(*conditions)
-            .order_by(CanonicalEvent.seq)
-            .limit(limit)
+            sa.select(CanonicalEvent).where(*conditions).order_by(CanonicalEvent.seq).limit(limit)
         )
         return list(rows.scalars().all())

@@ -49,9 +49,7 @@ def test_b141_same_key_same_fingerprint_replays_first_result(
     body = _create_task_body(live_stack)
     body["idempotency_key"] = key
 
-    first = http.post(
-        f"{live_stack.worker_url}/internal/tasks", json=body, headers=_headers(live_stack, key)
-    )
+    first = http.post(f"{live_stack.worker_url}/internal/tasks", json=body, headers=_headers(live_stack, key))
     assert first.status_code == 200, first.text
     first_task = first.json()["data"]["task_id"]
 
@@ -62,15 +60,11 @@ def test_b141_same_key_same_fingerprint_replays_first_result(
     assert replay.json()["data"]["task_id"] == first_task
 
 
-def test_b141_same_key_different_fingerprint_conflicts(
-    live_stack: LiveStack, http: httpx.Client
-) -> None:
+def test_b141_same_key_different_fingerprint_conflicts(live_stack: LiveStack, http: httpx.Client) -> None:
     key = f"e2e-idem-conflict-{uuid.uuid4()}"
     body = _create_task_body(live_stack)
     body["idempotency_key"] = key
-    first = http.post(
-        f"{live_stack.worker_url}/internal/tasks", json=body, headers=_headers(live_stack, key)
-    )
+    first = http.post(f"{live_stack.worker_url}/internal/tasks", json=body, headers=_headers(live_stack, key))
     assert first.status_code == 200, first.text
 
     mutated = {**body, "intent_key": "e2e_other_intent"}
@@ -83,9 +77,7 @@ def test_b141_same_key_different_fingerprint_conflicts(
     assert conflict.json()["code"] in {"IDEMPOTENCY_MISMATCH", "COMMON_CONFLICT"}
 
 
-def test_b141_schedule_creation_replays_without_duplicate(
-    live_stack: LiveStack, http: httpx.Client
-) -> None:
+def test_b141_schedule_creation_replays_without_duplicate(live_stack: LiveStack, http: httpx.Client) -> None:
     key = f"e2e-schedule-idem-{uuid.uuid4()}"
     resolved = load_resolved(live_stack)
     body = {
@@ -111,16 +103,17 @@ def test_b141_schedule_creation_replays_without_duplicate(
     assert resolved["skill"].key
 
 
-def test_b141_runtime_client_submits_with_idempotency_key(
-    live_stack: LiveStack, http: httpx.Client
-) -> None:
+def test_b141_runtime_client_submits_with_idempotency_key(live_stack: LiveStack, http: httpx.Client) -> None:
     context, resolved = submission_context(live_stack)
 
     async def submit() -> dict[str, Any]:
         client = WorkerTaskClient(live_stack.worker_url, service_token=INTERNAL_TOKEN)
         try:
             return await client.submit_task(
-                context, skill=resolved["skill"], input_data={"case": "runtime-client"}
+                context,
+                call_id="standalone-call",
+                skill=resolved["skill"],
+                input_data={"case": "runtime-client"},
             )
         finally:
             await client.aclose()

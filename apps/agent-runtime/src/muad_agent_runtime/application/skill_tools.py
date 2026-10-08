@@ -18,8 +18,9 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache, SkillArtifactCacheError
 from muad_common import SharedSettings
-from muad_contracts import ResolvedSkill, SkillExecutionMode
+from muad_contracts import CompletionMode, ResolvedSkill, SkillExecutionMode
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
+from pydantic import JsonValue
 
 from ..metrics import SKILL_LOAD_METRIC, record_outcome
 from .task_client import TaskSubmissionContext
@@ -77,8 +78,9 @@ class TaskSubmissionProtocol(Protocol):
         *,
         skill: ResolvedSkill,
         input_data: Mapping[str, Any],
-        intent_key: str | None = None,
-    ) -> dict[str, Any]: ...
+        call_id: str,
+        completion_mode: CompletionMode,
+    ) -> dict[str, JsonValue]: ...
 
 
 def build_skill_registry(
@@ -162,12 +164,13 @@ class SkillToolSet:
         try:
             skill = self._require_skill(arguments)
             input_data = _require_input(arguments)
-            if (
-                skill.execution_mode is SkillExecutionMode.ASYNC
-                and self._task_client is not None
-                and self._task_context is not None
-            ):
-                return await self._submit_background(skill, input_data)
+            if skill.execution_mode is SkillExecutionMode.ASYNC:
+                mode = CompletionMode(arguments.get("completion_mode", "JOIN"))
+                return await self._submit_background(skill, input_data, call_id, mode)
+            if "completion_mode" in arguments:
+                raise SkillToolError(
+                    ErrorCode.TOOL_COMPLETION_MODE_INVALID.value, "SYNC Skill does not accept completion_mode"
+                )
             package = await self._package(skill)
             return await self._execute(package.root, input_data, script=None)
         except SkillToolError as exc:
@@ -245,7 +248,11 @@ class SkillToolSet:
                 name=EXECUTE_SKILL_TOOL,
                 description=EXECUTE_SKILL_DESCRIPTION,
                 input_schema=_input_schema(
-                    {"skill_key": _STRING_SCHEMA, "input": _OBJECT_SCHEMA},
+                    {
+                        "skill_key": _STRING_SCHEMA,
+                        "input": _OBJECT_SCHEMA,
+                        "completion_mode": {"type": "string", "enum": ["JOIN", "DETACH"]},
+                    },
                     ("skill_key",),
                 ),
                 effect=ToolEffect.EXTERNAL,
@@ -284,24 +291,22 @@ class SkillToolSet:
         return skill
 
     async def _submit_background(
-        self, skill: ResolvedSkill, input_data: Mapping[str, Any]
+        self, skill: ResolvedSkill, input_data: Mapping[str, Any], call_id: str, mode: CompletionMode
     ) -> str:
         """ASYNC Skill 的 ExecutionRouter：只创建 Parent Task，不本地执行。"""
-        assert self._task_client is not None and self._task_context is not None
+        if self._task_client is None or self._task_context is None:
+            raise SkillToolError(BACKGROUND_SUBMIT_FAILED, "durable task submitter is unavailable")
         try:
             submitted = await self._task_client.submit_task(
-                self._task_context, skill=skill, input_data=input_data
+                self._task_context,
+                skill=skill,
+                input_data=input_data,
+                call_id=call_id,
+                completion_mode=mode,
             )
         except AppError as exc:
             raise SkillToolError(BACKGROUND_SUBMIT_FAILED, str(exc.code)) from exc
-        return json.dumps(
-            {
-                "status": "SUBMITTED",
-                "task_id": str(submitted.get("task_id", "")),
-                "task_status": str(submitted.get("status", "")),
-            },
-            ensure_ascii=False,
-        )
+        return json.dumps(submitted, ensure_ascii=False)
 
     async def _ready_dir(self, skill: ResolvedSkill) -> Path:
         cached = self._ready_dirs.get(skill.key)
@@ -395,9 +400,7 @@ def _matches(skill: PromptSkill, terms: Sequence[str]) -> bool:
     技能、把结果上限吃满。子串匹配是不引入分词器的唯一可靠做法。
     """
     haystack = " ".join(
-        part
-        for part in (skill.key, skill.name, skill.description, skill.platform_label or "")
-        if part
+        part for part in (skill.key, skill.name, skill.description, skill.platform_label or "") if part
     ).casefold()
     return all(term in haystack for term in terms)
 

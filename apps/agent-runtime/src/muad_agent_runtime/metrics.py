@@ -41,6 +41,7 @@ GAUGE: Final = "gauge"
 # 目录：(指标名, 类型, label 名, help)。安装时声明，使 `/metrics` 无流量时也暴露完整目录。
 CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     (AGENT_RUNS_METRIC, COUNTER, ("agent", "status"), "Agent runs by agent key and outcome"),
+    ("tool_control_dispatch_total", COUNTER, ("status",), "Durable tool control delivery outcomes"),
     (
         MODEL_INVOCATIONS_METRIC,
         COUNTER,
@@ -94,9 +95,7 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
 )
 
 
-def record_counter(
-    name: str, amount: float = 1.0, labels: Mapping[str, str] | None = None
-) -> None:
+def record_counter(name: str, amount: float = 1.0, labels: Mapping[str, str] | None = None) -> None:
     """累加一次计数（非结局语义的指标，如 artifact 字节数）。"""
     inc_counter(name, amount, labels)
 

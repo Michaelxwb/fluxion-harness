@@ -150,9 +150,9 @@ class TaskService:
             "idempotency_key": payload.idempotency_key,
             "priority": INITIAL_PRIORITY,
             "attempt": 0,
-            "max_attempts": task_settings.max_attempts,
+            "max_attempts": 1 if payload.runtime_operation else task_settings.max_attempts,
             "not_before": now,
-            "deadline_at": now + timedelta(hours=task_settings.default_deadline_hours),
+            "deadline_at": _task_deadline(payload, task_settings, now),
             "delivery_route_id": route_id,
             "delivery_mode": str(payload.delivery_mode),
             "delivery_status": str(self._initial_delivery_status(payload.delivery_mode)),
@@ -397,3 +397,21 @@ class TaskService:
         if mode is DeliveryMode.FINAL_ONLY:
             return DeliveryStatus.PENDING
         return DeliveryStatus.NONE
+
+
+def _task_deadline(payload: CreateTaskRequest, settings: TaskSettings, now: datetime) -> datetime:
+    deadline = now + timedelta(hours=settings.default_deadline_hours)
+    source = payload.runtime_operation
+    if source is None or source.completion_mode.value == "DETACH":
+        return deadline
+    budget = payload.execution_snapshot.get("budget")
+    value = budget.get("run_deadline_at") if isinstance(budget, dict) else None
+    if not isinstance(value, str):
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    try:
+        run_deadline = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from exc
+    if run_deadline.tzinfo is None:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    return min(deadline, run_deadline)

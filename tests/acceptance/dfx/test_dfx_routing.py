@@ -185,9 +185,7 @@ class ScriptedLlmProbe:
                                         "type": "function",
                                         "function": {
                                             "name": str(self.tool_call["name"]),
-                                            "arguments": json.dumps(
-                                                self.tool_call.get("arguments") or {}
-                                            ),
+                                            "arguments": json.dumps(self.tool_call.get("arguments") or {}),
                                         },
                                     }
                                 ],
@@ -277,9 +275,7 @@ def _seed_sync_skill(stack: LiveStack) -> str:
             session.add(artifact)
             await session.flush()
             skill.current_artifact_id = artifact.id
-            session.add(
-                AgentSkillBinding(agent_id=stack.agent_id, skill_id=skill.id, sort_order=1)
-            )
+            session.add(AgentSkillBinding(agent_id=stack.agent_id, skill_id=skill.id, sort_order=1))
             await session.commit()
         return key
 
@@ -349,9 +345,7 @@ def _task_rows(
 
     async def query(factory: Any) -> list[dict[str, Any]]:
         async with factory() as session:
-            rows = (
-                await session.execute(text(statement), {"t": stack.tenant_id, **(params or {})})
-            ).all()
+            rows = (await session.execute(text(statement), {"t": stack.tenant_id, **(params or {})})).all()
         return [dict(zip(TASK_COLUMNS, row, strict=True)) for row in rows]
 
     return cast(list[dict[str, Any]], run_db(query))
@@ -362,9 +356,7 @@ def _run_row(run_id: uuid.UUID) -> dict[str, Any]:
         async with factory() as session:
             row = (
                 await session.execute(
-                    text(
-                        "SELECT status, snapshot_id FROM runtime.run_record WHERE id = :id"
-                    ),
+                    text("SELECT status, snapshot_id FROM runtime.run_record WHERE id = :id"),
                     {"id": run_id},
                 )
             ).one()
@@ -433,9 +425,7 @@ def _await(predicate: Any, *, what: str, timeout_sec: float) -> Any:
 def _parse_sse(body: str) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     for block in body.split("\n\n"):
-        data = [
-            line[len("data:") :].lstrip() for line in block.splitlines() if line.startswith("data:")
-        ]
+        data = [line[len("data:") :].lstrip() for line in block.splitlines() if line.startswith("data:")]
         if data:
             events.append(json.loads("\n".join(data)))
     return events
@@ -667,10 +657,7 @@ def test_s07_scheduled_once_fires_exactly_one_task_and_completes(
     _make_due(schedule_id)
 
     tasks = _await(
-        lambda: _task_rows(
-            live_stack, where="schedule_id = :sid", params={"sid": schedule_id}
-        )
-        or None,
+        lambda: _task_rows(live_stack, where="schedule_id = :sid", params={"sid": schedule_id}) or None,
         what="Scheduler 到期创建 Task",
         timeout_sec=3 * SCHEDULER_POLL_SEC + 30,
     )
@@ -678,11 +665,7 @@ def test_s07_scheduled_once_fires_exactly_one_task_and_completes(
     assert tasks[0]["trigger_type"] == "SCHEDULED" and tasks[0]["task_type"] == "SKILL", tasks[0]
 
     fired = _await(
-        lambda: (
-            row
-            if (row := _schedule_row(schedule_id))["status"] == "COMPLETED"
-            else None
-        ),
+        lambda: row if (row := _schedule_row(schedule_id))["status"] == "COMPLETED" else None,
         what="ONCE Schedule 进入 COMPLETED",
         timeout_sec=3 * SCHEDULER_POLL_SEC + 30,
     )
@@ -729,6 +712,7 @@ def _submit_batch(
         try:
             return await client.submit_task(
                 context,
+                call_id="standalone-call",
                 skill=batch_skill,
                 input_data={
                     "customers": list(BATCH_ITEMS),
@@ -799,10 +783,7 @@ def test_s08_batch_fanout_parked_children_and_single_fan_in(
     async def fan_in_events(factory: Any) -> int:
         async with factory() as session:
             total = await session.scalar(
-                text(
-                    "SELECT count(*) FROM task.task_event"
-                    " WHERE task_id = :id AND event_type = 'FAN_IN'"
-                ),
+                text("SELECT count(*) FROM task.task_event WHERE task_id = :id AND event_type = 'FAN_IN'"),
                 {"id": parent_id},
             )
         return int(total or 0)
@@ -810,9 +791,7 @@ def test_s08_batch_fanout_parked_children_and_single_fan_in(
     assert cast(int, run_db(fan_in_events)) == 1, "fan-in 只能推一次最终结果"
 
 
-def test_s08_batch_children_start_within_concurrency_limit(
-    live_stack: LiveStack, http: httpx.Client
-) -> None:
+def test_s08_batch_children_start_within_concurrency_limit(live_stack: LiveStack, http: httpx.Client) -> None:
     """[S-08] 并发上限的持续不变量：任一时刻非停放的活跃 Child 不超过 max_concurrency。"""
     artifact_id, storage_key, checksum, version = _seed_batch_artifact(live_stack)
     parent_id = _submit_batch(
@@ -836,8 +815,7 @@ def test_s08_batch_children_start_within_concurrency_limit(
         active = [
             row
             for row in rows
-            if row["not_before"] != PARKED_NOT_BEFORE
-            and row["status"] in {"QUEUED", "RUNNING", "WAITING"}
+            if row["not_before"] != PARKED_NOT_BEFORE and row["status"] in {"QUEUED", "RUNNING", "WAITING"}
         ]
         observed_active = max(observed_active, len(active))
         assert len(active) <= BATCH_MAX_CONCURRENCY, f"并发上限被突破：{rows}"

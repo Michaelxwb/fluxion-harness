@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 import uuid
 from collections.abc import Mapping
@@ -58,9 +56,7 @@ class TaskSubmissionContext:
     locale: str = "zh-CN"
 
 
-def build_task_snapshot(
-    context: TaskSubmissionContext, skill: ResolvedSkill
-) -> tuple[dict[str, Any], str]:
+def build_task_snapshot(context: TaskSubmissionContext, skill: ResolvedSkill) -> tuple[dict[str, Any], str]:
     """冻结本次 Task 所需版本键：只含要执行的这一个 Skill，密钥字段不进入快照。"""
     snapshot = build_execution_snapshot(
         agent=context.agent,
@@ -71,14 +67,10 @@ def build_task_snapshot(
     return snapshot, snapshot_hash(snapshot)
 
 
-def submission_idempotency_key(
-    context: TaskSubmissionContext, skill: ResolvedSkill, input_data: Mapping[str, Any]
-) -> str:
-    """同一 Run 内同 Skill 同输入重试复用同一 Task。"""
-    canonical = json.dumps(input_data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+def submission_idempotency_key(context: TaskSubmissionContext, call_id: str) -> str:
+    """A standalone submission retries one explicit call, never merges equal inputs."""
     run_part = str(context.source_run_id) if context.source_run_id else "ad-hoc"
-    return f"run:{run_part}:skill:{skill.key}:{digest}"
+    return f"run:{run_part}:call:{call_id}"
 
 
 class WorkerTaskClient:
@@ -99,6 +91,7 @@ class WorkerTaskClient:
         *,
         skill: ResolvedSkill,
         input_data: Mapping[str, Any],
+        call_id: str,
         intent_key: str | None = None,
     ) -> dict[str, Any]:
         snapshot, frozen_hash = build_task_snapshot(context, skill)
@@ -115,7 +108,7 @@ class WorkerTaskClient:
             "execution_snapshot": snapshot,
             "execution_snapshot_schema_version": TASK_SNAPSHOT_SCHEMA_VERSION,
             "snapshot_hash": frozen_hash,
-            "idempotency_key": submission_idempotency_key(context, skill, input_data),
+            "idempotency_key": submission_idempotency_key(context, call_id),
             "delivery_mode": "FINAL_ONLY" if route is not None else "NONE",
         }
         if route is not None:

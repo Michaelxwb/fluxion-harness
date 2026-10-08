@@ -44,6 +44,7 @@ def _submit_batch(live_stack: LiveStack) -> str:
         try:
             return await client.submit_task(
                 context,
+                call_id="standalone-call",
                 skill=batch_skill,
                 input_data={"customers": ["A", "B", "C", "D"]},
                 intent_key="e2e_batch",

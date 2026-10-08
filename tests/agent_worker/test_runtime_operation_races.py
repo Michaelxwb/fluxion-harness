@@ -27,6 +27,104 @@ from tests.async_tool_helpers import seed_operation
 pytestmark = pytest.mark.integration
 
 
+async def test_b01_pending_limit_row_lock_and_distinct_tool_calls(async_tool_database):
+    import asyncio
+
+    from muad_agent_runtime.application.async_tools.operations import reserve_operation
+    from muad_agent_runtime.infrastructure.models.async_tools import ToolControlOutbox, ToolOperation
+    from muad_api import AppError
+    from muad_contracts import CompletionMode
+
+    from tests.async_tool_submissions import seed_submission
+
+    factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
+    context, skill, _ = await seed_submission(factory)
+    start = asyncio.Event()
+
+    async def reserve(call_id):
+        await start.wait()
+        try:
+            return await reserve_operation(
+                factory,
+                context,
+                skill=skill,
+                input_data={"same": True},
+                call_id=call_id,
+                completion_mode=CompletionMode.JOIN,
+            )
+        except AppError as exc:
+            return str(exc.code)
+
+    tasks = [asyncio.create_task(reserve(call)) for call in ("call-a", "call-b")]
+    start.set()
+    results = await asyncio.gather(*tasks)
+    assert sum(isinstance(result, ToolOperation) for result in results) == 1
+    assert "TOOL_OPERATION_CAPACITY_EXCEEDED" in results
+    operation = next(result for result in results if isinstance(result, ToolOperation))
+    replay = await reserve_operation(
+        factory,
+        context,
+        skill=skill,
+        input_data={"same": True},
+        call_id=operation.source_tool_call_id,
+        completion_mode=CompletionMode.JOIN,
+    )
+    assert replay.id == operation.id
+    with pytest.raises(AppError) as conflict:
+        await reserve_operation(
+            factory,
+            context,
+            skill=skill,
+            input_data={"same": False},
+            call_id=operation.source_tool_call_id,
+            completion_mode=CompletionMode.JOIN,
+        )
+    assert str(conflict.value.code) == "IDEMPOTENCY_MISMATCH"
+    async with factory() as session:
+        assert await session.scalar(select(func.count()).select_from(ToolControlOutbox)) == 1
+        assert operation.task_id is None
+        assert operation.submission_json["idempotency_key"] == f"runtime-op:{operation.id}:submit"
+        assert operation.submission_json["execution_snapshot"]["budget"]["max_attempts"] == 1
+
+
+async def test_b01_close_registration_barrier_keeps_durable_intents(async_tool_database):
+    import asyncio
+
+    from muad_agent_runtime.application.async_tools.operations import reserve_operation
+    from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
+    from muad_agent_runtime.infrastructure.models.async_tools import ToolControlOutbox, ToolOperation
+    from muad_contracts import CompletionMode
+
+    from tests.async_tool_submissions import seed_submission
+
+    factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
+    context, skill, _ = await seed_submission(factory)
+    registered, release = asyncio.Event(), asyncio.Event()
+    supervisor = ExecutionSupervisor(close_timeout_sec=1)
+
+    async def execution():
+        operation = await reserve_operation(
+            factory,
+            context,
+            skill=skill,
+            input_data={},
+            call_id="close-race",
+            completion_mode=CompletionMode.JOIN,
+        )
+        registered.set()
+        await release.wait()
+        return operation.id
+
+    assert await supervisor.submit(context.source_run_id, execution)
+    await registered.wait()
+    await supervisor.close()
+    assert supervisor.execution_count == 0
+    assert not await supervisor.submit(uuid4(), execution)
+    async with factory() as session:
+        assert await session.scalar(select(func.count()).select_from(ToolOperation)) == 1
+        assert await session.scalar(select(func.count()).select_from(ToolControlOutbox)) == 1
+
+
 async def _terminal(factory, task, status=TerminalStatus.COMPLETED):
     change = TerminalChange(
         status=status,

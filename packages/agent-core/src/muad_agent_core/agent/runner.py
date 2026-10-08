@@ -37,7 +37,8 @@ from ..model.provider import (
     text_of,
 )
 from ..prompt.builder import DefaultPromptBuilder, PromptBuilder, PromptSkill
-from ..tools.registry import ToolNotFoundError, ToolRegistry
+from ..tools.pipeline import ToolExecutionPipeline
+from ..tools.registry import ToolRegistry
 from ..tools.round_results import ToolResultRoundPort
 
 NODE_PREPARE_CONTEXT = "prepare_context"
@@ -209,10 +210,12 @@ class AgentRunner:
         prompt_builder: PromptBuilder | None = None,
         context_compactor: ContextCompactor | None = None,
         tool_round_results: ToolResultRoundPort | None = None,
+        tool_pipeline: ToolExecutionPipeline | None = None,
     ) -> None:
         self._provider = provider
         self._registry = registry
         self._hooks = hooks or HookPipeline()
+        self._tool_pipeline = tool_pipeline or ToolExecutionPipeline(registry=registry, hooks=self._hooks)
         self._prompt_builder = prompt_builder or DefaultPromptBuilder()
         # 压缩只作用于**派生请求**（design §3.1 ADR-01：这里是 `ModelRequest` 的唯一组装点），
         # `state["messages"]` 这份权威历史一个字节都不动。
@@ -233,8 +236,7 @@ class AgentRunner:
         on_model_started: Callable[[], Awaitable[None]] | None = None,
         on_model_completed: Callable[[], Awaitable[None]] | None = None,
         on_assistant_turn: Callable[[ModelMessage], Awaitable[None]] | None = None,
-        on_tool_completed: Callable[[str, str, str, str | None, str | None], Awaitable[None]]
-        | None = None,
+        on_tool_completed: Callable[[str, str, str, str | None, str | None], Awaitable[None]] | None = None,
     ) -> AgentRunResult:
         system = self._prompt_builder.build(instructions=request.instructions, skills=request.skills)
         initial = AgentGraphState(
@@ -443,9 +445,7 @@ class AgentRunner:
             return
         if self._round_results is not None:
             indexes = [index for index, *_ in executed]
-            replaced = await self._round_results.finish_round(
-                tuple(messages[index] for index in indexes)
-            )
+            replaced = await self._round_results.finish_round(tuple(messages[index] for index in indexes))
             for index, message in zip(indexes, replaced, strict=True):
                 messages[index] = message
         for index, call_id, name, status in executed:
@@ -470,26 +470,24 @@ class AgentRunner:
         await self._hooks.run(HookEvent.POST_MODEL, payload)
         state["post_model_pending"] = False
 
-    async def _run_tool_call(
-        self, state: AgentGraphState, call: ModelToolCall
-    ) -> tuple[ModelMessage, str]:
-        arguments = dict(call.arguments)
+    async def _run_tool_call(self, state: AgentGraphState, call: ModelToolCall) -> tuple[ModelMessage, str]:
         try:
-            context = await self._hooks.run(
-                HookEvent.PRE_TOOL_USE,
-                {"call_id": call.id, "tool": call.name, "arguments": arguments},
+            prepared = self._tool_pipeline.prepare(
+                call_id=call.id, tool_name=call.name, arguments=call.arguments
+            )
+            result = await self._tool_pipeline.execute(
+                prepared,
+                on_started=state["on_tool_started"],
             )
         except Exception as exc:
-            return (
-                _tool_message(
-                    call.id, TOOL_BLOCKED_TEMPLATE.format(reason=f"{type(exc).__name__}: {exc}")
-                ),
-                "BLOCKED",
-            )
-        payload = context.payload.get("arguments", arguments)
-        if isinstance(payload, Mapping):
-            arguments = dict(payload)
-        return await self._execute_tool(state, call, arguments)
+            return _tool_message(call.id, tool_failure_content(exc)), "ERROR"
+        statuses = {
+            "SUCCEEDED": "OK",
+            "FAILED": "ERROR",
+            "POLICY_DENIED": "BLOCKED",
+            "NOT_FOUND": "NOT_FOUND",
+        }
+        return _tool_message(call.id, result.content), statuses[result.status]
 
     async def _notify_tool_completed(
         self,
@@ -503,36 +501,6 @@ class AgentRunner:
         callback = state["on_tool_completed"]
         if callback is not None:
             await callback(call_id, name, status, artifact_id, result_text)
-
-    async def _execute_tool(
-        self, state: AgentGraphState, call: ModelToolCall, arguments: dict[str, Any]
-    ) -> tuple[ModelMessage, str]:
-        """执行一次工具调用，返回（给模型的工具消息, 状态）。**不在这里报完成事件**（ADR-04）。"""
-        try:
-            definition = self._registry.get(call.name)
-        except ToolNotFoundError:
-            return _tool_message(call.id, UNKNOWN_TOOL_TEMPLATE.format(name=call.name)), "NOT_FOUND"
-        if definition.handler is None:
-            return (
-                _tool_message(call.id, TOOL_FAILED_TEMPLATE.format(reason="no handler registered")),
-                "FAILED",
-            )
-        if state["on_tool_started"] is not None:
-            await state["on_tool_started"](call.id, call.name)
-        status = "OK"
-        try:
-            content = await definition.handler(arguments, call_id=call.id)
-        except Exception as exc:
-            status = "ERROR"
-            content = tool_failure_content(exc)
-        context = await self._hooks.run(
-            HookEvent.POST_TOOL_USE,
-            {"call_id": call.id, "tool": call.name, "arguments": arguments, "result": content},
-        )
-        result = context.payload.get("result", content)
-        if isinstance(result, str):
-            content = result
-        return _tool_message(call.id, content), status
 
     async def _finalize(self, state: AgentGraphState) -> AgentGraphState:
         await self._emit_post_model(state)
@@ -548,9 +516,7 @@ class AgentRunner:
         return {
             **state,
             "final_text": final_text if isinstance(final_text, str) else state["final_text"],
-            "status": str(
-                AgentRunStatus.BUDGET_EXCEEDED if exceeded else AgentRunStatus.COMPLETED
-            ),
+            "status": str(AgentRunStatus.BUDGET_EXCEEDED if exceeded else AgentRunStatus.COMPLETED),
         }
 
     def _route_after_model(self, state: AgentGraphState) -> str:
@@ -618,9 +584,7 @@ class AgentRunner:
 
     def _budget(self, state: AgentGraphState) -> ModelBudget:
         policy = state["policy"]
-        return ModelBudget(
-            deadline_ms=policy.deadline_ms, max_model_retries=policy.max_model_retries
-        )
+        return ModelBudget(deadline_ms=policy.deadline_ms, max_model_retries=policy.max_model_retries)
 
     def _request_timeout_sec(self, state: AgentGraphState) -> float:
         """这一次模型请求的 I/O 超时 = min(单次上限, **剩余**总预算)（ADR-07）。
