@@ -28,6 +28,8 @@ verifiers:
 
 ## Conventions
 
+- **Hook 改写后的参数必须重新校验和授权**：默认 Runner 使用 `tools/pipeline.py`，原参数 schema → PRE_TOOL_USE → 最终参数 schema → 冻结能力策略 → handler；Runtime 再在 Run 行锁内核对冻结 Skill 与主体并预留 operation 容量。DENY/ERROR 由同一审计端口记录最终参数 hash；tenant/actor/run/snapshot 不进入工具顶层 schema。✅ 改写 skill_key 后重新查本 Run 冻结能力；❌ 沿用改写前的授权结论，或绕过默认 pipeline 直接调用 handler。
+
 Console 身份、会话与凭据管理（每条末附机器检查）：
 
 - **仅两级角色，凭据类路由必须挂 `admin` 组**：角色只有 `ADMIN`/`BUILDER`（`infrastructure/models/auth.py:9-10`），创建账号按白名单校验 role（`application/auth_service.py:21,149-150`）。`accounts`/`users`/`credentials` 三组路由挂 `admin` 组（`require_admin`，非 ADMIN → `403 FORBIDDEN`），其余配置类路由挂 `authenticated`（`api/router.py:27-46`）。凭据管理的 ADMIN 门控是**前端隐藏 + 后端 403 兜底**的双层要求，缺一不可。

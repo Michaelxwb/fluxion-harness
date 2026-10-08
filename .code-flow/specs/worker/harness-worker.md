@@ -27,6 +27,8 @@ verifiers:
 
 ## Conventions
 
+- **Run 来源的新 operation 冻结单次执行预算**：`TaskService._creation_values` 对有 `runtime_operation` 的 Task 使用 max_attempts=1，Child 继承；JOIN 从冻结 execution snapshot budget 读取带时区 run_deadline_at，并与自己的 Task deadline 取较早值，DETACH 受理后使用独立 Task deadline。立即提交每个真实 call 独立 operation，传输重试使用 `runtime-op:{operation_id}:submit/cancel`；受理响应包含可信 run/actor/operation/call/hash 与真实首次 Task 状态。✅ 重投同 operation，结果先到也不回退状态；❌ 把同 Run、Skill、输入的两次明确调用合并，或把提交未确认伪称 Task FAILED。
+
 - **Parent-Child 批量幂等**：Parent 在**单事务**内创建 Child（带 `root_id`/`parent_id`/`item_key`），Child 幂等键为 `parent:{parent_id}:{item_key}`；partial unique `(parent_id, item_key) WHERE parent_id IS NOT NULL AND is_deleted = false` 保证同一 Child 只创建一次。reclaim 后已有 Child 只等待 fan-in，**不重复 fan-out**。（`application/batch_fanout.py`、`batch_fanin.py`）**`item_key` 只由严格 JSON 派生**（`muad_contracts.canonical`，2026-10-07）：显式 `item_key` 优先，否则规范化 JSON 的 sha256 前缀。❌ 用 `default=str` 兜底——`date(2026,1,1)` 与 `"2026-01-01"` 会撞成同一个键，partial unique 把第二条 Child **静默合并掉**（少跑一条且不报错）；键算不出来一律 `BATCH_PLAN_INVALID`（确定性失败）。
 - **来源 operation 与父子事务使用同一锁序**：`application/terminal_tasks.py::lock_task_tree` 先锁可信 `runtime_operation`，再锁 root/Parent，最后更新 Child；无 operation 的既有任务沿用 Parent→Child。取消、终态、fan-in、deadline 和 reclaim 均遵守；扫描有界，每个根任务树独立提交，不跨无关 operation 保留行锁。✅ operation→root→Parent→Child→TaskEvent/outbox；❌ 先 UPDATE Child，或拿 root 锁后反向拿 operation 锁。
 - **扇出前必须证明「本次执行仍持有父任务」**：父行锁内四格一起看——`status=RUNNING`、`cancel_requested=false`、`lease_until > now`、`lease_owner` 与本执行一致；已取消/已失约的父任务**不得**建出可执行的 Child（`application/batch_fanout.py:60`）。✅ `_require_live_owner(locked, claimed, moment)`；❌ 只按 `id` 加锁就插 Child。

@@ -27,6 +27,8 @@ verifiers:
 
 ## Conventions
 
+- **异步容量与绝对 deadline 在 Run 创建时冻结**：policy_json.async_tools 由严格 AsyncToolPolicy 与 Agent 覆盖构建；deadline_at 从首次 start_time 与有效 AgentPolicy 计算。Runtime `async_tools/operations.py` 在 Conversation→Run 锁序内核对冻结能力、按真实 call 去重并预留容量，再同事务写 operation + SUBMIT outbox；取消、失败和 Reaper 同事务写 JOIN/未受理提交的取消意图。✅ 检查点恢复读取原 policy/deadline；❌ 在提交或恢复时重新取设置、延期 deadline，或在 HTTP 中持有业务行锁。
+
 - **快照 hash 口径统一为 `"sha256:"` + canonical JSON**：`json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)` 后取 SHA256。contracts 侧 `snapshot_hash` 与 Runtime 侧 `_snapshot_hash` 必须同口径，否则跨服务比对不等（`packages/contracts/src/muad_contracts/snapshot.py:20,77-79`；`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py:128-129,179-190`）。✅ 两侧都复用同一组 `sort_keys`/紧凑分隔符/`ensure_ascii=False`；❌ 任一侧漏掉其中一项（例如漏 `ensure_ascii=False` 导致中文被转义）→ hash 不等。
 - **execution snapshot 的 `skills` 数组恒为 1**：只冻结本次 Task 要执行的那一个 Skill，执行器按 `skill_artifact_id` 精确匹配（`packages/contracts/src/muad_contracts/snapshot.py:4-5,21-28,53-74`）。❌ 把 Agent 的全部 Skill 塞进 `skills` 会导致执行器误执行非本次目标的 Skill。
 - **`api_key` 必须从快照与 hash 中剥离**：`model_json` 与 `content_hash` 的输入都要 `pop("api_key")`，认证实时走 API-09 读取（`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py:172-176`；断言 `tests/agent_runtime/test_snapshot_freeze.py:33-46`）。这是 snapshot 与 secret 两个 spec 的接缝：✅ 快照只留 `base_url`/`model_id` 等非密钥字段；❌ 密钥进快照或进 hash，会造成密钥轮换即 hash 漂移且密钥落盘。

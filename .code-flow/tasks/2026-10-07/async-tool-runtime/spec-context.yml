@@ -1,7 +1,7 @@
 version: 1
 task: async-tool-runtime
 enforcement: required
-updated_at: '2026-10-08T07:02:14.982028+00:00'
+updated_at: '2026-10-08T07:37:28.682642+00:00'
 sources:
 - type: cli
   ref: bind
@@ -52,7 +52,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -158,7 +158,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -297,7 +297,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -359,7 +359,7 @@ bindings:
   path: auth/harness-auth.md
   status: active
   hashes:
-    file_sha256: ad7aedf235dfa7afb8cfa872bda5f9fde6774913aa1aca2c5856a8d41e837910
+    file_sha256: 3214a3b041cdaa2a58d601754dce9ea10e02ccc2bbf8cb757a700baf35ec9b5e
     metadata_sha256: 282fc035519e5c5b8561dea4584ebcd8df997e78dc811a803b0dec769bd31e77
     rules_sha256: 2c0d8492b6adb9167c4309b44a5b1be42b1920f5e241f629d2f2bf9825cdc570
   selected_by: agent
@@ -396,7 +396,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -482,7 +482,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -571,7 +571,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -656,7 +656,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -741,7 +741,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -812,7 +812,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -899,7 +899,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -984,7 +984,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -1081,7 +1081,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -1167,7 +1167,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -1270,7 +1270,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -1332,7 +1332,7 @@ bindings:
   path: snapshot/harness-snapshot.md
   status: active
   hashes:
-    file_sha256: 88d01bdb1683d2a5d59997369fb6ade36a353fd1bc12e80ef19933d584a2dba2
+    file_sha256: 3b5d41bc41b4a0fcd2bb1bcdb58e97835787266d6d568a7f7731abdb98267926
     metadata_sha256: 4772b9dff35dcd7ef80935ac4770a4fc804a0080c8bd92d7ab8108a3cfaac583
     rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
   selected_by: agent
@@ -1369,7 +1369,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -1454,7 +1454,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -1539,7 +1539,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -1672,7 +1672,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -1756,7 +1756,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
@@ -1806,7 +1806,7 @@ bindings:
   path: worker/harness-worker.md
   status: active
   hashes:
-    file_sha256: 2fcba38dd31e286bb5ab07ff2108df5bd7578a9e24a03c62024ed0a30f22e29c
+    file_sha256: 4cd5c4d6e33952431cffc77d37a57d2bfc3fea1d6592fda2c1dcfe470b817fa4
     metadata_sha256: 185250e5e95b30103f5592a48a99064876217aa17b4fc2caeadd5c3ca692b0c3
     rules_sha256: 11fbb17617ae9335d2f9190b83c7784825fb4ccc8118ed41bdd812419ad9da02
   selected_by: agent
@@ -1844,7 +1844,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
+          artifact_sha256: f54fe9af0b7a985bffc7f3b72b3aaadc77281c86947be271e1db0853cf2033c0
         decision: null
         evidence: []
       code:
