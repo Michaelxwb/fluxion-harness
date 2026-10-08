@@ -2467,7 +2467,7 @@
       "kind": "e2e",
       "boundary": "Browser→Console→PG；Runtime/Worker/LLM HTTP",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2475,7 +2475,40 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-20",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "be6707abc18e40f49ae6f071c57b830c",
+        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "S-20",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "be6707abc18e40f49ae6f071c57b830c",
+          "executed_at": "2026-10-08T16:41:35.163260+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "S-21",
@@ -2484,7 +2517,7 @@
       "kind": "e2e",
       "boundary": "Browser→Router/面板控制→Console Run/Task API→PG",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2492,7 +2525,40 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-21",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "be6707abc18e40f49ae6f071c57b830c",
+        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "S-21",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "be6707abc18e40f49ae6f071c57b830c",
+          "executed_at": "2026-10-08T16:41:35.163260+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "S-22",
@@ -2501,7 +2567,7 @@
       "kind": "e2e",
       "boundary": "Browser、真实 Console 分页、PG count",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2509,7 +2575,40 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-22",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "be6707abc18e40f49ae6f071c57b830c",
+        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "S-22",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "be6707abc18e40f49ae6f071c57b830c",
+          "executed_at": "2026-10-08T16:41:35.163260+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "S-23",
@@ -2518,7 +2617,7 @@
       "kind": "e2e",
       "boundary": "Browser language/timezone、HTTP 请求头、真实 DTO",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2526,7 +2625,40 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-23",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "be6707abc18e40f49ae6f071c57b830c",
+        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "S-23",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "be6707abc18e40f49ae6f071c57b830c",
+          "executed_at": "2026-10-08T16:41:35.163260+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "S-24",
@@ -2535,7 +2667,7 @@
       "kind": "e2e",
       "boundary": "Browser、Console 真实只读投影、PG",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2543,7 +2675,40 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-24",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "be6707abc18e40f49ae6f071c57b830c",
+        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "S-24",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "be6707abc18e40f49ae6f071c57b830c",
+          "executed_at": "2026-10-08T16:41:35.163260+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-20",
@@ -2552,7 +2717,7 @@
       "kind": "e2e",
       "boundary": "故障代理、Browser、真实 Console 重试",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2560,7 +2725,40 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-20",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "be6707abc18e40f49ae6f071c57b830c",
+        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-20",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "be6707abc18e40f49ae6f071c57b830c",
+          "executed_at": "2026-10-08T16:41:35.163260+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-21",
@@ -2569,7 +2767,7 @@
       "kind": "e2e",
       "boundary": "Browser、账号租户、Console API",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2577,7 +2775,40 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-21",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "be6707abc18e40f49ae6f071c57b830c",
+        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-21",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "be6707abc18e40f49ae6f071c57b830c",
+          "executed_at": "2026-10-08T16:41:35.163260+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-22",
@@ -2586,7 +2817,7 @@
       "kind": "e2e",
       "boundary": "延迟真实响应的代理、Browser、服务请求",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2594,7 +2825,40 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-22",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "be6707abc18e40f49ae6f071c57b830c",
+        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-22",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "be6707abc18e40f49ae6f071c57b830c",
+          "executed_at": "2026-10-08T16:41:35.163260+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "B-20",
@@ -2603,7 +2867,7 @@
       "kind": "e2e",
       "boundary": "真实 PG 空列表/分页",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2611,7 +2875,40 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-20",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "be6707abc18e40f49ae6f071c57b830c",
+        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "B-20",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "be6707abc18e40f49ae6f071c57b830c",
+          "executed_at": "2026-10-08T16:41:35.163260+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "B-21",
@@ -2620,7 +2917,7 @@
       "kind": "e2e",
       "boundary": "Chrome 键盘、实际 Semi SideSheet/Tab/链接",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2628,7 +2925,40 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-21",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "be6707abc18e40f49ae6f071c57b830c",
+        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "B-21",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "be6707abc18e40f49ae6f071c57b830c",
+          "executed_at": "2026-10-08T16:41:35.163260+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     }
   ]
 }

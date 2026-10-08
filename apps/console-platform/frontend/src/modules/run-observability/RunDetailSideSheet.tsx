@@ -2,15 +2,19 @@
  * Run 详情（只读）。两个入口共用：运行审计「关联 Run」与后台任务详情「来源运行」。
  *
  * **只读、且只展示结构**：运行的用户输入原文与事件负载都不在投影里（后端 `GET /api/v1/runs/{id}`
- * 就不返回它们），所以这里也不可能渲染出来。Console 至今零暴露对话原文，要不要开这个口是产品
- * 决定，不该由「闭环一条 issue」顺带定——先不加易、后撤难。
+ * 与 `/operations` 就不返回它们），所以这里也不可能渲染出来。Console 至今零暴露对话原文，要不要
+ * 开这个口是产品决定，不该由「闭环一条 issue」顺带定——先不加易、后撤难。
  *
  * 轮廓已剔除流式增量（`message.delta`，一次运行可达数千行），超上限时后端置
  * `timeline_truncated`，页面**如实说明还有更多**，不假装完整。
+ *
+ * 数据状态归 `hooks/useRunDetail` / `hooks/useRunOperations`（只经 service 层取数）；本组件是
+ * 容器：页签、刷新、请求代次接线，以及 Run→Task 的点击意向上抛（**不自行导航**）。
  */
 
-import { Spin, Tabs } from '@douyinfe/semi-ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Banner, Button, Spin, Tabs } from '@douyinfe/semi-ui';
+import { IconRefresh } from '@douyinfe/semi-icons';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../components/common/DateTimeText';
@@ -18,144 +22,205 @@ import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
-import { StatusTag, type StatusTagOption } from '../../components/common/StatusTag';
-import { getRun, type RunDetail } from './services/runs';
-
-const STATUS_COLORS: Record<string, StatusTagOption['color']> = {
-  CREATED: 'grey',
-  RUNNING: 'blue',
-  WAITING_INPUT: 'amber',
-  COMPLETED: 'green',
-  FAILED: 'red',
-  CANCELLED: 'grey'
-};
+import { PaginationFooter } from '../../components/common/PaginationFooter';
+import { StatusTag } from '../../components/common/StatusTag';
+import { RunOperationTable } from './components/RunOperationTable';
+import { RunTimelineOutline } from './components/RunTimelineOutline';
+import { useRunDetail } from './hooks/useRunDetail';
+import { useRunOperations } from './hooks/useRunOperations';
+import type { RunDetail, WaitReason } from './services/runs';
+import { runStatusOptions } from './statusOptions';
 
 export interface RunDetailSideSheetProps {
   runId: string | null;
   onCancel(): void;
+  /**
+   * 关联 Task 的点击意图（可选）：只有提供回调且 Task 已受理时才呈现详情链接；
+   * 页面负责关闭本面板并打开 Task 详情，本组件不导航、不递归挂载另一面板。
+   */
+  onOpenTask?(taskId: string, sourceRunId: string): void;
+}
+
+const WAITING_STATUSES = ['WAITING_TOOL', 'WAITING_INPUT'];
+
+function waitingReasonKey(reason: WaitReason): string {
+  return `run.detail.waitingReason.${reason}`;
+}
+
+function buildBasicItems(detail: RunDetail, t: (key: string, options?: Record<string, unknown>) => string) {
+  const statusOptions = runStatusOptions(t);
+  const waiting = WAITING_STATUSES.includes(detail.status);
+  return [
+    {
+      label: t('run.columns.status'),
+      value: <StatusTag status={detail.status} options={statusOptions} />
+    },
+    { label: t('run.columns.agent'), value: detail.agent_name ?? detail.agent_id },
+    { label: t('run.columns.actor'), value: detail.actor_name ?? detail.actor_user_id },
+    { label: t('run.columns.trace'), value: detail.trace_id },
+    {
+      label: t('run.columns.startTime'),
+      value: detail.start_time ? <DateTimeText value={detail.start_time} /> : '-'
+    },
+    {
+      label: t('run.columns.endTime'),
+      value: detail.end_time ? <DateTimeText value={detail.end_time} /> : '-'
+    },
+    ...(waiting
+      ? [
+          {
+            label: t('run.detail.waitingSince'),
+            value: detail.waiting_since ? <DateTimeText value={detail.waiting_since} /> : '-'
+          },
+          {
+            label: t('run.detail.deadline'),
+            value: detail.deadline_at ? <DateTimeText value={detail.deadline_at} /> : '-'
+          },
+          {
+            label: t('run.detail.pendingJoin'),
+            value: detail.pending_join_count
+          },
+          {
+            label: t('run.detail.pendingSubmission'),
+            value: detail.pending_submission_count
+          },
+          {
+            label: t('run.detail.continuations'),
+            value: detail.continuation_count
+          }
+        ]
+      : []),
+    {
+      fullWidth: true,
+      label: t('run.detail.error'),
+      value: (
+        <span data-testid="run-detail-error">
+          {detail.error_code ? `${detail.error_code}: ` : ''}
+          {detail.error_message ?? '-'}
+        </span>
+      )
+    }
+  ];
 }
 
 export function RunDetailSideSheet(props: RunDetailSideSheetProps) {
   const { t } = useTranslation();
-  const [detail, setDetail] = useState<RunDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
-  const requestSeq = useRef(0);
+  const detailState = useRunDetail(props.runId);
+  const operationsState = useRunOperations(props.runId, activeTab === 'operations');
+  const { detail, loading, failed, notFound, reload } = detailState;
+  const {
+    page: operations,
+    loading: operationsLoading,
+    failed: operationsFailed,
+    reload: reloadOperations,
+    changePage,
+    changePageSize
+  } = operationsState;
 
-  const load = useCallback(async () => {
-    if (!props.runId) {
-      return;
-    }
-    const current = ++requestSeq.current;
-    setLoading(true);
-    setFailed(false);
-    try {
-      const value = await getRun(props.runId);
-      if (current === requestSeq.current) {
-        setDetail(value);
-      }
-    } catch {
-      if (current === requestSeq.current) {
-        setDetail(null);
-        setFailed(true);
-      }
-    } finally {
-      if (current === requestSeq.current) {
-        setLoading(false);
-      }
-    }
-  }, [props.runId]);
+  const handleRefresh = useCallback(() => {
+    reload();
+    // 只对**已加载**的关联页签重取；未打开过就不凭空发分页请求。
+    reloadOperations();
+  }, [reload, reloadOperations]);
 
-  useEffect(() => {
-    setActiveTab('basic');
-    if (props.runId) {
-      void load();
-    } else {
-      setDetail(null);
-      setFailed(false);
-    }
-  }, [props.runId, load]);
-
-  const statusOptions = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(STATUS_COLORS).map(([status, color]) => [
-          status,
-          { color, label: t(`run.status.${status}`) }
-        ])
-      ),
-    [t]
+  const handlePageChange = useCallback(
+    (page: number) => {
+      // 局部 loading 期间禁用重复翻页（响应代次只保留最后一次）。
+      if (!operationsLoading) {
+        changePage(page);
+      }
+    },
+    [operationsLoading, changePage]
   );
+
+  const handlePageSizeChange = useCallback(
+    (pageSize: number) => {
+      if (!operationsLoading) {
+        changePageSize(pageSize);
+      }
+    },
+    [operationsLoading, changePageSize]
+  );
+
+  const handleOpenTask = useCallback(
+    (taskId: string) => {
+      if (props.runId && props.onOpenTask) {
+        props.onOpenTask(taskId, props.runId);
+      }
+    },
+    [props.runId, props.onOpenTask]
+  );
+
+  const notice = failed ? (
+    <ErrorState
+      description={notFound ? t('run.detail.unavailable') : undefined}
+      onRetry={reload}
+    />
+  ) : undefined;
 
   return (
     <DetailSideSheet
       visible={props.runId !== null}
       title={props.runId ?? ''}
       subtitle={detail ? `${t(`run.status.${detail.status}`)} · ${detail.trace_id}` : t('run.detail.basic')}
+      actions={
+        <Button
+          icon={<IconRefresh />}
+          data-testid="run-detail-refresh"
+          onClick={handleRefresh}
+        >
+          {t('run.detail.refresh')}
+        </Button>
+      }
       activeTab={activeTab}
       onTabChange={setActiveTab}
       onCancel={props.onCancel}
-      notice={failed ? <ErrorState onRetry={() => void load()} /> : undefined}
+      notice={notice}
     >
       <Tabs.TabPane itemKey="basic" tab={t('run.detail.basic')}>
-        {loading ? <Spin /> : null}
+        {loading && !detail ? <Spin /> : null}
         {detail ? (
           <>
+            {detail.status === 'WAITING_TOOL' && detail.waiting_reason ? (
+              <div data-testid="run-detail-waiting-banner">
+                <Banner
+                  type="warning"
+                  closeIcon={null}
+                  description={t(waitingReasonKey(detail.waiting_reason))}
+                />
+              </div>
+            ) : null}
             <div className="detail-section-title">{t('run.detail.basic')}</div>
-            <DetailGrid
-              items={[
-                {
-                  label: t('run.columns.status'),
-                  value: <StatusTag status={detail.status} options={statusOptions} />
-                },
-                { label: t('run.columns.agent'), value: detail.agent_name ?? detail.agent_id },
-                { label: t('run.columns.actor'), value: detail.actor_name ?? detail.actor_user_id },
-                { label: t('run.columns.trace'), value: detail.trace_id },
-                {
-                  label: t('run.columns.startTime'),
-                  value: detail.start_time ? <DateTimeText value={detail.start_time} /> : '-'
-                },
-                {
-                  label: t('run.columns.endTime'),
-                  value: detail.end_time ? <DateTimeText value={detail.end_time} /> : '-'
-                },
-                {
-                  fullWidth: true,
-                  label: t('run.detail.error'),
-                  value: (
-                    <span data-testid="run-detail-error">
-                      {detail.error_code ? `${detail.error_code}: ` : ''}
-                      {detail.error_message ?? '-'}
-                    </span>
-                  )
-                }
-              ]}
-            />
+            <DetailGrid items={buildBasicItems(detail, t)} />
           </>
+        ) : null}
+      </Tabs.TabPane>
+      <Tabs.TabPane itemKey="operations" tab={t('run.detail.operations')}>
+        {operationsLoading ? <Spin /> : null}
+        {operationsFailed ? (
+          <ErrorState onRetry={reloadOperations} />
+        ) : operations ? (
+          operations.total === 0 ? (
+            <EmptyState title={t('run.detail.operationsEmpty')} />
+          ) : (
+            <>
+              <div className="detail-section-title">{t('run.detail.operations')}</div>
+              <RunOperationTable rows={operations.items} onOpenTask={props.onOpenTask ? handleOpenTask : undefined} />
+              <PaginationFooter
+                page={operations.page}
+                pageSize={operationsState.pageSize}
+                total={operations.total}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            </>
+          )
         ) : null}
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="timeline" tab={t('run.detail.timeline')}>
         {detail ? (
-          <div data-testid="run-detail-timeline">
-            {detail.timeline.length === 0 ? (
-              <EmptyState title={t('run.detail.timelineEmpty')} />
-            ) : (
-              <ul className="detail-list">
-                {detail.timeline.map((event) => (
-                  <li key={event.seq}>
-                    <span className="mono">{event.event_type}</span>
-                    {' · '}
-                    <DateTimeText value={event.create_time} />
-                    {event.has_artifact ? ` · ${t('run.detail.hasArtifact')}` : ''}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {detail.timeline_truncated ? (
-              <p data-testid="run-detail-truncated">{t('run.detail.truncated')}</p>
-            ) : null}
-          </div>
+          <RunTimelineOutline events={detail.timeline} truncated={detail.timeline_truncated} />
         ) : null}
       </Tabs.TabPane>
     </DetailSideSheet>

@@ -27,7 +27,10 @@ import { EmptyState } from '../../../components/common/EmptyState';
 import { EntityLink } from '../../../components/common/EntityLink';
 import { ErrorState } from '../../../components/common/ErrorState';
 import { StatusTag, type StatusTagOption } from '../../../components/common/StatusTag';
-import { RunDetailSideSheet } from '../../run-observability/RunDetailSideSheet';
+import {
+  RelatedDetailController,
+  useRelatedDetail
+} from '../../run-observability/RelatedDetailController';
 import { useAuditDetail } from '../hooks/useAuditDetail';
 import type { AuditDetail, AuditListItem } from '../types';
 import { RESOURCE_TYPES } from './AuditFilterBar';
@@ -200,22 +203,23 @@ export function AuditDetailSideSheet(props: AuditDetailSideSheetProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('basic');
-  const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const related = useRelatedDetail();
   const { detail, loading, failed, reload } = useAuditDetail(props.auditType, props.auditId);
 
   /** 关联跳转（S-07）：Task 落到任务列表并携带 id；**Run 原地叠加打开详情，不跳页**。
    *
    * Run 与 Task 是不同实体——普通对话的模型/工具调用可以产生运行审计而未必产生后台 Task，
-   * 所以"统一落到任务列表"对 Run 是错的（会打开一个无关的空列表）。 */
+   * 所以"统一落到任务列表"对 Run 是错的（会打开一个无关的空列表）。
+   * Run→Task 的进一步切换由 `RelatedDetailController` 承接（同一时刻一个关联面板）。 */
   const handleOpenRelated = useCallback(
     (relation: AuditRelation, id: string) => {
       if (relation === 'run') {
-        setOpenRunId(id);
+        related.openRun(id);
         return;
       }
       navigate(`/tasks?taskId=${id}`);
     },
-    [navigate]
+    [navigate, related]
   );
 
   if (props.auditId === null) {
@@ -245,8 +249,14 @@ export function AuditDetailSideSheet(props: AuditDetailSideSheetProps) {
         </Tabs.TabPane>
         </DetailSideSheet>
       {/* 嵌套 SideSheet（与 mcp 工具详情、任务→定时任务同形）：Run 没有独立页面，
-          就地看比跳到一个不相关的列表更诚实。 */}
-      <RunDetailSideSheet runId={openRunId} onCancel={() => setOpenRunId(null)} />
+          就地看比跳到一个不相关的列表更诚实。关联层由控制器互斥承载（Run→Task→来源 Run
+          只替换同一层，不递归堆叠）。 */}
+      <RelatedDetailController
+        state={related.state}
+        onClose={related.close}
+        onOpenTask={related.openTask}
+        onOpenRun={related.openRun}
+      />
     </>
   );
 }

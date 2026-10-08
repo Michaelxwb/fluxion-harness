@@ -15,7 +15,10 @@ import { StatusTag, type StatusTagOption } from '../../components/common/StatusT
 import { EntityLink } from '../../components/common/EntityLink';
 import { listSkills } from '../skill-management/services/skills';
 import { listAgentsForPicker, listUsers } from '../user-identity/services/users';
-import { RunDetailSideSheet } from '../run-observability/RunDetailSideSheet';
+import {
+  RelatedDetailController,
+  useRelatedDetail
+} from '../run-observability/RelatedDetailController';
 import { ScheduleDetailSideSheet } from './ScheduleDetailSideSheet';
 import { TaskDetailSideSheet } from './TaskDetailSideSheet';
 import { useTaskActions } from './useTaskActions';
@@ -96,7 +99,7 @@ export function TaskPage() {
   const [helpVisible, setHelpVisible] = useState(false);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [detailScheduleId, setDetailScheduleId] = useState<string | null>(null);
-  const [detailRunId, setDetailRunId] = useState<string | null>(null);
+  const related = useRelatedDetail();
   const requestSeq = useRef(0);
 
   const [searchParams] = useSearchParams();
@@ -456,7 +459,7 @@ export function TaskPage() {
         onCancel={() => setDetailTaskId(null)}
         onSelectTask={(taskId) => setDetailTaskId(taskId)}
         onOpenSchedule={(scheduleId) => setDetailScheduleId(scheduleId)}
-        onOpenRun={(runId) => setDetailRunId(runId)}
+        onOpenRun={(runId) => related.openRun(runId)}
         onMutated={() => void reload()}
       />
       {/* 反向链接的落点：任务详情打开定时任务详情（嵌套 SideSheet 与 mcp 工具详情同形）。 */}
@@ -465,8 +468,18 @@ export function TaskPage() {
         onCancel={() => setDetailScheduleId(null)}
         onOpenTask={(taskId) => setDetailTaskId(taskId)}
       />
-      {/* 同一条来源线的另一半：对话派生的任务回看它那次 Run。 */}
-      <RunDetailSideSheet runId={detailRunId} onCancel={() => setDetailRunId(null)} />
+      {/* 同一条来源线的另一半：对话派生的任务回看它那次 Run。关联层由控制器互斥承载：
+          Run→Task 关闭关联 Run、复用页面主 Task 面板（不递归堆叠）。 */}
+      <RelatedDetailController
+        state={related.state}
+        onClose={related.close}
+        onOpenRun={related.openRun}
+        onOpenTask={(taskId) => {
+          related.close();
+          setDetailTaskId(taskId);
+        }}
+        onMutated={() => void reload()}
+      />
     </>
   );
 }

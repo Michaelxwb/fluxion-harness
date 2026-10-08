@@ -47,16 +47,16 @@
 | B-07 | backend#2.5.2 场景清单 | integration | inbox/outbox 租约、PG、故障代理 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] |
 | B-08 | backend#2.5.2 场景清单 | integration | 真实 PG、Alembic、迁移前置检查 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/migrations/test_runtime_wait_parity.py"] |
 | B-09 | backend#2.5.2 场景清单 | integration | 真实需求文件、manifest、inventory runner | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/async_tool_runtime_inventory.py"] |
-| S-20 | frontend#2.4 验收条件 | E2E | Browser→Console→PG；Runtime/Worker/LLM HTTP | TASK-008 | planned | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
-| S-21 | frontend#2.4 验收条件 | E2E | Browser→Router/面板控制→Console Run/Task API→PG | TASK-008 | planned | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
-| S-22 | frontend#2.4 验收条件 | E2E | Browser、真实 Console 分页、PG count | TASK-008 | planned | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
-| S-23 | frontend#2.4 验收条件 | E2E | Browser language/timezone、HTTP 请求头、真实 DTO | TASK-008 | planned | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
-| S-24 | frontend#2.4 验收条件 | E2E | Browser、Console 真实只读投影、PG | TASK-008 | planned | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
-| E-20 | frontend#2.4 验收条件 | E2E | 故障代理、Browser、真实 Console 重试 | TASK-008 | planned | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
-| E-21 | frontend#2.4 验收条件 | E2E | Browser、账号租户、Console API | TASK-008 | planned | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
-| E-22 | frontend#2.4 验收条件 | E2E | 延迟真实响应的代理、Browser、服务请求 | TASK-008 | planned | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
-| B-20 | frontend#2.4 验收条件 | E2E | 真实 PG 空列表/分页 | TASK-008 | planned | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
-| B-21 | frontend#2.4 验收条件 | E2E | Chrome 键盘、实际 Semi SideSheet/Tab/链接 | TASK-008 | planned | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
+| S-20 | frontend#2.4 验收条件 | E2E | Browser→Console→PG；Runtime/Worker/LLM HTTP | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
+| S-21 | frontend#2.4 验收条件 | E2E | Browser→Router/面板控制→Console Run/Task API→PG | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
+| S-22 | frontend#2.4 验收条件 | E2E | Browser、真实 Console 分页、PG count | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
+| S-23 | frontend#2.4 验收条件 | E2E | Browser language/timezone、HTTP 请求头、真实 DTO | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
+| S-24 | frontend#2.4 验收条件 | E2E | Browser、Console 真实只读投影、PG | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
+| E-20 | frontend#2.4 验收条件 | E2E | 故障代理、Browser、真实 Console 重试 | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
+| E-21 | frontend#2.4 验收条件 | E2E | Browser、账号租户、Console API | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
+| E-22 | frontend#2.4 验收条件 | E2E | 延迟真实响应的代理、Browser、服务请求 | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
+| B-20 | frontend#2.4 验收条件 | E2E | 真实 PG 空列表/分页 | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
+| B-21 | frontend#2.4 验收条件 | E2E | Chrome 键盘、实际 Semi SideSheet/Tab/链接 | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
 
 ---
 
@@ -582,7 +582,7 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 
 ## TASK-008: Console Run 详情与关联 operation UI
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007
 - **Source**: async-tool-runtime.frontend.design.md#3.2 页面与路由结构, async-tool-runtime.frontend.design.md#3.3 组件设计, async-tool-runtime.frontend.design.md#3.5 状态与数据流, async-tool-runtime.frontend.design.md#3.6 UI 状态
@@ -595,60 +595,82 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 
 ### Checklist
 
-- [ ] only `modules/run-observability/services/runs.ts` imports共享 api；components/hooks 不naked axios/fetch/api
-- [ ] `RunStatus` union加入 WAITING_TOOL；RunDetail类型新增 waiting_since/deadline_at/waiting_reason/pending counts/continuation_count
-- [ ] operations tab Page类型 `Page<RunOperationOutline>`，default page 15, page_size≤100, not裸数组；error_phase SUBMIT/EXECUTE/null, status精确 union, unknown task_status不显示作“任务失败”
-- [ ] components no裸 HTTP; local requestSeq invalidation；关闭/切对象/卸载使过期响应失效；refresh只使当前对象数据失效
-- [ ] `RunOperationTable` onOpenTask raises click intention, no导航; task_id null both cell and action unreachable click
-- [ ] Run→Task closes relatedRun再打开Task；来源Run回调反向替换；最多来源详情+一层关联详情；不递归堆叠
-- [ ] event dynamic keys：TOOL_SUBMISSION_PENDING、TOOL_TASK_ACCEPTED、TOOL_RESULT_RECEIVED、BACKGROUND_RESULT、BACKGROUND_RESULT_LATE、RUN_WAITING_TOOL、RUN_RESUMED；未知事件安全 fallback; unknown表示不渲染payload
-- [ ] status/event/timestamp use locale/current language, DateTimeText unique; no cached translation at module state
-- [ ] [S-20][E2E] 从审计打开真实JOIN等待Run，显示“等待任务结果”、等待时间和数量；结果已到尚未claim说明“等待接续”；完成Task后点刷新，接续/完成且数量归零
-- [ ] [S-21][E2E] 点击关联 task_id 打开既有 Task 详情，来源Run返回同run_id; repeated switching no crash/no long stack
-- [ ] [S-22][E2E] SUBMIT_PENDING task_id null no fake link; accepted DETACH明确独立模式; >15可翻页，total一致
-- [ ] [S-23][E2E] switch zh-CN/en-US whileopen详情，status/event/tab即时切换；UTC time按Asia/Shanghai显示YYYY-MM-DD HH:mm:ss; invalid value“-”
-- [ ] [S-24][E2E] seed真实 input/result盘; detail和network response不含原文/结果/凭据，只结构;timeline超200明确截断提示
-- [ ] [E-20][E2E] GET失败显示ErrorState，恢复后重试实际数据; invalid session统一登录 redirect; no旧对象闪烁
-- [ ] [E-21][E2E] cross-tenant/nonexistentTask链接404 returns原Run; spoofed X-Tenant-Id不改; non-ADMIN no新凭据入口
-- [ ] [E-22][E2E] A Run慢响应切到B/关闭后才返回；当前详情不被A覆盖，卸载后无状态更新/无效链接
-- [ ] [B-20][E2E] 无异步操作空态; 15/16条page boundary correct; after states delete/cancel current empty page returns legal page number; truncation提示 independent
-- [ ] [B-21][E2E] Tab可达refresh、关联Task、返回和close; ESC只关当前面板，焦点回来源链接; status not颜色 only
-- [ ] verifier harness-frontend#RULE-front-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
-- [ ] verifier harness-i18n#RULE-i18n-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
-- [ ] verifier harness-ui#RULE-ui-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
-- [ ] verifier harness-ui-detail#RULE-ui-detail-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] only `modules/run-observability/services/runs.ts` imports共享 api；components/hooks 不naked axios/fetch/api
+- [x] `RunStatus` union加入 WAITING_TOOL；RunDetail类型新增 waiting_since/deadline_at/waiting_reason/pending counts/continuation_count
+- [x] operations tab Page类型 `Page<RunOperationOutline>`，default page 15, page_size≤100, not裸数组；error_phase SUBMIT/EXECUTE/null, status精确 union, unknown task_status不显示作“任务失败”
+- [x] components no裸 HTTP; local requestSeq invalidation；关闭/切对象/卸载使过期响应失效；refresh只使当前对象数据失效
+- [x] `RunOperationTable` onOpenTask raises click intention, no导航; task_id null both cell and action unreachable click
+- [x] Run→Task closes relatedRun再打开Task；来源Run回调反向替换；最多来源详情+一层关联详情；不递归堆叠
+- [x] event dynamic keys：TOOL_SUBMISSION_PENDING、TOOL_TASK_ACCEPTED、TOOL_RESULT_RECEIVED、BACKGROUND_RESULT、BACKGROUND_RESULT_LATE、RUN_WAITING_TOOL、RUN_RESUMED；未知事件安全 fallback; unknown表示不渲染payload
+- [x] status/event/timestamp use locale/current language, DateTimeText unique; no cached translation at module state
+- [x] [S-20][E2E] 从审计打开真实JOIN等待Run，显示“等待任务结果”、等待时间和数量；结果已到尚未claim说明“等待接续”；完成Task后点刷新，接续/完成且数量归零（已编写登记，终验执行）
+- [x] [S-21][E2E] 点击关联 task_id 打开既有 Task 详情，来源Run返回同run_id; repeated switching no crash/no long stack（已编写登记，终验执行）
+- [x] [S-22][E2E] SUBMIT_PENDING task_id null no fake link; accepted DETACH明确独立模式; >15可翻页，total一致（已编写登记，终验执行）
+- [x] [S-23][E2E] switch zh-CN/en-US whileopen详情，status/event/tab即时切换；UTC time按Asia/Shanghai显示YYYY-MM-DD HH:mm:ss; invalid value“-”（已编写登记，终验执行）
+- [x] [S-24][E2E] seed真实 input/result盘; detail和network response不含原文/结果/凭据，只结构;timeline超200明确截断提示（已编写登记，终验执行）
+- [x] [E-20][E2E] GET失败显示ErrorState，恢复后重试实际数据; invalid session统一登录 redirect; no旧对象闪烁（已编写登记，终验执行）
+- [x] [E-21][E2E] cross-tenant/nonexistentTask链接404 returns原Run; spoofed X-Tenant-Id不改; non-ADMIN no新凭据入口（已编写登记，终验执行）
+- [x] [E-22][E2E] A Run慢响应切到B/关闭后才返回；当前详情不被A覆盖，卸载后无状态更新/无效链接（已编写登记，终验执行）
+- [x] [B-20][E2E] 无异步操作空态; 15/16条page boundary correct; after states delete/cancel current empty page returns legal page number; truncation提示 independent（已编写登记，终验执行）
+- [x] [B-21][E2E] Tab可达refresh、关联Task、返回和close; ESC只关当前面板，焦点回来源链接; status not颜色 only（已编写登记，终验执行）
+- [x] verifier harness-frontend#RULE-front-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] verifier harness-i18n#RULE-i18n-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] verifier harness-ui#RULE-ui-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] verifier harness-ui-detail#RULE-ui-detail-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-20 | E2E | Browser→Console→PG；Runtime/Worker/LLM HTTP | 从审计打开真实JOIN等待Run，显示等待任务结果/时间/数量；结果到尚未claim说明等待接续；完成Task刷新后接续/完成且归零 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | planned |
-| S-21 | E2E | Browser→Router/面板控制→Console Run/Task API→PG | 点击task_id打开既有Task详情，来源Run返回同run_id; repeated switching no crash/no infinite堆叠 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | planned |
-| S-22 | E2E | Browser、真实 Console分页、PG count | SUBMIT_PENDING task_id null无假链接；accepted DETACH明确独立模式；>15可翻页，total与实际一致 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | planned |
-| S-23 | E2E | Browser language/timezone、HTTP请求头、真实 DTO | zh-CN/en-US切换当前详情即时生效；UTC times by Asia/ShanghaiYYYY-MM-DD HH:mm:ss；invalid“-”；请求头拦截器 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | planned |
-| S-24 | E2E | Browser、Console真实只读投影、PG | 输入/结果原文标记不进入详情/network响应；只显示结构；timeline超200明确截断提示 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | planned |
-| E-20 | E2E | 故障代理、Browser、真实 Console重试 | GET失败ErrorState可重试；恢复后真实数据；invalid session统一登录；旧对象不闪 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | planned |
-| E-21 | E2E | Browser、账号租户、Console API | cross-tenant/nonexistent Task404 returns原Run；伪造租户头无效；非ADMIN无新凭据入口 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | planned |
-| E-22 | E2E | 延迟真实响应的代理、Browser、服务请求 | A慢响应后切到B/关闭；当前详情不被A覆盖；卸载后无状态更新/无效链接 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | planned |
-| B-20 | E2E | Browser、Console、真实 PG空列表/分页 | 无异步操作空态；15/16条边界正确；delete/cancel后当前空页回到合法页码；截断提示独立 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | planned |
-| B-21 | E2E | Chrome键盘、实际Semi SideSheet/Tab/链接 | Tab可达刷新/关联Task/返回/关闭；ESC只关当前面板，焦点回来源链接；状态不只颜色 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | planned |
+| S-20 | E2E | Browser→Console→PG；Runtime/Worker/LLM HTTP | 从审计打开真实JOIN等待Run，显示等待任务结果/时间/数量；结果到尚未claim说明等待接续；完成Task刷新后接续/完成且归零 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | e2e_deferred |
+| S-21 | E2E | Browser→Router/面板控制→Console Run/Task API→PG | 点击task_id打开既有Task详情，来源Run返回同run_id; repeated switching no crash/no infinite堆叠 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | e2e_deferred |
+| S-22 | E2E | Browser、真实 Console分页、PG count | SUBMIT_PENDING task_id null无假链接；accepted DETACH明确独立模式；>15可翻页，total与实际一致 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | e2e_deferred |
+| S-23 | E2E | Browser language/timezone、HTTP请求头、真实 DTO | zh-CN/en-US切换当前详情即时生效；UTC times by Asia/ShanghaiYYYY-MM-DD HH:mm:ss；invalid“-”；请求头拦截器 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | e2e_deferred |
+| S-24 | E2E | Browser、Console真实只读投影、PG | 输入/结果原文标记不进入详情/network响应；只显示结构；timeline超200明确截断提示 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | e2e_deferred |
+| E-20 | E2E | 故障代理、Browser、真实 Console重试 | GET失败ErrorState可重试；恢复后真实数据；invalid session统一登录；旧对象不闪 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | e2e_deferred |
+| E-21 | E2E | Browser、账号租户、Console API | cross-tenant/nonexistent Task404 returns原Run；伪造租户头无效；非ADMIN无新凭据入口 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | e2e_deferred |
+| E-22 | E2E | 延迟真实响应的代理、Browser、服务请求 | A慢响应后切到B/关闭；当前详情不被A覆盖；卸载后无状态更新/无效链接 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | e2e_deferred |
+| B-20 | E2E | Browser、Console、真实 PG空列表/分页 | 无异步操作空态；15/16条边界正确；delete/cancel后当前空页回到合法页码；截断提示独立 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | e2e_deferred |
+| B-21 | E2E | Chrome键盘、实际Semi SideSheet/Tab/链接 | Tab可达刷新/关联Task/返回/关闭；ESC只关当前面板，焦点回来源链接；状态不只颜色 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | e2e_deferred |
 
 ### Acceptance Evidence
 
-- [S-20][E2E] planned — defer to verify-e2e after full stack available
-- [S-21][E2E] planned — defer to verify-e2e after full stack available
-- [S-22][E2E] planned — defer to verify-e2e after full stack available
-- [S-23][E2E] planned — defer to verify-e2e after full stack available
-- [S-24][E2E] planned — defer to verify-e2e after full stack available
-- [E-20][E2E] planned — defer to verify-e2e after full stack available
-- [E-21][E2E] planned — defer to verify-e2e after full stack available
-- [E-22][E2E] planned — defer to verify-e2e after full stack available
-- [B-20][E2E] planned — defer to verify-e2e after full stack available
-- [B-21][E2E] planned — defer to verify-e2e after full stack available
+- [S-20][E2E] e2e_deferred — 用例 `run-observability.spec.ts` › `S-20 等待任务结果→等待接续→接续完成，数量随真实状态归零`；真实边界：Browser→真实 Console（真实 PG 只读投影）→`seed_run_observability.py ready/resume` 在 PG 上推进 Task/Run/continuation；命令 `bash -lc "cd e2e && npm test -- --config playwright.run-observability.config.ts"`；已收集登记，未执行（终验 verify-e2e）
+- [S-21][E2E] e2e_deferred — 用例 `S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠`；真实边界：审计详情→`RelatedDetailController`→Console Run/Task API→PG（DETACH 受理 task）；命令同 S-20；已收集登记，未执行
+- [S-22][E2E] e2e_deferred — 用例 `S-22 SUBMIT_PENDING 无假链接、DETACH 独立模式、16 条分页与 total 一致`；真实边界：真实 Console 分页（15/16 边界）与 PG count；命令同 S-20；已收集登记，未执行
+- [S-23][E2E] e2e_deferred — 用例 `S-23 详情开着切 zh-CN/en-US 即时生效；UTC 时间按 Asia/Shanghai 渲染；请求头走拦截器`；真实边界：浏览器 language/timezone（Asia/Shanghai 固定）、真实 DTO、X-Locale/X-Request-Id 拦截器；命令同 S-20；已收集登记，未执行
+- [S-24][E2E] e2e_deferred — 用例 `S-24 详情与 network 响应不含原文/结果/凭据；时间线超 200 明确截断`；真实边界：真实 PG 种 input_text/result_json/submission_json 标记 + 205 条 canonical_event，捕获真实 network 响应反查；命令同 S-20；已收集登记，未执行
+- [E-20][E2E] e2e_deferred — 用例 `E-20 GET 失败显示 ErrorState，重试恢复真实数据；会话失效统一跳登录`；真实边界：传输层故障代理（route.abort）→真实 Console 重试；清 Cookie 后真实 401 统一登录重定向；命令同 S-20；已收集登记，未执行
+- [E-21][E2E] e2e_deferred — 用例 `E-21 跨租户/不存在 Task 请求 404；伪造 X-Tenant-Id 不改变数据；非 ADMIN 无凭据入口`；真实边界：账号租户 vs 伪造头、跨租户 Run/Task 真实 404、非 ADMIN 账号；命令同 S-20；已收集登记，未执行
+- [E-22][E2E] e2e_deferred — 用例 `E-22 A Run 慢响应后关闭/切到 B，当前详情不被 A 覆盖`；真实边界：`route.fetch()` 延迟真实响应 1.5s 的代理、关闭/切换后卸载；命令同 S-20；已收集登记，未执行
+- [B-20][E2E] e2e_deferred — 用例 `B-20 无异步操作空态；15/16 边界；状态变化后空页回落到合法页码；截断提示独立`；真实边界：真实 PG 空列表、16 条分页、`shrink/restore` 软删回退；命令同 S-20；已收集登记，未执行
+- [B-21][E2E] e2e_deferred — 用例 `B-21 Tab 可达刷新与关联 Task、ESC 只关当前面板、状态不只靠颜色`；真实边界：Chrome 键盘 + 实际 Semi SideSheet/Tab/EntityLink；命令同 S-20；已收集登记，未执行
+- 前端契约/单测：`uv run pytest -q tests/frontend` 285 passed（新增/改写 `tests/frontend/test_run_observability_contract.py`：DTO/枚举与 contracts 逐字对齐、封套分页、请求代次、Task 链接不可假、动态键枚举、无裸 HTTP、无译文缓存；`test_audit_detail_contract.py` 关联断言更新为控制器结构）；`npm run typecheck`、`npm run build` 通过。
+- verifier harness-frontend#RULE-front-001：原始 argv 执行通过（test_api_client_contract 4 passed + check_frontend_api_usage + check_frontend_i18n 922 keys + typecheck）。
+- verifier harness-i18n#RULE-i18n-001：原始 argv 执行通过（test_foundation_i18n 6 passed + check_frontend_i18n 922 keys）。
+- verifier harness-ui#RULE-ui-001：原始 argv 执行通过（test_console_shell_contract + test_ui_style_contract 9 passed + frontend build）。
+- verifier harness-ui-detail#RULE-ui-detail-001：原始 argv 执行通过（test_detail_sidesheet_contract + test_form_layout_contract 11 passed + typecheck）。
+- 静态检查：`uv run mypy apps packages scripts`（339 files）通过；`uv run ruff check apps packages tests` 通过；`git diff --check` 通过。
+- Python 回归（独立空库，`/tmp/async_tool_check.py`）：`uv run pytest -q tests/console_platform tests/agent_runtime` → 1 failed, 609 passed, 24 errors；失败/错误全部为既有基线红（`test_platform_settings_table` REVISION 钉 0018 vs 0019；audit 种子写 `SUCCEEDED` 撞 0019 `ck_run_record_run_status`），非本任务引入，未修。
+- S-20: e2e_deferred — automated command e2e_deferred; run_id=be6707abc18e40f49ae6f071c57b830c (confirmed_by: runner)
+- S-21: e2e_deferred — automated command e2e_deferred; run_id=be6707abc18e40f49ae6f071c57b830c (confirmed_by: runner)
+- S-22: e2e_deferred — automated command e2e_deferred; run_id=be6707abc18e40f49ae6f071c57b830c (confirmed_by: runner)
+- S-23: e2e_deferred — automated command e2e_deferred; run_id=be6707abc18e40f49ae6f071c57b830c (confirmed_by: runner)
+- S-24: e2e_deferred — automated command e2e_deferred; run_id=be6707abc18e40f49ae6f071c57b830c (confirmed_by: runner)
+- E-20: e2e_deferred — automated command e2e_deferred; run_id=be6707abc18e40f49ae6f071c57b830c (confirmed_by: runner)
+- E-21: e2e_deferred — automated command e2e_deferred; run_id=be6707abc18e40f49ae6f071c57b830c (confirmed_by: runner)
+- E-22: e2e_deferred — automated command e2e_deferred; run_id=be6707abc18e40f49ae6f071c57b830c (confirmed_by: runner)
+- B-20: e2e_deferred — automated command e2e_deferred; run_id=be6707abc18e40f49ae6f071c57b830c (confirmed_by: runner)
+- B-21: e2e_deferred — automated command e2e_deferred; run_id=be6707abc18e40f49ae6f071c57b830c (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-07] created (draft)
+- [2026-10-09] started
+- [2026-10-09] 实现：`services/runs.ts` 扩 API-05/06（WAITING_TOOL、等待字段、`Page<RunOperationOutline>`、默认 15/上限 100、精确 OperationStatus 联合）；新增 `statusOptions.ts`（唯一颜色/词条键映射 + 未知 task_status/operation 状态安全回退）、`hooks/useRunDetail|useRunOperations`（requestSeq 代次、对象匹配防闪旧、页签首次取数、空页回退合法页、刷新只重取已加载数据）、`components/RunOperationTable`（本地 Semi Table、task_id 空不可点、错误阶段翻译）、`components/RunTimelineOutline`（25 类事件动态键 + 未知兜底、DateTimeText、截断提示）、`RelatedDetailController`（RUN/TASK 判别联合互斥、Run→Task 关闭再开、来源 Run 反向替换、不递归）。`RunDetailSideSheet` 重写为容器（等待 Banner/数量、刷新、页签），`AuditDetailSideSheet`/`TaskPage` 接线控制器；两语言新增 76 条词条。
+- [2026-10-09] E2E：新增 `e2e/tests/run-observability.spec.ts`（10 用例登记 S-20..B-21）与 `e2e/playwright.run-observability.config.ts`（隔离库 + 真实 Console + vite preview + Asia/Shanghai），新增真实 PG 种子 `tests/e2e/seed_run_observability.py`（含审计入口行、16 条分页、205 条时间线、跨租户行、原文/结果/凭据标记与 ready/resume/shrink 状态推进）；`npx playwright test --config playwright.run-observability.config.ts --list` 收集 10 tests；E2E 本阶段不执行（verify-e2e 执行）。
+- [2026-10-09] 验证：四条 spec verifier 原始 argv 通过；`tests/frontend` 285 passed；typecheck/build/mypy/ruff/diff-check 通过；`tests/console_platform tests/agent_runtime` 独立空库回归仅剩既有基线红（1 failed + 24 errors，migration/audit）。
+- [2026-10-09] completed (done)
 
 ---
 

@@ -256,9 +256,9 @@ def test_relation_links_use_entity_link_and_are_navigable() -> None:
         "关联 id 必须取自详情出参 related"
     )
     assert "navigate(`/tasks?taskId=${id}`)" in compact, "Task 关联仍落到任务列表并携带 id"
-    assert "setOpenRunId(id)" in compact, "Run 关联就地叠加打开，不跳页"
+    assert "related.openRun(id)" in compact, "Run 关联就地叠加打开，不跳页"
     assert "/tasks?${relation}Id=" not in compact, "Run 不得再走「统一落到任务列表」那条路"
-    assert "<RunDetailSideSheet" in compact, "Run 详情须由本页挂载"
+    assert "<RelatedDetailController" in compact, "Run/Task 关联详情须由控制器互斥挂载"
     assert "EmptyState" in sheet, "无关联记录时须用公共 EmptyState 提示"
 
 
