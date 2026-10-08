@@ -1,7 +1,7 @@
 version: 1
 task: async-tool-runtime
 enforcement: required
-updated_at: '2026-10-08T02:02:26.645122+00:00'
+updated_at: '2026-10-08T07:02:14.982028+00:00'
 sources:
 - type: cli
   ref: bind
@@ -52,7 +52,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -135,7 +135,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -245,7 +245,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -333,7 +333,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -408,7 +408,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -486,7 +486,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -560,7 +560,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -634,7 +634,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -694,7 +694,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -770,7 +770,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -844,7 +844,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -918,7 +918,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -993,7 +993,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -1085,7 +1085,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -1173,7 +1173,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -1247,7 +1247,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -1321,7 +1321,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -1427,7 +1427,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -1500,7 +1500,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
@@ -1539,7 +1539,7 @@ bindings:
   path: worker/harness-worker.md
   status: active
   hashes:
-    file_sha256: 1407b8bd13f42e0791fd8a44ae013f6509d8b4ac2c1f7798b145575e0f508b7e
+    file_sha256: 2fcba38dd31e286bb5ab07ff2108df5bd7578a9e24a03c62024ed0a30f22e29c
     metadata_sha256: 185250e5e95b30103f5592a48a99064876217aa17b4fc2caeadd5c3ca692b0c3
     rules_sha256: 11fbb17617ae9335d2f9190b83c7784825fb4ccc8118ed41bdd812419ad9da02
   selected_by: agent
@@ -1577,7 +1577,7 @@ bindings:
         - artifact: async-tool-runtime.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 196d8a1a5902a0a50cdef46480401841cb7ae8379165f6b720ae3ef58ab2f478
+          artifact_sha256: 055d0d1d39e08e9d5fbdf1fe35ec10e597acad44cfbe9db58779974a4e299ca7
         decision: null
         evidence: []
       code:
