@@ -6,6 +6,7 @@ server.endpoint 发起 Streamable HTTP JSON-RPC `tools/call`（initialize 每 se
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import uuid
@@ -64,6 +65,13 @@ def tool_registry_name(server_key: str, tool_name: str) -> str:
 
 
 class _McpSession:
+    """单个冻结 server 的 Streamable HTTP 会话。
+
+    请求 ID 由会话内计数器提供（initialize / tools/call 每次递增、不复用）；响应 ID 必须与
+    请求 ID 严格相等，缺失/错配按协议错误处理。初始化由 `McpRuntimeAdapter` 的 singleflight
+    锁保护：成功才置 `_initialized`，失败关闭本会话并允许后续调用重建重试。
+    """
+
     def __init__(
         self,
         server: McpServerDefinition,
@@ -79,6 +87,11 @@ class _McpSession:
         self._endpoint = server.endpoint
         self._session_id: str | None = None
         self._initialized = False
+        self._request_seq = 0
+
+    @property
+    def initialized(self) -> bool:
+        return self._initialized
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -89,8 +102,13 @@ class _McpSession:
             headers["Mcp-Session-Id"] = self._session_id
         return headers
 
+    def _next_request_id(self) -> int:
+        self._request_seq += 1
+        return self._request_seq
+
     async def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
-        expects_response = payload.get("id") is not None
+        request_id = payload.get("id")
+        expects_response = request_id is not None
         try:
             response = await self._client.post(
                 self._endpoint, json=payload, headers=self._headers()
@@ -110,6 +128,8 @@ class _McpSession:
                 raise McpToolError("protocol", "missing response payload")
             return {}
         body = self._decode(response)
+        if expects_response and body.get("id") != request_id:
+            raise McpToolError("protocol", "response id mismatch")
         if body.get("error") is not None:
             error = body["error"]
             message = error.get("message", "rpc error") if isinstance(error, dict) else "rpc error"
@@ -138,13 +158,14 @@ class _McpSession:
             raise McpToolError("protocol", "payload is not an object")
         return payload
 
-    async def ensure_initialized(self) -> None:
+    async def initialize(self) -> None:
+        """initialize + initialized 通知；由调用方的 singleflight 锁串行化，成功才置位。"""
         if self._initialized:
             return
         await self._post(
             {
                 "jsonrpc": JSON_RPC_VERSION,
-                "id": 1,
+                "id": self._next_request_id(),
                 "method": "initialize",
                 "params": {
                     "protocolVersion": MCP_PROTOCOL_VERSION,
@@ -157,11 +178,12 @@ class _McpSession:
         self._initialized = True
 
     async def call_tool(self, tool_name: str, arguments: Mapping[str, Any]) -> str:
-        await self.ensure_initialized()
+        if not self._initialized:
+            raise McpToolError("protocol", "session is not initialized")
         body = await self._post(
             {
                 "jsonrpc": JSON_RPC_VERSION,
-                "id": 2,
+                "id": self._next_request_id(),
                 "method": "tools/call",
                 "params": {"name": tool_name, "arguments": dict(arguments)},
             }
@@ -202,11 +224,14 @@ class McpRuntimeAdapter:
         self._timeout_sec = timeout_sec
         self._transport = transport
         self._sessions: dict[str, _McpSession] = {}
+        # 每 server 一把初始化 singleflight 锁：并发调用只初始化一次；失败释放锁并允许重试。
+        self._session_locks: dict[str, asyncio.Lock] = {}
 
     async def aclose(self) -> None:
         for session in self._sessions.values():
             await session.aclose()
         self._sessions.clear()
+        self._session_locks.clear()
 
     def register_catalog(
         self,
@@ -252,19 +277,21 @@ class McpRuntimeAdapter:
         arguments: dict[str, Any],
         policy_decision: str,
     ) -> str:
-        """MCP 工具执行统一入口：策略拒绝先落 DENY 审计再抛 FORBIDDEN。"""
+        """MCP 工具执行统一入口：策略拒绝先落 DENY 审计再抛 FORBIDDEN。
+
+        任何失败（协议错误/超时/isError/取消）都明确向上抛出并**丢弃该 server 会话、关闭其
+        HTTP 连接**：坏会话不得被后续调用复用，重试必须重新 initialize（E-14）。
+        """
         target = f"mcp://{server.key}/{tool.name}"
         started = time.monotonic()
         if policy_decision == "DENY":
             await self._audit(target, "DENY", None, "DENIED", latency_ms=0)
             raise AppError(ErrorCode.FORBIDDEN)
-        session = self._sessions.get(server.key)
-        if session is None:
-            session = _McpSession(server, self._timeout_sec, self._transport)
-            self._sessions[server.key] = session
         try:
+            session = await self._ready_session(server)
             content = await session.call_tool(tool.name, arguments)
         except McpToolError as exc:
+            await self._discard_session(server.key)
             await self._audit(
                 target,
                 policy_decision,
@@ -274,6 +301,9 @@ class McpRuntimeAdapter:
                 error_code=exc.reason,
             )
             raise
+        except asyncio.CancelledError:
+            await self._discard_session(server.key)
+            raise
         await self._audit(
             target,
             policy_decision,
@@ -282,6 +312,27 @@ class McpRuntimeAdapter:
             latency_ms=int((time.monotonic() - started) * 1000),
         )
         return content
+
+    async def _ready_session(self, server: McpServerDefinition) -> _McpSession:
+        """singleflight：并发调用只 initialize 一次；失败关闭会话并释放锁，允许重试。"""
+        lock = self._session_locks.setdefault(server.key, asyncio.Lock())
+        async with lock:
+            session = self._sessions.get(server.key)
+            if session is not None:
+                return session
+            session = _McpSession(server, self._timeout_sec, self._transport)
+            try:
+                await session.initialize()
+            except BaseException:
+                await session.aclose()
+                raise
+            self._sessions[server.key] = session
+            return session
+
+    async def _discard_session(self, server_key: str) -> None:
+        session = self._sessions.pop(server_key, None)
+        if session is not None:
+            await session.aclose()
 
     async def _audit(
         self,

@@ -14,7 +14,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolHandler, ToolRegistry
+from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, ToolHandler, ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import ResolvedSkill, ScheduleSpec
@@ -125,7 +125,19 @@ def _task_summary(data: Mapping[str, Any]) -> dict[str, Any]:
 
 
 Handler = Callable[..., Awaitable[Any]]
-ToolSpec = tuple[str, str, dict[str, Any], ToolEffect, Handler]
+ResourceKey = Callable[[Mapping[str, Any]], str | None]
+#: name / description / schema / effect / handler / concurrency / resource_key
+ToolSpec = tuple[str, str, dict[str, Any], ToolEffect, Handler, ToolConcurrency, ResourceKey | None]
+
+
+def _task_resource_key(arguments: Mapping[str, Any]) -> str | None:
+    task_id = arguments.get("task_id")
+    return f"task:{task_id}" if isinstance(task_id, str) and task_id else None
+
+
+def _task_list_resource_key(arguments: Mapping[str, Any]) -> str:
+    """任务列表读取锁在「本用户的任务列表」这一资源上（同键串行）。"""
+    return "tasks:list"
 
 
 class BackgroundTaskToolSet:
@@ -163,8 +175,10 @@ class BackgroundTaskToolSet:
                 input_schema=schema,
                 effect=effect,
                 handler=self._wrap(handler),
+                concurrency=concurrency,
+                resource_key=resource_key,
             )
-            for name, description, schema, effect, handler in (
+            for name, description, schema, effect, handler, concurrency, resource_key in (
                 *self._schedule_specs(),
                 *self._task_specs(),
             )
@@ -188,6 +202,8 @@ class BackgroundTaskToolSet:
                 ),
                 ToolEffect.WRITE,
                 self._create_schedule,
+                ToolConcurrency.SERIAL,
+                None,
             ),
             (
                 LIST_SCHEDULES_TOOL,
@@ -195,6 +211,8 @@ class BackgroundTaskToolSet:
                 _schema({"status": _STRING, "page": _PAGE}, ()),
                 ToolEffect.READ,
                 self._list_schedules,
+                ToolConcurrency.SERIAL,
+                None,
             ),
             (
                 UPDATE_SCHEDULE_TOOL,
@@ -211,6 +229,8 @@ class BackgroundTaskToolSet:
                 ),
                 ToolEffect.WRITE,
                 self._update_schedule,
+                ToolConcurrency.SERIAL,
+                None,
             ),
             (
                 DELETE_SCHEDULE_TOOL,
@@ -218,6 +238,8 @@ class BackgroundTaskToolSet:
                 _schema({"schedule_id": _STRING}, ("schedule_id",)),
                 ToolEffect.WRITE,
                 self._delete_schedule,
+                ToolConcurrency.SERIAL,
+                None,
             ),
         )
 
@@ -229,6 +251,8 @@ class BackgroundTaskToolSet:
                 _schema({"task_id": _STRING}, ("task_id",)),
                 ToolEffect.READ,
                 self._get_task,
+                ToolConcurrency.PARALLEL_READ,
+                _task_resource_key,
             ),
             (
                 LIST_TASKS_TOOL,
@@ -236,6 +260,8 @@ class BackgroundTaskToolSet:
                 _schema({"status": _STRING, "page": _PAGE}, ()),
                 ToolEffect.READ,
                 self._list_tasks,
+                ToolConcurrency.PARALLEL_READ,
+                _task_list_resource_key,
             ),
             (
                 CANCEL_TASK_TOOL,
@@ -243,6 +269,8 @@ class BackgroundTaskToolSet:
                 _schema({"task_id": _STRING}, ("task_id",)),
                 ToolEffect.WRITE,
                 self._cancel_task,
+                ToolConcurrency.SERIAL,
+                None,
             ),
         )
 

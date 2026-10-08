@@ -38,7 +38,14 @@ from ..model.provider import (
     text_of,
 )
 from ..prompt.builder import DefaultPromptBuilder, PromptBuilder, PromptSkill
-from ..tools.pipeline import ToolExecutionPipeline
+from ..tools.pipeline import RunnableToolCall, ToolExecutionPipeline, ToolExecutionResult
+from ..tools.planner import (
+    DEFAULT_PARALLEL_LIMIT,
+    PlannedToolCall,
+    ToolBatch,
+    plan_tool_batches,
+    validate_parallel_limit,
+)
 from ..tools.registry import ToolRegistry
 from ..tools.round_results import ToolResultRoundPort
 from .continuation import RunnerCheckpoint, RuntimeEventPort, WaitDecision
@@ -209,6 +216,23 @@ def _tool_message(call_id: str, content: str) -> ModelMessage:
     return ModelMessage(role=ModelRole.TOOL, content=content, tool_call_id=call_id)
 
 
+#: 统一执行入口的终态 → 回合事件状态（工具/审计两侧共用同一映射）。
+_TOOL_STATUSES = {
+    "SUCCEEDED": "OK",
+    "FAILED": "ERROR",
+    "POLICY_DENIED": "BLOCKED",
+    "NOT_FOUND": "NOT_FOUND",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class _CallOutcome:
+    """一次调用在原始调用序上的最终形态（失败也只是一条失败 ToolResult）。"""
+
+    status: str
+    content: str
+
+
 def _artifact_ref(content: str) -> str | None:
     """工具结果被外置为 Artifact 时，从引用 JSON 中取 artifact_id（用于 tool.completed 事件）。"""
     if not content.startswith("{"):
@@ -238,6 +262,7 @@ class AgentRunner:
         tool_pipeline: ToolExecutionPipeline | None = None,
         runtime_events: RuntimeEventPort | None = None,
         event_batch_size: int = 16,
+        parallel_limit: int = DEFAULT_PARALLEL_LIMIT,
     ) -> None:
         self._provider = provider
         self._registry = registry
@@ -252,6 +277,7 @@ class AgentRunner:
         self._round_results = tool_round_results
         self._runtime_events = runtime_events
         self._event_batch_size = event_batch_size
+        self._parallel_limit = validate_parallel_limit(parallel_limit)
         self._stop_emitted = False
         self._graph = self._build_graph()
 
@@ -436,32 +462,30 @@ class AgentRunner:
     async def _execute_tools(self, state: AgentGraphState) -> AgentGraphState:
         self._ensure_runnable(state)
         messages = list(state["messages"])
-        used = state["tool_calls_used"]
-        exhausted = False
+        runnable, exhausted_calls, used = self._reserve_tool_calls(state)
+        for call in exhausted_calls:
+            messages.append(_tool_message(call.id, TOOL_BUDGET_EXHAUSTED))
         # 本回合真正执行过的调用：(消息下标, 调用 id, 工具名, 状态)。整批判定与完成事件都在
         # 回合末一次性收口（ADR-04）——不在循环里逐条报，否则产物 id 赶不上那条事件。
         executed: list[tuple[int, str, str, str]] = []
         # 补消息（`ToolDefinition.follow_up_messages`）**攒到回合末再落**，理由见 finally 里的注释。
         followed: list[ModelMessage] = []
         try:
-            for call in state["pending_tool_calls"]:
+            batches = plan_tool_batches(
+                tuple(PlannedToolCall(call.id, call.name, call.arguments) for call in runnable),
+                registry=self._registry,
+                parallel_limit=self._parallel_limit,
+            )
+            for batch in batches:
+                # 取消/失约取消整批（TaskGroup 传播）；批内单调用失败只变成对应失败 ToolResult。
                 self._ensure_runnable(state)
-                if used >= state["policy"].max_tool_calls:
-                    exhausted = True
-                    messages.append(_tool_message(call.id, TOOL_BUDGET_EXHAUSTED))
-                    continue
-                result, status = await self._run_tool_call(state, call)
-                messages.append(result)
-                executed.append((len(messages) - 1, call.id, call.name, status))
-                used += 1
-                # 工具结果之后可能需要补消息（见 `ToolDefinition.follow_up_messages`）：
-                # tool 角色不能携带图像块，「重看图片」只能落成一条 user 消息。
-                try:
-                    definition = self._registry.get(call.name)
-                except LookupError:
-                    definition = None
-                if definition is not None and definition.follow_up_messages is not None:
-                    followed.extend(await definition.follow_up_messages(text_of(result.content)))
+                outcomes = await self._run_batch(state, batch)
+                for planned, outcome in zip(batch.calls, outcomes, strict=True):
+                    messages.append(_tool_message(planned.call_id, outcome.content))
+                    executed.append(
+                        (len(messages) - 1, planned.call_id, planned.tool_name, outcome.status)
+                    )
+                    followed.extend(await self._follow_up_messages(planned.tool_name, outcome.content))
         finally:
             # 补消息**必须先于回合收口、且落在整回合之后**：它是 `user` 角色，若插在两条 tool
             # 结果之间，后面那条结果就与声明它的 assistant 隔开了 —— 压缩器的 `split_groups`
@@ -478,11 +502,81 @@ class AgentRunner:
             "messages": messages,
             "pending_tool_calls": [],
             "tool_calls_used": used,
-            "budget_exhausted": state["budget_exhausted"] or exhausted,
+            "budget_exhausted": state["budget_exhausted"] or bool(exhausted_calls),
         }
-        if self._runtime_events is not None and not exhausted:
+        if self._runtime_events is not None and not exhausted_calls:
             await self._runtime_events.checkpoint(self._checkpoint(cast(AgentGraphState, complete)))
         return cast(AgentGraphState, complete)
+
+    def _reserve_tool_calls(
+        self, state: AgentGraphState
+    ) -> tuple[list[ModelToolCall], list[ModelToolCall], int]:
+        """按原调用序预留 tool-call 预算；超出预算的调用转成明确失败消息、不再执行。"""
+        runnable: list[ModelToolCall] = []
+        exhausted: list[ModelToolCall] = []
+        used = state["tool_calls_used"]
+        for call in state["pending_tool_calls"]:
+            if used >= state["policy"].max_tool_calls:
+                exhausted.append(call)
+                continue
+            runnable.append(call)
+            used += 1
+        return runnable, exhausted, used
+
+    async def _run_batch(self, state: AgentGraphState, batch: ToolBatch) -> list[_CallOutcome]:
+        """先按原序校验/授权，再把 handler IO 放进 TaskGroup（仅 lookup 与授权串行）。"""
+        prepared = [await self._prepare_call(call) for call in batch.calls]
+        if not batch.parallel:
+            return [await self._run_prepared(state, item) for item in prepared]
+        return await self._run_concurrently(state, prepared)
+
+    async def _run_concurrently(
+        self, state: AgentGraphState, prepared: list[RunnableToolCall | _CallOutcome]
+    ) -> list[_CallOutcome]:
+        outcomes: list[_CallOutcome | None] = [None] * len(prepared)
+        semaphore = asyncio.Semaphore(self._parallel_limit)
+
+        async def run(index: int, item: RunnableToolCall | _CallOutcome) -> None:
+            async with semaphore:
+                outcomes[index] = await self._run_prepared(state, item)
+
+        async with asyncio.TaskGroup() as group:
+            for index, item in enumerate(prepared):
+                group.create_task(run(index, item))
+        return [cast(_CallOutcome, outcome) for outcome in outcomes]
+
+    async def _prepare_call(self, call: PlannedToolCall) -> RunnableToolCall | _CallOutcome:
+        """校验/授权（不含 handler IO）：失败转成对应失败 ToolResult，不撤销其他成功读。"""
+        try:
+            prepared = self._tool_pipeline.prepare(
+                call_id=call.call_id, tool_name=call.tool_name, arguments=call.arguments
+            )
+            outcome = await self._tool_pipeline.prepare_execution(prepared)
+        except Exception as exc:
+            return _CallOutcome("ERROR", tool_failure_content(exc))
+        if isinstance(outcome, ToolExecutionResult):
+            return _CallOutcome(_TOOL_STATUSES.get(outcome.status, "ERROR"), outcome.content)
+        return outcome
+
+    async def _run_prepared(
+        self, state: AgentGraphState, item: RunnableToolCall | _CallOutcome
+    ) -> _CallOutcome:
+        if isinstance(item, _CallOutcome):
+            return item
+        try:
+            result = await self._tool_pipeline.run_prepared(item, on_started=state["on_tool_started"])
+        except Exception as exc:
+            return _CallOutcome("ERROR", tool_failure_content(exc))
+        return _CallOutcome(_TOOL_STATUSES.get(result.status, "ERROR"), result.content)
+
+    async def _follow_up_messages(self, tool_name: str, content: str) -> tuple[ModelMessage, ...]:
+        try:
+            definition = self._registry.get(tool_name)
+        except LookupError:
+            return ()
+        if definition.follow_up_messages is None:
+            return ()
+        return tuple(await definition.follow_up_messages(content))
 
     async def _finish_tool_round(
         self,
@@ -523,25 +617,6 @@ class AgentRunner:
         payload = state["last_response"] or {}
         await self._hooks.run(HookEvent.POST_MODEL, payload)
         state["post_model_pending"] = False
-
-    async def _run_tool_call(self, state: AgentGraphState, call: ModelToolCall) -> tuple[ModelMessage, str]:
-        try:
-            prepared = self._tool_pipeline.prepare(
-                call_id=call.id, tool_name=call.name, arguments=call.arguments
-            )
-            result = await self._tool_pipeline.execute(
-                prepared,
-                on_started=state["on_tool_started"],
-            )
-        except Exception as exc:
-            return _tool_message(call.id, tool_failure_content(exc)), "ERROR"
-        statuses = {
-            "SUCCEEDED": "OK",
-            "FAILED": "ERROR",
-            "POLICY_DENIED": "BLOCKED",
-            "NOT_FOUND": "NOT_FOUND",
-        }
-        return _tool_message(call.id, result.content), statuses[result.status]
 
     async def _notify_tool_completed(
         self,

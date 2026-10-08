@@ -1505,7 +1505,7 @@ class RunService:
         )
         from .execution_checkpoint import execution_checkpoint
 
-        progress, port, batch_size = await execution_checkpoint(get_session_factory(), run)
+        progress, port, async_policy = await execution_checkpoint(get_session_factory(), run)
         history = await self._restored_history(run, history, progress, compaction, execution)
         return await self._executor_factory(
             ExecutorRequest(
@@ -1528,7 +1528,8 @@ class RunService:
                 checkpoint=progress,
                 runtime_events=port,
                 deadline_at=run.deadline_at,
-                event_batch_size=batch_size,
+                event_batch_size=async_policy.event_batch_size,
+                parallel_limit=async_policy.parallel_limit,
                 credentials=ExecutorCredentials(mcp_secrets=mcp_secrets),
                 run_context=ExecutorRunContext(
                     tenant_id=run.tenant_id,

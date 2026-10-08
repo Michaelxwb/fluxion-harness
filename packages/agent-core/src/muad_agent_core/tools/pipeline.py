@@ -66,6 +66,14 @@ class AuditPort(Protocol):
     async def record(self, event: ToolExecutionAudit) -> None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class RunnableToolCall:
+    """校验/授权通过、可以进入 handler IO 的调用（并发批只包住这一段）。"""
+
+    prepared: PreparedToolCall
+    definition: ToolDefinition
+
+
 class ToolExecutionPipeline:
     def __init__(
         self,
@@ -85,35 +93,79 @@ class ToolExecutionPipeline:
     async def execute(
         self, prepared: PreparedToolCall, *, on_started: Callable[[str, str], Awaitable[None]] | None = None
     ) -> ToolExecutionResult:
+        outcome = await self.prepare_execution(prepared)
+        if isinstance(outcome, ToolExecutionResult):
+            return outcome
+        return await self.run_prepared(outcome, on_started=on_started)
+
+    async def prepare_execution(self, prepared: PreparedToolCall) -> RunnableToolCall | ToolExecutionResult:
+        """校验/授权（不含 handler IO）；未通过时返回终态结果并写审计。
+
+        并发编排用：按原调用序先跑完这一段，TaskGroup 里只放 `run_prepared` 的 handler IO。
+        """
         started_at, started = datetime.now(UTC), monotonic()
         definition: ToolDefinition | None = None
-        status, error = "FAILED", None
         try:
             definition = self._registry.get(prepared.tool_name)
             jsonschema.validate(instance=prepared.arguments, schema=definition.input_schema)
             prepared = await self._validate_and_hook(prepared, definition)
             jsonschema.validate(instance=prepared.arguments, schema=definition.input_schema)
             result = self._blocked(prepared, definition)
-            if result is None:
-                result = await self._invoke(prepared, definition, on_started)
+        except ToolNotFoundError:
+            result = self._result(
+                prepared, "NOT_FOUND", f"unknown tool: {prepared.tool_name}", "TOOL_NOT_FOUND"
+            )
+        except (jsonschema.ValidationError, ValueError) as exc:
+            result = self._result(prepared, "FAILED", f"invalid arguments: {exc}", "SCHEMA_INVALID")
+        except Exception as exc:
+            error = str(getattr(exc, "code", "COMMON_INTERNAL_ERROR"))
+            await self._record_audit(prepared, definition, "FAILED", error, started_at, started)
+            raise
+        if result is not None:
+            await self._record_audit(
+                prepared, definition, result.status, result.error_code, started_at, started
+            )
+            return result
+        assert definition is not None  # 校验通过 ⇒ registry.get 已成功
+        return RunnableToolCall(prepared, definition)
+
+    async def run_prepared(
+        self,
+        runnable: RunnableToolCall,
+        *,
+        on_started: Callable[[str, str], Awaitable[None]] | None = None,
+    ) -> ToolExecutionResult:
+        """handler IO + POST hook（可并发调用）；审计在本方法内完成。"""
+        started_at, started = datetime.now(UTC), monotonic()
+        status, error = "FAILED", None
+        try:
+            result = await self._invoke(runnable.prepared, runnable.definition, on_started)
             status, error = result.status, result.error_code
             return result
-        except ToolNotFoundError:
-            error = "TOOL_NOT_FOUND"
-            return self._result(prepared, "NOT_FOUND", f"unknown tool: {prepared.tool_name}", error)
-        except (jsonschema.ValidationError, ValueError) as exc:
-            error = "SCHEMA_INVALID"
-            return self._result(prepared, status, f"invalid arguments: {exc}", error)
         except Exception as exc:
             error = str(getattr(exc, "code", "COMMON_INTERNAL_ERROR"))
             raise
         finally:
-            if self._audit is not None:
-                await self._audit.record(
-                    ToolExecutionAudit(
-                        prepared, definition, status, error, started_at, int((monotonic() - started) * 1000)
-                    )
-                )
+            await self._record_audit(
+                runnable.prepared, runnable.definition, status, error, started_at, started
+            )
+
+    async def _record_audit(
+        self,
+        prepared: PreparedToolCall,
+        definition: ToolDefinition | None,
+        status: str,
+        error: str | None,
+        started_at: datetime,
+        started: float,
+    ) -> None:
+        if self._audit is None:
+            return
+        await self._audit.record(
+            ToolExecutionAudit(
+                prepared, definition, status, error, started_at, int((monotonic() - started) * 1000)
+            )
+        )
 
     def _blocked(self, call: PreparedToolCall, definition: ToolDefinition) -> ToolExecutionResult | None:
         if self._policy is not None:

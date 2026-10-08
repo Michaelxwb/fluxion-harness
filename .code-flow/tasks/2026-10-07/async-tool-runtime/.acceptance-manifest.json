@@ -297,7 +297,7 @@
       "kind": "functional",
       "boundary": "真实 Runner、可控异步工具处理器",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -307,7 +307,48 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3a3705e59db746a5920531e2e599b0f4",
+        "executed_at": "2026-10-08T14:37:10.695318+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_tool_parallel_planner.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3a3705e59db746a5920531e2e599b0f4",
+          "executed_at": "2026-10-08T14:37:10.695318+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_parallel_planner.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -442,7 +483,7 @@
       "kind": "functional",
       "boundary": "真实 MCP HTTP 探针、Runtime adapter",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -452,7 +493,48 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3a3705e59db746a5920531e2e599b0f4",
+        "executed_at": "2026-10-08T14:37:10.695318+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_mcp_request_correlation.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3a3705e59db746a5920531e2e599b0f4",
+          "executed_at": "2026-10-08T14:37:10.695318+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_mcp_request_correlation.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -1416,7 +1498,7 @@
       "kind": "functional",
       "boundary": "MCP HTTP 探针、客户端关闭",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1426,7 +1508,48 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-14",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3a3705e59db746a5920531e2e599b0f4",
+        "executed_at": "2026-10-08T14:37:10.695318+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_mcp_request_correlation.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+      },
+      "runs": [
+        {
+          "id": "E-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3a3705e59db746a5920531e2e599b0f4",
+          "executed_at": "2026-10-08T14:37:10.695318+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_mcp_request_correlation.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        }
+      ]
     },
     {
       "id": "E-15",
@@ -1997,7 +2120,7 @@
       "kind": "functional",
       "boundary": "并行规划器、Runner、资源声明",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2007,7 +2130,48 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3a3705e59db746a5920531e2e599b0f4",
+        "executed_at": "2026-10-08T14:37:10.695318+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_tool_parallel_planner.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+      },
+      "runs": [
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3a3705e59db746a5920531e2e599b0f4",
+          "executed_at": "2026-10-08T14:37:10.695318+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_parallel_planner.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        }
+      ]
     },
     {
       "id": "B-07",

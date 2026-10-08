@@ -37,7 +37,7 @@ from muad_agent_core.model import (
     text_of,
 )
 from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill
-from muad_agent_core.tools import ToolDefinition, ToolRegistry
+from muad_agent_core.tools import DEFAULT_PARALLEL_LIMIT, ToolDefinition, ToolRegistry
 from muad_agent_core.tools.pipeline import (
     PreparedToolCall,
     ToolExecutionAudit,
@@ -204,6 +204,8 @@ class ExecutorRequest:
     runtime_events: RuntimeEventPort | None = None
     deadline_at: datetime | None = None
     event_batch_size: int = 16
+    #: 冻结的 Run 内并行上限（`policy_json.async_tools.parallel_limit`，QUALITY-03 默认 4）。
+    parallel_limit: int = DEFAULT_PARALLEL_LIMIT
     context_cursor: int | None = None
 
 
@@ -1013,6 +1015,7 @@ async def default_executor_factory(
         tool_round_results=recorder,
         runtime_events=request.runtime_events,
         event_batch_size=request.event_batch_size,
+        parallel_limit=request.parallel_limit,
     )
 
     async def close() -> None:

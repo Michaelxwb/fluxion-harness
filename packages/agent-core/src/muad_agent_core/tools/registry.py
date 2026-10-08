@@ -17,6 +17,17 @@ class ToolEffect(StrEnum):
     EXTERNAL = "EXTERNAL"
 
 
+class ToolConcurrency(StrEnum):
+    """不可由模型设置的并发声明（FLOW-06）。
+
+    `SERIAL` 是默认：未显式声明可重入、无共享可变副作用与明确资源键的工具一律串行。
+    `PARALLEL_READ` 只放行**已证明只读**的处理器，且必须同时给出 `resource_key`。
+    """
+
+    SERIAL = "SERIAL"
+    PARALLEL_READ = "PARALLEL_READ"
+
+
 class ToolHandler(Protocol):
     """工具处理器协议。
 
@@ -47,6 +58,12 @@ class ToolDefinition:
     # 废掉（2026-10-01 事故：`load_skill` 返回 8.3KB 被外置成 400 字符预览，模型实际只看到
     # 正文的 1/20，且**没有任何报错**）。注意这不是「无限直通」——调用方仍有独立上限。
     externalizable_result: bool = True
+    # 并发声明（FLOW-06）：默认 SERIAL；PARALLEL_READ 需要 handler 可重入、无共享可变副作用、
+    # 明确资源键且彼此独立。**不可由模型设置**：模型只能看到 name/description/input_schema。
+    concurrency: ToolConcurrency = ToolConcurrency.SERIAL
+    # `PARALLEL_READ` 的资源键声明（只读资源标识）：非空键相同的调用不得并发；返回空/None
+    # 表示未知依赖，保持串行。`None`（未声明）同样按未知依赖处理。
+    resource_key: Callable[[Mapping[str, Any]], str | None] | None = None
 
 
 class ToolNotFoundError(LookupError):

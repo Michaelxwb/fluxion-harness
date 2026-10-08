@@ -13,7 +13,7 @@ from muad_agent_core.skill import (
     SkillExecutionRequest,
     SkillExecutionResult,
 )
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache, SkillArtifactCacheError
@@ -54,6 +54,18 @@ SKILL_EXECUTION_FAILED = "SKILL_EXECUTION_FAILED"
 BACKGROUND_SUBMIT_FAILED = "BACKGROUND_SUBMIT_FAILED"
 _STRING_SCHEMA: Mapping[str, Any] = {"type": "string"}
 _OBJECT_SCHEMA: Mapping[str, Any] = {"type": "object"}
+_CATALOG_RESOURCE_KEY = "skills:catalog"
+
+
+def _catalog_resource_key(arguments: Mapping[str, Any]) -> str:
+    """技能目录是 Run 内不可变快照：所有检索读同一资源键（同键串行）。"""
+    return _CATALOG_RESOURCE_KEY
+
+
+def _skill_resource_key(arguments: Mapping[str, Any]) -> str | None:
+    """资源读取按 skill_key 锁定：同技能读取串行（共享包缓存），异技能可重叠。"""
+    key = arguments.get("skill_key")
+    return f"skill:{key}" if isinstance(key, str) and key else None
 
 
 class SkillToolError(RuntimeError):
@@ -222,6 +234,9 @@ class SkillToolSet:
                 handler=self.search_skills,
                 # 内容投递：返回的目录条目就是要给模型读的，不得被大结果外置换成预览
                 externalizable_result=False,
+                # 只读过滤：目录来自不可变的 Run 内技能快照，同资源键的检索之间串行（同资源锁）。
+                concurrency=ToolConcurrency.PARALLEL_READ,
+                resource_key=_catalog_resource_key,
             ),
             ToolDefinition(
                 name=LOAD_SKILL_TOOL,
@@ -243,6 +258,9 @@ class SkillToolSet:
                 handler=self.read_skill_resource,
                 # 同上：references 正文同样属于内容投递
                 externalizable_result=False,
+                # 只读文件读取：按 skill_key 隔离资源锁（会写本工具的包缓存，异技能才可重叠）。
+                concurrency=ToolConcurrency.PARALLEL_READ,
+                resource_key=_skill_resource_key,
             ),
             ToolDefinition(
                 name=EXECUTE_SKILL_TOOL,

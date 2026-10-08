@@ -298,7 +298,7 @@ path_mapping:
     rel:
         patterns:
             - "**/*binding*"
-            - "**/*relation*"
+            - "**/*relations*"
         specs:
             - path: "rel/harness-rel.md"
               tags:

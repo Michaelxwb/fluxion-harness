@@ -23,7 +23,7 @@ def checkpoint_of(row: RunContinuation | None) -> RunnerCheckpoint:
 
 async def execution_checkpoint(
     factory: SessionFactory, run: RunRecord
-) -> tuple[RunnerCheckpoint, DurableRuntimeEventPort, int]:
+) -> tuple[RunnerCheckpoint, DurableRuntimeEventPort, AsyncToolPolicy]:
     async with factory() as session:
         saved = await session.scalar(
             select(RunContinuation).where(
@@ -45,5 +45,5 @@ async def execution_checkpoint(
     return (
         checkpoint_of(saved),
         DurableRuntimeEventPort(factory, ExecutionIdentity.of(run)),
-        policy.event_batch_size,
+        policy,
     )

@@ -17,10 +17,10 @@
 | S-01 | backend#2.5.2 场景清单 | E2E | Runtime/Worker HTTP、PG、Redis、LLM 探针、SSE | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | S-02 | backend#2.5.2 场景清单 | E2E | 四服务 HTTP、真实 Task、渠道出站探针 | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | S-03 | backend#2.5.2 场景清单 | E2E | 实际 provider 请求、canonical 历史、制品存储 | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
-| S-04 | backend#2.5.2 场景清单 | integration | 真实 Runner、可控异步工具处理器 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] |
+| S-04 | backend#2.5.2 场景清单 | integration | 真实 Runner、可控异步工具处理器 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] |
 | S-05 | backend#2.5.2 场景清单 | E2E | Console resolve/API-09、等待恢复、LLM/MCP HTTP | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | S-06 | backend#2.5.2 场景清单 | E2E | Gateway、Runtime SSE、Worker、原消息回复探针 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
-| S-07 | backend#2.5.2 场景清单 | integration | 真实 MCP HTTP 探针、Runtime adapter | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
+| S-07 | backend#2.5.2 场景清单 | integration | 真实 MCP HTTP 探针、Runtime adapter | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
 | E-01 | backend#2.5.2 场景清单 | E2E | 冻结授权、Worker HTTP、PG、审计 | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-02 | backend#2.5.2 场景清单 | E2E | Runtime 控制发件、Worker 创建事务、故障代理 | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-03 | backend#2.5.2 场景清单 | E2E | Worker 真实进程、PG outbox、Runtime HTTP | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_delivery.py"] |
@@ -34,7 +34,7 @@
 | E-11 | backend#2.5.2 场景清单 | E2E | 内部服务门控、Runtime/Console HTTP、PG | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/security/test_internal_service_identity.py"] |
 | E-12 | backend#2.5.2 场景清单 | E2E | API-09、日志、inbox/outbox/checkpoint/canonical、制品 | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | E-13 | backend#2.5.2 场景清单 | E2E | SSE socket、Runtime supervisor、Gateway/重连客户端 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
-| E-14 | backend#2.5.2 场景清单 | integration | MCP HTTP 探针、客户端关闭 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
+| E-14 | backend#2.5.2 场景清单 | integration | MCP HTTP 探针、客户端关闭 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
 | E-15 | backend#2.5.2 场景清单 | E2E | Redis 故障代理、PG 队列和结果发件 | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_redis_unavailable.py"] |
 | E-16 | backend#2.5.2 场景清单 | E2E | Worker HTTP 故障代理、控制发件、PG tombstone | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-17 | backend#2.5.2 场景清单 | E2E | Gateway/Runtime HTTP、PG 活跃会话约束 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
@@ -43,7 +43,7 @@
 | B-03 | backend#2.5.2 场景清单 | integration | UTF-8 字节预算、共享制品、历史重建 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
 | B-04 | backend#2.5.2 场景清单 | integration | PG wait_generation、epoch、canonical seq | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] |
 | B-05 | backend#2.5.2 场景清单 | integration | 持久检查点、注入时钟、真实 budget 判定 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] |
-| B-06 | backend#2.5.2 场景清单 | integration | 并行规划器、Runner、资源声明 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] |
+| B-06 | backend#2.5.2 场景清单 | integration | 并行规划器、Runner、资源声明 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] |
 | B-07 | backend#2.5.2 场景清单 | integration | inbox/outbox 租约、PG、故障代理 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] |
 | B-08 | backend#2.5.2 场景清单 | integration | 真实 PG、Alembic、迁移前置检查 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/migrations/test_runtime_wait_parity.py"] |
 | B-09 | backend#2.5.2 场景清单 | integration | 真实需求文件、manifest、inventory runner | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/async_tool_runtime_inventory.py"] |
@@ -409,7 +409,7 @@
 
 ## TASK-005: READ 并发与 MCP 请求正确性
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-003
 - **Source**: async-tool-runtime.backend.design.md#3.2 架构设计
@@ -422,37 +422,56 @@
 
 ### Checklist
 
-- [ ] `ToolDefinition` 新增不可模型设置的 `concurrency` 声明：SERIAL default；PARALLEL_READ需要显式 handler 可重入、无共享可变副作用、明确 resource key 和独立性
-- [ ] tool ademicer按原调用序连续 batch READ；资源冲突/未知依赖拆成串行；WRITE/EXTERNAL是前后屏障；每个 parallel batch bounded by `parallel_limit`
-- [ ] first version only allow proved read-only tool：`search_skills`、`read_skill_resource`、isolated `get_task/list_tasks`；会写load_skill、memory、MCP default serial
-- [ ] [S-04][integration] 两个允许并发independent READ均到启动屏障后才放行；WRITE在读批全部结束后才启动；返回消息顺序按原调用序
-- [ ] [B-06][integration] READ未声明并发、共享有状态资源、同资源锁或未知依赖保持串行；并行度=1和上限边界均符合声明
-- [ ] MCP每个冻结 server 会话使用 initialize singleflight; failure releases锁; no旧失败锁死
-- [ ] request IDs per session counter/unique generator, no reuse; response id strict match; missing/mismatched is protocol error
-- [ ] still Streamable HTTPonly, frozen catalog, unified registry, no in run tools/list, notool-level RBAC
-- [ ] [S-07][integration] concurrent tools/call one initialize, IDs no reuse,responses严格 matched, no tools/list request
-- [ ] [E-14][integration] errors response ID, initialize failure,isError, timeout, cancel明确 failed and关闭 connection；initialize失败后续调用可重试
-- [ ] verifier harness-mcp#RULE-mcp-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] `ToolDefinition` 新增不可模型设置的 `concurrency` 声明：SERIAL default；PARALLEL_READ需要显式 handler 可重入、无共享可变副作用、明确 resource key 和独立性
+- [x] tool ademicer按原调用序连续 batch READ；资源冲突/未知依赖拆成串行；WRITE/EXTERNAL是前后屏障；每个 parallel batch bounded by `parallel_limit`
+- [x] first version only allow proved read-only tool：`search_skills`、`read_skill_resource`、isolated `get_task/list_tasks`；会写load_skill、memory、MCP default serial
+- [x] [S-04][integration] 两个允许并发independent READ均到启动屏障后才放行；WRITE在读批全部结束后才启动；返回消息顺序按原调用序
+- [x] [B-06][integration] READ未声明并发、共享有状态资源、同资源锁或未知依赖保持串行；并行度=1和上限边界均符合声明
+- [x] MCP每个冻结 server 会话使用 initialize singleflight; failure releases锁; no旧失败锁死
+- [x] request IDs per session counter/unique generator, no reuse; response id strict match; missing/mismatched is protocol error
+- [x] still Streamable HTTPonly, frozen catalog, unified registry, no in run tools/list, notool-level RBAC
+- [x] [S-07][integration] concurrent tools/call one initialize, IDs no reuse,responses严格 matched, no tools/list request
+- [x] [E-14][integration] errors response ID, initialize failure,isError, timeout, cancel明确 failed and关闭 connection；initialize失败后续调用可重试
+- [x] verifier harness-mcp#RULE-mcp-001：原始 argv `uv run pytest -q tests/console_mcp/test_mcp_rules.py` → 3 passed（门禁裁决由 finish 记录）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-04 | integration | 真实 Runner、可控异步工具处理器 | independent READ both wait barrier before execute; WRITE starts after read batch; result order original | `tests/agent_runtime/test_tool_parallel_planner.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] | planned |
-| S-07 | integration | 真实 MCP HTTP探针、Runtime adapter | concurrent tools/call only one initialize; IDs no response reuse; responses严格 matched; no tools/list | `tests/agent_runtime/test_mcp_request_correlation.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] | planned |
-| E-14 | integration | MCP HTTP 探针、客户端关闭 | wrong response ID、init failure、isError、timeout、cancel all明确 failed and close connection; later call retry possible; no old failed lock死 | `tests/agent_runtime/test_mcp_request_correlation.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] | planned |
-| B-06 | integration | 并行规划器、Runner、资源声明 | undeclared并行、shared mutable resource、same lock key or unknown dependency remains serial; parallel=1 and max boundary | `tests/agent_runtime/test_tool_parallel_planner.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] | planned |
+| S-04 | integration | 真实 Runner、可控异步工具处理器 | independent READ both wait barrier before execute; WRITE starts after read batch; result order original | `tests/agent_runtime/test_tool_parallel_planner.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] | verified |
+| S-07 | integration | 真实 MCP HTTP探针、Runtime adapter | concurrent tools/call only one initialize; IDs no response reuse; responses严格 matched; no tools/list | `tests/agent_runtime/test_mcp_request_correlation.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] | verified |
+| E-14 | integration | MCP HTTP 探针、客户端关闭 | wrong response ID、init failure、isError、timeout、cancel all明确 failed and close connection; later call retry possible; no old failed lock死 | `tests/agent_runtime/test_mcp_request_correlation.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] | verified |
+| B-06 | integration | 并行规划器、Runner、资源声明 | undeclared并行、shared mutable resource、same lock key or unknown dependency remains serial; parallel=1 and max boundary | `tests/agent_runtime/test_tool_parallel_planner.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] | verified |
 
 ### Acceptance Evidence
 
-- [S-04][integration] planned — RED/GREEN pending
-- [S-07][integration] planned — RED/GREEN pending
-- [E-14][integration] planned — RED/GREEN pending
-- [B-06][integration] planned — RED/GREEN pending
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-04 | FAIL: planner 文件收集失败 `ImportError: cannot import name 'ToolConcurrency' from 'muad_agent_core.tools'`（`ToolDefinition` 无 concurrency 声明） | PASS: `uv run pytest -q tests/agent_runtime/test_tool_parallel_planner.py`，13 passed | `test_s04_independent_reads_meet_barrier_and_write_starts_after_batch` | 真实 `AgentRunner` 图执行 + 共享 `asyncio.Barrier(2)`（两 READ 同时在飞才放行）+ WRITE 屏障后启动 + 完成顺序反转而消息仍按 c1,c2,c3 原序 | verified |
+| B-06 | FAIL: 同 S-04（收集失败，无声明/规划器） | PASS: 同命令 13 passed（含 4 例串行判定与上限边界） | `test_b06_undeclared_read_stays_serial`、`test_b06_shared_stateful_resource_stays_serial`、`test_b06_same_resource_lock_serializes_only_conflicting_calls`、`test_b06_unknown_dependency_stays_serial`、`test_b06_parallel_limit_one_stays_serial`、`test_b06_parallel_limit_bounds_batch`、`test_b06_parallel_limit_rejects_invalid_values`、`test_b06_tool_definition_defaults_to_serial`、`test_b06_planner_splits_consecutive_batches_by_declaration_and_order` | 真实 Runner 并行度观测（同时在飞数）+ 规划器纯逻辑批次形状；上限 1/2/16 与 bool/小数/越界拒绝 | verified |
+| S-07 | FAIL: `initialize_count == 2`（无 singleflight，并发两调用各发一次 initialize）；错误响应 ID 用例 `DID NOT RAISE McpToolError` | PASS: `uv run pytest -q tests/agent_runtime/test_mcp_request_correlation.py`，8 passed | `test_s07_concurrent_calls_share_one_initialize_unique_ids_no_tools_list` | 真实 uvicorn 127.0.0.1 Streamable HTTP 探针（逐请求记账）+ 真实 httpx adapter；断言 1 次 initialize、ID 集合唯一、`Mcp-Session-Id` 复用、无 tools/list | verified |
+| E-14 | FAIL: isError/超时/取消后重试仍复用旧会话（`initialize_count == 1`，连接未关闭）；错误/缺失响应 ID 未触发协议错误 | PASS: 同命令 8 passed | `test_e14_bad_response_id_is_protocol_error_and_forces_new_session[wrong\|missing]`、`test_e14_initialize_failure_releases_lock_and_supports_retry`、`test_e14_concurrent_waiters_survive_initialize_failure`、`test_e14_is_error_fails_and_closes_session`、`test_e14_timeout_fails_and_closes_session`、`test_e14_cancellation_closes_session_and_retry_reinitializes` | 真实探针 RPC 错误/isError/持留响应超时/取消；失败后重试重新 initialize 且新 TCP 客户端端口（旧连接确已关闭），等待方不被旧失败锁死 | verified |
+
+- [S-04][integration] RED — `uv run python /tmp/async_tool_check.py uv run pytest -q tests/agent_runtime/test_tool_parallel_planner.py tests/agent_runtime/test_mcp_request_correlation.py` (2026-10-08): planner 文件收集失败，缺少 `ToolConcurrency`/`plan_tool_batches` 声明与规划器。GREEN 后同命令 21 passed（19.46s）；原始 manifest 命令单跑 13 passed（10.27s）。
+- [B-06][integration] RED — 同 S-04（收集失败）。GREEN 覆盖未声明/共享资源/同资源锁/未知依赖保持串行、parallel_limit=1 与上限边界、声明默认 SERIAL。
+- [S-07][integration] RED — `uv run python /tmp/async_tool_check.py uv run pytest -q tests/agent_runtime/test_mcp_request_correlation.py` (2026-10-08): 6 failed / 2 passed；并发调用触发 2 次 initialize，错误响应 ID 不被识别。GREEN: 同命令 8 passed（10.55s 原始命令）。
+- [E-14][integration] RED — 同 S-07：isError/超时/取消后会话未丢弃（重试不再 initialize），错误/缺失响应 ID 不报协议错误。GREEN 覆盖失败关连接 + 后续重试重新初始化 + 并发等待方可继续。
+- 回归: `uv run python /tmp/async_tool_check.py uv run pytest -q tests/agent_runtime tests/agent_core tests/console_mcp` → 600 passed in 102.95s（独立空库；E2E 标记用例不选）。
+- verifier: `uv run pytest -q tests/console_mcp/test_mcp_rules.py` → 3 passed in 0.01s（harness-mcp#RULE-mcp-001 原始 argv）。
+- 静态检查: `uv run mypy apps packages scripts` → 338 source files 通过（先修 pipeline `definition` 可空收窄）；`uv run ruff check apps packages tests` → 全部通过（先修 6 项：5×E501、1×I001 导入序）；`git diff --check` → rc=0。
+- S-04: verified — automated command passed; run_id=3a3705e59db746a5920531e2e599b0f4 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=3a3705e59db746a5920531e2e599b0f4 (confirmed_by: runner)
+- E-14: verified — automated command passed; run_id=3a3705e59db746a5920531e2e599b0f4 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=3a3705e59db746a5920531e2e599b0f4 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-07] created (draft)
+- [2026-10-08] started
+- [2026-10-08] RED：planner 文件因缺 `ToolConcurrency`/规划器收集失败；MCP 关联文件 6 failed / 2 passed（无 singleflight、ID 复用、错误响应 ID 不校验、isError/超时/取消不关会话）。GREEN：agent-core 新增 `ToolConcurrency`、`resource_key` 声明与纯规划器（连续批、资源冲突/未知依赖串行、写屏障、parallel_limit 1–16 校验）；Runner 先按原序校验/授权/预留预算，再 TaskGroup+semaphore 只并发 handler IO，结果按原序进入回合收口；MCP adapter 改为每 server singleflight 初始化锁 + 会话内递增请求 ID + 响应 ID 严格匹配 + 任何失败丢弃会话关闭连接；Runtime 由冻结 `AsyncToolPolicy` 接线 `parallel_limit`；首批登记 `search_skills`/`read_skill_resource`/`get_task`/`list_tasks` 并发声明（load_skill、memory、MCP 保持 SERIAL）。测试自身一处缺陷在 GREEN 阶段发现并修正（S-04 误建两个独立 Barrier，改为共享 Barrier(2)）。两文件 21 passed；回归 600 passed；verifier 3 passed；mypy/ruff/diff --check 通过。
+- [2026-10-08] resumed (in-progress)
+- [2026-10-08] Done Gate 曾因 scope 预检暂停：`path_mapping` 的 `**/*relation*` 误命中新测试文件名 `test_mcp_request_correlation.py`，工具链自动并入 harness-rel#RULE-rel-001 并暂停 TASK。核实该规则只约束 Console 关系类（POST/DELETE）变更，与本次 MCP 请求 ID 修正无关；按既有实践（e96d8580 收窄过宽 path_mapping）将模式收紧为 `**/*relations*`，resume 后 Done Gate pass（harness-rel 不再命中；本任务范围验收与 verifier 全部通过）。
+- [2026-10-08] completed (done)
 
 ---
 
