@@ -82,6 +82,7 @@ from .tool_runtime import (
     ToolResultReceipt,
     ToolResultRequest,
     ToolSubmissionReceipt,
+    tool_waiting_reason,
 )
 
 __all__ = [
@@ -101,11 +102,11 @@ __all__ = [
     "ToolResultRequest",
     "ToolSubmissionReceipt",
     "WaitReason",
+    "tool_waiting_reason",
     "ChannelName",
     "DEFAULT_PAGE_SIZE",
     "MAX_PAGE_SIZE",
-    "REQUIRED_SNAPSHOT_KEYS",
-    "TASK_PROMPT_TEMPLATE_VERSION",
+    "REQUIRED_SNAPSHOT_KEYS",    "TASK_PROMPT_TEMPLATE_VERSION",
     "TASK_SNAPSHOT_SCHEMA_VERSION",
     "ArtifactValidationStatus",
     "BotSnapshotItem",

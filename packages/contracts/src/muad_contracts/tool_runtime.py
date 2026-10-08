@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
 from .canonical import canonical_json, ensure_strict_json
-from .enums import CompletionMode, TaskStatus, TerminalStatus
+from .enums import CompletionMode, RunStatus, TaskStatus, TerminalStatus, WaitReason
 
 MAX_TOOL_RESULT_BYTES = 256 * 1024
 SNAPSHOT_HASH_PATTERN = r"^sha256:[0-9a-f]{64}$"
@@ -70,6 +70,29 @@ class ToolResultReceipt(BaseModel):
     event_id: UUID
     persisted: bool
     duplicate: bool
+
+
+def tool_waiting_reason(
+    status: RunStatus,
+    *,
+    resume_ready: bool,
+    pending_submission_count: int,
+    pending_join_count: int,
+) -> WaitReason | None:
+    """API-05：Run 详情 `waiting_reason` 的唯一口径（Runtime 与 Console 只读投影共用）。
+
+    仅 WAITING_TOOL 有等待原因：结果已到但尚未被接续 claim 时显示 RESUME_READY；仍有未受理
+    提交显示 SUBMISSION；其余待定 JOIN 显示 TASK_RESULT。WAITING_INPUT 等状态一律为 null。
+    """
+    if status != RunStatus.WAITING_TOOL:
+        return None
+    if resume_ready:
+        return WaitReason.RESUME_READY
+    if pending_submission_count > 0:
+        return WaitReason.SUBMISSION
+    if pending_join_count > 0:
+        return WaitReason.TASK_RESULT
+    return None
 
 
 class CancelOperationRequest(BaseModel):

@@ -1,13 +1,25 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
-from muad_contracts import RunStatus
+from muad_contracts import RunStatus, WaitReason
 from pydantic import BaseModel, ConfigDict
 
 from ..infrastructure.models.runtime import Conversation, RunRecord, RuntimeSnapshot
+
+
+@dataclass(frozen=True, slots=True)
+class RunWaitSummary:
+    """API-05：Run 详情的只读等待投影（等待起点/原因 + 异步操作计数）。"""
+
+    waiting_since: datetime | None
+    waiting_reason: WaitReason | None
+    pending_join_count: int
+    pending_submission_count: int
+    continuation_count: int
 
 
 class ResumeInput(BaseModel):
@@ -90,7 +102,7 @@ def _mcp_catalog_summary(catalog: list[dict[str, Any]] | None) -> tuple[int | No
     )
 
 
-def run_view(run: RunRecord, snapshot: RuntimeSnapshot | None) -> dict[str, Any]:
+def run_view(run: RunRecord, snapshot: RuntimeSnapshot | None, wait: RunWaitSummary) -> dict[str, Any]:
     return {
         "run_id": str(run.id),
         "conversation_id": str(run.conversation_id),
@@ -103,6 +115,12 @@ def run_view(run: RunRecord, snapshot: RuntimeSnapshot | None) -> dict[str, Any]
         "error_message": run.error_message,
         "start_time": _isoformat(run.start_time),
         "end_time": _isoformat(run.end_time),
+        "deadline_at": _isoformat(run.deadline_at),
+        "waiting_since": _isoformat(wait.waiting_since),
+        "waiting_reason": wait.waiting_reason.value if wait.waiting_reason is not None else None,
+        "pending_join_count": wait.pending_join_count,
+        "pending_submission_count": wait.pending_submission_count,
+        "continuation_count": wait.continuation_count,
         "snapshot": snapshot_summary(snapshot),
     }
 

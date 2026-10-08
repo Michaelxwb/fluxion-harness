@@ -1,6 +1,7 @@
 import hashlib
 import json
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -8,6 +9,7 @@ import sqlalchemy as sa
 from httpx import AsyncClient
 from muad_agent_runtime.application.run_service import snapshot_policy
 from muad_agent_runtime.infrastructure.db import get_session_factory
+from muad_agent_runtime.infrastructure.models.async_tools import RunContinuation, ToolOperation
 from muad_agent_runtime.infrastructure.models.runtime import (
     CanonicalEvent,
     Conversation,
@@ -17,7 +19,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 )
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import ResolveDefinitionResponse
+from muad_contracts import CompletionMode, OperationStatus, ResolveDefinitionResponse
 from sqlalchemy import select
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
@@ -518,6 +520,160 @@ async def test_get_run_returns_status_and_snapshot_summary(
     missing = await client.get(f"/v1/runs/{uuid.uuid4()}", headers=_headers(tenant))
     assert missing.status_code == 404
     assert missing.json()["code"] == "COMMON_NOT_FOUND"
+
+
+async def _seed_waiting_run(
+    tenant: TenantContext,
+    resolved: ResolveDefinitionResponse,
+    *,
+    status: str = "WAITING_TOOL",
+    operations: Sequence[tuple[CompletionMode, OperationStatus]] = (),
+    wait_generation: int = 0,
+    ready: bool = False,
+    with_interrupt: bool = False,
+    waiting_event: int = 0,
+) -> uuid.UUID:
+    """种一个等待中的 Run：operation 依赖、检查点、等待起点事件/中断；返回 run_id。"""
+    conversation_id, run_id = await _insert_run(
+        tenant, status, with_interrupt=with_interrupt, resolved=resolved
+    )
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        async with session.begin():
+            run = await session.get(RunRecord, run_id)
+            assert run is not None and run.snapshot_id is not None
+            for mode, op_status in operations:
+                session.add(
+                    ToolOperation(
+                        tenant_id=tenant.tenant_id,
+                        run_id=run_id,
+                        actor_user_id=tenant.platform_user_id,
+                        source_tool_call_id=f"call-{uuid.uuid4().hex[:8]}",
+                        completion_mode=mode,
+                        status=op_status,
+                        task_snapshot_hash="sha256:" + "a" * 64,
+                        submission_json={"input": "submission-canary"},
+                        input_hash="sha256:" + "b" * 64,
+                    )
+                )
+            if ready or wait_generation:
+                session.add(
+                    RunContinuation(
+                        tenant_id=tenant.tenant_id,
+                        run_id=run_id,
+                        snapshot_id=run.snapshot_id,
+                        wait_generation=wait_generation,
+                        ready=ready,
+                        context_upto_seq=0,
+                        runner_state_json={},
+                    )
+                )
+            if waiting_event:
+                session.add(
+                    CanonicalEvent(
+                        tenant_id=tenant.tenant_id,
+                        conversation_id=conversation_id,
+                        run_id=run_id,
+                        seq=waiting_event,
+                        event_type="RUN_WAITING_TOOL",
+                        stream_type="run.waiting_tool",
+                        payload_json={"event_version": 1},
+                    )
+                )
+    return run_id
+
+
+async def test_get_run_reports_waiting_tool_projection(
+    client: AsyncClient,
+    tenant: TenantContext,
+    resolved: ResolveDefinitionResponse,
+) -> None:
+    """API-05：等待起点/原因与 pending 计数；只读投影不含 input/结果/提交 JSON。"""
+    run_id = await _seed_waiting_run(
+        tenant,
+        resolved,
+        operations=[
+            (CompletionMode.JOIN, OperationStatus.SUBMIT_PENDING),
+            (CompletionMode.DETACH, OperationStatus.SUBMIT_PENDING),
+            (CompletionMode.JOIN, OperationStatus.TASK_ACCEPTED),
+            (CompletionMode.JOIN, OperationStatus.COMPLETED),
+        ],
+        wait_generation=2,
+        waiting_event=1,
+    )
+
+    response = await client.get(f"/v1/runs/{run_id}", headers=_headers(tenant))
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["status"] == "WAITING_TOOL"
+    assert data["waiting_reason"] == "SUBMISSION"
+    # 未终态 JOIN：SUBMIT_PENDING + TASK_ACCEPTED；COMPLETED 不再算依赖
+    assert data["pending_join_count"] == 2
+    assert data["pending_submission_count"] == 2
+    assert data["continuation_count"] == 2
+    assert data["waiting_since"] is not None
+    assert data["deadline_at"] is not None
+    assert "submission-canary" not in response.text
+    assert "pending input" not in response.text
+
+
+async def test_get_run_reports_resume_ready_and_task_result_reasons(
+    client: AsyncClient,
+    tenant: TenantContext,
+    resolved: ResolveDefinitionResponse,
+) -> None:
+    """结果已到但尚未 claim ⇒ RESUME_READY；只有待定 JOIN 任务 ⇒ TASK_RESULT。"""
+    ready_run = await _seed_waiting_run(
+        tenant,
+        resolved,
+        operations=[(CompletionMode.JOIN, OperationStatus.RESULT_RECEIVED)],
+        wait_generation=1,
+        ready=True,
+    )
+    task_run = await _seed_waiting_run(
+        tenant,
+        resolved,
+        operations=[(CompletionMode.JOIN, OperationStatus.RUNNING)],
+        wait_generation=1,
+    )
+    bare_run = await _seed_waiting_run(tenant, resolved)
+
+    ready = (await client.get(f"/v1/runs/{ready_run}", headers=_headers(tenant))).json()["data"]
+    assert ready["waiting_reason"] == "RESUME_READY"
+    assert ready["pending_join_count"] == 1 and ready["pending_submission_count"] == 0
+
+    pending = (await client.get(f"/v1/runs/{task_run}", headers=_headers(tenant))).json()["data"]
+    assert pending["waiting_reason"] == "TASK_RESULT"
+    assert pending["pending_join_count"] == 1 and pending["pending_submission_count"] == 0
+
+    # 无任何依赖的 WAITING_TOOL（不应发生但必须安全）：原因与计数都为空，不编造等待对象
+    bare = (await client.get(f"/v1/runs/{bare_run}", headers=_headers(tenant))).json()["data"]
+    assert bare["waiting_reason"] is None
+    assert bare["pending_join_count"] == 0 and bare["pending_submission_count"] == 0
+
+
+async def test_get_run_waiting_input_and_terminal_have_no_waiting_reason(
+    client: AsyncClient,
+    tenant: TenantContext,
+    resolved: ResolveDefinitionResponse,
+) -> None:
+    """WAITING_INPUT 与终态都不套用 WAITING_TOOL 的原因；等待起点取等待中断时间。"""
+    waiting_input = await _seed_waiting_run(
+        tenant, resolved, status="WAITING_INPUT", with_interrupt=True
+    )
+    completed = await _seed_waiting_run(tenant, resolved, status="COMPLETED")
+
+    input_data = (
+        await client.get(f"/v1/runs/{waiting_input}", headers=_headers(tenant))
+    ).json()["data"]
+    assert input_data["status"] == "WAITING_INPUT"
+    assert input_data["waiting_reason"] is None
+    assert input_data["waiting_since"] is not None
+    assert input_data["pending_join_count"] == 0 and input_data["pending_submission_count"] == 0
+    assert input_data["continuation_count"] == 0
+
+    done = (await client.get(f"/v1/runs/{completed}", headers=_headers(tenant))).json()["data"]
+    assert done["waiting_reason"] is None and done["waiting_since"] is None
 
 
 async def test_create_conversation_returns_conversation(

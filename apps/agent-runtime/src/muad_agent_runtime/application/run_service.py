@@ -9,7 +9,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequenc
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import sqlalchemy as sa
 from muad_agent_core.agent import AgentPolicy, RunnerModelError
@@ -25,7 +25,9 @@ from muad_contracts import (
     AsyncToolPolicy,
     AttachmentRef,
     ChannelContext,
+    CompletionMode,
     DeliveryRouteInput,
+    OperationStatus,
     ResolvedAgent,
     ResolveDefinitionRequest,
     ResolveDefinitionResponse,
@@ -35,6 +37,7 @@ from muad_contracts import (
     ResolveModelRequest,
     RunRequest,
     RunStatus,
+    tool_waiting_reason,
 )
 from muad_contracts.platform_settings import (
     AgentSettings,
@@ -52,6 +55,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.db import get_session_factory
+from ..infrastructure.models.async_tools import RunContinuation, ToolOperation
 from ..infrastructure.models.runtime import (
     Artifact,
     CanonicalEvent,
@@ -88,6 +92,7 @@ from .attachments.inbound import (
 )
 from .context_builder import BudgetPolicy, DbBackedContextBuilder
 from .context_settings import compaction_settings_of, resolve_compaction_settings
+from .dto import RunWaitSummary
 from .executor import (
     ExecutionDefaults,
     ExecutorCredentials,
@@ -113,6 +118,7 @@ from .run_submission import (
     require_resume_idempotency,
     submission_fingerprint,
 )
+from .tool_result_receipts import OP_TERMINAL
 
 logger = logging.getLogger(__name__)
 
@@ -705,14 +711,79 @@ class RunService:
         self,
         run_id: uuid.UUID,
         tenant_id: str,
-    ) -> tuple[RunRecord, RuntimeSnapshot | None]:
+    ) -> tuple[RunRecord, RuntimeSnapshot | None, RunWaitSummary]:
         run = await self._load_run(run_id, tenant_id)
         snapshot = None
         if run.snapshot_id is not None:
             snapshot = await self._session.scalar(
                 sa.select(RuntimeSnapshot).where(RuntimeSnapshot.id == run.snapshot_id)
             )
-        return run, snapshot
+        return run, snapshot, await self._wait_summary(run)
+
+    async def _wait_summary(self, run: RunRecord) -> RunWaitSummary:
+        """API-05：等待起点/原因与异步操作计数；只读，一次聚合 + 一次检查点读取。"""
+        join_count, submission_count = (
+            await self._session.execute(
+                sa.select(
+                    sa.func.count().filter(
+                        ToolOperation.completion_mode == CompletionMode.JOIN,
+                        ToolOperation.status.not_in(OP_TERMINAL),
+                    ),
+                    sa.func.count().filter(ToolOperation.status == OperationStatus.SUBMIT_PENDING),
+                ).where(
+                    ToolOperation.tenant_id == run.tenant_id,
+                    ToolOperation.run_id == run.id,
+                    ToolOperation.is_deleted.is_(False),
+                )
+            )
+        ).one()
+        continuation = await self._session.scalar(
+            sa.select(RunContinuation).where(
+                RunContinuation.tenant_id == run.tenant_id,
+                RunContinuation.run_id == run.id,
+                RunContinuation.is_deleted.is_(False),
+            )
+        )
+        return RunWaitSummary(
+            waiting_since=await self._waiting_since(run),
+            waiting_reason=tool_waiting_reason(
+                run.status,
+                resume_ready=continuation.ready if continuation is not None else False,
+                pending_submission_count=int(submission_count),
+                pending_join_count=int(join_count),
+            ),
+            pending_join_count=int(join_count),
+            pending_submission_count=int(submission_count),
+            continuation_count=continuation.wait_generation if continuation is not None else 0,
+        )
+
+    async def _waiting_since(self, run: RunRecord) -> datetime | None:
+        """等待起点：WAITING_TOOL 取最近一次 `RUN_WAITING_TOOL` 事件，WAITING_INPUT 取等待中断。"""
+        if run.status == RunStatus.WAITING_TOOL:
+            return cast(
+                datetime | None,
+                await self._session.scalar(
+                    sa.select(sa.func.max(CanonicalEvent.create_time)).where(
+                        CanonicalEvent.tenant_id == run.tenant_id,
+                        CanonicalEvent.run_id == run.id,
+                        CanonicalEvent.event_type == "RUN_WAITING_TOOL",
+                        CanonicalEvent.is_deleted.is_(False),
+                    )
+                ),
+            )
+        if run.status == RunStatus.WAITING_INPUT:
+            return cast(
+                datetime | None,
+                await self._session.scalar(
+                    sa.select(sa.func.max(RunInterrupt.create_time)).where(
+                        RunInterrupt.tenant_id == run.tenant_id,
+                        RunInterrupt.run_id == run.id,
+                        RunInterrupt.status == "WAITING",
+                        RunInterrupt.is_deleted.is_(False),
+                    )
+                ),
+            )
+        return None
 
     async def create_conversation(
         self,

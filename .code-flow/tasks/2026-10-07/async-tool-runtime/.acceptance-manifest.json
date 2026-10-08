@@ -1390,7 +1390,7 @@
       "kind": "e2e",
       "boundary": "内部服务门控、Runtime/Console HTTP、PG",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1400,7 +1400,44 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-11",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "b241f1b90d674691a148d9297c17fa9e",
+        "executed_at": "2026-10-08T16:06:32.195728+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/security/test_internal_service_identity.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-11",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b241f1b90d674691a148d9297c17fa9e",
+          "executed_at": "2026-10-08T16:06:32.195728+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/security/test_internal_service_identity.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-12",

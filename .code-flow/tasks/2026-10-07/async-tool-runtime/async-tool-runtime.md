@@ -2,7 +2,7 @@
 
 - **Source**: async-tool-runtime.backend.design.md, async-tool-runtime.frontend.design.md
 - **Created**: 2026-10-07
-- **Updated**: 2026-10-08
+- **Updated**: 2026-10-09
 
 ## Proposal
 
@@ -31,7 +31,7 @@
 | E-08 | backend#2.5.2 场景清单 | E2E | ScriptSkillExecutor、真实子孙进程、管道、HTTP | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_skill_cancellation_real_subprocess.py"] |
 | E-09 | backend#2.5.2 场景清单 | integration | ContextBuilder、真实 provider 消息序列化 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
 | E-10 | backend#2.5.2 场景清单 | integration | 真实制品发布/DB 事务、压缩端口 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
-| E-11 | backend#2.5.2 场景清单 | E2E | 内部服务门控、Runtime/Console HTTP、PG | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/security/test_internal_service_identity.py"] |
+| E-11 | backend#2.5.2 场景清单 | E2E | 内部服务门控、Runtime/Console HTTP、PG | TASK-007 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/security/test_internal_service_identity.py"] |
 | E-12 | backend#2.5.2 场景清单 | E2E | API-09、日志、inbox/outbox/checkpoint/canonical、制品 | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | E-13 | backend#2.5.2 场景清单 | E2E | SSE socket、Runtime supervisor、Gateway/重连客户端 | TASK-006 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
 | E-14 | backend#2.5.2 场景清单 | integration | MCP HTTP 探针、客户端关闭 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
@@ -536,7 +536,7 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 
 ## TASK-007: Console 只读安全投影与 operations API
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-004
 - **Source**: async-tool-runtime.backend.design.md#3.4 接口设计, async-tool-runtime.frontend.design.md#3.5 状态与数据流
@@ -549,25 +549,34 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 
 ### Checklist
 
-- [ ] `GET /api/v1/runs/{id}` 增加 waiting_since、deadline_at、waiting_reason、pending_join_count、pending_submission_count、continuation_count且区分 WAITING_TOOL/WAITING_INPUT
-- [ ] `GET /api/v1/runs/{id}/operations` items/page/page_size/total default 15, page_size≤100；only身份/状态/时间/关联Task，无 input/result
-- [ ] operation SUBMIT_FAILED not equal Task FAILED; task status批量补齐，分页与 count共用条件
-- [ ] Console租户只从登录账号，不取伪造 header；non-ADMIN no new credential input
-- [ ] [E-11][E2E] 无服务身份、跨租户、actor/run/operation/task/hash不匹配拒绝；不写 inbox、不泄露另租户存在性，Console伪造租户头无效
+- [x] `GET /api/v1/runs/{id}` 增加 waiting_since、deadline_at、waiting_reason、pending_join_count、pending_submission_count、continuation_count且区分 WAITING_TOOL/WAITING_INPUT
+- [x] `GET /api/v1/runs/{id}/operations` items/page/page_size/total default 15, page_size≤100；only身份/状态/时间/关联Task，无 input/result
+- [x] operation SUBMIT_FAILED not equal Task FAILED; task status批量补齐，分页与 count共用条件
+- [x] Console租户只从登录账号，不取伪造 header；non-ADMIN no new credential input
+- [x] [E-11][E2E] 无服务身份、跨租户、actor/run/operation/task/hash不匹配拒绝；不写 inbox、不泄露另租户存在性，Console伪造租户头无效
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-11 | E2E | 内部服务门控、Runtime/Console HTTP、PG | no service identity/cross-tenant/actor/run/hash mismatch rejected; no inbox; no存在 leak; Consolespoofed tenant invalid | `tests/acceptance/security/test_internal_service_identity.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/security/test_internal_service_identity.py"] | planned |
+| E-11 | E2E | 内部服务门控、Runtime/Console HTTP、PG | no service identity/cross-tenant/actor/run/hash mismatch rejected; no inbox; no存在 leak; Consolespoofed tenant invalid | `tests/acceptance/security/test_internal_service_identity.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/security/test_internal_service_identity.py"] | e2e_deferred |
 
 ### Acceptance Evidence
 
-- [E-11][E2E] planned — defer to verify-e2e after relevant TASK verified
+- E-11: e2e_deferred — 已登记 3 例（`test_e11_internal_endpoints_require_service_identity`、`test_e11_result_binding_mismatches_are_rejected_without_inbox`、`test_e11_console_tenant_comes_from_login_account_not_header`）；真实边界：Runtime/Console 内部服务门控 + 结果回流绑定校验 + Console 登录账号租户投影，全部打在 task-schedule 真栈（真实进程/HTTP）与真实 PG 上；`uv run pytest --collect-only -q tests/acceptance/security/test_internal_service_identity.py` → 3 tests collected；执行命令 `uv run pytest -q tests/acceptance/security/test_internal_service_identity.py` 留待 verify-e2e（coding 阶段不执行 E2E）。
+- 功能回归（独立库，`/tmp/async_tool_check.py`）：`uv run pytest -q tests/console_platform tests/agent_runtime tests/console_internal tests/console_tasks tests/contracts`（--ignore 4 个 audit 既有失败文件 + --deselect 1 个既有迁移用例）→ 680 passed；新增/改动文件单跑 36 passed。
+- 静态检查：`uv run mypy apps packages scripts` → 339 source files 通过；`uv run ruff check apps packages tests` 全绿；`git diff --check` rc=0。
+- 既有失败基线（与本任务无关，`git stash` 复跑基线一致）：`test_platform_settings_table.py::test_upgrade_to_head_creates_table_matching_orm_model`（REVISION 钉 0018、head 已是 0019）与 4 个 audit 测试文件 24 errors（种子 `run_record.status='SUCCEEDED'` 撞 0019 的 `ck_run_record_run_status`），均系 TASK-001 引入、遗留待 TASK-009/卫生任务收口。
+- E-11: e2e_deferred — automated command e2e_deferred; run_id=b241f1b90d674691a148d9297c17fa9e (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-07] created (draft)
+- [2026-10-08] started
+- [2026-10-09] 实现要点：① contracts 新增 `tool_waiting_reason` 单一口径（仅 WAITING_TOOL；RESUME_READY > SUBMISSION > TASK_RESULT > null），Runtime/Console 共用；② Console `GET /api/v1/runs/{id}` 增加 `deadline_at/waiting_since/waiting_reason/pending_join_count/pending_submission_count/continuation_count`（单条 SQL：`run_continuation` LEFT JOIN + 未终态 JOIN/SUBMIT_PENDING 两个计数子查询 + 按状态取 `RUN_WAITING_TOOL` 事件或 WAITING `run_interrupt` 时间作为等待起点），并新增 `GET /api/v1/runs/{id}/operations`（items/page/page_size/total，默认 15 上限 100；字段仅身份/状态/时间/关联 Task；一次 LEFT JOIN 批量补 Task 状态，list 与 count 共用条件片段；Run 不存在与跨租户同码 404）；③ Runtime `GET /v1/runs/{id}` 同步输出相同等待字段（聚合计数 + 检查点读取 + 等待起点查询）；④ 全部只读投影，不取 `input_text/submission_json/payload_json/credential`；内部端点门控与 Console 登录账号租户口径不变。语义：pending_join_count=未终态 JOIN（含 SUBMIT_PENDING/MATERIALIZED），pending_submission_count=SUBMIT_PENDING（含 DETACH），continuation_count=`wait_generation`（无检查点记 0）。
+- [2026-10-09] RED/GREEN：新增 9 个功能用例先跑 RED（stash 生产代码、保留用例）：`uv run python /tmp/async_tool_check.py uv run pytest -q tests/console_platform/test_runs_api.py tests/agent_runtime/test_runs_api.py` → 9 failed / 27 passed（等待字段 KeyError、operations 路由 404）；恢复生产代码后 GREEN：同命令 36 passed。E-11（E2E）按 coding 阶段纪律只登记不执行（`--collect-only` 收集 3 项）。
+- [2026-10-09] 回归与基线：范围回归在受影响面全绿（见 Acceptance Evidence）；全范围命令暴露的 25 个既有失败用 `git stash` 在纯净基线上复跑证实完全相同（TASK-001 的 0019 迁移约束/版本钉引入），未在本次改动，留给 TASK-009 收口。
+- [2026-10-09] completed (done)
 
 ---
 

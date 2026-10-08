@@ -111,8 +111,8 @@ async def get_run(
     tenant_id: TenantDep,
     service: RunServiceDep,
 ) -> ApiResponse[Any]:
-    run, snapshot = await service.get_run(run_id, tenant_id)
-    return ok(request.app.state.message_catalog, run_view(run, snapshot))
+    run, snapshot, wait = await service.get_run(run_id, tenant_id)
+    return ok(request.app.state.message_catalog, run_view(run, snapshot, wait))
 
 
 @router.post("/conversations")
