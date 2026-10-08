@@ -4,6 +4,7 @@ import json
 import os
 import signal
 import threading
+import time
 from datetime import UTC, datetime, timedelta
 from queue import Queue
 from uuid import UUID, uuid4
@@ -56,7 +57,11 @@ def join_stack(tmp_path_factory):
                 model.base_url = probe.url + "/v1"
                 artifact = (
                     await session.scalars(
-                        select(SkillArtifact).where(SkillArtifact.skill_id == stack.skill_id)
+                        select(SkillArtifact).where(
+                            SkillArtifact.skill_id == stack.skill_id,
+                            # seed_control 同 skill 下另有一份 BATCH 制品，取常规（非 batch）那份。
+                            SkillArtifact.id != stack.batch_artifact_id,
+                        )
                     )
                 ).one()
                 artifact.storage_key = "skills/join-probe.zip"
@@ -92,10 +97,16 @@ def _begin(stack, client, tmp_path, *, calls=1):
         stack.llm_url + "/configure", json={"skill_key": stack.skill_key, "gate": str(gate), "calls": calls}
     ).raise_for_status()
     events, result = Queue(), Queue()
+    conversation = client.post(
+        stack.runtime_url + "/v1/conversations",
+        json={"agent_id": str(stack.agent_id), "platform_user_id": str(stack.platform_user_id)},
+        headers=stack.service_headers(),
+    ).json()["data"]["conversation_id"]
     payload = {
         "agent_id": str(stack.agent_id),
         "platform_user_id": str(stack.platform_user_id),
-        "channel": {"type": "WECOM"},
+        "conversation_id": conversation,
+        "channel": {"type": "WECOM", "bot_id": stack.bot_id},
         "message": {"id": str(uuid4()), "type": "text", "text": "Check the jobs"},
     }
 
@@ -140,10 +151,18 @@ def test_s01_join_receipt_independent_work_wait_release_and_actual_result(live_s
         row = _waiting(live_stack, run_id)
         assert row.lease_owner is None and row.lease_until is None
         observed = []
-        while not events.empty():
-            observed.append(events.get_nowait())
-        assert any(item["type"] == "tool.completed" for item in observed)
-        assert any(item["type"] == "run.waiting_tool" for item in observed)
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            while not events.empty():
+                observed.append(events.get_nowait())
+            kinds = {item["type"] for item in observed}
+            if {"tool.completed", "run.waiting_tool"} <= kinds:
+                break
+            time.sleep(0.1)
+        assert any(item["type"] == "tool.completed" for item in observed), [item["type"] for item in observed]
+        assert any(item["type"] == "run.waiting_tool" for item in observed), (
+            [item["type"] for item in observed]
+        )
         requests = client.get(live_stack.llm_url + "/requests").json()["requests"]
         receipt = next(
             message
@@ -234,7 +253,7 @@ def test_s05_frozen_configuration_authorization_and_rotated_credentials(live_sta
                 json={
                     "agent_id": str(live_stack.agent_id),
                     "platform_user_id": str(live_stack.platform_user_id),
-                    "channel": {"type": "WECOM"},
+                    "channel": {"type": "WECOM", "bot_id": live_stack.bot_id},
                     "message": {"id": str(uuid4()), "type": "text", "text": "new"},
                 },
             )
@@ -360,6 +379,22 @@ def test_e06_waiting_deadline_cancels_join_and_late_success_stays_late(live_stac
 
         op = _db(expire)
         _wait(lambda: _source(live_stack, run_id).status == "FAILED")
+
+        # 必须等 JOIN 取消真正送达 Worker（outbox SENT）再放行 Skill：
+        # 否则"技能完成"先于取消到达，Task 会合法地 COMPLETED，测不到取消语义。
+        async def cancel_delivered(factory):
+            from muad_agent_runtime.infrastructure.models.async_tools import ToolControlOutbox
+
+            async with factory() as session:
+                row = await session.scalar(
+                    select(ToolControlOutbox).where(
+                        ToolControlOutbox.operation_id == op.id,
+                        ToolControlOutbox.command == "CANCEL_OPERATION",
+                    )
+                )
+                return row is not None and row.status == "SENT"
+
+        _wait(lambda: _db(cancel_delivered))
         gate.touch()
 
         async def task(factory):

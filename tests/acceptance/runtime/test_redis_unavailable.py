@@ -1,5 +1,8 @@
 """E-15: unavailable Redis hints cannot prevent PG queue and result progress."""
 
+import sys
+from pathlib import Path
+
 import httpx
 import pytest
 from muad_agent_runtime.infrastructure.models.async_tools import RunContinuation, ToolResultInbox
@@ -15,8 +18,15 @@ from muad_contracts import RunStatus
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from tests.agent_worker.helpers import RecordingExecutor
-from tests.async_tool_helpers import seed_operation
+# `tests/agent_worker/helpers.py` 内部以顶层包名 `agent_worker.*` 导入其 conftest；
+# 全量 `tests/acceptance` 跑时靠 im_gateway 用例的 sys.path 副作用才可解析，
+# 单跑本文件（登记的 E-15 命令）会在收集期 ModuleNotFoundError。这里显式前置 `tests/`。
+_TESTS_ROOT = Path(__file__).resolve().parents[2]
+if str(_TESTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(_TESTS_ROOT))
+
+from tests.agent_worker.helpers import RecordingExecutor  # noqa: E402  (sys.path 已前置)
+from tests.async_tool_helpers import seed_operation  # noqa: E402
 
 pytestmark = pytest.mark.e2e
 
@@ -40,7 +50,7 @@ async def test_e15_pg_progress_with_redis_connection_rejected(live_stack, caplog
     notifier = await create_wakeup_notifier(f"redis://127.0.0.1:{port}/0")
     hints = await create_cancel_hint_store(f"redis://127.0.0.1:{port}/0")
     try:
-        task, operation, run = await seed_operation(factory)
+        task, operation, run = await seed_operation(factory, tenant=live_stack.tenant_id)
         async with factory() as session, session.begin():
             snapshot = RuntimeSnapshot(
                 tenant_id=task.tenant_id,
@@ -77,7 +87,7 @@ async def test_e15_pg_progress_with_redis_connection_rejected(live_stack, caplog
         await notifier.notify()  # Lost wake-up after a durable queue insertion.
         worker = WorkerLoop(factory, executor=RecordingExecutor(), cancel_hints=hints)
         assert await worker.run_once() == task.id
-        cancelled, _, _ = await seed_operation(factory)
+        cancelled, _, _ = await seed_operation(factory, tenant=live_stack.tenant_id)
         async with factory() as session, session.begin():
             status, requested = await TaskService(session).cancel(cancelled.tenant_id, cancelled.id)
             assert status == "CANCELLED" and requested

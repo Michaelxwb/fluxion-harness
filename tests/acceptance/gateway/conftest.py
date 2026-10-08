@@ -10,10 +10,12 @@ join 模型探针）；本夹具只在其上补：渠道身份绑定、WS 网关
 
 from __future__ import annotations
 
+import asyncio
 import os
 import select
 import socket
 import threading
+import time
 import urllib.parse
 from collections.abc import AsyncIterator, Iterator
 from contextlib import suppress
@@ -212,6 +214,19 @@ def _gateway_env(live: LiveStack, probe: WeComProbe, runtime_url: str) -> dict[s
     }
 
 
+async def _wait_for_probe_connection(probe: WeComProbe, *, timeout: float = 30.0) -> None:
+    """等 Gateway 完成到探针的 WS 握手（连接按 bot 归属，缺失时推送会直接断言失败）。"""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        connected = any(
+            probe.connection_bots.get(index) == BOT_ID for index in range(len(probe.connections))
+        )
+        if connected:
+            return
+        await asyncio.sleep(0.1)
+    raise AssertionError("Gateway 未在超时内建立到探针的 WS 连接")
+
+
 @pytest.fixture(scope="module", name="gateway_stack")
 async def gateway_stack(tmp_path_factory: pytest.TempPathFactory) -> AsyncIterator[WaitingGatewayStack]:
     from muad_common import SharedSettings
@@ -239,6 +254,9 @@ async def gateway_stack(tmp_path_factory: pytest.TempPathFactory) -> AsyncIterat
         )
         processes.append(gateway)
         gateway.start()
+        # 栈刚起时 Gateway 的 WS 还没握完手：必须等探针出现本 bot 的连接再放行，
+        # 否则首个 `_push` 会因"没有已连接客户端"直接失败（单跑看不出，依赖启动时序）。
+        await _wait_for_probe_connection(probe)
         yield WaitingGatewayStack(
             live=live,
             gateway_url=gateway.url,

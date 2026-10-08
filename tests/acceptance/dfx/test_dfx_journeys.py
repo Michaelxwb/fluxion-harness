@@ -324,8 +324,9 @@ async def _seed_waiting_run(stack: GatewayStack) -> tuple[str, str]:
                 text(
                     "INSERT INTO runtime.run_record "
                     "(id, tenant_id, conversation_id, user_id, agent_id, status, input_text, "
-                    "trace_id, cancel_requested) "
-                    "VALUES (:id, :t, :c, :u, :a, 'WAITING_INPUT', 'seeded', :trace, false)"
+                    "trace_id, cancel_requested, deadline_at) "
+                    "VALUES (:id, :t, :c, :u, :a, 'WAITING_INPUT', 'seeded', :trace, false, "
+                    "now() + interval '10 minutes')"
                 ),
                 {
                     "id": run_id,

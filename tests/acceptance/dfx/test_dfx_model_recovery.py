@@ -332,8 +332,9 @@ def test_e09_deadline_exhausted_fails_without_retrying(
 
     row = _run_row(live_stack, run_id)
     assert row["status"] == "FAILED", row
-    # 生产口径：RunnerDeadlineExceeded 经 _error_code_for 落 COMMON_INTERNAL_ERROR
-    assert row["error_code"] == "COMMON_INTERNAL_ERROR", row
+    # 生产口径：RunnerDeadlineExceeded 经 _error_code_for 落 RUN_DEADLINE_EXCEEDED
+    # （async-tool-runtime TASK-004 起 deadline 有专属错误码；见 run_service._error_code_for）。
+    assert row["error_code"] == "RUN_DEADLINE_EXCEEDED", row
 
 
 def test_e09_cancel_stops_retries_immediately(live_stack: LiveStack, fault_probe: FaultProbe) -> None:

@@ -30,7 +30,7 @@ from tests.console_platform.test_schema_parity import _compare
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = "control"
 TABLE = "platform_setting"
-REVISION = "0018"
+REVISION = "0019"
 PARENT_REVISION = "0016"
 # 设计 §3.3 的列清单：四列口径（id/is_deleted/create_time/update_time）+ 四个业务列。
 EXPECTED_COLUMNS = frozenset(
@@ -131,7 +131,7 @@ async def _alembic_version(url: str) -> str:
 
 
 async def test_upgrade_to_head_creates_table_matching_orm_model(isolated_db: dict[str, str]) -> None:
-    """`alembic upgrade 0001→0018` 后的列 / 主键 / 外键 / 索引与 ORM model 定义一致。"""
+    """`alembic upgrade 0001→0019` 后的列 / 主键 / 外键 / 索引与 ORM model 定义一致。"""
     reflected = await _reflect(isolated_db["url"])
     assert reflected, f"{SCHEMA}.{TABLE} 在迁到 head 后不存在（迁移未建表）"
     assert await _alembic_version(isolated_db["url"]) == REVISION
@@ -171,7 +171,7 @@ async def test_partial_unique_rejects_duplicate_tenant_revision(
 
 
 async def test_downgrade_drops_table_and_upgrade_restores(isolated_db: dict[str, str]) -> None:
-    """`downgrade 0016` 干净删表，`upgrade 0018` 可再次建出同形的表（真实往返）。"""
+    """`downgrade 0016` 干净删表，`upgrade 0019` 可再次建出同形的表（真实往返）。"""
     ini = isolated_db["ini"]
     try:
         _alembic(ini, "downgrade", PARENT_REVISION)

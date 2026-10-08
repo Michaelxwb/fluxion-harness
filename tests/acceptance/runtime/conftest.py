@@ -207,6 +207,11 @@ def _cleanup(database_url: str, ids: dict[str, object], artifact_root: Path) -> 
     async def cleanup() -> None:
         engine = create_async_engine(database_url)
         async with engine.begin() as connection:
+            # 0019 新增的引用方先行（Runner 对每个 Run 都写 run_continuation 检查点）。
+            for table in ("tool_result_inbox", "tool_control_outbox", "tool_operation", "run_continuation"):
+                await connection.execute(
+                    text(f"DELETE FROM runtime.{table} WHERE tenant_id = :t"), {"t": TENANT}
+                )
             await connection.execute(
                 text(
                     "DELETE FROM runtime.canonical_event WHERE tenant_id = :t"

@@ -67,7 +67,7 @@ _INSERT_RUN = text(
     INSERT INTO runtime.run_record
         (id, tenant_id, conversation_id, user_id, agent_id, status, input_text,
          trace_id, start_time, end_time, cancel_requested)
-    VALUES (:run_id, :tenant_id, :conversation_id, :user_id, :agent_id, 'SUCCEEDED',
+    VALUES (:run_id, :tenant_id, :conversation_id, :user_id, :agent_id, 'COMPLETED',
             'agent filter seed', :trace_id, now(), now(), false)
     """
 )

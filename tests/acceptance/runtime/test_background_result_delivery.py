@@ -88,7 +88,7 @@ async def test_e03_killed_worker_replay_and_lost_response_exactly_once(live_stac
 
     engine = create_async_engine(SharedSettings().require_database_url())
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    task, operation, _ = await seed_operation(factory, task_status="RUNNING")
+    task, operation, _ = await seed_operation(factory, task_status="RUNNING", tenant=live_stack.tenant_id)
     marker = tmp_path / "terminal-committed"
     process = subprocess.Popen(
         [sys.executable, "-c", WORKER_COMMIT, str(task.id), str(marker)], env=os.environ.copy()

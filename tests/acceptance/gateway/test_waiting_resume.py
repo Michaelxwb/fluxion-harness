@@ -137,6 +137,25 @@ async def _run_status(run_id: str) -> str:
     return str(value or "")
 
 
+async def _status_is(run_id: str, status: str) -> bool:
+    """`_wait_for` 谓词：async 调用必须整体 await，不能写成 `lambda: await_fn() == x`（恒 False）。"""
+    return await _run_status(run_id) == status
+
+
+async def _only_waiting_run(conversation_id: str, run_id: str) -> bool:
+    return await _runs_in_conversation(conversation_id) == [(run_id, "WAITING_TOOL")]
+
+
+async def _fresh_runs(conversation_id: str, before: set[str]) -> list[tuple[str, str]]:
+    """本用例消息之后新建的 Run（会话可能承载同模块先前用例的历史 Run）。"""
+    rows = await _runs_in_conversation(conversation_id)
+    return [(rid, status) for rid, status in rows if rid not in before]
+
+
+async def _only_fresh_waiting_run(conversation_id: str, run_id: str, before: set[str]) -> bool:
+    return await _fresh_runs(conversation_id, before) == [(run_id, "WAITING_TOOL")]
+
+
 async def _run_input(run_id: str) -> str:
     value = await _scalar(
         "SELECT input_text FROM runtime.run_record WHERE id = :r", {"r": uuid.UUID(run_id)}
@@ -266,7 +285,7 @@ async def test_s06_join_waiting_holds_silence_and_replies_on_original_message(
         timeout=REPLY_TIMEOUT_SEC,
     )
     await _wait_for(
-        lambda: _run_status(waiting_id) == "CANCELLED",
+        lambda: _status_is(waiting_id, "CANCELLED"),
         what="等待中的 Run 未因 /stop 取消",
     )
 
@@ -307,8 +326,8 @@ async def test_e13_sse_drop_during_waiting_replays_without_new_task_or_budget_re
     assert await _run_status(run_id) == "COMPLETED"
     assert await _canonical_count(run_id, "run.completed") == 1, "终态 canonical 只能有一条"
 
-    # 无新 Run/新 Task/预算重置：同一会话仍只有一个 Run，一条 JOIN Task，计数只前进不回退。
-    assert await _runs_in_conversation(conversation) == [(run_id, "COMPLETED")]
+    # 无新 Run/新 Task/预算重置：本用例只新增一条 Run，一条 JOIN Task，计数只前进不回退。
+    assert await _fresh_runs(conversation, before) == [(run_id, "COMPLETED")]
     task = await _join_task(run_id)
     assert task["status"] == "COMPLETED"
     task_count = await _scalar(
@@ -347,7 +366,7 @@ async def test_e17_waiting_tool_rejects_resume_queues_message_and_recovers_after
     # 普通新消息沿既有路由队列等待：等待输入不被替换，也不产生第二个 Run。
     await _push(stack, "E-17 队列中的新消息")
     await _hold(
-        lambda: _runs_in_conversation(conversation) == [(run_id, "WAITING_TOOL")],
+        lambda: _only_fresh_waiting_run(conversation, run_id, before),
         seconds=2.0,
         what="等待期间第二消息绕过了队列（出现了第二个 Run 或等待被替换）",
     )
@@ -355,18 +374,18 @@ async def test_e17_waiting_tool_rejects_resume_queues_message_and_recovers_after
 
     gate.touch()
     await _wait_for(
-        lambda: _run_status(run_id) == "COMPLETED",
+        lambda: _status_is(run_id, "COMPLETED"),
         what="原等待 Run 未完成",
         timeout=REPLY_TIMEOUT_SEC,
     )
     second_run = await _wait_for(
-        lambda: _second_run(conversation, run_id),
+        lambda: _second_run(conversation, run_id, before),
         what="排队消息在等待结束后未创建自己的 Run",
     )
     assert isinstance(second_run, str)
     assert await _run_input(second_run) == "E-17 队列中的新消息"
     await _wait_for(
-        lambda: _run_status(second_run) == "COMPLETED",
+        lambda: _status_is(second_run, "COMPLETED"),
         what="排队消息的 Run 未完成",
         timeout=REPLY_TIMEOUT_SEC,
     )
@@ -378,7 +397,7 @@ async def test_e17_waiting_tool_rejects_resume_queues_message_and_recovers_after
     cancel_id = await _wait_new_waiting_run(before_stop)
     await _push(stack, "/stop")
     await _wait_for(
-        lambda: _run_status(cancel_id) == "CANCELLED",
+        lambda: _status_is(cancel_id, "CANCELLED"),
         what="/stop 未取消等待中的 Run",
     )
     recovery_gate = _configure_join(stack, tmp_path)
@@ -390,7 +409,7 @@ async def test_e17_waiting_tool_rejects_resume_queues_message_and_recovers_after
         what="取消后新消息未能创建新 Run",
     )
     assert await _wait_for(
-        lambda: _run_status(str(recovery_run)) == "COMPLETED",
+        lambda: _status_is(str(recovery_run), "COMPLETED"),
         what="取消后的新 Run 未完成",
         timeout=REPLY_TIMEOUT_SEC,
     )
@@ -404,7 +423,11 @@ async def test_e17_waiting_tool_rejects_resume_queues_message_and_recovers_after
     )
 
 
-async def _second_run(conversation: str, first_run_id: str) -> str | None:
+async def _second_run(conversation: str, first_run_id: str, before: set[str]) -> str | None:
     rows = await _runs_in_conversation(conversation)
-    fresh = [run_id for run_id, _status in rows if run_id != first_run_id]
+    fresh = [
+        run_id
+        for run_id, _status in rows
+        if run_id != first_run_id and run_id not in before
+    ]
     return fresh[0] if fresh else None

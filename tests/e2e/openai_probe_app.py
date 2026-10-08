@@ -49,11 +49,33 @@ def _message_text(message: dict[str, Any]) -> str:
     return ""
 
 
+def _is_external_tool_data(message: Any) -> bool:
+    """TASK-004 起工具受理/结果回执渲染为**外部数据 USER 消息**（不再是 role=tool）。
+
+    `[External tool data: …]` 是 `materialization.external_data` 的固定前缀；探针据此
+    把「本轮已拿到工具事实」计入 completed，否则第二次模型调用会重复返回同一 tool_call。
+    """
+    return (
+        isinstance(message, dict)
+        and message.get("role") == "user"
+        and isinstance(message.get("content"), str)
+        and message["content"].startswith("[External tool data:")
+    )
+
+
 def _last_user_index(messages: list[Any]) -> int:
-    """最后一条 user 消息的下标（没有则 0，即整份都算"本轮"）。"""
+    """最后一条**业务** user 消息的下标（没有则 0，即整份都算"本轮"）。
+
+    外部数据 USER 消息是工具回执而非新业务输入，不能当作本轮边界——否则它自己会被
+    当成"最后一个 user"，其后的工具事实计数为空，探针会重复吐工具调用。
+    """
     for index in range(len(messages) - 1, -1, -1):
         message = messages[index]
-        if isinstance(message, dict) and message.get("role") == "user":
+        if (
+            isinstance(message, dict)
+            and message.get("role") == "user"
+            and not _is_external_tool_data(message)
+        ):
             return index
     return 0
 
@@ -167,7 +189,8 @@ async def chat_completions(request: Request):
     completed = sum(
         1
         for message in messages[_last_user_index(messages) :]
-        if isinstance(message, dict) and message.get("role") == "tool"
+        if isinstance(message, dict)
+        and (message.get("role") == "tool" or _is_external_tool_data(message))
     )
     steps = _script.get("tools")
     if isinstance(steps, list) and steps:

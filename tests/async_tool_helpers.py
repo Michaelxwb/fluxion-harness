@@ -11,8 +11,12 @@ from muad_contracts import CompletionMode, OperationStatus, RunStatus
 HASH = "sha256:" + "a" * 64
 
 
-async def seed_operation(factory, *, mode=CompletionMode.JOIN, task_status="QUEUED"):
-    tenant, actor, run_id, operation_id, task_id = str(uuid4()), uuid4(), uuid4(), uuid4(), uuid4()
+async def seed_operation(
+    factory, *, mode=CompletionMode.JOIN, task_status="QUEUED", tenant: str | None = None
+):
+    """种一条 operation+task；`tenant` 缺省随机（隔离库里的独立种子），
+    验收套件应传自己的租户，否则这些行不在任何收尾清理范围内、会卡 0019 全局 drain 前置。"""
+    tenant, actor, run_id, operation_id, task_id = tenant or str(uuid4()), uuid4(), uuid4(), uuid4(), uuid4()
     now = datetime.now(UTC)
     async with factory() as session, session.begin():
         conversation = Conversation(tenant_id=tenant, user_id=actor, agent_id=uuid4())

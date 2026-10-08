@@ -83,6 +83,10 @@ SKILL_SCRIPT = (
 )
 
 TASK_CLEANUP = (
+    # 0019 新增：runtime_result_outbox 引用 (task_id, task_event_seq)，runtime_operation 引用
+    # task_execution —— 必须先删引用方，否则 task_event/task_execution 的删除会撞 FK。
+    "DELETE FROM task.runtime_result_outbox WHERE tenant_id = :t",
+    "DELETE FROM task.runtime_operation WHERE tenant_id = :t",
     "DELETE FROM task.task_event WHERE tenant_id = :t",
     "DELETE FROM task.task_submission WHERE tenant_id = :t",
     "DELETE FROM task.task_execution WHERE tenant_id = :t",
@@ -91,6 +95,13 @@ TASK_CLEANUP = (
 )
 
 RUNTIME_CLEANUP = (
+    # 0019 新增的引用方先行：inbox→canonical_event/tool_operation、control_outbox→tool_operation、
+    # tool_operation→run_record、run_continuation→run_record/runtime_snapshot。Runner 对每个 Run
+    # 都会写 run_continuation 检查点，故所有租户清理都必须带这张表。
+    "DELETE FROM runtime.tool_result_inbox WHERE tenant_id = :t",
+    "DELETE FROM runtime.tool_control_outbox WHERE tenant_id = :t",
+    "DELETE FROM runtime.tool_operation WHERE tenant_id = :t",
+    "DELETE FROM runtime.run_continuation WHERE tenant_id = :t",
     "DELETE FROM runtime.canonical_event WHERE tenant_id = :t",
     "DELETE FROM runtime.run_interrupt WHERE tenant_id = :t",
     "DELETE FROM runtime.run_submission WHERE tenant_id = :t",
@@ -509,6 +520,9 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
         worker_port,
         CONSOLE_PLATFORM_URL=console_url,
         IM_GATEWAY_URL=gateway_url,
+        # 0019 起根 Task 终态结果必须回流 Runtime 内部端点（TASK-002 的 result dispatcher）；
+        # 缺这个 env 会退到默认端口、投递全部 RESULT_HTTP_RETRY。
+        AGENT_RUNTIME_URL=runtime_url,
     )
     worker2 = spawn(
         "worker-2",
@@ -516,6 +530,7 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
         worker2_port,
         CONSOLE_PLATFORM_URL=console_url,
         IM_GATEWAY_URL=gateway_url,
+        AGENT_RUNTIME_URL=runtime_url,
     )
     gateway = spawn(
         "gateway",

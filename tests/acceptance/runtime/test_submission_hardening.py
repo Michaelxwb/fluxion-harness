@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import httpx
 import pytest
 from muad_agent_runtime.infrastructure.models.async_tools import ToolControlOutbox, ToolOperation
+from muad_agent_runtime.infrastructure.models.runtime import RunRecord
 from muad_agent_worker.infrastructure.models.runtime_operations import RuntimeOperation
 from muad_agent_worker.infrastructure.models.task import TaskExecution
 from muad_common import SharedSettings
@@ -18,6 +19,7 @@ from muad_contracts import CompletionMode, ControlCommand, OperationStatus, Reso
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from tests.acceptance.runtime.conftest import run_async
 from tests.acceptance.task_schedule.conftest import live_stack as schedule_stack
 from tests.acceptance.task_schedule.environment import INTERNAL_TOKEN
 from tests.async_tool_submissions import seed_submission
@@ -54,7 +56,9 @@ def _db(work):
         finally:
             await engine.dispose()
 
-    return asyncio.run(run())
+    # 独立线程/事件循环：main-thread `asyncio.run` 会把事件循环置空，
+    # 污染后续 pytest-asyncio 用例（本文件同套件已有实测；见 harness-test 约定）。
+    return run_async(run)
 
 
 def _resolve(stack, client):
@@ -97,15 +101,25 @@ def _run(stack, client, arguments, *, routed=False):
 @pytest.mark.parametrize("routed", [True, False])
 def test_s02_detach_completion_and_independent_delivery(live_stack, http, routed):
     http.post(live_stack.channel_url + "/probe/reset").raise_for_status()
-    run_id, events = _run(
+    run_id, _ = _run(
         live_stack,
         http,
         {"skill_key": live_stack.skill_key, "completion_mode": "DETACH", "input": {"case": str(uuid4())}},
         routed=routed,
     )
-    assert any(
-        event["type"] == "run.completed" and event["data"]["status"] == "COMPLETED" for event in events
+
+    async def run_row(factory):
+        async with factory() as session:
+            return await session.get(RunRecord, run_id)
+
+    # 等待阶段按设计不发终帧（RULE-12）：初次 SSE 会在 WAITING_TOOL 处结束，
+    # 受理后由接续泵把原 Run 跑到终态 —— 以持久状态等终态，再断言 DETACH 原 Run 完成。
+    terminal = _wait(
+        lambda: value
+        if (value := _db(run_row)).status in ("COMPLETED", "FAILED", "CANCELLED")
+        else None
     )
+    assert terminal.status == "COMPLETED", (terminal.status, terminal.error_code)
 
     async def row(factory):
         async with factory() as session:
@@ -120,9 +134,17 @@ def test_s02_detach_completion_and_independent_delivery(live_stack, http, routed
     task = _wait(lambda: value if (value := _db(row)).status == "COMPLETED" else None)
     assert not task.cancel_requested and task.max_attempts == 1
     if routed:
-        _wait(lambda: _db(row).delivery_status == "SENT")
-        deliveries = http.get(live_stack.channel_url + "/probe/deliveries").json()["deliveries"]
-        assert sum(item.get("delivery_key") == f"task:{task.id}:final" for item in deliveries) == 1
+        final = _wait(lambda: value if (value := _db(row)).delivery_status == "SENT" else None)
+        assert final.delivery_mode == "FINAL_ONLY"
+        assert final.delivery_key == f"task:{final.id}:final"
+        # 探针负载不带 delivery_key（适配器只发渠道字段），按既有口径用 DB 行断言幂等键、
+        # 用本 bot 的探针投递条数断言「恰好触达一次」。
+        deliveries = [
+            item
+            for item in http.get(live_stack.channel_url + "/probe/deliveries").json()["deliveries"]
+            if item.get("bot_id") == live_stack.bot_id
+        ]
+        assert len(deliveries) == 1, deliveries
     else:
         assert task.delivery_mode == "NONE"
         assert http.get(live_stack.channel_url + "/probe/deliveries").json()["deliveries"] == []
@@ -397,7 +419,9 @@ def test_e02_e16_lost_admission_and_cancel_intent(live_stack, http, exhaust):
     process = live_stack.processes["runtime"]._process
     os.kill(process.pid, signal.SIGSTOP)
     try:
-        operation_id, task_id, run_id = asyncio.run(_fault_submission(live_stack, http, exhaust=exhaust))
+        operation_id, task_id, run_id = run_async(
+            lambda: _fault_submission(live_stack, http, exhaust=exhaust)
+        )
     finally:
         os.kill(process.pid, signal.SIGCONT)
 
@@ -517,8 +541,8 @@ def test_e07_batch_cancel_and_last_fanin_have_one_terminal(live_stack, http):
     from tests.async_tool_helpers import seed_operation
 
     async def seed(factory):
-        parent, _, _ = await seed_operation(factory, task_status="WAITING")
-        child, _, _ = await seed_operation(factory, task_status="COMPLETED")
+        parent, _, _ = await seed_operation(factory, task_status="WAITING", tenant=live_stack.tenant_id)
+        child, _, _ = await seed_operation(factory, task_status="COMPLETED", tenant=live_stack.tenant_id)
         async with factory() as session, session.begin():
             row = await session.get(TaskExecution, child.id)
             row.parent_id, row.root_id, row.tenant_id = parent.id, parent.id, parent.tenant_id

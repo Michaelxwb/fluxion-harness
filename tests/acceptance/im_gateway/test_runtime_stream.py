@@ -127,8 +127,9 @@ async def _seed_run(
                 text(
                     "INSERT INTO runtime.run_record "
                     "(id, tenant_id, conversation_id, user_id, agent_id, status, input_text, "
-                    "trace_id, cancel_requested) "
-                    "VALUES (:id, :t, :c, :u, :a, :status, 'seeded', :trace, false)"
+                    "trace_id, cancel_requested, deadline_at) "
+                    "VALUES (:id, :t, :c, :u, :a, :status, 'seeded', :trace, false, "
+                    "now() + interval '10 minutes')"
                 ),
                 {
                     "id": run_id,
@@ -225,8 +226,12 @@ async def test_b125_waiting_input_run_is_auto_resumed_and_snapshot_frozen(
     gateway_stack: GatewayStack,
 ) -> None:
     await _wait_gateway_ws(gateway_stack)
-    # 先跑一次真实 Run：种子的 WAITING_INPUT Run 需要拷贝真实 Snapshot（resume 路径前置）
+    # 先跑一次真实 Run：种子的 WAITING_INPUT Run 需要拷贝真实 Snapshot（resume 路径前置）。
+    # 必须等**这次新建的** Run 到终态再播种：模块内已有快照时 `_snapshot_count_at_least(1)`
+    # 立即为真，warm-up Run 会晚于种子创建并把种子会话当成"最新会话"落进去。
+    warmup_previous = await latest_run_id()
     await _push(gateway_stack, text="为 resume 用例准备真实快照")
+    await wait_for_new_run_terminal(previous_run_id=warmup_previous, timeout=REPLY_TIMEOUT_SEC)
     await _wait_for(
         lambda: _snapshot_count_at_least(gateway_stack, 1),
         what="未产生可供拷贝的真实快照",

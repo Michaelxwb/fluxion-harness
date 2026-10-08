@@ -9,6 +9,7 @@ import json
 import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -116,6 +117,8 @@ def _seed_waiting(
                 input_text="pending",
                 trace_id=uuid.uuid4().hex,
                 cancel_requested=False,
+                # 0019 起活跃 Run 必须有绝对 deadline：resume CAS 以 `deadline_at > now` 为前置。
+                deadline_at=datetime.now(UTC) + timedelta(minutes=10),
             )
             session.add(run)
             snapshot = build_snapshot(run_id=run_id, tenant_id=stack.tenant_id, resolved=resolved)

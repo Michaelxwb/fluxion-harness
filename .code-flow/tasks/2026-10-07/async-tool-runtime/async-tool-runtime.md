@@ -46,7 +46,7 @@
 | B-06 | backend#2.5.2 场景清单 | integration | 并行规划器、Runner、资源声明 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] |
 | B-07 | backend#2.5.2 场景清单 | integration | inbox/outbox 租约、PG、故障代理 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] |
 | B-08 | backend#2.5.2 场景清单 | integration | 真实 PG、Alembic、迁移前置检查 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/migrations/test_runtime_wait_parity.py"] |
-| B-09 | backend#2.5.2 场景清单 | integration | 真实需求文件、manifest、inventory runner | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/async_tool_runtime_inventory.py"] |
+| B-09 | backend#2.5.2 场景清单 | integration | 真实需求文件、manifest、inventory runner | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/async_tool_runtime_inventory.py"] |
 | S-20 | frontend#2.4 验收条件 | E2E | Browser→Console→PG；Runtime/Worker/LLM HTTP | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
 | S-21 | frontend#2.4 验收条件 | E2E | Browser→Router/面板控制→Console Run/Task API→PG | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
 | S-22 | frontend#2.4 验收条件 | E2E | Browser、真实 Console 分页、PG count | TASK-008 | e2e_deferred | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] |
@@ -676,7 +676,7 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 
 ## TASK-009: 端到端清单、inventory 闭合与验收库隔离
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008
 - **Source**: async-tool-runtime.backend.design.md#2.5 验收条件, async-tool-runtime.frontend.design.md#2.4 验收条件, async-tool-runtime.backend.design.md#3.5 质量实现方案, async-tool-runtime.frontend.design.md#附录：状态用语
@@ -689,25 +689,59 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 
 ### Checklist
 
-- [ ] creates requirement-specific acceptance files listed in QUALITY-04；当前不宣称已通过，Plan阶段固定路径
-- [ ] integration/unit tests write for planners, state machine, repositories, adapters, artifact事务, migration parity
-- [ ] E2E scenarios use live stack and isolation:独立DB、独立 Redis番号、真实PG、真实Redis、真实HTTP/process/browser; not共享 dev 库抢任务
-- [ ] all S/E/B in Acceptance Coverage mapped to one owner and one executable command; functional层级有具体pytest, E2E可放 command or verify-e2e command; manual only external edge and confirmed
-- [ ] four inventory perturbations change gate: changed state, removed evidence row, forged scenario name, changed manifest boundary, all red; byte-for-byte restore green; missing inventory file fails
-- [ ] design E2E不得降级为 unit/integration；verify-e2e runs后补 verified evidence and LOG
-- [ ] dev server与testing共享PG/Redis时 no dev --reload worker for isolated验收；stop残留进程前不跑 acceptance
-- [ ] verifier harness-test#RULE-test-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] creates requirement-specific acceptance files listed in QUALITY-04：五条路径全部在盘（`tests/acceptance/runtime/test_background_result_resume.py`、`test_background_result_delivery.py`、`tests/agent_runtime/test_tool_wait_state_machine.py`、`tests/agent_worker/test_runtime_operation_races.py`、`tests/async_tool_runtime_inventory.py`）
+- [x] integration/unit tests write for planners, state machine, repositories, adapters, artifact事务, migration parity：B-02..B-08 各 TASK 已落地并 verified（见各自 Evidence 与 manifest 命令）
+- [x] E2E scenarios use live stack and isolation:独立DB、独立 Redis番号、真实PG、真实Redis、真实HTTP/process/browser; not共享 dev 库抢任务：`tests/acceptance/conftest.py` autouse session fixture 每轮建 `muad_acc_<uuid>` 空库 + Redis 10–15 号位原子占位；run-observability 域配置走 `useIsolatedDatastores` + preview 真实构建产物；清单 `test_e2e_isolation_mechanisms_are_in_place` 常驻机检
+- [x] all S/E/B in Acceptance Coverage mapped to one owner and one executable command; functional层级有具体pytest, E2E可放 command or verify-e2e command; manual only external edge and confirmed：43 行全部唯一 owner + 可执行 argv；14 条 integration 均引用具体 pytest 文件；29 条 E2E 场景名在真实套件（pytest 用例名/Playwright test 标题）里命中；无 manual 行
+- [x] four inventory perturbations change gate: changed state, removed evidence row, forged scenario name, changed manifest boundary, all red; byte-for-byte restore green; missing inventory file fails：四类扰动为常驻测试，消息指名条目（见 Evidence）；缺清单文件时登记 argv exit=4
+- [x] design E2E不得降级为 unit/integration；verify-e2e runs后补 verified evidence and LOG：29 条 E2E 行保持 e2e_deferred，留需求级 verify-e2e 执行；本次不宣称 E2E 已通过
+- [x] dev server与testing共享PG/Redis时 no dev --reload worker for isolated验收；stop残留进程前不跑 acceptance：运行前 `ps` 确认无 pytest/uvicorn/vite 残留；命令输出重定向文件，不用 `| head` 一类提前关闭的管道
+- [x] verifier harness-test#RULE-test-001：原始 argv `bash -lc 'uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test'` 实际执行通过：tests/acceptance **317 passed**（1160.96s）+ 前端 build ✓（3.91s）+ `npm --prefix e2e test` **4 passed**（3.8s），exit=0；门禁裁决由 finish 记录
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-09 | integration | 真实需求文件、manifest、inventory runner | 改状态、删证据行、伪造用例名、改 manifest 边界 four perturbations分别red；byte-for-byte restore后green；missing inventory fails | `tests/async_tool_runtime_inventory.py` | ["uv", "run", "pytest", "-q", "tests/async_tool_runtime_inventory.py"] | planned |
+| B-09 | integration | 真实需求文件、manifest、inventory runner | 改状态、删证据行、伪造用例名、改 manifest 边界 four perturbations分别red；byte-for-byte restore后green；missing inventory fails | `tests/async_tool_runtime_inventory.py` | ["uv", "run", "pytest", "-q", "tests/async_tool_runtime_inventory.py"] | verified |
 
 ### Acceptance Evidence
 
-- [B-09][integration] planned — RED/GREEN pending
+- [B-09][integration] RED — `uv run pytest -q tests/async_tool_runtime_inventory.py`（2026-10-09，`/tmp/b09-red.log`）：16 passed / 4 failed，红点全部来自收口任务自身未闭合——覆盖表/契约表 B-09 仍 `planned`、TASK-009 checklist 未勾（"还原复绿"断言同样被 B-09=planned 挡住）。四类扰动在 RED 盘面上全部按预期变红且逐字节还原。
+- [B-09][integration] 扰动取证（字节备份 → 扰动 → 断言红 → 恢复字节 → 断言绿；autouse `_surface_guard` 逐用例比对任务文件与 manifest 字节，`/tmp/capture_perturbations.py` 实测）：
+  - (a) 改状态：覆盖表 `E-06` 状态 `e2e_deferred`→`planned` ⇒ `E-06（TASK-004）=planned`；
+  - (b) 删证据行：删 TASK-003 的 `B-01` 全部证据条目 ⇒ `B-01（owner=TASK-003，契约=verified）未出现在 TASK-003 的 Evidence 小节`；
+  - (c) 伪造用例名：`B-04` 命令追加 `-k test_b09_forged_case_name` ⇒ `B-04 的 -k test_b09_forged_case_name 在 …/test_tool_wait_state_machine.py 里没有对应用例`；
+  - (d) 改 manifest 边界：`B-04` boundary 加 ` FORGED` ⇒ `B-04 boundary 不一致：manifest=… 覆盖表=…`；
+  - 四类恢复后对应检查复绿，任务文件与 manifest 字节与扰动前一致（不残留扰动）。
+- [B-09][integration] GREEN — `uv run pytest -q tests/async_tool_runtime_inventory.py` → 20 passed（纯文件盘面交叉核对，无需 DB/Redis）。
+- 额外任务（需求遗留基线，TASK-001 迁移 0019 暴露，本任务闭合）：
+  - `tests/console_platform/test_platform_settings_table.py`：`REVISION` 0018→0019、两处文档串同步（fixture 迁到 head 的自身语义；roundtrip 仍 `downgrade 0016` → `upgrade 0019`，0019 不触碰 platform_setting 表）；
+  - 四个 audit 测试（agent_filter/detail_api/export_download/query_api）：`runtime.run_record` 种子 `'SUCCEEDED'`→`'COMPLETED'`（0019 `ck_run_record_run_status` 合法终态；audit 导出作业的 `TERMINAL_STATUSES`/`status["status"] == "SUCCEEDED"` 断言未动）；
+  - 独立空库复跑五文件 28 passed；范围回归 `tests/console_platform tests/migrations tests/agent_runtime` 636 passed。
+- 验收域基线修复（本需求首次全量跑 `tests/acceptance` 暴露，均与本需求 0019/TASK-002..004 行为直接相关，TASK-009 收口范围）：
+  - 0019 新表清理顺序：`tests/acceptance/task_schedule/environment.py`（RUNTIME_CLEANUP/TASK_CLEANUP）与 `tests/acceptance/runtime/conftest.py` 在 FK 父表前删 `tool_result_inbox`/`tool_control_outbox`/`tool_operation`/`run_continuation`/`runtime_result_outbox`/`runtime_operation`（Runner 对每个 Run 都写 run_continuation 检查点，不补则 139 个 teardown FK 错误）；
+  - task-schedule 栈 Worker 补 `AGENT_RUNTIME_URL`（TASK-002 结果回流必需，缺则全量 `RESULT_HTTP_RETRY`）；
+  - `tests/e2e/openai_probe_app.py` 把 `[External tool data: …]` 计入本轮工具完成（TASK-004 起回执是外部数据 USER 消息；不识别会重复吐同一 tool_call → COMMON_INTERNAL_ERROR）；
+  - `test_submission_hardening._db` 改独立线程事件循环（主线程 `asyncio.run` 污染 39 个后续 pytest-asyncio 用例）；S-02 以持久状态等 Run 终态（SSE 在 WAITING_TOOL 按设计不发终帧），投递断言用 DB 事实 + 探针条数；
+  - `test_background_result_resume`：每用例新建会话 + channel.bot_id；S-01 等事件而不是立即 drain；E-06 等 CANCEL_OPERATION 送达后再放行 Skill；join 夹具取非 batch 制品；
+  - gateway 等待域：fixture 等探针 WS 连接再推送；等待谓词改 async（原 `lambda: await_fn() == x` 恒 False）；会话断言限定本用例新增 Run；
+  - 四处 WAITING_INPUT 种子补 `deadline_at`（TASK-004 resume CAS 前置）；dfx 模型恢复断言改 `RUN_DEADLINE_EXCEEDED`（TASK-004 起 deadline 专属错误码）；`test_redis_unavailable` 前置 `tests/` 到 sys.path（E-15 登记命令可单跑收集）；
+  - `tests/async_tool_helpers.seed_operation` 支持显式 tenant，验收调用改传本栈租户（原随机租户行不在任何收尾清理内，卡 0019 全局 drain 前置 → `test_secret_migration` 降级被拦）。
+- verifier harness-test#RULE-test-001 原始 argv 实跑通过：`tests/acceptance` **317 passed**（1160.96s）+ 前端 build ✓（3.91s）+ `npm --prefix e2e test` **4 passed**（3.8s），exit=0（`/tmp/harness-test-verifier-4.log`）。首轮 RED 明细：`/tmp/harness-test-verifier.log`（139 teardown FK errors）、`/tmp/harness-test-verifier-2.log`（46 failed/10 errors，主循环污染 + 验收域缺陷）。
+- 静态检查：`uv run mypy apps packages scripts`（339 files）通过；`uv run ruff check apps packages tests` 通过；`git diff --check` 通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-09 | 16 passed/4 failed：收口自身未闭合（B-09 覆盖/契约 planned、checklist 未勾）；四类扰动各自变红并指名条目 | 20 passed | `test_inventory_registers_its_own_command_path`、`test_missing_inventory_path_fails_registered_command`、`test_coverage_rows_are_terminal`、`test_manifest_matches_coverage_table`、`test_terminal_rows_are_registered_in_owner_evidence`、`test_contract_rows_are_terminal`、`test_contract_tables_cover_every_acceptance_ref`、`test_registered_commands_reference_paths_on_disk`、`test_registered_commands_k_tokens_hit_real_cases`、`test_e2e_rows_point_to_real_suites_and_case_names`、`test_e2e_isolation_mechanisms_are_in_place`、四条扰动用例 | 真实任务文档 + `.acceptance-manifest.json` + 真实测试文件/套件（纯文件交叉核对，不 mock）；扰动字节备份/逐字节还原 | verified |
+- B-09: verified — automated command passed; run_id=16338dec771647f1a5ab4a12eb725b98 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-07] created (draft)
+- [2026-10-09] started
+- [2026-10-09] 实现：新增 `tests/async_tool_runtime_inventory.py`（20 条检查）——覆盖表 43 行唯一 owner/可执行命令/终态、manifest 与覆盖表同 ID/source/level/boundary/owner/命令、Acceptance-Refs 覆盖、终态行在 owner Evidence 登记（表格行优先、runner 条目次之）、无占位行、契约表逐行终态且覆盖每条 ref、登记命令路径在盘（`cd`/`bash -lc` 感知）、`-k`/`-g` 令牌命中真实用例、integration 行引用具体 pytest 文件、E2E 场景名在真实套件（pytest 用例名/Playwright 标题，域配置经 testMatch 解析）、E2E 隔离机制在盘（conftest 自动空库 + Redis 10–15 号位、isolated datastores、preview 构建产物、Makefile 先 build）、非 draft 任务无未勾项；`_dir()` live→archived 双写。四类扰动 + 缺文件结构性 RED 为常驻测试，扰动带字节备份/try-finally 还原 + autouse 字节守卫。
+- [2026-10-09] 额外任务（需求遗留基线，TASK-001 迁移 0019 暴露）：`test_platform_settings_table.py` REVISION 0018→0019（fixture 自身语义是迁到 head；0019 不触碰 platform_setting，roundtrip 仍成立）；四个 audit 测试的 `run_record` 种子 `'SUCCEEDED'`→`'COMPLETED'`（0019 check constraint 合法终态，导出作业状态断言未动）。五文件独立空库 28 passed；范围回归 636 passed。
+- [2026-10-09] 验证：`tests/async_tool_runtime_inventory.py` RED（16 passed/4 failed，收口自身未闭合）→ 段落闭合后 GREEN 20 passed；四类扰动消息与逐字节还原见 Evidence；mypy 339 files / ruff / `git diff --check` 通过。harness-test#RULE-test-001 原始 argv 实跑结果见下条。
+- [2026-10-09] 验收域基线修复（首次全量 `tests/acceptance` 暴露，均与本需求 0019/TASK-002..004 行为直接相关）：0019 新表清理顺序（139 个 teardown FK 错误）、Worker `AGENT_RUNTIME_URL`、探针外部数据语义、主线程 `asyncio.run` 污染、SSE 终帧等待、种子 `deadline_at`、等待谓词 async、`seed_operation` 租户等；明细见 Evidence。修复后 `tests/acceptance` 317 passed（1 个 multipod 时序 flaky，单跑复绿）。
+- [2026-10-09] verifier harness-test#RULE-test-001 原始 argv 实跑通过：tests/acceptance 317 passed（19:20）+ 前端 build ✓ + `npm --prefix e2e test` 4 passed，exit=0；门禁裁决由 finish 记录。
+- [2026-10-09] completed (done)

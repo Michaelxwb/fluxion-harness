@@ -2448,7 +2448,7 @@
       "kind": "functional",
       "boundary": "真实需求文件、manifest、inventory runner",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2458,7 +2458,48 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-09",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "16338dec771647f1a5ab4a12eb725b98",
+        "executed_at": "2026-10-08T20:20:11.636896+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/async_tool_runtime_inventory.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "0b5f19c10cf7543119884f058d2e6f0e649e516c475f11afb7d295a20b4a635b"
+      },
+      "runs": [
+        {
+          "id": "B-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "16338dec771647f1a5ab4a12eb725b98",
+          "executed_at": "2026-10-08T20:20:11.636896+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/async_tool_runtime_inventory.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "0b5f19c10cf7543119884f058d2e6f0e649e516c475f11afb7d295a20b4a635b"
+        }
+      ]
     },
     {
       "id": "S-20",
