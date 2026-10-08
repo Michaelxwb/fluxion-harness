@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
+
+from muad_logging.context import log_context_scope
 
 _locale: ContextVar[str] = ContextVar("muad_locale", default="zh-CN")
 _trace_id: ContextVar[str] = ContextVar("muad_trace_id", default="")
@@ -94,3 +98,43 @@ def current_tenant_id() -> str:
 
 def current_caller_service() -> str:
     return _caller_service.get()
+
+
+@contextmanager
+def context_scope(
+    *,
+    locale: str | None = None,
+    tenant_id: str | None = None,
+    caller_service: str | None = None,
+    **correlation: object,
+) -> Iterator[None]:
+    """The shared API-to-logging bridge for request and background boundaries."""
+    unknown = sorted(set(correlation) - set(TRACE_CORRELATION_FIELDS))
+    if unknown:
+        raise ValueError(f"unknown trace correlation fields: {', '.join(unknown)}")
+    fields = {
+        **trace_correlation_fields(),
+        **{name: _field_value(value) for name, value in correlation.items()},
+    }
+    locale_token = _locale.set(locale if locale is not None else current_locale())
+    tenant_token = _tenant_id.set(tenant_id if tenant_id is not None else current_tenant_id())
+    caller_token = _caller_service.set(
+        caller_service if caller_service is not None else current_caller_service()
+    )
+    trace_token, request_token = _trace_id.set(fields["trace_id"]), _request_id.set(fields["request_id"])
+    correlation_token = _correlation.set(fields)
+    try:
+        with log_context_scope(
+            locale=current_locale(),
+            tenant_id=current_tenant_id(),
+            caller_service=current_caller_service(),
+            **fields,
+        ):
+            yield
+    finally:
+        _correlation.reset(correlation_token)
+        _request_id.reset(request_token)
+        _trace_id.reset(trace_token)
+        _caller_service.reset(caller_token)
+        _tenant_id.reset(tenant_token)
+        _locale.reset(locale_token)

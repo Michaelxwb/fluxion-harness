@@ -1,7 +1,7 @@
 import hashlib
 import json
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import sqlalchemy as sa
@@ -93,6 +93,7 @@ async def _insert_run(
             agent_id=tenant.agent_id,
             status=status,
             input_text="pending input",
+            deadline_at=datetime.now(UTC) + timedelta(minutes=2),
             trace_id=uuid.uuid4().hex,
             cancel_requested=False,
             lease_until=lease_until,
@@ -175,8 +176,8 @@ async def test_create_run_streams_events_and_persists_records(
         assert run.status == "COMPLETED"
         assert run.end_time is not None
         assert run.snapshot_id is not None
-        assert run.lease_owner
-        assert run.lease_until is not None
+        assert run.lease_owner is None
+        assert run.lease_until is None
 
         snapshot = await session.get(RuntimeSnapshot, run.snapshot_id)
         assert snapshot is not None

@@ -1,7 +1,11 @@
 import asyncio
 import logging
+import os
+import socket
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
+from functools import partial
 
 import httpx
 from fastapi import FastAPI
@@ -19,9 +23,14 @@ from .api.admin_runs import router as admin_runs_router
 from .api.artifacts import router as artifacts_router
 from .api.runs import router as runs_router
 from .api.tool_results import router as tool_results_router
+from .application.async_tools.continuation_pump import ContinuationPump
 from .application.async_tools.control_dispatcher import ControlDispatcher, ControlDispatchPolicy
 from .application.async_tools.runtime import set_control_dispatcher
 from .application.async_tools.supervisor import ExecutionSupervisor
+from .application.attachments.tool_results import ArtifactResultWriter
+from .application.continuation_execution import continuation_executor
+from .application.executor import default_executor_factory
+from .application.run_deadline import expire_runs
 from .application.run_service import reap_abandoned_runs
 from .infrastructure.cancel_hint import create_cancel_hint_store
 from .infrastructure.console_client import ConsoleCredentialsClient, ConsoleResolveClient
@@ -43,6 +52,15 @@ async def _reaper_loop(interval_sec: float) -> None:
             await reap_abandoned_runs(get_session_factory())
         except Exception:
             logger.exception("run_reaper_failed")
+
+
+async def _deadline_loop(interval_sec: float) -> None:
+    while True:
+        try:
+            await expire_runs(get_session_factory())
+        except Exception:
+            logger.exception("run_deadline_sweep_failed")
+        await asyncio.sleep(interval_sec)
 
 
 @asynccontextmanager
@@ -83,12 +101,40 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     set_control_dispatcher(dispatcher)
     app.state.execution_supervisor = ExecutionSupervisor()
+    app.state.instance_id = f"{os.getenv('POD_NAME') or socket.gethostname()}:{uuid.uuid4().hex}"
+    resume = continuation_executor(
+        resolve_client,
+        credentials_client,
+        platform_settings_client,
+        app.state.execution_supervisor,
+        partial(
+            default_executor_factory,
+            skill_cache=app.state.skill_cache,
+            artifact_writer=ArtifactResultWriter(settings.artifact_root),
+        ),
+        instance_id=app.state.instance_id,
+    )
+    pump = ContinuationPump(
+        get_session_factory(),
+        app.state.execution_supervisor,
+        resume,
+        instance_id=app.state.instance_id,
+        lease_sec=settings.run_lease_sec,
+    )
+    continuation_task = asyncio.create_task(pump.run_forever())
+    deadline_task = asyncio.create_task(_deadline_loop(settings.run_reaper_interval_sec))
     control_sender = asyncio.create_task(dispatcher.run_forever())
     reaper = asyncio.create_task(_reaper_loop(settings.run_reaper_interval_sec))
     try:
         yield
     finally:
+        continuation_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await continuation_task
         await app.state.execution_supervisor.close()
+        deadline_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await deadline_task
         control_sender.cancel()
         with suppress(asyncio.CancelledError):
             await control_sender

@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import httpx
+from muad_api.context import TRACE_CORRELATION_FIELDS, context_scope, current_trace_id
 from muad_common import SharedSettings
 from muad_contracts import (
     ControlCommand,
@@ -145,14 +146,21 @@ class ControlDispatcher:
             )
             if operation is None:
                 raise RuntimeError("control command has no operation")
+            run = (await session.scalars(select(RunRecord).where(RunRecord.id == operation.run_id,
+                RunRecord.tenant_id == row.tenant_id, RunRecord.is_deleted.is_(False)))).one()
             session.expunge(operation)
         if row.command == ControlCommand.SUBMIT and (
             operation.cancel_requested or operation.status in OP_TERMINAL
         ):
             await self._complete(row, None, "SUBMISSION_ABANDONED", True, now or datetime.now(UTC))
             return
-        data, error, deterministic = await self._send(row, operation)
-        await self._complete(row, data, error, deterministic, now or datetime.now(UTC))
+        fields = {name: "" for name in TRACE_CORRELATION_FIELDS}
+        fields.update(trace_id=run.trace_id, run_id=str(run.id), conversation_id=str(run.conversation_id),
+            platform_user_id=str(run.user_id), tool_call_id=operation.source_tool_call_id,
+            task_id=str(operation.task_id or ""), snapshot_id=str(run.snapshot_id or ""))
+        with context_scope(tenant_id=row.tenant_id, caller_service="agent-runtime", **fields):
+            data, error, deterministic = await self._send(row, operation)
+            await self._complete(row, data, error, deterministic, now or datetime.now(UTC))
 
     async def _send(
         self, row: ToolControlOutbox, operation: ToolOperation
@@ -171,6 +179,7 @@ class ControlDispatcher:
         headers = {
             "X-Tenant-Id": row.tenant_id,
             "X-Actor-User-Id": str(operation.actor_user_id),
+            "X-Trace-Id": current_trace_id(),
             "Idempotency-Key": f"runtime-op:{operation.id}:{'submit' if submit else 'cancel'}",
         }
         if self._token:

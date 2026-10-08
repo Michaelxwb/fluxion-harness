@@ -46,9 +46,9 @@ verifiers:
 - **两处时间口径不同，排查时各查一次**：日志文件名按**本地时区**日期滚动（`DailyServiceFileHandler._today()` 用 `datetime.now().astimezone()`，`handler.py`），JSON 里的 `timestamp` 用 **UTC** ISO8601（`formatter.py` 用 `datetime.now(UTC).isoformat()`）。
   - ✅ 跨时区排查：先按本地日期定位文件名，再按 UTC 解析行内 `timestamp`。
   - ❌ 假设两者同一时区 —— UTC+8 下 08:00 前的日志会落进「前一天」的那个文件里。
-- **api-kit 中间件是 api-kit 与 logging-kit 两套 contextvar 的唯一桥**：`packages/api-kit/src/muad_api/middleware.py` 在请求入口一次性 `set_log_context(locale=…, tenant_id=…, caller_service=…, **trace_correlation_fields())`，在 `finally` 里 `clear_log_context()`；全仓再无第二处调用点。
-  - ✅ 关联字段只在中间件绑一次，业务代码只读。
-  - ❌ 在业务代码里手工 `set_log_context` ⇒ 与中间件双写、`clear` 时机错位，日志里出现漂移的 tenant/trace。
+- **api-kit `context_scope` 是 API 与 logging-kit contextvar 的唯一桥**：HTTP 中间件、后台 Run 接续与工具控制发件边界都调用 `packages/api-kit/src/muad_api/context.py` 的 scope；退出时用各自 token 恢复进入前的值，嵌套与并发互不覆盖。后台只绑定已持久化的关联事实，缺少的 request/call/task 等字段显式空串。
+  - ✅ `with context_scope(tenant_id=tenant, trace_id=run.trace_id, run_id=str(run.id)):`；边界内取下游头和 logger，退出恢复外层上下文。
+  - ❌ 在业务代码里手工 `set_log_context`，或退出时全局 `clear_log_context()` ⇒ 两套 context 漂移，嵌套外层上下文丢失。
 
 ## Avoid
 

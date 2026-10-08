@@ -2,20 +2,25 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import logging
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.db import SessionFactoryProvider, get_session_factory
 from ...infrastructure.models.runtime import Artifact
 from ...metrics import ARTIFACT_BYTES_METRIC, record_counter
 from .immutable_store import discard_written, write_immutable
+
+logger = logging.getLogger(__name__)
 
 #: 通用工具结果的外置阈值、预览头尾字节数**只有 schema 一处来源**：
 #: `muad_contracts.platform_settings.ToolResultSettings`（本 Run 冻结后注入）。此模块不再
@@ -46,6 +51,12 @@ class RoundCandidate:
 
     tool_call_id: str
     size_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedToolResults:
+    rows: tuple[Artifact, ...] = ()
+    references: Mapping[str, dict[str, JsonValue]] = field(default_factory=dict)
 
 
 def select_round_persists(
@@ -113,6 +124,93 @@ class ArtifactResultWriter:
     def _discard(self, keys: Sequence[str]) -> None:
         """回滚已写文件（整批中途失败时用），不留半批。"""
         discard_written(self._artifact_root, keys)
+
+    async def discard_prepared(self, prepared: PreparedToolResults) -> None:
+        await asyncio.to_thread(self._discard, [row.storage_key for row in prepared.rows])
+
+    async def prepare_round(
+        self,
+        *,
+        tenant_id: str,
+        conversation_id: uuid.UUID,
+        run_id: uuid.UUID,
+        results: Sequence[tuple[str, str, str]],
+        preview_head_bytes: int,
+        preview_tail_bytes: int,
+    ) -> PreparedToolResults:
+        """Publish immutable files before acquiring any Run/operation business lock."""
+        work = asyncio.create_task(asyncio.to_thread(
+            self._prepare_files, tenant_id, conversation_id, run_id, results,
+            preview_head_bytes, preview_tail_bytes,
+        ))
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            try:
+                prepared = await work
+            except Exception as exc:
+                logger.warning(
+                    "cancelled_artifact_preparation_failed", extra={"error_type": type(exc).__name__}
+                )
+            else:
+                await self.discard_prepared(prepared)
+            raise
+
+    def _prepare_files(
+        self, tenant: str, conversation: uuid.UUID, run: uuid.UUID,
+        results: Sequence[tuple[str, str, str]], head: int, tail: int,
+    ) -> PreparedToolResults:
+        rows: list[Artifact] = []
+        refs: dict[str, dict[str, JsonValue]] = {}
+        try:
+            for call_id, name, text in results:
+                row, ref = self._prepare_one(tenant, conversation, run, None, call_id, name, text, head, tail)
+                rows.append(row)
+                refs[call_id] = ref
+        except BaseException:
+            self._discard([row.storage_key for row in rows])
+            raise
+        return PreparedToolResults(tuple(rows), refs)
+
+    def _prepare_one(
+        self,
+        tenant: str,
+        conversation: uuid.UUID,
+        run: uuid.UUID,
+        task: uuid.UUID | None,
+        call_id: str,
+        name: str,
+        text: str,
+        head: int,
+        tail: int,
+    ) -> tuple[Artifact, dict[str, JsonValue]]:
+        data, artifact_id = text.encode("utf-8"), uuid.uuid4()
+        key = _storage_key(tenant, run, artifact_id)
+        checksum = "sha256:" + hashlib.sha256(data).hexdigest()
+        preview = preview_head_tail(text, head_bytes=head, tail_bytes=tail)
+        row = Artifact(
+            id=artifact_id,
+            tenant_id=tenant,
+            run_id=run,
+            task_id=task,
+            conversation_id=conversation,
+            artifact_type=TOOL_RESULT_ARTIFACT_TYPE,
+            storage_key=key,
+            media_type="text/plain",
+            size=len(data),
+            checksum=checksum,
+            preview_text=preview,
+            metadata_json={"tool_call_id": call_id, "tool_name": name},
+        )
+        self._write_immutable(self._artifact_root / key, data)
+        ref: dict[str, JsonValue] = {
+            "artifact_id": str(artifact_id),
+            "storage_key": key,
+            "checksum": checksum,
+            "size": len(data),
+            "preview": preview,
+        }
+        return row, ref
 
     async def persist_tool_result(
         self,
@@ -247,41 +345,24 @@ class ArtifactResultWriter:
         preview_tail_bytes: int,
         written: list[str],
     ) -> dict[str, Any]:
-        data = result_text.encode("utf-8")
-        artifact_id = uuid.uuid4()
-        key = _storage_key(tenant_id, run_id, artifact_id)
-        path = self._artifact_root / key
-        self._write_immutable(path, data)
-        written.append(key)
-        checksum = "sha256:" + hashlib.sha256(data).hexdigest()
-        preview = preview_head_tail(
-            result_text, head_bytes=preview_head_bytes, tail_bytes=preview_tail_bytes
+        row, reference = await asyncio.to_thread(
+            self._prepare_one,
+            tenant_id,
+            conversation_id,
+            run_id,
+            task_id,
+            tool_call_id,
+            tool_name,
+            result_text,
+            preview_head_bytes,
+            preview_tail_bytes,
         )
+        written.append(row.storage_key)
         try:
-            row = Artifact(
-                id=artifact_id,
-                tenant_id=tenant_id,
-                run_id=run_id,
-                task_id=task_id,
-                conversation_id=conversation_id,
-                artifact_type=TOOL_RESULT_ARTIFACT_TYPE,
-                storage_key=key,
-                media_type="text/plain",
-                size=len(data),
-                checksum=checksum,
-                preview_text=preview,
-                metadata_json={"tool_call_id": tool_call_id, "tool_name": tool_name},
-            )
             session.add(row)
         except BaseException:
-            self._discard([key])
-            written.remove(key)
+            self._discard([row.storage_key])
+            written.remove(row.storage_key)
             raise
-        record_counter(ARTIFACT_BYTES_METRIC, len(data), {"type": TOOL_RESULT_ARTIFACT_TYPE})
-        return {
-            "artifact_id": str(artifact_id),
-            "storage_key": key,
-            "checksum": checksum,
-            "size": len(data),
-            "preview": preview,
-        }
+        record_counter(ARTIFACT_BYTES_METRIC, row.size, {"type": TOOL_RESULT_ARTIFACT_TYPE})
+        return dict(reference)

@@ -29,6 +29,7 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
 from muad_agent_runtime.application.attachments.archive_tools import (
     CREATE_ARCHIVE_TOOL,
     ArchiveToolError,
@@ -104,9 +105,7 @@ class _PgSettingsClient:
     async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "") -> PlatformSettingsSnapshot:
         async with get_session_factory()() as session:
             snapshot = await PlatformSettingsService(session).read_current(tenant_id)
-            return PlatformSettingsSnapshot(
-                revision=snapshot.revision, settings=asdict(snapshot.settings)
-            )
+            return PlatformSettingsSnapshot(revision=snapshot.revision, settings=asdict(snapshot.settings))
 
 
 async def _save_settings(tenant_id: str, **groups: Any) -> None:
@@ -115,9 +114,7 @@ async def _save_settings(tenant_id: str, **groups: Any) -> None:
         service = PlatformSettingsService(session)
         current = await service.read_current(tenant_id)
         settings = replace(current.settings, **groups)
-        await service.save(
-            tenant_id, AuditActor(account_id=uuid.uuid4()), current.revision, settings
-        )
+        await service.save(tenant_id, AuditActor(account_id=uuid.uuid4()), current.revision, settings)
         await session.commit()
 
 
@@ -162,6 +159,7 @@ async def _start_run(
             "instance-e20",
             executor_factory=capture,
             settings_client=client,
+            supervisor=ExecutionSupervisor(),
         )
         started = await service.start(_request(tenant), tenant.tenant_id)
         async for _ in started.events:  # 驱动到终态：真实冻结 + 真实装配请求
@@ -249,9 +247,7 @@ async def test_e20_registry_uses_frozen_artifact_memory_and_locale(
     capture = _CapturingExecutorFactory()
     await _start_run(tenant, fake_resolve, capture, _PgSettingsClient())
     request = capture.requests[0]
-    registry = build_registry(
-        request=request, cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
-    )
+    registry = build_registry(request=request, cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None)
 
     # artifact.max_archive_files：schema 上界与执行期校验同值，且执行期真的拒收超限。
     archive = registry.get(CREATE_ARCHIVE_TOOL)
@@ -444,9 +440,7 @@ async def _artifact_row_exists(artifact_id: uuid.UUID) -> bool:
 # ---- 记忆/会话种子（真实 PG） ----
 
 
-async def _seed_memories(
-    tenant_id: str, user_id: uuid.UUID, *, count: int, value_chars: int
-) -> None:
+async def _seed_memories(tenant_id: str, user_id: uuid.UUID, *, count: int, value_chars: int) -> None:
     service = MemoryService()
     for index in range(count):
         await service.upsert(

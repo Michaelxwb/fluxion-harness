@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
 from muad_agent_runtime.application.ports import NullPlatformSettingsClient
 from muad_agent_runtime.application.run_service import RunService
 from muad_agent_runtime.infrastructure.cancel_hint import (
@@ -144,6 +145,7 @@ async def test_cancel_running_run_writes_hint(
             "instance-a",
             NullPlatformSettingsClient(),
             cancel_hints=hints,
+            supervisor=ExecutionSupervisor(),
         )
         await service.cancel_run(run_id, tenant.tenant_id)
 
@@ -163,6 +165,7 @@ async def test_cancel_waiting_input_run_skips_hint(
             "instance-a",
             NullPlatformSettingsClient(),
             cancel_hints=hints,
+            supervisor=ExecutionSupervisor(),
         )
         run = await service.cancel_run(run_id, tenant.tenant_id)
 
@@ -183,6 +186,7 @@ async def test_cancel_terminal_run_is_idempotent_without_hint(
             "instance-a",
             NullPlatformSettingsClient(),
             cancel_hints=hints,
+            supervisor=ExecutionSupervisor(),
         )
         run = await service.cancel_run(run_id, tenant.tenant_id)
 
@@ -203,6 +207,7 @@ async def test_cancel_active_writes_hint(
             "instance-a",
             NullPlatformSettingsClient(),
             cancel_hints=hints,
+            supervisor=ExecutionSupervisor(),
         )
         await service.cancel_active(tenant.agent_id, tenant.platform_user_id, tenant.tenant_id)
 
@@ -223,6 +228,7 @@ async def test_cancel_running_run_survives_hint_failure(
             "instance-a",
             NullPlatformSettingsClient(),
             cancel_hints=hints,
+            supervisor=ExecutionSupervisor(),
         )
         run = await service.cancel_run(run_id, tenant.tenant_id)
 

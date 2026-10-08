@@ -12,6 +12,7 @@ from muad_agent_runtime.api.deps import (
     get_platform_settings_client,
     get_resolve_client,
 )
+from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
 from muad_agent_runtime.application.executor import (
     ExecutorEvent,
     ExecutorFactory,
@@ -38,8 +39,14 @@ from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 SCHEMA = "runtime"
+from tests.async_tool_datastores import async_tool_database, async_tool_datastore  # noqa: F401, E402
+
 RUNTIME_TABLES = ("conversation", "run_record", "runtime_snapshot", "canonical_event", "run_interrupt")
 CLEANUP_ORDER = (
+    "tool_control_outbox",
+    "tool_result_inbox",
+    "run_continuation",
+    "tool_operation",
     "run_interrupt",
     "canonical_event",
     "run_submission",
@@ -122,8 +129,7 @@ async def database_guard() -> AsyncIterator[None]:
         async with engine.connect() as connection:
             ready = await connection.run_sync(
                 lambda sync_connection: all(
-                    inspect(sync_connection).has_table(table, schema=SCHEMA)
-                    for table in RUNTIME_TABLES
+                    inspect(sync_connection).has_table(table, schema=SCHEMA) for table in RUNTIME_TABLES
                 )
             )
         if not ready:
@@ -219,6 +225,17 @@ async def fake_executor_factory(request: ExecutorRequest) -> RunExecutor:
 @pytest.fixture
 def executor_factory() -> ExecutorFactory:
     return fake_executor_factory
+
+
+@pytest.fixture(autouse=True)
+async def execution_supervisor_boundary():
+    supervisor = ExecutionSupervisor()
+    app.state.execution_supervisor = supervisor
+    app.state.instance_id = "test-instance"
+    try:
+        yield supervisor
+    finally:
+        await supervisor.close()
 
 
 @pytest.fixture(autouse=True)

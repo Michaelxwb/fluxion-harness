@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from muad_contracts.platform_settings import (
+    COMPACTION_POLICY_KEY,
     CompactionConfigError,
     CompactionSettings,
     merge_compaction_payload,
@@ -31,10 +32,22 @@ def resolve_compaction_settings(
     budget = (agent_runtime_config or {}).get("budget") or {}
     if not isinstance(budget, Mapping):
         raise CompactionConfigError("runtime_config.budget 必须是对象")
-    payload = merge_compaction_payload(
-        base=platform_overrides, override=budget.get("compaction")
-    )
+    payload = merge_compaction_payload(base=platform_overrides, override=budget.get("compaction"))
     return parse_compaction_settings(payload)
 
 
 __all__ = ["resolve_compaction_settings"]
+
+
+def compaction_settings_of(policy: Mapping[str, Any] | None) -> CompactionSettings | None:
+    """从**已冻结**的 `policy_json` 还原压缩配置；缺键或形状坏返回 None（等于不压缩）。
+
+    resume 走这条：在跑的 Run 用的永远是它自己那一份冻结值，不吃当前配置。
+    """
+    compaction = (policy or {}).get(COMPACTION_POLICY_KEY)
+    if not isinstance(compaction, Mapping):
+        return None
+    try:
+        return parse_compaction_settings(compaction)
+    except CompactionConfigError:
+        return None

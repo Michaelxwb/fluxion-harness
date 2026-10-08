@@ -125,6 +125,7 @@ async def receive_result(session: AsyncSession, tenant: str, request: ToolResult
         or run.cancel_requested
         or operation.cancel_requested
         or operation.status in OP_TERMINAL
+        or (run.deadline_at is not None and run.deadline_at <= datetime.now(UTC))
     )
     receipt = await _append_receipt(session, tenant, run, operation, request, late)
     _add_inbox(session, tenant, run, operation, request, receipt, fingerprint, body, late)

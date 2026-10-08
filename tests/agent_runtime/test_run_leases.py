@@ -1,110 +1,85 @@
-"""[B-106] 租约续约与终态 CAS（真实 PostgreSQL run_record 租约列）。"""
+"""B-106: actual heartbeat and canonical terminal transaction guards."""
 
-from __future__ import annotations
-
-import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import pytest
-import sqlalchemy as sa
-from muad_agent_runtime.application.run_lease import (
-    RunLeaseService,
+from muad_agent_runtime.application import run_service
+from muad_agent_runtime.application.async_tools.continuation_service import (
+    ExecutionLeaseLost,
+    renew_execution,
 )
-from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord
+from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
+from muad_agent_runtime.application.ports import NullPlatformSettingsClient
+from muad_agent_runtime.application.run_submission import RunSubmissionService
+from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, RunRecord
+from sqlalchemy import select
+
+from tests.async_tool_continuations import running_source
 
 
-@pytest.fixture()
-async def running_run():
-    tenant = f"lease-{uuid.uuid4()}"
-    conversation_id, run_id = uuid.uuid4(), uuid.uuid4()
-    owner = f"inst-{uuid.uuid4()}"
-    async with get_session_factory()() as session:
-        session.add(
-            Conversation(
-                id=conversation_id,
-                tenant_id=tenant,
-                user_id=uuid.uuid4(),
-                agent_id=uuid.uuid4(),
-                status="ACTIVE",
-                last_seq=0,
-            )
-        )
-        session.add(
-            RunRecord(
-                id=run_id,
-                tenant_id=tenant,
-                conversation_id=conversation_id,
-                user_id=uuid.uuid4(),
-                agent_id=uuid.uuid4(),
-                status="RUNNING",
-                input_text="hi",
-                trace_id=uuid.uuid4().hex,
-                cancel_requested=False,
-                lease_owner=owner,
-                lease_until=datetime.now(UTC) + timedelta(seconds=60),
-            )
-        )
+async def test_b106_renew_requires_tenant_owner_epoch_and_unexpired_lease(async_tool_database):
+    factory, context, skill, run, identity = await running_source(async_tool_database)
+    assert await renew_execution(factory, identity, lease_sec=60)
+    for rejected in (replace(identity, tenant_id="other-tenant"),
+        replace(identity, owner="other-owner"), replace(identity, epoch=0)):
+        assert not await renew_execution(factory, rejected, lease_sec=60)
+    async with factory() as session, session.begin():
+        row = await session.get(RunRecord, run.id)
+        row.lease_until = datetime.now(UTC) - timedelta(seconds=1)
+    assert not await renew_execution(factory, identity, lease_sec=60)
+
+
+@pytest.mark.parametrize("failure", [False, True])
+@pytest.mark.parametrize("rejected", ["owner", "epoch", "expired"])
+async def test_b106_terminal_rejects_stale_segment_without_event(
+    async_tool_database, monkeypatch, fake_resolve, failure, rejected,
+):
+    factory, context, skill, source, identity = await running_source(async_tool_database)
+    monkeypatch.setattr(run_service, "get_session_factory", lambda: factory)
+    async with factory() as session:
+        source = await session.get(RunRecord, source.id)
+    async with factory() as session, session.begin():
+        row = await session.get(RunRecord, source.id)
+        if rejected == "owner":
+            row.lease_owner = "new-owner"
+        elif rejected == "epoch":
+            row.execution_epoch += 1
+        else:
+            row.lease_until = datetime.now(UTC) - timedelta(seconds=1)
+    async with factory() as session:
+        service = run_service.RunService(session, fake_resolve, identity.owner,
+            NullPlatformSettingsClient(), supervisor=ExecutionSupervisor())
+        with pytest.raises(ExecutionLeaseLost):
+            if failure:
+                await service._finalize_failed(source, uuid4(), RuntimeError("failed"), agent_key="guard")
+            else:
+                await service._finalize_run(source, uuid4(), "done", agent_key="guard")
+    async with factory() as session:
+        assert (await session.get(RunRecord, source.id)).status == "RUNNING"
+        assert await session.scalar(select(CanonicalEvent.id)) is None
+
+
+async def test_b106_terminal_cas_and_canonical_event_are_atomic(
+    async_tool_database, monkeypatch, fake_resolve
+):
+    factory, context, skill, source, identity = await running_source(async_tool_database)
+    monkeypatch.setattr(run_service, "get_session_factory", lambda: factory)
+    async with factory() as session:
+        source = await session.get(RunRecord, source.id)
+        submission = await RunSubmissionService(lambda: factory).record_in(session,
+            tenant_id=source.tenant_id, idempotency_key=str(uuid4()), endpoint="create-run",
+            actor_user_id=source.user_id, run_id=source.id, conversation_id=source.conversation_id,
+            request_fingerprint="sha256:" + "a" * 64)
         await session.commit()
-    yield {"tenant_id": tenant, "conversation_id": conversation_id, "run_id": run_id, "owner": owner}
-    async with get_session_factory()() as session:
-        await session.execute(
-            RunRecord.__table__.delete().where(RunRecord.id == run_id)
-        )
-        await session.execute(
-            Conversation.__table__.delete().where(Conversation.id == conversation_id)
-        )
-        await session.commit()
-
-
-async def test_b106_renew_only_by_owner(running_run) -> None:
-    """[B-106] 当前 owner 续约成功；其他实例续约被拒。"""
-    service = RunLeaseService(get_session_factory)
-    assert await service.renew(running_run["run_id"], running_run["owner"]) is True
-    assert await service.renew(running_run["run_id"], "other-instance") is False
-
-
-async def test_b106_terminal_write_cas(running_run) -> None:
-    """[B-106] 终态 CAS：仅当前 owner 且 RUNNING 可写终态；第二次写失败。"""
-    service = RunLeaseService(get_session_factory)
-    assert (
-        await service.complete(
-            running_run["run_id"],
-            owner=running_run["owner"],
-            status="COMPLETED",
-            error_code=None,
-            error_message=None,
-        )
-        is True
-    )
-    # 非终态后再次 CAS 失败（幂等拒绝重写）
-    assert (
-        await service.complete(
-            running_run["run_id"],
-            owner=running_run["owner"],
-            status="COMPLETED",
-            error_code=None,
-            error_message=None,
-        )
-        is False
-    )
-
-
-async def test_b106_terminal_write_rejected_for_wrong_owner(running_run) -> None:
-    """[B-106] 非 owner 终态写入被拒（current_owner_rejected 可观测）。"""
-    service = RunLeaseService(get_session_factory)
-    assert (
-        await service.complete(
-            running_run["run_id"],
-            owner="intruder",
-            status="COMPLETED",
-            error_code=None,
-            error_message=None,
-        )
-        is False
-    )
-    async with get_session_factory()() as session:
-        status = await session.scalar(
-            sa.select(RunRecord.status).where(RunRecord.id == running_run["run_id"])
-        )
-    assert status == "RUNNING"
+        service = run_service.RunService(session, fake_resolve, identity.owner,
+            NullPlatformSettingsClient(), supervisor=ExecutionSupervisor())
+        first = await service._finalize_run(source, submission.id, "done", agent_key="guard")
+        replay = await service._finalize_run(source, submission.id, "rewritten", agent_key="guard")
+        assert first.seq == replay.seq and replay.data["final_text"] == "done"
+    async with factory() as session:
+        saved = await session.get(RunRecord, source.id)
+        assert saved.status == "COMPLETED" and saved.lease_owner is None and saved.lease_until is None
+        events = list(await session.scalars(select(CanonicalEvent).order_by(CanonicalEvent.seq)))
+        assert [event.event_type for event in events] == ["ASSISTANT_MESSAGE", "RUN_COMPLETED"]

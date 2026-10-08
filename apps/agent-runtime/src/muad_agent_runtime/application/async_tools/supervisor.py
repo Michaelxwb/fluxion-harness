@@ -24,13 +24,31 @@ class ExecutionSupervisor:
             if self._closing or run_id in self._tasks:
                 return False
 
-            async def invoke() -> object:
-                return await execution()
-
-            task: asyncio.Task[object] = asyncio.create_task(invoke(), name=f"run:{run_id}")
-            self._tasks[run_id] = task
-            task.add_done_callback(lambda completed: self._finished(run_id, completed))
+            self._start(run_id, execution)
             return True
+
+    async def claim_and_submit(
+        self,
+        claim: Callable[[frozenset[UUID]], Awaitable[tuple[UUID, Callable[[], Awaitable[object]]] | None]],
+    ) -> bool:
+        """Claim and register under the same shutdown lock; active local segments are excluded."""
+        async with self._lock:
+            if self._closing:
+                return False
+            admitted = await claim(frozenset(self._tasks))
+            if admitted is None:
+                return False
+            run_id, execution = admitted
+            self._start(run_id, execution)
+            return True
+
+    def _start(self, run_id: UUID, execution: Callable[[], Awaitable[object]]) -> None:
+        async def invoke() -> object:
+            return await execution()
+
+        task: asyncio.Task[object] = asyncio.create_task(invoke(), name=f"run:{run_id}")
+        self._tasks[run_id] = task
+        task.add_done_callback(lambda completed: self._finished(run_id, completed))
 
     def _finished(self, run_id: UUID, task: asyncio.Task[object]) -> None:
         self._tasks.pop(run_id, None)

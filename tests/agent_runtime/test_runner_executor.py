@@ -157,7 +157,7 @@ async def test_provider_failure_yields_run_failed_with_mapped_code(
         assert run.status == "FAILED"
         assert run.error_code == "MODEL_UNAVAILABLE"
         assert run.error_message is not None
-        assert "retries exhausted" in run.error_message
+        assert run.error_message == "MODEL_UNAVAILABLE"
 
 
 async def test_executor_factory_failure_yields_run_failed_with_mapped_code(

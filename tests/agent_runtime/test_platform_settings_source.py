@@ -33,6 +33,7 @@ from muad_agent_runtime.api.deps import (
     get_platform_settings_client,
     get_resolve_client,
 )
+from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
 from muad_agent_runtime.application.executor import ExecutorFactory
 from muad_agent_runtime.application.run_service import RunService
 from muad_agent_runtime.infrastructure.db import get_session_factory
@@ -130,9 +131,7 @@ async def _seed_platform_setting(tenant_id: str, revision: int, document: dict[s
         await session.commit()
 
 
-async def _seed_agent_with_compaction_override(
-    tenant_id: str, *, max_groups: int
-) -> dict[str, Any]:
+async def _seed_agent_with_compaction_override(tenant_id: str, *, max_groups: int) -> dict[str, Any]:
     """真实 `control.agent_definition` 行，其 `runtime_config_json.budget.compaction` 非空。"""
     async with console_session_factory()() as session:
         model = ModelDefinition(
@@ -173,9 +172,7 @@ async def control_cleanup(tenant: TenantContext) -> AsyncIterator[None]:
                 {"t": tenant.tenant_id},
             )
             await session.execute(
-                sa.text(
-                    "DELETE FROM control.agent_definition WHERE tenant_id = :t"
-                ),
+                sa.text("DELETE FROM control.agent_definition WHERE tenant_id = :t"),
                 {"t": tenant.tenant_id},
             )
             await session.execute(
@@ -229,6 +226,7 @@ async def _start_run(
                 "instance-a",
                 executor_factory=executor_factory,
                 settings_client=client,
+                supervisor=ExecutionSupervisor(),
             )
             started = await service.start(_request(tenant), tenant.tenant_id)
             await _drain(started.events)
@@ -318,9 +316,7 @@ async def test_e03_source_unavailable_fails_run_creation_with_failed_metric(
     失败发生在任何落库之前，因此不会留下 `runtime_snapshot` 行。
     """
     async with _dead_endpoint() as dead_url:
-        cut_client = ConsolePlatformSettingsClient(
-            dead_url, service_token=INTERNAL_TOKEN, timeout_sec=0.5
-        )
+        cut_client = ConsolePlatformSettingsClient(dead_url, service_token=INTERNAL_TOKEN, timeout_sec=0.5)
         runtime_app.dependency_overrides[get_resolve_client] = lambda: fake_resolve
         runtime_app.dependency_overrides[get_executor_factory] = lambda: executor_factory
         runtime_app.dependency_overrides[get_credentials_client] = lambda: None
@@ -376,9 +372,7 @@ async def test_e07_agent_override_precedence_over_platform_default(
     """
     override_groups = 60
     platform_groups = 40
-    runtime_config = await _seed_agent_with_compaction_override(
-        tenant.tenant_id, max_groups=override_groups
-    )
+    runtime_config = await _seed_agent_with_compaction_override(tenant.tenant_id, max_groups=override_groups)
     fake = FakeResolveClient(response=_resolved_with_override(tenant, runtime_config))
 
     async with _console_server() as console_url:
@@ -473,6 +467,7 @@ async def test_run_creation_fetches_snapshot_exactly_once(
             "instance-a",
             executor_factory=executor_factory,
             settings_client=counting,
+            supervisor=ExecutionSupervisor(),
         )
         started = await service.start(_request(tenant), tenant.tenant_id)
         await _drain(started.events)
@@ -483,9 +478,7 @@ async def test_run_creation_fetches_snapshot_exactly_once(
 # ---- 附带：真实内部端点契约（路径 + 调用方头）----
 
 
-async def test_settings_client_uses_internal_contract(
-    tenant: TenantContext, control_cleanup: None
-) -> None:
+async def test_settings_client_uses_internal_contract(tenant: TenantContext, control_cleanup: None) -> None:
     """client 打真实内部端点：GET 路径正确、带服务身份与 `X-Caller-Service: runtime`。"""
     async with _console_server() as console_url:
         client = _settings_client(console_url)

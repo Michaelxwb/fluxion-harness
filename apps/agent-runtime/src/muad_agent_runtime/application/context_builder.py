@@ -12,7 +12,7 @@ from muad_agent_core.context.compactor import history_bytes
 from muad_agent_core.context.summary import summary_from_payload, summary_message
 from muad_agent_core.model.provider import ModelMessage, ModelRole, ModelToolCall
 from muad_contracts.platform_settings import MemoryPolicySettings, default_compaction_settings
-from sqlalchemy import select
+from sqlalchemy import select, true
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..infrastructure.db import SessionFactoryProvider
@@ -25,7 +25,15 @@ from .memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
 
-HISTORY_EVENT_TYPES = ("USER_MESSAGE", "ASSISTANT_MESSAGE", "TOOL_CALL", "ASSISTANT_TURN")
+HISTORY_EVENT_TYPES = (
+    "USER_MESSAGE",
+    "ASSISTANT_MESSAGE",
+    "TOOL_CALL",
+    "ASSISTANT_TURN",
+    "TOOL_TASK_ACCEPTED",
+    "BACKGROUND_RESULT",
+    "TOOL_SUBMISSION_FAILED",
+)
 
 # 历史里保留的 tool 回合数上限（一个回合 = assistant(tool_calls) + 它的若干 tool 结果）。
 # 依据：思考模式的 `reasoning_content` 实测约 3KB/轮（单轮 2840 字符），全量回放会让请求体
@@ -72,6 +80,9 @@ class DbBackedContextBuilder:
         budget_messages: int | None = None,
         memory_budget_ratio: float | None = None,
         memory_policy: MemoryPolicySettings | None = None,
+        through_seq: int | None = None,
+        unconsumed_run_id: uuid.UUID | None = None,
+        consumed_event_seq: int = 0,
     ) -> tuple[ModelMessage, ...]:
         """执行链使用：取最近事件（最新保留）+ 受控 Memory，返回可直接发送的消息序列。
 
@@ -99,6 +110,9 @@ class DbBackedContextBuilder:
                 conversation_id,
                 budget,
                 after_seq=covered,
+                through_seq=through_seq,
+                unconsumed_run_id=unconsumed_run_id,
+                consumed_event_seq=consumed_event_seq,
             )
             history = await self._to_messages(session, tenant_id, events)
             memories = (
@@ -114,9 +128,7 @@ class DbBackedContextBuilder:
                 if user_id is not None
                 else []
             )
-        memory_messages = [
-            ModelMessage(role=ModelRole.SYSTEM, content=line) for line in memories
-        ]
+        memory_messages = [ModelMessage(role=ModelRole.SYSTEM, content=line) for line in memories]
         # 摘要替掉它覆盖的那段原始事件——这是 FEAT-08 的"由库确定性重建"：前缀完全来自
         # 落库的 CONTEXT_SUMMARY（渲染是纯函数），后续事件按 seq 顺序应用，不依赖进程内状态。
         summary_messages: list[ModelMessage] = []
@@ -134,6 +146,9 @@ class DbBackedContextBuilder:
         budget: int,
         *,
         after_seq: int = 0,
+        through_seq: int | None = None,
+        unconsumed_run_id: uuid.UUID | None = None,
+        consumed_event_seq: int = 0,
     ) -> list[CanonicalEvent]:
         """取最近 `budget * 4` 条业务事件（倒序取再反转），保证长会话保留最新轮次。
 
@@ -142,18 +157,33 @@ class DbBackedContextBuilder:
         保证"取够了料"，裁多少由压缩层决定。
         """
         rows = (
-            await session.execute(
-                select(CanonicalEvent)
-                .where(
-                    CanonicalEvent.tenant_id == tenant_id,
-                    CanonicalEvent.conversation_id == conversation_id,
-                    CanonicalEvent.event_type.in_(HISTORY_EVENT_TYPES),
-                    CanonicalEvent.seq > after_seq,
+            (
+                await session.execute(
+                    select(CanonicalEvent)
+                    .where(
+                        CanonicalEvent.tenant_id == tenant_id,
+                        CanonicalEvent.conversation_id == conversation_id,
+                        CanonicalEvent.event_type.in_(HISTORY_EVENT_TYPES),
+                        CanonicalEvent.seq > after_seq,
+                        CanonicalEvent.is_deleted.is_(False),
+                        CanonicalEvent.seq <= through_seq if through_seq is not None else true(),
+                        ~(
+                            (CanonicalEvent.run_id == unconsumed_run_id)
+                            & CanonicalEvent.event_type.in_(
+                                ("TOOL_TASK_ACCEPTED", "BACKGROUND_RESULT", "TOOL_SUBMISSION_FAILED")
+                            )
+                            & (CanonicalEvent.seq > consumed_event_seq)
+                        )
+                        if unconsumed_run_id is not None
+                        else true(),
+                    )
+                    .order_by(CanonicalEvent.seq.desc())
+                    .limit(max(budget, 1) * 4)
                 )
-                .order_by(CanonicalEvent.seq.desc())
-                .limit(max(budget, 1) * 4)
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         return list(reversed(rows))
 
     async def _to_messages(
@@ -193,6 +223,8 @@ class DbBackedContextBuilder:
         # round_no 标记「属于哪个 tool 回合」；0 = 与工具无关的普通消息（永远保留）
         entries: list[tuple[int, ModelMessage]] = []
         round_no = 0
+        awaiting: set[str] = set()
+        external_pending: list[ModelMessage] = []
         for event in events:
             payload = event.payload_json or {}
             if event.event_type == "USER_MESSAGE":
@@ -209,6 +241,13 @@ class DbBackedContextBuilder:
                         ),
                     )
                 )
+            elif event.event_type in ("TOOL_TASK_ACCEPTED", "BACKGROUND_RESULT", "TOOL_SUBMISSION_FAILED"):
+                from .async_tools.materialization import external_data
+                message = ModelMessage(role=ModelRole.USER, content=external_data(event.event_type, payload))
+                if awaiting:
+                    external_pending.append(message)
+                else:
+                    entries.append((0, message))
             elif event.event_type == "ASSISTANT_MESSAGE":
                 entries.append(
                     (0, ModelMessage(role=ModelRole.ASSISTANT, content=str(payload.get("text", ""))))
@@ -216,11 +255,10 @@ class DbBackedContextBuilder:
             elif event.event_type == "ASSISTANT_TURN":
                 # 只回放**真有结果落库**的调用（见上面 `answered` 的注释）：声明与 tool 结果
                 # 成不了对的那条声明整条丢弃，否则供应商会拒掉整个请求。
-                calls = tuple(
-                    call for call in _tool_calls(payload.get("tool_calls")) if call.id in answered
-                )
+                calls = tuple(call for call in _tool_calls(payload.get("tool_calls")) if call.id in answered)
                 if not calls:
                     continue
+                awaiting = {call.id for call in calls}
                 round_no += 1
                 reasoning = payload.get("reasoning_content")
                 entries.append(
@@ -247,9 +285,7 @@ class DbBackedContextBuilder:
                 # 看到预览，也拿得到 `artifact_id` 去 `read_attachment`。没外置的按落库时那份
                 # **有界预览**还原（2026-10-06 review）：不落预览，这条结果过了一个 Run 就只剩
                 # 工具名，任务 id / 查询结论 / 短正文全部找不回来。
-                artifact_ref = (
-                    references.get(event.artifact_id) if event.artifact_id else None
-                )
+                artifact_ref = references.get(event.artifact_id) if event.artifact_id else None
                 entries.append(
                     (
                         round_no,
@@ -260,7 +296,12 @@ class DbBackedContextBuilder:
                         ),
                     )
                 )
+                awaiting.discard(call_id)
+                if not awaiting:
+                    entries.extend((0, message) for message in external_pending)
+                    external_pending.clear()
 
+        entries.extend((0, message) for message in external_pending)
         keep = _kept_tool_rounds([value for value, _ in entries])
         return [message for value, message in entries if value == 0 or value in keep]
 
@@ -278,14 +319,18 @@ class DbBackedContextBuilder:
         if not artifact_ids:
             return {}
         rows = (
-            await session.execute(
-                select(Artifact).where(
-                    Artifact.id.in_(artifact_ids),
-                    Artifact.tenant_id == tenant_id,
-                    Artifact.is_deleted.is_(False),
+            (
+                await session.execute(
+                    select(Artifact).where(
+                        Artifact.id.in_(artifact_ids),
+                        Artifact.tenant_id == tenant_id,
+                        Artifact.is_deleted.is_(False),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         return {
             row.id: {
                 "artifact_id": str(row.id),
@@ -317,9 +362,7 @@ class DbBackedContextBuilder:
                 session, tenant_id, user_id, limit=limit
             )
         except SQLAlchemyError:
-            logger.warning(
-                "memory_injection_failed tenant_id=%s user_id=%s", tenant_id, user_id
-            )
+            logger.warning("memory_injection_failed tenant_id=%s user_id=%s", tenant_id, user_id)
             return []
 
         injected: list[str] = []
@@ -347,9 +390,7 @@ class DbBackedContextBuilder:
         return injected
 
 
-def _memory_budget_bytes(
-    history: Sequence[ModelMessage], ratio: float | None, *, hard_cap: int
-) -> int:
+def _memory_budget_bytes(history: Sequence[ModelMessage], ratio: float | None, *, hard_cap: int) -> int:
     """memory 注入可占的**字节**上限（FEAT-09）。
 
     生效上限 = `min(hard_cap, ratio × 装配出的历史字节)`：`hard_cap` 是本次 Run 冻结的
@@ -359,9 +400,7 @@ def _memory_budget_bytes(
     历史为空（会话第一轮）时比例为 0 ⇒ 本轮不注入。这是"memory 不占历史预算"的直接后果，
     **不是 bug**；要放开就得给比例配一个下限（那是另一个口径决定）。
     """
-    effective = (
-        default_compaction_settings().memory.budget_ratio if ratio is None else ratio
-    )
+    effective = default_compaction_settings().memory.budget_ratio if ratio is None else ratio
     return max(0, min(hard_cap, int(history_bytes(history) * effective)))
 
 
@@ -409,4 +448,3 @@ def _kept_tool_rounds(present: list[int]) -> set[int]:
     """保留最近 `MAX_HISTORY_TOOL_ROUNDS` 个 tool 回合；**整回合**保留或丢弃，绝不半截。"""
     rounds = sorted({value for value in present if value > 0})
     return set(rounds[-MAX_HISTORY_TOOL_ROUNDS:])
-

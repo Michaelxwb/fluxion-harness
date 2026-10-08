@@ -5,7 +5,7 @@ import hashlib
 import json
 import logging
 import uuid
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,6 +13,8 @@ from typing import Any
 
 import sqlalchemy as sa
 from muad_agent_core.agent import AgentPolicy, RunnerModelError
+from muad_agent_core.agent.continuation import RunnerCheckpoint
+from muad_agent_core.agent.runner import AgentRunStatus, RunnerDeadlineExceeded
 from muad_agent_core.model import ModelMessage
 from muad_api import AppError
 from muad_api.context import current_trace_id
@@ -35,16 +37,13 @@ from muad_contracts import (
     RunStatus,
 )
 from muad_contracts.platform_settings import (
-    COMPACTION_POLICY_KEY,
     AgentSettings,
     ArtifactSettings,
-    CompactionConfigError,
     CompactionSettings,
     LocaleSettings,
     MemoryPolicySettings,
     compaction_payload,
     default_compaction_settings,
-    parse_compaction_settings,
     parse_platform_settings,
 )
 from pydantic import ValidationError
@@ -69,6 +68,15 @@ from ..metrics import (
     record_counter,
     record_outcome,
 )
+from .async_tools.continuation_service import (
+    ExecutionIdentity,
+    ExecutionLeaseLost,
+    claim_continuation,
+    ensure_execution,
+    lock_execution,
+    renew_execution,
+)
+from .async_tools.supervisor import ExecutionSupervisor
 from .attachments.inbound import (
     INBOUND_DOCUMENT,
     INBOUND_IMAGE,
@@ -79,7 +87,7 @@ from .attachments.inbound import (
     persist_inbound_attachments,
 )
 from .context_builder import BudgetPolicy, DbBackedContextBuilder
-from .context_settings import resolve_compaction_settings
+from .context_settings import compaction_settings_of, resolve_compaction_settings
 from .executor import (
     ExecutionDefaults,
     ExecutorCredentials,
@@ -96,7 +104,6 @@ from .ports import (
     ResolveClient,
 )
 from .run_events import EventWriter
-from .run_lease import RunLeaseService
 from .run_submission import (
     ENDPOINT_CREATE_CONVERSATION,
     ENDPOINT_CREATE_RUN,
@@ -262,20 +269,6 @@ def execution_defaults_from_platform(document: Mapping[str, Any] | None) -> Exec
     )
 
 
-def compaction_settings_of(policy: Mapping[str, Any] | None) -> CompactionSettings | None:
-    """从**已冻结**的 `policy_json` 还原压缩配置；缺键或形状坏返回 None（等于不压缩）。
-
-    resume 走这条：在跑的 Run 用的永远是它自己那一份冻结值，不吃当前配置。
-    """
-    compaction = (policy or {}).get(COMPACTION_POLICY_KEY)
-    if not isinstance(compaction, Mapping):
-        return None
-    try:
-        return parse_compaction_settings(compaction)
-    except CompactionConfigError:
-        return None
-
-
 def history_budget_of(policy: Mapping[str, Any] | None) -> int | None:
     """从已冻结的 `policy_json` 取历史预算（消息条数）；缺失/形状不对时返回 None。
 
@@ -334,6 +327,13 @@ class RunStart:
 class FinalState:
     status: str
     error_code: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class SegmentResult:
+    outcome: AgentRunStatus = AgentRunStatus.COMPLETED
+    final_text: str = ""
+    failure: Exception | None = None
 
 
 def _utcnow() -> datetime:
@@ -519,8 +519,11 @@ class RunService:
         credentials_client: CredentialsClient | None = None,
         submissions: RunSubmissionService | None = None,
         context_builder: DbBackedContextBuilder | None = None,
+        *,
+        supervisor: ExecutionSupervisor,
     ) -> None:
         self._session = session
+        self._supervisor = supervisor
         self._resolve_client = resolve_client
         self._instance_id = instance_id
         self._executor_factory = executor_factory
@@ -912,9 +915,7 @@ class RunService:
                 ).deadline_ms
             ),
             cancel_requested=False,
-            lease_owner=self._instance_id,
-            lease_until=_lease_deadline(self._settings.run_lease_sec),
-            heartbeat_at=now,
+            execution_epoch=0,
             channel_json=request.channel.model_dump(mode="json"),
         )
         self._session.add(run)
@@ -956,7 +957,7 @@ class RunService:
                 submission_id=submission.id,
             )
             submission.first_seq = seq
-            run.status = RunStatus.RUNNING
+            await self._append_submission_start(self._session, run, submission.id, resumed=False)
             conversation.last_run_id = run.id
             conversation.update_time = now
             await self._session.commit()
@@ -981,24 +982,26 @@ class RunService:
             memory_budget_ratio=compaction.memory.budget_ratio,
             memory_policy=execution.memory_policy,
         )
+        stream = self._stream_run(
+            run=run,
+            agent=resolved.agent,
+            model=model,
+            skills=tuple(resolved.skills),
+            mcp_servers=tuple(resolved.mcp_servers),
+            mcp_secrets=mcp_secrets,
+            history=history,
+            submission_id=submission.id,
+            resumed=False,
+            compaction=compaction,
+            execution=execution,
+            summary_model=summary_model,
+        )
+        await self._launch_execution(run, stream)
         return RunStart(
             run_id=run.id,
             conversation_id=conversation.id,
             resumed=False,
-            events=self._stream_run(
-                run=run,
-                agent=resolved.agent,
-                model=model,
-                skills=tuple(resolved.skills),
-                mcp_servers=tuple(resolved.mcp_servers),
-                mcp_secrets=mcp_secrets,
-                history=history,
-                submission_id=submission.id,
-                resumed=False,
-                compaction=compaction,
-                execution=execution,
-                summary_model=summary_model,
-            ),
+            events=self._replay_events(submission),
         )
 
     async def _resume_run(
@@ -1062,18 +1065,20 @@ class RunService:
             submission.first_seq = seq
             cas = await self._session.execute(
                 sa.update(RunRecord)
-                .where(RunRecord.id == run.id, RunRecord.status == RunStatus.WAITING_INPUT)
+                .where(RunRecord.id == run.id, RunRecord.tenant_id == run.tenant_id,
+                    RunRecord.is_deleted.is_(False), RunRecord.status == RunStatus.WAITING_INPUT,
+                    RunRecord.deadline_at > now)
                 .values(
-                    status=RunStatus.RUNNING,
-                    lease_owner=self._instance_id,
-                    lease_until=_lease_deadline(self._settings.run_lease_sec),
-                    heartbeat_at=now,
+                    status=RunStatus.CREATED,
+                    lease_owner=None,
+                    lease_until=None,
                     update_time=now,
                 )
                 .returning(RunRecord.id)
             )
             if cas.scalar_one_or_none() is None:
                 raise AppError(ErrorCode.RUN_BUSY)
+            await self._append_submission_start(self._session, run, submission.id, resumed=True)
             await self._session.execute(
                 sa.update(RunInterrupt)
                 .where(RunInterrupt.run_id == run.id, RunInterrupt.status == INTERRUPT_WAITING)
@@ -1108,28 +1113,73 @@ class RunService:
             memory_budget_ratio=frozen.memory.budget_ratio if frozen is not None else None,
             memory_policy=execution.memory_policy,
         )
+        stream = self._stream_run(
+            run=run,
+            agent=agent,
+            model=model,
+            skills=tuple(skills),
+            mcp_servers=tuple(mcp_servers),
+            mcp_secrets=mcp_secrets,
+            history=history,
+            submission_id=submission.id,
+            resumed=True,
+            compaction=frozen,
+            execution=execution,
+            summary_model=summary_model,
+            current_text=input_text,
+            # 只带**本次新落的**那批：上一轮的字节已经进过上下文，重放会把旧图再内联一次
+            current_attachments=persisted,
+        )
+        await self._launch_execution(run, stream)
         return RunStart(
             run_id=run.id,
             conversation_id=run.conversation_id,
             resumed=True,
-            events=self._stream_run(
-                run=run,
-                agent=agent,
-                model=model,
-                skills=tuple(skills),
-                mcp_servers=tuple(mcp_servers),
-                mcp_secrets=mcp_secrets,
-                history=history,
-                submission_id=submission.id,
-                resumed=True,
-                compaction=frozen,
-                execution=execution,
-                summary_model=summary_model,
-                current_text=input_text,
-                # 只带**本次新落的**那批：上一轮的字节已经进过上下文，重放会把旧图再内联一次
-                current_attachments=persisted,
-            ),
+            events=self._replay_events(submission),
         )
+
+    async def _launch_execution(self, run: RunRecord, stream: AsyncIterator[ExecutorEvent]) -> None:
+        from muad_api.context import TRACE_CORRELATION_FIELDS, context_scope
+
+        self._session.expunge(run)
+        async def consume() -> None:
+            fields = {name: "" for name in TRACE_CORRELATION_FIELDS}
+            fields.update(
+                trace_id=run.trace_id,
+                run_id=str(run.id),
+                conversation_id=str(run.conversation_id),
+                platform_user_id=str(run.user_id),
+                agent_id=str(run.agent_id),
+                snapshot_id=str(run.snapshot_id or ""),
+            )
+            with context_scope(tenant_id=run.tenant_id, caller_service="agent-runtime", **fields):
+                async for _ in stream:
+                    pass
+
+        async def claim(
+            excluded: frozenset[uuid.UUID],
+        ) -> tuple[uuid.UUID, Callable[[], Awaitable[object]]] | None:
+            claimed = await claim_continuation(get_session_factory(), instance_id=self._instance_id,
+                lease_sec=self._settings.run_lease_sec, run_id=run.id, exclude_runs=excluded)
+            if claimed is None:
+                return None
+            run.status, run.execution_epoch = claimed.status, claimed.execution_epoch
+            run.lease_owner, run.lease_until = claimed.lease_owner, claimed.lease_until
+            return run.id, consume
+
+        await self._supervisor.claim_and_submit(claim)
+
+    async def _append_submission_start(self, session: AsyncSession, run: RunRecord,
+                                       submission_id: uuid.UUID, *, resumed: bool) -> int:
+        return await EventWriter(session).append(tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id, run_id=run.id, submission_id=submission_id,
+            event_type="RUN_CREATED", stream_type=RUN_CREATED_EVENT,
+            source_event_id=uuid.uuid5(uuid.NAMESPACE_URL, f"muad:run-start:{submission_id}"),
+            payload={
+                "conversation_id": str(run.conversation_id),
+                "resumed": resumed,
+                "trace_id": run.trace_id,
+            })
 
     async def _runtime_credentials(
         self,
@@ -1368,54 +1418,43 @@ class RunService:
     def _event_writer(self) -> EventWriter:
         return EventWriter(self._session)
 
-    async def _is_cancel_requested(self, run_id: uuid.UUID) -> bool:
-        """执行期的唯一存活判据：True ⇒ **立刻停止**再产生任何副作用。
-
-        名字沿用既有的回调契约，但语义比"用户按了停止"宽——它回答的是"这个 Run 还该由本实例
-        继续跑吗"：
-
-        - Redis hint：仅加速通道；
-        - DB `cancel_requested`：协作式取消的权威事实；
-        - **状态已离开 {RUNNING, WAITING_INPUT} / 行不存在**：这个 Run 已经不由我们负责了。
-          Reaper 会把租约过期的 RUNNING 直接置 FAILED（`reap_abandoned_runs`），此时旧执行器
-          若只看取消标记，就会继续建任务、发消息、写产物，与接管方同时产生副作用
-          （2026-10-06 review）。WAITING_INPUT 仍算"在跑"，因为暂停的那一轮要跑完收尾。
-        """
-        if await self._cancel_hints.is_set(run_id):
+    async def _is_cancel_requested(self, run: RunRecord) -> bool:
+        if await self._cancel_hints.is_set(run.id):
             return True
         async with get_session_factory()() as session:
-            row = (
-                await session.execute(
-                    sa.select(RunRecord.status, RunRecord.cancel_requested).where(RunRecord.id == run_id)
+            row = await session.scalar(
+                sa.select(RunRecord).where(
+                    RunRecord.id == run.id,
+                    RunRecord.tenant_id == run.tenant_id,
+                    RunRecord.is_deleted.is_(False),
                 )
-            ).one_or_none()
-        if row is None:
+            )
+        if row is None or row.cancel_requested:
             return True
-        status, cancel_requested = row
-        if cancel_requested:
+        try:
+            ensure_execution(row, ExecutionIdentity.of(run), _utcnow())
+        except ExecutionLeaseLost:
             return True
-        return status not in (RunStatus.RUNNING, RunStatus.WAITING_INPUT)
+        return False
 
     async def _load_inbound_attachments(self, run: RunRecord) -> tuple[PersistedAttachment, ...]:
-        """本 Run 的入站附件（渠道侧已写好字节，这里只回读引用）。"""
-        rows = (
-            (
-                await self._session.execute(
+        async with get_session_factory()() as session:
+            rows = tuple(
+                await session.scalars(
                     sa.select(Artifact).where(
                         Artifact.run_id == run.id,
+                        Artifact.tenant_id == run.tenant_id,
+                        Artifact.is_deleted.is_(False),
                         Artifact.artifact_type.in_((INBOUND_IMAGE, INBOUND_DOCUMENT, INBOUND_OTHER)),
                     )
                 )
             )
-            .scalars()
-            .all()
-        )
         return tuple(_persisted_from_row(row) for row in rows)
 
     def _read_artifact_bytes(self, storage_key: str) -> bytes:
         return NfsArtifactStore(self._settings.artifact_root).resolve(storage_key).read_bytes()
 
-    async def _renew_lease_loop(self, run_id: uuid.UUID) -> None:
+    async def _renew_lease_loop(self, run: RunRecord) -> None:
         """续租心跳：**失去租约才退出**，瞬时故障不退出。
 
         以前 `_renew_lease` 一抛错就让这个后台任务带着异常结束（异常只在 `_stream_run` 的
@@ -1427,19 +1466,19 @@ class RunService:
         while True:
             await asyncio.sleep(self._settings.run_heartbeat_sec)
             try:
-                renewed = await self._renew_lease(run_id)
+                renewed = await self._renew_lease(run)
             except Exception as exc:  # noqa: BLE001 —— 心跳是后台任务，异常不得带走整条流
                 logger.warning(
                     "run_lease_renew_failed",
-                    extra={"run_id": str(run_id), "error": type(exc).__name__},
+                    extra={"run_id": str(run.id), "error": type(exc).__name__},
                 )
                 continue
             if not renewed:
                 return
 
-    async def _renew_lease(self, run_id: uuid.UUID) -> bool:
-        return await RunLeaseService(get_session_factory).renew(
-            run_id, self._instance_id, lease_sec=self._settings.run_lease_sec
+    async def _renew_lease(self, run: RunRecord) -> bool:
+        return await renew_execution(
+            get_session_factory(), ExecutionIdentity.of(run), lease_sec=self._settings.run_lease_sec
         )
 
     async def _build_executor(
@@ -1464,6 +1503,10 @@ class RunService:
         attachments = (
             await self._load_inbound_attachments(run) if current_attachments is None else current_attachments
         )
+        from .execution_checkpoint import execution_checkpoint
+
+        progress, port, batch_size = await execution_checkpoint(get_session_factory(), run)
+        history = await self._restored_history(run, history, progress, compaction, execution)
         return await self._executor_factory(
             ExecutorRequest(
                 agent=agent,
@@ -1475,13 +1518,17 @@ class RunService:
                     attachments=attachments,
                     read_bytes=self._read_artifact_bytes,
                 ),
-                is_cancel_requested=lambda: self._is_cancel_requested(run.id),
+                is_cancel_requested=lambda: self._is_cancel_requested(run),
                 skills=tuple(skills),
                 mcp_servers=tuple(mcp_servers),
                 history=tuple(history),
                 compaction=compaction,
                 execution=execution,
                 summary_model=summary_model,
+                checkpoint=progress,
+                runtime_events=port,
+                deadline_at=run.deadline_at,
+                event_batch_size=batch_size,
                 credentials=ExecutorCredentials(mcp_secrets=mcp_secrets),
                 run_context=ExecutorRunContext(
                     tenant_id=run.tenant_id,
@@ -1491,6 +1538,28 @@ class RunService:
                     delivery_route=delivery_route_of(run.channel_json),
                 ),
             )
+        )
+
+    async def _restored_history(
+        self,
+        run: RunRecord,
+        history: Sequence[ModelMessage],
+        progress: RunnerCheckpoint,
+        compaction: CompactionSettings | None,
+        execution: ExecutionDefaults | None,
+    ) -> tuple[ModelMessage, ...]:
+        if run.execution_epoch <= 1 and history:
+            return tuple(history)
+        defaults = execution if execution is not None else ExecutionDefaults()
+        return await self._context_builder.load_history(
+            tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id,
+            user_id=run.user_id,
+            budget_messages=compaction.history_budget_messages if compaction else None,
+            memory_policy=defaults.memory_policy,
+            memory_budget_ratio=compaction.memory.budget_ratio if compaction else None,
+            unconsumed_run_id=run.id,
+            consumed_event_seq=progress.consumed_event_seq,
         )
 
     async def _stream_run(
@@ -1511,51 +1580,78 @@ class RunService:
         current_text: str | None = None,
         current_attachments: tuple[PersistedAttachment, ...] | None = None,
     ) -> AsyncIterator[ExecutorEvent]:
-        yield await self._persist_event(
-            run,
-            submission_id,
-            RUN_CREATED_EVENT,
-            {
-                "conversation_id": str(run.conversation_id),
-                "resumed": resumed,
-                "trace_id": run.trace_id,
-            },
-        )
-        heartbeat = asyncio.create_task(self._renew_lease_loop(run.id))
-        final_text = ""
-        failure: Exception | None = None
+        yield await self._start_segment_event(run, submission_id, resumed)
+
+        async def build() -> RunExecutor:
+            return await self._build_executor(run, agent, model, skills, mcp_servers, mcp_secrets, history,
+                compaction=compaction, execution=execution, summary_model=summary_model,
+                current_text=current_text, current_attachments=current_attachments)
+
+        result = await self._run_segment(run, submission_id, agent.key, build)
+        if result is not None:
+            terminal = await self._finish_segment(run, submission_id, agent.key, result)
+            if terminal is not None:
+                yield terminal
+
+    async def _start_segment_event(
+        self, run: RunRecord, submission_id: uuid.UUID, resumed: bool
+    ) -> ExecutorEvent:
+        async with get_session_factory()() as session:
+            existing = await session.scalar(sa.select(CanonicalEvent).where(
+                CanonicalEvent.tenant_id == run.tenant_id, CanonicalEvent.run_id == run.id,
+                CanonicalEvent.submission_id == submission_id, CanonicalEvent.event_type == "RUN_CREATED",
+                CanonicalEvent.is_deleted.is_(False)).order_by(CanonicalEvent.seq).limit(1))
+            if existing is not None:
+                return ExecutorEvent(type=RUN_CREATED_EVENT, data=dict(existing.payload_json),
+                    seq=int(existing.seq), timestamp=existing.create_time.isoformat())
+        return await self._persist_event(run, submission_id, RUN_CREATED_EVENT,
+            {"conversation_id": str(run.conversation_id), "resumed": resumed, "trace_id": run.trace_id})
+
+    async def _run_segment(self, run: RunRecord, submission_id: uuid.UUID, agent_key: str,
+                           build: Callable[[], Awaitable[RunExecutor]]) -> SegmentResult | None:
+        heartbeat = asyncio.create_task(self._renew_lease_loop(run))
         try:
-            executor = await self._build_executor(
-                run,
-                agent,
-                model,
-                skills,
-                mcp_servers,
-                mcp_secrets,
-                history,
-                compaction=compaction,
-                execution=execution,
-                summary_model=summary_model,
-                current_text=current_text,
-                current_attachments=current_attachments,
+            return await self._consume_executor(run, submission_id, await build())
+        except ExecutionLeaseLost:
+            return None
+        except asyncio.CancelledError:
+            await self._finalize_failed(
+                run, submission_id, RunnerShutdown("runtime shutdown"), agent_key=agent_key
             )
-            async for event in executor.run():
-                if event.type == "message.delta":
-                    final_text += str(event.data.get("delta", ""))
-                if event.seq is not None:
-                    yield event
-                    continue
-                yield await self._persist_event(run, submission_id, event.type, event.data)
+            raise
         except Exception as exc:
-            failure = exc
+            return SegmentResult(failure=exc)
         finally:
             heartbeat.cancel()
             with suppress(asyncio.CancelledError):
                 await heartbeat
-        if failure is not None:
-            yield await self._finalize_failed(run, submission_id, failure, agent_key=agent.key)
-            return
-        yield await self._finalize_run(run, submission_id, final_text, agent_key=agent.key)
+
+    async def _consume_executor(
+        self, run: RunRecord, submission_id: uuid.UUID, executor: RunExecutor
+    ) -> SegmentResult:
+        text, outcome = "", AgentRunStatus.COMPLETED
+        async for event in executor.run():
+            if event.type == "runner.outcome":
+                outcome = AgentRunStatus(event.data["status"])
+                text = str(event.data.get("final_text", text))
+                continue
+            if event.type == "message.delta":
+                text += str(event.data.get("delta", ""))
+            if event.seq is None:
+                await self._persist_event(run, submission_id, event.type, event.data)
+        return SegmentResult(outcome, text)
+
+    async def _finish_segment(self, run: RunRecord, submission_id: uuid.UUID, agent_key: str,
+                              result: SegmentResult) -> ExecutorEvent | None:
+        if result.failure is not None:
+            return await self._finalize_failed(run, submission_id, result.failure, agent_key=agent_key)
+        if result.outcome in (AgentRunStatus.WAITING_TOOL, AgentRunStatus.WAITING_INPUT):
+            return None
+        if result.outcome == AgentRunStatus.BUDGET_EXCEEDED:
+            return await self._finalize_failed(
+                run, submission_id, RunnerBudgetExceeded("frozen budget exhausted"), agent_key=agent_key
+            )
+        return await self._finalize_run(run, submission_id, result.final_text, agent_key=agent_key)
 
     async def _persist_event(
         self,
@@ -1565,6 +1661,7 @@ class RunService:
         data: dict[str, Any],
     ) -> ExecutorEvent:
         async with get_session_factory()() as session:
+            await lock_execution(session, ExecutionIdentity.of(run), _utcnow())
             seq = await EventWriter(session).append(
                 tenant_id=run.tenant_id,
                 conversation_id=run.conversation_id,
@@ -1591,6 +1688,7 @@ class RunService:
             from .tool_result_receipts import lock_run_source
 
             row, _ = await lock_run_source(session, run.tenant_id, row)
+            ensure_execution(row, ExecutionIdentity.of(run), _utcnow())
             cancelled = row.cancel_requested
             if cancelled:
                 await cancel_operations(session, row)
@@ -1598,7 +1696,13 @@ class RunService:
             updated = await session.execute(
                 sa.update(RunRecord)
                 .where(RunRecord.id == run.id, RunRecord.status == RunStatus.RUNNING)
-                .values(status=target, end_time=sa.func.now(), update_time=sa.func.now())
+                .values(
+                    status=target,
+                    end_time=sa.func.now(),
+                    update_time=sa.func.now(),
+                    lease_owner=None,
+                    lease_until=None,
+                )
                 .returning(RunRecord.id)
             )
             if updated.scalar_one_or_none() is None:
@@ -1659,6 +1763,7 @@ class RunService:
             current, _ = await lock_run_source(session, run.tenant_id, run)
             if current.status in TERMINAL_RUN_STATUSES:
                 return await self._terminal_event(session, current)
+            ensure_execution(current, ExecutionIdentity.of(run), _utcnow())
             await cancel_operations(session, current)
             updated = await session.execute(
                 sa.update(RunRecord)
@@ -1667,6 +1772,8 @@ class RunService:
                     status=RunStatus.FAILED,
                     error_code=code,
                     error_message=code,
+                    lease_owner=None,
+                    lease_until=None,
                     end_time=sa.func.now(),
                     update_time=sa.func.now(),
                 )
@@ -1775,11 +1882,12 @@ class RunService:
                 rows = await EventWriter(session).list_events(
                     submission.conversation_id,
                     tenant_id=submission.tenant_id,
-                    submission_id=submission.id,
                     after_seq=after,
                 )
                 for row in rows:
                     after = int(row.seq)
+                    if row.run_id != submission.run_id:
+                        continue
                     if row.stream_type is None:
                         continue
                     yield ExecutorEvent(
@@ -1798,15 +1906,31 @@ class RunService:
                 if run.status in TERMINAL_RUN_STATUSES:
                     yield await self._terminal_event(session, run)
                     return
+                if run.status == RunStatus.WAITING_INPUT:
+                    return
             await asyncio.sleep(REPLAY_POLL_SEC)
 
 
 def _error_code_for(exc: Exception) -> str:
+    if isinstance(exc, RunnerBudgetExceeded):
+        return "RUN_BUDGET_EXCEEDED"
+    if isinstance(exc, RunnerDeadlineExceeded):
+        return "RUN_DEADLINE_EXCEEDED"
+    if isinstance(exc, RunnerShutdown):
+        return "RUN_SHUTDOWN"
     if isinstance(exc, AppError):
         return str(exc.code)
     if isinstance(exc, RunnerModelError):
         return str(ErrorCode.MODEL_UNAVAILABLE)
     return str(ErrorCode.COMMON_INTERNAL_ERROR)
+
+
+class RunnerBudgetExceeded(RuntimeError):
+    pass
+
+
+class RunnerShutdown(RuntimeError):
+    pass
 
 
 def _persisted_from_row(row: Artifact) -> PersistedAttachment:

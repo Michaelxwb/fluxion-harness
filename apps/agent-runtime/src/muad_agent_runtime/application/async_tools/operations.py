@@ -27,7 +27,7 @@ from muad_contracts import (
 )
 from muad_contracts.canonical import ensure_strict_json
 from pydantic import JsonValue, TypeAdapter
-from sqlalchemy import func, or_, select
+from sqlalchemy import false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ...infrastructure.models.async_tools import ToolControlOutbox, ToolOperation
@@ -257,7 +257,7 @@ async def add_cancel_command(session: AsyncSession, operation: ToolOperation, no
         )
         .on_conflict_do_nothing(
             index_elements=[ToolControlOutbox.operation_id, ToolControlOutbox.command],
-            index_where=ToolControlOutbox.is_deleted.is_(False),
+            index_where=ToolControlOutbox.is_deleted == false(),
         )
     )
 

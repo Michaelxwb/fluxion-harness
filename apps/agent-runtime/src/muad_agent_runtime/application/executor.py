@@ -19,6 +19,8 @@ from muad_agent_core.agent import (
     AgentRunRequest,
     RunnerCancelled,
 )
+from muad_agent_core.agent.continuation import RunnerCheckpoint, RuntimeEventPort
+from muad_agent_core.agent.runner import AgentRunResult, AgentRunStatus
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
     ModelBudget,
@@ -198,6 +200,11 @@ class ExecutorRequest:
     summary_model: ResolvedModel | None = None
     #: 本次 Run **冻结**的执行期平台默认（来自 `policy_json`）；None = schema 默认。
     execution: ExecutionDefaults | None = None
+    checkpoint: RunnerCheckpoint | None = None
+    runtime_events: RuntimeEventPort | None = None
+    deadline_at: datetime | None = None
+    event_batch_size: int = 16
+    context_cursor: int | None = None
 
 
 def execution_defaults_for(request: ExecutorRequest) -> ExecutionDefaults:
@@ -243,6 +250,8 @@ class AgentRunnerExecutor:
 
         async def emit(event: ExecutorEvent) -> None:
             await queue.put(event)
+            # Canonical writes must finish before a complete-round checkpoint is taken.
+            await queue.join()
 
         async def on_model_started() -> None:
             await emit(ExecutorEvent(type=MODEL_STARTED_EVENT, data={}))
@@ -335,12 +344,25 @@ class AgentRunnerExecutor:
                     item = await asyncio.wait_for(queue.get(), timeout=0.05)
                 except TimeoutError:
                     continue
-                yield item
+                try:
+                    yield item
+                finally:
+                    queue.task_done()
             await task
             result = task.result()
-            if not delta_emitted and result is not None and result.final_text:
+            if (
+                not delta_emitted
+                and result is not None
+                and result.final_text
+                and result.status == AgentRunStatus.COMPLETED
+            ):
                 # 非流式 provider：把最终回答作为单个 delta，保证渠道侧拼接可用
                 yield ExecutorEvent(type=MESSAGE_DELTA_EVENT, data={"delta": result.final_text})
+            if result is not None:
+                yield ExecutorEvent(
+                    type="runner.outcome",
+                    data={"status": str(result.status), "final_text": result.final_text},
+                )
         finally:
             poller.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -361,7 +383,7 @@ class AgentRunnerExecutor:
         on_tool_completed: Callable[[str, str, str, str | None, str | None], Awaitable[None]],
         on_model_started: Callable[[], Awaitable[None]],
         on_model_completed: Callable[[], Awaitable[None]],
-    ) -> Any:
+    ) -> AgentRunResult | None:
         try:
             return await self._runner.run(
                 self._build_run_request(),
@@ -372,6 +394,8 @@ class AgentRunnerExecutor:
                 on_tool_started=on_tool_started,
                 on_assistant_turn=on_assistant_turn,
                 on_tool_completed=on_tool_completed,
+                checkpoint=self._request.checkpoint,
+                context_cursor=self._request.context_cursor,
             )
         except RunnerCancelled:
             return None
@@ -392,6 +416,7 @@ class AgentRunnerExecutor:
             temperature=_float_param(params, "temperature"),
             max_tokens=_int_param(params, "max_tokens"),
             params=params,
+            deadline_at=self._request.deadline_at,
         )
 
     def _catalog_skills(self) -> tuple[PromptSkill, ...]:
@@ -986,6 +1011,8 @@ async def default_executor_factory(
         ),
         context_compactor=_context_compactor(request, summary_provider, artifact_root=settings.artifact_root),
         tool_round_results=recorder,
+        runtime_events=request.runtime_events,
+        event_batch_size=request.event_batch_size,
     )
 
     async def close() -> None:

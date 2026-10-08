@@ -51,8 +51,11 @@ class RunRecord(StandardColumnsMixin, Base):
             postgresql_where=sa.text("status = 'RUNNING'"),
         ),
         sa.Index("ix_run_record_trace_id", "trace_id"),
-        sa.Index("ix_run_record_waiting_deadline", "deadline_at",
-                 postgresql_where=sa.text("status IN ('WAITING_TOOL','WAITING_INPUT') AND is_deleted = false")),
+        sa.Index(
+            "ix_run_record_waiting_deadline",
+            "deadline_at",
+            postgresql_where=sa.text("status IN ('WAITING_TOOL','WAITING_INPUT') AND is_deleted = false"),
+        ),
         {"schema": "runtime"},
     )
 

@@ -14,25 +14,25 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 |
 |--------|---------|---------|-------------|---------|------|---------|
-| S-01 | backend#2.5.2 场景清单 | E2E | Runtime/Worker HTTP、PG、Redis、LLM 探针、SSE | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
+| S-01 | backend#2.5.2 场景清单 | E2E | Runtime/Worker HTTP、PG、Redis、LLM 探针、SSE | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | S-02 | backend#2.5.2 场景清单 | E2E | 四服务 HTTP、真实 Task、渠道出站探针 | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
-| S-03 | backend#2.5.2 场景清单 | E2E | 实际 provider 请求、canonical 历史、制品存储 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
+| S-03 | backend#2.5.2 场景清单 | E2E | 实际 provider 请求、canonical 历史、制品存储 | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | S-04 | backend#2.5.2 场景清单 | integration | 真实 Runner、可控异步工具处理器 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] |
-| S-05 | backend#2.5.2 场景清单 | E2E | Console resolve/API-09、等待恢复、LLM/MCP HTTP | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
+| S-05 | backend#2.5.2 场景清单 | E2E | Console resolve/API-09、等待恢复、LLM/MCP HTTP | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | S-06 | backend#2.5.2 场景清单 | E2E | Gateway、Runtime SSE、Worker、原消息回复探针 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
 | S-07 | backend#2.5.2 场景清单 | integration | 真实 MCP HTTP 探针、Runtime adapter | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
 | E-01 | backend#2.5.2 场景清单 | E2E | 冻结授权、Worker HTTP、PG、审计 | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-02 | backend#2.5.2 场景清单 | E2E | Runtime 控制发件、Worker 创建事务、故障代理 | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-03 | backend#2.5.2 场景清单 | E2E | Worker 真实进程、PG outbox、Runtime HTTP | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_delivery.py"] |
-| E-04 | backend#2.5.2 场景清单 | E2E | Runtime 等待事务、结果回流 HTTP、PG | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
-| E-05 | backend#2.5.2 场景清单 | E2E | 两个 Runtime 真实进程、PG lease、LLM HTTP | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
-| E-06 | backend#2.5.2 场景清单 | E2E | 真实 deadline sweep、Worker、Runtime、PG | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
+| E-04 | backend#2.5.2 场景清单 | E2E | Runtime 等待事务、结果回流 HTTP、PG | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
+| E-05 | backend#2.5.2 场景清单 | E2E | 两个 Runtime 真实进程、PG lease、LLM HTTP | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
+| E-06 | backend#2.5.2 场景清单 | E2E | 真实 deadline sweep、Worker、Runtime、PG | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | E-07 | backend#2.5.2 场景清单 | E2E | Runtime cancel、Worker operation 行锁、真实 HTTP | TASK-003 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] |
 | E-08 | backend#2.5.2 场景清单 | E2E | ScriptSkillExecutor、真实子孙进程、管道、HTTP | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_skill_cancellation_real_subprocess.py"] |
-| E-09 | backend#2.5.2 场景清单 | integration | ContextBuilder、真实 provider 消息序列化 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
-| E-10 | backend#2.5.2 场景清单 | integration | 真实制品发布/DB 事务、压缩端口 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
+| E-09 | backend#2.5.2 场景清单 | integration | ContextBuilder、真实 provider 消息序列化 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
+| E-10 | backend#2.5.2 场景清单 | integration | 真实制品发布/DB 事务、压缩端口 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
 | E-11 | backend#2.5.2 场景清单 | E2E | 内部服务门控、Runtime/Console HTTP、PG | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/security/test_internal_service_identity.py"] |
-| E-12 | backend#2.5.2 场景清单 | E2E | API-09、日志、inbox/outbox/checkpoint/canonical、制品 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
+| E-12 | backend#2.5.2 场景清单 | E2E | API-09、日志、inbox/outbox/checkpoint/canonical、制品 | TASK-004 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] |
 | E-13 | backend#2.5.2 场景清单 | E2E | SSE socket、Runtime supervisor、Gateway/重连客户端 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
 | E-14 | backend#2.5.2 场景清单 | integration | MCP HTTP 探针、客户端关闭 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_request_correlation.py"] |
 | E-15 | backend#2.5.2 场景清单 | E2E | Redis 故障代理、PG 队列和结果发件 | TASK-002 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_redis_unavailable.py"] |
@@ -40,9 +40,9 @@
 | E-17 | backend#2.5.2 场景清单 | E2E | Gateway/Runtime HTTP、PG 活跃会话约束 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/gateway/test_waiting_resume.py"] |
 | B-01 | backend#2.5.2 场景清单 | integration | PG 行锁、并发提交、关闭屏障 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] |
 | B-02 | backend#2.5.2 场景清单 | integration | 严格 JSON DTO、幂等表、PG 唯一约束 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_runtime_strict_json.py"] |
-| B-03 | backend#2.5.2 场景清单 | integration | UTF-8 字节预算、共享制品、历史重建 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
-| B-04 | backend#2.5.2 场景清单 | integration | PG wait_generation、epoch、canonical seq | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] |
-| B-05 | backend#2.5.2 场景清单 | integration | 持久检查点、注入时钟、真实 budget 判定 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] |
+| B-03 | backend#2.5.2 场景清单 | integration | UTF-8 字节预算、共享制品、历史重建 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] |
+| B-04 | backend#2.5.2 场景清单 | integration | PG wait_generation、epoch、canonical seq | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] |
+| B-05 | backend#2.5.2 场景清单 | integration | 持久检查点、注入时钟、真实 budget 判定 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] |
 | B-06 | backend#2.5.2 场景清单 | integration | 并行规划器、Runner、资源声明 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_parallel_planner.py"] |
 | B-07 | backend#2.5.2 场景清单 | integration | inbox/outbox 租约、PG、故障代理 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] |
 | B-08 | backend#2.5.2 场景清单 | integration | 真实 PG、Alembic、迁移前置检查 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/migrations/test_runtime_wait_parity.py"] |
@@ -263,7 +263,7 @@
 
 ## TASK-004: WAITING_TOOL 检查点、接续泵与上下文物化
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003
 - **Source**: async-tool-runtime.backend.design.md#3.2 架构设计, async-tool-runtime.backend.design.md#3.5 质量实现方案
@@ -276,71 +276,134 @@
 
 ### Checklist
 
-- [ ] Runner 接入 PORT-01：模型调用前非阻塞Drain，no tool call 后再次 drain，复检依赖后决定 CONTINUE/WAIT/FINISH
-- [ ] RunnerOutcome 扩展判别字段：COMPLETED/WAITING_TOOL/WAITING_INPUT/BUDGET_EXCEEDED；WAITING_TOOL 只能持久化暂停，不能落入现有完成收尾
-- [ ] waiting 事务按锁序复检 all ready events、unmaterialized inbox、unsubmitted/accepted operations、not-terminal JOIN，避免 check-then-commit lost wakeup
-- [ ] 进入等待同事务落中间 assistant 文本、BEFORE_MODEL checkpoint、RUN_WAITING_TOOL 事件并释放 lease/close provider/MCP/HTTP clients
-- [ ] checkpoint只能在完整工具回合之后；所有 assistant tool_calls已与原 tool receipt paired
-- [ ] `TOOL_TASK_ACCEPTED` 和 `BACKGROUND_RESULT` 渲染为外部数据 USER消息；不新造同 tool_call_id 的 tool response，不变成 SYSTEM，不冒充用户新业务请求
-- [ ] ContinuationPump claim INSTANCE: `FOR UPDATE SKIP LOCKED`、wait_generation/epoch CAS、status/ready/deadline/cancel recheck；所有心跳/事件/terminal writes verify epoch/owner/lease
-- [ ] 接续从 snapshot/canonical/checkpoint重建，不重新resolve authorization/config；real-time API-09 credentials, no env fallback
-- [ ] 事件到达 WAITING_INPUT时只持久化，不绕过 human confirmation；RUNNING中的普通事件到达不启动第二 Runner
-- [ ] 多个等待轮次复用同一 Run；user/resume 进入事件后按 WAITING_INPUT semantics
-- [ ] 新增 trace context scope in propagation,后台 resume 恢复 trace_id/request_id/tenant/run/call/task
-- [ ] API-09 credential only memory; canary every new persistent/prompt/log surface no credential
-- [ ] context/building: result events in可重建集合；externalized canonical artifact_id and payload共用 reference_payload；system,summary,memory prefix preserved；pending operation不依赖 compressed文本
-- [ ] [S-01][E2E] ASYNC JOIN慢任务:先拿提交回执、执行独立工作、进入 WAITING_TOOL；Task完成后同 run_id恢复并用真实结果回答；waiting不占委 Runner/lease
-- [ ] [S-03][E2E] 两个 JOIN结果回流，重bility前后出来模型内容一致；原 tool_call仍只有一个tool响应；结果按持久 seq进入后续模型请求
-- [ ] [S-05][E2E] 分别修改Agent配置、授权、模型参数；旧Run恢复仍旧快照，新Run新值；独立轮换凭据后旧Run新凭但快照hash不变
-- [ ] [E-04][E2E] &quot;已检查无结果&quot;和&quot;提交等待&quot;间完成Task；无失唤醒，Run最终完成而非永久 WAITING_TOOL
-- [ ] [E-05][E2E] 杀死 WAITING_TOOL实例，另一实例恢复；同时两个实例claim只有一方有效；过期owner无法续租或提交终态
-- [ ] [E-06][E2E] waiting跨absolute deadline: Run FAILED, JOIN发出cancel；晚到成功只留轮廓不复活；Task跨 deadline不能 COMPLETED
-- [ ] [E-09][integration] 结果含“忽略原指令”文本；只出现外部结果数据消息，SYSTEM前缀与 call paired不被改写
-- [ ] [E-10][integration] inject batch artifact failure and summary failure: whole batch inline/history retained, Run不因 compression failure终止，warning与metric increments可断言
-- [ ] [E-12][E2E] canary秘密不出现在新增persistent surface、Prompt or outbound；model credential清空后恢复明确失败，不退回 env
-- [ ] [B-03][integration] exact threshold inline,1 byte over externalized；Chinese，synthesized multi-result over round budget correct；externalization failure retains whole batch
-- [ ] [B-04][integration] PG wait_generation/epoch/canonical seq：旧 wait generation late wake不接管新代；已消费事件不重复注入；未消费事件不丢失；剩余batch存在时不睡眠
-- [ ] [B-05][integration] persistent checkpoint、injected clock、real budget judgement：多次waiting/resume不重置 turns/tool_calls/usage/deadline；budget耗尽明确 failed
-- [ ] verifier harness-log#RULE-log-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
-- [ ] verifier harness-model#RULE-model-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
-- [ ] verifier harness-secret#RULE-secret-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
-- [ ] verifier harness-snapshot#RULE-snapshot-001：执行规范元数据的原始命令，保持规范责任，记录门禁裁决
+- [x] Runner 接入 PORT-01：模型调用前非阻塞Drain，no tool call 后再次 drain，复检依赖后决定 CONTINUE/WAIT/FINISH
+- [x] RunnerOutcome 扩展判别字段：COMPLETED/WAITING_TOOL/WAITING_INPUT/BUDGET_EXCEEDED；WAITING_TOOL 只能持久化暂停，不能落入现有完成收尾
+- [x] waiting 事务按锁序复检 all ready events、unmaterialized inbox、unsubmitted/accepted operations、not-terminal JOIN，避免 check-then-commit lost wakeup
+- [x] 进入等待同事务落中间 assistant 文本、BEFORE_MODEL checkpoint、RUN_WAITING_TOOL 事件并释放 lease/close provider/MCP/HTTP clients
+- [x] checkpoint只能在完整工具回合之后；所有 assistant tool_calls已与原 tool receipt paired
+- [x] `TOOL_TASK_ACCEPTED` 和 `BACKGROUND_RESULT` 渲染为外部数据 USER消息；不新造同 tool_call_id 的 tool response，不变成 SYSTEM，不冒充用户新业务请求
+- [x] ContinuationPump claim INSTANCE: `FOR UPDATE SKIP LOCKED`、wait_generation/epoch CAS、status/ready/deadline/cancel recheck；所有心跳/事件/terminal writes verify epoch/owner/lease
+- [x] 接续从 snapshot/canonical/checkpoint重建，不重新resolve authorization/config；real-time API-09 credentials, no env fallback
+- [x] 事件到达 WAITING_INPUT时只持久化，不绕过 human confirmation；RUNNING中的普通事件到达不启动第二 Runner
+- [x] 多个等待轮次复用同一 Run；user/resume 进入事件后按 WAITING_INPUT semantics
+- [x] 新增 trace context scope in propagation,后台 resume 恢复 trace_id/request_id/tenant/run/call/task
+- [x] API-09 credential only memory; canary every new persistent/prompt/log surface no credential（canary 反查场景 E-12 已登记，终验执行）
+- [x] context/building: result events in可重建集合；externalized canonical artifact_id and payload共用 reference_payload；system,summary,memory prefix preserved；pending operation不依赖 compressed文本
+- [x] [S-01][E2E] ASYNC JOIN慢任务:先拿提交回执、执行独立工作、进入 WAITING_TOOL；Task完成后同 run_id恢复并用真实结果回答；waiting不占委 Runner/lease（已编写登记，终验执行）
+- [x] [S-03][E2E] 两个 JOIN结果回流，重bility前后出来模型内容一致；原 tool_call仍只有一个tool响应；结果按持久 seq进入后续模型请求（已编写登记，终验执行）
+- [x] [S-05][E2E] 分别修改Agent配置、授权、模型参数；旧Run恢复仍旧快照，新Run新值；独立轮换凭据后旧Run新凭但快照hash不变（已编写登记，终验执行）
+- [x] [E-04][E2E] &quot;已检查无结果&quot;和&quot;提交等待&quot;间完成Task；无失唤醒，Run最终完成而非永久 WAITING_TOOL（已编写登记，终验执行）
+- [x] [E-05][E2E] 杀死 WAITING_TOOL实例，另一实例恢复；同时两个实例claim只有一方有效；过期owner无法续租或提交终态（已编写登记，终验执行）
+- [x] [E-06][E2E] waiting跨absolute deadline: Run FAILED, JOIN发出cancel；晚到成功只留轮廓不复活；Task跨 deadline不能 COMPLETED（已编写登记，终验执行）
+- [x] [E-09][integration] 结果含“忽略原指令”文本；只出现外部结果数据消息，SYSTEM前缀与 call paired不被改写（GREEN 见证据表）
+- [x] [E-10][integration] inject batch artifact failure and summary failure: whole batch inline/history retained, Run不因 compression failure终止，warning与metric increments可断言（GREEN 见证据表）
+- [x] [E-12][E2E] canary秘密不出现在新增persistent surface、Prompt or outbound；model credential清空后恢复明确失败，不退回 env（已编写登记，终验执行）
+- [x] [B-03][integration] exact threshold inline,1 byte over externalized；Chinese，synthesized multi-result over round budget correct；externalization failure retains whole batch（GREEN 见证据表）
+- [x] [B-04][integration] PG wait_generation/epoch/canonical seq：旧 wait generation late wake不接管新代；已消费事件不重复注入；未消费事件不丢失；剩余batch存在时不睡眠（GREEN 见证据表）
+- [x] [B-05][integration] persistent checkpoint、injected clock、real budget judgement：多次waiting/resume不重置 turns/tool_calls/usage/deadline；budget耗尽明确 failed（GREEN 见证据表）
+- [x] verifier harness-log#RULE-log-001：原始 argv 独立空库执行通过（tests/test_logging.py + tests/test_logging_redaction.py + tests/acceptance/test_foundation_logging.py 14 passed）
+- [x] verifier harness-model#RULE-model-001：原始 argv 独立空库执行通过（test_models_api.py 8 passed；test_agents_api.py -k disabled 1 passed, 13 deselected）
+- [x] verifier harness-secret#RULE-secret-001：原始 argv 独立空库执行通过（test_logging_redaction.py + tests/acceptance/test_foundation_ops_audit.py 14 passed）
+- [x] verifier harness-snapshot#RULE-snapshot-001：原始 argv 独立空库执行通过（test_snapshot_freeze.py + test_run_reaper.py 4 passed；-k &quot;executor or resolve&quot; 26 passed, 384 deselected）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | E2E | Runtime/Worker HTTP、PG、Redis、LLM 探针、SSE | JOIN 慢任务回执/等待/恢复/真实结果回答；等待不占 Runner/lease | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | planned |
-| S-03 | E2E | 实际 provider 请求、canonical 历史、制品存储 | 两个 JOIN结果回流，重建前后模型可见内容一致；每个 tool_call只一个 tool响应 | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | planned |
-| S-05 | E2E | Console resolve/API-09、等待恢复、LLM/MCP HTTP | 旧Run保留旧配置/授权/模型；新Run新值；凭据轮换旧Run新凭据但快照hash不变 | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | planned |
-| E-04 | E2E | Runtime等待事务、结果回流HTTP、PG | waiting tx check/commit between no-results and task ready; Run最终不永久 WAITING_TOOL | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | planned |
-| E-05 | E2E | 两个Runtime真实进程、PG lease、LLM HTTP | kill waiting instance; another resume; two claims only one effective; expired owner cannot renew/write success | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | planned |
-| E-06 | E2E | 真实 deadline sweep、Worker、Runtime、PG | waiting跨absolute deadline Run FAILED, JOIN cancel; late success只留 LATE; Task跨 deadline不能COMPLETED | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | planned |
-| E-09 | integration | ContextBuilder、真实 provider消息序列化 | injection text“ignore instructions”does not become SYSTEM or rewriting tool call pairing; results external data only | `tests/agent_runtime/test_tool_result_materialization.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] | planned |
-| E-10 | integration | 真实制品发布/DB事务、压缩端口 | batch externalization mid-failure and summary failure：whole batch inline/history retained, Run not终止, warning+metric+increment | `tests/agent_runtime/test_tool_result_materialization.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] | planned |
-| E-12 | E2E | API-09、日志、inbox/outbox/checkpoint/canonical/制品 | canary不出现在新增持久化面、Prompt或出站；credential清空明确failed；no env fallback | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | planned |
-| B-03 | integration | UTF-8 bytes budget、shared artifact、history重建 | exact threshold inline; strict >1 byte externalized；Chinese/multi-result over budget correct；failure retains whole batch | `tests/agent_runtime/test_tool_result_materialization.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] | planned |
-| B-04 | integration | PG wait_generation、epoch、canonical seq | old generation晚到 wake不接管；已消费不重复注入；未消费不丢失；剩余 batch 存在时不睡眠 | `tests/agent_runtime/test_tool_wait_state_machine.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] | planned |
-| B-05 | integration | persistent checkpoint、injected clock、real budget judgement | 多次waiting/resume不重置 turns/tool_calls/usage/deadline；budget耗尽明确 failed | `tests/agent_runtime/test_tool_wait_state_machine.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] | planned |
+| S-01 | E2E | Runtime/Worker HTTP、PG、Redis、LLM 探针、SSE | JOIN 慢任务回执/等待/恢复/真实结果回答；等待不占 Runner/lease | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | e2e_deferred |
+| S-03 | E2E | 实际 provider 请求、canonical 历史、制品存储 | 两个 JOIN结果回流，重建前后模型可见内容一致；每个 tool_call只一个 tool响应 | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | e2e_deferred |
+| S-05 | E2E | Console resolve/API-09、等待恢复、LLM/MCP HTTP | 旧Run保留旧配置/授权/模型；新Run新值；凭据轮换旧Run新凭据但快照hash不变 | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | e2e_deferred |
+| E-04 | E2E | Runtime等待事务、结果回流HTTP、PG | waiting tx check/commit between no-results and task ready; Run最终不永久 WAITING_TOOL | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | e2e_deferred |
+| E-05 | E2E | 两个Runtime真实进程、PG lease、LLM HTTP | kill waiting instance; another resume; two claims only one effective; expired owner cannot renew/write success | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | e2e_deferred |
+| E-06 | E2E | 真实 deadline sweep、Worker、Runtime、PG | waiting跨absolute deadline Run FAILED, JOIN cancel; late success只留 LATE; Task跨 deadline不能COMPLETED | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | e2e_deferred |
+| E-09 | integration | ContextBuilder、真实 provider消息序列化 | injection text“ignore instructions”does not become SYSTEM or rewriting tool call pairing; results external data only | `tests/agent_runtime/test_tool_result_materialization.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] | verified |
+| E-10 | integration | 真实制品发布/DB事务、压缩端口 | batch externalization mid-failure and summary failure：whole batch inline/history retained, Run not终止, warning+metric+increment | `tests/agent_runtime/test_tool_result_materialization.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] | verified |
+| E-12 | E2E | API-09、日志、inbox/outbox/checkpoint/canonical/制品 | canary不出现在新增持久化面、Prompt或出站；credential清空明确failed；no env fallback | `tests/acceptance/runtime/test_background_result_resume.py` | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | e2e_deferred |
+| B-03 | integration | UTF-8 bytes budget、shared artifact、history重建 | exact threshold inline; strict >1 byte externalized；Chinese/multi-result over budget correct；failure retains whole batch | `tests/agent_runtime/test_tool_result_materialization.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_result_materialization.py"] | verified |
+| B-04 | integration | PG wait_generation、epoch、canonical seq | old generation晚到 wake不接管；已消费不重复注入；未消费不丢失；剩余 batch 存在时不睡眠 | `tests/agent_runtime/test_tool_wait_state_machine.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] | verified |
+| B-05 | integration | persistent checkpoint、injected clock、real budget judgement | 多次waiting/resume不重置 turns/tool_calls/usage/deadline；budget耗尽明确 failed | `tests/agent_runtime/test_tool_wait_state_machine.py` | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_tool_wait_state_machine.py"] | verified |
 
 ### Acceptance Evidence
 
-- [S-01][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [S-03][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [S-05][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-04][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-05][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-06][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-09][integration] planned — RED/GREEN pending
-- [E-10][integration] planned — RED/GREEN pending
-- [E-12][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [B-03][integration] planned — RED/GREEN pending
-- [B-04][integration] planned — RED/GREEN pending
-- [B-05][integration] planned — RED/GREEN pending
+- [S-01][E2E] e2e_deferred — 7 个真实进程/HTTP/PG 用例已收集；本阶段不执行，命令见 Acceptance Contract
+- [S-03][E2E] e2e_deferred — 7 个真实进程/HTTP/PG 用例已收集；本阶段不执行，命令见 Acceptance Contract
+- [S-05][E2E] e2e_deferred — 7 个真实进程/HTTP/PG 用例已收集；本阶段不执行，命令见 Acceptance Contract
+- [E-04][E2E] e2e_deferred — 7 个真实进程/HTTP/PG 用例已收集；本阶段不执行，命令见 Acceptance Contract
+- [E-05][E2E] e2e_deferred — 7 个真实进程/HTTP/PG 用例已收集；本阶段不执行，命令见 Acceptance Contract
+- [E-06][E2E] e2e_deferred — 7 个真实进程/HTTP/PG 用例已收集；本阶段不执行，命令见 Acceptance Contract
+- [E-09][integration] RED: 独立空库命令 `uv run python /tmp/async_tool_check.py uv run pytest -q tests/agent_runtime/test_tool_wait_state_machine.py tests/agent_runtime/test_tool_result_materialization.py tests/test_background_context_scope.py` collection FAIL：缺少 RunnerCheckpoint/continuation service/materialization/context_scope 新能力；GREEN 见下方证据表（runner run_id=eaf3064bc66f486a972acbdb63e7589a）；日志 `/tmp/async-tool-task004-red.log`
+- [E-10][integration] RED: 独立空库命令 `uv run python /tmp/async_tool_check.py uv run pytest -q tests/agent_runtime/test_tool_wait_state_machine.py tests/agent_runtime/test_tool_result_materialization.py tests/test_background_context_scope.py` collection FAIL：缺少 RunnerCheckpoint/continuation service/materialization/context_scope 新能力；GREEN 见下方证据表（runner run_id=eaf3064bc66f486a972acbdb63e7589a）；日志 `/tmp/async-tool-task004-red.log`
+- [E-12][E2E] e2e_deferred — 7 个真实进程/HTTP/PG 用例已收集；本阶段不执行，命令见 Acceptance Contract
+- [B-03][integration] RED: 独立空库命令 `uv run python /tmp/async_tool_check.py uv run pytest -q tests/agent_runtime/test_tool_wait_state_machine.py tests/agent_runtime/test_tool_result_materialization.py tests/test_background_context_scope.py` collection FAIL：缺少 RunnerCheckpoint/continuation service/materialization/context_scope 新能力；GREEN 见下方证据表（runner run_id=eaf3064bc66f486a972acbdb63e7589a）；日志 `/tmp/async-tool-task004-red.log`
+- [B-04][integration] RED: 独立空库命令 `uv run python /tmp/async_tool_check.py uv run pytest -q tests/agent_runtime/test_tool_wait_state_machine.py tests/agent_runtime/test_tool_result_materialization.py tests/test_background_context_scope.py` collection FAIL：缺少 RunnerCheckpoint/continuation service/materialization/context_scope 新能力；GREEN 见下方证据表（runner run_id=eaf3064bc66f486a972acbdb63e7589a）；日志 `/tmp/async-tool-task004-red.log`
+- [B-05][integration] RED: 独立空库命令 `uv run python /tmp/async_tool_check.py uv run pytest -q tests/agent_runtime/test_tool_wait_state_machine.py tests/agent_runtime/test_tool_result_materialization.py tests/test_background_context_scope.py` collection FAIL：缺少 RunnerCheckpoint/continuation service/materialization/context_scope 新能力；GREEN 见下方证据表（runner run_id=eaf3064bc66f486a972acbdb63e7589a）；日志 `/tmp/async-tool-task004-red.log`
+- [2026-10-08] GREEN（独立空库命令 `uv run pytest -q tests/agent_runtime/test_tool_wait_state_machine.py tests/agent_runtime/test_tool_result_materialization.py tests/test_background_context_scope.py`）：21 passed；全量回归（独立空库）`tests/agent_runtime tests/agent_worker tests/agent_core tests/contracts` + context scope 856 passed, 3 deselected（E2E 标记未选）；mypy `apps packages scripts` 337 文件通过；ruff 全绿；runner run_id=eaf3064bc66f486a972acbdb63e7589a。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| E-09 | 收集失败：缺少 RunnerCheckpoint/continuation/materialization/context_scope（见上） | PASS: 21 passed | `test_e09_external_data_user_role_preserves_system_and_original_tool_pair` | 独立空库 + 真实 EventWriter/DbBackedContextBuilder + OpenAICompatibleProvider 真实消息序列化 | verified |
+| E-10 | 同上 | PASS: 21 passed | `test_e10_batch_io_failure_rolls_back_all_artifacts_and_summary_keeps_history`、`test_e10_real_artifact_transaction_failure_rolls_back_whole_batch`、`test_e10_cancel_during_file_publication_removes_prepared_files` | 真实 ArtifactResultWriter 文件 IO + 真实 PG 整批事务回滚；压缩端口注入摘要失败保留原历史与 warning/metric 增量 | verified |
+| B-03 | 同上 | PASS: 21 passed | `test_b03_exact_utf8_threshold_and_one_byte_over`（2 参数）、`test_b03_multi_result_round_budget_selects_whole_batch`、`test_b03_epoch_change_during_artifact_io_rolls_back_unreferenced_batch` | UTF-8 字节阈值/整批外置真实制品发布 + 历史重建 | verified |
+| B-04 | 同上；首轮 runner 曾因 dev 库停在迁移 0018 在 teardown 失败（B-04/B-05 记录），dev 库升级 0019 后重跑通过 | PASS: 21 passed；runner 复跑 passed | `test_b04_durable_created_start_can_be_claimed_without_request_generator`、`test_b04_ready_run_is_not_starved_by_older_unready_waiters`、`test_b04_single_claim_generation_epoch_and_expired_owner`、`test_b04_unconsumed_batch_cannot_sleep_or_repeat`、`test_b04_waiting_input_never_claimed_and_running_never_double_claimed`、`test_b04_real_runner_waits_then_reconstructs_without_duplicate_tool_response` | 真实 PG wait_generation/epoch/lease CAS + 真实 Runner 接续重建 | verified |
+| B-05 | 同上 | PASS: 21 passed；runner 复跑 passed | `test_b05_absolute_deadline_closes_wait_and_late_success_cannot_resume`（2 参数）、`test_b05_multiple_waits_preserve_budget_unknown_usage_and_deadline`、`test_b05_restored_runner_reports_unknown_provider_usage`、`test_b05_checkpoint_rejects_incomplete_tool_round`、`test_b05_exhausted_restored_budget_persists_failed_and_cancels_join` | 持久检查点 + 注入时钟 + 真实 budget 判定与 deadline | verified |
+| S-01 | E2E 不在 coding 阶段执行 | deferred | `test_s01_join_receipt_independent_work_wait_release_and_actual_result` | 真实四服务栈 + LLM/Worker 探针 + PG/Redis + SSE | e2e_deferred |
+| S-03 | E2E 不在 coding 阶段执行 | deferred | `test_s03_two_results_original_tool_pair_and_reconstructed_request` | 真实 provider 请求 + canonical 历史 + 制品存储 | e2e_deferred |
+| S-05 | E2E 不在 coding 阶段执行 | deferred | `test_s05_frozen_configuration_authorization_and_rotated_credentials` | Console resolve/API-09 + 等待恢复 + 快照 hash 稳定 | e2e_deferred |
+| E-04 | E2E 不在 coding 阶段执行 | deferred | `test_e04_result_between_wait_recheck_and_commit_is_not_lost` | Runtime 等待事务 + 结果回流 HTTP + PG | e2e_deferred |
+| E-05 | E2E 不在 coding 阶段执行 | deferred | `test_e05_killed_waiting_instance_second_process_resumes_one_epoch` | 两个 Runtime 真实进程 + PG lease/epoch | e2e_deferred |
+| E-06 | E2E 不在 coding 阶段执行 | deferred | `test_e06_waiting_deadline_cancels_join_and_late_success_stays_late` | 真实 deadline sweep + Worker + Runtime + PG | e2e_deferred |
+| E-12 | E2E 不在 coding 阶段执行 | deferred | `test_e12_cleared_credential_has_no_fallback_or_new_surface_leak` | API-09 + 新增持久化面 canary + 无 env 兜底 | e2e_deferred |
+
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- E-04: e2e_deferred — automated command e2e_deferred; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- E-05: e2e_deferred — automated command e2e_deferred; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- E-10: verified — automated command passed; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- E-12: e2e_deferred — automated command e2e_deferred; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- B-04: failed — automated command failed; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- B-05: failed — automated command failed; run_id=1d756a0de96e45e4b7582cd9cc8cc6e9 (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=74d1b8e747914739aee049043daf7d78 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=74d1b8e747914739aee049043daf7d78 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=74d1b8e747914739aee049043daf7d78 (confirmed_by: runner)
+- E-04: e2e_deferred — automated command e2e_deferred; run_id=74d1b8e747914739aee049043daf7d78 (confirmed_by: runner)
+- E-05: e2e_deferred — automated command e2e_deferred; run_id=74d1b8e747914739aee049043daf7d78 (confirmed_by: runner)
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=74d1b8e747914739aee049043daf7d78 (confirmed_by: runner)
+- E-12: e2e_deferred — automated command e2e_deferred; run_id=74d1b8e747914739aee049043daf7d78 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=74d1b8e747914739aee049043daf7d78 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=74d1b8e747914739aee049043daf7d78 (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- E-04: e2e_deferred — automated command e2e_deferred; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- E-05: e2e_deferred — automated command e2e_deferred; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- E-10: verified — automated command passed; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- E-12: e2e_deferred — automated command e2e_deferred; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=eaf3064bc66f486a972acbdb63e7589a (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=7b4fec0229af4a19a15ab103c2bab011 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=7b4fec0229af4a19a15ab103c2bab011 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=7b4fec0229af4a19a15ab103c2bab011 (confirmed_by: runner)
+- E-04: e2e_deferred — automated command e2e_deferred; run_id=7b4fec0229af4a19a15ab103c2bab011 (confirmed_by: runner)
+- E-05: e2e_deferred — automated command e2e_deferred; run_id=7b4fec0229af4a19a15ab103c2bab011 (confirmed_by: runner)
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=7b4fec0229af4a19a15ab103c2bab011 (confirmed_by: runner)
+- E-12: e2e_deferred — automated command e2e_deferred; run_id=7b4fec0229af4a19a15ab103c2bab011 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-07] created (draft)
+- [2026-10-08] started
+- [2026-10-08] 功能 RED→GREEN：等待/接续状态机、结果物化、context scope 三套 integration 用例（21 用例）在独立空库通过；回归 `tests/agent_runtime tests/agent_worker tests/agent_core tests/contracts` 856 passed, 3 deselected。实现覆盖 PORT-01 两处排空、WAITING_TOOL 事务与 BEFORE_MODEL 检查点、ContinuationPump claim/epoch CAS、snapshot+canonical 重建与 API-09 内存凭据、外部数据消息物化与整批回滚。
+- [2026-10-08] 环境事实：dev 库原停在迁移 0018，acceptance runner 首轮 B-04/B-05 因 fixture teardown 缺 `runtime.tool_control_outbox` 失败（首轮失败记录保留在证据与 manifest runs 中）；升级到 head 0019 后 runner 复跑全绿。
+- [2026-10-08] 四条 spec verifier 原始 argv 在独立空库执行通过：harness-snapshot（4 + 26 passed）、harness-model（8 + 1 passed）、harness-secret（14 passed）、harness-log（14 passed）。
+- [2026-10-08] 静态检查：mypy `apps packages scripts` 337 文件通过；ruff 全绿；`git diff --check` 通过。
+- [2026-10-08] completed (done)
 
 ---
 

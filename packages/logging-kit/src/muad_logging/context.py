@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
 
@@ -18,3 +20,13 @@ def clear_log_context() -> None:
 
 def get_log_context() -> dict[str, Any]:
     return dict(_context.get() or {})
+
+
+@contextmanager
+def log_context_scope(**values: object) -> Iterator[None]:
+    """Restore the exact enclosing logging context, including on cancellation."""
+    token = _context.set({**get_log_context(), **values})
+    try:
+        yield
+    finally:
+        _context.reset(token)

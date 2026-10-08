@@ -1,5 +1,3 @@
-import os
-import socket
 from functools import partial
 from typing import Annotated, cast
 
@@ -9,6 +7,7 @@ from muad_artifact_store import SkillArtifactCache
 from muad_common import SharedSettings
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.async_tools.supervisor import ExecutionSupervisor
 from ..application.attachments.tool_results import ArtifactResultWriter
 from ..application.executor import ExecutorFactory, default_executor_factory
 from ..application.ports import CredentialsClient, PlatformSettingsClient, ResolveClient
@@ -24,8 +23,8 @@ def get_tenant_id() -> str:
     return current_tenant_id() or SharedSettings().default_tenant_id
 
 
-def get_instance_id() -> str:
-    return os.getenv("POD_NAME") or socket.gethostname()
+def get_instance_id(request: Request) -> str:
+    return cast(str, request.app.state.instance_id)
 
 
 def get_resolve_client(request: Request) -> ResolveClient:
@@ -41,9 +40,7 @@ def get_resolve_client(request: Request) -> ResolveClient:
 
 
 def get_platform_settings_client(request: Request) -> PlatformSettingsClient:
-    client: PlatformSettingsClient | None = getattr(
-        request.app.state, "platform_settings_client", None
-    )
+    client: PlatformSettingsClient | None = getattr(request.app.state, "platform_settings_client", None)
     if client is None:
         settings = SharedSettings()
         client = ConsolePlatformSettingsClient(
@@ -89,6 +86,10 @@ def get_cancel_hint_store(request: Request) -> CancelHintStore:
     return cast(CancelHintStore, store)
 
 
+def get_execution_supervisor(request: Request) -> ExecutionSupervisor:
+    return cast(ExecutionSupervisor, request.app.state.execution_supervisor)
+
+
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 TenantDep = Annotated[str, Depends(get_tenant_id)]
 InstanceIdDep = Annotated[str, Depends(get_instance_id)]
@@ -98,6 +99,7 @@ ExecutorFactoryDep = Annotated[ExecutorFactory, Depends(get_executor_factory)]
 CancelHintStoreDep = Annotated[CancelHintStore, Depends(get_cancel_hint_store)]
 CredentialsClientDep = Annotated[CredentialsClient | None, Depends(get_credentials_client)]
 PlatformSettingsClientDep = Annotated[PlatformSettingsClient, Depends(get_platform_settings_client)]
+SupervisorDep = Annotated[ExecutionSupervisor, Depends(get_execution_supervisor)]
 
 
 def get_run_service(
@@ -108,6 +110,7 @@ def get_run_service(
     cancel_hints: CancelHintStoreDep,
     credentials_client: CredentialsClientDep,
     settings_client: PlatformSettingsClientDep,
+    supervisor: SupervisorDep,
 ) -> RunService:
     return RunService(
         session,
@@ -117,6 +120,7 @@ def get_run_service(
         cancel_hints=cancel_hints,
         credentials_client=credentials_client,
         settings_client=settings_client,
+        supervisor=supervisor,
     )
 
 

@@ -10,7 +10,7 @@
       "kind": "e2e",
       "boundary": "Runtime/Worker HTTP、PG、Redis、LLM 探针、SSE",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -20,7 +20,95 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 4,
+        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_background_result_resume.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "74d1b8e747914739aee049043daf7d78",
+          "executed_at": "2026-10-08T13:49:16.507816+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 4,
+          "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+          "executed_at": "2026-10-08T13:57:39.936378+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -102,7 +190,7 @@
       "kind": "e2e",
       "boundary": "实际 provider 请求、canonical 历史、制品存储",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -112,7 +200,95 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 4,
+        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_background_result_resume.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "74d1b8e747914739aee049043daf7d78",
+          "executed_at": "2026-10-08T13:49:16.507816+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 4,
+          "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+          "executed_at": "2026-10-08T13:57:39.936378+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -140,7 +316,7 @@
       "kind": "e2e",
       "boundary": "Console resolve/API-09、等待恢复、LLM/MCP HTTP",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -150,7 +326,95 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "S-05",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 4,
+        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_background_result_resume.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "74d1b8e747914739aee049043daf7d78",
+          "executed_at": "2026-10-08T13:49:16.507816+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 4,
+          "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+          "executed_at": "2026-10-08T13:57:39.936378+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "S-06",
@@ -399,7 +663,7 @@
       "kind": "e2e",
       "boundary": "Runtime 等待事务、结果回流 HTTP、PG",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -409,7 +673,95 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "E-04",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 4,
+        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_background_result_resume.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "74d1b8e747914739aee049043daf7d78",
+          "executed_at": "2026-10-08T13:49:16.507816+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 4,
+          "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+          "executed_at": "2026-10-08T13:57:39.936378+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-05",
@@ -418,7 +770,7 @@
       "kind": "e2e",
       "boundary": "两个 Runtime 真实进程、PG lease、LLM HTTP",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -428,7 +780,95 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "E-05",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 4,
+        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_background_result_resume.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "74d1b8e747914739aee049043daf7d78",
+          "executed_at": "2026-10-08T13:49:16.507816+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 4,
+          "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+          "executed_at": "2026-10-08T13:57:39.936378+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-06",
@@ -437,7 +877,7 @@
       "kind": "e2e",
       "boundary": "真实 deadline sweep、Worker、Runtime、PG",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -447,7 +887,95 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "E-06",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 4,
+        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_background_result_resume.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "74d1b8e747914739aee049043daf7d78",
+          "executed_at": "2026-10-08T13:49:16.507816+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 4,
+          "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+          "executed_at": "2026-10-08T13:57:39.936378+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-07",
@@ -585,7 +1113,7 @@
       "kind": "functional",
       "boundary": "ContextBuilder、真实 provider 消息序列化",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -595,7 +1123,67 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-09",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+        "executed_at": "2026-10-08T13:55:57.929597+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_tool_result_materialization.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+      },
+      "runs": [
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_result_materialization.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "7e60b6485dc107d5066e3b066a2ceccbed9fc10fef5b3be2e328c4d26c19f7c7"
+        },
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_result_materialization.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        }
+      ]
     },
     {
       "id": "E-10",
@@ -604,7 +1192,7 @@
       "kind": "functional",
       "boundary": "真实制品发布/DB 事务、压缩端口",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -614,7 +1202,67 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-10",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+        "executed_at": "2026-10-08T13:55:57.929597+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_tool_result_materialization.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+      },
+      "runs": [
+        {
+          "id": "E-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_result_materialization.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "7e60b6485dc107d5066e3b066a2ceccbed9fc10fef5b3be2e328c4d26c19f7c7"
+        },
+        {
+          "id": "E-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_result_materialization.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        }
+      ]
     },
     {
       "id": "E-11",
@@ -642,7 +1290,7 @@
       "kind": "e2e",
       "boundary": "API-09、日志、inbox/outbox/checkpoint/canonical、制品",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -652,7 +1300,95 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "E-12",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 4,
+        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_background_result_resume.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0
+      },
+      "runs": [
+        {
+          "id": "E-12",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-12",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "74d1b8e747914739aee049043daf7d78",
+          "executed_at": "2026-10-08T13:49:16.507816+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-12",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "E-12",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 4,
+          "run_id": "7b4fec0229af4a19a15ab103c2bab011",
+          "executed_at": "2026-10-08T13:57:39.936378+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        }
+      ]
     },
     {
       "id": "E-13",
@@ -986,7 +1722,7 @@
       "kind": "functional",
       "boundary": "UTF-8 字节预算、共享制品、历史重建",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -996,7 +1732,67 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+        "executed_at": "2026-10-08T13:55:57.929597+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_tool_result_materialization.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+      },
+      "runs": [
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_result_materialization.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "7e60b6485dc107d5066e3b066a2ceccbed9fc10fef5b3be2e328c4d26c19f7c7"
+        },
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_result_materialization.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        }
+      ]
     },
     {
       "id": "B-04",
@@ -1005,7 +1801,7 @@
       "kind": "functional",
       "boundary": "PG wait_generation、epoch、canonical seq",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1015,7 +1811,86 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+        "executed_at": "2026-10-08T13:55:57.929597+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_tool_wait_state_machine.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+      },
+      "runs": [
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "y/engine/base.py:1643: in _execute_clauseelement\n    ret = self._execute_context(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context\n    return self._exec_single_context(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context\n    self._handle_dbapi_exception(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception\n    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context\n    self.dialect.do_execute(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute\n    cursor.execute(statement, parameters)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:585: in execute\n    self._adapt_connection.await_(\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132: in await_only\n    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196: in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:563: in _prepare_and_execute\n    self._handle_exception(error)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:513: in _handle_exception\n    self._adapt_connection._handle_exception(error)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <AdaptedConnection <asyncpg.connection.Connection object at 0x10af7c410>>\nerror = UndefinedTableError('relation \"runtime.tool_control_outbox\" does not exist')\n\n    def _handle_exception(self, error):\n        if self._connection.is_closed():\n            self._transaction = None\n            self._started = False\n    \n        if not isinstance(error, AsyncAdapt_asyncpg_dbapi.Error):\n            exception_mapping = self.dbapi._asyncpg_error_translate\n    \n            for super_ in type(error).__mro__:\n                if super_ in exception_mapping:\n                    translated_error = exception_mapping[super_](\n                        \"%s: %s\" % (type(error), error)\n                    )\n                    translated_error.pgcode = translated_error.sqlstate = (\n                        getattr(error, \"sqlstate\", None)\n                    )\n>                   raise translated_error from error\nE                   sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedTableError'>: relation \"runtime.tool_control_outbox\" does not exist\nE                   [SQL: DELETE FROM runtime.tool_control_outbox WHERE tenant_id = $1]\nE                   [parameters: ('test-d66caea2-e71c-4379-b86e-20b0e84e8b26',)]\nE                   (Background on this error at: https://sqlalche.me/e/20/f405)\n\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:797: ProgrammingError\n----------------------------- Captured stdout call -----------------------------\n{\"timestamp\":\"2026-10-08T13:48:26.119935+00:00\",\"service\":\"muad-agent-runtime\",\"level\":\"INFO\",\"logger\":\"muad_agent_runtime.application.context_builder\",\"message\":\"memory_inject_ok\",\"tenant_id\":\"45bae6db-a483-4694-bdbc-9c3e9ed913cb\",\"injected_count\":0,\"injected_bytes\":0}\n------------------------------ Captured log call -------------------------------\nINFO     muad_agent_runtime.application.context_builder:context_builder.py:382 memory_inject_ok\n=========================== short test summary info ============================\nERROR tests/agent_runtime/test_tool_wait_state_machine.py::test_b05_exhausted_restored_budget_persists_failed_and_cancels_join\nERROR tests/agent_runtime/test_tool_wait_state_machine.py::test_b04_real_runner_waits_then_reconstructs_without_duplicate_tool_response\n12 passed, 2 errors in 9.95s",
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_wait_state_machine.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "74d1b8e747914739aee049043daf7d78",
+          "executed_at": "2026-10-08T13:49:16.507816+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_wait_state_machine.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "7e60b6485dc107d5066e3b066a2ceccbed9fc10fef5b3be2e328c4d26c19f7c7"
+        },
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_wait_state_machine.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        }
+      ]
     },
     {
       "id": "B-05",
@@ -1024,7 +1899,7 @@
       "kind": "functional",
       "boundary": "持久检查点、注入时钟、真实 budget 判定",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1034,7 +1909,86 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+        "executed_at": "2026-10-08T13:55:57.929597+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_tool_wait_state_machine.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+      },
+      "runs": [
+        {
+          "id": "B-05",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "y/engine/base.py:1643: in _execute_clauseelement\n    ret = self._execute_context(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context\n    return self._exec_single_context(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context\n    self._handle_dbapi_exception(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception\n    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context\n    self.dialect.do_execute(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute\n    cursor.execute(statement, parameters)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:585: in execute\n    self._adapt_connection.await_(\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132: in await_only\n    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196: in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:563: in _prepare_and_execute\n    self._handle_exception(error)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:513: in _handle_exception\n    self._adapt_connection._handle_exception(error)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <AdaptedConnection <asyncpg.connection.Connection object at 0x10af7c410>>\nerror = UndefinedTableError('relation \"runtime.tool_control_outbox\" does not exist')\n\n    def _handle_exception(self, error):\n        if self._connection.is_closed():\n            self._transaction = None\n            self._started = False\n    \n        if not isinstance(error, AsyncAdapt_asyncpg_dbapi.Error):\n            exception_mapping = self.dbapi._asyncpg_error_translate\n    \n            for super_ in type(error).__mro__:\n                if super_ in exception_mapping:\n                    translated_error = exception_mapping[super_](\n                        \"%s: %s\" % (type(error), error)\n                    )\n                    translated_error.pgcode = translated_error.sqlstate = (\n                        getattr(error, \"sqlstate\", None)\n                    )\n>                   raise translated_error from error\nE                   sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedTableError'>: relation \"runtime.tool_control_outbox\" does not exist\nE                   [SQL: DELETE FROM runtime.tool_control_outbox WHERE tenant_id = $1]\nE                   [parameters: ('test-d66caea2-e71c-4379-b86e-20b0e84e8b26',)]\nE                   (Background on this error at: https://sqlalche.me/e/20/f405)\n\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:797: ProgrammingError\n----------------------------- Captured stdout call -----------------------------\n{\"timestamp\":\"2026-10-08T13:48:26.119935+00:00\",\"service\":\"muad-agent-runtime\",\"level\":\"INFO\",\"logger\":\"muad_agent_runtime.application.context_builder\",\"message\":\"memory_inject_ok\",\"tenant_id\":\"45bae6db-a483-4694-bdbc-9c3e9ed913cb\",\"injected_count\":0,\"injected_bytes\":0}\n------------------------------ Captured log call -------------------------------\nINFO     muad_agent_runtime.application.context_builder:context_builder.py:382 memory_inject_ok\n=========================== short test summary info ============================\nERROR tests/agent_runtime/test_tool_wait_state_machine.py::test_b05_exhausted_restored_budget_persists_failed_and_cancels_join\nERROR tests/agent_runtime/test_tool_wait_state_machine.py::test_b04_real_runner_waits_then_reconstructs_without_duplicate_tool_response\n12 passed, 2 errors in 9.95s",
+          "revision": 1,
+          "run_id": "1d756a0de96e45e4b7582cd9cc8cc6e9",
+          "executed_at": "2026-10-08T13:48:26.757826+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_wait_state_machine.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "B-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "74d1b8e747914739aee049043daf7d78",
+          "executed_at": "2026-10-08T13:49:16.507816+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_wait_state_machine.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "7e60b6485dc107d5066e3b066a2ceccbed9fc10fef5b3be2e328c4d26c19f7c7"
+        },
+        {
+          "id": "B-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "eaf3064bc66f486a972acbdb63e7589a",
+          "executed_at": "2026-10-08T13:55:57.929597+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_wait_state_machine.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        }
+      ]
     },
     {
       "id": "B-06",
