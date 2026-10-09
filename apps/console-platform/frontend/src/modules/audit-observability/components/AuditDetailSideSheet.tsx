@@ -11,8 +11,8 @@
  * before/after、TOOL argsPreview、EGRESS/MODEL 各自字段），底部是「关联」分组（Run/Task
  * 链接）。
  *
- * id 展示与列表同口径：审计/资源/Trace 走短 id（前 8 位）+ 复制完整值，关联 Run/Task 链接
- * 亦只展示短 id（完整值经复制/悬停/关联详情获取，不在详情铺陈长 UUID）。
+ * id 展示与列表同口径：Trace ID 完整（与列表 Trace 列一致），资源 ID 与关联 Run/Task 取前
+ * 8 位（与列表「关联对象」一致）；审计 ID 与副标题同取短 id。完整值经复制/悬停获取。
  * [E-07] 后端 `relatedMissing` 为真时关联区渲染 `ErrorState`，绝不回退编造关联数据；审计自身
  * 字段与来源字段照常展示。
  */
@@ -140,7 +140,7 @@ function buildBasicItems(detail: AuditDetail, t: TFunction): DetailGridItem[] {
     {
       label: t('audit.columns.traceId'),
       value: detail.traceId ? (
-        <CopyableText display={shortId(detail.traceId)} full={detail.traceId} />
+        <CopyableText display={detail.traceId} full={detail.traceId} />
       ) : (
         '-'
       )

@@ -72,6 +72,13 @@ def test_task_detail_links_back_to_schedule_only_for_scheduled_triggers() -> Non
     assert "useNavigate" not in detail, "详情组件只回调，不自行导航"
 
 
+def test_task_detail_source_run_link_uses_short_id() -> None:
+    """来源 Run 链接与列表「关联对象」/审计详情同口径只展示短 id；完整值在运行详情标题复制面。"""
+    detail = _read(TASK_DETAIL)
+    assert "shortId(detail.source_run_id)" in detail, "来源 Run 须取短 id"
+    assert "slice(0, 8)" in detail, "短 id 口径 = 前 8 位"
+
+
 def test_task_page_mounts_the_schedule_sheet_for_the_reverse_link() -> None:
     task_page = _read(TASK_PAGE)
     assert "<ScheduleDetailSideSheet" in task_page

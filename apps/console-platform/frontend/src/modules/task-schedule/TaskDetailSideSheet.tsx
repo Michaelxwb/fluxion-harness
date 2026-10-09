@@ -29,6 +29,11 @@ const STATUS_COLORS: Record<string, StatusTagOption['color']> = {
   CANCELLED: 'grey'
 };
 
+/** 来源 Run 与列表/审计详情同口径只展示前 8 位；完整值在运行详情标题的复制面。 */
+function shortId(value: string): string {
+  return value.slice(0, 8);
+}
+
 export interface TaskDetailSideSheetProps {
   taskId: string | null;
   onCancel(): void;
@@ -241,10 +246,10 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
                             testId="task-detail-run"
                             onClick={() => props.onOpenRun?.(detail.source_run_id as string)}
                           >
-                            {detail.source_run_id}
+                            {shortId(detail.source_run_id)}
                           </EntityLink>
                         ) : (
-                          detail.source_run_id
+                          shortId(detail.source_run_id)
                         )
                       }
                     ]

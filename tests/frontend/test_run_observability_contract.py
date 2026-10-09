@@ -268,6 +268,15 @@ def test_run_detail_hooks_invalidate_stale_responses() -> None:
     assert "getRun(" not in sheet and "listRunOperations(" not in sheet, "容器经 hooks 取数，不直调 service"
 
 
+def test_run_sheet_title_uses_short_id_with_copy() -> None:
+    """标题 run id 与列表「关联对象」/审计详情同口径（前 8 位）；完整值经复制/悬停获取。"""
+    sheet = _read(RUN_SHEET)
+    compact = _compact(sheet)
+    assert "components/common/CopyableText" in sheet, "标题须可复制完整 run id"
+    assert "shortId(props.runId)" in compact and "full={props.runId}" in compact
+    assert "slice(0,8)" in compact, "短 id 口径 = 前 8 位"
+
+
 def test_related_detail_controller_keeps_single_related_layer() -> None:
     """RUN/TASK 判别联合互斥：同一时刻只挂一个关联面板，Run/Task 不递归堆叠。"""
     controller = _read(CONTROLLER)

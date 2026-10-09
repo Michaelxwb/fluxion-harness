@@ -186,10 +186,10 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await expect(page.getByTestId('detail-subtitle')).toContainText(state.rows.tool.slice(0, 8));
   await expect(sheet).toContainText(TOOL_TYPE_TEXT);
   await expect(sheet).toContainText('acceptance_policy_check');
-  // id 与列表同口径：详情内 Trace/审计/资源 id 只展示前 8 位
-  await expect(sheet).toContainText(state.traceId.slice(0, 8));
+  // 同一字段与列表同长：Trace ID 在列表与详情都是完整 uuid（详情另加复制面）
+  await expect(sheet).toContainText(state.traceId);
   await expect(sheet).toContainText('参数哈希');
-  // 完整值仍可一键复制：CopyableText 的复制面是 <a>，不破坏下面的「只读无按钮」断言
+  // 完整值可一键复制：CopyableText 的复制面是 <a>，不破坏下面的「只读无按钮」断言
   await expect(sheet.locator('.semi-typography-action-copy').first()).toBeVisible();
 
   // 只读：Header 只有关闭 X、无操作条；基本信息页签内除关联链接外没有任何可见按钮
@@ -208,7 +208,7 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   // 任务列表"**——那样只会打开一个无关的空列表（2026-10-03 那条 issue）。改为就地叠加打开。
   await expect(page).toHaveURL(/\/audits/);
   await expect(page.getByTestId('run-detail-error')).toBeVisible();
-  await expect(page.locator('.detail-title', { hasText: state.runId })).toHaveCount(1);
+  await expect(page.locator('.detail-title', { hasText: state.runId.slice(0, 8) })).toHaveCount(1);
 
   // 入口二：主展示字段（CONFIG 行，before/after 差异 + 无关联）
   await page.goto('/audits');

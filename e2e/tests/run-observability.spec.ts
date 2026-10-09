@@ -105,7 +105,10 @@ async function openRunViaAudit(
 }
 
 function runSheet(page: Page, runId: string): Locator {
-  return page.locator('.semi-sidesheet').filter({ has: page.locator('.detail-title', { hasText: runId }) });
+  // 标题展示短 id（与列表「关联对象」同口径）：按前 8 位过滤。
+  return page.locator('.semi-sidesheet').filter({
+    has: page.locator('.detail-title', { hasText: runId.slice(0, 8) })
+  });
 }
 
 function taskSheet(page: Page, taskId: string): Locator {
@@ -154,14 +157,14 @@ test('S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id
     await sheet.getByTestId(`run-operation-task-${state.detachTaskId}`).click();
     const task = taskSheet(page, state.detachTaskId);
     await expect(task).toBeVisible();
-    await expect(task.getByTestId('task-detail-run')).toHaveText(state.detachRunId);
+    await expect(task.getByTestId('task-detail-run')).toHaveText(state.detachRunId.slice(0, 8));
     await expect(sheet).toHaveCount(0);
 
     // 来源 Run 回调反向替换：返回同 run_id，不新增层
     await task.getByTestId('task-detail-run').click();
     const back = runSheet(page, state.detachRunId);
     await expect(back).toBeVisible();
-    await expect(back.locator('.detail-title')).toHaveText(state.detachRunId);
+    await expect(back.locator('.detail-title')).toHaveText(state.detachRunId.slice(0, 8));
     await expect(taskSheet(page, state.detachTaskId)).toHaveCount(0);
     // 审计来源面板仍在，页面没有导航
     await expect(page).toHaveURL(/\/audits/);
@@ -249,7 +252,7 @@ test('S-24 详情与 network 响应不含原文/结果/凭据；时间线超 200
   });
 
   const sheet = await openRunViaAudit(page, state.contentAuditId, state.contentRunId);
-  await expect(sheet.locator('.detail-title')).toHaveText(state.contentRunId);
+  await expect(sheet.locator('.detail-title')).toHaveText(state.contentRunId.slice(0, 8));
 
   // 只显示结构：输入/结果/凭据标记不出现在 DOM
   const visibleText = await sheet.innerText();
@@ -319,7 +322,7 @@ test('E-21 跨租户/不存在 Task 请求 404；伪造 X-Tenant-Id 不改变数
     });
   });
   const sheet = await openRunViaAudit(page, state.detachAuditId, state.detachRunId);
-  await expect(sheet.locator('.detail-title')).toHaveText(state.detachRunId);
+  await expect(sheet.locator('.detail-title')).toHaveText(state.detachRunId.slice(0, 8));
 
   // 跨租户 Run：真实 404（不泄漏另一租户存在性）
   const otherRun = await page.request.get(`/api/v1/runs/${state.otherRunId}`);
@@ -361,9 +364,9 @@ test('E-22 A Run 慢响应后关闭/切到 B，当前详情不被 A 覆盖', asy
 
   // 切到 B（未延迟）：A 的迟到响应到达后不得覆盖 B
   const detach = await openRunViaAudit(page, state.detachAuditId, state.detachRunId);
-  await expect(detach.locator('.detail-title')).toHaveText(state.detachRunId);
+  await expect(detach.locator('.detail-title')).toHaveText(state.detachRunId.slice(0, 8));
   await page.waitForTimeout(2500);
-  await expect(detach.locator('.detail-title')).toHaveText(state.detachRunId);
+  await expect(detach.locator('.detail-title')).toHaveText(state.detachRunId.slice(0, 8));
   await expect(runSheet(page, state.waitRunId)).toHaveCount(0);
   await expect(detach.getByText('等待任务结果')).toHaveCount(0);
 

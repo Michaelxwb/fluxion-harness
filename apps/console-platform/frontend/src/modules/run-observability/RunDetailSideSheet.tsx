@@ -17,6 +17,7 @@ import { IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { CopyableText } from '../../components/common/CopyableText';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
@@ -47,6 +48,11 @@ const WAITING_STATUSES = ['WAITING_TOOL', 'WAITING_INPUT'];
 
 function waitingReasonKey(reason: WaitReason): string {
   return `run.detail.waitingReason.${reason}`;
+}
+
+/** 标题 run id 与列表/审计详情同口径取前 8 位；完整值经复制/悬停获取。 */
+function shortId(value: string): string {
+  return value.slice(0, 8);
 }
 
 function buildBasicItems(detail: RunDetail, t: (key: string, options?: Record<string, unknown>) => string) {
@@ -164,7 +170,7 @@ export function RunDetailSideSheet(props: RunDetailSideSheetProps) {
   return (
     <DetailSideSheet
       visible={props.runId !== null}
-      title={props.runId ?? ''}
+      title={props.runId ? <CopyableText display={shortId(props.runId)} full={props.runId} /> : ''}
       subtitle={detail ? `${t(`run.status.${detail.status}`)} · ${detail.trace_id}` : t('run.detail.basic')}
       actions={
         <Button
