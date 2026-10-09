@@ -48,7 +48,8 @@
 | `next_fire_at` | 下次触发时间 | Schedule |
 | `last_fire_at` | 最近触发时间 | Schedule |
 | `resource_type` | 审计类型 | 运行审计 |
-| `resource_id` | 操作目标 | 运行审计 |
+| `run_id` / `task_id` | 关联对象（列表：Run/Task 前缀 + 短 id；CONFIG 行无关联） | 运行审计 |
+| `resource_id` | 资源 ID（列表 CONFIG 行回退为 `资源类型/短id`） | 运行审计 |
 | `actor_user_id` | 操作用户 | 运行审计 |
 | `action` | 动作 | 运行审计 |
 | `result_status` | 执行结果 | 运行审计（映射规则见 07 §10.11） |

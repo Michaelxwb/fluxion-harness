@@ -126,6 +126,8 @@ UNIFIED_FIELDS = frozenset(
         "started_at",
         "finished_at",
         "latency_ms",
+        "run_id",
+        "task_id",
     }
 )
 LEGACY_FIELDS = frozenset({"id", "actor_display_name", "create_time"})

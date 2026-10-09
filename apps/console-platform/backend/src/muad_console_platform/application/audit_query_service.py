@@ -154,6 +154,9 @@ class AuditQueryService:
         for field in ("audit_id", "resource_id", "actor_user_id"):
             item[field] = str(row[field])
         item["agent_id"] = None if row["agent_id"] is None else str(row["agent_id"])
+        # 关联对象列的裸 id（列表用）：拆开暴露 run_id/task_id，CONFIG 行为 NULL。
+        item["run_id"] = _optional_id(row["run_id"])
+        item["task_id"] = _optional_id(row["task_id"])
         # 旧版字段别名：Console agent-management 审计页签与既有回归用例仍在消费
         item["id"] = item["audit_id"]
         item["actor_display_name"] = item["actor_name"]

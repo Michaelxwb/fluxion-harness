@@ -33,6 +33,8 @@ PROJECTED_COLUMNS = (
     "started_at",
     "finished_at",
     "latency_ms",
+    "run_id",
+    "task_id",
 )
 
 # 每列位置与 PROJECTED_COLUMNS 严格一一对应：只有第一条 SELECT 起名，其余按位置对齐。
@@ -54,7 +56,9 @@ SELECT
     c.create_time AS occurred_at,
     c.create_time AS started_at,
     NULL::timestamptz AS finished_at,
-    NULL::bigint AS latency_ms
+    NULL::bigint AS latency_ms,
+    NULL::uuid AS run_id,
+    NULL::uuid AS task_id
   FROM control.config_audit_log c
   LEFT JOIN control.console_account acct ON acct.id = c.actor_user_id
  WHERE c.tenant_id = :tenant_id
@@ -82,7 +86,9 @@ SELECT
     t.create_time,
     t.start_time,
     t.end_time,
-    t.latency_ms
+    t.latency_ms,
+    t.run_id,
+    t.task_id
   FROM runtime.tool_call_audit t
   LEFT JOIN runtime.run_record r ON r.id = t.run_id
   LEFT JOIN task.task_execution tx ON tx.id = t.task_id
@@ -121,7 +127,9 @@ SELECT
     g.create_time,
     g.create_time,
     NULL::timestamptz,
-    g.latency_ms
+    g.latency_ms,
+    g.run_id,
+    g.task_id
   FROM runtime.egress_audit g
   LEFT JOIN runtime.run_record r ON r.id = g.run_id
   LEFT JOIN task.task_execution tx ON tx.id = g.task_id
@@ -160,7 +168,9 @@ SELECT
     m.create_time,
     m.create_time,
     NULL::timestamptz,
-    m.latency_ms
+    m.latency_ms,
+    m.run_id,
+    m.task_id
   FROM runtime.model_invocation_audit m
   LEFT JOIN runtime.run_record r ON r.id = m.run_id
   LEFT JOIN task.task_execution tx ON tx.id = m.task_id

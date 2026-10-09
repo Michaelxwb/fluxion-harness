@@ -19,13 +19,20 @@ from sqlalchemy import text, update
 from console_tasks.conftest import TOKEN
 
 
-async def _create_schedule(tenant_id: str, *, cron: str = "0 9 * * *") -> uuid.UUID:
+async def _create_schedule(
+    tenant_id: str,
+    *,
+    cron: str = "0 9 * * *",
+    agent_id: uuid.UUID | None = None,
+    actor_user_id: uuid.UUID | None = None,
+    skill_id: uuid.UUID | None = None,
+) -> uuid.UUID:
     body = {
         "name": "weekday policy check",
-        "agent_id": str(uuid.uuid4()),
-        "actor_user_id": str(uuid.uuid4()),
+        "agent_id": str(agent_id or uuid.uuid4()),
+        "actor_user_id": str(actor_user_id or uuid.uuid4()),
         "intent_key": "policy_check",
-        "skill_id": str(uuid.uuid4()),
+        "skill_id": str(skill_id or uuid.uuid4()),
         "input_template": {"customer": "A"},
         "schedule": {"type": "CRON", "cron": cron, "timezone": "Asia/Shanghai"},
         "delivery_route": {
@@ -213,3 +220,70 @@ async def test_b128_cross_tenant_schedule_hidden(
                 {"t": "test-console-foreign-schedule"},
             )
             await session.commit()
+
+
+async def test_b128_list_enriches_names_from_control_tables(
+    client: AsyncClient, task_tenant: TenantContext
+) -> None:
+    """名称权威源在 Console `control.*`：列表按本页 id 批查询补齐；未登记的 id 保持 null。"""
+    from muad_console_platform.infrastructure.db import get_session_factory
+    from muad_console_platform.infrastructure.models.control import (
+        AgentDefinition,
+        PlatformUser,
+        Skill,
+    )
+
+    agent_id, actor_id, skill_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    async with get_session_factory()() as session:
+        session.add(
+            AgentDefinition(
+                id=agent_id,
+                tenant_id=task_tenant.tenant_id,
+                key=f"schedule-agent-{agent_id.hex[:8]}",
+                name="Schedule Agent",
+                description=None,
+                instructions="",
+                model_id=task_tenant.model_id,
+            )
+        )
+        session.add(
+            PlatformUser(
+                id=actor_id,
+                tenant_id=task_tenant.tenant_id,
+                user_code=f"schedule-user-{actor_id.hex[:8]}",
+                display_name="Bob",
+            )
+        )
+        session.add(
+            Skill(
+                id=skill_id,
+                tenant_id=task_tenant.tenant_id,
+                key=f"schedule-skill-{skill_id.hex[:8]}",
+                name="Schedule Skill",
+                description="",
+            )
+        )
+        await session.commit()
+
+    named = await _create_schedule(
+        task_tenant.tenant_id, agent_id=agent_id, actor_user_id=actor_id, skill_id=skill_id
+    )
+    unnamed = await _create_schedule(task_tenant.tenant_id, cron="30 10 * * *")
+
+    listed = await client.get(
+        "/api/v1/schedules", headers={"X-Tenant-Id": task_tenant.tenant_id}
+    )
+    assert listed.status_code == 200, listed.text
+    items = {item["schedule_id"]: item for item in listed.json()["data"]["items"]}
+
+    enriched = items[str(named)]
+    assert enriched["agent_name"] == "Schedule Agent"
+    assert enriched["actor_name"] == "Bob"
+    assert enriched["skill_name"] == "Schedule Skill"
+    assert enriched["skill_key"].startswith("schedule-skill-")
+
+    missing = items[str(unnamed)]
+    assert missing["agent_name"] is None
+    assert missing["actor_name"] is None
+    assert missing["skill_name"] is None
+    assert missing["skill_key"] is None

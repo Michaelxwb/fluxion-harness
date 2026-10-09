@@ -1,6 +1,6 @@
 """[B-206][S-06] 审计表格与列表数据 hook 源码契约（设计 §3.3 CMP-02、§3.5、§3.6；docs/15 §2 字段词典）。
 
-列集合与 docs/15「运行审计」段的 UI 名称/字段口径一致（审计类型/操作目标/操作用户/Agent/动作/
+列集合与 docs/15「运行审计」段的 UI 名称/字段口径一致（审计类型/关联对象/操作用户/Agent/动作/
 执行结果/Trace ID/时间），执行结果复用 `StatusTag`、时间复用 `DateTimeText`，主展示字段提供打开
 详情的 `EntityLink` seam（TASK-013 消费）；列表状态机归 `useAuditList`，取数只经 TASK-010 的
 service 层，`requestSeq` 丢弃乱序响应、失败只置 `failed` 并可重试；分页状态由服务端响应驱动
@@ -33,7 +33,7 @@ COLUMN_FIELDS = (
     ("audit.columns.auditType", "审计类型", ("auditType",)),
     ("audit.columns.actor", "操作用户", ("actorName", "actorUserId")),
     ("audit.columns.agent", "Agent", ("agentName", "agentId")),
-    ("audit.columns.target", "操作目标", ("resourceId",)),
+    ("audit.columns.related", "关联对象", ("runId", "taskId", "resourceId")),
     ("audit.columns.action", "动作", ("action",)),
     ("audit.columns.result", "执行结果", ("resultStatus",)),
     ("audit.columns.traceId", "Trace ID", ("traceId",)),
@@ -201,7 +201,7 @@ def test_empty_and_error_slots_come_from_audit_table() -> None:
 
 
 def test_primary_display_field_has_detail_open_seam() -> None:
-    """[RULE-ui-001] 主展示字段（docs/15「操作目标」）提供打开详情的 seam，供 TASK-013 消费。"""
+    """[RULE-ui-001] 主展示字段（「关联对象」）提供打开详情的 seam，供 TASK-013 消费。"""
     table = _read(TABLE)
     options = _block(table, "export interface AuditTableOptions {")
     assert "onOpenDetail(item:AuditListItem):void;" in options, "详情入口须作为显式入参 seam 导出"
@@ -214,8 +214,19 @@ def test_primary_display_field_has_detail_open_seam() -> None:
     assert "columns:buildAuditColumns(t,options.onOpenDetail)" in _object(table, "return {"), (
         "详情 seam 须由入参原样注入列定义"
     )
-    assert "dataIndex:'resourceId'" in compact, "主展示字段须为「操作目标」列"
+    assert "dataIndex:'runId'" in compact, "主展示字段须为「关联对象」列"
     assert "audit-link-" in table and "audit-trace-" in table, "两处入口须有稳定的 testId"
+
+
+def test_related_column_prefers_run_then_task_and_falls_back_to_config() -> None:
+    """「关联对象」列口径：Run 优先、其次 Task、CONFIG 回落资源类型/短 id、都无显示 `-`。"""
+    columns = _columns_source(_read(TABLE))
+    assert "record.runId" in columns and "record.taskId" in columns, "运行类行须拆开使用 run/task"
+    assert "record.auditType==='CONFIG'" in columns, "CONFIG 行回落资源类型/短 id"
+    assert "shortId(" in columns, "列表只展示短 id"
+    assert "slice(0,8)" in columns, "短 id 口径 = 前 8 位"
+    assert "`Run${shortId(" in columns and "`Task${shortId(" in columns, "前缀区分 Run/Task 关联"
+    assert "'-'" in columns, "都无关联时显示 `-`，不编造内容"
 
 
 def test_hook_owns_list_state_and_guards_out_of_order_responses() -> None:

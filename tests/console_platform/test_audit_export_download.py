@@ -56,6 +56,8 @@ PROJECTED_FIELDS = (
     "started_at",
     "finished_at",
     "latency_ms",
+    "run_id",
+    "task_id",
 )
 # 只写入未投影的 jsonb 列（config after_json / tool args_preview_json）：产物不得含该值
 SECRET_VALUE = "sk-live-2f9c4a-audit-secret"

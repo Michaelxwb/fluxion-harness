@@ -104,6 +104,19 @@ def test_task_dto_covers_timeline_children_error_and_delivery() -> None:
     assert "Page<TaskListItem>" in source
 
 
+def test_task_and_schedule_dtos_declare_resolved_names() -> None:
+    """列表接口注入名称字段（Console control.* 权威源）；缺失为 null，前端回落短 id。"""
+    for path in (TASKS, SCHEDULES):
+        source = _source(path)
+        for field in (
+            "agent_name?: string | null",
+            "actor_name?: string | null",
+            "skill_name?: string | null",
+            "skill_key?: string | null",
+        ):
+            assert field in source, f"{path.name} 缺少 {field}"
+
+
 def test_schedule_dto_covers_missed_and_skip_reason() -> None:
     source = _source(SCHEDULES)
     assert "'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'MISSED'" in source

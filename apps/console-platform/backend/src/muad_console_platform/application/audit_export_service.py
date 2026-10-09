@@ -60,7 +60,7 @@ _EXPORT_FORMAT_SPECS: dict[str, tuple[str, str]] = {
 EXPORT_FORMATS = frozenset(_EXPORT_FORMAT_SPECS)
 # 时间出参与 API-01 同口径（RULE-time-001）
 _EXPORT_TIME_FIELDS = ("occurred_at", "started_at", "finished_at")
-_EXPORT_UUID_FIELDS = ("audit_id", "resource_id", "actor_user_id", "agent_id")
+_EXPORT_UUID_FIELDS = ("audit_id", "resource_id", "actor_user_id", "agent_id", "run_id", "task_id")
 
 # 与 API-01 一致的筛选字段，列表与导出共享关键词口径。
 _FILTER_FIELDS = (

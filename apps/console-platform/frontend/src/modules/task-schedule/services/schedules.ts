@@ -14,6 +14,11 @@ export interface ScheduleListItem {
   actor_user_id: string;
   intent_key: string;
   skill_id: string;
+  /** 名称补齐（Console control.* 权威源，列表接口注入；缺失为 null，前端回落短 id）。 */
+  agent_name?: string | null;
+  actor_name?: string | null;
+  skill_name?: string | null;
+  skill_key?: string | null;
   input_template: Record<string, unknown>;
   schedule_type: ScheduleType;
   cron_expr: string | null;

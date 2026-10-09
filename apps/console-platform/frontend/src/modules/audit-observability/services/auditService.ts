@@ -41,6 +41,8 @@ interface RawAuditItem {
   target: string;
   occurred_at: string;
   latency_ms: number | null;
+  run_id: string | null;
+  task_id: string | null;
 }
 
 /** 详情 = 投影行 + 来源表独有字段 + 关联可读性（E-01）。 */
@@ -120,6 +122,8 @@ const MAPPED_RAW_KEYS = new Set([
   'target',
   'occurred_at',
   'latency_ms',
+  'run_id',
+  'task_id',
   'id',
   'actor_display_name',
   'create_time',
@@ -155,7 +159,9 @@ function toAuditItem(raw: RawAuditItem): AuditListItem {
     traceId: optional(raw.trace_id),
     target: raw.target,
     occurredAt: raw.occurred_at,
-    latencyMs: optional(raw.latency_ms)
+    latencyMs: optional(raw.latency_ms),
+    runId: optional(raw.run_id),
+    taskId: optional(raw.task_id)
   };
 }
 

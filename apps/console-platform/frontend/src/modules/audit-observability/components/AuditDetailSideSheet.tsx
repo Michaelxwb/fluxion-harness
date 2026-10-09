@@ -7,8 +7,9 @@
  * S-07「无操作按钮」）。详情状态机归 `hooks/useAuditDetail`（只经 TASK-010 的 service 层），
  * 文案一律 i18n key。
  *
- * 内容分区：交互稿「基本信息」八列 + 按 `auditType` 渲染来源表独有字段（CONFIG before/after、
- * TOOL argsPreview、EGRESS/MODEL 各自字段），关联区展示 Run/Task 链接。
+ * 内容分区：「基本信息」页签内是交互稿八列 + 按 `auditType` 渲染来源表独有字段（CONFIG
+ * before/after、TOOL argsPreview、EGRESS/MODEL 各自字段），底部是「关联」分组（Run/Task
+ * 链接）。
  * [E-07] 后端 `relatedMissing` 为真时关联区渲染 `ErrorState`，绝不回退编造关联数据；审计自身
  * 字段与来源字段照常展示。
  */
@@ -245,9 +246,14 @@ export function AuditDetailSideSheet(props: AuditDetailSideSheetProps) {
       >
         <Tabs.TabPane itemKey="basic" tab={t('audit.detail.tab.basic')}>
           {renderBasicTab(detail, loading, t)}
-        </Tabs.TabPane>
-        <Tabs.TabPane itemKey="relations" tab={t('audit.detail.tab.relations')}>
-          {detail ? buildRelationSection(detail, t, handleOpenRelated) : null}
+          {/* 关联链接组并回基本信息底部：链接就应出现在它所属的审计事实旁边，
+              而不是藏进第二个页签；[E-07] 的 relatedMissing ErrorState 语义不变。 */}
+          {detail ? (
+            <>
+              <div className="detail-section-title">{t('audit.detail.section.relations')}</div>
+              {buildRelationSection(detail, t, handleOpenRelated)}
+            </>
+          ) : null}
         </Tabs.TabPane>
         </DetailSideSheet>
       {/* 嵌套 SideSheet（与 mcp 工具详情、任务→定时任务同形）：Run 没有独立页面，

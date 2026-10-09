@@ -41,6 +41,8 @@ UNIFIED_FIELDS = (
     "started_at",
     "finished_at",
     "latency_ms",
+    "run_id",
+    "task_id",
 )
 
 CONFIG_BEFORE: dict[str, Any] = {"name": "Audit Agent", "enabled": True}
@@ -412,6 +414,8 @@ def _assert_tool_detail(data: dict[str, Any], audit_id: uuid.UUID, seed: AuditDe
     assert data["trace_id"] == seed.trace_id
     assert data["latency_ms"] == 812
     assert data["args_preview"] == TOOL_ARGS_PREVIEW
+    assert data["run_id"] == str(seed.run_id)
+    assert data["task_id"] is None
 
 
 async def _assert_error(
@@ -443,6 +447,7 @@ def _assert_config_detail(data: dict[str, Any], audit_id: uuid.UUID, seed: Audit
     assert data["after"] == CONFIG_AFTER
     assert data["related"] == {}  # config 审计不声明 Run/Task 关联
     assert data["related_missing"] is False
+    assert data["run_id"] is None and data["task_id"] is None  # 拆开列对 CONFIG 填 NULL
     assert "args_preview" not in data
 
 
@@ -459,6 +464,8 @@ def _assert_egress_detail(data: dict[str, Any], audit_id: uuid.UUID, seed: Audit
     assert data["status_code"] is None
     assert data["related"] == {"run_id": str(seed.run_id)}
     assert data["related_missing"] is False
+    assert data["run_id"] == str(seed.run_id)
+    assert data["task_id"] is None
 
 
 def _assert_model_detail(data: dict[str, Any], audit_id: uuid.UUID, seed: AuditDetailSeed) -> None:
@@ -475,6 +482,8 @@ def _assert_model_detail(data: dict[str, Any], audit_id: uuid.UUID, seed: AuditD
     assert data["latency_ms"] == 1401
     assert data["related"] == {"run_id": str(seed.run_id)}
     assert data["related_missing"] is False
+    assert data["run_id"] == str(seed.run_id)
+    assert data["task_id"] is None
 
 
 async def test_e01_unreadable_relation_is_reported_as_missing(
@@ -496,9 +505,10 @@ async def test_e01_unreadable_relation_is_reported_as_missing(
     _assert_tool_detail(degraded, tool_audit_id, seed)
     assert degraded["related"] == {}
     assert degraded["related_missing"] is True
-    # 不伪造关联：既不回填不可读的 run_id，也不凭空造 task_id
-    assert "run_id" not in degraded
-    assert "task_id" not in degraded
+    # 不伪造关联：gated `related` 置空并标记 missing；投影列 run_id/task_id 是审计行自身的
+    # 外键事实，原样保留——前端链接只认 `related`，不据此造链接。
+    assert degraded["run_id"] == str(seed.run_id)
+    assert degraded["task_id"] is None
 
 
 async def test_api02_returns_detail_for_each_audit_type(

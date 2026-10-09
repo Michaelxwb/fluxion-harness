@@ -9,15 +9,20 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok
 from muad_api.context import current_trace_id
 from muad_contracts import ScheduleStatus
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.entity_name_service import EntityNameService
+from ..infrastructure.db import get_session
 from .deps import AccountTenantId as TenantId
 from .deps import WorkerClient
 
 router = APIRouter(prefix="/api/v1/schedules", tags=["schedules"])
+
+Session = Annotated[AsyncSession, Depends(get_session)]
 
 
 @router.get("")
@@ -25,6 +30,7 @@ async def list_schedules(
     request: Request,
     tenant_id: TenantId,
     worker: WorkerClient,
+    session: Session,
     actor_user_id: Annotated[uuid.UUID | None, Query()] = None,
     agent_id: Annotated[uuid.UUID | None, Query()] = None,
     status: Annotated[ScheduleStatus | None, Query()] = None,
@@ -40,6 +46,7 @@ async def list_schedules(
         page=page,
         page_size=page_size,
     )
+    data = await EntityNameService(session).enrich(tenant_id, data)
     return ok(request.app.state.message_catalog, data)
 
 

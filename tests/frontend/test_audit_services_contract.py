@@ -34,6 +34,8 @@ FIELD_MAPPING = (
     ("traceId", "trace_id"),
     ("occurredAt", "occurred_at"),
     ("latencyMs", "latency_ms"),
+    ("runId", "run_id"),
+    ("taskId", "task_id"),
     ("pageSize", "page_size"),
 )
 
@@ -207,6 +209,8 @@ def test_types_declare_camel_case_contract() -> None:
         "occurredAt:string;",
         "target:string;",
         "latencyMs?:number;",
+        "runId?:string;",
+        "taskId?:string;",
     ):
         assert field in item, field
 

@@ -251,3 +251,68 @@ async def test_b127_forged_tenant_header_cannot_reach_other_tenant(
     assert detail.status_code == 404
     assert cancel.status_code == 404
     assert [item["task_id"] for item in listing.json()["data"]["items"]] == [str(own)]
+
+
+async def test_b127_list_enriches_names_from_control_tables(
+    client: AsyncClient, task_tenant: TenantContext
+) -> None:
+    """名称权威源在 Console `control.*`：列表按本页 id 批查询补齐；未登记的 id 保持 null。"""
+    from muad_console_platform.infrastructure.db import get_session_factory
+    from muad_console_platform.infrastructure.models.control import (
+        AgentDefinition,
+        PlatformUser,
+        Skill,
+    )
+
+    agent_id, actor_id, skill_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    async with get_session_factory()() as session:
+        session.add(
+            AgentDefinition(
+                id=agent_id,
+                tenant_id=task_tenant.tenant_id,
+                key=f"policy-agent-{agent_id.hex[:8]}",
+                name="Policy Agent",
+                description=None,
+                instructions="",
+                model_id=task_tenant.model_id,
+            )
+        )
+        session.add(
+            PlatformUser(
+                id=actor_id,
+                tenant_id=task_tenant.tenant_id,
+                user_code=f"policy-user-{actor_id.hex[:8]}",
+                display_name="Alice",
+            )
+        )
+        session.add(
+            Skill(
+                id=skill_id,
+                tenant_id=task_tenant.tenant_id,
+                key=f"policy-skill-{skill_id.hex[:8]}",
+                name="Policy Skill",
+                description="",
+            )
+        )
+        await session.commit()
+
+    named = await _seed_task(
+        task_tenant.tenant_id, agent_id=agent_id, actor_user_id=actor_id, skill_id=skill_id
+    )
+    unnamed = await _seed_task(task_tenant.tenant_id)
+
+    listed = await client.get("/api/v1/tasks", headers={"X-Tenant-Id": task_tenant.tenant_id})
+    assert listed.status_code == 200, listed.text
+    items = {item["task_id"]: item for item in listed.json()["data"]["items"]}
+
+    enriched = items[str(named)]
+    assert enriched["agent_name"] == "Policy Agent"
+    assert enriched["actor_name"] == "Alice"
+    assert enriched["skill_name"] == "Policy Skill"
+    assert enriched["skill_key"].startswith("policy-skill-")
+
+    missing = items[str(unnamed)]
+    assert missing["agent_name"] is None
+    assert missing["actor_name"] is None
+    assert missing["skill_name"] is None
+    assert missing["skill_key"] is None

@@ -80,7 +80,7 @@ async function login(page: Page, username = state.account.username, password = s
   await expect(page.locator('.semi-layout-has-sider')).toBeVisible();
 }
 
-/** 运行审计 TOOL 行 → 关联 Tab → 就地叠加打开 Run 详情（不跳页）。 */
+/** 运行审计 TOOL 行 → 基本信息底部的关联分组 → 就地叠加打开 Run 详情（不跳页）。 */
 async function openRunViaAudit(
   page: Page,
   auditId: string,
@@ -97,7 +97,6 @@ async function openRunViaAudit(
   await page.getByTestId(`audit-trace-${auditId}`).click();
   const audit = page.locator('.semi-sidesheet');
   await expect(audit).toBeVisible();
-  await audit.getByRole('tab', { name: '关联' }).click();
   await page.getByTestId('audit-related-run').click();
   await expect(page).toHaveURL(/\/audits/);
   const sheet = runSheet(page, runId);

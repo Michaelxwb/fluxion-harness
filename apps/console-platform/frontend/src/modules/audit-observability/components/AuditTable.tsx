@@ -79,21 +79,39 @@ function buildIdentityColumns(t: TFunction): AuditTableColumns {
   ];
 }
 
-/** 操作目标 / 动作：主展示字段在此，点击打开只读详情（设计 §3.3.1）。 */
+/** 关联对象列只展示 id 前 8 位：列表不铺陈长 UUID，完整 id 在详情与 trace 入口。 */
+function shortId(value: string): string {
+  return value.slice(0, 8);
+}
+
+/** 关联对象 / 动作：主展示字段在此，点击打开只读详情（设计 §3.3.1）。 */
 function buildTargetColumns(
   t: TFunction,
   onOpenDetail: (item: AuditListItem) => void
 ): AuditTableColumns {
   return [
     {
-      // 主展示字段（docs/15「操作目标」）：点击打开只读详情（设计 §3.3.1）。
-      title: t('audit.columns.target'),
-      dataIndex: 'resourceId',
-      render: (value: string, record: AuditListItem) => (
-        <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenDetail(record)}>
-          {value}
-        </EntityLink>
-      )
+      // 主展示字段「关联对象」：Run 优先、其次 Task；CONFIG 行回落资源类型/短 id；
+      // 运行类行两个外键都为空时显示 `-`，不编造内容。
+      title: t('audit.columns.related'),
+      dataIndex: 'runId',
+      render: (_: unknown, record: AuditListItem) => {
+        const link = (label: string) => (
+          <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenDetail(record)}>
+            {label}
+          </EntityLink>
+        );
+        if (record.runId) {
+          return link(`Run ${shortId(record.runId)}`);
+        }
+        if (record.taskId) {
+          return link(`Task ${shortId(record.taskId)}`);
+        }
+        if (record.auditType === 'CONFIG') {
+          return link(`${record.resourceType}/${shortId(record.resourceId)}`);
+        }
+        return '-';
+      }
     },
     { title: t('audit.columns.action'), dataIndex: 'action' }
   ];

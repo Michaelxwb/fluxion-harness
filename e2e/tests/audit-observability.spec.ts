@@ -189,15 +189,15 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await expect(sheet).toContainText(state.traceId);
   await expect(sheet).toContainText('参数哈希');
 
-  // 只读：Header 只有关闭 X、无操作条；当前页签内没有任何可见按钮
-  // （Semi Tabs 会把未激活页签留在 DOM 里，故按可见性断言）
+  // 只读：Header 只有关闭 X、无操作条；基本信息页签内除关联链接外没有任何可见按钮
   await expect(sheet.locator('.semi-sidesheet-header button')).toHaveCount(1);
   await expect(sheet.locator('.semi-sidesheet-footer')).toHaveCount(0);
-  await expect(sheet.locator('.semi-sidesheet-body button:visible')).toHaveCount(0);
+  await expect(
+    sheet.locator('.semi-sidesheet-body button:visible:not([data-testid^="audit-related-"])')
+  ).toHaveCount(0);
   await expect(sheet.locator('button', { hasText: /保存|编辑|删除|新增|导出/ })).toHaveCount(0);
 
-  // 关联区：真实 Run 链接指向种子 run；task_id 为空 ⇒ 不出现 Task 链接
-  await sheet.getByRole('tab', { name: '关联' }).click();
+  // 关联分组并回基本信息底部：真实 Run 链接指向种子 run；task_id 为空 ⇒ 不出现 Task 链接
   await expect(page.getByTestId('audit-related-run')).toHaveText(state.runId);
   await expect(page.getByTestId('audit-related-task')).toHaveCount(0);
   await page.getByTestId('audit-related-run').click();
@@ -213,7 +213,7 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await expect(sheet).toBeVisible();
   await expect(page.getByTestId('audit-detail-before')).toContainText('Audit Acceptance Agent');
   await expect(page.getByTestId('audit-detail-after')).toContainText('"enabled": false');
-  await sheet.getByRole('tab', { name: '关联' }).click();
+  // 关联分组就在基本信息底部：CONFIG 无 Run/Task ⇒ 空态直接可见
   await expect(sheet.locator('.app-empty-title')).toHaveText(NO_RELATED_TEXT);
   await expect(sheet.locator('.semi-sidesheet-body button:visible')).toHaveCount(0);
 
@@ -319,7 +319,7 @@ test('E-07 关联不可读时详情关联区 ErrorState，不伪造关联数据'
   await expect(sheet).toContainText(TOOL_TYPE_TEXT);
   await expect(sheet).toContainText('acceptance_unreadable_tool');
 
-  await sheet.getByRole('tab', { name: '关联' }).click();
+  // 关联分组并回基本信息底部：[E-07] relatedMissing 直接渲染 ErrorState，不落任何链接
   await expect(sheet.getByTestId('error-state')).toContainText(RELATED_MISSING_TEXT);
   await expect(sheet.getByTestId('audit-related-run')).toHaveCount(0);
   await expect(sheet.getByTestId('audit-related-task')).toHaveCount(0);

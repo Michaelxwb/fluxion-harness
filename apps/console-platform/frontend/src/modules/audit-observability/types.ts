@@ -43,6 +43,9 @@ export interface AuditListItem {
   target: string;
   occurredAt: string; // YYYY-MM-DD HH:mm:ss
   latencyMs?: number;
+  /** 关联对象（列表列）：运行类审计行的裸外键，CONFIG 行为空。 */
+  runId?: string;
+  taskId?: string;
 }
 
 /** 详情可读关联：仅在后端确认关联真实可读时出现（不可读见 `relatedMissing`）。 */

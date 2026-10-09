@@ -202,7 +202,7 @@ def test_every_static_key_exists_in_both_locales() -> None:
         "nav.audit",
         "audit.columns.time",
         "audit.filter.keyword",
-        "audit.detail.tab.relations",
+        "audit.detail.section.relations",
         "audit.export.action",
         "common.retry",
     } <= referenced, f"静态键解析疑似失效：{sorted(referenced)}"

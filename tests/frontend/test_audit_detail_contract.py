@@ -74,8 +74,8 @@ BASIC_FIELD_KEYS = (
 DETAIL_KEYS = (
     "audit.detail.section.basic",
     "audit.detail.section.source",
+    "audit.detail.section.relations",
     "audit.detail.tab.basic",
-    "audit.detail.tab.relations",
     "audit.detail.field.auditId",
     "audit.detail.field.resourceType",
     "audit.detail.field.resourceId",
@@ -192,10 +192,12 @@ def test_sidesheet_reuses_shared_detail_components() -> None:
     assert "onCancel={props.onClose}" in compact, "关闭 X 由公共 SideSheet 的 Header 行承载"
     assert "activeTab={" in compact and "onTabChange={setActiveTab}" in compact
 
-    # Tabs 层：设计 §3.3 的 `DetailTabs` 由公共 DetailSideSheet 内建 Tabs 的 children 承载
+    # Tabs 层：设计 §3.3 的 `DetailTabs` 由公共 DetailSideSheet 内建 Tabs 的 children 承载；
+    # 关联链接组并回「基本信息」底部，不再有独立「关联」页签。
     assert "<Tabs.TabPane" in sheet
-    for item_key in ("basic", "relations"):
-        assert f'itemKey="{item_key}"' in sheet, f"缺少详情页签 {item_key}"
+    assert 'itemKey="basic"' in sheet, "缺少详情基本信息页签"
+    assert 'itemKey="relations"' not in sheet, "关联不再是独立页签（已并回基本信息底部）"
+    assert "audit.detail.section.relations" in sheet, "关联分组须带 i18n 标题"
 
     # 不得自行 import Semi SideSheet / 自带 Header 或关闭按钮（冻结 verifier 断言其归公共组件）
     assert re.search(r"import\s*\{[^}]*\bSideSheet\b", sheet) is None, "不得直接使用 Semi SideSheet"
@@ -260,6 +262,17 @@ def test_relation_links_use_entity_link_and_are_navigable() -> None:
     assert "/tasks?${relation}Id=" not in compact, "Run 不得再走「统一落到任务列表」那条路"
     assert "<RelatedDetailController" in compact, "Run/Task 关联详情须由控制器互斥挂载"
     assert "EmptyState" in sheet, "无关联记录时须用公共 EmptyState 提示"
+
+
+def test_relation_section_is_rendered_in_basic_tab_bottom() -> None:
+    """关联链接组并回「基本信息」页签底部：打开详情即可见，不再多一次页签点击。"""
+    sheet = _read(SHEET)
+    compact = _compact(sheet)
+    assert "renderBasicTab(detail,loading,t)" in compact, "基本信息页签仍在"
+    basic_at = compact.index('itemKey="basic"')
+    relations_at = compact.index("buildRelationSection(detail,t,handleOpenRelated)")
+    assert basic_at < relations_at, "关联分组须在基本信息页签内渲染"
+    assert 'itemKey="relations"' not in compact, "不得保留独立「关联」页签"
 
 
 def test_hook_owns_detail_state_with_race_guard() -> None:

@@ -59,7 +59,10 @@ test.describe('后台任务列表（B-131）', () => {
     await expect(page.getByText(failedId)).toBeVisible();
     await expect(page.getByText(queuedId)).toBeVisible();
     await expect(page.getByText('e2e failure reason')).toBeVisible();
-    await expect(page.getByText(AGENT_ID).first()).toBeVisible();
+    // Agent 列名称优先、短 id 兜底（本域未登记 control.agent_definition ⇒ 回落前 8 位），
+    // 完整 id 走 title 与复制。
+    await expect(page.getByTitle(AGENT_ID).first()).toBeVisible();
+    await expect(page.getByText('11111111').first()).toBeVisible();
     await expect(page.locator('.semi-tag', { hasText: '失败' })).toBeVisible();
     await expect(page.locator('.app-pagination')).toBeVisible();
     expect(listRequests.length).toBe(1);
@@ -234,7 +237,8 @@ test.describe('后台任务列表（B-131）', () => {
     await page.goto('/tasks');
 
     await expect(page.getByTestId(`task-children-${parent}`)).toHaveText('1/2');
-    await expect(page.getByTestId(`task-children-${cancellable}`)).toHaveText('0/0');
+    // 非 BATCH 任务没有子任务进度：显示 `-` 而不是 0/0
+    await expect(page.getByTestId(`task-children-${cancellable}`)).toHaveText('-');
     // 终态行没有取消入口
     await expect(page.getByTestId(`task-row-cancel-${doneId}`)).toHaveCount(0);
 

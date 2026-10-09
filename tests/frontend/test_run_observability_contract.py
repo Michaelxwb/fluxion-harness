@@ -130,6 +130,9 @@ def test_audit_run_relation_opens_in_place_rather_than_jumping_to_tasks() -> Non
     assert "navigate(`/tasks?${relation}Id=" not in compact
     assert "<RelatedDetailController" in audit
     assert "useRelatedDetail" in audit
+    # 关联链接并回基本信息底部：打开详情即可点，不再需要先切「关联」页签
+    assert "audit.detail.section.relations" in audit
+    assert 'itemKey="relations"' not in compact
 
 
 def test_task_detail_links_back_to_its_source_run() -> None:

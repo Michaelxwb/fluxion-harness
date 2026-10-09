@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 LOCALES = ROOT / "apps/console-platform/frontend/src/locales"
 MESSAGES = ROOT / "config/api-messages.yaml"
+MODULE = ROOT / "apps/console-platform/frontend/src/modules/task-schedule"
+COMMON = ROOT / "apps/console-platform/frontend/src/components/common"
 
 REQUIRED_KEYS = (
     "task.title",
@@ -170,3 +173,24 @@ def test_b130_error_catalog_covers_task_schedule_codes() -> None:
         messages = codes[code]["messages"]
         for locale in ("zh-CN", "en-US"):
             assert locale in messages and str(messages[locale]).strip(), f"{code} 缺 {locale}"
+
+
+# 可见中文与全角字符：去掉注释后仍出现在字符串字面量里即视为硬编码文案
+CJK = re.compile(r"[\u3000-\u303f\u4e00-\u9fff\uff01-\uff5e]")
+
+# 名称化改动的落点：页面/单元格都不承载硬编码文案（实体名与短 id 都是数据）
+READABILITY_SOURCES = (
+    MODULE / "TaskPage.tsx",
+    MODULE / "SchedulePage.tsx",
+    MODULE / "EntityNameText.tsx",
+    COMMON / "CopyableText.tsx",
+)
+
+
+def test_b130_readability_sources_have_no_hardcoded_copy() -> None:
+    """[RULE-i18n-001] 名称化列不引入硬编码文案：名称/短 id 是数据，文案仍走词条。"""
+    for path in READABILITY_SOURCES:
+        stripped = re.sub(r"//[^\n]*", "", re.sub(r"/\*[\s\S]*?\*/", "", path.read_text(encoding="utf-8")))
+        groups = re.findall(r"'([^'\n]*)'|\"([^\"\n]*)\"", stripped)
+        offenders = [text for group in groups for text in group if text and CJK.search(text)]
+        assert not offenders, f"{path.name} 出现硬编码中文文案：{offenders}"

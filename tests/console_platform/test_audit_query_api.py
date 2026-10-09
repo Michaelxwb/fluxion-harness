@@ -40,6 +40,8 @@ UNIFIED_FIELDS = (
     "started_at",
     "finished_at",
     "latency_ms",
+    "run_id",
+    "task_id",
 )
 
 # 四张表的审计行 create_time：按分钟错开，保证 ORDER BY occurred_at DESC 结果唯一可断言
@@ -399,6 +401,9 @@ def _assert_config_row(row: dict[str, object], seed: AuditSeed) -> None:
     assert row["started_at"] == row["occurred_at"]
     assert row["finished_at"] is None
     assert row["latency_ms"] is None
+    # CONFIG 行没有 Run/Task 关联：拆开列填 NULL，由 resource_type/resource_id 承载对象
+    assert row["run_id"] is None
+    assert row["task_id"] is None
 
 
 def _assert_tool_row(row: dict[str, object], seed: AuditSeed) -> None:
@@ -414,6 +419,9 @@ def _assert_tool_row(row: dict[str, object], seed: AuditSeed) -> None:
     assert row["started_at"] is not None
     assert row["finished_at"] is not None
     assert row["latency_ms"] == 812
+    # 关联对象拆开暴露：run_id 有值、task_id 为空
+    assert row["run_id"] == str(seed.run_id)
+    assert row["task_id"] is None
 
 
 def _assert_egress_row(row: dict[str, object], seed: AuditSeed) -> None:
@@ -428,6 +436,8 @@ def _assert_egress_row(row: dict[str, object], seed: AuditSeed) -> None:
     assert row["result_status"] == "DENIED"  # 非 OK/ERROR 原样透出
     assert row["finished_at"] is None
     assert row["latency_ms"] == 12
+    assert row["run_id"] == str(seed.run_id)
+    assert row["task_id"] is None
 
 
 def _assert_model_row(row: dict[str, object], seed: AuditSeed) -> None:
@@ -440,6 +450,8 @@ def _assert_model_row(row: dict[str, object], seed: AuditSeed) -> None:
     assert row["target"] == "openai-compatible/qwen3-235b-a22b"
     assert row["finished_at"] is None
     assert row["latency_ms"] == 1401
+    assert row["run_id"] == str(seed.run_id)
+    assert row["task_id"] is None
 
 
 async def test_s01_audit_list_projects_four_tables_with_unified_fields(

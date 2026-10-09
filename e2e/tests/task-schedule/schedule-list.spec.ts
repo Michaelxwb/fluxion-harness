@@ -89,7 +89,9 @@ test.describe('定时任务列表', () => {
     await expect(page.getByText('e2e-cron-schedule')).toBeVisible();
     await expect(page.getByText('0 9 * * *')).toBeVisible();
     await expect(page.getByText('Asia/Shanghai')).toBeVisible();
-    await expect(page.getByText(AGENT_ID).first()).toBeVisible();
+    // Agent 列名称优先、短 id 兜底（本域未登记 control.agent_definition），完整 id 走 title
+    await expect(page.getByTitle(AGENT_ID).first()).toBeVisible();
+    await expect(page.getByText('33333333').first()).toBeVisible();
     await expect(page.getByText('2026-12-31 09:00:00')).toBeVisible();
     await expect(page.getByText('2026-09-21 09:00:00')).toBeVisible();
     await expect(page.locator('.app-pagination')).toBeVisible();

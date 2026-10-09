@@ -20,6 +20,7 @@ import {
   useRelatedDetail
 } from '../run-observability/RelatedDetailController';
 import { ScheduleDetailSideSheet } from './ScheduleDetailSideSheet';
+import { EntityNameText } from './EntityNameText';
 import { TaskDetailSideSheet } from './TaskDetailSideSheet';
 import { useTaskActions } from './useTaskActions';
 import { listTasks, type TaskListItem, type TaskListParams } from './services/tasks';
@@ -322,7 +323,7 @@ export function TaskPage() {
         <RemoteTable<TaskListItem>
           rowKey="task_id"
           className="app-table-nowrap"
-          scroll={{ x: 2220 }}
+          scroll={{ x: 2130 }}
           loading={loading}
           columns={[
             {
@@ -335,24 +336,33 @@ export function TaskPage() {
                 </EntityLink>
               )
             },
-            { title: t('task.columns.intent'), dataIndex: 'intent_key', width: 90 },
             {
               title: t('task.columns.agent'),
               dataIndex: 'agent_id',
               width: 190,
-              render: (value: string) => <span title={value}>{value}</span>
+              render: (_: unknown, record: TaskListItem) => (
+                <EntityNameText name={record.agent_name} id={record.agent_id} />
+              )
             },
             {
               title: t('task.columns.actorUser'),
               dataIndex: 'actor_user_id',
               width: 190,
-              render: (value: string) => <span title={value}>{value}</span>
+              render: (_: unknown, record: TaskListItem) => (
+                <EntityNameText name={record.actor_name} id={record.actor_user_id} />
+              )
             },
             {
               title: t('task.columns.skill'),
               dataIndex: 'skill_id',
               width: 190,
-              render: (value: string) => <span title={value}>{value}</span>
+              render: (_: unknown, record: TaskListItem) => (
+                <EntityNameText
+                  name={record.skill_name}
+                  id={record.skill_id}
+                  keySuffix={record.skill_key}
+                />
+              )
             },
             {
               title: t('task.columns.triggerType'),
@@ -372,7 +382,9 @@ export function TaskPage() {
               width: 88,
               render: (_: unknown, record: TaskListItem) => (
                 <span data-testid={`task-children-${record.task_id}`}>
-                  {`${record.child_finished ?? 0}/${record.child_total ?? 0}`}
+                  {record.task_type === 'BATCH' && (record.child_total ?? 0) > 0
+                    ? `${record.child_finished ?? 0}/${record.child_total}`
+                    : '-'}
                 </span>
               )
             },

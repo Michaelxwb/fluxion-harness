@@ -13,6 +13,7 @@ import { RemoteTable } from '../../components/common/RemoteTable';
 import { EntityLink } from '../../components/common/EntityLink';
 import { StatusTag, type StatusTagOption } from '../../components/common/StatusTag';
 import { ScheduleDetailSideSheet } from './ScheduleDetailSideSheet';
+import { EntityNameText } from './EntityNameText';
 import { TaskDetailSideSheet } from './TaskDetailSideSheet';
 import { listSchedules, type ScheduleListItem, type ScheduleListParams } from './services/schedules';
 
@@ -144,19 +145,29 @@ export function SchedulePage() {
               title: t('schedule.columns.agent'),
               dataIndex: 'agent_id',
               width: 190,
-              render: (value: string) => <span title={value}>{value}</span>
+              render: (_: unknown, record: ScheduleListItem) => (
+                <EntityNameText name={record.agent_name} id={record.agent_id} />
+              )
             },
             {
               title: t('schedule.columns.actorUser'),
               dataIndex: 'actor_user_id',
               width: 190,
-              render: (value: string) => <span title={value}>{value}</span>
+              render: (_: unknown, record: ScheduleListItem) => (
+                <EntityNameText name={record.actor_name} id={record.actor_user_id} />
+              )
             },
             {
               title: t('schedule.columns.skill'),
               dataIndex: 'skill_id',
               width: 190,
-              render: (value: string) => <span title={value}>{value}</span>
+              render: (_: unknown, record: ScheduleListItem) => (
+                <EntityNameText
+                  name={record.skill_name}
+                  id={record.skill_id}
+                  keySuffix={record.skill_key}
+                />
+              )
             },
             { title: t('schedule.columns.intent'), dataIndex: 'intent_key', width: 90 },
             {
