@@ -10,13 +10,15 @@
  *
  * 状态划分（自上而下）：`useAuditQueryState`（筛选/分页状态与出口）、`useAuditDetailSelection`（详情
  * 选择态）、`AuditPageToolbar`/`AuditRefreshNotice`/`AuditDetailPanel`（三处局部 JSX）→ `AuditPage`
- * （只做装配与取数编排）。失败呈现分流（设计 §3.6）：首载失败（无行）走列表整页 `ErrorState`，刷新失败
+ * （只做装配与取数编排）。关联对象「Run …」由 `useRelatedDetail` + `RelatedDetailController` 就地
+ * 承载运行详情（Run 无独立页面）；「Task …」落 `/tasks?taskId=` 深链。失败呈现分流（设计 §3.6）：首载失败（无行）走列表整页 `ErrorState`，刷新失败
  * （已有行）保留行并在列表上方给非破坏性提示与重试——本页按「是否有行」推导两者，hook 只置 `failed`。
  */
 
 import { Banner, Button } from '@douyinfe/semi-ui';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import { PageHeader, PageSection } from '../../../components/common/ConsolePage';
 import { ModuleToolbar } from '../../../components/common/ModuleToolbar';
@@ -26,6 +28,10 @@ import { AuditExportButton } from '../components/AuditExportButton';
 import { buildAuditTableProps } from '../components/AuditTable';
 import { AuditFilterBar } from '../components/AuditFilterBar';
 import { useAuditList } from '../hooks/useAuditList';
+import {
+  RelatedDetailController,
+  useRelatedDetail
+} from '../../run-observability/RelatedDetailController';
 import {
   AUDIT_PAGE_SIZE_DEFAULT,
   type AuditExportCreateRequest,
@@ -42,6 +48,8 @@ export interface AuditTableProps {
   total: number;
   onPageChange(page: number, pageSize: number): void;
   onOpenDetail(item: AuditListItem): void;
+  onOpenRun(runId: string): void;
+  onOpenTask(taskId: string): void;
 }
 
 /** TASK-013 `components/AuditDetailSideSheet.tsx` 的入参（设计 §3.4）。 */
@@ -174,9 +182,19 @@ function AuditRefreshNotice(props: AuditRefreshNoticeProps) {
 
 export function AuditPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { query, handleFilterChange, handleReset, handlePageChange } = useAuditQueryState();
   const { detail, handleOpenDetail, handleCloseDetail } = useAuditDetailSelection();
   const { items, loading, page, pageSize, total, failed, reload } = useAuditList(query);
+  /** 关联对象直达：Run 就地叠加运行详情（无独立页面），Task 落任务列表深链（既有口径）。 */
+  const related = useRelatedDetail();
+
+  const handleOpenTask = useCallback(
+    (taskId: string) => {
+      navigate(`/tasks?taskId=${taskId}`);
+    },
+    [navigate]
+  );
 
   /** 刷新与失败重试同一出口（[E-06] 保留筛选条件，按当前页重取）。 */
   const handleRefresh = useCallback(() => {
@@ -196,7 +214,9 @@ export function AuditPage() {
     pageSize,
     total,
     onPageChange: handlePageChange,
-    onOpenDetail: handleOpenDetail
+    onOpenDetail: handleOpenDetail,
+    onOpenRun: related.openRun,
+    onOpenTask: handleOpenTask
   };
 
   /** 导出筛选与列表筛选同源（设计 §3.5）：去掉分页字段后交给 TASK-014 的导出按钮。 */
@@ -225,6 +245,13 @@ export function AuditPage() {
         {refreshFailed ? <AuditRefreshNotice onRetry={handleRefresh} /> : null}
         <RemoteTable<AuditListItem> {...auditTable} />
         <AuditDetailPanel detail={detail} handleCloseDetail={handleCloseDetail} />
+        {/* 关联对象「Run …」的直达详情（与审计详情内的嵌套层同源，控制器互斥承载一层）。 */}
+        <RelatedDetailController
+          state={related.state}
+          onClose={related.close}
+          onOpenTask={related.openTask}
+          onOpenRun={related.openRun}
+        />
       </PageSection>
     </>
   );

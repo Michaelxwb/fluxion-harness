@@ -179,6 +179,8 @@ def test_page_exports_props_contracts_for_followup_tasks() -> None:
         "total:number;",
         "onPageChange(page:number,pageSize:number):void;",
         "onOpenDetail(item:AuditListItem):void;",
+        "onOpenRun(runId:string):void;",
+        "onOpenTask(taskId:string):void;",
     ):
         assert member in table, f"AuditTableProps 缺少 {member}"
 

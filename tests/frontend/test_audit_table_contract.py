@@ -201,19 +201,24 @@ def test_empty_and_error_slots_come_from_audit_table() -> None:
 
 
 def test_primary_display_field_has_detail_open_seam() -> None:
-    """[RULE-ui-001] 主展示字段（「关联对象」）提供打开详情的 seam，供 TASK-013 消费。"""
+    """[RULE-ui-001] 主展示字段「关联对象」入口 seam：Run/Task 直达、CONFIG/Trace 打开审计详情。"""
     table = _read(TABLE)
     options = _block(table, "export interface AuditTableOptions {")
     assert "onOpenDetail(item:AuditListItem):void;" in options, "详情入口须作为显式入参 seam 导出"
+    assert "onOpenRun(runId:string):void;" in options, "Run 直达 seam 须显式导出"
+    assert "onOpenTask(taskId:string):void;" in options, "Task 直达 seam 须显式导出"
     assert "items:AuditListItem[];" in options
 
     assert "components/common/EntityLink" in table
     compact = _compact(table)
-    # 主展示字段与 Trace ID 均经 EntityLink 打开详情（设计 §3.3.1）
+    # 两个入口不再重复打开同一个弹窗：Run/Task 直达对应详情，CONFIG 行与 Trace ID 打开审计详情
     assert compact.count("onClick={()=>onOpenDetail(record)}") == 2
-    assert "columns:buildAuditColumns(t,options.onOpenDetail)" in _object(table, "return {"), (
-        "详情 seam 须由入参原样注入列定义"
-    )
+    assert compact.count("onClick={()=>onOpenRun(runId)}") == 1, "Run 链接须直达运行详情"
+    assert compact.count("onClick={()=>onOpenTask(taskId)}") == 1, "Task 链接须落任务深链"
+    assert (
+        "columns:buildAuditColumns(t,options.onOpenDetail,options.onOpenRun,options.onOpenTask)"
+        in _object(table, "return {")
+    ), "详情 seam 须由入参原样注入列定义"
     assert "dataIndex:'runId'" in compact, "主展示字段须为「关联对象」列"
     assert "audit-link-" in table and "audit-trace-" in table, "两处入口须有稳定的 testId"
 
@@ -226,6 +231,10 @@ def test_related_column_prefers_run_then_task_and_falls_back_to_config() -> None
     assert "shortId(" in columns, "列表只展示短 id"
     assert "slice(0,8)" in columns, "短 id 口径 = 前 8 位"
     assert "`Run${shortId(" in columns and "`Task${shortId(" in columns, "前缀区分 Run/Task 关联"
+    assert "onOpenRun(runId)" in columns and "onOpenTask(taskId)" in columns, (
+        "Run/Task 链接须直达对应详情（不再打开审计详情）"
+    )
+    assert "onOpenDetail(record)" in columns, "CONFIG 行回落打开审计详情"
     assert "'-'" in columns, "都无关联时显示 `-`，不编造内容"
 
 
@@ -291,6 +300,9 @@ def test_page_consumes_hook_and_table_state() -> None:
     for member in ("items,", "loading,", "page,", "pageSize,", "total,"):
         assert member in table_props, f"tableProps 缺少 {member}"
     assert "onOpenDetail:handleOpenDetail" in table_props
+    assert "onOpenRun:related.openRun" in table_props, "Run 直达须接关联详情控制器"
+    assert "onOpenTask:handleOpenTask" in table_props, "Task 直达须接任务深链出口"
+    assert "RelatedDetailController" in page, "Run 直达详情须由关联详情控制器承载"
 
     compact = _compact(page)
     assert "AuditTableProps{" in compact, "设计 §3.4 的表格入参契约仍由页面导出"

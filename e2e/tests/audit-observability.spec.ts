@@ -224,6 +224,13 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await sheet.locator('.semi-sidesheet-close').click();
   await expect(sheet).toHaveCount(0);
   await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toBeVisible();
+
+  // 入口三：关联对象「Run …」直达运行详情——与 Trace ID 入口分工，不再打开同一个审计详情
+  await page.getByTestId(`audit-link-${state.rows.tool}`).click();
+  await expect(page.locator('.detail-title', { hasText: state.runId.slice(0, 8) })).toHaveCount(1);
+  await expect(page.locator('.detail-title', { hasText: '运行审计' })).toHaveCount(0);
+  await page.locator('.semi-sidesheet-close').click();
+  await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
 });
 
 test('S-08 主导出按钮建任务、提交中禁用，完成后按文件名下载且同键重放不重复建任务', async ({
@@ -314,7 +321,8 @@ test('E-06 查询失败保留筛选与 ErrorState，重试后按原筛选恢复�
 test('E-07 关联不可读时详情关联区 ErrorState，不伪造关联数据', async ({ page }) => {
   await openAudits(page);
   await filterByTrace(page, state.unreadableRow.traceId);
-  await page.getByTestId(`audit-link-${state.unreadableRow.auditId}`).click();
+  // 关联不可读的行其「关联对象」是 Run 直达链接；审计详情改由 Trace ID 入口打开（两入口分工）
+  await page.getByTestId(`audit-trace-${state.unreadableRow.auditId}`).click();
   const sheet = page.locator('.semi-sidesheet');
   await expect(sheet).toBeVisible();
   // 审计自身字段照常展示（关联不可读不影响本行事实）

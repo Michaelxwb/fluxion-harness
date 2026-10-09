@@ -29,8 +29,12 @@ export interface AuditTableOptions {
   total: number;
   failed: boolean;
   onPageChange(page: number, pageSize: number): void;
-  /** 主展示字段/Trace ID 打开详情的 seam（TASK-013 的详情 SideSheet 消费）。 */
+  /** 主展示字段/Trace ID 打开审计详情的 seam（TASK-013 的详情 SideSheet 消费）。 */
   onOpenDetail(item: AuditListItem): void;
+  /** 关联对象「Run …」直达运行详情侧栏（与审计详情内的关联行为一致，不再重复打开审计详情）。 */
+  onOpenRun(runId: string): void;
+  /** 关联对象「Task …」落任务列表深链（同审计详情内「关联 Task」的既有口径）。 */
+  onOpenTask(taskId: string): void;
   /** 失败态重试（[E-06] 保留筛选条件）。 */
   onRetry(): void;
   /** 空态「清筛选」出口（设计 §3.6）。 */
@@ -44,11 +48,13 @@ type AuditTableColumns = NonNullable<RemoteTableProps<AuditListItem>['columns']>
 /** 列定义：UI 名称与字段口径见 docs/15 §2「运行审计」段，列序与交互稿一致（设计 §3.7）。 */
 function buildAuditColumns(
   t: TFunction,
-  onOpenDetail: (item: AuditListItem) => void
+  onOpenDetail: (item: AuditListItem) => void,
+  onOpenRun: (runId: string) => void,
+  onOpenTask: (taskId: string) => void
 ): AuditTableColumns {
   return [
     ...buildIdentityColumns(t),
-    ...buildTargetColumns(t, onOpenDetail),
+    ...buildTargetColumns(t, onOpenDetail, onOpenRun, onOpenTask),
     ...buildResultAndTraceColumns(t, onOpenDetail)
   ];
 }
@@ -88,10 +94,16 @@ function shortId(value: string): string {
   return value.slice(0, 8);
 }
 
-/** 关联对象 / 动作：主展示字段在此，点击打开只读详情（设计 §3.3.1）。 */
+/**
+ * 关联对象 / 动作（设计 §3.3.1）：`Run <短id>` / `Task <短id>` 直达对应实体详情——Run 就地
+ * 打开运行详情、Task 落任务列表深链（与审计详情内的关联链接同一口径）；CONFIG 行的
+ * `资源类型/短id` 仍打开本行审计详情。这样列表的两个入口不再重复打开同一个弹窗。
+ */
 function buildTargetColumns(
   t: TFunction,
-  onOpenDetail: (item: AuditListItem) => void
+  onOpenDetail: (item: AuditListItem) => void,
+  onOpenRun: (runId: string) => void,
+  onOpenTask: (taskId: string) => void
 ): AuditTableColumns {
   return [
     {
@@ -101,19 +113,28 @@ function buildTargetColumns(
       dataIndex: 'runId',
       width: 150,
       render: (_: unknown, record: AuditListItem) => {
-        const link = (label: string) => (
-          <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenDetail(record)}>
-            {label}
-          </EntityLink>
-        );
-        if (record.runId) {
-          return link(`Run ${shortId(record.runId)}`);
+        const runId = record.runId;
+        if (runId) {
+          return (
+            <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenRun(runId)}>
+              {`Run ${shortId(runId)}`}
+            </EntityLink>
+          );
         }
-        if (record.taskId) {
-          return link(`Task ${shortId(record.taskId)}`);
+        const taskId = record.taskId;
+        if (taskId) {
+          return (
+            <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenTask(taskId)}>
+              {`Task ${shortId(taskId)}`}
+            </EntityLink>
+          );
         }
         if (record.auditType === 'CONFIG') {
-          return link(`${record.resourceType}/${shortId(record.resourceId)}`);
+          return (
+            <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenDetail(record)}>
+              {`${record.resourceType}/${shortId(record.resourceId)}`}
+            </EntityLink>
+          );
         }
         return '-';
       }
@@ -164,7 +185,7 @@ export function buildAuditTableProps(
   return {
     rowKey: 'auditId',
     loading: options.loading,
-    columns: buildAuditColumns(t, options.onOpenDetail),
+    columns: buildAuditColumns(t, options.onOpenDetail, options.onOpenRun, options.onOpenTask),
     dataSource: options.items,
     page: options.page,
     pageSize: options.pageSize,
