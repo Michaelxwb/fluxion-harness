@@ -13,7 +13,7 @@
 ## Acceptance Coverage
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | depends_on |
-|--------|---------|---------|-------------|---------|------|---------|
+|--------|---------|---------|-------------|---------|------|---------|-----|---------|-----------|
 | S-01 | backend#2.5.2 场景清单 | E2E | Runtime/Worker HTTP、PG、Redis、LLM 探针、SSE | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | . | 1200 | |
 | S-02 | backend#2.5.2 场景清单 | E2E | 四服务 HTTP、真实 Task、渠道出站探针 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_submission_hardening.py"] | . | 1200 | |
 | S-03 | backend#2.5.2 场景清单 | E2E | 实际 provider 请求、canonical 历史、制品存储 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/runtime/test_background_result_resume.py"] | . | 1200 | |
