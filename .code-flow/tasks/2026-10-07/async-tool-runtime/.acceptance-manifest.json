@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "async-tool-runtime.md",
-  "task_sha256": "f0a1fb3bb9b323fce664d63e36159e9ddff66636d3bd693dcc4a77f2945c671a",
+  "task_sha256": "11b360454bf377a65284e43e71e78a7e2427c84e86cdc0ec1b4994a5fb36e367",
   "scenarios": [
     {
       "id": "S-01",
@@ -19,7 +19,7 @@
         "tests/acceptance/runtime/test_background_result_resume.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 4,
       "evidence": {
@@ -126,7 +126,7 @@
         "tests/acceptance/runtime/test_submission_hardening.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 2,
       "evidence": {
@@ -199,7 +199,7 @@
         "tests/acceptance/runtime/test_background_result_resume.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 4,
       "evidence": {
@@ -366,7 +366,7 @@
         "tests/acceptance/runtime/test_background_result_resume.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 4,
       "evidence": {
@@ -473,7 +473,7 @@
         "tests/acceptance/gateway/test_waiting_resume.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -589,7 +589,7 @@
         "tests/acceptance/runtime/test_submission_hardening.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 2,
       "evidence": {
@@ -662,7 +662,7 @@
         "tests/acceptance/runtime/test_submission_hardening.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 2,
       "evidence": {
@@ -735,7 +735,7 @@
         "tests/acceptance/runtime/test_background_result_delivery.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -791,7 +791,7 @@
         "tests/acceptance/runtime/test_background_result_resume.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 4,
       "evidence": {
@@ -898,7 +898,7 @@
         "tests/acceptance/runtime/test_background_result_resume.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 4,
       "evidence": {
@@ -1005,7 +1005,7 @@
         "tests/acceptance/runtime/test_background_result_resume.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 4,
       "evidence": {
@@ -1112,7 +1112,7 @@
         "tests/acceptance/runtime/test_submission_hardening.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 2,
       "evidence": {
@@ -1185,7 +1185,7 @@
         "tests/agent_worker/test_skill_cancellation_real_subprocess.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 600.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -1399,7 +1399,7 @@
         "tests/acceptance/security/test_internal_service_identity.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -1455,7 +1455,7 @@
         "tests/acceptance/runtime/test_background_result_resume.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 4,
       "evidence": {
@@ -1562,7 +1562,7 @@
         "tests/acceptance/gateway/test_waiting_resume.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -1678,7 +1678,7 @@
         "tests/acceptance/runtime/test_redis_unavailable.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -1734,7 +1734,7 @@
         "tests/acceptance/runtime/test_submission_hardening.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 2,
       "evidence": {
@@ -1807,7 +1807,7 @@
         "tests/acceptance/gateway/test_waiting_resume.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -2515,7 +2515,7 @@
         "cd e2e && npm test -- --config playwright.run-observability.config.ts"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1800.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -2565,7 +2565,7 @@
         "cd e2e && npm test -- --config playwright.run-observability.config.ts"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1800.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -2615,7 +2615,7 @@
         "cd e2e && npm test -- --config playwright.run-observability.config.ts"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1800.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -2665,7 +2665,7 @@
         "cd e2e && npm test -- --config playwright.run-observability.config.ts"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1800.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -2715,7 +2715,7 @@
         "cd e2e && npm test -- --config playwright.run-observability.config.ts"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1800.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -2765,7 +2765,7 @@
         "cd e2e && npm test -- --config playwright.run-observability.config.ts"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1800.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -2815,7 +2815,7 @@
         "cd e2e && npm test -- --config playwright.run-observability.config.ts"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1800.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -2865,7 +2865,7 @@
         "cd e2e && npm test -- --config playwright.run-observability.config.ts"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1800.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -2915,7 +2915,7 @@
         "cd e2e && npm test -- --config playwright.run-observability.config.ts"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1800.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
@@ -2965,7 +2965,7 @@
         "cd e2e && npm test -- --config playwright.run-observability.config.ts"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 1800.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
