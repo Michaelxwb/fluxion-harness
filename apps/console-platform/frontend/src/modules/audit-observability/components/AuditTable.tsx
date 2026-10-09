@@ -83,7 +83,7 @@ function buildIdentityColumns(t: TFunction): AuditTableColumns {
   ];
 }
 
-/** 关联对象列只展示 id 前 8 位：列表不铺陈长 UUID，完整 id 在详情与 trace 入口。 */
+/** 关联对象列只展示 id 前 8 位：列表与详情同口径不铺陈长 UUID，完整 id 经复制/悬停获取。 */
 function shortId(value: string): string {
   return value.slice(0, 8);
 }

@@ -183,11 +183,14 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await page.getByTestId(`audit-trace-${state.rows.tool}`).click();
   const sheet = page.locator('.semi-sidesheet');
   await expect(sheet).toBeVisible();
-  await expect(page.getByTestId('detail-subtitle')).toContainText(state.rows.tool);
+  await expect(page.getByTestId('detail-subtitle')).toContainText(state.rows.tool.slice(0, 8));
   await expect(sheet).toContainText(TOOL_TYPE_TEXT);
   await expect(sheet).toContainText('acceptance_policy_check');
-  await expect(sheet).toContainText(state.traceId);
+  // id 与列表同口径：详情内 Trace/审计/资源 id 只展示前 8 位
+  await expect(sheet).toContainText(state.traceId.slice(0, 8));
   await expect(sheet).toContainText('参数哈希');
+  // 完整值仍可一键复制：CopyableText 的复制面是 <a>，不破坏下面的「只读无按钮」断言
+  await expect(sheet.locator('.semi-typography-action-copy').first()).toBeVisible();
 
   // 只读：Header 只有关闭 X、无操作条；基本信息页签内除关联链接外没有任何可见按钮
   await expect(sheet.locator('.semi-sidesheet-header button')).toHaveCount(1);
@@ -197,8 +200,8 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   ).toHaveCount(0);
   await expect(sheet.locator('button', { hasText: /保存|编辑|删除|新增|导出/ })).toHaveCount(0);
 
-  // 关联分组并回基本信息底部：真实 Run 链接指向种子 run；task_id 为空 ⇒ 不出现 Task 链接
-  await expect(page.getByTestId('audit-related-run')).toHaveText(state.runId);
+  // 关联分组并回基本信息底部：真实 Run 链接指向种子 run（短 id 展示）；task_id 为空 ⇒ 不出现 Task 链接
+  await expect(page.getByTestId('audit-related-run')).toHaveText(state.runId.slice(0, 8));
   await expect(page.getByTestId('audit-related-task')).toHaveCount(0);
   await page.getByTestId('audit-related-run').click();
   // Run 与 Task 是不同实体（普通对话的模型/工具调用可以没有后台 Task），所以**不再"统一落到
@@ -315,7 +318,7 @@ test('E-07 关联不可读时详情关联区 ErrorState，不伪造关联数据'
   const sheet = page.locator('.semi-sidesheet');
   await expect(sheet).toBeVisible();
   // 审计自身字段照常展示（关联不可读不影响本行事实）
-  await expect(page.getByTestId('detail-subtitle')).toContainText(state.unreadableRow.auditId);
+  await expect(page.getByTestId('detail-subtitle')).toContainText(state.unreadableRow.auditId.slice(0, 8));
   await expect(sheet).toContainText(TOOL_TYPE_TEXT);
   await expect(sheet).toContainText('acceptance_unreadable_tool');
 

@@ -10,6 +10,9 @@
  * 内容分区：「基本信息」页签内是交互稿八列 + 按 `auditType` 渲染来源表独有字段（CONFIG
  * before/after、TOOL argsPreview、EGRESS/MODEL 各自字段），底部是「关联」分组（Run/Task
  * 链接）。
+ *
+ * id 展示与列表同口径：审计/资源/Trace 走短 id（前 8 位）+ 复制完整值，关联 Run/Task 链接
+ * 亦只展示短 id（完整值经复制/悬停/关联详情获取，不在详情铺陈长 UUID）。
  * [E-07] 后端 `relatedMissing` 为真时关联区渲染 `ErrorState`，绝不回退编造关联数据；审计自身
  * 字段与来源字段照常展示。
  */
@@ -21,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import type { TFunction } from 'i18next';
 
+import { CopyableText } from '../../../components/common/CopyableText';
 import { DateTimeText } from '../../../components/common/DateTimeText';
 import { DetailGrid, type DetailGridItem } from '../../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../../components/common/DetailSideSheet';
@@ -86,6 +90,11 @@ function text(value: unknown): string {
   return value === null || value === undefined || value === '' ? '-' : String(value);
 }
 
+/** 详情 id 展示口径：与列表短 id 一致取前 8 位，完整值由 `CopyableText` 复制/悬停获取。 */
+function shortId(value: string): string {
+  return value.slice(0, 8);
+}
+
 /**
  * 资源类型标签（设计 §3.3「资源类型」行）：登记过词条的取值走 `audit.resourceType.*`，未登记的取值
  * 原样展示——资源类型值域开放（配置侧 + 运行侧、大小写不一），未知取值既不留空白、也不编造文案。
@@ -128,10 +137,27 @@ function buildBasicItems(detail: AuditDetail, t: TFunction): DetailGridItem[] {
       label: t('audit.columns.result'),
       value: <StatusTag status={detail.resultStatus} options={statusOptions} />
     },
-    { label: t('audit.columns.traceId'), value: text(detail.traceId) },
-    { label: t('audit.detail.field.auditId'), value: detail.auditId },
+    {
+      label: t('audit.columns.traceId'),
+      value: detail.traceId ? (
+        <CopyableText display={shortId(detail.traceId)} full={detail.traceId} />
+      ) : (
+        '-'
+      )
+    },
+    {
+      label: t('audit.detail.field.auditId'),
+      value: <CopyableText display={shortId(detail.auditId)} full={detail.auditId} />
+    },
     { label: t('audit.detail.field.resourceType'), value: resourceTypeLabel(t, detail.resourceType) },
-    { label: t('audit.detail.field.resourceId'), value: text(detail.resourceId) },
+    {
+      label: t('audit.detail.field.resourceId'),
+      value: detail.resourceId ? (
+        <CopyableText display={shortId(detail.resourceId)} full={detail.resourceId} />
+      ) : (
+        '-'
+      )
+    },
     { label: t('audit.detail.field.latencyMs'), value: text(detail.latencyMs) }
   ];
 }
@@ -179,7 +205,7 @@ function buildRelationSection(
       label: t('audit.detail.related.run'),
       value: (
         <EntityLink testId="audit-related-run" onClick={() => onOpenRelated('run', runId)}>
-          {runId}
+          {shortId(runId)}
         </EntityLink>
       )
     });
@@ -189,7 +215,7 @@ function buildRelationSection(
       label: t('audit.detail.related.task'),
       value: (
         <EntityLink testId="audit-related-task" onClick={() => onOpenRelated('task', taskId)}>
-          {taskId}
+          {shortId(taskId)}
         </EntityLink>
       )
     });
@@ -234,8 +260,8 @@ export function AuditDetailSideSheet(props: AuditDetailSideSheetProps) {
         title={t('nav.audit')}
         subtitle={
           detail
-            ? `${t(`audit.auditType.${detail.auditType}`)} · ${detail.auditId}`
-            : props.auditId
+            ? `${t(`audit.auditType.${detail.auditType}`)} · ${shortId(detail.auditId)}`
+            : shortId(props.auditId)
         }
         activeTab={activeTab}
         onTabChange={setActiveTab}

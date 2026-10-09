@@ -319,6 +319,24 @@ def test_sidesheet_is_read_only() -> None:
     assert "onCancel={props.onClose}" in _compact(code), "关闭出口须交给公共 SideSheet"
 
 
+def test_id_fields_render_short_id_with_copy_affordance() -> None:
+    """详情 id 与列表同口径：审计/资源/Trace 走短 id + 复制完整值，关联链接只展示短 id。"""
+    sheet = _read(SHEET)
+    compact = _compact(sheet)
+    assert "components/common/CopyableText" in sheet, "id 字段须复用公共 CopyableText（完整值可复制）"
+    assert "slice(0,8)" in compact, "短 id 口径 = 前 8 位"
+    for call in (
+        "shortId(detail.traceId)",
+        "shortId(detail.auditId)",
+        "shortId(detail.resourceId)",
+    ):
+        assert call in compact, f"缺少短 id 口径：{call}"
+    for full in ("full={detail.traceId}", "full={detail.auditId}", "full={detail.resourceId}"):
+        assert full in compact, f"复制内容须为完整值：{full}"
+    assert "shortId(runId)" in compact and "shortId(taskId)" in compact, "关联链接须只展示短 id"
+    assert "shortId(props.auditId)" in compact, "副标题审计 id 同口径"
+
+
 def test_page_wires_detail_selection_into_sidesheet() -> None:
     """设计 §3.5：页面的 `{auditType, auditId}` 选择态驱动详情 SideSheet，关闭即清空。"""
     page = _read(PAGE)
