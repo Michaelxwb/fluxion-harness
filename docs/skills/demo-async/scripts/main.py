@@ -36,11 +36,11 @@ def main() -> int:
     if not isinstance(payload, dict):
         raise ValueError("input must be a JSON object")
     delay = _delay_seconds(payload)
+    if delay:
+        time.sleep(delay)
     if payload.get("fail") is True:
         print(f"demo-async injected failure after {delay:.1f}s", file=sys.stderr)
         return 1
-    if delay:
-        time.sleep(delay)
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     size = len(encoded.encode("utf-8"))
     echo: object = payload if size <= ECHO_LIMIT_BYTES else {"truncated": True, "bytes": size}
