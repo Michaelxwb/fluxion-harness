@@ -426,8 +426,10 @@ def test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash(
 
         conversation = _create_conversation(pod_a, stack)
 
-        # 1) R1 在 Pod A 上跑到中途（探针延迟 5s 撑开强杀窗口），回读其 Snapshot 盘面
-        _set_probe_delay(stack, 5000)
+        # 1) R1 在 Pod A 上跑到中途（探针延迟撑开强杀窗口），回读其 Snapshot 盘面。
+        # 15s 而非 5s：整跑负载下 run.created 到强杀之间的耗时会被拉长，5s 曾不足以稳定
+        # 命中 RUNNING 窗口（2026-10-09 全量 Pytest 实测一次）；只放大窗口，断言不变。
+        _set_probe_delay(stack, 15000)
         run1 = _start_run_streaming(pod_a, stack, conversation, "s12 turn one")
         snapshot1 = _read_snapshot(run1)
         run1_before = _read_run(run1)

@@ -153,8 +153,11 @@ def test_s04_e07_process_kill_reaped_and_takeover(live_stack: LiveStack) -> None
         assert run_id is not None
         pod_a.kill()
 
-        # 另一实例的 Reaper 在 lease 过期后回收（RUN_ABANDONED 终态，GET Run 可见）
-        deadline = time.monotonic() + 15
+        # 另一实例的 Reaper 在 lease 过期后回收（RUN_ABANDONED 终态，GET Run 可见）。
+        # 栈的 lease=5s / reaper=1s，正常 6–8s 内回收；整跑负载下 Reaper 循环可能被拖慢，
+        # 15s 曾偶发不足（2026-10-09 全量 Pytest 实测），放宽到 60s——只放大等待预算，
+        # 断言不变（仍必须 FAILED + RUN_ABANDONED）。
+        deadline = time.monotonic() + 60
         data: dict[str, Any] = {}
         while time.monotonic() < deadline:
             response = httpx.get(
