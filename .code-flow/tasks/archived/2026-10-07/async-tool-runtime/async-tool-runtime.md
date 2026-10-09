@@ -111,6 +111,8 @@
 - B-08: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
 - B-08: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
 
 ### Log
 
@@ -180,6 +182,10 @@
 - E-08: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
 - E-15: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
 - B-07: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-15: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
 
 ### Log
 
@@ -274,6 +280,12 @@
 - E-07: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
 - E-16: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-16: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
 
 ### Log
 
@@ -447,6 +459,18 @@
 - B-03: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
 - B-05: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-10: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-12: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
 
 ### Log
 
@@ -524,6 +548,10 @@
 - S-07: verified — automated command passed; run_id=e2c1129bd5f94331aa4392be2f8cfe6c (confirmed_by: runner)
 - E-14: verified — automated command passed; run_id=e2c1129bd5f94331aa4392be2f8cfe6c (confirmed_by: runner)
 - B-06: verified — automated command passed; run_id=e2c1129bd5f94331aa4392be2f8cfe6c (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-14: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
 
 ### Log
 
@@ -594,6 +622,9 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 - S-06: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
 - E-13: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
 - E-17: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-13: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-17: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
 
 ### Log
 
@@ -641,6 +672,7 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 - E-11: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
 - E-11: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 - E-11: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
+- E-11: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
 
 ### Log
 
@@ -765,6 +797,16 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 - E-22: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
 - B-20: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
 - B-21: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
+- S-20: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- S-21: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- S-22: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- S-23: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- S-24: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-20: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-21: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- E-22: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- B-20: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
+- B-21: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
 
 ### Log
 
@@ -839,6 +881,7 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 - B-09: verified — automated command passed; run_id=16338dec771647f1a5ab4a12eb725b98 (confirmed_by: runner)
 - B-09: failed — automated command failed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
 - B-09: verified — automated command passed; run_id=5b4c247bcbaa42b893605bb64210e981 (confirmed_by: runner)
+- B-09: verified — automated command passed; run_id=b59aaf30eecf4b2487010e83185f4b56 (confirmed_by: runner)
 
 ### Log
 
