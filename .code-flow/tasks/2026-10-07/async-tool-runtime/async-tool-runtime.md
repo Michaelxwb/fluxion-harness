@@ -47,22 +47,22 @@
 | B-07 | backend#2.5.2 场景清单 | integration | inbox/outbox 租约、PG、故障代理 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_worker/test_runtime_operation_races.py"] | . | 60 | |
 | B-08 | backend#2.5.2 场景清单 | integration | 真实 PG、Alembic、迁移前置检查 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/migrations/test_runtime_wait_parity.py"] | . | 60 | |
 | B-09 | backend#2.5.2 场景清单 | integration | 真实需求文件、manifest、inventory runner | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/async_tool_runtime_inventory.py"] | . | 60 | |
-| S-20 | frontend#2.4 验收条件 | E2E | Browser→Console→PG；Runtime/Worker/LLM HTTP | TASK-008 | failed | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
-| S-21 | frontend#2.4 验收条件 | E2E | Browser→Router/面板控制→Console Run/Task API→PG | TASK-008 | failed | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
-| S-22 | frontend#2.4 验收条件 | E2E | Browser、真实 Console 分页、PG count | TASK-008 | failed | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
-| S-23 | frontend#2.4 验收条件 | E2E | Browser language/timezone、HTTP 请求头、真实 DTO | TASK-008 | failed | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
-| S-24 | frontend#2.4 验收条件 | E2E | Browser、Console 真实只读投影、PG | TASK-008 | failed | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
-| E-20 | frontend#2.4 验收条件 | E2E | 故障代理、Browser、真实 Console 重试 | TASK-008 | failed | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
-| E-21 | frontend#2.4 验收条件 | E2E | Browser、账号租户、Console API | TASK-008 | failed | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
-| E-22 | frontend#2.4 验收条件 | E2E | 延迟真实响应的代理、Browser、服务请求 | TASK-008 | failed | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
-| B-20 | frontend#2.4 验收条件 | E2E | 真实 PG 空列表/分页 | TASK-008 | failed | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
-| B-21 | frontend#2.4 验收条件 | E2E | Chrome 键盘、实际 Semi SideSheet/Tab/链接 | TASK-008 | failed | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
+| S-20 | frontend#2.4 验收条件 | E2E | Browser→Console→PG；Runtime/Worker/LLM HTTP | TASK-008 | verified | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
+| S-21 | frontend#2.4 验收条件 | E2E | Browser→Router/面板控制→Console Run/Task API→PG | TASK-008 | verified | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
+| S-22 | frontend#2.4 验收条件 | E2E | Browser、真实 Console 分页、PG count | TASK-008 | verified | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
+| S-23 | frontend#2.4 验收条件 | E2E | Browser language/timezone、HTTP 请求头、真实 DTO | TASK-008 | verified | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
+| S-24 | frontend#2.4 验收条件 | E2E | Browser、Console 真实只读投影、PG | TASK-008 | verified | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
+| E-20 | frontend#2.4 验收条件 | E2E | 故障代理、Browser、真实 Console 重试 | TASK-008 | verified | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
+| E-21 | frontend#2.4 验收条件 | E2E | Browser、账号租户、Console API | TASK-008 | verified | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
+| E-22 | frontend#2.4 验收条件 | E2E | 延迟真实响应的代理、Browser、服务请求 | TASK-008 | verified | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
+| B-20 | frontend#2.4 验收条件 | E2E | 真实 PG 空列表/分页 | TASK-008 | verified | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
+| B-21 | frontend#2.4 验收条件 | E2E | Chrome 键盘、实际 Semi SideSheet/Tab/链接 | TASK-008 | verified | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | . | 1800 | |
 
 ---
 
 ## TASK-001: 契约、迁移与状态枚举基线
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: async-tool-runtime.backend.design.md#3.3 数据设计, async-tool-runtime.backend.design.md#3.4 接口设计, async-tool-runtime.backend.design.md#3.5 质量实现方案
@@ -119,7 +119,7 @@
 
 ## TASK-002: Worker 终态原子发件与取消 Tombstone
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: async-tool-runtime.backend.design.md#3.2 架构设计, async-tool-runtime.backend.design.md#3.5 质量实现方案
@@ -173,6 +173,9 @@
 - E-03: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
 - E-15: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-15: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 
 ### Log
 
@@ -189,7 +192,7 @@
 
 ## TASK-003: Runtime 统一工具执行入口、提交取消与容量
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: async-tool-runtime.backend.design.md#3.2 架构设计, async-tool-runtime.backend.design.md#3.4 接口设计
@@ -260,6 +263,11 @@
 - E-02: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
 - E-16: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-16: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 
 ### Log
 
@@ -271,7 +279,7 @@
 
 ## TASK-004: WAITING_TOOL 检查点、接续泵与上下文物化
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003
 - **Source**: async-tool-runtime.backend.design.md#3.2 架构设计, async-tool-runtime.backend.design.md#3.5 质量实现方案
@@ -409,6 +417,13 @@
 - E-05: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
 - E-12: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-12: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 
 ### Log
 
@@ -424,7 +439,7 @@
 
 ## TASK-005: READ 并发与 MCP 请求正确性
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-003
 - **Source**: async-tool-runtime.backend.design.md#3.2 架构设计
@@ -492,7 +507,7 @@
 
 ## TASK-006: Gateway 等待态、重连与主动投递
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003, TASK-004
 - **Source**: async-tool-runtime.backend.design.md#3.4 接口设计, async-tool-runtime.backend.design.md#3.2 架构设计
@@ -542,6 +557,9 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 - S-06: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
 - E-13: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
 - E-17: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-13: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-17: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 
 ### Log
 
@@ -554,7 +572,7 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 
 ## TASK-007: Console 只读安全投影与 operations API
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-004
 - **Source**: async-tool-runtime.backend.design.md#3.4 接口设计, async-tool-runtime.frontend.design.md#3.5 状态与数据流
@@ -587,6 +605,7 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 - 既有失败基线（与本任务无关，`git stash` 复跑基线一致）：`test_platform_settings_table.py::test_upgrade_to_head_creates_table_matching_orm_model`（REVISION 钉 0018、head 已是 0019）与 4 个 audit 测试文件 24 errors（种子 `run_record.status='SUCCEEDED'` 撞 0019 的 `ck_run_record_run_status`），均系 TASK-001 引入、遗留待 TASK-009/卫生任务收口。
 - E-11: e2e_deferred — automated command e2e_deferred; run_id=b241f1b90d674691a148d9297c17fa9e (confirmed_by: runner)
 - E-11: verified — automated command passed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
+- E-11: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 
 ### Log
 
@@ -601,7 +620,7 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 
 ## TASK-008: Console Run 详情与关联 operation UI
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-007
 - **Source**: async-tool-runtime.frontend.design.md#3.2 页面与路由结构, async-tool-runtime.frontend.design.md#3.3 组件设计, async-tool-runtime.frontend.design.md#3.5 状态与数据流, async-tool-runtime.frontend.design.md#3.6 UI 状态
@@ -641,16 +660,16 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-20 | E2E | Browser→Console→PG；Runtime/Worker/LLM HTTP | 从审计打开真实JOIN等待Run，显示等待任务结果/时间/数量；结果到尚未claim说明等待接续；完成Task刷新后接续/完成且归零 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | failed |
-| S-21 | E2E | Browser→Router/面板控制→Console Run/Task API→PG | 点击task_id打开既有Task详情，来源Run返回同run_id; repeated switching no crash/no infinite堆叠 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | failed |
-| S-22 | E2E | Browser、真实 Console分页、PG count | SUBMIT_PENDING task_id null无假链接；accepted DETACH明确独立模式；>15可翻页，total与实际一致 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | failed |
-| S-23 | E2E | Browser language/timezone、HTTP请求头、真实 DTO | zh-CN/en-US切换当前详情即时生效；UTC times by Asia/ShanghaiYYYY-MM-DD HH:mm:ss；invalid“-”；请求头拦截器 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | failed |
-| S-24 | E2E | Browser、Console真实只读投影、PG | 输入/结果原文标记不进入详情/network响应；只显示结构；timeline超200明确截断提示 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | failed |
-| E-20 | E2E | 故障代理、Browser、真实 Console重试 | GET失败ErrorState可重试；恢复后真实数据；invalid session统一登录；旧对象不闪 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | failed |
-| E-21 | E2E | Browser、账号租户、Console API | cross-tenant/nonexistent Task404 returns原Run；伪造租户头无效；非ADMIN无新凭据入口 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | failed |
-| E-22 | E2E | 延迟真实响应的代理、Browser、服务请求 | A慢响应后切到B/关闭；当前详情不被A覆盖；卸载后无状态更新/无效链接 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | failed |
-| B-20 | E2E | Browser、Console、真实 PG空列表/分页 | 无异步操作空态；15/16条边界正确；delete/cancel后当前空页回到合法页码；截断提示独立 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | failed |
-| B-21 | E2E | Chrome键盘、实际Semi SideSheet/Tab/链接 | Tab可达刷新/关联Task/返回/关闭；ESC只关当前面板，焦点回来源链接；状态不只颜色 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | failed |
+| S-20 | E2E | Browser→Console→PG；Runtime/Worker/LLM HTTP | 从审计打开真实JOIN等待Run，显示等待任务结果/时间/数量；结果到尚未claim说明等待接续；完成Task刷新后接续/完成且归零 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | verified |
+| S-21 | E2E | Browser→Router/面板控制→Console Run/Task API→PG | 点击task_id打开既有Task详情，来源Run返回同run_id; repeated switching no crash/no infinite堆叠 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | verified |
+| S-22 | E2E | Browser、真实 Console分页、PG count | SUBMIT_PENDING task_id null无假链接；accepted DETACH明确独立模式；>15可翻页，total与实际一致 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | verified |
+| S-23 | E2E | Browser language/timezone、HTTP请求头、真实 DTO | zh-CN/en-US切换当前详情即时生效；UTC times by Asia/ShanghaiYYYY-MM-DD HH:mm:ss；invalid“-”；请求头拦截器 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | verified |
+| S-24 | E2E | Browser、Console真实只读投影、PG | 输入/结果原文标记不进入详情/network响应；只显示结构；timeline超200明确截断提示 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | verified |
+| E-20 | E2E | 故障代理、Browser、真实 Console重试 | GET失败ErrorState可重试；恢复后真实数据；invalid session统一登录；旧对象不闪 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | verified |
+| E-21 | E2E | Browser、账号租户、Console API | cross-tenant/nonexistent Task404 returns原Run；伪造租户头无效；非ADMIN无新凭据入口 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | verified |
+| E-22 | E2E | 延迟真实响应的代理、Browser、服务请求 | A慢响应后切到B/关闭；当前详情不被A覆盖；卸载后无状态更新/无效链接 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | verified |
+| B-20 | E2E | Browser、Console、真实 PG空列表/分页 | 无异步操作空态；15/16条边界正确；delete/cancel后当前空页回到合法页码；截断提示独立 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | verified |
+| B-21 | E2E | Chrome键盘、实际Semi SideSheet/Tab/链接 | Tab可达刷新/关联Task/返回/关闭；ESC只关当前面板，焦点回来源链接；状态不只颜色 | `e2e/tests/run-observability.spec.ts` | ["bash", "-lc", "cd e2e && npm test -- --config playwright.run-observability.config.ts"] | verified |
 
 ### Acceptance Evidence
 
@@ -691,6 +710,16 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 - E-22: failed — automated command failed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
 - B-20: failed — automated command failed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
 - B-21: failed — automated command failed; run_id=9976fd96a66342eab5b90014db90d9c8 (confirmed_by: runner)
+- S-20: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- S-21: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- S-22: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- S-23: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- S-24: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-20: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-21: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-22: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- B-20: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- B-21: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 
 ### Log
 
@@ -705,7 +734,7 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 
 ## TASK-009: 端到端清单、inventory 闭合与验收库隔离
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008
 - **Source**: async-tool-runtime.backend.design.md#2.5 验收条件, async-tool-runtime.frontend.design.md#2.4 验收条件, async-tool-runtime.backend.design.md#3.5 质量实现方案, async-tool-runtime.frontend.design.md#附录：状态用语
