@@ -67,6 +67,13 @@ verifiers:
   - ✅ `RuntimeContextCompactor.compact` 失败保留原历史 + `context_compaction_total{status="FAILED"}`（`apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py:111-121`）
   - ❌ 拿"能跑"当借口把缺能力的那份兜底喂给模型 —— 静默换 Agent 比直接失败危险得多
 
+- **Runtime 执行归属只由 PG claim 产生，HTTP 只订阅持久事件**（async-tool-runtime，2026-10-09）：`POST /v1/runs` 的创建事务只落 `RunRecord` + `RUN_CREATED` canonical；执行由 `ExecutionSupervisor.claim_and_submit`（关闭锁内 claim、排除本实例在跑 run）领取 `CREATED`，`WAITING_TOOL` 由 `ContinuationPump` 经 `claim_continuation`（conversation 行 `FOR UPDATE SKIP LOCKED` + Run 锁内 epoch CAS）领取；心跳、事件与终态写入统一校验 owner/epoch/lease。
+  - ✅ 断流不等于取消：SSE 断开后 Run 继续执行，重连按最后确认 seq 回放；claim 失败不改业务状态，只有 Run/continuation/lease 同事务切到新 owner+epoch 才算抢占成功
+  - ❌ 把 Runner 生命周期绑在 HTTP 请求/SSE generator 上（连接断开=业务取消），或在请求内同步跑完整 Run（`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`、`async_tools/continuation_service.py`；机检：`tests/agent_runtime/test_tool_wait_state_machine.py`）
+- **工具并发是显式声明，默认串行**（async-tool-runtime，2026-10-09）：`ToolDefinition.concurrency`（`SERIAL` 默认 / `PARALLEL_READ`）+ `resource_key` 不可由模型设置；规划器按原调用序切**连续**批，资源冲突/未知依赖拆串行，`WRITE`/`EXTERNAL` 是前后屏障，批大小 ≤ `parallel_limit`（1–16，bool/小数/越界显式拒绝）。第一版只登记已证明只读的工具（`search_skills`/`read_skill_resource`/隔离 `get_task`/`list_tasks`）；`load_skill`、memory 与全部 MCP 默认 SERIAL。
+  - ✅ 先按原序校验/授权/预留预算，再只并发 handler IO，结果按原序收口；❌ 按 `ToolEffect.READ` 或 MCP `readOnlyHint` 自动放行并行（对端提示不是授权依据）
+  - 机检：`tests/agent_runtime/test_tool_parallel_planner.py`（`packages/agent-core/src/muad_agent_core/tools/planner.py`、`tools/registry.py`）
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。

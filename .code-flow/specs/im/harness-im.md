@@ -108,6 +108,16 @@ verifiers:
   - ✅ 节拍做成设置项（平台设置 `im.progress_interval_sec`）：生产默认值由毫秒级单测钉住（`tests/gateway/test_progress_settings.py`），验收栈按该栈租户种一行 `control.platform_setting` 压缩等待（`tests/acceptance/im_gateway/environment.py`）——**不再经 `IM_PROGRESS_INTERVAL_SEC` 环境变量**（该键已从启动 settings 移除）
   - ❌ 在验收里等生产默认的 5s 才敢断言"计时在走"，或为了跑得快而把那 5 秒写死进用例；❌ 用 `IM_PROGRESS_INTERVAL_SEC` 一类环境变量当节拍来源（平台设置是唯一权威源）
 
+等待态与接续（async-tool-runtime，2026-10-09）：
+
+- **等待是执行事实，不是终态**：`run.waiting_tool`（Gateway 记为 `WAITING_TOOL` 阶段）只停本段执行计时，`run.resumed` 开新执行段、完整 Run 耗时按起止另算；等待期不发完成帧、不伪造模型/工具活动（`application/progress.py` 的 `_STOP_PHASES`）。
+  - ✅ 等待期间 heartbeat 保活，客户端看到「等待任务结果」而非完成/假活动；❌ 把等待当终态收尾，或按计时器伪造思考/执行状态
+- **断流不等于取消，重连按最后确认 seq 回放**：Gateway 以最后收到的 `seq` 经 `open_events(after_seq)` 续读持久事件（`application/runtime_client.py` 的 `RUN_EVENTS_PATH = /v1/runs/{run_id}/events`）；绝不重复 POST 创建 Run/工具，终态只输出一次。
+  - ✅ 断开后任务仍执行，新连接从已确认 seq 继续；❌ 断流即取消，或重连时重新发起 Run
+- **WAITING_TOOL 不允许显式 human resume**：显式 resume 只服务 `WAITING_INPUT`；对 `WAITING_TOOL` 明确 `RUN_BUSY`。普通新消息沿既有路由队列等待，不绕过队列直接调 Runtime 建 Run；`/stop` 走现有独立命令容量，等待态可取消，且不解释成同会话可跑第二个 Run。
+- **ReplySession 失效走渠道中立的主动投递**：终态文本按稳定投递键 `run:{run_id}:final` 经适配器主动投递 + 去重；无可用能力或发送失败必须**显式失败**，不得回「已送达」（`application/final_delivery.py`）。
+  - 机检参考：`tests/gateway/test_waiting_resume.py`、`tests/acceptance/gateway/test_waiting_resume.py`
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。

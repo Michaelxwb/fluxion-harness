@@ -58,6 +58,7 @@ E2E 创建的业务数据（无删除端点的资源尤其如此）必须：用�
   - ❌ 共用 dev 库、再靠"跑前清残留"维持隔离 —— 残留来自被中断的运行与 dev 服务，清不干净就退化成随机红
   - ❌ 让使用者每次跑前手动 `export DATABASE_URL/REDIS_URL`（隔离会变成"记得设才有"，等于没有）
   - 开销实测 0.76s/轮（建库 0.10 + 迁移 0.65），相对验收总时长的量级可忽略
+  - **清理要有界重试两类瞬时竞态**：`DROP DATABASE ... WITH (FORCE)` 在非超级用户角色（无 `pg_signal_backend`）撞上目标库的 autovacuum 等后台进程时会被拒（`InsufficientPrivilegeError`）——`_drop_database` 重试 4 次后仍失败才抛（`tests/acceptance/datastores.py`，2026-10-09 实测一次 teardown 偶发）；真实栈**存活期间**主动 purge 的用例（`test_recovery` 的「清理不留残留」）在 run_record/conversation 两条 DELETE 之间可能撞并发写入 ⇒ 整个清理事务重试（`purge_tenant`，`tests/acceptance/im_gateway/environment.py`）。
 - **验收栈的「可注入节拍」一律注入小值，且测试里镜像这些节拍的常量必须读注入值**：轮询/扫描/退避这类间隔在验收里直接变成墙钟，而它们**不改变被测语义**（断言的是「最终发生」与「退避按几何级数增长」，不是节拍的绝对长度）。生产默认 → 注入值：`WORKER_POLL_INTERVAL_SEC` 5→1、`SCHEDULER_POLL_INTERVAL_SEC` 10→2、`TASK_DEADLINE_SWEEP_INTERVAL_SEC` 30→2、`DELIVERY_POLL_INTERVAL_SEC` 5→1、`DELIVERY_BACKOFF_BASE_SEC` 5→1（或 2）。三个栈各自在 `environment.py` 的 `base_env` 注入（`tests/acceptance/{dfx,task_schedule,im_gateway}/`）。
   - ✅ 测试侧常量**从注入值派生**：`DEADLINE_SWEEP_SEC = TASK_DEADLINE_SWEEP_INTERVAL_SEC`（`dfx/test_dfx_recovery.py`）、`SCHEDULER_POLL_SEC = SCHEDULER_POLL_INTERVAL_SEC`（`dfx/test_dfx_routing.py`）、窗口写 `DELIVERY_BACKOFF_BASE_SEC * 2**index`（`dfx/test_dfx_delivery.py`）
   - ❌ 在测试里**写死生产默认**（如 `SCHEDULER_POLL_SEC = 10`）：注入生效后**断言窗口与实际节拍静默脱节** —— 测试仍绿，但已不代表任何事
@@ -77,6 +78,7 @@ E2E 创建的业务数据（无删除端点的资源尤其如此）必须：用�
   - 证据表不得残留占位行（`编码期填写`/`TBD` 一类）；`-k`/`-g` 令牌必须在真实用例名/真实 spec 文件里命中。
   - **结构性 RED + 扰动取证**：清单文件缺失时登记的 argv 必须失败（否则「先写用例后建清单」是空话）；至少扰动 4 类——改状态、删证据行、伪造用例名或命令、改 manifest 字段——每类须变红且消息指名条目，**逐字节还原后复跑全绿**。
   - **路径双写 live→archived**：`_dir()` 先试 `.code-flow/tasks/<日期>/<需求>`，不存在再取 `archived/`——硬编码 live 路径会让归档后整个验收套件变红（09/11/13 均踩过）。
+  - **扰动锚点不得假设行处于某个非终态**：全量终验后所有行都是 `verified`，按 `e2e_deferred` 之类硬编码状态做锚点会让扰动用例在终态盘面上自红；应读取当前终态、改为非终态（如 `planned`），断言变红且指名条目、逐字节还原后复绿（2026-10-09 实例：`tests/async_tool_runtime_inventory.py::test_perturbation_changed_status_turns_terminal_check_red`）。
   - ❌ 只断言「本文件里的清单已勾选」——那是对自查结果自查，任务文档写错时清单照样绿。
 
 ✅ 真实边界（浏览器链路端到端）：
@@ -102,6 +104,7 @@ Runtime 验收真实环境基建（`tests/acceptance/runtime/`）：
 
 - 用 module-scoped live stack 承载真实边界：Console/Runtime 为真实 uvicorn 服务、LLM/MCP 为本地 HTTP 探针、数据落真实 PostgreSQL/Redis/Artifact Store；禁止 `dependency_overrides`/mock 业务服务。
 - 跨 Pod/崩溃场景用真实子进程（`SIGKILL` 后由另一实例 Reaper 回收、同 conversation 无 sticky session 接管）；进程内服务线程与 pytest-asyncio 并存时，须在套件边界清理 engine `lru_cache`，async 工具走独立线程/事件循环（禁止 `asyncio.run` 污染主循环）。
+- **强杀/回收类用例的等待预算要给足整跑余量**：单跑 6–8s 能过的窗口在全量套件负载下会被拉长——15s 的 Reaper 回收等待与 5s 的强杀窗口都曾偶发不足（2026-10-09：`test_multipod_recovery.py::test_s04_e07` 放宽到 60s、`dfx/test_dfx_stateless.py::test_s12` 探针延迟 5s→15s）；只放大等待预算，断言不变。
 - 验收命令由 acceptance manifest runner 统一复验并写证据：相同 argv/cwd/timeout 复用，测试未收集、未执行或失败均视为 FAIL。
 - **不得用 `--output` 重生成 manifest**：`cf_acceptance_manifest.py --task-file … --output …` 会**清空已有 `evidence`**（实测一次把 23 行打成 2 行，直到需求级终验才以 `functional_or_manual_evidence_missing` 暴露，白跑一整轮）；需求进行中改任务文档**不要**走重生成。已清空时按 owner 回填：`cf_acceptance_runner.py --manifest <需求目录>/.acceptance-manifest.json --root "$PWD" --write-evidence --owner TASK-0XX`（**无需 active marker**；不带 `--include-e2e` 时 E2E 行保持 deferred）。
 
