@@ -39,6 +39,8 @@ export interface RunDetailSideSheetProps {
    * 页面负责关闭本面板并打开 Task 详情，本组件不导航、不递归挂载另一面板。
    */
   onOpenTask?(taskId: string, sourceRunId: string): void;
+  /** ESC 关闭本面板；由控制器只在它是当前最上层面板时开启。 */
+  closeOnEsc?: boolean;
 }
 
 const WAITING_STATUSES = ['WAITING_TOOL', 'WAITING_INPUT'];
@@ -177,6 +179,7 @@ export function RunDetailSideSheet(props: RunDetailSideSheetProps) {
       onTabChange={setActiveTab}
       onCancel={props.onCancel}
       notice={notice}
+      closeOnEsc={props.closeOnEsc}
     >
       <Tabs.TabPane itemKey="basic" tab={t('run.detail.basic')}>
         {loading && !detail ? <Spin /> : null}

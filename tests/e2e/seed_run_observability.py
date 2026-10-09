@@ -182,6 +182,7 @@ def _operation(
     submitted_at: datetime | None = None,
     completed_at: datetime | None = None,
     submission_json: dict[str, Any] | None = None,
+    create_time: datetime | None = None,
 ) -> ToolOperation:
     return ToolOperation(
         id=uuid.uuid4(),
@@ -199,6 +200,7 @@ def _operation(
         error_code=error_code,
         submitted_at=submitted_at,
         completed_at=completed_at,
+        create_time=create_time,
     )
 
 
@@ -494,6 +496,10 @@ async def _create(state_path: str) -> None:
             )
             session.add(other_task)
 
+            # 分页顺序：列表按 `create_time, id` 排序，而同一事务里 DB 默认时间戳相同 ⇒ 行序实际由
+            # 随机 uuid 决定（E-21 要点的跨租户链接与 S-22 的 15/16 边界都会随机落页）。显式给每行
+            # 递增的 create_time，让 call_page_01..16 的顺序（= 页归属）确定。
+            page_base = now - timedelta(minutes=16)
             page_operations: list[ToolOperation] = [
                 _operation(
                     tenant=TENANT,
@@ -502,6 +508,7 @@ async def _create(state_path: str) -> None:
                     call_id="call_page_01",
                     mode=CompletionMode.JOIN,
                     status=OperationStatus.SUBMIT_PENDING,
+                    create_time=page_base + timedelta(seconds=1),
                 ),
                 _operation(
                     tenant=TENANT,
@@ -513,6 +520,7 @@ async def _create(state_path: str) -> None:
                     task_id=page_detach_task.id,
                     submitted_at=now - timedelta(minutes=20),
                     completed_at=now - timedelta(minutes=10),
+                    create_time=page_base + timedelta(seconds=2),
                 ),
                 _operation(
                     tenant=TENANT,
@@ -523,6 +531,7 @@ async def _create(state_path: str) -> None:
                     status=OperationStatus.TASK_ACCEPTED,
                     task_id=page_unknown_task.id,
                     submitted_at=now - timedelta(minutes=19),
+                    create_time=page_base + timedelta(seconds=3),
                 ),
                 _operation(
                     tenant=TENANT,
@@ -534,6 +543,7 @@ async def _create(state_path: str) -> None:
                     error_phase=OperationErrorPhase.SUBMIT,
                     error_code="SUBMISSION_TIMEOUT",
                     completed_at=now - timedelta(minutes=18),
+                    create_time=page_base + timedelta(seconds=4),
                 ),
                 _operation(
                     tenant=TENANT,
@@ -544,6 +554,7 @@ async def _create(state_path: str) -> None:
                     status=OperationStatus.SUBMITTED,
                     task_id=other_task.id,
                     submitted_at=now - timedelta(minutes=17),
+                    create_time=page_base + timedelta(seconds=5),
                 ),
             ]
             for index in range(6, 17):
@@ -572,6 +583,7 @@ async def _create(state_path: str) -> None:
                         error_code=None if index % 3 else "TOOL_EXECUTION_FAILED",
                         submitted_at=now - timedelta(minutes=16 - index % 5),
                         completed_at=now - timedelta(minutes=5),
+                        create_time=page_base + timedelta(seconds=index),
                     )
                 )
             session.add_all(page_operations)
@@ -893,7 +905,7 @@ async def _ready(state_path: str) -> None:
                     "INSERT INTO runtime.canonical_event "
                     "(tenant_id, conversation_id, run_id, seq, event_type, "
                     "stream_type, payload_json, create_time) "
-                    "SELECT :tenant, conversation_id, run_id, 6, 'BACKGROUND_RESULT', "
+                    "SELECT :tenant, conversation_id, id, 6, 'BACKGROUND_RESULT', "
                     "'background.result', '{}'::jsonb, now() "
                     "FROM runtime.run_record WHERE id = :run_id"
                 ),
@@ -938,7 +950,7 @@ async def _resume(state_path: str) -> None:
                     "INSERT INTO runtime.canonical_event "
                     "(tenant_id, conversation_id, run_id, seq, event_type, "
                     "stream_type, payload_json, create_time) "
-                    "SELECT :tenant, conversation_id, run_id, 7, 'RUN_RESUMED', "
+                    "SELECT :tenant, conversation_id, id, 7, 'RUN_RESUMED', "
                     "'run.resumed', '{}'::jsonb, now() "
                     "FROM runtime.run_record WHERE id = :run_id"
                 ),

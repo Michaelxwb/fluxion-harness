@@ -240,6 +240,8 @@ export function AuditDetailSideSheet(props: AuditDetailSideSheetProps) {
         onTabChange={setActiveTab}
         onCancel={props.onClose}
         notice={failed ? <ErrorState onRetry={() => void reload()} /> : undefined}
+        // 关联 Run/Task 面板打开时它在最上层：ESC 归关联层，本层不响应（防一次 ESC 连关两层）。
+        closeOnEsc={related.state === null}
       >
         <Tabs.TabPane itemKey="basic" tab={t('audit.detail.tab.basic')}>
           {renderBasicTab(detail, loading, t)}

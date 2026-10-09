@@ -25,6 +25,8 @@ export interface ScheduleDetailSideSheetProps {
   onCancel(): void;
   onMutated?(scheduleId: string): void;
   onOpenTask?(taskId: string): void;
+  /** ESC 关闭本面板；由页面只在它是当前最上层面板时开启。 */
+  closeOnEsc?: boolean;
 }
 
 export function ScheduleDetailSideSheet(props: ScheduleDetailSideSheetProps) {
@@ -131,6 +133,7 @@ export function ScheduleDetailSideSheet(props: ScheduleDetailSideSheetProps) {
       onTabChange={setActiveTab}
       onCancel={props.onCancel}
       notice={failed ? <ErrorState onRetry={() => void load()} /> : undefined}
+      closeOnEsc={props.closeOnEsc}
     >
       <Tabs.TabPane itemKey="basic" tab={t('schedule.detail.basic')}>
         {loading ? <Spin /> : null}

@@ -16,8 +16,11 @@ process.env.E2E_RUN_OBS_OFFSET = String(OFFSET);
 
 const CONSOLE_PORT = 9001 + OFFSET;
 const PREVIEW_PORT = 9101 + OFFSET;
+const WORKER_PORT = 9201 + OFFSET;
 const CONSOLE_URL = `http://127.0.0.1:${CONSOLE_PORT}`;
 const PREVIEW_URL = `http://127.0.0.1:${PREVIEW_PORT}`;
+const WORKER_URL = `http://127.0.0.1:${WORKER_PORT}`;
+const INTERNAL_TOKEN = `run-obs-internal-${OFFSET}`;
 
 // 浏览器请求不带 X-Tenant-Id，Console 因此一律回落 DEFAULT_TENANT_ID ⇒ 本模块的种子租户
 // 就是 Console 的默认租户（种子在隔离库里自建管理员账号）。
@@ -43,10 +46,13 @@ process.env.E2E_RUN_OBS_VIEWER_PASSWORD = VIEWER_PASSWORD;
 process.env.E2E_RUN_OBS_STATE_FILE = STATE_FILE;
 process.env.E2E_RUN_OBS_ARTIFACT_ROOT = ARTIFACT_ROOT;
 
-// 真实 Console（真实 PostgreSQL，只读聚合投影 runtime/task 表）+ 真实前端构建产物（vite preview）。
-// 本套件观察的是 Console 的只读投影；执行链（Runtime/Worker/LLM）由本需求的后端 live-stack
-// 套件（tests/acceptance/runtime/test_background_result_resume.py 等）覆盖，浏览器套件不重复
-// 起一套 Runtime/Worker（设计 §4：两套 Worker 共享验收库会互相抢任务）。
+// 真实 Console（真实 PostgreSQL，只读聚合投影 runtime/task 表）+ 真实 Worker Admin API（Console 的
+// `/api/v1/tasks/*` 只做认证/租户过滤并转调 Worker，Task 详情必须由真实 Worker 从 PG 读出）+
+// 真实前端构建产物（vite preview）。
+// 本套件观察的是 Console 的只读投影与 Console→Worker 的 Task 查询；执行链（Runtime/LLM）由本需求的
+// 后端 live-stack 套件（tests/acceptance/runtime/test_background_result_resume.py 等）覆盖。
+// Worker 跑在隔离库上（useIsolatedDatastores 每轮建空库）：种子任务都不在可 claim 状态
+// （QUEUED/WAITING），Scheduler/Dispatcher 不会改动被测行。
 // 前端跑构建产物而非 dev server：需先 `npm run build`（Makefile 的 acceptance-e2e 已含）。
 export default defineConfig({
   globalTeardown: ISOLATED_DATASTORES_TEARDOWN,
@@ -67,6 +73,20 @@ export default defineConfig({
   webServer: [
     {
       command:
+        `uv run uvicorn muad_agent_worker.main:app --app-dir apps/agent-worker/src ` +
+        `--host 127.0.0.1 --port ${WORKER_PORT}`,
+      cwd: '..',
+      url: `${WORKER_URL}/healthz`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        INTERNAL_SERVICE_TOKEN: INTERNAL_TOKEN,
+        DEFAULT_TENANT_ID: TENANT
+      }
+    },
+    {
+      command:
         `uv run uvicorn muad_console_platform.main:app --app-dir apps/console-platform/backend/src ` +
         `--host 127.0.0.1 --port ${CONSOLE_PORT}`,
       cwd: '..',
@@ -76,7 +96,9 @@ export default defineConfig({
       env: {
         ...process.env,
         DEFAULT_TENANT_ID: TENANT,
-        ARTIFACT_ROOT
+        ARTIFACT_ROOT,
+        AGENT_WORKER_URL: WORKER_URL,
+        INTERNAL_SERVICE_TOKEN: INTERNAL_TOKEN
       }
     },
     {

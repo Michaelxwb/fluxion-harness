@@ -461,12 +461,15 @@ export function TaskPage() {
         onOpenSchedule={(scheduleId) => setDetailScheduleId(scheduleId)}
         onOpenRun={(runId) => related.openRun(runId)}
         onMutated={() => void reload()}
+        // 定时任务/关联 Run 面板打开时它在最上层：ESC 归上层，本层不响应。
+        closeOnEsc={related.state === null && detailScheduleId === null}
       />
       {/* 反向链接的落点：任务详情打开定时任务详情（嵌套 SideSheet 与 mcp 工具详情同形）。 */}
       <ScheduleDetailSideSheet
         scheduleId={detailScheduleId}
         onCancel={() => setDetailScheduleId(null)}
         onOpenTask={(taskId) => setDetailTaskId(taskId)}
+        closeOnEsc={related.state === null}
       />
       {/* 同一条来源线的另一半：对话派生的任务回看它那次 Run。关联层由控制器互斥承载：
           Run→Task 关闭关联 Run、复用页面主 Task 面板（不递归堆叠）。 */}

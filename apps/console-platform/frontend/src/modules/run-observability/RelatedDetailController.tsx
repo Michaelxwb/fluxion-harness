@@ -34,6 +34,8 @@ export function RelatedDetailController(props: RelatedDetailControllerProps) {
         runId={state.runId}
         onCancel={props.onClose}
         onOpenTask={props.onOpenTask}
+        // 控制器只渲染当前这一层关联面板 ⇒ 它总是最上层，ESC 归它。
+        closeOnEsc
       />
     );
   }
@@ -46,6 +48,7 @@ export function RelatedDetailController(props: RelatedDetailControllerProps) {
         onCancel={props.onClose}
         onOpenRun={() => props.onOpenRun(sourceRunId)}
         onMutated={props.onMutated}
+        closeOnEsc
       />
     );
   }

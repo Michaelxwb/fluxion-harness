@@ -11,6 +11,12 @@ export interface DetailSideSheetProps {
   onCancel(): void;
   notice?: ReactNode;
   children?: ReactNode;
+  /**
+   * Close this sheet on ESC. Enable it only on the topmost sheet: Semi listens for ESC on
+   * `window`, so enabling it on every layer would close the whole stack with one ESC
+   * (B-21: "ESC closes only the current panel"); lower layers stay disabled by the page.
+   */
+  closeOnEsc?: boolean;
 }
 
 export function DetailSideSheet(props: DetailSideSheetProps) {
@@ -40,7 +46,8 @@ export function DetailSideSheet(props: DetailSideSheetProps) {
     );
   return (
     <SideSheet className="app-detail-sheet" style={{ maxWidth: '100vw' }}
-      visible={props.visible} title={header} onCancel={props.onCancel} footer={null} width={920}>
+      visible={props.visible} title={header} onCancel={props.onCancel} footer={null} width={920}
+      closeOnEsc={props.closeOnEsc ?? false}>
       {props.notice ? <div className="detail-notice">{props.notice}</div> : null}
       {tabs}
     </SideSheet>

@@ -66,9 +66,15 @@ function runSeedCli(args: string[]): string {
 }
 
 async function login(page: Page, username = state.account.username, password = state.account.password): Promise<void> {
+  // 先清会话：已登录时 `/login` 会在会话探测返回后立刻 Navigate 回首页，和填写表单竞争
+  // （真实表现是 `input` 被卸载：`element was detached from the DOM, retrying` 直到超时）。
+  // 本助手只承诺「拿到目标账号的会话」，从干净会话开始是唯一的确定性做法。
+  await page.context().clearCookies();
   await page.goto('/login');
-  await page.locator('input').nth(0).fill(username);
-  await page.locator('input').nth(1).fill(password);
+  const usernameInput = page.locator('input#username');
+  await expect(usernameInput).toBeVisible();
+  await usernameInput.fill(username);
+  await page.locator('input#password').fill(password);
   await page.locator('button[type=submit]').click();
   await expect(page).toHaveURL('/');
   await expect(page.locator('.semi-layout-has-sider')).toBeVisible();
@@ -83,6 +89,11 @@ async function openRunViaAudit(
 ): Promise<Locator> {
   await login(page, credentials.username, credentials.password);
   await page.goto('/audits');
+  // 每次登录都会写一条 LOGIN（配置变更）审计行，时间新于种子行；不筛类型时种子 TOOL 行
+  // 会被挤到第 2 页（B-20 实测）。筛到「工具调用」，种子的 6 条稳定落在第 1 页。
+  await page.getByTestId('audit-filter-auditType').click();
+  await page.locator('.semi-select-option:visible', { hasText: '工具调用' }).first().click();
+  await expect(page.getByTestId('audit-filter-auditType')).toContainText('工具调用');
   await page.getByTestId(`audit-trace-${auditId}`).click();
   const audit = page.locator('.semi-sidesheet');
   await expect(audit).toBeVisible();
@@ -136,6 +147,10 @@ test('S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id
   await expect(sheet.getByTestId(`run-operation-task-${state.detachTaskId}`)).toBeVisible();
 
   for (let round = 0; round < 3; round += 1) {
+    // 来源 Run 回调是**重新挂载**同一 run 的详情（控制器只保留一层）：页签回到默认「基本信息」，
+    // 每轮都要重新打开「关联操作」再点 Task——这正是反复切换的真实路径。
+    await sheet.getByRole('tab', { name: '关联操作' }).click();
+    await expect(sheet.getByTestId(`run-operation-task-${state.detachTaskId}`)).toBeVisible();
     // Run→Task：关闭关联 Run 再打开 Task（同一时刻只有一个关联面板）
     await sheet.getByTestId(`run-operation-task-${state.detachTaskId}`).click();
     const task = taskSheet(page, state.detachTaskId);
@@ -193,15 +208,21 @@ test('S-23 详情开着切 zh-CN/en-US 即时生效；UTC 时间按 Asia/Shangha
   });
 
   const sheet = await openRunViaAudit(page, state.waitAuditId, state.waitRunId);
-  // UTC 2026-01-02T03:04:05Z → Asia/Shanghai 2026-01-02 11:04:05
-  await expect(sheet.getByText(state.waitingSinceShanghai)).toBeVisible();
+  // UTC 2026-01-02T03:04:05Z → Asia/Shanghai 2026-01-02 11:04:05。
+  // 「等待开始」行与时间线都会渲染该时间，断言按字段行定位（仍断言真实等待时间可见）。
+  await expect(
+    sheet.locator('.detail-grid-item', { hasText: '等待开始' }).locator('.detail-grid-value')
+  ).toHaveText(state.waitingSinceShanghai);
   await expect(sheet.getByText('等待任务结果').first()).toBeVisible();
   await expect(sheet.getByText('关联操作')).toBeVisible();
   // 缺值一律 '-'（不编造时间）
   await expect(sheet.getByTestId('run-detail-error')).toHaveText('-');
 
-  // 开着详情切换语言：状态/页签即时切换，不刷新页面
-  await page.getByTestId('locale-switch').click();
+  // 开着详情切换语言：状态/页签即时切换，不刷新页面。
+  // 详情面板覆盖右上角，指针到不了顶栏的 locale-switch；用键盘（焦点 + Enter）走真实点击事件。
+  const focusedLocale = await tabUntilFocused(page, '[data-testid="locale-switch"]');
+  expect(focusedLocale).toBe(true);
+  await page.keyboard.press('Enter');
   await expect(sheet.getByText('Waiting for task results').first()).toBeVisible();
   await expect(sheet.getByText('Related operations')).toBeVisible();
 
@@ -305,12 +326,14 @@ test('E-21 跨租户/不存在 Task 请求 404；伪造 X-Tenant-Id 不改变数
   const otherRun = await page.request.get(`/api/v1/runs/${state.otherRunId}`);
   expect(otherRun.status()).toBe(404);
 
-  // 跨租户 Task 链接：点击请求 404 → 任务面板错误态；关闭后审计页仍在
-  await sheet.getByRole('tab', { name: '关联操作' }).click();
+  // 跨租户 Task 链接：点击请求 404 → 任务面板错误态；关闭后审计页仍在。
+  // 该 operation（call_page_05）挂在分页 Run 上；detach Run 只有本租户受理的 DETACH 任务。
+  const pageSheet = await openRunViaAudit(page, state.pageAuditId, state.pageRunId);
+  await pageSheet.getByRole('tab', { name: '关联操作' }).click();
   const responsePromise = page.waitForResponse(
     (response) => response.url().includes(`/api/v1/tasks/${state.pageRunCrossTaskId}`)
   );
-  await sheet.getByTestId(`run-operation-task-${state.pageRunCrossTaskId}`).click();
+  await pageSheet.getByTestId(`run-operation-task-${state.pageRunCrossTaskId}`).click();
   const taskResponse = await responsePromise;
   expect(taskResponse.status()).toBe(404);
   const task = taskSheet(page, state.pageRunCrossTaskId);
@@ -362,10 +385,18 @@ test('B-21 Tab 可达刷新与关联 Task、ESC 只关当前面板、状态不�
   await page.keyboard.press('Enter');
   await refreshResponse;
 
-  // Tab 可达关联 Task：Enter 打开 Task 详情
+  // Tab 可达关联 Task：Enter 打开 Task 详情。
+  // Tab 从页签出发会先走完整页的可聚焦元素（侧边导航/工具栏/审计表都在前面），审计行数
+  // 随登录审计增长 ⇒ 预算给足；先等表格数据到达，遍历经过时链接才在 DOM 里。
   await sheet.getByRole('tab', { name: '关联操作' }).focus();
   await page.keyboard.press('Enter');
-  const focusedTask = await tabUntilFocused(page, `[data-testid="run-operation-task-${state.detachTaskId}"]`);
+  const taskLink = sheet.getByTestId(`run-operation-task-${state.detachTaskId}`);
+  await expect(taskLink).toBeVisible();
+  const focusedTask = await tabUntilFocused(
+    page,
+    `[data-testid="run-operation-task-${state.detachTaskId}"]`,
+    150
+  );
   expect(focusedTask).toBe(true);
   await page.keyboard.press('Enter');
   const task = taskSheet(page, state.detachTaskId);
@@ -416,7 +447,10 @@ test('S-20 等待任务结果→等待接续→接续完成，数量随真实状
 
   // 初始：WAITING_TOOL / TASK_RESULT（等待任务结果、等待起点、待处理数量）
   await expect(sheet.getByTestId('run-detail-waiting-banner')).toContainText('等待任务结果');
-  await expect(sheet.getByText(state.waitingSinceShanghai)).toBeVisible();
+  // 「等待开始」行与时间线都会渲染该时间，断言按字段行定位（仍断言真实等待时间可见）。
+  await expect(
+    sheet.locator('.detail-grid-item', { hasText: '等待开始' }).locator('.detail-grid-value')
+  ).toHaveText(state.waitingSinceShanghai);
   await expect(
     sheet.locator('.detail-grid-item', { hasText: '未完成关联任务' }).locator('.detail-grid-value')
   ).toHaveText('1');

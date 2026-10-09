@@ -38,6 +38,8 @@ export interface TaskDetailSideSheetProps {
   onOpenSchedule?(scheduleId: string): void;
   /** 派生它的那次对话运行（`source_run_id`）。同一约定：回调而不导航。 */
   onOpenRun?(runId: string): void;
+  /** ESC 关闭本面板；由页面只在它是当前最上层面板时开启。 */
+  closeOnEsc?: boolean;
 }
 
 function snapshotSummary(snapshot: Record<string, unknown>): string {
@@ -193,6 +195,7 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
       onTabChange={setActiveTab}
       onCancel={props.onCancel}
       notice={failed ? <ErrorState onRetry={() => void load()} /> : undefined}
+      closeOnEsc={props.closeOnEsc}
     >
       <Tabs.TabPane itemKey="basic" tab={t('task.detail.basic')}>
         {loading ? <Spin /> : null}

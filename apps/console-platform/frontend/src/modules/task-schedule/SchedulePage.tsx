@@ -230,11 +230,13 @@ export function SchedulePage() {
         onCancel={() => setDetailScheduleId(null)}
         onMutated={() => void reload()}
         onOpenTask={(taskId) => setHistoryTaskId(taskId)}
+        closeOnEsc={historyTaskId === null}
       />
       <TaskDetailSideSheet
         taskId={historyTaskId}
         onCancel={() => setHistoryTaskId(null)}
         onSelectTask={(taskId) => setHistoryTaskId(taskId)}
+        closeOnEsc
       />
     </>
   );
