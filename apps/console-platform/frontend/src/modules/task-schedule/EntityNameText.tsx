@@ -11,6 +11,8 @@ export interface EntityNameTextProps {
 
 /** 任务/定时任务列表的实体单元格：名称优先、短 id 兜底（`id` 前 8 位）。 */
 export function EntityNameText({ name, id, keySuffix }: EntityNameTextProps) {
-  const full = name ? (keySuffix ? `${name} (${keySuffix})` : name) : id;
+  // key 与名称相同（常见：skill key == skill name）时不重复展示 `名称 (key)`。
+  const suffix = keySuffix && keySuffix !== name ? ` (${keySuffix})` : '';
+  const full = name ? `${name}${suffix}` : id;
   return <CopyableText display={name ? full : id.slice(0, 8)} full={full} />;
 }

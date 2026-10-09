@@ -120,9 +120,10 @@ def test_entity_columns_prefer_names_with_short_id_fallback() -> None:
 
 
 def test_task_list_hides_redundant_intent_column() -> None:
-    """业务意图与 Skill 列重复：列表隐藏该列（词条仍被任务详情消费，不删除）。"""
+    """业务意图与 Skill 列重复：两个列表都隐藏该列（词条仍被任务详情消费，不删除）。"""
     assert "task.columns.intent" not in _read(TASK_PAGE)
     assert "task.columns.intent" in _read(TASK_DETAIL)
+    assert "schedule.columns.intent" not in _read(SCHEDULE_PAGE)
 
 
 def test_child_progress_only_for_batch_rows_with_children() -> None:

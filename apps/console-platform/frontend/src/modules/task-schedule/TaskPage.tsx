@@ -323,13 +323,13 @@ export function TaskPage() {
         <RemoteTable<TaskListItem>
           rowKey="task_id"
           className="app-table-nowrap"
-          scroll={{ x: 2130 }}
+          scroll={{ x: 2015 }}
           loading={loading}
           columns={[
             {
               title: t('task.columns.taskId'),
               dataIndex: 'task_id',
-              width: 320,
+              width: 362,
               render: (value: string) => (
                 <EntityLink testId={`task-link-${value}`} onClick={() => setDetailTaskId(value)}>
                   {value}
@@ -339,7 +339,7 @@ export function TaskPage() {
             {
               title: t('task.columns.agent'),
               dataIndex: 'agent_id',
-              width: 190,
+              width: 140,
               render: (_: unknown, record: TaskListItem) => (
                 <EntityNameText name={record.agent_name} id={record.agent_id} />
               )
@@ -347,7 +347,7 @@ export function TaskPage() {
             {
               title: t('task.columns.actorUser'),
               dataIndex: 'actor_user_id',
-              width: 190,
+              width: 140,
               render: (_: unknown, record: TaskListItem) => (
                 <EntityNameText name={record.actor_name} id={record.actor_user_id} />
               )
@@ -355,7 +355,7 @@ export function TaskPage() {
             {
               title: t('task.columns.skill'),
               dataIndex: 'skill_id',
-              width: 190,
+              width: 200,
               render: (_: unknown, record: TaskListItem) => (
                 <EntityNameText
                   name={record.skill_name}
@@ -367,19 +367,19 @@ export function TaskPage() {
             {
               title: t('task.columns.triggerType'),
               dataIndex: 'trigger_type',
-              width: 90,
+              width: 84,
               render: (value: string) => t(`task.trigger.${value}`)
             },
             {
               title: t('task.columns.status'),
               dataIndex: 'status',
-              width: 92,
+              width: 84,
               render: (value: string) => <StatusTag status={value} options={statusOptions} />
             },
             {
               title: t('task.columns.childProgress'),
               dataIndex: 'child_finished',
-              width: 88,
+              width: 76,
               render: (_: unknown, record: TaskListItem) => (
                 <span data-testid={`task-children-${record.task_id}`}>
                   {record.task_type === 'BATCH' && (record.child_total ?? 0) > 0
@@ -391,19 +391,19 @@ export function TaskPage() {
             {
               title: t('task.columns.startedAt'),
               dataIndex: 'started_at',
-              width: 185,
+              width: 176,
               render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
             },
             {
               title: t('task.columns.finishedAt'),
               dataIndex: 'finished_at',
-              width: 185,
+              width: 176,
               render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
             },
             {
               title: t('task.columns.deadlineAt'),
               dataIndex: 'deadline_at',
-              width: 185,
+              width: 176,
               render: (value: string, record: TaskListItem) => (
                 <span data-testid={`task-deadline-${record.task_id}`}>
                   <DateTimeText value={value} />
@@ -413,7 +413,7 @@ export function TaskPage() {
             {
               title: t('task.columns.deliveryStatus'),
               dataIndex: 'delivery_status',
-              width: 96,
+              width: 88,
               render: (value: string) => t(`task.delivery.${value}`)
             },
             {
@@ -424,7 +424,7 @@ export function TaskPage() {
             },
             {
               title: t('task.columns.actions'),
-              width: 96,
+              width: 88,
               render: (_: unknown, record: TaskListItem) =>
                 CANCELLABLE_STATUSES.includes(record.status) && !record.cancel_requested ? (
                   <ConfirmAction

@@ -125,13 +125,13 @@ export function SchedulePage() {
         <RemoteTable<ScheduleListItem>
           rowKey="schedule_id"
           className="app-table-nowrap"
-          scroll={{ x: 1820 }}
+          scroll={{ x: 1725 }}
           loading={loading}
           columns={[
             {
               title: t('schedule.columns.name'),
               dataIndex: 'name',
-              width: 160,
+              width: 270,
               render: (value: string, record: ScheduleListItem) => (
                 <EntityLink
                   testId={`schedule-link-${record.schedule_id}`}
@@ -144,7 +144,7 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.agent'),
               dataIndex: 'agent_id',
-              width: 190,
+              width: 140,
               render: (_: unknown, record: ScheduleListItem) => (
                 <EntityNameText name={record.agent_name} id={record.agent_id} />
               )
@@ -152,7 +152,7 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.actorUser'),
               dataIndex: 'actor_user_id',
-              width: 190,
+              width: 140,
               render: (_: unknown, record: ScheduleListItem) => (
                 <EntityNameText name={record.actor_name} id={record.actor_user_id} />
               )
@@ -160,7 +160,7 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.skill'),
               dataIndex: 'skill_id',
-              width: 190,
+              width: 200,
               render: (_: unknown, record: ScheduleListItem) => (
                 <EntityNameText
                   name={record.skill_name}
@@ -169,7 +169,6 @@ export function SchedulePage() {
                 />
               )
             },
-            { title: t('schedule.columns.intent'), dataIndex: 'intent_key', width: 90 },
             {
               title: t('schedule.columns.scheduleType'),
               dataIndex: 'schedule_type',
@@ -182,17 +181,17 @@ export function SchedulePage() {
               render: (_: unknown, record: ScheduleListItem) =>
                 record.cron_expr ?? (record.run_at ? <DateTimeText value={record.run_at} /> : '-')
             },
-            { title: t('schedule.columns.timezone'), dataIndex: 'timezone', width: 110 },
+            { title: t('schedule.columns.timezone'), dataIndex: 'timezone', width: 128 },
             {
               title: t('schedule.columns.status'),
               dataIndex: 'status',
-              width: 92,
+              width: 84,
               render: (value: string) => <StatusTag status={value} options={statusOptions} />
             },
             {
               title: t('schedule.columns.nextFireAt'),
               dataIndex: 'next_fire_at',
-              width: 185,
+              width: 176,
               render: (value: string | null, record: ScheduleListItem) => (
                 <span data-testid={`schedule-next-fire-${record.schedule_id}`}>
                   {value ? <DateTimeText value={value} /> : '-'}
@@ -202,13 +201,13 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.lastFireAt'),
               dataIndex: 'last_fire_at',
-              width: 185,
+              width: 176,
               render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
             },
             {
               title: t('schedule.columns.updateTime'),
               dataIndex: 'update_time',
-              width: 185,
+              width: 176,
               render: (value: string) => <DateTimeText value={value} />
             }
           ]}

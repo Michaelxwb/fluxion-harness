@@ -59,21 +59,25 @@ function buildIdentityColumns(t: TFunction): AuditTableColumns {
     {
       title: t('audit.columns.time'),
       dataIndex: 'occurredAt',
+      width: 176,
       render: (value: string) => <DateTimeText value={value} />
     },
     {
       title: t('audit.columns.auditType'),
       dataIndex: 'auditType',
+      width: 92,
       render: (value: AuditListItem['auditType']) => t(`audit.auditType.${value}`)
     },
     {
       title: t('audit.columns.actor'),
       dataIndex: 'actorName',
+      width: 120,
       render: (_: unknown, record: AuditListItem) => record.actorName ?? record.actorUserId
     },
     {
       title: t('audit.columns.agent'),
       dataIndex: 'agentId',
+      width: 120,
       render: (_: unknown, record: AuditListItem) => record.agentName ?? record.agentId ?? '-'
     }
   ];
@@ -95,6 +99,7 @@ function buildTargetColumns(
       // 运行类行两个外键都为空时显示 `-`，不编造内容。
       title: t('audit.columns.related'),
       dataIndex: 'runId',
+      width: 150,
       render: (_: unknown, record: AuditListItem) => {
         const link = (label: string) => (
           <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenDetail(record)}>
@@ -113,7 +118,7 @@ function buildTargetColumns(
         return '-';
       }
     },
-    { title: t('audit.columns.action'), dataIndex: 'action' }
+    { title: t('audit.columns.action'), dataIndex: 'action', width: 250 }
   ];
 }
 
@@ -132,11 +137,13 @@ function buildResultAndTraceColumns(
     {
       title: t('audit.columns.result'),
       dataIndex: 'resultStatus',
+      width: 92,
       render: (value: string) => <StatusTag status={value} options={statusOptions} />
     },
     {
       title: t('audit.columns.traceId'),
       dataIndex: 'traceId',
+      width: 360,
       render: (value: string | undefined, record: AuditListItem) =>
         value ? (
           <EntityLink testId={`audit-trace-${record.auditId}`} onClick={() => onOpenDetail(record)}>
