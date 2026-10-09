@@ -27,6 +27,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -165,7 +166,15 @@ def _create_database(dsn: str, name: str) -> None:
     _run_in_thread(create)
 
 
-def _drop_database(dsn: str, name: str) -> None:
+def _drop_database(dsn: str, name: str, *, attempts: int = 4) -> None:
+    """`DROP DATABASE ... WITH (FORCE)`，对后台进程竞态做有界重试。
+
+    PG 15 下 FORCE 会终止目标库上的全部后端；非超级用户（无 `pg_signal_backend`）在目标库上
+    恰好有 autovacuum 等后台进程时会被拒（`must be a member of the role whose process is being
+    terminated or member of pg_signal_backend`）。这类进程是瞬时的：短暂等待后重试即可收敛；
+    重试仍失败则照常抛出，不静默吞掉（2026-10-09 实测一次 teardown 偶发）。
+    """
+
     async def drop() -> None:
         connection = await asyncpg.connect(dsn, timeout=10)
         try:
@@ -174,7 +183,14 @@ def _drop_database(dsn: str, name: str) -> None:
         finally:
             await connection.close()
 
-    _run_in_thread(drop)
+    for attempt in range(attempts):
+        try:
+            _run_in_thread(drop)
+            return
+        except asyncpg.InsufficientPrivilegeError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.5 * (attempt + 1))
 
 
 def _migrate_to_head(database_url: str, workdir: Path) -> None:

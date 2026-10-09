@@ -107,6 +107,8 @@
 - [B-08][integration] RED — same command (2026-10-08): collection failed because `infrastructure.models.async_tools` is absent. Cases: `test_b08_empty_database_schema_parity`, `test_b08_old_rows_upgrade_and_drain_before_downgrade`; command: `uv run pytest -q tests/migrations/test_runtime_wait_parity.py`. Real boundaries: isolated PG + real Alembic upgrade/downgrade and historical Run/Task rows. GREEN pending.
 - B-02: verified — automated command passed; run_id=1333a2e3ea64472b884582f043044bc9 (confirmed_by: runner)
 - B-08: verified — automated command passed; run_id=1333a2e3ea64472b884582f043044bc9 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
 
 ### Log
 
@@ -155,11 +157,6 @@
 
 ### Acceptance Evidence
 
-- [E-03][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-08][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-15][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [B-07][integration] planned — RED/GREEN pending
-
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
 | B-07 | `uv run pytest -q tests/agent_worker/test_runtime_operation_races.py`，2026-10-08，exit 2：缺少 `muad_agent_runtime.api.tool_results`，新结果回流入口尚未实现 | PASS：19 passed（独立空库） | `test_b07_atomic_terminal_rollback_and_single_event`、`test_b07_each_terminal_shape_is_durable`、`test_b07_real_http_durable_ack_conflict_exhaustion_and_recovery`、`test_b07_lease_reservation_blocks_stale_ack` | 独立 PostgreSQL + 实际终态写入/收件服务 + TCP Runtime 路由与 HTTP 故障代理 | verified |
@@ -176,6 +173,7 @@
 - E-03: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 - E-15: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
 
 ### Log
 
@@ -235,11 +233,6 @@
 
 ### Acceptance Evidence
 
-- [S-02][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-01][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-02][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-07][E2E] planned — defer to verify-e2e after relevant TASK verified
-- [E-16][E2E] planned — defer to verify-e2e after relevant TASK verified
 - [B-01][integration] RED: `uv run pytest -q tests/agent_worker/test_runtime_operation_races.py -k b01` — 2 failed: operation reservation and supervisor modules absent (`ModuleNotFoundError`); real isolated PG fixture initialized successfully. Cases `test_b01_pending_limit_row_lock_and_distinct_tool_calls`, `test_b01_close_registration_barrier_keeps_durable_intents`; GREEN pending.
 - [S-02/E-01/E-02/E-07/E-16][E2E] Tests written in `tests/acceptance/runtime/test_submission_hardening.py`; real task-schedule live stack (Console/Runtime/Worker/Gateway/channel), TCP response-drop proxy and PG sources. Coding stage does not execute E2E; deferred to verify-e2e.
 - S-02: e2e_deferred — automated command e2e_deferred; run_id=8a3404530c1b4dfe882b23493d7ea580 (confirmed_by: runner)
@@ -268,6 +261,7 @@
 - E-02: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 - E-16: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
 
 ### Log
 
@@ -424,6 +418,11 @@
 - E-05: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
 - E-12: verified — automated command passed; run_id=4314d819641e466aabaf8461ed02dcec (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
+- E-10: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
 
 ### Log
 
@@ -493,6 +492,14 @@
 - S-07: verified — automated command passed; run_id=3a3705e59db746a5920531e2e599b0f4 (confirmed_by: runner)
 - E-14: verified — automated command passed; run_id=3a3705e59db746a5920531e2e599b0f4 (confirmed_by: runner)
 - B-06: verified — automated command passed; run_id=3a3705e59db746a5920531e2e599b0f4 (confirmed_by: runner)
+- S-04: failed — automated command failed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
+- E-14: verified — automated command passed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
+- B-06: failed — automated command failed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=e2c1129bd5f94331aa4392be2f8cfe6c (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=e2c1129bd5f94331aa4392be2f8cfe6c (confirmed_by: runner)
+- E-14: verified — automated command passed; run_id=e2c1129bd5f94331aa4392be2f8cfe6c (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=e2c1129bd5f94331aa4392be2f8cfe6c (confirmed_by: runner)
 
 ### Log
 
@@ -792,6 +799,7 @@ Gateway 只订阅持久事件并执行等待态语义。原消息回复话题的
 |---|---|---|---|---|---|
 | B-09 | 16 passed/4 failed：收口自身未闭合（B-09 覆盖/契约 planned、checklist 未勾）；四类扰动各自变红并指名条目 | 20 passed | `test_inventory_registers_its_own_command_path`、`test_missing_inventory_path_fails_registered_command`、`test_coverage_rows_are_terminal`、`test_manifest_matches_coverage_table`、`test_terminal_rows_are_registered_in_owner_evidence`、`test_contract_rows_are_terminal`、`test_contract_tables_cover_every_acceptance_ref`、`test_registered_commands_reference_paths_on_disk`、`test_registered_commands_k_tokens_hit_real_cases`、`test_e2e_rows_point_to_real_suites_and_case_names`、`test_e2e_isolation_mechanisms_are_in_place`、四条扰动用例 | 真实任务文档 + `.acceptance-manifest.json` + 真实测试文件/套件（纯文件交叉核对，不 mock）；扰动字节备份/逐字节还原 | verified |
 - B-09: verified — automated command passed; run_id=16338dec771647f1a5ab4a12eb725b98 (confirmed_by: runner)
+- B-09: failed — automated command failed; run_id=1c7d0e1bdb7b4a3f994f46264a82a113 (confirmed_by: runner)
 
 ### Log
 

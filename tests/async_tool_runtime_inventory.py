@@ -693,10 +693,15 @@ def _surface_guard() -> Iterator[None]:
 
 
 def test_perturbation_changed_status_turns_terminal_check_red() -> None:
-    """扰动 (a) 改状态：覆盖表 E-06 改 `planned` ⇒ 终态检查变红并指名条目，还原后复绿。"""
+    """扰动 (a) 改状态：覆盖表 E-06 的**当前终态**改 `planned` ⇒ 终态检查变红并指名条目，还原后复绿。
+
+    不假设行一定是 `e2e_deferred`（全量终验后所有行都是 `verified`）；只要求当前是终态之一。
+    """
     line = _coverage_row_line("E-06")
-    assert "| e2e_deferred |" in line, line
-    perturbed = line.replace("| e2e_deferred |", "| planned |", 1)
+    cells = _cells(line)
+    status = _normalize_status(cells[5])
+    assert status in TERMINAL, line
+    perturbed = line.replace(f"| {cells[5]} |", "| planned |", 1)
     with _perturbed(_task_path(), [(line + "\n", perturbed + "\n")]):
         problems = _check_coverage_terminal()
         assert any("E-06" in problem and "planned" in problem for problem in problems), problems

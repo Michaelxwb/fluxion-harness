@@ -428,15 +428,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "S-04",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "3a3705e59db746a5920531e2e599b0f4",
-        "executed_at": "2026-10-08T14:37:10.695318+00:00",
+        "revision": 3,
+        "run_id": "e2c1129bd5f94331aa4392be2f8cfe6c",
+        "executed_at": "2026-10-09T05:53:03.984842+00:00",
         "command": [
           "uv",
           "run",
@@ -446,7 +446,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        "fingerprint": "f6c108bb0699f5042c4442a4e7362bfc0c97082bc90652021372cc2a6cce3304"
       },
       "runs": [
         {
@@ -467,6 +467,44 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "..E...........                                                           [100%]\n==================================== ERRORS ====================================\n__________ ERROR at teardown of test_b06_undeclared_read_stays_serial __________\n\n    @pytest.fixture\n    def async_tool_datastore() -> Iterator[dict[str, str]]:\n        info = create_datastore()\n        try:\n            yield info\n        finally:\n>           drop_datastore(info[\"name\"], info[\"admin_database_url\"], info[\"redis_url\"])\n\ntests/async_tool_datastores.py:17: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/acceptance/datastores.py:262: in drop_datastore\n    _drop_database(_asyncpg_dsn(base), name)\ntests/acceptance/datastores.py:177: in _drop_database\n    _run_in_thread(drop)\ntests/acceptance/datastores.py:83: in _run_in_thread\n    raise failure[0]\ntests/acceptance/datastores.py:73: in target\n    box.append(loop.run_until_complete(factory()))\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/asyncio/base_events.py:691: in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\ntests/acceptance/datastores.py:173: in drop\n    await connection.execute(f'DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)')\n.venv/lib/python3.12/site-packages/asyncpg/connection.py:354: in execute\n    result = await self._protocol.query(query, timeout)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\n>   ???\nE   asyncpg.exceptions.InsufficientPrivilegeError: must be a member of the role whose process is being terminated or member of pg_signal_backend\n\nasyncpg/protocol/protocol.pyx:369: InsufficientPrivilegeError\n=========================== short test summary info ============================\nERROR tests/agent_runtime/test_tool_parallel_planner.py::test_b06_undeclared_read_stays_serial\n13 passed, 1 error in 9.05s",
+          "revision": 2,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_parallel_planner.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "e2c1129bd5f94331aa4392be2f8cfe6c",
+          "executed_at": "2026-10-09T05:53:03.984842+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_parallel_planner.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "f6c108bb0699f5042c4442a4e7362bfc0c97082bc90652021372cc2a6cce3304"
         }
       ]
     },
@@ -731,15 +769,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "S-07",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "3a3705e59db746a5920531e2e599b0f4",
-        "executed_at": "2026-10-08T14:37:10.695318+00:00",
+        "revision": 3,
+        "run_id": "e2c1129bd5f94331aa4392be2f8cfe6c",
+        "executed_at": "2026-10-09T05:53:03.984842+00:00",
         "command": [
           "uv",
           "run",
@@ -749,7 +787,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        "fingerprint": "f6c108bb0699f5042c4442a4e7362bfc0c97082bc90652021372cc2a6cce3304"
       },
       "runs": [
         {
@@ -770,6 +808,44 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_mcp_request_correlation.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "e2c1129bd5f94331aa4392be2f8cfe6c",
+          "executed_at": "2026-10-09T05:53:03.984842+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_mcp_request_correlation.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "f6c108bb0699f5042c4442a4e7362bfc0c97082bc90652021372cc2a6cce3304"
         }
       ]
     },
@@ -1763,15 +1839,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-09",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "eaf3064bc66f486a972acbdb63e7589a",
-        "executed_at": "2026-10-08T13:55:57.929597+00:00",
+        "revision": 3,
+        "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+        "executed_at": "2026-10-09T05:47:20.293768+00:00",
         "command": [
           "uv",
           "run",
@@ -1781,7 +1857,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
       },
       "runs": [
         {
@@ -1821,6 +1897,25 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        },
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_result_materialization.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
         }
       ]
     },
@@ -1842,15 +1937,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-10",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "eaf3064bc66f486a972acbdb63e7589a",
-        "executed_at": "2026-10-08T13:55:57.929597+00:00",
+        "revision": 3,
+        "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+        "executed_at": "2026-10-09T05:47:20.293768+00:00",
         "command": [
           "uv",
           "run",
@@ -1860,7 +1955,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
       },
       "runs": [
         {
@@ -1900,6 +1995,25 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        },
+        {
+          "id": "E-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_result_materialization.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
         }
       ]
     },
@@ -2260,15 +2374,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "E-14",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "3a3705e59db746a5920531e2e599b0f4",
-        "executed_at": "2026-10-08T14:37:10.695318+00:00",
+        "revision": 3,
+        "run_id": "e2c1129bd5f94331aa4392be2f8cfe6c",
+        "executed_at": "2026-10-09T05:53:03.984842+00:00",
         "command": [
           "uv",
           "run",
@@ -2278,7 +2392,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        "fingerprint": "f6c108bb0699f5042c4442a4e7362bfc0c97082bc90652021372cc2a6cce3304"
       },
       "runs": [
         {
@@ -2299,6 +2413,44 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        },
+        {
+          "id": "E-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_mcp_request_correlation.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
+        },
+        {
+          "id": "E-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "e2c1129bd5f94331aa4392be2f8cfe6c",
+          "executed_at": "2026-10-09T05:53:03.984842+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_mcp_request_correlation.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "f6c108bb0699f5042c4442a4e7362bfc0c97082bc90652021372cc2a6cce3304"
         }
       ]
     },
@@ -2625,15 +2777,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "B-01",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "767b07bb229e474ab40382242ba04513",
-        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "revision": 3,
+        "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+        "executed_at": "2026-10-09T05:47:20.293768+00:00",
         "command": [
           "uv",
           "run",
@@ -2643,7 +2795,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "ba2dbad5dc5e97ed489f1e049c95d548952251cbae81115eef8a0d741ef64a94"
+        "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
       },
       "runs": [
         {
@@ -2683,6 +2835,25 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "ba2dbad5dc5e97ed489f1e049c95d548952251cbae81115eef8a0d741ef64a94"
+        },
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_worker/test_runtime_operation_races.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
         }
       ]
     },
@@ -2704,15 +2875,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-02",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "1333a2e3ea64472b884582f043044bc9",
-        "executed_at": "2026-10-08T02:01:07.396530+00:00",
+        "revision": 2,
+        "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+        "executed_at": "2026-10-09T05:47:20.293768+00:00",
         "command": [
           "uv",
           "run",
@@ -2722,7 +2893,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "7781db1cc2700d3c6d51dc43573b6e9de863f61adf661ac3b3589fba626cf065"
+        "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
       },
       "runs": [
         {
@@ -2743,6 +2914,25 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "7781db1cc2700d3c6d51dc43573b6e9de863f61adf661ac3b3589fba626cf065"
+        },
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_runtime_strict_json.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
         }
       ]
     },
@@ -2764,15 +2954,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "B-03",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "eaf3064bc66f486a972acbdb63e7589a",
-        "executed_at": "2026-10-08T13:55:57.929597+00:00",
+        "revision": 3,
+        "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+        "executed_at": "2026-10-09T05:47:20.293768+00:00",
         "command": [
           "uv",
           "run",
@@ -2782,7 +2972,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
       },
       "runs": [
         {
@@ -2822,6 +3012,25 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        },
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_result_materialization.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
         }
       ]
     },
@@ -2843,15 +3052,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 3,
+      "revision": 4,
       "evidence": {
         "id": "B-04",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 3,
-        "run_id": "eaf3064bc66f486a972acbdb63e7589a",
-        "executed_at": "2026-10-08T13:55:57.929597+00:00",
+        "revision": 4,
+        "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+        "executed_at": "2026-10-09T05:47:20.293768+00:00",
         "command": [
           "uv",
           "run",
@@ -2861,7 +3070,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
       },
       "runs": [
         {
@@ -2920,6 +3129,25 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        },
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_wait_state_machine.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
         }
       ]
     },
@@ -2941,15 +3169,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 3,
+      "revision": 4,
       "evidence": {
         "id": "B-05",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 3,
-        "run_id": "eaf3064bc66f486a972acbdb63e7589a",
-        "executed_at": "2026-10-08T13:55:57.929597+00:00",
+        "revision": 4,
+        "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+        "executed_at": "2026-10-09T05:47:20.293768+00:00",
         "command": [
           "uv",
           "run",
@@ -2959,7 +3187,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
       },
       "runs": [
         {
@@ -3018,6 +3246,25 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "b48927f625d661a199f3def754579a739424ae4a6838105d64a899cfd6454b82"
+        },
+        {
+          "id": "B-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_wait_state_machine.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
         }
       ]
     },
@@ -3039,15 +3286,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "B-06",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "3a3705e59db746a5920531e2e599b0f4",
-        "executed_at": "2026-10-08T14:37:10.695318+00:00",
+        "revision": 3,
+        "run_id": "e2c1129bd5f94331aa4392be2f8cfe6c",
+        "executed_at": "2026-10-09T05:53:03.984842+00:00",
         "command": [
           "uv",
           "run",
@@ -3057,7 +3304,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        "fingerprint": "f6c108bb0699f5042c4442a4e7362bfc0c97082bc90652021372cc2a6cce3304"
       },
       "runs": [
         {
@@ -3078,6 +3325,44 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "35014d2961755994a6c34f2d14ba51bdcc75450d7ca4580260ee43a886a71b8e"
+        },
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "..E...........                                                           [100%]\n==================================== ERRORS ====================================\n__________ ERROR at teardown of test_b06_undeclared_read_stays_serial __________\n\n    @pytest.fixture\n    def async_tool_datastore() -> Iterator[dict[str, str]]:\n        info = create_datastore()\n        try:\n            yield info\n        finally:\n>           drop_datastore(info[\"name\"], info[\"admin_database_url\"], info[\"redis_url\"])\n\ntests/async_tool_datastores.py:17: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/acceptance/datastores.py:262: in drop_datastore\n    _drop_database(_asyncpg_dsn(base), name)\ntests/acceptance/datastores.py:177: in _drop_database\n    _run_in_thread(drop)\ntests/acceptance/datastores.py:83: in _run_in_thread\n    raise failure[0]\ntests/acceptance/datastores.py:73: in target\n    box.append(loop.run_until_complete(factory()))\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/asyncio/base_events.py:691: in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\ntests/acceptance/datastores.py:173: in drop\n    await connection.execute(f'DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)')\n.venv/lib/python3.12/site-packages/asyncpg/connection.py:354: in execute\n    result = await self._protocol.query(query, timeout)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\n>   ???\nE   asyncpg.exceptions.InsufficientPrivilegeError: must be a member of the role whose process is being terminated or member of pg_signal_backend\n\nasyncpg/protocol/protocol.pyx:369: InsufficientPrivilegeError\n=========================== short test summary info ============================\nERROR tests/agent_runtime/test_tool_parallel_planner.py::test_b06_undeclared_read_stays_serial\n13 passed, 1 error in 9.05s",
+          "revision": 2,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_parallel_planner.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
+        },
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "e2c1129bd5f94331aa4392be2f8cfe6c",
+          "executed_at": "2026-10-09T05:53:03.984842+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_tool_parallel_planner.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "f6c108bb0699f5042c4442a4e7362bfc0c97082bc90652021372cc2a6cce3304"
         }
       ]
     },
@@ -3099,15 +3384,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-07",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "9d982107824f4e57b6bb1130fcabc972",
-        "executed_at": "2026-10-08T07:00:44.566076+00:00",
+        "revision": 2,
+        "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+        "executed_at": "2026-10-09T05:47:20.293768+00:00",
         "command": [
           "uv",
           "run",
@@ -3117,7 +3402,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "fab0bdf789dba0240940bb6c21f382bee49eddaa937a7095596f9f735bc0cfaf"
+        "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
       },
       "runs": [
         {
@@ -3138,6 +3423,25 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "fab0bdf789dba0240940bb6c21f382bee49eddaa937a7095596f9f735bc0cfaf"
+        },
+        {
+          "id": "B-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_worker/test_runtime_operation_races.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
         }
       ]
     },
@@ -3159,15 +3463,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-08",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "1333a2e3ea64472b884582f043044bc9",
-        "executed_at": "2026-10-08T02:01:07.396530+00:00",
+        "revision": 2,
+        "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+        "executed_at": "2026-10-09T05:47:20.293768+00:00",
         "command": [
           "uv",
           "run",
@@ -3177,7 +3481,7 @@
         ],
         "cwd": ".",
         "timeout": 60.0,
-        "fingerprint": "7781db1cc2700d3c6d51dc43573b6e9de863f61adf661ac3b3589fba626cf065"
+        "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
       },
       "runs": [
         {
@@ -3198,6 +3502,25 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "7781db1cc2700d3c6d51dc43573b6e9de863f61adf661ac3b3589fba626cf065"
+        },
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/migrations/test_runtime_wait_parity.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "6c2ccdf70ff2da0202b85c3a99811537b61136de64482fb439c4178b351492d2"
         }
       ]
     },
@@ -3208,7 +3531,7 @@
       "kind": "functional",
       "boundary": "真实需求文件、manifest、inventory runner",
       "owner": "TASK-009",
-      "status": "verified",
+      "status": "failed",
       "command": [
         "uv",
         "run",
@@ -3219,15 +3542,16 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-09",
         "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "16338dec771647f1a5ab4a12eb725b98",
-        "executed_at": "2026-10-08T20:20:11.636896+00:00",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "................F...                                                     [100%]\n=================================== FAILURES ===================================\n__________ test_perturbation_changed_status_turns_terminal_check_red ___________\n\n    def test_perturbation_changed_status_turns_terminal_check_red() -> None:\n        \"\"\"扰动 (a) 改状态：覆盖表 E-06 改 `planned` ⇒ 终态检查变红并指名条目，还原后复绿。\"\"\"\n        line = _coverage_row_line(\"E-06\")\n>       assert \"| e2e_deferred |\" in line, line\nE       AssertionError: | E-06 | backend#2.5.2 场景清单 | E2E | 真实 deadline sweep、Worker、Runtime、PG | TASK-004 | verified | [\"uv\", \"run\", \"pytest\", \"-q\", \"tests/acceptance/runtime/test_background_result_resume.py\"] | . | 1200 | |\nE       assert '| e2e_deferred |' in '| E-06 | backend#2.5.2 场景清单 | E2E | 真实 deadline sweep、Worker、Runtime、PG | TASK-004 | verified | [\"uv\", \"run\", \"pytest\", \"-q\", \"tests/acceptance/runtime/test_background_result_resume.py\"] | . | 1200 | |'\n\ntests/async_tool_runtime_inventory.py:698: AssertionError\n=========================== short test summary info ============================\nFAILED tests/async_tool_runtime_inventory.py::test_perturbation_changed_status_turns_terminal_check_red\n1 failed, 19 passed in 0.40s",
+        "revision": 2,
+        "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+        "executed_at": "2026-10-09T05:47:20.293768+00:00",
         "command": [
           "uv",
           "run",
@@ -3236,8 +3560,7 @@
           "tests/async_tool_runtime_inventory.py"
         ],
         "cwd": ".",
-        "timeout": 60.0,
-        "fingerprint": "0b5f19c10cf7543119884f058d2e6f0e649e516c475f11afb7d295a20b4a635b"
+        "timeout": 60.0
       },
       "runs": [
         {
@@ -3258,6 +3581,25 @@
           "cwd": ".",
           "timeout": 60.0,
           "fingerprint": "0b5f19c10cf7543119884f058d2e6f0e649e516c475f11afb7d295a20b4a635b"
+        },
+        {
+          "id": "B-09",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "................F...                                                     [100%]\n=================================== FAILURES ===================================\n__________ test_perturbation_changed_status_turns_terminal_check_red ___________\n\n    def test_perturbation_changed_status_turns_terminal_check_red() -> None:\n        \"\"\"扰动 (a) 改状态：覆盖表 E-06 改 `planned` ⇒ 终态检查变红并指名条目，还原后复绿。\"\"\"\n        line = _coverage_row_line(\"E-06\")\n>       assert \"| e2e_deferred |\" in line, line\nE       AssertionError: | E-06 | backend#2.5.2 场景清单 | E2E | 真实 deadline sweep、Worker、Runtime、PG | TASK-004 | verified | [\"uv\", \"run\", \"pytest\", \"-q\", \"tests/acceptance/runtime/test_background_result_resume.py\"] | . | 1200 | |\nE       assert '| e2e_deferred |' in '| E-06 | backend#2.5.2 场景清单 | E2E | 真实 deadline sweep、Worker、Runtime、PG | TASK-004 | verified | [\"uv\", \"run\", \"pytest\", \"-q\", \"tests/acceptance/runtime/test_background_result_resume.py\"] | . | 1200 | |'\n\ntests/async_tool_runtime_inventory.py:698: AssertionError\n=========================== short test summary info ============================\nFAILED tests/async_tool_runtime_inventory.py::test_perturbation_changed_status_turns_terminal_check_red\n1 failed, 19 passed in 0.40s",
+          "revision": 2,
+          "run_id": "1c7d0e1bdb7b4a3f994f46264a82a113",
+          "executed_at": "2026-10-09T05:47:20.293768+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/async_tool_runtime_inventory.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0
         }
       ]
     },
