@@ -291,8 +291,15 @@ async def _with_own_engine(factory: object) -> object:
 
 
 async def purge_tenant() -> None:
-    """异步入口：供 async fixture 的 finally 使用（当前事件循环内直接访问真实 PG）。"""
+    """异步入口：供 async fixture 的 finally 使用（当前事件循环内直接访问真实 PG）。
+
+    `test_recovery` 会在真实栈**仍存活**时主动 purge（验证"清理不留残留"），此时
+    Runtime/Gateway 可能并发写入 run_record，落在 run_record 与 conversation 两条
+    DELETE 之间 ⇒ 外键违例。整个事务重试即可收敛（下一次 run_record DELETE 会带走
+    竞态写入的行）；固定 3 次仍失败则照常抛错，不吞异常。
+    """
     from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
 
     async def purge(session_factory: object) -> None:
         async with session_factory() as session:  # type: ignore[operator]
@@ -300,7 +307,14 @@ async def purge_tenant() -> None:
                 for statement in _cleanup_statements():
                     await session.execute(text(statement), {"t": TENANT})
 
-    await _with_own_engine(purge)
+    for attempt in range(3):
+        try:
+            await _with_own_engine(purge)
+            return
+        except IntegrityError:
+            if attempt == 2:
+                raise
+            await asyncio.sleep(0.5)
 
 
 def cleanup(database_url: str) -> None:

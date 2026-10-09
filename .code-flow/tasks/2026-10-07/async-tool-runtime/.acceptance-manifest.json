@@ -10,7 +10,7 @@
       "kind": "e2e",
       "boundary": "Runtime/Worker HTTP、PG、Redis、LLM 探针、SSE",
       "owner": "TASK-004",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -21,14 +21,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "S-01",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 4,
-        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
-        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -37,7 +38,8 @@
           "tests/acceptance/runtime/test_background_result_resume.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -107,6 +109,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -117,7 +138,7 @@
       "kind": "e2e",
       "boundary": "四服务 HTTP、真实 Task、渠道出站探针",
       "owner": "TASK-003",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -128,14 +149,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "S-02",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "767b07bb229e474ab40382242ba04513",
-        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -144,7 +166,8 @@
           "tests/acceptance/runtime/test_submission_hardening.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -180,6 +203,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -190,7 +232,7 @@
       "kind": "e2e",
       "boundary": "实际 provider 请求、canonical 历史、制品存储",
       "owner": "TASK-004",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -201,14 +243,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "S-03",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 4,
-        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
-        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -217,7 +260,8 @@
           "tests/acceptance/runtime/test_background_result_resume.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -287,6 +331,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -357,7 +420,7 @@
       "kind": "e2e",
       "boundary": "Console resolve/API-09、等待恢复、LLM/MCP HTTP",
       "owner": "TASK-004",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -368,14 +431,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "S-05",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 4,
-        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
-        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -384,7 +448,8 @@
           "tests/acceptance/runtime/test_background_result_resume.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -454,6 +519,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -464,7 +548,7 @@
       "kind": "e2e",
       "boundary": "Gateway、Runtime SSE、Worker、原消息回复探针",
       "owner": "TASK-006",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -475,14 +559,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-06",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "8c5d28cf411f4500bcf5d878fde72ff6",
-        "executed_at": "2026-10-08T15:25:14.865730+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -491,7 +576,8 @@
           "tests/acceptance/gateway/test_waiting_resume.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -510,6 +596,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/gateway/test_waiting_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -580,7 +685,7 @@
       "kind": "e2e",
       "boundary": "冻结授权、Worker HTTP、PG、审计",
       "owner": "TASK-003",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -591,14 +696,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-01",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "767b07bb229e474ab40382242ba04513",
-        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -607,7 +713,8 @@
           "tests/acceptance/runtime/test_submission_hardening.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -643,6 +750,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -653,7 +779,7 @@
       "kind": "e2e",
       "boundary": "Runtime 控制发件、Worker 创建事务、故障代理",
       "owner": "TASK-003",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -664,14 +790,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-02",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "767b07bb229e474ab40382242ba04513",
-        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -680,7 +807,8 @@
           "tests/acceptance/runtime/test_submission_hardening.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -716,6 +844,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -726,7 +873,7 @@
       "kind": "e2e",
       "boundary": "Worker 真实进程、PG outbox、Runtime HTTP",
       "owner": "TASK-002",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -737,14 +884,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-03",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "9d982107824f4e57b6bb1130fcabc972",
-        "executed_at": "2026-10-08T07:00:44.566076+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -753,7 +901,8 @@
           "tests/acceptance/runtime/test_background_result_delivery.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -772,6 +921,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_delivery.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -782,7 +950,7 @@
       "kind": "e2e",
       "boundary": "Runtime 等待事务、结果回流 HTTP、PG",
       "owner": "TASK-004",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -793,14 +961,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "E-04",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 4,
-        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
-        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -809,7 +978,8 @@
           "tests/acceptance/runtime/test_background_result_resume.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -879,6 +1049,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-04",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -889,7 +1078,7 @@
       "kind": "e2e",
       "boundary": "两个 Runtime 真实进程、PG lease、LLM HTTP",
       "owner": "TASK-004",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -900,14 +1089,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "E-05",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 4,
-        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
-        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -916,7 +1106,8 @@
           "tests/acceptance/runtime/test_background_result_resume.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -986,6 +1177,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -996,7 +1206,7 @@
       "kind": "e2e",
       "boundary": "真实 deadline sweep、Worker、Runtime、PG",
       "owner": "TASK-004",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1007,14 +1217,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "E-06",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 4,
-        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
-        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -1023,7 +1234,8 @@
           "tests/acceptance/runtime/test_background_result_resume.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -1093,6 +1305,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -1103,7 +1334,7 @@
       "kind": "e2e",
       "boundary": "Runtime cancel、Worker operation 行锁、真实 HTTP",
       "owner": "TASK-003",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1114,14 +1345,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-07",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "767b07bb229e474ab40382242ba04513",
-        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -1130,7 +1362,8 @@
           "tests/acceptance/runtime/test_submission_hardening.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -1166,6 +1399,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -1176,7 +1428,7 @@
       "kind": "e2e",
       "boundary": "ScriptSkillExecutor、真实子孙进程、管道、HTTP",
       "owner": "TASK-002",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1187,14 +1439,15 @@
       "cwd": ".",
       "timeout": 600.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-08",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "9d982107824f4e57b6bb1130fcabc972",
-        "executed_at": "2026-10-08T07:00:44.566076+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -1203,7 +1456,8 @@
           "tests/agent_worker/test_skill_cancellation_real_subprocess.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 600.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -1222,6 +1476,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_worker/test_skill_cancellation_real_subprocess.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -1390,7 +1663,7 @@
       "kind": "e2e",
       "boundary": "内部服务门控、Runtime/Console HTTP、PG",
       "owner": "TASK-007",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1401,14 +1674,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-11",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "b241f1b90d674691a148d9297c17fa9e",
-        "executed_at": "2026-10-08T16:06:32.195728+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -1417,7 +1691,8 @@
           "tests/acceptance/security/test_internal_service_identity.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -1436,6 +1711,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-11",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/security/test_internal_service_identity.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -1446,7 +1740,7 @@
       "kind": "e2e",
       "boundary": "API-09、日志、inbox/outbox/checkpoint/canonical、制品",
       "owner": "TASK-004",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1457,14 +1751,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "E-12",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 4,
-        "run_id": "7b4fec0229af4a19a15ab103c2bab011",
-        "executed_at": "2026-10-08T13:57:39.936378+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -1473,7 +1768,8 @@
           "tests/acceptance/runtime/test_background_result_resume.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -1543,6 +1839,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-12",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_background_result_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -1553,7 +1868,7 @@
       "kind": "e2e",
       "boundary": "SSE socket、Runtime supervisor、Gateway/重连客户端",
       "owner": "TASK-006",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1564,14 +1879,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-13",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "8c5d28cf411f4500bcf5d878fde72ff6",
-        "executed_at": "2026-10-08T15:25:14.865730+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -1580,7 +1896,8 @@
           "tests/acceptance/gateway/test_waiting_resume.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -1599,6 +1916,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-13",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/gateway/test_waiting_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -1669,7 +2005,7 @@
       "kind": "e2e",
       "boundary": "Redis 故障代理、PG 队列和结果发件",
       "owner": "TASK-002",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1680,14 +2016,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-15",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "9d982107824f4e57b6bb1130fcabc972",
-        "executed_at": "2026-10-08T07:00:44.566076+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -1696,7 +2033,8 @@
           "tests/acceptance/runtime/test_redis_unavailable.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -1715,6 +2053,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-15",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_redis_unavailable.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -1725,7 +2082,7 @@
       "kind": "e2e",
       "boundary": "Worker HTTP 故障代理、控制发件、PG tombstone",
       "owner": "TASK-003",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1736,14 +2093,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-16",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "767b07bb229e474ab40382242ba04513",
-        "executed_at": "2026-10-08T07:35:41.908681+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -1752,7 +2110,8 @@
           "tests/acceptance/runtime/test_submission_hardening.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -1788,6 +2147,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-16",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_submission_hardening.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -1798,7 +2176,7 @@
       "kind": "e2e",
       "boundary": "Gateway/Runtime HTTP、PG 活跃会话约束",
       "owner": "TASK-006",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1809,14 +2187,15 @@
       "cwd": ".",
       "timeout": 1200.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-17",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "8c5d28cf411f4500bcf5d878fde72ff6",
-        "executed_at": "2026-10-08T15:25:14.865730+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "uv",
           "run",
@@ -1825,7 +2204,8 @@
           "tests/acceptance/gateway/test_waiting_resume.py"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1200.0,
+        "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
       },
       "runs": [
         {
@@ -1844,6 +2224,25 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-17",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/gateway/test_waiting_resume.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "b5fcf7511f2a7ba7c18b09469855f5f207375707495a88a309281e566118af15"
         }
       ]
     },
@@ -2508,7 +2907,7 @@
       "kind": "e2e",
       "boundary": "Browser→Console→PG；Runtime/Worker/LLM HTTP",
       "owner": "TASK-008",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -2517,21 +2916,23 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-20",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "be6707abc18e40f49ae6f071c57b830c",
-        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "bash",
           "-lc",
           "cd e2e && npm test -- --config playwright.run-observability.config.ts"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1800.0
       },
       "runs": [
         {
@@ -2548,6 +2949,23 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "S-20",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -2558,7 +2976,7 @@
       "kind": "e2e",
       "boundary": "Browser→Router/面板控制→Console Run/Task API→PG",
       "owner": "TASK-008",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -2567,21 +2985,23 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-21",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "be6707abc18e40f49ae6f071c57b830c",
-        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "bash",
           "-lc",
           "cd e2e && npm test -- --config playwright.run-observability.config.ts"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1800.0
       },
       "runs": [
         {
@@ -2598,6 +3018,23 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "S-21",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -2608,7 +3045,7 @@
       "kind": "e2e",
       "boundary": "Browser、真实 Console 分页、PG count",
       "owner": "TASK-008",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -2617,21 +3054,23 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-22",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "be6707abc18e40f49ae6f071c57b830c",
-        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "bash",
           "-lc",
           "cd e2e && npm test -- --config playwright.run-observability.config.ts"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1800.0
       },
       "runs": [
         {
@@ -2648,6 +3087,23 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "S-22",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -2658,7 +3114,7 @@
       "kind": "e2e",
       "boundary": "Browser language/timezone、HTTP 请求头、真实 DTO",
       "owner": "TASK-008",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -2667,21 +3123,23 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-23",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "be6707abc18e40f49ae6f071c57b830c",
-        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "bash",
           "-lc",
           "cd e2e && npm test -- --config playwright.run-observability.config.ts"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1800.0
       },
       "runs": [
         {
@@ -2698,6 +3156,23 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "S-23",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -2708,7 +3183,7 @@
       "kind": "e2e",
       "boundary": "Browser、Console 真实只读投影、PG",
       "owner": "TASK-008",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -2717,21 +3192,23 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-24",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "be6707abc18e40f49ae6f071c57b830c",
-        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "bash",
           "-lc",
           "cd e2e && npm test -- --config playwright.run-observability.config.ts"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1800.0
       },
       "runs": [
         {
@@ -2748,6 +3225,23 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "S-24",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -2758,7 +3252,7 @@
       "kind": "e2e",
       "boundary": "故障代理、Browser、真实 Console 重试",
       "owner": "TASK-008",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -2767,21 +3261,23 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-20",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "be6707abc18e40f49ae6f071c57b830c",
-        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "bash",
           "-lc",
           "cd e2e && npm test -- --config playwright.run-observability.config.ts"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1800.0
       },
       "runs": [
         {
@@ -2798,6 +3294,23 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-20",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -2808,7 +3321,7 @@
       "kind": "e2e",
       "boundary": "Browser、账号租户、Console API",
       "owner": "TASK-008",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -2817,21 +3330,23 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-21",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "be6707abc18e40f49ae6f071c57b830c",
-        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "bash",
           "-lc",
           "cd e2e && npm test -- --config playwright.run-observability.config.ts"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1800.0
       },
       "runs": [
         {
@@ -2848,6 +3363,23 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-21",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -2858,7 +3390,7 @@
       "kind": "e2e",
       "boundary": "延迟真实响应的代理、Browser、服务请求",
       "owner": "TASK-008",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -2867,21 +3399,23 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-22",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "be6707abc18e40f49ae6f071c57b830c",
-        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "bash",
           "-lc",
           "cd e2e && npm test -- --config playwright.run-observability.config.ts"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1800.0
       },
       "runs": [
         {
@@ -2898,6 +3432,23 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "E-22",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -2908,7 +3459,7 @@
       "kind": "e2e",
       "boundary": "真实 PG 空列表/分页",
       "owner": "TASK-008",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -2917,21 +3468,23 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-20",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "be6707abc18e40f49ae6f071c57b830c",
-        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "bash",
           "-lc",
           "cd e2e && npm test -- --config playwright.run-observability.config.ts"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1800.0
       },
       "runs": [
         {
@@ -2948,6 +3501,23 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "B-20",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -2958,7 +3528,7 @@
       "kind": "e2e",
       "boundary": "Chrome 键盘、实际 Semi SideSheet/Tab/链接",
       "owner": "TASK-008",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -2967,21 +3537,23 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-21",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "be6707abc18e40f49ae6f071c57b830c",
-        "executed_at": "2026-10-08T16:41:35.163260+00:00",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+        "revision": 2,
+        "run_id": "9976fd96a66342eab5b90014db90d9c8",
+        "executed_at": "2026-10-09T01:31:43.255615+00:00",
         "command": [
           "bash",
           "-lc",
           "cd e2e && npm test -- --config playwright.run-observability.config.ts"
         ],
         "cwd": ".",
-        "timeout": 60.0
+        "timeout": 1800.0
       },
       "runs": [
         {
@@ -2998,6 +3570,23 @@
           ],
           "cwd": ".",
           "timeout": 60.0
+        },
+        {
+          "id": "B-21",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "2/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n        cursor.execute(statement, parameters)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 585, in execute\n        self._adapt_connection.await_(\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 132, in await_only\n        return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py\", line 196, in greenlet_spawn\n        value = await result\n                ^^^^^^^^^^^^\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 563, in _prepare_and_execute\n        self._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 513, in _handle_exception\n        self._adapt_connection._handle_exception(error)\n      File \"/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py\", line 797, in _handle_exception\n        raise translated_error from error\n    sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column \"snapshot_id\" of relation \"run_continuation\" violates not-null constraint\n    DETAIL:  Failing row contains (99781733-6a4b-482b-9f81-4bbe8ae3789b, f, 2026-10-09 01:31:42.155935+00, 2026-10-09 01:31:42.155935+00, run-obs-browser-28, 1825f526-52f8-46c3-b911-3c8122fbb833, null, BEFORE_MODEL, 1, f, 5, 0, 0, 0, null, null, 1, {}).\n    [SQL: INSERT INTO runtime.run_continuation (tenant_id, run_id, snapshot_id, wait_generation, ready, context_upto_seq, input_tokens, output_tokens, runner_state_json) VALUES ($1::VARCHAR, $2::UUID, $3::UUID, $4::BIGINT, $5::BOOLEAN, $6::BIGINT, $7::BIGINT,  ... 271 characters truncated ... _continuation.is_deleted, runtime.run_continuation.create_time, runtime.run_continuation.update_time]\n    [parameters: ('run-obs-browser-28', UUID('1825f526-52f8-46c3-b911-3c8122fbb833'), None, 1, False, 5, None, None, '{}')]\n    (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\n\n      61 |   });\n      62 |   if (result.status !== 0) {\n    > 63 |     throw new Error(`种子命令失败（exit=${String(result.status)}）：${args.join(' ')}\\n${result.stderr ?? ''}`);\n         |           ^\n      64 |   }\n      65 |   return result.stdout ?? '';\n      66 | }\n        at runSeedCli (/Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:63:11)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/run-observability.spec.ts:125:3\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    Error Context: test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/run-observability-S-21-关联--606ee-源-Run-反向替换回同-run-id，反复切换不堆叠/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/run-observability.spec.ts:133:1 › S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 ───────\n  9 did not run\n[WebServer] INFO:     Started server process [13792]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:9029 (Press CTRL+C to quit)",
+          "revision": 2,
+          "run_id": "9976fd96a66342eab5b90014db90d9c8",
+          "executed_at": "2026-10-09T01:31:43.255615+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "cd e2e && npm test -- --config playwright.run-observability.config.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     }

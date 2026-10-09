@@ -339,6 +339,7 @@ async def _create(state_path: str) -> None:
                 )
             )
             wait_snapshot = RuntimeSnapshot(
+                id=uuid.uuid4(),
                 tenant_id=TENANT,
                 run_id=wait_run_id,
                 agent_revision=1,
@@ -351,6 +352,10 @@ async def _create(state_path: str) -> None:
                 content_hash="sha256:" + "c" * 64,
             )
             session.add(wait_snapshot)
+            # 先落 run_record/runtime_snapshot，再建引用它们的 run_continuation：
+            # 无 relationship 的普通 FK 列不参与 SQLAlchemy 的插入排序，不显式 flush
+            # 会被按 mapper 名排在 run_record 之前插入而触发外键违例。
+            await session.flush()
             wait_task = _task(
                 tenant=TENANT,
                 agent_id=agent.id,
@@ -433,6 +438,7 @@ async def _create(state_path: str) -> None:
                     start_time=now - timedelta(minutes=30),
                 )
             )
+            await session.flush()
             session.add(
                 _event(
                     tenant=TENANT,
@@ -589,6 +595,7 @@ async def _create(state_path: str) -> None:
                     start_time=now - timedelta(minutes=20),
                 )
             )
+            await session.flush()
             empty_audit = _tool_audit(
                 tenant=TENANT,
                 run_id=empty_run_id,
@@ -633,6 +640,7 @@ async def _create(state_path: str) -> None:
                     deadline_at=now + timedelta(hours=2),
                 )
             )
+            await session.flush()
             content_audit = _tool_audit(
                 tenant=TENANT,
                 run_id=content_run_id,
@@ -644,6 +652,7 @@ async def _create(state_path: str) -> None:
             content_audit_id = content_audit.id
             session.add(content_audit)
             content_snapshot = RuntimeSnapshot(
+                id=uuid.uuid4(),
                 tenant_id=TENANT,
                 run_id=content_run_id,
                 agent_revision=1,
@@ -656,6 +665,8 @@ async def _create(state_path: str) -> None:
                 content_hash="sha256:" + "d" * 64,
             )
             session.add(content_snapshot)
+            # 同 wait 模式：run_continuation 引用 run_record/runtime_snapshot，先显式 flush。
+            await session.flush()
             session.add(
                 RunContinuation(
                     tenant_id=TENANT,
@@ -738,6 +749,7 @@ async def _create(state_path: str) -> None:
                     start_time=now - timedelta(minutes=15),
                 )
             )
+            await session.flush()
             session.add(
                 _operation(
                     tenant=TENANT,
@@ -802,6 +814,7 @@ async def _create(state_path: str) -> None:
                     start_time=now - timedelta(minutes=5),
                 )
             )
+            await session.flush()
 
     _save_state(
         state_path,
