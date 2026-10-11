@@ -23,14 +23,20 @@ async function openDetail(page: Page, taskId: string): Promise<void> {
   await expect(page.getByTestId('task-detail-deadline')).toBeVisible();
 }
 
-async function confirmPopconfirm(page: Page): Promise<void> {
-  // 弹层在**首次打开后常驻 DOM**（关闭只是隐藏，不卸载）。同一个页面里第二次打开的
-  // 瞬间就点确认，会命中上一次遗留的隐藏节点：带 `force` 的点击在 CI 慢渲染下必红
-  // （B-134 的历史 e2e 红因，error-context：`Element is not visible`）。
-  // 先等弹层真的可见再点，和用户操作同序。
+async function cancelRow(page: Page, taskId: string): Promise<void> {
+  const trigger = page.getByTestId(`task-row-cancel-${taskId}`);
   const ok = page.locator('.semi-popconfirm').getByRole('button', { name: /确定|删除/ });
-  await expect(ok).toBeVisible();
-  await ok.click({ force: true });
+  // 弹层在首次打开后常驻 DOM（关闭只是隐藏），且**打开这一步**在 CI 慢渲染下会偶发
+  // "点击被吞 / 开完即关"（B-134 两次红都出在这里：一次命中隐藏的遗留节点，一次
+  // 等到测试超时）。以"弹层真的可见"为成功判据重试**打开**；确认只点一次——重复确认
+  // 会多发取消请求，破坏 S-FE-02 的 cancelRequests 计数断言。
+  await expect(async () => {
+    if (!(await ok.isVisible())) {
+      await trigger.click({ timeout: 2_000, force: true });
+    }
+    await expect(ok).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+  await ok.click({ force: true, timeout: 5_000 });
 }
 
 test.describe('Task 取消', () => {
@@ -69,7 +75,7 @@ test.describe('Task 取消', () => {
     await page.getByTestId(`task-row-cancel-${taskId}`).click();
     await page.waitForTimeout(500);
     expect(cancelRequests).toHaveLength(0);
-    await confirmPopconfirm(page);
+    await cancelRow(page, taskId);
 
     await expect(page.locator('.semi-table-row', { hasText: taskId })).toContainText('已取消');
     await expect(page.getByTestId(`task-row-cancel-${taskId}`)).toHaveCount(0);
@@ -90,15 +96,13 @@ test.describe('Task 取消', () => {
     await page.locator('.semi-sidesheet-close').click();
 
     await request.post('/__e2e/worker-failure', { data: { failing: true } });
-    await page.getByTestId(`task-row-cancel-${taskId}`).click();
-    await confirmPopconfirm(page);
+    await cancelRow(page, taskId);
     await expect(page.locator('.semi-table-row', { hasText: taskId })).toContainText('排队中');
     await expect(page.getByTestId(`task-row-cancel-${taskId}`)).toBeVisible();
     await expect(page.locator('.semi-toast-content').first()).toBeVisible();
 
     await request.post('/__e2e/worker-failure', { data: { failing: false } });
-    await page.getByTestId(`task-row-cancel-${taskId}`).click();
-    await confirmPopconfirm(page);
+    await cancelRow(page, taskId);
     await expect(page.locator('.semi-table-row', { hasText: taskId })).toContainText('已取消');
 
     await expect(page.getByTestId(`task-row-cancel-${completedId}`)).toHaveCount(0);
@@ -117,8 +121,7 @@ test.describe('Task 取消', () => {
     await expect(page.locator('.detail-actions')).toHaveCount(0);
     await page.locator('.semi-sidesheet-close').click();
 
-    await page.getByTestId(`task-row-cancel-${taskId}`).click();
-    await confirmPopconfirm(page);
+    await cancelRow(page, taskId);
     await page.getByTestId(`task-link-${taskId}`).click();
     await expect(page.getByTestId('task-cancel-requested')).toBeVisible();
     await expect(page.getByTestId(`task-row-cancel-${taskId}`)).toHaveCount(0);

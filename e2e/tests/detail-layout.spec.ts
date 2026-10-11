@@ -236,8 +236,13 @@ test('artifact details reuse the sheet and close back to the skill', async ({ pa
   await sheet.getByRole('tab', { name: 'SKILL.md' }).click();
   await expect(sheet.getByTestId('artifact-skill-md').getByRole('heading', { name: 'Instructions' })).toBeVisible();
   await expect(sheet.getByTestId('artifact-skill-md').getByRole('heading', { name: 'Instructions' })).toHaveCSS('font-size', '20px');
-  await sheet.getByText('原文', { exact: true }).click();
-  await expect(sheet.getByRole('radio', { name: '原文', exact: true })).toBeChecked();
+  const sourceRadio = sheet.getByRole('radio', { name: '原文', exact: true });
+  // CI 慢渲染下这次点击会偶发"被吞"（2026-10-11 一次 e2e 红：radio 始终 unchecked）。
+  // 以"真的选中"为成功判据重试点击；点击幂等（已选中时再点仍是选中）。
+  await expect(async () => {
+    await sheet.getByText('原文', { exact: true }).click({ timeout: 2_000 });
+    await expect(sourceRadio).toBeChecked({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
   await expect(sheet.getByTestId('artifact-skill-md').locator('pre')).toHaveText(artifact.instructions);
   await sheet.locator('.semi-sidesheet-close').click();
   await expect(page.getByRole('dialog')).toHaveCount(1);
