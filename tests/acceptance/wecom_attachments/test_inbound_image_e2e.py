@@ -19,6 +19,7 @@ import asyncio
 import base64
 import hashlib
 import json
+import re
 import time
 import uuid
 from pathlib import Path
@@ -153,12 +154,15 @@ def _log_tail(process: Any, *, lines: int = 120) -> str:
 async def _diagnose(stack: GatewayStack, message_id: str) -> str:
     """断言失败时把**那一刻的运行时状态**带出来，而不是只报"0 行"。
 
-    S-01 是唯一「红过两次却从未在本地复现」的用例（本机跑全量一直绿）。按 `run_service.py`
-    的硬判据——入站 artifact 行与 Run 行**同事务**、在模型循环之前落库——查到 0 行只可能是
-    「**Run 创建整个没成功**」：那时网关侧文件已落盘、回复是**错误文案**，`assert reply` 照样过。
-    所以要看的正是：run 行到底有没有、状态与错误码是什么、两个服务的日志尾部说了什么。
+    S-01 是「CI 红过两次（2026-10-06/07）、只留下 0 行现象」的用例；2026-10-11 本地全量
+    与单文件复现时，诊断第一次给出了证据：`runtime.run_record` **有**该 Run 行（CREATED，
+    提交于状态帧后约 24ms），`run_submission` 是 create-run 200 —— 0 行的真因是**断言
+    查询早于建 Run 事务的提交**，而提前返回"回复"的是网关先发的附件回执 / `<think>…</think>`
+    状态帧（`_wait_reply` 已改为等 Run 自己回复流的终帧）。
 
-    **不要把这条断言改成"等一会儿再查"**：真失败时那只把它变成「慢一点仍红」，或更糟——假绿。
+    真·Run 创建失败时网关回的是**错误文案**（无 `<think>`），`_wait_reply` 会原样返回它、
+    `assert reply` 照样过 —— 这个断言因此仍是那条路径的探测器。**不要把这条断言改成
+    "等一会儿再查"**：真失败时那只把它变成「慢一点仍红」，或更糟——假绿。
     诊断本身**永不抛错**（查询失败就返回那句话），否则会把真正的失败盖掉。
     """
     try:
@@ -187,18 +191,52 @@ async def _diagnose(stack: GatewayStack, message_id: str) -> str:
     )
 
 
+#: 网关的计时状态帧形如 `<think>🔵 准备中 · 已执行 00:00</think>`（`reply.update_status`），
+#: 后面可能还跟着已生成的正文。
+_STATUS_FRAME = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+
+def _stream_of(frame: dict[str, Any]) -> dict[str, Any]:
+    return (frame.get("body") or {}).get("stream") or {}
+
+
+def _run_stream_id(frames: list[dict[str, Any]]) -> str:
+    """本 Run 的回复流 id：发出 `<think>` 状态帧的那条流。
+
+    网关先发**附件回执**（一次性 `finish=True` 帧，`ReplySession.reply_once` 给它一个
+    随机 stream id），再在 Run **自己的**流上发 `<think>…</think>` 状态帧 —— 回执与
+    正文不是同一条流。认错会让随后的落库断言与建 Run 事务赛跑（见 `_wait_reply`）。
+    """
+    for frame in frames:
+        if frame_text(frame).startswith("<think>"):
+            return str(_stream_of(frame).get("id") or "")
+    return ""
+
+
 async def _wait_reply(probe: Any, reply_id: str, *, timeout: float = WAIT_SEC) -> str:
+    """等这条消息**自己的 Run 回复流收尾**（终帧带完整正文），而不是回执 / 状态帧。
+
+    网关在 `create_run` **之前**就发附件回执与「准备中」状态帧（`ExecutionProgress`
+    初始 `visible=True`）；把它们当成"用户已收到回复"会让断言查询早于建 Run 事务的
+    提交 —— 2026-10-11 复现的红即此竞态（诊断显示 Run 行在状态帧后约 24ms 提交，
+    而查询早于提交）。终帧只可能在 Run 跑完之后出现，因此以它为同步点没有竞态。
+    真·建 Run 失败时该流以空正文收尾 ⇒ 返回空串，`assert reply` 立刻失败。
+    """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        texts = [
-            frame_text(frame)
+        frames = [
+            frame
             for frame in probe.replies
             if (frame.get("headers") or {}).get("req_id") == reply_id
         ]
-        if texts and texts[-1]:
-            return texts[-1]
+        stream_id = _run_stream_id(frames)
+        if stream_id:
+            for frame in reversed(frames):
+                stream = _stream_of(frame)
+                if stream.get("id") == stream_id and stream.get("finish"):
+                    return _STATUS_FRAME.sub("", frame_text(frame)).strip()
         await asyncio.sleep(0.2)
-    raise AssertionError(f"回调 {reply_id} 未在 {timeout}s 内得到回复")
+    raise AssertionError(f"回调 {reply_id} 未在 {timeout}s 内得到回复（Run 的回复流未收尾）")
 
 
 async def _push(stack: GatewayStack, frame: dict[str, Any]) -> None:
