@@ -55,7 +55,7 @@ export function AuditExportButton(props: AuditExportButtonProps) {
           <Banner type="danger" closeIcon={null} description={t(exportErrorKey(errorCode))} />
           <Button
             theme="borderless"
-            type="danger"
+            type="primary"
             data-testid="audit-export-retry"
             onClick={retry}
           >

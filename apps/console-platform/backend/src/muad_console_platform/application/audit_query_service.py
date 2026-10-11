@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
 from typing import Any
 
 from muad_api import AppError
@@ -31,12 +31,12 @@ RESULT_STATUSES = frozenset({"SUCCESS", "FAILED", "DENIED"})
 _TIME_FIELDS = ("occurred_at", "started_at", "finished_at")
 
 
-def format_console_time(value: datetime | None) -> str | None:
+def format_console_time(value: datetime | None, *, timezone: tzinfo | None = None) -> str | None:
     """timestamptz → Console 展示格式；出参依赖 DB 的绝对时刻，不做字符串截断。"""
     if value is None:
         return None
     aware = value.replace(tzinfo=UTC) if value.tzinfo is None else value
-    return aware.astimezone().strftime(CONSOLE_TIME_FORMAT)
+    return aware.astimezone(timezone).strftime(CONSOLE_TIME_FORMAT)
 
 
 def _as_utc(value: datetime) -> datetime:

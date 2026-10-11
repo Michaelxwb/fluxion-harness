@@ -83,7 +83,7 @@ async function createPlatform(
   await page.goto('/platforms');
   await page.getByTestId('create-platform').click();
   await fillPlatformForm(page, { key, name, baseUrl });
-  await page.locator('.semi-modal-footer .semi-button-primary').click();
+  await page.locator('.semi-modal').getByRole('button', { name: 'confirm', exact: true }).click();
   await expect(page.getByTestId(`platform-link-${key}`)).toBeVisible();
 }
 
@@ -105,7 +105,7 @@ test('S-01/S-09 平台创建、唯一冲突、软删重建、筛选与分页', a
 
     await page.getByTestId('create-platform').click();
     await fillPlatformForm(page, { key, name: 'Duplicated Platform', baseUrl: PROBE_BASE });
-    await page.locator('.semi-modal-footer .semi-button-primary').click();
+    await page.locator('.semi-modal').getByRole('button', { name: 'confirm', exact: true }).click();
     const modal = page.locator('.semi-modal');
     await expect(modal).toContainText('已存在');
     await expect(modal).toContainText(key);
@@ -119,13 +119,15 @@ test('S-01/S-09 平台创建、唯一冲突、软删重建、筛选与分页', a
     await page.getByTestId(`platform-link-${key}`).click();
     const sheet = page.locator('.semi-sidesheet');
     await expect(sheet).toBeVisible();
-    await sheet.getByRole('button', { name: '删除平台' }).click();
+    await expect(sheet.locator('.detail-actions')).toHaveCount(0);
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`delete-platform-${key}`).click();
     await page.getByRole('button', { name: '确定' }).last().click();
     await expect(page.getByTestId(`platform-link-${key}`)).toHaveCount(0);
 
     await page.getByTestId('create-platform').click();
     await fillPlatformForm(page, { key, name: 'E2E Recreated Platform', baseUrl: PROBE_BASE });
-    await page.locator('.semi-modal-footer .semi-button-primary').click();
+    await page.locator('.semi-modal').getByRole('button', { name: 'confirm', exact: true }).click();
     await expect(page.getByTestId(`platform-link-${key}`)).toBeVisible();
   } finally {
     seed(`platform-user-${key}`, key, { cleanup: true });
@@ -152,7 +154,7 @@ test('S-05 表单仅渲染所选 resolver 字段且保存后详情一致', async
     await modal.locator('input#name').fill('E2E Service Discovery');
     await modal.locator('input#key').fill(key);
     await modal.locator('input#service_name').fill('e2e-service');
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
     await expect(page.getByTestId(`platform-link-${key}`)).toBeVisible();
 
     const sheet = page.locator('.semi-sidesheet');
@@ -181,7 +183,7 @@ test('S-02/S-06 用户凭据未配置→保存→DB 明文且不回显', async (
     await sheet.getByRole('button', { name: '配置凭据', exact: true }).first().click();
     const modal = page.locator('.semi-modal');
     await modal.getByRole('textbox', { name: /token/i }).fill(token);
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
     await expect(sheet).toContainText('已配置');
 
     const stored = dumpCredential(key);
@@ -204,7 +206,7 @@ test('S-03/S-07/E-06 配置校验可达、不可达与无 Secret', async ({ page
     await createPlatform(page, { key, name: 'E2E Probe Platform', baseUrl: PROBE_BASE });
     await page.locator('.semi-sidesheet-mask').click({ position: { x: 10, y: 10 } });
     await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
-    await page.locator('.semi-table-tbody').getByRole('button', { name: '配置校验' }).first().click();
+    await page.getByTestId(`test-platform-${key}`).click();
     const modal = page.locator('.semi-modal');
     await expect(modal).toContainText('通过');
     await expect(modal).toContainText('可达');
@@ -224,8 +226,7 @@ test('S-03/S-07/E-06 配置校验可达、不可达与无 Secret', async ({ page
     });
     await page.locator('.semi-sidesheet-mask').click({ position: { x: 10, y: 10 } });
     await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
-    await openPlatformDetail(page, unreachableKey);
-    await page.locator('.semi-sidesheet').getByRole('button', { name: '配置校验' }).click();
+    await page.getByTestId(`test-platform-${unreachableKey}`).click();
     const modal = page.locator('.semi-modal');
     await expect(modal).toContainText('不可达');
     await expect(modal).toContainText('连接被拒绝');
@@ -242,12 +243,13 @@ test('E-05 更换适配器提示凭据失效并引导凭据 Tab', async ({ page 
   seed(userCode, key);
   try {
     await openPlatformDetail(page, key);
-    await page.getByRole('button', { name: '编辑平台' }).click();
+    await page.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`edit-platform-${key}`).click();
     const modal = page.locator('.semi-modal');
     await modal.getByRole('combobox', { name: /平台适配器/ }).click();
     await page.getByRole('option', { name: /alt-http/ }).click();
     await expect(modal.getByRole('combobox', { name: /平台适配器/ })).toContainText('alt-http');
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
     await expect(page.locator('.semi-sidesheet')).toContainText('平台适配器已变更');
     await expect(page.locator('.semi-sidesheet').getByRole('tab', { name: /凭据/ })).toHaveAttribute(
       'aria-selected',

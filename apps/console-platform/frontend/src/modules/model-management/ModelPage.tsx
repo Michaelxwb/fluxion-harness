@@ -1,3 +1,4 @@
+import { actionColumn } from '../../components/common/tableLayout';
 import { Button, Input, Select, Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +12,7 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { RemoteTable } from '../../components/common/RemoteTable';
+import { TableText } from '../../components/common/TableText';
 import { ModelDetailSideSheet, ModelTestResultModal } from './ModelDetailSideSheet';
 import { ModelFormModal } from './ModelFormModal';
 import { testStatusOptions } from './statusOptions';
@@ -226,8 +228,8 @@ export function ModelPage() {
           <ErrorState onRetry={() => void reload()} />
         ) : (
           <RemoteTable<ModelItem>
-            className="model-table"
-            scroll={{ x: 1408 }}
+            className="model-table app-table-fit app-table-nowrap"
+            scroll={{ x: '100%' }}
             rowKey="id"
             loading={loading}
             rowSelection={{
@@ -238,21 +240,21 @@ export function ModelPage() {
               {
                 title: t('model.columns.key'),
                 dataIndex: 'key',
-                width: 220,
+                width: 'auto',
                 ellipsis: true,
                 render: (value: string, record: ModelItem) => (
                   <EntityLink testId={`model-link-${value}`} onClick={() => void openDetail(record.id)}>
-                    {value}
+                    <TableText>{value}</TableText>
                   </EntityLink>
                 )
               },
-              { title: t('model.columns.name'), dataIndex: 'name', width: 160, ellipsis: true },
-              { title: t('model.columns.modelId'), dataIndex: 'model_id', width: 130, ellipsis: true },
-              { title: t('model.columns.protocol'), dataIndex: 'protocol', width: 90 },
-              { title: t('model.columns.baseUrl'), dataIndex: 'base_url', width: 240, ellipsis: true },
+              { title: t('model.columns.name'), dataIndex: 'name', width: 'auto', ellipsis: true },
+              { title: t('model.columns.modelId'), dataIndex: 'model_id', width: 'auto', ellipsis: true },
+              { title: t('model.columns.protocol'), dataIndex: 'protocol', width: 88 },
+              { title: t('model.columns.baseUrl'), dataIndex: 'base_url', width: 'auto', ellipsis: true },
               {
                 title: t('model.columns.statusSummary'),
-                width: 128,
+                width: 108,
                 render: (_: unknown, record: ModelItem) => (
                   <ModelStatusIcons
                     model={record}
@@ -265,12 +267,12 @@ export function ModelPage() {
               {
                 title: t('model.columns.updateTime'),
                 dataIndex: 'update_time',
-                width: 170,
+                width: 176,
                 render: (value: string) => <DateTimeText value={value} />
               },
               {
+                ...actionColumn(112),
                 title: t('model.columns.actions'),
-                width: 128,
                 render: (_: unknown, record: ModelItem) => (
                   <div className="model-table-actions">
                     <Button
@@ -282,7 +284,7 @@ export function ModelPage() {
                     >
                       {t('model.actions.edit')}
                     </Button>
-                    <ConfirmAction danger title={t('model.confirmDelete')} onConfirm={() => void remove(record)}>
+                    <ConfirmAction title={t('model.confirmDelete')} onConfirm={() => void remove(record)}>
                       {t('model.actions.delete')}
                     </ConfirmAction>
                   </div>
@@ -316,11 +318,6 @@ export function ModelPage() {
       <ModelDetailSideSheet
         model={detail}
         onCancel={() => setDetail(null)}
-        onEdit={(model) => {
-          setFormModel(model);
-          setFormVisible(true);
-        }}
-        onDelete={(model) => void remove(model)}
       />
       <ModelTestResultModal
         visible={testVisible}

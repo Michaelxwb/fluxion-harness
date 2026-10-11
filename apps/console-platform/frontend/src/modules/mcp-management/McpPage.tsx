@@ -1,7 +1,12 @@
+import { actionColumn } from '../../components/common/tableLayout';
 import { Button, Input, Select, Tag, Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '../../auth/AuthContext';
+import { ConfirmAction } from '../../components/common/ConfirmAction';
+import { McpScopeModal } from './McpScopeModal';
+import { McpTestModal } from './McpTestModal';
 import { ListActionButton } from '../../components/common/ListActionButton';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
@@ -9,12 +14,15 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
+import { EntityLink } from '../../components/common/EntityLink';
+import { TableText } from '../../components/common/TableText';
 import { McpDetailSideSheet } from './McpDetailSideSheet';
 import { McpFormModal } from './McpFormModal';
 import {
   deleteMcpServer,
   discoverTools,
   listMcpServers,
+  getMcpServer,
   type McpServerDetail,
   type McpServerListItem
 } from './services/mcpServers';
@@ -35,6 +43,10 @@ export function McpPage() {
   const [formVisible, setFormVisible] = useState(false);
   const [formServer, setFormServer] = useState<McpServerDetail | null>(null);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const { account } = useAuth();
+  const [testTarget, setTestTarget] = useState<string | null>(null);
+  const [scopeTarget, setScopeTarget] = useState<McpServerDetail | null>(null);
+  const [detailReloadKey, setDetailReloadKey] = useState(0);
   const requestSeq = useRef(0);
 
   /** 关键字：回车才写入查询参数并复位第 1 页（值未变则不产生新 params，避免无谓重查）。 */
@@ -90,11 +102,31 @@ export function McpPage() {
     }
   };
 
+  const openEdit = async (server: McpServerListItem): Promise<void> => {
+    try {
+      const latest = await getMcpServer(server.mcp_id);
+      setFormServer(latest);
+      setFormVisible(true);
+    } catch {
+      // ApiClient displays the request failure; keep the modal closed.
+    }
+  };
+
+  const openScope = async (server: McpServerListItem): Promise<void> => {
+    try {
+      const latest = await getMcpServer(server.mcp_id);
+      setScopeTarget(latest);
+    } catch {
+      // ApiClient displays the request failure; keep the modal closed.
+    }
+  };
+
   const refreshTools = async (server: McpServerListItem): Promise<void> => {
     setRefreshingId(server.mcp_id);
     try {
       await discoverTools(server.mcp_id);
       Toast.success(t('mcp.actions.discoverSuccess'));
+      setDetailReloadKey((value) => value + 1);
       await reload();
     } catch {
       // 失败 Toast 由 ApiClient 展示；保留上一成功 Catalog
@@ -165,39 +197,44 @@ export function McpPage() {
           }
         />
         <RemoteTable<McpServerListItem>
+          className="mcp-table app-table-fit app-table-nowrap"
+          scroll={{ x: '100%' }}
           rowKey="mcp_id"
           loading={loading}
           columns={[
             {
               title: t('mcp.form.name'),
               dataIndex: 'name',
+              width: 'auto',
+              ellipsis: true,
               render: (value: string, record: McpServerListItem) => (
-                <Button
-                  theme="borderless"
-                  data-testid={`mcp-link-${record.key}`}
+                <EntityLink
+                  testId={`mcp-link-${record.key}`}
                   onClick={() => setDetail(record)}
                 >
-                  {value}
-                </Button>
+                  <TableText>{value}</TableText>
+                </EntityLink>
               )
             },
-            { title: t('mcp.form.key'), dataIndex: 'key' },
-            { title: t('mcp.form.endpoint'), dataIndex: 'endpoint', width: 220 },
+            { title: t('mcp.form.key'), dataIndex: 'key', width: 'auto', ellipsis: true },
+            { title: t('mcp.form.endpoint'), dataIndex: 'endpoint', width: 'auto', ellipsis: true },
             {
               title: t('mcp.columns.userScope'),
               dataIndex: 'user_scope',
+              width: 128,
               render: (value: McpServerListItem['user_scope']) => (
                 <Tag color={value === 'ALL' ? 'green' : 'blue'}>
                   {t(`mcp.scope.${value.toLowerCase()}`)}
                 </Tag>
               )
             },
-            { title: t('mcp.columns.selectedUserCount'), dataIndex: 'selected_user_count' },
-            { title: t('mcp.columns.toolCount'), dataIndex: 'tool_count' },
-            { title: t('mcp.columns.usingAgentCount'), dataIndex: 'using_agent_count' },
+            { title: t('mcp.columns.selectedUserCount'), dataIndex: 'selected_user_count', width: 108 },
+            { title: t('mcp.columns.toolCount'), dataIndex: 'tool_count', width: 88 },
+            { title: t('mcp.columns.usingAgentCount'), dataIndex: 'using_agent_count', width: 108 },
             {
               title: t('mcp.columns.enabled'),
               dataIndex: 'enabled',
+              width: 92,
               render: (value: boolean) => (
                 <Tag color={value ? 'light-blue' : 'grey'}>
                   {t(`common.status.${value ? 'enabled' : 'disabled'}`)}
@@ -207,6 +244,7 @@ export function McpPage() {
             {
               title: t('mcp.columns.connectionStatus'),
               dataIndex: 'connection_status',
+              width: 136,
               render: (value: string) => (
                 <Tag color={value === 'AVAILABLE' ? 'green' : value === 'UNKNOWN' ? 'grey' : 'red'}>
                   {t(`mcp.connection.${value}`)}
@@ -216,19 +254,41 @@ export function McpPage() {
             {
               title: t('mcp.columns.lastDiscoveredAt'),
               dataIndex: 'last_discovered_at',
+              width: 176,
               render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
             },
             {
+              ...actionColumn(280),
               title: t('mcp.columns.actions'),
               render: (_: unknown, record: McpServerListItem) => (
-                <Button
-                  theme="borderless"
-                  data-testid={`refresh-mcp-${record.key}`}
-                  loading={refreshingId === record.mcp_id}
-                  onClick={() => void refreshTools(record)}
-                >
-                  {t('mcp.actions.discover')}
-                </Button>
+                <div className="table-actions">
+                  <Button theme="borderless" data-testid={`edit-mcp-${record.key}`} onClick={() => void openEdit(record)}>
+                    {t('mcp.actions.edit')}
+                  </Button>
+                  <Button theme="borderless" data-testid={`test-mcp-${record.key}`} onClick={() => setTestTarget(record.mcp_id)}>
+                    {t('mcp.test.action')}
+                  </Button>
+                  {account?.role === 'ADMIN' ? (
+                    <Button theme="borderless" data-testid={`change-mcp-scope-${record.key}`} onClick={() => void openScope(record)}>
+                      {t('mcp.scope.changeAction')}
+                    </Button>
+                  ) : null}
+                  <Button
+                    theme="borderless"
+                    data-testid={`refresh-mcp-${record.key}`}
+                    loading={refreshingId === record.mcp_id}
+                    onClick={() => void refreshTools(record)}
+                  >
+                    {t('mcp.actions.discover')}
+                  </Button>
+                  <ConfirmAction
+                    title={t('mcp.confirmDelete')}
+                    testId={`delete-mcp-${record.key}`}
+                    onConfirm={() => void remove(record)}
+                  >
+                    {t('mcp.actions.delete')}
+                  </ConfirmAction>
+                </div>
               )
             }
           ]}
@@ -261,14 +321,22 @@ export function McpPage() {
           void reload();
         }}
       />
+      <McpTestModal visible={testTarget !== null} serverId={testTarget} onCancel={() => setTestTarget(null)} />
+      <McpScopeModal
+        visible={scopeTarget !== null}
+        serverId={scopeTarget?.mcp_id ?? null}
+        currentScope={scopeTarget?.user_scope ?? 'SELECTED'}
+        onCancel={() => setScopeTarget(null)}
+        onSaved={() => {
+          setScopeTarget(null);
+          setDetailReloadKey((value) => value + 1);
+          void reload();
+        }}
+      />
       <McpDetailSideSheet
+        reloadKey={detailReloadKey}
         server={detail}
         onCancel={() => setDetail(null)}
-        onEdit={(server) => {
-          setFormServer(server);
-          setFormVisible(true);
-        }}
-        onDelete={(server) => void remove(server)}
         onMutated={() => void reload()}
       />
     </>

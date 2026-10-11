@@ -81,7 +81,7 @@ export function SkillImportModal(props: SkillImportModalProps) {
     <FormModal
       visible={props.visible}
       width={520}
-      title={props.skillId ? t('skill.artifact.importNew') : t('skill.import.title')}
+      title={props.skillId ? t('skill.artifact.importTitle') : t('skill.import.title')}
       okText={t('skill.import.submit')}
       confirmLoading={saving}
       onOk={() => formApi.current?.submitForm()}

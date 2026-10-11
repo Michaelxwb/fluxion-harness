@@ -28,6 +28,7 @@ from muad_agent_runtime.infrastructure.models.async_tools import RunContinuation
 from muad_agent_runtime.infrastructure.models.runtime import (
     CanonicalEvent,
     Conversation,
+    ModelInvocationAudit,
     RunRecord,
     RuntimeSnapshot,
     ToolCallAudit,
@@ -74,6 +75,7 @@ CREDENTIAL_MARKER = "RUN-OBS-SECRET-CREDENTIAL"
 CONTENT_EVENT_COUNT = 205
 
 CLEANUP_STATEMENTS = (
+    "DELETE FROM runtime.model_invocation_audit WHERE tenant_id = :t",
     "DELETE FROM runtime.tool_call_audit WHERE tenant_id = :t",
     "DELETE FROM runtime.tool_operation WHERE tenant_id = :t",
     "DELETE FROM runtime.run_continuation WHERE tenant_id = :t",
@@ -91,6 +93,7 @@ CLEANUP_STATEMENTS = (
 )
 
 TABLES = (
+    "runtime.model_invocation_audit",
     "runtime.run_record",
     "runtime.canonical_event",
     "runtime.tool_operation",
@@ -107,6 +110,35 @@ def _load_state(path: str) -> dict[str, Any]:
 
 def _save_state(path: str, payload: dict[str, Any]) -> None:
     Path(path).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _timeline_detail_seed(
+    seq: int, model_audit_id: uuid.UUID, task_id: uuid.UUID
+) -> tuple[str | None, dict[str, Any]]:
+    events = {
+        2: (
+            "USER_MESSAGE",
+            {
+                "text": f"查询深圳天气 {INPUT_MARKER}，api_key={CREDENTIAL_MARKER}",
+                "attachments": [{"filename": "question.txt", "size": 128, "media_type": "text/plain"}],
+            },
+        ),
+        3: ("MODEL_CALL_COMPLETED", {"model_audit_id": str(model_audit_id)}),
+        4: ("TOOL_CALL_STARTED", {"tool_call_id": "call_content_audit", "tool_name": "run_obs_content_tool"}),
+        5: (
+            "TOOL_CALL",
+            {
+                "tool_call_id": "call_content_audit",
+                "tool_name": "run_obs_content_tool",
+                "preview": f"深圳天气：晴 {RESULT_MARKER}",
+            },
+        ),
+        6: ("ASSISTANT_TURN", {"text": "已为你查询深圳天气", "reasoning_content": CREDENTIAL_MARKER,
+                               "tool_calls": [{"id": "call_content_audit", "name": "run_obs_content_tool"}]}),
+        8: ("CONTEXT_COMPACTED", {"layers": {"snip": {"fired": True, "groups": 3, "bytes_saved": 2048}}}),
+        9: ("TOOL_TASK_ACCEPTED", {"task_id": str(task_id), "tool_call_id": "call_content_join"}),
+    }
+    return events.get(seq, (None, {}))
 
 
 def _uid(state: dict[str, Any], key: str) -> uuid.UUID:
@@ -662,7 +694,16 @@ async def _create(state_path: str) -> None:
                 start_time=now - timedelta(minutes=39),
             )
             content_audit_id = content_audit.id
+            content_audit.args_preview_json = {
+                "skill_key": "weather-query", "script": "scripts/main.py", "api_key": CREDENTIAL_MARKER
+            }
             session.add(content_audit)
+            model_audit_id = uuid.uuid4()
+            session.add(ModelInvocationAudit(
+                id=model_audit_id, tenant_id=TENANT, run_id=content_run_id,
+                provider="openai-compatible", model="timeline-model", attempt=0,
+                status="OK", input_tokens=120, output_tokens=24, latency_ms=1250,
+            ))
             content_snapshot = RuntimeSnapshot(
                 id=uuid.uuid4(),
                 tenant_id=TENANT,
@@ -670,13 +711,18 @@ async def _create(state_path: str) -> None:
                 agent_revision=1,
                 model_revision=1,
                 agent_json={},
-                model_json={},
+                model_json={"model_id": "frozen-timeline-model", "protocol": "OPENAI", "revision": 1},
                 skill_catalog_json=[],
                 mcp_catalog_json=[],
                 prompt_template_version="v1",
                 content_hash="sha256:" + "d" * 64,
             )
             session.add(content_snapshot)
+            content_run = await session.get(RunRecord, content_run_id)
+            if content_run is None:
+                raise RuntimeError("Content Run seed is missing")
+            content_run.snapshot_id = content_snapshot.id
+            content_run.update_time = now
             # 同 wait 模式：run_continuation 引用 run_record/runtime_snapshot，先显式 flush。
             await session.flush()
             session.add(
@@ -715,6 +761,9 @@ async def _create(state_path: str) -> None:
             )
             for seq in range(1, CONTENT_EVENT_COUNT + 1):
                 event_type, stream_type = event_cycle[(seq - 1) % len(event_cycle)]
+                detail_type, detail_data = _timeline_detail_seed(seq, model_audit_id, content_task.id)
+                if detail_type is not None:
+                    event_type = detail_type
                 if seq == 1:
                     event_type, stream_type = "RUN_CREATED", "run.created"
                 elif seq == CONTENT_EVENT_COUNT:
@@ -729,6 +778,7 @@ async def _create(state_path: str) -> None:
                         stream_type=stream_type,
                         create_time=now - timedelta(minutes=CONTENT_EVENT_COUNT - seq),
                         artifact_id=uuid.uuid4() if seq == 2 else None,
+                        payload=detail_data,
                     )
                 )
 

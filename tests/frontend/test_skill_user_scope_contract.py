@@ -16,7 +16,8 @@ def test_all_scope_shows_hint_only() -> None:
     """[S-07] user_scope=ALL 时指定用户 Tab 只提示，不提供维护操作。"""
     source = _source("SelectedUserTable.tsx")
     assert "props.userScope === 'ALL'" in source
-    assert "skill.users.allScopeHint" in source
+    assert "skill.users.noSelectionNeeded" in source
+    assert "Banner" not in source
     # ALL 分支在维护控件渲染之前 return
     assert source.index("props.userScope === 'ALL'") < source.index('data-testid="add-selected-user"')
 
@@ -41,5 +42,5 @@ def test_scope_change_modal_uses_user_scope_endpoint() -> None:
     source = _source("SkillScopeModal.tsx")
     assert "setUserScope" in source
     assert "FormModal" in source
-    sheet = _source("SkillDetailSideSheet.tsx")
-    assert 'data-testid="change-user-scope"' in sheet
+    page = _source("SkillPage.tsx")
+    assert 'data-testid={`change-user-scope-${record.key}`}' in page

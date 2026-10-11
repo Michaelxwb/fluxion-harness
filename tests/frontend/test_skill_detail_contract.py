@@ -13,14 +13,14 @@ def _source(name: str) -> str:
 
 
 def test_detail_sidesheet_header_actions_and_tabs() -> None:
-    """[RULE-ui-detail-001] 标题/副标题居左，操作（导入新版本）与关闭 X 同行靠右，Tabs 其下。"""
+    """[RULE-ui-detail-001] 标题/副标题居左，对象操作在列表，详情保留标题与关闭 X，Tabs 其下。"""
     source = _source("SkillDetailSideSheet.tsx")
     assert "DetailSideSheet" in source
-    assert 'title={props.skill.name}' in source
+    assert 'title={<SkillDetailHeading' in source
     assert "subtitle={" in source and "props.skill.key" in source
     assert "currentVersion" in source
-    assert 'actions={' in source
-    assert 'data-testid="import-artifact"' in source
+    assert 'actions={' not in source
+    assert 'data-testid={`import-artifact-${record.key}`}' in _source("SkillPage.tsx")
     for tab_key in ('"basic"', '"artifacts"', '"agents"', '"users"'):
         assert f'itemKey={tab_key}' in source
 
@@ -40,12 +40,34 @@ def test_artifact_version_link_opens_manifest_modal() -> None:
 
 def test_detail_guards_scope_change_and_has_error_states() -> None:
     sheet = _source("SkillDetailSideSheet.tsx")
-    assert "disabled={detail === null}" in sheet
+    page = _source("SkillPage.tsx")
+    assert "setScopeTarget(await getSkill(skill.id))" in page
+    assert "SkillScopeModal" in page
     assert "ErrorState" in sheet
     assert "listSkillAgents" in sheet
     assert "PaginationFooter" in sheet
-    assert "skill-md-preview" in sheet
+    assert "SkillContent" in sheet
     assert "current_artifact?.instructions" in sheet
+
+
+def test_skill_content_groups_description_with_shared_document_viewer() -> None:
+    sheet = _source("SkillDetailSideSheet.tsx")
+    content = _source("SkillContent.tsx")
+    assert 'label: t(\'skill.detail.description\')' not in sheet
+    assert "description={detail.description}" in sheet
+    assert "{description}" in content
+    assert "SkillMarkdownViewer" in content
+    assert "SkillMarkdownViewer" in _source("SkillArtifactDetailModal.tsx")
+
+
+def test_scope_notice_lives_in_accessible_header_icon() -> None:
+    heading = _source("SkillDetailHeading.tsx")
+    assert "Tooltip" in heading and 'aria-label={hint}' in heading
+    assert 'tabIndex={0}' in heading
+    assert "IconGlobe" in heading and "IconUserGroup" in heading
+    assert "skill.detail.scopeAllNotice" in heading
+    assert "skill.detail.scopeSelectedNotice" in heading
+    assert "<Banner" not in _source("SkillDetailSideSheet.tsx")
 
 
 def test_artifact_detail_has_no_execution_entry() -> None:

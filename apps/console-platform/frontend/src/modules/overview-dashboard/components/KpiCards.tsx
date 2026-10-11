@@ -1,63 +1,43 @@
-/**
- * 4 个 KPI 指标卡（设计 §3.3 CMP-02 / §3.3.1）。
- *
- * 复用公共 `MetricCards`（不另造卡片壳），卡片标题即跳转入口：启用 Agent → `/agents`、
- * 启用 Skill → `/skills`、后台执行中 → `/tasks`、启用定时任务 → `/schedules`（设计 §3.3.1 均为
- * 无二次确认的 `Typography.Text link`）。loading 用 `Skeleton` 占位，不显示伪造的 0。
- */
-
-import { Skeleton, Typography } from '@douyinfe/semi-ui';
-import { useNavigate } from 'react-router-dom';
+import { Skeleton, Typography, Tooltip } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
-
+import { useNavigate } from 'react-router-dom';
 import { MetricCards, type MetricCardItem } from '../../../components/common/MetricCards';
-import type { KpiCardsProps } from '../types';
-
-interface KpiLinkProps {
-  to: string;
-  text: string;
-  testId: string;
+import { formatNumber, formatPercent, formatSeconds } from '../formatters';
+import type { OverviewKpis } from '../types';
+function MetricValue({ value, id }: { value: string; id: string }) {
+  return <span data-testid={`kpi-value-${id}`} title={value}>{value}</span>;
 }
-
-function KpiLink({ to, text, testId }: KpiLinkProps) {
+export function KpiCards({ kpis }: { kpis: OverviewKpis }) {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  return (
-    <Typography.Text link onClick={() => navigate(to)} data-testid={testId}>
-      {text}
-    </Typography.Text>
-  );
-}
-
-export function KpiCards({ kpis, loading }: KpiCardsProps) {
-  const { t } = useTranslation();
-
-  const value = (raw: number, testId: string) =>
-    loading ? (
-      <Skeleton.Title style={{ width: 56 }} />
-    ) : (
-      <span data-testid={testId}>{raw}</span>
-    );
-
+  const language = i18n.language;
+  const label = (text: string, hint: string, to = '/audits') =>
+    <Tooltip content={hint}><Typography.Text link onClick={() => navigate(to)}>{text}</Typography.Text></Tooltip>;
+  const value = (number: string, id: string) => <MetricValue value={number} id={id} />;
   const items: MetricCardItem[] = [
-    {
-      label: <KpiLink to="/agents" text={t('overview.kpi.enabledAgents')} testId="kpi-agents" />,
-      value: value(kpis.enabledAgents, 'kpi-value-agents')
-    },
-    {
-      label: <KpiLink to="/skills" text={t('overview.kpi.enabledSkills')} testId="kpi-skills" />,
-      value: value(kpis.enabledSkills, 'kpi-value-skills')
-    },
-    {
-      label: <KpiLink to="/tasks" text={t('overview.kpi.activeTasks')} testId="kpi-tasks" />,
-      value: value(kpis.activeTasks, 'kpi-value-tasks')
-    },
-    {
-      label: (
-        <KpiLink to="/schedules" text={t('overview.kpi.activeSchedules')} testId="kpi-schedules" />
-      ),
-      value: value(kpis.activeSchedules, 'kpi-value-schedules')
-    }
+    { label: label(t('overview.kpi.runs'), t('overview.hint.runs')),
+      value: value(formatNumber(kpis.runCount, language), 'run-count') },
+    { label: label(t('overview.kpi.successRate'), t('overview.hint.successRate')),
+      value: value(formatPercent(kpis.runSuccessRate, language), 'success-rate') },
+    { label: label(t('overview.kpi.averageDuration'), t('overview.hint.averageDuration')),
+      value: value(kpis.averageRunDurationMs === null ? '—' : t('overview.seconds', {
+        value: formatSeconds(kpis.averageRunDurationMs, language) }), 'average-duration') },
+    { label: label(t('overview.kpi.activeUsers'), t('overview.hint.activeUsers')),
+      value: value(formatNumber(kpis.activeUsers, language), 'active-users') },
+    { label: label(t('overview.kpi.modelRequests'), t('overview.hint.modelRequests'), '/audits?auditType=MODEL'),
+      value: value(formatNumber(kpis.modelRequestCount, language), 'model-requests') },
+    { label: label(t('overview.kpi.tokens'), t('overview.hint.tokens'), '/audits?auditType=MODEL'),
+      value: <Tooltip content={t('overview.tokens.details', {
+        input: kpis.inputTokens === null ? t('overview.notRecorded') : formatNumber(kpis.inputTokens, language),
+        output: kpis.outputTokens === null ? t('overview.notRecorded') : formatNumber(kpis.outputTokens, language) })}>
+        <span>{value(kpis.totalTokens === null ? t('overview.notRecorded') : formatNumber(kpis.totalTokens, language, true), 'tokens')}</span>
+      </Tooltip>,
+      hint: kpis.modelRequestCount > 0 ? t('overview.tokens.coverage', {
+        reported: kpis.tokenReportedRequestCount, total: kpis.modelRequestCount,
+        coverage: formatPercent(kpis.tokenCoverage, language) }) : t('overview.tokens.noRequests') }
   ];
-
-  return <MetricCards items={items} />;
+  return <div className="overview-kpis"><MetricCards items={items} /></div>;
+}
+export function OverviewSkeleton() {
+  return <div data-testid="overview-loading"><Skeleton placeholder={<Skeleton.Paragraph rows={6} />} loading /></div>;
 }

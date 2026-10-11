@@ -13,26 +13,29 @@ def _source(name: str) -> str:
 
 
 def test_detail_sidesheet_header_actions_and_tabs() -> None:
-    """[RULE-ui-detail-001] 标题/副标题居左，操作与关闭 X 同行靠右，Tabs 其下。"""
+    """[RULE-ui-detail-001] 标题/副标题居左，对象操作在列表，详情保留标题与关闭 X，Tabs 其下。"""
     source = _source("McpDetailSideSheet.tsx")
     assert "DetailSideSheet" in source
     assert "title={props.server.name}" in source
     assert "subtitle={props.server.key}" in source
-    assert "actions={" in source
-    for testid in ("edit-mcp", "test-mcp", "change-mcp-scope", "discover-mcp"):
-        assert testid in source
+    assert "actions={" not in source
+    for testid in ("edit-mcp", "test-mcp", "change-mcp-scope", "refresh-mcp", "delete-mcp"):
+        assert testid in _source("McpPage.tsx")
     for tab_key in ('"basic"', '"tools"', '"agents"', '"users"'):
         assert f'itemKey={tab_key}' in source
 
 
 def test_detail_uses_fetched_detail_for_edit_and_scope() -> None:
-    """编辑/变更范围基于详情 API 数据（不拿列表行强转），加载完成前禁用。"""
+    """编辑/变更范围基于详情 API 数据（不拿列表行强转），详情读取成功后才打开表单。"""
     sheet = _source("McpDetailSideSheet.tsx")
-    assert "props.onEdit(detail)" in sheet
-    assert "disabled={detail === null}" in sheet
+    page = _source("McpPage.tsx")
+    assert "await getMcpServer(server.mcp_id)" in page
+    assert "setFormServer(latest)" in page
+    assert "setScopeTarget(latest)" in page
+    assert "account?.role === 'ADMIN'" in page
     assert "getMcpServer" in sheet
     assert "as McpServerDetail" not in _source("McpPage.tsx")
-    assert "McpScopeModal" in sheet
+    assert "McpScopeModal" in page
     assert "setUserScope" in _source("services/mcpServers.ts")
 
 
@@ -47,10 +50,10 @@ def test_detail_has_error_states_and_catalog_fields() -> None:
 
 def test_discover_failure_keeps_catalog_view() -> None:
     """[E-06] 刷新失败：catch 保留视图，不本地清空；成功后 reload 工具快照。"""
-    source = _source("McpDetailSideSheet.tsx")
-    discover_block = source.split("const discover =")[1].split("};")[0]
+    source = _source("McpPage.tsx")
+    discover_block = source.split("const refreshTools =")[1].split("};")[0]
     assert "catch" in discover_block
-    assert "setToolReloadKey" in discover_block
+    assert "setDetailReloadKey" in discover_block
     assert "setItems" not in discover_block
 
 
@@ -76,10 +79,10 @@ def test_tool_detail_shows_schema_and_effect_no_tool_controls() -> None:
 
 def test_discover_button_loading_state() -> None:
     """[S-05] 刷新目录按钮 loading；成功后 reload。"""
-    source = _source("McpDetailSideSheet.tsx")
-    assert "discovering" in source
-    assert "setDiscovering(true)" in source
-    assert "void reload()" in source
+    source = _source("McpPage.tsx")
+    assert "loading={refreshingId === record.mcp_id}" in source
+    assert "setRefreshingId(server.mcp_id)" in source
+    assert "await reload()" in source
 
 
 def test_test_modal_has_error_state() -> None:

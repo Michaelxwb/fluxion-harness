@@ -37,6 +37,11 @@ verifiers:
 - 表单字段布局以交互稿为准：双列栅格 `.form-grid`、控件同宽、按稿顺序成对、动态字段分区说明；详情基本信息用 `DetailGrid`。
 - 新增/编辑表单统一走 `FormModal`（宽度按表单复杂度取自交互稿，**不设固定枚举**——现网档位为 480/520/560/620/640/720/800，简单表单 520，含代码/结构化配置的按稿加宽；标签置顶；确认文案**由调用方按动作语义显式传 `okText`**，如「授权」「导入」「保存并发现」，组件兜底为 `common.confirm`）；字段补充说明用 `extraText`（如协议、Base URL、API Key、不可改编码），不得用占位符承载说明。
 - Shell：侧栏品牌区 + 图标菜单 + 底部用户区（头像/退出）；顶栏放主题切换与语言切换。
+- **业务操作按钮统一蓝色**：列表、详情、表单与设置页的操作按钮使用 Semi `type="primary"`（默认类型也为 primary），边框/背景由 `theme` 决定；删除、解绑、撤销、取消任务、清空等确认操作也统一该颜色，悬停不切换成红色。`ConfirmAction`、`FormModal` 的确认/取消操作遵循同一口径，禁用态使用 Semi 内建样式。
+
+  ✅：`<Button type="primary" theme="borderless">...</Button>`；`ConfirmAction` 统一 primary，并保留操作确认。
+
+  ❌：删除常态灰色、悬停红色；详情关系操作或设置页重置/恢复按钮使用 tertiary 灰色。
 
 ✅ 正确：
 
@@ -62,7 +67,7 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
   <div style={{ display: 'flex', justifyContent: 'space-between' }}>  {/* 自建工具栏/面板 */}
 ```
 
-- **`RemoteTable` 只约束「列表页」**：以「左上操作 + 右上搜索筛选 + 列表 + 右下分页」为形态的模块列表页必须用它；**仪表盘/概览类页面**（如 `overview-dashboard` 首页：KPI 卡片 + 若干 ≤5 行预览块，无工具栏/筛选/分页）不受该约束，其区块可用 Semi `Table` 并 `pagination={false}`，但区块内**不得**再用 `RemoteTable`/`ModuleToolbar`。契约测试以「显式声明的非列表页 + 反查其确实不含列表构件」实现，不得靠"不写 RemoteTable"蒙过。
+- **`RemoteTable` 只约束「列表页」**：以「左上操作 + 右上搜索筛选 + 列表 + 右下分页」为形态的模块列表页必须用它；**仪表盘/概览类页面**（如 `overview-dashboard` 首页：资源摘要、KPI 与图表，允许时间范围/刷新控制，无列表分页）不受该约束，其指标区块使用共享 PageSection/MetricCards，图表使用主题化 ECharts，但区块内**不得**再用 `RemoteTable`/`ModuleToolbar`。契约测试以「显式声明的非列表页 + 反查其确实不含列表构件」实现，不得靠"不写 RemoteTable"蒙过。
 - **菜单 `adminOnly` 恰有两项**：`config/menu.ts` 里 `/users` 与 `/settings` 带 `adminOnly: true`，所以 ADMIN 见 11 项、非 ADMIN 见 9 项；`AppLayout` 用 `menuItems.filter((item) => !item.adminOnly || account?.role === 'ADMIN')` 过滤。菜单项本身只做可见性，权限边界仍由路由侧 `<RequireRole role="ADMIN">` 兜底。机检：`tests/frontend/test_console_shell_contract.py:31-38`。
 
   ✅：两项 `adminOnly`（`/users`、`/settings`）+ 各自路由守卫
@@ -109,7 +114,18 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
   ```
 
   机检：`tests/frontend/test_agent_module_contract.py`、`test_mcp_module_contract.py`、`test_skill_module_contract.py`、`test_platform_page_contract.py::test_page_applies_keyword_on_enter` 断言列表页含 `keywordInput` + `onEnterPress`；`test_audit_gap_contract.py` 断言审计关键字控件绑定草稿并在回车时上抛。`components/common/ListActionButton.tsx` 的 `Action` 类型**不含** `'search'`（放回搜索按钮会直接 typecheck 失败）。
-- **列表主展示字段即详情入口，优先复用公共 `EntityLink`**（`components/common/EntityLink.tsx`，`Button theme="borderless"` + `data-testid`）。已复用 8 处；`AgentPage` 的 Agent 名列仍手写同形态 `Button`，属待收敛的技术债——新代码一律优先用 `EntityLink`，不要复制手写版本。
+- **列表主展示字段即详情入口，复用公共 `EntityLink`**（`components/common/EntityLink.tsx`，`Button theme="borderless"` + `data-testid`），包括 Agent 名称列；不要复制手写同形态按钮。
+- **主列表列宽随可用空间分配**：Agent、Skill、MCP、模型、用户、项目平台、后台任务、定时任务、运行审计统一使用 `.app-table-fit`；短 ID、时间和操作列紧凑定宽，其他字段按内容设置最小宽度并分配剩余空间，`scroll.x: '100%'` 与固定表格布局保证桌面铺满。Agent 以 980px 为基准，通过 `RemoteTable.columnGrowth` 与 `DataTable` 已有的容器尺寸观察，按实际可用宽度分配像素列宽；名称/标识/模型共同分配新增空间的 52%，六个计数/状态/版本字段分配其余 48%，避免前面三列独占空白；其他列表的长字段使用 `width: 'auto'`。长文本单行省略，React 渲染的文本复用 `TableText` 或 `CopyableText` 提供全文 `title`；独立时间列、状态标签、复制图标和操作按钮必须完整可见。默认最小表宽 960px，Agent 为 980px；MCP/项目平台为 1280px，后台任务/定时任务为 1440px，空间不足时保留横向滚动与固定操作列。
+
+  ✅：1920/2048px 桌面所有主列表均铺满且无横向滚动；Agent 的名称/标识/模型合计不超过表宽 35%，计数/状态/版本也有充分间距。Agent、Skill、模型、用户、审计在 1280/1440px 也无需滚动，窗口缩放后重新铺满。`e2e/tests/model-list-layout.spec.ts` 与 `e2e/tests/list-layout.spec.ts` 验证长短文本、完整时间/状态/操作、浅色/深色主题、英文表头及窄屏固定操作列。
+
+  ❌：所有短字段列默认分配 176px，导致宽屏也需要滚动才能看到状态、版本和更新时间；隐藏滚动条却让列继续溢出；Agent 只有名称/标识/模型伸展，在宽屏占据一半以上表宽。
+
+- **审计列表以 Trace ID 为首列主展示字段**：列序为 Trace ID / 时间 / 审计类型 / 操作用户 / Agent / 关联对象 / 动作 / 执行结果。用户与 Agent 紧凑定宽，Trace ID、关联对象与动作共同分配剩余宽度；Trace 旁复用 `CopyButton` 复制完整值。Trace ID 标识调用链，可对应多条记录，行标识仍取 `auditId`，点击打开当前行审计详情；Trace 缺失时明确显示真实「审计 ID」并保持详情入口与复制。关联 Run/Task 继续直达对应实体。
+
+  ✅：同一 Trace 的多条审计分别显示、分别打开；宽屏展示完整 UUID，操作用户/Agent 列不占大量空白。`e2e/tests/list-layout.spec.ts` 验证列序/列宽/空 Trace 展示，审计 S-06/S-07 验证真实行身份、复制与详情。
+
+  ❌：把 Trace ID 当行主键，导致同链路记录合并；点击复制图标同时打开详情；无 Trace 时伪造 Trace 值。
 
 ## Avoid
 

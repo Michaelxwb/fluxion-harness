@@ -87,6 +87,18 @@ async function unwrap<T>(response: { data: ApiResponse<T> }): Promise<T> {
   return response.data.data;
 }
 
+export async function loadAllRelationItems<T>(
+  loadPage: (params: { page: number; page_size: number }) => Promise<Page<T>>
+): Promise<T[]> {
+  const first = await loadPage({ page: 1, page_size: 100 });
+  const remaining = await Promise.all(
+    Array.from({ length: Math.max(0, Math.ceil(first.total / 100) - 1) }, (_, index) =>
+      loadPage({ page: index + 2, page_size: 100 })
+    )
+  );
+  return [first, ...remaining].flatMap((page) => page.items);
+}
+
 export interface AgentListParams {
   page: number;
   page_size: number;

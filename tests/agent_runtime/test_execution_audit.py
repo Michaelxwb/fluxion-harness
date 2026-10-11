@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 import sqlalchemy as sa
 from httpx import AsyncClient
+from muad_agent_core.agent import AgentRunner
 from muad_agent_core.model import (
     ModelMessage,
     ModelRateLimitedError,
@@ -18,11 +19,12 @@ from muad_agent_core.model import (
     ModelRole,
     text_of,
 )
-from muad_agent_core.tools import ToolDefinition, ToolEffect
+from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_agent_runtime.api.deps import get_executor_factory
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
     MAX_INLINE_RESULT_BYTES,
+    AgentRunnerExecutor,
     AuditedModelProvider,
     ExecutorRequest,
     ExecutorRunContext,
@@ -30,6 +32,7 @@ from muad_agent_runtime.application.executor import (
     ToolCallRecorder,
     _preview_args,
 )
+from muad_agent_runtime.application.model_call_trace import ModelCallTrace
 from muad_agent_runtime.infrastructure.audit_writer import RuntimeAuditWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
@@ -38,6 +41,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     ToolCallAudit,
 )
 from muad_agent_runtime.main import app
+from muad_contracts import ResolvedAgent, ResolvedModel
 from muad_contracts.platform_settings import ToolResultSettings
 
 from agent_runtime.conftest import FakeExecutor, TenantContext, parse_sse
@@ -303,6 +307,55 @@ class _FlakyProvider:
         if self.calls <= self._failures:
             raise ModelRateLimitedError("limited", retry_after=0.0)
         return ModelResponse(content="ok", finish_reason="stop")
+
+
+async def test_model_events_link_each_retry_to_its_exact_audit_row() -> None:
+    """Real runner/executor and PostgreSQL audit writer; retry IDs must not alias another attempt."""
+    trace = ModelCallTrace()
+    provider = AuditedModelProvider(_FlakyProvider(failures=1), _writer(), model="test", model_trace=trace)
+    runner = AgentRunner(provider=provider, registry=ToolRegistry())
+
+    async def not_cancelled() -> bool:
+        return False
+
+    request = ExecutorRequest(
+        agent=ResolvedAgent(id=uuid.uuid4(), key="test", revision=1, instructions="", runtime_config={}),
+        model=ResolvedModel(
+            id=uuid.uuid4(),
+            model_id="test",
+            revision=1,
+            protocol="OPENAI",
+            base_url="http://localhost",
+            params={},
+        ),
+        input_text="question",
+        is_cancel_requested=not_cancelled,
+    )
+    events = [
+        event async for event in AgentRunnerExecutor(runner=runner, request=request, model_trace=trace).run()
+    ]
+    calls = [event for event in events if event.type.startswith("model.")]
+    assert [event.type for event in calls] == [
+        "model.started",
+        "model.completed",
+        "model.started",
+        "model.completed",
+    ]
+    ids = [event.data["model_audit_id"] for event in calls]
+    assert ids[0] == ids[1] and ids[2] == ids[3] and ids[0] != ids[2]
+    async with get_session_factory()() as session:
+        rows = (
+            (
+                await session.execute(
+                    sa.select(ModelInvocationAudit).where(ModelInvocationAudit.tenant_id == TENANT)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    audits = {str(row.id): row for row in rows}
+    assert set(audits) == {ids[0], ids[2]}
+    assert audits[ids[0]].status == "RETRY" and audits[ids[2]].status == "OK"
 
 
 async def test_audited_model_provider_records_each_attempt() -> None:

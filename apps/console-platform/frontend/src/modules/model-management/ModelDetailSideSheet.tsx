@@ -1,7 +1,6 @@
-import { Banner, Button, Modal, Table, Tabs } from '@douyinfe/semi-ui';
+import { Banner, Modal, Table, Tabs } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
-import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
@@ -12,8 +11,6 @@ import { apiKeyOptions, enabledOptions, testStatusOptions } from './statusOption
 export interface ModelDetailSideSheetProps {
   model: ModelItem | null;
   onCancel(): void;
-  onEdit(model: ModelItem): void;
-  onDelete(model: ModelItem): void;
 }
 
 export function ModelDetailSideSheet(props: ModelDetailSideSheetProps) {
@@ -28,16 +25,6 @@ export function ModelDetailSideSheet(props: ModelDetailSideSheetProps) {
       title={model.name}
       subtitle={`${model.key} · ${model.model_id}`}
       activeTab="basic"
-      actions={
-        <>
-          <Button theme="borderless" onClick={() => props.onEdit(model)}>
-            {t('model.actions.edit')}
-          </Button>
-          <ConfirmAction theme="light" danger title={t('model.confirmDelete')} onConfirm={() => props.onDelete(model)}>
-            {t('model.actions.delete')}
-          </ConfirmAction>
-        </>
-      }
       onCancel={props.onCancel}
     >
       <Tabs.TabPane itemKey="basic" tab={t('model.detail.basic')}>

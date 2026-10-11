@@ -1,9 +1,8 @@
-import { Button, Spin, Tabs, Typography } from '@douyinfe/semi-ui';
+import { Spin, Tabs, Typography } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
@@ -11,7 +10,6 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { StatusTag, type StatusTagOption } from '../../components/common/StatusTag';
 import { ScheduleHistoryTable } from './ScheduleHistoryTable';
 import { getSchedule, type ScheduleDetail } from './services/schedules';
-import { useScheduleActions } from './useScheduleActions';
 
 const STATUS_COLORS: Record<string, StatusTagOption['color']> = {
   ACTIVE: 'green',
@@ -23,7 +21,7 @@ const STATUS_COLORS: Record<string, StatusTagOption['color']> = {
 export interface ScheduleDetailSideSheetProps {
   scheduleId: string | null;
   onCancel(): void;
-  onMutated?(scheduleId: string): void;
+  reloadKey?: number;
   onOpenTask?(taskId: string): void;
   /** ESC 关闭本面板；由页面只在它是当前最上层面板时开启。 */
   closeOnEsc?: boolean;
@@ -70,7 +68,7 @@ export function ScheduleDetailSideSheet(props: ScheduleDetailSideSheetProps) {
       setDetail(null);
       setFailed(false);
     }
-  }, [props.scheduleId, load]);
+  }, [props.scheduleId, props.reloadKey, load]);
 
   const statusOptions = Object.fromEntries(
     Object.entries(STATUS_COLORS).map(([status, color]) => [
@@ -79,56 +77,11 @@ export function ScheduleDetailSideSheet(props: ScheduleDetailSideSheetProps) {
     ])
   );
 
-  const actionsState = useScheduleActions({
-    onMutated: (scheduleId) => {
-      void load();
-      props.onMutated?.(scheduleId);
-    },
-    onDeleted: (scheduleId) => {
-      props.onMutated?.(scheduleId);
-      props.onCancel();
-    }
-  });
-
-  const actions = detail ? (
-    <div data-testid="schedule-detail-actions" style={{ display: 'flex', gap: 8 }}>
-      {detail.status === 'ACTIVE' ? (
-        <Button
-          data-testid="schedule-pause"
-          loading={actionsState.pending === 'pause'}
-          onClick={() => void actionsState.pause(detail.schedule_id)}
-        >
-          {t('schedule.action.pause')}
-        </Button>
-      ) : null}
-      {detail.status === 'PAUSED' ? (
-        <Button
-          data-testid="schedule-resume"
-          loading={actionsState.pending === 'resume'}
-          onClick={() => void actionsState.resume(detail.schedule_id)}
-        >
-          {t('schedule.action.resume')}
-        </Button>
-      ) : null}
-      {detail.status === 'ACTIVE' || detail.status === 'PAUSED' ? (
-        <ConfirmAction
-          danger
-          title={t('schedule.confirm.delete')}
-          testId="schedule-delete"
-          onConfirm={() => void actionsState.remove(detail.schedule_id)}
-        >
-          {t('schedule.action.delete')}
-        </ConfirmAction>
-      ) : null}
-    </div>
-  ) : undefined;
-
   return (
     <DetailSideSheet
       visible={props.scheduleId !== null}
       title={detail?.name ?? props.scheduleId ?? ''}
       subtitle={detail ? `${t(`schedule.status.${detail.status}`)} · ${detail.intent_key}` : t('schedule.detail.basic')}
-      actions={actions}
       activeTab={activeTab}
       onTabChange={setActiveTab}
       onCancel={props.onCancel}

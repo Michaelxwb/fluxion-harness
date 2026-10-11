@@ -3,7 +3,7 @@
 约束在这里机检，避免只靠约定：
 
 1. **不新增页面/导航项**——Run 用嵌套 SideSheet 承载，`menu.ts` 不出现 Run 条目；
-2. **不暴露内容**——前端不引用对话原文/事件负载/结果字段（后端本来也不返回，两侧同向）；
+2. **按需明细**——概览不带内容，节点仅通过明细 DTO 展示脱敏白名单；
 3. **不再"统一落到任务列表"**——Run 关联就地打开（`RelatedDetailController`），Task 关联才跳列表；
 4. **等待/操作投影**——RunStatus/OperationStatus 与 contracts 枚举逐字对齐，分页是封套 `Page`；
 5. **请求卫生**——组件不裸 HTTP；过期响应按 requestSeq 失效；Task 未受理不造链接；
@@ -109,16 +109,46 @@ def test_run_service_uses_the_shared_api_client() -> None:
     assert "export async function listRunOperations" in source
 
 
-def test_run_view_never_reads_conversation_content() -> None:
-    """Console 至今零暴露对话原文；这条把「不回退」钉住，而不是靠口头约定。
-
-    检查的是前端**有没有给这些字段起名**（DTO 键或渲染引用）。源码注释里刻意不写它们的
-    字面量，否则解释「为什么不给」的那句话自己就会把用例打红。
-    """
+def test_run_view_uses_normalized_details_without_raw_event_or_reasoning_fields() -> None:
+    """User-authorized lazy content uses a bounded presentation DTO, never raw persisted events."""
     for path in _module_sources():
         source = _read(path)
-        for token in ("input_text", "inputText", "payload", "payload_json", "result_json"):
+        for token in ("input_text", "inputText", "payload_json", "result_json", "reasoning_content"):
             assert token not in source, f"{path}: {token}"
+    service = _read(RUN_SERVICE)
+    assert "export interface RunEventDetail" in service
+    assert "/events/${seq}" in service
+    hook = _read(MODULE / "hooks/useRunEventDetail.ts")
+    assert "if (expanded && !detail && !loading && !failed)" in hook
+    assert "current === requestSeq.current" in hook
+    assert "requestSeq.current += 1" in hook
+
+
+def test_event_detail_fields_and_statuses_have_translations() -> None:
+    service = _read(RUN_SERVICE)
+    component = _read(MODULE / "components/RunEventDetails.tsx")
+    for locale in LOCALES:
+        translations = _locale(locale)
+        for key in _string_array(service, "EVENT_DETAIL_FIELDS"):
+            assert translations[f"run.eventDetail.field.{key}"]
+        for key in _string_array(service, "MODEL_SUMMARY_FIELDS"):
+            assert translations[f"run.eventDetail.summary.{key}"]
+        arrays = [
+            ("EVENT_DETAIL_STATUSES", "status"),
+            ("COMPACTION_LAYERS", "layer"),
+            ("MODEL_RETRY_REASONS", "retry"),
+        ]
+        for array, prefix in arrays:
+            for key in _string_array(component, array):
+                assert translations[f"run.eventDetail.{prefix}.{key}"]
+
+
+def test_model_detail_distinguishes_exact_call_from_run_wide_summary() -> None:
+    source = _read(MODULE / "components/RunEventDetails.tsx")
+    assert "detail.model_state === 'LINKED'" in source
+    assert "value === null ? t('run.eventDetail.notRecorded')" in source
+    for key in ("modelSummary", "modelSummaryHint", "modelUnlinked", "modelPending", "modelNoAudit"):
+        assert f"run.eventDetail.{key}" in source
 
 
 def test_audit_run_relation_opens_in_place_rather_than_jumping_to_tasks() -> None:

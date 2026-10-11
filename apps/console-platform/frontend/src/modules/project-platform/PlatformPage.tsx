@@ -1,7 +1,9 @@
+import { actionColumn } from '../../components/common/tableLayout';
 import { Button, Input, Select, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { ListActionButton } from '../../components/common/ListActionButton';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -9,11 +11,14 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { RemoteTable } from '../../components/common/RemoteTable';
+import { EntityLink } from '../../components/common/EntityLink';
+import { TableText } from '../../components/common/TableText';
 import { PlatformDetailSideSheet } from './PlatformDetailSideSheet';
 import { PlatformTestModal } from './PlatformTestModal';
 import { ProjectPlatformForm } from './ProjectPlatformForm';
 import {
   deletePlatform,
+  getPlatform,
   getAdapters,
   listPlatforms,
   type AdapterMetadata,
@@ -97,6 +102,15 @@ export function PlatformPage() {
     }
   };
 
+  const openEdit = async (platform: PlatformItem): Promise<void> => {
+    try {
+      setFormPlatform(await getPlatform(platform.platform_id));
+      setFormVisible(true);
+    } catch {
+      // ApiClient displays the request failure; keep the modal closed.
+    }
+  };
+
   return (
     <>
       <PageHeader title={t('platform.title')} description={t('platform.subtitle')} />
@@ -149,6 +163,8 @@ export function PlatformPage() {
           }
         />
         <RemoteTable<PlatformItem>
+          className="platform-table app-table-fit app-table-nowrap"
+          scroll={{ x: '100%' }}
           rowKey="platform_id"
           loading={loading}
           dataSource={items}
@@ -168,36 +184,42 @@ export function PlatformPage() {
             {
               title: t('platform.columns.name'),
               dataIndex: 'name',
+              width: 'auto',
+              ellipsis: true,
               render: (value: string, record: PlatformItem) => (
-                <Button
-                  theme="borderless"
-                  data-testid={`platform-link-${record.key}`}
+                <EntityLink
+                  testId={`platform-link-${record.key}`}
                   onClick={() => {
                     setReconfigureRequired(false);
                     setDetailId(record.platform_id);
                     setDetailVersion((prev) => prev + 1);
                   }}
                 >
-                  {value}
-                </Button>
+                  <TableText>{value}</TableText>
+                </EntityLink>
               )
             },
-            { title: t('platform.columns.key'), dataIndex: 'key' },
-            { title: t('platform.columns.adapter'), dataIndex: 'adapter_key' },
+            { title: t('platform.columns.key'), dataIndex: 'key', width: 'auto', ellipsis: true },
+            { title: t('platform.columns.adapter'), dataIndex: 'adapter_key', width: 'auto', ellipsis: true },
             {
               title: t('platform.columns.resolverType'),
               dataIndex: 'resolver_type',
-              render: (value: PlatformItem['resolver_type']) => t(`platform.resolverType.${value}`)
+              width: 116,
+              ellipsis: true,
+              render: (value: PlatformItem['resolver_type']) => <TableText>{t(`platform.resolverType.${value}`)}</TableText>
             },
             {
               title: t('platform.columns.credentialMode'),
               dataIndex: 'credential_mode',
-              render: (value: PlatformItem['credential_mode']) => t(`platform.credentialMode.${value}`)
+              width: 132,
+              ellipsis: true,
+              render: (value: PlatformItem['credential_mode']) => <TableText>{t(`platform.credentialMode.${value}`)}</TableText>
             },
-            { title: t('platform.columns.configuredCredentials'), dataIndex: 'configured_user_credential_count' },
+            { title: t('platform.columns.configuredCredentials'), dataIndex: 'configured_user_credential_count', width: 148 },
             {
               title: t('platform.columns.sharedCredential'),
               dataIndex: 'has_shared_credential',
+              width: 136,
               render: (value: boolean) =>
                 value ? (
                   <Tag color="green">{t('platform.credentials.configured')}</Tag>
@@ -208,6 +230,7 @@ export function PlatformPage() {
             {
               title: t('platform.columns.enabled'),
               dataIndex: 'enabled',
+              width: 92,
               render: (value: boolean) => (
                 <Tag color={value ? 'green' : 'grey'}>
                   {t(value ? 'common.status.enabled' : 'common.status.disabled')}
@@ -217,14 +240,28 @@ export function PlatformPage() {
             {
               title: t('platform.columns.updateTime'),
               dataIndex: 'update_time',
+              width: 176,
               render: (value: string) => <DateTimeText value={value} />
             },
             {
+              ...actionColumn(176),
               title: t('platform.columns.action'),
               render: (_: unknown, record: PlatformItem) => (
-                <Button theme="borderless" onClick={() => setTestTarget(record.platform_id)}>
-                  {t('platform.actions.test')}
-                </Button>
+                <div className="table-actions">
+                  <Button theme="borderless" data-testid={`edit-platform-${record.key}`} onClick={() => void openEdit(record)}>
+                    {t('platform.actions.edit')}
+                  </Button>
+                  <Button theme="borderless" data-testid={`test-platform-${record.key}`} onClick={() => setTestTarget(record.platform_id)}>
+                    {t('platform.actions.test')}
+                  </Button>
+                  <ConfirmAction
+                    title={t('platform.confirmDelete')}
+                    testId={`delete-platform-${record.key}`}
+                    onConfirm={() => void remove(record)}
+                  >
+                    {t('platform.actions.delete')}
+                  </ConfirmAction>
+                </div>
               )
             }
           ]}
@@ -238,11 +275,6 @@ export function PlatformPage() {
           setDetailId(null);
           setReconfigureRequired(false);
         }}
-        onEdit={(platform) => {
-          setFormPlatform(platform);
-          setFormVisible(true);
-        }}
-        onDelete={(platform) => void remove(platform)}
         onChanged={() => void reload()}
       />
       <ProjectPlatformForm

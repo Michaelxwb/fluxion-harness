@@ -35,7 +35,7 @@ async function createUser(page: Page, userCode: string, displayName: string): Pr
   const modal = page.locator('.semi-modal');
   await modal.getByRole('textbox', { name: /姓名/ }).fill(displayName);
   await modal.getByRole('textbox', { name: /账号/ }).fill(userCode);
-  await modal.locator('.semi-modal-footer .semi-button-primary').click();
+  await modal.getByRole('button', { name: 'confirm', exact: true }).click();
   await expect(page.getByTestId(`user-link-${userCode}`)).toBeVisible();
 }
 
@@ -52,6 +52,18 @@ test('S-06/S-01 新增用户后列表显示且字段来自后端', async ({ page
     const row = page.locator('.semi-table-row', { hasText: userCode });
     await expect(row).toContainText('E2E User');
     await expect(row).toContainText('启用');
+    await openDetail(page, userCode);
+    await expect(page.locator('.detail-actions')).toHaveCount(0);
+    await page.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`edit-user-${userCode}`).click();
+    const modal = page.locator('.semi-modal');
+    await expect(modal.getByRole('textbox', { name: /姓名/ })).toHaveValue('E2E User');
+    await expect(modal.getByRole('textbox', { name: /账号/ })).toBeDisabled();
+    await modal.getByRole('textbox', { name: /姓名/ }).fill('Edited E2E User');
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
+    await expect(row).toContainText('Edited E2E User');
+    await openDetail(page, userCode);
+    await expect(page.locator('.semi-sidesheet')).toContainText('Edited E2E User');
   } finally {
     seed(userCode, { cleanup: true });
   }
@@ -163,7 +175,7 @@ test('E-08 重复用户编码时 Form 定位字段并提示本地化冲突', asy
     const modal = page.locator('.semi-modal');
     await modal.getByRole('textbox', { name: /姓名/ }).fill('Conflict Again');
     await modal.getByRole('textbox', { name: /账号/ }).fill(userCode);
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
     // USER_CODE_EXISTS 专用码必须把冲突的 user_code 渲染进文案
     // （通用 COMMON_CONFLICT 是固定模板、无占位符，渲染不出冲突对象）
     const fieldError = modal.locator('.semi-form-field-error-message');

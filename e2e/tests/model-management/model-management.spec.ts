@@ -55,7 +55,7 @@ async function createModelViaUi(page: Page, key: string): Promise<void> {
   await modal.getByRole('textbox', { name: /模型 ID/ }).fill('gpt-4o-mini');
   await modal.getByRole('textbox', { name: /Base URL/ }).fill(PROBE_BASE);
   await modal.getByRole('textbox', { name: /API Key/ }).fill('e2e-ui-key');
-  await modal.locator('.semi-modal-footer .semi-button-primary').click();
+  await modal.getByRole('button', { name: 'confirm', exact: true }).click();
   await expect(page.getByTestId(`model-link-${key}`)).toBeVisible();
 }
 
@@ -141,7 +141,7 @@ test('S-03/S-06 启停即时生效且删除后列表消失', async ({ page }) =>
   }
 });
 
-test('S-05 详情无默认模型字段且编辑与关闭同区', async ({ page }) => {
+test('S-05 详情无对象按钮，编辑在列表操作列', async ({ page }) => {
   await login(page);
   const model = await createModelViaApi(page, { key: uniqueKey('e2e-s05') });
   try {
@@ -151,8 +151,11 @@ test('S-05 详情无默认模型字段且编辑与关闭同区', async ({ page }
     await expect(sheet).toBeVisible();
     await expect(sheet).not.toContainText('默认');
     const header = page.locator('.semi-sidesheet-header');
-    await expect(header.getByText('编辑')).toBeVisible();
-    await expect(page.locator('.semi-sidesheet-close')).toBeVisible();
+    await expect(header.getByText('编辑')).toHaveCount(0);
+    await expect(header.locator('.detail-actions')).toHaveCount(0);
+    await sheet.locator('.semi-sidesheet-close').click();
+    await expect(page.locator('.semi-table-row', { hasText: model.key }).getByRole('button', { name: '编辑', exact: true })).toBeVisible();
+    await expect(page.getByTestId(`model-link-${model.key}`)).toBeVisible();
   } finally {
     await cleanupModel(page, model);
   }
@@ -167,7 +170,7 @@ test('E-06 Base URL 非 http(s) 阻止提交', async ({ page }) => {
   await modal.getByRole('textbox', { name: /标识/ }).fill(uniqueKey('e2e-e06'));
   await modal.getByRole('textbox', { name: /Base URL/ }).fill('ftp://example.com');
   await modal.getByRole('textbox', { name: /模型 ID/ }).fill('gpt-4o-mini');
-  await modal.locator('.semi-modal-footer .semi-button-primary').click();
+  await modal.getByRole('button', { name: 'confirm', exact: true }).click();
   await expect(modal.locator('.semi-form-field-error-message')).toContainText('必须为 http(s)');
   await expect(modal).toBeVisible();
 });
@@ -177,8 +180,7 @@ test('E-07 revision 冲突保留表单并提示本地化冲突', async ({ page }
   const model = await createModelViaApi(page, { key: uniqueKey('e2e-e07') });
   try {
     await page.goto('/models');
-    await page.getByTestId(`model-link-${model.key}`).click();
-    await page.locator('.semi-sidesheet-header').getByText('编辑').click();
+    await page.locator('.semi-table-row', { hasText: model.key }).getByRole('button', { name: '编辑', exact: true }).click();
     const modal = page.locator('.semi-modal');
     await expect(modal).toBeVisible();
 
@@ -192,7 +194,7 @@ test('E-07 revision 冲突保留表单并提示本地化冲突', async ({ page }
     });
 
     await modal.getByRole('textbox', { name: /名称/ }).fill('Stale Name');
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
     await expect(
       page.locator('.semi-toast-content', { hasText: '配置版本已变化' })
     ).toBeVisible();

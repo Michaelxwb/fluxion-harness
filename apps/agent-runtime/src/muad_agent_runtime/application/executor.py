@@ -91,6 +91,7 @@ from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_sum
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_service import MemoryService
 from .memory_tools import MemoryScope, MemoryToolSet, memory_write_enabled
+from .model_call_trace import ModelCallTrace
 from .skill_tools import TaskSubmissionProtocol, build_default_skill_cache, build_skill_registry
 from .task_client import TaskSubmissionContext, WorkerTaskClient
 from .task_tools import BackgroundTaskToolSet
@@ -239,10 +240,12 @@ class AgentRunnerExecutor:
         runner: AgentRunner,
         request: ExecutorRequest,
         close: Callable[[], Awaitable[None]] | None = None,
+        model_trace: ModelCallTrace | None = None,
     ) -> None:
         self._runner = runner
         self._request = request
         self._close = close
+        self._model_trace = model_trace
 
     async def run(self) -> AsyncIterator[ExecutorEvent]:
         queue: asyncio.Queue[ExecutorEvent] = asyncio.Queue()
@@ -256,10 +259,12 @@ class AgentRunnerExecutor:
             await queue.join()
 
         async def on_model_started() -> None:
-            await emit(ExecutorEvent(type=MODEL_STARTED_EVENT, data={}))
+            data = self._model_trace.begin() if self._model_trace is not None else {}
+            await emit(ExecutorEvent(type=MODEL_STARTED_EVENT, data=data))
 
         async def on_model_completed() -> None:
-            await emit(ExecutorEvent(type=MODEL_COMPLETED_EVENT, data={}))
+            data = self._model_trace.event_fields() if self._model_trace is not None else {}
+            await emit(ExecutorEvent(type=MODEL_COMPLETED_EVENT, data=data))
 
         async def on_delta(text: str) -> None:
             nonlocal delta_emitted
@@ -462,12 +467,14 @@ class AuditedModelProvider:
         *,
         model: str,
         provider: str = PROVIDER_NAME,
+        model_trace: ModelCallTrace | None = None,
     ) -> None:
         self._inner = inner
         self._writer = writer
         self._model = model
         self._provider = provider
         self._attempt = 0
+        self._model_trace = model_trace
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
         return await self._invoke(request, None)
@@ -549,6 +556,7 @@ class AuditedModelProvider:
         attempt = self._attempt
         self._attempt += 1
         await self._writer.record_model_invocation(
+            audit_id=self._model_trace.audit_id if self._model_trace is not None else None,
             provider=self._provider,
             model=self._model,
             attempt=attempt,
@@ -948,8 +956,11 @@ async def default_executor_factory(
         request.model, timeout_sec=budget.request_timeout_sec(), transport=model_transport
     )
     audit_writer = _audit_writer_for(request)
+    model_trace = ModelCallTrace() if audit_writer is not None else None
     if audit_writer is not None:
-        provider = AuditedModelProvider(provider, audit_writer, model=request.model.model_id)
+        provider = AuditedModelProvider(
+            provider, audit_writer, model=request.model.model_id, model_trace=model_trace
+        )
     # 摘要模型是**另一条模型定义**（ADR-06）：endpoint / 模型名 / 凭据都取自它自己那一份，凭据
     # 由 API-09 在 Run 边界取到、随 `ExecutorRequest` 进内存。没有它就不装摘要层，绝不退回主模型。
     owned_summary_provider: ModelProvider | None = None
@@ -1028,7 +1039,7 @@ async def default_executor_factory(
         if owned_delivery_client is not None:
             await owned_delivery_client.aclose()
 
-    return AgentRunnerExecutor(runner=runner, request=request, close=close)
+    return AgentRunnerExecutor(runner=runner, request=request, close=close, model_trace=model_trace)
 
 
 def _frozen_tool_policy(request: ExecutorRequest) -> Callable[[PreparedToolCall], ToolPolicyDecision]:

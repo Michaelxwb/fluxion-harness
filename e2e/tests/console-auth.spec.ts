@@ -362,16 +362,17 @@ test('review BUILDER 看不到授权维护控件，普通 MCP 编辑保留范围
     await expect(page.getByTestId('grant-user-select')).toHaveCount(0);
     await page.goto('/mcp');
     await page.getByTestId(`mcp-link-${key}`).click();
-    await expect(page.getByTestId('change-mcp-scope')).toHaveCount(0);
+    await expect(page.getByTestId(`change-mcp-scope-${key}`)).toHaveCount(0);
     await page.getByRole('tab', { name: '指定用户' }).click();
     await expect(page.getByTestId('mcp-add-selected-user')).toHaveCount(0);
-    await page.getByTestId('edit-mcp').click();
+    await page.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`edit-mcp-${key}`).click();
     const modal = page.locator('.semi-modal');
     await expect(modal.getByRole('combobox', { name: /用户范围/ })).toHaveCount(0);
     await modal.getByRole('textbox', { name: /名称/ }).fill('review edited');
     const saved = page.waitForResponse((response) =>
       response.request().method() === 'PUT' && response.url().endsWith(`/mcp-servers/${resources.serverId}`));
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
     const response = await saved;
     expect(response.status(), await response.text()).toBe(200);
     expect(response.request().postDataJSON()).not.toHaveProperty('user_scope');

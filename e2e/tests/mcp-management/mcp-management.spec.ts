@@ -67,7 +67,7 @@ async function registerViaUi(page: Page, key: string, endpoint: string): Promise
   await modal.getByRole('textbox', { name: /名称/ }).fill('E2E MCP Server');
   await modal.getByRole('textbox', { name: /标识/ }).fill(key);
   await modal.getByRole('textbox', { name: /服务地址/ }).fill(endpoint);
-  await modal.locator('.semi-modal-footer .semi-button-primary').click();
+  await modal.getByRole('button', { name: 'confirm', exact: true }).click();
 }
 
 test('S-07 注册 Server 并连接测试后 connection_status 与工具数正确展示', async ({ page }) => {
@@ -86,7 +86,9 @@ test('S-07 注册 Server 并连接测试后 connection_status 与工具数正确
     await page.getByTestId(`mcp-link-${key}`).click();
     const sheet = page.locator('.semi-sidesheet');
     await expect(sheet).toBeVisible();
-    await sheet.getByTestId('test-mcp').click();
+    await expect(sheet.locator('.detail-actions')).toHaveCount(0);
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`test-mcp-${key}`).click();
     const modal = page.locator('.semi-modal');
     await expect(modal).toContainText('可用');
     await modal.locator('.semi-modal-close').click();
@@ -118,7 +120,7 @@ test('S-07c 注册弹窗按交互稿排版并保存后自动发现', async ({ pa
     await modal.getByRole('textbox', { name: /名称/ }).fill('E2E Layout MCP');
     await modal.getByRole('textbox', { name: /标识/ }).fill(key);
     await endpoint.fill(PROBE_MCP);
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
 
     const row = page.locator('.semi-table-row', { hasText: key });
     await expect(row).toBeVisible();
@@ -151,6 +153,11 @@ test('S-05 刷新工具目录后工具数与最近发现时间刷新', async ({ 
     const sheet = page.locator('.semi-sidesheet');
     await expect(sheet.locator('.detail-grid').first()).toContainText('工具数');
     await expect(sheet.locator('.detail-grid').first()).toContainText('2');
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`delete-mcp-${key}`).click();
+    await page.locator('.semi-popconfirm').getByRole('button', { name: '确定', exact: true }).click();
+    await expect(page.getByTestId(`mcp-link-${key}`)).toHaveCount(0);
+    expect(dumpMcp(key).server).toBeNull();
   } finally {
     cleanupMcp(key);
   }
@@ -163,7 +170,10 @@ test('S-06 工具明细展示名称与操作类型，无 Tool 级启停/授权',
     await registerViaUi(page, key, PROBE_MCP);
     await page.getByTestId(`mcp-link-${key}`).click();
     const sheet = page.locator('.semi-sidesheet');
-    await sheet.getByTestId('discover-mcp').click();
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`refresh-mcp-${key}`).click();
+    await expect(page.getByTestId(`refresh-mcp-${key}`)).not.toHaveClass(/semi-button-loading/);
+    await page.getByTestId(`mcp-link-${key}`).click();
     await sheet.getByRole('tab', { name: '工具明细' }).click();
     await expect(page.getByTestId('mcp-tool-probe_tool_0')).toBeVisible();
     await page.getByTestId('mcp-tool-probe_tool_0').click();
@@ -210,8 +220,12 @@ test('E-06 发现失败保留上一成功 Catalog（UI 不清空工具列表）'
     await page.request.put(`/api/v1/mcp-servers/${mcpId}`, {
       data: { endpoint: 'http://127.0.0.1:9/mcp' }
     });
-    await sheet.getByTestId('discover-mcp').click();
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`refresh-mcp-${key}`).click();
+    await expect(page.getByTestId(`refresh-mcp-${key}`)).not.toHaveClass(/semi-button-loading/);
+    await page.getByTestId(`mcp-link-${key}`).click();
     await expect(page.locator('.semi-toast-content')).toBeVisible();
+    await sheet.getByRole('tab', { name: '工具明细' }).click();
     await expect(page.getByTestId('mcp-tool-probe_tool_0')).toBeVisible({ timeout: 10000 });
 
     const stored = dumpMcp(key);
@@ -245,6 +259,15 @@ test('S-07b SELECTED 范围远端搜索添加指定用户', async ({ page }) => 
     await page.getByTestId('mcp-add-selected-user').click();
     await expect(page.getByTestId('mcp-selected-users').locator('.semi-table')).toContainText(userCode);
     expect(dumpMcp(key).granted_users).toContain(userCode);
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`change-mcp-scope-${key}`).click();
+    const scopeModal = page.locator('.semi-modal');
+    await expect(scopeModal.getByRole('combobox', { name: /用户范围/ })).toContainText('指定用户');
+    await scopeModal.getByRole('combobox', { name: /用户范围/ }).click();
+    await page.getByRole('option', { name: /所有用户/ }).click();
+    await scopeModal.getByRole('button', { name: 'confirm', exact: true }).click();
+    await expect(scopeModal).toHaveCount(0);
+    expect(dumpMcp(key).server?.user_scope).toBe('ALL');
   } finally {
     cleanupMcp(key, userCode);
   }

@@ -8,13 +8,10 @@ import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { EntityLink } from '../../components/common/EntityLink';
 import { ErrorState } from '../../components/common/ErrorState';
 import { StatusTag, type StatusTagOption } from '../../components/common/StatusTag';
-import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { TaskTimeline } from './TaskTimeline';
-import { useTaskActions } from './useTaskActions';
 import { getTask, type TaskChild, type TaskDetail } from './services/tasks';
 
 const TERMINAL_STATUSES = ['COMPLETED', 'FAILED', 'CANCELLED'];
-const CANCELLABLE_STATUSES = ['QUEUED', 'RUNNING', 'WAITING'];
 const REFRESH_INTERVAL_MS = 1500;
 const MAX_REFRESHES = 12;
 // 取消后等待 Worker 协作停止：须覆盖一个完整心跳周期（后端 task_heartbeat_sec=20s）。
@@ -38,7 +35,7 @@ export interface TaskDetailSideSheetProps {
   taskId: string | null;
   onCancel(): void;
   onSelectTask?(taskId: string): void;
-  onMutated?(taskId: string): void;
+  reloadKey?: number;
   /** 定时触发来源的反向入口。展示组件不导航（与 `RecentTaskList` 同约定），由页面接线。 */
   onOpenSchedule?(scheduleId: string): void;
   /** 派生它的那次对话运行（`source_run_id`）。同一约定：回调而不导航。 */
@@ -67,8 +64,6 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
   const [failed, setFailed] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
   const [refreshCount, setRefreshCount] = useState(0);
-  const [refreshBudget, setRefreshBudget] = useState(MAX_REFRESHES);
-  const [confirming, setConfirming] = useState(false);
   const requestSeq = useRef(0);
 
   const load = useCallback(async () => {
@@ -98,14 +93,13 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
   useEffect(() => {
     setActiveTab('basic');
     setRefreshCount(0);
-    setRefreshBudget(MAX_REFRESHES);
     if (props.taskId) {
       void load();
     } else {
       setDetail(null);
       setFailed(false);
     }
-  }, [props.taskId, load]);
+  }, [props.taskId, props.reloadKey, load]);
 
   // 有界刷新：仅详情可见且任务非终态时轮询（每次一个详情请求，不按事件逐条请求）。
   useEffect(() => {
@@ -113,9 +107,8 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
       return;
     }
     if (
-      confirming ||
       TERMINAL_STATUSES.includes(detail.status) ||
-      refreshCount >= refreshBudget
+      refreshCount >= (detail.cancel_requested ? CANCEL_MAX_REFRESHES : MAX_REFRESHES)
     ) {
       return;
     }
@@ -124,7 +117,7 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
       void load();
     }, REFRESH_INTERVAL_MS);
     return () => clearTimeout(timer);
-  }, [props.taskId, detail, refreshCount, refreshBudget, confirming, load]);
+  }, [props.taskId, detail, refreshCount, load]);
 
   const statusOptions = useMemo(
     () =>
@@ -139,53 +132,6 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
 
   const children: TaskChild[] = detail?.children ?? [];
 
-  const taskActions = useTaskActions({
-    onCancelled: (taskId) => {
-      // 取消成功后重开刷新预算，直到 Worker 真正落终态（RUNNING 协作取消需一个心跳周期）。
-      setRefreshCount(0);
-      setRefreshBudget(CANCEL_MAX_REFRESHES);
-      void load();
-      props.onMutated?.(taskId);
-    }
-  });
-
-  // Header actions 记忆化：有界刷新产生的新 detail 对象不应重建 Popconfirm 触发节点。
-  const actionsNode = useMemo(
-    () =>
-      detail ? (
-        <div
-          data-testid="task-detail-actions"
-          style={{ display: 'flex', gap: 8, alignItems: 'center' }}
-        >
-          <StatusTag status={detail.status} options={statusOptions} />
-          {detail.cancel_requested && !TERMINAL_STATUSES.includes(detail.status) ? (
-            <span data-testid="task-cancel-requested">{t('task.cancel.requested')}</span>
-          ) : null}
-          {CANCELLABLE_STATUSES.includes(detail.status) && !detail.cancel_requested ? (
-            <ConfirmAction
-              danger
-              title={t('task.cancel.confirm')}
-              testId="task-cancel"
-              onOpenChange={setConfirming}
-              onConfirm={() => void taskActions.cancel(detail.task_id)}
-            >
-              {taskActions.cancelling ? t('common.loading') : t('task.cancel.action')}
-            </ConfirmAction>
-          ) : null}
-
-        </div>
-      ) : undefined,
-    [
-      detail?.status,
-      detail?.task_id,
-      detail?.cancel_requested,
-      taskActions.cancelling,
-      statusOptions,
-      t,
-      taskActions.cancel
-    ]
-  );
-
   return (
     <DetailSideSheet
       visible={props.taskId !== null}
@@ -195,7 +141,6 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
           ? `${t(`task.status.${detail.status}`)} · ${detail.intent_key}`
           : t('task.detail.basic')
       }
-      actions={actionsNode}
       activeTab={activeTab}
       onTabChange={setActiveTab}
       onCancel={props.onCancel}
@@ -212,7 +157,14 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
                 { label: t('task.columns.taskId'), value: detail.task_id },
                 {
                   label: t('task.columns.status'),
-                  value: <StatusTag status={detail.status} options={statusOptions} />
+                  value: (
+                    <>
+                      <StatusTag status={detail.status} options={statusOptions} />
+                      {detail.cancel_requested && !TERMINAL_STATUSES.includes(detail.status) ? (
+                        <span data-testid="task-cancel-requested">{t('task.cancel.requested')}</span>
+                      ) : null}
+                    </>
+                  )
                 },
                 { label: t('task.columns.intent'), value: detail.intent_key },
                 { label: t('task.columns.triggerType'), value: t(`task.trigger.${detail.trigger_type}`) },

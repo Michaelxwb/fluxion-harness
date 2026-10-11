@@ -7,6 +7,7 @@ import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { ErrorState } from '../../components/common/ErrorState';
 import { getArtifact, type SkillArtifactDetail } from './services/skills';
+import { SkillMarkdownViewer } from './SkillMarkdownViewer';
 
 export interface SkillArtifactDetailModalProps {
   visible: boolean;
@@ -92,18 +93,10 @@ export function SkillArtifactDetailModal(props: SkillArtifactDetailModalProps) {
           </>
         ) : null}
       </Tabs.TabPane>
-          <Tabs.TabPane itemKey="skillmd" tab="SKILL.md">
-            {skillMd ? (
-              <pre
-                data-testid="artifact-skill-md"
-                style={{ whiteSpace: 'pre-wrap', maxHeight: 360, overflow: 'auto' }}
-              >
-                {skillMd}
-              </pre>
-            ) : (
-              <div className="detail-hint">{t('skill.artifact.skillMdEmpty')}</div>
-            )}
-          </Tabs.TabPane>
+      <Tabs.TabPane itemKey="skillmd" tab="SKILL.md">
+        {!failed && detail ? <SkillMarkdownViewer key={detail.artifact_id}
+          source={skillMd} testId="artifact-skill-md" /> : null}
+      </Tabs.TabPane>
     </DetailSideSheet>
   );
 }

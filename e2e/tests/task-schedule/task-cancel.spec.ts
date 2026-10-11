@@ -52,19 +52,22 @@ test.describe('Task 取消', () => {
     });
 
     await openDetail(page, taskId);
-    await expect(page.getByTestId('task-cancel')).toBeVisible();
+    await expect(page.locator('.detail-actions')).toHaveCount(0);
+    await page.locator('.semi-sidesheet-close').click();
+    await expect(page.getByTestId(`task-row-cancel-${taskId}`)).toBeVisible();
 
-    await page.getByTestId('task-cancel').click();
+    await page.getByTestId(`task-row-cancel-${taskId}`).click();
     await page.waitForTimeout(500);
     expect(cancelRequests).toHaveLength(0);
     await page.locator('.semi-popconfirm').getByRole('button', { name: /确定|删除/ }).click({ force: true });
 
-    await expect(page.locator('.semi-sidesheet-content').getByText('已取消').first()).toBeVisible();
-    await expect(page.getByTestId('task-cancel')).toHaveCount(0);
+    await expect(page.locator('.semi-table-row', { hasText: taskId })).toContainText('已取消');
+    await expect(page.getByTestId(`task-row-cancel-${taskId}`)).toHaveCount(0);
     expect(cancelRequests).toHaveLength(1);
 
+    await page.getByTestId(`task-link-${taskId}`).click();
+    await expect(page.locator('.semi-sidesheet-content').getByText('已取消').first()).toBeVisible();
     await page.locator('.semi-sidesheet-close').click();
-    await expect(page.locator('.semi-table-row', { hasText: taskId })).toContainText('已取消');
   });
 
   test('B-134 取消失败不伪造终态，可重试；终态无取消入口', async ({ page, request }) => {
@@ -73,25 +76,27 @@ test.describe('Task 取消', () => {
 
     await login(page);
     await openDetail(page, taskId);
+    await expect(page.locator('.detail-actions')).toHaveCount(0);
+    await page.locator('.semi-sidesheet-close').click();
 
     await request.post('/__e2e/worker-failure', { data: { failing: true } });
-    await page.getByTestId('task-cancel').click();
+    await page.getByTestId(`task-row-cancel-${taskId}`).click();
     await page.locator('.semi-popconfirm').getByRole('button', { name: /确定|删除/ }).click({ force: true });
-    await expect(page.locator('.semi-sidesheet-content').getByText('排队中').first()).toBeVisible();
-    await expect(page.getByTestId('task-cancel')).toBeVisible();
+    await expect(page.locator('.semi-table-row', { hasText: taskId })).toContainText('排队中');
+    await expect(page.getByTestId(`task-row-cancel-${taskId}`)).toBeVisible();
     await expect(page.locator('.semi-toast-content').first()).toBeVisible();
 
     await request.post('/__e2e/worker-failure', { data: { failing: false } });
-    await page.getByTestId('task-cancel').click();
+    await page.getByTestId(`task-row-cancel-${taskId}`).click();
     await page.locator('.semi-popconfirm').getByRole('button', { name: /确定|删除/ }).click({ force: true });
-    await expect(page.locator('.semi-sidesheet-content').getByText('已取消').first()).toBeVisible();
+    await expect(page.locator('.semi-table-row', { hasText: taskId })).toContainText('已取消');
 
-    await page.locator('.semi-sidesheet-close').click();
+    await expect(page.getByTestId(`task-row-cancel-${completedId}`)).toHaveCount(0);
     await openDetail(page, completedId);
-    await expect(page.getByTestId('task-cancel')).toHaveCount(0);
+    await expect(page.locator('.detail-actions')).toHaveCount(0);
   });
 
-  test('S-FE-02 运行中取消：显示取消中、按钮消失，刷新预算耗尽后取消仍能等到 CANCELLED', async ({
+  test('S-FE-02 运行中从列表取消，详情显示取消中并轮询到 CANCELLED', async ({
     page,
     request
   }) => {
@@ -99,13 +104,14 @@ test.describe('Task 取消', () => {
 
     await login(page);
     await openDetail(page, taskId);
-    // 先让打开详情时的有界刷新预算（12 × 1.5s）耗尽，复现「取消后不再刷新」的旧缺陷。
-    await page.waitForTimeout(19_000);
+    await expect(page.locator('.detail-actions')).toHaveCount(0);
+    await page.locator('.semi-sidesheet-close').click();
 
-    await page.getByTestId('task-cancel').click();
+    await page.getByTestId(`task-row-cancel-${taskId}`).click();
     await page.locator('.semi-popconfirm').getByRole('button', { name: /确定|删除/ }).click({ force: true });
+    await page.getByTestId(`task-link-${taskId}`).click();
     await expect(page.getByTestId('task-cancel-requested')).toBeVisible();
-    await expect(page.getByTestId('task-cancel')).toHaveCount(0);
+    await expect(page.getByTestId(`task-row-cancel-${taskId}`)).toHaveCount(0);
 
     await request.post('/__e2e/update-task', {
       data: { task_id: taskId, status: 'CANCELLED', event_type: 'CANCELLED' }

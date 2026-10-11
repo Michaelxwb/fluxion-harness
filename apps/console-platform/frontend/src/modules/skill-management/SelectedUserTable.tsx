@@ -1,4 +1,6 @@
-import { Banner, Button, Select, Table } from '@douyinfe/semi-ui';
+import { actionColumn } from '../../components/common/tableLayout';
+import { DataTable } from '../../components/common/DataTable';
+import { Button, Select } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -102,9 +104,7 @@ export function SelectedUserTable(props: SelectedUserTableProps) {
   }, [props.userScope, search]);
 
   if (props.userScope === 'ALL') {
-    return (
-      <Banner type="info" closeIcon={null} description={t('skill.users.allScopeHint')} />
-    );
+    return <EmptyState title={t('skill.users.noSelectionNeeded')} />;
   }
 
   const add = async (): Promise<void> => {
@@ -157,7 +157,7 @@ export function SelectedUserTable(props: SelectedUserTableProps) {
         <ErrorState onRetry={() => void reload()} />
       ) : (
         <div data-testid="selected-users">
-          <Table<SkillGrantItem>
+          <DataTable<SkillGrantItem>
             rowKey="user_id"
             loading={loading}
             pagination={false}
@@ -172,10 +172,10 @@ export function SelectedUserTable(props: SelectedUserTableProps) {
                 render: (value: string) => <DateTimeText value={value} />
               },
               {
+                ...actionColumn(),
                 title: t('skill.columns.actions'),
                 render: (_: unknown, record: SkillGrantItem) => (
                   <ConfirmAction
-                    danger
                     title={t('skill.users.confirmRemove')}
                     onConfirm={() => void remove(record.user_id)}
                   >

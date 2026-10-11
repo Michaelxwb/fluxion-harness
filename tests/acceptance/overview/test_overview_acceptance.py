@@ -22,12 +22,11 @@ from muad_agent_worker.infrastructure.models.task import TaskExecution
 from muad_common import SharedSettings
 from muad_console_platform.application.overview_query_service import OverviewQueryService
 from muad_console_platform.infrastructure.db import get_engine, get_session_factory
+from muad_console_platform.infrastructure.repositories.overview_models import OverviewPayload
 from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tests.acceptance.overview.environment import (
-    ACTOR_NAME,
-    AGENT_NAME,
     TENANT,
     OverviewStack,
     clear_engine_caches,
@@ -39,7 +38,14 @@ from tests.acceptance.overview.environment import (
 )
 from tests.acceptance.task_schedule.environment import ServiceProcess, free_port, require, run_db
 
-KPI_KEYS = {"enabled_agents", "enabled_skills", "active_tasks", "active_schedules"}
+RESOURCE_KEYS = {
+    "enabled_agents",
+    "enabled_skills",
+    "enabled_mcps",
+    "enabled_models",
+    "users",
+    "active_schedules",
+}
 CONSOLE_TIME = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
 MAX_AGGREGATE_SQL = 5
 
@@ -130,74 +136,66 @@ def _insert_extra_tasks(agent_id: uuid.UUID, actor_id: uuid.UUID, how_many: int)
     run_db(insert)
 
 
-async def test_s01_one_request_returns_all_blocks_matching_independent_reads(
-    overview_stack: OverviewStack,
-) -> None:
-    """[S-01] 真实 Console 一次请求返回 4 KPI + 两组列表，数值与独立 SQL 回读一致。"""
-    seed = overview_stack.seed
-    client = await console_login(overview_stack.console_url)
+async def _http_overview(stack: OverviewStack, days: int = 7) -> OverviewPayload:
+    client = await console_login(stack.console_url)
     try:
-        response = await client.get("/api/v1/overview")
+        response = await client.get("/api/v1/overview", params={"days": days})
     finally:
         await client.aclose()
-
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["code"] == "0"
-    data = body["data"]
-    assert set(data) == {"kpis", "recent_tasks", "next_schedules"}
-    assert set(data["kpis"]) == KPI_KEYS
+    return OverviewPayload.model_validate(body["data"])
 
-    # 与**独立 SQL 回读**逐项一致（不经被测 API 计算）
-    assert data["kpis"]["enabled_agents"] == _scalar(
-        "SELECT count(*) FROM control.agent_definition "
-        "WHERE tenant_id = :t AND enabled AND NOT is_deleted"
+
+async def test_s01_one_request_returns_all_blocks_matching_independent_reads(
+    overview_stack: OverviewStack,
+) -> None:
+    """[S-01] A single real HTTP request returns every section from tenant Owner tables."""
+    data = await _http_overview(overview_stack)
+    assert set(data.resources.model_dump()) == RESOURCE_KEYS
+    assert (
+        data.resources.enabled_agents
+        == _scalar(
+            "SELECT count(*) FROM control.agent_definition "
+            "WHERE tenant_id = :t AND enabled AND NOT is_deleted"
+        )
+        == overview_stack.seed.enabled_agents
     )
-    assert data["kpis"]["enabled_skills"] == _scalar(
+    assert data.resources.enabled_skills == _scalar(
         "SELECT count(*) FROM control.skill WHERE tenant_id = :t AND enabled AND NOT is_deleted"
     )
-    assert data["kpis"]["active_tasks"] == _scalar(
+    assert (
+        data.resources.active_schedules
+        == _scalar(
+            "SELECT count(*) FROM task.task_schedule WHERE tenant_id = :t AND NOT is_deleted "
+            "AND status = 'ACTIVE'"
+        )
+        == overview_stack.seed.active_schedules
+    )
+    active_tasks = data.activity.queued_tasks + data.activity.running_tasks + data.activity.waiting_tasks
+    assert active_tasks == _scalar(
         "SELECT count(*) FROM task.task_execution WHERE tenant_id = :t AND NOT is_deleted "
-        "AND status IN ('QUEUED','RUNNING','WAITING')"
+        "AND parent_id IS NULL AND status IN ('QUEUED','RUNNING','WAITING')"
     )
-    assert data["kpis"]["active_schedules"] == _scalar(
-        "SELECT count(*) FROM task.task_schedule WHERE tenant_id = :t AND NOT is_deleted "
-        "AND status = 'ACTIVE'"
-    )
-    assert data["kpis"]["enabled_agents"] == seed.enabled_agents
-    assert data["kpis"]["active_schedules"] == seed.active_schedules
-
-    # 两组列表各 ≤5、顺序与口径正确、条目字段齐备
-    tasks = data["recent_tasks"]
-    assert 0 < len(tasks) <= 5
-    assert [item["create_time"] for item in tasks] == sorted(
-        (item["create_time"] for item in tasks), reverse=True
-    )
-    assert tasks[0]["agent_name"] == AGENT_NAME
-    assert tasks[0]["actor_user_name"] == ACTOR_NAME
-    assert all(CONSOLE_TIME.match(item["create_time"]) for item in tasks)
-
-    schedules = data["next_schedules"]
-    assert [item["name"] for item in schedules] == list(seed.next_schedule_names)
-    assert [item["next_fire_at"] for item in schedules] == sorted(
-        item["next_fire_at"] for item in schedules
-    )
-    assert all(item["status"] == "ACTIVE" for item in schedules)
+    assert data.kpis.run_count == 0 and data.kpis.run_success_rate is None
+    assert data.kpis.total_tokens == 0 and data.kpis.token_coverage is None
+    assert data.agent_ranking == []
+    assert len(data.trend.runs) == len(data.trend.tasks) == len(data.trend.tokens) == 7
+    assert CONSOLE_TIME.fullmatch(data.generated_at)
 
 
-async def test_risk01_aggregate_sql_count_is_bounded_and_row_independent() -> None:
+async def test_risk01_aggregate_sql_count_is_bounded_and_row_independent(
+    overview_stack: OverviewStack,
+) -> None:
     """[RISK-01] 聚合 SQL 条数 ≤5，且**追加行数后不增长**（N+1 的直接反证）。"""
     baseline_count, baseline_sql = await _count_statements()
     assert baseline_count > 0, "未捕获到任何 SQL，测量本身失效"
     assert baseline_count <= MAX_AGGREGATE_SQL, f"单次聚合用了 {baseline_count} 条 SQL"
 
     extra = 12
-    agent_id = uuid.UUID(
-        str(_scalar("SELECT id FROM control.agent_definition WHERE tenant_id = :t LIMIT 1"))
-    )
-    actor_id = uuid.UUID(
-        str(_scalar("SELECT id FROM control.platform_user WHERE tenant_id = :t LIMIT 1"))
-    )
+    agent_id = uuid.UUID(str(_scalar("SELECT id FROM control.agent_definition WHERE tenant_id = :t LIMIT 1")))
+    actor_id = uuid.UUID(str(_scalar("SELECT id FROM control.platform_user WHERE tenant_id = :t LIMIT 1")))
     _insert_extra_tasks(agent_id, actor_id, extra)
 
     grown_count, _ = await _count_statements()
@@ -205,10 +203,16 @@ async def test_risk01_aggregate_sql_count_is_bounded_and_row_independent() -> No
         f"追加 {extra} 行后聚合 SQL 由 {baseline_count} 增至 {grown_count} —— 存在 N+1"
     )
 
-    # 不读快照/缓存表：语句只落在四张 Owner 表上
+    # Read authoritative runtime/control/task facts; do not read snapshots or Redis.
     joined = " ".join(baseline_sql).lower()
-    for table in ("control.agent_definition", "control.skill", "task.task_execution",
-                  "task.task_schedule"):
+    for table in (
+        "control.agent_definition",
+        "control.skill",
+        "task.task_execution",
+        "task.task_schedule",
+        "runtime.run_record",
+        "runtime.model_invocation_audit",
+    ):
         assert table in joined, f"聚合未查询 {table}"
     assert "snapshot" not in joined, "聚合读取了快照表（RISK-03：必须请求时计算）"
     assert "redis" not in joined
@@ -250,11 +254,9 @@ async def test_risk03_overview_serves_without_reachable_redis(
         assert body["code"] == "0"
         # 与正常栈同一租户：数值必须一致（证明未因 Redis 缺失而伪造或降级）
         seed = overview_stack.seed
-        assert body["data"]["kpis"]["enabled_agents"] == seed.enabled_agents
-        assert body["data"]["kpis"]["active_schedules"] == seed.active_schedules
-        assert [item["name"] for item in body["data"]["next_schedules"]] == list(
-            seed.next_schedule_names
-        )
+        assert body["data"]["resources"]["enabled_agents"] == seed.enabled_agents
+        assert body["data"]["resources"]["active_schedules"] == seed.active_schedules
+        assert body["data"]["kpis"]["run_count"] == 0
     finally:
         process.stop()
         assert process._process is not None and process._process.poll() is not None, (
@@ -262,50 +264,14 @@ async def test_risk03_overview_serves_without_reachable_redis(
         )
 
 
-async def _count_metrics_statements() -> int:
-    """与 `_count_statements` 同口径，但测量 `get_metrics()`（指标图聚合）。"""
-    captured: list[str] = []
-    engine = get_engine()
-
-    def capture(*args: Any) -> None:
-        captured.append(str(args[2]))
-
-    event.listen(engine.sync_engine, "before_cursor_execute", capture)
-    try:
-        async with get_session_factory()() as session:
-            await OverviewQueryService(session, tenant_id=TENANT).get_metrics(days=7)
-    finally:
-        event.remove(engine.sync_engine, "before_cursor_execute", capture)
-    return len(captured)
-
-
 async def test_metrics_trend_and_status_match_independent_reads(
     overview_stack: OverviewStack,
 ) -> None:
-    """[S-05] 指标聚合：趋势为连续日窗（补零）、数值与独立 SQL 回读一致、状态分布总量一致。"""
-    client = await console_login(overview_stack.console_url)
-    try:
-        response = await client.get("/api/v1/overview/metrics")
-    finally:
-        await client.aclose()
-
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert body["code"] == "0"
-    data = body["data"]
-    assert data["days"] == 7
-
-    trend = data["task_trend"]
-    assert len(trend) == 7
-    days = [item["date"] for item in trend]
-    assert days == sorted(days), "趋势必须按日期升序"
-    assert (date.fromisoformat(days[-1]) - date.fromisoformat(days[0])).days == 6, (
-        "趋势窗口必须是连续 7 天（无数据日补零，不允许断日）"
-    )
-
-    # 与独立 SQL 回读一致：时区用**服务端返回值**，避免两端各自取时区造成口径漂移
-    tz = data["timezone"]
-    window_total = sum(item["total"] for item in trend)
+    """[S-05] Continuous calendar days and root-only period totals match independent SQL."""
+    data = await _http_overview(overview_stack)
+    days = [point.date for point in data.trend.tasks]
+    assert days == sorted(days) and len(days) == 7
+    assert (date.fromisoformat(days[-1]) - date.fromisoformat(days[0])).days == 6
 
     async def read_window(factory: async_sessionmaker[AsyncSession]) -> int:
         async with factory() as session:
@@ -313,38 +279,14 @@ async def test_metrics_trend_and_status_match_independent_reads(
                 await session.scalar(
                     text(
                         "SELECT count(*) FROM task.task_execution WHERE tenant_id = :t "
-                        "AND NOT is_deleted "
+                        "AND NOT is_deleted AND parent_id IS NULL AND create_time <= now() "
                         "AND create_time >= ((now() AT TIME ZONE :tz)::date - 6) AT TIME ZONE :tz"
                     ),
-                    {"t": TENANT, "tz": tz},
+                    {"t": TENANT, "tz": data.timezone},
                 )
+                or 0
             )
 
-    assert window_total == run_db(read_window)
-
-    status: dict[str, int] = data["task_status"]
-    assert sum(status.values()) == _scalar(
-        "SELECT count(*) FROM task.task_execution WHERE tenant_id = :t AND NOT is_deleted"
-    )
-    assert status.get("FAILED", 0) >= sum(item["failed"] for item in trend), (
-        "趋势窗口内的失败数不得超过 FAILED 存量（窗口可能早于历史）"
-    )
-
-
-async def test_metrics_aggregate_sql_count_is_bounded_and_row_independent(
-    overview_stack: OverviewStack,
-) -> None:
-    """[RISK-01 同口径] 指标聚合 SQL 条数有界，且追加行数后不增长（无 N+1）。"""
-    baseline = await _count_metrics_statements()
-    assert 0 < baseline <= MAX_AGGREGATE_SQL, f"指标聚合用了 {baseline} 条 SQL"
-
-    agent_id = uuid.UUID(
-        str(_scalar("SELECT id FROM control.agent_definition WHERE tenant_id = :t LIMIT 1"))
-    )
-    actor_id = uuid.UUID(
-        str(_scalar("SELECT id FROM control.platform_user WHERE tenant_id = :t LIMIT 1"))
-    )
-    _insert_extra_tasks(agent_id, actor_id, 12)
-
-    grown = await _count_metrics_statements()
-    assert grown == baseline, f"追加行后指标聚合 SQL 由 {baseline} 增至 {grown} —— 存在 N+1"
+    total = run_db(read_window)
+    assert sum(point.total for point in data.trend.tasks) == total
+    assert sum(data.status.tasks.values()) == total

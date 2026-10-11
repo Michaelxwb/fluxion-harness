@@ -1,3 +1,4 @@
+import { actionColumn } from '../../components/common/tableLayout';
 import { Button, Input, Select, Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +11,7 @@ import { EntityLink } from '../../components/common/EntityLink';
 import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
+import { TableText } from '../../components/common/TableText';
 import { StatusTag } from '../../components/common/StatusTag';
 import { UserDetailTabs } from './UserDetailTabs';
 import { UserFormModal } from './UserFormModal';
@@ -88,6 +90,15 @@ export function UserPage() {
     }
   };
 
+  const openEdit = async (id: string): Promise<void> => {
+    try {
+      setFormUser(await getUser(id));
+      setFormVisible(true);
+    } catch {
+      Toast.error(t('common.loadFailed'));
+    }
+  };
+
   const onSaved = async (saved: UserBasic): Promise<void> => {
     setFormVisible(false);
     setFormUser(null);
@@ -143,45 +154,54 @@ export function UserPage() {
         <ErrorState onRetry={() => void reload()} />
       ) : (
         <RemoteTable<UserListItem>
+          className="user-table app-table-fit app-table-nowrap"
+          scroll={{ x: '100%' }}
           rowKey="id"
           loading={loading}
           columns={[
             {
               title: t('user.columns.displayName'),
               dataIndex: 'display_name',
+              width: 'auto',
+              ellipsis: true,
               render: (value: string, record: UserListItem) => (
                 <EntityLink
                   testId={`user-link-${record.user_code}`}
                   onClick={() => void openDetail(record.id)}
                 >
-                  {value}
+                  <TableText>{value}</TableText>
                 </EntityLink>
               )
             },
-            { title: t('user.columns.userCode'), dataIndex: 'user_code' },
+            { title: t('user.columns.userCode'), dataIndex: 'user_code', width: 'auto', ellipsis: true },
             {
               title: t('user.columns.agentCount'),
               dataIndex: 'agent_grant_count',
+              width: 112,
               render: (value: number) => <span className="count-cell">{value}</span>
             },
             {
               title: t('user.columns.credentialCount'),
               dataIndex: 'credential_count',
+              width: 96,
               render: (value: number) => <span className="count-cell">{value}</span>
             },
             {
               title: t('user.columns.identityCount'),
               dataIndex: 'identity_count',
+              width: 104,
               render: (value: number) => <span className="count-cell">{value}</span>
             },
             {
               title: t('user.columns.memoryCount'),
               dataIndex: 'memory_count',
+              width: 96,
               render: (value: number) => <span className="count-cell">{value}</span>
             },
             {
               title: t('user.columns.status'),
               dataIndex: 'status',
+              width: 92,
               render: (value: string) => (
                 <StatusTag
                   status={value}
@@ -195,7 +215,17 @@ export function UserPage() {
             {
               title: t('user.columns.updateTime'),
               dataIndex: 'update_time',
+              width: 176,
               render: (value: string) => <DateTimeText value={value} />
+            },
+            {
+              ...actionColumn(80),
+              title: t('user.columns.actions'),
+              render: (_: unknown, record: UserListItem) => (
+                <Button theme="borderless" data-testid={`edit-user-${record.user_code}`} onClick={() => void openEdit(record.id)}>
+                  {t('user.detail.edit')}
+                </Button>
+              )
             }
           ]}
           dataSource={items}
@@ -221,10 +251,6 @@ export function UserPage() {
           user={detail}
           visible
           onCancel={() => setDetail(null)}
-          onEdit={() => {
-            setFormUser(detail);
-            setFormVisible(true);
-          }}
         />
       ) : null}
       </PageSection>

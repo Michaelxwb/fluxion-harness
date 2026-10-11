@@ -123,7 +123,7 @@ def test_entity_columns_prefer_names_with_short_id_fallback() -> None:
     assert "id.slice(0, 8)" in cell, "短 id 口径 = 前 8 位"
     assert "name ?" in cell and "keySuffix" in cell, "名称优先；Skill 名称带 key 后缀"
     copyable = _read(COPYABLE_TEXT)
-    assert "copyable" in copyable and "title={full}" in copyable, "title 与复制都取完整值"
+    assert "CopyButton value={full}" in copyable and "title={full}" in copyable, "title 与复制都取完整值"
 
 
 def test_task_list_hides_redundant_intent_column() -> None:

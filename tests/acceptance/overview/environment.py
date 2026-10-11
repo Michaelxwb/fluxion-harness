@@ -3,7 +3,7 @@
 - 服务是独立 uvicorn 子进程（真实进程、真实 HTTP），不覆盖任何业务路由；依赖缺失一律
   fail（`require`），不允许 skip 后冒充通过；
 - **按需最小栈**：概览是只读聚合（设计 §3.2.1），S-01 的真实边界是
-  「真实 Console HTTP → 四张 Owner 表(PostgreSQL)」，故不启动 Runtime/Worker/Gateway
+  「真实 Console HTTP → control/task/runtime Owner 表(PostgreSQL)」，故不启动 Runtime/Worker/Gateway
   与 LLM 探针 —— 与本模块无关的进程只会引入无关依赖（口径同 11-audit-observability
   对 Gateway 的处理）；
 - 任务/定时数据由本环境直接写入真实表，使 S-01 的断言有真实数据可依；

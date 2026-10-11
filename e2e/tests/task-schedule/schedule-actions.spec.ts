@@ -24,6 +24,8 @@ async function openDetail(page: Page, scheduleId: string): Promise<void> {
   await page.goto('/schedules');
   await page.getByTestId(`schedule-link-${scheduleId}`).click();
   await expect(page.getByTestId('schedule-detail-next-fire')).toBeVisible();
+  await expect(page.locator('.detail-actions')).toHaveCount(0);
+  await page.locator('.semi-sidesheet-close').click();
 }
 
 test.describe('Schedule 管理动作', () => {
@@ -50,13 +52,13 @@ test.describe('Schedule 管理动作', () => {
     await openDetail(page, scheduleId);
 
     await request.post('/__e2e/worker-failure', { data: { failing: true } });
-    await page.getByTestId('schedule-pause').click();
-    await expect(page.getByTestId('schedule-pause')).toBeVisible();
+    await page.getByTestId(`schedule-pause-${scheduleId}`).click();
+    await expect(page.getByTestId(`schedule-pause-${scheduleId}`)).toBeVisible();
     await expect(page.locator('.semi-toast-content').first()).toBeVisible();
 
     await request.post('/__e2e/worker-failure', { data: { failing: false } });
-    await page.getByTestId('schedule-pause').click();
-    await expect(page.getByTestId('schedule-resume')).toBeVisible();
+    await page.getByTestId(`schedule-pause-${scheduleId}`).click();
+    await expect(page.getByTestId(`schedule-resume-${scheduleId}`)).toBeVisible();
   });
 
   test('B-138 暂停/恢复/删除与终态限制，删除保留历史 Task', async ({ page, request }) => {
@@ -76,21 +78,18 @@ test.describe('Schedule 管理动作', () => {
     await login(page);
     await openDetail(page, scheduleId);
 
-    await page.getByTestId('schedule-pause').click();
-    await expect(page.getByTestId('schedule-resume')).toBeVisible();
-    await expect(page.getByTestId('schedule-pause')).toHaveCount(0);
+    await page.getByTestId(`schedule-pause-${scheduleId}`).click();
+    await expect(page.getByTestId(`schedule-resume-${scheduleId}`)).toBeVisible();
+    await expect(page.getByTestId(`schedule-pause-${scheduleId}`)).toHaveCount(0);
 
-    await page.getByTestId('schedule-resume').click();
-    await expect(page.getByTestId('schedule-pause')).toBeVisible();
-    await expect(page.locator('.semi-sidesheet-content').getByText('启用中').first()).toBeVisible();
-
-    await page.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`schedule-resume-${scheduleId}`).click();
+    await expect(page.getByTestId(`schedule-pause-${scheduleId}`)).toBeVisible();
+    await expect(page.locator('.semi-table-row', { hasText: 'e2e-action-lifecycle' })).toContainText('启用中');
     await expect(page.getByTestId(`schedule-link-${scheduleId}`)).toBeVisible();
 
-    await page.getByTestId(`schedule-link-${scheduleId}`).click();
-    await page.getByTestId('schedule-delete').click();
+    await page.getByTestId(`schedule-delete-${scheduleId}`).click();
     await page.locator('.semi-popconfirm').getByRole('button', { name: /确定|删除/ }).click({ force: true });
-    await expect(page.getByTestId('schedule-detail-actions')).toHaveCount(0);
+    await expect(page.locator('.detail-actions')).toHaveCount(0);
     await expect(page.getByTestId(`schedule-link-${scheduleId}`)).toHaveCount(0);
 
     await page.goto('/tasks');
@@ -114,14 +113,14 @@ test.describe('Schedule 管理动作', () => {
 
     await login(page);
     await openDetail(page, completedId);
-    await expect(page.getByTestId('schedule-pause')).toHaveCount(0);
-    await expect(page.getByTestId('schedule-resume')).toHaveCount(0);
-    await expect(page.getByTestId('schedule-delete')).toHaveCount(0);
-    await page.locator('.semi-sidesheet-close').click();
+    await expect(page.getByTestId(`schedule-pause-${completedId}`)).toHaveCount(0);
+    await expect(page.getByTestId(`schedule-resume-${completedId}`)).toHaveCount(0);
+    await expect(page.getByTestId(`schedule-delete-${completedId}`)).toHaveCount(0);
 
     await openDetail(page, missedId);
-    await expect(page.getByTestId('schedule-pause')).toHaveCount(0);
-    await expect(page.getByTestId('schedule-resume')).toHaveCount(0);
+    await expect(page.getByTestId(`schedule-pause-${missedId}`)).toHaveCount(0);
+    await expect(page.getByTestId(`schedule-resume-${missedId}`)).toHaveCount(0);
+    await page.getByTestId(`schedule-link-${missedId}`).click();
     await expect(page.getByTestId('schedule-detail-next-fire')).toHaveText('-');
   });
 });

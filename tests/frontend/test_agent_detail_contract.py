@@ -13,22 +13,22 @@ def _source(name: str) -> str:
 
 
 def test_detail_header_and_five_tabs() -> None:
-    """[RULE-ui-detail-001] 标题/副标题居左，操作与关闭 X 同行靠右，Tabs 其下（5 个）。"""
+    """[RULE-ui-detail-001] 标题/副标题居左，对象操作在列表，详情保留标题与关闭 X，Tabs 其下（5 个）。"""
     source = _source("AgentDetailSideSheet.tsx")
     assert "title={detail?.name" in source
     assert "subtitle={detail?.key" in source
-    assert "actions={" in source
-    assert 'data-testid="edit-agent"' in source
+    assert "actions={" not in source
+    assert 'data-testid={`edit-agent-${record.key}`}' in _source("AgentPage.tsx")
     for tab in ("basic", "skills", "mcp", "users", "channels"):
         assert f'itemKey="{tab}"' in source
 
 
-def test_recent_runs_readonly_with_empty_state() -> None:
-    """[S-09] 最近运行只读区块：取 audits、空态"暂无运行记录"、无操作列。"""
+def test_recent_activity_readonly_with_empty_state() -> None:
+    """[S-09] 最近活动取审计记录、显示友好标签并提供活动空态。"""
     source = _source("AgentDetailSideSheet.tsx")
-    assert "RecentRuns" in source
+    assert "RecentActivity" in source
     assert "listAudits" in source
-    assert "agent.detail.noRuns" in source
+    assert "agent.detail.noActivity" in source
     services = _source("services/agents.ts")
     assert "resource_id" in services  # 按资源过滤
 

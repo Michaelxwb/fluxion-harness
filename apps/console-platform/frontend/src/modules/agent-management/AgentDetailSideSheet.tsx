@@ -1,6 +1,9 @@
-import { Button, Select, Spin, Table, Tabs, Tag } from '@douyinfe/semi-ui';
-import { useCallback, useEffect, useState } from 'react';
+import { actionColumn } from '../../components/common/tableLayout';
+import { DataTable } from '../../components/common/DataTable';
+import { Button, Select, Spin, Tabs, Tag } from '@douyinfe/semi-ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import { useAuth } from '../../auth/AuthContext';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
@@ -9,7 +12,7 @@ import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
-import { listUsers, type Page, type UserListItem } from '../user-identity/services/users';
+import { listUsers } from '../user-identity/services/users';
 
 import { ChannelFormModal } from './ChannelFormModal';
 import {
@@ -22,6 +25,7 @@ import {
   listAgentSkills,
   listAgentUsers,
   listAudits,
+  loadAllRelationItems,
   removeAgentChannel,
   revokeAgentUser,
   unbindMcp,
@@ -38,12 +42,41 @@ export interface AgentDetailSideSheetProps {
   agentId: string;
   reloadKey?: number;
   onClose(): void;
-  onEdit(): void;
-  onDelete(): void;
   onMutated?(): void;
 }
 
-function RecentRuns({ agentId }: { agentId: string }) {
+function recentActivityColumns(t: TFunction) {
+  return [
+    {
+      title: t('agent.detail.activityTime'), dataIndex: 'create_time',
+      render: (value: string) => <DateTimeText value={value} />
+    },
+    {
+      title: t('agent.detail.activityUser'), dataIndex: 'actor_display_name',
+      render: (value: string | null, record: AuditItem) => value ?? record.actor_user_id
+    },
+    {
+      title: t('agent.detail.activityAction'), dataIndex: 'action',
+      render: (value: string) => (
+        <span title={value}>{t(`agent.activity.action.${value}`, { defaultValue: value })}</span>
+      )
+    },
+    {
+      title: t('agent.detail.activityTarget'), dataIndex: 'resource_type',
+      render: (value: string) => (
+        <span title={value}>{t(`agent.activity.target.${value}`, {
+          defaultValue: t(`audit.resourceType.${value}`, { defaultValue: value })
+        })}</span>
+      )
+    },
+    {
+      title: t('agent.detail.activityResult'), dataIndex: 'result_status',
+      render: (value: string) => t(`audit.resultStatus.${value}`, { defaultValue: value })
+    }
+  ];
+}
+
+function RecentActivity({ agentId }: { agentId: string }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<AuditItem[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -76,34 +109,16 @@ function RecentRuns({ agentId }: { agentId: string }) {
     return <Spin />;
   }
   if (items.length === 0) {
-    return <EmptyState title={t('agent.detail.noRuns')} />;
+    return <EmptyState title={t('agent.detail.noActivity')} />;
   }
   return (
-    <Table<AuditItem>
+    <DataTable<AuditItem>
+      className="agent-recent-activity"
       rowKey="id"
       size="small"
       pagination={false}
       dataSource={items}
-      columns={[
-        {
-          title: t('agent.detail.runTime'),
-          dataIndex: 'create_time',
-          render: (value: string) => <DateTimeText value={value} />
-        },
-        {
-          title: t('agent.detail.runUser'),
-          dataIndex: 'actor_display_name',
-          render: (value: string | null, record: AuditItem) => value ?? record.actor_user_id
-        },
-        { title: t('agent.detail.runAction'), dataIndex: 'action' },
-        { title: t('agent.detail.runTarget'), dataIndex: 'resource_type' },
-        {
-          title: t('agent.detail.runResult'),
-          dataIndex: 'result_status',
-          render: (value: string) =>
-            t(`agent.detail.result.${value}`, { defaultValue: value })
-        }
-      ]}
+      columns={recentActivityColumns(t)}
     />
   );
 }
@@ -112,18 +127,32 @@ function RelationPicker({
   onLoad,
   onSelect,
   testId,
-  refreshToken
+  refreshToken,
+  excludedValues,
+  disabled
 }: {
   onLoad: () => Promise<Array<{ value: string; label: string }>>;
   onSelect: (value: string) => Promise<void>;
   testId: string;
   refreshToken: number;
+  excludedValues: readonly string[];
+  disabled: boolean;
 }) {
   const { t } = useTranslation();
   const [options, setOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [picked, setPicked] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const availableOptions = useMemo(() => {
+    const excluded = new Set(excludedValues);
+    return options.filter((option) => !excluded.has(option.value));
+  }, [options, excludedValues]);
+
+  useEffect(() => {
+    if (picked && !availableOptions.some((option) => option.value === picked)) {
+      setPicked(undefined);
+    }
+  }, [picked, availableOptions]);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,7 +177,7 @@ function RelationPicker({
   }, [refreshToken]);
 
   const add = async (): Promise<void> => {
-    if (!picked) {
+    if (!picked || disabled || !availableOptions.some((option) => option.value === picked)) {
       return;
     }
     setBusy(true);
@@ -170,11 +199,12 @@ function RelationPicker({
         showClear
         filter
         placeholder={failed ? t('agent.relation.optionsFailed') : t('agent.relation.pickPlaceholder')}
-        optionList={options}
+        optionList={availableOptions}
+        disabled={disabled || failed || busy}
         value={picked}
         onChange={(value) => setPicked(value ? String(value) : undefined)}
       />
-      <Button theme="solid" loading={busy} disabled={failed} onClick={() => void add()}>
+      <Button theme="solid" loading={busy} disabled={disabled || failed || !picked} onClick={() => void add()}>
         {t('agent.relation.add')}
       </Button>
     </div>
@@ -211,14 +241,14 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
       return;
     }
     const [skillResult, mcpResult, grantResult, channelResult] = await Promise.allSettled([
-      listAgentSkills(props.agentId, { page: 1, page_size: 100 }),
-      listAgentMcps(props.agentId, { page: 1, page_size: 100 }),
-      listAgentUsers(props.agentId, { page: 1, page_size: 100 }),
+      loadAllRelationItems((params) => listAgentSkills(props.agentId, params)),
+      loadAllRelationItems((params) => listAgentMcps(props.agentId, params)),
+      loadAllRelationItems((params) => listAgentUsers(props.agentId, params)),
       listAgentChannels(props.agentId, { page: 1, page_size: 100 })
     ]);
-    setSkills(skillResult.status === 'fulfilled' ? skillResult.value.items : []);
-    setMcps(mcpResult.status === 'fulfilled' ? mcpResult.value.items : []);
-    setGrants(grantResult.status === 'fulfilled' ? grantResult.value.items : []);
+    setSkills(skillResult.status === 'fulfilled' ? skillResult.value : []);
+    setMcps(mcpResult.status === 'fulfilled' ? mcpResult.value : []);
+    setGrants(grantResult.status === 'fulfilled' ? grantResult.value : []);
     setChannels(channelResult.status === 'fulfilled' ? channelResult.value.items : []);
     setRelationFailed(
       [skillResult, mcpResult, grantResult, channelResult].some(
@@ -263,16 +293,6 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onCancel={props.onClose}
-        actions={
-          <>
-            <Button data-testid="edit-agent" theme="solid" disabled={detail === null} onClick={props.onEdit}>
-              {t('agent.actions.edit')}
-            </Button>
-            <ConfirmAction theme="light" danger title={t('agent.confirmDelete')} onConfirm={props.onDelete}>
-              {t('agent.actions.delete')}
-            </ConfirmAction>
-          </>
-        }
       >
         <Tabs.TabPane itemKey="basic" tab={t('agent.detail.tabs.basic')}>
           {loading || detail === null ? (
@@ -297,8 +317,8 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                   { fullWidth: true, label: t('agent.form.instructions'), value: detail.instructions }
                 ]}
               />
-              <h5>{t('agent.detail.recentRuns')}</h5>
-              <RecentRuns agentId={detail.id} />
+              <div className="detail-section-title">{t('agent.detail.recentActivity')}</div>
+              <RecentActivity agentId={detail.id} />
             </>
           )}
         </Tabs.TabPane>
@@ -308,10 +328,12 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           <RelationPicker
             testId="bind-skill-select"
             refreshToken={pickerToken}
+            excludedValues={skills.map((skill) => skill.skill_id)}
+            disabled={loading || relationFailed}
             onLoad={async () => {
               const { listSkills } = await import('../skill-management/services/skills');
-              const page = await listSkills({ page: 1, page_size: 100 });
-              return page.items.map((s) => ({ value: s.id, label: `${s.name}（${s.key}）` }));
+              const items = await loadAllRelationItems(listSkills);
+              return items.map((s) => ({ value: s.id, label: `${s.name}（${s.key}）` }));
             }}
             onSelect={async (value) => {
               await bindSkill(props.agentId, value);
@@ -321,7 +343,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           {skills.length === 0 ? (
             <EmptyState title={t('common.empty')} />
           ) : (
-            <Table<AgentSkillItem>
+            <DataTable<AgentSkillItem>
               rowKey="skill_id"
               size="small"
               pagination={false}
@@ -338,10 +360,10 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                   )
                 },
                 {
+                  ...actionColumn(),
                   title: t('agent.columns.actions'),
                   render: (_: unknown, record: AgentSkillItem) => (
                     <ConfirmAction
-                      danger
                       title={t('agent.relation.confirmUnbind')}
                       onConfirm={async () => {
                         await unbindSkill(props.agentId, record.skill_id);
@@ -362,10 +384,12 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           <RelationPicker
             testId="bind-mcp-select"
             refreshToken={pickerToken}
+            excludedValues={mcps.map((mcp) => mcp.mcp_server_id)}
+            disabled={loading || relationFailed}
             onLoad={async () => {
               const { listMcpServers } = await import('../mcp-management/services/mcpServers');
-              const page = await listMcpServers({ page: 1, page_size: 100 });
-              return page.items.map((m) => ({ value: m.mcp_id, label: `${m.name}（${m.key}）` }));
+              const items = await loadAllRelationItems(listMcpServers);
+              return items.map((m) => ({ value: m.mcp_id, label: `${m.name}（${m.key}）` }));
             }}
             onSelect={async (value) => {
               await bindMcp(props.agentId, value);
@@ -375,7 +399,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           {mcps.length === 0 ? (
             <EmptyState title={t('common.empty')} />
           ) : (
-            <Table<AgentMcpItem>
+            <DataTable<AgentMcpItem>
               rowKey="mcp_server_id"
               size="small"
               pagination={false}
@@ -392,10 +416,10 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                   )
                 },
                 {
+                  ...actionColumn(),
                   title: t('agent.columns.actions'),
                   render: (_: unknown, record: AgentMcpItem) => (
                     <ConfirmAction
-                      danger
                       title={t('agent.relation.confirmUnbind')}
                       onConfirm={async () => {
                         await unbindMcp(props.agentId, record.mcp_server_id);
@@ -416,13 +440,11 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           {isAdmin ? <RelationPicker
             testId="grant-user-select"
             refreshToken={pickerToken}
+            excludedValues={grants.map((grant) => grant.user_id)}
+            disabled={loading || relationFailed}
             onLoad={async () => {
-              const page: Page<UserListItem> = await listUsers({
-                page: 1,
-                page_size: 100,
-                keyword: ''
-              });
-              return page.items.map((user: UserListItem) => ({
+              const items = await loadAllRelationItems(listUsers);
+              return items.map((user) => ({
                 value: user.id,
                 label: `${user.display_name}（${user.user_code}）`
               }));
@@ -435,7 +457,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           {grants.length === 0 ? (
             <EmptyState title={t('common.empty')} />
           ) : (
-            <Table<AgentGrantItem>
+            <DataTable<AgentGrantItem>
               rowKey="user_id"
               size="small"
               pagination={false}
@@ -449,10 +471,10 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                   render: (v: string) => <DateTimeText value={v} />
                 },
                 {
+                  ...actionColumn(),
                   title: t('agent.columns.actions'),
                   render: (_: unknown, record: AgentGrantItem) => isAdmin ? (
                     <ConfirmAction
-                      danger
                       title={t('agent.relation.confirmRevoke')}
                       onConfirm={async () => {
                         await revokeAgentUser(props.agentId, record.user_id);
@@ -484,7 +506,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           {channels.length === 0 ? (
             <EmptyState title={t('common.empty')} description={t('agent.relation.noChannels')} />
           ) : (
-            <Table<AgentChannelItem>
+            <DataTable<AgentChannelItem>
               rowKey="channel_account_id"
               size="small"
               pagination={false}
@@ -510,6 +532,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                   )
                 },
                 {
+                  ...actionColumn(),
                   title: t('agent.columns.actions'),
                   render: (_: unknown, record: AgentChannelItem) => (
                     <>
@@ -523,7 +546,6 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                         {t('agent.relation.editChannel')}
                       </Button>
                       <ConfirmAction
-                        danger
                         title={t('agent.relation.confirmRemoveChannel')}
                         onConfirm={async () => {
                           await removeAgentChannel(props.agentId, record.channel_account_id);

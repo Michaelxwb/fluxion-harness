@@ -23,7 +23,6 @@ export interface RelatedDetailControllerProps {
   onOpenTask(taskId: string, sourceRunId: string): void;
   /** Task 面板的来源 Run 回调：页面切换回 RUN 状态（反向替换，不新增层）。 */
   onOpenRun(runId: string): void;
-  onMutated?(taskId: string): void;
 }
 
 export function RelatedDetailController(props: RelatedDetailControllerProps) {
@@ -47,7 +46,6 @@ export function RelatedDetailController(props: RelatedDetailControllerProps) {
         taskId={state.taskId}
         onCancel={props.onClose}
         onOpenRun={() => props.onOpenRun(sourceRunId)}
-        onMutated={props.onMutated}
         closeOnEsc
       />
     );

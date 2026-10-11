@@ -99,8 +99,7 @@ test.describe('Schedule 历史', () => {
     });
 
     await page.goto('/schedules');
-    await page.getByTestId(`schedule-link-${scheduleId}`).click();
-    await page.getByTestId('schedule-delete').click();
+    await page.getByTestId(`schedule-delete-${scheduleId}`).click();
     await page.locator('.semi-popconfirm').getByRole('button', { name: /确定|删除/ }).click({ force: true });
     await expect(page.getByTestId(`schedule-link-${scheduleId}`)).toHaveCount(0);
 

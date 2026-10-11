@@ -94,7 +94,7 @@ async function importViaUi(page: Page, key: string, zip: Buffer, version = '1.0.
     buffer: zip
   });
   await expect(modal.locator('.semi-upload')).toContainText('skill.zip');
-  await modal.locator('.semi-modal-footer .semi-button-primary').click();
+  await modal.getByRole('button', { name: 'confirm', exact: true }).click();
 }
 
 test('S-05 导入合法 Skill 后 DB/NFS 落库且列表默认 SELECTED', async ({ page }) => {
@@ -197,7 +197,9 @@ test('S-06 详情导入新版本后版本记录/当前版本更新且 SKILL.md �
     await sheet.getByRole('tab', { name: '版本记录' }).click();
     await expect(page.getByTestId('artifact-list')).toContainText('1.0.0');
 
-    await sheet.getByTestId('import-artifact').click();
+    await expect(sheet.locator('.detail-actions')).toHaveCount(0);
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`import-artifact-${key}`).click();
     const modal = page.locator('.semi-modal');
     await modal.getByRole('textbox', { name: /当前版本/ }).fill('2.0.0');
     const chooser = page.waitForEvent('filechooser');
@@ -210,8 +212,10 @@ test('S-06 详情导入新版本后版本记录/当前版本更新且 SKILL.md �
         'scripts/run.py': 'print(2)\n'
       })
     });
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
 
+    await page.getByTestId(`skill-link-${key}`).click();
+    await sheet.getByRole('tab', { name: '版本记录' }).click();
     await expect(page.getByTestId('artifact-list')).toContainText('2.0.0');
     await expect(page.getByTestId('artifact-link-2.0.0')).toBeVisible();
     await expect(page.getByTestId('detail-subtitle')).toContainText('v2.0.0');
@@ -221,7 +225,14 @@ test('S-06 详情导入新版本后版本记录/当前版本更新且 SKILL.md �
     // 仍开着，故按「版本详情」标题定位叠加在其上的这一层
     const artifactSheet = page.locator('.semi-sidesheet').filter({ hasText: '版本详情' });
     await artifactSheet.getByRole('tab', { name: 'SKILL.md' }).click();
-    await expect(artifactSheet.getByTestId('artifact-skill-md')).toContainText('# E2E S06 Skill v2');
+    const document = artifactSheet.getByTestId('artifact-skill-md');
+    await expect(document.getByRole('heading', { name: 'E2E S06 Skill v2', exact: true })).toBeVisible();
+    await document.getByText('原文', { exact: true }).click();
+    await expect(document.getByRole('radio', { name: '原文', exact: true })).toBeChecked();
+    await expect(document.locator('pre')).toContainText('# E2E S06 Skill v2');
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await document.getByRole('button', { name: '复制正文', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(await document.locator('pre').textContent());
 
     const stored = dumpSkill(key);
     expect(stored.artifacts.map((item) => item.version)).toEqual(['2.0.0', '1.0.0']);
@@ -243,15 +254,19 @@ test('E-07 导入重复版本时 Toast 提示且版本列表不新增重复行',
     const sheet = page.locator('.semi-sidesheet');
     await expect(page.getByTestId('artifact-list')).toContainText('1.0.0');
 
-    await sheet.getByTestId('import-artifact').click();
+    await expect(sheet.locator('.detail-actions')).toHaveCount(0);
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`import-artifact-${key}`).click();
     const modal = page.locator('.semi-modal');
     await modal.getByRole('textbox', { name: /当前版本/ }).fill('1.0.0');
     const chooser = page.waitForEvent('filechooser');
     await modal.locator('.semi-upload').click();
     (await chooser).setFiles({ name: 'skill.zip', mimeType: 'application/zip', buffer: zip });
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
 
     await expect(page.locator('.semi-toast-content')).toContainText('版本已存在');
+    await modal.locator('.semi-modal-close').click();
+    await page.getByTestId(`skill-link-${key}`).click();
     const rows = page.getByTestId('artifact-list').locator('li').filter({ hasText: '1.0.0' });
     await expect(rows).toHaveCount(1);
     expect(dumpSkill(key).artifacts).toHaveLength(1);
@@ -276,17 +291,25 @@ test('S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作', async 
     expect(payload.data.total).toBe(1);
     const created = payload.data.items[0];
     expect(created.key).toBe(key);
-    const scopeResponse = await page.request.put(`/api/v1/skills/${created.id}/user-scope`, {
-      data: { user_scope: 'ALL' }
-    });
-    expect(scopeResponse.ok()).toBeTruthy();
+    await page.getByTestId(`change-user-scope-${key}`).click();
+    const scopeModal = page.locator('.semi-modal');
+    await expect(scopeModal.getByRole('combobox', { name: /用户范围/ })).toContainText('指定用户');
+    await scopeModal.getByRole('combobox', { name: /用户范围/ }).click();
+    await page.getByRole('option', { name: /所有用户/ }).click();
+    await scopeModal.getByRole('button', { name: 'confirm', exact: true }).click();
+    await expect(scopeModal).toHaveCount(0);
 
     await page.getByTestId(`skill-link-${key}`).click();
     const sheet = page.locator('.semi-sidesheet');
     // 按 tab 角色切换：详情内容里也有「指定用户」文案的 detail-section-title（隐藏节点），
     // 纯文本 + .last() 会命中它而非 tab
     await sheet.getByRole('tab', { name: '指定用户' }).click();
-    await expect(sheet).toContainText('当前对所有拥有对应 Agent 使用权的用户开放');
+    const scope = sheet.getByTestId('skill-scope-icon');
+    await expect(scope).toHaveAttribute('aria-label', '当前对所有拥有对应 Agent 使用权的用户开放');
+    await scope.hover();
+    await expect(page.getByRole('tooltip')).toContainText('当前对所有拥有对应 Agent 使用权的用户开放');
+    await expect(sheet).toContainText('无需单独指定用户');
+    await expect(sheet.locator('.semi-banner')).toHaveCount(0);
     await expect(sheet.getByTestId('add-selected-user')).toHaveCount(0);
     expect(dumpSkill(key).skill?.user_scope).toBe('ALL');
   } finally {

@@ -1,3 +1,4 @@
+import { actionColumn } from '../../components/common/tableLayout';
 import { Button, DatePicker, Modal, Select, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +12,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
+import { TableText } from '../../components/common/TableText';
 import { StatusTag, type StatusTagOption } from '../../components/common/StatusTag';
 import { EntityLink } from '../../components/common/EntityLink';
 import { listSkills } from '../skill-management/services/skills';
@@ -92,7 +94,12 @@ function usePickerOptions(load: () => Promise<PickerOption[]>): {
 
 export function TaskPage() {
   const { t } = useTranslation();
-  const [params, setParams] = useState<TaskListParams>(DEFAULT_PARAMS);
+  const [searchParams] = useSearchParams();
+  const linkedStatus = TASK_STATUSES.find((status) => status === searchParams.get('status'));
+  const [params, setParams] = useState<TaskListParams>(() => ({
+    ...DEFAULT_PARAMS,
+    status: linkedStatus
+  }));
   const [items, setItems] = useState<TaskListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -101,11 +108,18 @@ export function TaskPage() {
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [detailScheduleId, setDetailScheduleId] = useState<string | null>(null);
   const related = useRelatedDetail();
+  const [detailReloadKey, setDetailReloadKey] = useState(0);
   const requestSeq = useRef(0);
 
-  const [searchParams] = useSearchParams();
   const deepLinkTaskId = searchParams.get('taskId');
   const deepLinkScheduleId = searchParams.get('scheduleId');
+  const lastLinkedStatus = useRef(linkedStatus);
+
+  useEffect(() => {
+    if (lastLinkedStatus.current === linkedStatus) return;
+    lastLinkedStatus.current = linkedStatus;
+    setParams((prev) => ({ ...prev, status: linkedStatus, page: 1 }));
+  }, [linkedStatus]);
 
   // 深链（审计「关联 Task」、定时任务「历史查看全部」）= 一次性初值，不回写 URL：
   // 写回会让关闭详情/清除筛选与地址栏互相拉扯，而刷新本就该重新定位同一记录。
@@ -186,6 +200,7 @@ export function TaskPage() {
 
   const taskActions = useTaskActions({
     onCancelled: () => {
+      setDetailReloadKey((value) => value + 1);
       void reload();
     }
   });
@@ -322,24 +337,26 @@ export function TaskPage() {
         ) : null}
         <RemoteTable<TaskListItem>
           rowKey="task_id"
-          className="app-table-nowrap"
-          scroll={{ x: 2015 }}
+          className="task-table app-table-fit app-table-nowrap"
+          scroll={{ x: '100%' }}
           loading={loading}
           columns={[
             {
               title: t('task.columns.taskId'),
               dataIndex: 'task_id',
-              width: 362,
+              width: 'auto',
+              ellipsis: true,
               render: (value: string) => (
                 <EntityLink testId={`task-link-${value}`} onClick={() => setDetailTaskId(value)}>
-                  {value}
+                  <TableText>{value}</TableText>
                 </EntityLink>
               )
             },
             {
               title: t('task.columns.agent'),
               dataIndex: 'agent_id',
-              width: 140,
+              width: 'auto',
+              ellipsis: true,
               render: (_: unknown, record: TaskListItem) => (
                 <EntityNameText name={record.agent_name} id={record.agent_id} />
               )
@@ -347,7 +364,8 @@ export function TaskPage() {
             {
               title: t('task.columns.actorUser'),
               dataIndex: 'actor_user_id',
-              width: 140,
+              width: 'auto',
+              ellipsis: true,
               render: (_: unknown, record: TaskListItem) => (
                 <EntityNameText name={record.actor_name} id={record.actor_user_id} />
               )
@@ -355,7 +373,8 @@ export function TaskPage() {
             {
               title: t('task.columns.skill'),
               dataIndex: 'skill_id',
-              width: 200,
+              width: 'auto',
+              ellipsis: true,
               render: (_: unknown, record: TaskListItem) => (
                 <EntityNameText
                   name={record.skill_name}
@@ -367,19 +386,19 @@ export function TaskPage() {
             {
               title: t('task.columns.triggerType'),
               dataIndex: 'trigger_type',
-              width: 84,
+              width: 96,
               render: (value: string) => t(`task.trigger.${value}`)
             },
             {
               title: t('task.columns.status'),
               dataIndex: 'status',
-              width: 84,
+              width: 108,
               render: (value: string) => <StatusTag status={value} options={statusOptions} />
             },
             {
               title: t('task.columns.childProgress'),
               dataIndex: 'child_finished',
-              width: 76,
+              width: 112,
               render: (_: unknown, record: TaskListItem) => (
                 <span data-testid={`task-children-${record.task_id}`}>
                   {record.task_type === 'BATCH' && (record.child_total ?? 0) > 0
@@ -413,22 +432,22 @@ export function TaskPage() {
             {
               title: t('task.columns.deliveryStatus'),
               dataIndex: 'delivery_status',
-              width: 88,
+              width: 128,
               render: (value: string) => t(`task.delivery.${value}`)
             },
             {
               title: t('task.columns.error'),
               dataIndex: 'error_message',
-              width: 220,
+              width: 'auto',
+              ellipsis: true,
               render: (_: unknown, record: TaskListItem) => record.error_message ?? record.error_code ?? '-'
             },
             {
+              ...actionColumn(80),
               title: t('task.columns.actions'),
-              width: 88,
               render: (_: unknown, record: TaskListItem) =>
                 CANCELLABLE_STATUSES.includes(record.status) && !record.cancel_requested ? (
                   <ConfirmAction
-                    danger
                     title={t('task.cancel.confirm')}
                     testId={`task-row-cancel-${record.task_id}`}
                     onConfirm={() => void taskActions.cancel(record.task_id)}
@@ -468,11 +487,11 @@ export function TaskPage() {
       </Modal>
       <TaskDetailSideSheet
         taskId={detailTaskId}
+        reloadKey={detailReloadKey}
         onCancel={() => setDetailTaskId(null)}
         onSelectTask={(taskId) => setDetailTaskId(taskId)}
         onOpenSchedule={(scheduleId) => setDetailScheduleId(scheduleId)}
         onOpenRun={(runId) => related.openRun(runId)}
-        onMutated={() => void reload()}
         // 定时任务/关联 Run 面板打开时它在最上层：ESC 归上层，本层不响应。
         closeOnEsc={related.state === null && detailScheduleId === null}
       />
@@ -493,7 +512,6 @@ export function TaskPage() {
           related.close();
           setDetailTaskId(taskId);
         }}
-        onMutated={() => void reload()}
       />
     </>
   );

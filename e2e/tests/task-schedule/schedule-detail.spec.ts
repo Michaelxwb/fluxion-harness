@@ -30,7 +30,7 @@ test.describe('Schedule 详情', () => {
     await request.post('/__e2e/cleanup');
   });
 
-  test('B-136 字段与后台一致、ONCE 无 next_fire、Header 操作与 X 同行', async ({
+  test('B-136 字段与后台一致、ONCE 无 next_fire、对象动作在固定列表列，详情无操作', async ({
     page,
     request
   }) => {
@@ -54,11 +54,11 @@ test.describe('Schedule 详情', () => {
     await login(page);
     await page.goto('/schedules');
 
+    await expect(page.getByTestId(`schedule-pause-${cronId}`)).toBeVisible();
+    await expect(page.getByTestId(`schedule-delete-${cronId}`)).toBeVisible();
     await page.getByTestId(`schedule-link-${cronId}`).click();
     const sheet = page.locator('.semi-sidesheet-content');
-    await expect(page.getByTestId('schedule-detail-actions')).toBeVisible();
-    await expect(page.getByTestId('schedule-pause')).toBeVisible();
-    await expect(page.getByTestId('schedule-delete')).toBeVisible();
+    await expect(sheet.locator('.detail-actions')).toHaveCount(0);
     await expect(sheet.getByText('0 9 * * *')).toBeVisible();
     await expect(sheet.getByText('Asia/Shanghai')).toBeVisible();
     // 修订版本字段已本地化：schedule.detail.revision =「修订版本」（原断言写死英文 "revision" 已过时）
@@ -66,22 +66,16 @@ test.describe('Schedule 详情', () => {
     await expect(sheet.getByText('2026-12-31 09:00:00')).toBeVisible();
     await expect(sheet.getByText('schedule.columns.timezone')).toHaveCount(0);
 
-    const sameRow = await page
-      .locator('.semi-sidesheet-header')
-      .evaluate((header) => {
-        const actions = header.querySelector('[data-testid="schedule-detail-actions"]');
-        const close = header.querySelector('.semi-sidesheet-close');
-        return Boolean(actions && close);
-      });
-    expect(sameRow).toBe(true);
+    await expect(page.locator('.semi-sidesheet-header .detail-actions')).toHaveCount(0);
+    await expect(page.locator('.semi-sidesheet-close')).toBeVisible();
 
     await page.locator('.semi-sidesheet-close').click();
-    await expect(page.getByTestId('schedule-detail-actions')).toHaveCount(0);
+    await expect(page.locator('.detail-actions')).toHaveCount(0);
 
     await page.getByTestId(`schedule-link-${onceId}`).click();
     await expect(page.getByTestId('schedule-detail-next-fire')).toHaveText('-');
     await expect(page.locator('.semi-sidesheet-content').getByText('已错过').first()).toBeVisible();
-    await expect(page.getByTestId('schedule-pause')).toHaveCount(0);
+    await expect(page.getByTestId(`schedule-pause-${onceId}`)).toHaveCount(0);
   });
 
   test('B-136 详情错误可退出（真实 404 后关闭回列表）', async ({ page, request }) => {
@@ -94,9 +88,9 @@ test.describe('Schedule 详情', () => {
     await login(page);
     await page.goto('/schedules');
     await page.getByTestId(`schedule-link-${scheduleId}`).click();
-    await expect(page.getByTestId('schedule-detail-actions')).toBeVisible();
+    await expect(page.getByTestId('schedule-detail-next-fire')).toBeVisible();
     await page.locator('.semi-sidesheet-close').click();
-    await expect(page.getByTestId('schedule-detail-actions')).toHaveCount(0);
+    await expect(page.locator('.detail-actions')).toHaveCount(0);
 
     await request.post('/__e2e/cleanup');
     await page.getByTestId(`schedule-link-${scheduleId}`).click();

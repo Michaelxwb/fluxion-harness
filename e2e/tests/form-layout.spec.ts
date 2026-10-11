@@ -86,6 +86,7 @@ for (const [path, action, hasGrid] of forms) {
       await expect(dialog.locator('.semi-modal-footer .semi-button')).toHaveCount(2);
       for (const button of await dialog.locator('.semi-modal-footer .semi-button').all()) {
         await expect(button).toBeInViewport({ ratio: 1 });
+        await expect(button).toHaveClass(/semi-button-primary/);
       }
       const dimensions = await dialog.evaluate((node) => {
         const bounds = node.getBoundingClientRect();

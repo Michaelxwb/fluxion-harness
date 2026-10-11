@@ -33,6 +33,7 @@ export function FormModal(props: FormModalProps) {
       okText={props.okText ?? t('common.confirm')}
       cancelText={props.cancelText ?? t('common.cancel')}
       okButtonProps={props.okButtonProps}
+      cancelButtonProps={{ type: 'primary' }}
       onOk={props.onOk}
       onCancel={props.onCancel}
     >

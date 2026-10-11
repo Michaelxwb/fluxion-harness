@@ -1,23 +1,19 @@
-import { Banner, Button, Spin, Tabs, Tag } from '@douyinfe/semi-ui';
+import { Banner, Spin, Tabs, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '../../auth/AuthContext';
-import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { ErrorState } from '../../components/common/ErrorState';
 import { getPlatform, type PlatformItem } from './services/platforms';
 import { PlatformCredentialTab } from './PlatformCredentialTab';
-import { PlatformTestModal } from './PlatformTestModal';
 
 export interface PlatformDetailSideSheetProps {
   platformId: string | null;
   reconfigureRequired: boolean;
   onClose(): void;
-  onEdit(platform: PlatformItem): void;
-  onDelete(platform: PlatformItem): void;
   onChanged(): void;
 }
 
@@ -28,7 +24,6 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
   const [platform, setPlatform] = useState<PlatformItem | null>(null);
   const [failed, setFailed] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
-  const [testVisible, setTestVisible] = useState(false);
 
   const load = useCallback(async () => {
     if (!props.platformId) {
@@ -75,21 +70,6 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
       subtitle={platform?.key}
       activeTab={activeTab}
       onTabChange={setActiveTab}
-      actions={
-        platform ? (
-          <>
-            <Button theme="borderless" onClick={() => setTestVisible(true)}>
-              {t('platform.actions.test')}
-            </Button>
-            <Button theme="solid" onClick={() => props.onEdit(platform)}>
-              {t('platform.actions.edit')}
-            </Button>
-            <ConfirmAction danger title={t('platform.confirmDelete')} onConfirm={() => props.onDelete(platform)}>
-              {t('platform.actions.delete')}
-            </ConfirmAction>
-          </>
-        ) : null
-      }
       onCancel={props.onClose}
       notice={
         props.reconfigureRequired ? (
@@ -156,11 +136,6 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
           )}
         </Tabs.TabPane>
       )}
-      <PlatformTestModal
-        visible={testVisible}
-        platformId={platform?.platform_id ?? null}
-        onCancel={() => setTestVisible(false)}
-      />
     </DetailSideSheet>
   );
 }

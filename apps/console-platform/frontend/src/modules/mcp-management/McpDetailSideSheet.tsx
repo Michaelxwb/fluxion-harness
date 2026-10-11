@@ -1,41 +1,30 @@
-import { Banner, Button, Spin, Tabs } from '@douyinfe/semi-ui';
+import { Banner, Spin, Tabs } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useAuth } from '../../auth/AuthContext';
-import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
-import { discoverTools, getMcpServer, type McpServerDetail, type McpServerListItem } from './services/mcpServers';
+import { getMcpServer, type McpServerDetail, type McpServerListItem } from './services/mcpServers';
 import { McpAgentTable } from './McpAgentTable';
-import { McpScopeModal } from './McpScopeModal';
 import { McpSelectedUserTable } from './SelectedUserTable';
-import { McpTestModal } from './McpTestModal';
 import { McpToolTable } from './McpToolTable';
 
 export interface McpDetailSideSheetProps {
   server: McpServerListItem | null;
   onCancel(): void;
-  onEdit(server: McpServerDetail): void;
-  onDelete(server: McpServerListItem): void;
+  reloadKey?: number;
   onMutated?(): void;
 }
 
 export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
   const { t } = useTranslation();
-  const { account } = useAuth();
-  const isAdmin = account?.role === 'ADMIN';
   const [detail, setDetail] = useState<McpServerDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
-  const [testVisible, setTestVisible] = useState(false);
-  const [scopeVisible, setScopeVisible] = useState(false);
-  const [discovering, setDiscovering] = useState(false);
-  const [toolReloadKey, setToolReloadKey] = useState(0);
   const requestSeq = useRef(0);
 
   const reload = useCallback(async () => {
@@ -68,28 +57,11 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
   useEffect(() => {
     setActiveTab('basic');
     void reload();
-  }, [reload]);
+  }, [reload, props.reloadKey]);
 
   if (!props.server) {
     return null;
   }
-
-  const discover = (): void => {
-    if (!props.server) {
-      return;
-    }
-    setDiscovering(true);
-    discoverTools(props.server.mcp_id)
-      .then(() => {
-        setToolReloadKey((key) => key + 1);
-        void reload();
-        props.onMutated?.();
-      })
-      .catch(() => {
-        // [E-06] 发现失败：Toast 由 ApiClient；保留上一成功 Catalog
-      })
-      .finally(() => setDiscovering(false));
-  };
 
   return (
     <>
@@ -100,44 +72,6 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onCancel={props.onCancel}
-        actions={
-          <>
-            <Button
-              data-testid="edit-mcp"
-              theme="solid"
-              disabled={detail === null}
-              onClick={() => detail && props.onEdit(detail)}
-            >
-              {t('mcp.actions.edit')}
-            </Button>
-            <Button data-testid="test-mcp" onClick={() => setTestVisible(true)}>
-              {t('mcp.test.action')}
-            </Button>
-            {isAdmin ? <Button
-              data-testid="change-mcp-scope"
-              disabled={detail === null}
-              onClick={() => setScopeVisible(true)}
-            >
-              {t('mcp.scope.changeAction')}
-            </Button> : null}
-            <Button
-              theme="solid"
-              data-testid="discover-mcp"
-              loading={discovering}
-              onClick={discover}
-            >
-              {t('mcp.actions.discover')}
-            </Button>
-            <ConfirmAction
-              theme="light"
-              danger
-              title={t('mcp.confirmDelete')}
-              onConfirm={() => props.onDelete(props.server!)}
-            >
-              {t('mcp.actions.delete')}
-            </ConfirmAction>
-          </>
-        }
       >
         <Tabs.TabPane itemKey="basic" tab={t('mcp.detail.tabs.basic')}>
           {failed ? (
@@ -205,7 +139,7 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
           ) : detail === null ? (
             <Spin />
           ) : (
-            <McpToolTable serverId={detail.mcp_id} reloadKey={toolReloadKey} />
+            <McpToolTable serverId={detail.mcp_id} reloadKey={props.reloadKey ?? 0} />
           )}
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="agents" tab={t('mcp.detail.tabs.agents')}>
@@ -228,27 +162,11 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
             <McpSelectedUserTable
               serverId={detail.mcp_id}
               userScope={detail.user_scope}
-              onChanged={() => void reload()}
+              onChanged={() => { void reload(); props.onMutated?.(); }}
             />
           )}
         </Tabs.TabPane>
       </DetailSideSheet>
-      <McpTestModal
-        visible={testVisible}
-        serverId={props.server.mcp_id}
-        onCancel={() => setTestVisible(false)}
-      />
-      <McpScopeModal
-        visible={scopeVisible}
-        serverId={props.server.mcp_id}
-        currentScope={detail?.user_scope ?? 'SELECTED'}
-        onCancel={() => setScopeVisible(false)}
-        onSaved={() => {
-          setScopeVisible(false);
-          void reload();
-          props.onMutated?.();
-        }}
-      />
     </>
   );
 }

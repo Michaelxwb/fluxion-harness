@@ -4,9 +4,8 @@
 `tenant_id` 与 `is_deleted = false`；③ 名称类字段在同一 SQL 内 JOIN 补齐，不做逐行关联。
 既有两例是 `audit_query_repository` 与 `overview_query_repository`，本文件是第三例。
 
-**只投影结构，不投影内容**：`run_record.input_text`、`canonical_event.payload_json` 与
-`tool_operation.submission_json` 都不取。Console 至今**没有暴露过任何对话原文**（审计给的是
-工具名、参数哈希、模型、耗时），展示原文是新的隐私姿态，需产品单独定——**先不加易、后撤难**。
+本仓库只为概览投影结构，不取输入/事件内容或操作提交数据。事件节点展开后，经独立的
+RunEventQueryRepository 联表读取、RunEventQueryService 白名单投影与脱敏，按需展示明细。
 
 API-05/06 新增的等待信息与关联操作同样只投影**状态/计数/时间**：operations 子资源以一次
 LEFT JOIN 批量补 Task 状态（不逐行回查），分页与 count 共用同一条件片段。

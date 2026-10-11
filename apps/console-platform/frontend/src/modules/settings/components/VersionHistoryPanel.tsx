@@ -39,6 +39,7 @@ export function VersionHistoryPanel({
       content: t('settings.history.restoreConfirm', { revision }),
       okText: t('settings.history.restore'),
       cancelText: t('common.cancel'),
+      cancelButtonProps: { type: 'primary' },
       onOk: async () => {
         await restore(revision);
         onRestored();
@@ -66,7 +67,7 @@ export function VersionHistoryPanel({
           />
         ))}
         {failed ? (
-          <Button theme="borderless" type="danger" size="small" onClick={reload}>
+          <Button theme="borderless" type="primary" size="small" onClick={reload}>
             {t('common.retry')}
           </Button>
         ) : null}

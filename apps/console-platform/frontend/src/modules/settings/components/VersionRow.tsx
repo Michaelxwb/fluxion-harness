@@ -44,7 +44,7 @@ export function VersionRow({ item, currentRevision, resting, onRestore }: Versio
       <div className="settings-version-actions">
         <Button
           theme="borderless"
-          type="tertiary"
+          type="primary"
           size="small"
           disabled={isCurrent || resting}
           data-testid={`settings-restore-${item.revision}`}

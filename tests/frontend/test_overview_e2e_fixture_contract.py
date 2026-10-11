@@ -16,10 +16,23 @@ SPEC = ROOT / "e2e/tests/overview-dashboard.spec.ts"
 SEED = ROOT / "tests/e2e/seed_overview.py"
 
 # manifest 里由本文件承载的场景（S-02 图表数据出口 / S-03 聚合一次 / S-04 KPI 跳转 /
-# E-02、E-04 失效深链 / E-03 聚合失败 / E-05 指标失败只影响图表区）
-OWNED_SCENARIOS = ("S-02", "S-03", "S-04", "E-02", "E-03", "E-04", "E-05")
+# E-02、E-04 失效深链 / E-03 首次失败 / E-05 刷新失败 / E-06 竞态 / E-07、E-08 缺失数据）
+OWNED_SCENARIOS = (
+    "S-02",
+    "S-03",
+    "S-04",
+    "E-02",
+    "E-03",
+    "E-04",
+    "E-05",
+    "E-06",
+    "E-07",
+    "E-08",
+    "S-05",
+    "S-06",
+)
 # 成功路径：不得用路由拦截
-SUCCESS_SCENARIOS = ("S-02", "S-03", "S-04")
+SUCCESS_SCENARIOS = ("S-02", "S-03", "S-04", "S-05", "S-06")
 
 
 def _source(path: Path) -> str:
@@ -69,7 +82,10 @@ def test_success_paths_do_not_intercept_and_failure_paths_do() -> None:
         if scenario in SUCCESS_SCENARIOS:
             assert not intercepts, f"{scenario} 是成功路径，不得用路由拦截"
         elif scenario.startswith("E-"):
-            assert intercepts or "goto(" in body, f"{scenario} 应以既成失效目标或拦截制造失败"
+            real_boundary = any(action in body for action in ("seed('missing-usage')", "seed('empty')"))
+            assert intercepts or "goto(" in body or real_boundary, (
+                f"{scenario} 应以真实边界数据、失效目标或拦截制造失败"
+            )
 
 
 def test_spec_seeds_and_cleans_up_around_the_suite() -> None:

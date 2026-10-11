@@ -147,10 +147,12 @@ class RuntimeAuditWriter:
         latency_ms: int | None,
         status: str,
         error_code: str | None = None,
+        audit_id: uuid.UUID | None = None,
     ) -> None:
         async with self._session_factory()() as session:
             session.add(
                 ModelInvocationAudit(
+                    id=audit_id or uuid.uuid4(),
                     tenant_id=self._tenant_id,
                     run_id=self._run_id,
                     task_id=self._task_id,

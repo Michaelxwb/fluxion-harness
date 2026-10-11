@@ -52,7 +52,7 @@ export function SettingsHeader(props: SettingsHeaderProps) {
       <div className="settings-header-actions">
         <Button
           theme="borderless"
-          type="tertiary"
+          type="primary"
           data-testid="settings-history-open"
           onClick={props.onOpenHistory}
         >
@@ -60,7 +60,7 @@ export function SettingsHeader(props: SettingsHeaderProps) {
         </Button>
         <Button
           theme="borderless"
-          type="tertiary"
+          type="primary"
           disabled={!props.dirty || props.saving}
           data-testid="settings-reset"
           onClick={props.onReset}

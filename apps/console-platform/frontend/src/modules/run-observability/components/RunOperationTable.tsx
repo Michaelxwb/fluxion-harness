@@ -1,4 +1,5 @@
-import { Table } from '@douyinfe/semi-ui';
+import { actionColumn } from '../../../components/common/tableLayout';
+import { DataTable } from '../../../components/common/DataTable';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../../components/common/DateTimeText';
@@ -30,7 +31,7 @@ export function RunOperationTable(props: RunOperationTableProps) {
   const taskOptions = taskStatusOptions(t);
 
   return (
-    <Table
+    <DataTable
       rowKey="operation_id"
       dataSource={[...props.rows]}
       pagination={false}
@@ -121,6 +122,7 @@ export function RunOperationTable(props: RunOperationTableProps) {
           render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
         },
         {
+          ...actionColumn(),
           title: t('run.operation.columns.actions'),
           width: 96,
           render: (_: unknown, record: RunOperationOutline) =>

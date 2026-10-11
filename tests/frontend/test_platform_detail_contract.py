@@ -10,10 +10,11 @@ def test_detail_sidesheet_actions_and_tabs() -> None:
     source = (MODULE / "PlatformDetailSideSheet.tsx").read_text(encoding="utf-8")
     assert "DetailSideSheet" in source
     assert "DetailGrid" in source
-    assert "platform.actions.edit" in source
-    assert "platform.actions.delete" in source
-    assert "platform.actions.test" in source
-    assert "ConfirmAction" in source
+    assert "actions={" not in source
+    page = (MODULE / "PlatformPage.tsx").read_text(encoding="utf-8")
+    for action in ("edit", "delete", "test"):
+        assert f"platform.actions.{action}" in page
+    assert "ConfirmAction" in page
     assert "Tabs.TabPane" in source
 
 

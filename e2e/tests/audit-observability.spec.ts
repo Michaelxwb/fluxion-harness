@@ -137,9 +137,12 @@ test.afterAll(() => {
 
 test('S-06 列表渲染种子行，Trace/审计类型/结果筛选收窄且重置还原', async ({ page }) => {
   await openAudits(page);
+  await expect(page.getByRole('columnheader').first()).toHaveText('Trace ID');
   const seeded = [state.rows.config, state.rows.tool, state.rows.egress, state.rows.model];
   for (const auditId of seeded) {
     await expect(page.getByTestId(`audit-link-${auditId}`)).toBeVisible();
+    const row = page.getByRole('row').filter({ has: page.getByTestId(`audit-trace-${auditId}`) });
+    await expect(row.getByRole('gridcell').first().getByTestId(`audit-trace-${auditId}`)).toHaveText(state.traceId);
   }
   // 同租户内还有另一条 trace 的 TOOL 行：证明筛选前列表里确实存在多条 trace
   await expect(page.getByTestId(`audit-trace-${state.extraRow.auditId}`)).toHaveText(
@@ -180,6 +183,11 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await openAudits(page);
 
   // 入口一：Trace ID 链接（TOOL 行，带可读 Run 关联）
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  const row = page.getByRole('row').filter({ has: page.getByTestId(`audit-trace-${state.rows.tool}`) });
+  await row.getByRole('gridcell').first().locator('.copy-button').click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(state.traceId);
+  await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
   await page.getByTestId(`audit-trace-${state.rows.tool}`).click();
   const sheet = page.locator('.semi-sidesheet');
   await expect(sheet).toBeVisible();
@@ -189,14 +197,14 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   // 同一字段与列表同长：Trace ID 在列表与详情都是完整 uuid（详情另加复制面）
   await expect(sheet).toContainText(state.traceId);
   await expect(sheet).toContainText('参数哈希');
-  // 完整值可一键复制：CopyableText 的复制面是 <a>，不破坏下面的「只读无按钮」断言
-  await expect(sheet.locator('.semi-typography-action-copy').first()).toBeVisible();
+  // 完整值可用字段旁的复制图标复制；只读详情不提供数据变更按钮
+  await expect(sheet.locator('.copy-button').first()).toBeVisible();
 
   // 只读：Header 只有关闭 X、无操作条；基本信息页签内除关联链接外没有任何可见按钮
   await expect(sheet.locator('.semi-sidesheet-header button')).toHaveCount(1);
   await expect(sheet.locator('.semi-sidesheet-footer')).toHaveCount(0);
   await expect(
-    sheet.locator('.semi-sidesheet-body button:visible:not([data-testid^="audit-related-"])')
+    sheet.locator('.semi-sidesheet-body button:visible:not(.copy-button):not([data-testid^="audit-related-"])')
   ).toHaveCount(0);
   await expect(sheet.locator('button', { hasText: /保存|编辑|删除|新增|导出/ })).toHaveCount(0);
 
@@ -210,7 +218,7 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await expect(page.getByTestId('run-detail-error')).toBeVisible();
   await expect(page.locator('.detail-title', { hasText: state.runId.slice(0, 8) })).toHaveCount(1);
 
-  // 入口二：主展示字段（CONFIG 行，before/after 差异 + 无关联）
+  // 入口二：关联对象（CONFIG 行，before/after 差异 + 无关联）
   await page.goto('/audits');
   await page.getByTestId(`audit-link-${state.rows.config}`).click();
   await expect(sheet).toBeVisible();
@@ -218,7 +226,7 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await expect(page.getByTestId('audit-detail-after')).toContainText('"enabled": false');
   // 关联分组就在基本信息底部：CONFIG 无 Run/Task ⇒ 空态直接可见
   await expect(sheet.locator('.app-empty-title')).toHaveText(NO_RELATED_TEXT);
-  await expect(sheet.locator('.semi-sidesheet-body button:visible')).toHaveCount(0);
+  await expect(sheet.locator('.semi-sidesheet-body button:visible:not(.copy-button)')).toHaveCount(0);
 
   // 关闭后 SideSheet 卸载，列表仍在
   await sheet.locator('.semi-sidesheet-close').click();

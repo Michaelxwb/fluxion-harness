@@ -82,11 +82,12 @@ def test_agent_grant_uses_form_modal_with_hint() -> None:
 
 def test_sidesheet_table_style_scoped() -> None:
     css = (ROOT / "apps/console-platform/frontend/src/styles/app.css").read_text(encoding="utf-8")
-    # 表头浅底已提升为全局规则（`.semi-table-thead ... background: var(--semi-color-fill-0)`），
-    # 详情抽屉内的表格随之生效；侧表专属的只剩数据行透明底与 nowrap。
+    # 表头、行底色与悬停效果由主列表和详情共享；详情只单独限定 nowrap。
     thead = css.index(".semi-table-thead > .semi-table-row > .semi-table-row-head")
     assert "var(--semi-color-fill-0)" in css[thead:thead + 400], "表格表头需要浅底（全局）"
-    assert ".semi-sidesheet .semi-table-tbody" in css, "详情表格数据行需要透明底"
+    tbody = css.index(".semi-table .semi-table-tbody > .semi-table-row > .semi-table-row-cell")
+    assert "var(--semi-color-bg-1)" in css[tbody:tbody + 250], "数据行需使用不透明共享底色"
+    assert ".semi-sidesheet .semi-table-tbody" not in css, "详情不能覆盖共享行底色"
     assert "white-space: nowrap" in css, "详情表格单元格不得折行"
     sheet = COMPONENT.read_text(encoding="utf-8")
     assert "width={920}" in sheet

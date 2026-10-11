@@ -6,12 +6,10 @@ export interface ConfirmActionProps {
   title: ReactNode;
   onConfirm(): void;
   children: ReactNode;
-  danger?: boolean;
   testId?: string;
   style?: CSSProperties;
   onOpenChange?(visible: boolean): void;
-  /** Button theme; defaults to borderless for in-detail row actions. Object-level header
-   *  delete buttons pass `light` so a destructive action keeps its visual weight. */
+  /** Button theme; defaults to borderless for list and associated row actions. */
   theme?: 'borderless' | 'light' | 'outline' | 'solid';
 }
 
@@ -19,7 +17,6 @@ export function ConfirmAction({
   title,
   onConfirm,
   children,
-  danger = false,
   testId,
   style,
   onOpenChange,
@@ -31,10 +28,11 @@ export function ConfirmAction({
       title={title}
       okText={t('common.confirm')}
       cancelText={t('common.cancel')}
+      cancelType="primary"
       onConfirm={onConfirm}
       onVisibleChange={(visible: boolean) => onOpenChange?.(visible)}
     >
-      <Button theme={theme} type={danger ? 'danger' : 'tertiary'} data-testid={testId} style={style}>
+      <Button theme={theme} type="primary" data-testid={testId} style={style}>
         {children}
       </Button>
     </Popconfirm>

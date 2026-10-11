@@ -4,7 +4,7 @@
 做只读聚合投影——**不转调 Runtime**：Runtime 没有对外读接口，而 `harness-data.md`
 明确允许 Console 对 `runtime.*` 做只读聚合投影（审计与概览已是两例）。
 
-**投影内容与 `input_text` / 事件 payload / `submission_json` 无关**，理由见仓库模块的 docstring。
+本服务的概览不取输入/事件内容或提交数据；节点展开明细由独立 RunEventQueryService 承载。
 API-05/06：等待字段（含 `waiting_reason`，口径在 `muad_contracts.tool_waiting_reason`）与
 关联 operations 分页；operations 的 Task 状态来自 phase JOIN，`SUBMIT` 失败不伪造 Task 失败。
 """

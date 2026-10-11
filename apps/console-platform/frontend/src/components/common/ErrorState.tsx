@@ -15,7 +15,7 @@ export function ErrorState({ description, onRetry }: ErrorStateProps) {
       {onRetry ? (
         <Button
           theme="borderless"
-          type="tertiary"
+          type="primary"
           data-testid="error-retry"
           onClick={onRetry}
           style={{ marginTop: 8 }}

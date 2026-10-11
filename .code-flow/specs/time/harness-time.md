@@ -31,7 +31,7 @@ verifiers:
 - **「Console 展示统一」要分两个面读，不是一个面**：内部（Worker/Runtime）API 的 `datetime` 出参走 `.isoformat()`（UTC ISO8601，如 `apps/agent-worker/src/muad_agent_worker/api/schedules.py` 的 `run_at`/`next_fire_at`/`create_time`）；Console **面向前端的**接口才是 `%Y-%m-%d %H:%M:%S`（见下条）。二者不是同一约束，改一侧不影响另一侧。
   - ✅ 新增 Console 面向接口 → 用 `format_console_time`；新增内部 API → 保留 `.isoformat()`。
   - ❌ 把 Console 的 `%Y-%m-%d %H:%M:%S` 套到内部 API 上（会丢掉时区信息，Runtime/Worker 无法可靠比对）。
-- **Console 面向接口的时间口径收敛到唯一常量**：`CONSOLE_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"` 与 `format_console_time()` 定义在 `apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py`，并被 `overview_query_service.py` 等复用；输出前显式 `astimezone()`（DB 绝对时刻 → 服务器本地时区）。
+- **Console 面向接口的时间口径收敛到唯一常量**：`CONSOLE_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"` 与 `format_console_time()` 定义在 `apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py`，并被 `overview_query_service.py` 等复用；输出前显式 `astimezone(timezone)`；默认 timezone=None 沿用服务器本地时区，概览通过平台设置时区传入 tzinfo，确保自然日统计与 generated_at 一致。
   - ❌ 各 service 里自行 `strftime("%Y-%m-%d %H:%M:%S")` ⇒ 口径分叉。
 - **前端把 UTC ISO8601 转本地时区渲染，非法值回退 `-`**：唯一入口是 `apps/console-platform/frontend/src/components/common/DateTimeText.tsx`（`DATE_TIME_FORMAT = 'YYYY-MM-DD HH:mm:ss'`，用 `new Date(value)` + `getFullYear/getMonth/...` 逐段拼装 ⇒ 浏览器本地时区；`Number.isNaN(date.getTime())` 时返回 `'-'`）。机检 `tests/frontend/test_datetime_contract.py` 钉死三件事：常量字面量、`padStart(2, '0')` 补零、以及 `pages/` 与 `modules/` 下**不得出现 `toLocaleString(`**。
   - ✅ 展示时间一律走 `<DateTimeText value={...} />`。

@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['form-layout.spec.ts', 'model-list-layout.spec.ts', 'detail-layout.spec.ts'],
+  testMatch: ['form-layout.spec.ts', 'model-list-layout.spec.ts', 'detail-layout.spec.ts', 'list-layout.spec.ts', 'user-detail-layout.spec.ts', 'run-timeline-layout.spec.ts'],
   fullyParallel: true,
   workers: 2,
   timeout: 30_000,

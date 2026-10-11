@@ -27,8 +27,9 @@ REMOTE_TABLE = SRC / "components/common/RemoteTable.tsx"
 # 可见中文与全角字符：去掉注释后仍出现在字符串字面量里即视为硬编码文案
 CJK = re.compile(r"[　-〿一-鿿！-～]")
 
-# docs/15 §2「运行审计」段：UI 字段名 → 列使用的 camelCase 字段（顺序即交互稿列序，设计 §3.7）
+# 审计列表：Trace ID 为首列主展示字段，保留 docs/15 的八字段集合。
 COLUMN_FIELDS = (
+    ("audit.columns.traceId", "Trace ID", ("traceId",)),
     ("audit.columns.time", "时间", ("occurredAt",)),
     ("audit.columns.auditType", "审计类型", ("auditType",)),
     ("audit.columns.actor", "操作用户", ("actorName", "actorUserId")),
@@ -36,7 +37,6 @@ COLUMN_FIELDS = (
     ("audit.columns.related", "关联对象", ("runId", "taskId", "resourceId")),
     ("audit.columns.action", "动作", ("action",)),
     ("audit.columns.result", "执行结果", ("resultStatus",)),
-    ("audit.columns.traceId", "Trace ID", ("traceId",)),
 )
 
 # 执行结果标签语义：`SUCCESS` 成功 / `FAILED` 失败；未知领域错误码由 StatusTag 原样降级为灰标
@@ -87,6 +87,12 @@ def _object(source: str, header: str) -> str:
     return _compact(body[:end])
 
 
+def _props(source: str) -> str:
+    """只读取列表入参工厂的返回值，避免误读独立列定义。"""
+    assert PROPS_FN in source, "缺少列表入参工厂"
+    return _object(source[source.index(PROPS_FN) :], "return {")
+
+
 def _columns_source(source: str) -> str:
     """取列定义区：`buildAuditColumns` 起至入参组装 `buildAuditTableProps`（列须独立于组装）。"""
     assert COLUMNS_FN in source and PROPS_FN in source, "缺少列定义/入参组装函数"
@@ -130,7 +136,7 @@ def test_module_files_exist() -> None:
 
 
 def test_columns_match_docs15_field_names() -> None:
-    """[S-06] 列集合与 docs/15 口径一致，列序与交互稿一致（设计 §3.7）。"""
+    """[S-06] 列集合与 docs/15 口径一致，Trace ID 在首列。"""
     columns = _columns_source(_read(TABLE))
     assert columns, "列定义须独立成函数，便于口径断言"
 
@@ -142,7 +148,7 @@ def test_columns_match_docs15_field_names() -> None:
             )
 
     order = [columns.index(f"t('{key}')") for key, _, _ in COLUMN_FIELDS]
-    assert order == sorted(order), "列顺序须与交互稿一致（设计 §3.7）"
+    assert order == sorted(order), "Trace ID 须为首列，后续列按时间、类型、用户、Agent、对象、动作、结果排列"
     assert columns.count("dataIndex:") == len(COLUMN_FIELDS), "列集合不得多出未登记字段"
 
 
@@ -169,7 +175,7 @@ def test_audit_table_feeds_remote_table_and_page_keeps_remote_table() -> None:
     assert "components/common/RemoteTable" in table and "RemoteTableProps" in table, (
         "AuditTable 须以 RemoteTable 的入参契约供给列表"
     )
-    props = _object(table, "return {")
+    props = _props(table)
     for member in (
         "rowKey:",
         "columns:",
@@ -201,7 +207,7 @@ def test_empty_and_error_slots_come_from_audit_table() -> None:
 
 
 def test_primary_display_field_has_detail_open_seam() -> None:
-    """[RULE-ui-001] 主展示字段「关联对象」入口 seam：Run/Task 直达、CONFIG/Trace 打开审计详情。"""
+    """[RULE-ui-001] 主展示字段 Trace ID 打开当前审计详情；关联 Run/Task 仍直达。"""
     table = _read(TABLE)
     options = _block(table, "export interface AuditTableOptions {")
     assert "onOpenDetail(item:AuditListItem):void;" in options, "详情入口须作为显式入参 seam 导出"
@@ -217,9 +223,10 @@ def test_primary_display_field_has_detail_open_seam() -> None:
     assert compact.count("onClick={()=>onOpenTask(taskId)}") == 1, "Task 链接须落任务深链"
     assert (
         "columns:buildAuditColumns(t,options.onOpenDetail,options.onOpenRun,options.onOpenTask)"
-        in _object(table, "return {")
+        in _props(table)
     ), "详情 seam 须由入参原样注入列定义"
-    assert "dataIndex:'runId'" in compact, "主展示字段须为「关联对象」列"
+    assert "dataIndex:'traceId'" in compact, "主展示字段须为 Trace ID 列"
+    assert "rowKey:'auditId'" in _props(table), "同一 Trace 下的不同审计记录须保留独立行"
     assert "audit-link-" in table and "audit-trace-" in table, "两处入口须有稳定的 testId"
 
 
@@ -285,7 +292,7 @@ def test_pagination_state_is_server_driven() -> None:
     assert re.search(r"setTotal\(\s*result\.total\s*\)", hook), "total 须来自服务端响应"
     assert "items.length" not in hook and "Math.ceil" not in hook, "不得用本地数组推算总数/页数"
 
-    props = _object(_read(TABLE), "return {")
+    props = _props(_read(TABLE))
     for binding in ("page:options.page", "pageSize:options.pageSize", "total:options.total"):
         assert binding in props, f"RemoteTable 分页入参缺少 {binding}"
     assert "onPageChange:" in props and "onPageSizeChange:" in props

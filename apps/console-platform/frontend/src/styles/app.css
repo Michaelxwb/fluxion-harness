@@ -451,7 +451,7 @@ body {
    选择器必须带 .semi-table 前缀提高优先级：semi 的 table.css 在组件挂载时才注入，
    文档顺序在 app.css 之后，同优先级下会把这里的 padding/border 覆盖回默认值（16px 行高）。 */
 .semi-table .semi-table-thead > .semi-table-row > .semi-table-row-head {
-  background: var(--semi-color-fill-0);
+  background: linear-gradient(0deg, var(--semi-color-fill-0), var(--semi-color-fill-0)) var(--semi-color-bg-1);
   font-size: 13px;
   font-weight: 600;
   color: var(--semi-color-text-2);
@@ -469,6 +469,7 @@ body {
 }
 
 .semi-table .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
+  background: var(--semi-color-bg-1);
   padding: 8px 16px;
   border-bottom: 1px solid var(--semi-color-border);
 }
@@ -486,26 +487,23 @@ body {
   padding: 2px 4px;
 }
 
-.semi-table-tbody > .semi-table-row:hover > .semi-table-row-cell {
-  background: var(--semi-color-fill-0);
+.semi-table .datetime-text {
+  white-space: nowrap;
+}
+
+/* 普通列与固定列共用不透明底色；半透明悬停层叠在同一底色上，横向滚动也不会透出数据。 */
+.semi-table .semi-table-tbody > .semi-table-row:hover > .semi-table-row-cell,
+.semi-table .semi-table-tbody > .semi-table-row.semi-table-row-hovered > .semi-table-row-cell {
+  background: linear-gradient(0deg, var(--semi-color-fill-0), var(--semi-color-fill-0)) var(--semi-color-bg-1);
 }
 
 .semi-table .semi-table-tbody > .semi-table-row:last-child > .semi-table-row-cell {
   border-bottom: none;
 }
 
-/* 表格内的文字按钮降噪：危险动作（删除）常态用中性色，悬停才亮红——整列红字视觉噪音大 */
+/* 表格内文字操作统一使用 primary 蓝色，圆角与其他紧凑按钮一致。 */
 .semi-table .semi-button.semi-button-borderless {
   border-radius: var(--app-radius-sm);
-}
-
-.semi-table .semi-button.semi-button-borderless.semi-button-danger {
-  color: var(--semi-color-text-2);
-}
-
-.semi-table .semi-button.semi-button-borderless.semi-button-danger:hover {
-  color: var(--semi-color-danger);
-  background: var(--semi-color-danger-light-default);
 }
 
 /* 长标识宽表（后台任务/定时任务的 UUID 列）：数据行单行省略。
@@ -522,8 +520,41 @@ body {
   text-overflow: ellipsis;
 }
 
-.semi-sidesheet .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
-  background: transparent;
+.semi-table .semi-table-tbody > .semi-table-row > .table-actions-cell {
+  white-space: nowrap;
+}
+
+.table-actions,
+.copyable-text {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  gap: 4px;
+}
+
+.copyable-text > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copyable-text .copy-button {
+  flex: 0 0 auto;
+}
+
+.table-actions-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+}
+
+.table-actions-menu .table-actions,
+.table-actions-menu .model-table-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .semi-sidesheet .semi-table-th,
@@ -534,6 +565,66 @@ body {
 .count-cell {
   font-variant-numeric: tabular-nums;
   color: var(--semi-color-text-1);
+}
+
+/* 表格短字段紧凑定宽，长字段分配剩余空间；窄屏保留横向滚动与固定操作列。 */
+.app-table-fit table {
+  table-layout: fixed;
+  min-width: var(--app-table-min-width, 960px);
+}
+
+.agent-table { --app-table-min-width: 980px; }
+.mcp-table { --app-table-min-width: 1280px; }
+.platform-table { --app-table-min-width: 1280px; }
+.task-table { --app-table-min-width: 1440px; }
+.schedule-table { --app-table-min-width: 1440px; }
+.user-grants-table { --app-table-min-width: 680px; }
+.user-credentials-table { --app-table-min-width: 832px; }
+.user-identities-table { --app-table-min-width: 880px; }
+.user-memory-table { --app-table-min-width: 680px; }
+
+.app-table-fit .semi-table .semi-table-thead > .semi-table-row > .semi-table-row-head,
+.app-table-fit .semi-table .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
+  padding-inline: 8px;
+}
+
+.app-table-fit .semi-table-row-cell:not(.table-actions-cell) > .semi-button {
+  max-width: 100%;
+  padding-inline: 0;
+}
+
+.app-table-fit .semi-table-row-cell:not(.table-actions-cell) > .semi-button .semi-button-content {
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table-text {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-table-fit .table-actions-cell .semi-button {
+  padding-inline: 4px;
+}
+
+.audit-table .copyable-text > .semi-button:not(.copy-button) {
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 0;
+}
+
+.audit-table .copyable-text > .semi-button:not(.copy-button) .semi-button-content {
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .model-table .semi-table-row-head,
@@ -740,8 +831,51 @@ body {
 }
 
 .detail-heading { flex: 1; min-width: 0; }
-.detail-title { font-size: 18px; font-weight: 600; line-height: 24px; overflow-wrap: anywhere; }
-.detail-subtitle { margin-top: 4px; font-size: 12px; line-height: 18px; color: var(--semi-color-text-2); overflow-wrap: anywhere; }
+.app-detail-sheet .detail-title {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+  color: var(--semi-color-text-0);
+  overflow-wrap: anywhere;
+}
+.app-detail-sheet .detail-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--semi-color-text-2);
+  overflow-wrap: anywhere;
+}
+.skill-detail-heading { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; }
+.skill-detail-heading > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.skill-scope-icon { display: inline-flex; flex-shrink: 0; color: var(--semi-color-primary); font-size: 16px; }
+.skill-scope-icon:focus-visible { outline: 2px solid var(--semi-color-primary); outline-offset: 3px; border-radius: 3px; }
+.skill-content { margin-top: 24px; min-width: 0; }
+.skill-content-description { margin: 12px 0 20px; }
+.skill-content-description p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.skill-content-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.skill-content-toolbar .detail-section-title { margin: 0; }
+.skill-content-controls { display: flex; align-items: center; gap: 8px; }
+.skill-markdown-preview { padding: 16px; border: 1px solid var(--semi-color-border); border-radius: 6px; background: var(--semi-color-bg-1); overflow-wrap: anywhere; }
+.skill-markdown-preview .semi-markdownRender { min-width: 0; font-size: 14px; line-height: 22px; }
+/* Semi headings use several typography classes; keep these overrides scoped and more specific. */
+.skill-markdown-preview .semi-markdownRender :is(h1, h2, h3, h4, h5, h6).semi-typography { margin: 16px 0 8px; font-weight: 600; }
+.skill-markdown-preview .semi-markdownRender > :is(h1, h2, h3, h4, h5, h6).semi-typography:first-child { margin-top: 0; }
+.skill-markdown-preview .semi-markdownRender h1.semi-typography { font-size: 20px; line-height: 28px; }
+.skill-markdown-preview .semi-markdownRender h2.semi-typography { font-size: 18px; line-height: 26px; }
+.skill-markdown-preview .semi-markdownRender h3.semi-typography { font-size: 16px; line-height: 24px; }
+.skill-markdown-preview .semi-markdownRender h4.semi-typography { font-size: 15px; line-height: 22px; }
+.skill-markdown-preview .semi-markdownRender :is(h5, h6).semi-typography { font-size: 14px; line-height: 22px; }
+.skill-markdown-preview .semi-markdownRender :is(p, li, blockquote, th, td) { font-size: 14px; line-height: 22px; }
+.skill-markdown-preview .semi-markdownRender p { margin: 8px 0; }
+.skill-markdown-preview .semi-markdownRender code { font-size: 13px; line-height: 20px; }
+.skill-markdown-preview img { max-width: 100%; height: auto; }
+.skill-markdown-preview a { color: var(--semi-color-primary); }
+.skill-markdown-preview table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 12px 0; }
+.skill-markdown-preview :is(th, td) { padding: 8px 12px; border: 1px solid var(--semi-color-border); text-align: left; }
+.skill-markdown-preview th { background: var(--semi-color-fill-0); }
+.app-detail-sheet .skill-markdown-preview pre { margin: 12px 0; overflow-x: auto; white-space: pre; overflow-wrap: normal; }
+.app-detail-sheet .skill-markdown-source { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
 /* `flex: 0 1 auto`（可收缩）+ 自身可换行：动作区被给到受限宽度后，按钮分多行而不是溢出。
    只加 `flex-wrap` 不够 —— 不收缩的话它永远按内容宽撑开，换行无从触发。 */
 .detail-actions {
@@ -796,6 +930,27 @@ body {
 
 .detail-list { margin: 0; padding: 0; list-style: none; }
 .detail-list > li { padding: 10px 0; border-bottom: 1px solid var(--semi-color-border); overflow-wrap: anywhere; }
+.run-timeline-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.run-timeline-metric { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--semi-color-border); border-radius: 6px; background: var(--semi-color-fill-0); }
+.run-timeline-metric > span { font-size: 12px; line-height: 18px; color: var(--semi-color-text-2); }
+.run-timeline-metric > strong { font-size: 18px; line-height: 24px; font-weight: 600; color: var(--semi-color-text-0); overflow-wrap: anywhere; }
+.run-timeline-caption { margin: 10px 0 16px; font-size: 12px; line-height: 18px; color: var(--semi-color-text-2); }
+.app-detail-sheet .run-timeline { box-sizing: border-box; padding: 0 0 0 10px; }
+.run-timeline-event { --event-color: var(--semi-color-text-2); }
+.run-timeline-tone-model, .run-timeline-tone-run { --event-color: var(--semi-color-primary); }
+.run-timeline-tone-tool, .run-timeline-tone-artifact { --event-color: var(--semi-color-info); }
+.run-timeline-tone-success { --event-color: var(--semi-color-success); }
+.run-timeline-tone-warning { --event-color: var(--semi-color-warning); }
+.run-timeline-tone-error { --event-color: var(--semi-color-danger); }
+.app-detail-sheet .run-timeline .semi-timeline-item-head-custom.semi-timeline-item-head-default { color: var(--event-color); }
+.run-timeline .semi-timeline-item-tail { border-color: var(--semi-color-border); }
+.run-timeline-event-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.run-timeline-event-heading > strong { font-size: 14px; line-height: 22px; font-weight: 600; overflow-wrap: anywhere; }
+.run-timeline-step { color: var(--semi-color-text-2); font-size: 12px; }
+.run-timeline-category { padding: 0 6px; border-radius: 4px; background: var(--semi-color-fill-0); color: var(--event-color); font-size: 12px; line-height: 20px; }
+.run-timeline-artifact { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--semi-color-primary); }
+.run-timeline-timing { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 4px; color: var(--semi-color-text-2); font-size: 12px; line-height: 18px; }
+@media (max-width: 600px) { .run-timeline-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .detail-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .app-detail-sheet .app-empty { min-height: 160px; padding: 24px 12px; }
 
@@ -851,7 +1006,7 @@ body {
   .detail-header { flex-wrap: wrap; gap: 8px; }
   .detail-heading { flex-basis: 100%; }
   .detail-actions { flex-wrap: wrap; }
-  .detail-title { font-size: 16px; }
+  .app-detail-sheet .detail-title { font-size: 16px; }
   .detail-grid-label { flex-basis: 96px; }
 }
 
@@ -1321,88 +1476,89 @@ body {
   }
 }
 
-/* ---------- Overview（概览：KPI + 指标图） ---------- */
-
-.overview-charts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: 16px;
+/* ---------- Overview: resource summary, reporting metrics and charts ---------- */
+.overview-dashboard { min-width: 0; }
+.overview-dashboard > .page-section { margin-bottom: 16px; }
+.overview-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.overview-range { display: flex; gap: 4px; padding: 3px; border-radius: var(--app-radius-sm); background: var(--semi-color-fill-0); }
+.overview-updated { margin-left: auto; font-size: 12px; color: var(--semi-color-text-2); }
+.overview-timezone { margin-left: 8px; color: var(--semi-color-text-3); }
+.overview-dashboard .semi-banner { margin-bottom: 16px; }
+.overview-resources { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; }
+.overview-resources > span { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+.overview-resources .semi-button { padding: 0; }
+.overview-resources strong { font-variant-numeric: tabular-nums; }
+.overview-summary-label { flex: 0 0 72px; font-size: 12px; color: var(--semi-color-text-2); }
+.overview-kpis .metric-cards { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.overview-kpis .metric-card { min-width: 0; padding: 12px; }
+.overview-kpis .metric-card-value { overflow-wrap: anywhere; }
+.overview-kpis .metric-card-hint { font-size: 11px; line-height: 18px; }
+.overview-attention-row { display: flex; align-items: baseline; gap: 12px; }
+.overview-attention-row + .overview-attention-row { margin-top: 6px; }
+.overview-counters { display: flex; flex-wrap: wrap; gap: 4px 16px; min-width: 0; }
+.overview-counters .semi-button { padding: 2px 0; height: auto; }
+.overview-counters .semi-button-content { display: flex; align-items: center; gap: 8px; }
+.overview-counters strong { font-variant-numeric: tabular-nums; }
+.overview-task-note { margin-top: 12px !important; margin-bottom: 0 !important; }
+.overview-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 16px; }
+.overview-charts > div { min-width: 0; }
+.overview-charts .page-section { height: 100%; margin-bottom: 0; }
+.overview-charts .page-section-header { align-items: center; gap: 12px; }
+.overview-scope-switch { display: flex; gap: 4px; }
+.overview-chart-summary { margin: 0 0 10px; font-size: 12px; line-height: 18px; color: var(--semi-color-text-2); }
+.overview-chart-canvas { height: 240px; min-width: 0; }
+.overview-chart-canvas > .app-empty { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+.overview-donut { display: flex; align-items: center; height: 100%; gap: 16px; }
+.overview-donut-canvas { flex: 0 0 46%; height: 100%; min-width: 0; }
+.overview-donut-legend { display: flex; flex: 1; flex-direction: column; gap: 8px; margin: 0; padding: 0; min-width: 0; list-style: none; }
+.overview-donut-legend li { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--semi-color-text-1); }
+.overview-donut-dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; }
+.overview-donut-label { min-width: 0; overflow-wrap: anywhere; }
+.overview-donut-count { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--semi-color-text-0); }
+.overview-ranking { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 8px 0 0; list-style: none; }
+.overview-ranking-heading { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.overview-ranking-heading .semi-button { min-width: 0; max-width: 80%; padding: 0; }
+.overview-ranking-heading .semi-button-content { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.overview-ranking-heading strong { margin-left: auto; font-variant-numeric: tabular-nums; }
+.overview-ranking-position { width: 16px; color: var(--semi-color-text-3); }
+.overview-ranking-track { margin: 4px 0 0 24px; height: 6px; border-radius: 4px; overflow: hidden; background: var(--semi-color-fill-1); }
+.overview-ranking-bar { height: 100%; border-radius: inherit; background: var(--semi-color-primary); }
+@media (max-width: 1280px) {
+  .overview-kpis .metric-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-
-.overview-charts .page-section {
-  margin-bottom: 0;
+@media (max-width: 1000px) {
+  .overview-updated { margin-left: 0; order: 3; flex-basis: 100%; }
+  .overview-toolbar > :last-child { margin-left: auto; }
+  .overview-charts { grid-template-columns: minmax(0, 1fr); }
 }
-
-.overview-chart-body {
-  min-height: 280px;
+@media (max-width: 640px) {
+  .overview-kpis .metric-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .overview-attention-row { flex-direction: column; gap: 4px; }
+  .overview-summary-label { flex-basis: auto; }
+  .overview-chart-canvas { height: 230px; }
+  .overview-charts .page-section-header { flex-wrap: wrap; }
 }
-
-.overview-chart-summary {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--semi-color-text-2);
-}
-
-.overview-chart-canvas {
-  height: 240px;
-}
-
-.overview-donut {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.overview-donut-canvas {
-  flex: 0 0 55%;
-  height: 240px;
-}
-
-.overview-donut-legend {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.overview-donut-legend li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--semi-color-text-1);
-}
-
-.overview-donut-dot {
-  flex: 0 0 10px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.overview-donut-count {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
+.run-timeline-toggle.semi-button {
+  width: 100%;
+  height: auto;
+  padding: 4px 6px;
+  margin: -4px -6px 0;
+  text-align: left;
   color: var(--semi-color-text-0);
+  white-space: normal;
 }
-
-@media (max-width: 1100px) {
-  .overview-charts {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .overview-donut {
-    flex-direction: column;
-  }
-
-  .overview-donut-canvas {
-    width: 100%;
-  }
-}
+.run-timeline-toggle .semi-button-content { width: 100%; }
+.run-timeline-toggle:focus-visible { outline: 2px solid var(--semi-color-primary); }
+.run-timeline-expand { margin-left: auto; color: var(--semi-color-primary); flex-shrink: 0; }
+.run-event-details { margin-top: 12px; padding: 12px 16px; border-radius: 6px; background: var(--semi-color-bg-1); }
+.run-event-details .detail-grid { margin-bottom: 8px; }
+.run-event-details .detail-grid-value { overflow-wrap: anywhere; min-width: 0; }
+.run-event-section-heading { display: flex; align-items: center; gap: 8px; margin: 12px 0 6px; font-weight: 600; font-size: 13px; }
+.app-detail-sheet .run-event-text { margin: 0; font: inherit; font-size: 13px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
+.run-event-loading { display: flex; align-items: center; gap: 8px; padding: 12px 0; color: var(--semi-color-text-2); }
+.run-event-arguments { margin: 0; font-size: 13px; }
+.run-event-arguments > div { display: grid; grid-template-columns: minmax(80px, 25%) minmax(0, 1fr); gap: 12px; padding: 4px 0; }
+.run-event-arguments dt { color: var(--semi-color-text-2); overflow-wrap: anywhere; }
+.run-event-arguments dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.run-event-file, .run-event-compaction { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 4px 0; font-size: 13px; overflow-wrap: anywhere; }
+.run-event-task-link { display: inline-flex; align-items: center; min-width: 0; }

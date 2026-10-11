@@ -1,3 +1,5 @@
+import { actionColumn } from '../../components/common/tableLayout';
+import { ScheduleRowActions } from './ScheduleRowActions';
 import { Button, Modal, Select } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +8,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ListActionButton } from '../../components/common/ListActionButton';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
+import { TableText } from '../../components/common/TableText';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
@@ -37,6 +40,7 @@ export function SchedulePage() {
   const [helpVisible, setHelpVisible] = useState(false);
   const [detailScheduleId, setDetailScheduleId] = useState<string | null>(null);
   const [historyTaskId, setHistoryTaskId] = useState<string | null>(null);
+  const [detailReloadKey, setDetailReloadKey] = useState(0);
   const requestSeq = useRef(0);
 
   // 深链（概览「下一批定时触发」= `/schedules?scheduleId=…`）：一次性初值，不回写 URL。
@@ -75,6 +79,15 @@ export function SchedulePage() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const onScheduleDeleted = (scheduleId: string): void => {
+    if (detailScheduleId === scheduleId) setDetailScheduleId(null);
+    if (items.length === 1 && (params.page ?? 1) > 1) {
+      setParams((prev) => ({ ...prev, page: (prev.page ?? 1) - 1 }));
+    } else {
+      void reload();
+    }
+  };
 
   const statusOptions = Object.fromEntries(
     SCHEDULE_STATUSES.map((status) => [
@@ -124,27 +137,29 @@ export function SchedulePage() {
         />
         <RemoteTable<ScheduleListItem>
           rowKey="schedule_id"
-          className="app-table-nowrap"
-          scroll={{ x: 1725 }}
+          className="schedule-table app-table-fit app-table-nowrap"
+          scroll={{ x: '100%' }}
           loading={loading}
           columns={[
             {
               title: t('schedule.columns.name'),
               dataIndex: 'name',
-              width: 270,
+              width: 'auto',
+              ellipsis: true,
               render: (value: string, record: ScheduleListItem) => (
                 <EntityLink
                   testId={`schedule-link-${record.schedule_id}`}
                   onClick={() => setDetailScheduleId(record.schedule_id)}
                 >
-                  {value}
+                  <TableText>{value}</TableText>
                 </EntityLink>
               )
             },
             {
               title: t('schedule.columns.agent'),
               dataIndex: 'agent_id',
-              width: 140,
+              width: 'auto',
+              ellipsis: true,
               render: (_: unknown, record: ScheduleListItem) => (
                 <EntityNameText name={record.agent_name} id={record.agent_id} />
               )
@@ -152,7 +167,8 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.actorUser'),
               dataIndex: 'actor_user_id',
-              width: 140,
+              width: 'auto',
+              ellipsis: true,
               render: (_: unknown, record: ScheduleListItem) => (
                 <EntityNameText name={record.actor_name} id={record.actor_user_id} />
               )
@@ -160,7 +176,8 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.skill'),
               dataIndex: 'skill_id',
-              width: 200,
+              width: 'auto',
+              ellipsis: true,
               render: (_: unknown, record: ScheduleListItem) => (
                 <EntityNameText
                   name={record.skill_name}
@@ -172,20 +189,22 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.scheduleType'),
               dataIndex: 'schedule_type',
-              width: 90
+              width: 80
             },
             {
               title: t('schedule.columns.cron'),
               dataIndex: 'cron_expr',
-              width: 140,
-              render: (_: unknown, record: ScheduleListItem) =>
-                record.cron_expr ?? (record.run_at ? <DateTimeText value={record.run_at} /> : '-')
+              width: 176,
+              ellipsis: true,
+              render: (_: unknown, record: ScheduleListItem) => record.cron_expr ? (
+                <TableText>{record.cron_expr}</TableText>
+              ) : record.run_at ? <DateTimeText value={record.run_at} /> : '-'
             },
-            { title: t('schedule.columns.timezone'), dataIndex: 'timezone', width: 128 },
+            { title: t('schedule.columns.timezone'), dataIndex: 'timezone', width: 'auto', ellipsis: true },
             {
               title: t('schedule.columns.status'),
               dataIndex: 'status',
-              width: 84,
+              width: 100,
               render: (value: string) => <StatusTag status={value} options={statusOptions} />
             },
             {
@@ -209,6 +228,20 @@ export function SchedulePage() {
               dataIndex: 'update_time',
               width: 176,
               render: (value: string) => <DateTimeText value={value} />
+            },
+            {
+              ...actionColumn(144),
+              title: t('schedule.columns.actions'),
+              render: (_: unknown, record: ScheduleListItem) => ['ACTIVE', 'PAUSED'].includes(record.status) ? (
+                <ScheduleRowActions
+                  schedule={record}
+                  onMutated={() => {
+                    setDetailReloadKey((value) => value + 1);
+                    void reload();
+                  }}
+                  onDeleted={() => onScheduleDeleted(record.schedule_id)}
+                />
+              ) : '-'
             }
           ]}
           dataSource={items}
@@ -237,8 +270,8 @@ export function SchedulePage() {
       </Modal>
       <ScheduleDetailSideSheet
         scheduleId={detailScheduleId}
+        reloadKey={detailReloadKey}
         onCancel={() => setDetailScheduleId(null)}
-        onMutated={() => void reload()}
         onOpenTask={(taskId) => setHistoryTaskId(taskId)}
         closeOnEsc={historyTaskId === null}
       />

@@ -16,9 +16,9 @@
  */
 
 import { Banner, Button } from '@douyinfe/semi-ui';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { PageHeader, PageSection } from '../../../components/common/ConsolePage';
 import { ModuleToolbar } from '../../../components/common/ModuleToolbar';
@@ -69,9 +69,32 @@ interface AuditDetailSelection {
 /** 初始/重置查询：不含任何筛选项（重置即回到此值，设计 §3.3.1「重置」）。 */
 const DEFAULT_QUERY: AuditListQuery = { page: 1, pageSize: AUDIT_PAGE_SIZE_DEFAULT };
 
+const AUDIT_TYPES = ['CONFIG', 'TOOL', 'EGRESS', 'MODEL'] as const;
+const UUID_VALUE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Overview links enter the same visible filters used by the audit list and export. */
+function auditQueryFromLink(searchParams: URLSearchParams): AuditListQuery {
+  const agentId = searchParams.get('agentId');
+  const auditType = AUDIT_TYPES.find((value) => value === searchParams.get('auditType'));
+  return {
+    ...DEFAULT_QUERY,
+    auditType,
+    agentId: agentId && UUID_VALUE.test(agentId) ? agentId : undefined
+  };
+}
+
 /** 筛选/分页状态（设计 §3.3.1/§3.4）：筛选合并补丁（页码由筛选栏重置为 1）、翻页落回本页状态。 */
 function useAuditQueryState() {
-  const [query, setQuery] = useState<AuditListQuery>(DEFAULT_QUERY);
+  const [searchParams] = useSearchParams();
+  const linkQuery = searchParams.toString();
+  const lastLink = useRef(linkQuery);
+  const [query, setQuery] = useState<AuditListQuery>(() => auditQueryFromLink(searchParams));
+
+  useEffect(() => {
+    if (lastLink.current === linkQuery) return;
+    lastLink.current = linkQuery;
+    setQuery(auditQueryFromLink(new URLSearchParams(linkQuery)));
+  }, [linkQuery]);
 
   const handleFilterChange = useCallback((patch: Partial<AuditListQuery>) => {
     setQuery((prev) => ({ ...prev, ...patch }));
@@ -170,7 +193,7 @@ function AuditRefreshNotice(props: AuditRefreshNoticeProps) {
       <Banner type="danger" closeIcon={null} description={t('audit.list.refreshFailed')} />
       <Button
         theme="borderless"
-        type="danger"
+        type="primary"
         data-testid="audit-refresh-retry"
         onClick={props.onRetry}
       >

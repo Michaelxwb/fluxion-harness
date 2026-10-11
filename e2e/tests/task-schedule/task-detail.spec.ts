@@ -202,8 +202,7 @@ test.describe('Task 详情', () => {
 
     // Schedule 软删后历史 Task 保留（B-137 已钉），但反向链接的目标已不可读
     await page.goto('/schedules');
-    await page.getByTestId(`schedule-link-${scheduleId}`).click();
-    await page.getByTestId('schedule-delete').click();
+    await page.getByTestId(`schedule-delete-${scheduleId}`).click();
     await page
       .locator('.semi-popconfirm')
       .getByRole('button', { name: /确定|删除/ })

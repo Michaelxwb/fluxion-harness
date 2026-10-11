@@ -1,7 +1,9 @@
-import { Table } from '@douyinfe/semi-ui';
+import type { Table } from '@douyinfe/semi-ui';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { PaginationFooter } from './PaginationFooter';
+import { DataTable } from './DataTable';
+import type { ColumnGrowth } from './tableLayout';
 
 type SemiTableProps = ComponentProps<typeof Table>;
 
@@ -9,6 +11,7 @@ export interface RemoteTableProps<T extends object> {
   className?: string;
   scroll?: SemiTableProps['scroll'];
   columns: SemiTableProps['columns'];
+  columnGrowth?: ColumnGrowth;
   dataSource: T[];
   rowKey: string;
   loading?: boolean;
@@ -24,10 +27,11 @@ export interface RemoteTableProps<T extends object> {
 export function RemoteTable<T extends object>(props: RemoteTableProps<T>) {
   return (
     <>
-      <Table
+      <DataTable<T>
         className={props.className}
         scroll={props.scroll}
         columns={props.columns}
+        columnGrowth={props.columnGrowth}
         dataSource={props.dataSource}
         rowKey={props.rowKey}
         loading={props.loading}

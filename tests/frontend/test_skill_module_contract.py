@@ -39,7 +39,7 @@ def test_skill_page_error_state_and_race_guards() -> None:
     assert "ErrorState" in source
     assert "requestSeq" in source
     assert "keywordInput" in source and "onEnterPress" in source
-    assert "skill.actions.copyFailed" in source
+    assert "CopyableText" in source
     assert "newRequestId" in _source("services/skills.ts")
     assert "crypto.randomUUID" not in _source("services/skills.ts")
 
@@ -57,7 +57,9 @@ def test_skill_import_modal_contract() -> None:
 
 def test_skill_copy_uses_navigator_clipboard() -> None:
     source = _source("SkillPage.tsx")
-    assert "navigator.clipboard.writeText" in source
+    assert "CopyableText display={value} full={value}" in source
+    shared = ROOT / "apps/console-platform/frontend/src/components/common/CopyButton.tsx"
+    assert "navigator.clipboard.writeText(value)" in shared.read_text(encoding="utf-8")
 
 
 def test_skill_i18n_keys_bilingual() -> None:

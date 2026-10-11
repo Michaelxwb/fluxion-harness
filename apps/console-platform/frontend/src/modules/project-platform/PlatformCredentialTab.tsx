@@ -1,3 +1,4 @@
+import { actionColumn } from '../../components/common/tableLayout';
 import { Banner, Button, Form, Select, Tag } from '@douyinfe/semi-ui';
 import { IconPlus } from '@douyinfe/semi-icons';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
@@ -232,6 +233,7 @@ export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
               render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
             },
             {
+              ...actionColumn(),
               title: t('platform.columns.action'),
               render: (_: unknown, entry: PlatformCredentialRow) => (
                 <Button theme="borderless" onClick={() => openUserForm(entry.user_id)}>
@@ -264,7 +266,6 @@ export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
           </Button>
           {sharedCredential?.configured ? (
             <ConfirmAction
-              danger
               title={t('platform.credentials.confirmDeleteShared')}
               onConfirm={() => void removeShared()}
             >

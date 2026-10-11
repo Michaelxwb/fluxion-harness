@@ -1,12 +1,16 @@
-import { Button, Input, Select, Tag, Toast } from '@douyinfe/semi-ui';
+import { actionColumn } from '../../components/common/tableLayout';
+import { Button, Input, Select, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ListActionButton } from '../../components/common/ListActionButton';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
+import { CopyableText } from '../../components/common/CopyableText';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
+import { EntityLink } from '../../components/common/EntityLink';
+import { TableText } from '../../components/common/TableText';
 import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
@@ -15,6 +19,13 @@ import { AgentDetailSideSheet } from './AgentDetailSideSheet';
 import { AgentFormModal } from './AgentFormModal';
 
 const DEFAULT_PARAMS = { page: 1, page_size: 15, keyword: '', enabled: '' };
+
+/** Text fields share 52% of extra space and summary fields share 48%. */
+const COLUMN_GROWTH = {
+  name: 0.18, key: 0.16, model_name: 0.18,
+  skill_count: 0.08, mcp_count: 0.08, channel_count: 0.08,
+  user_count: 0.08, enabled: 0.08, revision: 0.08
+};
 
 export function AgentPage() {
   const { t } = useTranslation();
@@ -67,18 +78,6 @@ export function AgentPage() {
   useEffect(() => {
     void reload();
   }, [reload]);
-
-  const copyId = async (agent: AgentListItem): Promise<void> => {
-    try {
-      if (!navigator.clipboard?.writeText) {
-        throw new Error('clipboard unavailable');
-      }
-      await navigator.clipboard.writeText(agent.id);
-      Toast.success(t('agent.actions.idCopied'));
-    } catch {
-      Toast.error(t('agent.actions.copyFailed'));
-    }
-  };
 
   const remove = async (agent: AgentListItem): Promise<void> => {
     try {
@@ -150,51 +149,67 @@ export function AgentPage() {
           }
         />
         <RemoteTable<AgentListItem>
+          className="agent-table app-table-fit app-table-nowrap"
+          scroll={{ x: '100%' }}
+          columnGrowth={COLUMN_GROWTH}
           rowKey="id"
           loading={loading}
           columns={[
             {
               title: t('agent.form.name'),
               dataIndex: 'name',
+              width: 48,
               render: (value: string, record: AgentListItem) => (
-                <Button
-                  theme="borderless"
-                  data-testid={`agent-link-${record.key}`}
+                <EntityLink
+                  testId={`agent-link-${record.key}`}
                   onClick={() => setDetailId(record.id)}
                 >
-                  {value}
-                </Button>
+                  <TableText>{value}</TableText>
+                </EntityLink>
               )
             },
-            { title: t('agent.form.key'), dataIndex: 'key' },
-            { title: t('agent.form.model'), dataIndex: 'model_name' },
-            { title: t('agent.columns.skillCount'), dataIndex: 'skill_count' },
-            { title: t('agent.columns.mcpCount'), dataIndex: 'mcp_count' },
-            { title: t('agent.columns.channelCount'), dataIndex: 'channel_count' },
-            { title: t('agent.columns.userCount'), dataIndex: 'user_count' },
+            {
+              title: t('agent.form.key'), dataIndex: 'key', width: 40,
+              render: (value: string) => <TableText>{value}</TableText>
+            },
+            {
+              title: t('agent.columns.id'), dataIndex: 'id', width: 120,
+              render: (value: string) => <CopyableText display={value.slice(0, 8)} full={value} copyLabel={t('agent.actions.copyId')} />
+            },
+            {
+              title: t('agent.form.model'), dataIndex: 'model_name', width: 52,
+              render: (value: string) => <TableText>{value}</TableText>
+            },
+            { title: t('agent.columns.skillCount'), dataIndex: 'skill_count', width: 60 },
+            { title: t('agent.columns.mcpCount'), dataIndex: 'mcp_count', width: 60 },
+            { title: t('agent.columns.channelCount'), dataIndex: 'channel_count', width: 72 },
+            { title: t('agent.columns.userCount'), dataIndex: 'user_count', width: 82 },
             {
               title: t('agent.columns.enabled'),
               dataIndex: 'enabled',
+              width: 86,
               render: (value: boolean) => (
                 <Tag color={value ? 'green' : 'grey'}>
                   {t(value ? 'common.status.enabled' : 'common.status.disabled')}
                 </Tag>
               )
             },
-            { title: t('agent.detail.revision'), dataIndex: 'revision' },
+            { title: t('agent.columns.revision'), dataIndex: 'revision', width: 72 },
             {
               title: t('agent.columns.updateTime'),
               dataIndex: 'update_time',
+              width: 176,
               render: (value: string) => <DateTimeText value={value} />
             },
             {
+              ...actionColumn(112),
               title: t('agent.columns.actions'),
               render: (_: unknown, record: AgentListItem) => (
                 <>
-                  <Button theme="borderless" onClick={() => void copyId(record)}>
-                    {t('agent.actions.copyId')}
+                  <Button theme="borderless" data-testid={`edit-agent-${record.key}`} onClick={() => void openEdit(record.id)}>
+                    {t('agent.actions.edit')}
                   </Button>
-                  <ConfirmAction danger title={t('agent.confirmDelete')} onConfirm={() => void remove(record)}>
+                  <ConfirmAction title={t('agent.confirmDelete')} onConfirm={() => void remove(record)}>
                     {t('agent.actions.delete')}
                   </ConfirmAction>
                 </>
@@ -236,16 +251,6 @@ export function AgentPage() {
           agentId={detailId}
           reloadKey={detailReloadKey}
           onClose={() => setDetailId(null)}
-          onEdit={() => void openEdit(detailId)}
-          onDelete={async () => {
-            try {
-              await deleteAgent(detailId);
-            } catch {
-              return;
-            }
-            setDetailId(null);
-            await reload();
-          }}
           onMutated={() => void reload()}
         />
       ) : null}

@@ -27,6 +27,49 @@ function uniqueKey(prefix: string): string {
   return `${prefix}-${Date.now()}`;
 }
 
+test('列表操作列横向滚动保持固定，ID 图标复制完整值且失败可见', async ({ page }) => {
+  const key = uniqueKey('e2e-fixed-copy');
+  await login(page);
+  ensureModel();
+  try {
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await createAgentViaUi(page, key, 'E2E Fixed Actions');
+    const agent = await agentByKey(page, key);
+    const row = page.locator('.semi-table-row', { hasText: key });
+    const actions = row.locator('.table-actions-cell');
+    const before = await actions.boundingBox();
+    expect(before).not.toBeNull();
+    const body = page.locator('.semi-table-body');
+    await body.evaluate((node) => { node.scrollLeft = node.scrollWidth; });
+    await expect.poll(() => body.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
+    const after = await actions.boundingBox();
+    expect(Math.abs(after!.x - before!.x)).toBeLessThanOrEqual(1);
+    await expect(page.getByTestId(`edit-agent-${key}`)).toBeInViewport();
+    await expect(row.getByRole('button', { name: '删除', exact: true })).toBeInViewport();
+    await body.evaluate((node) => { node.scrollLeft = 0; });
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    const copy = row.locator('.copy-button');
+    await expect(copy).toHaveText('');
+    await expect(copy).toHaveAttribute('aria-label', '复制 ID');
+    await expect(copy.locator('svg')).toHaveCount(1);
+    await copy.click();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(agent.id);
+    await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
+    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new Error('permission denied')) }
+    }));
+    await copy.click();
+    await expect(page.locator('.semi-toast-content').filter({ hasText: '复制失败' })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 800 });
+    await row.getByRole('button', { name: '更多', exact: true }).click();
+    await page.getByTestId(`edit-agent-${key}`).click();
+    await expect(page.locator('.semi-modal').getByRole('textbox', { name: /名称/ })).toHaveValue('E2E Fixed Actions');
+  } finally {
+    cleanupAgent(key);
+  }
+});
+
 function seed(args: string[]): string {
   return execFileSync('uv', ['run', 'python', SEED_SCRIPT, ...args], {
     cwd: PROJECT_ROOT,
@@ -66,7 +109,7 @@ async function createAgentViaUi(page: Page, key: string, name: string): Promise<
   await modal.getByRole('textbox', { name: /标识/ }).fill(key);
   await pickFirstModel(page, modal);
   await modal.getByRole('textbox', { name: /系统 Prompt/ }).fill('You are helpful.');
-  await modal.locator('.semi-modal-footer .semi-button-primary').click();
+  await modal.getByRole('button', { name: 'confirm', exact: true }).click();
   await expect(page.locator('.semi-table-row', { hasText: key })).toBeVisible();
 }
 
@@ -103,7 +146,103 @@ async function registerMcp(page: Page, key: string): Promise<void> {
   expect(response.ok()).toBeTruthy();
 }
 
-test('S-10 删除 Agent：详情内删除关闭详情，列表操作列删除移除行', async ({ page }) => {
+type PickerKind = 'skills' | 'mcp-servers' | 'users';
+
+async function createPickerResource(page: Page, kind: PickerKind, key: string): Promise<string> {
+  if (kind === 'users') {
+    const response = await page.request.post('/api/v1/users', {
+      data: { user_code: key, display_name: key, status: 'ACTIVE' }
+    });
+    expect(response.ok()).toBeTruthy();
+    const body = (await response.json()) as { data: { id: string } };
+    return body.data.id;
+  }
+  if (kind === 'skills') {
+    await importSkill(page, key);
+    const response = await page.request.get(`/api/v1/skills?keyword=${key}`);
+    const body = (await response.json()) as { data: { items: Array<{ id: string }> } };
+    expect(body.data.items).toHaveLength(1);
+    return body.data.items[0].id;
+  }
+  await registerMcp(page, key);
+  const response = await page.request.get(`/api/v1/mcp-servers?keyword=${key}`);
+  const body = (await response.json()) as { data: { items: Array<{ mcp_id: string }> } };
+  expect(body.data.items).toHaveLength(1);
+  return body.data.items[0].mcp_id;
+}
+
+const PICKER_CASES: Array<{ kind: PickerKind; tab: string; testId: string; remove: string }> = [
+  { kind: 'skills', tab: 'Skill', testId: 'bind-skill-select', remove: '解除' },
+  { kind: 'mcp-servers', tab: 'MCP', testId: 'bind-mcp-select', remove: '解除' },
+  { kind: 'users', tab: '用户授权', testId: 'grant-user-select', remove: '取消授权' }
+];
+
+async function fillUserGrantPage(page: Page, agentId: string, key: string): Promise<void> {
+  await Promise.all(Array.from({ length: 100 }, async (_, index) => {
+    const userId = await createPickerResource(page, 'users', `${key}-filler-${index}`);
+    const response = await page.request.post(`/api/v1/agents/${agentId}/users/${userId}`);
+    expect(response.ok()).toBeTruthy();
+  }));
+}
+
+async function verifyPickerChanges(
+  page: Page, tab: string, testId: string, remove: string, boundKey: string, availableKey: string
+): Promise<void> {
+  const sheet = page.locator('.semi-sidesheet');
+  await sheet.getByRole('tab', { name: tab, exact: true }).click();
+  const panel = sheet.getByRole('tabpanel', { name: tab, exact: true });
+  const picker = page.getByTestId(testId);
+  const boundOption = page.locator('.semi-select-option:visible', { hasText: boundKey });
+  const availableOption = page.locator('.semi-select-option:visible', { hasText: availableKey });
+  await expect(panel.locator('.semi-table')).toContainText(boundKey);
+  await expect(panel.getByRole('button', { name: '添加', exact: true })).toBeDisabled();
+  await picker.click();
+  await expect(availableOption).toBeVisible();
+  await expect(boundOption).toHaveCount(0);
+  await availableOption.click();
+  await panel.getByRole('button', { name: '添加', exact: true }).click();
+  await expect(panel.locator('.semi-table')).toContainText(availableKey);
+  await expect(picker).not.toContainText(availableKey);
+  await picker.click();
+  await expect(availableOption).toHaveCount(0);
+  await expect(boundOption).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await panel.locator('.semi-table-row', { hasText: boundKey }).getByRole('button', { name: remove, exact: true }).click();
+  await page.locator('.semi-popconfirm').getByRole('button', { name: /确定/ }).click();
+  await expect(panel.locator('.semi-table-row', { hasText: boundKey })).toHaveCount(0);
+  await picker.click();
+  await expect(boundOption).toBeVisible();
+  await expect(availableOption).toHaveCount(0);
+}
+
+for (const { kind, tab, testId, remove } of PICKER_CASES) {
+  test(`S-13 ${tab} 下拉排除已有关系，添加后移除、解除后恢复`, async ({ page }) => {
+    const key = uniqueKey(`e2e-s13-${kind}`);
+    const boundKey = `${key}-bound`;
+    const availableKey = `${key}-available`;
+    await login(page);
+    ensureModel();
+    try {
+      const boundId = await createPickerResource(page, kind, boundKey);
+      await createPickerResource(page, kind, availableKey);
+      await createAgentViaUi(page, key, `E2E ${tab} Picker`);
+      const agent = await agentByKey(page, key);
+      const bound = await page.request.post(`/api/v1/agents/${agent.id}/${kind}/${boundId}`);
+      expect(bound.ok()).toBeTruthy();
+      // 已关联项和剩余候选都位于第二页，验证不会因只读前 100 条而遗漏。
+      if (kind === 'users') await fillUserGrantPage(page, agent.id, key);
+      await page.getByTestId(`agent-link-${key}`).click();
+      await verifyPickerChanges(page, tab, testId, remove, boundKey, availableKey);
+    } finally {
+      for (const resourceKey of [boundKey, availableKey]) {
+        cleanupAgent(key, kind === 'skills' ? resourceKey : undefined, kind === 'mcp-servers' ? resourceKey : undefined);
+      }
+      // 用户行随本轮独立验收库在 globalTeardown 中回收。
+    }
+  });
+}
+
+test('S-10 详情无对象按钮，列表删除移除行', async ({ page }) => {
   const key = uniqueKey('e2e-s10');
   const key2 = uniqueKey('e2e-s10b');
   await login(page);
@@ -114,8 +253,9 @@ test('S-10 删除 Agent：详情内删除关闭详情，列表操作列删除移
     const sheet = page.locator('.semi-sidesheet');
     await expect(sheet).toBeVisible();
 
-    // 详情内删除：软删除成功、详情关闭、行移除
-    await sheet.getByRole('button', { name: '删除' }).click();
+    await expect(sheet.locator('.detail-actions')).toHaveCount(0);
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.locator('.semi-table-row', { hasText: key }).getByRole('button', { name: '删除' }).click();
     await page.locator('.semi-popconfirm').getByRole('button', { name: /确定|删除/ }).click();
     await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
     await expect(page.locator('.semi-table-row', { hasText: key })).toHaveCount(0);
@@ -154,7 +294,7 @@ test('E-09 新增标识重复：Modal 保留并本地化提示', async ({ page }
     const postPromise = page.waitForResponse(
       (res) => res.url().endsWith('/api/v1/agents') && res.request().method() === 'POST'
     );
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
     const post = await postPromise;
     expect(post.status()).toBe(409);
     await expect(modal).toBeVisible();
@@ -174,11 +314,14 @@ test('S-07 编辑系统 Prompt 保存后详情 revision+1', async ({ page }) => 
 
     await page.getByTestId(`agent-link-${key}`).click();
     const sheet = page.locator('.semi-sidesheet');
-    await sheet.getByTestId('edit-agent').click();
+    await expect(sheet.locator('.detail-actions')).toHaveCount(0);
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`edit-agent-${key}`).click();
     const modal = page.locator('.semi-modal');
     await modal.getByRole('textbox', { name: /系统 Prompt/ }).fill('UPDATED PROMPT');
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
 
+    await page.getByTestId(`agent-link-${key}`).click();
     await expect(sheet).toContainText('UPDATED PROMPT');
     await expect
       .poll(async () => (await agentByKey(page, key)).revision, { timeout: 10000 })
@@ -197,7 +340,9 @@ test('E-07 stale revision 提交：Modal 保留并提示刷新重试', async ({ 
     await createAgentViaUi(page, key, 'E2E E07 Agent');
     await page.getByTestId(`agent-link-${key}`).click();
     const sheet = page.locator('.semi-sidesheet');
-    await sheet.getByTestId('edit-agent').click();
+    await expect(sheet.locator('.detail-actions')).toHaveCount(0);
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.getByTestId(`edit-agent-${key}`).click();
     const modal = page.locator('.semi-modal');
     await modal.getByRole('textbox', { name: /系统 Prompt/ }).fill('STALE PROMPT');
 
@@ -208,7 +353,7 @@ test('E-07 stale revision 提交：Modal 保留并提示刷新重试', async ({ 
     });
     expect(bumped.ok()).toBeTruthy();
 
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
     await expect(modal).toContainText('revision 冲突');
     await expect(modal).toBeVisible();
   } finally {
@@ -285,7 +430,7 @@ test('S-08/S-11 Skill/MCP 绑定即生效、解除/再绑无启停开关', async
   }
 });
 
-test('S-09 基本信息最近运行只读区块（时间/用户/类型/目标/结果）', async ({ page }) => {
+test('S-09 基本信息最近活动只读区块（时间/用户/操作类型/操作对象/结果）', async ({ page }) => {
   const key = uniqueKey('e2e-s09');
   await login(page);
   ensureModel();
@@ -293,13 +438,15 @@ test('S-09 基本信息最近运行只读区块（时间/用户/类型/目标/�
     await createAgentViaUi(page, key, 'E2E S09 Agent');
     await page.getByTestId(`agent-link-${key}`).click();
     const sheet = page.locator('.semi-sidesheet');
-    await expect(sheet).toContainText('最近运行');
-    await expect(sheet).toContainText('CREATE');
-    const runsRegion = sheet.locator('.semi-table').first();
-    await expect(runsRegion).toContainText('结果');
-    await expect(runsRegion).toContainText('成功');
-    await expect(runsRegion).not.toContainText('解除');
-    await expect(runsRegion).not.toContainText('取消授权');
+    await expect(sheet).toContainText('最近活动');
+    await expect(sheet).toContainText('创建');
+    const activityRegion = sheet.locator('.semi-table').first();
+    await expect(activityRegion).toContainText('结果');
+    await expect(activityRegion).toContainText('成功');
+    await expect(activityRegion.getByRole('columnheader')).toHaveText(['时间', '操作用户', '操作类型', '操作对象', '结果']);
+    await expect(activityRegion).not.toContainText('CREATE');
+    await expect(activityRegion).not.toContainText('解除');
+    await expect(activityRegion).not.toContainText('取消授权');
   } finally {
     cleanupAgent(key);
   }
@@ -324,7 +471,7 @@ test('S-12 IM 接入 Tab 双 bot 同 Agent，无 Pod 信息', async ({ page }) =
       await modal.getByRole('textbox', { name: /通道名称/ }).fill(`Ch ${botId}`);
       await modal.getByRole('textbox', { name: /Bot ID/ }).fill(botId);
       await modal.getByRole('textbox', { name: /Bot Secret/ }).fill('e2e-secret');
-      await modal.locator('.semi-modal-footer .semi-button-primary').click();
+      await modal.getByRole('button', { name: 'confirm', exact: true }).click();
       await expect(page.locator('.semi-sidesheet')).toContainText(botId);
     }
 
@@ -362,7 +509,7 @@ test('E-08/E-09 bot_id 冲突：通道表单保留并提示', async ({ page }) =
     await modal.getByRole('textbox', { name: /通道名称/ }).fill('First');
     await modal.getByRole('textbox', { name: /Bot ID/ }).fill(botId);
     await modal.getByRole('textbox', { name: /Bot Secret/ }).fill('first-secret');
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
     await expect(sheet).toContainText(botId);
 
     await page.getByTestId('create-channel').click();
@@ -370,7 +517,7 @@ test('E-08/E-09 bot_id 冲突：通道表单保留并提示', async ({ page }) =
     await modal.getByRole('textbox', { name: /通道名称/ }).fill('Second');
     await modal.getByRole('textbox', { name: /Bot ID/ }).fill(botId);
     await modal.getByRole('textbox', { name: /Bot Secret/ }).fill('second-secret');
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
     await expect(modal).toBeVisible();
     await expect(modal).toContainText('已被占用');
     await expect(

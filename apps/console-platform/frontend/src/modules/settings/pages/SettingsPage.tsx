@@ -100,7 +100,7 @@ export function SettingsPage() {
     >
       <Button
         theme="borderless"
-        type="tertiary"
+        type="primary"
         icon={<IconHelpCircle />}
         data-testid="settings-readonly-trigger"
         aria-label={t('settings.readonly.title')}

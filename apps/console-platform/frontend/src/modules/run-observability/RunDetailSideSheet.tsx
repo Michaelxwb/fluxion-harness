@@ -1,9 +1,7 @@
 /**
  * Run 详情（只读）。两个入口共用：运行审计「关联 Run」与后台任务详情「来源运行」。
  *
- * **只读、且只展示结构**：运行的用户输入原文与事件负载都不在投影里（后端 `GET /api/v1/runs/{id}`
- * 与 `/operations` 就不返回它们），所以这里也不可能渲染出来。Console 至今零暴露对话原文，要不要
- * 开这个口是产品决定，不该由「闭环一条 issue」顺带定——先不加易、后撤难。
+ * 概览与操作列表保持轻量；事件节点展开时单独加载经白名单与脱敏处理的明细。
  *
  * 轮廓已剔除流式增量（`message.delta`，一次运行可达数千行），超上限时后端置
  * `timeline_truncated`，页面**如实说明还有更多**，不假装完整。
@@ -114,6 +112,7 @@ function buildBasicItems(detail: RunDetail, t: (key: string, options?: Record<st
 export function RunDetailSideSheet(props: RunDetailSideSheetProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('basic');
+  const [eventGeneration, setEventGeneration] = useState(0);
   const detailState = useRunDetail(props.runId);
   const operationsState = useRunOperations(props.runId, activeTab === 'operations');
   const { detail, loading, failed, notFound, reload } = detailState;
@@ -127,6 +126,7 @@ export function RunDetailSideSheet(props: RunDetailSideSheetProps) {
   } = operationsState;
 
   const handleRefresh = useCallback(() => {
+    setEventGeneration((generation) => generation + 1);
     reload();
     // 只对**已加载**的关联页签重取；未打开过就不凭空发分页请求。
     reloadOperations();
@@ -229,7 +229,7 @@ export function RunDetailSideSheet(props: RunDetailSideSheetProps) {
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="timeline" tab={t('run.detail.timeline')}>
         {detail ? (
-          <RunTimelineOutline events={detail.timeline} truncated={detail.timeline_truncated} />
+          <RunTimelineOutline key={detail.run_id} runId={detail.run_id} generation={eventGeneration} onOpenTask={props.onOpenTask ? handleOpenTask : undefined} events={detail.timeline} truncated={detail.timeline_truncated} startTime={detail.start_time} />
         ) : null}
       </Tabs.TabPane>
     </DetailSideSheet>

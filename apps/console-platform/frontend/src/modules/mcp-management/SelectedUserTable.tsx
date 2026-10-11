@@ -1,4 +1,6 @@
-import { Banner, Button, Select, Table } from '@douyinfe/semi-ui';
+import { actionColumn } from '../../components/common/tableLayout';
+import { DataTable } from '../../components/common/DataTable';
+import { Banner, Button, Select } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -159,7 +161,7 @@ export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
         <ErrorState onRetry={() => void reload()} />
       ) : (
         <div data-testid="mcp-selected-users">
-          <Table<McpGrantItem>
+          <DataTable<McpGrantItem>
             rowKey="user_id"
             loading={loading}
             pagination={false}
@@ -174,10 +176,10 @@ export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
                 render: (value: string) => <DateTimeText value={value} />
               },
               {
+                ...actionColumn(),
                 title: t('mcp.columns.actions'),
                 render: (_: unknown, record: McpGrantItem) => isAdmin ? (
                   <ConfirmAction
-                    danger
                     title={t('mcp.users.confirmRemove')}
                     onConfirm={() => void remove(record.user_id)}
                   >

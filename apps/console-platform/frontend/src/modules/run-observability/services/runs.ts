@@ -39,13 +39,46 @@ export type TaskStatus = 'QUEUED' | 'RUNNING' | 'WAITING' | 'COMPLETED' | 'FAILE
 export const OPERATIONS_PAGE_SIZE_DEFAULT = 15;
 export const OPERATIONS_PAGE_SIZE_MAX = 100;
 
-/** 运行轮廓里的一条事件。**不带事件负载**——见 `RunDetailSideSheet` 的模块注释。 */
+/** Lightweight outline; event details are loaded separately on expansion. */
 export interface RunTimelineEvent {
   seq: number;
   event_type: string;
   stream_type: string | null;
   has_artifact: boolean;
   create_time: string;
+}
+
+export const EVENT_DETAIL_FIELDS = [
+  'tool_name', 'tool_call_id', 'skill_key', 'script', 'status', 'duration_ms',
+  'model', 'provider', 'attempt', 'retry_reason', 'input_tokens', 'output_tokens',
+  'operation_id', 'task_id', 'task_status', 'completion_mode', 'wait_generation',
+  'execution_epoch', 'error_code', 'covers_up_to_seq', 'bytes_before', 'bytes_after', 'operation_status',
+  'protocol', 'model_revision'
+] as const;
+export type EventDetailFieldKey = typeof EVENT_DETAIL_FIELDS[number];
+
+export const MODEL_SUMMARY_FIELDS = ['call_count', 'success_count', 'retry_count', 'error_count', 'input_tokens', 'output_tokens', 'duration_ms'] as const;
+export interface ModelRunSummary {
+  call_count: number;
+  success_count: number;
+  retry_count: number;
+  error_count: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  duration_ms: number | null;
+}
+
+export interface RunEventDetail {
+  seq: number;
+  event_type: string;
+  text: string | null;
+  text_truncated: boolean;
+  fields: { key: EventDetailFieldKey; value: string | number }[];
+  arguments: { name: string; value: string }[];
+  attachments: { id: string | null; filename: string | null; media_type: string | null; size: number | null }[];
+  compaction: { layer: string; groups: number | null; bytes_saved: number | null }[];
+  model_state: 'LINKED' | 'UNLINKED' | 'PENDING' | null;
+  model_summary: ModelRunSummary | null;
 }
 
 export interface RunDetail {
@@ -102,6 +135,10 @@ async function unwrap<T>(response: { data: ApiResponse<T> }): Promise<T> {
 
 export async function getRun(id: string): Promise<RunDetail> {
   return unwrap(await api.get<ApiResponse<RunDetail>>(`/runs/${id}`));
+}
+
+export async function getRunEventDetail(id: string, seq: number): Promise<RunEventDetail> {
+  return unwrap(await api.get<ApiResponse<RunEventDetail>>(`/runs/${id}/events/${seq}`));
 }
 
 /**

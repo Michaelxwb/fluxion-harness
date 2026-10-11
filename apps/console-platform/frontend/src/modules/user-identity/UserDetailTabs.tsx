@@ -1,3 +1,5 @@
+import { actionColumn } from '../../components/common/tableLayout';
+import { DataTable } from '../../components/common/DataTable';
 import {
   Button,
   Empty,
@@ -5,13 +7,13 @@ import {
   Modal,
   Select,
   Spin,
-  Table,
   Tabs,
   Typography
 } from '@douyinfe/semi-ui';
 import { IconPlus } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import { useAuth } from '../../auth/AuthContext';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
@@ -23,6 +25,7 @@ import { FormModal } from '../../components/common/FormModal';
 import { MetricCards } from '../../components/common/MetricCards';
 import { PaginationFooter } from '../../components/common/PaginationFooter';
 import { StatusTag } from '../../components/common/StatusTag';
+import { TableText } from '../../components/common/TableText';
 import {
   CredentialSchemaFields,
   credentialFields,
@@ -60,7 +63,6 @@ export interface UserDetailTabsProps {
   user: UserDetail;
   visible: boolean;
   onCancel(): void;
-  onEdit(): void;
 }
 
 const DEFAULT_TAB_PAGE_SIZE = 15;
@@ -130,6 +132,14 @@ function useAsyncList<T>(
       setPage(1);
     }
   };
+}
+
+function formatMemorySource(value: string, t: TFunction): string {
+  switch (value) {
+    case 'USER_EXPLICIT': return t('user.memory.sourceType.USER_EXPLICIT');
+    case 'AGENT_INFERRED': return t('user.memory.sourceType.AGENT_INFERRED');
+    default: return value;
+  }
 }
 
 function formatMemoryContent(value: Record<string, unknown>): string {
@@ -269,16 +279,21 @@ function AgentGrantTab(props: { userId: string }) {
         onRetry={() => void reload()}
       >
         {items.length > 0 ? (
-          <Table
+          <DataTable
+            className="app-table-fit user-grants-table"
+            scroll={{ x: '100%' }}
             dataSource={items}
             rowKey="agent_id"
             pagination={false}
             columns={[
-              { title: t('user.agents.nameLabel'), dataIndex: 'agent_name' },
-              { title: t('user.agents.keyLabel'), dataIndex: 'agent_key' },
+              { title: t('user.agents.nameLabel'), dataIndex: 'agent_name', width: 'auto', ellipsis: true,
+                render: (value: string) => <TableText>{value}</TableText> },
+              { title: t('user.agents.keyLabel'), dataIndex: 'agent_key', width: 'auto', ellipsis: true,
+                render: (value: string) => <TableText>{value}</TableText> },
               {
                 title: t('user.columns.status'),
                 dataIndex: 'enabled',
+                width: 96,
                 render: (value: boolean) => (
                   <StatusTag
                     status={value}
@@ -292,13 +307,14 @@ function AgentGrantTab(props: { userId: string }) {
               {
                 title: t('user.agents.grantedAt'),
                 dataIndex: 'granted_at',
+                width: 176,
                 render: (value: string) => <DateTimeText value={value} />
               },
               {
+                ...actionColumn(112),
                 title: t('user.columns.action'),
                 render: (_: unknown, entry: AgentGrant) => (
                   <ConfirmAction
-                    danger
                     title={t('user.common.confirmRevoke')}
                     onConfirm={() => void revoke(entry.agent_id)}
                   >
@@ -388,21 +404,27 @@ function CredentialsTab(props: { userId: string }) {
         onRetry={() => void reload()}
       >
         {items.length > 0 ? (
-          <Table
+          <DataTable
+            className="app-table-fit user-credentials-table"
+            scroll={{ x: '100%' }}
             dataSource={items}
             rowKey="platform_id"
             pagination={false}
             columns={[
-              { title: t('user.credentials.platform'), dataIndex: 'name' },
-              { title: t('user.credentials.adapter'), dataIndex: 'adapter_key' },
+              { title: t('user.credentials.platform'), dataIndex: 'name', width: 'auto', ellipsis: true,
+                render: (value: string) => <TableText>{value}</TableText> },
+              { title: t('user.credentials.adapter'), dataIndex: 'adapter_key', width: 120, ellipsis: true,
+                render: (value: string) => <TableText>{value}</TableText> },
               {
                 title: t('user.credentials.mode'),
                 dataIndex: 'credential_mode',
+                width: 144,
                 render: (value: string) => t(`platform.credentialMode.${value}`)
               },
               {
                 title: t('user.credentials.status'),
                 dataIndex: 'user_credential_status',
+                width: 128,
                 render: (value: string | undefined) => {
                   const status = value ?? 'NONE';
                   const tag = credentialTagKey(value);
@@ -417,10 +439,12 @@ function CredentialsTab(props: { userId: string }) {
               {
                 title: t('user.credentials.updatedAt'),
                 dataIndex: 'user_credential_updated_time',
+                width: 176,
                 render: (value: string | null | undefined) =>
                   value ? <DateTimeText value={value} /> : '-'
               },
               {
+                ...actionColumn(104),
                 title: t('user.columns.action'),
                 render: (_: unknown, entry: PlatformItem) => (
                   <Button theme="borderless" onClick={() => void openForm(entry)}>
@@ -520,27 +544,35 @@ function IdentityTab(props: { userId: string }) {
         onRetry={() => void reload()}
       >
         {items.length > 0 ? (
-          <Table
+          <DataTable
+            className="app-table-fit user-identities-table"
+            scroll={{ x: '100%' }}
             dataSource={items}
             rowKey="id"
             pagination={false}
             columns={[
-              { title: t('user.identities.channel'), dataIndex: 'channel' },
-              { title: t('user.identities.externalUserId'), dataIndex: 'external_user_id' },
-              { title: 'bot_id', dataIndex: 'bot_id' },
+              { title: t('user.identities.channel'), dataIndex: 'channel', width: 112, ellipsis: true,
+                render: (value: string) => <TableText>{value}</TableText> },
+              { title: t('user.identities.externalUserId'), dataIndex: 'external_user_id', width: 'auto', ellipsis: true,
+                render: (value: string) => <TableText>{value}</TableText> },
+              { title: 'bot_id', dataIndex: 'bot_id', width: 'auto', ellipsis: true,
+                render: (value: string) => <TableText>{value}</TableText> },
               {
                 title: t('user.identities.boundAt'),
                 dataIndex: 'bound_at',
+                width: 176,
                 render: (value: string) => <DateTimeText value={value} />
               },
               {
                 title: t('user.identities.lastActive'),
                 dataIndex: 'last_active_at',
+                width: 176,
                 render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
               },
               {
                 title: t('user.columns.status'),
                 dataIndex: 'user_status',
+                width: 96,
                 render: (value: string) => (
                   <StatusTag
                     status={value}
@@ -552,10 +584,10 @@ function IdentityTab(props: { userId: string }) {
                 )
               },
               {
+                ...actionColumn(80),
                 title: t('user.columns.action'),
                 render: (_: unknown, entry: Identity) => (
                   <ConfirmAction
-                    danger
                     title={t('user.common.confirmUnbind')}
                     onConfirm={() => void unbind(entry.id)}
                   >
@@ -594,7 +626,6 @@ function MemoryTab(props: { userId: string }) {
   return (
     <div>
       <ConfirmAction
-        danger
         style={{ marginBottom: 12 }}
         title={t('user.common.confirmClear')}
         onConfirm={() => void clearAll()}
@@ -609,7 +640,9 @@ function MemoryTab(props: { userId: string }) {
         onRetry={() => void reload()}
       >
         {items.length > 0 ? (
-          <Table
+          <DataTable
+            className="app-table-fit user-memory-table"
+            scroll={{ x: '100%' }}
             dataSource={items}
             rowKey="id"
             pagination={false}
@@ -617,19 +650,23 @@ function MemoryTab(props: { userId: string }) {
               {
                 title: t('user.memory.content'),
                 dataIndex: 'content',
-                render: (value: Record<string, unknown>) => formatMemoryContent(value)
+                width: 'auto',
+                ellipsis: true,
+                render: (value: Record<string, unknown>) => <TableText>{formatMemoryContent(value)}</TableText>
               },
-              { title: t('user.memory.source'), dataIndex: 'source_type' },
+              { title: t('user.memory.source'), dataIndex: 'source_type', width: 144, ellipsis: true,
+                render: (value: string) => <TableText title={value}>{formatMemorySource(value, t)}</TableText> },
               {
                 title: t('user.memory.updated'),
                 dataIndex: 'update_time',
+                width: 176,
                 render: (value: string) => <DateTimeText value={value} />
               },
               {
+                ...actionColumn(80),
                 title: t('user.columns.action'),
                 render: (_: unknown, entry: Memory) => (
                   <ConfirmAction
-                    danger
                     title={t('user.memory.confirmDelete')}
                     onConfirm={() => void remove(entry.id)}
                   >
@@ -661,11 +698,6 @@ export function UserDetailTabs(props: UserDetailTabsProps) {
       subtitle={user.user_code}
       activeTab={activeTab}
       onTabChange={setActiveTab}
-      actions={
-        <Button theme="borderless" onClick={props.onEdit}>
-          {t('user.detail.edit')}
-        </Button>
-      }
       onCancel={props.onCancel}
     >
       <Tabs.TabPane itemKey="basic" tab={t('user.tabs.basic')}>

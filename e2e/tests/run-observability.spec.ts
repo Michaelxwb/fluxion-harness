@@ -240,7 +240,7 @@ test('S-23 详情开着切 zh-CN/en-US 即时生效；UTC 时间按 Asia/Shangha
   }
 });
 
-test('S-24 详情与 network 响应不含原文/结果/凭据；时间线超 200 明确截断', async ({ page }) => {
+test('S-24 未展开的概览与操作不含原文/结果/凭据；时间线超 200 明确截断', async ({ page }) => {
   const payloads: string[] = [];
   page.on('response', (response: Response) => {
     if (response.url().includes(`/api/v1/runs/${state.contentRunId}`)) {
@@ -283,6 +283,121 @@ test('S-24 详情与 network 响应不含原文/结果/凭据；时间线超 200
     expect(body).not.toContain('"result_json"');
     expect(body).not.toContain('"payload"');
   }
+});
+
+function eventField(detail: Locator, label: string): Locator {
+  return detail.getByText(label, { exact: true }).locator('..').locator('.detail-grid-value');
+}
+
+test('S-25 节点按需加载、重复展开缓存、刷新重取；真实关联查询展示关键信息', async ({ page }) => {
+  const requests: number[] = [];
+  page.on('request', (request) => {
+    const match = /\/runs\/[^/]+\/events\/(\d+)$/.exec(new URL(request.url()).pathname);
+    if (match) requests.push(Number(match[1]));
+  });
+  const sheet = await openRunViaAudit(page, state.contentAuditId, state.contentRunId);
+  await sheet.getByRole('tab', { name: '事件轮廓' }).click();
+  await expect(sheet.getByTestId('run-event-toggle-2')).toBeVisible();
+  expect(requests).toEqual([]);
+  const questionToggle = sheet.getByTestId('run-event-toggle-2');
+  await questionToggle.focus();
+  await questionToggle.press('Enter');
+  const question = sheet.getByTestId('run-event-details-2');
+  await expect(question).toContainText('查询深圳天气');
+  await expect(question).toContainText(state.markers.input);
+  await expect(question).toContainText('question.txt');
+  await expect(question).not.toContainText(state.markers.credential);
+  await questionToggle.click();
+  await questionToggle.click();
+  await expect(question).toBeVisible();
+  expect(requests.filter((seq) => seq === 2)).toHaveLength(1);
+  await sheet.getByTestId('run-event-toggle-3').click();
+  const model = sheet.getByTestId('run-event-details-3');
+  await expect(eventField(model, '模型')).toHaveText('timeline-model');
+  await expect(eventField(model, '输入 Token')).toHaveText('120');
+  await expect(model.getByTestId('run-event-model-summary')).toHaveCount(0);
+  await sheet.getByTestId('run-event-toggle-4').click();
+  const tool = sheet.getByTestId('run-event-details-4');
+  await expect(eventField(tool, '工具名称')).toHaveText('run_obs_content_tool');
+  await expect(eventField(tool, '调用耗时')).toHaveText('1 分 0 秒');
+  await expect(tool).toContainText('weather-query');
+  await expect(tool).not.toContainText(state.markers.credential);
+  await sheet.getByTestId('run-event-toggle-8').click();
+  await expect(sheet.getByTestId('run-event-details-8')).toContainText('节省 2048 字节');
+  await sheet.getByTestId('run-detail-refresh').click();
+  await expect.poll(() => requests.filter((seq) => seq === 2).length).toBe(2);
+  await expect(questionToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(question).toContainText('查询深圳天气');
+});
+
+test('S-26 工具结果、回复、历史模型汇总与后台任务跳转', async ({ page }) => {
+  const sheet = await openRunViaAudit(page, state.contentAuditId, state.contentRunId);
+  await sheet.getByRole('tab', { name: '事件轮廓' }).click();
+  await sheet.getByTestId('run-event-toggle-5').click();
+  await expect(sheet.getByTestId('run-event-details-5')).toContainText(state.markers.result);
+  await sheet.getByTestId('run-event-toggle-6').click();
+  await expect(sheet.getByTestId('run-event-details-6')).toContainText('已为你查询深圳天气');
+  await expect(sheet.getByTestId('run-event-details-6')).not.toContainText(state.markers.credential);
+  await sheet.getByTestId('run-event-toggle-7').click();
+  const historical = sheet.getByTestId('run-event-details-7');
+  await expect(historical).toContainText('无法确定对应的单次调用');
+  await expect(eventField(historical, '模型')).toHaveText('frozen-timeline-model');
+  await expect(eventField(historical, '运行时模型版本')).toHaveText('1');
+  const summary = historical.getByTestId('run-event-model-summary');
+  await expect(summary).toContainText('本次运行模型调用汇总');
+  await expect(eventField(summary, '调用尝试总数')).toHaveText('1');
+  await expect(eventField(summary, '已记录输入 Token')).toHaveText('120');
+  await expect(eventField(summary, '累计调用耗时')).toHaveText('1.25 秒');
+  await sheet.getByTestId('run-event-toggle-9').click();
+  const task = sheet.getByTestId('run-event-details-9');
+  await expect(eventField(task, '任务当前状态')).toHaveText('已完成');
+  await task.getByRole('button', { name: state.contentTaskId.slice(0, 8), exact: true }).click();
+  await expect(taskSheet(page, state.contentTaskId)).toBeVisible();
+  await expect(page.getByTestId('run-detail-timeline')).toHaveCount(0);
+});
+
+test('E-23 节点请求失败显示局部重试', async ({ page }) => {
+  let abortOnce = true;
+  await page.route(`**/api/v1/runs/${state.contentRunId}/events/2`, async (route) => {
+    if (abortOnce) { abortOnce = false; await route.abort(); }
+    else await route.continue();
+  });
+  const sheet = await openRunViaAudit(page, state.contentAuditId, state.contentRunId);
+  await sheet.getByRole('tab', { name: '事件轮廓' }).click();
+  await sheet.getByTestId('run-event-toggle-2').click();
+  await expect(sheet).toContainText('明细加载失败，请重试');
+  await sheet.getByRole('button', { name: '重试', exact: true }).click();
+  await expect(sheet.getByTestId('run-event-details-2')).toContainText('查询深圳天气');
+});
+
+test('E-24 关闭再打开时迟到的节点明细不会污染新面板', async ({ page }) => {
+  let release!: () => void;
+  let blocked = false;
+  const hold = new Promise<void>((resolve) => { release = resolve; });
+  await page.route(`**/api/v1/runs/${state.contentRunId}/events/2`, async (route) => {
+    blocked = true;
+    await hold;
+    await route.continue();
+  });
+  try {
+    const sheet = await openRunViaAudit(page, state.contentAuditId, state.contentRunId);
+    await sheet.getByRole('tab', { name: '事件轮廓' }).click();
+    await sheet.getByTestId('run-event-toggle-2').click();
+    await expect.poll(() => blocked).toBe(true);
+    await expect(sheet.getByRole('status')).toContainText('正在加载明细');
+    await sheet.locator('.semi-sidesheet-close').click();
+    await page.getByTestId('audit-related-run').click();
+    const reopened = runSheet(page, state.contentRunId);
+    await reopened.getByRole('tab', { name: '事件轮廓' }).click();
+    await reopened.getByTestId('run-event-toggle-3').click();
+    await expect(reopened.getByTestId('run-event-details-3')).toContainText('timeline-model');
+    const late = page.waitForResponse((response) => response.url().endsWith(`/events/2`));
+    release();
+    await late;
+    await expect(reopened.getByTestId('run-event-details-2')).toHaveCount(0);
+    await expect(reopened.getByTestId('run-event-toggle-2')).toHaveAttribute('aria-expanded', 'false');
+    await expect(reopened.getByTestId('run-event-details-3')).toContainText('timeline-model');
+  } finally { release(); }
 });
 
 test('E-20 GET 失败显示 ErrorState，重试恢复真实数据；会话失效统一跳登录', async ({ page }) => {
