@@ -333,7 +333,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-006: 完整 SYSTEM 块与 recall JSON 字节预算
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005
 - **Source**: memory-redesign.design.md#3.5.3 完整渲染预算, memory-redesign.design.md#3.2.2 模型请求组件
@@ -347,24 +347,29 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ### Checklist
 
-- [ ] [B-09][unit] 先写中文封套、恰等预算/超1字节、长条后短条、0预算RED。
-- [ ] 任务本体装不下先尝试有界title/key/version引用，引用也超限只计丢弃。
-- [ ] 保留externalizable_result=false并运行指定artifact verifier；真实请求验证归component任务。
-- [ ] [RULE-skill-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [B-09][unit] 先写中文封套、恰等预算/超1字节、长条后短条、0预算RED。
+- [x] 任务本体装不下先尝试有界title/key/version引用，引用也超限只计丢弃。
+- [x] 保留externalizable_result=false并运行指定artifact verifier；真实请求验证归component任务。
+- [x] [RULE-skill-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| harness-skill#RULE-skill-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"] | planned |
+| LOCAL | unit | 实际最终 SYSTEM 文本与 canonical recall JSON，不 mock Renderer | UTF-8 恰等/少1字节、长条跳过、0无占位、引用与truncated元数据 | tests/agent_core/test_memory_redesign_render.py / test_b09_*, test_task_state_*, test_recall_* | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_render.py"] | verified |
+| harness-skill#RULE-skill-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | tests/test_skill_artifact_cache.py（4 tests 实际通过） | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| LOCAL | uv run pytest -q tests/agent_core/test_memory_redesign_render.py --tb=no：10 failed，缺少 Renderer 与 MemoryComponent 实现 | uv run pytest -q tests/agent_core/test_memory_redesign_render.py tests/test_skill_artifact_cache.py --tb=short：14 passed；mypy 6 files 与 ruff pass | tests/agent_core/test_memory_redesign_render.py:34,46,56,69,86,104,124 | 最终 UTF-8 文本/JSON 实测计量；直接纯函数，无 mock；artifact verifier 实际执行；recall 外置标记继续 false，Runtime 接线验证在 TASK-012/013 | verified |
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-13] started
+- [2026-10-13] completed (done)
 
 ---
 
