@@ -1,4 +1,79 @@
 codes:
+  MEMORY_KEY_INVALID:
+    http_status: 400
+    messages:
+      zh-CN: "记忆标识无效"
+      en-US: "Invalid memory key"
+  MEMORY_VALUE_INVALID:
+    http_status: 400
+    messages:
+      zh-CN: "记忆内容无效"
+      en-US: "Invalid memory value"
+  MEMORY_CATEGORY_NOT_ALLOWED:
+    http_status: 400
+    messages:
+      zh-CN: "记忆类别不允许"
+      en-US: "Memory category is not allowed"
+  MEMORY_QUERY_INVALID:
+    http_status: 400
+    messages:
+      zh-CN: "记忆查询无效"
+      en-US: "Invalid memory query"
+  MEMORY_LIMIT_INVALID:
+    http_status: 400
+    messages:
+      zh-CN: "记忆数量限制无效"
+      en-US: "Invalid memory limit"
+  MEMORY_READ_FAILED:
+    http_status: 503
+    messages:
+      zh-CN: "暂时无法读取记忆，请稍后重试"
+      en-US: "Memory is temporarily unavailable; try again later"
+  MEMORY_QUOTA_EXCEEDED:
+    http_status: 409
+    messages:
+      zh-CN: "记忆额度已满，请清理或申请提高额度"
+      en-US: "Memory quota is full; remove entries or request a higher quota"
+  MEMORY_FORBIDDEN_CONTENT:
+    http_status: 422
+    messages:
+      zh-CN: "该内容不允许保存为记忆"
+      en-US: "This content cannot be saved as memory"
+  MEMORY_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: "记忆不存在"
+      en-US: "Memory not found"
+  MEMORY_VERSION_CONFLICT:
+    http_status: 409
+    messages:
+      zh-CN: "记忆已发生变化，请刷新后重试"
+      en-US: "Memory has changed; refresh and try again"
+  MEMORY_CONFIRMATION_EXPIRED:
+    http_status: 410
+    messages:
+      zh-CN: "记忆确认已过期，请重新提出候选"
+      en-US: "Memory confirmation has expired; submit a new proposal"
+  MEMORY_CONFIRMATION_INVALID:
+    http_status: 400
+    messages:
+      zh-CN: "记忆确认无效，请使用展示的确认或拒绝编号"
+      en-US: "Invalid memory confirmation; use the displayed confirmation or rejection number"
+  MEMORY_CONFIRMATION_PENDING:
+    http_status: 409
+    messages:
+      zh-CN: "当前已有记忆候选等待确认"
+      en-US: "A memory proposal is already waiting for confirmation"
+  MEMORY_QUOTA_REDUCTION_REQUIRES_MAINTENANCE:
+    http_status: 409
+    messages:
+      zh-CN: "降低记忆额度需要维护窗口并排空在途任务"
+      en-US: "Lowering memory quotas requires a maintenance window and drained in-flight work"
+  MEMORY_RESULT_BUDGET_EXCEEDED:
+    http_status: 422
+    messages:
+      zh-CN: "记忆结果超过输出预算"
+      en-US: "Memory result exceeds the output budget"
   "0":
     http_status: 200
     messages:

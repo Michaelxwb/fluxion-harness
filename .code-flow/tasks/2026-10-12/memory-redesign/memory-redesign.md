@@ -246,7 +246,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-004: 记忆错误枚举与中英文目录
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: memory-redesign.design.md#3.7 API 与 Console, memory-redesign.design.md#3.8 可靠性与观测
@@ -260,24 +260,28 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ### Checklist
 
-- [ ] 先写错误码双向齐平、zh-CN/en-US、HTTP状态/placeholder的RED。
-- [ ] 沿用api-kit统一异常；业务仅抛ErrorCode，不硬编码msg。
-- [ ] 辅助运行tests/test_error_catalog.py与tests/test_api_i18n.py，记录真实结果。
-- [ ] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
+- [x] 先写错误码双向齐平、zh-CN/en-US、HTTP状态/placeholder的RED。
+- [x] 沿用api-kit统一异常；业务仅抛ErrorCode，不硬编码msg。
+- [x] 辅助运行tests/test_error_catalog.py与tests/test_api_i18n.py，记录真实结果。
+- [x] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | unit/integration | 本任务纯逻辑或真实存储载体，按Checklist具体边界 | Checklist列出的独立行为及失败反例，最终场景由责任表owner验证 | 编码阶段登记真实辅助测试；无当前执行Evidence | planned | planned |
+| LOCAL | unit/integration | 实际 api-kit MessageCatalog 和 ErrorCode；无需业务 mock | 15 新码双向注册、双语与 HTTP 状态；无敏感 placeholder；旧 source/prefix 码不注册 | tests/test_memory_redesign_error_catalog.py | ["uv","run","pytest","-q","tests/test_memory_redesign_error_catalog.py","tests/test_error_catalog.py","tests/test_api_i18n.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| LOCAL | uv run pytest -q tests/test_memory_redesign_error_catalog.py --tb=no：15 failed, 1 passed，ErrorCode 缺少全部新码 | 契约中三个文件的命令：31 passed in 0.59s；mypy + ruff pass | tests/test_memory_redesign_error_catalog.py:30,32,35,38,43 | 实际 YAML 目录与 ErrorCode；传入 canary 不被文案回显；旧工具 source/prefix 实现由 TASK-013 移除，本任务不改工具行为 | verified |
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-12] started
+- [2026-10-12] completed (done)
 
 ---
 
