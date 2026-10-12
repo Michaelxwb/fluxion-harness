@@ -1,0 +1,594 @@
+{
+  "schema": 2,
+  "task_file": "memory-redesign.md",
+  "task_sha256": "b84da2e86ef95744a24b358c54972a91fdc1ec1ea3ac68f698c90543386f42a8",
+  "scenarios": [
+    {
+      "id": "B-01",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "unit，纯证据校验",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_memory_redesign_evidence.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-02",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "unit，分词与选择",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_memory_redesign_selection.py"
+      ],
+      "cwd": ".",
+      "timeout": 120.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-03",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG、5 个独立事务同 key 写",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_writes.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-04",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG、独立连接不同 key 并发写",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_quotas.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-05",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "unit + PG，禁存内容",
+      "owner": "TASK-029",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_secrets.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-06",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG + 工具回执",
+      "owner": "TASK-013",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_recall.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-07",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG + 模型 HTTP 探针",
+      "owner": "TASK-013",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_context.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-08",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG + 请求探针",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_context.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-09",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "unit + 请求探针",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_context.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-10",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG + HTTP 模型探针",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_job_effects.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-11",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG + 故障注入",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_job_effects.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-12",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG + 两段 Run",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_snapshot.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-13",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，迁移库 + ORM create_all",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/migrations/test_memory_redesign_schema_parity.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-14",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，旧 revision 存量库升级",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/migrations/test_memory_redesign_migration.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-15",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 Gateway/Runtime/PG/resume",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_confirmation.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-16",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG + HTTP 模型探针",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_job_effects.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-17",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_job_effects.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-18",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_quotas.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-19",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，摘要关闭 + 真实模型 HTTP",
+      "owner": "TASK-019",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_provider.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-20",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，迁移前置检查与恢复演练",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/migrations/test_memory_redesign_preflight.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-21",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG + 延迟 job / 后续摘要",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_input_boundary.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-22",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实PG+旧新Run",
+      "owner": "TASK-016",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_snapshot.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-23",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "integration，真实 PG + 并发 writer / 当前语句时间",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_redesign_cache.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "acceptance，真实 Runtime + PG/Redis + 模型 HTTP",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_memory_redesign_context_e2e.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "acceptance，真实 Gateway → Runtime → resume",
+      "owner": "TASK-030",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "acceptance，真实 Gateway + 两个 conversation",
+      "owner": "TASK-030",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "browser，真实 Console/Runtime/PG/Chrome",
+      "owner": "TASK-030",
+      "status": "planned",
+      "command": [
+        "make",
+        "acceptance-e2e",
+        "DOMAIN=agent"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "acceptance，真实 Gateway/Runtime/PG + 模型探针",
+      "owner": "TASK-030",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "acceptance，真实两个 Runtime 子进程",
+      "owner": "TASK-030",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-01",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "security，真实 API 身份与租户边界",
+      "owner": "TASK-029",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_memory_redesign_security.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "security，真实装配与 canary 检查",
+      "owner": "TASK-029",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_memory_redesign_security.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    }
+  ]
+}

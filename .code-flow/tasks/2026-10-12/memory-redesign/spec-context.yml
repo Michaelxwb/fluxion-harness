@@ -1,0 +1,1313 @@
+version: 1
+task: memory-redesign
+enforcement: required
+updated_at: '2026-10-12T12:58:47.088626+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: harness-api
+  path: api/harness-api.md
+  status: active
+  hashes:
+    file_sha256: 7d0caac6679de468070c982183c7856d3b91cdaf2960431d09317f4cc39d4567
+    metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
+    rules_sha256: 1c14a73d7f32fecb843b7008e1f356f1e1a956aaa4c3a24063bae626f104fe48
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：管理API封套/分页/身份与事务命令幂等
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
+      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
+      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
+      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
+      unique 只作兜底（`channel_service.py:153-159`、`auth_service.py:270-276`、`audit_export_service.py:386-392`、`agent_service.py:159-162`、`mcp_service.py:240-243`、`skill_service.py:278-286`）。**存量待收敛**：console
+      侧 `agent_service`/`mcp_service`/`skill_service` 三处 `_fingerprint` 仍用 `|` 拼接且不含
+      endpoint/tenant，须按本口径对齐（合规参考 `channel_service.py:59-74`、`auth_service.py:253-267`、`audit_export_service.py:100-119`、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py:30-49`）。
+    text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-api-002
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-009
+          item_id: TASK-009
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-12T12:59:14.190686+00:00'
+          status: unverified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-api-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-023
+          item_id: TASK-023
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-12T12:59:14.190833+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-arch
+  path: arch/harness-arch.md
+  status: active
+  hashes:
+    file_sha256: 1c588affe514592d0737740266dd8a41dcaf4ccbdccfb6107fcd21034615bee7
+    metadata_sha256: 39a976af1534eeebee31887b5b054dd8406536a86fd2e9dc8d6f27e6e0e1bda7
+    rules_sha256: 11ae8f2db7be71dfeebbf0d395ea7f65402138090add6e7aa91602ff60c6b12b
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：Runtime持久后台claim、四部署边界与core依赖方向
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-arch-001
+    summary: 固定四个部署单元（console-platform / agent-runtime / agent-worker / im-gateway）；Runtime
+      与 Worker 无状态、可横向扩展，不绑定 Pod、bot_id 或用户；同一会话可被任意 Pod 执行。
+    text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+    enforcement: required
+    verifier_ref: harness-arch#RULE-arch-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-arch-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-022
+          item_id: TASK-022
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-12T12:59:14.191479+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-data
+  path: persistence/harness-data.md
+  status: active
+  hashes:
+    file_sha256: 92013f7096efb78cf08ca3616052b546a67fc391bdd975ade963225cf3b3c149
+    metadata_sha256: 7d1f9d0220849592b3262f71451e8eb62a816bb1e1dc20a98261ff463bd02406
+    rules_sha256: fb8cfcb8f9e5ecb2fbc7cd763598d18b42d10f7146361ef776bdf7a20279a8d7
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：稳定注册表、标准列、历史/迁移与tenant索引
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-data-001
+    summary: 产品表统一 `id/is_deleted/create_time/update_time`；软删除唯一约束用 partial unique
+      `WHERE is_deleted=false`；时间统一 `timestamptz`；同 Owner Schema 用物理 FK，跨 Owner Schema
+      仅逻辑 UUID；JSON 配置用 `jsonb` 且关键查询字段不得只藏在 JSON。
+    text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+    enforcement: required
+    verifier_ref: harness-data#RULE-data-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-data-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-007
+          item_id: TASK-007
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-12T12:59:14.192119+00:00'
+          status: unverified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-frontend
+  path: frontend/harness-frontend.md
+  status: active
+  hashes:
+    file_sha256: 18f4c201a9696a8eb2bbaf61acb4634a62c53de3b323d5792b2b22841cad7a09
+    metadata_sha256: 7f5c2085d89106ae171030c7c04f2475462a10f840e5d9ee22977374bf419c53
+    rules_sha256: b0eb465f1af1410517f0f4650cdd228f2c8ccfd05d3fe885ca0249c704d6492e
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：服务层唯一HTTP出口与严格DTO
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-front-001
+    summary: 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的
+      service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿
+      `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId`
+      是无副作用的纯工具，组件可直接 import（现网 7 处，均为纯函数引用）。所有文案只使用 i18n key（zh-CN/en-US）——`scripts/check_frontend_i18n.py`
+      校验两侧词条的键集齐平与空值，并校验源码中 `t('字面量键')` 引用的键**必须已定义**（增删词条后务必跑它）；模板串动态键变体的齐备性由各模块的
+      `tests/frontend/*_i18n*.py` 契约钉死。列表/详情遵循 RULE-ui-001 与 RULE-ui-detail-001。
+    text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+    enforcement: required
+    verifier_ref: harness-frontend#RULE-front-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-front-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-026
+          item_id: TASK-026
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-12T12:59:14.192788+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-i18n
+  path: i18n/harness-i18n.md
+  status: active
+  hashes:
+    file_sha256: c04be9ab078613ccc32e506fa78453b5b67a4527d89819f820555b6de62f4e47
+    metadata_sha256: b60d271a6656981b54ee716fcd5dece1c41d2402b50ed56d5197effcf17a7959
+    rules_sha256: 2f76d4b7d9b26cf3be95f2d812aaca26dd9e576c7e57bf665b65b986a7a1829f
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：新增来源/状态/错误中英文及动态键
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-i18n-001
+    summary: 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language`
+      协商。
+    text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+    enforcement: required
+    verifier_ref: harness-i18n#RULE-i18n-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-i18n-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-027
+          item_id: TASK-027
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-12T12:59:14.193375+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-im
+  path: im/harness-im.md
+  status: active
+  hashes:
+    file_sha256: c419a1dd41fcc1e14a0fbd382c3c1fd774f6bd7bbddf2c2948b3600b0b1fafd9
+    metadata_sha256: c336a33882eed3b2d1382972be7605ca7221004df04cefa876a48669ef94bdf2
+    rules_sha256: c66aefb237993f572ffaa445b976664ba1316fb721469e3049d9a56d9850402d
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：真实入站确认、命令容量、渠道中立与回复会话
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-im-001
+    summary: 一个逻辑 Agent 可绑定 0..N 个 IM 通道账号；每个 `bot_id` 只路由到一个 Agent；Bot 与 Runtime/Worker
+      Pod 无任何绑定；Gateway 不保存 `agent_id→Pod` 映射。
+    text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+    enforcement: required
+    verifier_ref: harness-im#RULE-im-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-im-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-017
+          item_id: TASK-017
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-12T12:59:14.194294+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-im-002
+    summary: '**渠道差异只活在适配器层**：核心域（`agent-runtime` / `agent-worker`）零渠道专有字样与取件形状；`im-gateway`
+      除 `channels/` 与装配根 `main.py` 外同样为零。取件、下载、解密、媒体 URL/密钥**一律不出适配器**——上层只看到「已解密字节
+      + 元信息」。机检见 `tests/architecture/test_channel_neutrality.py`（三条：核心域全文零字样 / 核心域不得给
+      `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）。'
+    text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+    enforcement: required
+    verifier_ref: harness-im#RULE-im-002
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-im-002
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-017
+          item_id: TASK-017
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-12T12:59:14.194299+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-log
+  path: logging/harness-log.md
+  status: active
+  hashes:
+    file_sha256: d82376f03f12c9eea17599673eab922600b8bab34fab54cbc99db6baac236130
+    metadata_sha256: 8bb67ae0c5cf82baee539013ff9840ed3004f3747460534ec4a8784e4b9640a1
+    rules_sha256: 3b69c6ff06cb317f71f02b594214665b7f8ef095506ccf453279985f494811a8
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：warning/metric结构化通道与敏感内容不入日志
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-log-001
+    summary: 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`（另读 `LOG_LEVEL`，缺省 `INFO`；非法级别直接 `raise
+      ValueError` 而非静默回退；`console=True` 为默认值，会额外挂一个 stdout handler）；日志按 `service/YYYY-MM-DD.log`
+      输出 JSON，自动携带 `trace_id/request_id/tenant_id`，并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password
+      等敏感字段脱敏。
+    text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+    enforcement: required
+    verifier_ref: harness-log#RULE-log-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-log-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-018
+          item_id: TASK-018
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-12T12:59:14.194941+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-memory
+  path: memory/harness-memory.md
+  status: active
+  hashes:
+    file_sha256: 3b93fb405da997601d5fe1da6b92269dd40a98bdba72faf96de4d2632f70b0dc
+    metadata_sha256: 5a0e74e5eff26769a06ae9b0e2325db35ab45b961330152c4a7cced88c1270a7
+    rules_sha256: d76538936bc433d5957aa11b86d5816ffa8c32613c4f8c82f5bc6361e2bed3ef
+  selected_by: agent
+  reason: TASK-001 implements the six memory rules required by design 6.1 and the
+    existing plan.
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-memory-001
+    summary: 原话仅证明文本来源，不能授予保存授权；模型不得提供 author/explicit_request。自然语言 remember 必须展示完整候选，绑定租户/用户/Run/submission、候选
+      hash、预期版本、forget_epoch 和有效期，由真实用户确认原子保存；只有真实入站的显式命令或已授权管理员可以直接保存。候选每 Run 至多一个，工具整轮完成后才暂停；resume
+      先检查绝对 deadline。options 消费以租户和 source_event_id 唯一，结果 outcome 不进入唯一键。
+    text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-memory-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-015
+          item_id: TASK-015
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-002
+    summary: Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。同
+      tenant/user/key 使用完整唯一身份，软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope
+      revision 同事务提交。锁内按写后有效集合验证冻结条数/UTF-8 字节限额及绝对上限；仅可淘汰 AGENT，USER/ADMIN 不免除硬限；既有超额时治理可减少但不可增加。
+    text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-002
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-memory-002
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-009
+          item_id: TASK-009
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-003
+    summary: 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖
+      query。revision 缓存只存候选行：冷读取行与实际 revision 同快照，暖读取 revision 与当前语句时间，并逐次过滤 TTL、重新选择/渲染；读取失败清除旧缓存和
+      MemoryComponent。每个模型请求前刷新独立 MemoryComponent，完整 SYSTEM 块及 recall JSON 严守最终 UTF-8
+      字节与条数预算；0 关闭注入，长条跳过，无首条越限保底，压缩不能吞掉记忆组件。
+    text_sha256: 906176dd9052cf4e5a36ed341041e759f6fb1f9e6b37f0447f715926715f85b7
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-003
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-memory-003
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-012
+          item_id: TASK-012
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-004
+    summary: 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled
+      或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision
+      证明，不以 job 开始时间冒充新依据。自动批量提交核对原 scope revision，过期输入为 STALE；同任务 lineage 续接原稳定 key，完成后清除未决状态。
+    text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-004
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-memory-004
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-021
+          item_id: TASK-021
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-005
+    summary: 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同
+      fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立
+      provider 使用冻结主模型、实时凭据并显式关闭。模型调用次数不保证一次，持久效果/历史/完成事件/job 终态必须同事务最多一次；失败整批回滚，warning/metric
+      可见，主 Run 终态不变。
+    text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-005
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-memory-005
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-021
+          item_id: TASK-021
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-006
+    summary: 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途
+      Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和
+      ORM 约束/索引同构；移除旧 ratio/source_type 协议，历史快照原样保留仅作审计，不加兼容写层。
+    text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-006
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-memory-006
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-007
+          item_id: TASK-007
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-model
+  path: model/harness-model.md
+  status: active
+  hashes:
+    file_sha256: ed84d91e620366d3c1ee1bc3ea0557a94fb5c10045e08b9bcee2abd1a06b8704
+    metadata_sha256: 6a2d580437c8b00f81ed56195982db49f26ff42ac0109e44bd28281b5d49f9cd
+    rules_sha256: ca794c666a9657f8e324ca978ce2aeade30bb0b4f48ddb36f7a204ac87fa77c6
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：冻结Agent显式主模型与独立有界provider
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-model-001
+    summary: '`model_definition` 不设 `is_default`；每个 Agent 必须显式保存 `model_id`，不存在平台默认模型回退；模型调用只允许
+      OPENAI 兼容协议。'
+    text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+    enforcement: required
+    verifier_ref: harness-model#RULE-model-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-model-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-019
+          item_id: TASK-019
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-12T12:59:14.197892+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-secret
+  path: secret/harness-secret.md
+  status: active
+  hashes:
+    file_sha256: c78342dc6651a2239efe07538e1be682383a1c5b3c37f1b800966deed7d01ca5
+    metadata_sha256: af4b34f2fb0332b6cfa359e3771ee61db87085d03bf7bef36e0c5628b1150ffb
+    rules_sha256: d72b90f97ac3a4c118df8a8d415344355cc395920a2aad7a767857c0375fc378
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：候选/quote/proposal/history/job/Prompt禁存出口
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-secret-001
+    summary: 密钥明文存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；**平台侧无自有密钥列**，见
+      Conventions 的休眠列说明），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM
+      Prompt 或 API 响应（对外以 `*_configured` 表达）。
+    text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+    enforcement: required
+    verifier_ref: harness-secret#RULE-secret-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-secret-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-029
+          item_id: TASK-029
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-12T12:59:14.198717+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-skill
+  path: artifact/harness-skill.md
+  status: active
+  hashes:
+    file_sha256: 328d01f025d8518b5ce05e04fe323fe152ea68fc8b44f0e1f3ef411b81d647c0
+    metadata_sha256: d401c91bc5271f353f28b5a053cae47eacd8e5ea3eb13f27ab8919e8c74d493b
+    rules_sha256: 5f3bec101c0e111bed1a9f5eb9662dcea899eb5ee8e546d9c2226acb15b0fc94
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：recall内容不可外置与UTF8硬预算
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-skill-001
+    summary: 'Artifact Store 为 **RWX PVC**（硬事实是 `accessModes: ReadWriteMany`，`deploy/k8s/base/pvc-artifacts.yaml:7-8`；是否落在
+      NFS 由部署侧 StorageClass 决定，清单里 `storageClassName` 并未固定；V1 不建 MinIO/S3）；数据库只保存相对
+      `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从
+      NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight（**限每进程内**：跨 Pod 的正确性由
+      `os.replace` 幂等与 DB CAS 承载，不得当作跨进程互斥）；Artifact 写入不可变（**目标不存在才发布**：临时文件 + `os.link`，同
+      `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans`
+      CLI 宽限期扫描清理（默认 1h，保护进行中事务）。'
+    text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+    enforcement: required
+    verifier_ref: harness-skill#RULE-skill-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-skill-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-006
+          item_id: TASK-006
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-12T12:59:14.199344+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-snapshot
+  path: snapshot/harness-snapshot.md
+  status: active
+  hashes:
+    file_sha256: 3b5d41bc41b4a0fcd2bb1bcdb58e97835787266d6d568a7f7731abdb98267926
+    metadata_sha256: 4772b9dff35dcd7ef80935ac4770a4fc804a0080c8bd92d7ab8108a3cfaac583
+    rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：新增memory执行策略/model/budget冻结与维护切换
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-snapshot-001
+    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP
+      版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run
+      侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新
+      Run/Task；终态写入必须 CAS。
+    text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+    enforcement: required
+    verifier_ref: harness-snapshot#RULE-snapshot-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-snapshot-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-016
+          item_id: TASK-016
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-12T12:59:14.199947+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 7084bd96c30e6d7bc238e7f7d6c4f76b48522f9158677ccf8c44059c9c35cb4d
+    metadata_sha256: 90ff1d9439f397d39a57d2bcbd591071cea018a7eec01c134eb038389d936776
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：真实PG/Redis/HTTP/Chrome/崩溃边界与inventory
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-030
+          item_id: TASK-030
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-12T12:59:14.200731+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-time
+  path: time/harness-time.md
+  status: active
+  hashes:
+    file_sha256: f8d0e62469f27159cf1fdb86360c23467e5cce09e9c99cf6cd8eb2e0f72a67a1
+    metadata_sha256: b520353c89741d56ccc5210a46c2666921ad8a3bac8b93c2c7fcdc75187788fd
+    rules_sha256: 6d0ba1245ffb637c5b161372f63c6c0d1108ac0f2b8240449b1954dba3192202
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：TTL/lease/timestamp存储与Console统一时间
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-time-001
+    summary: 数据库统一 `timestamptz` 存储；Console 展示统一 `YYYY-MM-DD HH:mm:ss`；调度时区使用 IANA
+      时区（如 `Asia/Shanghai`）。
+    text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+    enforcement: required
+    verifier_ref: harness-time#RULE-time-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-time-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-007
+          item_id: TASK-007
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-12T12:59:14.201345+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui
+  path: ui/harness-ui.md
+  status: active
+  hashes:
+    file_sha256: 62d724b2b7e1f532fd0142a3a50506f5bf19e364b39f31e7952352aa1bee71f9
+    metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
+    rules_sha256: 0d6fad1166722627698f4572c7bc2c668524ea36584993dc0614242a9896b8d5
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：管理列表/详情布局、Semi与公共操作组件
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-001
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十一项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/系统设置。
+    text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+    enforcement: required
+    verifier_ref: harness-ui#RULE-ui-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-ui-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-028
+          item_id: TASK-028
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-12T12:59:14.201989+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui-detail
+  path: ui-detail/harness-ui-detail.md
+  status: active
+  hashes:
+    file_sha256: 42b519238d1ffe9fe13ccf9bb832fd5dc3e2f8355a9f053d81b0cc98da3f8994
+    metadata_sha256: 2d144b46e00201718c64f6017c85ae49bfc79d3aa03b7ba800734d251ae18889
+    rules_sha256: 4cd416fc91fef9809fdf6ef80701c09a46d3884e38e96ce0e9d814028449b989
+  selected_by: agent
+  reason: 依据v0.5设计和已授权任务拆分：既有Memory详情Tab及历史SideSheet
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-detail-001
+    summary: 详情使用 SideSheet：标题与副标题居左，关闭 X 同行靠右；列表对象级操作集中到主列表最后一列「操作」，详情不重复渲染，Tabs
+      位于其下；关系操作保存后立即影响后续新 Run/Task。
+    text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+    enforcement: required
+    verifier_ref: harness-ui-detail#RULE-ui-detail-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: memory-redesign.design.md
+          section_id: 6.1 Spec Compliance Matrix
+          item_id: RULE-ui-detail-001
+          artifact_sha256: 80a1d10a93d5047e1cea992972c8e53c3a1ce2a6dae36435e6f270b227047ca3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-028
+          item_id: TASK-028
+          artifact_sha256: 66eb11531eacf586c724633ddc74c5b25e2fb775d165a850e936dd2c1da2b55f
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-12T12:59:14.202631+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: d064892d9899bb9b1b8090511424929ba68a2c638725e967615ef0512ac708e6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []

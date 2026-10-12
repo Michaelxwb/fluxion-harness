@@ -83,6 +83,24 @@ quality_loop:
         - ".git/**"
 
 path_mapping:
+    memory:
+        patterns:
+            - "packages/contracts/src/muad_contracts/memory.py"
+            - "packages/agent-core/src/muad_agent_core/memory/**"
+            - "apps/agent-runtime/src/muad_agent_runtime/application/memory/**"
+            - "apps/agent-runtime/src/muad_agent_runtime/application/memory_*.py"
+            - "apps/agent-runtime/src/muad_agent_runtime/infrastructure/repositories/memory*.py"
+            - "apps/agent-runtime/src/muad_agent_runtime/api/memory*.py"
+            - "apps/console-platform/backend/src/muad_console_platform/application/memory*.py"
+            - "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/memory*.py"
+            - "migrations/versions/0020_memory_redesign.py"
+            - "tests/**/test_memory_redesign*.py"
+            - "tests/test_memory_redesign*.py"
+            - "e2e/tests/agent-management/memory-redesign.spec.ts"
+        specs:
+            - path: "memory/harness-memory.md"
+              tags: ["memory", "confirmation", "quota", "consolidation"]
+              tier: 1
     shared:
         # 共享模板供 cf-task:align / cf-task:prd 命令显式 Read 使用，
         # 不是约束规范，禁止通配符自动注入。
