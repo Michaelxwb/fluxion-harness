@@ -23,7 +23,7 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | Depends-On |
 |---|---|---|---|---|---|---|---|---|---|
 | B-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | unit | unit，纯证据校验 | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py"] | . | 120 |  |
-| B-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | unit | unit，分词与选择 | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_selection.py"] | . | 120 |  |
+| B-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | unit | unit，分词与选择 | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_selection.py"] | . | 120 |  |
 | B-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、5 个独立事务同 key 写 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py"] | . | 300 |  |
 | B-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、独立连接不同 key 并发写 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | . | 300 |  |
 | B-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | unit + PG，禁存内容 | TASK-029 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_secrets.py"] | . | 300 |  |
@@ -287,7 +287,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-005: 分词、SEARCH/LIST 与偏好选择纯函数
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: memory-redesign.design.md#3.5.1 完整候选与排序
@@ -301,24 +301,29 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ### Checklist
 
-- [ ] [B-02][unit] 先写CJK/latin、空query、无关query、同分顺序RED。
-- [ ] 不得以soft weight推导覆盖权限或USER必然排前；now显式传入。
-- [ ] 纯函数不引入DB/network/app依赖，记录GREEN。
-- [ ] [B-02][unit] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：unit，分词与选择；断言：CJK/latin、无 query、有 query、同分确定性；非空 query 零覆盖为零条。
+- [x] [B-02][unit] 先写CJK/latin、空query、无关query、同分顺序RED。
+- [x] 不得以soft weight推导覆盖权限或USER必然排前；now显式传入。
+- [x] 纯函数不引入DB/network/app依赖，记录GREEN。
+- [x] [B-02][unit] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：unit，分词与选择；断言：CJK/latin、无 query、有 query、同分确定性；非空 query 零覆盖为零条。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-02 | unit | unit，分词与选择 | CJK/latin、无 query、有 query、同分确定性；非空 query 零覆盖为零条 | tests/agent_core/test_memory_redesign_selection.py / test_b02_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_selection.py"] | planned |
+| B-02 | unit | unit，分词与选择 | CJK/latin、无 query、有 query、同分确定性；非空 query 零覆盖为零条 | tests/agent_core/test_memory_redesign_selection.py / test_b02_*（16 collected） | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_selection.py"] | test-written | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-02 | uv run pytest -q tests/agent_core/test_memory_redesign_selection.py --tb=no：16 failed；缺少纯词法和排序模块 | 两个 core memory 契约文件：61 passed（18 selection + 43 evidence）；mypy 4 files 与 ruff pass；acceptance runner owner TASK-005 pass | tests/agent_core/test_memory_redesign_selection.py:29,46,57,69,81,93,105,110 | 直接执行分词、匹配、选择；now 显式传入，无 DB/network/mock；结构 JSON 字段不冒充内容命中 | verified |
+- B-02: verified — automated command passed; run_id=7f0ca5e018744b63ae01c57eaa7dae56 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-12] started
+- [2026-10-12] completed (done)
 
 ---
 

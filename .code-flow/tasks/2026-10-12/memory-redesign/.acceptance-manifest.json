@@ -70,7 +70,7 @@
       "kind": "functional",
       "boundary": "unit，分词与选择",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -80,7 +80,48 @@
       ],
       "cwd": ".",
       "timeout": 120.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7f0ca5e018744b63ae01c57eaa7dae56",
+        "executed_at": "2026-10-12T13:11:45.755609+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_core/test_memory_redesign_selection.py"
+        ],
+        "cwd": ".",
+        "timeout": 120.0,
+        "fingerprint": "672eda35418431b03f7eb70bff8722970590b67cdf32a9d63ec82af96aa1dd73"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7f0ca5e018744b63ae01c57eaa7dae56",
+          "executed_at": "2026-10-12T13:11:45.755609+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_redesign_selection.py"
+          ],
+          "cwd": ".",
+          "timeout": 120.0,
+          "fingerprint": "672eda35418431b03f7eb70bff8722970590b67cdf32a9d63ec82af96aa1dd73"
+        }
+      ]
     },
     {
       "id": "B-03",
