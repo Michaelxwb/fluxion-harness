@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-10-12/memory-redesign/memory-redesign.design.md（v0.5；保留用户v0.4补充并修正缓存/约束边界）
 - **Created**: 2026-10-12
-- **Updated**: 2026-10-12
+- **Updated**: 2026-10-13
 - **Plan status**: draft；阶段裁决以 CLI 输出为准；未开始编码
 
 ## Proposal
@@ -189,7 +189,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-01 | unit | unit，纯证据校验 | 仅含“记住”、任意词重合、部分截取否定句、模型自报 USER 均不能获得确认 | tests/agent_core/test_memory_redesign_evidence.py / test_b01_memory_redesign_quote_is_complete_provenance, test_b01_model_cannot_grant_confirmation_or_trusted_identity, test_b01_exact_quote_does_not_add_author_or_explicit_request | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py"] | test-written | verified |
+| B-01 | unit | unit，纯证据校验 | 仅含“记住”、任意词重合、部分截取否定句、模型自报 USER 均不能获得确认 | tests/agent_core/test_memory_redesign_evidence.py / test_b01_memory_redesign_quote_is_complete_provenance, test_b01_model_cannot_grant_confirmation_or_trusted_identity, test_b01_exact_quote_does_not_add_author_or_explicit_request | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -208,13 +208,13 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-003: 平台记忆设置 schema、catalog 与边界
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-004
 - **Source**: memory-redesign.design.md#2.3.3 配置项, memory-redesign.design.md#3.4.5 内容闸门与配额
 - **Spec-Refs**: 
 - **Acceptance-Refs**: 
-- **Files**: packages/contracts/src/muad_contracts/platform_settings.py, apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py, apps/console-platform/backend/src/muad_console_platform/application/platform_settings_service.py
+- **Files**: packages/contracts/src/muad_contracts/platform_settings.py, apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py, apps/console-platform/backend/src/muad_console_platform/application/platform_settings_service.py, apps/console-platform/backend/src/muad_console_platform/api/platform_settings.py
 
 ### Description
 
@@ -222,25 +222,29 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ### Checklist
 
-- [ ] 先写叶子集合、bool/int严格类型、lease>=timeout+15、上下限及未知键RED。
-- [ ] 同步既有ratio配置测试，保留其他分组语义；不引入旧键兼容读取。
-- [ ] [B-22][integration] 辅助覆盖额度设置预检；最终跨Run责任在snapshot任务。
-- [ ] 在保存事务内比较上一设置额度，在线降低返回维护窗口错误；不通过API临时参数绕过，新当前配置的降低只由维护脚本排空后执行。
-- [ ] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
+- [x] 先写叶子集合、bool/int严格类型、lease>=timeout+15、上下限及未知键RED。
+- [x] 同步既有ratio配置测试，保留其他分组语义；不引入旧键兼容读取。
+- [x] [B-22][integration] 辅助覆盖额度设置预检；最终跨Run责任在snapshot任务。
+- [x] 在保存事务内比较上一设置额度，在线降低返回维护窗口错误；不通过API临时参数绕过，新当前配置的降低只由维护脚本排空后执行。
+- [x] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | unit/integration | 本任务纯逻辑或真实存储载体，按Checklist具体边界 | Checklist列出的独立行为及失败反例，最终场景由责任表owner验证 | 编码阶段登记真实辅助测试；无当前执行Evidence | planned | planned |
+| LOCAL | unit/integration | 真实 settings schema/catalog；独立 PG 上实际 settings service 和事务 | 21 memory 叶子、严格类型/边界/lease；save/restore 拒绝降低且不生成版本/审计 | tests/test_memory_redesign_settings.py, tests/test_platform_settings_schema.py | ["uv","run","pytest","-q","tests/test_memory_redesign_settings.py","tests/test_platform_settings_schema.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| LOCAL | uv run pytest -q tests/test_memory_redesign_settings.py -m unit --tb=no：36 failed, 97 passed；新 memory 字段、history rounds 与范围缺失；integration 1 failed（新配额键尚未识别）；merge 2 failed（旧 ratio 静默丢弃） | uv run pytest -q tests/test_memory_redesign_settings.py tests/test_platform_settings_schema.py tests/agent_core/test_context_compactor.py --tb=short：274 passed；mypy 4 files 与 ruff pass | tests/test_memory_redesign_settings.py:39,56,66,90,108,136,152；配额双维度、save/restore 和 API 错误映射 | 直接 schema/catalog；integration 使用 async_tool_database 独立临时 PG，真实事务拒绝且版本/审计数均为2，不碰 dev 库 | verified |
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-12] started
+- [2026-10-13] completed (done)
 
 ---
 
@@ -310,7 +314,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-02 | unit | unit，分词与选择 | CJK/latin、无 query、有 query、同分确定性；非空 query 零覆盖为零条 | tests/agent_core/test_memory_redesign_selection.py / test_b02_*（16 collected） | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_selection.py"] | test-written | verified |
+| B-02 | unit | unit，分词与选择 | CJK/latin、无 query、有 query、同分确定性；非空 query 零覆盖为零条 | tests/agent_core/test_memory_redesign_selection.py / test_b02_*（16 collected） | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_selection.py"] | verified |
 
 ### Acceptance Evidence
 

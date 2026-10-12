@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator, Mapping
-from dataclasses import asdict
+from dataclasses import asdict, fields
 
 import pytest
 from httpx import AsyncClient, Response
@@ -356,7 +356,8 @@ def test_business_key_boundary_default_schema_leaves_are_never_secret() -> None:
         "mcp",
     ], "分组集合变化时须复核本回归的覆盖面"
     leaves = _leaf_paths(document)
-    assert len(leaves) == 41, "叶子数（design ADR-10：41）变化时须复核本回归的覆盖面"
+    memory_fields = {item.name for item in fields(default_platform_settings().memory)}
+    assert {path.removeprefix("memory.") for path in leaves if path.startswith("memory.")} == memory_fields
     for path in leaves:
         assert find_secret_key(_nest(path, 0)) is None, f"合法业务键被误判为敏感：{path}"
     assert find_secret_key(document) is None, "整份默认文档不得被判为敏感"

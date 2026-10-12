@@ -1,7 +1,6 @@
 """平台设置文档的唯一 schema、默认值与跨字段联动校验（design §2.3.2 / ADR-10）。
 
-整份文档按 9 个分组建模（`compaction` 15 / `agent` 4 / `task` 6 / `memory` 5 / `artifact` 3 /
-`auth` 4 / `locale` 2 / `im` 1 / `mcp` 1，共 41 个叶子）。字段、默认值与联动校验只在这里写一次，
+整份文档按 9 个分组建模，memory 策略独立于压缩；字段、默认值与联动校验只在这里写一次，
 Console 与三个执行服务共用。按 ADR-10，压缩分组 schema 由 `muad_agent_core.context.settings`
 **整体迁移**至此（原模块已删除，不留 re-export 薄壳）。
 
@@ -20,6 +19,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from .memory import MEMORY_MAX_BYTES, MEMORY_MAX_RECORDS
 
 #: execution snapshot `policy_json` 里压缩配置所在的键（与 Task 快照的 `budget.compaction` 同结构）。
 COMPACTION_POLICY_KEY = "compaction"
@@ -86,20 +87,13 @@ class SummarySettings:
 
 
 @dataclass(frozen=True, slots=True)
-class MemorySettings:
-    """memory 注入在上下文预算里的占比（FEAT-09）。"""
-
-    budget_ratio: float = 0.2
-
-
-@dataclass(frozen=True, slots=True)
 class CompactionSettings:
     snip: SnipSettings = field(default_factory=SnipSettings)
     tool_result: ToolResultSettings = field(default_factory=ToolResultSettings)
     micro: MicroSettings = field(default_factory=MicroSettings)
     summary: SummarySettings = field(default_factory=SummarySettings)
-    memory: MemorySettings = field(default_factory=MemorySettings)
     history_budget_messages: int = 40
+    max_history_tool_rounds: int = 6
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,13 +120,50 @@ class TaskSettings:
 
 @dataclass(frozen=True, slots=True)
 class MemoryPolicySettings:
-    """记忆写入与召回规模（`memory` 分组，区别于压缩的 `MemorySettings`）。"""
+    """记忆事实、请求预算和后台提炼策略；新 Run 一次冻结。"""
 
     write_enabled: bool = True
     max_injected_memories: int = 10
     max_injected_bytes: int = 2048
     max_recall_bytes: int = 4096
     recall_default_limit: int = 10
+    inject_inferred: bool = False
+    task_state_injection_enabled: bool = True
+    max_entries_per_user: int = 200
+    max_memory_bytes_per_user: int = 65536
+    ttl_days_user: int = 0
+    ttl_days_agent: int = 30
+    ttl_days_task_state: int = 7
+    consolidation_enabled: bool = True
+    consolidation_min_user_messages: int = 1
+    consolidation_max_input_bytes: int = 32768
+    consolidation_max_output_tokens: int = 1024
+    consolidation_timeout_sec: int = 30
+    consolidation_max_candidates: int = 8
+    consolidation_max_attempts: int = 2
+    consolidation_retry_delay_sec: int = 5
+    consolidation_lease_sec: int = 60
+
+
+MEMORY_SETTING_BOUNDS: dict[str, tuple[int, int]] = {
+    "max_injected_memories": (0, 20),
+    "max_injected_bytes": (0, 16384),
+    "max_recall_bytes": (1, 16384),
+    "recall_default_limit": (0, RECALL_MAX_LIMIT),
+    "max_entries_per_user": (1, MEMORY_MAX_RECORDS),
+    "max_memory_bytes_per_user": (1024, MEMORY_MAX_BYTES),
+    "ttl_days_user": (0, 3650),
+    "ttl_days_agent": (1, 365),
+    "ttl_days_task_state": (1, 90),
+    "consolidation_min_user_messages": (1, 100),
+    "consolidation_max_input_bytes": (1024, 131072),
+    "consolidation_max_output_tokens": (128, 4096),
+    "consolidation_timeout_sec": (1, 120),
+    "consolidation_max_candidates": (1, 20),
+    "consolidation_max_attempts": (1, 3),
+    "consolidation_retry_delay_sec": (1, 60),
+    "consolidation_lease_sec": (16, 300),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,8 +227,9 @@ _SECTIONS: dict[str, type] = {
     "tool_result": ToolResultSettings,
     "micro": MicroSettings,
     "summary": SummarySettings,
-    "memory": MemorySettings,
 }
+
+_COMPACTION_SCALARS = ("history_budget_messages", "max_history_tool_rounds")
 
 _GROUPS: dict[str, type] = {
     "agent": AgentSettings,
@@ -244,7 +276,7 @@ def compaction_payload(settings: CompactionSettings) -> dict[str, Any]:
             "model_ref": settings.summary.model_ref,
         },
         "history_budget_messages": settings.history_budget_messages,
-        "memory": {"budget_ratio": settings.memory.budget_ratio},
+        "max_history_tool_rounds": settings.max_history_tool_rounds,
     }
 
 
@@ -254,11 +286,16 @@ def merge_compaction_payload(
     override: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """按节逐键合并（不是整块替换）：`override` 没给的键回落 `base`，`base` 没给的回落默认。"""
+    for payload in (base, override):
+        if payload is not None:
+            unknown = sorted(set(payload) - {*_SECTIONS, *_COMPACTION_SCALARS})
+            if unknown:
+                raise CompactionConfigError(f"compaction 含未知配置键: {', '.join(unknown)}")
     merged: dict[str, Any] = {}
-    for name in (*_SECTIONS, "history_budget_messages"):
+    for name in (*_SECTIONS, *_COMPACTION_SCALARS):
         base_value = (base or {}).get(name)
         override_value = (override or {}).get(name)
-        if name == "history_budget_messages":
+        if name in _COMPACTION_SCALARS:
             if override_value is not None:
                 merged[name] = override_value
             elif base_value is not None:
@@ -311,7 +348,7 @@ def parse_compaction_settings(payload: Mapping[str, Any] | None) -> CompactionSe
         payload = {}
     if not isinstance(payload, Mapping):
         raise CompactionConfigError("compaction 必须是对象")
-    unknown = sorted(set(payload) - {*_SECTIONS, "history_budget_messages"})
+    unknown = sorted(set(payload) - {*_SECTIONS, *_COMPACTION_SCALARS})
     if unknown:
         raise CompactionConfigError(f"compaction 含未知配置键: {', '.join(unknown)}")
 
@@ -319,11 +356,13 @@ def parse_compaction_settings(payload: Mapping[str, Any] | None) -> CompactionSe
     for name, cls in _SECTIONS.items():
         if name in payload:
             kwargs[name] = cls(**_coerce_section(name, payload[name], cls))
-    if "history_budget_messages" in payload:
-        value = payload["history_budget_messages"]
+    for name in _COMPACTION_SCALARS:
+        if name not in payload:
+            continue
+        value = payload[name]
         if isinstance(value, bool) or not isinstance(value, int):
-            raise CompactionConfigError("history_budget_messages 必须是整数")
-        kwargs["history_budget_messages"] = value
+            raise CompactionConfigError(f"{name} 必须是整数")
+        kwargs[name] = value
 
     settings = CompactionSettings(**kwargs)
     _validate(settings)
@@ -399,8 +438,8 @@ def _validate(settings: CompactionSettings) -> None:
     if settings.history_budget_messages < 1:
         raise CompactionConfigError("history_budget_messages 必须 ≥ 1")
 
-    if not 0 <= settings.memory.budget_ratio <= 1:
-        raise CompactionConfigError("memory.budget_ratio 必须落在 [0, 1]")
+    if not 0 <= settings.max_history_tool_rounds <= 50:
+        raise CompactionConfigError("max_history_tool_rounds 必须落在 [0, 50]")
 
 
 def _validate_summary_model_ref(summary: SummarySettings) -> None:
@@ -436,13 +475,19 @@ def _validate_task(task: TaskSettings, batch_platform_limit: int | None) -> None
 
 
 def _validate_memory(memory: MemoryPolicySettings) -> None:
-    _at_least("memory.max_injected_memories", memory.max_injected_memories, 0)
-    _at_least("memory.max_injected_bytes", memory.max_injected_bytes, 0)
-    _at_least("memory.max_recall_bytes", memory.max_recall_bytes, 1)
-    _at_least("memory.recall_default_limit", memory.recall_default_limit, 0)
-    if memory.recall_default_limit > RECALL_MAX_LIMIT:
+    defaults = MemoryPolicySettings()
+    for item in fields(memory):
+        value = getattr(memory, item.name)
+        expected = type(getattr(defaults, item.name))
+        if type(value) is not expected:
+            raise PlatformSettingsError(f"memory.{item.name} 必须是 {expected.__name__}")
+    for name, (minimum, maximum) in MEMORY_SETTING_BOUNDS.items():
+        value = getattr(memory, name)
+        if not minimum <= value <= maximum:
+            raise PlatformSettingsError(f"memory.{name} 必须落在 [{minimum}, {maximum}]")
+    if memory.consolidation_lease_sec < memory.consolidation_timeout_sec + 15:
         raise PlatformSettingsError(
-            f"memory.recall_default_limit 不得超过 RECALL_MAX_LIMIT（{RECALL_MAX_LIMIT}）"
+            "memory.consolidation_lease_sec 必须 ≥ consolidation_timeout_sec + 15"
         )
 
 
@@ -519,7 +564,7 @@ __all__ = [
     "LocaleSettings",
     "McpSettings",
     "MemoryPolicySettings",
-    "MemorySettings",
+    "MEMORY_SETTING_BOUNDS",
     "MicroSettings",
     "PlatformSettings",
     "PlatformSettingsError",

@@ -38,6 +38,7 @@ from ..application.platform_settings_idempotency import (
     idempotency_fingerprint,
 )
 from ..application.platform_settings_service import (
+    MemoryQuotaReductionRequiresMaintenance,
     PlatformSettingsModelNotFound,
     PlatformSettingsRevisionNotFound,
     PlatformSettingsService,
@@ -167,6 +168,9 @@ async def _apply_save(
     except PlatformSettingsModelNotFound as error:
         _record_save(SAVE_VALIDATION_FAILED)
         raise AppError(ErrorCode.MODEL_NOT_FOUND) from error
+    except MemoryQuotaReductionRequiresMaintenance as error:
+        _record_save(SAVE_VALIDATION_FAILED)
+        raise AppError(error.code) from error
     except PlatformSettingsError as error:
         _record_save(SAVE_VALIDATION_FAILED)
         raise _validation_error(error) from error
@@ -251,6 +255,9 @@ async def _apply_restore(
         )
     except PlatformSettingsRevisionNotFound as error:
         raise AppError(ErrorCode.PLATFORM_SETTINGS_REVISION_NOT_FOUND) from error
+    except MemoryQuotaReductionRequiresMaintenance as error:
+        _record_save(SAVE_VALIDATION_FAILED)
+        raise AppError(error.code) from error
     except PlatformSettingsVersionConflict as error:
         _record_save(SAVE_CONFLICT)
         raise AppError(ErrorCode.PLATFORM_SETTINGS_VERSION_CONFLICT) from error

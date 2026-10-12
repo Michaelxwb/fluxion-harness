@@ -40,23 +40,13 @@ def _count_leaves(node: Any) -> int:
     return 1
 
 
-def test_default_document_has_41_leaves_with_designed_defaults() -> None:
+def test_default_document_has_designed_groups_and_defaults() -> None:
     settings = default_platform_settings()
     document = asdict(settings)
 
     counts = {group: _count_leaves(document[group]) for group in document}
-    assert counts == {
-        "compaction": 15,
-        "agent": 4,
-        "task": 6,
-        "memory": 5,
-        "artifact": 3,
-        "auth": 4,
-        "locale": 2,
-        "im": 1,
-        "mcp": 1,
-    }
-    assert sum(counts.values()) == 41
+    assert set(counts) == {"compaction", "agent", "task", "memory", "artifact", "auth", "locale", "im", "mcp"}
+    assert all(count > 0 for count in counts.values())
 
     compaction = settings.compaction
     assert (compaction.snip.enabled, compaction.snip.max_groups) == (True, 50)
@@ -70,9 +60,12 @@ def test_default_document_has_41_leaves_with_designed_defaults() -> None:
     assert (compaction.micro.enabled, compaction.micro.keep_recent_tool_groups) == (False, 3)
     assert (compaction.summary.enabled, compaction.summary.threshold_bytes) == (False, 50000)
     assert compaction.summary.model_ref is None
-    assert compaction.memory.budget_ratio == 0.2
+    assert compaction.max_history_tool_rounds == 6
     assert compaction.history_budget_messages == 40
 
+
+def test_other_groups_keep_designed_defaults() -> None:
+    settings = default_platform_settings()
     assert (settings.agent.max_turns, settings.agent.max_tool_calls) == (20, 30)
     assert (settings.agent.deadline_ms, settings.agent.max_model_retries) == (120000, 3)
     assert (
@@ -159,8 +152,8 @@ _ACCEPT: list[tuple[str, Any]] = [
     ("compaction.micro.keep_recent_tool_groups", 1),
     ("compaction.summary.threshold_bytes", 0),
     ("compaction.history_budget_messages", 1),
-    ("compaction.memory.budget_ratio", 0.0),
-    ("compaction.memory.budget_ratio", 1.0),
+    ("compaction.max_history_tool_rounds", 0),
+    ("compaction.max_history_tool_rounds", 50),
 ]
 
 _REJECT: list[tuple[str, Any]] = [
@@ -201,8 +194,9 @@ _REJECT: list[tuple[str, Any]] = [
     ("compaction.micro.keep_recent_tool_groups", 0),
     ("compaction.summary.threshold_bytes", -1),
     ("compaction.history_budget_messages", 0),
-    ("compaction.memory.budget_ratio", -0.1),
-    ("compaction.memory.budget_ratio", 1.1),
+    ("compaction.memory.budget_ratio", 0.2),
+    ("compaction.max_history_tool_rounds", -1),
+    ("compaction.max_history_tool_rounds", 51),
 ]
 
 

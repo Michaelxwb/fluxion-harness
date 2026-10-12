@@ -25,6 +25,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
+from muad_api import ErrorCode
 from muad_common import SharedSettings
 from muad_contracts.platform_settings import (
     PlatformSettings,
@@ -70,6 +71,19 @@ class PlatformSettingsModelNotFound(PlatformSettingsServiceError):
     """`compaction.summary.model_ref` 指向本租户不存在/未启用的模型（设计 §2.3.2 联动）。"""
 
     code = "MODEL_NOT_FOUND"
+
+
+class MemoryQuotaReductionRequiresMaintenance(PlatformSettingsServiceError):
+    """Online settings changes cannot invalidate frozen quota policies."""
+
+    code = ErrorCode.MEMORY_QUOTA_REDUCTION_REQUIRES_MAINTENANCE
+
+
+def _require_non_decreasing_memory_quota(before: Mapping[str, Any] | None, after: PlatformSettings) -> None:
+    current = parse_platform_settings(before).memory
+    for name in ("max_entries_per_user", "max_memory_bytes_per_user"):
+        if getattr(after.memory, name) < getattr(current, name):
+            raise MemoryQuotaReductionRequiresMaintenance("memory quota reduction requires maintenance")
 
 
 @dataclass(frozen=True)
@@ -154,6 +168,7 @@ class PlatformSettingsService:
                 f"版本冲突：期望 revision={expected_revision}，当前 revision={current}"
             )
         before = await self._revision_document(tenant_id, current) if current else None
+        _require_non_decreasing_memory_quota(before, settings)
         row = await self._insert(
             tenant_id=tenant_id,
             revision=expected_revision + 1,
@@ -228,6 +243,7 @@ class PlatformSettingsService:
         )
         current = await self._current_revision(tenant_id)
         before = await self._revision_document(tenant_id, current) if current else None
+        _require_non_decreasing_memory_quota(before, restored)
         row = await self._insert(
             tenant_id=tenant_id,
             revision=current + 1,

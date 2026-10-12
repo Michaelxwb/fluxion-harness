@@ -16,7 +16,7 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from typing import Any
 
-from muad_contracts.platform_settings import PlatformSettings
+from muad_contracts.platform_settings import MEMORY_SETTING_BOUNDS, PlatformSettings
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,7 +51,7 @@ _FIELD_META: dict[str, dict[str, Any]] = {
     "micro.keep_recent_tool_groups": {"min": 1},
     "summary.threshold_bytes": {"min": 0, "unit_key": "settings.unit.bytes"},
     "history_budget_messages": {"min": 1},
-    "memory.budget_ratio": {"min": 0, "max": 1},
+    "max_history_tool_rounds": {"min": 0, "max": 50},
     "agent.max_turns": {"min": 1},
     "agent.max_tool_calls": {"min": 0},
     "agent.deadline_ms": {"min": 1, "unit_key": "settings.unit.ms"},
@@ -62,10 +62,16 @@ _FIELD_META: dict[str, dict[str, Any]] = {
     "task.misfire_grace_sec": {"min": 0, "unit_key": "settings.unit.seconds"},
     "task.delivery_max_attempts": {"min": 1},
     "task.delivery_backoff_base_sec": {"min": 1, "unit_key": "settings.unit.seconds"},
-    "memory.max_injected_memories": {"min": 0},
-    "memory.max_injected_bytes": {"min": 0, "unit_key": "settings.unit.bytes"},
-    "memory.max_recall_bytes": {"min": 1, "unit_key": "settings.unit.bytes"},
-    "memory.recall_default_limit": {"min": 0},
+    "memory.max_injected_bytes": {"unit_key": "settings.unit.bytes"},
+    "memory.max_recall_bytes": {"unit_key": "settings.unit.bytes"},
+    "memory.max_memory_bytes_per_user": {"unit_key": "settings.unit.bytes"},
+    "memory.consolidation_max_input_bytes": {"unit_key": "settings.unit.bytes"},
+    "memory.ttl_days_user": {"unit_key": "settings.unit.days"},
+    "memory.ttl_days_agent": {"unit_key": "settings.unit.days"},
+    "memory.ttl_days_task_state": {"unit_key": "settings.unit.days"},
+    "memory.consolidation_timeout_sec": {"unit_key": "settings.unit.seconds"},
+    "memory.consolidation_retry_delay_sec": {"unit_key": "settings.unit.seconds"},
+    "memory.consolidation_lease_sec": {"unit_key": "settings.unit.seconds"},
     "artifact.retention_days": {"min": 1, "unit_key": "settings.unit.days"},
     "artifact.max_archive_files": {"min": 1},
     "artifact.cleanup_batch_size": {"min": 1},
@@ -142,6 +148,10 @@ def _field_meta(path: str, value: Any, applies_to: str) -> dict[str, Any]:
     }
     override = _FIELD_META.get(path, {})
     meta.update(override)
+    if path.startswith("memory."):
+        bounds = MEMORY_SETTING_BOUNDS.get(path.removeprefix("memory."))
+        if bounds is not None:
+            meta.update(min=bounds[0], max=bounds[1])
     if "applies_to" not in override:
         meta["applies_to"] = applies_to
     return meta

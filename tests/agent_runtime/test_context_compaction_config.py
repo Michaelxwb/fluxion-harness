@@ -37,7 +37,7 @@ DEFAULT_COMPACTION: dict[str, Any] = {
     "micro": {"enabled": False, "keep_recent_tool_groups": 3},
     "summary": {"enabled": False, "threshold_bytes": 50_000, "model_ref": None},
     "history_budget_messages": 40,
-    "memory": {"budget_ratio": 0.2},
+    "max_history_tool_rounds": 6,
 }
 
 
@@ -164,7 +164,7 @@ async def test_e04_config_change_only_affects_new_runs(
             "round_budget_bytes 不得小于 persist_threshold_bytes",
         ),
         ({"history_budget_messages": 0}, "history_budget_messages 必须 ≥ 1"),
-        ({"memory": {"budget_ratio": 1.5}}, "memory.budget_ratio 必须落在 (0, 1]"),
+        ({"memory": {"budget_ratio": 0.2}}, "旧 memory ratio 分支必须显式拒绝"),
         ({"snip": {"enabld": True}}, "未知配置键必须显式报错"),
     ],
 )
