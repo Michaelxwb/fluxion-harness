@@ -22,7 +22,7 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | Depends-On |
 |---|---|---|---|---|---|---|---|---|---|
-| B-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | unit | unit，纯证据校验 | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py"] | . | 120 |  |
+| B-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | unit | unit，纯证据校验 | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py"] | . | 120 |  |
 | B-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | unit | unit，分词与选择 | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_selection.py"] | . | 120 |  |
 | B-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、5 个独立事务同 key 写 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py"] | . | 300 |  |
 | B-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、独立连接不同 key 并发写 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | . | 300 |  |
@@ -166,7 +166,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-002: 严格记忆契约与原话证据校验
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: memory-redesign.design.md#3.4.1 原话证据, memory-redesign.design.md#3.3.2 user_memory（稳定 identity）
@@ -180,24 +180,29 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ### Checklist
 
-- [ ] [B-01][unit] 先写整句、否定句片段、仅词法重合、伪造author的RED；不接受模型身份字段。
-- [ ] 确认hash共用canonical_json；source_scope_revision与证据ID由Runtime生成。
-- [ ] 辅助验证TASK_STATE字符/字节/数组上限及task命名空间，record GREEN。
-- [ ] [B-01][unit] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：unit，纯证据校验；断言：仅含“记住”、任意词重合、部分截取否定句、模型自报 USER 均不能获得确认。
+- [x] [B-01][unit] 先写整句、否定句片段、仅词法重合、伪造author的RED；不接受模型身份字段。
+- [x] 确认hash共用canonical_json；source_scope_revision与证据ID由Runtime生成。
+- [x] 辅助验证TASK_STATE字符/字节/数组上限及task命名空间，record GREEN。
+- [x] [B-01][unit] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：unit，纯证据校验；断言：仅含“记住”、任意词重合、部分截取否定句、模型自报 USER 均不能获得确认。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-01 | unit | unit，纯证据校验 | 仅含“记住”、任意词重合、部分截取否定句、模型自报 USER 均不能获得确认 | tests/agent_core/test_memory_redesign_evidence.py / test_b01_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py"] | planned |
+| B-01 | unit | unit，纯证据校验 | 仅含“记住”、任意词重合、部分截取否定句、模型自报 USER 均不能获得确认 | tests/agent_core/test_memory_redesign_evidence.py / test_b01_memory_redesign_quote_is_complete_provenance, test_b01_model_cannot_grant_confirmation_or_trusted_identity, test_b01_exact_quote_does_not_add_author_or_explicit_request | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py"] | test-written | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-01 | uv run pytest -q tests/agent_core/test_memory_redesign_evidence.py --tb=short：32 failed，缺少目标 contracts.memory 和 core.memory.evidence 实现；测试已正常收集 | uv run pytest -q tests/agent_core/test_memory_redesign_evidence.py tests/test_memory_redesign_spec_contract.py：52 passed（43 新契约 + 9 规范回归）；mypy 3 files + ruff pass | tests/agent_core/test_memory_redesign_evidence.py:26,38,47,95,102,134,145 | 直接执行纯函数与严格 Pydantic DTO，无 IO/mock；参数覆盖否定/条件/片段/伪造身份 | verified |
+- B-01: verified — automated command passed; run_id=f264f08512314c8688487eccfa49bb58 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-12] started
+- [2026-10-12] completed (done)
 
 ---
 
