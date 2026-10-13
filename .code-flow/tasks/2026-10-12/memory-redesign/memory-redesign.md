@@ -29,8 +29,8 @@
 | B-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | unit + PG，禁存内容 | TASK-029 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_secrets.py"] | . | 300 |  |
 | B-06 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 工具回执 | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_recall.py"] | . | 300 |  |
 | B-07 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 模型 HTTP 探针 | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
-| B-08 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 请求探针 | TASK-012 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
-| B-09 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | unit + 请求探针 | TASK-012 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
+| B-08 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 请求探针 | TASK-012 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
+| B-09 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | unit + 请求探针 | TASK-012 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
 | B-10 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + HTTP 模型探针 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py"] | . | 300 |  |
 | B-11 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 故障注入 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py"] | . | 300 |  |
 | B-12 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 两段 Run | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_snapshot.py"] | . | 300 |  |
@@ -45,7 +45,7 @@
 | B-21 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 延迟 job / 后续摘要 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_input_boundary.py"] | . | 300 |  |
 | B-22 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实PG+旧新Run | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_snapshot.py"] | . | 300 |  |
 | B-23 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 并发 writer / 当前语句时间 | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py"] | . | 300 |  |
-| E-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | TASK-012 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | . | 1800 |  |
+| E-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | TASK-012 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | . | 1800 |  |
 | E-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway → Runtime → resume | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
 | E-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway + 两个 conversation | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
 | E-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | browser，真实 Console/Runtime/PG/Chrome | TASK-030 | planned | ["make","acceptance-e2e","DOMAIN=agent"] | . | 1800 |  |
@@ -626,13 +626,13 @@ handler登记typed suspend_request，整轮结果/审计收口后保存checkpoin
 
 ## TASK-012: 每模型调用前刷新 MemoryComponent 与 forget
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-010, TASK-006, TASK-011
 - **Source**: memory-redesign.design.md#3.2.2 模型请求组件, memory-redesign.design.md#3.5.3 完整渲染预算
 - **Spec-Refs**: harness-memory#RULE-memory-003
 - **Acceptance-Refs**: B-08, B-09, E-01
-- **Files**: apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py, apps/agent-runtime/src/muad_agent_runtime/application/executor.py, packages/agent-core/src/muad_agent_core/agent/runner.py
+- **Files**: apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_context.py, apps/agent-runtime/src/muad_agent_runtime/application/executor.py, apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, apps/agent-runtime/src/muad_agent_runtime/metrics.py, packages/agent-core/src/muad_agent_core/agent/runner.py, packages/agent-core/src/muad_agent_core/memory/components.py, tests/agent_runtime/test_memory_redesign_context.py, tests/acceptance/runtime/test_memory_redesign_context_e2e.py
 
 ### Description
 
@@ -640,31 +640,43 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 
 ### Checklist
 
-- [ ] [B-07][integration] 先写同Run forget→下一真实模型HTTP请求无旧条目，失败不宣称成功RED。
-- [ ] [B-08][integration] 200条最旧匹配仍参加选择、完整丢条计数正确。
-- [ ] [B-09][integration] 最终模型请求实际字节边界/任务引用/0预算正确。
-- [ ] [E-01][E2E] 编写真实Runtime/PG/Redis/模型HTTP保护前缀场景，执行留需求终验。
-- [ ] [B-08][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG + 请求探针；断言：200 条中最老的匹配仍参与选择；最终选取与丢条计数一致。
-- [ ] [B-09][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：unit + 请求探针；断言：完整块恰等预算可进、超 1 字节不可进；0 关闭；长条失败后短条可进；无首条越限。
-- [ ] [E-01][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：acceptance，真实 Runtime + PG/Redis + 模型 HTTP；断言：memory/summary 在保护前缀，micro/snip/summary 不裁 memory；刷新只替换组件。
-- [ ] [RULE-memory-003] verifier：规范已由TASK-001建立并绑定，按 ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py","tests/agent_runtime/test_memory_redesign_context.py","tests/agent_core/test_memory_redesign_selection.py"]（review）验证 有界完整候选、缓存一致性、SEARCH零命中、完整块预算；review由需求终验统一执行，当前无执行Evidence。
+- [x] [B-07][integration] 先写同Run forget→下一真实模型HTTP请求无旧条目，失败不宣称成功RED。
+- [x] [B-08][integration] 200条最旧匹配仍参加选择、完整丢条计数正确。
+- [x] [B-09][integration] 最终模型请求实际字节边界/任务引用/0预算正确。
+- [x] [E-01][E2E] 编写真实Runtime/PG/Redis/模型HTTP保护前缀场景，执行留需求终验。
+- [x] [B-08][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG + 请求探针；断言：200 条中最老的匹配仍参与选择；最终选取与丢条计数一致。
+- [x] [B-09][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：unit + 请求探针；断言：完整块恰等预算可进、超 1 字节不可进；0 关闭；长条失败后短条可进；无首条越限。
+- [x] [E-01][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：acceptance，真实 Runtime + PG/Redis + 模型 HTTP；断言：memory/summary 在保护前缀，micro/snip/summary 不裁 memory；刷新只替换组件。
+- [x] [RULE-memory-003] verifier：规范已由TASK-001建立并绑定，按 ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py","tests/agent_runtime/test_memory_redesign_context.py","tests/agent_core/test_memory_redesign_selection.py"]（review）验证 有界完整候选、缓存一致性、SEARCH零命中、完整块预算；规定argv在代码阶段实际51 passed；新增边界另有GREEN，正式review由需求终验统一执行。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-08 | integration | integration，真实 PG + 请求探针 | 200 条中最老的匹配仍参与选择；最终选取与丢条计数一致 | tests/agent_runtime/test_memory_redesign_context.py / test_b08_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | planned |
-| B-09 | integration | unit + 请求探针 | 完整块恰等预算可进、超 1 字节不可进；0 关闭；长条失败后短条可进；无首条越限 | tests/agent_runtime/test_memory_redesign_context.py / test_b09_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | planned |
-| E-01 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | memory/summary 在保护前缀，micro/snip/summary 不裁 memory；刷新只替换组件 | tests/acceptance/runtime/test_memory_redesign_context_e2e.py / test_e01_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | planned |
-| harness-memory#RULE-memory-003 | integration | 真实PG/Runtime/模型HTTP及冻结数据；纯函数子项直接验证 | 有界完整候选、缓存一致性、SEARCH零命中、完整块预算 | 目标文件在verifier argv中；创建前不宣称可执行 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py","tests/agent_runtime/test_memory_redesign_context.py","tests/agent_core/test_memory_redesign_selection.py"] | planned |
+| B-08 | integration | integration，真实 PG + 请求探针 | 200 条中最老的匹配仍参与选择；最终选取与丢条计数一致 | tests/agent_runtime/test_memory_redesign_context.py / test_b08_memory_redesign_* | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | verified |
+| B-09 | integration | unit + 请求探针 | 完整块恰等预算可进、超 1 字节不可进；0 关闭；长条失败后短条可进；无首条越限 | tests/agent_runtime/test_memory_redesign_context.py / test_b09_memory_redesign_* | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | verified |
+| E-01 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | memory/summary 在保护前缀，micro/snip/summary 不裁 memory；刷新只替换组件 | tests/acceptance/runtime/test_memory_redesign_context_e2e.py / test_e01_memory_redesign_real_runtime_protects_prefix_and_refreshes_only_component | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | e2e_deferred |
+| harness-memory#RULE-memory-003 | integration | 真实PG/Runtime/模型HTTP及冻结数据；纯函数子项直接验证 | 有界完整候选、缓存一致性、SEARCH零命中、完整块预算 | 规定argv已实际执行，functional子项通过；正式review由需求终验统一执行 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py","tests/agent_runtime/test_memory_redesign_context.py","tests/agent_core/test_memory_redesign_selection.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-08/B-09 + B-07辅助 | 2026-10-13：uv run pytest -q tests/agent_runtime/test_memory_redesign_context.py --tb=line --show-capture=no：10例缺memory_context模块；任务引用fixture修正真实来源后单跑-k task_reference同样ModuleNotFoundError（原无来源反例不算功能RED）。追加写开关反例：-k write_disabled，1 failed / FORBIDDEN；关闭新增写入不应禁止删除 | GREEN：最终context文件17 passed；规定Rule argv此前51 passed，新增scope/关闭写入两例各自通过 | test_memory_redesign_context.py:52/69/70（200候选与199丢条metric）、:96（实际请求字节）、:113（0预算0SQL）、:159/169（forget与失败）、:191（首次full=1、暖head=1）、:241（任务引用）、:276（默认Executor）、:314（重试）、:332/373（持续禁用/在途失效） | 真实PG、DbBackedContextBuilder、MemoryCandidateCache、AgentRunner、HTTP模型请求体、真实MemoryService及PG历史写入失败trigger；默认Executor只注入真实PG连接工厂，生产Cache/Loader/audit未Mock | verified |
+| E-01 | 不执行RED；仅编写/collect | e2e_deferred | tests/acceptance/runtime/test_memory_redesign_context_e2e.py::test_e01_memory_redesign_real_runtime_protects_prefix_and_refreshes_only_component | 3个参数场景collect成功；LiveStack真实Runtime/Console HTTP、PG/Redis、独立模型HTTP；micro/snip/summary真实触发审计与下一请求刷新断言 | e2e_deferred |
+
+- 回归：独立PG/Redis的Runner、parallel planner、默认Executor、WAITING_TOOL状态机、工具整轮预算、历史重建、工具结果重建7文件：68 passed in 45.85s；TASK-011记录的9项旧CompactionSettings.memory失败随本任务移除所有ratio注入调用后恢复通过。
+- 架构 + 完整块纯渲染 + TASK-011提议/暂停回归：64 passed in 30.48s。ruff、7个生产文件strict mypy、code-flow validate --no-heavy均pass；新增函数≤50行。
+- E-01仅collect：micro/snip/summary三个参数场景已登记，真实Artifact文件/记录、历史Run与压缩触发审计；执行留需求终验。B-07在此为辅助Runtime原语测试，最终工具schema/回执与历史断言仍由TASK-013领取。
+- B-08: verified — automated command passed; run_id=7801ac29e8f84f299e91e2329acee90b (confirmed_by: runner)
+- B-09: verified — automated command passed; run_id=7801ac29e8f84f299e91e2329acee90b (confirmed_by: runner)
+- E-01: e2e_deferred — automated command e2e_deferred; run_id=7801ac29e8f84f299e91e2329acee90b (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-13] started
+- [2026-10-13] completed (done)
 
 ---
 

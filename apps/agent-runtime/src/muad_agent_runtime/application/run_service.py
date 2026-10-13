@@ -1078,8 +1078,6 @@ class RunService:
             tenant_id,
             request.platform_user_id,
             budget_messages=compaction.history_budget_messages,
-            memory_budget_ratio=compaction.memory.budget_ratio,
-            memory_policy=execution.memory_policy,
         )
         stream = self._stream_run(
             run=run,
@@ -1209,8 +1207,6 @@ class RunService:
             run.tenant_id,
             run.user_id,
             budget_messages=history_budget_of(snapshot.policy_json),
-            memory_budget_ratio=frozen.memory.budget_ratio if frozen is not None else None,
-            memory_policy=execution.memory_policy,
         )
         stream = self._stream_run(
             run=run,
@@ -1478,22 +1474,13 @@ class RunService:
         user_id: uuid.UUID,
         *,
         budget_messages: int | None = None,
-        memory_budget_ratio: float | None = None,
-        memory_policy: MemoryPolicySettings | None = None,
     ) -> tuple[ModelMessage, ...]:
-        """取装配用的历史。
-
-        `budget_messages` 只做取数守卫；裁剪在压缩层（同一冻结值）。`memory_budget_ratio` 是
-        FEAT-09 的注入占比（分母是装配出的历史字节），`memory_policy` 是这一行冻结的注入条数/字节
-        上限，三者都来自本 Run 的冻结配置。
-        """
+        """Read canonical history; the executor owns request-time memory refresh."""
         return await self._context_builder.load_history(
             tenant_id=tenant_id,
             conversation_id=conversation_id,
             user_id=user_id,
             budget_messages=budget_messages,
-            memory_budget_ratio=memory_budget_ratio,
-            memory_policy=memory_policy,
         )
 
     def _build_snapshot(
@@ -1605,7 +1592,7 @@ class RunService:
         from .execution_checkpoint import execution_checkpoint
 
         progress, port, async_policy = await execution_checkpoint(get_session_factory(), run)
-        history = await self._restored_history(run, history, progress, compaction, execution)
+        history = await self._restored_history(run, history, progress, compaction)
         return await self._executor_factory(
             ExecutorRequest(
                 agent=agent,
@@ -1646,18 +1633,14 @@ class RunService:
         history: Sequence[ModelMessage],
         progress: RunnerCheckpoint,
         compaction: CompactionSettings | None,
-        execution: ExecutionDefaults | None,
     ) -> tuple[ModelMessage, ...]:
         if run.execution_epoch <= 1 and history:
             return tuple(history)
-        defaults = execution if execution is not None else ExecutionDefaults()
         return await self._context_builder.load_history(
             tenant_id=run.tenant_id,
             conversation_id=run.conversation_id,
             user_id=run.user_id,
             budget_messages=compaction.history_budget_messages if compaction else None,
-            memory_policy=defaults.memory_policy,
-            memory_budget_ratio=compaction.memory.budget_ratio if compaction else None,
             unconsumed_run_id=run.id,
             consumed_event_seq=progress.consumed_event_seq,
         )

@@ -104,12 +104,18 @@ async def state(factory, run):
 
 
 @asynccontextmanager
-async def model_endpoint(tool_calls):
+async def model_endpoint(tool_calls, *, on_request=None, fail_first=False):
     app, requests = FastAPI(), []
 
     @app.post("/v1/chat/completions")
     async def completion(request: Request):
         requests.append(await request.json())
+        if on_request is not None:
+            await on_request(len(requests))
+        if fail_first and len(requests) == 1:
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse({"error": {"message": "retry probe"}}, status_code=503)
         return {
             "choices": [
                 {

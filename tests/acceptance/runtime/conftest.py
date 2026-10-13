@@ -224,6 +224,10 @@ def _cleanup(database_url: str, ids: dict[str, object], artifact_root: Path) -> 
             await connection.execute(
                 text("DELETE FROM runtime.run_submission WHERE tenant_id = :t"), {"t": TENANT}
             )
+            # Real memory-prefix scenarios create artifact rows referencing historical Runs.
+            await connection.execute(
+                text("DELETE FROM runtime.artifact WHERE tenant_id = :t"), {"t": TENANT}
+            )
             await connection.execute(
                 text("DELETE FROM runtime.runtime_snapshot WHERE tenant_id = :t"), {"t": TENANT}
             )
@@ -233,7 +237,7 @@ def _cleanup(database_url: str, ids: dict[str, object], artifact_root: Path) -> 
             await connection.execute(
                 text("DELETE FROM runtime.conversation WHERE tenant_id = :t"), {"t": TENANT}
             )
-            for table in ("egress_audit", "tool_call_audit", "model_invocation_audit", "artifact"):
+            for table in ("egress_audit", "tool_call_audit", "model_invocation_audit"):
                 await connection.execute(
                     text(f"DELETE FROM runtime.{table} WHERE tenant_id = :t"), {"t": TENANT}
                 )

@@ -295,9 +295,11 @@ compaction 删除整个 memory.budget_ratio 分支；新增 max_history_tool_rou
 | packages/agent-core/.../agent/suspension.py | typed ToolSuspensionPort/MemorySuspendRequest；Runner整轮收口后暂停，无app/DB依赖 |
 | Runtime application/memory_queries.py | 有界候选与版本历史查询；共享 MemoryReadFilters |
 | Runtime application/memory_cache.py | 当前Run的候选行/revision缓存；轻量head校验、当次TTL过滤，失败清除并warning/metric |
+| Runtime application/memory_context.py | 冻结policy/query，按请求刷新typed MemoryComponent；完整渲染预算/丢条计数，forget IO前invalidate，失败后本Run持续禁用；generation拒绝在途旧快照 |
 | Runtime application/memory_consolidation.py | 输入构建/模型解析/候选验证；不自行开 per-item 提交 |
 | Runtime application/memory_jobs.py | 持久 claim、lease/epoch、重试、原子效果提交；接入现有 lifespan |
-| Runtime application/context_builder.py | 构造/刷新结构化 memory component；把 snapshot 输入送给纯选择器 |
+| Runtime application/context_builder.py | 仅按租户/用户重建canonical与摘要，不做memory预查或比例预算 |
+| Runtime application/executor.py / agent-core AgentRunner | 默认Executor注入typed ModelContextLoader；每次模型发送（含重试）刷新派生请求中的单一记忆组件，再压缩；不写回权威history |
 | Runtime infrastructure/models/runtime.py | scope / memory / history / receipt / job ORM 与索引 |
 | Console application/memory_service.py | 管理员鉴权与协议适配；写操作调用受保护 Runtime API，读列表/历史可用只读仓储 |
 | Console infrastructure/repositories/memory_repository.py | 只读查询与分页，包含 tenant/user；不直接 UPDATE/INSERT runtime 表 |

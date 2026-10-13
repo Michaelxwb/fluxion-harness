@@ -307,7 +307,7 @@
       "kind": "functional",
       "boundary": "integration，真实 PG + 请求探针",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -317,7 +317,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7801ac29e8f84f299e91e2329acee90b",
+        "executed_at": "2026-10-13T10:08:59.560876+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_memory_redesign_context.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "dcbab4723743a29870de69acd36e589b67cba445a1340053e53c88a57f7e7d46"
+      },
+      "runs": [
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7801ac29e8f84f299e91e2329acee90b",
+          "executed_at": "2026-10-13T10:08:59.560876+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_context.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "dcbab4723743a29870de69acd36e589b67cba445a1340053e53c88a57f7e7d46"
+        }
+      ]
     },
     {
       "id": "B-09",
@@ -326,7 +367,7 @@
       "kind": "functional",
       "boundary": "unit + 请求探针",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -336,7 +377,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-09",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7801ac29e8f84f299e91e2329acee90b",
+        "executed_at": "2026-10-13T10:08:59.560876+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_memory_redesign_context.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "dcbab4723743a29870de69acd36e589b67cba445a1340053e53c88a57f7e7d46"
+      },
+      "runs": [
+        {
+          "id": "B-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7801ac29e8f84f299e91e2329acee90b",
+          "executed_at": "2026-10-13T10:08:59.560876+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_context.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "dcbab4723743a29870de69acd36e589b67cba445a1340053e53c88a57f7e7d46"
+        }
+      ]
     },
     {
       "id": "B-10",
@@ -873,7 +955,7 @@
       "kind": "e2e",
       "boundary": "acceptance，真实 Runtime + PG/Redis + 模型 HTTP",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -883,7 +965,44 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "7801ac29e8f84f299e91e2329acee90b",
+        "executed_at": "2026-10-13T10:08:59.560876+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/runtime/test_memory_redesign_context_e2e.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7801ac29e8f84f299e91e2329acee90b",
+          "executed_at": "2026-10-13T10:08:59.560876+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_memory_redesign_context_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-02",

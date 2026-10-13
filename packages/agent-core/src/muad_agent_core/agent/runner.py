@@ -4,7 +4,7 @@ import asyncio
 import json
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, TypedDict, cast
@@ -14,6 +14,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from ..context.compactor import ContextCompactor
 from ..hooks.pipeline import HookEvent, HookPipeline
+from ..memory.components import ModelContextLoader
 from ..model.budget import (
     DEFAULT_DEADLINE_MS,
     DEFAULT_MAX_MODEL_RETRIES,
@@ -263,6 +264,7 @@ class AgentRunner:
         tool_pipeline: ToolExecutionPipeline | None = None,
         runtime_events: RuntimeEventPort | None = None,
         tool_suspension: ToolSuspensionPort | None = None,
+        context_loader: ModelContextLoader | None = None,
         event_batch_size: int = 16,
         parallel_limit: int = DEFAULT_PARALLEL_LIMIT,
     ) -> None:
@@ -279,6 +281,7 @@ class AgentRunner:
         self._round_results = tool_round_results
         self._runtime_events = runtime_events
         self._tool_suspension = tool_suspension
+        self._context_loader = context_loader
         self._event_batch_size = event_batch_size
         self._parallel_limit = validate_parallel_limit(parallel_limit)
         self._stop_emitted = False
@@ -429,8 +432,6 @@ class AgentRunner:
             {"model_id": state["model_id"], "messages": state["messages"], "turns": state["turns"]},
         )
         outbound = tuple(state["messages"])
-        if self._context_compactor is not None:
-            outbound = await self._context_compactor.compact(outbound)
         response = await self._complete_with_recovery(
             state,
             ModelRequest(
@@ -772,6 +773,7 @@ class AgentRunner:
                 raise RunnerModelError(f"model request rejected: {exc}") from exc
 
     async def _invoke_model(self, state: AgentGraphState, request: ModelRequest) -> ModelResponse:
+        request = await self._prepare_model_request(state, request)
         started, completed = state["on_model_started"], state["on_model_completed"]
         if started is not None:
             await started()
@@ -784,6 +786,18 @@ class AgentRunner:
         finally:
             if completed is not None:
                 await completed()
+
+    async def _prepare_model_request(self, state: AgentGraphState, request: ModelRequest) -> ModelRequest:
+        messages = request.messages
+        if self._context_loader is not None:
+            component = await self._context_loader.refresh()
+            message = component.message if component is not None else None
+            if message is not None:
+                messages = (*messages[:1], message, *messages[1:])
+        if self._context_compactor is not None:
+            messages = await self._context_compactor.compact(messages)
+        self._ensure_runnable(state)
+        return replace(request, messages=messages, timeout_sec=self._request_timeout_sec(state))
 
     async def _cancel_aware_sleep(self, state: AgentGraphState, delay: float) -> None:
         """退避期间保持 cancel/deadline 可响应。"""

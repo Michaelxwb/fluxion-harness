@@ -26,6 +26,7 @@ ARTIFACT_BYTES_METRIC: Final = "artifact_bytes_total"
 RUN_RECLAIM_METRIC: Final = "run_reclaim_total"
 MEMORY_WRITE_METRIC: Final = "memory_write_total"
 MEMORY_INJECT_METRIC: Final = "memory_inject_total"
+MEMORY_INJECT_DROPPED_METRIC: Final = "memory_inject_dropped_total"
 MEMORY_RECALL_METRIC: Final = "memory_recall_total"
 MEMORY_RECALL_BYTES_METRIC: Final = "memory_recall_bytes_total"
 CONTEXT_COMPACTION_METRIC: Final = "context_compaction_total"
@@ -67,7 +68,13 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     ),
     # 注入/检索的"条数与字节"记在 **amount** 而不是 label：label 里放计数值会按每次取值
     # 裂出新的时间序列（无界基数），与本模块 docstring 的 label 卫生口径冲突。
-    (MEMORY_INJECT_METRIC, COUNTER, (), "Memory entries injected into model requests"),
+    (MEMORY_INJECT_METRIC, COUNTER, ("outcome",), "Memory injection attempts by outcome"),
+    (
+        MEMORY_INJECT_DROPPED_METRIC,
+        COUNTER,
+        ("reason",),
+        "Memory entries dropped by final count or byte budget",
+    ),
     (MEMORY_RECALL_METRIC, COUNTER, ("status",), "Recall tool calls by outcome"),
     (MEMORY_RECALL_BYTES_METRIC, COUNTER, (), "Bytes returned by the recall tool"),
     # 压缩四级计数器（design §3.5 可观测性）：label 只有层名与结果，不带资源 ID。

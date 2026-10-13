@@ -89,6 +89,9 @@ from .attachments.tool_results import (
 from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
+from .memory_cache import MemoryCandidateCache
+from .memory_context import MemoryContextLoader
+from .memory_queries import MemoryQueries, MemoryReadScope
 from .memory_service import MemoryService
 from .memory_tools import MemoryScope, MemoryToolSet, memory_write_enabled
 from .model_call_trace import ModelCallTrace
@@ -933,6 +936,16 @@ def build_registry(
     return registry
 
 
+def _memory_context_for(request: ExecutorRequest) -> MemoryContextLoader | None:
+    context = request.run_context
+    if context is None:
+        return None
+    cache = MemoryCandidateCache(MemoryQueries(get_session_factory()),
+        scope=MemoryReadScope(tenant_id=context.tenant_id, user_id=context.user_id), run_id=context.run_id)
+    return MemoryContextLoader(cache, settings=execution_defaults_for(request).memory_policy,
+        query=request.input_text)
+
+
 def tool_result_settings(request: ExecutorRequest) -> ToolResultSettings:
     """整轮批次预算与预览阈值：取自**冻结**配置，没有冻结配置时回落 schema 默认值。"""
     return request.compaction.tool_result if request.compaction is not None else ToolResultSettings()
@@ -1025,6 +1038,7 @@ async def default_executor_factory(
         context_compactor=_context_compactor(request, summary_provider, artifact_root=settings.artifact_root),
         tool_round_results=recorder,
         runtime_events=request.runtime_events,
+        context_loader=_memory_context_for(request),
         event_batch_size=request.event_batch_size,
         parallel_limit=request.parallel_limit,
     )
@@ -1140,6 +1154,7 @@ def _audit_writer_for(request: ExecutorRequest) -> RuntimeAuditWriter | None:
         task_id=None,
         conversation_id=context.conversation_id,
         user_id=context.user_id,
+        session_factory=get_session_factory,
     )
 
 
