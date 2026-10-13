@@ -44,7 +44,7 @@
 | B-20 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，迁移前置检查与恢复演练 | TASK-007 | verified | ["uv","run","pytest","-q","tests/migrations/test_memory_redesign_preflight.py"] | . | 300 |  |
 | B-21 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 延迟 job / 后续摘要 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_input_boundary.py"] | . | 300 |  |
 | B-22 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实PG+旧新Run | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_snapshot.py"] | . | 300 |  |
-| B-23 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 并发 writer / 当前语句时间 | TASK-010 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py"] | . | 300 |  |
+| B-23 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 并发 writer / 当前语句时间 | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py"] | . | 300 |  |
 | E-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | TASK-012 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | . | 1800 |  |
 | E-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway → Runtime → resume | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
 | E-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway + 两个 conversation | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
@@ -536,7 +536,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-010: 完整候选 snapshot 与 revision 缓存
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-005
 - **Source**: memory-redesign.design.md#3.5.1 完整候选与排序, memory-redesign.design.md#3.3.1 memory_scope（新增）
@@ -550,24 +550,32 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ### Checklist
 
-- [ ] [B-23][integration] 先写跨提交R/S错标、TTL已过但revision未变、轻量/全量错误不回退缓存RED。
-- [ ] 覆盖所有写来源的revision失效及关闭注入零查询；cache仅当前Run、tenant/user/revision绑定。
-- [ ] 不缓存排序/渲染/now，不跨模型调用持读事务，记录SQL次数与GREEN。
-- [ ] [B-23][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG + 并发 writer / 当前语句时间；断言：暖缓存不重查全量；revision与行集同快照；跨来源写入使缓存失效；revision不变也即时过滤TTL；轻量/全量读失败均不复用旧缓存；0预算无注入查询。
+- [x] [B-23][integration] 先写跨提交R/S错标、TTL已过但revision未变、轻量/全量错误不回退缓存RED。
+- [x] 覆盖所有写来源的revision失效及关闭注入零查询；cache仅当前Run、tenant/user/revision绑定。
+- [x] 不缓存排序/渲染/now，不跨模型调用持读事务，记录SQL次数与GREEN。
+- [x] [B-23][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG + 并发 writer / 当前语句时间；断言：暖缓存不重查全量；revision与行集同快照；跨来源写入使缓存失效；revision不变也即时过滤TTL；轻量/全量读失败均不复用旧缓存；0预算无注入查询。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-23 | integration | integration，真实 PG + 并发 writer / 当前语句时间 | 暖缓存不重查全量；revision与行集同快照；跨来源写入使缓存失效；revision不变也即时过滤TTL；轻量/全量读失败均不复用旧缓存；0预算无注入查询 | tests/agent_runtime/test_memory_redesign_cache.py / test_b23_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py"] | planned |
+| B-23 | integration | integration，真实 PG + 并发 writer / 当前语句时间 | 暖缓存不重查全量；revision与行集同快照；跨来源写入使缓存失效；revision不变也即时过滤TTL；轻量/全量读失败均不复用旧缓存；0预算无注入查询 | tests/agent_runtime/test_memory_redesign_cache.py / test_b23_memory_redesign*（18 collected，真实RED已执行） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-23 | uv run pytest -q tests/agent_runtime/test_memory_redesign_cache.py --tb=line --show-capture=no：18 failed，memory_cache/memory_queries 尚不存在 | GREEN: 18 passed；B-23 runner verified | test_memory_redesign_cache.py:66/79/113（次数与并发快照）、:160（TTL）、:184（轻量/全量失败）、:217（写者）、:240（0预算）、:254（作用域）、:271/:291（全集/硬限）、:307（释放事务） | 每例独立head PG、真实MemoryService写者、SQL事件计数、PG视图延迟/DDL失败；不mock数据库查询或返回值 | verified |
+- B-23: verified — automated command passed; run_id=21e98006586e44dbb76cb90b32390aff (confirmed_by: runner)
+
+- 补充回归：uv run pytest -q tests/agent_core/test_memory_redesign_selection.py tests/agent_core/test_memory_redesign_render.py tests/agent_runtime/test_memory_service.py tests/agent_runtime/test_memory_redesign_writes.py tests/agent_runtime/test_memory_redesign_quotas.py --tb=short：61 passed。
+- 验证：code-flow validate --no-heavy pass；ruff/mypy pass；所有新增函数≤50行。SQL计数故障已澄清：首次17 passed/1 failed仅因把writer scope SELECT混入reader计数；改用独立reader engine后真实full=2/head=2、18 passed，不降低边界。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-13] started
+- [2026-10-13] completed (done)
 
 ---
 

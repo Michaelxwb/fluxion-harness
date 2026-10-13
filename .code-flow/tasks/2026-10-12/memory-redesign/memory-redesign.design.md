@@ -291,6 +291,7 @@ compaction 删除整个 memory.budget_ratio 分支；新增 max_history_tool_rou
 | Runtime application/memory_mutations.py | 锁内整批规划、隐式退休与最终状态配额、完整 after history；不提交事务 |
 | Runtime application/memory_confirmation.py | 构造绑定候选的中断、验证真实 resume 输入、单次确认；不把模型文本当批准 |
 | Runtime application/memory_queries.py | 有界候选与版本历史查询；共享 MemoryReadFilters |
+| Runtime application/memory_cache.py | 当前Run的候选行/revision缓存；轻量head校验、当次TTL过滤，失败清除并warning/metric |
 | Runtime application/memory_consolidation.py | 输入构建/模型解析/候选验证；不自行开 per-item 提交 |
 | Runtime application/memory_jobs.py | 持久 claim、lease/epoch、重试、原子效果提交；接入现有 lifespan |
 | Runtime application/context_builder.py | 构造/刷新结构化 memory component；把 snapshot 输入送给纯选择器 |
@@ -324,7 +325,7 @@ forget / remember 确认 / 管理修改在本 Run 发生时触发 invalidate。f
 
 用户/ADMIN DELETE 或 CLEAR 同事务递增 forget_epoch；旧提议携带的 epoch 不等即逻辑失效。forget 不遍历/更新其他 Run 的 interrupt，避免持 scope 再等待 interrupt 的反向锁序。其他修改只递增 revision。
 
-这是同步原语与聚合版本，读取已有记忆不会创建 scope 行。候选查询用一个 SQL snapshot 同时得到 scope revision、数据库 now() 与所有符合条件的行。
+这是同步原语与聚合版本，读取已有记忆不会创建 scope 行。候选查询用一个 SQL snapshot 同时得到 scope revision、数据库 statement_timestamp() 与所有符合条件的行。
 
 #### 3.3.2 user_memory（稳定 identity）
 
@@ -493,7 +494,7 @@ USER/ADMIN 超限回 MEMORY_QUOTA_EXCEEDED，告知删除旧条目或由管理�
 
 MemoryReadFilters 统一 tenant/user、删除、enabled、TTL。Console 状态筛选有意允许查看 disabled/expired；history 单独看审计，不把管理可见性与模型可见性混为同一个过滤器。
 
-一次 snapshot SQL 读取全部有效候选与数据库 now()/scope revision。返回数量超过绝对1000条或有效事实字节超过绝对1MiB才是存储不变量故障，本轮不注入并告警；旧 Run 冻结的较小额度不用于候选截断或读故障判断，不以 LIMIT 隐藏。普通事实与 TASK_STATE 先分消费通道：
+一次 snapshot SQL 读取全部有效候选与数据库 statement_timestamp()/scope revision。返回数量超过绝对1000条或有效事实字节超过绝对1MiB才是存储不变量故障，本轮不注入并告警；旧 Run 冻结的较小额度不用于候选截断或读故障判断，不以 LIMIT 隐藏。普通事实与 TASK_STATE 先分消费通道：
 
 | 通道 | 选择规则 |
 |---|---|
