@@ -15,7 +15,17 @@ def tool_call(name, arguments, call_id="memory-1"):
 
 
 async def execute(
-    factory, run, identity, submission_id, calls, monkeypatch, *, policy=None, config=None, history=()
+    factory,
+    run,
+    identity,
+    submission_id,
+    calls,
+    monkeypatch,
+    *,
+    policy=None,
+    config=None,
+    history=(),
+    resume_ref=None,
 ):
     from muad_agent_runtime.application.executor import ExecutionDefaults
 
@@ -31,7 +41,9 @@ async def execute(
             request,
             execution_identity=identity,
             history=history,
-            run_context=replace(request.run_context, submission_id=submission_id),
+            run_context=replace(
+                request.run_context, submission_id=submission_id, memory_resume_ref=resume_ref
+            ),
         )
         if policy is not None:
             request = replace(request, execution=ExecutionDefaults(memory_policy=policy))

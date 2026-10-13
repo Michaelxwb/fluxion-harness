@@ -39,6 +39,7 @@ from muad_contracts import (
     RunStatus,
     tool_waiting_reason,
 )
+from muad_contracts.memory import MemoryResumeRef
 from muad_contracts.platform_settings import (
     AgentSettings,
     ArtifactSettings,
@@ -103,6 +104,7 @@ from .executor import (
     RunExecutor,
     default_executor_factory,
 )
+from .memory_resume import MemoryResumeService, resume_decision
 from .ports import (
     CredentialsClient,
     PlatformSettingsClient,
@@ -1043,13 +1045,9 @@ class RunService:
                 conversation_id=conversation.id,
                 refs=request.message.attachments,
             )
-            seq = await self._event_writer().append(
-                tenant_id=tenant_id,
-                conversation_id=conversation.id,
-                run_id=run.id,
-                event_type=USER_MESSAGE_EVENT,
+            seq = await MemoryResumeService().append_inbound(
+                self._session, run, text=request.message.text, settings=execution.memory_policy,
                 payload={
-                    "text": request.message.text,
                     "message_id": request.message.id,
                     "attachments": attachment_payload(persisted),
                 },
@@ -1147,13 +1145,10 @@ class RunService:
                 conversation_id=run.conversation_id,
                 refs=attachments,
             )
-            seq = await self._event_writer().append(
-                tenant_id=run.tenant_id,
-                conversation_id=run.conversation_id,
-                run_id=run.id,
-                event_type=USER_MESSAGE_EVENT,
+            seq = await MemoryResumeService().append_inbound(
+                self._session, run, text=input_text,
+                settings=execution_defaults_of(snapshot.policy_json).memory_policy,
                 payload={
-                    "text": input_text,
                     "resumed": True,
                     "attachments": attachment_payload(persisted),
                 },
@@ -1583,6 +1578,7 @@ class RunService:
         current_text: str | None = None,
         current_attachments: tuple[PersistedAttachment, ...] | None = None,
         submission_id: uuid.UUID | None = None,
+        memory_resume_ref: MemoryResumeRef | None = None,
     ) -> RunExecutor:
         text = run.input_text if current_text is None else current_text
         # `None` ⇒ 取本 Run 全部的入站附件（新建 Run 的常规路径）；续跑显式传**本次新落的**那批，
@@ -1626,6 +1622,7 @@ class RunService:
                     user_id=run.user_id,
                     delivery_route=delivery_route_of(run.channel_json),
                     submission_id=submission_id,
+                    memory_resume_ref=memory_resume_ref,
                 ),
             )
         )
@@ -1667,14 +1664,16 @@ class RunService:
         current_attachments: tuple[PersistedAttachment, ...] | None = None,
     ) -> AsyncIterator[ExecutorEvent]:
         yield await self._start_segment_event(run, submission_id, resumed)
+        resume = await resume_decision(get_session_factory(), run, submission_id=submission_id)
 
         async def build() -> RunExecutor:
             return await self._build_executor(run, agent, model, skills, mcp_servers, mcp_secrets, history,
                 compaction=compaction, execution=execution, summary_model=summary_model,
                 current_text=current_text, current_attachments=current_attachments,
-                submission_id=submission_id)
+                submission_id=submission_id, memory_resume_ref=resume.reference)
 
-        result = await self._run_segment(run, submission_id, agent.key, build)
+        result = (SegmentResult(final_text=resume.message) if resume.message is not None
+            else await self._run_segment(run, submission_id, agent.key, build))
         if result is not None:
             terminal = await self._finish_segment(run, submission_id, agent.key, result)
             if terminal is not None:

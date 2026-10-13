@@ -15,12 +15,12 @@ from tests.agent_runtime.memory_confirmation_support import model_endpoint
 from tests.agent_runtime.test_memory_redesign_cache import cache
 
 
-def loader(engine, ctx, *, policy=None, query="你好", task_state_key=None, run_id=None):
+def loader(engine, ctx, *, policy=None, query="你好", task_state_ref=None, run_id=None):
     return import_module("muad_agent_runtime.application.memory_context").MemoryContextLoader(
         cache(engine, ctx, run_id=run_id),
         settings=policy or MemoryPolicySettings(),
         query=query,
-        task_state_key=task_state_key,
+        task_state_ref=task_state_ref,
     )
 
 

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from muad_contracts.memory import MemoryResumeRef
 from muad_contracts.platform_settings import MemoryPolicySettings
 
 from ..infrastructure.db import SessionFactory
@@ -33,12 +34,13 @@ def create_run_memory(
     identity: ExecutionIdentity | None,
     submission_id: UUID | None,
     credential_canaries: tuple[str, ...],
+    resume_ref: MemoryResumeRef | None,
 ) -> RunMemory:
     if identity is not None and (identity.tenant_id, identity.run_id) != (scope.tenant_id, run_id):
         raise ValueError("memory execution identity must match the Run")
     queries = MemoryQueries(factory)
     cache = MemoryCandidateCache(queries, scope=scope, run_id=run_id)
-    loader = MemoryContextLoader(cache, settings=settings, query=query)
+    loader = MemoryContextLoader(cache, settings=settings, query=query, task_state_ref=resume_ref)
     confirmation = None
     if identity is not None and submission_id is not None:
         confirmation = MemoryConfirmationService(

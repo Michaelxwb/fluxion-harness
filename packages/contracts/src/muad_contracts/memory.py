@@ -105,6 +105,59 @@ class ForgetMemoryInput(ContractModel):
     expected_version: PositiveVersion
 
 
+class MemoryResumeOption(ContractModel):
+    number: Annotated[int, Field(strict=True, ge=1, le=20)]
+    memory_key: MemoryKey
+    version: PositiveVersion
+    root_conversation_id: UUID
+    title: StrictStr = Field(min_length=1, max_length=80)
+    candidate_hash: StrictStr = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def _root_identity(self) -> Self:
+        if self.memory_key != task_memory_key(self.root_conversation_id):
+            raise ValueError("resume option must retain the original task root")
+        return self
+
+
+class MemoryResumeOptionsBody(ContractModel):
+    user_id: UUID
+    source_user_event_id: UUID
+    theme: StrictStr | None
+    items: list[MemoryResumeOption] = Field(min_length=1, max_length=20)
+    expires_at: AwareDatetime
+
+
+class MemoryResumeOptions(MemoryResumeOptionsBody):
+    options_hash: StrictStr = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def _canonical_options(self) -> Self:
+        if [row.number for row in self.items] != list(range(1, len(self.items) + 1)):
+            raise ValueError("resume options must have consecutive Runtime numbers")
+        if len({row.memory_key for row in self.items}) != len(self.items):
+            raise ValueError("resume options must have unique task keys")
+        if self.options_hash != memory_hash(self.model_dump(mode="json", exclude={"options_hash"})):
+            raise ValueError("resume options hash mismatch")
+        return self
+
+
+class MemoryResumeRef(ContractModel):
+    memory_key: MemoryKey
+    expected_version: PositiveVersion
+    root_conversation_id: UUID
+    options_event_id: UUID
+    resolution_event_id: UUID
+    source_user_event_id: UUID
+    candidate_hash: StrictStr = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def _root_identity(self) -> Self:
+        if self.memory_key != task_memory_key(self.root_conversation_id):
+            raise ValueError("resume reference must retain the original task root")
+        return self
+
+
 class MemoryCandidate(ContractModel):
     memory_key: MemoryKey
     category: MemoryCategory

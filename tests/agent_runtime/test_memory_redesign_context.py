@@ -210,7 +210,8 @@ async def test_b08_memory_redesign_read_failure_clears_component_then_recovers_f
 
 
 async def test_b09_memory_redesign_trusted_task_reference_is_bounded_in_actual_request(async_tool_database):
-    from muad_contracts.memory import TaskStateContent, task_memory_key
+    from muad_agent_core.memory.resume import resume_candidate_hash
+    from muad_contracts.memory import MemoryResumeRef, TaskStateContent, task_memory_key
 
     ctx = await source_context(async_tool_database, context(), actor="AGENT")
     root = uuid4()
@@ -230,11 +231,27 @@ async def test_b09_memory_redesign_trusted_task_reference_is_bounded_in_actual_r
         replace(ctx, actor_type="AGENT"),
         command(commands().MemoryMutation(action="UPSERT", candidate=candidate)),
     )
+    row = (
+        await queries(async_tool_database).read_snapshot(
+            __import__(
+                "muad_agent_runtime.application.memory_queries", fromlist=["MemoryReadScope"]
+            ).MemoryReadScope(tenant_id=ctx.tenant_id, user_id=ctx.user_id)
+        )
+    ).records[0]
+    ref = MemoryResumeRef(
+        memory_key=task_memory_key(root),
+        expected_version=1,
+        root_conversation_id=root,
+        options_event_id=uuid4(),
+        resolution_event_id=uuid4(),
+        source_user_event_id=ctx.evidence.source_event_id,
+        candidate_hash=resume_candidate_hash(row),
+    )
     memory = loader(
         async_tool_database,
         ctx,
         policy=MemoryPolicySettings(max_injected_bytes=500),
-        task_state_key=task_memory_key(root),
+        task_state_ref=ref,
     )
     _, captured = await request_round(async_tool_database, ctx, memory)
     text = memory_text(captured[0])

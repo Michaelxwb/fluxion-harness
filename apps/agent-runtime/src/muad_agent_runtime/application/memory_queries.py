@@ -150,7 +150,13 @@ class MemoryQueries:
 
     async def read_scope_version(self, scope: MemoryReadScope) -> MemoryScopeVersion:
         async with self._sessions()() as session:
-            revision, epoch, as_of = (await session.execute(_head_statement(scope))).tuples().one()
+            return await self.read_scope_version_in_session(session, scope)
+
+    @staticmethod
+    async def read_scope_version_in_session(
+        session: AsyncSession, scope: MemoryReadScope
+    ) -> MemoryScopeVersion:
+        revision, epoch, as_of = (await session.execute(_head_statement(scope))).tuples().one()
         return MemoryScopeVersion(revision, epoch, as_of)
 
     async def read_snapshot(self, scope: MemoryReadScope) -> MemorySnapshot:

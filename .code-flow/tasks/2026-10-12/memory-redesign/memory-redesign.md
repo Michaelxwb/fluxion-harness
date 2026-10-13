@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-10-12/memory-redesign/memory-redesign.design.md（v0.5；保留用户v0.4补充并修正缓存/约束边界）
 - **Created**: 2026-10-12
-- **Updated**: 2026-10-13
+- **Updated**: 2026-10-14
 - **Plan status**: draft；阶段裁决以 CLI 输出为准；未开始编码
 
 ## Proposal
@@ -737,38 +737,50 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 
 ## TASK-014: 续接意图、options 单次消费与任务 lineage
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-012, TASK-009
 - **Source**: memory-redesign.design.md#3.5.2 任务续接闭环, memory-redesign.design.md#3.3.6 其余硬约束索引（文本提到但必须落到 DDL）
 - **Spec-Refs**: 
 - **Acceptance-Refs**: 
-- **Files**: apps/agent-runtime/src/muad_agent_runtime/application/memory_resume.py, apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py, apps/agent-runtime/src/muad_agent_runtime/application/run_service.py
+- **Files**: packages/agent-core/src/muad_agent_core/memory/resume.py, packages/contracts/src/muad_contracts/memory.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_resume.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_resume_options.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_resume_queries.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_resume_metrics.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_context.py, apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, apps/agent-runtime/src/muad_agent_runtime/application/run_events.py
 
 ### Description
 
-真实用户选择写统一MEMORY_RESUME_RESOLVED，复用source_event_id唯一；无options唯一选择也先建单项；跨会话继续更新原task key。
+真实用户选择写统一MEMORY_RESUME_RESOLVED，复用source_event_id唯一；无options唯一选择也先建单项；受信引用与真实请求保持原task key/root/version/hash。job固定输入、更新原checkpoint及完成退休由后续consolidation任务实现，最终E-05由TASK-030终验。
 
 ### Checklist
 
-- [ ] [E-05][integration] 辅助先写泛指多条→第2个、过期/版本变化/否定句不选、options跨outcome互斥RED。
-- [ ] Runtime确定清单编号并持久投递，模型不能伪造批准；不新建options消费表。
-- [ ] 入站USER_MESSAGE固定source_scope_revision；记录resume_ref供job，模型输出不能指定root。
-- [ ] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
+- [x] [E-05][integration] 辅助先写泛指多条→第2个、过期/版本变化/否定句不选、options跨outcome互斥RED。
+- [x] Runtime确定清单编号并持久投递，模型不能伪造批准；不新建options消费表。
+- [x] 入站USER_MESSAGE固定source_scope_revision；记录resume_ref供job，模型输出不能指定root。
+- [x] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | unit/integration | 本任务纯逻辑或真实存储载体，按Checklist具体边界 | Checklist列出的独立行为及失败反例，最终场景由责任表owner验证 | 编码阶段登记真实辅助测试；无当前执行Evidence | planned | planned |
+| LOCAL | unit/integration | 纯语法函数、独立head PostgreSQL、真实USER_MESSAGE/RunSubmission/EventWriter/唯一键、真实RunService/defaultExecutor与HTTP模型探针 | 完整续接/选择语法，多条→第2个，单项先建options，expiry/version/delete/hash拒绝，跨outcome互斥，Runtime清单不调用模型，原root引用进入真实请求，回滚不计成功；E-05最终Gateway/job闭环归TASK-030 | tests/agent_core/test_memory_resume_intent.py::test_local_e05_complete_resume_request、test_local_e05_choice_does_not_extract_numbers_from_other_sentences；tests/agent_runtime/test_memory_redesign_resume.py::test_local_e05_multi_options_then_second_real_input_selects_original_root_and_model_request、test_local_e05_options_cross_outcome_unique_and_concurrent_single_consumption、test_local_e05_runtime_delivers_persisted_options_without_model_rewriting、test_local_e05_cross_conversation_a_b_c_reuses_original_task_ref_in_real_runtime_request、test_local_e05_fresh_topic_request_replaces_pending_options | ["uv","run","pytest","-q","tests/agent_core/test_memory_resume_intent.py","tests/agent_runtime/test_memory_redesign_resume.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| LOCAL / E-05辅助 | 2026-10-13：uv run pytest -q tests/agent_core/test_memory_resume_intent.py tests/agent_runtime/test_memory_redesign_resume.py --tb=line --show-capture=no：37 failed in 15.70s；缺core memory.resume、MemoryResumeOption及Runtime memory_resume，不存在真实入站选择/持久options/消费通路 | 同命令首次37 passed in 14.68s；2026-10-14加入test_memory_redesign_context.py整组68 passed in 60.92s（含30个纯语法、18个续接、20个组件用例）；新主题修复后完整续接文件19 passed in 30.42s | test_memory_resume_intent.py:21/43/64/70/74；test_memory_redesign_resume.py:22（直投无HTTP）、42（A→B→C原key）、70（真实入站/第2个/请求块）、97（单项）、108（改主题）、126（否定/伪造）、137（expiry/version/delete）、168（互斥）、191（主题零命中/用户边界）、209（0预算） | memory_resume_support.py：每例独立head PG、真实AGENT writer/TaskState原root、USER_MESSAGE/RunSubmission、数据库source唯一键；实际RunService claim/终态与defaultExecutor/HTTP探针；上下文渲染按key/version/hash重验。仅验证引用保持，job更新/完成退休留后续实现；最终E-05归TASK-030终验 | verified |
+| LOCAL / 错误与事务反例 | 原入站模块缺失RED如上；追加损坏options hash/selected ref：2 failed in 3.94s，Pydantic校验异常逃出编排；改主题反例：test_local_e05_fresh_topic_request_replaces_pending_options，1 failed in 1.64s，取消后reference=None | 校验降级修复后2 passed in 4.09s；改主题修复后完整文件19 passed in 30.42s；包含外层rollback、savepoint rollback与真实PG读故障反例 | test_memory_redesign_resume.py:108（改主题引用绑定新USER）、220（外层回滚/指标）、266（真实表不可读/入站revision=null/ERROR）、283（损坏hash重列）、301（损坏ref不阻塞真实Run）、325（savepoint回滚无成功指标） | 故障注入仅改独立测试库，不mock查询；真实事务/独立连接、canonical唯一键、真实HTTP请求与Prometheus样本；事件和成功指标只认提交事实 | verified |
+
+回归（实际执行）：
+
+- 相关事件/幂等/等待态7文件：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxion-task014-regression.py tests/agent_runtime/test_run_events.py tests/agent_runtime/test_run_idempotency.py tests/agent_runtime/test_runner_executor.py tests/agent_runtime/test_tool_wait_state_machine.py tests/agent_runtime/test_execution_defaults_settings.py tests/agent_runtime/test_tool_parallel_planner.py tests/agent_runtime/test_tool_result_history.py --tb=line --show-capture=no`，52 passed in 33.81s。临时脚本仅创建独立head PG/Redis/ARTIFACT_ROOT并设置子进程env，finally drop临时库；不碰dev数据。
+- `uv run pytest -q tests/agent_runtime/test_memory_redesign_cache.py tests/agent_runtime/test_memory_redesign_proposals.py tests/agent_runtime/test_memory_redesign_recall.py tests/agent_runtime/test_memory_tools.py tests/agent_runtime/test_memory_observability.py tests/agent_core/test_memory_redesign_selection.py tests/agent_core/test_memory_redesign_render.py tests/architecture --tb=line --show-capture=no`，135 passed in 88.56s。
+- 13个生产文件strict mypy、ruff及git diff --check通过；改主题后相关mypy/ruff复查通过；新增/重写生产函数均≤50行。`code-flow validate --root "$PWD" --no-heavy --json`实际decision=pass、failures=[]、incomplete=false。E2E未执行，未改全局E-05状态。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-13] started
+- [2026-10-14] completed (done)
+- [2026-10-14] Done Gate实际decision=pass；6 review、15范围外required、8超预算verifier及1 heavy validator延至需求级verify-e2e/归档，未宣称需求全量验收通过。
 
 ---
 

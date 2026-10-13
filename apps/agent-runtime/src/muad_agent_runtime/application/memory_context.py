@@ -5,9 +5,10 @@ from __future__ import annotations
 from muad_agent_core.memory.components import MemoryComponent
 from muad_agent_core.memory.rank import select_for_injection
 from muad_agent_core.memory.render import render_memory_block
+from muad_agent_core.memory.resume import resume_candidate_hash
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import ForgetMemoryInput, MemoryCategory
+from muad_contracts.memory import ForgetMemoryInput, MemoryCategory, MemoryResumeRef
 from muad_contracts.platform_settings import MemoryPolicySettings
 
 from ..metrics import MEMORY_INJECT_DROPPED_METRIC, MEMORY_INJECT_METRIC, record_counter
@@ -24,10 +25,10 @@ class MemoryContextLoader:
         *,
         settings: MemoryPolicySettings,
         query: str | None,
-        task_state_key: str | None = None,
+        task_state_ref: MemoryResumeRef | None = None,
     ) -> None:
         self._cache, self._settings = cache, settings
-        self._query, self._task_state_key = query, task_state_key
+        self._query, self._task_state_ref = query, task_state_ref
         self._component: MemoryComponent | None = None
         self._suppressed, self._generation = False, 0
 
@@ -73,8 +74,10 @@ class MemoryContextLoader:
             row
             for row in snapshot.records
             if self._settings.task_state_injection_enabled
-            and self._task_state_key is not None
-            and row.memory_key == self._task_state_key
+            and self._task_state_ref is not None
+            and row.memory_key == self._task_state_ref.memory_key
+            and row.version == self._task_state_ref.expected_version
+            and resume_candidate_hash(row) == self._task_state_ref.candidate_hash
             and row.category is MemoryCategory.TASK_STATE
         )
         block = render_memory_block(

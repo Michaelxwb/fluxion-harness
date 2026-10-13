@@ -32,6 +32,7 @@ class EventWriter:
         stream_type: str | None = None,
         artifact_id: uuid.UUID | None = None,
         source_event_id: uuid.UUID | None = None,
+        event_id: uuid.UUID | None = None,
     ) -> int:
         if source_event_id is not None:
             existing = await self._source_event(tenant_id, conversation_id, source_event_id)
@@ -43,20 +44,10 @@ class EventWriter:
                 ):
                     raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
                 return int(existing.seq)
-        seq = await self._session.scalar(
-            sa.update(Conversation)
-            .where(
-                Conversation.id == conversation_id,
-                Conversation.tenant_id == tenant_id,
-                Conversation.is_deleted.is_(False),
-            )
-            .values(last_seq=Conversation.last_seq + 1, update_time=sa.func.now())
-            .returning(Conversation.last_seq)
-        )
-        if seq is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        seq = await self._next_seq(tenant_id, conversation_id)
         self._session.add(
             CanonicalEvent(
+                id=event_id or uuid.uuid4(),
                 tenant_id=tenant_id,
                 conversation_id=conversation_id,
                 run_id=run_id,
@@ -69,6 +60,21 @@ class EventWriter:
                 source_event_id=source_event_id,
             )
         )
+        return int(seq)
+
+    async def _next_seq(self, tenant_id: str, conversation_id: uuid.UUID) -> int:
+        seq = await self._session.scalar(
+            sa.update(Conversation)
+            .where(
+                Conversation.id == conversation_id,
+                Conversation.tenant_id == tenant_id,
+                Conversation.is_deleted.is_(False),
+            )
+            .values(last_seq=Conversation.last_seq + 1, update_time=sa.func.now())
+            .returning(Conversation.last_seq)
+        )
+        if seq is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return int(seq)
 
     async def _source_event(

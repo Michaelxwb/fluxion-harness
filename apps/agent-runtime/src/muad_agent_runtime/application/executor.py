@@ -57,6 +57,7 @@ from muad_contracts import (
     ResolvedModel,
     ResolvedSkill,
 )
+from muad_contracts.memory import MemoryResumeRef
 from muad_contracts.platform_settings import (
     ArtifactSettings,
     CompactionSettings,
@@ -135,6 +136,7 @@ class ExecutorRunContext:
     user_id: uuid.UUID
     delivery_route: DeliveryRouteInput | None = None
     submission_id: uuid.UUID | None = None
+    memory_resume_ref: MemoryResumeRef | None = None
 
 
 def _with_current_turn(history: tuple[ModelMessage, ...], current: ModelMessage) -> tuple[ModelMessage, ...]:
@@ -935,7 +937,8 @@ def _memory_runtime_for(request: ExecutorRequest) -> RunMemory | None:
     return create_run_memory(get_session_factory(),
         scope=MemoryReadScope(tenant_id=context.tenant_id, user_id=context.user_id), run_id=context.run_id,
         settings=policy, query=request.input_text, identity=request.execution_identity,
-        submission_id=context.submission_id, credential_canaries=canaries)
+        submission_id=context.submission_id, credential_canaries=canaries,
+        resume_ref=context.memory_resume_ref)
 
 
 def tool_result_settings(request: ExecutorRequest) -> ToolResultSettings:

@@ -30,6 +30,7 @@ MEMORY_INJECT_DROPPED_METRIC: Final = "memory_inject_dropped_total"
 MEMORY_RECALL_METRIC: Final = "memory_recall_total"
 MEMORY_RECALL_HIT_METRIC: Final = "memory_recall_hit_total"
 MEMORY_RECALL_BYTES_METRIC: Final = "memory_recall_bytes_total"
+MEMORY_RESUME_METRIC: Final = "memory_resume_total"
 CONTEXT_COMPACTION_METRIC: Final = "context_compaction_total"
 CONTEXT_COMPACTION_BYTES_SAVED_METRIC: Final = "context_compaction_bytes_saved_total"
 CONTEXT_SUMMARY_METRIC: Final = "context_summary_total"
@@ -79,6 +80,7 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     (MEMORY_RECALL_METRIC, COUNTER, ("mode", "outcome"), "Recall tool calls by mode and outcome"),
     (MEMORY_RECALL_HIT_METRIC, COUNTER, ("hit",), "Recall search hits; excludes LIST and zero limit"),
     (MEMORY_RECALL_BYTES_METRIC, COUNTER, (), "Bytes returned by the recall tool"),
+    (MEMORY_RESUME_METRIC, COUNTER, ("outcome",), "Runtime task resume decisions by outcome"),
     # 压缩四级计数器（design §3.5 可观测性）：label 只有层名与结果，不带资源 ID。
     (
         CONTEXT_COMPACTION_METRIC,

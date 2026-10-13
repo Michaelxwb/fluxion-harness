@@ -18,9 +18,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from tests.async_tool_submissions import seed_submission
 
 
-async def source(engine, *, deadline_seconds=600):
+async def source(engine, *, deadline_seconds=600, tenant=None, user=None):
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    ctx, skill, run = await seed_submission(factory)
+    ctx, skill, run = await seed_submission(factory, tenant=tenant, actor=user)
     submission_id = uuid4()
     async with factory.begin() as session:
         row = await session.get(RunRecord, run.id)

@@ -284,8 +284,8 @@ compaction 删除整个 memory.budget_ratio 分支；新增 max_history_tool_rou
 
 | 位置 | 职责 |
 |---|---|
-| packages/contracts/.../memory.py | 严格枚举/DTO、候选确认协议、TASK_STATE 输入、字节常量、canonical hash |
-| packages/agent-core/.../memory/ | tokenize / lexical_coverage / select_memories / render_memory_block；纯函数，无 app/DB/network import |
+| packages/contracts/.../memory.py | 严格枚举/DTO、候选确认协议、TASK_STATE 输入、续接 options/hash/原任务引用、字节常量、canonical hash |
+| packages/agent-core/.../memory/ | tokenize / lexical_coverage / select_memories / render_memory_block；resume.py 固定完整请求/选择语法及候选 hash；纯函数，无 app/DB/network import |
 | Runtime application/memory_service.py | 唯一 MemoryMutationService；调用者身份已绑定；scope 锁、冲突、配额、历史、命令回执 |
 | Runtime application/memory_commands.py | 受信 MemoryWriteContext、严格批量命令与只含元数据的回执 DTO |
 | Runtime application/memory_mutations.py | 锁内整批规划、隐式退休与最终状态配额、完整 after history；不提交事务 |
@@ -295,8 +295,11 @@ compaction 删除整个 memory.budget_ratio 分支；新增 max_history_tool_rou
 | packages/agent-core/.../agent/suspension.py | typed ToolSuspensionPort/MemorySuspendRequest；Runner整轮收口后暂停，无app/DB依赖 |
 | Runtime application/memory_queries.py | 有界候选与版本历史查询；共享 MemoryReadFilters |
 | Runtime application/memory_cache.py | 当前Run的候选行/revision缓存；轻量head校验、当次TTL过滤，失败清除并warning/metric |
-| Runtime application/memory_context.py | 冻结policy/query，按请求刷新typed MemoryComponent；完整渲染预算/丢条计数，forget IO前invalidate，失败后本Run持续禁用；generation拒绝在途旧快照 |
+| Runtime application/memory_context.py | 冻结policy/query，按请求刷新typed MemoryComponent；续接引用按原 key/version/hash 校验当次有效快照；完整渲染预算/丢条计数，forget IO前invalidate，失败后本Run持续禁用；generation拒绝在途旧快照 |
 | Runtime application/memory_runtime.py / memory_tools.py | 每Run组装共享Loader、严格工具与确认port；受信claim identity/submission由RunService传入；recall独立查全集，remember仅提议，forget按version经唯一writer删除 |
+| Runtime application/memory_resume.py / memory_resume_options.py | 真实入站 USER_MESSAGE 固定 scope revision；Conversation 锁内追加有界 options/统一消费结果，标题/目标词法匹配、300秒有效期、单项选择也先建 options；Runtime 直接生成清单 |
+| Runtime application/memory_resume_queries.py / memory_resume_metrics.py | 按 tenant/user/Conversation/Run 读持久引用；成功 outcome 指标只在外层事务提交后发出，外层或 savepoint 回滚不计成功 |
+| Runtime application/run_service.py / run_events.py | CREATE/RESUME 交真实入站服务；EventWriter 接受服务端预分配 UUID，保持 append-only 与 source 唯一；清单/无匹配提示由 Runtime 持久事件和真实 Run 终态直接交付，模型执行器接收受信 resume_ref |
 | Runtime application/memory_consolidation.py | 输入构建/模型解析/候选验证；不自行开 per-item 提交 |
 | Runtime application/memory_jobs.py | 持久 claim、lease/epoch、重试、原子效果提交；接入现有 lifespan |
 | Runtime application/context_builder.py | 仅按租户/用户重建canonical与摘要，不做memory预查或比例预算 |
@@ -480,7 +483,7 @@ DB 锁不是分布式事务替代品：Console 不直接写 runtime 表。Consol
 
 ENABLE/RESTORE 不是自动延长 TTL；过期条目需显式给出新有效期或新确认。普通 ADMIN 事实才 author=ADMIN，管理员启禁用 AGENT 并不把原内容伪装为管理员确认。TASK_STATE 的自动写仍保留 AGENT。
 
-每条真实 USER_MESSAGE 入站落库时记录 source_scope_revision（scope 不存在为0）；这是事件的不可变元数据，不使用模型输入的数字。若并发读取导致较旧 revision，只能保守拒绝自动恢复，不能放宽。
+每条真实 USER_MESSAGE 入站落库时记录 source_scope_revision（scope 不存在为0）；这是事件的不可变元数据，不使用模型输入的数字。读取故障用 savepoint 回滚该次查询，保留真实入站并记录 revision=null、warning/ERROR，不把失败伪装为0；缺失依据不得自动恢复。若并发读取导致较旧 revision，只能保守拒绝自动恢复，不能放宽。
 
 EXPIRE / QUOTA_EVICT / TASK_COMPLETE 是自动退休，不等同用户删除。恢复必须绑定真实新 USER_MESSAGE 的 source_scope_revision ≥ retirement_revision；该 revision 在消息入站落库时记录，不允许 claim/model 开始时补成当前值。无新消息、旧 Run 延迟 job 或依据字段缺失均不得恢复。USER_DELETE/ADMIN_DELETE 不接受任何自动恢复；用户新确认或 ADMIN 显式 RESTORE 才可解除。
 
@@ -530,7 +533,9 @@ TASK_STATE 由 consolidation 写入，未过期、未禁用、非 tombstone 才�
 - 带具体主题：从目标/标题按 coverage>0 匹配；无匹配返回找不到线索，要求用户给主题，不随意取最新。
 - 泛指“继续上次任务”：只有一条未决 TASK_STATE 可带入；多条（含主题匹配多条）给有界任务标题/key 清单，并落 Runtime 生成的 MEMORY_RESUME_OPTIONS 事件，包含候选 key/version/编号/hash/300秒 expiry；清单由 Runtime 确定格式及编号后作为持久事件直接投递 Gateway，不依赖模型改写顺序；零条明确说明没有可用线索。
 - 下一条真实用户消息先检查未消费的 options；“第2个”/完整 key/唯一标题可确定选择，无须再次出现继续词。重新查询有效性与 version，单次消费 options；过期、已删除或版本变化要求重列，不依赖模型自主 recall。消费/取消用追加事件引用 options_event_id，数据库唯一约束保证同 options 最多一个最终结果，原 options 事件不修改。输入只匹配完整选择语法，不从含否定词的句子中抽编号；无关消息取消待选，避免把普通对话误当确认。
+- 用户在待选期间给出完整的新续接请求时，先取消旧 options，再按本次真实 USER_MESSAGE 的主题和有效快照重新匹配；不把新主题当旧编号选择。options/hash 或受信引用损坏记录 warning/ERROR，拒绝带入旧任务；损坏清单消费为 EXPIRED 并重新列出有效候选。
 - 唯一选择在 conversation 锁内落统一 MEMORY_RESUME_RESOLVED（outcome=SELECTED，Runtime 写，模型不可伪造），包含原 key/version/root_conversation_id/真实 USER_MESSAGE 引用；若尚无 options，先在同事务建立仅一项 options，再写结果。所有 SELECTED/CANCELLED/EXPIRED 结果以 source_event_id 引用同一 options 事件，由既有唯一约束互斥。来源 job 固定该引用并原子更新原 checkpoint；继续会话不新增 task.B。完成时退休同一原 key，故 A→B→C 仍只有一个未决任务。
+- TASK-014 已提供 canonical 引用与真实 Runtime 请求注入，跨会话保留原 key/root；job 固定输入、原 checkpoint 更新与完成退休由后续 consolidation 任务实现，最终 Gateway/Runtime E-05 由 TASK-030 登记并留到需求终验。
 - 即使是一个匹配也不把模型提炼当已授权执行：先核验真实任务、现有授权与待办是否仍有效。
 - /new 只清会话，不删除 T2；自然语言续接由装配器读取，不依赖模型自愿 recall。
 - 明确续接时先装目标任务/澄清清单，再填偏好；其他请求先偏好。没有比例预算，完整块仍受同一硬限。
