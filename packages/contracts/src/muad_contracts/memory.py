@@ -97,6 +97,7 @@ class RecallMemoryInput(ContractModel):
     query: StrictStr | None = Field(default=None, max_length=512)
     category: MemoryCategory | None = None
     memory_key: MemoryKey | None = None
+    limit: Annotated[int, Field(strict=True, ge=0, le=20)] | None = None
 
 
 class ForgetMemoryInput(ContractModel):

@@ -377,6 +377,7 @@ async def test_b07_aux_memory_redesign_invalidation_rejects_an_inflight_older_sn
 async def test_b08_memory_redesign_history_scope_keeps_other_users_summary_private(async_tool_database):
     from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
     from muad_agent_runtime.application.run_events import EventWriter
+
     from tests.agent_runtime.memory_confirmation_support import source
 
     factory, run, identity, submission = await source(async_tool_database)
@@ -423,3 +424,117 @@ async def test_b07_aux_memory_redesign_write_disabled_still_allows_user_forget(a
     )
     assert result.response.changed_count == 1
     assert (await memory.refresh()).message is None
+
+
+@pytest.mark.parametrize("failure", [None, "delete", "refresh"])
+async def test_b07_memory_redesign_production_forget_receipt_next_http_and_history(
+    async_tool_database, monkeypatch, failure
+):
+    from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
+
+    from tests.agent_runtime.memory_confirmation_support import source
+    from tests.agent_runtime.memory_executor_support import execute
+
+    factory, run, identity, submission_id = await source(async_tool_database)
+    ctx = context(tenant=run.tenant_id, user=run.user_id)
+    await writer(async_tool_database).execute(ctx, command(upsert(value="old_memory_value")))
+    await writer(async_tool_database).execute(ctx, command(upsert("other", "unrelated")))
+    await _seed_forget_history(factory, run)
+    if failure == "delete":
+        await install_history_failure(async_tool_database)
+    if failure == "refresh":
+        await _install_recall_corruption(async_tool_database)
+    history = await DbBackedContextBuilder(session_factory=lambda: factory).load_history(
+        tenant_id=run.tenant_id, user_id=run.user_id, conversation_id=run.conversation_id
+    )
+    calls = [
+        {
+            "id": "forget-1",
+            "type": "function",
+            "function": {
+                "name": "forget",
+                "arguments": json.dumps({"memory_key": "color", "expected_version": 1}),
+            },
+        }
+    ]
+
+    events, captured = await execute(
+        factory,
+        run,
+        identity,
+        submission_id,
+        calls,
+        monkeypatch,
+        policy=MemoryPolicySettings(max_injected_memories=2),
+        history=history,
+    )
+    assert events
+    assert len(captured) == 2 and "old_memory_value" in memory_text(captured[0])
+    assert memory_text(captured[1]) is None if failure else "old_memory_value" not in memory_text(captured[1])
+    receipt = json.loads(next(item["content"] for item in captured[1]["messages"] if item["role"] == "tool"))
+    assert receipt.get("deleted", False) is (failure != "delete")
+    if failure == "delete":
+        assert receipt["error"]["code"] == "COMMON_INTERNAL_ERROR"
+    await _assert_forget_history(factory, run, failure)
+
+
+async def _seed_forget_history(factory, run):
+    from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent
+
+    async with factory.begin() as session:
+        await session.execute(
+            sa.update(CanonicalEvent)
+            .where(CanonicalEvent.run_id == run.id)
+            .values(payload_json={"text": "historical old_memory_value", "source_scope_revision": 0})
+        )
+
+
+async def _install_recall_corruption(engine):
+    # The deletion commits, but the next full read sees an invalid fact from an actual PG trigger.
+    async with engine.begin() as connection:
+        await connection.execute(
+            sa.text(
+                "CREATE FUNCTION runtime.corrupt_recall() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
+                "IF NEW.memory_key='color' AND NEW.is_deleted THEN "
+                "UPDATE runtime.user_memory SET content_json=jsonb_build_object('value',NULL) "
+                "WHERE tenant_id=NEW.tenant_id AND user_id=NEW.user_id AND memory_key='other'; "
+                "END IF; RETURN NEW; END $$"
+            )
+        )
+        await connection.execute(
+            sa.text(
+                "CREATE TRIGGER corrupt_recall AFTER UPDATE ON runtime.user_memory "
+                "FOR EACH ROW EXECUTE FUNCTION runtime.corrupt_recall()"
+            )
+        )
+
+
+async def _assert_forget_history(factory, run, failure):
+    from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, UserMemory, UserMemoryHistory
+
+    async with factory() as session:
+        row = await session.scalar(
+            sa.select(UserMemory).where(
+                UserMemory.tenant_id == run.tenant_id,
+                UserMemory.user_id == run.user_id,
+                UserMemory.memory_key == "color",
+            )
+        )
+        history = list(
+            await session.scalars(
+                sa.select(UserMemoryHistory)
+                .where(
+                    UserMemoryHistory.tenant_id == run.tenant_id,
+                    UserMemoryHistory.user_id == run.user_id,
+                    UserMemoryHistory.memory_key == "color",
+                )
+                .order_by(UserMemoryHistory.version)
+            )
+        )
+        events = list(await session.scalars(sa.select(CanonicalEvent).where(CanonicalEvent.run_id == run.id)))
+    assert row.is_deleted is (failure != "delete")
+    assert [item.version for item in history] == ([1] if failure == "delete" else [1, 2])
+    assert history[0].after_json["content_json"]["value"] == "old_memory_value"
+    if failure != "delete":
+        assert history[-1].change_reason == "USER_DELETE" and row.retirement_reason == "USER_DELETE"
+    assert any(event.payload_json.get("text") == "historical old_memory_value" for event in events)

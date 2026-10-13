@@ -1582,6 +1582,7 @@ class RunService:
         summary_model: ResolvedModel | None = None,
         current_text: str | None = None,
         current_attachments: tuple[PersistedAttachment, ...] | None = None,
+        submission_id: uuid.UUID | None = None,
     ) -> RunExecutor:
         text = run.input_text if current_text is None else current_text
         # `None` ⇒ 取本 Run 全部的入站附件（新建 Run 的常规路径）；续跑显式传**本次新落的**那批，
@@ -1616,6 +1617,7 @@ class RunService:
                 deadline_at=run.deadline_at,
                 event_batch_size=async_policy.event_batch_size,
                 parallel_limit=async_policy.parallel_limit,
+                execution_identity=ExecutionIdentity.of(run),
                 credentials=ExecutorCredentials(mcp_secrets=mcp_secrets),
                 run_context=ExecutorRunContext(
                     tenant_id=run.tenant_id,
@@ -1623,6 +1625,7 @@ class RunService:
                     conversation_id=run.conversation_id,
                     user_id=run.user_id,
                     delivery_route=delivery_route_of(run.channel_json),
+                    submission_id=submission_id,
                 ),
             )
         )
@@ -1668,7 +1671,8 @@ class RunService:
         async def build() -> RunExecutor:
             return await self._build_executor(run, agent, model, skills, mcp_servers, mcp_secrets, history,
                 compaction=compaction, execution=execution, summary_model=summary_model,
-                current_text=current_text, current_attachments=current_attachments)
+                current_text=current_text, current_attachments=current_attachments,
+                submission_id=submission_id)
 
         result = await self._run_segment(run, submission_id, agent.key, build)
         if result is not None:

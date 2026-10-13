@@ -41,6 +41,7 @@ from muad_agent_runtime.application.executor import (
     RunExecutor,
     build_registry,
 )
+from muad_agent_runtime.application.memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
 from muad_agent_runtime.application.memory_service import MemoryService
 from muad_agent_runtime.application.memory_tools import RECALL_TOOL, REMEMBER_TOOL
 from muad_agent_runtime.application.ports import PlatformSettingsSnapshot
@@ -61,6 +62,7 @@ from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_console_platform.application.audit_service import AuditActor
 from muad_console_platform.application.platform_settings_service import PlatformSettingsService
 from muad_contracts import ChannelContext, MessageInput, RunRequest
+from muad_contracts.memory import FactContent, MemoryCandidate, MemoryCategory
 from muad_contracts.platform_settings import (
     AgentSettings,
     ArtifactSettings,
@@ -88,8 +90,6 @@ RECALL_SCENARIO = MemoryPolicySettings(
     max_recall_bytes=200,
     recall_default_limit=10,
 )
-
-SOURCE_USER_EXPLICIT = "USER_EXPLICIT"
 
 
 # ---- 平台设置真源：真实 PG 的 control.platform_setting（经真实 Console 服务） ----
@@ -247,6 +247,9 @@ async def test_e20_registry_uses_frozen_artifact_memory_and_locale(
     capture = _CapturingExecutorFactory()
     await _start_run(tenant, fake_resolve, capture, _PgSettingsClient())
     request = capture.requests[0]
+    assert request.run_context.submission_id is not None
+    assert request.execution_identity.run_id == request.run_context.run_id
+    assert request.execution_identity.tenant_id == tenant.tenant_id
     registry = build_registry(request=request, cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None)
 
     # artifact.max_archive_files：schema 上界与执行期校验同值，且执行期真的拒收超限。
@@ -290,7 +293,7 @@ async def test_e20_recall_uses_frozen_limit_and_byte_cap(
     ).get(RECALL_TOOL)
     assert len(json.loads(await recall.handler({}, call_id="c"))["items"]) == 2
 
-    # 腿二：`max_recall_bytes` 触顶 —— 缺省条数 10 本可带回 6 条，字节上限把它压到 1 条。
+    # 最终 JSON 含来源/版本/TTL；200 字节只能容纳固定封套，无首条越限保底。
     capped = replace(RECALL_SCENARIO, recall_default_limit=10, max_recall_bytes=200)
     await _save_settings(tenant.tenant_id, memory=capped)
     capture2 = _CapturingExecutorFactory()
@@ -298,11 +301,16 @@ async def test_e20_recall_uses_frozen_limit_and_byte_cap(
     recall2 = build_registry(
         request=capture2.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
     ).get(RECALL_TOOL)
-    assert len(json.loads(await recall2.handler({}, call_id="c"))["items"]) == 1
+    receipt = await recall2.handler({}, call_id="c")
+    assert json.loads(receipt)["items"] == [] and json.loads(receipt)["truncated"] is True
+    assert len(receipt.encode("utf-8")) <= 200
 
 
 async def test_e20_memory_injection_caps_from_frozen_policy() -> None:
-    """`DbBackedContextBuilder.load_history` 用冻结的 `memory.max_injected_memories` 限条数。"""
+    """最终模型发送的独立组件使用冻结预算；权威历史只含会话事件。"""
+    from muad_agent_runtime.application.memory_cache import MemoryCandidateCache
+    from muad_agent_runtime.application.memory_context import MemoryContextLoader
+    from muad_agent_runtime.application.memory_queries import MemoryQueries, MemoryReadScope
     tenant, conversation_id, user_id = await _seed_injection_tenant(count=5, value_chars=16)
     try:
         builder = DbBackedContextBuilder(session_factory=get_session_factory)
@@ -311,10 +319,12 @@ async def test_e20_memory_injection_caps_from_frozen_policy() -> None:
             conversation_id=conversation_id,
             user_id=user_id,
             budget_messages=10,
-            memory_policy=MEMORY_OVERRIDE,
         )
-        injected = [m for m in history if str(m.content).startswith("[记忆·")]
-        assert len(injected) == MEMORY_OVERRIDE.max_injected_memories
+        assert all(message.role.value != "system" for message in history)
+        cache = MemoryCandidateCache(MemoryQueries(get_session_factory()),
+            scope=MemoryReadScope(tenant_id=tenant, user_id=user_id), run_id=uuid.uuid4())
+        component = await MemoryContextLoader(cache, settings=MEMORY_OVERRIDE, query="你好").refresh()
+        assert len(component.references) == MEMORY_OVERRIDE.max_injected_memories
     finally:
         await _purge_tenant(tenant, conversation_id)
 
@@ -441,16 +451,13 @@ async def _artifact_row_exists(artifact_id: uuid.UUID) -> bool:
 
 
 async def _seed_memories(tenant_id: str, user_id: uuid.UUID, *, count: int, value_chars: int) -> None:
-    service = MemoryService()
-    for index in range(count):
-        await service.upsert(
-            tenant_id=tenant_id,
-            user_id=user_id,
-            category="PREFERENCE",
-            memory_key=f"seed.{index:02d}",
-            content_json={"value": "v" * value_chars},
-            source_type=SOURCE_USER_EXPLICIT,
-        )
+    context = MemoryWriteContext(tenant_id=tenant_id, user_id=user_id,
+        actor_type="ADMIN", actor_id="fixture-admin")
+    mutations = [MemoryMutation(action="UPSERT", candidate=MemoryCandidate(
+        memory_key=f"seed.{index:02d}", category=MemoryCategory.PREFERENCE,
+        content=FactContent(value="v" * value_chars))) for index in range(count)]
+    await MemoryService().execute(context, MemoryCommand(command_id=uuid.uuid4().hex,
+        endpoint="memory.admin", mutations=mutations))
 
 
 async def _memory_row_snapshot(tenant_id: str) -> list[tuple[Any, ...]]:
@@ -472,7 +479,7 @@ async def _memory_row_snapshot(tenant_id: str) -> list[tuple[Any, ...]]:
 
 
 async def _seed_injection_tenant(*, count: int, value_chars: int) -> tuple[str, uuid.UUID, uuid.UUID]:
-    """种一个隔离租户：1 会话 + 一段历史 + N 条 `USER_EXPLICIT` 记忆（真实 PG）。"""
+    """种一个隔离租户：1 会话 + 一段历史 + N 条 ADMIN 记忆（真实 PG）。"""
     tenant = f"e20-{uuid.uuid4()}"
     conversation_id = uuid.uuid4()
     user_id = uuid.uuid4()
@@ -496,12 +503,12 @@ async def _seed_injection_tenant(*, count: int, value_chars: int) -> tuple[str, 
                     memory_key=f"inj.{index:02d}",
                     category="PREFERENCE",
                     content_json={"value": "v" * value_chars},
-                    source_type=SOURCE_USER_EXPLICIT,
+                    author="ADMIN",
                     enabled=True,
                     update_time=base + timedelta(minutes=index),
                 )
             )
-        # 历史给够：比例上限（0.2 × 历史字节）不先触顶，条数上限才是本用例的约束。
+        # 历史与具名记忆组件分别加载，历史大小不再决定注入额度。
         session.add(
             CanonicalEvent(
                 tenant_id=tenant,

@@ -27,8 +27,8 @@
 | B-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、5 个独立事务同 key 写 | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py"] | . | 300 |  |
 | B-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、独立连接不同 key 并发写 | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | . | 300 |  |
 | B-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | unit + PG，禁存内容 | TASK-029 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_secrets.py"] | . | 300 |  |
-| B-06 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 工具回执 | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_recall.py"] | . | 300 |  |
-| B-07 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 模型 HTTP 探针 | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
+| B-06 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 工具回执 | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_recall.py"] | . | 300 |  |
+| B-07 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 模型 HTTP 探针 | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
 | B-08 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 请求探针 | TASK-012 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
 | B-09 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | unit + 请求探针 | TASK-012 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
 | B-10 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + HTTP 模型探针 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py"] | . | 300 |  |
@@ -682,7 +682,7 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 
 ## TASK-013: remember/recall/forget 工具 schema 与回执
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-012, TASK-011, TASK-004
 - **Source**: memory-redesign.design.md#3.4.2 remember 与真实确认, memory-redesign.design.md#3.7 API 与 Console
@@ -696,26 +696,42 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 
 ### Checklist
 
-- [ ] [B-06][integration] 先写真实PG无关SEARCH空、LIST区分、完整JSON预算与版本/TTL返回RED。
-- [ ] 非法category/query/limit、源字段注入拒绝，不能用旧接口适配器维持错误语义。
-- [ ] 记忆写开关不阻止forget；候选建立仅confirmation_required，确认结果独立。
-- [ ] [B-06][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG + 工具回执；断言：非空库无关 query 返回空并计 SEARCH miss；空 query 为 LIST；完整 JSON 字节不越限。
-- [ ] [B-07][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG + 模型 HTTP 探针；断言：同 Run forget 后下一请求旧 memory 条目消失；删库/刷新失败不宣称成功并移除组件；历史仍可查。
+- [x] [B-06][integration] 先写真实PG无关SEARCH空、LIST区分、完整JSON预算与版本/TTL返回RED。
+- [x] 非法category/query/limit、源字段注入拒绝，不能用旧接口适配器维持错误语义。
+- [x] 记忆写开关不阻止forget；候选建立仅confirmation_required，确认结果独立。
+- [x] [B-06][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG + 工具回执；断言：非空库无关 query 返回空并计 SEARCH miss；空 query 为 LIST；完整 JSON 字节不越限。
+- [x] [B-07][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG + 模型 HTTP 探针；断言：同 Run forget 后下一请求旧 memory 条目消失；删库/刷新失败不宣称成功并移除组件；历史仍可查。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-06 | integration | integration，真实 PG + 工具回执 | 非空库无关 query 返回空并计 SEARCH miss；空 query 为 LIST；完整 JSON 字节不越限 | tests/agent_runtime/test_memory_redesign_recall.py / test_b06_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_recall.py"] | planned |
-| B-07 | integration | integration，真实 PG + 模型 HTTP 探针 | 同 Run forget 后下一请求旧 memory 条目消失；删库/刷新失败不宣称成功并移除组件；历史仍可查 | tests/agent_runtime/test_memory_redesign_context.py / test_b07_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | planned |
+| B-06 | integration | integration，真实 PG + 工具回执 | 非空库无关 query 返回空并计 SEARCH miss；空 query 为 LIST；完整 JSON 字节不越限 | tests/agent_runtime/test_memory_redesign_recall.py / test_b06_memory_redesign_search_miss_list_and_metadata / test_b06_memory_redesign_final_json_exact_budget_and_no_first_item_overflow | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_recall.py"] | verified |
+| B-07 | integration | integration，真实 PG + 模型 HTTP 探针 | 同 Run forget 后下一请求旧 memory 条目消失；删库/刷新失败不宣称成功并移除组件；历史仍可查 | tests/agent_runtime/test_memory_redesign_context.py / test_b07_memory_redesign_production_forget_receipt_next_http_and_history | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-06 | 2026-10-13：uv run pytest -q tests/agent_runtime/test_memory_redesign_recall.py tests/agent_runtime/test_memory_redesign_context.py -k 'b06 or production_forget or tool_schema or production_remember or forget_version' --tb=line --show-capture=no：18 failed / 17 deselected；recall 的生产工具不接受 queries/context，旧 source/prefix 协议仍在。首次环境缺依赖和测试构造错误已修正后重跑，不算功能 RED | GREEN：recall/context/tools/observability 实际命令55 passed；额外空库反例 -k empty_scope：1 failed（错误计 miss），修正后包含在55绿例。52相关回归 + 1 claim/submission断言 + 90记忆/架构回归通过；ruff/mypy及validate --no-heavy pass | test_memory_redesign_recall.py:29/50/69/81/100/106（SEARCH/LIST、完整预算、0/空库、非法参数、错误指标）、:143/168（提议/版本删除） | 每例独立 head PG，真实写者/查询/工具/metric；无 Store mock | verified |
+| B-07 | 同一实际命令：production_forget 三例失败，真实 HTTP 第二次请求仍含 old_memory_value；registry 未注册 forget | GREEN：同55例命令；最终历史查询/构造抽取经Done Gate契约重跑通过；runner run_id=8482717bbbc94964b5d8034f95481b9e，decision=pass | test_memory_redesign_context.py:430、_assert_forget_history（下一HTTP组件、删除失败/刷新失败、history/canonical保留）；test_memory_tools.py:23（生产remember完整回合暂停） | 真实 default_executor_factory、PG、模型 HTTP；删除失败用 PG history trigger，刷新失败用 PG 事实损坏 trigger；canonical/history 不 mock | verified |
+- B-06: verified — automated command passed; run_id=8482717bbbc94964b5d8034f95481b9e (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=8482717bbbc94964b5d8034f95481b9e (confirmed_by: runner)
+
+### Regression Evidence
+
+- uv run pytest -q tests/agent_runtime/test_memory_redesign_recall.py tests/agent_runtime/test_memory_redesign_context.py tests/agent_runtime/test_memory_tools.py tests/agent_runtime/test_memory_observability.py --tb=line --show-capture=no：55 passed in 78.62s。
+- 独立 head PG + 隔离 Redis + 临时 ARTIFACT_ROOT 子进程跑 runner_executor/tool_round_budget/execution_audit/tool_wait_state_machine/tool_result_materialization/tool_result_history/execution_defaults_settings 七文件：52 passed in 44.69s；新增真实RunService claim/submission传入断言单跑 -k registry：1 passed。
+- uv run pytest -q tests/agent_runtime/test_memory_redesign_cache.py tests/agent_runtime/test_memory_redesign_proposals.py tests/agent_runtime/test_memory_redesign_writes.py tests/agent_core/test_memory_redesign_selection.py tests/agent_core/test_memory_redesign_render.py tests/architecture/test_channel_neutrality.py tests/architecture/test_import_direction.py --tb=line --show-capture=no：90 passed in 75.41s。
+- 旧工具测试的 source_type/直接已保存断言改为严格拒绝/候选提议/唯一writer；冻结设置回归移除旧首条越限和ContextBuilder注入假设；不加兼容接口。
+- 源字段拒绝、确认、lookup、删除全部按当前Run用户绑定；remember仅登记提议，确认消费结果仍由TASK-015后续独立事件实现。本任务没有新增或执行E2E。
+- 主workspace存在无关未跟踪docs/issues/2026-10-13-high-qps-capacity.md，Start Gate unowned_changes后使用隔离worktree；无关文件未改未提交。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-13] started
+- [2026-10-13] completed (done)
 
 ---
 

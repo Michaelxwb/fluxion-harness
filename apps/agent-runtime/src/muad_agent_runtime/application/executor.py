@@ -77,6 +77,7 @@ from ..metrics import (
     record_counter,
     record_outcome,
 )
+from .async_tools.continuation_service import ExecutionIdentity
 from .attachments.archive_tools import ArchiveToolSet
 from .attachments.output_service import OutputArtifactWriter, OutputScope
 from .attachments.tool_results import (
@@ -89,11 +90,9 @@ from .attachments.tool_results import (
 from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
-from .memory_cache import MemoryCandidateCache
-from .memory_context import MemoryContextLoader
-from .memory_queries import MemoryQueries, MemoryReadScope
-from .memory_service import MemoryService
-from .memory_tools import MemoryScope, MemoryToolSet, memory_write_enabled
+from .memory_queries import MemoryReadScope
+from .memory_runtime import RunMemory, create_run_memory
+from .memory_tools import memory_write_enabled
 from .model_call_trace import ModelCallTrace
 from .skill_tools import TaskSubmissionProtocol, build_default_skill_cache, build_skill_registry
 from .task_client import TaskSubmissionContext, WorkerTaskClient
@@ -211,6 +210,7 @@ class ExecutorRequest:
     #: 冻结的 Run 内并行上限（`policy_json.async_tools.parallel_limit`，QUALITY-03 默认 4）。
     parallel_limit: int = DEFAULT_PARALLEL_LIMIT
     context_cursor: int | None = None
+    execution_identity: ExecutionIdentity | None = None
 
 
 def execution_defaults_for(request: ExecutorRequest) -> ExecutionDefaults:
@@ -856,6 +856,7 @@ def build_registry(
     task_submitter: TaskSubmissionProtocol | None = None,
     delivery_client: GatewayDeliveryClient | None = None,
     recorder: ToolCallRecorder | None = None,
+    memory: RunMemory | None = None,
 ) -> ToolRegistry:
     policy = agent_policy_for(request)
     execution = execution_defaults_for(request)
@@ -916,34 +917,25 @@ def build_registry(
                 for server in request.mcp_servers
             ],
         )
-    if request.run_context is not None:
-        # 记忆工具的作用域只来自 Run 上下文（`user_id`/`tenant_id` 不进工具 schema）；
-        # `memory_write=false` 的 agent 连 `remember` 都看不见，但 `recall` 仍注册——
-        # 注入面由 ContextBuilder 统一治理，读侧不随写开关变化。
-        MemoryToolSet(
-            service=MemoryService(),
-            scope=MemoryScope(
-                tenant_id=request.run_context.tenant_id,
-                user_id=request.run_context.user_id,
-                run_id=request.run_context.run_id,
-            ),
-            write_enabled=memory_write_enabled(
-                request.agent.runtime_config, default=execution.memory_policy.write_enabled
-            ),
-            recall_default_limit=execution.memory_policy.recall_default_limit,
-            max_recall_bytes=execution.memory_policy.max_recall_bytes,
-        ).register(registry)
+    memory = memory if memory is not None else _memory_runtime_for(request)
+    if memory is not None:
+        memory.tools.register(registry)
     return registry
 
 
-def _memory_context_for(request: ExecutorRequest) -> MemoryContextLoader | None:
+def _memory_runtime_for(request: ExecutorRequest) -> RunMemory | None:
     context = request.run_context
     if context is None:
         return None
-    cache = MemoryCandidateCache(MemoryQueries(get_session_factory()),
-        scope=MemoryReadScope(tenant_id=context.tenant_id, user_id=context.user_id), run_id=context.run_id)
-    return MemoryContextLoader(cache, settings=execution_defaults_for(request).memory_policy,
-        query=request.input_text)
+    policy = execution_defaults_for(request).memory_policy
+    policy = replace(policy, write_enabled=memory_write_enabled(
+        request.agent.runtime_config, default=policy.write_enabled))
+    credentials = (request.model.api_key, *request.credentials.mcp_secrets.values())
+    canaries = tuple(value for value in credentials if value)
+    return create_run_memory(get_session_factory(),
+        scope=MemoryReadScope(tenant_id=context.tenant_id, user_id=context.user_id), run_id=context.run_id,
+        settings=policy, query=request.input_text, identity=request.execution_identity,
+        submission_id=context.submission_id, credential_canaries=canaries)
 
 
 def tool_result_settings(request: ExecutorRequest) -> ToolResultSettings:
@@ -1016,6 +1008,7 @@ async def default_executor_factory(
             artifact_writer=artifact_writer,
             settings=tool_result_settings(request),
         )
+    memory = _memory_runtime_for(request)
     registry = build_registry(
         request=request,
         cache=skill_cache or build_default_skill_cache(),
@@ -1026,6 +1019,7 @@ async def default_executor_factory(
         task_submitter=_durable_submitter(settings, request),
         delivery_client=delivery_client,
         recorder=recorder,
+        memory=memory,
     )
     hooks = HookPipeline()
     runner = AgentRunner(
@@ -1038,7 +1032,8 @@ async def default_executor_factory(
         context_compactor=_context_compactor(request, summary_provider, artifact_root=settings.artifact_root),
         tool_round_results=recorder,
         runtime_events=request.runtime_events,
-        context_loader=_memory_context_for(request),
+        context_loader=memory.loader if memory is not None else None,
+        tool_suspension=memory.confirmation if memory is not None else None,
         event_batch_size=request.event_batch_size,
         parallel_limit=request.parallel_limit,
     )

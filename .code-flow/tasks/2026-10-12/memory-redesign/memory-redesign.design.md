@@ -296,6 +296,7 @@ compaction 删除整个 memory.budget_ratio 分支；新增 max_history_tool_rou
 | Runtime application/memory_queries.py | 有界候选与版本历史查询；共享 MemoryReadFilters |
 | Runtime application/memory_cache.py | 当前Run的候选行/revision缓存；轻量head校验、当次TTL过滤，失败清除并warning/metric |
 | Runtime application/memory_context.py | 冻结policy/query，按请求刷新typed MemoryComponent；完整渲染预算/丢条计数，forget IO前invalidate，失败后本Run持续禁用；generation拒绝在途旧快照 |
+| Runtime application/memory_runtime.py / memory_tools.py | 每Run组装共享Loader、严格工具与确认port；受信claim identity/submission由RunService传入；recall独立查全集，remember仅提议，forget按version经唯一writer删除 |
 | Runtime application/memory_consolidation.py | 输入构建/模型解析/候选验证；不自行开 per-item 提交 |
 | Runtime application/memory_jobs.py | 持久 claim、lease/epoch、重试、原子效果提交；接入现有 lifespan |
 | Runtime application/context_builder.py | 仅按租户/用户重建canonical与摘要，不做memory预查或比例预算 |
@@ -582,7 +583,7 @@ job 模型调用可因 SIGKILL/lease 接管重复；写入效果原子最多一�
 | DELETE /api/v1/users/{user_id}/memory | 一命令原子清空并保留逐项历史；撤销所有 pending 提议 |
 | POST /internal/admin/users/{user_id}/memory/commands | Console → Runtime 唯一管理写入口；服务身份 + 已鉴权 actor/tenant，规范化指纹与幂等回执 |
 | GET/DELETE /internal/admin/users/{user_id}/memory | 既有管理入口必须统一转同一查询/事务服务，DELETE 不再独立 SQL 更新 |
-| recall | query?/category?/limit?；返回 notice/items/truncated/author/explicit_request/version/updated_at/expires_at |
+| recall | query?/category?/memory_key?/limit?；memory_key精确过滤；返回notice/items/truncated及每项author/explicit_request/version/updated_at/expires_at |
 | forget | memory_key/expected_version；WRITE、默认 SERIAL；服务从当前 scope 绑定身份，未知 key 明确 NOT_FOUND |
 
 内部 API 使用 api-kit 服务身份、Envelope 与错误目录；不靠仅由调用方填写的 author/tenant 头授予权限。Console memory 页面复用现有详情 Tab，显示“已确认用户 / 管理员 / 推断”、状态、TTL、版本历史；author 与 actor 分开显示。

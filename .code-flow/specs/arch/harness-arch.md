@@ -49,6 +49,7 @@ verifiers:
 
 - **压缩的「受保护前缀」是开头连续的一段 `role=SYSTEM`**：系统提示、memory 注入、摘要前缀（`summary_message` 渲染出来也是 SYSTEM）都在这一段里，它们是每次请求必须原样带上的**权威上下文**，不是历史。所以任何**会删消息**的压缩层（snip、条数兜底）只能在其后的**对话区**上工作；只换内容不删消息的层（micro）不涉及这条边界。裁掉前缀＝agent 失忆（系统提示定义了身份与指令）、memory 注入措辞失效、被压缩掉的那段历史净消失。
   - ✅ `prefix, region = split_protected_prefix(sanitized)`，snip 与条数兜底只切 `region`。Runtime `memory_context.py` 从当前Run的revision缓存刷新typed `MemoryComponent`，`AgentRunner._prepare_model_request` 在每次发送（含重试）前把该组件插在固定提示后、摘要前，再执行压缩；`context_builder.load_history` 只重建canonical与摘要，不预先查记忆。记忆引用的非指令说明由 `memory/render.py` 唯一生成，其他SYSTEM与权威历史不靠文本前缀识别/删除。
+  - ✅ `memory_runtime.create_run_memory` 每Run只建一份Loader，工具forget和Runner共用；确认port绑定RunService传入的claim identity与submission。❌ registry与Runner各建缓存导致forget后下一请求仍用旧块，或从模型参数生成执行身份。
   - ❌ 对整条消息列表（含开头 SYSTEM）直接 snip / 按条数裁剪 ⇒ 系统提示或摘要前缀被当历史省掉
 
 - **系统提示的 section 顺序是契约**（2026-10-07 借鉴 P10 的动态提示设计）：装配出来的提示由**具名段落按固定顺序**组成，唯一实现在 `DefaultPromptBuilder.build`（`packages/agent-core/src/muad_agent_core/prompt/builder.py`）：`instructions` → `## Available skills`（目录）→ `<!-- prompt_template_version -->`（尾标）。加段落**只在尾部追加**，不得插队——顺序一旦只是 `append` 的副产物，任何重构都能悄悄挪动它。用例断言**相对位置**（`prompt.index(A) < prompt.index(B)`），不要断言「包含某段文本」：后者在顺序错乱、甚至同一段出现两次时同样通过。
