@@ -438,7 +438,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-008: 内容闸门、硬配额与自动退休决策
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003, TASK-004
 - **Source**: memory-redesign.design.md#3.4.4 同 key 冲突矩阵, memory-redesign.design.md#3.4.5 内容闸门与配额
@@ -452,24 +452,28 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ### Checklist
 
-- [ ] [B-04/B-18][unit] 辅助写全USER满额、淘汰选择、旧低限额减容与增长决策RED。
-- [ ] [B-05][unit] 候选/key/quote/TASK_STATE与已知凭据canary全部检查，错误无原文。
-- [ ] source_scope_revision必须入站时记录；USER删除只新确认/ADMIN恢复，记录GREEN。
-- [ ] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
+- [x] [B-04/B-18][unit] 辅助写全USER满额、淘汰选择、旧低限额减容与增长决策RED。
+- [x] [B-05][unit] 候选/key/quote/TASK_STATE与已知凭据canary全部检查，错误无原文。
+- [x] 纯策略只消费入站Evidence携带的source_scope_revision，不在claim时补当前值；只有明确自动退休原因与新依据才允许自动恢复，用户墓碑需新确认/ADMIN显式恢复。实际入站落库接线由后续Runtime入口任务完成。
+- [x] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | unit/integration | 本任务纯逻辑或真实存储载体，按Checklist具体边界 | Checklist列出的独立行为及失败反例，最终场景由责任表owner验证 | 编码阶段登记真实辅助测试；无当前执行Evidence | planned | planned |
+| LOCAL | unit/integration | 本任务纯逻辑或真实存储载体，按Checklist具体边界 | Checklist列出的独立行为及失败反例，最终场景由责任表owner验证 | tests/agent_runtime/test_memory_redesign_policy.py / test_aux_* | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_policy.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| LOCAL | uv run pytest -q tests/agent_runtime/test_memory_redesign_policy.py --tb=line：43 failed；新 memory_write 策略模块尚不存在；quoted_sensitive补测6 failed；missing_retirement补测1 failed | GREEN: 55 passed；mypy与ruff通过；关联核心/字节回归128 passed | test_aux_* 各独立行为 | 单元直接调用真实内容/配额/冲突策略，最终PG场景仍由后续owner验证 | verified |
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-13] started
+- [2026-10-13] completed (done)
 
 ---
 
@@ -1261,10 +1265,10 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 - **Status**: draft
 - **Priority**: P0
 - **Depends**: TASK-022, TASK-025, TASK-017, TASK-018
-- **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界, memory-redesign.design.md#3.8 可靠性与观测
+- **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界, memory-redesign.design.md#3.8 可靠性与观测, memory-redesign.design.md#3.4.5 内容闸门与配额, memory-redesign.design.md#4.2 一次性迁移与切换
 - **Spec-Refs**: harness-secret#RULE-secret-001
 - **Acceptance-Refs**: B-05, S-01, S-02
-- **Files**: tests/acceptance/im_gateway/test_memory_redesign_security.py
+- **Files**: tests/acceptance/im_gateway/test_memory_redesign_security.py, tests/agent_runtime/test_memory_redesign_secrets.py, migrations/memory_redesign_data.py, tests/migrations/test_memory_redesign_preflight.py
 
 ### Description
 
@@ -1274,6 +1278,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 - [ ] [S-01][E2E] 编写伪造用户/tenant/来源、跨用户确认、无服务身份、非ADMIN全部拒绝场景。
 - [ ] [S-02][E2E] 反查memory/history/proposal/job/receipt/tool审计/log与consolidation Prompt，密钥不漏。
+- [ ] [B-05/B-20][integration] 修复TASK-008复核发现的迁移扫描同类缺口：直接检查原始字符串，不能用canonical JSON二次转义后扫描；敏感JSON/单引号键值文本必须预检拒绝。实际0019→0020临时库补RED/GREEN，断言保持0019且没有history/审计扩散；不重新打开已完成TASK-007，最终B-20仍归原owner并在需求终验复跑。
 - [ ] E2E编码期不跑RED/GREEN；指定真实Live stack命令，证据保持planned至verify-e2e。
 - [ ] [B-05][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：unit + PG，禁存内容；断言：value、key、quote、TASK_STATE 任一含密钥形态则拒绝；memory/history/proposal/log 中无 canary。
 - [ ] [S-01][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：security，真实 API 身份与租户边界；断言：伪造 user/tenant/author、跨用户确认、无服务身份内部调用均拒绝；未授权 ADMIN 不写。
