@@ -1,242 +1,123 @@
-"""[B-110] 受控长期 Memory 读写（真实 PostgreSQL runtime.user_memory）。"""
+"""Memory service regressions through the current command contract and isolated PG."""
 
-from __future__ import annotations
-
-import asyncio
-import uuid
+from dataclasses import replace
+from uuid import uuid4
 
 import pytest
-import sqlalchemy as sa
-from muad_agent_runtime.application.memory_service import MemoryService
-from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import UserMemory
+from muad_api import AppError
+from muad_api.error_codes import ErrorCode
+from muad_contracts.memory import MemoryCandidate
+from pydantic import ValidationError
 
-USER_ONE = uuid.uuid4()
-USER_TWO = uuid.uuid4()
-TENANT = f"mem-{uuid.uuid4()}"
-SOURCE_USER_EXPLICIT = "USER_EXPLICIT"
-SOURCE_AGENT_INFERRED = "AGENT_INFERRED"
+from tests.agent_runtime.memory_redesign_write_support import (
+    command,
+    commands,
+    context,
+    seed_facts,
+    source_context,
+    upsert,
+    writer,
+)
 
-
-@pytest.fixture(autouse=True)
-async def _cleanup():
-    yield
-    async with get_session_factory()() as session:
-        await session.execute(UserMemory.__table__.delete().where(UserMemory.tenant_id == TENANT))
-        await session.commit()
+pytestmark = pytest.mark.integration
 
 
-async def test_b110_write_and_read_with_tenant_user_isolation() -> None:
-    """[B-110] 写入/读取；跨 tenant/user 无泄漏。"""
-    service = MemoryService()
-    entry = await service.upsert(
-        tenant_id=TENANT,
-        user_id=USER_ONE,
-        category="PREFERENCE",
-        memory_key="output.language",
-        content_json={"value": "zh-CN"},
-        source_type="EXPLICIT",
-        source_ref="user-input",
+async def test_b110_write_and_read_with_tenant_user_isolation(async_tool_database) -> None:
+    service, ctx = writer(async_tool_database), context()
+    result = await service.execute(ctx, command(upsert("output.language", "zh-CN")))
+    assert result.response.items[0].version == 1
+    assert len(await service.list_entries(ctx.tenant_id, ctx.user_id)) == 1
+    assert await service.list_entries(ctx.tenant_id, uuid4()) == []
+    assert await service.list_entries("other-tenant", ctx.user_id) == []
+    other = replace(ctx, tenant_id="other-tenant")
+    await service.execute(other, command(upsert("output.language", "en-US")))
+    assert (await service.list_entries(ctx.tenant_id, ctx.user_id))[0]["content_json"] == {"value": "zh-CN"}
+
+
+async def test_b110_update_bumps_version_not_duplicate(async_tool_database) -> None:
+    service, ctx = writer(async_tool_database), context()
+    first = await service.execute(ctx, command(upsert("style.tone", "formal")))
+    second = await service.execute(ctx, command(upsert("style.tone", "concise", expected=1)))
+    assert first.response.items[0].id == second.response.items[0].id
+    assert second.response.items[0].version == 2
+    entries = await service.list_entries(ctx.tenant_id, ctx.user_id)
+    assert len(entries) == 1 and entries[0]["content_json"] == {"value": "concise"}
+
+
+async def test_b110_disabled_and_deleted_filtered(async_tool_database) -> None:
+    service, ctx = writer(async_tool_database), context()
+    await service.execute(ctx, command(upsert("enabled"), upsert("disabled")))
+    await service.execute(
+        ctx, command(commands().MemoryMutation(action="DISABLE", memory_key="disabled", expected_version=1))
     )
-    assert entry["version"] == 1
-
-    mine = await service.list_entries(TENANT, USER_ONE)
-    assert len(mine) == 1
-    assert mine[0]["memory_key"] == "output.language"
-
-    other_user = await service.list_entries(TENANT, USER_TWO)
-    assert other_user == []
-    other_tenant = await service.list_entries(f"{TENANT}-other", USER_ONE)
-    assert other_tenant == []
-
-
-async def test_b110_update_bumps_version_not_duplicate() -> None:
-    """[B-110] 同 key 更新走版本递增，不产生第二行。"""
-    service = MemoryService()
-    first = await service.upsert(
-        tenant_id=TENANT, user_id=USER_ONE, category="PREFERENCE",
-        memory_key="style.tone", content_json={"value": "formal"},
-        source_type="EXPLICIT",
-    )
-    second = await service.upsert(
-        tenant_id=TENANT, user_id=USER_ONE, category="PREFERENCE",
-        memory_key="style.tone", content_json={"value": "concise"},
-        source_type="EXPLICIT",
-    )
-    assert second["version"] == first["version"] + 1
-    entries = await service.list_entries(TENANT, USER_ONE)
-    assert len(entries) == 1
-    assert entries[0]["content_json"] == {"value": "concise"}
-
-
-async def test_b110_disabled_and_deleted_filtered() -> None:
-    """[B-110] enabled=false 与软删除不读。"""
-    service = MemoryService()
-    await service.upsert(
-        tenant_id=TENANT, user_id=USER_ONE, category="WORK_STYLE",
-        memory_key="k.enabled", content_json={}, source_type="EXPLICIT",
-    )
-    disabled = await service.upsert(
-        tenant_id=TENANT, user_id=USER_ONE, category="WORK_STYLE",
-        memory_key="k.disabled", content_json={}, source_type="EXPLICIT",
-    )
-    async with get_session_factory()() as session:
-        await session.execute(
-            sa.update(UserMemory)
-            .where(UserMemory.id == uuid.UUID(disabled["id"]))
-            .values(enabled=False)
-        )
-        await session.commit()
-
-    keys = [e["memory_key"] for e in await service.list_entries(TENANT, USER_ONE)]
-    assert "k.disabled" not in keys
-
-    await service.disable(TENANT, USER_ONE, "k.enabled")  # 软删除
-    assert await service.list_entries(TENANT, USER_ONE) == []
-
-
-async def test_b110_categories_constrained() -> None:
-    """[B-110] 仅 PREFERENCE/WORK_STYLE/EXPLICIT 受控写入。"""
-    service = MemoryService()
-    with pytest.raises(ValueError):
-        await service.upsert(
-            tenant_id=TENANT, user_id=USER_ONE, category="RUNTIME_FACT",
-            memory_key="k", content_json={}, source_type="EXPLICIT",
-        )
-
-
-async def test_s02_same_key_overwrite_bumps_version_and_revives_enabled() -> None:
-    """[S-02][integration] 同 key 二次写入：仍一行、`version+1`、新值落库、
-    `update_time` 递增、`enabled` 复位 true。
-
-    真实边界：Service → 真实 PostgreSQL（`runtime.user_memory`）。
-    `enabled` 复位是 design §2.3.2 明确要求的覆盖语义：否则"重新记住"对一条被禁用的记忆不生效，
-    而工具仍回执成功（用户被告知记住了、实际永不生效）。
-    """
-    service = MemoryService()
-    first = await service.upsert(
-        tenant_id=TENANT, user_id=USER_ONE, category="PREFERENCE",
-        memory_key="reply.language", content_json={"value": "中文"},
-        source_type=SOURCE_USER_EXPLICIT,
-    )
-    # 先禁用该行，再覆盖写入：必须复活
-    async with get_session_factory()() as session:
-        await session.execute(
-            sa.update(UserMemory)
-            .where(UserMemory.id == uuid.UUID(first["id"]))
-            .values(enabled=False)
-        )
-        await session.commit()
-
-    second = await service.upsert(
-        tenant_id=TENANT, user_id=USER_ONE, category="PREFERENCE",
-        memory_key="reply.language", content_json={"value": "英文"},
-        source_type=SOURCE_USER_EXPLICIT,
-    )
-
-    assert second["version"] == first["version"] + 1
-    assert second["enabled"] is True
-    assert second["content_json"] == {"value": "英文"}
-    assert second["update_time"] > first["update_time"]
-
-    async with get_session_factory()() as session:
-        rows = (
-            await session.execute(
-                sa.select(UserMemory).where(
-                    UserMemory.tenant_id == TENANT,
-                    UserMemory.user_id == USER_ONE,
-                    UserMemory.memory_key == "reply.language",
-                )
-            )
-        ).scalars().all()
-    assert len(rows) == 1  # 覆盖更新，不产生第二行
-    assert rows[0].enabled is True
-    assert rows[0].version == second["version"]
-
-
-async def test_s02_concurrent_same_key_writes_leave_single_row() -> None:
-    """[S-02][integration] 并发同 key 写入：每次调用都成功、仍只有一行、版本不丢。
-
-    真实边界：Service → 真实 PostgreSQL（并发落在 partial unique 索引上）。
-    两段式"先 select 再 insert/update"在并发下会撞唯一约束并抛错，故实现须走 upsert 冲突吸收。
-    """
-    service = MemoryService()
-    results = await asyncio.gather(
-        *[
-            service.upsert(
-                tenant_id=TENANT, user_id=USER_ONE, category="WORK_STYLE",
-                memory_key="concurrent.key", content_json={"value": f"v{index}"},
-                source_type=SOURCE_USER_EXPLICIT,
-            )
-            for index in range(5)
-        ]
-    )
-
-    assert [item["memory_key"] for item in results] == ["concurrent.key"] * 5
-    assert sorted(item["version"] for item in results) == [1, 2, 3, 4, 5]
-
-    async with get_session_factory()() as session:
-        rows = (
-            await session.execute(
-                sa.select(UserMemory).where(
-                    UserMemory.tenant_id == TENANT,
-                    UserMemory.user_id == USER_ONE,
-                    UserMemory.memory_key == "concurrent.key",
-                )
-            )
-        ).scalars().all()
-    assert len(rows) == 1
-    assert rows[0].version == 5
-
-
-async def test_injection_query_returns_only_recent_user_explicit_entries() -> None:
-    """注入查询原语：只取 `USER_EXPLICIT` 且 `enabled` 未删除，按 `update_time DESC` 取最近 N 条。
-
-    本原语是分级注入（RULE-05）在 SQL 层的落点：`AGENT_INFERRED` 不进自动注入，
-    只能经 `recall`（`search`）取回。
-    """
-    service = MemoryService()
-    for index, (key, source) in enumerate(
-        [("a.first", SOURCE_USER_EXPLICIT), ("b.second", SOURCE_AGENT_INFERRED),
-         ("c.third", SOURCE_USER_EXPLICIT)]
-    ):
-        await service.upsert(
-            tenant_id=TENANT, user_id=USER_ONE, category="PREFERENCE",
-            memory_key=key, content_json={"value": f"value-{index}"}, source_type=source,
-        )
-
-    injected = await service.list_for_injection(TENANT, USER_ONE, limit=10)
-    assert [item["memory_key"] for item in injected] == ["c.third", "a.first"]
-
-    limited = await service.list_for_injection(TENANT, USER_ONE, limit=1)
-    assert [item["memory_key"] for item in limited] == ["c.third"]
-
-    # 软删除后不再参与注入
-    await service.disable(TENANT, USER_ONE, "c.third")
-    remaining = await service.list_for_injection(TENANT, USER_ONE, limit=10)
-    assert [item["memory_key"] for item in remaining] == ["a.first"]
-
-
-async def test_search_filters_by_key_prefix_across_source_types() -> None:
-    """检索原语（供 `recall` 用）：按 key 前缀过滤，**两类来源都可取回**，按 `update_time DESC`。"""
-    service = MemoryService()
-    for key, source in [
-        ("reply.language", SOURCE_USER_EXPLICIT),
-        ("reply.tone", SOURCE_AGENT_INFERRED),
-        ("work.style", SOURCE_USER_EXPLICIT),
-    ]:
-        await service.upsert(
-            tenant_id=TENANT, user_id=USER_ONE, category="PREFERENCE",
-            memory_key=key, content_json={"value": key}, source_type=source,
-        )
-
-    prefixed = await service.search(TENANT, USER_ONE, prefix="reply.", limit=10)
-    assert sorted(item["memory_key"] for item in prefixed) == ["reply.language", "reply.tone"]
-
-    everything = await service.search(TENANT, USER_ONE, prefix=None, limit=10)
-    assert sorted(item["memory_key"] for item in everything) == [
-        "reply.language", "reply.tone", "work.style",
+    assert [row["memory_key"] for row in await service.list_entries(ctx.tenant_id, ctx.user_id)] == [
+        "enabled"
     ]
+    await service.execute(
+        ctx, command(commands().MemoryMutation(action="DELETE", memory_key="enabled", expected_version=1))
+    )
+    assert await service.list_entries(ctx.tenant_id, ctx.user_id) == []
 
-    capped = await service.search(TENANT, USER_ONE, prefix=None, limit=1)
-    assert len(capped) == 1
+
+def test_b110_categories_constrained() -> None:
+    with pytest.raises(ValidationError):
+        MemoryCandidate.model_validate(
+            {"memory_key": "k", "category": "RUNTIME_FACT", "content": {"value": "test"}}
+        )
+
+
+async def test_s02_same_key_overwrite_requires_explicit_reenable(async_tool_database) -> None:
+    service, ctx = writer(async_tool_database), context()
+    await service.execute(ctx, command(upsert()))
+    await service.execute(
+        ctx, command(commands().MemoryMutation(action="DISABLE", memory_key="color", expected_version=1))
+    )
+    with pytest.raises(AppError) as exc:
+        await service.execute(ctx, command(upsert(value="red", expected=2)))
+    assert exc.value.code == ErrorCode.MEMORY_CONFIRMATION_INVALID
+    mutation = upsert(value="red", expected=2).model_copy(update={"enable": True})
+    await service.execute(ctx, command(mutation))
+    rows = await service.list_entries(ctx.tenant_id, ctx.user_id)
+    assert len(rows) == 1 and rows[0]["version"] == 3
+    assert rows[0]["enabled"] is True and rows[0]["content_json"] == {"value": "red"}
+
+
+async def test_injection_query_filters_unconfirmed_disabled_deleted_and_expired(async_tool_database) -> None:
+    service, ctx = writer(async_tool_database), context()
+    user_ctx = await source_context(async_tool_database, ctx)
+    await service.execute(user_ctx, command(upsert("a.user")))
+    await service.execute(ctx, command(upsert("b.admin"), upsert("c.deleted"), upsert("d.disabled")))
+    await service.execute(
+        ctx,
+        command(
+            commands().MemoryMutation(action="DELETE", memory_key="c.deleted", expected_version=1),
+            commands().MemoryMutation(action="DISABLE", memory_key="d.disabled", expected_version=1),
+        ),
+    )
+    await seed_facts(async_tool_database, ctx, 1, author="AGENT")
+    await seed_facts(async_tool_database, ctx, 1, prefix="expired", expired=True)
+    injected = await service.list_for_injection(ctx.tenant_id, ctx.user_id, limit=10)
+    assert [row["memory_key"] for row in injected] == ["b.admin", "a.user"]
+    assert [row["author"] for row in injected] == ["ADMIN", "USER"]
+    limited = await service.list_for_injection(ctx.tenant_id, ctx.user_id, limit=1)
+    assert [row["memory_key"] for row in limited] == ["b.admin"]
+
+
+async def test_search_filters_by_key_prefix_across_authors(async_tool_database) -> None:
+    service, ctx = writer(async_tool_database), context()
+    await service.execute(ctx, command(upsert("reply.language"), upsert("work.style")))
+    await seed_facts(async_tool_database, ctx, 1, author="AGENT", prefix="reply")
+    prefixed = await service.search(ctx.tenant_id, ctx.user_id, prefix="reply.", limit=10)
+    assert sorted(row["memory_key"] for row in prefixed) == ["reply.1", "reply.language"]
+    assert {row["author"] for row in prefixed} == {"ADMIN", "AGENT"}
+    assert len(await service.search(ctx.tenant_id, ctx.user_id, limit=1)) == 1
+
+
+async def test_read_only_scope_does_not_create_scope_row(async_tool_database) -> None:
+    from tests.agent_runtime.memory_redesign_write_support import counters
+
+    service, ctx = writer(async_tool_database), context()
+    assert await service.list_entries(ctx.tenant_id, ctx.user_id) == []
+    assert await service.list_for_injection(ctx.tenant_id, ctx.user_id, limit=10) == []
+    assert await service.search(ctx.tenant_id, ctx.user_id, limit=10) == []
+    assert (await counters(async_tool_database, ctx))["memory_scope"] == 0

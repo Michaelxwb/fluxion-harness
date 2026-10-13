@@ -24,8 +24,8 @@
 |---|---|---|---|---|---|---|---|---|---|
 | B-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | unit | unit，纯证据校验 | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py"] | . | 120 |  |
 | B-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | unit | unit，分词与选择 | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_selection.py"] | . | 120 |  |
-| B-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、5 个独立事务同 key 写 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py"] | . | 300 |  |
-| B-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、独立连接不同 key 并发写 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | . | 300 |  |
+| B-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、5 个独立事务同 key 写 | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py"] | . | 300 |  |
+| B-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、独立连接不同 key 并发写 | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | . | 300 |  |
 | B-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | unit + PG，禁存内容 | TASK-029 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_secrets.py"] | . | 300 |  |
 | B-06 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 工具回执 | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_recall.py"] | . | 300 |  |
 | B-07 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 模型 HTTP 探针 | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
@@ -39,7 +39,7 @@
 | B-15 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 Gateway/Runtime/PG/resume | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_confirmation.py"] | . | 300 |  |
 | B-16 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + HTTP 模型探针 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py"] | . | 300 |  |
 | B-17 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py"] | . | 300 |  |
-| B-18 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | . | 300 |  |
+| B-18 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | . | 300 |  |
 | B-19 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，摘要关闭 + 真实模型 HTTP | TASK-019 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_provider.py"] | . | 300 |  |
 | B-20 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，迁移前置检查与恢复演练 | TASK-007 | verified | ["uv","run","pytest","-q","tests/migrations/test_memory_redesign_preflight.py"] | . | 300 |  |
 | B-21 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 延迟 job / 后续摘要 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_input_boundary.py"] | . | 300 |  |
@@ -479,13 +479,13 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-009: 唯一事务写入、历史与命令回执
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007, TASK-008
 - **Source**: memory-redesign.design.md#3.4.3 唯一事务服务, memory-redesign.design.md#3.3.1 memory_scope（新增）, memory-redesign.design.md#3.3.3 user_memory_history（新增，append-only）, memory-redesign.design.md#3.3.4 memory_command_receipt（新增）
 - **Spec-Refs**: harness-api#RULE-api-002, harness-memory#RULE-memory-002
 - **Acceptance-Refs**: B-03, B-04, B-18
-- **Files**: apps/agent-runtime/src/muad_agent_runtime/application/memory_service.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_commands.py
+- **Files**: apps/agent-runtime/src/muad_agent_runtime/application/memory_service.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_commands.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_mutations.py, tests/agent_runtime/test_memory_redesign_writes.py, tests/agent_runtime/test_memory_redesign_quotas.py, tests/agent_runtime/test_memory_service.py
 
 ### Description
 
@@ -493,33 +493,44 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ### Checklist
 
-- [ ] [B-03][integration] 先写5连接同key版本连续、history失败整回滚RED。
-- [ ] [B-04][integration] 不同key抢最后条数/字节额度只有一个成功。
-- [ ] [B-18][integration] 全USER满额拒绝、清扫失败不写、后项失败恢复已淘汰事实。
-- [ ] 真实幂等命令重放不增版本/确认数，异指纹拒绝；同步API稳定receipt唯一口径并refresh。
-- [ ] [B-03][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG、5 个独立事务同 key 写；断言：同 id、version 连续且历史一一对应；事务时间逆序不影响回放。
-- [ ] [B-04][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG、独立连接不同 key 并发写；断言：199/200 最后额度只能一个写者取得；字节额度也不可穿透。
-- [ ] [B-18][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG；断言：全 USER/ADMIN 满额明确拒绝；淘汰失败不写新事实；批量失败恢复已淘汰事实。
-- [ ] [RULE-api-002] verifier：按元数据argv ["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
-- [ ] [RULE-memory-002] verifier：规范已由TASK-001建立并绑定，按 ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py","tests/agent_runtime/test_memory_redesign_quotas.py"]（review）验证 稳定identity、scope锁、历史/receipt原子性、硬配额；review由需求终验统一执行，当前无执行Evidence。
+- [x] [B-03][integration] 先写5连接同key版本连续、history失败整回滚RED。
+- [x] [B-04][integration] 不同key抢最后条数/字节额度只有一个成功。
+- [x] [B-18][integration] 全USER满额拒绝、清扫失败不写、后项失败恢复已淘汰事实。
+- [x] 真实幂等命令重放不增版本/确认数，异指纹拒绝；同步API稳定receipt唯一口径并refresh。
+- [x] [B-03][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG、5 个独立事务同 key 写；断言：同 id、version 连续且历史一一对应；事务时间逆序不影响回放。
+- [x] [B-04][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG、独立连接不同 key 并发写；断言：199/200 最后额度只能一个写者取得；字节额度也不可穿透。
+- [x] [B-18][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 PG；断言：全 USER/ADMIN 满额明确拒绝；淘汰失败不写新事实；批量失败恢复已淘汰事实。
+- [x] [RULE-api-002] verifier：元数据argv ["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"] 已在临时head库实际执行，5 passed；Done Gate 再登记code层证据。
+- [x] [RULE-memory-002] verifier：同名完整命令实际25 passed，B-03/B-04/B-18由runner verified；review层正式裁决仍由需求终验执行，不自报review通过。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-03 | integration | integration，真实 PG、5 个独立事务同 key 写 | 同 id、version 连续且历史一一对应；事务时间逆序不影响回放 | tests/agent_runtime/test_memory_redesign_writes.py / test_b03_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py"] | planned |
-| B-04 | integration | integration，真实 PG、独立连接不同 key 并发写 | 199/200 最后额度只能一个写者取得；字节额度也不可穿透 | tests/agent_runtime/test_memory_redesign_quotas.py / test_b04_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | planned |
-| B-18 | integration | integration，真实 PG | 全 USER/ADMIN 满额明确拒绝；淘汰失败不写新事实；批量失败恢复已淘汰事实 | tests/agent_runtime/test_memory_redesign_quotas.py / test_b18_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | planned |
-| harness-api#RULE-api-002 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"] | planned |
-| harness-memory#RULE-memory-002 | integration | 真实PG/Runtime/模型HTTP及冻结数据；纯函数子项直接验证 | 稳定identity、scope锁、历史/receipt原子性、硬配额 | 目标文件在verifier argv中；创建前不宣称可执行 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py","tests/agent_runtime/test_memory_redesign_quotas.py"] | planned |
+| B-03 | integration | integration，真实 PG、5 个独立事务同 key 写 | 同 id、version 连续且历史一一对应；事务时间逆序不影响回放 | tests/agent_runtime/test_memory_redesign_writes.py / test_b03_memory_redesign*（真实PG测试已编写；RED已收集） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py"] | verified |
+| B-04 | integration | integration，真实 PG、独立连接不同 key 并发写 | 199/200 最后额度只能一个写者取得；字节额度也不可穿透 | tests/agent_runtime/test_memory_redesign_quotas.py / test_b04_memory_redesign*（真实PG测试已编写；RED已收集） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | verified |
+| B-18 | integration | integration，真实 PG | 全 USER/ADMIN 满额明确拒绝；淘汰失败不写新事实；批量失败恢复已淘汰事实 | tests/agent_runtime/test_memory_redesign_quotas.py / test_b18_memory_redesign*（真实PG测试已编写；RED已收集） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | verified |
+| harness-api#RULE-api-002 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier实际执行，5 passed；临时head PG与真实Console HTTP | ["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"] | verified |
+| harness-memory#RULE-memory-002 | integration | 真实PG/Runtime/模型HTTP及冻结数据；纯函数子项直接验证 | 稳定identity、scope锁、历史/receipt原子性、硬配额 | 完整命令25 passed；正式review裁决留需求终验 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py","tests/agent_runtime/test_memory_redesign_quotas.py"] | deferred_to_review |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-03/B-04/B-18 | uv run pytest -q tests/agent_runtime/test_memory_redesign_writes.py tests/agent_runtime/test_memory_redesign_quotas.py --tb=line：新增memory_commands不存在、旧MemoryService不支持事务工厂/execute；环境fixture真实临时PG正常 | GREEN: 完整命令25 passed；runner a031545c3bf9418aaf87cd3ecf5595c3 三场景verified | tests/agent_runtime/test_memory_redesign_writes.py:28（五连接/版本链）、:77（时间逆序）、:102（history回滚）；test_memory_redesign_quotas.py:27（双连接/条数/UTF-8）、:77/:95/:144/:172（满额/淘汰/后项/清扫失败） | 每例独立head PG；pg_backend_pid验证独立连接；真实trigger/constraint失败；调用方事务可回滚，receipt失败整事务无效果 | verified |
+| RED环境澄清 | 初轮5项seed fixture报AmbiguousParameterError，不作为有效RED；修复CAST后quotas单跑7 failed，均为MemoryService不支持工厂 | 随后真实PG全部GREEN | memory_redesign_write_support.py 的 seed_facts | 修复测试环境未降低边界；未修改dev库schema或业务数据 | verified |
+| ENABLE补测 | 真实PG显式续期后list_entries为空，暴露implicit EXPIRE后未解除删除态 | 修复后25 passed；receipt返回同key最终version，history保留各版本 | test_memory_redesign_writes.py:306 | 真实过期AGENT + ADMIN显式expiry；不改变来源author | verified |
+| API/回归 | 既有回归不适用RED | 元数据API命令5 passed；service/policy/spec/content/evidence命令119 passed；no-heavy validation pass、ruff/mypy pass，函数均≤50行 | tests/console_skill/test_import_idempotency.py；test_memory_service.py；关联policy/spec/content/evidence目标 | API在临时head库 + 实际HTTP；服务回归独立PG；无mock写入层 | verified |
+| 工具层基线对照 | 启动基线fc61e98的原MemoryService在临时head库跑test_memory_tools：6 failed/6 passed，旧source_type已与TASK-007 schema不兼容 | 当前工具调用方仍是TASK-013负责的旧协议，非本任务验收；不得宣称全量绿 | test_memory_tools.py 的六个旧写入/recall用例 | 独立PG运行基线原模块，未修改workspace实现或共享dev库；首次共享库扩展回归9 failed中的3项是未迁移schema环境错误 | deferred_to_review |
+- B-03: verified — automated command passed; run_id=a031545c3bf9418aaf87cd3ecf5595c3 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=a031545c3bf9418aaf87cd3ecf5595c3 (confirmed_by: runner)
+- B-18: verified — automated command passed; run_id=a031545c3bf9418aaf87cd3ecf5595c3 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-13] started
+- [2026-10-13] completed (done)
 
 ---
 

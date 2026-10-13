@@ -1,219 +1,347 @@
-"""受控长期 Memory：PREFERENCE/WORK_STYLE/EXPLICIT 的版本化读写（runtime.user_memory）。"""
+"""Runtime's single transactional writer; parent locks belong to the caller."""
 
 from __future__ import annotations
 
-import uuid
-from typing import Any
+import hashlib
+import logging
+from datetime import datetime
+from uuid import UUID
 
-from sqlalchemy import func, select, text
+from muad_api import AppError
+from muad_api.error_codes import ErrorCode
+from muad_contracts.canonical import canonical_json
+from muad_contracts.memory import memory_hash
+from pydantic import JsonValue
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.db import get_session_factory
-from ..infrastructure.models.runtime import UserMemory
+from ..infrastructure.db import SessionFactory, get_session_factory
+from ..infrastructure.models.runtime import (
+    CanonicalEvent,
+    Conversation,
+    MemoryCommandReceipt,
+    MemoryScope,
+    UserMemory,
+)
+from .memory_commands import MemoryCommand, MemoryCommandOutcome, MemoryCommandResponse, MemoryWriteContext
+from .memory_mutations import memory_snapshot, persist_plan, plan_mutations, source_times
 
-WRITE_POLICY_CONTROLLED = "CONTROLLED"
+logger = logging.getLogger(__name__)
 
 ALLOWED_CATEGORIES = frozenset({"PREFERENCE", "WORK_STYLE", "EXPLICIT"})
-
-# 记忆来源分级：只有用户明确要求的记忆才自动注入（`AGENT_INFERRED` 仅经 `recall` 取回）。
 SOURCE_USER_EXPLICIT = "USER_EXPLICIT"
 SOURCE_AGENT_INFERRED = "AGENT_INFERRED"
 
 
-class MemoryService:
-    """跨进程边界使用；每次操作持有独立短事务。
+def command_fingerprint(ctx: MemoryWriteContext, command: MemoryCommand) -> str:
+    """Bind authority and inputs; quota settings and secrets are never stored."""
+    payload = command.model_dump(mode="json", exclude={"command_id"})
+    payload.update(
+        tenant_id=ctx.tenant_id,
+        user_id=str(ctx.user_id),
+        actor_type=ctx.actor_type,
+        actor_id=ctx.actor_id,
+        source_run_id=str(ctx.source_run_id) if ctx.source_run_id else None,
+        conversation_id=str(ctx.conversation_id) if ctx.conversation_id else None,
+        confirmation_event_id=str(ctx.confirmation_event_id) if ctx.confirmation_event_id else None,
+        evidence=ctx.evidence.model_dump(mode="json") if ctx.evidence else None,
+        expected_forget_epoch=ctx.expected_forget_epoch,
+    )
+    # Omitted expiry applies policy; explicit null requests no expiry.
+    payload["mutations"] = [
+        item.model_dump(mode="json", exclude={"expires_at"})
+        | ({"expires_at": item.model_dump(mode="json")["expires_at"]} if item.expiry_provided else {})
+        for item in command.mutations
+    ]
+    return memory_hash(payload)
 
-    `source_type` **不做白名单校验**：既有行可能带历史取值（如 `EXPLICIT`），
-    它们在注入分级中按"非 `USER_EXPLICIT`"处理（即不自动注入），
-    而不是让历史数据变成写入错误。入参枚举校验属工具层（`remember`）。
-    """
 
-    async def upsert(
-        self,
-        *,
-        tenant_id: str,
-        user_id: uuid.UUID,
-        category: str,
-        memory_key: str,
-        content_json: dict[str, Any],
-        source_type: str,
-        source_ref: str | None = None,
-    ) -> dict[str, Any]:
-        """同 `(tenant_id, user_id, memory_key)` 覆盖更新：`version+1`、`enabled` 复位、`update_time` 刷新。
+async def _lock_command(session: AsyncSession, ctx: MemoryWriteContext, command: MemoryCommand) -> None:
+    # Receipt uniqueness also covers cross-endpoint and cross-user collisions.
+    identity = canonical_json(["memory_command_receipt", ctx.tenant_id, command.command_id])
+    key = int.from_bytes(hashlib.sha256(identity.encode()).digest()[:8], "big", signed=True)
+    await session.execute(select(func.pg_advisory_xact_lock(key)))
 
-        用 `INSERT ... ON CONFLICT DO UPDATE` 单语句完成，而不是"先 select 再 insert/update"：
-        后者在并发下会丢版本增量（多个写者都读到同一 version 再各自 +1，最终版本远小于调用次数，
-        实测 5 并发只到 2），撞唯一约束时还会直接抛错。
 
-        **`update_time` 取数据库时钟（`now()`），插入与更新同一口径**：它是注入与检索的排序键
-        （`ORDER BY update_time DESC`），而 Runtime 多 Pod 无状态、同一用户可被任意 Pod 写入 ——
-        用各 Pod 的进程时钟排序跨写者不可比。两个时钟混用还会让"更新必然晚于插入"不成立
-        （插入走 `server_default now()`、更新走进程时钟，实测相差约 1ms 且方向不定）。
-
-        **冲突目标必须复述 partial 索引的谓词** `WHERE is_deleted = false`：`user_memory` 上的唯一索引
-        是 partial unique，谓词不匹配时 PostgreSQL 推断不出该索引，会报
-        "no unique or exclusion constraint matching the ON CONFLICT specification"。
-        软删除的旧行因此不参与冲突 —— 同 key 重新写入会新起一行，旧行保留供审计。
-        """
-        if category not in ALLOWED_CATEGORIES:
-            raise ValueError(f"memory category not allowed: {category}")
-        statement = (
-            pg_insert(UserMemory)
-            .values(
-                tenant_id=tenant_id,
-                user_id=user_id,
-                memory_key=memory_key,
-                category=category,
-                content_json=content_json,
-                source_type=source_type,
-                source_ref=source_ref,
-                write_policy=WRITE_POLICY_CONTROLLED,
-                version=1,
-                enabled=True,
+async def _receipt(
+    session: AsyncSession, ctx: MemoryWriteContext, command: MemoryCommand, fingerprint: str
+) -> MemoryCommandOutcome | None:
+    row = (
+        await session.execute(
+            select(MemoryCommandReceipt).where(
+                MemoryCommandReceipt.tenant_id == ctx.tenant_id,
+                MemoryCommandReceipt.command_id == command.command_id,
             )
-            .on_conflict_do_update(
-                index_elements=["tenant_id", "user_id", "memory_key"],
-                index_where=text("is_deleted = false"),
-                set_={
-                    "category": category,
-                    "content_json": content_json,
-                    "source_type": source_type,
-                    "source_ref": source_ref,
-                    "version": UserMemory.__table__.c.version + 1,
-                    # 覆盖更新必须把 `enabled` 置回 true：否则"重新记住"对一条被禁用的记忆不生效，
-                    # 而工具仍回执成功（用户被告知记住了、实际永不生效）。
-                    "enabled": True,
-                    "update_time": func.now(),
-                },
-            )
-            .returning(UserMemory)
         )
-        async with get_session_factory()() as session:
-            row = (await session.execute(statement)).scalars().one()
-            await session.commit()
-            return self._snapshot(row)
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+    if row.request_fingerprint != fingerprint:
+        raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
+    return MemoryCommandOutcome(MemoryCommandResponse.model_validate(row.response_json), replayed=True)
 
-    async def list_entries(self, tenant_id: str, user_id: uuid.UUID) -> list[dict[str, Any]]:
-        async with get_session_factory()() as session:
+
+def _stale(scope: MemoryScope, ctx: MemoryWriteContext, command: MemoryCommand) -> bool:
+    return (
+        command.expected_scope_revision is not None and command.expected_scope_revision != scope.revision
+    ) or (ctx.expected_forget_epoch is not None and ctx.expected_forget_epoch != scope.forget_epoch)
+
+
+async def _save_receipt(
+    session: AsyncSession,
+    ctx: MemoryWriteContext,
+    command: MemoryCommand,
+    fingerprint: str,
+    response: MemoryCommandResponse,
+) -> MemoryCommandOutcome:
+    session.add(
+        MemoryCommandReceipt(
+            tenant_id=ctx.tenant_id,
+            command_id=command.command_id,
+            endpoint=command.endpoint,
+            user_id=ctx.user_id,
+            request_fingerprint=fingerprint,
+            status=response.status,
+            response_json=response.model_dump(mode="json"),
+            source_run_id=ctx.source_run_id,
+        )
+    )
+    await session.flush()
+    return MemoryCommandOutcome(response, replayed=False)
+
+
+async def _validate_confirmation(
+    session: AsyncSession, ctx: MemoryWriteContext, command: MemoryCommand
+) -> None:
+    if ctx.actor_type != "USER" or not any(item.action == "UPSERT" for item in command.mutations):
+        return
+    if ctx.confirmation_event_id is None:
+        raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
+    event = (
+        await session.execute(
+            select(CanonicalEvent.id)
+            .join(
+                Conversation,
+                CanonicalEvent.conversation_id == Conversation.id,
+            )
+            .where(
+                CanonicalEvent.id == ctx.confirmation_event_id,
+                CanonicalEvent.tenant_id == ctx.tenant_id,
+                CanonicalEvent.event_type == "USER_MESSAGE",
+                CanonicalEvent.is_deleted.is_(False),
+                Conversation.tenant_id == ctx.tenant_id,
+                Conversation.user_id == ctx.user_id,
+                Conversation.is_deleted.is_(False),
+                *([Conversation.id == ctx.conversation_id] if ctx.conversation_id is not None else []),
+            )
+        )
+    ).scalar_one_or_none()
+    if event is None:
+        raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
+
+
+class MemoryService:
+    def __init__(self, session_factory: SessionFactory | None = None) -> None:
+        self._session_factory = session_factory
+
+    def _sessions(self) -> SessionFactory:
+        return self._session_factory if self._session_factory is not None else get_session_factory()
+
+    async def execute(self, ctx: MemoryWriteContext, command: MemoryCommand) -> MemoryCommandOutcome:
+        """Return success only after the complete command commits."""
+        try:
+            async with self._sessions().begin() as session:
+                outcome = await self.execute_in_session(session, ctx, command)
+            return outcome
+        except SQLAlchemyError as exc:
+            self._report_database_error(ctx, command, exc)
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
+
+    async def execute_in_session(
+        self, session: AsyncSession, ctx: MemoryWriteContext, command: MemoryCommand
+    ) -> MemoryCommandOutcome:
+        """Flush without committing; rejection rolls back the caller transaction.
+
+        The caller owns Conversation/Run/Interrupt/Job locks and canonical effects.
+        No network IO or per-item commit occurs inside this primitive.
+        """
+        if not session.in_transaction():
+            raise RuntimeError("memory command requires a caller-owned transaction")
+        try:
+            return await self._execute_locked(session, ctx, command)
+        except SQLAlchemyError as exc:
+            await session.rollback()
+            self._report_database_error(ctx, command, exc)
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
+        except AppError:
+            await session.rollback()
+            raise
+
+    @staticmethod
+    def _report_database_error(ctx: MemoryWriteContext, command: MemoryCommand, exc: SQLAlchemyError) -> None:
+        # SQLAlchemy exception text contains bound candidate/quote values.
+        logger.warning(
+            "memory_command_failed",
+            extra={
+                "tenant_id": ctx.tenant_id,
+                "user_id": str(ctx.user_id),
+                "command_id": command.command_id,
+                "error_code": ErrorCode.COMMON_INTERNAL_ERROR.value,
+                "error_type": type(exc).__name__,
+            },
+        )
+
+    @staticmethod
+    async def lock_scope(session: AsyncSession, ctx: MemoryWriteContext) -> MemoryScope:
+        await session.execute(
+            pg_insert(MemoryScope)
+            .values(
+                tenant_id=ctx.tenant_id,
+                user_id=ctx.user_id,
+            )
+            .on_conflict_do_nothing(index_elements=["tenant_id", "user_id"])
+        )
+        return (
+            await session.execute(
+                select(MemoryScope)
+                .where(
+                    MemoryScope.tenant_id == ctx.tenant_id,
+                    MemoryScope.user_id == ctx.user_id,
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+
+    async def _execute_locked(
+        self, session: AsyncSession, ctx: MemoryWriteContext, command: MemoryCommand
+    ) -> MemoryCommandOutcome:
+        fingerprint = command_fingerprint(ctx, command)
+        scope = await self.lock_scope(session, ctx)
+        await _lock_command(session, ctx, command)
+        replay = await _receipt(session, ctx, command, fingerprint)
+        if replay is not None:
+            return replay
+        response = MemoryCommandResponse(
+            command_id=command.command_id,
+            scope_revision=scope.revision,
+            forget_epoch=scope.forget_epoch,
+            changed_count=0,
+            status="STALE",
+            items=[],
+        )
+        if not _stale(scope, ctx, command):
+            response = await self._apply(session, ctx, command, scope)
+        return await _save_receipt(session, ctx, command, fingerprint, response)
+
+    @staticmethod
+    async def _apply(
+        session: AsyncSession, ctx: MemoryWriteContext, command: MemoryCommand, scope: MemoryScope
+    ) -> MemoryCommandResponse:
+        await _validate_confirmation(session, ctx, command)
+        now: datetime = (await session.execute(select(func.statement_timestamp()))).scalar_one()
+        keys = [item.key for item in command.mutations if item.key is not None]
+        rows = list(
+            (
+                await session.scalars(
+                    select(UserMemory)
+                    .where(
+                        UserMemory.tenant_id == ctx.tenant_id,
+                        UserMemory.user_id == ctx.user_id,
+                        UserMemory.is_deleted.is_(False) | UserMemory.memory_key.in_(keys),
+                    )
+                    .order_by(UserMemory.memory_key)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            ).all()
+        )
+        times = await source_times(session, ctx, rows)
+        plan = plan_mutations(command, ctx, rows, now, scope.revision + 1, times)
+        results = await persist_plan(session, ctx, command, rows, plan, now)
+        if plan.changes:
+            scope.revision += 1
+            scope.update_time = now
+            if any(change.reason in ("USER_DELETE", "ADMIN_DELETE") for change in plan.changes):
+                scope.forget_epoch += 1
+        return MemoryCommandResponse(
+            command_id=command.command_id,
+            scope_revision=scope.revision,
+            forget_epoch=scope.forget_epoch,
+            changed_count=len(plan.changes),
+            status="APPLIED" if plan.changes else "UNCHANGED",
+            items=results,
+        )
+
+    async def list_entries(self, tenant_id: str, user_id: UUID) -> list[dict[str, JsonValue]]:
+        async with self._sessions()() as session:
             rows = (
-                await session.execute(
+                await session.scalars(
                     select(UserMemory)
                     .where(
                         UserMemory.tenant_id == tenant_id,
                         UserMemory.user_id == user_id,
                         UserMemory.enabled.is_(True),
                         UserMemory.is_deleted.is_(False),
+                        (
+                            UserMemory.expires_at.is_(None)
+                            | (UserMemory.expires_at > func.statement_timestamp())
+                        ),
                     )
                     .order_by(UserMemory.memory_key)
                 )
-            ).scalars().all()
-            return [self._snapshot(row) for row in rows]
+            ).all()
+            return [memory_snapshot(row) for row in rows]
 
     async def list_for_injection(
-        self, tenant_id: str, user_id: uuid.UUID, *, limit: int
-    ) -> list[dict[str, Any]]:
-        """自动注入用：**只取 `USER_EXPLICIT`**，按 `update_time DESC` 取最近 `limit` 条。
-
-        分级过滤放在 SQL 层而不是取回后在应用层筛：注入是每轮对话的必经查询，
-        `AGENT_INFERRED` 与软删除行不该被读出来（命中 `ix_user_memory_user_enabled_update_time`）。
-        条数/字节上限不在这里施加 —— 调用方（ContextBuilder）按预算逐条累加。
-        """
-        async with get_session_factory()() as session:
-            return await self.list_for_injection_with_session(
-                session, tenant_id, user_id, limit=limit
-            )
+        self, tenant_id: str, user_id: UUID, *, limit: int
+    ) -> list[dict[str, JsonValue]]:
+        async with self._sessions()() as session:
+            return await self.list_for_injection_with_session(session, tenant_id, user_id, limit=limit)
 
     @staticmethod
     async def list_for_injection_with_session(
-        session: AsyncSession,
-        tenant_id: str,
-        user_id: uuid.UUID,
-        *,
-        limit: int,
-    ) -> list[dict[str, Any]]:
-        """在调用方已持有的 session 上执行注入查询。
-
-        ContextBuilder 取历史时已经开着一个会话；再在里层开第二个会话会在**持有连接的同时**
-        申请新连接，池紧张时直接把请求拖死。同款先例见
-        `ArtifactResultWriter.persist_tool_result_with_session`。
-        """
+        session: AsyncSession, tenant_id: str, user_id: UUID, *, limit: int
+    ) -> list[dict[str, JsonValue]]:
         rows = (
-            await session.execute(
+            await session.scalars(
                 select(UserMemory)
                 .where(
                     UserMemory.tenant_id == tenant_id,
                     UserMemory.user_id == user_id,
-                    UserMemory.source_type == SOURCE_USER_EXPLICIT,
+                    UserMemory.author.in_(("USER", "ADMIN")),
+                    UserMemory.category.in_(("PREFERENCE", "WORK_STYLE")),
                     UserMemory.enabled.is_(True),
                     UserMemory.is_deleted.is_(False),
+                    (UserMemory.expires_at.is_(None) | (UserMemory.expires_at > func.statement_timestamp())),
                 )
-                .order_by(UserMemory.update_time.desc())
+                .order_by(UserMemory.update_time.desc(), UserMemory.memory_key)
                 .limit(limit)
             )
-        ).scalars().all()
-        return [MemoryService._snapshot(row) for row in rows]
+        ).all()
+        return [memory_snapshot(row) for row in rows]
 
     async def search(
-        self,
-        tenant_id: str,
-        user_id: uuid.UUID,
-        *,
-        prefix: str | None = None,
-        limit: int,
-    ) -> list[dict[str, Any]]:
-        """模型按需检索用（`recall`）：前缀过滤 + 最近优先，**两类来源都可取回**。
-
-        与注入的区别是这里没有 `source_type` 过滤 —— `AGENT_INFERRED` 正是靠这条路进入上下文。
-        """
+        self, tenant_id: str, user_id: UUID, *, prefix: str | None = None, limit: int
+    ) -> list[dict[str, JsonValue]]:
         filters = [
             UserMemory.tenant_id == tenant_id,
             UserMemory.user_id == user_id,
             UserMemory.enabled.is_(True),
             UserMemory.is_deleted.is_(False),
+            (UserMemory.expires_at.is_(None) | (UserMemory.expires_at > func.statement_timestamp())),
         ]
         if prefix:
             filters.append(UserMemory.memory_key.startswith(prefix, autoescape=True))
-        async with get_session_factory()() as session:
+        async with self._sessions()() as session:
             rows = (
-                await session.execute(
+                await session.scalars(
                     select(UserMemory)
                     .where(*filters)
-                    .order_by(UserMemory.update_time.desc())
+                    .order_by(UserMemory.update_time.desc(), UserMemory.memory_key)
                     .limit(limit)
                 )
-            ).scalars().all()
-            return [self._snapshot(row) for row in rows]
-
-    async def disable(self, tenant_id: str, user_id: uuid.UUID, memory_key: str) -> None:
-        """软删除（is_deleted=true）：历史可审计，运行时不再读取。"""
-        async with get_session_factory()() as session:
-            row = (
-                await session.execute(
-                    select(UserMemory).where(
-                        UserMemory.tenant_id == tenant_id,
-                        UserMemory.user_id == user_id,
-                        UserMemory.memory_key == memory_key,
-                        UserMemory.is_deleted.is_(False),
-                    )
-                )
-            ).scalar_one_or_none()
-            if row is not None:
-                row.is_deleted = True
-                await session.commit()
-
-    @staticmethod
-    def _snapshot(row: UserMemory) -> dict[str, Any]:
-        return {
-            "id": str(row.id),
-            "user_id": str(row.user_id),
-            "memory_key": row.memory_key,
-            "category": row.category,
-            "content_json": row.content_json,
-            "source_type": row.source_type,
-            "source_ref": row.source_ref,
-            "version": row.version,
-            "enabled": row.enabled,
-            # 注入与检索都按它排序，调用方需要它来做上限累加与断言
-            "update_time": row.update_time,
-        }
+            ).all()
+            return [memory_snapshot(row) for row in rows]

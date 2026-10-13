@@ -1,7 +1,7 @@
 version: 1
 task: memory-redesign
 enforcement: required
-updated_at: '2026-10-13T00:00:11.956342+00:00'
+updated_at: '2026-10-13T02:41:27.672030+00:00'
 sources:
 - type: cli
   ref: bind
@@ -10,9 +10,9 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: 7d0caac6679de468070c982183c7856d3b91cdaf2960431d09317f4cc39d4567
+    file_sha256: d3e052b669aced7cd3cc66cd1d8b478d98f0238b28e6af0fdb2a49eb4be23420
     metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
-    rules_sha256: 1c14a73d7f32fecb843b7008e1f356f1e1a956aaa4c3a24063bae626f104fe48
+    rules_sha256: 8ee17f7b3e997864a74bb3aea23898161ecbeb65a39354aeb33766476a958fa6
   selected_by: agent
   reason: 依据v0.5设计和已授权任务拆分：管理API封套/分页/身份与事务命令幂等
   enforcement: required
@@ -32,7 +32,11 @@ bindings:
       unique 只作兜底（`channel_service.py:153-159`、`auth_service.py:270-276`、`audit_export_service.py:386-392`、`agent_service.py:159-162`、`mcp_service.py:240-243`、`skill_service.py:278-286`）。**存量待收敛**：console
       侧 `agent_service`/`mcp_service`/`skill_service` 三处 `_fingerprint` 仍用 `|` 拼接且不含
       endpoint/tenant，须按本口径对齐（合规参考 `channel_service.py:59-74`、`auth_service.py:253-267`、`audit_export_service.py:100-119`、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py:30-49`）。
-    text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+      Runtime 记忆命令使用永久回执 `runtime.memory_command_receipt`，完整唯一 `(tenant_id, command_id)`
+      且禁止软删；Scope 行锁后取同一 `(tenant_id, command_id)` 身份的事务 advisory lock，复查首次回执，完整唯一约束兜底。endpoint/user/actor/source_run/来源事件和规范化输入均进入指纹；同命令号跨
+      endpoint 或 user 返回 `IDEMPOTENCY_MISMATCH`，不新建第二份回执。回执、事实、完整历史、scope revision
+      同事务；批量清空只写一个回执。
+    text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
     enforcement: required
     verifier_ref: harness-api#RULE-api-002
     verifier_stage: code
@@ -43,7 +47,11 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-api-002
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
+        - artifact: memory-redesign.design.md
+          section_id: 3.3.4
+          item_id: permanent-receipt
+          artifact_sha256: 4dc5d5b261bf1793d1e99c6256f67087b348b09d1e512b13d123d3d649897fc4
         decision: null
         evidence: []
       plan:
@@ -52,11 +60,15 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
+        - artifact: memory-redesign.md
+          section_id: TASK-009
+          item_id: idempotency-receipt
+          artifact_sha256: 9f934406e644bb8499047b58ecd5f6eb28e4c0191c053e2924ae4c7f72ffac98
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -172,8 +184,41 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-13T01:59:06.645358+00:00'
+          status: unverified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-13T02:42:13.245484+00:00'
+          status: verified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: c6ccdfa9bcd92145880a1cc89e261617a99308abcef2b69fc9c8e172d103c637
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 6149f77691adbb83ea978ea83ee7cf59c8fd3ef770118de4224682c76200cb7f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 0.88s
+
+              '
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
@@ -192,7 +237,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-api-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -201,11 +246,11 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-023
           item_id: TASK-023
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -333,6 +378,45 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-13T01:59:06.645530+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-13T02:42:15.713507+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: c1ee30854939e0e927cea42a2fc017ebce219b464b613d1c198d335049b74d82
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 464d4b72937cb87c6ba421b4d5ba4e9b0d948260250e7d5ece60f490ebf245b9
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.10s\n"
       review:
         status: pending
         refs: []
@@ -368,7 +452,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-arch-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -377,7 +461,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-022
           item_id: TASK-022
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -473,6 +557,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-13T01:59:06.646170+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-13T02:42:15.714264+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -511,7 +616,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -520,7 +625,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -616,6 +721,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-13T01:59:06.646798+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-13T02:42:15.714727+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: stale
         refs: []
@@ -655,7 +781,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-front-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -664,7 +790,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-026
           item_id: TASK-026
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -760,6 +886,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-13T01:59:06.647478+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-13T02:42:15.715129+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -795,7 +942,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-i18n-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -804,7 +951,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-027
           item_id: TASK-027
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -900,6 +1047,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-13T01:59:06.648056+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-13T02:42:15.715476+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -935,7 +1103,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-im-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -944,7 +1112,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -1040,6 +1208,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-13T01:59:06.648973+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-13T02:42:15.716012+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1061,7 +1250,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-im-002
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -1070,7 +1259,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -1166,6 +1355,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-13T01:59:06.648979+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-13T02:42:15.716016+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1203,7 +1413,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-log-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -1212,7 +1422,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-018
           item_id: TASK-018
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -1308,6 +1518,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-13T01:59:06.649611+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-13T02:42:15.716381+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1345,7 +1576,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-memory-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -1354,7 +1585,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-015
           item_id: TASK-015
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -1382,7 +1613,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-memory-002
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -1391,7 +1622,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -1420,7 +1651,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-memory-003
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -1429,7 +1660,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-012
           item_id: TASK-012
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -1457,7 +1688,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-memory-004
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -1466,7 +1697,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-021
           item_id: TASK-021
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -1495,7 +1726,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-memory-005
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -1504,7 +1735,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-021
           item_id: TASK-021
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -1532,7 +1763,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-memory-006
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -1541,7 +1772,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -1584,7 +1815,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-model-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -1593,7 +1824,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-019
           item_id: TASK-019
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -1689,6 +1920,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-13T01:59:06.652484+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-13T02:42:15.717975+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1725,7 +1977,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-secret-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -1734,7 +1986,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-029
           item_id: TASK-029
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -1843,6 +2095,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-13T01:59:06.653299+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-13T02:42:15.718434+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1883,7 +2156,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-skill-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -1892,7 +2165,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -2000,6 +2273,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-13T01:59:06.653909+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-13T02:42:15.718818+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2037,7 +2331,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -2046,7 +2340,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-016
           item_id: TASK-016
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -2142,6 +2436,27 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-13T01:59:06.654507+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-13T02:42:15.719161+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2177,7 +2492,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-test-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -2186,7 +2501,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-030
           item_id: TASK-030
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -2282,6 +2597,27 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-13T01:59:06.655300+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-13T02:42:15.719602+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2317,7 +2653,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-time-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -2326,7 +2662,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -2438,6 +2774,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-13T01:59:06.655940+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-13T02:42:15.719917+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2473,7 +2830,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-ui-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -2482,7 +2839,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-028
           item_id: TASK-028
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -2578,6 +2935,27 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-13T01:59:06.656605+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-13T02:42:15.720263+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2613,7 +2991,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 6.1 Spec Compliance Matrix
           item_id: RULE-ui-detail-001
-          artifact_sha256: 87191dc398cdcb465d95cec409586091359eaf078f10ea8abc174b7fc7f6d6a2
+          artifact_sha256: 23da62f03dece657a3e7693b7d0f77881b9cb3b680983b1cd183081ebd01f21c
         decision: null
         evidence: []
       plan:
@@ -2622,7 +3000,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-028
           item_id: TASK-028
-          artifact_sha256: d7373b7a4a50b489dc535b6acf115ba6bfd9988db07231449bc615aa34e17ce1
+          artifact_sha256: 29ef1da8187876267253762506f2ceb69e49325eb44189819a976bc367917ba9
         decision: null
         evidence: []
       code:
@@ -2713,6 +3091,27 @@ bindings:
           rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
           artifact_sha256: null
           diff_sha256: b5b7d9acb894f1a635dd722be0e91e90986ba6c6d4bbc8ef832e2254c8599359
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-13T01:59:06.657268+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: c8294d260dd59d5035d7644b897716cd11c8a863000999c9b513a51f861a3d1e
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-13T02:42:15.720623+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 816167b0eb77256dd4a4722bdb5232478af0c2c7fd6c846801247e7e548e5ed5
           result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
           error_code: deferred_to_review
           details:

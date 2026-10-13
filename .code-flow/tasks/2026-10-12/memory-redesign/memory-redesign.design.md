@@ -287,6 +287,8 @@ compaction 删除整个 memory.budget_ratio 分支；新增 max_history_tool_rou
 | packages/contracts/.../memory.py | 严格枚举/DTO、候选确认协议、TASK_STATE 输入、字节常量、canonical hash |
 | packages/agent-core/.../memory/ | tokenize / lexical_coverage / select_memories / render_memory_block；纯函数，无 app/DB/network import |
 | Runtime application/memory_service.py | 唯一 MemoryMutationService；调用者身份已绑定；scope 锁、冲突、配额、历史、命令回执 |
+| Runtime application/memory_commands.py | 受信 MemoryWriteContext、严格批量命令与只含元数据的回执 DTO |
+| Runtime application/memory_mutations.py | 锁内整批规划、隐式退休与最终状态配额、完整 after history；不提交事务 |
 | Runtime application/memory_confirmation.py | 构造绑定候选的中断、验证真实 resume 输入、单次确认；不把模型文本当批准 |
 | Runtime application/memory_queries.py | 有界候选与版本历史查询；共享 MemoryReadFilters |
 | Runtime application/memory_consolidation.py | 输入构建/模型解析/候选验证；不自行开 per-item 提交 |
@@ -390,7 +392,7 @@ source/actor/command 的审计引用使用逻辑 UUID/标识，保留审计后�
 
 tool command_id 由可信 run_id/tool_call_id 派生；确认由 interrupt_id + 真实入站 message_id 派生；Console Idempotency-Key 经受保护内部接口传入。指纹包含 tenant/user/endpoint/action/规范化输入，不依赖响应文案。
 
-同 ID 同指纹重放已提交回执；不同指纹拒绝。命令回执与事实/history 同事务，不使用“先标成功后写入”的两步操作。批量清空只生成一个 receipt，各 history 行关联同 command_id。
+同 ID 同指纹重放已提交回执；不同指纹拒绝。Scope 行锁后按 `(tenant_id,command_id)` 派生事务 advisory lock，再重查 receipt；跨 user/endpoint 共用这个命令身份并明确拒绝异指纹，完整唯一约束兜底。命令回执与事实/history 同事务，不使用“先标成功后写入”的两步操作。批量清空只生成一个 receipt，各 history 行关联同 command_id。
 
 #### 3.3.5 memory_consolidation_job（新增）
 
