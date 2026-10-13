@@ -193,7 +193,7 @@ def _drop_database(dsn: str, name: str, *, attempts: int = 4) -> None:
             time.sleep(0.5 * (attempt + 1))
 
 
-def _migrate_to_head(database_url: str, workdir: Path) -> None:
+def _migrate_to_head(database_url: str, workdir: Path, revision: str = "head") -> None:
     ini = workdir / "alembic.acceptance.ini"
     ini.write_text(
         "[alembic]\n"
@@ -203,7 +203,7 @@ def _migrate_to_head(database_url: str, workdir: Path) -> None:
         encoding="utf-8",
     )
     completed = subprocess.run(
-        [sys.executable, "migrations/db_migrate.py", "-c", str(ini)],
+        [sys.executable, "migrations/db_migrate.py", "-c", str(ini), "upgrade", revision],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -216,8 +216,8 @@ def _migrate_to_head(database_url: str, workdir: Path) -> None:
         )
 
 
-def create_datastore(prefix: str = DEFAULT_PREFIX) -> dict[str, str]:
-    """建一个空库 + 独立 Redis DB，库迁到 head。
+def create_datastore(prefix: str = DEFAULT_PREFIX, *, revision: str = "head") -> dict[str, str]:
+    """建空库 + 独立 Redis DB；默认迁到 head，迁移测试可显式指定旧 revision。
 
     返回 `database_url` / `redis_url` / `name`，以及 `admin_database_url`（**建库前的基准 DSN**）。
     后者是必需的：调用方随后会把 `DATABASE_URL` 覆盖成临时库，drop 时必须用基准 DSN 连回
@@ -246,7 +246,7 @@ def create_datastore(prefix: str = DEFAULT_PREFIX) -> dict[str, str]:
     database_url = _swap_database(base_database_url, name)
     tmpdir = Path(tempfile.mkdtemp(prefix="muad-acceptance-"))
     try:
-        _migrate_to_head(database_url, tmpdir)
+        _migrate_to_head(database_url, tmpdir, revision)
     except BaseException:
         # 迁移失败也要丢弃半成品库 + 归还 Redis 号位，避免残留
         _drop_database(admin_dsn, name)

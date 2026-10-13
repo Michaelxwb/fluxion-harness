@@ -215,7 +215,7 @@ compaction 删除整个 memory.budget_ratio 分支；新增 max_history_tool_rou
 | B-11 | FEAT-09 | integration，真实 PG + 故障注入 | 坏形状、批内后项失败、历史失败整批零效果；效果提交前/后崩溃均不重复；Run 保持 COMPLETED |
 | B-12 | FEAT-10 | integration，真实 PG + 两段 Run | 修改一个设置，新 Run 读新值，旧 Run/resume/job 均读冻结值；无其他叶子意外变化 |
 | B-13 | FEAT-11 | integration，迁移库 + ORM create_all | 表/索引/约束逐项 parity；完整 key 唯一与历史 (origin_id,version) 唯一可真实阻止违规 |
-| B-14 | FEAT-03,11 | integration，旧 revision 存量库升级 | 基线 A/version20 → 新写 B/version21 可回放 A；旧来源不伪造 USER；旧 AGENT 不覆写也会到期 |
+| B-14 | FEAT-03,11 | integration，旧 revision 存量库升级 | 基线 A/version20 → 来源/TTL政策version21 → 新写B/version22仍可回放A；旧来源不伪造 USER；旧 AGENT 不覆写也会到期 |
 | B-15 | FEAT-02 | integration，真实 Gateway/Runtime/PG/resume | 确认内容与展示一致；其他用户、编号、过期、旧版本/forget_epoch、重放均不能保存另一份内容；同轮两提议明确拒绝第二个；无效回答仍 WAITING，拒绝合法续跑 |
 | B-16 | FEAT-07,09 | integration，真实 PG + HTTP 模型探针 | forget 后才开始提炼旧会话仍不可复活；模型期间删除使 job STALE；人工 disabled 不被启用；自动退休仅新入站 source_scope_revision 可恢复 |
 | B-17 | FEAT-03,09 | integration，真实 PG | AGENT 同 key 不覆盖 USER/ADMIN；晚结束的旧 Run 不覆盖较新状态；同值重放不虚增确认数 |
@@ -615,7 +615,7 @@ job 模型调用可因 SIGKILL/lease 接管重复；写入效果原子最多一�
 - 无真实确认证据的存量来源一律 AGENT；explicit_request=false，保留旧来源仅作历史说明，不能用自报 USER_EXPLICIT/EXPLICIT 迁成已确认 USER。
 - 以旧 update_time + 对应 TTL 回填 AGENT expires_at；已经到期的行在迁移中写 EXPIRE。不等待下一次覆写；用户原话/管理员的真实确认需要可证明记录才能保留其级别。
 - 创建 scope/history/receipt/job、run_interrupt proposal_json、完整 key 唯一/候选/到期/claim 索引与 ORM 同构；删旧查询索引、旧 partial key 唯一与 source_type。
-- 当前平台设置通过单次迁移插入新 revision：只移除旧 compaction.memory 分支并添加新字段，保留其他值、旧设置版本与 RESTORE 审计；Agent runtime_config 同步移除旧 ratio 配置。
+- 当前平台设置通过单次迁移插入新 revision：只移除旧 compaction.memory 分支并添加新字段，保留其他值、旧设置版本与 RESTORE 审计；当前配置只读取未删除版本。Agent runtime_config 同步移除旧 ratio 配置，递增 revision 并记录 UPDATE 审计；已删除 Agent 与终态快照原样保留。
 - 终态旧 Run/Task snapshot 只保留审计原样，不重新执行；在途对象已于前置条件排空。快照 schema 不用“失败返回 None”绕过协议不兼容。
 - 若旧 AGENT 超配额，按明确排序清理并写历史；不可静默升级或删除有可证明确认的事实。预检不通过则回滚迁移、保持维护窗口。
 

@@ -17,6 +17,9 @@ from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, Run
 from muad_agent_worker.infrastructure.models.runtime_operations import RuntimeOperation, RuntimeResultOutbox
 from muad_agent_worker.infrastructure.models.task import TaskExecution
 
+from tests.migrations.memory_redesign_support import legacy_memory_database as legacy_memory_database
+from tests.migrations.memory_redesign_support import legacy_memory_datastore as legacy_memory_datastore
+
 ROOT = Path(__file__).resolve().parents[2]
 MODELS = (
     ToolOperation,
@@ -83,15 +86,39 @@ async def test_b08_empty_database_schema_parity(async_tool_database) -> None:
 
 
 async def test_b08_old_rows_upgrade_and_drain_before_downgrade(
-    async_tool_datastore,
-    async_tool_database,
+    legacy_memory_datastore,
+    legacy_memory_database,
     tmp_path,
 ) -> None:
-    info = async_tool_datastore
+    info = legacy_memory_datastore
     down = _migrate(info, tmp_path, "downgrade", "0018")
     assert down.returncode == 0, down.stderr
     conversation, run, task = uuid4(), uuid4(), uuid4()
-    async with async_tool_database.begin() as connection:
+    await _seed_legacy_objects(legacy_memory_database, conversation, run, task)
+    upgraded = _migrate(info, tmp_path, "upgrade", "0019")
+    assert upgraded.returncode == 0, upgraded.stderr
+    await _assert_upgrade_and_wait(legacy_memory_database, run, task)
+    blocked = _migrate(info, tmp_path, "downgrade", "0018")
+    assert blocked.returncode != 0 and "ASYNC_TOOL_DRAIN_REQUIRED" in blocked.stderr
+    operation = uuid4()
+    await _seed_pending_control(legacy_memory_database, run, operation)
+    pending_control = _migrate(info, tmp_path, "downgrade", "0018")
+    assert pending_control.returncode != 0 and "ASYNC_TOOL_DRAIN_REQUIRED" in pending_control.stderr
+    await _seed_pending_result(legacy_memory_database, task, operation)
+    pending_result = _migrate(info, tmp_path, "downgrade", "0018")
+    assert pending_result.returncode != 0 and "ASYNC_TOOL_DRAIN_REQUIRED" in pending_result.stderr
+    async with legacy_memory_database.begin() as connection:
+        await connection.execute(
+            sa.text("UPDATE task.runtime_result_outbox SET status='SENT' WHERE task_id=:id"), {"id": task}
+        )
+    drained = _migrate(info, tmp_path, "downgrade", "0018")
+    assert drained.returncode == 0, drained.stderr
+    restored = _migrate(info, tmp_path, "upgrade", "0019")
+    assert restored.returncode == 0, restored.stderr
+
+
+async def _seed_legacy_objects(database, conversation, run, task) -> None:
+    async with database.begin() as connection:
         await connection.execute(
             sa.text(
                 "INSERT INTO runtime.conversation"
@@ -126,9 +153,10 @@ async def test_b08_old_rows_upgrade_and_drain_before_downgrade(
                 "hash": "sha256:" + "0" * 64,
             },
         )
-    upgraded = _migrate(info, tmp_path, "upgrade", "head")
-    assert upgraded.returncode == 0, upgraded.stderr
-    async with async_tool_database.begin() as connection:
+
+
+async def _assert_upgrade_and_wait(database, run, task) -> None:
+    async with database.begin() as connection:
         row = (
             await connection.execute(
                 sa.text(
@@ -148,13 +176,13 @@ async def test_b08_old_rows_upgrade_and_drain_before_downgrade(
         await connection.execute(
             sa.text("UPDATE runtime.run_record SET status='WAITING_TOOL' WHERE id=:id"), {"id": run}
         )
-    blocked = _migrate(info, tmp_path, "downgrade", "0018")
-    assert blocked.returncode != 0 and "ASYNC_TOOL_DRAIN_REQUIRED" in blocked.stderr
-    async with async_tool_database.begin() as connection:
+
+
+async def _seed_pending_control(database, run, operation) -> None:
+    async with database.begin() as connection:
         await connection.execute(
             sa.text("UPDATE runtime.run_record SET status='COMPLETED' WHERE id=:id"), {"id": run}
         )
-        operation = uuid4()
         await connection.execute(
             sa.text(
                 "INSERT INTO runtime.tool_operation"
@@ -171,9 +199,10 @@ async def test_b08_old_rows_upgrade_and_drain_before_downgrade(
             ),
             {"id": operation},
         )
-    pending_control = _migrate(info, tmp_path, "downgrade", "0018")
-    assert pending_control.returncode != 0 and "ASYNC_TOOL_DRAIN_REQUIRED" in pending_control.stderr
-    async with async_tool_database.begin() as connection:
+
+
+async def _seed_pending_result(database, task, operation) -> None:
+    async with database.begin() as connection:
         await connection.execute(
             sa.text("UPDATE runtime.tool_control_outbox SET status='SENT' WHERE operation_id=:id"),
             {"id": operation},
@@ -195,13 +224,3 @@ async def test_b08_old_rows_upgrade_and_drain_before_downgrade(
             ),
             {"event": uuid4(), "task": task, "operation": operation, "hash": "sha256:" + "0" * 64},
         )
-    pending_result = _migrate(info, tmp_path, "downgrade", "0018")
-    assert pending_result.returncode != 0 and "ASYNC_TOOL_DRAIN_REQUIRED" in pending_result.stderr
-    async with async_tool_database.begin() as connection:
-        await connection.execute(
-            sa.text("UPDATE task.runtime_result_outbox SET status='SENT' WHERE task_id=:id"), {"id": task}
-        )
-    drained = _migrate(info, tmp_path, "downgrade", "0018")
-    assert drained.returncode == 0, drained.stderr
-    restored = _migrate(info, tmp_path, "upgrade", "head")
-    assert restored.returncode == 0, restored.stderr

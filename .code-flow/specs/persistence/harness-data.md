@@ -27,12 +27,14 @@ verifiers:
 
 ## Rules
 
-- [RULE-data-001] 产品表统一 `id/is_deleted/create_time/update_time`；软删除唯一约束用 partial unique `WHERE is_deleted=false`；时间统一 `timestamptz`；同 Owner Schema 用物理 FK，跨 Owner Schema 仅逻辑 UUID；JSON 配置用 `jsonb` 且关键查询字段不得只藏在 JSON。
+- [RULE-data-001] 产品表统一 `id/is_deleted/create_time/update_time`；普通软删除实体用 partial unique `WHERE is_deleted=false`，稳定身份注册表 `runtime.user_memory` / `memory_scope` 的完整唯一键包含 tombstone，append-only history/receipt/job 保持 `is_deleted=false` 且使用完整唯一约束；时间统一 `timestamptz`；同 Owner Schema 的业务归属用物理 FK，跨 Owner Schema 与需跨清理保留的审计来源引用用逻辑 UUID；JSON 配置用 `jsonb`，关键查询字段必须有物理列。
 
 ## Conventions
 
+- **稳定 key 不因软删除而重置**：`user_memory` 的 `(tenant_id,user_id,memory_key)` 与 `memory_scope` 的 `(tenant_id,user_id)` 使用完整唯一。历史对稳定 `origin_id` 建同 Owner FK，执行对象/actor/command 是逻辑审计引用；history/receipt/job 的 `is_deleted` CHECK 恒 false。
+  - ✅ 删除后保留原 id，下一次合法修改续增 version，并在同事务写完整历史；❌ 用 partial key 唯一建立第二个 incarnation，再从 version=1 开始。
 - **跨 Owner Schema 的只读聚合**：允许直接读取其它 Owner 的表（如 `task.*`、`runtime.*`）做**只读聚合投影**，条件是：① 只读、不写任何表；② 每条查询都带 `tenant_id` 与 `is_deleted = false`（或该表的软删等价条件）；③ 名称类字段在同一 SQL 内 JOIN 批量补齐，不做逐行关联（N+1）。既有两例：`audit_query_repository`（11-audit-observability）与 `overview_query_repository`（12-overview-dashboard）。**不建宽表、不建物化视图**，跨 Schema 一律逻辑引用（UUID）、不建物理 FK。
-- **四列口径的唯一载体是 `StandardColumnsMixin`**：`id`/`is_deleted`/`create_time`/`update_time` 四个声明集中在各 app 的 `infrastructure/models/base.py`，全仓 **38 个 ORM 类全部继承它，没有一个直接继承 `Base`**。三个 app 各持一份**同名同内容的副本**：`apps/console-platform/backend/src/muad_console_platform/infrastructure/models/base.py`、`apps/agent-worker/src/muad_agent_worker/infrastructure/models/base.py`、`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/base.py`（三份 `NAMING_CONVENTION` 也一致）。
+- **四列口径的唯一载体是 `StandardColumnsMixin`**：`id`/`is_deleted`/`create_time`/`update_time` 四个声明集中在各 app 的 `infrastructure/models/base.py`，产品 ORM 统一继承该 mixin。三个 app 各持一份**同名同内容的副本**：`apps/console-platform/backend/src/muad_console_platform/infrastructure/models/base.py`、`apps/agent-worker/src/muad_agent_worker/infrastructure/models/base.py`、`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/base.py`（三份 `NAMING_CONVENTION` 也一致）。
   - ✅ `class X(StandardColumnsMixin, Base):` —— 四列自动齐全且口径一致。
   - ❌ 直接 `class X(Base):` 自己写四列 ⇒ 极易漏 `is_deleted`（软删条件失效）或写成裸 `datetime` 而非 `DateTime(timezone=True)`。
   - 注：三份副本无单一来源，改四列口径时必须同时改三处。

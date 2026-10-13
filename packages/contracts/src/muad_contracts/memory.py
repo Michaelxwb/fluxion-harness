@@ -157,3 +157,8 @@ class MemoryConfirmationInput(ContractModel):
 def memory_hash(value: JsonValue) -> str:
     """Use the shared canonical JSON primitive, including strict JSON checks."""
     return "sha256:" + hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def memory_content_bytes(content: JsonValue, source_quote: str | None) -> int:
+    """Fact quota counts canonical content and quote, including JSON null."""
+    return len(canonical_json(content).encode("utf-8")) + len(canonical_json(source_quote).encode("utf-8"))

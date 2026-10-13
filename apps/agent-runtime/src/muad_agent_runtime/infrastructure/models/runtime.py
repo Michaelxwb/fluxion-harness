@@ -4,6 +4,7 @@ from typing import Any
 
 import sqlalchemy as sa
 from muad_contracts.enums import RunStatus
+from pydantic import JsonValue
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -69,7 +70,8 @@ class RunRecord(StandardColumnsMixin, Base):
     agent_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     snapshot_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     status: Mapped[RunStatus] = mapped_column(
-        sa.Enum(RunStatus, native_enum=False, create_constraint=True, name="run_status", length=24))
+        sa.Enum(RunStatus, native_enum=False, create_constraint=True, name="run_status", length=24)
+    )
     deadline_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     execution_epoch: Mapped[int] = mapped_column(sa.BigInteger(), server_default=sa.text("0"))
     input_text: Mapped[str] = mapped_column(sa.Text(), nullable=False)
@@ -121,8 +123,20 @@ class CanonicalEvent(StandardColumnsMixin, Base):
         sa.UniqueConstraint("conversation_id", "seq", name="uq_canonical_event_conversation_seq"),
         sa.Index("ix_canonical_event_run_seq", "run_id", "seq"),
         sa.Index("ix_canonical_event_conversation_create_time", "conversation_id", "create_time"),
-        sa.Index("uq_canonical_event_source", "tenant_id", "source_event_id", unique=True,
-                 postgresql_where=sa.text("source_event_id IS NOT NULL AND is_deleted = false")),
+        sa.Index(
+            "uq_canonical_event_source",
+            "tenant_id",
+            "source_event_id",
+            unique=True,
+            postgresql_where=sa.text("source_event_id IS NOT NULL AND is_deleted = false"),
+        ),
+        sa.Index(
+            "uq_memory_consolidated_run",
+            "tenant_id",
+            "run_id",
+            unique=True,
+            postgresql_where=sa.text("event_type = 'MEMORY_CONSOLIDATED' AND is_deleted = false"),
+        ),
         {"schema": "runtime"},
     )
 
@@ -145,6 +159,22 @@ class RunInterrupt(StandardColumnsMixin, Base):
     __table_args__ = (
         sa.Index("ix_run_interrupt_run_status", "run_id", "status"),
         sa.Index("ix_run_interrupt_conversation_status", "conversation_id", "status"),
+        sa.Index(
+            "uq_run_interrupt_pending_memory_confirm",
+            "tenant_id",
+            "run_id",
+            unique=True,
+            postgresql_where=sa.text(
+                "interrupt_type = 'MEMORY_CONFIRMATION' AND status = 'WAITING' AND is_deleted = false"
+            ),
+        ),
+        sa.Index(
+            "ix_memory_confirm_expiry",
+            "tenant_id",
+            "run_id",
+            "expires_at",
+            postgresql_where=sa.text("interrupt_type = 'MEMORY_CONFIRMATION' AND status = 'WAITING'"),
+        ),
         {"schema": "runtime"},
     )
 
@@ -162,6 +192,8 @@ class RunInterrupt(StandardColumnsMixin, Base):
     resolution_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     expires_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     resolved_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    proposal_json: Mapped[dict[str, JsonValue] | None] = mapped_column(JSONB)
+
 
 class RunSubmission(StandardColumnsMixin, Base):
     """Run 创建/resume 的持久化幂等记录（B-01/RULE-api-002）。"""
@@ -185,9 +217,7 @@ class RunSubmission(StandardColumnsMixin, Base):
     endpoint: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     request_fingerprint: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     actor_user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
-    run_id: Mapped[uuid.UUID | None] = mapped_column(
-        sa.Uuid(), sa.ForeignKey("runtime.run_record.id")
-    )
+    run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), sa.ForeignKey("runtime.run_record.id"))
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid(), sa.ForeignKey("runtime.conversation.id")
     )
@@ -204,7 +234,39 @@ class RunSubmission(StandardColumnsMixin, Base):
 class UserMemory(StandardColumnsMixin, Base):
     __tablename__ = "user_memory"
     __table_args__ = (
-        sa.Index("ix_user_memory_tenant_user", "tenant_id", "user_id"),
+        sa.Index("uq_user_memory_key", "tenant_id", "user_id", "memory_key", unique=True),
+        sa.Index(
+            "ix_user_memory_candidates",
+            "tenant_id",
+            "user_id",
+            "category",
+            sa.text("update_time DESC"),
+            postgresql_where=sa.text("is_deleted = false AND enabled = true"),
+        ),
+        sa.Index(
+            "ix_user_memory_expiry",
+            "tenant_id",
+            "expires_at",
+            "user_id",
+            postgresql_where=sa.text("is_deleted = false AND expires_at IS NOT NULL"),
+        ),
+        sa.CheckConstraint("author IN ('USER','ADMIN','AGENT')", name="author"),
+        sa.CheckConstraint(
+            "category IN ('PREFERENCE','WORK_STYLE','EXPLICIT','TASK_STATE')", name="category"
+        ),
+        sa.CheckConstraint(
+            "version >= 1 AND confidence BETWEEN 1 AND 5 AND confirmed_count >= 0", name="counters"
+        ),
+        sa.CheckConstraint(
+            "author != 'AGENT' OR (confidence = 2 AND explicit_request = false AND expires_at IS NOT NULL)",
+            name="agent_policy",
+        ),
+        sa.CheckConstraint(
+            "author != 'USER' OR (explicit_request = true AND confirmation_event_id IS NOT NULL)",
+            name="user_confirmation",
+        ),
+        sa.CheckConstraint("author != 'ADMIN' OR explicit_request = false", name="admin_confirmation"),
+        sa.CheckConstraint("write_policy = 'SERVER_CONTROLLED'", name="write_policy"),
         {"schema": "runtime"},
     )
 
@@ -212,14 +274,138 @@ class UserMemory(StandardColumnsMixin, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     memory_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     category: Mapped[str] = mapped_column(sa.String(64), nullable=False)
-    content_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    source_type: Mapped[str] = mapped_column(sa.String(32), nullable=False)
-    source_ref: Mapped[str | None] = mapped_column(sa.String(256))
-    write_policy: Mapped[str] = mapped_column(
-        sa.String(32), nullable=False, server_default=sa.text("'CONTROLLED'")
+    content_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    author: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'AGENT'"))
+    explicit_request: Mapped[bool] = mapped_column(
+        sa.Boolean(), nullable=False, server_default=sa.text("false")
     )
-    version: Mapped[int] = mapped_column(sa.Integer(), nullable=False, server_default=sa.text("1"))
+    confidence: Mapped[int] = mapped_column(sa.SmallInteger(), nullable=False, server_default=sa.text("2"))
+    confirmed_count: Mapped[int] = mapped_column(sa.Integer(), nullable=False, server_default=sa.text("0"))
+    last_confirmed_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    source_event_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    source_seq: Mapped[int | None] = mapped_column(sa.BigInteger())
+    source_ref: Mapped[str | None] = mapped_column(sa.String(256))
+    source_quote: Mapped[str | None] = mapped_column(sa.String(512))
+    confirmation_event_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    retirement_reason: Mapped[str | None] = mapped_column(sa.String(32))
+    retirement_revision: Mapped[int | None] = mapped_column(sa.BigInteger())
+    last_source_run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    last_source_seq: Mapped[int | None] = mapped_column(sa.BigInteger())
+    write_policy: Mapped[str] = mapped_column(
+        sa.String(32), nullable=False, server_default=sa.text("'SERVER_CONTROLLED'")
+    )
+    version: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("1"))
     enabled: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, server_default=sa.text("true"))
+
+
+class MemoryScope(StandardColumnsMixin, Base):
+    __tablename__ = "memory_scope"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "user_id", name="uq_memory_scope_user"),
+        sa.CheckConstraint("is_deleted = false", name="not_deleted"),
+        sa.CheckConstraint("revision >= 0 AND forget_epoch >= 0", name="revision"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    revision: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+    forget_epoch: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+
+
+class UserMemoryHistory(StandardColumnsMixin, Base):
+    __tablename__ = "user_memory_history"
+    __table_args__ = (
+        sa.UniqueConstraint("origin_id", "version", name="uq_user_memory_history_origin_version"),
+        sa.Index(
+            "ix_user_memory_history_key_version",
+            "tenant_id",
+            "user_id",
+            "memory_key",
+            sa.text("version DESC"),
+        ),
+        sa.CheckConstraint("is_deleted = false", name="not_deleted"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    memory_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    origin_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("runtime.user_memory.id"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    change_reason: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    actor_type: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    actor_id: Mapped[str | None] = mapped_column(sa.String(128))
+    command_id: Mapped[str] = mapped_column(sa.String(256), nullable=False)
+    source_run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    after_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    legacy_snapshots_json: Mapped[list[dict[str, JsonValue]] | None] = mapped_column(JSONB)
+
+
+class MemoryCommandReceipt(StandardColumnsMixin, Base):
+    __tablename__ = "memory_command_receipt"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "command_id", name="uq_memory_command_receipt_command"),
+        sa.CheckConstraint("is_deleted = false", name="not_deleted"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    command_id: Mapped[str] = mapped_column(sa.String(256), nullable=False)
+    endpoint: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    status: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    response_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    source_run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+
+
+class MemoryConsolidationJob(StandardColumnsMixin, Base):
+    __tablename__ = "memory_consolidation_job"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "run_id", name="uq_memory_job_run"),
+        sa.Index(
+            "ix_memory_job_claim",
+            "tenant_id",
+            "next_attempt_at",
+            "create_time",
+            postgresql_where=sa.text("status IN ('PENDING','RETRY')"),
+        ),
+        sa.Index(
+            "ix_memory_job_lease", "tenant_id", "lease_until", postgresql_where=sa.text("status = 'RUNNING'")
+        ),
+        sa.CheckConstraint("is_deleted = false", name="not_deleted"),
+        sa.CheckConstraint(
+            "status IN ('PENDING','RUNNING','RETRY','DONE','SKIPPED','FAILED')", name="status"
+        ),
+        sa.CheckConstraint("claim_epoch >= 0 AND attempt >= 0", name="counters"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    run_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    snapshot_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    through_seq: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    status: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'PENDING'"))
+    lease_owner: Mapped[str | None] = mapped_column(sa.String(128))
+    claim_epoch: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+    lease_until: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    attempt: Mapped[int] = mapped_column(sa.SmallInteger(), nullable=False, server_default=sa.text("0"))
+    next_attempt_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")
+    )
+    result_json: Mapped[list[dict[str, JsonValue]] | None] = mapped_column(JSONB)
+    enqueued_scope_revision: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    input_scope_revision: Mapped[int | None] = mapped_column(sa.BigInteger())
+    input_json: Mapped[dict[str, JsonValue] | None] = mapped_column(JSONB)
+    input_hash: Mapped[str | None] = mapped_column(sa.String(128))
+    resume_ref_json: Mapped[dict[str, JsonValue] | None] = mapped_column(JSONB)
+    error_code: Mapped[str | None] = mapped_column(sa.String(64))
 
 
 class Artifact(StandardColumnsMixin, Base):
