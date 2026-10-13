@@ -581,13 +581,13 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-011: 候选确认提议与整轮工具暂停
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-006
 - **Source**: memory-redesign.design.md#3.4.2 remember 与真实确认
 - **Spec-Refs**: 
 - **Acceptance-Refs**: 
-- **Files**: apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation.py, apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py, packages/agent-core/src/muad_agent_core/agent/runner.py
+- **Files**: apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_proposals.py, apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py, packages/agent-core/src/muad_agent_core/agent/runner.py, packages/agent-core/src/muad_agent_core/agent/suspension.py, tests/agent_runtime/test_memory_redesign_proposals.py, tests/agent_runtime/memory_confirmation_support.py
 
 ### Description
 
@@ -595,24 +595,32 @@ handler登记typed suspend_request，整轮结果/审计收口后保存checkpoin
 
 ### Checklist
 
-- [ ] [B-15][integration] 辅助先写第二个remember拒绝、待确认唯一、暂停后无下次模型调用RED。
-- [ ] proposal读取含deleted/disabled/expired全状态，绑定hash/version/forget_epoch/expiry。
-- [ ] 原saved=false工具结果不改写；未来确认新增结果事件。
-- [ ] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
+- [x] [B-15][integration] 辅助先写第二个remember拒绝、待确认唯一、暂停后无下次模型调用RED。
+- [x] proposal读取含deleted/disabled/expired全状态，绑定hash/version/forget_epoch/expiry。
+- [x] 原saved=false工具结果不改写；未来确认新增结果事件。
+- [x] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | unit/integration | 本任务纯逻辑或真实存储载体，按Checklist具体边界 | Checklist列出的独立行为及失败反例，最终场景由责任表owner验证 | 编码阶段登记真实辅助测试；无当前执行Evidence | planned | planned |
+| LOCAL | integration | PostgreSQL、EventWriter、真实 AgentRunner/ToolExecutionPipeline/审计、HTTP 模型端点 | 全状态候选绑定、第二个remember拒绝、完整回合原子暂停/回滚、无第二次模型请求；B-15最终Gateway/resume边界仍由TASK-017验证 | tests/agent_runtime/test_memory_redesign_proposals.py::test_local_b15_* | uv run pytest -q tests/agent_runtime/test_memory_redesign_proposals.py | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| LOCAL (B-15辅助) | 2026-10-13：上述命令13 failed；MemoryConfirmationService模块尚未实现，ModuleNotFoundError；真实PG建库/migration成功。追加锁等待反例：-k expiring_during，1 failed / DID NOT RAISE，过期lease仍能提交暂停 | 同命令最终21 passed in 30.44s；锁后数据库时钟复核修复反例 | test_memory_redesign_proposals.py:33 (未保存), :69 (全状态版本/epoch), :104 (原子暂停), :113 (原结果不可变), :155 (回滚), :216 (仅一次HTTP), :318 (等待锁后lease fence) | memory_confirmation_support.py：真实PG/RunSubmission/USER_MESSAGE、实际ToolExecutionPipeline/RuntimeAuditWriter与本地HTTP模型；预算3/1均完整回合后暂停。最终Gateway/resume场景归TASK-017 | verified |
+
+回归：`uv run pytest -q tests/agent_core/test_runner.py tests/agent_runtime/test_tool_parallel_planner.py tests/architecture/test_import_direction.py --tb=short --show-capture=no`：37 passed in 12.35s。ruff检查与5个生产文件strict mypy通过；新增/修改函数均≤50行。
+
+扩展回归：`uv run pytest -q tests/agent_runtime/test_tool_wait_state_machine.py tests/agent_runtime/test_interrupt_checkpoint.py tests/agent_runtime/test_runner_executor.py tests/agent_runtime/test_tool_round_budget.py tests/agent_runtime/test_artifact_round_budget.py --tb=line --show-capture=no`：本轮独立PG/Redis 34 passed / 9 failed（17.04s）；基线c6dcf2e7的独立导出、强制从其src导入、另一独立PG/Redis 34 passed / 相同9 failed（16.59s）。失败为wait状态机b05/b04、runner_executor四例、tool_round_budget三例；旧`CompactionSettings.memory`引用仍在run_service.py:1081与执行器接线中，属于后续TASK-012/016的Context/快照迁移。保留失败事实，未加旧ratio兼容层；本任务真实Runner暂停21例与原有37例通过，不把扩展回归记成全绿。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-13] started
+- [2026-10-13] completed (done)
 
 ---
 

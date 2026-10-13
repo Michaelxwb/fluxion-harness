@@ -6,17 +6,90 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from muad_agent_core.agent.continuation import RunnerCheckpoint
+from muad_agent_core.agent.suspension import MemorySuspendRequest
+from muad_api import AppError
+from muad_api.error_codes import ErrorCode
 from muad_contracts import RunStatus
+from muad_contracts.memory import MemoryConfirmationProposal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ..infrastructure.db import SessionFactoryProvider, get_session_factory
+from ..infrastructure.db import SessionFactory, SessionFactoryProvider, get_session_factory
 from ..infrastructure.models.runtime import RunInterrupt, RunRecord
+from .async_tools.continuation_service import ExecutionIdentity, _write_checkpoint
+from .memory_proposals import (
+    confirmation_source,
+    ensure_no_memory_confirmation,
+    locked_confirmation_execution,
+)
+from .run_events import EventWriter
 
 STATUS_WAITING_INPUT = RunStatus.WAITING_INPUT
 STATUS_RUNNING = RunStatus.RUNNING
 INTERRUPT_WAITING = "WAITING"
 INTERRUPT_RESOLVED = "RESOLVED"
+
+
+async def suspend_memory_confirmation(
+    factory: SessionFactory,
+    identity: ExecutionIdentity,
+    request: MemorySuspendRequest,
+    progress: RunnerCheckpoint,
+) -> None:
+    """Conversation/Run locks fence a single atomic complete-round waiting transition."""
+    async with factory.begin() as session:
+        run, saved, now = await locked_confirmation_execution(session, identity)
+        await ensure_no_memory_confirmation(session, identity)
+        proposal = await _validate_memory_proposal(session, run, request, now)
+        saved = await _write_checkpoint(session, run, saved, progress, now)
+        session.add(
+            RunInterrupt(
+                id=request.interrupt_id,
+                tenant_id=run.tenant_id,
+                run_id=run.id,
+                conversation_id=run.conversation_id,
+                interrupt_type="MEMORY_CONFIRMATION",
+                prompt_text=request.prompt,
+                options_json=[],
+                status=INTERRUPT_WAITING,
+                proposal_json=proposal.model_dump(mode="json"),
+                expires_at=proposal.expires_at,
+            )
+        )
+        saved.context_upto_seq = await EventWriter(session).append(
+            tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id,
+            run_id=run.id,
+            submission_id=proposal.submission_id,
+            event_type="MEMORY_CONFIRMATION_REQUIRED",
+            stream_type="memory.confirmation_required",
+            payload={
+                "proposal_id": str(request.interrupt_id),
+                "prompt": request.prompt,
+                "expires_at": proposal.expires_at.isoformat(),
+            },
+        )
+        run.status, run.lease_owner, run.lease_until, run.update_time = STATUS_WAITING_INPUT, None, None, now
+
+
+async def _validate_memory_proposal(
+    session: AsyncSession,
+    run: RunRecord,
+    request: MemorySuspendRequest,
+    now: datetime,
+) -> MemoryConfirmationProposal:
+    proposal = MemoryConfirmationProposal.model_validate(request.proposal.model_dump(mode="json"))
+    event = await confirmation_source(session, run, proposal.submission_id)
+    if (
+        (proposal.tenant_id, proposal.user_id, proposal.run_id) != (run.tenant_id, run.user_id, run.id)
+        or proposal.evidence.source_event_id != event.id
+        or proposal.evidence.source_seq != event.seq
+        or proposal.expires_at <= now
+        or (run.deadline_at is not None and proposal.expires_at > run.deadline_at)
+    ):
+        raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
+    return proposal
 
 
 async def checkpoint_interrupt(

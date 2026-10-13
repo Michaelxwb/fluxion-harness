@@ -49,6 +49,7 @@ from ..tools.planner import (
 from ..tools.registry import ToolRegistry
 from ..tools.round_results import ToolResultRoundPort
 from .continuation import RunnerCheckpoint, RuntimeEventPort, WaitDecision
+from .suspension import ToolSuspensionPort
 
 NODE_PREPARE_CONTEXT = "prepare_context"
 NODE_MODEL = "model"
@@ -261,6 +262,7 @@ class AgentRunner:
         tool_round_results: ToolResultRoundPort | None = None,
         tool_pipeline: ToolExecutionPipeline | None = None,
         runtime_events: RuntimeEventPort | None = None,
+        tool_suspension: ToolSuspensionPort | None = None,
         event_batch_size: int = 16,
         parallel_limit: int = DEFAULT_PARALLEL_LIMIT,
     ) -> None:
@@ -276,6 +278,7 @@ class AgentRunner:
         # 且产物 id 必须赶在 `tool.completed` 之前定下来。
         self._round_results = tool_round_results
         self._runtime_events = runtime_events
+        self._tool_suspension = tool_suspension
         self._event_batch_size = event_batch_size
         self._parallel_limit = validate_parallel_limit(parallel_limit)
         self._stop_emitted = False
@@ -295,23 +298,43 @@ class AgentRunner:
         checkpoint: RunnerCheckpoint | None = None,
         context_cursor: int | None = None,
     ) -> AgentRunResult:
-        callbacks = RunnerCallbacks(is_cancelled, on_delta, on_tool_started, on_model_started,
-            on_model_completed, on_assistant_turn, on_tool_completed)
+        callbacks = RunnerCallbacks(
+            is_cancelled,
+            on_delta,
+            on_tool_started,
+            on_model_started,
+            on_model_completed,
+            on_assistant_turn,
+            on_tool_completed,
+        )
         initial = self._initial_state(request, checkpoint or RunnerCheckpoint(), callbacks, context_cursor)
         try:
-            final = cast(AgentGraphState, await self._graph.ainvoke(initial,
-                config={"recursion_limit": max(25, request.policy.max_turns * 4 + 4)}))
+            final = cast(
+                AgentGraphState,
+                await self._graph.ainvoke(
+                    initial, config={"recursion_limit": max(25, request.policy.max_turns * 4 + 4)}
+                ),
+            )
         except Exception:
             if not self._stop_emitted:
                 self._stop_emitted = True
                 await self._hooks.run(HookEvent.STOP, {"final_text": "", "turns": 0, "error": True})
             raise
-        return AgentRunResult(final["final_text"], AgentRunStatus(final["status"]), final["turns"],
+        return AgentRunResult(
+            final["final_text"],
+            AgentRunStatus(final["status"]),
+            final["turns"],
             final["tool_calls_used"],
-            ModelUsage(input_tokens=final["input_tokens"], output_tokens=final["output_tokens"]))
+            ModelUsage(input_tokens=final["input_tokens"], output_tokens=final["output_tokens"]),
+        )
 
-    def _initial_state(self, request: AgentRunRequest, progress: RunnerCheckpoint, callbacks: RunnerCallbacks,
-                       context_cursor: int | None) -> AgentGraphState:
+    def _initial_state(
+        self,
+        request: AgentRunRequest,
+        progress: RunnerCheckpoint,
+        callbacks: RunnerCallbacks,
+        context_cursor: int | None,
+    ) -> AgentGraphState:
         system = self._prompt_builder.build(instructions=request.instructions, skills=request.skills)
         return AgentGraphState(
             model_id=request.model_id,
@@ -463,11 +486,12 @@ class AgentRunner:
         self._ensure_runnable(state)
         messages = list(state["messages"])
         runnable, exhausted_calls, used = self._reserve_tool_calls(state)
-        for call in exhausted_calls:
-            messages.append(_tool_message(call.id, TOOL_BUDGET_EXHAUSTED))
         # 本回合真正执行过的调用：(消息下标, 调用 id, 工具名, 状态)。整批判定与完成事件都在
         # 回合末一次性收口（ADR-04）——不在循环里逐条报，否则产物 id 赶不上那条事件。
         executed: list[tuple[int, str, str, str]] = []
+        for call in exhausted_calls:
+            messages.append(_tool_message(call.id, TOOL_BUDGET_EXHAUSTED))
+            executed.append((len(messages) - 1, call.id, call.name, "ERROR"))
         # 补消息（`ToolDefinition.follow_up_messages`）**攒到回合末再落**，理由见 finally 里的注释。
         followed: list[ModelMessage] = []
         try:
@@ -482,9 +506,7 @@ class AgentRunner:
                 outcomes = await self._run_batch(state, batch)
                 for planned, outcome in zip(batch.calls, outcomes, strict=True):
                     messages.append(_tool_message(planned.call_id, outcome.content))
-                    executed.append(
-                        (len(messages) - 1, planned.call_id, planned.tool_name, outcome.status)
-                    )
+                    executed.append((len(messages) - 1, planned.call_id, planned.tool_name, outcome.status))
                     followed.extend(await self._follow_up_messages(planned.tool_name, outcome.content))
         finally:
             # 补消息**必须先于回合收口、且落在整回合之后**：它是 `user` 角色，若插在两条 tool
@@ -504,9 +526,25 @@ class AgentRunner:
             "tool_calls_used": used,
             "budget_exhausted": state["budget_exhausted"] or bool(exhausted_calls),
         }
-        if self._runtime_events is not None and not exhausted_calls:
-            await self._runtime_events.checkpoint(self._checkpoint(cast(AgentGraphState, complete)))
-        return cast(AgentGraphState, complete)
+        return await self._checkpoint_tool_round(cast(AgentGraphState, complete))
+
+    async def _checkpoint_tool_round(self, state: AgentGraphState) -> AgentGraphState:
+        port = self._tool_suspension
+        request = port.suspend_request if port is not None else None
+        if port is not None and request is not None:
+            self._ensure_runnable(state)
+            await port.suspend(self._checkpoint(state))
+            await self.notify_interrupt(
+                {
+                    "interrupt_id": str(request.interrupt_id),
+                    "kind": "MEMORY_CONFIRMATION",
+                    "prompt": request.prompt,
+                }
+            )
+            return {**state, "status": str(AgentRunStatus.WAITING_INPUT), "final_text": request.prompt}
+        if self._runtime_events is not None and not state["budget_exhausted"]:
+            await self._runtime_events.checkpoint(self._checkpoint(state))
+        return state
 
     def _reserve_tool_calls(
         self, state: AgentGraphState
@@ -639,8 +677,9 @@ class AgentRunner:
             {"final_text": state["final_text"], "turns": state["turns"]},
         )
         final_text = context.payload.get("final_text", state["final_text"])
-        exceeded = state["budget_exhausted"] or (
-            bool(state["pending_tool_calls"]) and state["turns"] >= state["policy"].max_turns
+        exceeded = state["status"] != AgentRunStatus.WAITING_INPUT and (
+            state["budget_exhausted"]
+            or (bool(state["pending_tool_calls"]) and state["turns"] >= state["policy"].max_turns)
         )
         return {
             **state,
@@ -698,7 +737,7 @@ class AgentRunner:
 
     @staticmethod
     def _route_after_tools(state: AgentGraphState) -> str:
-        if state["budget_exhausted"]:
+        if state["budget_exhausted"] or state["status"] == AgentRunStatus.WAITING_INPUT:
             return NODE_FINALIZE
         return NODE_PREPARE_CONTEXT
 

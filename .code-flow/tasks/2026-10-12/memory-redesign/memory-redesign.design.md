@@ -289,7 +289,10 @@ compaction 删除整个 memory.budget_ratio 分支；新增 max_history_tool_rou
 | Runtime application/memory_service.py | 唯一 MemoryMutationService；调用者身份已绑定；scope 锁、冲突、配额、历史、命令回执 |
 | Runtime application/memory_commands.py | 受信 MemoryWriteContext、严格批量命令与只含元数据的回执 DTO |
 | Runtime application/memory_mutations.py | 锁内整批规划、隐式退休与最终状态配额、完整 after history；不提交事务 |
-| Runtime application/memory_confirmation.py | 构造绑定候选的中断、验证真实 resume 输入、单次确认；不把模型文本当批准 |
+| Runtime application/memory_confirmation.py | Run内互斥登记typed候选与saved=false回执，整轮完成后经checkpoint原子暂停；真实resume确认由后续任务接线 |
+| Runtime application/memory_proposals.py | 从受信submission/USER_MESSAGE构造候选hash/版本/epoch/期限，读取全状态key并直接格式化完整确认提示；取得行锁后复核数据库时钟与执行fence |
+| Runtime application/checkpoint.py | 同事务写完整回合continuation、MEMORY_CONFIRMATION interrupt/提示事件、WAITING_INPUT与lease释放 |
+| packages/agent-core/.../agent/suspension.py | typed ToolSuspensionPort/MemorySuspendRequest；Runner整轮收口后暂停，无app/DB依赖 |
 | Runtime application/memory_queries.py | 有界候选与版本历史查询；共享 MemoryReadFilters |
 | Runtime application/memory_cache.py | 当前Run的候选行/revision缓存；轻量head校验、当次TTL过滤，失败清除并warning/metric |
 | Runtime application/memory_consolidation.py | 输入构建/模型解析/候选验证；不自行开 per-item 提交 |
