@@ -3,6 +3,8 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok, paginate
+from muad_contracts.memory import MemoryAuthor, MemoryCategory, MemoryKey
+from muad_contracts.memory_admin import MemoryStatus
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
@@ -11,6 +13,7 @@ from ..application.dto import (
     AgentGrantItem,
     BindCodeCreateResponse,
     IdentityItem,
+    MemoryHistoryItem,
     MemoryItem,
     UserBasic,
     UserCreateRequest,
@@ -147,13 +150,49 @@ async def list_user_memory(
     session: Session,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    category: str | None = Query(default=None, pattern="^(PREFERENCE|WORK_STYLE|EXPLICIT)$"),
+    # 过滤枚举直接取共享契约，避免在 Console 复制字面量；`Annotated[..., Query()]` 形态
+    # 与仓库 lint 口径一致（B008 不允许把 `Query(...)` 调用放进参数默认值）。
+    category: Annotated[MemoryCategory | None, Query()] = None,
+    author: Annotated[MemoryAuthor | None, Query()] = None,
+    status: Annotated[MemoryStatus | None, Query()] = None,
 ) -> ApiResponse[Any]:
-    items, total = await UserService(session).list_memories(tenant_id, user_id, page, page_size, category)
+    """按 author/category/status 过滤；status 由 enabled + expires_at 派生，已删除不出现在列表。"""
+    items, total = await MemoryService(session).list_by_user(
+        tenant_id,
+        user_id,
+        page,
+        page_size,
+        category=category.value if category is not None else None,
+        author=author.value if author is not None else None,
+        status=status,
+    )
     return ok(
         request.app.state.message_catalog,
         paginate(
             items=[MemoryItem(**item).model_dump(mode="json") for item in items],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
+    )
+
+
+@router.get("/{user_id}/memory/{memory_key}/history")
+async def get_user_memory_history(
+    user_id: uuid.UUID,
+    memory_key: MemoryKey,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> ApiResponse[Any]:
+    """只读版本历史，按 version 倒序；已删除的记忆其历史仍可查，未知 key 返回 MEMORY_NOT_FOUND。"""
+    items, total = await MemoryService(session).history(tenant_id, user_id, memory_key, page, page_size)
+    return ok(
+        request.app.state.message_catalog,
+        paginate(
+            items=[MemoryHistoryItem(**item).model_dump(mode="json") for item in items],
             page=page,
             page_size=page_size,
             total=total,

@@ -47,9 +47,9 @@ async def _seed_detail(client: AsyncClient, tenant: TenantContext, user_id: str)
             await session.execute(
                 text(
                     "INSERT INTO runtime.user_memory "
-                    "(id, tenant_id, user_id, memory_key, category, content_json, source_type) "
+                    "(id, tenant_id, user_id, memory_key, category, content_json, author) "
                     "VALUES (:id, :tenant_id, :user_id, :memory_key, :category, "
-                    "CAST(:content AS jsonb), 'USER')"
+                    "CAST(:content AS jsonb), 'ADMIN')"
                 ),
                 {
                     "id": uuid.uuid4(),
@@ -100,7 +100,9 @@ async def test_user_memory_endpoint_with_category_filter(client: AsyncClient, te
         assert item["content"] == {"note": "likes concise answers"}
         assert item["enabled"] is True
         assert item["version"] == 1
-        assert item["source_type"] == "USER"
+        assert item["author"] == "ADMIN"
+        assert item["status"] == "ACTIVE"
+        assert "source_type" not in item
 
         filtered = await client.get(
             f"/api/v1/users/{user_id}/memory",

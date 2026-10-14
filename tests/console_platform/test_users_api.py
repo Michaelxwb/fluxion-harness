@@ -118,8 +118,8 @@ async def _seed_related_rows(client: AsyncClient, tenant: TenantContext, user_id
         await session.execute(
             text(
                 "INSERT INTO runtime.user_memory "
-                "(id, tenant_id, user_id, memory_key, category, content_json, source_type) "
-                "VALUES (:id, :tenant_id, :user_id, :memory_key, 'PREFERENCE', '{}'::jsonb, 'USER')"
+                "(id, tenant_id, user_id, memory_key, category, content_json, author) "
+                "VALUES (:id, :tenant_id, :user_id, :memory_key, 'PREFERENCE', '{}'::jsonb, 'ADMIN')"
             ),
             {
                 "id": uuid.uuid4(),

@@ -41,8 +41,8 @@ async def _seed_memory(tenant: TenantContext, user_id: str, count: int) -> list[
             await session.execute(
                 text(
                     "INSERT INTO runtime.user_memory "
-                    "(id, tenant_id, user_id, memory_key, category, content_json, source_type) "
-                    "VALUES (:id, :tenant_id, :user_id, :memory_key, 'PREFERENCE', '{}'::jsonb, 'USER')"
+                    "(id, tenant_id, user_id, memory_key, category, content_json, author) "
+                    "VALUES (:id, :tenant_id, :user_id, :memory_key, 'PREFERENCE', '{}'::jsonb, 'ADMIN')"
                 ),
                 {
                     "id": memory_id,
@@ -162,7 +162,7 @@ async def test_s05_memory_delete_and_clear_share_application_service(
         session_factory = get_session_factory()
         async with session_factory() as session:
             _, total = await MemoryService(session).list_by_user(
-                tenant.tenant_id, uuid.UUID(user_id), 1, 20, None
+                tenant.tenant_id, uuid.UUID(user_id), 1, 20
             )
         assert total == 2
 

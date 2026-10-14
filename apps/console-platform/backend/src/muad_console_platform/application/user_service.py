@@ -13,7 +13,6 @@ from ..infrastructure.repositories.user_stats_repository import UserStatsReposit
 from .audit_service import AuditActor, AuditService, sanitize_payload
 from .dto import UserCreateRequest, UserUpdateRequest
 from .grant_service import GrantService
-from .memory_service import MemoryService
 
 AUDIT_RESOURCE_TYPE = "PLATFORM_USER"
 
@@ -59,16 +58,6 @@ class UserService:
         page_size: int,
     ) -> tuple[list[dict[str, Any]], int]:
         return await GrantService(self._session).list_by_user(tenant_id, user_id, page, page_size)
-
-    async def list_memories(
-        self,
-        tenant_id: str,
-        user_id: uuid.UUID,
-        page: int,
-        page_size: int,
-        category: str | None,
-    ) -> tuple[list[dict[str, Any]], int]:
-        return await MemoryService(self._session).list_by_user(tenant_id, user_id, page, page_size, category)
 
     async def create_user(
         self,

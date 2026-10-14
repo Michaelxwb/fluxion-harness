@@ -78,6 +78,7 @@
 | harness-mcp#RULE-mcp-001 | TASK-018 | code | ["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"] | planned |
 | harness-im#RULE-im-001 | TASK-017 | code | ["uv","run","pytest","-q","tests/console_channel","tests/gateway"] | planned |
 | harness-im#RULE-im-002 | TASK-017 | code | ["uv","run","pytest","-q","tests/architecture/test_channel_neutrality.py"] | planned |
+| harness-rel#RULE-rel-001 | TASK-024 | code | ["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"] | planned |
 
 memory Tier-1规范已由TASK-001创建并通过CLI增量绑定到同一Context。六条verifier均为stage=review（跨组件闭合），测试仍待对应任务实现与执行。
 
@@ -1224,11 +1225,11 @@ lifespan启动停止有界job/expiry泵，PG权威无实例绑定；过期确认
 
 ## TASK-024: Console 记忆状态/历史只读仓储
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-007, TASK-023
 - **Source**: memory-redesign.design.md#3.7 API 与 Console
-- **Spec-Refs**: 
+- **Spec-Refs**: harness-rel#RULE-rel-001
 - **Acceptance-Refs**: 
 - **Files**: apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/memory_repository.py, apps/console-platform/backend/src/muad_console_platform/application/memory_service.py, apps/console-platform/backend/src/muad_console_platform/api/users.py
 
@@ -1238,24 +1239,38 @@ ACTIVE/DISABLED/EXPIRED过滤、history按version分页，list/count同条件；
 
 ### Checklist
 
-- [ ] [E-04][integration] 辅助先写跨租户、过期/禁用/删除、总数与items齐平、版本排序RED。
-- [ ] 展示author与actor分离，Console时间投影复用统一入口。
-- [ ] 只读runtime表，移除旧source_type投影，测试旧未知值明确回退。
-- [ ] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
+- [x] [E-04][integration] 辅助先写跨租户、过期/禁用/删除、总数与items齐平、版本排序RED。
+- [x] 展示author与actor分离，Console时间投影复用统一入口。
+- [x] 只读runtime表，移除旧source_type投影，测试旧未知值明确回退。
+- [x] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | unit/integration | 本任务纯逻辑或真实存储载体，按Checklist具体边界 | Checklist列出的独立行为及失败反例，最终场景由责任表owner验证 | 编码阶段登记真实辅助测试；无当前执行Evidence | planned | planned |
+| LOCAL | integration | 真实 Console HTTP（ASGI + 真实登录会话）+ 真实 PostgreSQL（0020 head 的 runtime.user_memory / user_memory_history）+ 真实 SQL 语句监听 | 跨租户 404；ACTIVE/DISABLED/EXPIRED 与 author/category 过滤后 total 与 items 齐平；deleted 不进列表但历史按 version 倒序可查；读路径只发 SELECT；时间等于统一入口 `format_console_time`；旧 source_type 不投影、旧未知 actor/原因原样回退 | tests/console_platform/test_user_memory_api.py / test_local_01_list_filters_status_author_category_with_tenant_scope、test_local_02_deleted_hidden_from_list_but_history_paginates_by_version、test_local_03_reads_are_read_only_and_share_console_time_projection、test_local_04_unknown_and_legacy_values_fall_back_explicitly、test_local_05_cross_tenant_user_is_not_found | ["uv","run","pytest","-q","tests/console_platform/test_user_memory_api.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- LOCAL RED：`DATABASE_URL=<隔离 head 库> REDIS_URL=redis://localhost:6379/15 uv run pytest -q tests/console_platform/test_user_memory_api.py --tb=line` → **4 failed, 1 passed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task024-red.txt`。失败原因对应预期缺陷：列表/历史读投影仍选 `source_type`（DB 已在 0020 head）→ HTTP 500 `asyncpg.exceptions.UndefinedColumnError: column "source_type" does not exist`（用例 01/02/03）；`test_user_memory_api.py:401: assert 404 == 200`（`/memory/{memory_key}/history` 路由尚未存在，用例 04）。`test_local_05_cross_tenant_user_is_not_found` 无 RED：租户存在性检查是既有行为，本任务补测作护栏，未伪造失败。
+- GREEN：同环境 `uv run pytest -q tests/console_platform/test_user_memory_api.py` → **5 passed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task024-green.txt`。真实边界：真实 Console ASGI HTTP + conftest 真实登录会话 + 真实 PG（隔离库、0020 head、真实 runtime 表），无仓储/DB mock。断言位置：
+  - 过滤·齐平·排序·旧投影移除：`test_user_memory_api.py:202-250`（total==items、ACTIVE/DISABLED/EXPIRED、author/category 过滤、空组合 total=0、第二页 total 仍 4）。
+  - deleted 不进列表 + 历史 version 倒序/分页/未知 key：`:275-316`（list data == `{items:[],page:1,page_size:20,total:0}`；history versions `[3,2,1]`、page_size=2 → `[3,2]`、越界页 total 仍 3、未知 key 404 `MEMORY_NOT_FOUND`）。
+  - 只读 + 时间统一入口 + author/actor 分离：`:340-378`（引擎 `before_cursor_execute` 捕获的 `runtime.user_memory*` 语句全部以 SELECT/WITH 开头；`create_time/update_time/expires_at == format_console_time(真实行值)`；item.author=ADMIN 而 history.actor_type/actor_id 独立展示）。
+  - 旧未知值回退 + 入参校验：`:381-423`（`actor_type=LEGACY_SYNC`、`change_reason=LEGACY_REASON_V9`、`after` 内旧键原样透出且顶层无 `source_type`；status/author/category/非法 key → 422 `COMMON_VALIDATION_ERROR`）。
+  - 跨租户：`:426-469`（他租户用户 404 `COMMON_NOT_FOUND`；换他租户账号会话再查本租户用户同样 404 且不回显 user id）。
+- 实现：`MemoryService.history` + `MemoryRepository.find_origin/history`（列表与计数共用同一谓词，状态口径与 Runtime `memory_admin_queries` 一致：`expires_at <= statement_timestamp()` 优先于 `enabled=false`，`is_deleted=false` 恒排除；`find_origin` 不过滤 deleted 以支持历史回查）；时间出参统一走 Console 统一入口 `audit_query_service.format_console_time`，`application/dto.py` 新增 `ConsoleTime` 正则钉死格式；`MemoryItem` 移除 `source_type` 并新增 author/explicit_request/confirmed_count/status/expires_at/last_confirmed_at/source_quote，新增 `MemoryHistoryItem`（author 与 actor 分列，未知值不落 pattern）；`api/users.py` 列表过滤器直接取共享契约枚举（`muad_contracts.memory` / `memory_admin`，`Annotated[..., Query()]` 形态满足 B008），`UserService.list_memories` 死代码随改走 `MemoryService` 一并删除。
+- 回归：`tests/console_platform` = **293 passed, 2 failed**（`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task024-green.txt`）；2 failed 为存量且与本 diff 无关：`test_platform_settings_table.py` 把迁移 head 钉在 `0019`（HEAD 已含 TASK-007 的 `0020`，且 `0020.downgrade()` 按设计拒绝回滚），该文件无 diff。harness-api verifier（改动路径命中 `apps/**/api/**`）：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py tests/console_skill/test_import_idempotency.py` = **23 passed**。`uv run ruff check .` 仅剩 2 条存量违规（agent-runtime I001、TASK-023 的 E501）；改动文件 mypy strict 与 py_compile 通过。
+- 边界说明（跨任务）：`memory_repository.py` 仍保留 `get_for_user/soft_delete/soft_delete_all` 三个存量写方法服务既有 DELETE/Clear 路由；§3.2.1「不直接 UPDATE runtime 表」的终态由 TASK-025（写操作转 Runtime）收口，本任务读路径已用真实 SQL 监听证明只发 SELECT。
+- Scope 扩展（局部 Plan）：diff 命中 path_mapping `rel: **/*relations*`，门禁自动绑定 `harness-rel#RULE-rel-001` 并暂停 TASK；该 spec 的 verifier 即 `tests/console_platform/test_user_side_relations.py`（本任务仅迁移种子 `source_type`→`author`，无关系语义变更）。按「局部 Plan」纳入本任务 scope：`Spec-Refs` 与责任表已登记，verifier `uv run pytest -q tests/console_platform/test_user_side_relations.py` 实测 3 passed（`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task024-rel-verifier.txt`）。
+- 未执行/未宣称：E-04 保持 planned（责任表 owner TASK-030，`["make","acceptance-e2e","DOMAIN=agent"]`），本任务不执行 E2E、不替代其裁决；他租户会话 404 的完整伪造面归 S-01（TASK-029）。未修遗留（不属本任务范围）：`tests/e2e/seed_user_identity.py` 仍插已删除的 `source_type`（E2E 种子，TASK-026/028/030 收口）；前端 `UserDetailTabs.tsx` 仍按 `source_type` 渲染来源列且 `tests/frontend/test_detail_sidesheet_contract.py:56` 钉住该列（TASK-026/028）；`tests/frontend/test_platform_settings_contract.py` 缺 17 个 memory 设置词条（TASK-027/终验）。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-15] started
+- [2026-10-15] resumed (in-progress)
+- [2026-10-15] completed (done)
 
 ---
 

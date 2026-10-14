@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from muad_contracts import ChannelName, CredentialMode
 from muad_contracts.canonical import ensure_strict_json
@@ -317,19 +317,53 @@ class AgentGrantItem(BaseModel):
     granted_by: uuid.UUID
 
 
+CONSOLE_TIME_PATTERN = r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$"
+#: Console 面向接口的时间出参（与 `format_console_time` 同一口径）。
+ConsoleTime = Annotated[str, Field(pattern=CONSOLE_TIME_PATTERN)]
+
+
 class MemoryItem(BaseModel):
+    """记忆读投影：`author` 是记忆作者，`actor` 只出现在版本历史（design §3.7）。
+
+    未知/历史遗留的 author 值原样透出（前端按"未知值原样显示"回退），不得被改写成已知来源。
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     id: uuid.UUID
     memory_key: str
     category: str
     content: dict[str, Any]
-    source_type: str
-    source_ref: str | None
+    author: str
     version: int
     enabled: bool
-    create_time: datetime
-    update_time: datetime
+    explicit_request: bool
+    confirmed_count: int
+    status: str = Field(pattern="^(ACTIVE|DISABLED|EXPIRED)$")
+    source_ref: str | None
+    source_quote: str | None
+    expires_at: ConsoleTime | None
+    last_confirmed_at: ConsoleTime | None
+    create_time: ConsoleTime
+    update_time: ConsoleTime
+
+
+class MemoryHistoryItem(BaseModel):
+    """版本历史投影：只读、按 version 倒序；actor 与 author 分列，未知 actor/原因原样透出。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    origin_id: uuid.UUID
+    memory_key: str
+    version: int
+    change_reason: str
+    actor_type: str
+    actor_id: str | None
+    command_id: str
+    source_run_id: uuid.UUID | None
+    after: dict[str, Any]
+    create_time: ConsoleTime
 
 
 class BindCodeCreateResponse(BaseModel):
