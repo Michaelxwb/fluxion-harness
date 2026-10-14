@@ -152,7 +152,7 @@ STOP_ACCEPTED_TEXT = "正在停止当前任务…"
 STOP_CANCELLED_TEXT = "当前任务已停止"
 
 
-COMMAND_PREFIXES = ("/bind", "/new", "/stop", "/skills")
+COMMAND_PREFIXES = ("/bind", "/new", "/stop", "/skills", "/memory")
 
 
 def _is_command(text: str) -> bool:
@@ -1331,7 +1331,7 @@ class InboundPipeline:
         if event.type == RUN_COMPLETED_EVENT:
             state.final_text = str((event.data or {}).get("final_text") or "")
         await self._run_actions(adapter, route, state, state.renderer.apply(event))
-        if event.type == INTERRUPT_REQUIRED_EVENT:
+        if event.type in (INTERRUPT_REQUIRED_EVENT, "memory.confirmation_required"):
             state.awaiting_input = True
         if event.type in (TASK_ACCEPTED_EVENT, RUN_COMPLETED_EVENT, RUN_FAILED_EVENT):
             # run.waiting_tool / run.resumed 是**非终态**事实：不在这里收尾、不发完成帧。

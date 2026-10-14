@@ -1,4 +1,4 @@
-"""TASK-015 B-15 auxiliary coverage; final B-15 is owned by TASK-017."""
+"""B-15: real Gateway routing, Runtime API/resume, PG and model request capture."""
 
 import asyncio
 from datetime import UTC, datetime, timedelta
@@ -23,9 +23,139 @@ from muad_contracts.platform_settings import MemoryPolicySettings
 
 from tests.agent_runtime.memory_confirmation_resume_support import confirmation_stack, rows
 from tests.agent_runtime.memory_context_support import memory_text
+from tests.agent_runtime.memory_gateway_support import Adapter, envelope, original_submission, pipeline
 from tests.agent_runtime.memory_redesign_write_support import command, commands, context, upsert, writer
 
 pytestmark = pytest.mark.integration
+
+
+async def test_b15_gateway_replay_delivers_exact_persisted_prompt_and_confirmation_to_current_reply(
+    async_tool_database,
+    monkeypatch,
+):
+    async with confirmation_stack(async_tool_database, monkeypatch) as stack:
+        gateway, adapter = pipeline(stack), Adapter()
+        original = await original_submission(stack)
+        pending = (await rows(stack, RunInterrupt))[0]
+        assert await gateway.handle(adapter, original)
+        reply = adapter.replies[original.message_id]
+        assert reply.texts == [pending.prompt_text]
+        displayed = tuple(reply.texts)
+        assert reply.finished == 1 and await rows(stack, UserMemory) == []
+        incoming = envelope(f"确认 {stack.proposal_id}")
+        assert await gateway.handle(adapter, incoming)
+        saved = (await rows(stack, UserMemory))[0]
+        assert saved.author == "USER" and saved.content_json == {"value": "blue"}
+        assert saved.confirmed_count == saved.version == 1
+        assert "已保存" in "".join(adapter.replies[incoming.message_id].chunks)
+        assert tuple(adapter.replies[original.message_id].texts) == displayed
+        assert await gateway.handle(adapter, incoming)
+        assert len(await rows(stack, UserMemoryHistory)) == len(await rows(stack, MemoryCommandReceipt)) == 1
+
+
+@pytest.mark.parametrize("answer", ["1", "是", "确认 invalid", "确认 00000000-0000-0000-0000-000000000000"])
+async def test_b15_gateway_invalid_answer_preserves_waiting_and_exact_pending_content(
+    async_tool_database,
+    monkeypatch,
+    answer,
+):
+    async with confirmation_stack(async_tool_database, monkeypatch) as stack:
+        gateway, adapter = pipeline(stack), Adapter()
+        assert await gateway.handle(adapter, envelope(answer)) is False
+        assert (await rows(stack, RunInterrupt))[0].status == "WAITING"
+        assert (await rows(stack, RunRecord))[0].status == "WAITING_INPUT"
+        assert await rows(stack, UserMemory) == [] and stack.captured == []
+
+
+@pytest.mark.parametrize("status", ["RUNNING", "WAITING_TOOL"])
+async def test_memory_command_bypasses_gateway_stream_lock_but_runtime_busy_cannot_create_a_run(
+    async_tool_database,
+    monkeypatch,
+    status,
+):
+    async with confirmation_stack(async_tool_database, monkeypatch) as stack:
+        from contextlib import suppress
+
+        gateway, adapter = pipeline(stack), Adapter()
+        incoming = envelope("/memory remember color PREFERENCE blue")
+        async with stack.factory.begin() as session:
+            run = await session.get(RunRecord, stack.run.id)
+            run.status = status
+        consumer = asyncio.create_task(gateway.consume(adapter))
+        try:
+            async with gateway._route_lock(incoming):
+                await adapter.push(incoming)
+                for _ in range(100):
+                    if (
+                        incoming.message_id in adapter.replies
+                        and adapter.replies[incoming.message_id].finished
+                    ):
+                        break
+                    await asyncio.sleep(0.01)
+                assert incoming.message_id in adapter.replies
+                reply = adapter.replies[incoming.message_id]
+                assert reply.finished == 1 and reply.texts
+                assert "/stop" in "".join(reply.texts) and "已有任务执行中" in "".join(reply.texts)
+        finally:
+            consumer.cancel()
+            with suppress(asyncio.CancelledError):
+                await consumer
+        assert len(await rows(stack, RunRecord)) == 1 and await rows(stack, UserMemory) == []
+        assert (await rows(stack, RunRecord))[0].status == status
+
+
+async def test_b15_runtime_only_exact_real_memory_command_can_authorize_candidate_without_prompt(
+    async_tool_database,
+):
+    from tests.agent_runtime.memory_confirmation_support import candidate, service, source
+
+    factory, run, identity, submission = await source(async_tool_database)
+    async with factory.begin() as session:
+        event = await session.scalar(
+            sa.select(CanonicalEvent).where(CanonicalEvent.submission_id == submission)
+        )
+        event.payload_json = {**event.payload_json, "text": "/memory remember color PREFERENCE blue"}
+    memory = service(factory, identity, submission)
+    receipt = await memory.propose(candidate(), call_id="explicit-command")
+    assert receipt.saved is True and memory.suspend_request is None
+    replay = await memory.propose(candidate(), call_id="another-model-call")
+    assert replay == receipt and memory.suspend_request is None
+    async with factory() as session:
+        saved = await session.scalar(sa.select(UserMemory).where(UserMemory.tenant_id == run.tenant_id))
+        assert saved.author == "USER" and saved.confirmation_event_id == event.id
+        assert saved.content_json == {"value": "blue"} and saved.source_quote == event.payload_json["text"]
+        assert (
+            await session.scalar(
+                sa.select(sa.func.count())
+                .select_from(UserMemoryHistory)
+                .where(UserMemoryHistory.tenant_id == run.tenant_id)
+            )
+            == 1
+        )
+
+
+@pytest.mark.parametrize("change", [{"value": "red"}, {"memory_key": "other"}, {"category": "WORK_STYLE"}])
+async def test_b15_memory_command_cannot_authorize_different_model_parameters(async_tool_database, change):
+    from tests.agent_runtime.memory_confirmation_support import candidate, service, source
+
+    factory, run, identity, submission = await source(async_tool_database)
+    async with factory.begin() as session:
+        event = await session.scalar(
+            sa.select(CanonicalEvent).where(CanonicalEvent.submission_id == submission)
+        )
+        event.payload_json = {**event.payload_json, "text": "/memory remember color PREFERENCE blue"}
+    memory = service(factory, identity, submission)
+    receipt = await memory.propose(candidate(**change), call_id="different-candidate")
+    assert receipt.saved is False and memory.suspend_request is not None
+    async with factory() as session:
+        assert (
+            await session.scalar(
+                sa.select(sa.func.count())
+                .select_from(UserMemory)
+                .where(UserMemory.tenant_id == run.tenant_id)
+            )
+            == 0
+        )
 
 
 async def test_local_b15_real_gateway_confirmation_saves_displayed_content_and_new_receipt(

@@ -24,6 +24,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ..infrastructure.db import SessionFactory
 from .async_tools.continuation_service import ExecutionIdentity
 from .checkpoint import suspend_memory_confirmation
+from .memory_explicit_command import MemorySavedReceipt, matches_user_command, save_user_command
 from .memory_proposals import (
     _memory_state,
     _prompt,
@@ -62,7 +63,9 @@ class MemoryConfirmationService:
     def suspend_request(self) -> MemorySuspendRequest | None:
         return self._pending
 
-    async def propose(self, candidate: RememberMemoryInput, *, call_id: str) -> MemoryProposalReceipt:
+    async def propose(
+        self, candidate: RememberMemoryInput, *, call_id: str
+    ) -> MemoryProposalReceipt | MemorySavedReceipt:
         async with self._lock:
             if self._pending is not None:
                 raise AppError(ErrorCode.MEMORY_CONFIRMATION_PENDING)
@@ -85,6 +88,9 @@ class MemoryConfirmationService:
                     await ensure_no_memory_confirmation(session, self._identity)
                     run, _, now = await locked_confirmation_execution(session, self._identity)
                     event = await confirmation_source(session, run, self._submission_id)
+                    if matches_user_command(event, candidate):
+                        return await save_user_command(self._factory, session, run, event, self._identity,
+                            candidate, self._settings, self._canaries)
                     row, epoch = await _memory_state(session, run, candidate.memory_key)
                     proposal = _proposal(candidate, run, event, row, epoch, now)
                     proposal_id = uuid4()

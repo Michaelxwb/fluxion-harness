@@ -42,6 +42,9 @@ verifiers:
 
 ## Conventions
 
+- **记忆命令只在Gateway分类，权威意图由Runtime验证**：`/memory` 使用独立命令容量、不等待普通流的route锁；完整真实message/身份仍原样送Runtime，RUNNING/WAITING_TOOL返回RUN_BUSY，WAITING_INPUT只走合法resume。✅ Runtime将当前canonical USER_MESSAGE的`/memory remember <key> <category> <value>`与工具全部参数精确比对后，经同一事务writer保存USER；❌ Gateway解析value、模型自报来源或只匹配部分参数即授权。
+- **待确认事件完整投递到本条ReplySession**：SSE白名单、StreamRenderer与Progress均识别Runtime持久化的`memory.confirmation_required`，直接显示原prompt中的完整内容/候选编号，并结束本条等待输入的回复；重放仍读canonical事件。✅ 此事件停止执行计时，收到确认后使用当前入站消息的回复会话；❌ 当未知帧丢弃、再把EOF当断流，或把确认结果写回旧回复会话。任务续接options由Runtime的message.delta原文投递，Gateway不重新编号。
+
 入站、绑定的错误语义与幂等口径：
 
 - **入站消息按 `message_id` 去重，且只有「已受理」才落终值**：键 `im:dedupe:{channel}:{message_id}`、TTL 600s。入口先 `reserve` **占位**（值带所有者 token），**受理之后**才升级为终值；受理前的依赖故障（平台设置拉取失败、授权解析失败、附件落盘失败、Runtime 提交被拒）一律**释放占位**，让平台重投能真正重试（`application/inbound.py` 的 `handle` / `_reserve_seen` / `_mark_accepted` / `_release_seen`）。受理之后的重复由下游幂等键兜底（`message_id` 作为 `Idempotency-Key` 沿链路透传）。去重存储不可用时**降级为 at-least-once（fail-open）且不得阻断投递**——`NullDedupeStore` 一律放行并只记告警（`infrastructure/dedupe.py`）。丢消息比重复消息更严重：宁可重复处理，不可因 Redis 抖动静默吞掉用户消息。

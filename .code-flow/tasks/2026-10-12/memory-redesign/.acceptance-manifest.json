@@ -724,7 +724,7 @@
       "kind": "functional",
       "boundary": "integration，真实 Gateway/Runtime/PG/resume",
       "owner": "TASK-017",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -734,7 +734,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-15",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "421fd0ea281f447bb5be359071f5afa9",
+        "executed_at": "2026-10-14T03:54:11.732632+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_memory_redesign_confirmation.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "edd108c0c8593c207136b9c2647cada40d97627bbe6155847a0c993cc9807829"
+      },
+      "runs": [
+        {
+          "id": "B-15",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "421fd0ea281f447bb5be359071f5afa9",
+          "executed_at": "2026-10-14T03:54:11.732632+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_confirmation.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "edd108c0c8593c207136b9c2647cada40d97627bbe6155847a0c993cc9807829"
+        }
+      ]
     },
     {
       "id": "B-16",

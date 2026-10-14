@@ -72,6 +72,7 @@ class StreamRenderer:
         handlers = {
             "message.delta": self._on_delta,
             "interrupt.required": self._on_interrupt,
+            "memory.confirmation_required": self._on_interrupt,
             "task.accepted": self._on_task_accepted,
             "artifact.created": self._on_artifact,
             "run.completed": self._on_completed,

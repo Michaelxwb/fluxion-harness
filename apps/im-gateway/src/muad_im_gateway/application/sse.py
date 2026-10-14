@@ -42,6 +42,7 @@ KNOWN_EVENT_TYPES = frozenset(
         "task.accepted",
         "artifact.created",
         "interrupt.required",
+        "memory.confirmation_required",
         "run.completed",
         "run.failed",
     }

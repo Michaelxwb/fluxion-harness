@@ -140,6 +140,7 @@ class ExecutionProgress:
 
 _STOP_PHASES = {
     "interrupt.required": ProgressPhase.WAITING_INPUT,
+    "memory.confirmation_required": ProgressPhase.WAITING_INPUT,
     "task.accepted": ProgressPhase.ACCEPTED,
     "run.completed": ProgressPhase.COMPLETED,
     "run.failed": ProgressPhase.FAILED,

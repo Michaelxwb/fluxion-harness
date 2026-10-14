@@ -36,7 +36,7 @@
 | B-12 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 两段 Run | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_snapshot.py"] | . | 300 |  |
 | B-13 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，迁移库 + ORM create_all | TASK-007 | verified | ["uv","run","pytest","-q","tests/migrations/test_memory_redesign_schema_parity.py"] | . | 300 |  |
 | B-14 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，旧 revision 存量库升级 | TASK-007 | verified | ["uv","run","pytest","-q","tests/migrations/test_memory_redesign_migration.py"] | . | 300 |  |
-| B-15 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 Gateway/Runtime/PG/resume | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_confirmation.py"] | . | 300 |  |
+| B-15 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 Gateway/Runtime/PG/resume | TASK-017 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_confirmation.py"] | . | 300 |  |
 | B-16 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + HTTP 模型探针 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py"] | . | 300 |  |
 | B-17 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py"] | . | 300 |  |
 | B-18 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | . | 300 |  |
@@ -884,7 +884,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ## TASK-017: Gateway /memory 前缀、确认与续接事件投递
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-016, TASK-014
 - **Source**: memory-redesign.design.md#3.4.2 remember 与真实确认, memory-redesign.design.md#3.5.2 任务续接闭环
@@ -898,28 +898,37 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ### Checklist
 
-- [ ] [E-02/E-05][integration] 辅助先写长流中memory即时受理分类但RUN_BUSY明确、WAITING_INPUT合法resume、断线事件回放RED。
-- [ ] 确认候选与options文本用Runtime持久事件的确切内容/编号，正确绑定本条回复会话。
-- [ ] 无渠道专有字样流入Runtime，不把模型文本当用户输入；记录GREEN。
-- [ ] [B-15][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 Gateway/Runtime/PG/resume；断言：确认内容与展示一致；其他用户、编号、过期、旧版本/forget_epoch、重放均不能保存另一份内容；同轮两提议明确拒绝第二个；无效回答仍 WAITING，拒绝合法续跑。
-- [ ] [RULE-im-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/console_channel","tests/gateway"]（cwd=., timeout=600s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
-- [ ] [RULE-im-002] verifier：按元数据argv ["uv","run","pytest","-q","tests/architecture/test_channel_neutrality.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [E-02/E-05][integration] 辅助先写长流中memory即时受理分类但RUN_BUSY明确、WAITING_INPUT合法resume、断线事件回放RED。
+- [x] 确认候选与options文本用Runtime持久事件的确切内容/编号，正确绑定本条回复会话。
+- [x] 无渠道专有字样流入Runtime，不把模型文本当用户输入；记录GREEN。
+- [x] [B-15][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实 Gateway/Runtime/PG/resume；断言：确认内容与展示一致；其他用户、编号、过期、旧版本/forget_epoch、重放均不能保存另一份内容；同轮两提议明确拒绝第二个；无效回答仍 WAITING，拒绝合法续跑。
+- [x] [RULE-im-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/console_channel","tests/gateway"]（cwd=., timeout=600s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [RULE-im-002] verifier：按元数据argv ["uv","run","pytest","-q","tests/architecture/test_channel_neutrality.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-15 | integration | integration，真实 Gateway/Runtime/PG/resume | 确认内容与展示一致；其他用户、编号、过期、旧版本/forget_epoch、重放均不能保存另一份内容；同轮两提议明确拒绝第二个；无效回答仍 WAITING，拒绝合法续跑 | tests/agent_runtime/test_memory_redesign_confirmation.py / test_b15_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_confirmation.py"] | planned |
-| harness-im#RULE-im-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["uv","run","pytest","-q","tests/console_channel","tests/gateway"] | planned |
-| harness-im#RULE-im-002 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["uv","run","pytest","-q","tests/architecture/test_channel_neutrality.py"] | planned |
+| B-15 | integration | integration，真实 Gateway/Runtime/PG/resume | 确认内容与展示一致；其他用户、编号、过期、旧版本/forget_epoch、重放均不能保存另一份内容；同轮两提议明确拒绝第二个；无效回答仍 WAITING，拒绝合法续跑 | tests/agent_runtime/test_memory_redesign_confirmation.py / test_b15_gateway_replay_delivers_exact_persisted_prompt_and_confirmation_to_current_reply / test_b15_runtime_only_exact_real_memory_command_can_authorize_candidate_without_prompt | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_confirmation.py"] | verified |
+| harness-im#RULE-im-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（实际原argv执行通过） | ["uv","run","pytest","-q","tests/console_channel","tests/gateway"] | verified |
+| harness-im#RULE-im-002 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（实际原argv执行通过） | ["uv","run","pytest","-q","tests/architecture/test_channel_neutrality.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- RED（2026-10-14）：`uv run pytest -q tests/agent_runtime/test_memory_redesign_confirmation.py -k 'gateway or exact_real'`，4 failed/6 passed；其中首次replay失败包含fixture endpoint错误，修正原RunSubmission的create-run身份后单跑replay仍失败（实际待确认事件被Gateway SSE白名单丢弃，显示断流错误）。有效实现RED为：RUNNING/WAITING_TOOL期间memory命令被路由锁拦住（2例）；真实命令精确参数仍saved=false（1例）；真实已持久化memory.confirmation_required提示未投递（单跑1例）。不将fixture错误算实现缺陷。日志 `/tmp/fluxion-task017-red.txt`、`/tmp/fluxion-task017-replay-fixture.txt`。
+- 真实Gateway InboundPipeline/consume/ReplySession/RuntimeClient socket→Runtime router/RunService/defaultExecutor→隔离headPG；Console身份端口提供固定测试授权，模型HTTP/凭据探针为受控外部端点，核心确认/存储/渲染不mock。原已受理submission fixture规范化为实际Gateway wire指纹，通过真实create入口重放确切持久提示。
+- GREEN：隔离PG/Redis wrapper执行 `tests/agent_runtime/test_memory_redesign_confirmation.py tests/agent_runtime/test_memory_redesign_proposals.py tests/agent_runtime/test_memory_tools.py`，73 passed（2026-10-14）；B-15文件37例。新命令重复工具调用复用同一永久receipt/history，不增加确认次数；错key/category/value均仍saved=false。测试中的fixture修正（原submission endpoint、ReplySession.finish幂等）已明确区别于实现缺陷。
+- 原IM verifier：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxion-memory-isolated-command.py uv run pytest -q tests/console_channel tests/gateway`，413 passed；`uv run pytest -q tests/architecture/test_channel_neutrality.py`，3 passed。命令argv与元数据一致，独立迁移PG/Redis提供环境隔离，未绕过业务边界。
+- 断言：`test_b15_gateway_replay_delivers_exact_persisted_prompt_and_confirmation_to_current_reply`确切持久prompt、当前ReplySession、真实重复message最多一套history/receipt；`test_memory_command_bypasses_gateway_stream_lock_but_runtime_busy_cannot_create_a_run`持有真实route锁时consume仍送入Runtime，RUNNING/WAITING_TOOL均RUN_BUSY且只有原Run；无效回答四例仍WAITING且未调用模型；原B-15辅助用例验证过期、旧版本/epoch/其他用户、拒绝、完整事务回滚与并发消费。same-round第二提议由实际Runner/默认remember工具回归覆盖。
+- 明确命令匹配发生于Runtime的当前canonical USER_MESSAGE，复核受信submission/owner/epoch/deadline并走统一writer；其他候选保持完整回合暂停。`memory.confirmation_required`贯穿SSE白名单/Progress/Renderer/Inbound等待判断，重放不再被误报断流；续接编号仍由Runtime message.delta原文承载，不在Gateway重排。
+- 新模块/重写函数≤50行，Ruff与轻量语法/mypy validation pass。日志 `/tmp/fluxion-task017-regression.txt`、`/tmp/fluxion-task017-im-verifier.txt`、`/tmp/fluxion-task017-validation.json`。E-02/E-05最终E2E仍由TASK-030登记，未提前执行。
+- B-15: verified — automated command passed; run_id=421fd0ea281f447bb5be359071f5afa9 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-14] started
+- [2026-10-14] completed (done)
 
 ---
 
