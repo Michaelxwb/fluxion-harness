@@ -46,6 +46,7 @@ from muad_contracts.platform_settings import (
     CompactionSettings,
     LocaleSettings,
     MemoryPolicySettings,
+    PlatformSettingsError,
     compaction_payload,
     default_compaction_settings,
     parse_platform_settings,
@@ -211,15 +212,17 @@ def _frozen_str(source: Mapping[str, Any], key: str, default: str) -> str:
 
 
 def _frozen_memory_policy(policy: Mapping[str, Any]) -> MemoryPolicySettings:
-    return parse_platform_settings({"memory": dict(_section(policy, "memory"))}).memory
+    section = _section(policy, "memory")
+    if set(section) != set(asdict(MemoryPolicySettings())):
+        raise PlatformSettingsError("snapshot memory policy must contain every schema leaf")
+    return parse_platform_settings({"memory": dict(section)}).memory
 
 
 def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults:
-    """从**已冻结**的 `policy_json` 还原执行期平台默认；缺键逐叶回落 schema 默认。
+    """Restore the frozen execution policy; incomplete memory snapshots are invalid.
 
-    resume 走这条：在跑的 Run 用的永远是它自己那一份冻结值，不吃当前平台设置。**逐叶**回落
-    （而不是整块 None）让本需求上线**前**创建的 Run 仍能读回它当时冻结的 `deadline_ms` /
-    `max_model_retries`（旧行没有 `max_turns` / `memory` 等键，这些按 schema 默认补齐）。
+    Maintenance drains legacy in-flight Runs before deployment. Historical terminal snapshots
+    stay unchanged for audit and do not participate in resume or consolidation.
     """
     if not isinstance(policy, Mapping):
         return ExecutionDefaults()
@@ -276,6 +279,12 @@ def history_budget_of(policy: Mapping[str, Any] | None) -> int | None:
     compaction = (policy or {}).get("compaction")
     value = compaction.get("history_budget_messages") if isinstance(compaction, Mapping) else None
     return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def history_tool_rounds_of(policy: Mapping[str, Any]) -> int:
+    """Use the source Run's frozen tool history budget, including its zero value."""
+    settings = compaction_settings_of(policy)
+    return (settings or default_compaction_settings()).max_history_tool_rounds
 
 
 #: 「无平台设置时」的 schema 默认策略快照（导入期求值一次）。它不是运行期动态默认源：
@@ -1087,6 +1096,7 @@ class RunService:
             tenant_id,
             request.platform_user_id,
             budget_messages=compaction.history_budget_messages,
+            max_history_tool_rounds=compaction.max_history_tool_rounds,
         )
         stream = self._stream_run(
             run=run,
@@ -1150,7 +1160,8 @@ class RunService:
                 "run_id": str(run_id), "error_type": type(exc).__name__})
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
         history = await self._load_history(run.conversation_id, run.tenant_id, run.user_id,
-            budget_messages=history_budget_of(snapshot.policy_json))
+            budget_messages=history_budget_of(snapshot.policy_json),
+            max_history_tool_rounds=history_tool_rounds_of(snapshot.policy_json))
         stream = self._stream_run(run=run, agent=agent, model=model, skills=skills,
             mcp_servers=servers, mcp_secrets=secrets, history=history, submission_id=submission.id,
             resumed=True, compaction=compaction_settings_of(snapshot.policy_json),
@@ -1434,6 +1445,7 @@ class RunService:
         user_id: uuid.UUID,
         *,
         budget_messages: int | None = None,
+        max_history_tool_rounds: int = default_compaction_settings().max_history_tool_rounds,
     ) -> tuple[ModelMessage, ...]:
         """Read canonical history; the executor owns request-time memory refresh."""
         return await self._context_builder.load_history(
@@ -1441,6 +1453,7 @@ class RunService:
             conversation_id=conversation_id,
             user_id=user_id,
             budget_messages=budget_messages,
+            max_history_tool_rounds=max_history_tool_rounds,
         )
 
     def _build_snapshot(
@@ -1606,6 +1619,7 @@ class RunService:
             conversation_id=run.conversation_id,
             user_id=run.user_id,
             budget_messages=compaction.history_budget_messages if compaction else None,
+            max_history_tool_rounds=(compaction or default_compaction_settings()).max_history_tool_rounds,
             unconsumed_run_id=run.id,
             consumed_event_seq=progress.consumed_event_seq,
         )

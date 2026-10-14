@@ -29,13 +29,6 @@ HISTORY_EVENT_TYPES = (
     "TOOL_SUBMISSION_FAILED",
 )
 
-# 历史里保留的 tool 回合数上限（一个回合 = assistant(tool_calls) + 它的若干 tool 结果）。
-# 依据：思考模式的 `reasoning_content` 实测约 3KB/轮（单轮 2840 字符），全量回放会让请求体
-# 随会话线性膨胀，而消息条数预算（`BudgetPolicy.max_messages`）管不住字节数。
-# 超出的回合**整回合丢弃**（绝不半截保留，否则会造出孤儿 tool 消息 ⇒ 供应商直接拒绝）。
-MAX_HISTORY_TOOL_ROUNDS = 6
-
-
 @dataclass(frozen=True, slots=True)
 class BudgetPolicy:
     # `max_messages` 是**取事件的查询守卫**（`_recent_events` 按它 ×4 限流），不是请求预算本身：
@@ -64,6 +57,7 @@ class DbBackedContextBuilder:
         through_seq: int | None = None,
         unconsumed_run_id: uuid.UUID | None = None,
         consumed_event_seq: int = 0,
+        max_history_tool_rounds: int = default_compaction_settings().max_history_tool_rounds,
     ) -> tuple[ModelMessage, ...]:
         """Read owned canonical history; memory and compression belong to the derived request."""
         budget = budget_messages or self._budget.max_messages
@@ -91,7 +85,7 @@ class DbBackedContextBuilder:
                 unconsumed_run_id=unconsumed_run_id,
                 consumed_event_seq=consumed_event_seq,
             )
-            history = await self._to_messages(session, tenant_id, events)
+            history = await self._to_messages(session, tenant_id, events, max_history_tool_rounds)
         summaries: list[ModelMessage] = []
         if summary_row is not None:
             fields = summary_from_payload((summary_row.payload_json or {}).get("summary"))
@@ -152,6 +146,7 @@ class DbBackedContextBuilder:
         session: Any,
         tenant_id: str,
         events: list[CanonicalEvent],
+        max_history_tool_rounds: int,
     ) -> list[ModelMessage]:
         references = await self._artifact_references(
             session, tenant_id, [event.artifact_id for event in events if event.artifact_id]
@@ -264,7 +259,7 @@ class DbBackedContextBuilder:
                     external_pending.clear()
 
         entries.extend((0, message) for message in external_pending)
-        keep = _kept_tool_rounds([value for value, _ in entries])
+        keep = _kept_tool_rounds([value for value, _ in entries], max_history_tool_rounds)
         return [message for value, message in entries if value == 0 or value in keep]
 
     async def _artifact_references(
@@ -340,7 +335,11 @@ def _tool_message_content(payload: Mapping[str, Any], artifact_ref: dict[str, An
     return f"[tool:{payload.get('tool_name')}]"
 
 
-def _kept_tool_rounds(present: list[int]) -> set[int]:
-    """保留最近 `MAX_HISTORY_TOOL_ROUNDS` 个 tool 回合；**整回合**保留或丢弃，绝不半截。"""
+def _kept_tool_rounds(present: list[int], limit: int) -> set[int]:
+    """Apply the frozen round budget to complete tool exchanges; zero omits them."""
+    if not 0 <= limit <= 50:
+        raise ValueError("invalid frozen history tool round budget")
+    if limit == 0:
+        return set()
     rounds = sorted({value for value in present if value > 0})
-    return set(rounds[-MAX_HISTORY_TOOL_ROUNDS:])
+    return set(rounds[-limit:])

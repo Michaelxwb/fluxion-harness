@@ -43,7 +43,7 @@
 | B-19 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，摘要关闭 + 真实模型 HTTP | TASK-019 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_provider.py"] | . | 300 |  |
 | B-20 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，迁移前置检查与恢复演练 | TASK-007 | verified | ["uv","run","pytest","-q","tests/migrations/test_memory_redesign_preflight.py"] | . | 300 |  |
 | B-21 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 延迟 job / 后续摘要 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_input_boundary.py"] | . | 300 |  |
-| B-22 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实PG+旧新Run | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_snapshot.py"] | . | 300 |  |
+| B-22 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实PG+旧新Run | TASK-016 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_snapshot.py"] | . | 300 |  |
 | B-23 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 并发 writer / 当前语句时间 | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py"] | . | 300 |  |
 | E-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | TASK-012 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | . | 1800 |  |
 | E-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway → Runtime → resume | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
@@ -836,7 +836,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ## TASK-016: Run/job 冻结全部记忆策略与工具历史预算
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-015
 - **Source**: memory-redesign.design.md#2.3.3 配置项, memory-redesign.design.md#3.2.2 模型请求组件, memory-redesign.design.md#4.2 一次性迁移与切换
@@ -850,26 +850,35 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ### Checklist
 
-- [ ] [B-12][integration] 先写一次只改一个叶子的新Run/旧resume/job，其他叶子不变RED。
-- [ ] [B-22][integration] 200→300已有250条旧Run仍可读取/forget，不能回退容量；在线收紧拒绝。
-- [ ] snapshot/model剥api_key，凭据实时；source policy与后台deadline预算分离。
-- [ ] [B-22][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实PG+旧新Run；断言：额度200→300后250条均被旧Run读到；旧Run forget成功；旧冻结额度不额外淘汰；在线降低拒绝，维护排空才可降。
-- [ ] [RULE-snapshot-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]（cwd=., timeout=600s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [B-12][integration] 先写一次只改一个叶子的新Run/旧resume/job，其他叶子不变RED。
+- [x] [B-22][integration] 200→300已有250条旧Run仍可读取/forget，不能回退容量；在线收紧拒绝。
+- [x] snapshot/model剥api_key，凭据实时；source policy与后台deadline预算分离。
+- [x] [B-22][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，真实PG+旧新Run；断言：额度200→300后250条均被旧Run读到；旧Run forget成功；旧冻结额度不额外淘汰；在线降低拒绝，维护排空才可降。
+- [x] [RULE-snapshot-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]（cwd=., timeout=600s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-22 | integration | integration，真实PG+旧新Run | 额度200→300后250条均被旧Run读到；旧Run forget成功；旧冻结额度不额外淘汰；在线降低拒绝，维护排空才可降 | tests/agent_runtime/test_memory_redesign_snapshot.py / test_b22_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_snapshot.py"] | planned |
-| harness-snapshot#RULE-snapshot-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | planned |
+| B-22 | integration | integration，真实PG+旧新Run | 额度200→300后250条均被旧Run读到；旧Run forget成功；旧冻结额度不额外淘汰；在线降低拒绝，维护排空才可降 | tests/agent_runtime/test_memory_redesign_snapshot.py / test_b22_memory_redesign_old_run_reads_250_and_forgets_after_quota_increase | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_snapshot.py"] | verified |
+| harness-snapshot#RULE-snapshot-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（实际执行：4+30 passed） | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- RED（2026-10-14）：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxion-task015-regression.py tests/agent_runtime/test_memory_redesign_snapshot.py`，独立迁移至head的PG/Redis，6 failed / 3 passed。缺失冻结memory叶子被静默补默认（3例）；真实PG历史Builder未接收工具轮预算（0/1/8三例）。完整输出 `/tmp/fluxion-task016-red.txt`。
+- B-22 既有writer减容/Console在线收紧拒绝已实现，新增真实Run/PG工具补测首次通过，不伪造RED；B-12单叶冻结及job→source snapshot辅助用例通过。job执行期/resume全链路最终责任仍由TASK-021的B-12承担。
+- GREEN：同一隔离wrapper执行snapshot本套件与snapshot_freeze/run_reaper/execution_defaults/context_rebuild/tool_result_history，27 passed（2026-10-14）；新增本套件10例全部实际收集执行。真实Console设置/RunService/PG快照/原forget工具，250→249仅目标删除，旧policy逐键不变。旧resume读取6轮，新Run为0，完整声明/结果配对；0/1/8轮精确验证。
+- Snapshot原verifier：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxion-memory-isolated-command.py bash -lc 'uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"'`，独立headPG/Redis中按元数据原argv实际执行，4+30 passed，记录 `/tmp/fluxion-task016-verifier.txt`。
+- 断言：`test_b22_memory_redesign_old_run_reads_250_and_forgets_after_quota_increase`（真实旧新Run、完整候选和forget/维护错误）；`test_b12_only_history_budget_leaf_changes_new_run_while_old_resume_keeps_six_rounds`（真实入站resume，不重resolve设置）；`test_b12_single_memory_leaf_changes_only_new_run_and_job_uses_source_snapshot`（两个memory叶子各单腿、新Run/原snapshot job引用、其他叶子不变）；缺失叶子拒绝与0/1/8完整历史轮回放参数测试。
+- 凭据剥离/hash稳定性由原Snapshot用例及TASK-015真实API-09旋转覆盖；source memory.consolidation_timeout_sec与主Run deadline_ms单腿对照不互相覆盖。正式job执行B-12仍由TASK-021最终验收。
+- 轻量validation：语法/mypy已pass；Ruff已pass。无E2E提前执行。
+- B-22: verified — automated command passed; run_id=7fbe93fc130b4b61a10d99dc25d8acff (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-14] started
+- [2026-10-14] completed (done)
 
 ---
 

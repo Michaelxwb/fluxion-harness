@@ -958,7 +958,7 @@
       "kind": "functional",
       "boundary": "integration，真实PG+旧新Run",
       "owner": "TASK-016",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -968,7 +968,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-22",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7fbe93fc130b4b61a10d99dc25d8acff",
+        "executed_at": "2026-10-14T03:39:30.902038+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_memory_redesign_snapshot.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "c1a6d06c418c23b7ac3fe7340f8c02f79c2683e524191709a5bd05cb5bc0e1f0"
+      },
+      "runs": [
+        {
+          "id": "B-22",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7fbe93fc130b4b61a10d99dc25d8acff",
+          "executed_at": "2026-10-14T03:39:30.902038+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_snapshot.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "c1a6d06c418c23b7ac3fe7340f8c02f79c2683e524191709a5bd05cb5bc0e1f0"
+        }
+      ]
     },
     {
       "id": "B-23",

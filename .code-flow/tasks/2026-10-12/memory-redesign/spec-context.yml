@@ -1,7 +1,7 @@
 version: 1
 task: memory-redesign
 enforcement: required
-updated_at: '2026-10-14T03:29:53.142824+00:00'
+updated_at: '2026-10-14T03:38:19.342046+00:00'
 sources:
 - type: cli
   ref: bind
@@ -51,7 +51,7 @@ bindings:
         - artifact: memory-redesign.design.md
           section_id: 3.3.4
           item_id: permanent-receipt
-          artifact_sha256: 41c4a38e65b80d8f5e0a8d72f97ec4794c76b84e66bd7ef98cd1d00d74eb6ea3
+          artifact_sha256: dab4e23bdc0dae40637e92ea177a4f7196336d329db9091ece73355d8db86347
         decision: null
         evidence: []
       plan:
@@ -60,15 +60,15 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         - artifact: memory-redesign.md
           section_id: TASK-009
           item_id: idempotency-receipt
-          artifact_sha256: 9f934406e644bb8499047b58ecd5f6eb28e4c0191c053e2924ae4c7f72ffac98
+          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -295,6 +295,17 @@ bindings:
               5 passed in 0.88s
 
               '
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-14T03:39:31.082598+00:00'
+          status: unverified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: stale
         refs: []
@@ -324,11 +335,11 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-023
           item_id: TASK-023
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -579,6 +590,17 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               18 passed, 1 warning in 1.34s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-14T03:39:31.082617+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -623,7 +645,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-022
           item_id: TASK-022
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -806,6 +828,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-14T03:39:31.083407+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -853,7 +886,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -1036,6 +1069,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-14T03:39:31.084235+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: stale
         refs: []
@@ -1084,7 +1128,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-026
           item_id: TASK-026
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -1267,6 +1311,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-14T03:39:31.085108+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1311,7 +1366,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-027
           item_id: TASK-027
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -1494,6 +1549,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-14T03:39:31.085899+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1538,7 +1604,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -1721,6 +1787,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-14T03:39:31.086840+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1751,7 +1828,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -1934,6 +2011,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-14T03:39:31.086846+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1980,7 +2068,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-018
           item_id: TASK-018
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -2163,6 +2251,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-14T03:39:31.087699+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2209,7 +2308,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-015
           item_id: TASK-015
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -2246,7 +2345,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -2284,7 +2383,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-012
           item_id: TASK-012
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -2321,7 +2420,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-021
           item_id: TASK-021
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -2359,7 +2458,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-021
           item_id: TASK-021
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -2396,7 +2495,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -2448,7 +2547,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-019
           item_id: TASK-019
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -2631,6 +2730,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-14T03:39:31.091035+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2676,7 +2786,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-029
           item_id: TASK-029
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -2872,6 +2982,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-14T03:39:31.092053+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2921,7 +3042,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -3116,6 +3237,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-14T03:39:31.092856+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -3125,7 +3257,7 @@ bindings:
   path: snapshot/harness-snapshot.md
   status: active
   hashes:
-    file_sha256: 3b5d41bc41b4a0fcd2bb1bcdb58e97835787266d6d568a7f7731abdb98267926
+    file_sha256: b9ed44b84d8262300986abdb1cca10d5747161925d16314de6a93660c9e59520
     metadata_sha256: 4772b9dff35dcd7ef80935ac4770a4fc804a0080c8bd92d7ab8108a3cfaac583
     rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
   selected_by: agent
@@ -3162,7 +3294,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-016
           item_id: TASK-016
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -3345,6 +3477,17 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-14T03:39:31.093460+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -3389,7 +3532,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-030
           item_id: TASK-030
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -3572,6 +3715,17 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-14T03:39:31.094427+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -3616,7 +3770,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -3815,6 +3969,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-14T03:39:31.095175+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -3859,7 +4024,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-028
           item_id: TASK-028
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -4042,6 +4207,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-14T03:39:31.095944+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -4086,7 +4262,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-028
           item_id: TASK-028
-          artifact_sha256: add05fc6679078cea9bd96f7404eb32de87a987e541667e2064635ce04eb5fbf
+          artifact_sha256: a270bb093491f4f8caf940b8b54b76048aaa7a13bfc7e8c9752846d83540ab53
         decision: null
         evidence: []
       code:
@@ -4264,6 +4440,17 @@ bindings:
           rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
           artifact_sha256: null
           diff_sha256: 13d2b8839ed84c4c5958edd94461c1b349744b36412cdb8b16e9b1427586320a
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-14T03:39:31.096748+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: b1ba0a7a4e0729f6fd6f8f32e4e32e86d99865bde1c939580c8390d8dcc57c0b
           result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
           error_code: deferred_to_review
           details:
