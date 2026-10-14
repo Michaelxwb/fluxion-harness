@@ -1136,7 +1136,7 @@ COMPLETED终态内savepoint入队；PG claim/epoch/lease/attempt唯一；首次�
 
 ## TASK-022: Runtime 后台接线、TTL 与过期确认清扫
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-021, TASK-015, TASK-018
 - **Source**: memory-redesign.design.md#3.8 可靠性与观测, memory-redesign.design.md#3.6 consolidation 生命周期
@@ -1150,24 +1150,30 @@ lifespan启动停止有界job/expiry泵，PG权威无实例绑定；过期确认
 
 ### Checklist
 
-- [ ] [E-06][integration] 辅助先写跨实例接管/旧epoch拒绝、shutdown清理provider任务、非COMPLETED不入队RED。
-- [ ] TTL读时即时生效，sweep逐scope短事务写EXPIRE历史，不能在scope锁内网络IO。
-- [ ] Runtime readiness/部署单元与导入方向不新增耦合，记录GREEN。
-- [ ] [RULE-arch-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/architecture"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [E-06][integration] 辅助先写跨实例接管/旧epoch拒绝、shutdown清理provider任务、非COMPLETED不入队RED。
+- [x] TTL读时即时生效，sweep逐scope短事务写EXPIRE历史，不能在scope锁内网络IO。
+- [x] Runtime readiness/部署单元与导入方向不新增耦合，记录GREEN。
+- [x] [RULE-arch-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/architecture"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
+| LOCAL | integration | 真实PG/模型HTTP/Runtime resume；真实writer与读侧TTL | 有界shutdown/provider close、跨实例lease接管；TTL即时过滤与唯一EXPIRE历史；过期提议不保存且可续跑 | tests/agent_runtime/test_memory_redesign_supervisor.py / test_local_background_shutdown_closes_provider_and_another_instance_takes_over / test_local_ttl_read_is_immediate_and_two_sweepers_write_one_expire_history / test_local_expired_confirmation_sweep_never_saves_and_remains_resumable | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_supervisor.py"] | planned |
 | harness-arch#RULE-arch-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["uv","run","pytest","-q","tests/architecture"] | planned |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- LOCAL RED：`uv run pytest -q tests/agent_runtime/test_memory_redesign_supervisor.py`，3 failed，后台supervisor/TTL/确认expiry模块不存在；真实PG+HTTP与resume测试已写，`/tmp/fluxion-task022-red.txt`。
+- GREEN：supervisor辅助5个测试通过（含真实Runtime main.lifespan + PG/Redis/API-09/模型HTTP），与job/claim回归共36 passed，`/tmp/fluxion-task022-green.txt`。TTL读时立即过滤，两个清扫者仅一条EXPIRE历史；PG history触发器失败完整回滚且warning/ERROR，无OK计数；过期提议EXPIRED/saved=false且真实Gateway resume完成。
+- 跨实例接管：shutdown取消实际HTTP中的job，provider finally close，另实例接管同hash/更高epoch且唯一效果。额外真实RED `/tmp/fluxion-task022-registration-red.txt` 发现本实例在原task尚活时重领同job；claim排除本实例已登记id后GREEN。此排除保护本地有界登记，PG lease/epoch仍是全局权威，其他实例可接管。
+- Rule元数据argv实际执行 `uv run pytest -q tests/architecture`，33 passed，`/tmp/fluxion-task022-architecture.txt`；轻量validation pass。E-06真正Runtime SIGKILL端到端仍由TASK-030登记并在需求终验执行，本任务未冒充E2E完成。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-14] started
+- [2026-10-14] completed (done)
 
 ---
 

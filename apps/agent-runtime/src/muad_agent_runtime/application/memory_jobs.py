@@ -110,14 +110,14 @@ class MemoryJobs:
     def __init__(self, factory: SessionFactory) -> None:
         self.factory = factory
 
-    async def claim(self, owner: str) -> JobClaim | None:
+    async def claim(self, owner: str, *, exclude: frozenset[UUID] = frozenset()) -> JobClaim | None:
         if not owner or len(owner) > 128:
             raise ValueError("invalid job lease owner")
         async with self.factory.begin() as session:
             now = await _database_now(session)
             job = await session.scalar(
                 select(MemoryConsolidationJob)
-                .where(_eligible(now))
+                .where(_eligible(now), MemoryConsolidationJob.id.not_in(exclude))
                 .order_by(MemoryConsolidationJob.create_time, MemoryConsolidationJob.id)
                 .with_for_update(skip_locked=True)
                 .limit(1)

@@ -30,6 +30,9 @@ from .application.async_tools.supervisor import ExecutionSupervisor
 from .application.attachments.tool_results import ArtifactResultWriter
 from .application.continuation_execution import continuation_executor
 from .application.executor import default_executor_factory
+from .application.memory_consolidation import ConsolidationInvoker
+from .application.memory_consolidation_effects import ConsolidationWorker
+from .application.memory_supervisor import MemorySupervisor
 from .application.run_deadline import expire_runs
 from .application.run_service import reap_abandoned_runs
 from .infrastructure.cancel_hint import create_cancel_hint_store
@@ -122,12 +125,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         lease_sec=settings.run_lease_sec,
     )
     continuation_task = asyncio.create_task(pump.run_forever())
+    memory = MemorySupervisor(
+        ConsolidationWorker(
+            get_session_factory(), ConsolidationInvoker(get_session_factory(), credentials_client)
+        ),
+        instance_id=app.state.instance_id,
+    )
+    app.state.memory_supervisor = memory
+    memory_task = asyncio.create_task(memory.run_forever())
     deadline_task = asyncio.create_task(_deadline_loop(settings.run_reaper_interval_sec))
     control_sender = asyncio.create_task(dispatcher.run_forever())
     reaper = asyncio.create_task(_reaper_loop(settings.run_reaper_interval_sec))
     try:
         yield
     finally:
+        memory_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await memory_task
+        await memory.close()
         continuation_task.cancel()
         with suppress(asyncio.CancelledError):
             await continuation_task
