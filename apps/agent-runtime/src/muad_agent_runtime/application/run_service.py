@@ -1808,6 +1808,10 @@ class RunService:
                 last_seq=int(seq),
                 terminal_result_json={"status": str(target)},
             )
+            if target == RunStatus.COMPLETED:
+                from .memory_job_enqueue import enqueue_completed
+
+                await enqueue_completed(session, row, through_seq=int(seq))
             await session.commit()
         record_outcome(AGENT_RUNS_METRIC, str(target), {"agent": agent_key})
         return ExecutorEvent(

@@ -1029,7 +1029,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ## TASK-020: 持久 job 入队、claim、lease 与接管
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-007, TASK-016, TASK-019
 - **Source**: memory-redesign.design.md#3.3.5 memory_consolidation_job（新增）, memory-redesign.design.md#3.6.1 入队与执行
@@ -1043,24 +1043,28 @@ COMPLETED终态内savepoint入队；PG claim/epoch/lease/attempt唯一；首次�
 
 ### Checklist
 
-- [ ] [B-10][integration] 辅助先写并发claim、unique Run job、失去lease后不能修改状态RED。
-- [ ] [B-11][integration] 辅助写入队失败只回滚savepoint、主终态仍提交。
-- [ ] 前驱RUNNING/RETRY未决时同conversation后继不越过；不凭内存协程持执行权。
-- [ ] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
+- [x] [B-10][integration] 辅助先写并发claim、unique Run job、失去lease后不能修改状态RED。
+- [x] [B-11][integration] 辅助写入队失败只回滚savepoint、主终态仍提交。
+- [x] 前驱RUNNING/RETRY未决时同conversation后继不越过；不凭内存协程持执行权。
+- [x] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | unit/integration | 本任务纯逻辑或真实存储载体，按Checklist具体边界 | Checklist列出的独立行为及失败反例，最终场景由责任表owner验证 | 编码阶段登记真实辅助测试；无当前执行Evidence | planned | planned |
+| LOCAL | unit/integration | 本任务纯逻辑或真实存储载体，按Checklist具体边界 | Checklist列出的独立行为及失败反例，最终场景由责任表owner验证 | tests/agent_runtime/test_memory_redesign_job_claims.py / test_local_claim_is_unique_and_old_epoch_cannot_write、test_local_enqueue_is_unique_and_database_error_keeps_completed_run、test_local_fixed_input_survives_takeover_without_following_tail | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_claims.py"] | planned |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- LOCAL RED：真实隔离PG测试命令 `uv run pytest -q tests/agent_runtime/test_memory_redesign_job_claims.py`，3 failed：memory_jobs模块未实现，`/tmp/fluxion-task020-red.txt`。已登记唯一claim、失效epoch拒绝、输入冻结与PG触发器注入入队失败。
+- GREEN：`uv run pytest -q tests/agent_runtime/test_memory_redesign_job_claims.py` 9 passed，`/tmp/fluxion-task020-green.txt`。断言覆盖并发唯一claim、epoch接管/过期拒绝、同会话RUNNING/RETRY前驱阻止后继、固定input_json/hash/revision不随tail刷新、PG触发器入队失败仅回滚savepoint，五种非COMPLETED状态不入队。实际效果/history/event原子终态由TASK-021最终B-10/B-11/B-21验证。
+- 新模块严格mypy/轻量validation pass；Run收尾/lease与确认回归输出 `/tmp/fluxion-task020-regression.txt`。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-14] started
+- [2026-10-14] completed (done)
 
 ---
 
