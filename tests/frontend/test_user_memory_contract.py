@@ -19,6 +19,7 @@ MODULE = ROOT / "apps/console-platform/frontend/src/modules/user-identity"
 SERVICE = MODULE / "services/users.ts"
 TYPES = MODULE / "memoryTypes.ts"
 COMPONENT = MODULE / "UserDetailTabs.tsx"
+MEMORY_TAB = MODULE / "MemoryTab.tsx"
 
 # 可见中文与全角字符：去掉注释后仍出现在字符串字面量里即视为硬编码文案
 CJK = re.compile(r"[　-〿一-鿿！-～]")
@@ -265,18 +266,22 @@ def test_error_semantics_only_through_api_error_body() -> None:
     assert "response" not in helper, "错误体解析只经 apiErrorBody"
 
 
-def test_component_memory_tab_reads_new_author_field() -> None:
-    """组件最小适配：来源列改用 author，旧 source_type 引用清零，文案键不变。"""
-    source = _source(COMPONENT)
+def test_memory_tab_renders_author_through_memory_options() -> None:
+    """组件适配收口：来源列读 author 并经 memoryOptions 本地化；旧 sourceType 词条引用清零。"""
+    source = _source(MEMORY_TAB)
     assert "source_type" not in source
     assert "dataIndex: 'author'" in source
-    assert "user.memory.sourceType.USER_EXPLICIT" in source
-    assert "user.memory.sourceType.AGENT_INFERRED" in source
+    assert "memoryAuthorLabel" in source
+    assert "user.memory.sourceType." not in source
+    # 记忆 Tab 已拆出：UserDetailTabs 不再自绘记忆表，也不保留旧来源格式化
+    detail = _source(COMPONENT)
+    assert "formatMemoryAuthor" not in detail
+    assert "user.memory.sourceType." not in detail
 
 
-def test_component_memory_commands_carry_version_and_caller_key() -> None:
+def test_memory_tab_commands_carry_version_and_caller_key() -> None:
     """删除/清空传入读到的 version 与调用方幂等键；HTTP 仍在 service 层。"""
-    compact = _compact(_source(COMPONENT))
+    compact = _compact(_source(MEMORY_TAB))
     assert "deleteMemory(props.userId,entry.id,entry.version,newRequestId())" in compact
     assert "clearMemory(props.userId,newRequestId())" in compact
     assert "from'../../api/client'" in compact

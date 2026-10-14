@@ -7,12 +7,18 @@ ROOT = Path(__file__).resolve().parents[2]
 COMPONENT = ROOT / "apps/console-platform/frontend/src/components/common/DetailSideSheet.tsx"
 COMMON = ROOT / "apps/console-platform/frontend/src/components/common"
 USER_DETAIL = ROOT / "apps/console-platform/frontend/src/modules/user-identity/UserDetailTabs.tsx"
+# 记忆 Tab 于 TASK-028 拆到独立组件：详情面的结构断言跨两份源码检查（同一详情 Tab 面）。
+MEMORY_TAB = ROOT / "apps/console-platform/frontend/src/modules/user-identity/MemoryTab.tsx"
 MODEL_DETAIL = ROOT / "apps/console-platform/frontend/src/modules/model-management/ModelDetailSideSheet.tsx"
 FORM_MODAL = COMMON / "FormModal.tsx"
 
 
 def _source() -> str:
     return COMPONENT.read_text(encoding="utf-8")
+
+
+def _user_detail_sources() -> str:
+    return "\n".join(path.read_text(encoding="utf-8") for path in (USER_DETAIL, MEMORY_TAB))
 
 
 def test_detail_sidesheet_exports_contract_props() -> None:
@@ -49,7 +55,7 @@ def test_detail_layout_components_exist_and_are_shared() -> None:
 
 
 def test_user_detail_tabs_share_sectioned_layout() -> None:
-    source = USER_DETAIL.read_text(encoding="utf-8")
+    source = _user_detail_sources()
     assert source.count("detail-section-title") >= 5, "每个 Tab 都必须有分区标题"
     for key in ("user.agents.hint", "user.identities.hint", "user.memory.hint"):
         assert key in source, f"Tab 说明文案缺失: {key}"
@@ -94,7 +100,7 @@ def test_sidesheet_table_style_scoped() -> None:
 
 
 def test_user_detail_tables_match_interaction_columns() -> None:
-    source = USER_DETAIL.read_text(encoding="utf-8")
+    source = _user_detail_sources()
     assert source.count("user.columns.action") >= 3, "三个关系表都必须有操作列表头"
     for key in ("user.agents.nameLabel", "user.agents.keyLabel", "user.identities.channel"):
         assert key in source, f"列名未对齐交互稿: {key}"

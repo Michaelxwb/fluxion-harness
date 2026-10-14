@@ -1429,13 +1429,13 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ## TASK-028: Memory Tab 管理动作、状态与历史
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-026, TASK-027
 - **Source**: memory-redesign.design.md#3.7 API 与 Console
 - **Spec-Refs**: harness-ui-detail#RULE-ui-detail-001, harness-ui#RULE-ui-001
 - **Acceptance-Refs**: 
-- **Files**: apps/console-platform/frontend/src/modules/user-identity/UserDetailTabs.tsx, apps/console-platform/frontend/src/modules/user-identity/MemoryTab.tsx, apps/console-platform/frontend/src/modules/user-identity/MemoryHistorySideSheet.tsx
+- **Files**: apps/console-platform/frontend/src/modules/user-identity/UserDetailTabs.tsx, apps/console-platform/frontend/src/modules/user-identity/MemoryTab.tsx, apps/console-platform/frontend/src/modules/user-identity/MemoryHistorySideSheet.tsx, apps/console-platform/frontend/src/modules/user-identity/UserPage.tsx, apps/console-platform/frontend/src/modules/user-identity/memoryOptions.ts, apps/console-platform/frontend/src/locales/zh-CN.json, apps/console-platform/frontend/src/locales/en-US.json, apps/console-platform/frontend/src/styles/app.css, tests/frontend/test_memory_tab_contract.py, tests/frontend/test_detail_sidesheet_contract.py, tests/frontend/test_user_memory_contract.py, tests/frontend/test_user_memory_i18n_contract.py, e2e/tests/agent-management/memory-redesign.spec.ts
 
 ### Description
 
@@ -1443,26 +1443,46 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ### Checklist
 
-- [ ] [E-04][unit] 辅助先写详情结构/源码契约RED，表单字段顺序与动作权限有明确断言。
-- [ ] author/actor分开，enabled操作不伪造来源；不加实现术语到用户界面。
-- [ ] [E-04][E2E] 编写真实Console→Runtime→PG→Chrome场景，中英文/明暗主题/窄屏；留需求终验执行。
-- [ ] [RULE-ui-detail-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]（cwd=., timeout=600s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
-- [ ] [RULE-ui-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]（cwd=., timeout=900s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [E-04][unit] 辅助先写详情结构/源码契约RED，表单字段顺序与动作权限有明确断言。
+- [x] author/actor分开，enabled操作不伪造来源；不加实现术语到用户界面。
+- [x] [E-04][E2E] 编写真实Console→Runtime→PG→Chrome场景，中英文/明暗主题/窄屏；留需求终验执行。
+- [x] [RULE-ui-detail-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]（cwd=., timeout=600s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [RULE-ui-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]（cwd=., timeout=900s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| harness-ui-detail#RULE-ui-detail-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py && npm --prefix apps/console-platform/frontend run typecheck"] | planned |
-| harness-ui#RULE-ui-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | planned |
+| harness-ui-detail#RULE-ui-detail-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | `tests/frontend/test_detail_sidesheet_contract.py`（记忆 Tab 拆分后详情面断言跨 UserDetailTabs+MemoryTab）、`tests/frontend/test_form_layout_contract.py`；新增 `tests/frontend/test_memory_tab_contract.py` 9 条源码/行为契约 | ["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py && npm --prefix apps/console-platform/frontend run typecheck"] | verified |
+| harness-ui#RULE-ui-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | `tests/frontend/test_console_shell_contract.py`、`tests/frontend/test_ui_style_contract.py`（新增组件无裸色/无内联导航，菜单 11 项与 adminOnly 恰两项不变） | ["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | verified |
+| E-04 | E2E | browser，真实 Console/Runtime/PG/Chrome（无 mock；Runtime 连接/临时库/种子接线归 TASK-030） | 创建、启禁用、删除、历史分页和来源状态本地化；越权不可操作 | `e2e/tests/agent-management/memory-redesign.spec.ts`（新增：主流程 + 历史分页 + 中英文×明暗×窄屏矩阵 + 越权；`-grep E-04`） | ["make","acceptance-e2e","DOMAIN=agent"] | e2e_deferred |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- RED：`uv run pytest -q tests/frontend/test_memory_tab_contract.py --tb=line` → **9 failed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task028-red.txt`。失败原因即缺失契约：`MemoryTab.tsx`/`MemoryHistorySideSheet.tsx` 尚不存在（7 条源码契约在 `test_memory_tab_contract.py:79` 报「缺少前端模块文件」）；24 个新 UI 文案键未落地（`:215`，zh/en 同缺）；`memoryWritableCategoryOptions` 未导出（`:260` node 执行 harness TypeError）。
+- GREEN：`uv run pytest -q tests/frontend/test_memory_tab_contract.py` → **9 passed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task028-green.txt`。真实边界：真实前端源码树 + 真实 zh-CN/en-US 词条 + 真实 node + 仓库内 esbuild（行为用例注入真实 locale JSON）。断言位置：
+  - 拆分与动作权限：`:102-119`（`<MemoryTab ... canManage={isAdmin}>`、`const canManage = props.canManage`、`canManage ?` 两处门控、旧内联 `listMemory/deleteMemory/clearMemory/formatMemoryAuthor` 清零）。
+  - 创建表单字段顺序与可写分类：`:122-134`（`field="memory_key" < "category" < "value" < "expires_at"`；只用 `memoryWritableCategoryOptions(t)`；入参无 `author:`）。
+  - 写操作带版本与幂等键：`:137-151`（`updateMemoryEnabled(..., enabledCommand(entry), newRequestId())`；过期条目带新有效期；`expected_version:entry.version` ≥2 处；`deleteMemory(..., entry.version, ...)`；`clearMemory(...)`）。
+  - 版本冲突可恢复：`:154-162`（`MEMORY_VERSION_CONFLICT` 分支 + `memory-action-error` 落点 + `common.refresh` + 无空 catch）。
+  - author/actor 分离与术语禁入：`:165-183`（列表 `dataIndex: 'author'` + `memoryAuthorLabel`；历史 `actor_type/actor_id` + `memoryActorLabel` + `memoryChangeReasonLabel`；`command_id/scope_revision/forget_epoch/source_run_id` 与自拼枚举键全禁）。
+  - 历史壳与分页：`:186-194`（`DetailSideSheet`/`listMemoryHistory`/`PaginationFooter`/`closeOnEsc`）。
+  - 详情结构与词条齐平：`:197-231`（工具行+分区标题+`.app-table-fit user-memory-table`+固定操作列；24 个新键两侧齐平且 zh≠en；`user.memory.sourceType.*` 已删；旧 hint「手工新增」矛盾句已改写）。
+  - node 真实行为：`:234-262`（可写分类恰为 `PREFERENCE/WORK_STYLE/EXPLICIT`，标签等于真实词条）。
+- 实现：拆出 `MemoryTab.tsx`（列表 内容/类别/来源/状态+有效期/更新时间/操作；工具行「新增记忆」+「清理全部」；行内 历史/启停用/删除）+ `MemoryHistorySideSheet.tsx`（版本/原因/操作者/操作者 ID/时间，按后端 version DESC 分页，最上层 `closeOnEsc`）；写操作全部经 `services/users.ts` 并带 `newRequestId()` 幂等键与读到的 `expected_version`，成功后 `reload()` + `props.onMutated()`（UserDetailTabs→UserPage 重取用户详情，刷新 Tab 计数与概览卡片）；过期条目「启用」改为必须指定新有效期的 Modal（Runtime 拒绝用过去时间当有效期，ENABLE 不自动延长 TTL）；409 `MEMORY_VERSION_CONFLICT` 显示本地化提示 + 「刷新」按钮（`memory-action-error`/`memory-refresh`），未知码落 `user.memory.errorFallback`，无空 catch；`memoryOptions.ts` 新增 `memoryWritableCategoryOptions`（排除 TASK_STATE）；删除 legacy `user.memory.sourceType.*` 并改写 `user.memory.hint`（原文与新增能力矛盾）；`styles/app.css` 新增 `.memory-status-cell`/`.memory-expiry`/`.memory-row-actions`，`.user-memory-table` 最小表宽 680→880（新增类别/状态列后仍在 920 面板内铺满），新增 `.memory-history-table` 880。
+- 测试适配（同契约收口）：`test_detail_sidesheet_contract.py` 详情面断言跨 `UserDetailTabs`+`MemoryTab`（拆分后同一 Tab 面）；`test_user_memory_contract.py` 组件断言改指 `MemoryTab.tsx` 并断言旧 `sourceType` 引用清零；`test_user_memory_i18n_contract.py` 无硬编码文案检查从 1 个文件扩展到 3 个 UI 源文件（`_module_sources()` 仍覆盖全部模块文件做孤儿词条扫描）。
+- verifier（RULE-ui-detail-001）实跑：`bash -lc "uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py && npm --prefix apps/console-platform/frontend run typecheck"` → **11 passed** + `tsc --noEmit` 通过，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task028-verifier-ui-detail.txt`。
+- verifier（RULE-ui-001）实跑：`bash -lc "uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"` → **9 passed** + `vite build` 成功（dist 产物），`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task028-verifier-ui.txt`。
+- 回归：`uv run pytest -q tests/frontend` → **338 passed, 1 failed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task028-regression.txt`；唯一失败为存量 `test_audit_gap_contract.py::test_b214_resource_type_options_cover_backend_domain`（与本 diff 无关，按指示不修）。`uv run python scripts/check_frontend_i18n.py` → `i18n keys OK: 1163`；typecheck/build 均通过（同上两行日志）。
+- E2E（checklist 3，只编写不执行）：`e2e/tests/agent-management/memory-redesign.spec.ts`（agent 域 `testDir: ./tests/agent-management` 命中），4 组用例：主流程（UI 创建→停用→启用→历史 version 倒序+原因/操作者本地化→ESC 只关最上层→UI 删除→列表隐藏 + 真实 API 历史含 `ADMIN_DELETE` 记录）、历史分页（16 次真实 API 启禁用 → 17 条 >15 条/页 → 1/2 翻页 + version DESC）、中英文×明暗×1280/390 矩阵（行本地化、窄屏表内滚动 + 右侧固定操作可见、桌面无横向滚动）、越权（真实创建 BUILDER 账号 → 菜单无「用户」且 `/users` 重定向 `/`）。**未执行**：登记 `e2e_deferred`，执行 owner TASK-030（`["make","acceptance-e2e","DOMAIN=agent"]`），本任务未跑 Playwright、未起 dev/preview 服务；spec 已用 esbuild 转译做语法校验（不触发 Playwright 配置/建库）。
+- 边界/未宣称：创建表单不含 `expected_version`（覆盖既有 key 走 409 冲突提示 + 刷新，不作为本任务 UI 能力）；已删除条目的历史界面入口来自列表行（列表不显示 deleted），E2E 以真实 API 断言删除记录可查，UI 渲染删除原因由静态契约（`memoryChangeReasonLabel`）保证；`tests/e2e/seed_user_identity.py` 与 `e2e/tests/user-detail-layout.spec.ts`（引用已删除的 `Memory`/`source_type`）为存量漂移，归 E2E 收口（TASK-030），本任务未修改；`settings.field.memory.*` 存量词条缺口与 harness 规范文本同步不在本任务。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-15] started
+- [2026-10-15] RED→GREEN 完成；两条 verifier 实跑；E2E 只编写登记 e2e_deferred；等待 Done Gate 裁决。
+- [2026-10-15] completed (done)
 
 ---
 

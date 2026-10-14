@@ -45,7 +45,12 @@ MODULE = SRC / "modules/user-identity"
 LOCALES = SRC / "locales"
 OPTIONS = MODULE / "memoryOptions.ts"
 TYPES = MODULE / "memoryTypes.ts"
-COMPONENT = MODULE / "UserDetailTabs.tsx"
+# 记忆 Tab 的 UI 源码面（TASK-028 拆出 MemoryTab/MemoryHistorySideSheet 后一起纳入检查）。
+MEMORY_UI = (
+    MODULE / "UserDetailTabs.tsx",
+    MODULE / "MemoryTab.tsx",
+    MODULE / "MemoryHistorySideSheet.tsx",
+)
 CATALOG = ROOT / "config/api-messages.yaml"
 RUNTIME_MUTATIONS = ROOT / "apps/agent-runtime/src/muad_agent_runtime/application/memory_mutations.py"
 MIGRATION = ROOT / "migrations"
@@ -410,7 +415,7 @@ def test_memory_setting_entries_are_translated_in_both_locales() -> None:
 
 def test_memory_sources_carry_no_hardcoded_copy() -> None:
     """[RULE-i18n-001] 模块与枚举文案源不承载硬编码中文；文案只来自词条。"""
-    for path in (OPTIONS, COMPONENT):
+    for path in (OPTIONS, *MEMORY_UI):
         offenders = [text for text in _string_literals(_read(path)) if CJK.search(text)]
         assert not offenders, f"{path.name} 出现硬编码中文文案：{offenders}"
 

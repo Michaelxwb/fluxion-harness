@@ -3,7 +3,6 @@ import { DataTable } from '../../components/common/DataTable';
 import {
   Button,
   Empty,
-  Form,
   Modal,
   Select,
   Spin,
@@ -13,9 +12,7 @@ import {
 import { IconPlus } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 
-import { newRequestId } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
@@ -39,17 +36,13 @@ import {
   type AdapterMetadata,
   type PlatformItem
 } from '../project-platform/services/platforms';
-import type { MemoryContent, MemoryItem } from './memoryTypes';
 import {
   AGENT_PICKER_PAGE_SIZE,
-  clearMemory,
   createBindCode,
-  deleteMemory,
   grantAgent,
   listAgentGrants,
   listAgentsForPicker,
   listIdentities,
-  listMemory,
   revokeAgent,
   unbindIdentity,
   type AgentGrant,
@@ -59,11 +52,14 @@ import {
   type Page,
   type UserDetail
 } from './services/users';
+import { MemoryTab } from './MemoryTab';
 
 export interface UserDetailTabsProps {
   user: UserDetail;
   visible: boolean;
   onCancel(): void;
+  /** 记忆等写操作成功后通知外层刷新用户详情（Tab 标签/概览计数）。 */
+  onUserMutated?(): void;
 }
 
 const DEFAULT_TAB_PAGE_SIZE = 15;
@@ -133,22 +129,6 @@ function useAsyncList<T>(
       setPage(1);
     }
   };
-}
-
-function formatMemoryAuthor(value: string, t: TFunction): string {
-  switch (value) {
-    case 'USER': return t('user.memory.sourceType.USER_EXPLICIT');
-    case 'AGENT': return t('user.memory.sourceType.AGENT_INFERRED');
-    default: return value;
-  }
-}
-
-function formatMemoryContent(value: MemoryContent): string {
-  const entries = Object.values(value);
-  if (entries.length > 0 && entries.every((entry) => typeof entry === 'string' || typeof entry === 'number')) {
-    return entries.join('；');
-  }
-  return JSON.stringify(value);
 }
 
 function TabState(props: {
@@ -606,86 +586,6 @@ function IdentityTab(props: { userId: string }) {
   );
 }
 
-function MemoryTab(props: { userId: string }) {
-  const { t } = useTranslation();
-  const list = useAsyncList<MemoryItem>(
-    (page, pageSize) => listMemory(props.userId, { page, page_size: pageSize }),
-    [props.userId]
-  );
-  const { items, loading, failed, reload } = list;
-
-  // 确认动作每次提交生成一个幂等键（调用方持有，service 不自行生成）；键的复用与冲突恢复归 TASK-028 的动作 UI。
-  const remove = async (entry: MemoryItem): Promise<void> => {
-    await deleteMemory(props.userId, entry.id, entry.version, newRequestId());
-    await reload();
-  };
-
-  const clearAll = async (): Promise<void> => {
-    await clearMemory(props.userId, newRequestId());
-    await reload();
-  };
-
-  return (
-    <div>
-      <ConfirmAction
-        style={{ marginBottom: 12 }}
-        title={t('user.common.confirmClear')}
-        onConfirm={() => void clearAll()}
-      >
-        {t('user.memory.clear')}
-      </ConfirmAction>
-      <div className="detail-section-title">{t('user.tabs.memory')}</div>
-      <TabState
-        loading={loading}
-        failed={failed}
-        empty={t('user.memory.empty')}
-        onRetry={() => void reload()}
-      >
-        {items.length > 0 ? (
-          <DataTable
-            className="app-table-fit user-memory-table"
-            scroll={{ x: '100%' }}
-            dataSource={items}
-            rowKey="id"
-            pagination={false}
-            columns={[
-              {
-                title: t('user.memory.content'),
-                dataIndex: 'content',
-                width: 'auto',
-                ellipsis: true,
-                render: (value: MemoryContent) => <TableText>{formatMemoryContent(value)}</TableText>
-              },
-              { title: t('user.memory.source'), dataIndex: 'author', width: 144, ellipsis: true,
-                render: (value: string) => <TableText title={value}>{formatMemoryAuthor(value, t)}</TableText> },
-              {
-                title: t('user.memory.updated'),
-                dataIndex: 'update_time',
-                width: 176,
-                render: (value: string) => <DateTimeText value={value} />
-              },
-              {
-                ...actionColumn(80),
-                title: t('user.columns.action'),
-                render: (_: unknown, entry: MemoryItem) => (
-                  <ConfirmAction
-                    title={t('user.memory.confirmDelete')}
-                    onConfirm={() => void remove(entry)}
-                  >
-                    {t('user.memory.delete')}
-                  </ConfirmAction>
-                )
-              }
-            ]}
-          />
-        ) : null}
-      </TabState>
-      <TabPagination list={list} />
-      <div className="detail-hint">{t('user.memory.hint')}</div>
-    </div>
-  );
-}
-
 export function UserDetailTabs(props: UserDetailTabsProps) {
   const { t } = useTranslation();
   const { account } = useAuth();
@@ -782,7 +682,7 @@ export function UserDetailTabs(props: UserDetailTabsProps) {
         <IdentityTab userId={user.id} />
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="memory" tab={`${t('user.tabs.memory')} (${user.memory_count})`}>
-        <MemoryTab userId={user.id} />
+        <MemoryTab userId={user.id} canManage={isAdmin} onMutated={props.onUserMutated} />
       </Tabs.TabPane>
     </DetailSideSheet>
   );

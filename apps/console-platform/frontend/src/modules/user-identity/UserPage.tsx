@@ -251,6 +251,7 @@ export function UserPage() {
           user={detail}
           visible
           onCancel={() => setDetail(null)}
+          onUserMutated={() => void openDetail(detail.id)}
         />
       ) : null}
       </PageSection>

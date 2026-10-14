@@ -13,7 +13,12 @@
 
 import type { TFunction } from 'i18next';
 
-import { isMemoryErrorCode, type MemoryErrorCode, type MemoryItem } from './memoryTypes';
+import {
+  isMemoryErrorCode,
+  type MemoryErrorCode,
+  type MemoryItem,
+  type MemoryWritableCategory
+} from './memoryTypes';
 
 /** 记忆作者（`MemoryAuthor`）：USER=真实确认、ADMIN=授权人工录入、AGENT=未经确认的推断。 */
 export const MEMORY_AUTHORS = ['USER', 'ADMIN', 'AGENT'] as const;
@@ -92,6 +97,16 @@ export function memoryCategoryLabel(t: TFunction, value: string): string {
 
 export function memoryCategoryOptions(t: TFunction): MemoryOption[] {
   return MEMORY_CATEGORIES.map((value) => ({ value, label: memoryCategoryLabel(t, value) }));
+}
+
+/**
+ * 管理员可写分类选项（`MemoryCreateInput.category`）：`TASK_STATE` 是 Agent 任务线索的保留
+ * 命名空间，Console 人工创建不可选（后端 `MemoryCreateRequest` 同样拒绝）。
+ */
+export function memoryWritableCategoryOptions(t: TFunction): MemoryOption[] {
+  return MEMORY_CATEGORIES.filter(
+    (value): value is MemoryWritableCategory => value !== 'TASK_STATE'
+  ).map((value) => ({ value, label: memoryCategoryLabel(t, value) }));
 }
 
 export function memoryStatusLabel(t: TFunction, value: string): string {

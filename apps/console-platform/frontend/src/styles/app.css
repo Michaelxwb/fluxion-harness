@@ -581,7 +581,13 @@ body {
 .user-grants-table { --app-table-min-width: 680px; }
 .user-credentials-table { --app-table-min-width: 832px; }
 .user-identities-table { --app-table-min-width: 880px; }
-.user-memory-table { --app-table-min-width: 680px; }
+.user-memory-table { --app-table-min-width: 880px; }
+.memory-history-table { --app-table-min-width: 880px; }
+
+/* 记忆状态列：状态标签 + 有效期第二行；行内动作紧凑横排（启用/停用/历史/删除）。 */
+.memory-status-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.memory-expiry { font-size: 12px; line-height: 18px; color: var(--semi-color-text-2); }
+.memory-row-actions { display: inline-flex; align-items: center; gap: 4px; }
 
 .app-table-fit .semi-table .semi-table-thead > .semi-table-row > .semi-table-row-head,
 .app-table-fit .semi-table .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
