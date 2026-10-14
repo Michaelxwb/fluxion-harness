@@ -11,7 +11,72 @@ from muad_contracts.memory import task_memory_key
 from tests.agent_runtime.memory_confirmation_support import source
 from tests.agent_runtime.memory_consolidation_support import completed_job
 
+
+@pytest.mark.parametrize("change_scope", [False, True])
+async def test_b21_memory_redesign_retry_preserves_original_hash_and_revision_or_becomes_stale(
+    async_tool_database, change_scope
+):
+    import sqlalchemy as sa
+    from muad_agent_runtime.application.memory_jobs import MemoryJobs
+    from muad_agent_runtime.application.run_events import EventWriter
+    from muad_agent_runtime.infrastructure.models.runtime import MemoryConsolidationJob
+
+    from tests.agent_runtime.memory_consolidation_effect_support import execution, pending, seed_admin
+    from tests.agent_runtime.memory_consolidation_support import model_stack
+
+    async with model_stack(async_tool_database) as stack:
+        factory, run, job, snapshot, client, requests, *_ = stack
+        await pending(factory, job)
+        owners, worker = MemoryJobs(factory), execution(factory, client)
+        first = await owners.claim("first")
+        async with worker.invoker.open(job, snapshot) as invocation:
+            payload = await owners.freeze_input(first, credential_canaries=invocation.canaries)
+            await invocation.generate(payload)
+        async with factory() as session:
+            before_hash = (await session.get(MemoryConsolidationJob, job.id)).input_hash
+        await worker.fail(first, reason="FAILED")
+        async with factory.begin() as session:
+            row = await session.get(MemoryConsolidationJob, job.id)
+            row.next_attempt_at = await session.scalar(sa.select(sa.func.now()))
+            await EventWriter(session).append(
+                tenant_id=run.tenant_id,
+                run_id=run.id,
+                conversation_id=run.conversation_id,
+                event_type="CONTEXT_SUMMARY",
+                payload={"covers_up_to_seq": 1, "summary": {"goal": "R2 must never enter R1"}},
+            )
+        if change_scope:
+            await seed_admin(factory, run)
+        result = await worker.execute(await owners.claim("second"))
+        assert result["reason"] == ("STALE" if change_scope else "NO_CANDIDATES")
+        assert len(requests) == (1 if change_scope else 2)
+        if not change_scope:
+            assert requests[0][0]["messages"][1]["content"] == requests[1][0]["messages"][1]["content"]
+        async with factory() as session:
+            row = await session.get(MemoryConsolidationJob, job.id)
+            assert row.input_hash == before_hash and row.input_json == payload
+            assert row.input_scope_revision == 0 and row.through_seq == 1
+
+
 pytestmark = pytest.mark.integration
+
+
+async def test_b21_memory_redesign_lineage_updates_and_retires_original_root(async_tool_database):
+    from tests.agent_runtime.memory_consolidation_lineage_support import step
+
+    origin, original, _, _ = await step(async_tool_database)
+    second, updated, job_b, request_b = await step(async_tool_database, origin=origin)
+    third, retired, job_c, request_c = await step(async_tool_database, origin=origin, completed=True)
+    assert original.id == updated.id == retired.id
+    assert [original.version, updated.version, retired.version] == [1, 2, 3]
+    assert retired.memory_key == task_memory_key(origin.conversation_id)
+    assert updated.content_json["root_conversation_id"] == str(origin.conversation_id)
+    assert updated.content_json["source_conversation_id"] == str(second.conversation_id)
+    assert retired.is_deleted and retired.retirement_reason == "TASK_COMPLETE"
+    assert job_b.resume_ref_json["expected_version"] == 1 and job_c.resume_ref_json["expected_version"] == 2
+    assert job_c.resume_ref_json["root_conversation_id"] == str(origin.conversation_id)
+    assert str(second.conversation_id) in request_c["messages"][1]["content"]
+    assert second.conversation_id != third.conversation_id != origin.conversation_id
 
 
 async def test_local_b21_input_builder_never_reads_later_summary_or_tool_result(async_tool_database):

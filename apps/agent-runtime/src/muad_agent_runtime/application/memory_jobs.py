@@ -32,6 +32,7 @@ class JobClaim:
     conversation_id: UUID
     owner: str
     epoch: int
+    exhausted: bool = False
 
 
 def _eligible(now: datetime) -> ColumnElement[bool]:
@@ -128,15 +129,15 @@ class MemoryJobs:
                 raise ValueError("source snapshot unavailable")
             policy = execution_defaults_of(snapshot.policy_json).memory_policy
             job.claim_epoch += 1
-            if job.attempt >= policy.consolidation_max_attempts:
-                job.status, job.error_code, job.lease_owner, job.lease_until = "FAILED", "FAILED", None, None
-                after_commit(session, "memory_consolidation_total", labels={"outcome": "FAILED"})
-                return None
-            job.attempt += 1
+            exhausted = job.attempt >= policy.consolidation_max_attempts
+            if not exhausted:
+                job.attempt += 1
             job.status, job.lease_owner = "RUNNING", owner
             job.lease_until = await _database_now(session) + timedelta(seconds=policy.consolidation_lease_sec)
             after_commit(session, "memory_consolidation_total", labels={"outcome": "CLAIMED"})
-            return JobClaim(job.id, job.tenant_id, job.run_id, job.conversation_id, owner, job.claim_epoch)
+            return JobClaim(
+                job.id, job.tenant_id, job.run_id, job.conversation_id, owner, job.claim_epoch, exhausted
+            )
 
     async def freeze_input(
         self, claim: JobClaim, *, credential_canaries: tuple[str, ...]
@@ -171,6 +172,8 @@ class MemoryJobs:
                 credential_canaries=credential_canaries,
                 max_input_bytes=policy.consolidation_max_input_bytes,
             )
+            if not owns(job, claim, await _database_now(session)):
+                return None
             job.input_json = payload.model_dump(mode="json")
             job.input_hash, job.input_scope_revision = (
                 memory_hash(job.input_json),
@@ -185,15 +188,7 @@ class MemoryJobs:
             job = await lock_claim(session, claim)
             if job is None:
                 return False
-            snapshot = await session.get(RuntimeSnapshot, job.snapshot_id)
-            if snapshot is None:
-                raise ValueError("source snapshot unavailable")
-            policy = execution_defaults_of(snapshot.policy_json).memory_policy
-            retry = reason == "FAILED" and job.attempt < policy.consolidation_max_attempts
-            job.status = "RETRY" if retry else "FAILED" if reason == "FAILED" else "SKIPPED"
-            job.next_attempt_at = await _database_now(session) + timedelta(
-                seconds=policy.consolidation_retry_delay_sec
-            )
-            job.error_code, job.lease_owner, job.lease_until = reason, None, None
-            after_commit(session, "memory_consolidation_total", labels={"outcome": job.status})
+            from .memory_job_effects import fail_locked
+
+            await fail_locked(session, job, reason=reason)
             return True

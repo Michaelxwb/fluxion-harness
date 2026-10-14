@@ -19,10 +19,12 @@ from tests.agent_runtime.memory_confirmation_support import source
 
 
 @asynccontextmanager
-async def model_stack(engine, *, delay=0, credential_delay=0, output=None, policy=None):
+async def model_stack(
+    engine, *, delay=0, credential_delay=0, output=None, policy=None, tenant=None, user=None
+):
     import asyncio
 
-    factory, run, _, _ = await source(engine)
+    factory, run, _, _ = await source(engine, tenant=tenant, user=user)
     requests, credentials, live_key = [], [], ["first-live-credential"]
     model, console = FastAPI(), FastAPI()
 
@@ -36,7 +38,9 @@ async def model_stack(engine, *, delay=0, credential_delay=0, output=None, polic
                     "finish_reason": "stop",
                     "message": {
                         "role": "assistant",
-                        "content": output or '{"candidates":[],"task_completed":false}',
+                        "content": (output(requests[-1][0]) if callable(output) else output)
+                        if output is not None
+                        else '{"candidates":[],"task_completed":false}',
                     },
                 }
             ]

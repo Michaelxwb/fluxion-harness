@@ -5,6 +5,7 @@ from dataclasses import asdict, replace
 from uuid import uuid4
 
 import pytest
+import sqlalchemy as sa
 from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
 from muad_agent_runtime.application.executor import build_registry
 from muad_agent_runtime.application.memory_queries import MemoryQueries, MemoryReadScope
@@ -82,16 +83,12 @@ async def test_b12_single_memory_leaf_changes_only_new_run_and_job_uses_source_s
         from muad_agent_runtime.infrastructure.models.runtime import RunRecord
 
         run = await session.get(RunRecord, old)
-        job = MemoryConsolidationJob(
-            tenant_id=tenant.tenant_id,
-            run_id=old,
-            snapshot_id=run.snapshot_id,
-            conversation_id=run.conversation_id,
-            user_id=run.user_id,
-            through_seq=1,
-            enqueued_scope_revision=0,
+        job = await session.scalar(
+            sa.select(MemoryConsolidationJob).where(
+                MemoryConsolidationJob.tenant_id == tenant.tenant_id, MemoryConsolidationJob.run_id == old
+            )
         )
-        session.add(job)
+        assert job is not None and job.snapshot_id == run.snapshot_id and job.status == "PENDING"
     await _save_settings(tenant.tenant_id, memory=replace(MemoryPolicySettings(), **{leaf: value}))
     new = await _start_run(tenant, fake_resolve, _CapturingExecutorFactory(), client)
     after = await _policy_json(new)
@@ -99,6 +96,16 @@ async def test_b12_single_memory_leaf_changes_only_new_run_and_job_uses_source_s
     assert after == expected and await _policy_json(job.run_id) == before
     assert asdict(execution_defaults_of(before).memory_policy) == before["memory"]
     assert before["deadline_ms"] == after["deadline_ms"]
+    from muad_agent_runtime.application.memory_jobs import MemoryJobs
+
+    owners = MemoryJobs(get_session_factory())
+    claim = await owners.claim("frozen-old-job")
+    while claim is not None and claim.id != job.id:
+        claim = await owners.claim("frozen-old-job")
+    assert claim is not None and claim.id == job.id
+    fixed = await owners.freeze_input(claim, credential_canaries=())
+    assert fixed["through_seq"] == job.through_seq and fixed["input_scope_revision"] == 0
+    assert await _policy_json(job.run_id) == before
 
 
 @pytest.mark.parametrize("missing", ["ttl_days_user", "consolidation_timeout_sec", "max_entries_per_user"])

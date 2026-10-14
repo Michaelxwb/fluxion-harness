@@ -43,6 +43,11 @@ from tests.async_tool_datastores import async_tool_database, async_tool_datastor
 
 RUNTIME_TABLES = ("conversation", "run_record", "runtime_snapshot", "canonical_event", "run_interrupt")
 CLEANUP_ORDER = (
+    "memory_consolidation_job",
+    "memory_command_receipt",
+    "user_memory_history",
+    "user_memory",
+    "memory_scope",
     "tool_control_outbox",
     "tool_result_inbox",
     "run_continuation",

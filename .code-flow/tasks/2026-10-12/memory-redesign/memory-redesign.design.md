@@ -411,7 +411,7 @@ tool command_id 由可信 run_id/tool_call_id 派生；确认由 interrupt_id + 
 
 - status ∈ PENDING / RUNNING / RETRY / DONE / SKIPPED / FAILED。
 - job 引用来源 Run 的不可变 snapshot_id；不保存 api_key，不重新取平台设置。
-- input_json 是一次构建的有界脱敏输入 DTO，input_hash 用 canonical_json；input_scope_revision 与输入一旦记录不可由重试改写。result_json 只允许已过密钥与形状校验的候选；写入效果与 DONE 在同一个事务完成。
+- input_json 是一次构建的有界脱敏输入 DTO，input_hash 用 canonical_json；input_scope_revision 与输入一旦记录不可由重试改写。result_json 只保存已提交终态的计数/原因/attempt/through_seq元数据（单元素数组），不存候选正文或凭据；写入效果与 DONE 在同一个事务完成。
 - 部分 claim 索引 (tenant_id,next_attempt_at,create_time) WHERE status IN ('PENDING','RETRY')；另建 (tenant_id,lease_until) WHERE status='RUNNING'。
 - 一旦 DONE/SKIPPED/FAILED 不自动重开；人工重试是新命令并保留原失败依据，不能清掉终态事件伪装首次执行。
 
