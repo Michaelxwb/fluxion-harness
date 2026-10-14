@@ -11,6 +11,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import memory_hash
+from muad_contracts.memory_admin import MemoryCommandResponse
 from pydantic import JsonValue
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -25,7 +26,7 @@ from ..infrastructure.models.runtime import (
     MemoryScope,
     UserMemory,
 )
-from .memory_commands import MemoryCommand, MemoryCommandOutcome, MemoryCommandResponse, MemoryWriteContext
+from .memory_commands import MemoryCommand, MemoryCommandOutcome, MemoryWriteContext
 from .memory_mutations import MemoryBatchPlan, memory_snapshot, persist_plan, plan_mutations, source_times
 from .memory_observability import after_commit, observe
 
@@ -261,8 +262,15 @@ class MemoryService:
         if not _stale(scope, ctx, command):
             response = await self._apply(session, ctx, command, scope)
         receipt = await _save_receipt(session, ctx, command, fingerprint, response)
-        after_commit(session, "memory_write_total", labels={"outcome": (
-            "STALE" if response.status == "STALE" else "OK" if response.changed_count else "UNCHANGED")})
+        after_commit(
+            session,
+            "memory_write_total",
+            labels={
+                "outcome": (
+                    "STALE" if response.status == "STALE" else "OK" if response.changed_count else "UNCHANGED"
+                )
+            },
+        )
         if response.status == "STALE":
             after_commit(session, "memory_write_conflicts_total", labels={"reason": "STALE"})
         return receipt

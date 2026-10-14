@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-10-12/memory-redesign/memory-redesign.design.md（v0.5；保留用户v0.4补充并修正缓存/约束边界）
 - **Created**: 2026-10-12
-- **Updated**: 2026-10-14
+- **Updated**: 2026-10-15
 - **Plan status**: draft；阶段裁决以 CLI 输出为准；未开始编码
 
 ## Proposal
@@ -1179,7 +1179,7 @@ lifespan启动停止有界job/expiry泵，PG权威无实例绑定；过期确认
 
 ## TASK-023: Runtime 管理命令 API、服务身份与分页
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-015, TASK-022
 - **Source**: memory-redesign.design.md#3.7 API 与 Console
@@ -1193,24 +1193,32 @@ lifespan启动停止有界job/expiry泵，PG权威无实例绑定；过期确认
 
 ### Checklist
 
-- [ ] [S-01][integration] 辅助先写无服务身份/跨用户/伪造ADMIN/tenant、不存在资源均明确拒绝RED。
-- [ ] POST幂等与expected_version冲突真实回执；不回显存储路径/敏感值。
-- [ ] 新增API与router安装走共享api-kit，最终安全端到端责任在security任务。
-- [ ] [RULE-api-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [S-01][integration] 辅助先写无服务身份/跨用户/伪造ADMIN/tenant、不存在资源均明确拒绝RED。
+- [x] POST幂等与expected_version冲突真实回执；不回显存储路径/敏感值。
+- [x] 新增API与router安装走共享api-kit，最终安全端到端责任在security任务。
+- [x] [RULE-api-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
+| LOCAL | integration | real Runtime HTTP + PG + api-kit service identity + transactional writer | permanent replay, version conflict, untrusted authority rejection and scoped id lookup; live service credential rejected without echo | tests/agent_runtime/test_memory_redesign_admin_api.py / test_local_admin_real_http_receipts_replay_and_version_conflict / test_local_admin_rejects_untrusted_identity_or_extra_authority / test_local_admin_cross_user_and_tenant_id_never_delete_another_scope / test_local_admin_live_service_credential_is_forbidden_and_never_echoed | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_admin_api.py"] | planned |
 | harness-api#RULE-api-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"] | planned |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- LOCAL RED: real isolated PG and HTTP tests fail because Runtime memory router is absent; 7 failed, `/tmp/fluxion-task023-red.txt`。
+- RED（canary，live 服务凭据）：`uv run pytest -q tests/agent_runtime/test_memory_redesign_admin_api.py -k live_service`，`test_local_admin_live_service_credential_is_forbidden_and_never_echoed` 先得 200——管理写路径未携带进程 live canary，凭据型 value 可落库；期望 422 `MEMORY_FORBIDDEN_CONTENT` 且响应不回显，`/tmp/fluxion-task023-canary-red.txt`。
+- GREEN：`uv run pytest -q tests/agent_runtime/test_memory_redesign_admin_api.py`，9 passed，`/tmp/fluxion-task023-green.txt`。真实 Runtime FastAPI + api-kit 服务身份 + 隔离 PG + 唯一事务写入口；断言位置：幂等重放/指纹冲突/版本冲突与历史唯一 `test_memory_redesign_admin_api.py:119-142`（200 重放同 data、409 `IDEMPOTENCY_MISMATCH`、409 `MEMORY_VERSION_CONFLICT`、UserMemoryHistory=1）；无/错服务身份与伪造 author/tenant/user `:145-165`（403 `FORBIDDEN` / 422 `COMMON_VALIDATION_ERROR`，UserMemory=0）；跨用户跨租户 id 删除 `:168-187`（404 `MEMORY_NOT_FOUND`，原行未删未改）；live 凭据 `:68-76`（422 `MEMORY_FORBIDDEN_CONTENT`，`response.text` 无凭据，UserMemory/History=0）；删除重放与分页/历史/租户可见性 `:79-116`（data 完全相等、history total=3、版本 [3,2]、actor=ADMIN）。
+- 实现：管理写路径经 `api/deps.py#get_credential_canaries` 把进程 live 服务凭据注入 `MemoryWriteContext.credential_canaries`，`application/memory_write.py#validate_memory_content` 在事务内拒绝；回执只含 key/version/status，无存储路径与敏感值。传输契约归 `muad_contracts.memory_admin`，`memory_commands.py` 不保留中转 re-export，runtime 内部直接引用共享契约。
+- [RULE-api-001] verifier：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`，18 passed，`/tmp/fluxion-task023-verifier.txt`。
+- 回归：共享 dev 库停在 alembic 0019（head 0020_memory_redesign），整目录运行会因 committed conftest 清理新表/新列（`runtime.memory_consolidation_job`、`user_memory.author`、`run_interrupt.proposal_json`）在 147 个用例上 error，与本任务 diff 无关；改用隔离 head 库（`tests.acceptance.datastores` CLI）跑 `tests/agent_runtime/test_memory_redesign_*.py tests/architecture` = **326 passed**，`/tmp/fluxion-task023-regression.txt`。既有遗留（未随 redesign 更新、仍构造已删除 `source_type` 的旧读侧测试 `test_context_memory*.py`）不在本任务范围，留待需求终验。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-14] started
+- [2026-10-15] completed (done)
 
 ---
 

@@ -21,6 +21,7 @@ from muad_logging import configure_logging
 
 from .api.admin_runs import router as admin_runs_router
 from .api.artifacts import router as artifacts_router
+from .api.memory import router as memory_router
 from .api.runs import router as runs_router
 from .api.tool_results import router as tool_results_router
 from .application.async_tools.continuation_pump import ContinuationPump
@@ -178,4 +179,5 @@ install_health_probes(
 app.include_router(runs_router)
 app.include_router(admin_runs_router)
 app.include_router(artifacts_router)
+app.include_router(memory_router)
 app.include_router(tool_results_router)

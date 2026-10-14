@@ -15,6 +15,7 @@ from muad_contracts.memory import (
     MemoryCategory,
     MemoryRetirementReason,
 )
+from muad_contracts.memory_admin import MemoryMutationResult, MemoryResultStatus
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,8 +24,6 @@ from ..infrastructure.models.runtime import CanonicalEvent, UserMemory, UserMemo
 from .memory_commands import (
     MemoryCommand,
     MemoryMutation,
-    MemoryMutationResult,
-    MemoryResultStatus,
     MemoryWriteContext,
 )
 from .memory_write import (

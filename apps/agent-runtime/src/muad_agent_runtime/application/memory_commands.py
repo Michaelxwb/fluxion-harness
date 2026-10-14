@@ -14,23 +14,13 @@ from muad_contracts.memory import (
     NonNegativeVersion,
     PositiveVersion,
 )
+from muad_contracts.memory_admin import MemoryCommandResponse
 from muad_contracts.platform_settings import MemoryPolicySettings
 from muad_contracts.tasks import ContractModel
 from pydantic import AwareDatetime, Field, StrictBool, StrictStr, model_validator
 
 MemoryActor = Literal["USER", "ADMIN", "AGENT", "SYSTEM"]
 MemoryAction = Literal["UPSERT", "DELETE", "CLEAR", "ENABLE", "DISABLE", "RESTORE", "RETIRE"]
-MemoryResultStatus = Literal[
-    "CREATED",
-    "UPDATED",
-    "DELETED",
-    "ENABLED",
-    "DISABLED",
-    "RESTORED",
-    "RETIRED",
-    "UNCHANGED",
-    "SKIPPED",
-]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -113,23 +103,6 @@ class MemoryCommand(ContractModel):
         elif len({item.key for item in self.mutations}) != len(self.mutations):
             raise ValueError("one explicit mutation per key")
         return self
-
-
-class MemoryMutationResult(ContractModel):
-    memory_key: str
-    id: UUID | None
-    version: int | None
-    status: MemoryResultStatus
-    reason: str | None = None
-
-
-class MemoryCommandResponse(ContractModel):
-    command_id: str
-    scope_revision: int
-    forget_epoch: int
-    changed_count: int
-    status: Literal["APPLIED", "UNCHANGED", "STALE"]
-    items: list[MemoryMutationResult]
 
 
 @dataclass(frozen=True, slots=True)

@@ -27,6 +27,12 @@ def get_instance_id(request: Request) -> str:
     return cast(str, request.app.state.instance_id)
 
 
+def get_credential_canaries() -> tuple[str, ...]:
+    """Live process credentials can never be stored, replayed or echoed (design §3.4.5)."""
+    token = SharedSettings().internal_service_token
+    return (token,) if token else ()
+
+
 def get_resolve_client(request: Request) -> ResolveClient:
     client: ResolveClient | None = getattr(request.app.state, "resolve_client", None)
     if client is None:
@@ -92,6 +98,7 @@ def get_execution_supervisor(request: Request) -> ExecutionSupervisor:
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 TenantDep = Annotated[str, Depends(get_tenant_id)]
+CredentialCanariesDep = Annotated[tuple[str, ...], Depends(get_credential_canaries)]
 InstanceIdDep = Annotated[str, Depends(get_instance_id)]
 ResolveClientDep = Annotated[ResolveClient, Depends(get_resolve_client)]
 SkillCacheDep = Annotated[SkillArtifactCache, Depends(get_skill_cache)]
