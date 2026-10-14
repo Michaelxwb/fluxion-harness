@@ -1,7 +1,7 @@
 """Console 侧记忆只读投影：列表/历史 + 分页，作用域恒为 (tenant_id, user_id)。
 
-写路径不在这里：Runtime 是唯一写入所有者，Console 的启禁用/删除/清空按 design §3.2.1
-经受保护 API 转发（本模块的 `soft_delete*` 是尚未迁走的存量入口，只服务既有 DELETE 路由）。
+写路径不在这里，也不在 Console：Runtime 是唯一写入所有者，启禁用/删除/清空按 design §3.2.1
+经受保护 API 转发（`application/memory_service.py` 的 `MemoryAdminService`）。本模块只发 SELECT。
 """
 
 import uuid
@@ -119,54 +119,3 @@ class MemoryRepository:
             )
         ).mappings()
         return [dict(row) for row in rows], int(total or 0)
-
-    async def get_for_user(
-        self,
-        tenant_id: str,
-        user_id: uuid.UUID,
-        memory_id: uuid.UUID,
-    ) -> dict[str, Any] | None:
-        row = (
-            await self._session.execute(
-                text(
-                    "SELECT id, memory_key FROM runtime.user_memory "
-                    "WHERE id = :id AND tenant_id = :tenant_id AND user_id = :user_id "
-                    "AND is_deleted = false"
-                ),
-                {"id": memory_id, "tenant_id": tenant_id, "user_id": user_id},
-            )
-        ).mappings().first()
-        return dict(row) if row else None
-
-    async def soft_delete(self, tenant_id: str, user_id: uuid.UUID, memory_id: uuid.UUID) -> None:
-        await self._session.execute(
-            text(
-                "UPDATE runtime.user_memory SET is_deleted = true, update_time = now() "
-                "WHERE id = :id AND tenant_id = :tenant_id AND user_id = :user_id "
-                "AND is_deleted = false"
-            ),
-            {"id": memory_id, "tenant_id": tenant_id, "user_id": user_id},
-        )
-        await self._session.flush()
-
-    async def soft_delete_all(self, tenant_id: str, user_id: uuid.UUID) -> list[dict[str, Any]]:
-        rows = (
-            await self._session.execute(
-                text(
-                    "SELECT id, memory_key FROM runtime.user_memory "
-                    "WHERE tenant_id = :tenant_id AND user_id = :user_id AND is_deleted = false"
-                ),
-                {"tenant_id": tenant_id, "user_id": user_id},
-            )
-        ).mappings()
-        deleted = [dict(row) for row in rows]
-        if deleted:
-            await self._session.execute(
-                text(
-                    "UPDATE runtime.user_memory SET is_deleted = true, update_time = now() "
-                    "WHERE tenant_id = :tenant_id AND user_id = :user_id AND is_deleted = false"
-                ),
-                {"tenant_id": tenant_id, "user_id": user_id},
-            )
-            await self._session.flush()
-        return deleted

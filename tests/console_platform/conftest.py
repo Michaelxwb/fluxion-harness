@@ -1,20 +1,30 @@
 import shutil
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
 
+import httpx
 import pytest
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from muad_agent_runtime.application.ports import NullPlatformSettingsClient
+from muad_api import install_api_foundation
 from muad_common import SharedSettings
+from muad_console_platform.api.deps import get_runtime_memory_client
 from muad_console_platform.api.security import CSRF_COOKIE, CSRF_HEADER
 from muad_console_platform.application.auth_service import hash_password
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
 from muad_console_platform.infrastructure.models.control import ModelDefinition
+from muad_console_platform.infrastructure.runtime_memory_client import RuntimeMemoryClient
 from muad_console_platform.main import app
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
+from tests.internal_service import internal_service_token  # noqa: F401  (夹具注册，按需依赖)
 
 SCHEMA = "control"
 AGENT_TABLE = "agent_definition"
@@ -177,3 +187,44 @@ async def delete_login_audit_rows(session: AsyncSession, tenant_id: str) -> None
         ),
         {"tenant_id": tenant_id},
     )
+
+
+def runtime_memory_app() -> FastAPI:
+    """真实 Runtime 记忆管理路由：真实服务身份门控 + 真实唯一事务写服务 + 真实 session。"""
+    module = import_module("muad_agent_runtime.api.memory")
+    runtime_app = FastAPI()
+    install_api_foundation(runtime_app)
+    # 唯一替换：Runtime 的 platform-settings 端口用仓库自带的 Null 实现（默认记忆策略），
+    # 否则会真的去连 dev Console。写服务、门控与数据库都是真的。
+    runtime_app.state.platform_settings_client = NullPlatformSettingsClient()
+    runtime_app.include_router(module.router)
+    return runtime_app
+
+
+@pytest.fixture
+async def runtime_memory_client() -> AsyncIterator[RuntimeMemoryClient]:
+    """Console → Runtime 的真实 HTTP 通道（ASGI 直连真实 Runtime 路由）。"""
+    client = RuntimeMemoryClient(
+        "http://runtime",
+        service_token=INTERNAL_SERVICE_TOKEN,
+        transport=httpx.ASGITransport(app=runtime_memory_app()),
+    )
+    try:
+        yield client
+    finally:
+        await client.aclose()
+
+
+@pytest.fixture
+def runtime_memory_override(
+    runtime_memory_client: RuntimeMemoryClient,
+    internal_service_token: None,  # noqa: F811  (夹具依赖：Console 与 Runtime 共用同一服务身份)
+) -> Iterator[None]:
+    """把 Console 的 Runtime 客户端依赖指到上面那条真实通道。"""
+    app.state.runtime_memory_client = None
+    app.dependency_overrides[get_runtime_memory_client] = lambda: runtime_memory_client
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(get_runtime_memory_client, None)
+        app.state.runtime_memory_client = None

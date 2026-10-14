@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, ok, paginate
 from muad_contracts.memory import MemoryAuthor, MemoryCategory, MemoryKey
 from muad_contracts.memory_admin import MemoryStatus
@@ -13,6 +13,8 @@ from ..application.dto import (
     AgentGrantItem,
     BindCodeCreateResponse,
     IdentityItem,
+    MemoryCreateRequest,
+    MemoryEnabledUpdateRequest,
     MemoryHistoryItem,
     MemoryItem,
     UserBasic,
@@ -22,14 +24,17 @@ from ..application.dto import (
     UserUpdateRequest,
 )
 from ..application.grant_service import GrantService
-from ..application.memory_service import MemoryService
+from ..application.memory_service import MemoryAdminService, MemoryService
 from ..application.user_service import UserService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.control import PlatformUser
-from .deps import AccountTenantId, CurrentAccount, get_source_ip
+from .deps import AccountTenantId, CurrentAccount, RuntimeMemoryClientDep, get_source_ip
 
 TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
+#: 记忆命令的幂等键 = Runtime 命令号（design §3.7「Idempotency-Key 必填」）。
+CommandKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=256)]
+ExpectedVersion = Annotated[int, Query(ge=1)]
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -200,6 +205,46 @@ async def get_user_memory_history(
     )
 
 
+@router.post("/{user_id}/memory")
+async def create_user_memory(
+    user_id: uuid.UUID,
+    payload: MemoryCreateRequest,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+    runtime: RuntimeMemoryClientDep,
+    idempotency_key: CommandKey,
+) -> ApiResponse[Any]:
+    """管理员人工新增/显式覆盖（design §3.7）：author 不由调用方选，版本冲突不覆盖。
+
+    重放语义与回执：同一 `Idempotency-Key` 再次请求返回 Runtime 首次落库的回执，不产生第二次效果。
+    """
+    result = await MemoryAdminService(session, runtime).create(
+        tenant_id, user_id, _actor(account, request), idempotency_key, payload
+    )
+    return ok(request.app.state.message_catalog, result.model_dump(mode="json"))
+
+
+@router.patch("/{user_id}/memory/{memory_key}")
+async def update_user_memory(
+    user_id: uuid.UUID,
+    memory_key: MemoryKey,
+    payload: MemoryEnabledUpdateRequest,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+    runtime: RuntimeMemoryClientDep,
+    idempotency_key: CommandKey,
+) -> ApiResponse[Any]:
+    """启禁用：`expected_version` 必填（冲突不覆盖）；过期条目启用必须显式给新有效期。"""
+    result = await MemoryAdminService(session, runtime).set_enabled(
+        tenant_id, user_id, _actor(account, request), idempotency_key, memory_key, payload
+    )
+    return ok(request.app.state.message_catalog, result.model_dump(mode="json"))
+
+
 @router.post("/{user_id}/agents/{agent_id}")
 async def grant_agent(
     user_id: uuid.UUID,
@@ -243,16 +288,24 @@ async def revoke_agent(
 async def delete_user_memory(
     user_id: uuid.UUID,
     memory_id: uuid.UUID,
+    expected_version: ExpectedVersion,
     request: Request,
     account: CurrentAccount,
     tenant_id: TenantId,
     session: Session,
+    runtime: RuntimeMemoryClientDep,
+    idempotency_key: CommandKey,
 ) -> ApiResponse[Any]:
-    await MemoryService(session).delete(tenant_id, user_id, memory_id, _actor(account, request))
-    return ok(
-        request.app.state.message_catalog,
-        {"memory_id": str(memory_id), "deleted": True},
+    """按 id 删除：Runtime 保留 identity/history（tombstone）；`expected_version` 必填。"""
+    result = await MemoryAdminService(session, runtime).delete(
+        tenant_id,
+        user_id,
+        _actor(account, request),
+        idempotency_key,
+        memory_id,
+        expected_version,
     )
+    return ok(request.app.state.message_catalog, result.model_dump(mode="json"))
 
 
 @router.delete("/{user_id}/memory")
@@ -262,9 +315,14 @@ async def clear_user_memory(
     account: CurrentAccount,
     tenant_id: TenantId,
     session: Session,
+    runtime: RuntimeMemoryClientDep,
+    idempotency_key: CommandKey,
 ) -> ApiResponse[Any]:
-    deleted_count = await MemoryService(session).delete_all(tenant_id, user_id, _actor(account, request))
-    return ok(request.app.state.message_catalog, {"deleted_count": deleted_count})
+    """一命令原子清空并保留逐项历史；Runtime 递增 forget_epoch 撤销未消费提议。"""
+    result = await MemoryAdminService(session, runtime).clear(
+        tenant_id, user_id, _actor(account, request), idempotency_key
+    )
+    return ok(request.app.state.message_catalog, result.model_dump(mode="json"))
 
 
 @router.post("/{user_id}/bind-codes")

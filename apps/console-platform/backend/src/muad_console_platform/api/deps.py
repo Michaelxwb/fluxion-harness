@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated, Any, cast
 
 import redis.asyncio as redis
@@ -18,7 +19,10 @@ from ..application.platform_ports import NullPlatformSessionInvalidator, Platfor
 from ..infrastructure.db import get_session_factory
 from ..infrastructure.mcp_catalog_cache import RedisMcpCatalogCache
 from ..infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
+from ..infrastructure.runtime_memory_client import RuntimeMemoryClient
 from ..infrastructure.worker_client import WorkerAdminClient
+
+logger = logging.getLogger(__name__)
 
 
 class ConsoleSessionVerifier:
@@ -107,6 +111,37 @@ def get_worker_client(request: Request) -> WorkerAdminClient:
 
 
 WorkerClient = Annotated[WorkerAdminClient, Depends(get_worker_client)]
+
+
+def get_runtime_memory_client(request: Request) -> RuntimeMemoryClient:
+    """Console → Runtime 记忆管理写入口的共享客户端（按进程缓存，测试可覆盖）。
+
+    Runtime 是唯一记忆写所有者（design §3.2.1）；配置不齐时在这里**明确报错**并留下指名日志，
+    不放行一个必然被 403 拒绝的裸请求——那看起来像权限问题，实际是部署缺配置。
+    """
+    client: RuntimeMemoryClient | None = getattr(request.app.state, "runtime_memory_client", None)
+    if client is None:
+        settings = SharedSettings()
+        missing = [
+            name
+            for name, value in (
+                ("AGENT_RUNTIME_URL", settings.agent_runtime_url),
+                ("INTERNAL_SERVICE_TOKEN", settings.internal_service_token),
+            )
+            if not value
+        ]
+        if missing:
+            logger.warning("runtime_memory_client_unconfigured missing=%s", ",".join(missing))
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        client = RuntimeMemoryClient(
+            settings.agent_runtime_url,
+            service_token=settings.internal_service_token,
+        )
+        request.app.state.runtime_memory_client = client
+    return client
+
+
+RuntimeMemoryClientDep = Annotated[RuntimeMemoryClient, Depends(get_runtime_memory_client)]
 
 
 def get_adapter_registry(request: Request) -> "PlatformAdapterRegistry":

@@ -135,7 +135,11 @@ async def _cleanup_seeded(tenant_id: str) -> None:
     session_factory = get_session_factory()
     async with session_factory() as session:
         for statement in (
+            # 记忆命令现在由 Runtime 写事实与历史（同 owner schema 的物理 FK），先删历史/回执。
+            "DELETE FROM runtime.user_memory_history WHERE tenant_id = :tenant_id",
+            "DELETE FROM runtime.memory_command_receipt WHERE tenant_id = :tenant_id",
             "DELETE FROM runtime.user_memory WHERE tenant_id = :tenant_id",
+            "DELETE FROM runtime.memory_scope WHERE tenant_id = :tenant_id",
             "DELETE FROM control.channel_identity WHERE tenant_id = :tenant_id",
             "DELETE FROM control.bot_account WHERE tenant_id = :tenant_id",
             "DELETE FROM control.user_credential_ref WHERE tenant_id = :tenant_id",

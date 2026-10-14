@@ -1276,13 +1276,13 @@ ACTIVE/DISABLED/EXPIRED过滤、history按version分页，list/count同条件；
 
 ## TASK-025: Console 写操作转 Runtime 并保持命令回执
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-024, TASK-023
 - **Source**: memory-redesign.design.md#3.2.1 组件分工, memory-redesign.design.md#3.7 API 与 Console
 - **Spec-Refs**: 
 - **Acceptance-Refs**: 
-- **Files**: apps/console-platform/backend/src/muad_console_platform/infrastructure/runtime_memory_client.py, apps/console-platform/backend/src/muad_console_platform/application/memory_service.py, apps/console-platform/backend/src/muad_console_platform/api/users.py
+- **Files**: apps/console-platform/backend/src/muad_console_platform/infrastructure/runtime_memory_client.py, apps/console-platform/backend/src/muad_console_platform/application/memory_service.py, apps/console-platform/backend/src/muad_console_platform/api/users.py, apps/console-platform/backend/src/muad_console_platform/api/deps.py, apps/console-platform/backend/src/muad_console_platform/application/dto.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/memory_repository.py, tests/console_platform/test_user_memory_write_commands.py, tests/console_platform/conftest.py, tests/console_platform/test_user_side_relations.py, tests/console_platform/test_users_api.py
 
 ### Description
 
@@ -1290,24 +1290,39 @@ ACTIVE/DISABLED/EXPIRED过滤、history按version分页，list/count同条件；
 
 ### Checklist
 
-- [ ] [E-04/S-01][integration] 辅助先写重复请求不重复效果、403/版本冲突、Runtime失败不宣称成功RED。
-- [ ] Console日志关联command_id；不宣称本地config审计与远端写原子。
-- [ ] DTO白名单与统一Envelope；缺Runtime连接配置清晰报错。
-- [ ] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
+- [x] [E-04/S-01][integration] 辅助先写重复请求不重复效果、403/版本冲突、Runtime失败不宣称成功RED。
+- [x] Console日志关联command_id；不宣称本地config审计与远端写原子。
+- [x] DTO白名单与统一Envelope；缺Runtime连接配置清晰报错。
+- [x] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | unit/integration | 本任务纯逻辑或真实存储载体，按Checklist具体边界 | Checklist列出的独立行为及失败反例，最终场景由责任表owner验证 | 编码阶段登记真实辅助测试；无当前执行Evidence | planned | planned |
+| LOCAL | integration | 真实 Console HTTP（ASGI + 真实会话/管理员角色/CSRF）+ 真实 Runtime HTTP（ASGI 装载 `/internal/admin/users/{user_id}/memory` 真实路由：服务身份门控 + 唯一事务写服务）+ 真实 PostgreSQL（0020 head 的 `runtime.user_memory*` / `memory_command_receipt` / `memory_scope`）+ Console 引擎的真实 SQL 语句监听 | 同 `command_id` 重放返回首次回执且不产生第二次事实/历史/回执；同命令不同输入 409 `IDEMPOTENCY_MISMATCH`；版本冲突 409 且不覆盖；未知 id 404；Runtime 不可达/服务身份 403/缺连接配置时 Console 落 `COMMON_INTERNAL_ERROR` 且零成功态、零本地审计；清空一命令原子且 `forget_epoch` +1；DTO 白名单（author/TASK_STATE/task.*/空值/缺 Idempotency-Key/禁用带有效期）全部 422；Console 对 runtime 记忆表零写语句 | tests/console_platform/test_user_memory_write_commands.py / test_local_01_same_command_replays_without_second_effect、test_local_02_version_conflict_and_missing_memory_pass_through、test_local_03_enable_disable_and_expiry_semantics、test_local_04_expired_entry_requires_new_expiry_and_clear_is_one_command、test_local_05_unreachable_or_forbidden_runtime_never_reports_success、test_local_06_missing_runtime_configuration_fails_explicitly、test_local_07_console_dto_whitelist_and_tenant_scope；tests/console_platform/test_user_side_relations.py / test_s05_memory_delete_and_clear_share_application_service | ["uv","run","pytest","-q","tests/console_platform/test_user_memory_write_commands.py","tests/console_platform/test_user_side_relations.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- LOCAL RED（行为级）：先写 7 条辅助用例 + 改造 `test_s05`，再临时回退 service/路由/DTO/仓储（保留新 Runtime 客户端以便收集）实跑：`DATABASE_URL=<隔离 head 库> REDIS_URL=redis://localhost:6379/15 uv run pytest -q tests/console_platform/test_user_memory_write_commands.py tests/console_platform/test_user_side_relations.py::test_s05_memory_delete_and_clear_share_application_service --tb=line` → **8 failed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task025-red.txt`。失败原因即缺失的契约：`POST /memory` 不存在 → `COMMON_BAD_REQUEST`（用例 01-04，`test_user_memory_write_commands.py:245,280,332,384`）；`PATCH` 未实现 → `assert 405 == 500`（`:455`）与缺 Idempotency-Key 仍 405（`:487`）；`author` 未被 Console 边界拒绝（`:506`，旧实现根本不收 body）；旧 DELETE 回执无命令号 → `test_user_side_relations.py:182: KeyError: 'command_id'`。（最早一次的 RED 是模块级 `ImportError: cannot import name 'get_runtime_memory_client'`，同一个缺失契约的收集期形态。）
+- GREEN：同环境 `uv run pytest -q tests/console_platform/test_user_memory_write_commands.py` → **7 passed**（`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task025-green.txt`）。真实边界：真实 Console ASGI HTTP + 真实登录会话/角色/CSRF、真实 Runtime 记忆管理路由（真实服务身份门控 + 真实 `MemoryAdminService`→唯一写服务）、真实 PG 0020 head；无客户端内部 mock、无 DB mock，Runtime 的 platform-settings 端口用仓库自带 `NullPlatformSettingsClient`（避免连 dev Console）。断言位置：
+  - 命令号与重放：`:247-266`（`data.command_id == Idempotency-Key`、二次同键 `data` 与首次逐字段相等、`changed_count==1`、同键换输入 409 `IDEMPOTENCY_MISMATCH`），`:263-266` 用 DB 计数钉死「1 事实 / 1 历史 / 1 回执」。
+  - 真实 SQL 监听：`:267-271`（Console 引擎上所有命中 `runtime.user_memory*` 的语句必须以 SELECT/WITH 开头 ⇒ 禁直接 UPDATE/INSERT/DELETE）。
+  - 版本冲突/不存在透传：`:275-318`（覆盖无 `expected_version` → 409 `MEMORY_VERSION_CONFLICT` 且内容未变；旧版本 PATCH 409；未知 memory_id 404 `MEMORY_NOT_FOUND`；失败写不产生事实/历史/回执/审计）。
+  - 启禁用与过期语义：`:321-368`（DISABLED/ENABLED 状态与 version 递增；新有效期落到事实；过去时间作有效期 → 400 `MEMORY_VALUE_INVALID`）、`:371-434`（过期条目无新有效期启用 → 400；新有效期启用 → 真实 EXPIRE+ENABLE 两条变更 ⇒ version 3；清空一命令原子 `changed_count==3`、`forget_epoch==1`、历史/回执计数 8/5，空清空 `UNCHANGED` 不再写历史）。
+  - Runtime 失败不宣称成功：`:438-471`（真实 TCP `ConnectError` → 500 `COMMON_INTERNAL_ERROR` + warning `runtime_memory_request_failed`；错误服务身份 → 403 `FORBIDDEN`；两次都断言记忆/历史/回执/审计全零）。
+  - 缺连接配置：`:474-491`（`INTERNAL_SERVICE_TOKEN`/`AGENT_RUNTIME_URL` 置空 → 500 且 warning 指名缺失项，零落库）。
+  - DTO 白名单与租户作用域：`:494-540`（`author`/`TASK_STATE`/`task.*`/空白值/缺 `Idempotency-Key`/PATCH 缺版本/禁用带有效期 → 422 `COMMON_VALIDATION_ERROR`；租户内不存在用户 → 404 且不发 Runtime 命令）。
+- 实现：新增 `infrastructure/runtime_memory_client.py`（`X-Internal-Service`/`X-Tenant-Id`/`X-Trace-Id`/`Idempotency-Key`/`X-Actor-Id` 透传；上游业务码原样上抛，transport/封套异常统一 `COMMON_INTERNAL_ERROR`，日志只记方法与路径）；`application/dto.py` 新增 `MemoryCreateRequest`（复用 contracts 的 `RememberMemoryInput` 拒 `task.*`）与 `MemoryEnabledUpdateRequest`；`application/memory_service.py` 拆为只读 `MemoryService` 与 `MemoryAdminService`（新增/启禁用/删除/清空全走 Runtime，`Idempotency-Key` 即命令号）；`api/users.py` 新增 `POST /api/v1/users/{id}/memory`、`PATCH /api/v1/users/{id}/memory/{memory_key}`，`DELETE`（按 id，`expected_version` 必填）与 `DELETE`（清空）改走 Runtime，四条路由统一返回 Runtime 命令回执（`MemoryCommandResponse`，含 `command_id`/`status`/`changed_count`/`items`）；`api/deps.py` 新增 `get_runtime_memory_client`（缺 `AGENT_RUNTIME_URL`/`INTERNAL_SERVICE_TOKEN` 时 warning 指名 + `COMMON_INTERNAL_ERROR`，不发必然 403 的裸请求）；`infrastructure/repositories/memory_repository.py` 删除 `get_for_user/soft_delete/soft_delete_all` 三个直写方法（design §3.2.1「不直接 UPDATE runtime 表」终态）。
+- 审计与日志口径（不宣称原子）：Runtime `user_memory_history`（actor/version/command_id）是权威审计；Console 每次成功请求写一条 `control.config_audit_log`（`resource_type=USER_MEMORY`、`resource_id=user_id`、`after={command_id,status,changed_count,memory_keys}`，不含记忆正文），并记 `console_memory_command_applied`（`command_id` 在 `extra` 里）。两者**不同库不同事务**：本地审计在远端命令返回之后写，失败不回滚远端事实，重放请求会多记一条本地日志（`test_s05` 断言 4 条日志/3 份回执即此口径）。
+- 回归：`tests/console_platform` = **300 passed, 2 failed**（`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task025-regression.txt`，连跑两轮同结果）；2 failed 为存量且与本 diff 无关（`test_platform_settings_table.py` 把迁移 head 钉在 `0019`，HEAD 已含 TASK-007 的 `0020`；该文件无 diff）。TASK-023 的 Runtime 管理 API 用例 `tests/agent_runtime/test_memory_redesign_admin_api.py` = **9 passed**。harness-api/harness-data/harness-log verifier 同口径实跑：`tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py tests/console_skill/test_import_idempotency.py` = **23 passed**；`uv run pytest -q tests -k schema_parity` = **41 passed, 3301 deselected**；`tests/test_logging.py tests/test_logging_redaction.py` = **13 passed**。`uv run ruff check .` 仅剩 2 条存量违规（agent-runtime I001、TASK-023 的 E501，均非本 diff）；`uv run mypy apps packages` = Success（386 files）。
+- 跨任务边界（他任务收口，不在本任务宣称）：前端 `services/users.ts` 的 `deleteMemory/clearMemory` 与 `UserDetailTabs.tsx` 仍按旧契约调用（不带 `Idempotency-Key`、读 `deleted`/`deleted_count`，并仍用 `source_type` 列），TASK-026/028 收口；E-04 浏览器场景（创建/启禁用/删除/历史分页/越权）owner 是 TASK-030，本任务不执行 E2E；`harness-rel#RULE-rel-001`（owner TASK-024）的 verifier 文件 `test_user_side_relations.py` 因写契约变更同步改造（同一路径仍全绿，种子内容形状对齐 `MemoryCandidate`、清理补历史/回执外键顺序）；`test_users_api.py::_cleanup_seeded` 补删记忆历史/回执（Runtime 现在会写这两张表）。
+- Scope 说明：diff 命中 `apps/**/api/**` 与 `**/*relations*` 路径，故上述 harness-api/harness-rel 相关命令一并实跑登记；本任务无新增 Spec-Refs（责任表未给 TASK-025 分配 Tier-1 规则行），LOCAL 行是唯一契约行。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-15] started
+- [2026-10-15] completed (done)
 
 ---
 

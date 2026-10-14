@@ -1,11 +1,20 @@
 import uuid
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
 from muad_contracts import ChannelName, CredentialMode
 from muad_contracts.canonical import ensure_strict_json
+from muad_contracts.memory import MemoryKey, MemoryValue, PositiveVersion, RememberMemoryInput
 from muad_contracts.platform_settings import MIN_PASSWORD_LENGTH_FLOOR
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    field_validator,
+    model_validator,
+)
 
 # Agent 系统提示的字节上限。**故意取宽**：目的是接住「误贴了一整份手册」，不是塑造正常用法
 # （dev 库可校准的样本只有 2 行、最长 32 字节 ⇒ 这是判断不是测量）。取 UTF-8 字节而非字符数，
@@ -364,6 +373,51 @@ class MemoryHistoryItem(BaseModel):
     source_run_id: uuid.UUID | None
     after: dict[str, Any]
     create_time: ConsoleTime
+
+
+class MemoryCreateRequest(BaseModel):
+    """管理员人工内容（design §3.7）：author 不可选，只送 Runtime 可执行的 UPSERT 形态。
+
+    `expected_version` 是**覆盖**既有 key 的前提（读到的版本），新 key 不传；`expires_at` 省略时
+    由 Runtime 按冻结策略算默认有效期（与 `ttl_days_*` 同口径）。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    memory_key: MemoryKey
+    #: 管理员不得写 TASK_STATE（那是 Agent 任务线索，Runtime 也会拒绝）。
+    category: Literal["PREFERENCE", "WORK_STYLE", "EXPLICIT"]
+    value: MemoryValue
+    expected_version: PositiveVersion | None = None
+    expires_at: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def _ordinary_namespace(self) -> Self:
+        # 复用 contracts 的 `task.*` 保留命名空间与 key/value 校验，不在 Console 复制一份规则。
+        RememberMemoryInput.model_validate(
+            {"memory_key": self.memory_key, "category": self.category, "value": self.value}
+        )
+        return self
+
+
+class MemoryEnabledUpdateRequest(BaseModel):
+    """启禁用（design §3.7）：显式给出读到的版本，版本冲突不覆盖。
+
+    过期条目重新启用必须同时给新有效期（Runtime 侧明确拒绝用过去的时间当有效期）；
+    禁用不接受 `expires_at`——它既无意义，也会让"禁用"顺带改有效期。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: StrictBool
+    expected_version: PositiveVersion
+    expires_at: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def _expiry_only_when_enabling(self) -> Self:
+        if self.expires_at is not None and not self.enabled:
+            raise ValueError("expires_at is only allowed when enabling")
+        return self
 
 
 class BindCodeCreateResponse(BaseModel):

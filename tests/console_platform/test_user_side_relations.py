@@ -1,6 +1,8 @@
+import json
 import uuid
 from typing import Any
 
+import pytest
 from httpx import AsyncClient
 from muad_console_platform.application.grant_service import GrantService
 from muad_console_platform.application.memory_service import MemoryService
@@ -38,17 +40,20 @@ async def _seed_memory(tenant: TenantContext, user_id: str, count: int) -> list[
         for index in range(count):
             memory_id = uuid.uuid4()
             memory_ids.append(str(memory_id))
+            # 内容形状要与真实写入一致（Runtime 读回时会按 `MemoryCandidate` 校验）。
             await session.execute(
                 text(
                     "INSERT INTO runtime.user_memory "
                     "(id, tenant_id, user_id, memory_key, category, content_json, author) "
-                    "VALUES (:id, :tenant_id, :user_id, :memory_key, 'PREFERENCE', '{}'::jsonb, 'ADMIN')"
+                    "VALUES (:id, :tenant_id, :user_id, :memory_key, 'PREFERENCE', "
+                    "CAST(:content AS jsonb), 'ADMIN')"
                 ),
                 {
                     "id": memory_id,
                     "tenant_id": tenant.tenant_id,
                     "user_id": user_id,
                     "memory_key": f"memory-{index}-{uuid.uuid4().hex[:6]}",
+                    "content": json.dumps({"value": f"seeded value {index}"}),
                 },
             )
         await session.commit()
@@ -153,6 +158,7 @@ async def test_s04_unknown_agent_or_user_returns_not_found(
         await _cleanup_seeded(tenant.tenant_id)
 
 
+@pytest.mark.usefixtures("runtime_memory_override")
 async def test_s05_memory_delete_and_clear_share_application_service(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
@@ -166,38 +172,77 @@ async def test_s05_memory_delete_and_clear_share_application_service(
             )
         assert total == 2
 
+        delete_command = uuid.uuid4().hex
         removed = await client.delete(
-            f"/api/v1/users/{user_id}/memory/{memory_ids[0]}", headers=_headers(tenant)
+            f"/api/v1/users/{user_id}/memory/{memory_ids[0]}",
+            params={"expected_version": 1},
+            headers={**_headers(tenant), "Idempotency-Key": delete_command},
         )
         assert removed.status_code == 200
-        assert removed.json()["data"]["deleted"] is True
+        assert removed.json()["data"]["command_id"] == delete_command
+        assert [item["status"] for item in removed.json()["data"]["items"]] == ["DELETED"]
 
-        repeat = await client.delete(
-            f"/api/v1/users/{user_id}/memory/{memory_ids[0]}", headers=_headers(tenant)
+        replayed = await client.delete(
+            f"/api/v1/users/{user_id}/memory/{memory_ids[0]}",
+            params={"expected_version": 1},
+            headers={**_headers(tenant), "Idempotency-Key": delete_command},
         )
-        assert repeat.status_code == 404
+        assert replayed.json()["data"] == removed.json()["data"], "同命令重放返回首次回执"
 
         remaining = await client.get(f"/api/v1/users/{user_id}/memory", headers=_headers(tenant))
         assert remaining.json()["data"]["total"] == 1
 
-        cleared = await client.delete(f"/api/v1/users/{user_id}/memory", headers=_headers(tenant))
+        clear_command = uuid.uuid4().hex
+        cleared = await client.delete(
+            f"/api/v1/users/{user_id}/memory",
+            headers={**_headers(tenant), "Idempotency-Key": clear_command},
+        )
         assert cleared.status_code == 200
-        assert cleared.json()["data"]["deleted_count"] == 1
+        assert cleared.json()["data"]["changed_count"] == 1
 
         empty = await client.get(f"/api/v1/users/{user_id}/memory", headers=_headers(tenant))
         assert empty.json()["data"]["total"] == 0
 
-        cleared_again = await client.delete(f"/api/v1/users/{user_id}/memory", headers=_headers(tenant))
-        assert cleared_again.json()["data"]["deleted_count"] == 0
+        cleared_again = await client.delete(
+            f"/api/v1/users/{user_id}/memory",
+            headers={**_headers(tenant), "Idempotency-Key": uuid.uuid4().hex},
+        )
+        assert cleared_again.json()["data"]["changed_count"] == 0
 
         async with session_factory() as session:
-            audit_count = await session.scalar(
-                text(
-                    "SELECT count(*) FROM control.config_audit_log "
-                    "WHERE resource_type = 'USER_MEMORY' AND resource_id = ANY(:ids)"
-                ),
-                {"ids": [uuid.UUID(item) for item in memory_ids]},
+            audit_after = list(
+                await session.scalars(
+                    text(
+                        "SELECT after_json FROM control.config_audit_log "
+                        "WHERE tenant_id = :tenant_id AND resource_type = 'USER_MEMORY' "
+                        "AND resource_id = :user_id ORDER BY create_time"
+                    ),
+                    {"tenant_id": tenant.tenant_id, "user_id": uuid.UUID(user_id)},
+                )
             )
-        assert audit_count == 2
+            receipts = await session.scalar(
+                text(
+                    "SELECT count(*) FROM runtime.memory_command_receipt "
+                    "WHERE tenant_id = :tenant_id AND user_id = :user_id"
+                ),
+                {"tenant_id": tenant.tenant_id, "user_id": uuid.UUID(user_id)},
+            )
+            history_actors = list(
+                await session.scalars(
+                    text(
+                        "SELECT DISTINCT actor_type || ':' || command_id FROM runtime.user_memory_history "
+                        "WHERE tenant_id = :tenant_id AND user_id = :user_id"
+                    ),
+                    {"tenant_id": tenant.tenant_id, "user_id": uuid.UUID(user_id)},
+                )
+            )
+        cleared_again_command = cleared_again.json()["data"]["command_id"]
+        assert sorted(entry["command_id"] for entry in audit_after) == sorted(
+            [delete_command, delete_command, clear_command, cleared_again_command]
+        ), "本地操作日志按 Console 收到的每个成功请求记一条，并用 command_id 关联远端事实（重放也记）"
+        assert receipts == 3, "三条命令各一份 Runtime 回执（同命令重放不再新增）"
+        assert sorted(history_actors) == sorted(
+            [f"ADMIN:{delete_command}", f"ADMIN:{clear_command}"]
+        ), "权威 actor/command 在 Runtime history，Console 不另写一份事实"
     finally:
         await _cleanup_seeded(tenant.tenant_id)
