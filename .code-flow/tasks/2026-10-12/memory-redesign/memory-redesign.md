@@ -1328,13 +1328,13 @@ ACTIVE/DISABLED/EXPIRED过滤、history按version分页，list/count同条件；
 
 ## TASK-026: 前端记忆 API 服务层与严格 DTO
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-025
 - **Source**: memory-redesign.design.md#3.7 API 与 Console
 - **Spec-Refs**: harness-frontend#RULE-front-001
 - **Acceptance-Refs**: 
-- **Files**: apps/console-platform/frontend/src/modules/user-identity/services/users.ts, apps/console-platform/frontend/src/modules/user-identity/memoryTypes.ts
+- **Files**: apps/console-platform/frontend/src/modules/user-identity/services/users.ts, apps/console-platform/frontend/src/modules/user-identity/memoryTypes.ts, apps/console-platform/frontend/src/modules/user-identity/UserDetailTabs.tsx, tests/frontend/test_user_memory_contract.py, tests/frontend/test_detail_sidesheet_contract.py
 
 ### Description
 
@@ -1342,24 +1342,35 @@ ACTIVE/DISABLED/EXPIRED过滤、history按version分页，list/count同条件；
 
 ### Checklist
 
-- [ ] [E-04][unit] 辅助先写源码API出口/类型契约RED；HTTP只从services调用共享axios。
-- [ ] 错误码只经apiErrorBody映射，404/409/403回执语义明确。
-- [ ] 运行frontend API/i18n检查和typecheck，真实浏览器验证归e2e任务。
-- [ ] [RULE-front-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]（cwd=., timeout=600s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [E-04][unit] 辅助先写源码API出口/类型契约RED；HTTP只从services调用共享axios。
+- [x] 错误码只经apiErrorBody映射，404/409/403回执语义明确。
+- [x] 运行frontend API/i18n检查和typecheck，真实浏览器验证归e2e任务。
+- [x] [RULE-front-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]（cwd=., timeout=600s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| harness-frontend#RULE-front-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"] | planned |
+| harness-frontend#RULE-front-001 | unit/source-contract | 真实前端源码树与真实 locale 文件：pytest 直接解析 TS 源码，`check_frontend_api_usage.py` 扫全量 `src`（api/ 之外禁 axios/fetch），`check_frontend_i18n.py` 比对仓库 zh-CN/en-US 词条与 `t('字面量')` 引用，`tsc --noEmit` 全量类型检查；无 mock/stub | 记忆 HTTP 只存在于 services 层共享 axios；`memoryTypes.ts` 严格枚举与 Console/Runtime DTO 齐平、无 any/无旧 source_type；四条写路由带调用方持有的 `Idempotency-Key`、DELETE 带 `expected_version`；404/409/403 错误码只经 `apiErrorBody`；原回归不退化 | tests/frontend/test_user_memory_contract.py（17 用例：test_memory_types_declares_strict_enums、test_memory_item_matches_backend_projection、test_write_functions_require_caller_owned_idempotency_key、test_service_paths_and_verbs_match_backend_contract、test_error_semantics_only_through_api_error_body、test_component_memory_tab_reads_new_author_field 等）+ tests/frontend/test_api_client_contract.py（原 verifier） | ["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- LOCAL RED（源码契约）：先落 `tests/frontend/test_user_memory_contract.py`（17 用例）再实现，`uv run pytest -q tests/frontend/test_user_memory_contract.py --tb=line` → **17 failed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task026-red.txt`。失败原因即缺失契约：`memoryTypes.ts` 不存在（`test_user_memory_contract.py:28`）；`services/users.ts` 仍是旧契约——`listMemory` 参数 `PageParams & { category?: string }`、返回 `Page<Memory>`（`:208`），缺 `listMemoryHistory/createMemory/updateMemoryEnabled/memoryErrorCode`（`:38`），旧 `Memory` 接口把 `source_type` 当字段导出，`newRequestId` 未被引用；组件仍按 `source_type` 渲染（`:265`）且 `deleteMemory(id, memoryId)`/`clearMemory(id)` 不带版本身份与幂等键（`:274`）。
+- GREEN：`uv run pytest -q tests/frontend/test_user_memory_contract.py tests/frontend/test_detail_sidesheet_contract.py` → **26 passed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task026-green.txt`。断言位置（真实源码解析，无 mock）：
+  - 严格类型：`:61-79`（status/author/category/可写分类/命令状态/结果状态全部字面量联合；无 `any`、无 `source_type`）；`:82-124`（`MemoryItem` 16 字段与 Console 读投影齐平；`MemoryHistoryItem` 11 字段含 `origin_id`/`after`）；`:126-148`（`MemoryMutationResult`/`MemoryCommandReceipt` 与 Runtime `MemoryCommandResponse` 齐平）；`:150-174`（`MemoryCreateInput` 可选 `expected_version/expires_at`、`MemoryEnabledUpdateInput` 必带 `expected_version`；可写分类不含 `TASK_STATE`）。
+  - 出口与路径：`:206-259`（六个出口签名逐字钉死；GET 列表/历史、POST、PATCH、DELETE-by-id、DELETE-clear 的 URL 与动词；DELETE 的版本以 query 传 `params: { expected_version }` —— 对齐后端 `ExpectedVersion = Annotated[int, Query(ge=1)]`，任务简述里的「body」以已提交的代码事实为准）。
+  - 幂等与错误码：`:219-235`（四条写操作都收调用方 `idempotencyKey`、都发 `'Idempotency-Key'`、service 内不出现 `newRequestId`）；`:176-192` + `:261-266`（`MEMORY_ERROR_CODES` 覆盖 404 `MEMORY_NOT_FOUND`/`COMMON_NOT_FOUND`、409 `MEMORY_VERSION_CONFLICT`/`IDEMPOTENCY_MISMATCH`、403 `FORBIDDEN` 及 400/422/500；`memoryErrorCode` 只调 `apiErrorBody(error)`，函数体不含 `response` 手工解析）。
+  - 组件最小适配：`:268-283`（`source_type` 清零、来源列改 `dataIndex: 'author'` 且保留原 i18n 键；删除/清空传 `entry.version` 与 `newRequestId()`，HTTP 不在组件发生）。
+- verifier（元数据 argv 原样实跑）：`bash -lc "uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"` → `4 passed in 0.01s` + `frontend api usage check OK` + `i18n keys OK: 1088` + `tsc --noEmit` 通过，日志 `/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task026-verifier.txt`。
+- 回归：`uv run pytest -q tests/frontend` → **320 passed, 2 failed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task026-regression.txt`；2 failed 与改动前基线逐条相同且与本 diff 无关（`test_audit_gap_contract.py::test_b214_resource_type_options_cover_backend_domain`、`test_platform_settings_contract.py::test_backend_catalog_label_keys_are_translated_in_both_locales`——后者缺 17 个 memory 设置词条，归 TASK-027/终验）。改动前基线 303 passed / 2 failed；本次 +17 用例，`test_detail_sidesheet_contract.py` 仍绿。
+- 实现：新增 `memoryTypes.ts`（列表项/历史项/写操作入参/Runtime 命令回执/status·author·category·结果枚举/错误码，字段保持后端 snake_case，`content` 为 `{ value } | TASK_STATE 结构` 联合）；`services/users.ts` 删除旧 `Memory` 接口（含 `source_type`），`listMemory` 收全 `category/author/status` 过滤，新增 `listMemoryHistory/createMemory/updateMemoryEnabled`，`deleteMemory/clearMemory` 改带 `expected_version`/调用方幂等键并返回命令回执，新增 `memoryErrorCode`（唯一映射口 `apiErrorBody`，未知码返回 null）；`UserDetailTabs.tsx` 按最小改动适配（沿用原组件、原视觉与原文案键）。
+- 跨任务边界（登记）：本任务**不新增/不改动任何 i18n 词条**（选项/词条归 TASK-027，`check_frontend_i18n.py` 仍为 1088 keys）——来源列的 `ADMIN` 值当前按未知值原样显示，状态列/历史上限/动作 UI 归 TASK-028；真实浏览器验证归 TASK-030，E-04 保持 planned/deferred，本任务不宣称。`tests/frontend/test_detail_sidesheet_contract.py:56` 的 `source_type` 列断言是 TASK-024 Evidence 明确留给 TASK-026/028 的收口项，本任务按新字段最小改为 `author`；`tests/e2e/seed_user_identity.py` 仍插已删除列（按指示不修，归 E2E 收口）。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-15] started
+- [2026-10-15] completed (done)
 
 ---
 

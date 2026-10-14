@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
+import { newRequestId } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
@@ -38,6 +39,7 @@ import {
   type AdapterMetadata,
   type PlatformItem
 } from '../project-platform/services/platforms';
+import type { MemoryContent, MemoryItem } from './memoryTypes';
 import {
   AGENT_PICKER_PAGE_SIZE,
   clearMemory,
@@ -54,7 +56,6 @@ import {
   type AgentSummary,
   type BindCode,
   type Identity,
-  type Memory,
   type Page,
   type UserDetail
 } from './services/users';
@@ -134,15 +135,15 @@ function useAsyncList<T>(
   };
 }
 
-function formatMemorySource(value: string, t: TFunction): string {
+function formatMemoryAuthor(value: string, t: TFunction): string {
   switch (value) {
-    case 'USER_EXPLICIT': return t('user.memory.sourceType.USER_EXPLICIT');
-    case 'AGENT_INFERRED': return t('user.memory.sourceType.AGENT_INFERRED');
+    case 'USER': return t('user.memory.sourceType.USER_EXPLICIT');
+    case 'AGENT': return t('user.memory.sourceType.AGENT_INFERRED');
     default: return value;
   }
 }
 
-function formatMemoryContent(value: Record<string, unknown>): string {
+function formatMemoryContent(value: MemoryContent): string {
   const entries = Object.values(value);
   if (entries.length > 0 && entries.every((entry) => typeof entry === 'string' || typeof entry === 'number')) {
     return entries.join('；');
@@ -607,19 +608,20 @@ function IdentityTab(props: { userId: string }) {
 
 function MemoryTab(props: { userId: string }) {
   const { t } = useTranslation();
-  const list = useAsyncList<Memory>(
+  const list = useAsyncList<MemoryItem>(
     (page, pageSize) => listMemory(props.userId, { page, page_size: pageSize }),
     [props.userId]
   );
   const { items, loading, failed, reload } = list;
 
-  const remove = async (memoryId: string): Promise<void> => {
-    await deleteMemory(props.userId, memoryId);
+  // 确认动作每次提交生成一个幂等键（调用方持有，service 不自行生成）；键的复用与冲突恢复归 TASK-028 的动作 UI。
+  const remove = async (entry: MemoryItem): Promise<void> => {
+    await deleteMemory(props.userId, entry.id, entry.version, newRequestId());
     await reload();
   };
 
   const clearAll = async (): Promise<void> => {
-    await clearMemory(props.userId);
+    await clearMemory(props.userId, newRequestId());
     await reload();
   };
 
@@ -652,10 +654,10 @@ function MemoryTab(props: { userId: string }) {
                 dataIndex: 'content',
                 width: 'auto',
                 ellipsis: true,
-                render: (value: Record<string, unknown>) => <TableText>{formatMemoryContent(value)}</TableText>
+                render: (value: MemoryContent) => <TableText>{formatMemoryContent(value)}</TableText>
               },
-              { title: t('user.memory.source'), dataIndex: 'source_type', width: 144, ellipsis: true,
-                render: (value: string) => <TableText title={value}>{formatMemorySource(value, t)}</TableText> },
+              { title: t('user.memory.source'), dataIndex: 'author', width: 144, ellipsis: true,
+                render: (value: string) => <TableText title={value}>{formatMemoryAuthor(value, t)}</TableText> },
               {
                 title: t('user.memory.updated'),
                 dataIndex: 'update_time',
@@ -665,10 +667,10 @@ function MemoryTab(props: { userId: string }) {
               {
                 ...actionColumn(80),
                 title: t('user.columns.action'),
-                render: (_: unknown, entry: Memory) => (
+                render: (_: unknown, entry: MemoryItem) => (
                   <ConfirmAction
                     title={t('user.memory.confirmDelete')}
-                    onConfirm={() => void remove(entry.id)}
+                    onConfirm={() => void remove(entry)}
                   >
                     {t('user.memory.delete')}
                   </ConfirmAction>

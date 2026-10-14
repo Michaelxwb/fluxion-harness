@@ -53,7 +53,7 @@ def test_user_detail_tabs_share_sectioned_layout() -> None:
     assert source.count("detail-section-title") >= 5, "每个 Tab 都必须有分区标题"
     for key in ("user.agents.hint", "user.identities.hint", "user.memory.hint"):
         assert key in source, f"Tab 说明文案缺失: {key}"
-    for column in ("granted_at", "source_type", "update_time", "user_status"):
+    for column in ("granted_at", "author", "update_time", "user_status"):
         assert column in source, f"与交互稿不一致的列缺失: {column}"
 
 
