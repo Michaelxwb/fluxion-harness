@@ -40,7 +40,7 @@
 | B-16 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + HTTP 模型探针 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py"] | . | 300 |  |
 | B-17 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py"] | . | 300 |  |
 | B-18 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | . | 300 |  |
-| B-19 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，摘要关闭 + 真实模型 HTTP | TASK-019 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_provider.py"] | . | 300 |  |
+| B-19 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，摘要关闭 + 真实模型 HTTP | TASK-019 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_provider.py"] | . | 300 |  |
 | B-20 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，迁移前置检查与恢复演练 | TASK-007 | verified | ["uv","run","pytest","-q","tests/migrations/test_memory_redesign_preflight.py"] | . | 300 |  |
 | B-21 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 延迟 job / 后续摘要 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_input_boundary.py"] | . | 300 |  |
 | B-22 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实PG+旧新Run | TASK-016 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_snapshot.py"] | . | 300 |  |
@@ -983,7 +983,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ## TASK-019: 固定 consolidation 输入与独立主模型 provider
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-016, TASK-018
 - **Source**: memory-redesign.design.md#3.6.1 入队与执行, memory-redesign.design.md#3.6.2 顺序与恢复
@@ -997,26 +997,33 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ### Checklist
 
-- [ ] [B-19][integration] 先写摘要关闭仍走主模型、实时凭据、超时与close、Run终态不变RED。
-- [ ] [B-21][integration] 辅助写R1延迟到R2摘要后仍只含R1输入；hash/revision不能在接管时刷新。
-- [ ] 整批严格解析、非法重复key/root/category/密钥均拒绝，不逐好项提交。
-- [ ] [B-19][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，摘要关闭 + 真实模型 HTTP；断言：consolidation 仍用冻结主模型；凭据实时取；provider 正常关闭；timeout 不改变 Run 终态。
-- [ ] [RULE-model-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled"]（cwd=., timeout=600s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [B-19][integration] 先写摘要关闭仍走主模型、实时凭据、超时与close、Run终态不变RED。
+- [x] [B-21][integration] 辅助写R1延迟到R2摘要后仍只含R1输入（已验证）；固定DTO携带revision，持久hash/接管不刷新由TASK-020保存输入及TASK-021最终B-21验证。
+- [x] 整批严格解析、非法重复key/root/category/密钥均拒绝，不逐好项提交。
+- [x] [B-19][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：integration，摘要关闭 + 真实模型 HTTP；断言：consolidation 仍用冻结主模型；凭据实时取；provider 正常关闭；timeout 不改变 Run 终态。
+- [x] [RULE-model-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled"]（cwd=., timeout=600s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-19 | integration | integration，摘要关闭 + 真实模型 HTTP | consolidation 仍用冻结主模型；凭据实时取；provider 正常关闭；timeout 不改变 Run 终态 | tests/agent_runtime/test_memory_redesign_provider.py / test_b19_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_provider.py"] | planned |
-| harness-model#RULE-model-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["bash","-lc","uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled"] | planned |
+| B-19 | integration | integration，摘要关闭 + 真实模型 HTTP | consolidation 仍用冻结主模型；凭据实时取；provider 正常关闭；timeout 不改变 Run 终态 | tests/agent_runtime/test_memory_redesign_provider.py / test_b19_memory_redesign_summary_disabled_uses_frozen_main_and_live_rotated_credentials / test_b19_memory_redesign_independent_timeout_keeps_run_completed_and_closes_provider | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_provider.py"] | verified |
+| harness-model#RULE-model-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | tests/console_platform/test_models_api.py、test_agents_api.py（disabled） | ["bash","-lc","uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled"] | planned |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- B-19 RED：`uv run pytest -q tests/agent_runtime/test_memory_redesign_provider.py`，真实隔离PG fixture已配置，3 failed（ConsolidationInvoker不存在）。测试已明确冻结主模型、summary关闭、过期主Run deadline与独立timeout、真实HTTP API-09密钥轮换及provider finally close。
+- B-21/输出约束辅助测试已写：`tests/agent_runtime/test_memory_redesign_input_boundary.py`（真实PG R1/R2摘要边界、排除工具结果；重复key/root/author/category/secret整批拒绝）；真实RED输出 `/tmp/fluxion-task019-input-red.txt`。
+- GREEN：provider+input boundary 命令15 passed（provider5、输入/整批输出10），输出 `/tmp/fluxion-task019-green.txt`。B-19断言位于provider测试：真实PG COMPLETED旧Run/冻结snapshot，真实API-09与OpenAI HTTP、换key两次请求、独立超时/拒绝与finally close。
+- 原Rule verifier：独立PG环境按元数据bash argv实际执行，8 passed + 1 passed/13 deselected，`/tmp/fluxion-task019-verifier.txt`。
+- 受影响回归：context events/rebuild、memory policy/observability共通过，`/tmp/fluxion-task019-regression.txt`；轻量validation pass。B-21最终持久输入hash/epoch断言归TASK-021，本任务仅提供不可越界的构建器与strict DTO。
+- B-19: verified — automated command passed; run_id=cb997276ad644928a247a3bb0a600474 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-14] started
+- [2026-10-14] completed (done)
 
 ---
 

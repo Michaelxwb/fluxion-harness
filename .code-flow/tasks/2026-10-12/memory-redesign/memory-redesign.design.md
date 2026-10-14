@@ -564,7 +564,7 @@ recall 同样对最终 JSON 计预算并带 truncated 元数据；limit=0 返回
 4. 首次 attempt 只选 summary.seq ≤ through_seq 且 covers_up_to_seq ≤ through_seq 的最新权威摘要，随后读取覆盖边界之后、through_seq 之前的用户/assistant 文本；禁止使用当前无边界 latest_summary。无合格摘要则读该边界内原文；工具结果全文不作为事实输入。脱敏后超预算则 SKIPPED(INPUT_TOO_LARGE)。
 5. 读取 memory snapshot，revision 若不同于 enqueued_scope_revision 则模型前 STALE。第一次构建的 input_json/hash/input_scope_revision/摘要边界原子存 job，epoch/lease 校验后才调模型；后续 attempt/接管原样复用，不更新依据或 revision。收集稳定 key 的禁用/退休约束。模型提炼普通 AGENT 候选与至多一个当前任务 lineage 的 TASK_STATE，不能指定 author/tenant/user/TTL。
 6. 创建独立 audited provider，模型定义来自该 Run 主模型 snapshot，api_key 按冻结 model_id 经 API-09 实时读取；独立总 timeout/output 上限；finally 关闭。
-7. 严格解析全部候选，任何形状或禁存内容失败整批 REJECTED；本版不采用“坏项跳过好项提交”。
+7. 模型输出严格为 `{candidates, task_completed}`；普通 key 由服务规范化为 `infer.*`，TASK_STATE 必须保持受信 root/key 和当前 source conversation。要求正常 stop、候选数在冻结上限内且 key 唯一；完成标志与 TASK_STATE 候选不能并存。任何形状或禁存内容失败整批 REJECTED；本版不采用“坏项跳过好项提交”。
 8. 进入短提交事务按锁序拿 conversation/run/job/scope，核对 job epoch/lease/终态、input_scope_revision、逐 key 冲突、through_seq 依据。
 9. scope revision 已变则整批 STALE，不用旧结果覆盖；重新 claim 不得刷新旧输入冒充同一次结果。该保守策略也会跳过因其他 key 或前驱 job 修改导致的冲突，允许提炼缺失并计数，不能假称没有误跳过；未来新 Run 可产生新 job。
 10. 应用整批允许候选，写 history、scope revision、命令回执、MEMORY_CONSOLIDATED 与 job DONE/SKIPPED；统一提交。

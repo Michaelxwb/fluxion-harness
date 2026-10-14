@@ -100,6 +100,24 @@ async def latest_summary(
     return row
 
 
+async def summary_through(
+    session: AsyncSession, tenant_id: str, conversation_id: uuid.UUID, through_seq: int,
+) -> CanonicalEvent | None:
+    """Select only a summary created within the immutable job input boundary."""
+    rows = await session.stream_scalars(sa.select(CanonicalEvent).where(
+        CanonicalEvent.tenant_id == tenant_id, CanonicalEvent.conversation_id == conversation_id,
+        CanonicalEvent.event_type == CONTEXT_SUMMARY_EVENT, CanonicalEvent.seq <= through_seq,
+        CanonicalEvent.is_deleted.is_(False)).order_by(CanonicalEvent.seq.desc()))
+    try:
+        async for row in rows:
+            covered = row.payload_json.get("covers_up_to_seq")
+            if isinstance(covered, int) and not isinstance(covered, bool) and 0 <= covered <= through_seq:
+                return row
+        return None
+    finally:
+        await rows.close()
+
+
 def covered_up_to(payload: Mapping[str, Any] | None) -> int:
     """摘要事件覆盖到的 seq；形状不对时返回 0（等于"什么都没覆盖"），不抛。"""
     value = (payload or {}).get("covers_up_to_seq")

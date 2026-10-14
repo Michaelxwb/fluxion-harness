@@ -132,6 +132,15 @@ def validate_memory_content(
         raise AppError(ErrorCode.MEMORY_FORBIDDEN_CONTENT)
 
 
+def redact_memory_text(value: str, credential_canaries: tuple[str, ...]) -> str:
+    """Use the write policy's secret detector before publishing consolidation input."""
+    normalized = unicodedata.normalize("NFKC", value)
+    canaries = (unicodedata.normalize("NFKC", item) for item in credential_canaries if item)
+    if _SECRET.search(normalized) or any(item in normalized for item in canaries):
+        return "[redacted sensitive text]"
+    return value
+
+
 def fact_bytes(state: MemoryWriteState) -> int:
     return memory_content_bytes(state.content.model_dump(mode="json"), state.source_quote)
 
