@@ -207,6 +207,21 @@ def _cleanup(database_url: str, ids: dict[str, object], artifact_root: Path) -> 
     async def cleanup() -> None:
         engine = create_async_engine(database_url)
         async with engine.begin() as connection:
+            # 0020 记忆重设计新增表先行：`memory_consolidation_job` 逻辑引用 snapshot/run、
+            # `user_memory_history.origin_id` 物理引用 `user_memory`。本栈（`acc-<uuid>`）被 dfx
+            # 等模块复用（`tests.acceptance.runtime.conftest` 的 live_stack），残留 job 会在**任意**
+            # 后续栈被 claim（claim 不带租户谓词，且 snapshot 已删）→ 后台泵持续
+            # `ValueError: source snapshot unavailable`，整个记忆管线停摆（2026-10-15 实测）。
+            for table in (
+                "memory_consolidation_job",
+                "memory_command_receipt",
+                "memory_scope",
+                "user_memory_history",
+                "user_memory",
+            ):
+                await connection.execute(
+                    text(f"DELETE FROM runtime.{table} WHERE tenant_id = :t"), {"t": TENANT}
+                )
             # 0019 新增的引用方先行（Runner 对每个 Run 都写 run_continuation 检查点）。
             for table in ("tool_result_inbox", "tool_control_outbox", "tool_operation", "run_continuation"):
                 await connection.execute(

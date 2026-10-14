@@ -305,10 +305,12 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
   }
 }
 
-test('E-04 越权：非 ADMIN 不可进入用户管理，也看不到记忆动作', async ({ page, browser }) => {
+test('E-04 越权：非 ADMIN 不可进入用户管理，也看不到记忆动作，后端写入口 403', async ({ page, browser }) => {
   const stamp = Date.now();
   const username = `e2e-memory-builder-${stamp}`;
   const password = `e2e-builder-password-${stamp}`;
+  const userCode = `e2e-memory-denied-${stamp}`;
+  const deniedKey = `e2e.denied.${stamp}`;
 
   await loginAs(page, ADMIN_USER, ADMIN_PASSWORD);
   const created = await page.request.post('/api/v1/accounts', {
@@ -316,6 +318,7 @@ test('E-04 越权：非 ADMIN 不可进入用户管理，也看不到记忆动�
     data: { username, password, display_name: 'E2E Builder', role: 'BUILDER' }
   });
   expect(created.status(), await created.text()).toBe(200);
+  const userId = await createUserViaApi(page, userCode, 'E2E Memory Denied');
 
   const builderContext = await browser.newContext({ locale: 'zh-CN', timezoneId: 'Asia/Shanghai' });
   const builderPage = await builderContext.newPage();
@@ -328,7 +331,23 @@ test('E-04 越权：非 ADMIN 不可进入用户管理，也看不到记忆动�
     ).toHaveCount(0);
     await builderPage.goto('/users');
     await expect(builderPage).toHaveURL('/');
+
+    // 越权不可操作（真实 Console→Runtime 写入口的后端兜底）：BUILDER 真实会话 + CSRF 仍 403。
+    const denied = await builderPage.request.post(`/api/v1/users/${userId}/memory`, {
+      headers: {
+        ...(await csrfHeaders(builderPage)),
+        'Idempotency-Key': idempotencyKey('e2e-builder')
+      },
+      data: { memory_key: deniedKey, category: 'PREFERENCE', value: '越权写入' }
+    });
+    expect(denied.status(), await denied.text()).toBe(403);
   } finally {
     await builderContext.close();
   }
+
+  // 拒绝必须无副作用：ADMIN 视角下该 key 不存在。
+  const listResponse = await page.request.get(`/api/v1/users/${userId}/memory?page=1&page_size=100`);
+  const listItems = ((await listResponse.json()) as { data: { items: Array<{ memory_key: string }> } })
+    .data.items;
+  expect(listItems.map((item) => item.memory_key)).not.toContain(deniedKey);
 });

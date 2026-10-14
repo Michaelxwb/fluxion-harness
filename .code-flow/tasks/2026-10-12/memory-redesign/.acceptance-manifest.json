@@ -1503,7 +1503,7 @@
       "kind": "e2e",
       "boundary": "acceptance，真实 Gateway → Runtime → resume",
       "owner": "TASK-030",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1513,7 +1513,61 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-02",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "142f39353a814ea5b4c2641438d457ea",
+        "executed_at": "2026-10-14T23:05:49.178516+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "efc46443c9aa4b4cb2aa150a1b2b0c58",
+          "executed_at": "2026-10-14T22:05:01.127948+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "142f39353a814ea5b4c2641438d457ea",
+          "executed_at": "2026-10-14T23:05:49.178516+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -1522,7 +1576,7 @@
       "kind": "e2e",
       "boundary": "acceptance，真实 Gateway + 两个 conversation",
       "owner": "TASK-030",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1532,7 +1586,61 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "142f39353a814ea5b4c2641438d457ea",
+        "executed_at": "2026-10-14T23:05:49.178516+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "efc46443c9aa4b4cb2aa150a1b2b0c58",
+          "executed_at": "2026-10-14T22:05:01.127948+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "142f39353a814ea5b4c2641438d457ea",
+          "executed_at": "2026-10-14T23:05:49.178516+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-04",
@@ -1541,7 +1649,7 @@
       "kind": "e2e",
       "boundary": "browser，真实 Console/Runtime/PG/Chrome",
       "owner": "TASK-030",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "make",
         "acceptance-e2e",
@@ -1549,7 +1657,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-04",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "142f39353a814ea5b4c2641438d457ea",
+        "executed_at": "2026-10-14T23:05:49.178516+00:00",
+        "command": [
+          "make",
+          "acceptance-e2e",
+          "DOMAIN=agent"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "efc46443c9aa4b4cb2aa150a1b2b0c58",
+          "executed_at": "2026-10-14T22:05:01.127948+00:00",
+          "command": [
+            "make",
+            "acceptance-e2e",
+            "DOMAIN=agent"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "E-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "142f39353a814ea5b4c2641438d457ea",
+          "executed_at": "2026-10-14T23:05:49.178516+00:00",
+          "command": [
+            "make",
+            "acceptance-e2e",
+            "DOMAIN=agent"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-05",
@@ -1558,7 +1714,7 @@
       "kind": "e2e",
       "boundary": "acceptance，真实 Gateway/Runtime/PG + 模型探针",
       "owner": "TASK-030",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1568,7 +1724,61 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-05",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "142f39353a814ea5b4c2641438d457ea",
+        "executed_at": "2026-10-14T23:05:49.178516+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "efc46443c9aa4b4cb2aa150a1b2b0c58",
+          "executed_at": "2026-10-14T22:05:01.127948+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "142f39353a814ea5b4c2641438d457ea",
+          "executed_at": "2026-10-14T23:05:49.178516+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-06",
@@ -1577,7 +1787,7 @@
       "kind": "e2e",
       "boundary": "acceptance，真实两个 Runtime 子进程",
       "owner": "TASK-030",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1587,7 +1797,61 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-06",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "142f39353a814ea5b4c2641438d457ea",
+        "executed_at": "2026-10-14T23:05:49.178516+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "efc46443c9aa4b4cb2aa150a1b2b0c58",
+          "executed_at": "2026-10-14T22:05:01.127948+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "142f39353a814ea5b4c2641438d457ea",
+          "executed_at": "2026-10-14T23:05:49.178516+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-01",

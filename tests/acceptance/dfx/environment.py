@@ -42,6 +42,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from tests.acceptance.datastores import seed_platform_settings
 from tests.acceptance.task_schedule.environment import (
     CONTROL_CLEANUP,
+    RUNTIME_CLEANUP,
     TASK_CLEANUP,
     ServiceProcess,
     build_skill_zip,
@@ -507,7 +508,7 @@ def purge_residue(database_url: str) -> dict[str, int]:
     async def purge() -> dict[str, int]:
         engine = create_async_engine(database_url)
         async with engine.begin() as connection:
-            for statement in (*TASK_CLEANUP, *CONTROL_CLEANUP):
+            for statement in (*TASK_CLEANUP, *CONTROL_CLEANUP, *RUNTIME_CLEANUP):
                 await connection.execute(text(statement), {"t": TENANT})
         async with engine.connect() as connection:
             remaining = {

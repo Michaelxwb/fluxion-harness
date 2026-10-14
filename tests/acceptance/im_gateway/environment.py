@@ -55,6 +55,10 @@ PLATFORM_SETTINGS_OVERRIDES: dict[str, Any] = {
     # 投递退避 base：生产默认 5；压到 1（下界）省真实等待 —— 本栈没有任何用例断言窗口值
     # （`test_b127` 只断言「耗尽后 FAILED 且任务不被吞掉」），仍在投递轮询粒度（1s）的 16 倍。
     "task": {"delivery_backoff_base_sec": 1},
+    # 记忆提炼租约（生产默认 60；校验要求 ≥ consolidation_timeout_sec + 15 = 45）：E-06 要观测
+    # "claim 执行者被 SIGKILL 后另一实例在租约过期时接管"，60s 只是墙钟等待，不改变接管语义；
+    # 生产默认值由平台设置单测钉住，本栈只压等待窗口。
+    "memory": {"consolidation_lease_sec": 45},
 }
 PLATFORM_SETTINGS: PlatformSettings = parse_platform_settings(PLATFORM_SETTINGS_OVERRIDES)
 
@@ -195,14 +199,18 @@ def start_gateway_stack(
         "runtime",
         "muad_agent_runtime.main",
         runtime_port,
+        POD_NAME="e2e-runtime-1",
         CONSOLE_PLATFORM_URL=console_url,
         IM_GATEWAY_URL=gateway_url,
     )
-    # TASK-030：第二 Runtime 实例（同一逻辑 Agent 可被任意实例承载）+ 真实 Worker 进程
+    # TASK-030：第二 Runtime 实例（同一逻辑 Agent 可被任意实例承载）+ 真实 Worker 进程。
+    # `POD_NAME` 让两个实例的 `instance_id`（= 记忆 job 的 lease_owner）可区分：
+    # E-06 的 SIGKILL 接管要能指名"谁 claim、谁接管"，否则两个实例同主机名不可辨。
     runtime2 = spawn(
         "runtime-2",
         "muad_agent_runtime.main",
         runtime2_port,
+        POD_NAME="e2e-runtime-2",
         CONSOLE_PLATFORM_URL=console_url,
         IM_GATEWAY_URL=gateway_url,
     )

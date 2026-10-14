@@ -95,6 +95,16 @@ TASK_CLEANUP = (
 )
 
 RUNTIME_CLEANUP = (
+    # 0020 记忆重设计新增表先行：`memory_consolidation_job` 逻辑引用 snapshot/run，而
+    # `user_memory_history.origin_id` 物理引用 `user_memory`。不清理它们时，租户级 purge 会
+    # 留下**快照已删的 job**，下一个栈的 Runtime 后台泵 claim 到它即抛
+    # `ValueError: source snapshot unavailable`（每秒一条 `memory_background_pump_failed`），
+    # 整个记忆后台管线（含 consolidation 与过期清扫）停摆——表现为「本栈的 job 永远不被 claim」。
+    "DELETE FROM runtime.memory_consolidation_job WHERE tenant_id = :t",
+    "DELETE FROM runtime.memory_command_receipt WHERE tenant_id = :t",
+    "DELETE FROM runtime.memory_scope WHERE tenant_id = :t",
+    "DELETE FROM runtime.user_memory_history WHERE tenant_id = :t",
+    "DELETE FROM runtime.user_memory WHERE tenant_id = :t",
     # 0019 新增的引用方先行：inbox→canonical_event/tool_operation、control_outbox→tool_operation、
     # tool_operation→run_record、run_continuation→run_record/runtime_snapshot。Runner 对每个 Run
     # 都会写 run_continuation 检查点，故所有租户清理都必须带这张表。

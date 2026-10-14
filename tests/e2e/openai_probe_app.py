@@ -10,6 +10,17 @@
   单工具脚本表达不了「先写、再交付」这类**多步**链路，而那是本需求的核心场景。
 - OPENAI_PROBE_TOOL_ARGUMENTS：上述工具调用的 arguments（JSON 字符串，默认 `{"query": "ping"}`）
 - OPENAI_PROBE_FINAL_TEXT：最终文本（默认 pong）
+- 脚本 `tool_once` / env `OPENAI_PROBE_TOOL_ONCE=1`：工具调用**整段会话只给一次**。暂停后
+  resume 时「最后一条 user 消息」是恢复输入（确认/选择），上一轮的工具结果落在它**之前**，
+  默认口径会把同一轮的工具再调一次；置 1 时按整份 messages 判断"本轮已拿到工具结果"。
+- 脚本 `consolidation_text` / env `OPENAI_PROBE_CONSOLIDATION_TEXT`：**仅**对 consolidation 调用
+  （system 消息含 `Consolidate this frozen conversation input`）生效的文本。记忆提炼要求模型返回
+  严格 JSON 批次（TASK-019/021），固定 `final_text` 表达不了；非空时该调用直接返回它。
+
+**占位替换**（工具 arguments 与上述文本）：`$last_artifact_id`、`$source_conversation_id`
+（consolidation system 指令里声明的当前会话）、`$root_conversation_id` / `$root_memory_key`
+（consolidation 输入 `resume_ref` 里的原任务根；无 resume_ref 时回落当前会话与其 task key）。
+占位只从**模型实际收到的请求**里取值，不引入任何进程外状态。
 
 另提供 `GET /requests`：返回本进程收到的全部 chat/completions 请求体（最近 50 条），
 供验收用例断言"模型实际收到了什么"（例如工具结果内容是否带 `saved: true`）。
@@ -18,6 +29,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 from typing import Any
@@ -32,6 +44,10 @@ DEFAULT_FINAL_TEXT = "pong"
 ARTIFACT_ID_RE = re.compile(r"附件 ID ([0-9a-fA-F-]{36})")
 ARTIFACT_ID_PLACEHOLDER = "$last_artifact_id"
 DEFAULT_TOOL_ARGUMENTS = '{"query": "ping"}'
+#: consolidation 调用的 system 指令固定开头（`memory_consolidation._instructions`）：
+#: 用它区分「业务回合」与「提炼回合」，让 `consolidation_text` 只作用于后者。
+CONSOLIDATION_MARKER = "Consolidate this frozen conversation input"
+SOURCE_CONVERSATION_RE = re.compile(r"Current source conversation is ([0-9a-fA-F-]{36})")
 RECORDED_LIMIT = 50
 _received: list[dict[str, Any]] = []
 #: 运行期脚本（`POST /script`）；空 = 用 env 默认
@@ -123,7 +139,15 @@ async def set_script(request: Request) -> dict[str, Any]:
             return JSONResponse({"error": "delay_ms must be a non-negative integer"}, status_code=400)
     _script.clear()
     if isinstance(payload, dict):
-        allowed = ("tool_name", "tool_arguments", "final_text", "tools", "delay_ms")
+        allowed = (
+            "tool_name",
+            "tool_arguments",
+            "final_text",
+            "tools",
+            "delay_ms",
+            "consolidation_text",
+            "tool_once",
+        )
         _script.update({key: payload[key] for key in allowed if key in payload})
     return {"script": dict(_script)}
 
@@ -131,8 +155,65 @@ async def set_script(request: Request) -> dict[str, Any]:
 def _substitute(arguments: str, messages: list[Any]) -> str:
     """`$last_artifact_id` 占位 → 从**模型实际看到的**上下文里倒着找最近一条附件 ID。"""
     if ARTIFACT_ID_PLACEHOLDER in arguments:
-        return arguments.replace(ARTIFACT_ID_PLACEHOLDER, _last_artifact_id(messages))
-    return arguments
+        arguments = arguments.replace(ARTIFACT_ID_PLACEHOLDER, _last_artifact_id(messages))
+    return _substitute_conversation(arguments, messages)
+
+
+def _substitute_conversation(text: str, messages: list[Any]) -> str:
+    """会话/根引用占位：取值来源只有本次请求体（system 指令 + consolidation 输入）。"""
+    placeholders = ("$source_conversation_id", "$root_conversation_id", "$root_memory_key")
+    if not any(marker in text for marker in placeholders):
+        return text
+    source = _source_conversation_id(messages)
+    root, key = _resume_root(messages) or (source, f"task.{source.replace('-', '')}" if source else "")
+    for placeholder, value in (
+        ("$source_conversation_id", source),
+        ("$root_conversation_id", root),
+        ("$root_memory_key", key),
+    ):
+        text = text.replace(placeholder, value)
+    return text
+
+
+def _source_conversation_id(messages: list[Any]) -> str:
+    for message in messages:
+        match = SOURCE_CONVERSATION_RE.search(_message_text(message))
+        if match:
+            return match.group(1)
+    return ""
+
+
+def _resume_root(messages: list[Any]) -> tuple[str, str] | None:
+    """consolidation 输入里的 `resume_ref`（续接时固定原任务根；否则 None）。"""
+    for message in messages:
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        try:
+            payload = json.loads(_message_text(message))
+        except ValueError:
+            continue
+        reference = payload.get("resume_ref") if isinstance(payload, dict) else None
+        if isinstance(reference, dict) and isinstance(reference.get("root_conversation_id"), str):
+            return reference["root_conversation_id"], str(reference.get("memory_key") or "")
+    return None
+
+
+def _has_tool_result(messages: list[Any]) -> bool:
+    """整段会话里是否已有工具结果（`tool_once` 口径：resume 后不再重复要同一个工具）。"""
+    return any(
+        isinstance(message, dict)
+        and (message.get("role") == "tool" or _is_external_tool_data(message))
+        for message in messages
+    )
+
+
+def _is_consolidation(messages: list[Any]) -> bool:
+    return any(
+        isinstance(message, dict)
+        and message.get("role") == "system"
+        and CONSOLIDATION_MARKER in _message_text(message)
+        for message in messages
+    )
 
 
 def _tool_call(name: str, arguments: str, *, index: int) -> dict[str, Any]:
@@ -179,6 +260,22 @@ async def chat_completions(request: Request):
     _received.append(body)
     del _received[:-RECORDED_LIMIT]
     messages = body.get("messages") or []
+    consolidation_text = str(
+        _script.get("consolidation_text") or os.environ.get("OPENAI_PROBE_CONSOLIDATION_TEXT", "")
+    )
+    if consolidation_text and _is_consolidation(messages):
+        return {
+            "choices": [
+                {
+                    "finish_reason": "stop",
+                    "message": {
+                        "role": "assistant",
+                        "content": _substitute_conversation(consolidation_text, messages),
+                    },
+                }
+            ],
+            "usage": {"prompt_tokens": 5, "completion_tokens": 3},
+        }
     tool_name = str(_script.get("tool_name") or os.environ.get("OPENAI_PROBE_TOOL_NAME", ""))
     tool_arguments = str(
         _script.get("tool_arguments") or os.environ.get("OPENAI_PROBE_TOOL_ARGUMENTS", DEFAULT_TOOL_ARGUMENTS)
@@ -192,6 +289,10 @@ async def chat_completions(request: Request):
         if isinstance(message, dict)
         and (message.get("role") == "tool" or _is_external_tool_data(message))
     )
+    tool_once = _script.get("tool_once") or os.environ.get("OPENAI_PROBE_TOOL_ONCE", "")
+    if tool_once is True or str(tool_once).lower() in ("1", "true"):
+        # 暂停/resume 的恢复输入会让上面的窗口看不到上一轮的工具结果：整段会话已有结果即视为完成。
+        completed = max(completed, 1) if _has_tool_result(messages) else completed
     steps = _script.get("tools")
     if isinstance(steps, list) and steps:
         # 工具序列：第 `completed` 步还没走完就再调一个，全部走完才落到 final_text。

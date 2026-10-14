@@ -21,6 +21,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skill-key")
     parser.add_argument("--mcp-key")
     parser.add_argument("--ensure-model", action="store_true")
+    parser.add_argument(
+        "--ensure-platform-settings",
+        action="store_true",
+        help="默认租户缺平台设置版本行时补一行（浏览器与 Runtime 读同一份设置）",
+    )
     parser.add_argument("--delete-skill", action="store_true")
     parser.add_argument("--cleanup", action="store_true")
     return parser
@@ -46,6 +51,31 @@ async def _ensure_model(connection: Any, tenant_id: str) -> str:
             {"id": model_id, "tenant_id": tenant_id, "key": f"e2e-model-{uuid.uuid4().hex[:8]}"},
         )
     return str(model_id)
+
+
+async def _ensure_platform_settings(connection: Any, tenant_id: str) -> int:
+    """默认租户缺版本行时补一行（revision=1，整份 schema 默认文档）。
+
+    记忆 Tab 的写路径会经 Runtime 读这份设置（`/internal/v1/platform-settings`）：没有行时
+    Runtime 也按 schema 默认工作，但"有没有行"会改变可观测的 revision，种子固定它使断言稳定。
+    """
+    existing = await connection.scalar(
+        text(
+            "SELECT revision FROM control.platform_setting WHERE tenant_id = :tenant_id "
+            "AND is_deleted = false ORDER BY revision DESC LIMIT 1"
+        ),
+        {"tenant_id": tenant_id},
+    )
+    if existing is not None:
+        return int(existing)
+    await connection.execute(
+        text(
+            "INSERT INTO control.platform_setting (id, tenant_id, revision, settings_json) "
+            "VALUES (:id, :tenant_id, 1, CAST(:settings AS jsonb))"
+        ),
+        {"id": uuid.uuid4(), "tenant_id": tenant_id, "settings": json.dumps({})},
+    )
+    return 1
 
 
 async def _agent_id(connection: Any, tenant_id: str, key: str) -> uuid.UUID | None:
@@ -136,17 +166,27 @@ async def main() -> int:
     try:
         async with engine.begin() as connection:
             tenant_id = settings.default_tenant_id
+            handled = False
             if args.ensure_model:
                 model_id = await _ensure_model(connection, tenant_id)
                 print(json.dumps({"model_id": model_id}))
-            elif args.delete_skill:
+                handled = True
+            if args.ensure_platform_settings:
+                revision = await _ensure_platform_settings(connection, tenant_id)
+                print(json.dumps({"platform_settings_revision": revision}))
+                handled = True
+            if args.delete_skill:
                 if not args.skill_key:
                     raise SystemExit("--delete-skill requires --skill-key")
                 await _delete_skill(connection, tenant_id, args.skill_key)
-            elif args.cleanup:
+                handled = True
+            if args.cleanup:
                 await _cleanup(connection, tenant_id, args.key, args.skill_key, args.mcp_key)
-            else:
-                raise SystemExit("choose one of --ensure-model / --delete-skill / --cleanup")
+                handled = True
+            if not handled:
+                raise SystemExit(
+                    "choose one of --ensure-model / --ensure-platform-settings / --delete-skill / --cleanup"
+                )
     finally:
         await engine.dispose()
     return 0

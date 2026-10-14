@@ -46,11 +46,11 @@
 | B-22 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实PG+旧新Run | TASK-016 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_snapshot.py"] | . | 300 |  |
 | B-23 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 并发 writer / 当前语句时间 | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py"] | . | 300 |  |
 | E-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | TASK-012 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | . | 1800 |  |
-| E-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway → Runtime → resume | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
-| E-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway + 两个 conversation | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
-| E-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | browser，真实 Console/Runtime/PG/Chrome | TASK-030 | planned | ["make","acceptance-e2e","DOMAIN=agent"] | . | 1800 |  |
-| E-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway/Runtime/PG + 模型探针 | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
-| E-06 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实两个 Runtime 子进程 | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
+| E-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway → Runtime → resume | TASK-030 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
+| E-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway + 两个 conversation | TASK-030 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
+| E-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | browser，真实 Console/Runtime/PG/Chrome | TASK-030 | e2e_deferred | ["make","acceptance-e2e","DOMAIN=agent"] | . | 1800 |  |
+| E-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway/Runtime/PG + 模型探针 | TASK-030 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
+| E-06 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实两个 Runtime 子进程 | TASK-030 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
 | S-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | security，真实 API 身份与租户边界 | TASK-029 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | . | 1800 |  |
 | S-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | security，真实装配与 canary 检查 | TASK-029 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | . | 1800 |  |
 
@@ -67,7 +67,7 @@
 | harness-data#RULE-data-001 | TASK-007 | code | ["uv","run","pytest","-q","tests","-k","schema_parity"] | planned |
 | harness-snapshot#RULE-snapshot-001 | TASK-016 | code | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | planned |
 | harness-secret#RULE-secret-001 | TASK-029 | code | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | verified |
-| harness-test#RULE-test-001 | TASK-030 | code | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | planned |
+| harness-test#RULE-test-001 | TASK-030 | code | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | failed（已实跑；第 1 段 13 项红全为与本任务无关的存量红，本任务 6 条 E2E 全绿；第 2/3 段单跑 pass，详见 TASK-030 证据） |
 | harness-ui-detail#RULE-ui-detail-001 | TASK-028 | code | ["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py && npm --prefix apps/console-platform/frontend run typecheck"] | planned |
 | harness-ui#RULE-ui-001 | TASK-028 | code | ["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | planned |
 | harness-frontend#RULE-front-001 | TASK-026 | code | ["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"] | planned |
@@ -1543,7 +1543,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ## TASK-030: 跨会话、真实确认、浏览器与崩溃验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-029, TASK-028, TASK-022
 - **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界
@@ -1557,34 +1557,53 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ### Checklist
 
-- [ ] [E-02/E-03/E-05/E-06][E2E] 编写真Gateway/Runtime/PG/Redis/HTTP/进程场景；多任务回复第2个真进入模型请求；A→B→C仍唯一，完成后无旧未决。
-- [ ] [E-04][E2E] agent config原来只Console+模型探针，必须补Runtime/种子/临时库/连接配置；不拿布局mock测试替代。
-- [ ] 编码期只登记与collect场景；functional全绿后verify-e2e统一执行，保留失败trace与实例清理。
-- [ ] [E-02][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：acceptance，真实 Gateway → Runtime → resume；断言：自然语言候选展示后用户真实确认，重连/重复提交不重复保存；拒绝后不产生 USER 事实。
-- [ ] [E-03][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：acceptance，真实 Gateway + 两个 conversation；断言：已确认中文偏好在 /new 后“你好”首轮可见；不要求 query 包含“中文”。
-- [ ] [E-04][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：browser，真实 Console/Runtime/PG/Chrome；断言：创建、启禁用、删除、历史分页和来源状态本地化；越权不可操作。
-- [ ] [E-05][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：acceptance，真实 Gateway/Runtime/PG + 模型探针；断言：默认设置提炼未决项；/new后续接进入请求；多条→用户“第2个”→目标实际进入请求；A→B→C仍唯一，B完成后无旧未决；大checkpoint投递引用，引用超预算仅计丢弃。
-- [ ] [E-06][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：acceptance，真实两个 Runtime 子进程；断言：SIGKILL claim 执行者，另一实例接管；故障与成功可见；持久写入效果最多一次。
-- [ ] [RULE-test-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]（cwd=., timeout=2400s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [E-02/E-03/E-05/E-06][E2E] 编写真Gateway/Runtime/PG/Redis/HTTP/进程场景；多任务回复第2个真进入模型请求；A→B→C仍唯一，完成后无旧未决。
+- [x] [E-04][E2E] agent config原来只Console+模型探针，必须补Runtime/种子/临时库/连接配置；不拿布局mock测试替代。
+- [x] 编码期只登记与collect场景；functional全绿后verify-e2e统一执行，保留失败trace与实例清理。
+- [x] [E-02][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：acceptance，真实 Gateway → Runtime → resume；断言：自然语言候选展示后用户真实确认，重连/重复提交不重复保存；拒绝后不产生 USER 事实。
+- [x] [E-03][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：acceptance，真实 Gateway + 两个 conversation；断言：已确认中文偏好在 /new 后“你好”首轮可见；不要求 query 包含“中文”。
+- [x] [E-04][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：browser，真实 Console/Runtime/PG/Chrome；断言：创建、启禁用、删除、历史分页和来源状态本地化；越权不可操作。
+- [x] [E-05][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：acceptance，真实 Gateway/Runtime/PG + 模型探针；断言：默认设置提炼未决项；/new后续接进入请求；多条→用户“第2个”→目标实际进入请求；A→B→C仍唯一，B完成后无旧未决；大checkpoint投递引用，引用超预算仅计丢弃。
+- [x] [E-06][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：acceptance，真实两个 Runtime 子进程；断言：SIGKILL claim 执行者，另一实例接管；故障与成功可见；持久写入效果最多一次。
+- [x] [RULE-test-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]（cwd=., timeout=2400s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-02 | E2E | acceptance，真实 Gateway → Runtime → resume | 自然语言候选展示后用户真实确认，重连/重复提交不重复保存；拒绝后不产生 USER 事实 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e02_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | planned |
-| E-03 | E2E | acceptance，真实 Gateway + 两个 conversation | 已确认中文偏好在 /new 后“你好”首轮可见；不要求 query 包含“中文” | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e03_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | planned |
-| E-04 | E2E | browser，真实 Console/Runtime/PG/Chrome | 创建、启禁用、删除、历史分页和来源状态本地化；越权不可操作 | e2e/tests/agent-management/memory-redesign.spec.ts / test_e04_memory_redesign（拟新增；实际实现前collect） | ["make","acceptance-e2e","DOMAIN=agent"] | planned |
-| E-05 | E2E | acceptance，真实 Gateway/Runtime/PG + 模型探针 | 默认设置提炼未决项；/new后续接进入请求；多条→用户“第2个”→目标实际进入请求；A→B→C仍唯一，B完成后无旧未决；大checkpoint投递引用，引用超预算仅计丢弃 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e05_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | planned |
-| E-06 | E2E | acceptance，真实两个 Runtime 子进程 | SIGKILL claim 执行者，另一实例接管；故障与成功可见；持久写入效果最多一次 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e06_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | planned |
-| harness-test#RULE-test-001 | E2E | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | planned |
+| E-02 | E2E | acceptance，真实 Gateway → Runtime → resume | 自然语言候选展示后用户真实确认，重连/重复提交不重复保存；拒绝后不产生 USER 事实 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e02_memory_redesign_real_confirmation_replay_and_rejection | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | e2e_deferred |
+| E-03 | E2E | acceptance，真实 Gateway + 两个 conversation | 已确认中文偏好在 /new 后“你好”首轮可见；不要求 query 包含“中文” | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e03_memory_redesign_confirmed_preference_visible_after_new_conversation | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | e2e_deferred |
+| E-04 | E2E | browser，真实 Console/Runtime/PG/Chrome | 创建、启禁用、删除、历史分页和来源状态本地化；越权不可操作 | e2e/tests/agent-management/memory-redesign.spec.ts / 4 用例（创建启禁用删除+历史分页+本地化布局矩阵+越权403） | ["make","acceptance-e2e","DOMAIN=agent"] | e2e_deferred |
+| E-05 | E2E | acceptance，真实 Gateway/Runtime/PG + 模型探针 | 默认设置提炼未决项；/new后续接进入请求；多条→用户“第2个”→目标实际进入请求；A→B→C仍唯一，B完成后无旧未决；大checkpoint投递引用，引用超预算仅计丢弃 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e05_memory_redesign_default_consolidation_then_new_conversation_resume、test_e05_memory_redesign_second_option_selection_enters_real_request、test_e05_memory_redesign_completion_retires_original_and_large_checkpoint_reference | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | e2e_deferred |
+| E-06 | E2E | acceptance，真实两个 Runtime 子进程 | SIGKILL claim 执行者，另一实例接管；故障与成功可见；持久写入效果最多一次 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e06_memory_redesign_sigkill_claim_owner_and_successor_takeover | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | e2e_deferred |
+| harness-test#RULE-test-001 | E2E | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实链路（全量 tests/acceptance + 前端构建 + foundation 浏览器域） | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | e2e_deferred |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+编码期只登记与 collect：E-02/E-03/E-04/E-05/E-06 全部保持 `e2e_deferred`（正式 E2E 执行归需求终验），没有 manual 或 N/A 确认；RULE-test-001 按元数据命令实跑并在下方登记实际结果。元数据命令的**全量 acceptance 会实际执行本文件的 E2E 用例**（它们同在 `tests/acceptance` 下），故下方证据同时记录这两次链上执行里本文件自身的真实结果与缺陷修复。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| E-02/E-03/E-05/E-06 | 不按 RED/GREEN 流程推进（先写场景）；链上首跑暴露场景自身 5 处缺陷并逐一修复（`_started_run` 的"新 Run"同步点恒真导致取到上一条 Run、候选提示按节拍异步投递需等待、Runtime 管理命令体为 `{actor_id,mutation}`、提炼 job 的会话内因果序需要新会话、暂停恢复轮需 `tool_once` 才不再重复提议）；另修一处验收环境清理缺口（`RUNTIME_CLEANUP` 缺 0020 记忆表 ⇒ 残留 job 让后续栈的记忆后台泵持续 ValueError） | 元数据链第三次实跑登记见下（`6 passed` 于本文件；链上其余存量红如实分类） | tests/acceptance/im_gateway/test_memory_redesign_e2e.py 6 用例：test_e02_memory_redesign_real_confirmation_replay_and_rejection、test_e03_memory_redesign_confirmed_preference_visible_after_new_conversation、test_e05_memory_redesign_default_consolidation_then_new_conversation_resume、test_e05_memory_redesign_second_option_selection_enters_real_request、test_e05_memory_redesign_completion_retires_original_and_large_checkpoint_reference、test_e06_memory_redesign_sigkill_claim_owner_and_successor_takeover | 真实 WS 探针 → 真实 Gateway（含进程重启后的重投去重）→ 真实 Runtime（`/v1/runs`、resume、`/internal/admin/users/{id}/memory/commands`）→ 真实 PG（run_interrupt/user_memory/user_memory_history/run_submission/canonical_event/memory_consolidation_job/platform_setting）→ 真实模型 HTTP 探针 `/requests` → Runtime `/metrics`；E-06 用真实两个 uvicorn 子进程 + SIGKILL（`POD_NAME` 使 lease_owner 可辨，consolidation 租约 45s）；单跑 `uv run pytest -q tests/acceptance/im_gateway/test_memory_redesign_e2e.py` → 6 passed | e2e_deferred |
+| E-04 | 不执行 RED；仅编写/collect | e2e_deferred | e2e/tests/agent-management/memory-redesign.spec.ts 4 用例（创建/启禁用/历史分页/删除、zh×en×明暗×1280/390 布局与来源状态本地化、越权 BUILDER 菜单隐藏+路由守卫+写入口 403 且无副作用） | 真实 Chrome → vite preview（构建产物）→ 真实 Console（会话+CSRF+RBAC）→ 真实 Runtime 记忆写入口 → 真实 PG；agent 域配置补 Runtime webServer、隔离库、平台设置/模型种子与 `AGENT_RUNTIME_URL`/`INTERNAL_SERVICE_TOKEN` 连接配置（`npx esbuild` 语法校验通过） | e2e_deferred |
+| harness-test#RULE-test-001 | 不适用（原 verifier 回归，不制造 RED） | 按元数据 argv 实跑（cwd=., timeout=2400s）：① `uv run pytest -q tests/acceptance` → **13 failed, 318 passed in 1435.50s（0:23:55）**，EXIT=1；② `npm --prefix apps/console-platform/frontend run build` → `✓ built in 3.90s`，EXIT=0（链上因 `&&` 未执行，单跑补记）；③ `npm --prefix e2e test` → **4 passed (11.6s)**，EXIT=0（同上单跑补记）。13 项红全部与本任务改动无关，分类：`test_memory_flow.py::test_s01/test_s05`＝0020 删除 `runtime.user_memory.source_type` 后旧用例仍 SELECT/传该列（本需求改动的存量陈旧用例，按指令不修）；`test_memory_redesign_security.py` S-01×2/S-02×2 与 `runtime/test_memory_redesign_context_e2e.py::test_e01[summary]`＝其他 TASK 的 deferred E2E 首次实跑暴露的问题（S-01 的管理命令体仍是 `{command_id,endpoint,mutations}`，与 TASK-023 的 `{actor_id,mutation}` 契约不符 ⇒ 422）；`dfx/test_dfx_journeys.py::test_s09`、`dfx/test_dfx_model_recovery.py::test_e09`、`gateway/test_waiting_resume.py::test_e17`、`im_gateway/test_context_compaction.py::test_s01`、`runtime/test_run_lifecycle.py::test_b01`、`test_secret_migration.py::test_e03`＝与本任务文件无关的存量红（本任务未改这些域；前几轮链跑里位置/数量随负载浮动，属串跑偶发）。本任务自身：`tests/acceptance/im_gateway/test_memory_redesign_e2e.py` 6 用例在该次全量链跑中**全部通过**（不在失败清单内）。 | 原 verifier 真实组件：真实 PG/Redis 隔离栈（`tests/acceptance/conftest.py` 每轮独立库 + 独立 Redis）、真实 Console、真实 Chrome + 构建产物（`vite preview`） | failed |
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=efc46443c9aa4b4cb2aa150a1b2b0c58 (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=efc46443c9aa4b4cb2aa150a1b2b0c58 (confirmed_by: runner)
+- E-04: e2e_deferred — automated command e2e_deferred; run_id=efc46443c9aa4b4cb2aa150a1b2b0c58 (confirmed_by: runner)
+- E-05: e2e_deferred — automated command e2e_deferred; run_id=efc46443c9aa4b4cb2aa150a1b2b0c58 (confirmed_by: runner)
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=efc46443c9aa4b4cb2aa150a1b2b0c58 (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=142f39353a814ea5b4c2641438d457ea (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=142f39353a814ea5b4c2641438d457ea (confirmed_by: runner)
+- E-04: e2e_deferred — automated command e2e_deferred; run_id=142f39353a814ea5b4c2641438d457ea (confirmed_by: runner)
+- E-05: e2e_deferred — automated command e2e_deferred; run_id=142f39353a814ea5b4c2641438d457ea (confirmed_by: runner)
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=142f39353a814ea5b4c2641438d457ea (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-15] started
+- [2026-10-15] 完成编码：E-02/E-03/E-05/E-06 场景（真实 Gateway/Runtime/PG/模型探针/双 Runtime + SIGKILL）与 E-04 浏览器域接线（agent 域补 Runtime/种子/隔离库/连接配置）；E2E 场景登记 `e2e_deferred`，RULE-test-001 按元数据 argv 实跑并登记（第 1 段 13 项存量红，本任务 6 条 E2E 全绿；第 2/3 段单跑 pass）；顺带修验收环境清理缺口（`RUNTIME_CLEANUP`/runtime conftest/dfx purge/gateway conftest 缺 0020 记忆表 ⇒ 残留 job 让后续栈记忆后台泵停摆）。
+- [2026-10-15] completed (done)
 
 ---
 

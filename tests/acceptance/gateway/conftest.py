@@ -193,6 +193,29 @@ async def _delete_binding(factory: async_sessionmaker[AsyncSession]) -> None:
         )
 
 
+async def _delete_memory_residue(factory: async_sessionmaker[AsyncSession]) -> None:
+    """删本租户的记忆侧残留（job/scope/事实/历史）。
+
+    本模块与 task_schedule 共用租户，整体清理由后者的栈收尾；但本模块排在最前，它创建的
+    Run 会入队 consolidation job，而 `MemoryJobs.claim` **不带租户谓词**——残留 job 会在
+    im_gateway 等后续栈被 claim（此时 snapshot 已被本模块之外的动作删掉）并抛
+    `ValueError: source snapshot unavailable`，让那些栈的记忆后台泵停摆（2026-10-15 实测）。
+    """
+    from sqlalchemy import text
+
+    async with factory() as session, session.begin():
+        for table in (
+            "memory_consolidation_job",
+            "memory_command_receipt",
+            "memory_scope",
+            "user_memory_history",
+            "user_memory",
+        ):
+            await session.execute(
+                text(f"DELETE FROM runtime.{table} WHERE tenant_id = :t"), {"t": TENANT}
+            )
+
+
 def _gateway_env(live: LiveStack, probe: WeComProbe, runtime_url: str) -> dict[str, str]:
     from muad_common import SharedSettings
 
@@ -271,6 +294,8 @@ async def gateway_stack(tmp_path_factory: pytest.TempPathFactory) -> AsyncIterat
             process.stop()
         with suppress(Exception):
             run_db(lambda factory: _delete_binding(factory))
+        with suppress(Exception):
+            run_db(lambda factory: _delete_memory_residue(factory))
         proxy.stop()
         await probe.stop()
         with suppress(StopIteration):
