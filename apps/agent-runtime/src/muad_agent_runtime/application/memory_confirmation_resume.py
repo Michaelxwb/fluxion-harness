@@ -23,10 +23,12 @@ from muad_contracts.platform_settings import MemoryPolicySettings
 from muad_contracts.tasks import ContractModel
 from pydantic import AwareDatetime, StrictBool
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.runtime import CanonicalEvent, RunInterrupt, RunRecord, UserMemory
 from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
+from .memory_observability import after_commit, observe
 from .memory_proposals import _database_now, confirmation_source
 from .memory_service import MemoryService
 from .run_events import EventWriter
@@ -55,6 +57,7 @@ def prepare_confirmation(interrupts: list[RunInterrupt], text: str) -> PendingCo
         return None
     match = _ANSWER.fullmatch(text.strip())
     if len(pending) != 1 or match is None or UUID(match.group(2)) != pending[0].id:
+        observe("memory_confirmation_total", labels={"outcome": "INVALID"})
         raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
     return PendingConfirmation(
         pending[0],
@@ -66,6 +69,28 @@ def prepare_confirmation(interrupts: list[RunInterrupt], text: str) -> PendingCo
 
 
 async def consume_confirmation(
+    session: AsyncSession,
+    run: RunRecord,
+    pending: PendingConfirmation,
+    *,
+    submission_id: UUID,
+    settings: MemoryPolicySettings,
+    credential_canaries: tuple[str, ...],
+) -> None:
+    tenant_id, run_id = run.tenant_id, run.id
+    try:
+        await _consume_confirmation(session, run, pending, submission_id=submission_id,
+            settings=settings, credential_canaries=credential_canaries)
+    except (SQLAlchemyError, AppError) as exc:
+        outcome = ("EXPIRED" if isinstance(exc, AppError)
+            and exc.code == ErrorCode.MEMORY_CONFIRMATION_EXPIRED else "ERROR")
+        observe("memory_confirmation_total", labels={"outcome": outcome})
+        logger.warning("memory_confirmation_failed", extra={"tenant_id": tenant_id,
+            "run_id": str(run_id), "error_type": type(exc).__name__})
+        raise
+
+
+async def _consume_confirmation(
     session: AsyncSession,
     run: RunRecord,
     pending: PendingConfirmation,
@@ -104,6 +129,8 @@ async def consume_confirmation(
     )
     interrupt.status, interrupt.resolved_at, interrupt.update_time = "RESOLVED", now, now
     interrupt.resolution_json = {**payload, "submission_id": str(submission_id)}
+    await session.flush()
+    after_commit(session, "memory_confirmation_total", labels={"outcome": result.outcome})
 
 
 async def _validated_proposal(

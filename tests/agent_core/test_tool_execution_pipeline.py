@@ -50,6 +50,9 @@ class RecordingAudit:
     def __init__(self) -> None:
         self.events: list[dict[str, Any]] = []
 
+    def prepare(self, call: PreparedToolCall) -> None:
+        assert call.args_hash.startswith("sha256:")
+
     async def record(self, event: dict[str, Any]) -> None:
         self.events.append(
             {

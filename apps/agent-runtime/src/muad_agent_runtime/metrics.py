@@ -31,6 +31,12 @@ MEMORY_RECALL_METRIC: Final = "memory_recall_total"
 MEMORY_RECALL_HIT_METRIC: Final = "memory_recall_hit_total"
 MEMORY_RECALL_BYTES_METRIC: Final = "memory_recall_bytes_total"
 MEMORY_RESUME_METRIC: Final = "memory_resume_total"
+MEMORY_CONFIRMATION_METRIC: Final = "memory_confirmation_total"
+MEMORY_CONSOLIDATION_ENQUEUE_METRIC: Final = "memory_consolidation_enqueue_total"
+MEMORY_CONSOLIDATION_METRIC: Final = "memory_consolidation_total"
+MEMORY_QUOTA_EVICTIONS_METRIC: Final = "memory_quota_evictions_total"
+MEMORY_EXPIRY_METRIC: Final = "memory_expiry_total"
+MEMORY_WRITE_CONFLICTS_METRIC: Final = "memory_write_conflicts_total"
 CONTEXT_COMPACTION_METRIC: Final = "context_compaction_total"
 CONTEXT_COMPACTION_BYTES_SAVED_METRIC: Final = "context_compaction_bytes_saved_total"
 CONTEXT_SUMMARY_METRIC: Final = "context_summary_total"
@@ -65,8 +71,8 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     (
         MEMORY_WRITE_METRIC,
         COUNTER,
-        ("source_type", "status"),
-        "Long-term memory writes by source type and outcome",
+        ("outcome",),
+        "Committed memory writes and rejected command attempts",
     ),
     # 注入/检索的"条数与字节"记在 **amount** 而不是 label：label 里放计数值会按每次取值
     # 裂出新的时间序列（无界基数），与本模块 docstring 的 label 卫生口径冲突。
@@ -81,6 +87,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     (MEMORY_RECALL_HIT_METRIC, COUNTER, ("hit",), "Recall search hits; excludes LIST and zero limit"),
     (MEMORY_RECALL_BYTES_METRIC, COUNTER, (), "Bytes returned by the recall tool"),
     (MEMORY_RESUME_METRIC, COUNTER, ("outcome",), "Runtime task resume decisions by outcome"),
+    (MEMORY_CONFIRMATION_METRIC, COUNTER, ("outcome",), "Memory proposal and confirmation outcomes"),
+    (MEMORY_CONSOLIDATION_ENQUEUE_METRIC, COUNTER, ("outcome",), "Consolidation enqueue outcomes"),
+    (MEMORY_CONSOLIDATION_METRIC, COUNTER, ("outcome",), "Consolidation claim and completion outcomes"),
+    (MEMORY_QUOTA_EVICTIONS_METRIC, COUNTER, (), "Committed automatic memory quota evictions"),
+    (MEMORY_EXPIRY_METRIC, COUNTER, ("outcome",), "Memory expiry sweep outcomes"),
+    (MEMORY_WRITE_CONFLICTS_METRIC, COUNTER, ("reason",), "Memory command conflicts by bounded reason"),
     # 压缩四级计数器（design §3.5 可观测性）：label 只有层名与结果，不带资源 ID。
     (
         CONTEXT_COMPACTION_METRIC,

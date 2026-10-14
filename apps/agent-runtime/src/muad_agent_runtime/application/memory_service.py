@@ -26,13 +26,36 @@ from ..infrastructure.models.runtime import (
     UserMemory,
 )
 from .memory_commands import MemoryCommand, MemoryCommandOutcome, MemoryCommandResponse, MemoryWriteContext
-from .memory_mutations import memory_snapshot, persist_plan, plan_mutations, source_times
+from .memory_mutations import MemoryBatchPlan, memory_snapshot, persist_plan, plan_mutations, source_times
+from .memory_observability import after_commit, observe
 
 logger = logging.getLogger(__name__)
+
+
+def _observe_conflict(exc: AppError) -> None:
+    reasons: dict[str, str] = {
+        ErrorCode.MEMORY_VERSION_CONFLICT: "VERSION",
+        ErrorCode.MEMORY_QUOTA_EXCEEDED: "QUOTA",
+        ErrorCode.MEMORY_FORBIDDEN_CONTENT: "POLICY",
+        ErrorCode.FORBIDDEN: "POLICY",
+    }
+    reason = reasons.get(exc.code)
+    if reason is not None:
+        observe("memory_write_conflicts_total", labels={"reason": reason})
+
 
 ALLOWED_CATEGORIES = frozenset({"PREFERENCE", "WORK_STYLE", "EXPLICIT"})
 SOURCE_USER_EXPLICIT = "USER_EXPLICIT"
 SOURCE_AGENT_INFERRED = "AGENT_INFERRED"
+
+
+def _observe_retirements(session: AsyncSession, plan: MemoryBatchPlan) -> None:
+    evictions = sum(change.reason == "QUOTA_EVICT" for change in plan.changes)
+    expired = sum(change.reason == "EXPIRE" for change in plan.changes)
+    if evictions:
+        after_commit(session, "memory_quota_evictions_total", amount=evictions)
+    if expired:
+        after_commit(session, "memory_expiry_total", labels={"outcome": "OK"}, amount=expired)
 
 
 def command_fingerprint(ctx: MemoryWriteContext, command: MemoryCommand) -> str:
@@ -175,12 +198,15 @@ class MemoryService:
             await session.rollback()
             self._report_database_error(ctx, command, exc)
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
-        except AppError:
+        except AppError as exc:
             await session.rollback()
+            observe("memory_write_total", labels={"outcome": "ERROR"})
+            _observe_conflict(exc)
             raise
 
     @staticmethod
     def _report_database_error(ctx: MemoryWriteContext, command: MemoryCommand, exc: SQLAlchemyError) -> None:
+        observe("memory_write_total", labels={"outcome": "ERROR"})
         # SQLAlchemy exception text contains bound candidate/quote values.
         logger.warning(
             "memory_command_failed",
@@ -234,7 +260,12 @@ class MemoryService:
         )
         if not _stale(scope, ctx, command):
             response = await self._apply(session, ctx, command, scope)
-        return await _save_receipt(session, ctx, command, fingerprint, response)
+        receipt = await _save_receipt(session, ctx, command, fingerprint, response)
+        after_commit(session, "memory_write_total", labels={"outcome": (
+            "STALE" if response.status == "STALE" else "OK" if response.changed_count else "UNCHANGED")})
+        if response.status == "STALE":
+            after_commit(session, "memory_write_conflicts_total", labels={"reason": "STALE"})
+        return receipt
 
     @staticmethod
     async def _apply(
@@ -261,6 +292,7 @@ class MemoryService:
         times = await source_times(session, ctx, rows)
         plan = plan_mutations(command, ctx, rows, now, scope.revision + 1, times)
         results = await persist_plan(session, ctx, command, rows, plan, now)
+        _observe_retirements(session, plan)
         if plan.changes:
             scope.revision += 1
             scope.update_time = now

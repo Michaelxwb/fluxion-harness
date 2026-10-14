@@ -25,6 +25,7 @@ from tests.agent_runtime.memory_confirmation_resume_support import confirmation_
 from tests.agent_runtime.memory_context_support import memory_text
 from tests.agent_runtime.memory_gateway_support import Adapter, envelope, original_submission, pipeline
 from tests.agent_runtime.memory_redesign_write_support import command, commands, context, upsert, writer
+from tests.agent_runtime.test_memory_redesign_recall import metric
 
 pytestmark = pytest.mark.integration
 
@@ -313,6 +314,9 @@ async def test_local_b15_result_event_failure_rolls_back_fact_history_receipt_an
     async_tool_database, monkeypatch
 ):
     async with confirmation_stack(async_tool_database, monkeypatch) as stack:
+        written = metric("memory_write_total", outcome="OK")
+        confirmed = metric("memory_confirmation_total", outcome="CONFIRMED")
+        failed = metric("memory_confirmation_total", outcome="ERROR")
         async with stack.factory.begin() as session:
             await session.execute(
                 sa.text(
@@ -332,6 +336,9 @@ async def test_local_b15_result_event_failure_rolls_back_fact_history_receipt_an
         with pytest.raises(AppError) as exc:
             await stack.submit(f"确认 {stack.proposal_id}")
         assert exc.value.code == ErrorCode.COMMON_INTERNAL_ERROR
+        assert metric("memory_write_total", outcome="OK") == written
+        assert metric("memory_confirmation_total", outcome="CONFIRMED") == confirmed
+        assert metric("memory_confirmation_total", outcome="ERROR") == failed + 1
         assert (
             await rows(stack, UserMemory)
             == await rows(stack, UserMemoryHistory)

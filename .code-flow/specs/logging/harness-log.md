@@ -31,6 +31,10 @@ verifiers:
 
 ## Conventions
 
+- **记忆内容在审计边界使用安全投影**：remember的value/source_quote/完整候选/prompt不进入tool_call_audit；Recorder在通用预览之前仅生成memory_key/category/args_hash/status，RuntimeAuditWriter再按同一投影兜底，并以当次内存凭据canary遮蔽非法key。schema失败回执只报告安全错误，不序列化validator原实例。✅ hash与固定状态/合法key；❌ 因字段名是value而把用户内容写入审计，或把ValidationError正文写入结果。
+- **记忆成功指标跟随真实外层提交**：session事务收集低基数计数，嵌套提交只移交父事务，rollback丢弃对应样本；最外层commit后才发布写入/确认/清扫/淘汰成功。失败日志只用extra的ID/错误类型，ERROR即时计数，不要求不可写DB落额外失败事件。✅ 原子效果与成功计数同一提交事实；❌ execute_in_session刚flush便计成功、随后历史/事件/CAS失败却保留成功指标。
+- **记忆指标目录无流量也声明**：confirmation/consolidation_enqueue/consolidation/quota_evictions/expiry/write_conflicts均由Runtime catalog声明；memory_observability仅允许固定outcome/reason值域，不接受user/key/UUID等label。✅ 数量是counter增量；❌ 把具体key、用户或自由错误文本作为标签。
+
 - **业务代码取 logger 的方式**：统一 stdlib `logging.getLogger(__name__)`。`configure_logging` 已把 handler 与脱敏滤镜装在 **root** logger 上，因此**不要**自建 handler/Formatter。`muad_logging.get_logger` **确实存在且已从 `__init__.py` 导出**（`packages/logging-kit/src/muad_logging/setup.py`、`__init__.py`），只是全仓 0 个调用点——**新增代码不得引入它**作为第二套入口；若要真正封堵，应在 `__init__.py` 移除该导出，而不是只在文档里禁止。
 - **trace 关联字段口径唯一**：`trace_id/request_id/run_id/conversation_id/platform_user_id/agent_id/snapshot_id/skill_artifact_id/tool_call_id/task_id/schedule_id`（docs/09 §6.1 共 11 个）。未绑定的字段一律显式空串，**禁止省略或伪造**；`set_trace_context` 遇到未知字段名必须报错，不得静默漂移（`packages/api-kit/src/muad_api/context.py`）。
 - **附加结构化字段的唯一通道是 `extra={...}`**：标准库把 `extra` 的每个键**直接挂成 record 属性**（`packages/logging-kit/src/muad_logging/extras.py` 的 `extra_fields()` 用「减去标准属性」把它取回来），formatter 与 RedactionFilter 都读它。全仓既有 14 处调用方（`scheduler/service.py` 的 `schedule_id`、`run_service.py` 的 `run_id`、`memory_tools.py` 的 `memory_key`、`metrics.py` 的 `metric`…）都走这条。

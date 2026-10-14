@@ -67,6 +67,7 @@ from muad_contracts.platform_settings import (
 )
 from muad_logging.redaction import redact_text
 from muad_platform_sdk.types import SecretValue
+from pydantic import JsonValue
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 from ..infrastructure.db import get_session_factory
@@ -91,6 +92,7 @@ from .attachments.tool_results import (
 from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
+from .memory_observability import memory_audit_preview
 from .memory_queries import MemoryReadScope
 from .memory_runtime import RunMemory, create_run_memory
 from .memory_tools import memory_write_enabled
@@ -634,12 +636,19 @@ class ToolCallRecorder:
         audit_writer: RuntimeAuditWriter | None,
         artifact_writer: ArtifactResultWriter | None,
         settings: ToolResultSettings | None = None,
+        credential_canaries: tuple[str, ...] = (),
     ) -> None:
         self._context = context
         self._audit = audit_writer
         self._artifacts = artifact_writer
         self._settings = settings or ToolResultSettings()
         self._round: dict[str, _RoundCall] = {}
+        self._credential_canaries = credential_canaries
+        self._previews: dict[str, dict[str, JsonValue]] = {}
+
+    def prepare(self, call: PreparedToolCall) -> None:
+        self._previews[call.call_id] = _preview_args(call.arguments, tool_name=call.tool_name,
+            args_hash=call.args_hash, status="PREPARED", canaries=self._credential_canaries)
 
     async def __call__(
         self,
@@ -661,6 +670,9 @@ class ToolCallRecorder:
         status = (
             "OK" if event.status == "SUCCEEDED" else "DENY" if event.status == "POLICY_DENIED" else "ERROR"
         )
+        preview = self._previews.pop(call.call_id)
+        if call.tool_name == "remember":
+            preview["status"] = status
         record_outcome(
             TOOL_CALLS_METRIC, status, {"kind": _tool_kind(call.tool_name), "tool": call.tool_name}
         )
@@ -671,7 +683,7 @@ class ToolCallRecorder:
                     tool_name=call.tool_name,
                     tool_kind=_tool_kind(call.tool_name),
                     prepared_args_hash=call.args_hash,
-                    args_preview_json=_preview_args(call.arguments),
+                    args_preview_json=preview,
                     status=status,
                     start_time=event.started_at,
                     end_time=datetime.now(UTC),
@@ -686,7 +698,7 @@ class ToolCallRecorder:
             started_wall=event.started_at,
             latency_ms=event.latency_ms,
             args_hash=call.args_hash,
-            args_preview=_preview_args(call.arguments),
+            args_preview=preview,
         )
 
     async def finish_round(self, results: Sequence[ModelMessage]) -> Sequence[ModelMessage]:
@@ -785,7 +797,10 @@ class ToolCallRecorder:
             )
 
 
-def _preview_args(arguments: Mapping[str, Any]) -> dict[str, Any]:
+def _preview_args(
+    arguments: Mapping[str, object], *, tool_name: str = "", args_hash: str = "", status: str = "",
+    canaries: tuple[str, ...] = (),
+) -> dict[str, JsonValue]:
     """工具的入参预览（落 `runtime.tool_call_audit.args_preview_json`）。
 
     **先截断、再过 `redact_text`**：预览里装的是**模型自己写的内容**——
@@ -797,7 +812,9 @@ def _preview_args(arguments: Mapping[str, Any]) -> dict[str, Any]:
     顺序是「先截断后脱敏」：先脱敏意味着对一个可能几 MB 的值跑正则，代价与收益不成比例；
     200 字符窗口内**完整出现**的键值对已能被覆盖，而这正是实际的泄漏形态。
     """
-    preview: dict[str, Any] = {}
+    if tool_name == "remember":
+        return memory_audit_preview(arguments, args_hash=args_hash, status=status, canaries=canaries)
+    preview: dict[str, JsonValue] = {}
     for key, value in arguments.items():
         text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
         preview[str(key)] = redact_text(text[:200])
@@ -1010,6 +1027,8 @@ async def default_executor_factory(
             audit_writer=audit_writer,
             artifact_writer=artifact_writer,
             settings=tool_result_settings(request),
+            credential_canaries=tuple(value for value in
+                (request.model.api_key, *request.credentials.mcp_secrets.values()) if value),
         )
     memory = _memory_runtime_for(request)
     registry = build_registry(
@@ -1153,6 +1172,8 @@ def _audit_writer_for(request: ExecutorRequest) -> RuntimeAuditWriter | None:
         conversation_id=context.conversation_id,
         user_id=context.user_id,
         session_factory=get_session_factory,
+        credential_canaries=tuple(value for value in
+            (request.model.api_key, *request.credentials.mcp_secrets.values()) if value),
     )
 
 

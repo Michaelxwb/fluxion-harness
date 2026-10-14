@@ -25,6 +25,7 @@ from ..infrastructure.db import SessionFactory
 from .async_tools.continuation_service import ExecutionIdentity
 from .checkpoint import suspend_memory_confirmation
 from .memory_explicit_command import MemorySavedReceipt, matches_user_command, save_user_command
+from .memory_observability import after_commit, observe
 from .memory_proposals import (
     _memory_state,
     _prompt,
@@ -89,6 +90,7 @@ class MemoryConfirmationService:
                     run, _, now = await locked_confirmation_execution(session, self._identity)
                     event = await confirmation_source(session, run, self._submission_id)
                     if matches_user_command(event, candidate):
+                        after_commit(session, "memory_confirmation_total", labels={"outcome": "CONFIRMED"})
                         return await save_user_command(self._factory, session, run, event, self._identity,
                             candidate, self._settings, self._canaries)
                     row, epoch = await _memory_state(session, run, candidate.memory_key)
@@ -97,6 +99,7 @@ class MemoryConfirmationService:
                     request = MemorySuspendRequest(
                         proposal_id, proposal, _prompt(proposal_id, proposal, row, now)
                     )
+                    after_commit(session, "memory_confirmation_total", labels={"outcome": "PROPOSED"})
             except SQLAlchemyError as exc:
                 self._database_error(exc)
             self._pending = request
@@ -114,6 +117,7 @@ class MemoryConfirmationService:
             self._pending = None
 
     def _database_error(self, exc: SQLAlchemyError) -> NoReturn:
+        observe("memory_confirmation_total", labels={"outcome": "ERROR"})
         logger.warning(
             "memory confirmation transaction failed",
             extra={

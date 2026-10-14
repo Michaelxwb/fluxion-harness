@@ -63,6 +63,8 @@ class ToolExecutionAudit:
 
 
 class AuditPort(Protocol):
+    def prepare(self, call: PreparedToolCall) -> None: ...
+
     async def record(self, event: ToolExecutionAudit) -> None: ...
 
 
@@ -104,19 +106,24 @@ class ToolExecutionPipeline:
         并发编排用：按原调用序先跑完这一段，TaskGroup 里只放 `run_prepared` 的 handler IO。
         """
         started_at, started = datetime.now(UTC), monotonic()
+        if self._audit is not None:
+            self._audit.prepare(prepared)
         definition: ToolDefinition | None = None
         try:
             definition = self._registry.get(prepared.tool_name)
             jsonschema.validate(instance=prepared.arguments, schema=definition.input_schema)
             prepared = await self._validate_and_hook(prepared, definition)
+            if self._audit is not None:
+                self._audit.prepare(prepared)
             jsonschema.validate(instance=prepared.arguments, schema=definition.input_schema)
             result = self._blocked(prepared, definition)
         except ToolNotFoundError:
             result = self._result(
                 prepared, "NOT_FOUND", f"unknown tool: {prepared.tool_name}", "TOOL_NOT_FOUND"
             )
-        except (jsonschema.ValidationError, ValueError) as exc:
-            result = self._result(prepared, "FAILED", f"invalid arguments: {exc}", "SCHEMA_INVALID")
+        except (jsonschema.ValidationError, ValueError):
+            # Validator exceptions include the full instance, which may contain private tool input.
+            result = self._result(prepared, "FAILED", "invalid tool arguments", "SCHEMA_INVALID")
         except Exception as exc:
             error = str(getattr(exc, "code", "COMMON_INTERNAL_ERROR"))
             await self._record_audit(prepared, definition, "FAILED", error, started_at, started)

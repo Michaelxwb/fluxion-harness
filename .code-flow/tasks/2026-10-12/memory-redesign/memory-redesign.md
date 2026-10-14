@@ -75,6 +75,7 @@
 | harness-time#RULE-time-001 | TASK-007 | code | ["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"] | planned |
 | harness-model#RULE-model-001 | TASK-019 | code | ["bash","-lc","uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled"] | planned |
 | harness-log#RULE-log-001 | TASK-018 | code | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | planned |
+| harness-mcp#RULE-mcp-001 | TASK-018 | code | ["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"] | planned |
 | harness-im#RULE-im-001 | TASK-017 | code | ["uv","run","pytest","-q","tests/console_channel","tests/gateway"] | planned |
 | harness-im#RULE-im-002 | TASK-017 | code | ["uv","run","pytest","-q","tests/architecture/test_channel_neutrality.py"] | planned |
 
@@ -934,13 +935,13 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ## TASK-018: 记忆指标 catalog、日志与审计脱敏
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-013, TASK-004
-- **Source**: memory-redesign.design.md#3.8 可靠性与观测, memory-redesign.design.md#3.4.5 内容闸门与配额
-- **Spec-Refs**: harness-log#RULE-log-001
+- **Source**: memory-redesign.design.md#3.8 可靠性与观测, memory-redesign.design.md#3.4.5 内容闸门与配额, memory-redesign.design.md#6.1 Spec Compliance Matrix
+- **Spec-Refs**: harness-log#RULE-log-001, harness-mcp#RULE-mcp-001
 - **Acceptance-Refs**: 
-- **Files**: apps/agent-runtime/src/muad_agent_runtime/metrics.py, apps/agent-runtime/src/muad_agent_runtime/infrastructure/audit_writer.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_observability.py
+- **Files**: apps/agent-runtime/src/muad_agent_runtime/metrics.py, apps/agent-runtime/src/muad_agent_runtime/infrastructure/audit_writer.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_observability.py, apps/agent-runtime/src/muad_agent_runtime/application/executor.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_service.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation_resume.py, packages/agent-core/src/muad_agent_core/tools/pipeline.py, tests/agent_runtime/test_memory_redesign_observability.py, tests/agent_runtime/test_memory_redesign_confirmation.py, tests/agent_core/test_tool_execution_pipeline.py
 
 ### Description
 
@@ -948,24 +949,35 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ### Checklist
 
-- [ ] [S-02][integration] 辅助先写无流量metrics目录、高基数拒绝、异常不回显canary、错误不能计成功RED。
-- [ ] value/quote不因键名非敏感而进入tool_call_audit；extra唯一通道。
-- [ ] 失败可见性不要求不可写DB强写事件；记录真实warning/metric。
-- [ ] [RULE-log-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [S-02][integration] 辅助先写无流量metrics目录、高基数拒绝、异常不回显canary、错误不能计成功RED。
+- [x] value/quote不因键名非敏感而进入tool_call_audit；extra唯一通道。
+- [x] 失败可见性不要求不可写DB强写事件；记录真实warning/metric。
+- [x] [RULE-log-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+
+- [x] [RULE-mcp-001] 范围增量：共享pipeline错误回执不回显原实例；保持冻结MCP目录/统一ToolRegistry，原verifier `["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"]` 与agent-core共享pipeline回归实际执行。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| harness-log#RULE-log-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | planned |
+| harness-log#RULE-log-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（metadata原argv实际执行14 passed） | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | verified |
+| harness-mcp#RULE-mcp-001 | unit（原metadata verifier）+ integration辅助 | 原规则verifier + 真实共享ToolExecutionPipeline | 冻结catalog/Server授权边界保持；schema失败不回显remember私密实例 | tests/console_mcp/test_mcp_rules.py + tests/agent_runtime/test_memory_redesign_observability.py | ["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- LOCAL（S-02辅助）测试已写：`tests/agent_runtime/test_memory_redesign_observability.py`；命令 `uv run pytest -q tests/agent_runtime/test_memory_redesign_observability.py`。
+- RED（2026-10-14）：独立headPG，7 failed（已修正caller事务fixture后再次执行）。新增指标目录缺失（1）；低基数守卫模块缺失（2）；remember value/quote经真实Pipeline→Recorder→RuntimeAuditWriter落进PG审计且schema错误可能回显（2）；真实history触发器失败没有ERROR计数（1）；外层提交/嵌套rollback没有commit敏感成功计数（1）。日志 `/tmp/fluxion-task018-red.txt`。
+- 新增PRE-handler RED：给真实projection函数加调用观测（仍调用原函数、不替换业务行为），handler断言进入前已产生安全投影；`uv run pytest -q tests/agent_runtime/test_memory_redesign_observability.py -k before_handler`，1 failed/1 passed（旧projection仅在handler之后）；日志 `/tmp/fluxion-task018-pre-handler-red.txt`。已将AuditPort改为显式prepare+record协议，Runtime在schema/handler之前产生安全预览，PRE hook改参后重做投影，没有optional/getattr兼容层；正式生产Recorder和测试port均实现新协议。
+- PRE-handler GREEN：同文件与真实共享pipeline回归17 passed。嵌套commit→外层rollback/commit均验证成功计数只跟最外层提交；嵌套rollback不影响后续真实成功计数。
+- 完整记忆/工具/观测/metrics/审计/共享pipeline最终回归85 passed（`/tmp/fluxion-task018-final-regression.txt`）；此前61 passed（修复rollback后ORM读取导致的MissingGreenlet覆盖真实配额错误后，配额错误保持MEMORY_QUOTA_EXCEEDED）。确认结果事件边界flush后，事件trigger失败计ERROR且write/CONFIRMED成功均不增加，完整效果rollback，单跑2 passed。
+- 观测/配额回归22 passed；tool/egress/model审计与共享pipeline/MCP规则23 passed；原日志metadata argv通过独立PG/Redis wrapper实际执行14 passed；原MCP verifier+完整架构36 passed（MCP3+architecture33）。轻量validation/strict mypy pass。
+- scope expansion已按cf-spec处理：确定性路径命中harness-mcp，设计§6.1/Task Spec Responsibility/TASK-018 checklist与contract增量承接，CLI bind将design/plan refs应用于同一Context后refresh并重新生成当前TASK projection，不伪造waiver/N/A。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-14] started
+- [2026-10-14] completed (done)
 
 ---
 

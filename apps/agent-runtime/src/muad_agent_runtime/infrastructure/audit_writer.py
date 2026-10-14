@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from ..application.memory_observability import memory_audit_preview
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory
 from ..infrastructure.models.runtime import (
     EgressAudit,
@@ -57,6 +58,7 @@ class RuntimeAuditWriter:
         conversation_id: uuid.UUID,
         user_id: uuid.UUID,
         session_factory: SessionFactoryProvider | None = None,
+        credential_canaries: tuple[str, ...] = (),
     ) -> None:
         self._tenant_id = tenant_id
         self._run_id = run_id
@@ -64,6 +66,7 @@ class RuntimeAuditWriter:
         self._conversation_id = conversation_id
         self._user_id = user_id
         self._session_factory = session_factory or get_session_factory
+        self._credential_canaries = credential_canaries
 
     async def record_tool_call(
         self,
@@ -80,6 +83,9 @@ class RuntimeAuditWriter:
         error_code: str | None = None,
         artifact_id: uuid.UUID | None = None,
     ) -> None:
+        if tool_name == "remember":
+            args_preview_json = memory_audit_preview(args_preview_json, args_hash=prepared_args_hash,
+                status=status, canaries=self._credential_canaries)
         async with self._session_factory()() as session:
             session.add(
                 ToolCallAudit(
