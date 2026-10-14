@@ -7,7 +7,7 @@ import logging
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
@@ -51,7 +51,7 @@ from muad_contracts.platform_settings import (
     parse_platform_settings,
 )
 from pydantic import ValidationError
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
@@ -104,6 +104,8 @@ from .executor import (
     RunExecutor,
     default_executor_factory,
 )
+from .memory_confirmation_resume import consume_confirmation, prepare_confirmation
+from .memory_proposals import _database_now
 from .memory_resume import MemoryResumeService, resume_decision
 from .ports import (
     CredentialsClient,
@@ -111,6 +113,12 @@ from .ports import (
     ResolveClient,
 )
 from .run_events import EventWriter
+from .run_resume import (
+    ensure_human_resume,
+    lock_human_resume,
+    resolve_generic_interrupts,
+    transition_human_resume,
+)
 from .run_submission import (
     ENDPOINT_CREATE_CONVERSATION,
     ENDPOINT_CREATE_RUN,
@@ -137,7 +145,7 @@ def snapshot_policy(
     """Run 侧 execution snapshot 的执行期策略——`policy_json` 的唯一构建口径。
 
     `agent` 分组四叶（`max_turns` / `max_tool_calls` / `deadline_ms` / `max_model_retries`，见
-    ADR-07）、`memory` 分组五叶、`artifact.max_archive_files`、`locale.default_timezone` 与压缩
+    ADR-07）、完整 `memory` 分组、`artifact.max_archive_files`、`locale.default_timezone` 与压缩
     配置一并冻结在这里：配置变更只影响后续新 Run，在飞的 Run 用的是它自己那一份冻结值
     （`harness-snapshot#RULE-snapshot-001` 的"Run 侧等价载体"）。
 
@@ -158,13 +166,7 @@ def snapshot_policy(
         "max_tool_calls": agent.max_tool_calls,
         "deadline_ms": agent.deadline_ms,
         "max_model_retries": agent.max_model_retries,
-        "memory": {
-            "write_enabled": memory.write_enabled,
-            "max_injected_memories": memory.max_injected_memories,
-            "max_injected_bytes": memory.max_injected_bytes,
-            "max_recall_bytes": memory.max_recall_bytes,
-            "recall_default_limit": memory.recall_default_limit,
-        },
+        "memory": asdict(memory),
         "artifact": {"max_archive_files": defaults.max_archive_files},
         "locale": {"default_timezone": defaults.timezone},
         "compaction": compaction_payload(settings),
@@ -203,26 +205,13 @@ def _frozen_int(source: Mapping[str, Any], key: str, default: int) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) else default
 
 
-def _frozen_bool(source: Mapping[str, Any], key: str, default: bool) -> bool:
-    value = source.get(key)
-    return value if isinstance(value, bool) else default
-
-
 def _frozen_str(source: Mapping[str, Any], key: str, default: str) -> str:
     value = source.get(key)
     return value if isinstance(value, str) and value else default
 
 
 def _frozen_memory_policy(policy: Mapping[str, Any]) -> MemoryPolicySettings:
-    section = _section(policy, "memory")
-    defaults = MemoryPolicySettings()
-    return MemoryPolicySettings(
-        write_enabled=_frozen_bool(section, "write_enabled", defaults.write_enabled),
-        max_injected_memories=_frozen_int(section, "max_injected_memories", defaults.max_injected_memories),
-        max_injected_bytes=_frozen_int(section, "max_injected_bytes", defaults.max_injected_bytes),
-        max_recall_bytes=_frozen_int(section, "max_recall_bytes", defaults.max_recall_bytes),
-        recall_default_limit=_frozen_int(section, "recall_default_limit", defaults.recall_default_limit),
-    )
+    return parse_platform_settings({"memory": dict(_section(policy, "memory"))}).memory
 
 
 def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults:
@@ -515,6 +504,42 @@ async def _reap_one(factory: async_sessionmaker[AsyncSession], candidate: RunRec
     return 1
 
 
+def _creation_fingerprint(request: RunRequest, tenant_id: str) -> str:
+    return submission_fingerprint(
+        endpoint=ENDPOINT_CREATE_RUN,
+        key_payload={
+            # `tenant_id` 与 `endpoint` 是 RULE-api-002 要求的两个判别键
+            "tenant_id": tenant_id,
+            "agent_id": str(request.agent_id),
+            "platform_user_id": str(request.platform_user_id),
+            "conversation_id": str(request.conversation_id) if request.conversation_id else None,
+            "channel": request.channel.type,
+            "message_type": request.message.type,
+            "message_text": request.message.text,
+            # 附件与投递路由**都是请求语义的一部分**：同一个 key 换了附件、或换了接收方，
+            # 就不是同一个请求 —— 必须撞 `IDEMPOTENCY_MISMATCH`，而不是把新附件悄悄丢掉、
+            # 或把回复发给上一个人（2026-10-06 review）。附件取存储键 + 校验和（字节的稳定
+            # 标识），路由取 `delivery_route_of` 用的那三个判别字段。
+            "attachments": sorted(
+                [ref.storage_key, ref.checksum, str(ref.kind), ref.media_type, ref.size]
+                for ref in request.message.attachments
+            ),
+            "route": {
+                "bot_id": request.channel.bot_id,
+                "external_user_id": request.channel.external_user_id,
+                "external_conversation_id": request.channel.external_conversation_id,
+            },
+        },
+        message_id=request.message.id,
+    )
+
+def _credential_canaries(
+    model: ResolvedModel, summary: ResolvedModel | None, secrets: Mapping[str, str],
+) -> tuple[str, ...]:
+    values = (model.api_key, summary.api_key if summary else None, *secrets.values())
+    return tuple(value for value in values if value)
+
+
 class RunService:
     def __init__(
         self,
@@ -555,33 +580,7 @@ class RunService:
         idempotency_key: str | None = None,
     ) -> RunStart:
         key = idempotency_key or request.message.id
-        fingerprint = submission_fingerprint(
-            endpoint=ENDPOINT_CREATE_RUN,
-            key_payload={
-                # `tenant_id` 与 `endpoint` 是 RULE-api-002 要求的两个判别键
-                "tenant_id": tenant_id,
-                "agent_id": str(request.agent_id),
-                "platform_user_id": str(request.platform_user_id),
-                "conversation_id": str(request.conversation_id) if request.conversation_id else None,
-                "channel": request.channel.type,
-                "message_type": request.message.type,
-                "message_text": request.message.text,
-                # 附件与投递路由**都是请求语义的一部分**：同一个 key 换了附件、或换了接收方，
-                # 就不是同一个请求 —— 必须撞 `IDEMPOTENCY_MISMATCH`，而不是把新附件悄悄丢掉、
-                # 或把回复发给上一个人（2026-10-06 review）。附件取存储键 + 校验和（字节的稳定
-                # 标识），路由取 `delivery_route_of` 用的那三个判别字段。
-                "attachments": sorted(
-                    [ref.storage_key, ref.checksum, str(ref.kind), ref.media_type, ref.size]
-                    for ref in request.message.attachments
-                ),
-                "route": {
-                    "bot_id": request.channel.bot_id,
-                    "external_user_id": request.channel.external_user_id,
-                    "external_conversation_id": request.channel.external_conversation_id,
-                },
-            },
-            message_id=request.message.id,
-        )
+        fingerprint = _creation_fingerprint(request, tenant_id)
         replay = await self._submissions.find_replay_in(
             self._session,
             tenant_id=tenant_id,
@@ -594,11 +593,17 @@ class RunService:
             return self._replay_start(replay)
         conversation = await self._resolve_conversation(request, tenant_id)
         active = await self._active_run(conversation.id)
+        replay = await self._submissions.find_replay_in(self._session, tenant_id=tenant_id,
+            idempotency_key=key, endpoint=ENDPOINT_CREATE_RUN, fingerprint=fingerprint)
+        if replay is not None:
+            self._assert_replay_owner(replay, request.platform_user_id, request.conversation_id)
+            return self._replay_start(replay)
         if active is not None:
             if active.status == RunStatus.WAITING_INPUT:
                 return await self._resume_run(
                     active,
                     request.message.text,
+                    message_id=request.message.id,
                     # 暂停期间这条消息带的附件必须与文本一起进去（否则等于静默丢弃）
                     attachments=request.message.attachments,
                     submission_key=key,
@@ -623,15 +628,20 @@ class RunService:
         input_text: str,
         tenant_id: str,
         *,
+        platform_user_id: uuid.UUID,
         idempotency_key: str | None = None,
         input_id: str | None = None,
     ) -> RunStart:
         run = await self._load_run(run_id, tenant_id)
+        if run.user_id != platform_user_id:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         key = require_resume_idempotency(idempotency_key=idempotency_key, input_id=input_id)
         fingerprint = submission_fingerprint(
             endpoint=ENDPOINT_RESUME_RUN,
             run_id=run_id,
-            key_payload={"type": "text", "text": input_text},
+            key_payload={"tenant_id": tenant_id, "platform_user_id": str(platform_user_id),
+                "type": "text", "text": input_text},
+            message_id=input_id,
         )
         replay = await self._submissions.find_replay_in(
             self._session,
@@ -654,6 +664,7 @@ class RunService:
         return await self._resume_run(
             run,
             input_text,
+            message_id=input_id,
             submission_key=key,
             request_fingerprint=fingerprint,
             endpoint=ENDPOINT_RESUME_RUN,
@@ -1100,133 +1111,87 @@ class RunService:
         )
 
     async def _resume_run(
-        self,
-        run: RunRecord,
-        input_text: str,
-        *,
-        attachments: Sequence[AttachmentRef] = (),
-        submission_key: str,
-        request_fingerprint: str,
-        endpoint: str,
+        self, run: RunRecord, input_text: str, *, attachments: Sequence[AttachmentRef] = (),
+        submission_key: str, request_fingerprint: str, endpoint: str, message_id: str | None,
     ) -> RunStart:
+        ensure_human_resume(run, await _database_now(self._session))
         snapshot = await self._load_snapshot(run)
         agent = ResolvedAgent.model_validate(snapshot.agent_json)
         model = ResolvedModel.model_validate(snapshot.model_json)
-        skills = [ResolvedSkill.model_validate(item) for item in snapshot.skill_catalog_json]
-        mcp_servers = [ResolvedMcpServer.model_validate(item) for item in snapshot.mcp_catalog_json]
-        model, summary_model, mcp_secrets = await self._runtime_credentials(
-            run.id,
-            run.tenant_id,
-            run.user_id,
-            model,
-            mcp_servers,
-            # 摘要模型从**已冻结**的快照读回（`config 变更只影响后续新 Run`）：没冻结过即不跑
-            summary_model=summary_model_of(snapshot.policy_json),
-        )
-        now = _utcnow()
+        skills = tuple(ResolvedSkill.model_validate(item) for item in snapshot.skill_catalog_json)
+        servers = tuple(ResolvedMcpServer.model_validate(item) for item in snapshot.mcp_catalog_json)
+        model, summary_model, secrets = await self._runtime_credentials(
+            run.id, run.tenant_id, run.user_id, model, servers,
+            summary_model=summary_model_of(snapshot.policy_json))
+        tenant_id, run_id = run.tenant_id, run.id
+        canaries = _credential_canaries(model, summary_model, secrets)
         try:
-            submission = await self._submissions.record_in(
-                self._session,
-                tenant_id=run.tenant_id,
-                idempotency_key=submission_key,
-                endpoint=endpoint,
-                actor_user_id=run.user_id,
-                run_id=run.id,
-                conversation_id=run.conversation_id,
-                request_fingerprint=request_fingerprint,
-            )
-            # 续跑同样要落**这一次**的入站附件：`WAITING_INPUT` 期间用户发来的文件不能只取文本
-            # （2026-10-06 review：此前附件既不落 artifact 行、也不进事件，等于静默丢弃）。
-            # 与事件同事务，保证"事件说带了附件"与"行真的在"永远一致。
-            persisted = await persist_inbound_attachments(
-                self._session,
-                tenant_id=run.tenant_id,
-                run_id=run.id,
-                conversation_id=run.conversation_id,
-                refs=attachments,
-            )
-            seq = await MemoryResumeService().append_inbound(
-                self._session, run, text=input_text,
+            submission, persisted, replayed = await self._persist_human_resume(run, input_text,
+                message_id=message_id, attachments=attachments, submission_key=submission_key,
+                request_fingerprint=request_fingerprint, endpoint=endpoint,
                 settings=execution_defaults_of(snapshot.policy_json).memory_policy,
-                payload={
-                    "resumed": True,
-                    "attachments": attachment_payload(persisted),
-                },
-                submission_id=submission.id,
-            )
-            submission.first_seq = seq
-            cas = await self._session.execute(
-                sa.update(RunRecord)
-                .where(RunRecord.id == run.id, RunRecord.tenant_id == run.tenant_id,
-                    RunRecord.is_deleted.is_(False), RunRecord.status == RunStatus.WAITING_INPUT,
-                    RunRecord.deadline_at > now)
-                .values(
-                    status=RunStatus.CREATED,
-                    lease_owner=None,
-                    lease_until=None,
-                    update_time=now,
-                )
-                .returning(RunRecord.id)
-            )
-            if cas.scalar_one_or_none() is None:
-                raise AppError(ErrorCode.RUN_BUSY)
-            await self._append_submission_start(self._session, run, submission.id, resumed=True)
-            await self._session.execute(
-                sa.update(RunInterrupt)
-                .where(RunInterrupt.run_id == run.id, RunInterrupt.status == INTERRUPT_WAITING)
-                .values(
-                    status=INTERRUPT_RESOLVED,
-                    resolution_json={"input": input_text},
-                    resolved_at=now,
-                    update_time=now,
-                )
-            )
+                credential_canaries=canaries)
             await self._session.commit()
+            if replayed:
+                return self._replay_start(submission)
         except IntegrityError as exc:
             await self._session.rollback()
-            replay = await self._submissions.find_replay_in(
-                self._session,
-                tenant_id=run.tenant_id,
-                idempotency_key=submission_key,
-                endpoint=endpoint,
-                fingerprint=request_fingerprint,
-            )
+            replay = await self._submissions.find_replay_in(self._session, tenant_id=tenant_id,
+                idempotency_key=submission_key, endpoint=endpoint, fingerprint=request_fingerprint)
             if replay is not None:
                 return self._replay_start(replay)
             raise AppError(ErrorCode.RUN_BUSY) from exc
-        # resume 不重解析配置：历史预算从这一行已冻结的 `policy_json` 取，配置改动只影响后续新 Run。
-        frozen = compaction_settings_of(snapshot.policy_json)
-        execution = execution_defaults_of(snapshot.policy_json)
-        history = await self._load_history(
-            run.conversation_id,
-            run.tenant_id,
-            run.user_id,
-            budget_messages=history_budget_of(snapshot.policy_json),
-        )
-        stream = self._stream_run(
-            run=run,
-            agent=agent,
-            model=model,
-            skills=tuple(skills),
-            mcp_servers=tuple(mcp_servers),
-            mcp_secrets=mcp_secrets,
-            history=history,
-            submission_id=submission.id,
-            resumed=True,
-            compaction=frozen,
-            execution=execution,
-            summary_model=summary_model,
-            current_text=input_text,
-            # 只带**本次新落的**那批：上一轮的字节已经进过上下文，重放会把旧图再内联一次
-            current_attachments=persisted,
-        )
+        except AppError:
+            await self._session.rollback()
+            raise
+        except SQLAlchemyError as exc:
+            await self._session.rollback()
+            logger.warning("human_resume_transaction_failed", extra={"tenant_id": tenant_id,
+                "run_id": str(run_id), "error_type": type(exc).__name__})
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
+        history = await self._load_history(run.conversation_id, run.tenant_id, run.user_id,
+            budget_messages=history_budget_of(snapshot.policy_json))
+        stream = self._stream_run(run=run, agent=agent, model=model, skills=skills,
+            mcp_servers=servers, mcp_secrets=secrets, history=history, submission_id=submission.id,
+            resumed=True, compaction=compaction_settings_of(snapshot.policy_json),
+            execution=execution_defaults_of(snapshot.policy_json), summary_model=summary_model,
+            current_text=input_text, current_attachments=persisted)
         await self._launch_execution(run, stream)
-        return RunStart(
-            run_id=run.id,
-            conversation_id=run.conversation_id,
-            resumed=True,
-            events=self._replay_events(submission),
-        )
+        return RunStart(run_id=run.id, conversation_id=run.conversation_id, resumed=True,
+            events=self._replay_events(submission))
+
+    async def _persist_human_resume(
+        self, run: RunRecord, input_text: str, *, attachments: Sequence[AttachmentRef],
+        submission_key: str, request_fingerprint: str, endpoint: str, message_id: str | None,
+        settings: MemoryPolicySettings, credential_canaries: tuple[str, ...],
+    ) -> tuple[RunSubmission, tuple[PersistedAttachment, ...], bool]:
+        await self._submissions.lock_identity(self._session, tenant_id=run.tenant_id,
+            idempotency_key=submission_key, endpoint=endpoint)
+        replay = await self._submissions.find_replay_in(self._session, tenant_id=run.tenant_id,
+            idempotency_key=submission_key, endpoint=endpoint, fingerprint=request_fingerprint)
+        if replay is not None:
+            self._assert_replay_owner(replay, run.user_id, run.conversation_id)
+            return replay, (), True
+        interrupts = await lock_human_resume(self._session, run)
+        pending = prepare_confirmation(interrupts, input_text)
+        submission = await self._submissions.record_in(self._session,
+            tenant_id=run.tenant_id, idempotency_key=submission_key, endpoint=endpoint,
+            actor_user_id=run.user_id, run_id=run.id, conversation_id=run.conversation_id,
+            request_fingerprint=request_fingerprint)
+        persisted = await persist_inbound_attachments(self._session,
+            tenant_id=run.tenant_id, run_id=run.id, conversation_id=run.conversation_id, refs=attachments)
+        seq = await MemoryResumeService().append_inbound(self._session, run, text=input_text,
+            settings=settings, payload={"resumed": True, "message_id": message_id,
+                "attachments": attachment_payload(persisted)}, submission_id=submission.id)
+        submission.first_seq = seq
+        await self._append_submission_start(self._session, run, submission.id, resumed=True)
+        if pending is not None:
+            await consume_confirmation(self._session, run, pending, submission_id=submission.id,
+                settings=settings, credential_canaries=credential_canaries)
+        else:
+            await resolve_generic_interrupts(self._session, interrupts, input_text)
+        await transition_human_resume(self._session, run)
+        return submission, tuple(persisted), False
 
     async def _launch_execution(self, run: RunRecord, stream: AsyncIterator[ExecutorEvent]) -> None:
         from muad_api.context import TRACE_CORRELATION_FIELDS, context_scope

@@ -21,6 +21,7 @@ from .context_events import covered_up_to, latest_summary
 HISTORY_EVENT_TYPES = (
     "USER_MESSAGE",
     "ASSISTANT_MESSAGE",
+    "MEMORY_CONFIRMATION_RESOLVED",
     "TOOL_CALL",
     "ASSISTANT_TURN",
     "TOOL_TASK_ACCEPTED",
@@ -209,7 +210,7 @@ class DbBackedContextBuilder:
                     external_pending.append(message)
                 else:
                     entries.append((0, message))
-            elif event.event_type == "ASSISTANT_MESSAGE":
+            elif event.event_type in ("ASSISTANT_MESSAGE", "MEMORY_CONFIRMATION_RESOLVED"):
                 entries.append(
                     (0, ModelMessage(role=ModelRole.ASSISTANT, content=str(payload.get("text", ""))))
                 )

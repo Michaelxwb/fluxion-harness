@@ -80,6 +80,11 @@ MEMORY_OVERRIDE = MemoryPolicySettings(
     max_injected_bytes=2048,
     max_recall_bytes=4096,
     recall_default_limit=2,
+    ttl_days_user=2,
+    max_entries_per_user=257,
+    max_memory_bytes_per_user=131072,
+    task_state_injection_enabled=False,
+    consolidation_enabled=False,
 )
 ARTIFACT_OVERRIDE = ArtifactSettings(retention_days=5, max_archive_files=2, cleanup_batch_size=1)
 LOCALE_OVERRIDE = LocaleSettings(default_timezone="America/New_York")
@@ -201,13 +206,7 @@ async def test_e20_new_run_freezes_nine_execution_leaves(
     assert policy["max_tool_calls"] == AGENT_OVERRIDE.max_tool_calls
     assert policy["deadline_ms"] == AGENT_OVERRIDE.deadline_ms
     assert policy["max_model_retries"] == AGENT_OVERRIDE.max_model_retries
-    assert policy["memory"] == {
-        "write_enabled": MEMORY_OVERRIDE.write_enabled,
-        "max_injected_memories": MEMORY_OVERRIDE.max_injected_memories,
-        "max_injected_bytes": MEMORY_OVERRIDE.max_injected_bytes,
-        "max_recall_bytes": MEMORY_OVERRIDE.max_recall_bytes,
-        "recall_default_limit": MEMORY_OVERRIDE.recall_default_limit,
-    }
+    assert policy["memory"] == asdict(MEMORY_OVERRIDE)
     assert policy["artifact"] == {"max_archive_files": ARTIFACT_OVERRIDE.max_archive_files}
     assert policy["locale"] == {"default_timezone": LOCALE_OVERRIDE.default_timezone}
     # `retention_days` / `cleanup_batch_size` 属 Console 清理，**不进 Run 快照**。

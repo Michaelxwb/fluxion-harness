@@ -33,6 +33,7 @@ class ResumeInput(BaseModel):
 class ResumeRunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    platform_user_id: uuid.UUID
     input: ResumeInput
 
 

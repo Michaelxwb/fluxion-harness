@@ -786,38 +786,51 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 
 ## TASK-015: 真实确认 resume 原子提交与 deadline
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-013, TASK-014
 - **Source**: memory-redesign.design.md#3.4.2 remember 与真实确认
 - **Spec-Refs**: harness-memory#RULE-memory-001
 - **Acceptance-Refs**: 
-- **Files**: apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation.py, apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, apps/agent-runtime/src/muad_agent_runtime/api/runs.py
+- **Files**: apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation_resume.py, apps/agent-runtime/src/muad_agent_runtime/application/run_resume.py, apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py, apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py, apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py, apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, apps/agent-runtime/src/muad_agent_runtime/application/dto.py, apps/agent-runtime/src/muad_agent_runtime/api/runs.py
 
 ### Description
 
-MEMORY_CONFIRMATION专用分派；合法输入/事实/history/receipt/interrupt/Run CAS/submission同事务，终态/绝对deadline优先。
+MEMORY_CONFIRMATION专用分派；合法输入/事实/history/receipt/interrupt/Run CAS/submission同事务，终态/绝对deadline优先。显式resume绑定真实platform_user_id；持久展示绑定完整proposal hash，原候选回执不可变。同消息并发重投在短事务advisory锁后重查并重放。真实确认依赖的TTL/硬配额须来自冻结值，故同时修正原五字段memory载体为完整序列化/严格schema读回；TASK-016仍负责其余预算/job/冻结能力最终验收。
 
 ### Checklist
 
-- [ ] [B-15][integration] 先写真实Gateway/Runtime/PG确认、拒绝、无效编号仍等待、stale合法续跑、超Run deadline不恢复RED。
-- [ ] 其他用户/版本/hash/epoch/重复message_id不能授予另一份内容。
-- [ ] 不先无条件消费所有WAITING interrupt，不改已持久化候选回执。
-- [ ] [RULE-memory-001] verifier：规范已由TASK-001建立并绑定，按 ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py","tests/agent_runtime/test_memory_redesign_confirmation.py"]（review）验证 来源证据、真实候选确认、禁止模型授予USER/ADMIN；review由需求终验统一执行，当前无执行Evidence。
+- [x] [B-15][integration] 先写真实Gateway/Runtime/PG确认、拒绝、无效编号仍等待、stale合法续跑、超Run deadline不恢复RED。
+- [x] 其他用户/版本/hash/epoch/重复message_id不能授予另一份内容。
+- [x] 不先无条件消费所有WAITING interrupt，不改已持久化候选回执。
+- [x] [RULE-memory-001] 原argv功能测试已实际执行：43个来源证据+26个真实确认用例，69 passed；review层正式裁决仍由需求终验统一执行，不把编码期功能通过写成review Gate通过。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| harness-memory#RULE-memory-001 | integration | 真实PG/Runtime/模型HTTP及冻结数据；纯函数子项直接验证 | 来源证据、真实候选确认、禁止模型授予USER/ADMIN | 目标文件在verifier argv中；创建前不宣称可执行 | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py","tests/agent_runtime/test_memory_redesign_confirmation.py"] | planned |
+| harness-memory#RULE-memory-001 | integration | 真实PG/Runtime/模型HTTP及冻结数据；纯函数子项直接验证 | 来源证据、真实候选确认、禁止模型授予USER/ADMIN；正式review留需求终验 | tests/agent_core/test_memory_redesign_evidence.py；tests/agent_runtime/test_memory_redesign_confirmation.py::test_local_b15_real_gateway_confirmation_saves_displayed_content_and_new_receipt、test_local_b15_other_user_cannot_confirm_in_gateway_or_explicit_resume | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py","tests/agent_runtime/test_memory_redesign_confirmation.py"] | deferred_to_review |
+| LOCAL | integration | 真实Gateway RuntimeClient、Runtime HTTP/API/RunService/defaultExecutor、独立head PG、真实模型HTTP探针、持久候选/历史/回执/唯一键 | 真实确认按展示保存，拒绝续跑，无效回答仍WAITING，失效合法编号STALE续跑，绝对deadline拒绝；跨用户、重放、故障整事务回滚 | tests/agent_runtime/test_memory_redesign_confirmation.py::test_local_b15_real_gateway_confirmation_saves_displayed_content_and_new_receipt、test_local_b15_invalid_input_keeps_waiting_and_writes_nothing、test_local_b15_result_event_failure_rolls_back_fact_history_receipt_and_resume、test_local_b15_concurrent_same_message_replays_one_durable_confirmation、test_local_b15_scope_lock_wait_rechecks_absolute_deadline_and_rolls_back | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_confirmation.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| LOCAL / B-15辅助 | 2026-10-14：uv run pytest -q tests/agent_runtime/test_memory_redesign_confirmation.py --tb=line --show-capture=no：17 failed in 42.30s；确认未保存、拒绝无outcome、无效回答被无条件消费、失效未标STALE、deadline仅RUN_BUSY、显式resume缺用户身份、结果故障不能触发回滚。初始重放用例还缺测试凭据，不将该CREDENTIAL_MISSING作为幂等缺陷RED；后续真实凭据HTTP探针就绪后验证模型边界 | 首轮17 passed in 41.43s；最终与来源证据同跑69 passed in 62.62s，其中43个pure来源证据、26个真实确认/反例 | test_memory_redesign_confirmation.py:31（展示内容/USER事实/history/receipt/模型新结果）、66（只消费memory/拒绝续跑）、90（无效仍等待）、105（真实writer版本/forget_epoch变化及损坏hash/user）、138（deadline）、153（双入口用户校验）、168（重放/异文拒绝）、182（PG结果触发器回滚） | memory_confirmation_resume_support.py：生产Gateway RuntimeClient经真实socket HTTP调用Runtime路由/RunService，独立head PG真实候选/checkpoint/唯一writer；实际PG claim/defaultExecutor/模型HTTP与真实ConsoleCredentialsClient→凭据HTTP探针。定义resolver不允许被重调；没有mock Store/Runtime/model边界。最终B-15完整Gateway入口责任归TASK-017，E2E未执行 | verified |
+| LOCAL / 并发、冻结与输入身份补充 | 同消息并发重投：1 failed / RUN_BUSY，另一锁等待反例已通过；TTL/配额：2 failed / 默认TTL=None且配额未拒绝（68项整组中66 passed）；原input.id与transport key：1 failed / 错存transport-key | 并发修复后2 passed in 5.61s；完整冻结修复后TTL/配额2 passed in 4.18s；原input.id修复后1 passed in 2.97s；全部包含于最终69 passed整组 | test_memory_redesign_confirmation.py:227（并发只一次保存/HTTP/确认数）、241（真实scope行锁阻塞后deadline回滚）、283（quota无部分效果）、303（冻结TTL/结果有效期）、319（原输入ID）、337（终态优先） | 独立请求/事务、真实pg_advisory_xact_lock与scope行锁，真实PG时钟；错误路径保留候选和Run等待态，无USER/history/receipt/submission部分效果。提议被改value且重算candidate_hash仍因持久proposal_hash不匹配而STALE | verified |
+
+原metadata argv在编码期作为functional实际执行通过，正式review verifier状态仍deferred_to_review；不替代需求终验。现有显式resume E2E两文件补入platform_user_id并仅collect：`uv run pytest --collect-only -q tests/acceptance/runtime/test_capability_snapshot.py tests/acceptance/runtime/test_run_lifecycle.py`，10 tests collected in 0.47s；没有执行E2E或改全局场景状态。
+
+已执行回归：`uv run pytest -q tests/agent_runtime/test_memory_redesign_proposals.py tests/agent_runtime/test_memory_redesign_resume.py tests/agent_runtime/test_memory_redesign_context.py tests/architecture --tb=line --show-capture=no`，93 passed in 88.99s。轻量`code-flow validate --root "$PWD" --no-heavy --json`实际decision=pass/failures=[]/incomplete=false；ruff通过，新增/重写生产函数均≤50行。
+
+Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxion-task015-regression.py tests/agent_runtime/test_run_service.py tests/agent_runtime/test_runs_api.py tests/agent_runtime/test_run_events.py tests/agent_runtime/test_run_idempotency.py tests/agent_runtime/test_runner_executor.py tests/agent_runtime/test_tool_wait_state_machine.py tests/agent_runtime/test_interrupt_checkpoint.py tests/agent_runtime/test_execution_defaults_settings.py tests/agent_runtime/test_tool_parallel_planner.py tests/agent_runtime/test_tool_result_history.py --tb=line --show-capture=no`，最终92 passed in 53.76s。包装脚本只创建独立head PG/Redis/ARTIFACT_ROOT并配置子进程env，finally清理临时库，未动dev数据；首轮92 passed in 45.51s，完整冻结后扩展夹具曾89 passed/3 failed in 48.28s，原因是测试试图在线把硬配额200/65536降为57/32768，被既有维护窗口规则正确拒绝；夹具改为合法提高至257/131072后整组通过，未放松配额规则。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-14] started
+- [2026-10-14] completed (done)
+- [2026-10-14] Done Gate实际decision=pass；6 review、13范围外required、8超预算verifier及1 heavy validator延至需求终验/归档，未宣称需求全量验收完成。
 
 ---
 

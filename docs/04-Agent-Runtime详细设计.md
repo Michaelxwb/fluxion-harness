@@ -841,10 +841,12 @@ LangGraph interrupt
 
 ```text
 POST /v1/runs/{run_id}/resume
-→ validate WAITING_INPUT
-→ resolve interrupt
-→ append user canonical event
-→ LangGraph resume
+→ 校验 tenant/platform_user_id，查幂等重放
+→ 事务内串行提交身份，Conversation → Run → Interrupt 锁后重查 WAITING_INPUT/deadline
+→ 按 interrupt_type 分派；MEMORY_CONFIRMATION 验证完整回答，其他输入不消费
+→ 同事务追加真实 USER_MESSAGE/Run submission；记忆确认复核持久展示hash/版本/forget_epoch/期限
+→ 保存 USER事实/完整history/receipt、追加确认结果、消费对应interrupt、Run CAS → CREATED
+→ 提交后由PG claim领取执行，HTTP只订阅持久SSE；原候选saved=false回执保持原样
 ```
 
 同一 conversation 存在 `WAITING_INPUT` 的 Run 时，`POST /v1/runs` 也会自动作为 resume 输入，不新建 Run（见 §4.1）。

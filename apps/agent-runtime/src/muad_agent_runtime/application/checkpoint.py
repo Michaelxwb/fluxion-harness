@@ -11,7 +11,7 @@ from muad_agent_core.agent.suspension import MemorySuspendRequest
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import RunStatus
-from muad_contracts.memory import MemoryConfirmationProposal
+from muad_contracts.memory import MemoryConfirmationProposal, memory_hash
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -68,6 +68,7 @@ async def suspend_memory_confirmation(
                 "proposal_id": str(request.interrupt_id),
                 "prompt": request.prompt,
                 "expires_at": proposal.expires_at.isoformat(),
+                "proposal_hash": memory_hash(proposal.model_dump(mode="json")),
             },
         )
         run.status, run.lease_owner, run.lease_until, run.update_time = STATUS_WAITING_INPUT, None, None, now

@@ -60,6 +60,7 @@ async def resume_run(
         run_id,
         payload.input.text,
         tenant_id,
+        platform_user_id=payload.platform_user_id,
         idempotency_key=idempotency_key,
         input_id=payload.input.id,
     )

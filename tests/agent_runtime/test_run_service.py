@@ -323,7 +323,10 @@ async def test_resume_uses_api09_credentials_in_memory(
             credentials_client=credentials,
             supervisor=ExecutionSupervisor(),
         )
-        started = await service.resume(run_id, "answer", tenant.tenant_id, idempotency_key="k-1")
+        started = await service.resume(
+            run_id, "answer", tenant.tenant_id,
+            platform_user_id=tenant.platform_user_id, idempotency_key="k-1",
+        )
         [event async for event in started.events]
 
     assert seen[0].model.api_key == "sk-api09"

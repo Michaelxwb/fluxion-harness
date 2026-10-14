@@ -289,7 +289,7 @@ compaction 删除整个 memory.budget_ratio 分支；新增 max_history_tool_rou
 | Runtime application/memory_service.py | 唯一 MemoryMutationService；调用者身份已绑定；scope 锁、冲突、配额、历史、命令回执 |
 | Runtime application/memory_commands.py | 受信 MemoryWriteContext、严格批量命令与只含元数据的回执 DTO |
 | Runtime application/memory_mutations.py | 锁内整批规划、隐式退休与最终状态配额、完整 after history；不提交事务 |
-| Runtime application/memory_confirmation.py | Run内互斥登记typed候选与saved=false回执，整轮完成后经checkpoint原子暂停；真实resume确认由后续任务接线 |
+| Runtime application/memory_confirmation.py / memory_confirmation_resume.py | Run内互斥登记typed候选与saved=false回执，整轮完成后经checkpoint原子暂停；真实resume按完整回答/持久proposal hash/版本/epoch/期限验证，唯一writer与结果/interrupt/Run CAS/submission同事务，原候选回执不改写 |
 | Runtime application/memory_proposals.py | 从受信submission/USER_MESSAGE构造候选hash/版本/epoch/期限，读取全状态key并直接格式化完整确认提示；取得行锁后复核数据库时钟与执行fence |
 | Runtime application/checkpoint.py | 同事务写完整回合continuation、MEMORY_CONFIRMATION interrupt/提示事件、WAITING_INPUT与lease释放 |
 | packages/agent-core/.../agent/suspension.py | typed ToolSuspensionPort/MemorySuspendRequest；Runner整轮收口后暂停，无app/DB依赖 |
@@ -300,6 +300,7 @@ compaction 删除整个 memory.budget_ratio 分支；新增 max_history_tool_rou
 | Runtime application/memory_resume.py / memory_resume_options.py | 真实入站 USER_MESSAGE 固定 scope revision；Conversation 锁内追加有界 options/统一消费结果，标题/目标词法匹配、300秒有效期、单项选择也先建 options；Runtime 直接生成清单 |
 | Runtime application/memory_resume_queries.py / memory_resume_metrics.py | 按 tenant/user/Conversation/Run 读持久引用；成功 outcome 指标只在外层事务提交后发出，外层或 savepoint 回滚不计成功 |
 | Runtime application/run_service.py / run_events.py | CREATE/RESUME 交真实入站服务；EventWriter 接受服务端预分配 UUID，保持 append-only 与 source 唯一；清单/无匹配提示由 Runtime 持久事件和真实 Run 终态直接交付，模型执行器接收受信 resume_ref |
+| Runtime application/run_resume.py / run_submission.py | resume 短事务先按tenant/key/endpoint取advisory锁并重查重放；Conversation→Run→Interrupt锁后复查状态/deadline，Scope锁等待后与最终CAS前也重验数据库时刻；显式resume必须提供匹配的platform_user_id，原input.id不冒充transport幂等键 |
 | Runtime application/memory_consolidation.py | 输入构建/模型解析/候选验证；不自行开 per-item 提交 |
 | Runtime application/memory_jobs.py | 持久 claim、lease/epoch、重试、原子效果提交；接入现有 lifespan |
 | Runtime application/context_builder.py | 仅按租户/用户重建canonical与摘要，不做memory预查或比例预算 |
@@ -452,6 +453,10 @@ value 与 quote 相等只能证明文本来源，仍不能自动设置 explicit_
 3. Runtime 持久化并直接格式化投递待保存完整内容与候选编号；用户明确“确认 <编号>”或“拒绝 <编号>”。仅匹配真实入站消息，模型 ask_user 回执/工具文本不能充当批准；其他回答不消费提议。
 4. resume 先按 interrupt 类型分派，MEMORY_CONFIRMATION 不进通用无条件消费分支。确认事务按锁序核验 hash/版本/forget_epoch/用户/期限，写真实 USER_MESSAGE 与确认结果事件、USER 事实/history/receipt、interrupt RESOLVED、submission 回执以及 Run WAITING_INPUT→CREATED CAS；失败无部分保存。拒绝也一次性消费并合法续跑，但不写事实。无效编号/其他回答保持等待并返回专用错误；有效编号对应提议已过期/旧版本/旧 epoch 且 Run 仍可恢复时，消费为 STALE 并续跑告知重新提议。Run 已超过绝对 deadline 或进入终态时，不保存、不恢复，返回相应终态/过期错误；此规则优先于提议重试。
 5. 确认结果通过新事件/恢复后的结果消息报告 saved=true/version/TTL；原候选工具结果 saved=false, confirmation_required=true 保持不可变，不回写已落库事件。
+
+实现落点（TASK-015）：暂停事件 `MEMORY_CONFIRMATION_REQUIRED` 持久化整份 proposal 的 canonical hash；确认时复核该 hash 与原 source/submission、展示文本及期限，不能仅在可变提议中自检 candidate hash。结果追加 `MEMORY_CONFIRMATION_RESOLVED`，source_event_id 固定 interrupt UUID，同事务写 resolution_json，并以 message.delta 投递；ContextBuilder 将这条新 Runtime 结果作为后续模型可见的消息，不重写原工具结果。command_id 使用 interrupt UUID 与本次真实 USER_MESSAGE UUID 绑定永久消费身份；输入原 message_id 另外保留，幂等重放复用同一 canonical 事件。
+
+真实确认需要冻结 TTL 与配额，TASK-015 已将 Run 的 memory 分组完整序列化并用同一设置 schema 严格读回，避免原五字段载体丢掉 TTL/配额而悄悄用默认值。TASK-016 仍负责工具历史预算、job快照及冻结能力的最终验收；不以当前完成的 Run memory 接线替代该任务。
 
 显式命令 /memory remember <key> <category> <value> 可直接绑定用户对完整参数的保存意图：Runtime 在真实 USER_MESSAGE 上做严格语法解析，执行同一事务服务，模型不能设置此证据。USER 的 confirmation_event_id 直接引用该真实命令 USER_MESSAGE；参数不匹配的 remember 仍需要候选确认。命令解析与自然语言确认是两种用户入口，共用写入契约，不是旧协议兼容层。
 

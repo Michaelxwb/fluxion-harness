@@ -55,6 +55,18 @@ class RunSubmissionService:
         # 与其余服务一致：传「返回 sessionmaker 的工厂」（如 get_session_factory），而非 sessionmaker 实例
         self._session_factory_provider: SessionFactoryProvider = session_factory_provider
 
+    @staticmethod
+    async def lock_identity(
+        session: AsyncSession,
+        *,
+        tenant_id: str,
+        idempotency_key: str,
+        endpoint: str,
+    ) -> None:
+        identity = canonical_json(["run_submission", tenant_id, idempotency_key, endpoint])
+        key = int.from_bytes(hashlib.sha256(identity.encode()).digest()[:8], "big", signed=True)
+        await session.execute(select(sa.func.pg_advisory_xact_lock(key)))
+
     async def record_submission(
         self,
         *,
@@ -214,9 +226,7 @@ def _now() -> Any:
     return datetime.now(UTC)
 
 
-def require_resume_idempotency(
-    *, idempotency_key: str | None, input_id: str | None
-) -> str:
+def require_resume_idempotency(*, idempotency_key: str | None, input_id: str | None) -> str:
     """resume 幂等键：显式 Idempotency-Key 优先，缺省取 input.id；均缺失 → COMMON_VALIDATION_ERROR。"""
     resolved = idempotency_key or input_id
     if not resolved:

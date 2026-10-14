@@ -291,7 +291,10 @@ async def test_resume_terminal_run_returns_current_state_idempotently(
     _, run_id = await _insert_run(tenant, "COMPLETED")
     response = await client.post(
         f"/v1/runs/{run_id}/resume",
-        json={"input": {"type": "text", "text": "answer"}},
+        json={
+            "platform_user_id": str(tenant.platform_user_id),
+            "input": {"type": "text", "text": "answer"},
+        },
         headers={**_headers(tenant), "Idempotency-Key": "resume-terminal-1"},
     )
     assert response.status_code == 200
@@ -307,7 +310,10 @@ async def test_resume_endpoint_rejects_running_run(
     _, run_id = await _insert_run(tenant, "RUNNING")
     response = await client.post(
         f"/v1/runs/{run_id}/resume",
-        json={"input": {"type": "text", "text": "answer"}},
+        json={
+            "platform_user_id": str(tenant.platform_user_id),
+            "input": {"type": "text", "text": "answer"},
+        },
         headers={**_headers(tenant), "Idempotency-Key": "resume-running-1"},
     )
     assert response.status_code == 409
@@ -321,7 +327,10 @@ async def test_resume_without_key_or_input_id_is_validation_error(
     _, run_id = await _insert_run(tenant, "WAITING_INPUT")
     response = await client.post(
         f"/v1/runs/{run_id}/resume",
-        json={"input": {"type": "text", "text": "answer"}},
+        json={
+            "platform_user_id": str(tenant.platform_user_id),
+            "input": {"type": "text", "text": "answer"},
+        },
         headers=_headers(tenant),
     )
     assert response.status_code == 422
@@ -336,7 +345,10 @@ async def test_resume_endpoint_completes_waiting_input_run(
     _, run_id = await _insert_run(tenant, "WAITING_INPUT", with_interrupt=True, resolved=resolved)
     response = await client.post(
         f"/v1/runs/{run_id}/resume",
-        json={"input": {"id": "reply-1", "type": "text", "text": "device 1"}},
+        json={
+            "platform_user_id": str(tenant.platform_user_id),
+            "input": {"id": "reply-1", "type": "text", "text": "device 1"},
+        },
         headers=_headers(tenant),
     )
     assert response.status_code == 200
@@ -822,7 +834,10 @@ async def test_resume_endpoint_rejects_waiting_tool_run_with_run_busy(
     _, run_id = await _insert_run(tenant, "WAITING_TOOL")
     response = await client.post(
         f"/v1/runs/{run_id}/resume",
-        json={"input": {"type": "text", "text": "answer"}},
+        json={
+            "platform_user_id": str(tenant.platform_user_id),
+            "input": {"type": "text", "text": "answer"},
+        },
         headers={
             **_headers(tenant),
             "Idempotency-Key": f"resume-waiting-tool-{uuid.uuid4().hex[:6]}",

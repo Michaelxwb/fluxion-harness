@@ -214,7 +214,10 @@ def test_s07_terminal_resume_is_idempotent(live_stack: LiveStack, http: httpx.Cl
 
     resumed = http.post(
         f"{live_stack.runtime_url}/v1/runs/{run_id}/resume",
-        json={"input": {"id": "terminal-replay", "type": "text", "text": "again"}},
+        json={
+            "platform_user_id": str(live_stack.platform_user_id),
+            "input": {"id": "terminal-replay", "type": "text", "text": "again"},
+        },
         headers=_headers(live_stack),
     )
     assert resumed.status_code == 200

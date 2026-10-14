@@ -212,7 +212,10 @@ def test_s02_snapshot_freeze_and_api09_credentials_on_resume(
     try:
         resumed = http.post(
             f"{live_stack.runtime_url}/v1/runs/{waiting_run_id}/resume",
-            json={"input": {"id": "reply-1", "type": "text", "text": "yes"}},
+            json={
+                "platform_user_id": str(live_stack.platform_user_id),
+                "input": {"id": "reply-1", "type": "text", "text": "yes"},
+            },
             headers=live_stack.runtime_headers(),
         )
     finally:
