@@ -26,7 +26,7 @@
 | B-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | unit | unit，分词与选择 | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_selection.py"] | . | 120 |  |
 | B-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、5 个独立事务同 key 写 | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py"] | . | 300 |  |
 | B-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG、独立连接不同 key 并发写 | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_quotas.py"] | . | 300 |  |
-| B-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | unit + PG，禁存内容 | TASK-029 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_secrets.py"] | . | 300 |  |
+| B-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | unit + PG，禁存内容 | TASK-029 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_secrets.py"] | . | 300 |  |
 | B-06 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 工具回执 | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_recall.py"] | . | 300 |  |
 | B-07 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 模型 HTTP 探针 | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
 | B-08 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 请求探针 | TASK-012 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | . | 300 |  |
@@ -51,8 +51,8 @@
 | E-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | browser，真实 Console/Runtime/PG/Chrome | TASK-030 | planned | ["make","acceptance-e2e","DOMAIN=agent"] | . | 1800 |  |
 | E-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway/Runtime/PG + 模型探针 | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
 | E-06 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实两个 Runtime 子进程 | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
-| S-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | security，真实 API 身份与租户边界 | TASK-029 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | . | 1800 |  |
-| S-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | security，真实装配与 canary 检查 | TASK-029 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | . | 1800 |  |
+| S-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | security，真实 API 身份与租户边界 | TASK-029 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | . | 1800 |  |
+| S-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | security，真实装配与 canary 检查 | TASK-029 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | . | 1800 |  |
 
 ## Spec Responsibility
 
@@ -66,7 +66,7 @@
 | harness-skill#RULE-skill-001 | TASK-006 | code | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"] | planned |
 | harness-data#RULE-data-001 | TASK-007 | code | ["uv","run","pytest","-q","tests","-k","schema_parity"] | planned |
 | harness-snapshot#RULE-snapshot-001 | TASK-016 | code | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | planned |
-| harness-secret#RULE-secret-001 | TASK-029 | code | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | planned |
+| harness-secret#RULE-secret-001 | TASK-029 | code | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | verified |
 | harness-test#RULE-test-001 | TASK-030 | code | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | planned |
 | harness-ui-detail#RULE-ui-detail-001 | TASK-028 | code | ["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py && npm --prefix apps/console-platform/frontend run typecheck"] | planned |
 | harness-ui#RULE-ui-001 | TASK-028 | code | ["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | planned |
@@ -1488,7 +1488,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ## TASK-029: 新增存储/Prompt 出口安全端到端
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-022, TASK-025, TASK-017, TASK-018
 - **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界, memory-redesign.design.md#3.8 可靠性与观测, memory-redesign.design.md#3.4.5 内容闸门与配额, memory-redesign.design.md#4.2 一次性迁移与切换
@@ -1502,31 +1502,42 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ### Checklist
 
-- [ ] [S-01][E2E] 编写伪造用户/tenant/来源、跨用户确认、无服务身份、非ADMIN全部拒绝场景。
-- [ ] [S-02][E2E] 反查memory/history/proposal/job/receipt/tool审计/log与consolidation Prompt，密钥不漏。
-- [ ] [B-05/B-20][integration] 修复TASK-008复核发现的迁移扫描同类缺口：直接检查原始字符串，不能用canonical JSON二次转义后扫描；敏感JSON/单引号键值文本必须预检拒绝。实际0019→0020临时库补RED/GREEN，断言保持0019且没有history/审计扩散；不重新打开已完成TASK-007，最终B-20仍归原owner并在需求终验复跑。
-- [ ] E2E编码期不跑RED/GREEN；指定真实Live stack命令，证据保持planned至verify-e2e。
-- [ ] [B-05][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：unit + PG，禁存内容；断言：value、key、quote、TASK_STATE 任一含密钥形态则拒绝；memory/history/proposal/log 中无 canary。
-- [ ] [S-01][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：security，真实 API 身份与租户边界；断言：伪造 user/tenant/author、跨用户确认、无服务身份内部调用均拒绝；未授权 ADMIN 不写。
-- [ ] [S-02][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：security，真实装配与 canary 检查；断言：标注引用与未经确认；密钥不进入新增表、历史、回执、日志、模型 consolidation Prompt。
-- [ ] [RULE-secret-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] [S-01][E2E] 编写伪造用户/tenant/来源、跨用户确认、无服务身份、非ADMIN全部拒绝场景。
+- [x] [S-02][E2E] 反查memory/history/proposal/job/receipt/tool审计/log与consolidation Prompt，密钥不漏。
+- [x] [B-05/B-20][integration] 修复TASK-008复核发现的迁移扫描同类缺口：直接检查原始字符串，不能用canonical JSON二次转义后扫描；敏感JSON/单引号键值文本必须预检拒绝。实际0019→0020临时库补RED/GREEN，断言保持0019且没有history/审计扩散；不重新打开已完成TASK-007，最终B-20仍归原owner并在需求终验复跑。
+- [x] E2E编码期不跑RED/GREEN；指定真实Live stack命令，证据保持planned至verify-e2e。
+- [x] [B-05][integration] 先写目标测试并真实记录RED→实现→GREEN；不得Mock：unit + PG，禁存内容；断言：value、key、quote、TASK_STATE 任一含密钥形态则拒绝；memory/history/proposal/log 中无 canary。
+- [x] [S-01][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：security，真实 API 身份与租户边界；断言：伪造 user/tenant/author、跨用户确认、无服务身份内部调用均拒绝；未授权 ADMIN 不写。
+- [x] [S-02][E2E] 编写/collect场景，延期至verify-e2e，不在编码期跑RED/GREEN；不得Mock：security，真实装配与 canary 检查；断言：标注引用与未经确认；密钥不进入新增表、历史、回执、日志、模型 consolidation Prompt。
+- [x] [RULE-secret-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-05 | integration | unit + PG，禁存内容 | value、key、quote、TASK_STATE 任一含密钥形态则拒绝；memory/history/proposal/log 中无 canary | tests/agent_runtime/test_memory_redesign_secrets.py / test_b05_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_secrets.py"] | planned |
-| S-01 | E2E | security，真实 API 身份与租户边界 | 伪造 user/tenant/author、跨用户确认、无服务身份内部调用均拒绝；未授权 ADMIN 不写 | tests/acceptance/im_gateway/test_memory_redesign_security.py / test_s01_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | planned |
-| S-02 | E2E | security，真实装配与 canary 检查 | 标注引用与未经确认；密钥不进入新增表、历史、回执、日志、模型 consolidation Prompt | tests/acceptance/im_gateway/test_memory_redesign_security.py / test_s02_memory_redesign（拟新增；实际实现前collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | planned |
-| harness-secret#RULE-secret-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | planned |
+| B-05 | integration | unit + PG，禁存内容 | value、key、quote、TASK_STATE 任一含密钥形态则拒绝；memory/history/proposal/log 中无 canary | tests/agent_runtime/test_memory_redesign_secrets.py / test_b05_memory_redesign_gate_*、test_b05_memory_redesign_writer_*、test_b05_memory_redesign_proposal_*、test_b05_memory_redesign_consolidation_*、test_b05_memory_redesign_tool_audit_* | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_secrets.py"] | verified |
+| S-01 | E2E | security，真实 API 身份与租户边界 | 伪造 user/tenant/author、跨用户确认、无服务身份内部调用均拒绝；未授权 ADMIN 不写 | tests/acceptance/im_gateway/test_memory_redesign_security.py / test_s01_memory_redesign_*（3 用例，仅 collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | e2e_deferred |
+| S-02 | E2E | security，真实装配与 canary 检查 | 标注引用与未经确认；密钥不进入新增表、历史、回执、日志、模型 consolidation Prompt | tests/acceptance/im_gateway/test_memory_redesign_security.py / test_s02_memory_redesign_*（3 用例，仅 collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | e2e_deferred |
+| harness-secret#RULE-secret-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（tests/test_logging_redaction.py、tests/acceptance/test_foundation_ops_audit.py） | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-05 | 无 RED（不伪造）：写入门禁（`memory_write.validate_memory_content` 的密钥正则+凭据 canary、`memory_observability.memory_audit_preview`、`memory_consolidation_input/output`）在 TASK-008/009/019/021 已完成同类修复，新测试文件首跑即通过；本任务以真实边界测试补齐 B-05 owner | `DATABASE_URL=<隔离 head 库> REDIS_URL=<...> uv run pytest -q tests/agent_runtime/test_memory_redesign_secrets.py` → 28 passed | `tests/agent_runtime/test_memory_redesign_secrets.py`：`test_b05_memory_redesign_gate_rejects_secret_text_without_echoing_it`（value/quote/task×5 形态）、`..._gate_rejects_sensitive_key_names`（key×3）、`..._writer_rejects_and_stores_no_canary`（value/key/quote/task）、`..._proposal_rejects_canary_before_any_store`、`..._consolidation_input_and_output_hide_the_canary`、`..._tool_audit_preview_redacts_canary` | 真实 PG（隔离 head 库 `muad_acc_be4f8817ac`）+ 真实 `MemoryService`/`MemoryConfirmationService`/工具流水线；canary 反查 `user_memory`、`user_memory_history`、`memory_command_receipt`、`memory_scope`、`memory_consolidation_job`、`run_interrupt`、`tool_call_audit` 与 caplog | verified |
+| B-05/B-20 迁移扫描 | `DATABASE_URL=<隔离 head 库> REDIS_URL=<...> uv run pytest -q tests/migrations/test_memory_redesign_preflight.py -k "quoted_sensitive or sensitive_legacy_memory_key or structured_sensitive"` → 4 failed, 2 passed：`{"api_key":"opaque-fixture"}`、`{'password': 'fixture'}`、`api-key` 未被预检拒绝（迁移继续推进），结构化 `{"api_key":...}` 落到 `MEMORY_MIGRATION_INVALID_LEGACY_MEMORY` 而非 FORBIDDEN_CONTENT | 修复后同命令 → 6 passed；`uv run pytest -q tests/migrations/test_memory_redesign_preflight.py` → 17 passed；`uv run pytest -q tests/migrations` → 24 passed | `tests/migrations/test_memory_redesign_preflight.py`：`test_b20_quoted_sensitive_text_blocks_before_canonical_json_escaping`、`test_b20_sensitive_legacy_memory_key_blocks_switch`、`test_b20_structured_sensitive_json_key_blocks_switch`；共用断言 `_assert_blocked_at_0019`（`alembic_version`=0019、无 `runtime.user_memory_history`、`control.config_audit_log` 计数 0） | 真实 0019 临时库（`create_datastore(revision="0019")`，每用例独立库）→ 真实 `migrations/db_migrate.py upgrade 0020` 子进程；生产改动 `migrations/memory_redesign_data.py::_forbidden_text` 直查原始字符串（`_SECRET`/`_SECRET_KEY` 与 Runtime 写入门禁同形状），不再 `canonical_json` 二次转义后扫描 | verified |
+| S-01 | 编码期不执行（E2E）：`uv run pytest -q --collect-only tests/acceptance/im_gateway/test_memory_redesign_security.py` → 6 collected | 未执行；延期至需求终验 `code-flow acceptance run --include-e2e`（或 `uv run pytest -q tests/acceptance/im_gateway/test_memory_redesign_security.py`） | `test_s01_memory_redesign_internal_calls_require_real_service_identity`（无/伪造 `X-Internal-Service`→403；伪造 `author`→422；伪造 tenant 只落在声称租户）、`test_s01_memory_redesign_cross_user_confirmation_is_refused`（跨用户/跨租户 resume→404，Run 仍 WAITING_INPUT，无 USER 事实）、`test_s01_memory_redesign_unauthorized_console_admin_does_not_write`（BUILDER→403 且不写，ADMIN 阳性对照） | 真实 WS 探针 → 真实 Gateway → 真实 Runtime `/v1/runs`、`/v1/runs/{id}/resume`、`/internal/admin/users/{id}/memory/commands` → 真实 Console HTTP（会话+CSRF+RBAC）→ 真实 PG 回读；服务日志在栈 `logs/*.log`（runtime/gateway/console/worker） | e2e_deferred |
+| S-02 | 编码期不执行（E2E）：同文件 collect 覆盖 | 未执行；延期至 verify-e2e | `test_s02_memory_redesign_unconfirmed_candidate_stays_annotated_and_unsaved`（`run_interrupt.proposal_json` 带 `evidence.source_quote`，未确认前 `user_memory` 为空）、`test_s02_memory_redesign_canary_never_reaches_stores_logs_or_prompt`、`test_s02_memory_redesign_canary_absent_from_receipts_and_probe_tool_messages`（canary=`e2e-model-key` 真实模型凭据，反查新增表/历史/回执/提案/job/tool 审计 + 服务日志文件 + 模型探针 consolidation 请求体） | 真实 Runtime 装配（canary 来自真实 `resolve-credentials` 的模型 api_key）→ 真实 PG → 真实模型探针 `/requests` → 真实服务日志文件 | e2e_deferred |
+| harness-secret#RULE-secret-001 | 不适用（原verifier回归，不制造 RED） | `DATABASE_URL=<隔离 head 库> REDIS_URL=<...> uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py` → 14 passed | 原 verifier 指定用例（脱敏过滤器 + 运维审计） | 原 verifier 真实组件（日志脱敏与审计） | verified |
+- B-05: verified — automated command passed; run_id=f53ea70a4a50434cb139c33ad59242c1 (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=f53ea70a4a50434cb139c33ad59242c1 (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=f53ea70a4a50434cb139c33ad59242c1 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-15] started
+- [2026-10-15] completed (done)
 
 ---
 

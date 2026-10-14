@@ -289,6 +289,74 @@ async def test_b20_forbidden_legacy_content_blocks_without_spreading_into_histor
         )
 
 
+async def _assert_blocked_at_0019(engine, tenant):
+    """预检拒绝后：仍在 0019、没有新表、没有审计扩散。"""
+    async with engine.connect() as connection:
+        assert (
+            await connection.execute(sa.text("SELECT version_num FROM alembic_version"))
+        ).scalar_one() == "0019"
+        assert "user_memory_history" not in await connection.run_sync(
+            lambda conn: sa.inspect(conn).get_table_names("runtime")
+        )
+        assert (
+            await connection.execute(
+                sa.text("SELECT count(*) FROM control.config_audit_log WHERE tenant_id=:tenant"),
+                {"tenant": tenant},
+            )
+        ).scalar_one() == 0
+
+
+async def _seed_content(connection, *, memory_key, content_json):
+    await connection.execute(
+        sa.text(
+            "INSERT INTO runtime.user_memory"
+            " (id,tenant_id,user_id,memory_key,category,content_json,source_type,version,"
+            "is_deleted,update_time)"
+            " VALUES (:id,'b14',:user,:key,'PREFERENCE',CAST(:content AS jsonb),'AGENT_INFERRED',1,false,"
+            " statement_timestamp())"
+        ),
+        {"id": uuid4(), "user": uuid4(), "key": memory_key, "content": content_json},
+    )
+
+
+@pytest.mark.parametrize(
+    "secret", ['{"api_key":"opaque-fixture"}', "{'password': 'fixture'}", "token = opaque-fixture"]
+)
+async def test_b20_quoted_sensitive_text_blocks_before_canonical_json_escaping(
+    legacy_memory_database, legacy_memory_datastore, tmp_path, secret
+):
+    async with legacy_memory_database.begin() as connection:
+        await seed_legacy(connection, identity=uuid4(), user=uuid4(), value=secret)
+    result = await upgrade_memory(legacy_memory_datastore, tmp_path)
+    assert result.returncode != 0 and "MEMORY_MIGRATION_FORBIDDEN_CONTENT" in result.stderr
+    assert secret not in result.stderr
+    await _assert_blocked_at_0019(legacy_memory_database, "b14")
+
+
+@pytest.mark.parametrize("memory_key", ["color.password", "api-key"])
+async def test_b20_sensitive_legacy_memory_key_blocks_switch(
+    legacy_memory_database, legacy_memory_datastore, tmp_path, memory_key
+):
+    async with legacy_memory_database.begin() as connection:
+        await _seed_content(connection, memory_key=memory_key, content_json='{"value":"A"}')
+    result = await upgrade_memory(legacy_memory_datastore, tmp_path)
+    assert result.returncode != 0 and "MEMORY_MIGRATION_FORBIDDEN_CONTENT" in result.stderr
+    await _assert_blocked_at_0019(legacy_memory_database, "b14")
+
+
+async def test_b20_structured_sensitive_json_key_blocks_switch(
+    legacy_memory_database, legacy_memory_datastore, tmp_path
+):
+    async with legacy_memory_database.begin() as connection:
+        await _seed_content(
+            connection, memory_key="color", content_json='{"api_key":"opaque-fixture"}'
+        )
+    result = await upgrade_memory(legacy_memory_datastore, tmp_path)
+    assert result.returncode != 0 and "MEMORY_MIGRATION_FORBIDDEN_CONTENT" in result.stderr
+    assert "opaque-fixture" not in result.stderr
+    await _assert_blocked_at_0019(legacy_memory_database, "b14")
+
+
 async def _seed_blocking_objects(connection, kind):
     if kind == "task":
         await connection.execute(

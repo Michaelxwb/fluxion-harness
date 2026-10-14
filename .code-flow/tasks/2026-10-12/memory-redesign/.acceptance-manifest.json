@@ -250,7 +250,7 @@
       "kind": "functional",
       "boundary": "unit + PG，禁存内容",
       "owner": "TASK-029",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -260,7 +260,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "f53ea70a4a50434cb139c33ad59242c1",
+        "executed_at": "2026-10-14T19:09:25.191943+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_memory_redesign_secrets.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "b15cc91459b83de17e5f147bf24fae5136e8dfe2ee89946f39a2dd9693a388b2"
+      },
+      "runs": [
+        {
+          "id": "B-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "f53ea70a4a50434cb139c33ad59242c1",
+          "executed_at": "2026-10-14T19:09:25.191943+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_secrets.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b15cc91459b83de17e5f147bf24fae5136e8dfe2ee89946f39a2dd9693a388b2"
+        }
+      ]
     },
     {
       "id": "B-06",
@@ -1555,7 +1596,7 @@
       "kind": "e2e",
       "boundary": "security，真实 API 身份与租户边界",
       "owner": "TASK-029",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1565,7 +1606,44 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "f53ea70a4a50434cb139c33ad59242c1",
+        "executed_at": "2026-10-14T19:09:25.191943+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/im_gateway/test_memory_redesign_security.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "f53ea70a4a50434cb139c33ad59242c1",
+          "executed_at": "2026-10-14T19:09:25.191943+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_security.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -1574,7 +1652,7 @@
       "kind": "e2e",
       "boundary": "security，真实装配与 canary 检查",
       "owner": "TASK-029",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1584,7 +1662,44 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "f53ea70a4a50434cb139c33ad59242c1",
+        "executed_at": "2026-10-14T19:09:25.191943+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/im_gateway/test_memory_redesign_security.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "f53ea70a4a50434cb139c33ad59242c1",
+          "executed_at": "2026-10-14T19:09:25.191943+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_security.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     }
   ]
 }

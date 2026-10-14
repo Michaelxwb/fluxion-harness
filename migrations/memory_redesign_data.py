@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 import sqlalchemy as sa
-from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import (
     MEMORY_MAX_BYTES,
     MEMORY_MAX_RECORDS,
@@ -24,9 +23,13 @@ from sqlalchemy import Connection, Table
 from sqlalchemy.engine import RowMapping
 
 _SECRET = re.compile(
-    r"sk-[A-Za-z0-9_-]{16,}|AKIA[A-Z0-9]{16}|gh[pousr]_[A-Za-z0-9]{20,}"
-    r"|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"
-    r"|(?:api[_ -]?key|password|secret|token)\s*[:=]\s*\S+",
+    r"sk-[a-z0-9_-]{16,}|AKIA[A-Z0-9]{16}|gh[pousr]_[a-z0-9]{20,}"
+    r"|xox[baprs]-[a-z0-9-]{16,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"
+    r"|(?:password|passwd|secret|api[_ -]?key|(?:access[_ -]?)?token)[\"']?\s*[:=]\s*\S+",
+    re.I,
+)
+_SECRET_KEY = re.compile(
+    r"(?:^|[.:-])(?:password|passwd|secret|token|api[._ -]?key|access[._ -]?token|credential)(?:$|[.:-])",
     re.I,
 )
 _TERMINAL = ("COMPLETED", "FAILED", "CANCELLED")
@@ -126,17 +129,32 @@ def _preflight_drain(bind: Connection) -> None:
             raise ValueError("MEMORY_MIGRATION_DRAIN_REQUIRED")
 
 
+def _forbidden_text(value: object) -> bool:
+    """直查原始字符串，不做 canonical JSON 二次转义。
+
+    `canonical_json(_document(row))` 会把 JSON 文本里的引号转义成 `\\"`，
+    `{"api_key":"x"}` 这类敏感 JSON/单引号键值正好被转义掩盖而漏检；
+    结构化 JSONB 的敏感键名也因引号不满足旧正则而漏检。这里改为遍历原始
+    键/值：文本按 `_SECRET`（与 Runtime 写入门禁同形状），映射键名按 `_SECRET_KEY`。
+    """
+    if isinstance(value, str):
+        return bool(_SECRET.search(value))
+    if isinstance(value, Mapping):
+        return any(
+            bool(_SECRET_KEY.search(str(key))) or _forbidden_text(item) for key, item in value.items()
+        )
+    if isinstance(value, (list, tuple)):
+        return any(_forbidden_text(item) for item in value)
+    return False
+
+
 def preflight_memory(bind: Connection) -> None:
     _preflight_drain(bind)
     table = _table(bind, "user_memory")
     quotas: dict[tuple[str, UUID], tuple[int, int]] = {}
     for raw_row in bind.execute(sa.select(table)).mappings():
         row = _row(raw_row)
-        raw = canonical_json(_document(row))
-        segments = re.split(r"[.:-]", _text(row, "memory_key"))
-        if _SECRET.search(raw) or any(
-            segment in ("password", "apikey", "token", "secret") for segment in segments
-        ):
+        if _SECRET_KEY.search(_text(row, "memory_key")) or _forbidden_text(_document(row)):
             raise ValueError("MEMORY_MIGRATION_FORBIDDEN_CONTENT")
         try:
             content = FactContent.model_validate(row["content_json"])
