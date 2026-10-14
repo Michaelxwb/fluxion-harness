@@ -1376,13 +1376,13 @@ ACTIVE/DISABLED/EXPIRED过滤、history按version分页，list/count同条件；
 
 ## TASK-027: 记忆来源/状态/历史原因及错误本地化
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-004
 - **Source**: memory-redesign.design.md#3.7 API 与 Console, memory-redesign.design.md#6.1 Spec Compliance Matrix
 - **Spec-Refs**: harness-i18n#RULE-i18n-001
 - **Acceptance-Refs**: 
-- **Files**: apps/console-platform/frontend/src/locales/zh-CN.json, apps/console-platform/frontend/src/locales/en-US.json, apps/console-platform/frontend/src/modules/user-identity/memoryOptions.ts
+- **Files**: apps/console-platform/frontend/src/locales/zh-CN.json, apps/console-platform/frontend/src/locales/en-US.json, apps/console-platform/frontend/src/modules/user-identity/memoryOptions.ts, tests/frontend/test_user_memory_i18n_contract.py
 
 ### Description
 
@@ -1390,24 +1390,40 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ### Checklist
 
-- [ ] 先写中英文键集齐平、enum键真实翻译、错误码同名及无孤儿词条RED。
-- [ ] 不新增i18n框架/HTTPclient机制，options按模块唯一且由当前t注入。
-- [ ] [E-04][unit] 辅助语言切换和原始码title契约，记录GREEN。
-- [ ] [RULE-i18n-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
+- [x] 先写中英文键集齐平、enum键真实翻译、错误码同名及无孤儿词条RED。
+- [x] 不新增i18n框架/HTTPclient机制，options按模块唯一且由当前t注入。
+- [x] [E-04][unit] 辅助语言切换和原始码title契约，记录GREEN。
+- [x] [RULE-i18n-001] verifier：按元数据argv ["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]（cwd=., timeout=300s）实际执行并登记；不得Mock的边界/断言见下方Contract。不得把未执行标verified。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| harness-i18n#RULE-i18n-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（已在仓库；本轮未执行） | ["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"] | planned |
+| harness-i18n#RULE-i18n-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | tests/acceptance/test_foundation_i18n.py（6 用例）+ scripts/check_frontend_i18n.py（全量 1141 键双侧齐平/空值/引用已定义）；本任务新增 `tests/frontend/test_user_memory_i18n_contract.py`（8 用例）为辅助证据 | ["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+- RED（辅助契约，先写后实现）：`uv run pytest -q tests/frontend/test_user_memory_i18n_contract.py --tb=line` → **8 failed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task027-red.txt`（复现方式：把本任务三个实现文件 stash 掉后原样重跑，失败集合与首次 RED 逐条相同）。失败原因即缺失契约：`memoryOptions.ts` 不存在（`:116`，命中 5 个用例）；`user.memory.author.` 词条不存在（`:258`）；行为用例无法转译缺失模块（`:355`）；`settings.field.*` 17 条缺口（`:405`，TASK-026 点名的存量红）。
+- GREEN：`uv run pytest -q tests/frontend/test_user_memory_i18n_contract.py -v` → **8 passed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task027-green.txt`。真实边界：真实词条文件、真实前端源码树、真实后端契约模块（`muad_contracts.memory`/`memory_admin`、`muad_agent_runtime.application.memory_commands`）、真实 node + 仓库自带 esbuild（把**真实 locale JSON** 注入 `t`；无 HTTP/DB/浏览器）。断言位置：
+  - 键集齐平/无空值/无孤儿：`:209-228`（`user.memory.*` 两侧键集相等；引用面 = 静态 `t('…')` ∪ `memoryOptions.ts` 枚举出来的动态键变体）。
+  - 枚举口径取后端事实：`:231-250`（`MEMORY_AUTHORS`=`MemoryAuthor`、`MEMORY_CATEGORIES`=`MemoryCategory`、`MEMORY_STATUSES`=`MemoryStatus`、`MEMORY_ACTORS`=`MemoryActor`(USER/ADMIN/AGENT/SYSTEM)、`MEMORY_CONFIRMATION_STATES`=EXPLICIT/INFERRED、`MEMORY_RETIREMENT_REASONS`=`MemoryRetirementReason`、`MEMORY_CHANGE_REASONS` = upsert 四态(CREATE/OVERWRITE/CONFIRM/RESTORE) ∪ 控制动作(ENABLE/DISABLE/RESTORE，来自 `AdminAction`) ∪ 退休原因 ∪ `MIGRATION_BASELINE`，且这些字面量仍真实存在于 Runtime/迁移源码）。
+  - 真翻译：`:253-263`（六个枚举族逐键 `≠裸码`、zh≠en）。
+  - 错误码同名：`:266-293`（`MEMORY_ERROR_KEYS` 键集 = `memoryTypes.MEMORY_ERROR_CODES`；每个码必须在 `config/api-messages.yaml` 已登记；词条键 = `user.memory.error.<CODE>`；未登记码落 `user.memory.errorFallback`，两侧均有且已本地化）。
+  - `t` 注入与不缓存：`:296-334`（10 个出口签名首参 `t: TFunction`；动态键 `` t(`${prefix}.${value}`) `` 现场求值；枚举域外 `: value` 原样回退；无模块作用域/组件状态译文缓存、无 i18n 单例消费、无 `useTranslation`，只有 `import type { TFunction } from 'i18next'`；模块内其余文件不得自建枚举文案键）。
+  - 真实行为（语言切换/原始码）：`:337-395`——同一 node 进程内先注入 zh 词条再注入 en 词条，逐枚举值断言渲染结果等于对应词条且 zh≠en（`:379`）；`memoryErrorLabel(code)` 逐码等于词条（`:385`）、`null`/未登记码落 fallback（`:386`）；域外值原样返回原始码（`:388`：author 域外的 `SYSTEM`→`SYSTEM`、`LEGACY_REASON_V9`→`LEGACY_REASON_V9`）；选项同时携带原始码 `value` 与本次渲染的 `label`（`:393`，组件据此 `title={value}`）。
+  - 平台设置存量缺口：`:398-408`（17 条 `settings.field.*` 双侧齐备、非空、zh≠en）。
+  - 无硬编码文案：`:411-415`（`memoryOptions.ts` 与 `UserDetailTabs.tsx` 去注释后无汉字字面量）。
+- verifier（元数据 argv 原样实跑，cwd=.，timeout=300s）：`bash -lc "uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"` → `6 passed in 1.67s` + `i18n keys OK: 1141`，日志 `/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task027-verifier.txt`。
+- 回归：`uv run pytest -q tests/frontend` → **1 failed, 329 passed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task027-regression.txt`；唯一 failed 是存量且与本 diff 无关的 `test_audit_gap_contract.py::test_b214_resource_type_options_cover_backend_domain`（TASK-026 基线同样红）。TASK-026 点名的 `test_platform_settings_contract.py::test_backend_catalog_label_keys_are_translated_in_both_locales` 由本任务补齐 17 条词条后转绿（该文件 38 用例中相关 7 条全绿，另跑 `test_platform_settings_contract.py test_user_identity_contract.py test_user_memory_contract.py test_detail_sidesheet_contract.py` = 38 passed）。`npm --prefix apps/console-platform/frontend run typecheck` 通过；另跑 `tests/frontend/test_api_client_contract.py`（4 passed）与 `scripts/check_frontend_api_usage.py`（OK）作旁证（`harness-frontend#RULE-front-001` 责任仍归 TASK-026，本任务不宣称）。
+- 实现：新增 `memoryOptions.ts`（模块唯一的枚举→文案/选项构造口：author/actor/category/status/confirmation/changeReason 六个 `as const` 枚举族 + `memoryEnumLabel` 动态键求值 + `MemoryOption{value,label}` 选项工厂 + `MEMORY_ERROR_KEYS`/`MEMORY_ERROR_FALLBACK_KEY`/`memoryErrorLabel`；`t: TFunction` 一律由调用方注入，模块内无任何译文缓存）。两侧词条新增 54 条（`user.memory.*` 37 条 + `settings.field.*` 17 条），键顺序两侧逐行一致（1141/1141）。
+- 顺带清理（同一契约要求）：删除两侧既有的孤儿词条 `user.memory.category`（"类别"/"Category"）——TASK-026 把来源列改为 `author` 后组件已不再引用它（全仓库仅剩词条自身），"无孤儿词条"不允许它继续躺着；TASK-028 渲染类别列时用 `memoryCategoryLabel` 取 `user.memory.category.<VALUE>`，列标题键届时按需重建。
+- 跨任务边界（登记）：本任务**不改组件**（`UserDetailTabs.tsx` 未在 diff 内），`memoryOptions.ts` 的接入、状态/历史/动作 UI 与版本冲突恢复归 TASK-028；`user.memory.sourceType.*` 两条 legacy 键仍被现有组件静态引用（非孤儿），由 TASK-028 收口。E-04 浏览器场景（创建/启禁用/删除/历史分页与本地化）owner 是 TASK-030，本任务只做 [E-04][unit] 辅助，不宣称 E2E。行为用例依赖仓库内 node+esbuild（前端依赖未安装时**显式 skip** 并提示 `npm ci`，不静默通过；本机为真实执行）。
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-15] started
+- [2026-10-15] completed (done)
 
 ---
 
