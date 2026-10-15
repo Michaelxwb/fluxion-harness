@@ -172,3 +172,46 @@ WS 入站不带会话指针，`RunService._resolve_conversation`（`run_service.
 - [2026-10-15] RED（3 failed，旧 `update_time` 口径）→ 实现 `_conversation_recency_key()`（USER_MESSAGE 最大 `create_time` + `create_time` 回落，单查询）→ 新用例 3 passed、文件 15 passed；`tests/agent_runtime` 764 passed ×2、im_gateway 两文件 7 passed ×2；ruff/mypy 全绿。
 - [2026-10-15] 登记：全仓无其它按会话 `update_time` 解析「当前会话」的位置（`cancel_active` 按活跃 Run）；未改 `EventWriter` 语义。
 - [2026-10-15] completed (done)
+
+---
+
+## TASK-004: 归档与新提交引发的存量契约修复（inventory 路径回落 + 配置清单重生成）
+
+- **Status**: done
+- **Priority**: P1
+- **Depends**: TASK-003
+- **Source**: .code-flow/tasks/archived/2026-10-12/memory-redesign/memory-redesign.design.md#6.1 Spec Compliance Matrix
+- **Spec-Refs**: 
+- **Acceptance-Refs**: 
+- **Files**: tests/test_memory_redesign_spec_contract.py, tests/memory_redesign_inventory.py, docs/configuration-inventory.csv
+
+### Description
+
+本需求终验（verify-e2e）heavy 校验暴露两条由**收尾动作**引发的存量契约失效：① 记忆需求归档后，`tests/test_memory_redesign_spec_contract.py` 与 `tests/memory_redesign_inventory.py` 仍按未归档路径读任务文件/spec-context ⇒ `context_read_error`；② TASK-003 改动 `run_service.py` 造成模块级常量行号位移，`docs/configuration-inventory.csv` 的 python-constant 行陈旧。按仓库既有惯例修：inventory 类测试统一 `TASK_REL` + `ARCHIVED_REL` 双路径回落（见 `tests/async_tool_runtime_inventory.py:48-71`、`tests/agent_memory_inventory.py:25-41`）；CSV 按 AST 重生成。
+
+### Checklist
+
+- [x] 先跑两条失败用例记录真实 RED（`test_memory_redesign_spec_contract.py::test_memory_rule_has_exactly_one_owner_and_duplicate_is_blocked`、`tests/memory_redesign_inventory.py`、`tests/test_configuration_inventory.py`）。
+- [x] 两个测试按既有惯例加 `ARCHIVED_REL` 回落（归档后仍能校验归档件的一致性）；不改校验口径。
+- [x] `docs/configuration-inventory.csv` 按 AST 重生成 python-constant 行（沿用既有 category/reason 口径）。
+- [x] GREEN：三条用例 + `tests/memory_redesign_inventory.py` 全绿；`tests/frontend` 与 `tests/agent_runtime/test_run_service.py` 不回归。
+- [x] 不修无关文件；Evidence 记录命令与结果。
+
+### Acceptance Contract
+
+| 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| LOCAL | unit | 真实仓库文件树（归档件 + 源码 AST） | 归档后契约测试按 `ARCHIVED_REL` 回落并全绿；CSV 与真实常量一致 | tests/test_memory_redesign_spec_contract.py、tests/memory_redesign_inventory.py、tests/test_configuration_inventory.py | ["uv","run","pytest","-q","tests/test_memory_redesign_spec_contract.py","tests/memory_redesign_inventory.py","tests/test_configuration_inventory.py"] | planned |
+
+### Acceptance Evidence
+
+- RED：`uv run pytest -q tests/test_configuration_inventory.py::test_configuration_inventory_covers_real_python_constants tests/test_memory_redesign_spec_contract.py::test_memory_rule_has_exactly_one_owner_and_duplicate_is_blocked` → **2 failed**：① 配置清单 python-constant 行陈旧（TASK-003 改动 `run_service.py` 造成常量行号位移）；② `cf_spec_context.ContextError: context_read_error`（按未归档路径 `.code-flow/tasks/2026-10-12/memory-redesign/spec-context.yml` 读取，归档后不存在）。RED 现场亦见 verify-e2e 的 validation 输出（`/tmp/fluxion-postverify-e2e.json`）。
+- GREEN：同两条 + `tests/memory_redesign_inventory.py` → **18 passed**；`tests/test_configuration_inventory.py` → **4 passed**（CSV 按 AST 重生成，1240 行 / python-constant 1033，category/reason 沿用既有口径）。ruff 全绿。
+- 实现：`tests/test_memory_redesign_spec_contract.py` 与 `tests/memory_redesign_inventory.py` 引入 `ARCHIVED_TASK_DIR` 回落（与 `tests/async_tool_runtime_inventory.py:48-71`、`tests/agent_memory_inventory.py:25-41` 同惯例），归档后仍以归档件为事实源校验；校验口径未变。
+
+### Log
+
+- [2026-10-15] created (draft)；由 post-verify-fixes 终验 heavy 校验缺口显式补任务。
+- [2026-10-15] started
+- [2026-10-15] resumed (in-progress)
+- [2026-10-15] completed (done)

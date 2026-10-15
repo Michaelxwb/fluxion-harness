@@ -122,24 +122,24 @@ apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,53,__init
 apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,54,__init__.deadline_ms,DEFAULT_DEADLINE_MS,function-default,business,消费平台设置 agent 分组的执行预算默认（design §2.3.2 / ADR-07）
 apps/agent-runtime/src/muad_agent_runtime/application/run_deadline.py,15,ACTIVE_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_events.py,102,list_events.limit,1000,function-default,code,查询或函数调用默认，需结合调用者；不自动视为系统设置
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,136,ACTIVE_RUN_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,137,TERMINAL_RUN_STATUSES,"(RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,138,PROMPT_TEMPLATE_VERSION,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,292,DEFAULT_POLICY,snapshot_policy(),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,293,RUN_ABANDONED,'RUN_ABANDONED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,294,USER_MESSAGE_EVENT,'USER_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,295,ASSISTANT_MESSAGE_EVENT,'ASSISTANT_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,296,CANCEL_EVENT,'CANCEL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,297,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,298,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,299,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,300,INTERRUPT_WAITING,'WAITING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,301,INTERRUPT_RESOLVED,'RESOLVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,302,INTERRUPT_CANCELLED,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,303,TERMINAL_STREAM_TYPES,"(RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,304,REPLAY_POLL_SEC,0.5,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,305,CONVERSATION_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,307,STREAM_BUSINESS_TYPES,"{RUN_CREATED_EVENT: 'RUN_CREATED', 'message.delta': 'ASSISTANT_DELTA', 'model.started': 'MODEL_CALL_STARTED', 'model.completed': 'MODEL_CALL_COMPLETED', 'tool.started': 'TOOL_CALL_STARTED', 'tool.completed': 'TOOL_CALL', 'assistant.turn': 'ASSISTANT_TURN', 'skill.loaded': 'SKILL_LOADED', 'artifact.created': 'ARTIFACT_CREATED', 'interrupt.required': 'INTERRUPT_REQUIRED', 'task.accepted': 'TASK_ACCEPTED', RUN_COMPLETED_EVENT: ASSISTANT_MESSAGE_EVENT, RUN_FAILED_EVENT: 'RUN_FAILED'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,137,ACTIVE_RUN_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,138,TERMINAL_RUN_STATUSES,"(RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,139,PROMPT_TEMPLATE_VERSION,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,293,DEFAULT_POLICY,snapshot_policy(),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,294,RUN_ABANDONED,'RUN_ABANDONED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,295,USER_MESSAGE_EVENT,'USER_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,296,ASSISTANT_MESSAGE_EVENT,'ASSISTANT_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,297,CANCEL_EVENT,'CANCEL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,298,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,299,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,300,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,301,INTERRUPT_WAITING,'WAITING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,302,INTERRUPT_RESOLVED,'RESOLVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,303,INTERRUPT_CANCELLED,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,304,TERMINAL_STREAM_TYPES,"(RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,305,REPLAY_POLL_SEC,0.5,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,306,CONVERSATION_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,308,STREAM_BUSINESS_TYPES,"{RUN_CREATED_EVENT: 'RUN_CREATED', 'message.delta': 'ASSISTANT_DELTA', 'model.started': 'MODEL_CALL_STARTED', 'model.completed': 'MODEL_CALL_COMPLETED', 'tool.started': 'TOOL_CALL_STARTED', 'tool.completed': 'TOOL_CALL', 'assistant.turn': 'ASSISTANT_TURN', 'skill.loaded': 'SKILL_LOADED', 'artifact.created': 'ARTIFACT_CREATED', 'interrupt.required': 'INTERRUPT_REQUIRED', 'task.accepted': 'TASK_ACCEPTED', RUN_COMPLETED_EVENT: ASSISTANT_MESSAGE_EVENT, RUN_FAILED_EVENT: 'RUN_FAILED'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,23,SUBMISSION_OPEN,'OPEN',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,24,SUBMISSION_CLOSED,'CLOSED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,25,ENDPOINT_CREATE_RUN,'create-run',python-constant,code,协议标识、枚举、schema、文本或实现常量

@@ -26,6 +26,10 @@ from cf_spec_gate import _task_sections, validate_plan_coverage  # noqa: E402
 from cf_spec_metadata import load_spec_metadata  # noqa: E402
 
 TASK_DIR = ROOT / ".code-flow/tasks/2026-10-12/memory-redesign"
+ARCHIVED_TASK_DIR = ROOT / ".code-flow/tasks/archived/2026-10-12/memory-redesign"
+# 需求归档后仍以归档件为事实源校验（与 tests/async_tool_runtime_inventory.py 同惯例）。
+TASK_DIR = TASK_DIR if TASK_DIR.exists() else ARCHIVED_TASK_DIR
+assert TASK_DIR.is_dir(), f"需求目录不存在：{TASK_DIR}"
 TASK_FILE = TASK_DIR / "memory-redesign.md"
 DESIGN_FILE = TASK_DIR / "memory-redesign.design.md"
 MANIFEST_FILE = TASK_DIR / ".acceptance-manifest.json"

@@ -14,6 +14,9 @@ from cf_spec_metadata import SpecMetadataError, load_spec_metadata  # noqa: E402
 from cf_spec_resolver import resolve_candidates  # noqa: E402
 
 TASK_DIR = ROOT / ".code-flow/tasks/2026-10-12/memory-redesign"
+ARCHIVED_TASK_DIR = ROOT / ".code-flow/tasks/archived/2026-10-12/memory-redesign"
+# 需求归档后仍以归档件为事实源校验（与 tests/async_tool_runtime_inventory.py 同惯例）。
+TASK_DIR = TASK_DIR if TASK_DIR.exists() else ARCHIVED_TASK_DIR
 SPEC = ROOT / ".code-flow/specs/memory/harness-memory.md"
 RULES = {f"RULE-memory-{number:03d}" for number in range(1, 7)}
 pytestmark = pytest.mark.contract
