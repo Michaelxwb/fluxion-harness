@@ -164,7 +164,11 @@ async function createMemoryViaUi(
   await expect(page.locator('.semi-select-option').filter({ hasText: copy.taskState })).toHaveCount(0);
   await page.locator('.semi-select-option').filter({ hasText: copy.preference }).click();
   await modal.getByRole('textbox', { name: copy.content }).fill(value);
-  await modal.getByRole('button', { name: copy.add, exact: true }).click();
+  // Semi 的 Modal 页脚按钮带 aria-label="confirm"（全仓 e2e 一致使用该稳定定位）；
+  // 文案仍按语言断言，本地化覆盖不降级为「点得到就行」。
+  const submit = modal.getByRole('button', { name: 'confirm', exact: true });
+  await expect(submit).toHaveText(copy.add);
+  await submit.click();
   await expect(modal).toHaveCount(0);
 }
 
@@ -234,9 +238,11 @@ test('E-04 记忆历史分页：超过一页按 version 倒序翻页（真实 Co
   const userId = await createUserViaApi(page, userCode, 'E2E Memory Page');
   await createMemoryViaApi(page, userId, memoryKey, content);
   // 17 条历史（1 创建 + 16 次真实启禁用）> 每页 15 条 ⇒ 2 页。
+  // 注意：把 enabled 置成**当前值**在 Runtime 里是 UNCHANGED（不新增历史、不递增版本），
+  // 所以循环必须从「与初始状态相反」的停用开始，16 次才是 16 条历史。
   let version = 1;
   for (let index = 0; index < 16; index += 1) {
-    version = await toggleMemoryViaApi(page, userId, memoryKey, index % 2 === 0, version);
+    version = await toggleMemoryViaApi(page, userId, memoryKey, index % 2 === 1, version);
   }
   await openMemoryTab(page, userCode, locale);
   await page.getByTestId(`memory-history-${memoryKey}`).click();

@@ -1,7 +1,7 @@
 version: 1
 task: memory-redesign
 enforcement: required
-updated_at: '2026-10-15T07:22:24.836327+00:00'
+updated_at: '2026-10-15T10:04:24.915382+00:00'
 sources:
 - type: cli
   ref: bind
@@ -60,7 +60,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         - artifact: memory-redesign.md
           section_id: TASK-009
           item_id: idempotency-receipt
@@ -540,6 +540,40 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-15T09:22:02.474525+00:00'
+          status: verified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: c6908a76be9cf8030af2a2c0245b37b34f8e46ca0404c8b054c3db295d247ce9
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 9acc6c6e2911c9746e4ea8baac1e6de08c2197c049b24afaa8495de051f388c5
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.06s
+
+              '
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-15T10:54:54.920520+00:00'
+          status: unverified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: stale
         refs: []
@@ -569,7 +603,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-023
           item_id: TASK-023
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -1087,6 +1121,46 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-15T09:22:05.031638+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: a94d2c47867685d8f5306cb7f8a3048efd032bbd3505433fae141d318b26d5f8
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 115c50ce120d0e690d8514adea6617d6eaf4bb1788928e82503a1b98f003bc6f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.12s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-15T10:54:54.920675+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1131,7 +1205,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-022
           item_id: TASK-022
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -1535,6 +1609,40 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-15T09:22:06.249112+00:00'
+          status: verified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: b482d3005894ce80097e9e52220951b8ef8f7c5e89e15239c7f146137cd7eb69
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: 59f492fa90c1cfd688e3c1819c999d795a80ff6b1b77c0f950574992cc59f4ed
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.................................                                        [100%]
+
+              33 passed in 0.84s
+
+              '
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-15T10:54:54.921374+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1582,7 +1690,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -1974,6 +2082,46 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-15T09:22:19.134447+00:00'
+          status: verified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 0a1262d30fcb9028024dbf994a3255de5c6835ee5ff27420bda1478dd58278f2
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: f57ff47b4b6016ce54ce48c4124b6ee8d9d031fc056750b37f6e1ddbb2690957
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: ".........................................                   \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              41 passed, 3383 deselected, 1 warning in 12.08s\n"
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-15T10:54:54.922083+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: stale
         refs: []
@@ -2022,7 +2170,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-026
           item_id: TASK-026
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -2414,6 +2562,50 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-15T09:22:21.617146+00:00'
+          status: verified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 8d0b89764570661b33775c4232ad2eeca39ca2376fc3a8484bf66f5b9be89f7f
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run
+              python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: 52eecd5fa5ab8d4d2cbdfc245660d2915f23aaf5a9796fe73c2be6ea2e4490c1
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.01s
+
+              frontend api usage check OK
+
+              i18n keys OK: 1163
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-15T10:54:54.922783+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2458,7 +2650,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-027
           item_id: TASK-027
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -2876,6 +3068,41 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-15T09:22:23.797271+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: df480dbdd447869d3aaa337673e4b260b3f08cbdf3549b9256cabde2074e4132
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 56e46dd7c76e55e94e9e23b5b10d61eb76df5b6d7cb0cfd1a72d588b45770881
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.61s
+
+              i18n keys OK: 1163
+
+              '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-15T10:54:54.923420+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2920,7 +3147,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -3312,6 +3539,57 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-15T09:23:47.127339+00:00'
+          status: verified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: e36a77313421aa689c150c819aca145b67029e5b24b5bd07f73cce875debf475
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_channel
+            - tests/gateway
+            exit_code: 0
+            stdout_sha256: 314ae80d0b9beb83e92c547af8a583a8222698aa312711e3f851624bb14eabe6
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "........................................................................\
+              \ [ 17%]\n........................................................................\
+              \ [ 34%]\n........................................................................\
+              \ [ 52%]\n........................................................................\
+              \ [ 69%]\n........................................................................\
+              \ [ 87%]\n.....................................................    \
+              \                [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              413 passed, 3 warnings in 82.11s (0:01:22)\n"
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-15T10:54:54.924410+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -3342,7 +3620,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -3746,6 +4024,40 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-15T09:23:48.076768+00:00'
+          status: verified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 9e2601b78e57539a29068777f179307674afc50caaf0b4bad5a03d4152ce45a5
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture/test_channel_neutrality.py
+            exit_code: 0
+            stdout_sha256: 826bfa35c95def545fd29fb713eecbedcd1a95799915bbc827b33fa83924c849
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 0.62s
+
+              '
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-15T10:54:54.924416+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -3792,7 +4104,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-018
           item_id: TASK-018
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -4198,6 +4510,42 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-15T09:23:50.004992+00:00'
+          status: verified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 150daf47e00b6fe75c6f634ffd38ac71a3f9471ec141c4c64953d0073764ba45
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging.py
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_logging.py
+            exit_code: 0
+            stdout_sha256: 1d4524fd568da8973a7da69bd2746b8e9cca768cef9c7d41729fbb9482edc325
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 1.60s
+
+              '
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-15T10:54:54.925103+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -4243,7 +4591,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-018
           item_id: TASK-018
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -4450,6 +4798,40 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-15T09:23:50.880681+00:00'
+          status: verified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 723a36d5fd2588e788ae97c8fd6f5bde6a2971215c3481dba4c41467e498e4d8
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_mcp/test_mcp_rules.py
+            exit_code: 0
+            stdout_sha256: e0a6ea218ea5d725ce7272da8d68d45a029e489423e03af6960c7bff0f7fe414
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 0.01s
+
+              '
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-15T10:54:54.925963+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -4496,7 +4878,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-015
           item_id: TASK-015
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -4505,10 +4887,37 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-001
+          executed_at: '2026-10-15T09:25:15.501186+00:00'
+          status: verified
+          rule_text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 6b9fa3424af35c032cb95ac9f3900b457f9519eeb5d79c8736b1b44263a50ca4
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_core/test_memory_redesign_evidence.py
+            - tests/agent_runtime/test_memory_redesign_confirmation.py
+            exit_code: 0
+            stdout_sha256: 706fe6fd168b0c208244f374f9b79a4873122304ac811aa79612caf7e301d068
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 90%]
+
+              ........                                                                 [100%]
+
+              80 passed in 82.91s (0:01:22)
+
+              '
   - ref: RULE-memory-002
     summary: Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。同
       tenant/user/key 使用完整唯一身份，软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope
@@ -4533,7 +4942,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -4542,10 +4951,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-002
+          executed_at: '2026-10-15T09:25:48.897639+00:00'
+          status: verified
+          rule_text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: ec57895d912a5ad254a2abe17d40a900b57da70660a10d90b2bfe99fc3ffa377
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_writes.py
+            - tests/agent_runtime/test_memory_redesign_quotas.py
+            exit_code: 0
+            stdout_sha256: e3462a1e5978cd7a63d28aef9ba604acc7716277e5804c853e99c1a3cb4992d8
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.........................                                                [100%]
+
+              25 passed in 32.42s
+
+              '
   - ref: RULE-memory-003
     summary: 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖
       query。revision 缓存只存候选行：冷读取行与实际 revision 同快照，暖读取 revision 与当前语句时间，并逐次过滤 TTL、重新选择/渲染；读取失败清除旧缓存和
@@ -4571,7 +5004,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-012
           item_id: TASK-012
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -4580,10 +5013,35 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-003
+          executed_at: '2026-10-15T09:26:48.783343+00:00'
+          status: verified
+          rule_text_sha256: 906176dd9052cf4e5a36ed341041e759f6fb1f9e6b37f0447f715926715f85b7
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 3cb8e265abed978b1241434af9920f8d5e9e3a19d9ca0972a54e4b0abdb8df0d
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_cache.py
+            - tests/agent_runtime/test_memory_redesign_context.py
+            - tests/agent_core/test_memory_redesign_selection.py
+            exit_code: 0
+            stdout_sha256: 0c51fa68ec40588160775934d2ea0862e4906dc5c379ad723bcb4ec97854dd30
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................                 [100%]
+
+              56 passed in 58.79s
+
+              '
   - ref: RULE-memory-004
     summary: 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled
       或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision
@@ -4608,7 +5066,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-021
           item_id: TASK-021
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -4617,10 +5075,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-004
+          executed_at: '2026-10-15T09:28:48.668939+00:00'
+          status: verified
+          rule_text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: f6df4939c1224f19c69bd675a69f5eb44e5e017a30da3516202c3ad6516f0b11
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_job_effects.py
+            - tests/agent_runtime/test_memory_redesign_confirmation.py
+            exit_code: 0
+            stdout_sha256: 37e723c1e2c8bce92ec78acd3c3ee36b25ee503d98e34853b37d8c754da1c396
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...........................................................              [100%]
+
+              59 passed in 117.80s (0:01:57)
+
+              '
   - ref: RULE-memory-005
     summary: 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同
       fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立
@@ -4646,7 +5128,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-021
           item_id: TASK-021
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -4655,10 +5137,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-005
+          executed_at: '2026-10-15T09:29:45.873574+00:00'
+          status: verified
+          rule_text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 7e908e1ac81e72396bbb680909f2b538f8573cde01f70264b8d0434a395b038d
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_job_effects.py
+            - tests/agent_runtime/test_memory_redesign_input_boundary.py
+            exit_code: 0
+            stdout_sha256: cfb8b30dc0ddf162346ed0be3cc4f3f80b03fa8680a84f8a56987cb365408b8d
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...................................                                      [100%]
+
+              35 passed in 56.06s
+
+              '
   - ref: RULE-memory-006
     summary: 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途
       Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和
@@ -4683,7 +5189,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -4692,10 +5198,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-006
+          executed_at: '2026-10-15T09:29:58.724278+00:00'
+          status: verified
+          rule_text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: a3f7e1dabad4f55dd47df7bcd23e7bb9879ae99e92f7fb733de6b8946152817c
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/migrations/test_memory_redesign_migration.py
+            - tests/agent_runtime/test_memory_redesign_snapshot.py
+            exit_code: 0
+            stdout_sha256: bef258124095e446a1dbb1cbdf0e3464ca96915a7cb00b97f1f30bdfed965aac
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............                                                             [100%]
+
+              12 passed in 11.78s
+
+              '
 - spec_id: harness-model
   path: model/harness-model.md
   status: active
@@ -4735,7 +5265,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-019
           item_id: TASK-019
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -5127,6 +5657,43 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-15T09:30:01.677874+00:00'
+          status: verified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 563f2ae358c8cae360bddae26ddb5314450ce5942a01a71f60f5f30d91d07939
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/console_platform/test_models_api.py && uv run
+              pytest -q tests/console_platform/test_agents_api.py -k disabled
+            exit_code: 0
+            stdout_sha256: 07f08950b2e451231a1efbe2d8a833608338d7c7d2b50af2c2b01b09a4ae3868
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........                                                                 [100%]
+
+              8 passed in 0.88s
+
+              .                                                                        [100%]
+
+              1 passed, 13 deselected in 0.21s
+
+              '
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-15T10:54:54.929182+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -5315,6 +5882,40 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-15T09:30:03.481971+00:00'
+          status: verified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 38fdf66899c1521b97efa3b09b1e426c4c9b0e5b312eb75bae6a547909fb5c5e
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_platform/test_user_side_relations.py
+            exit_code: 0
+            stdout_sha256: a563efd7bbbd1a4a3619f11600bbc8e51d599ab02db5c009cf4afc7fd1742974
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 0.82s
+
+              '
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-15T10:54:54.929810+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -5360,7 +5961,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-029
           item_id: TASK-029
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -5778,6 +6379,41 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-15T09:30:05.366034+00:00'
+          status: verified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 348f2d955482447f8fa37c61b096fd763514dedbac630a52c0c2647533a4c8b4
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 560739236aa25a8f6d36b2022bde78d804bcdb46482d26da42d826d09edf2eb8
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 1.47s
+
+              '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-15T10:54:54.930729+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -5827,7 +6463,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -6231,6 +6867,40 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-15T09:30:05.689162+00:00'
+          status: verified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 2abdec2fae9882af0417f3735d2c6bc36135d9b00ff62182b9485603d8168ac2
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_skill_artifact_cache.py
+            exit_code: 0
+            stdout_sha256: 99cef98de12a8b8a90abbcb2033d076bfc563ea7951d4da90263da27288d16f6
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.02s
+
+              '
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-15T10:54:54.931418+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -6277,7 +6947,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-016
           item_id: TASK-016
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -6669,6 +7339,43 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-15T09:30:21.261056+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 0b99683ab10c69befc20542071d3522e7d715ff6645d7342ed5e5d316d53c4fd
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: e6ba1c8ba3bcb959054cfce8f13174b34ce5e3969d3b5524634f90f086d6dc1c
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.99s
+
+              ...............................                                          [100%]
+
+              31 passed, 730 deselected in 11.67s
+
+              '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-15T10:54:54.932085+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -6713,7 +7420,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-030
           item_id: TASK-030
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -7105,6 +7812,81 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-15T09:53:39.883821+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 89daef5fc5063d31b05c10d72fb2d24517eb1bd205c81797291a6bd3b2e340ca
+          error_code: command_failed
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend
+              run build && npm --prefix e2e test
+            exit_code: 1
+            stdout_sha256: 45f55fafc6b7615a9cbaa1a9794bc954e5e48be509897f653484f2c08f4a0adf
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "........................................................................\
+              \ [ 21%]\n.....F..................................................................\
+              \ [ 43%]\n........................................................................\
+              \ [ 65%]\n........................................................................\
+              \ [ 87%]\n...........................................              \
+              \                [100%]\n=================================== FAILURES\
+              \ ===================================\n_______________ test_s06_stream_reply_envelope_and_monotonic_seq\
+              \ _______________\n\ngateway_stack = GatewayStack(console_url='http://127.0.0.1:52711',\
+              \ runtime_url='http://127.0.0.1:52712', runtime2_url='http://127.0.0....710',\
+              \ cert_path=PosixPath('/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/wecom-probe-tls-vzm23gsz/probe-cert.pem')))\n\
+              \n    async def test_s06_stream_reply_envelope_and_monotonic_seq(gateway_stack:\
+              \ GatewayStack) -> None:\n        stack = gateway_stack\n        await\
+              \ _wait_gateway_ws(stack)\n        chunks_before = len(_stream_chunks(stack))\n\
+              \    \n        await _push(stack, text=\"S-06 普通会话流式\")\n        await\
+              \ _await_value(\n            lambda: len(_stream_chunks(stack)) > chunks_before,\n\
+              \            what=\"未在超时内收到真实 WS 流式增量帧\",\n            timeout=REPLY_TIMEOUT_SEC,\n\
+              \        )\n    \n        run_id = await _latest_run_id(stack.tenant_id)\n\
+              >       events = await _await_value(\n            lambda: _completed_events(run_id),\
+              \ what=\"Run 未落终态 run.completed\"\n        )\n\ntests/acceptance/dfx/test_dfx_journeys.py:485:\
+              \ \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ \n\nproducer = <function test_s06_stream_reply_envelope_and_monotonic_seq.<locals>.<lambda>\
+              \ at 0x111ecb060>\n\n    async def _await_value(\n        producer:\
+              \ Callable[[], Any],\n        *,\n        what: str,\n        timeout:\
+              \ float = STREAM_TIMEOUT_SEC,\n    ) -> Any:\n        \"\"\"有界等待真实盘面达到条件（不做无界\
+              \ sleep；协程与同步取值都支持）。\"\"\"\n        deadline = time.monotonic() + timeout\n\
+              \        last: Any = None\n        while time.monotonic() < deadline:\n\
+              \            last = producer()\n            if inspect.isawaitable(last):\n\
+              \                last = await last\n            if last:\n         \
+              \       return last\n            await asyncio.sleep(0.2)\n>       raise\
+              \ AssertionError(f\"{what}（最后观测：{last!r}）\")\nE       AssertionError:\
+              \ Run 未落终态 run.completed（最后观测：[]）\n\ntests/acceptance/dfx/test_dfx_journeys.py:124:\
+              \ AssertionError\n=============================== warnings summary ===============================\n\
+              .venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \ntests/acceptance/im_gateway/test_wecom_boundary.py::test_b120_authenticates_over_real_socket\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/acceptance/im_gateway/test_wecom_boundary.py::test_b120_authenticates_over_real_socket\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              =========================== short test summary info ============================\n\
+              FAILED tests/acceptance/dfx/test_dfx_journeys.py::test_s06_stream_reply_envelope_and_monotonic_seq\n\
+              1 failed, 330 passed, 3 warnings in 1397.47s (0:23:17)\n"
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-15T10:54:54.932951+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -7149,7 +7931,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -7573,6 +8355,44 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-15T09:53:52.471795+00:00'
+          status: verified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 9a32c8bdd0cbb47cf7d3797d02b4e1d3cb9cd7d85032fe0c378bcd90c916b10a
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: bd9e2f8862ccb5dde794f48864d3597079edc739cfe4ab1154d873a3ef1d1377
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed in 0.02s\n.........................................\
+              \                                [100%]\n===============================\
+              \ warnings summary ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              41 passed, 3383 deselected, 1 warning in 11.43s\n"
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-15T10:54:54.933585+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -7617,7 +8437,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-028
           item_id: TASK-028
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -8009,6 +8829,68 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-15T09:53:59.034593+00:00'
+          status: verified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: 7f3ae4efb0e0829c8f706d2542a3b4c6c4d15e498b14915052915411f0e23ffa
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
+              && npm --prefix apps/console-platform/frontend run build
+            exit_code: 0
+            stdout_sha256: 8b391bde077e3576c97b9d1feea8e0597ebabb6768e5ea97ffbefb3d5f0645a3
+            stderr_sha256: 5cca1eb16663f21b3842cf16b16a9da001d1240a85c73c5e1e8d43619b24c354
+            output: ".........                                                   \
+              \             [100%]\n9 passed in 0.02s\n\n> muad-console-web@0.1.0\
+              \ build\n> npm run typecheck && vite build\n\n\n> muad-console-web@0.1.0\
+              \ typecheck\n> tsc --noEmit\n\nvite v5.4.21 building for production...\n\
+              transforming...\n✓ 4108 modules transformed.\nrendering chunks...\n\
+              computing gzip size...\ndist/index.html                     0.44 kB\
+              \ │ gzip:     0.30 kB\ndist/assets/index-DvIw6pX8.css    733.51 kB │\
+              \ gzip:    86.28 kB\ndist/assets/index-D90wJiVZ.js   3,381.56 kB │ gzip:\
+              \ 1,025.66 kB\n✓ built in 4.06s\n[plugin:vite:reporter] [plugin vite:reporter]\
+              \ \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter]\
+              \ [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n\n(!) Some\
+              \ chunks are larger than 500 kB after minification. Consider:\n- Using\
+              \ dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n"
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-15T10:54:54.934267+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -8053,7 +8935,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-028
           item_id: TASK-028
-          artifact_sha256: 211484a8cd1b8a069c29c9d061f849836bb2d628834d436129368d2c48634031
+          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
         decision: null
         evidence: []
       code:
@@ -8440,6 +9322,45 @@ bindings:
           rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
           artifact_sha256: null
           diff_sha256: c961e8d799ad2cbf28012101c37d297be3868fd70e7ca27058fc9e1ada9c457e
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-15T09:54:01.084862+00:00'
+          status: verified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: head:586087431394c5d9237ad44d7ff5e7148e660608
+          result_sha256: e60b92cd84f6c727c32bd1a730c080c7ae1f72ecf2ef4a7171107c54b240633f
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: d20a1967d8227614f22aabfa68194f9e6d00ccd4f753d24b00cbd0dc57fb3b3e
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...........                                                              [100%]
+
+              11 passed in 0.02s
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-15T10:54:54.934960+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 673e86565a71207ccf3194830d6c41f885eb14efba9aa8ea0f6645f237b54626
           result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
           error_code: deferred_to_review
           details:

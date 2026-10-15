@@ -86,6 +86,9 @@ export function MemoryHistorySideSheet(props: MemoryHistorySideSheetProps) {
       visible={props.memoryKey !== null}
       title={t('user.memory.historyTitle')}
       subtitle={props.memoryKey ?? undefined}
+      // 单 Pane 也要给 activeKey：Semi 的 Tabs 在没有 activeKey 时所有 Pane 都是 inactive
+      // （display:none + aria-hidden），历史表与分页会整体不可见、行内容读屏/角色查询也不可达。
+      activeTab="history"
       onCancel={props.onCancel}
       closeOnEsc
     >

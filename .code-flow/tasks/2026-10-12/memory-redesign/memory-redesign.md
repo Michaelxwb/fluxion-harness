@@ -45,14 +45,14 @@
 | B-21 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 延迟 job / 后续摘要 | TASK-021 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_input_boundary.py"] | . | 300 |  |
 | B-22 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实PG+旧新Run | TASK-016 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_snapshot.py"] | . | 300 |  |
 | B-23 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | integration | integration，真实 PG + 并发 writer / 当前语句时间 | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py"] | . | 300 |  |
-| E-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | TASK-012 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | . | 1800 |  |
-| E-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway → Runtime → resume | TASK-030 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
-| E-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway + 两个 conversation | TASK-030 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
-| E-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | browser，真实 Console/Runtime/PG/Chrome | TASK-030 | e2e_deferred | ["make","acceptance-e2e","DOMAIN=agent"] | . | 1800 |  |
-| E-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway/Runtime/PG + 模型探针 | TASK-030 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
-| E-06 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实两个 Runtime 子进程 | TASK-030 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
-| S-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | security，真实 API 身份与租户边界 | TASK-029 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | . | 1800 |  |
-| S-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | security，真实装配与 canary 检查 | TASK-029 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | . | 1800 |  |
+| E-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | TASK-012 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | . | 1800 |  |
+| E-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway → Runtime → resume | TASK-030 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
+| E-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway + 两个 conversation | TASK-030 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
+| E-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | browser，真实 Console/Runtime/PG/Chrome | TASK-030 | failed | ["make","acceptance-e2e","DOMAIN=agent"] | . | 1800 |  |
+| E-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway/Runtime/PG + 模型探针 | TASK-030 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
+| E-06 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实两个 Runtime 子进程 | TASK-030 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
+| S-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | security，真实 API 身份与租户边界 | TASK-029 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | . | 1800 |  |
+| S-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | security，真实装配与 canary 检查 | TASK-029 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | . | 1800 |  |
 
 ## Spec Responsibility
 
@@ -657,7 +657,7 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 |---|---|---|---|---|---|---|
 | B-08 | integration | integration，真实 PG + 请求探针 | 200 条中最老的匹配仍参与选择；最终选取与丢条计数一致 | tests/agent_runtime/test_memory_redesign_context.py / test_b08_memory_redesign_* | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | verified |
 | B-09 | integration | unit + 请求探针 | 完整块恰等预算可进、超 1 字节不可进；0 关闭；长条失败后短条可进；无首条越限 | tests/agent_runtime/test_memory_redesign_context.py / test_b09_memory_redesign_* | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_context.py"] | verified |
-| E-01 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | memory/summary 在保护前缀，micro/snip/summary 不裁 memory；刷新只替换组件 | tests/acceptance/runtime/test_memory_redesign_context_e2e.py / test_e01_memory_redesign_real_runtime_protects_prefix_and_refreshes_only_component | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | e2e_deferred |
+| E-01 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | memory/summary 在保护前缀，micro/snip/summary 不裁 memory；刷新只替换组件 | tests/acceptance/runtime/test_memory_redesign_context_e2e.py / test_e01_memory_redesign_real_runtime_protects_prefix_and_refreshes_only_component | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | verified |
 | harness-memory#RULE-memory-003 | integration | 真实PG/Runtime/模型HTTP及冻结数据；纯函数子项直接验证 | 有界完整候选、缓存一致性、SEARCH零命中、完整块预算 | 规定argv已实际执行，functional子项通过；正式review由需求终验统一执行 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py","tests/agent_runtime/test_memory_redesign_context.py","tests/agent_core/test_memory_redesign_selection.py"] | verified |
 
 ### Acceptance Evidence
@@ -673,6 +673,7 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 - B-08: verified — automated command passed; run_id=7801ac29e8f84f299e91e2329acee90b (confirmed_by: runner)
 - B-09: verified — automated command passed; run_id=7801ac29e8f84f299e91e2329acee90b (confirmed_by: runner)
 - E-01: e2e_deferred — automated command e2e_deferred; run_id=7801ac29e8f84f299e91e2329acee90b (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
 
 ### Log
 
@@ -1517,8 +1518,8 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | B-05 | integration | unit + PG，禁存内容 | value、key、quote、TASK_STATE 任一含密钥形态则拒绝；memory/history/proposal/log 中无 canary | tests/agent_runtime/test_memory_redesign_secrets.py / test_b05_memory_redesign_gate_*、test_b05_memory_redesign_writer_*、test_b05_memory_redesign_proposal_*、test_b05_memory_redesign_consolidation_*、test_b05_memory_redesign_tool_audit_* | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_secrets.py"] | verified |
-| S-01 | E2E | security，真实 API 身份与租户边界 | 伪造 user/tenant/author、跨用户确认、无服务身份内部调用均拒绝；未授权 ADMIN 不写 | tests/acceptance/im_gateway/test_memory_redesign_security.py / test_s01_memory_redesign_*（3 用例，仅 collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | e2e_deferred |
-| S-02 | E2E | security，真实装配与 canary 检查 | 标注引用与未经确认；密钥不进入新增表、历史、回执、日志、模型 consolidation Prompt | tests/acceptance/im_gateway/test_memory_redesign_security.py / test_s02_memory_redesign_*（3 用例，仅 collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | e2e_deferred |
+| S-01 | E2E | security，真实 API 身份与租户边界 | 伪造 user/tenant/author、跨用户确认、无服务身份内部调用均拒绝；未授权 ADMIN 不写 | tests/acceptance/im_gateway/test_memory_redesign_security.py / test_s01_memory_redesign_*（3 用例，仅 collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | verified |
+| S-02 | E2E | security，真实装配与 canary 检查 | 标注引用与未经确认；密钥不进入新增表、历史、回执、日志、模型 consolidation Prompt | tests/acceptance/im_gateway/test_memory_redesign_security.py / test_s02_memory_redesign_*（3 用例，仅 collect） | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | verified |
 | harness-secret#RULE-secret-001 | integration | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实测试（tests/test_logging_redaction.py、tests/acceptance/test_foundation_ops_audit.py） | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | verified |
 
 ### Acceptance Evidence
@@ -1533,6 +1534,8 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 - B-05: verified — automated command passed; run_id=f53ea70a4a50434cb139c33ad59242c1 (confirmed_by: runner)
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=f53ea70a4a50434cb139c33ad59242c1 (confirmed_by: runner)
 - S-02: e2e_deferred — automated command e2e_deferred; run_id=f53ea70a4a50434cb139c33ad59242c1 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
 
 ### Log
 
@@ -1572,11 +1575,11 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-02 | E2E | acceptance，真实 Gateway → Runtime → resume | 自然语言候选展示后用户真实确认，重连/重复提交不重复保存；拒绝后不产生 USER 事实 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e02_memory_redesign_real_confirmation_replay_and_rejection | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | e2e_deferred |
-| E-03 | E2E | acceptance，真实 Gateway + 两个 conversation | 已确认中文偏好在 /new 后“你好”首轮可见；不要求 query 包含“中文” | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e03_memory_redesign_confirmed_preference_visible_after_new_conversation | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | e2e_deferred |
-| E-04 | E2E | browser，真实 Console/Runtime/PG/Chrome | 创建、启禁用、删除、历史分页和来源状态本地化；越权不可操作 | e2e/tests/agent-management/memory-redesign.spec.ts / 4 用例（创建启禁用删除+历史分页+本地化布局矩阵+越权403） | ["make","acceptance-e2e","DOMAIN=agent"] | e2e_deferred |
-| E-05 | E2E | acceptance，真实 Gateway/Runtime/PG + 模型探针 | 默认设置提炼未决项；/new后续接进入请求；多条→用户“第2个”→目标实际进入请求；A→B→C仍唯一，B完成后无旧未决；大checkpoint投递引用，引用超预算仅计丢弃 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e05_memory_redesign_default_consolidation_then_new_conversation_resume、test_e05_memory_redesign_second_option_selection_enters_real_request、test_e05_memory_redesign_completion_retires_original_and_large_checkpoint_reference | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | e2e_deferred |
-| E-06 | E2E | acceptance，真实两个 Runtime 子进程 | SIGKILL claim 执行者，另一实例接管；故障与成功可见；持久写入效果最多一次 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e06_memory_redesign_sigkill_claim_owner_and_successor_takeover | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | e2e_deferred |
+| E-02 | E2E | acceptance，真实 Gateway → Runtime → resume | 自然语言候选展示后用户真实确认，重连/重复提交不重复保存；拒绝后不产生 USER 事实 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e02_memory_redesign_real_confirmation_replay_and_rejection | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | verified |
+| E-03 | E2E | acceptance，真实 Gateway + 两个 conversation | 已确认中文偏好在 /new 后“你好”首轮可见；不要求 query 包含“中文” | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e03_memory_redesign_confirmed_preference_visible_after_new_conversation | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | verified |
+| E-04 | E2E | browser，真实 Console/Runtime/PG/Chrome | 创建、启禁用、删除、历史分页和来源状态本地化；越权不可操作 | e2e/tests/agent-management/memory-redesign.spec.ts / 4 用例（创建启禁用删除+历史分页+本地化布局矩阵+越权403） | ["make","acceptance-e2e","DOMAIN=agent"] | failed |
+| E-05 | E2E | acceptance，真实 Gateway/Runtime/PG + 模型探针 | 默认设置提炼未决项；/new后续接进入请求；多条→用户“第2个”→目标实际进入请求；A→B→C仍唯一，B完成后无旧未决；大checkpoint投递引用，引用超预算仅计丢弃 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e05_memory_redesign_default_consolidation_then_new_conversation_resume、test_e05_memory_redesign_second_option_selection_enters_real_request、test_e05_memory_redesign_completion_retires_original_and_large_checkpoint_reference | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | verified |
+| E-06 | E2E | acceptance，真实两个 Runtime 子进程 | SIGKILL claim 执行者，另一实例接管；故障与成功可见；持久写入效果最多一次 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e06_memory_redesign_sigkill_claim_owner_and_successor_takeover | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | verified |
 | harness-test#RULE-test-001 | E2E | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实链路（全量 tests/acceptance + 前端构建 + foundation 浏览器域） | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | e2e_deferred |
 
 ### Acceptance Evidence
@@ -1598,6 +1601,11 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 - E-04: e2e_deferred — automated command e2e_deferred; run_id=142f39353a814ea5b4c2641438d457ea (confirmed_by: runner)
 - E-05: e2e_deferred — automated command e2e_deferred; run_id=142f39353a814ea5b4c2641438d457ea (confirmed_by: runner)
 - E-06: e2e_deferred — automated command e2e_deferred; run_id=142f39353a814ea5b4c2641438d457ea (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
+- E-04: failed — automated command failed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
 
 ### Log
 
@@ -1858,4 +1866,60 @@ test_inbound_image_e2e.py:524、test_memory_redesign_e2e.py:644。
 - [2026-10-15] RED：清单命令 1 failed / 86 passed（失败在 `test_memory_redesign_e2e::test_e05_default`，与两条目标同族）；全量既有 RED `/tmp/fluxion-acceptance-repro2.txt`（3 failed）；根因=记忆后台收尾 append 抢「最新会话」解析 / 抢记忆表清空（栈日志 pytest-448 复核）
 - [2026-10-15] 修：`environment.py::wait_for_memory_background_idle` + 4 个调用点（`test_memory_flow::_new_conversation`、`test_runtime_stream::test_e04`/`_seed_conversation`、`test_memory_redesign_e2e::_reset_memories`/`_new_conversation`）；wecom s05 既有修复保留
 - [2026-10-15] GREEN：清单命令 ×2 = 87 passed / 87 passed；全量 331 passed（21:51）
+- [2026-10-15] completed (done)
+
+---
+
+## TASK-035: E-04 浏览器域首次真机执行的修复与终验复跑
+
+- **Status**: done
+- **Priority**: P0
+- **Depends**: TASK-034
+- **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界, memory-redesign.design.md#3.7 API 与 Console
+- **Spec-Refs**: 
+- **Acceptance-Refs**: E-04
+- **Files**: e2e/tests/agent-management/memory-redesign.spec.ts, apps/console-platform/frontend/src/modules/user-identity/MemoryTab.tsx, apps/console-platform/frontend/src/components/common/tableLayout.ts
+
+### Description
+
+E-04 浏览器域（`make acceptance-e2e DOMAIN=agent`）在 verify-e2e 首次真机执行：6 failed / 18 passed。① en-US 四个组合 `memory-delete-*` 不在视口（ratio 0.378…）——spec 明示「窄屏表格表内横向滚动、右侧固定操作列保持可见」，操作列未真正固定（疑似缺 `scroll={{x:…}}`，`fixed` 不生效）；② `:171`（创建/启禁用/历史/删除）与 `:226`（历史分页，`gridcell` 找不到）两条首次执行暴露用例/UI 问题。需按事实修复并复跑 E-04 与 RULE-test-001，再重跑 verify-e2e。
+
+### Checklist
+
+- [x] 复现并记录 RED：`make acceptance-e2e DOMAIN=agent`（保留 trace 与失败清单）。
+- [x] en-US 布局：按 spec 意图让右侧操作列真正固定（`fixed:'right'` 生效所需条件，如 `scroll.x`/宽度口径），中英文与明暗主题在 1280/390 下删除按钮都在视口内；不改断言口径。
+- [x] `:171` / `:226`：定位是用例假设（role/时序）还是 UI 缺陷，按事实修；断言与覆盖意图不降级。
+- [x] 修复后 `make acceptance-e2e DOMAIN=agent` 连续两次全绿；`harness-test#RULE-test-001` 的 argv（`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`）实跑全绿并登记（若失败在非本任务段落，给出分段证据）。
+- [x] 复跑 `code-flow task verify-e2e`（本任务 finish 后由主 agent 执行）所需的全部前置证据齐备；Evidence 记录命令、断言位置与日志路径。
+
+### Acceptance Contract
+
+| 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| E-04 | E2E | browser，真实 Console/Runtime/PG/Chrome（构建产物 + 真实会话） | 创建、启禁用、删除、历史分页和来源状态本地化；越权不可操作；中英文×明暗×1280/390 下操作列保持可见 | e2e/tests/agent-management/memory-redesign.spec.ts | ["make","acceptance-e2e","DOMAIN=agent"] | planned |
+
+### Acceptance Evidence
+
+RED 现场沿用 verify-e2e 首次真机执行：`/tmp/fluxion-e04-rerun.txt`（**6 failed / 18 passed**，trace 在 `e2e/test-results/`）；本任务用浏览器几何/角色探针逐条复核根因（探针原始输出 `/tmp/task035/debug-run*.log`），三条失败的性质与修法如下（**断言与覆盖意图均未降级**）：
+
+| 失败 | 根因（复核证据） | 修法（断言位置） |
+|---|---|---|
+| en-US × {light,dark} × {1280,390} 四例（`memory-redesign.spec.ts:284`）`toBeInViewport` ratio 0.37847641110420227 | 操作列 `actionColumn(152)` 装不下 en-US 三个行内动作：实测内容 **175.1px**（History 57.3 + Disable 58.1 + Delete 51.7 + 间距 8），加单元格内边距 8+8 需 **191.1px**；`debug-run.log` 实测该单元格 `scrollWidth 183 > clientWidth 151`，最后一只按钮（1300.4→1352.1）越过表右缘 1320 被 `.semi-table` 裁掉；en-US 下 body 还多出 32px 横向滚动（912 vs 880）。**固定列本身是 sticky 生效的**（`position: sticky` + 右侧贴边、滚动后位置不变），缺的不是 `scroll.x` 而是列宽口径；zh-CN 内容仅 116px 故四例中 zh 全绿。 | `MemoryTab.tsx`：操作列 152→**196**（`actionColumn(196)`）；按实测把状态/更新时间列 176→**152**（状态标签+12px 有效期实测 135px、时间列实测 135px）把宽度还给内容列（auto 由 108 恢复到 156，表宽仍 880 铺满 920 面板）；`DataTable` 新增 `collapseActions`（默认 `true` 不变），记忆表显式 `false`——该表最小表宽由 CSS 固定为 880，窄屏靠表内滚动 + 右侧固定列承载动作，按容器宽度（390 下 366）折叠会把删除动作藏进「更多」菜单、与 E-04「操作列保持可见」冲突。断言位置（修复后行号；RED 日志中的 `:257:7/:284` 为修复前行号）：`:290`（ratio 1）、`:295-299`+`:300`（窄屏表内滚动与再断言）、`:302-307`（1280 无横向滚动）。 |
+| `:171`（修复后 `:175`）创建步骤 90s 超时（等待 `getByRole('button', {name:'新增记忆'})`） | **用例假设**：Semi 的 Modal 页脚按钮带 `aria-label="confirm"`，可访问名是 `confirm` 而非按钮文案（`debug-run3.log`：modal 内 3 个按钮，`新增记忆` 在 DOM 文本里但 `name:'新增记忆'` 匹配 **0** 个）。 | 改用全仓 e2e 一致的稳定定位 `getByRole('button', {name:'confirm'})`，并把「页脚按钮文案随语言」**显式断言**（`await expect(submit).toHaveText(copy.add)`）——本地化覆盖不降级为「点得到就行」（修复后 `:167-171`）。 |
+| `:226`（修复后 `:230`）翻页后 `toHaveCount(2)` 实得 1（首跑在 `:247` 报 `getByRole('gridcell')` 找不到） | 两处：① **UI 缺陷**：历史壳没给 `activeTab`，Semi 的 Tabs 在无 activeKey 时所有 Pane 都是 `semi-tabs-pane-inactive`（`display:none` + `aria-hidden="true"`，`debug-run5.log`）⇒ 历史表与分页整体不可见（`gridcell` 角色查询 0、`button[aria-label="next-page"]` `isVisible()=false`），即历史面板打开后是空壳；② **用例假设**：把 `enabled` 置成**当前值**在 Runtime 是 `UNCHANGED`（`memory_mutations.py:312-313`，不新增历史、不递增版本），原循环首轮 `enabled=true` 对刚创建的 ACTIVE 记忆是空操作 ⇒ 只有 16 条历史（1 创建 + 15 次真实启禁用），第 2 页本就只有 1 条。 | ① `MemoryHistorySideSheet.tsx` 补 `activeTab="history"`；② 循环从「与初始状态相反」的停用开始（`index % 2 === 1`，修复后 `:245`），16 次即 16 条历史 ⇒ 17 条 > 每页 15 条、第 2 页 2 条，断言口径不变（`:251`/`:256`）。 |
+
+GREEN 证据（命令、断言位置、日志路径）：
+
+- **E-04 连续两次全绿**：`make acceptance-e2e DOMAIN=agent`（= `npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.agent.config.ts`）→ ① **24 passed (42.1s)**，`/tmp/task035/e04-run1.log`；② **24 passed (41.9s)**，`/tmp/task035/e04-run2.log`（两轮之间无孤儿进程；en-US 四例 `:284` 与窄屏 `:294` 均在通过清单内，未再出现 `ratio 0.378…`）。
+- **几何复核（修复后，等标签页切换动画归位后实测）**：`/tmp/task035/debug-run8.log` —— en-US/zh-CN × 1280：`body.scrollWidth == clientWidth == 880`（桌面无横向滚动）、操作单元格 `scrollWidth 195 == clientWidth 195`（内容不再溢出）、删除按钮 `1196.4→1248.1` 完全在表内；390：sticky 单元格贴视口右缘（182→378），删除按钮 `314.4→366.1` 完全在视口内，把表内滚动到最右后位置不变（真固定）；历史面板 `isVisible=true`、`gridcell` 5 个、翻页按钮可见。
+- **前端回归**：`npm --prefix apps/console-platform/frontend run typecheck` → 通过（`/tmp/task035/typecheck2.log`）；`uv run pytest -q tests/frontend` → **339 passed**（`/tmp/task035/frontend-tests2.log`，含 `test_ui_style_contract.py` / `test_detail_sidesheet_contract.py` / `test_memory_tab_contract.py`）；`uv run python scripts/check_frontend_i18n.py` → `i18n keys OK: 1163`。
+- **RULE-test-001**（`bash -lc "uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"`，cwd=., timeout 2400s）**第 2 次整链复跑全绿：`331 passed (21:39)` → `✓ built in 3.98s` → `4 passed (7.6s)`，`RULE_EXIT=0`**，`/tmp/task035/rule-test-001-run2.log`。第 1 次整链的分段（保留为偶发证据）：第 1 段 **2 failed / 329 passed (22:31)**，`/tmp/task035/rule-test-001.log` —— 两条失败与本任务 diff（3 个前端 tsx + 1 个 e2e ts）无关、`tests/acceptance` 不读这些文件（唯一触达前端的 `test_foundation_i18n.py` 读 locale/源码，本次未改词条且它通过）：① `im_gateway/test_recovery.py::test_e03_cleanup_leaves_no_recovery_residue` → `asyncpg.exceptions.DeadlockDetectedError: deadlock detected`（`DELETE FROM runtime.conversation WHERE tenant_id='e2e-im-gateway'` 与栈内后台写并发互等）；② `runtime/test_multipod_recovery.py::test_s04_e07_process_kill_reaped_and_takeover` → `assert 'COMPLETED' == 'FAILED'`（被杀 Pod 的 Run 在 60s 等待窗内自行跑完，杀进程与探针延迟竞争）。单跑这两条：**2 passed in 23.42s**（`/tmp/task035/flaky-rerun1.log`）；同一套件在本 HEAD（58608743，TASK-034）曾 331 passed 全绿，第 2 次整链又全绿 ⇒ 判定为整跑负载/顺序偶发（TASK-030/034 已记录同类现象），非本任务存量缺陷。第 1 次链上第 2/3 段因 `&&` 短路，单跑补记：build `✓ built in 4.10s, EXIT=0`（`/tmp/task035/rule-seg2-build.log`）、e2e foundation `4 passed (7.0s), EXIT=0`（`/tmp/task035/rule-seg3-e2e.log`）。
+
+### Log
+
+- [2026-10-15] created (draft)；由 verify-e2e 首次真机执行 E-04 的缺口显式补任务。
+- [2026-10-15] started
+- [2026-10-15] RED 复核（几何/角色探针）→ 修 UI（操作列 196 + 状态/时间列 152 + `collapseActions={false}`、历史壳 `activeTab`）与用例（Modal `confirm` 定位 + 启禁用循环起点）→ E-04 连续两次 24 passed；前端 typecheck/339 用例/i18n 全绿。
+- [2026-10-15] RULE-test-001 argv：第 1 次整链第 1 段 2 failed/329 passed（两条恢复类用例负载偶发，单跑 2 passed，与本 diff 无关）；第 2 次整链全绿（331 passed → build → e2e 4 passed，EXIT=0）。
+- [2026-10-15] Done Gate：`code-flow task finish ... --task TASK-035 --json` → `{"decision": "pass", "deferred_review": 6, "deferred_requirement": 17, "deferred_budget": 8, "ok": true, "markdown": "synced"}`（31 个 verifier 按门禁口径延后到需求级 verify-e2e）。
 - [2026-10-15] completed (done)

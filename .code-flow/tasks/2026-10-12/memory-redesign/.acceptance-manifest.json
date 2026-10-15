@@ -1447,7 +1447,7 @@
       "kind": "e2e",
       "boundary": "acceptance，真实 Runtime + PG/Redis + 模型 HTTP",
       "owner": "TASK-012",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1458,14 +1458,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-01",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "7801ac29e8f84f299e91e2329acee90b",
-        "executed_at": "2026-10-13T10:08:59.560876+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+        "executed_at": "2026-10-15T09:59:23.408514+00:00",
         "command": [
           "uv",
           "run",
@@ -1474,7 +1475,8 @@
           "tests/acceptance/runtime/test_memory_redesign_context_e2e.py"
         ],
         "cwd": ".",
-        "timeout": 1800.0
+        "timeout": 1800.0,
+        "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
       },
       "runs": [
         {
@@ -1493,6 +1495,25 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "E-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+          "executed_at": "2026-10-15T09:59:23.408514+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/runtime/test_memory_redesign_context_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
         }
       ]
     },
@@ -1503,7 +1524,7 @@
       "kind": "e2e",
       "boundary": "acceptance，真实 Gateway → Runtime → resume",
       "owner": "TASK-030",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1514,14 +1535,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-02",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "142f39353a814ea5b4c2641438d457ea",
-        "executed_at": "2026-10-14T23:05:49.178516+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+        "executed_at": "2026-10-15T09:59:23.408514+00:00",
         "command": [
           "uv",
           "run",
@@ -1530,7 +1552,8 @@
           "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
         ],
         "cwd": ".",
-        "timeout": 1800.0
+        "timeout": 1800.0,
+        "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
       },
       "runs": [
         {
@@ -1566,6 +1589,25 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+          "executed_at": "2026-10-15T09:59:23.408514+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
         }
       ]
     },
@@ -1576,7 +1618,7 @@
       "kind": "e2e",
       "boundary": "acceptance，真实 Gateway + 两个 conversation",
       "owner": "TASK-030",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1587,14 +1629,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-03",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "142f39353a814ea5b4c2641438d457ea",
-        "executed_at": "2026-10-14T23:05:49.178516+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+        "executed_at": "2026-10-15T09:59:23.408514+00:00",
         "command": [
           "uv",
           "run",
@@ -1603,7 +1646,8 @@
           "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
         ],
         "cwd": ".",
-        "timeout": 1800.0
+        "timeout": 1800.0,
+        "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
       },
       "runs": [
         {
@@ -1639,6 +1683,25 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+          "executed_at": "2026-10-15T09:59:23.408514+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
         }
       ]
     },
@@ -1649,7 +1712,7 @@
       "kind": "e2e",
       "boundary": "browser，真实 Console/Runtime/PG/Chrome",
       "owner": "TASK-030",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "make",
         "acceptance-e2e",
@@ -1658,14 +1721,16 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-04",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "142f39353a814ea5b4c2641438d457ea",
-        "executed_at": "2026-10-14T23:05:49.178516+00:00",
+        "status": "failed",
+        "exit_code": 2,
+        "output": "-management/memory-redesign.spec.ts:257:7 › E-04 记忆 Tab 本地化与布局 en-US light 390px ────\n    tests/agent-management/memory-redesign.spec.ts:257:7 › E-04 记忆 Tab 本地化与布局 en-US dark 1280px ────\n    tests/agent-management/memory-redesign.spec.ts:257:7 › E-04 记忆 Tab 本地化与布局 en-US dark 390px ─────\n  18 passed (2.5m)\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [38606]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)\n[WebServer] INFO:     Started server process [38623]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)\n[WebServer] INFO:     Started server process [38626]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4190 (Press CTRL+C to quit)\nmake: *** [acceptance-e2e] Error 1",
+        "revision": 3,
+        "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+        "executed_at": "2026-10-15T09:59:23.408514+00:00",
         "command": [
           "make",
           "acceptance-e2e",
@@ -1704,6 +1769,23 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "E-04",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 2,
+          "output": "-management/memory-redesign.spec.ts:257:7 › E-04 记忆 Tab 本地化与布局 en-US light 390px ────\n    tests/agent-management/memory-redesign.spec.ts:257:7 › E-04 记忆 Tab 本地化与布局 en-US dark 1280px ────\n    tests/agent-management/memory-redesign.spec.ts:257:7 › E-04 记忆 Tab 本地化与布局 en-US dark 390px ─────\n  18 passed (2.5m)\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [38606]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)\n[WebServer] INFO:     Started server process [38623]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)\n[WebServer] INFO:     Started server process [38626]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4190 (Press CTRL+C to quit)\nmake: *** [acceptance-e2e] Error 1",
+          "revision": 3,
+          "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+          "executed_at": "2026-10-15T09:59:23.408514+00:00",
+          "command": [
+            "make",
+            "acceptance-e2e",
+            "DOMAIN=agent"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -1714,7 +1796,7 @@
       "kind": "e2e",
       "boundary": "acceptance，真实 Gateway/Runtime/PG + 模型探针",
       "owner": "TASK-030",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1725,14 +1807,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-05",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "142f39353a814ea5b4c2641438d457ea",
-        "executed_at": "2026-10-14T23:05:49.178516+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+        "executed_at": "2026-10-15T09:59:23.408514+00:00",
         "command": [
           "uv",
           "run",
@@ -1741,7 +1824,8 @@
           "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
         ],
         "cwd": ".",
-        "timeout": 1800.0
+        "timeout": 1800.0,
+        "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
       },
       "runs": [
         {
@@ -1777,6 +1861,25 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+          "executed_at": "2026-10-15T09:59:23.408514+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
         }
       ]
     },
@@ -1787,7 +1890,7 @@
       "kind": "e2e",
       "boundary": "acceptance，真实两个 Runtime 子进程",
       "owner": "TASK-030",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1798,14 +1901,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-06",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "142f39353a814ea5b4c2641438d457ea",
-        "executed_at": "2026-10-14T23:05:49.178516+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+        "executed_at": "2026-10-15T09:59:23.408514+00:00",
         "command": [
           "uv",
           "run",
@@ -1814,7 +1918,8 @@
           "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
         ],
         "cwd": ".",
-        "timeout": 1800.0
+        "timeout": 1800.0,
+        "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
       },
       "runs": [
         {
@@ -1850,6 +1955,25 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+          "executed_at": "2026-10-15T09:59:23.408514+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
         }
       ]
     },
@@ -1860,7 +1984,7 @@
       "kind": "e2e",
       "boundary": "security，真实 API 身份与租户边界",
       "owner": "TASK-029",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1871,14 +1995,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-01",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "f53ea70a4a50434cb139c33ad59242c1",
-        "executed_at": "2026-10-14T19:09:25.191943+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+        "executed_at": "2026-10-15T09:59:23.408514+00:00",
         "command": [
           "uv",
           "run",
@@ -1887,7 +2012,8 @@
           "tests/acceptance/im_gateway/test_memory_redesign_security.py"
         ],
         "cwd": ".",
-        "timeout": 1800.0
+        "timeout": 1800.0,
+        "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
       },
       "runs": [
         {
@@ -1906,6 +2032,25 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+          "executed_at": "2026-10-15T09:59:23.408514+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_security.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
         }
       ]
     },
@@ -1916,7 +2061,7 @@
       "kind": "e2e",
       "boundary": "security，真实装配与 canary 检查",
       "owner": "TASK-029",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1927,14 +2072,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-02",
         "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "f53ea70a4a50434cb139c33ad59242c1",
-        "executed_at": "2026-10-14T19:09:25.191943+00:00",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+        "executed_at": "2026-10-15T09:59:23.408514+00:00",
         "command": [
           "uv",
           "run",
@@ -1943,7 +2089,8 @@
           "tests/acceptance/im_gateway/test_memory_redesign_security.py"
         ],
         "cwd": ".",
-        "timeout": 1800.0
+        "timeout": 1800.0,
+        "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
       },
       "runs": [
         {
@@ -1962,6 +2109,25 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "c2a2f00749d94cb5979cfaeab45ef791",
+          "executed_at": "2026-10-15T09:59:23.408514+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_security.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "801a3962da2fc29baf209a9a2835d221b9afbdb28587cf745cbb278a409f69c0"
         }
       ]
     }

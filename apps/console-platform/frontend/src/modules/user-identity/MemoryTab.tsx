@@ -273,6 +273,10 @@ export function MemoryTab(props: MemoryTabProps) {
         <DataTable
           className="app-table-fit user-memory-table"
           scroll={{ x: '100%' }}
+          // 行内三个动作（历史/启停用/删除）在 en-US 下需要 196px 列宽（zh-CN 132px）：详情表的最小
+          // 表宽（880px）始终放得下操作列，窄屏靠表内横向滚动 + 右侧固定操作列保持可见，不折叠成
+          // 「更多」菜单（否则 390px 下删除动作不可达）。
+          collapseActions={false}
           dataSource={items}
           rowKey="id"
           pagination={false}
@@ -305,7 +309,9 @@ export function MemoryTab(props: MemoryTabProps) {
             {
               title: t('user.memory.statusLabel'),
               dataIndex: 'status',
-              width: 176,
+              // 状态标签 + 12px 有效期第二行实测 135px（en-US/zh-CN 同口径），152 足够且不留空白；
+              // 省下的宽度留给操作列（196）与内容列（auto）。
+              width: 152,
               render: (value: string, entry: MemoryItem) => (
                 <div className="memory-status-cell">
                   <StatusTag
@@ -327,11 +333,12 @@ export function MemoryTab(props: MemoryTabProps) {
             {
               title: t('user.memory.updated'),
               dataIndex: 'update_time',
-              width: 176,
+              // 时间列实测 135px（`2026-10-15 18:19:03` + 单元格内边距），152 与状态列同宽。
+              width: 152,
               render: (value: string) => <DateTimeText value={value} />
             },
             {
-              ...actionColumn(152),
+              ...actionColumn(196),
               title: t('user.columns.action'),
               render: (_: unknown, entry: MemoryItem) => (
                 <div className="memory-row-actions">
