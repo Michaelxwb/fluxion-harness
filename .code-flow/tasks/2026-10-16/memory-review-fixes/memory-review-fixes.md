@@ -208,7 +208,7 @@
 
 ## TASK-005: dfx 探针按调用用途区分业务与提炼（P2）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: 
 - **Source**: GPT 评审条目 7
@@ -222,23 +222,40 @@
 
 ### Checklist
 
-- [ ] 先写 RED：注入脚本后，提炼请求不得消费业务脚本/不得计入 `calls`；`target_calls` 与 `background_calls` 口径稳定。
-- [ ] 实现：用途判定优先（consolidation 标记），再匹配目标 token；不改变故障注入语义与退避断言。
-- [ ] GREEN：`tests/acceptance/dfx/test_dfx_model_recovery.py` 连续三次全绿。
+- [x] 先写 RED：注入脚本后，提炼请求不得消费业务脚本/不得计入 `calls`；`target_calls` 与 `background_calls` 口径稳定。
+- [x] 实现：用途判定优先（consolidation 标记），再匹配目标 token；不改变故障注入语义与退避断言。
+- [x] GREEN：`tests/acceptance/dfx/test_dfx_model_recovery.py` 连续三次全绿。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | integration | 真实 Gateway/Runtime/PG + 真实故障探针 | 提炼调用与业务调用按用途分离；重试次数与退避观测稳定 | tests/acceptance/dfx/test_dfx_model_recovery.py | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_model_recovery.py"] | planned |
+| LOCAL | integration | 真实 Gateway/Runtime/PG + 真实故障探针 | 提炼调用与业务调用按用途分离；重试次数与退避观测稳定 | tests/acceptance/dfx/test_dfx_model_recovery.py | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_model_recovery.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行；RED 依据：评审条目 7 的定向复现（提炼请求消费 500）。
+**RED**（先于实现；命令与失败原文）：
+
+- `DATABASE_URL=<隔离 head 库 muad_acc_76bfd85040> REDIS_URL=redis://localhost:6379/10 uv run pytest -q tests/acceptance/dfx/test_dfx_model_recovery.py -k "classifies_consolidation or keeps_business"` → **1 failed / 1 passed**，`/tmp/reviewfix/task005/red.log`：
+  - `test_e09_probe_classifies_consolidation_call_as_background`（:497）：`AssertionError: 提炼调用不得消费 500 故障脚本` / `assert 500 == 200` / `where 500 = <Response [500 Internal Server Error]>.status_code` —— 评审条目 7 的原样复现：提炼请求（system 含 consolidation 指令、user 文本含目标 token）被「只看 token」的旧分类当成目标业务回合，弹出预设 500 并计入 `calls`。
+  - 同跑的业务对照 `test_e09_probe_keeps_business_call_target_classification` 在旧实现下同样通过（业务 token 口径本就成立，作为修复后的回归护栏）。
+- RED 构造（真实边界，非 mock）：`_probe_completion`（:470）直接向真实故障探针的 `/v1/chat/completions` 发一条与 Runtime 提炼调用同形的请求（`memory_consolidation._instructions` 的 system 文本 + 保留来源用户文本的 user 消息）。
+
+**GREEN**（修复后；命令、断言位置、日志）：
+
+- 实现（断言背后的代码）：`test_dfx_model_recovery.py:67` 新增 `CONSOLIDATION_MARKER`（与 `tests/e2e/openai_probe_app.py` 的 `CONSOLIDATION_MARKER` 同口径，即 `memory_consolidation._instructions` 固定开头）；`:77` `_message_text`、`:86` `_is_consolidation`（system 消息含标记 ⇒ 后台提炼）；`:135` 探针 handler 改为**先按用途、再按 token**：`if _is_consolidation(body) or off_target` ⇒ 后台调用回健康 200、不消费 `plan`、不计入 `calls`。故障注入脚本语义（429/`Retry-After`/500/reset/hang）与 `gaps()` 口径未改。
+- 新增用例：`:478`（提炼调用：断言 :497 回 200、:498 `plan` 原样未消费、:499 `calls` 为空、:500 `background_calls` == 1）、`:503`（业务调用：断言 :518 回 500、:519 `plan` 被消费、:520 `calls` == 1、:521 `background_calls` 为空）。
+- 契约命令：`uv run pytest -q tests/acceptance/dfx/test_dfx_model_recovery.py` → **8 passed** 连续三次（11.69s / 12.35s / 11.38s），`/tmp/reviewfix/task005/green_run1.log`、`green_run2.log`、`green_run3.log`；stash/pop 恢复后复跑 **8 passed**（11.48s）。
+- 既有 6 条 E-09 用例（429+Retry-After、指数退避、连接重置、deadline 不重试、cancel 立即停止、审计逐 attempt）断言全部原样通过 —— 故障注入语义与退避观测未回归。
+- 静态：`uv run ruff check` All checks passed。
 
 ### Log
 
 - [2026-10-16] created (draft)。
+- [2026-10-16] started
+- [2026-10-16] RED（提炼请求被当目标调用消费 500：`assert 500 == 200`）→ 探针改为先按 consolidation system 标记判用途、再匹配业务 token → 契约 8 passed ×3（+1 次复跑）。
+- [2026-10-16] started
+- [2026-10-16] completed (done)
 
 ---
 

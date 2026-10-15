@@ -5,8 +5,9 @@ HTTP 探针**承载（Runtime 经真实 HTTP 调用该端点；非拦截、非�
 探针按用例注入 429+`Retry-After`（**响应头**）、5xx、连接重置、以及"一直限流"等形态。
 
 **探针只对本用例目标 Run 投故障**：记忆提炼（consolidation）复用来源 Run 冻结的主模型，
-会经同一端点发起后台调用（design §3.6.1）。目标 Run 的入站文本带一次性 token，探针据此
-区分：非目标调用按健康模型回 200、不消费故障脚本、不计入 `calls`/`gaps()`。
+会经同一端点发起后台调用（design §3.6.1），而**提炼输入会保留来源用户文本**（可能含同一
+一次性 token）⇒ 必须先按**请求用途**（consolidation system 指令标记）判为后台调用，再在
+业务调用里匹配目标 token：非目标调用按健康模型回 200、不消费故障脚本、不计入 `calls`/`gaps()`。
 
 覆盖（E-09，逐条对齐 design §3.4.6 的"代码现状"列）：
 - 429 + `Retry-After`：按其等待后重试（`_retry_delay` 优先用响应头值）；
@@ -60,6 +61,10 @@ def live_stack(_runtime_live_stack: LiveStack) -> LiveStack:  # noqa: F811  (参
 MODEL_API_KEY = "recovery-probe-key-9f2c"
 RUN_TIMEOUT_SEC = 60.0
 CANCEL_TIMEOUT_SEC = 20.0
+#: consolidation system 指令的固定开头（`memory_consolidation._instructions`），与
+#: `tests/e2e/openai_probe_app.py` 的 `CONSOLIDATION_MARKER` 同口径：提炼输入保留来源用户
+#: 文本（可能含目标 token），所以**先按用途排除提炼调用**，再在业务调用里匹配 token。
+CONSOLIDATION_MARKER = "Consolidate this frozen conversation input"
 #: 健康模型响应（目标 Run 走完脚本后的 `ok`，以及非目标调用一律用它）。
 _OK_BODY = (
     '{"id":"cmpl-probe","object":"chat.completion","model":"gpt-4o-mini",'
@@ -67,6 +72,28 @@ _OK_BODY = (
     '{"role":"assistant","content":"probe-ok"}}],'
     '"usage":{"prompt_tokens":5,"completion_tokens":3}}'
 )
+
+
+def _message_text(message: dict[str, Any]) -> str:
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(str(part.get("text") or "") for part in content if isinstance(part, dict))
+    return ""
+
+
+def _is_consolidation(body: dict[str, Any]) -> bool:
+    """system 消息含提炼指令标记 ⇒ 该调用是后台提炼，不是目标 Run 的业务回合。"""
+    messages = body.get("messages")
+    if not isinstance(messages, list):
+        return False
+    return any(
+        isinstance(message, dict)
+        and message.get("role") == "system"
+        and CONSOLIDATION_MARKER in _message_text(message)
+        for message in messages
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -79,9 +106,10 @@ class FaultProbe:
 
     **只对本用例的目标 Run 投故障**：同一模型端点上还有记忆提炼等后台维护调用
     （consolidation 复用来源 Run 冻结的主模型，design §3.6.1），它们既会吃掉脚本里的
-    500/429（把"两次重试"变成一次），也会混进 `gaps()` 污染退避观测。目标 Run 的入站
-    文本带一次性 token（`_target_text`），只有请求体含该 token 的调用才计入 `calls`
-    并消费 `plan`；其余调用按健康模型回 200，记在 `background_calls` 供排查。
+    500/429（把"两次重试"变成一次），也会混进 `gaps()` 污染退避观测。分类口径是
+    **先按请求用途、再按 token**：system 指令含 `CONSOLIDATION_MARKER` 的提炼调用一律
+    记为后台；业务调用里只有请求体含一次性 token（`_target_text`）的才计入 `calls`
+    并消费 `plan`，其余按健康模型回 200、记在 `background_calls` 供排查。
     """
 
     def __init__(self) -> None:
@@ -89,7 +117,7 @@ class FaultProbe:
         self.plan: list[str] = []      # 队列：'ok' | '429:<seconds>' | '500' | 'reset' | 'hang'
         self.calls: list[float] = []   # 目标 Run 每次请求到达的 monotonic 时刻
         self.background_calls: list[float] = []  # 非目标调用（记忆提炼等后台维护）
-        self.marker: str = ""          # 目标 Run 的 token；空 = 不区分（按目标处理）
+        self.marker: str = ""          # 目标 Run 的 token；空 = 业务调用不区分（按目标处理）
         self.auth_headers: list[str] = []
         self._server: uvicorn.Server | None = None
         self._thread: threading.Thread | None = None
@@ -103,7 +131,8 @@ class FaultProbe:
         async def completions(request: Request) -> Response:  # noqa: ANN202
             body = await request.json()
             self.auth_headers.append(request.headers.get("authorization", ""))
-            if self.marker and self.marker not in json.dumps(body, ensure_ascii=False):
+            off_target = self.marker and self.marker not in json.dumps(body, ensure_ascii=False)
+            if _is_consolidation(body) or off_target:
                 self.background_calls.append(time.monotonic())
                 return Response(content=_OK_BODY, media_type="application/json")
             self.calls.append(time.monotonic())
@@ -433,3 +462,60 @@ def test_e09_audit_rows_carry_attempts_and_no_secret_plaintext(
     assert "api_key" not in serialized
     # 探针侧确实收到了带 Bearer 的调用（证明密钥只走请求头，不进审计）
     assert any(MODEL_API_KEY in header for header in fault_probe.auth_headers), fault_probe.auth_headers[:2]
+
+
+# --------------------------------------------------------------------------- #
+# 探针分类：提炼调用按用途判为后台（评审条目 7）
+# --------------------------------------------------------------------------- #
+
+
+def _probe_completion(probe: FaultProbe, messages: list[dict[str, Any]]) -> httpx.Response:
+    """直接向真实故障探针发一次 chat/completions（与 Runtime 的调用同形）。"""
+    with httpx.Client(timeout=10) as client:
+        return client.post(f"{probe.base_url}/v1/chat/completions", json={"messages": messages})
+
+
+def test_e09_probe_classifies_consolidation_call_as_background(fault_probe: FaultProbe) -> None:
+    """提炼输入保留来源用户文本（含目标 token）：不得消费业务脚本、不得计入 `calls`。
+
+    评审条目 7 的定向复现：只看 token 的探针会把这条提炼调用当成目标 Run 的业务回合，
+    弹出预设 500 并计入 `calls`（`target_calls=1/background_calls=0`）。
+    """
+    fault_probe.marker = f"probe-{uuid.uuid4().hex[:10]}"
+    fault_probe.plan = ["500", "ok"]
+    fault_probe.calls.clear()
+    fault_probe.background_calls.clear()
+
+    response = _probe_completion(
+        fault_probe,
+        [
+            {"role": "system", "content": f"{CONSOLIDATION_MARKER} as unconfirmed AGENT memory."},
+            {"role": "user", "content": f"记住：我偏好简洁回答 [{fault_probe.marker}]"},
+        ],
+    )
+
+    assert response.status_code == 200, "提炼调用不得消费 500 故障脚本"
+    assert fault_probe.plan == ["500", "ok"], "提炼调用不得弹出业务脚本"
+    assert fault_probe.calls == [], "提炼调用不得计入目标 Run 的 calls"
+    assert len(fault_probe.background_calls) == 1, fault_probe.background_calls
+
+
+def test_e09_probe_keeps_business_call_target_classification(fault_probe: FaultProbe) -> None:
+    """业务回合仍按一次性 token 认目标并消费脚本：用途判定不得把业务调用算成后台。"""
+    fault_probe.marker = f"probe-{uuid.uuid4().hex[:10]}"
+    fault_probe.plan = ["500"]
+    fault_probe.calls.clear()
+    fault_probe.background_calls.clear()
+
+    response = _probe_completion(
+        fault_probe,
+        [
+            {"role": "system", "content": "You are an acceptance agent."},
+            {"role": "user", "content": f"hello [{fault_probe.marker}]"},
+        ],
+    )
+
+    assert response.status_code == 500
+    assert fault_probe.plan == []
+    assert len(fault_probe.calls) == 1
+    assert fault_probe.background_calls == []
