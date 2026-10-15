@@ -1695,3 +1695,4 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 - [2026-10-15] created (draft)；由需求终验 heavy 校验缺口显式补任务。
 - [2026-10-15] started
 - [2026-10-15] completed (done)
+- [2026-10-15] 收尾补记（Done Gate pass 之后）：本任务的常量删除使 `docs/configuration-inventory.csv` 的 python-constant 行陈旧（`tests/test_configuration_inventory.py` 红）；按 AST 重生成 CSV（1243→1240 行，category/reason 沿用既有口径），`tests/test_configuration_inventory.py` 4 passed。属本任务改动的直接后果，未重开任务。
