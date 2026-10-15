@@ -54,6 +54,7 @@ from muad_contracts.platform_settings import (
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.sql.elements import ColumnElement
 
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.db import get_session_factory
@@ -549,6 +550,27 @@ def _credential_canaries(
     return tuple(value for value in values if value)
 
 
+def _conversation_recency_key() -> ColumnElement[datetime]:
+    """「当前会话」排序键：**用户最近发言**时间；从未发言回落 `create_time`。
+
+    **不用 `conversation.update_time`**：`EventWriter._next_seq` 对任何事件（含后台收尾写向
+    旧会话的 `MEMORY_CONSOLIDATED`）都会 bump 它，按它取最新会把 `/new` 刚建出的新会话顶掉，
+    下一条入站（WS 不带会话指针）落回旧会话。用户发言以 `USER_MESSAGE` 事件为准；新会话在
+    用户下次发言前以 `create_time` 保持当前。
+    """
+    last_user_message_at = (
+        sa.select(sa.func.max(CanonicalEvent.create_time))
+        .where(
+            CanonicalEvent.conversation_id == Conversation.id,
+            CanonicalEvent.event_type == USER_MESSAGE_EVENT,
+            CanonicalEvent.is_deleted.is_(False),
+        )
+        .correlate(Conversation)
+        .scalar_subquery()
+    )
+    return sa.func.coalesce(last_user_message_at, Conversation.create_time)
+
+
 class RunService:
     def __init__(
         self,
@@ -953,7 +975,7 @@ class RunService:
                 Conversation.agent_id == request.agent_id,
                 Conversation.is_deleted.is_(False),
             )
-            .order_by(Conversation.update_time.desc())
+            .order_by(_conversation_recency_key().desc(), Conversation.create_time.desc())
             .limit(1)
         )
         if latest is not None:

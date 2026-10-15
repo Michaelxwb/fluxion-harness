@@ -122,7 +122,7 @@
 
 ## TASK-003: `/new` 后会话解析被后台事件顶回的产品侧收口
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: 
 - **Source**: .code-flow/tasks/archived/2026-10-12/memory-redesign/memory-redesign.design.md#3.6 consolidation 生命周期
@@ -136,21 +136,39 @@ WS 入站不带会话指针，`RunService._resolve_conversation`（`run_service.
 
 ### Checklist
 
-- [ ] 先写 RED（真实 PG）：会话 A 有用户消息 → `/new` 出会话 B → 向 A append 后台/系统事件（bump `update_time`）→ 解析新入站必须得到 B；另覆盖「A 无用户消息」与「B 也收到用户消息后仍取 B」。
-- [ ] 实现：`_resolve_conversation` 改按用户消息时间解析（一次查询，含无用户消息回落）；不改 `EventWriter`/`update_time` 的既有语义（Console 等其它读取不受影响）。
-- [ ] GREEN + 回归：`tests/agent_runtime`（隔离 head 库）+ `tests/acceptance/im_gateway/test_memory_flow.py tests/acceptance/im_gateway/test_runtime_stream.py` 连续两次全绿。
-- [ ] 不弱化既有断言；若发现其它按 `update_time` 解析会话的位置一并登记。
+- [x] 先写 RED（真实 PG）：会话 A 有用户消息 → `/new` 出会话 B → 向 A append 后台/系统事件（bump `update_time`）→ 解析新入站必须得到 B；另覆盖「A 无用户消息」与「B 也收到用户消息后仍取 B」。
+- [x] 实现：`_resolve_conversation` 改按用户消息时间解析（一次查询，含无用户消息回落）；不改 `EventWriter`/`update_time` 的既有语义（Console 等其它读取不受影响）。
+- [x] GREEN + 回归：`tests/agent_runtime`（隔离 head 库）+ `tests/acceptance/im_gateway/test_memory_flow.py tests/acceptance/im_gateway/test_runtime_stream.py` 连续两次全绿。
+- [x] 不弱化既有断言；若发现其它按 `update_time` 解析会话的位置一并登记。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | integration | 真实 PG（隔离 head 库）+ 真实事件写入 | 后台 append 旧会话后，新入站仍解析到用户最近发言的会话；无用户消息时回落 `create_time` | tests/agent_runtime/test_run_service.py | ["uv","run","pytest","-q","tests/agent_runtime/test_run_service.py"] | planned |
+| LOCAL | integration | 真实 PG（隔离 head 库）+ 真实事件写入 | 后台 append 旧会话后，新入站仍解析到用户最近发言的会话；无用户消息时回落 `create_time` | tests/agent_runtime/test_run_service.py | ["uv","run","pytest","-q","tests/agent_runtime/test_run_service.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行。
+**RED**（实现前；隔离 head 库 `muad_acc_7400b25ed1`，真实 PG + 真实 `EventWriter` 写入）：
+
+- `uv run pytest -q tests/agent_runtime/test_run_service.py -k resolve_conversation` → **3 failed**（`/tmp/postverify/task003/red-resolve.log`），三条新用例（断言位置 `tests/agent_runtime/test_run_service.py:701/731/761`）全部命中旧 `update_time` 口径，失败原文：
+  - `…background_event_bumps_old`：`assert resolved.id == b_id` → `AssertionError: assert UUID('62f233e5-e8be-41c6-b3a3-d4a286dbb5fe') == UUID('ea0d7152-c417-4339-8e1b-e91699ef955e')` —— 前置断言 `old.update_time > fresh.create_time`（`:701` 之前）先通过，证明 `MEMORY_CONSOLIDATED` 的 bump 真实发生、旧会话确实被算成「最新」。
+  - `…falls_back_to_create_time_without_user_messages`：`assert resolved.id == b_id` 失败（A 无用户消息、被 `RUN_FAILED` bump 后顶掉更晚创建的新会话 B）。
+  - `…sticks_to_conversation_that_received_user_message`：第二次 `assert resolved.id == b_id` 失败（B 已有用户消息，仍被 A 的后台事件 bump 顶回）。
+
+**GREEN**（实现后；命令、断言位置、日志路径）：
+
+- **实现**（`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`）：新增模块级 `_conversation_recency_key()`（`:553-571`）—— 相关子查询取该会话 `canonical_event.event_type='USER_MESSAGE'` 的最大 `create_time`，`coalesce(…, Conversation.create_time)` 兜底；`_resolve_conversation` 的 `order_by` 改为该键（`:978`，同一 SQL 内，仍是单次查询）。**未改** `EventWriter`/`_next_seq`/`conversation.update_time` 既有语义（Console 展示、事件写入路径均不受影响）。
+- **新用例**：`uv run pytest -q tests/agent_runtime/test_run_service.py -k resolve_conversation` → **3 passed**（`/tmp/postverify/task003/green-resolve.log`）；整文件 → **15 passed**（`/tmp/postverify/task003/green-run-service-file.log`）。测试边界：真实 PG（隔离 head 库）+ 真实 `EventWriter.append` 写事件（`_seed_conversation`/`_append_event`，`test_run_service.py:631/646`），不 mock 事件写入。
+- **回归连续两次**：`uv run pytest -q tests/agent_runtime` → **764 passed ×2**（`/tmp/postverify/task003/green-agent-runtime-1.log`、`green-agent-runtime-2.log`）。
+- **验收回归连续两次**：`uv run pytest -q tests/acceptance/im_gateway/test_memory_flow.py tests/acceptance/im_gateway/test_runtime_stream.py` → **7 passed ×2**（`/tmp/postverify/task003/green-im-gateway-1.log`、`green-im-gateway-2.log`）。测试侧既有规避 `wait_for_memory_background_idle` **原样保留、未弱化**（不再承载本缺陷的规避作用，但仍等记忆后台静止，对其它断言有意义）。
+- **静态检查**：`uv run ruff check`（两改动文件）→ EXIT=0 All checks passed（`green-ruff.log`）；`uv run mypy run_service.py` → EXIT=0（`green-mypy.log`）。
+- **其它 `update_time` 解析位置核查**：`grep -rn "Conversation.update_time" apps/` → 仅 `run_service.py` 本处（已改）；`cancel_active` 按活跃 Run 解析、不按会话 `update_time`；全仓无其它按会话 `update_time` 解析「当前会话」的位置，无新增登记项。会话索引 `ix_conversation_tenant_user_agent_update_time` 保留不动（无 schema 变更）。
 
 ### Log
 
 - [2026-10-15] created (draft)。
+- [2026-10-15] started
+- [2026-10-15] RED（3 failed，旧 `update_time` 口径）→ 实现 `_conversation_recency_key()`（USER_MESSAGE 最大 `create_time` + `create_time` 回落，单查询）→ 新用例 3 passed、文件 15 passed；`tests/agent_runtime` 764 passed ×2、im_gateway 两文件 7 passed ×2；ruff/mypy 全绿。
+- [2026-10-15] 登记：全仓无其它按会话 `update_time` 解析「当前会话」的位置（`cancel_active` 按活跃 Run）；未改 `EventWriter` 语义。
+- [2026-10-15] completed (done)

@@ -8,6 +8,7 @@ from muad_agent_runtime.application.async_tools.continuation_service import Exec
 from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
 from muad_agent_runtime.application.executor import ExecutorEvent, ExecutorFactory
 from muad_agent_runtime.application.ports import NullPlatformSettingsClient
+from muad_agent_runtime.application.run_events import EventWriter
 from muad_agent_runtime.application.run_service import (
     RunService,
     build_snapshot,
@@ -622,3 +623,139 @@ async def test_auto_resume_keeps_attachments_of_the_new_message(
     assert captured, "自动 resume 必须真的起执行器"
     content = captured[-1].input_content
     assert content is not None and "补充.txt" in str(content)
+
+
+# --- TASK-003: `/new` 后「当前会话」解析（用户最近发言口径） -------------------------
+
+
+async def _seed_conversation(tenant: TenantContext) -> uuid.UUID:
+    """真实落一个会话行（`/new` 的产品路径是 `create_conversation`，此处只要空会话）。"""
+    async with get_session_factory()() as session:
+        conversation = Conversation(
+            tenant_id=tenant.tenant_id,
+            user_id=tenant.platform_user_id,
+            agent_id=tenant.agent_id,
+            status="ACTIVE",
+            last_seq=0,
+        )
+        session.add(conversation)
+        await session.commit()
+        return conversation.id
+
+
+async def _append_event(
+    tenant: TenantContext,
+    conversation_id: uuid.UUID,
+    event_type: str,
+    payload: dict[str, Any],
+) -> None:
+    """独立事务追加事件（真实 `EventWriter`）：`_next_seq` 会 bump 该会话的 `update_time`。"""
+    async with get_session_factory()() as session:
+        await EventWriter(session).append(
+            tenant_id=tenant.tenant_id,
+            conversation_id=conversation_id,
+            run_id=uuid.uuid4(),
+            event_type=event_type,
+            payload=payload,
+        )
+        await session.commit()
+
+
+def _resolution_service(session: AsyncSession, fake_resolve: FakeResolveClient) -> RunService:
+    return RunService(
+        session,
+        fake_resolve,
+        "instance-a",
+        NullPlatformSettingsClient(),
+        supervisor=ExecutionSupervisor(),
+    )
+
+
+async def test_resolve_conversation_keeps_new_conversation_when_background_event_bumps_old(
+    tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+) -> None:
+    """[TASK-003] 旧会话的后台 append 不得把 `/new` 出的新会话顶掉。
+
+    后台收尾向旧会话写 `MEMORY_CONSOLIDATED` 时，`EventWriter._next_seq` 会 bump 旧会话的
+    `conversation.update_time`；解析若按 `update_time` 取「最新会话」，下一条入站（WS 不带
+    会话指针）就落回旧会话。解析口径必须是**用户最近发言**，而不是任意事件的更新时间。
+    """
+    conversation_a = await _seed_conversation(tenant)
+    await _append_event(tenant, conversation_a, "USER_MESSAGE", {"text": "第一句"})
+    async with get_session_factory()() as session:
+        conversation_b = await _resolution_service(session, fake_resolve).create_conversation(
+            tenant.agent_id, tenant.platform_user_id, tenant.tenant_id, idempotency_key="new-1"
+        )
+        b_id = conversation_b.id
+    await _append_event(tenant, conversation_a, "MEMORY_CONSOLIDATED", {"summary": "后台收尾"})
+
+    async with get_session_factory()() as session:
+        old = await session.get(Conversation, conversation_a)
+        fresh = await session.get(Conversation, b_id)
+        assert old is not None and fresh is not None
+        assert old.update_time > fresh.create_time, "前提：后台事件 bump 的 update_time 已越过新会话"
+        resolved = await _resolution_service(session, fake_resolve)._resolve_conversation(
+            _request(tenant, "下一条"), tenant.tenant_id
+        )
+    assert resolved.id == b_id
+
+
+async def test_resolve_conversation_falls_back_to_create_time_without_user_messages(
+    tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+) -> None:
+    """[TASK-003] 没有用户发言的会话按 `create_time` 排序，系统事件不得改变解析结果。
+
+    ① 只有旧会话 A、且从未有用户发言 ⇒ 解析回落到 `create_time`：取 A 本身，而不是再造一行；
+    ② A 被系统事件 bump 了 `update_time`、新会话 B 同样没有用户发言但创建更晚 ⇒ 必须得到 B。
+    """
+    conversation_a = await _seed_conversation(tenant)
+    async with get_session_factory()() as session:
+        resolved = await _resolution_service(session, fake_resolve)._resolve_conversation(
+            _request(tenant, "下一条"), tenant.tenant_id
+        )
+        assert resolved.id == conversation_a, "无用户发言时回落 create_time：既有会话不得被替换成新行"
+
+    async with get_session_factory()() as session:
+        conversation_b = await _resolution_service(session, fake_resolve).create_conversation(
+            tenant.agent_id, tenant.platform_user_id, tenant.tenant_id, idempotency_key="new-2"
+        )
+        b_id = conversation_b.id
+    await _append_event(tenant, conversation_a, "RUN_FAILED", {"error_code": "RUN_ABANDONED"})
+
+    async with get_session_factory()() as session:
+        resolved = await _resolution_service(session, fake_resolve)._resolve_conversation(
+            _request(tenant, "下一条"), tenant.tenant_id
+        )
+    assert resolved.id == b_id
+
+
+async def test_resolve_conversation_sticks_to_conversation_that_received_user_message(
+    tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+) -> None:
+    """[TASK-003] 新会话 B 收到用户消息后仍解析到 B；旧会话再被系统事件 bump 也不改变。"""
+    conversation_a = await _seed_conversation(tenant)
+    await _append_event(tenant, conversation_a, "USER_MESSAGE", {"text": "第一句"})
+    async with get_session_factory()() as session:
+        conversation_b = await _resolution_service(session, fake_resolve).create_conversation(
+            tenant.agent_id, tenant.platform_user_id, tenant.tenant_id, idempotency_key="new-3"
+        )
+        b_id = conversation_b.id
+    await _append_event(tenant, conversation_a, "MEMORY_CONSOLIDATED", {"summary": "后台收尾"})
+    await _append_event(tenant, b_id, "USER_MESSAGE", {"text": "第二句"})
+
+    async with get_session_factory()() as session:
+        resolved = await _resolution_service(session, fake_resolve)._resolve_conversation(
+            _request(tenant, "下一条"), tenant.tenant_id
+        )
+        assert resolved.id == b_id
+
+    # 旧会话再被后台事件 bump：解析仍取「用户最近发言」的 B
+    await _append_event(tenant, conversation_a, "MEMORY_CONSOLIDATED", {"summary": "二次收尾"})
+    async with get_session_factory()() as session:
+        resolved = await _resolution_service(session, fake_resolve)._resolve_conversation(
+            _request(tenant, "再下一条"), tenant.tenant_id
+        )
+        assert resolved.id == b_id
