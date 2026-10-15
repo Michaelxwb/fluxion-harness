@@ -85,6 +85,7 @@ __all__ = [
     "restart_process",
     "run_db",
     "start_gateway_stack",
+    "wait_for_memory_background_idle",
     "wait_for_new_run_terminal",
     "stop_gateway_stack",
 ]
@@ -407,3 +408,55 @@ async def _latest_status_of(run_id: str) -> str:
             return str(result.scalar() or "")
 
     return await _with_own_engine(fetch)  # type: ignore[return-value]
+
+
+async def wait_for_memory_background_idle(stack: GatewayStack, *, timeout: float = 120.0) -> None:
+    """等本租户的记忆后台写入静止：无未终态的 consolidation job、无待确认的记忆中断。
+
+    **为什么必须等**：Run 到终态后，Runtime 的记忆后台泵会 claim 这个 Run 的 consolidation
+    job，收尾时向**该 Run 的会话**追加 `MEMORY_CONSOLIDATED`；`EventWriter._next_seq` 每次
+    append 都 bump `conversation.update_time`（TASK-030 记录）。而 WS 推送不带 conversation_id，
+    Runtime 按 `update_time` 最新会话解析（`_resolve_conversation`）——于是「刚 `/new` 出来的
+    新会话」或「刚种下的会话」会在 job 收尾的那一瞬间被旧会话顶掉，下一次推送落回旧会话：
+      · S-05：探针 `tool_once` 在旧会话历史里看到工具结果，不再调 `remember` → 等不到候选；
+      · E-04：推送没命中那个 RUNNING 的种子会话 → 不返回 RUN_BUSY，而是新建 Run。
+    这里等的是**有限**的收尾写入（job 终态与它的 append 在同一事务提交；待确认中断的过期
+    清扫只对 WAITING 的 `MEMORY_CONFIRMATION` 再写），不是 sleep —— 条件满足后不会再有任何
+    后台 append 抢走会话解析。
+    """
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine(SharedSettings().require_database_url())
+
+    async def quiet() -> bool:
+        async with engine.connect() as connection:
+            pending_jobs = await connection.scalar(
+                text(
+                    "SELECT count(*) FROM runtime.memory_consolidation_job"
+                    " WHERE tenant_id = :t AND status IN ('PENDING', 'RUNNING', 'RETRY')"
+                ),
+                {"t": stack.tenant_id},
+            )
+            waiting = await connection.scalar(
+                text(
+                    "SELECT count(*) FROM runtime.run_interrupt"
+                    " WHERE tenant_id = :t AND interrupt_type = 'MEMORY_CONFIRMATION'"
+                    " AND status = 'WAITING'"
+                ),
+                {"t": stack.tenant_id},
+            )
+        return int(pending_jobs or 0) == 0 and int(waiting or 0) == 0
+
+    try:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if await quiet():
+                return
+            await asyncio.sleep(0.3)
+    finally:
+        await engine.dispose()
+    raise AssertionError(
+        f"记忆后台未在 {timeout}s 内静止：仍有未终态的 consolidation job 或待确认中断，"
+        "此刻换会话会被后台 append 抢走会话解析"
+    )

@@ -34,6 +34,7 @@ from tests.acceptance.im_gateway.environment import (
     CHAT_ID,
     GatewayStack,
     restart_process,
+    wait_for_memory_background_idle,
 )
 from tests.e2e.wecom_probe_app import frame_text
 
@@ -249,7 +250,14 @@ async def _wait_for_gateway_ws(stack: GatewayStack) -> None:
 
 
 async def _new_conversation(stack: GatewayStack) -> None:
-    """/new 是真实命令：等真实出站文本（命令不产生 Run）。"""
+    """/new 是真实命令：等真实出站文本（命令不产生 Run）。
+
+    换会话**前**先等记忆后台静止：上一个 Run 的 consolidation 收尾会向旧会话追加
+    `MEMORY_CONSOLIDATED` 并 bump `conversation.update_time`，若赶在 `/new` 之后落地，
+    新会话立刻被旧会话顶掉 —— 下一次推送落回旧会话，探针 `tool_once` 看到历史工具结果
+    便不再调 `remember`（2026-10-15 全量顺序下实测的 S-05 超时）。
+    """
+    await wait_for_memory_background_idle(stack)
     replies_before = len(_replies(stack))
     await _push(stack, text="/new")
     await _wait_for(

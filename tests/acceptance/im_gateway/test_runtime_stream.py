@@ -27,6 +27,7 @@ from tests.acceptance.im_gateway.environment import (
     count_tenant_rows,
     latest_run_id,
     purge_tenant,
+    wait_for_memory_background_idle,
     wait_for_new_run_terminal,
 )
 from tests.e2e.wecom_probe_app import frame_text
@@ -304,7 +305,11 @@ async def _seed_conversation(stack: GatewayStack) -> str:
     WS 推送不带 conversation_id，Runtime 按 `update_time` 最新会话解析
     （agent-runtime `_resolve_conversation`）；模块级共享租户里前序用例种下的会话
     可能仍挂着活跃 Run，故本用例自备会话以保证推送落在自己的会话内。
+
+    种之前先等记忆后台静止：前序 Run 的 consolidation 收尾会 append 事件并 bump 旧会话的
+    `update_time`，否则本会话刚种下就被顶掉，推送不落在自己的会话内。
     """
+    await wait_for_memory_background_idle(stack)
     conversation_id = uuid.uuid4()
     await _execute(
         "INSERT INTO runtime.conversation "
@@ -346,6 +351,9 @@ async def _snapshot_hash_of(run_id: str) -> str | None:
 
 async def test_e04_busy_run_is_rejected_without_new_run(gateway_stack: GatewayStack) -> None:
     await _wait_gateway_ws(gateway_stack)
+    # 推送要命中这个 RUNNING 的种子会话，前提是它真的成为"最新会话"：先等前序 Run 的记忆
+    # 后台收尾写完（consolidation 收尾 bump 旧会话 update_time 会把种子会话顶掉，等不到 RUN_BUSY）。
+    await wait_for_memory_background_idle(gateway_stack)
     run_id, _snapshot, _conversation = await _seed_run(gateway_stack, status="RUNNING")
     before_runs = await _scalar(
         "SELECT count(*) FROM runtime.run_record WHERE tenant_id = :t", {"t": gateway_stack.tenant_id}

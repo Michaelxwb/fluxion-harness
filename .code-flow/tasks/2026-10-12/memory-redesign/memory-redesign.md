@@ -1772,3 +1772,90 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 - [2026-10-15] created (draft)；由需求终验 heavy 校验缺口显式补任务。
 - [2026-10-15] started
 - [2026-10-15] completed (done)
+
+---
+
+## TASK-034: 终验 acceptance 顺序依赖修复（提炼调用插位与 im_gateway 超时）
+
+- **Status**: done
+- **Priority**: P0
+- **Depends**: TASK-033
+- **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界, memory-redesign.design.md#3.6 consolidation 生命周期
+- **Spec-Refs**: 
+- **Acceptance-Refs**: 
+- **Files**: tests/acceptance/wecom_attachments/test_inbound_image_e2e.py, tests/acceptance/im_gateway/test_memory_flow.py, tests/acceptance/im_gateway/test_runtime_stream.py, tests/acceptance/im_gateway/test_memory_redesign_e2e.py, tests/acceptance/im_gateway/environment.py
+
+### Description
+
+全量 acceptance（第 7 次复现，3 failed）暴露三条顺序依赖：wecom s05 假设「第二轮首个请求」是业务请求，被同探针的后台提炼调用抢位（已修：`_is_business_request` 过滤，断言与覆盖意图不变）；im_gateway `test_memory_flow::test_s05`（等不到待确认候选）与 `test_runtime_stream::test_e04`（等不到 RUN_BUSY 文案）两文件单跑 7 passed、在全套件顺序下超时，需套件内二分定位并做确定性修复。
+
+### Checklist
+
+- [x] 先复现并记录 RED：`uv run pytest -q tests/acceptance/im_gateway tests/acceptance/wecom_attachments`（隔离 head 库）。
+- [x] 验证并保留 wecom s05 修复（业务/提炼调用分离，`_is_business_request` + `CONSOLIDATION_MARKER` 导入），断言不降级。
+- [x] im_gateway 两条：按「目标模块 + 其前序模块子集」二分定位触发模块，给出根因（会话指针/`tool_once`/`/new` 竞争/种子对话不一致等）与确定性修法（测试侧，不弱化断言、不加 sleep 掩盖）。
+- [x] 修复后：`tests/acceptance/im_gateway tests/acceptance/wecom_attachments` 连续两次全绿；`tests/acceptance` 全量（隔离库）全绿。
+- [x] 不修与本批无关的存量红；不重开已 done 任务；Evidence 记录每条根因、修法、断言位置与命令结果。
+
+### Acceptance Contract
+
+| 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| LOCAL | integration | 真实 Gateway/Runtime/Worker/探针栈 + 真实 PG（隔离 head 库） | 三条失败用例在全量顺序下转绿且语义未削弱；二分定位过程与根因可复核 | tests/acceptance/im_gateway/test_memory_flow.py、tests/acceptance/im_gateway/test_runtime_stream.py、tests/acceptance/wecom_attachments/test_inbound_image_e2e.py | ["uv","run","pytest","-q","tests/acceptance/im_gateway","tests/acceptance/wecom_attachments"] | passed |
+
+### Acceptance Evidence
+
+**RED（清单命令，隔离 head 库）**：`DATABASE_URL=… REDIS_URL=… uv run pytest -q tests/acceptance/im_gateway tests/acceptance/wecom_attachments`
+→ **1 failed / 86 passed**（11:02，`/tmp/task034/red-im_gateway-wecom.txt`）：失败在
+`test_memory_redesign_e2e.py::test_e05_memory_redesign_default_consolidation_then_new_conversation_resume:644`
+（期望恰好一条 TASK_STATE 线索，实到两条）。既有全量 RED：`/tmp/fluxion-acceptance-repro2.txt`
+（3 failed / 328 passed，含本任务两条 im_gateway 超时与 wecom s05），其栈日志
+`…/pytest-of-jahan/pytest-448/`（模块 6=test_memory_flow、13=test_runtime_stream）。
+
+**根因（同一族：记忆后台收尾写入与用例步骤之间没有同步点）**
+
+1. 抢「最新会话」解析（`test_memory_flow::test_s05`、`test_runtime_stream::test_e04`）：
+   Run 终态同事务入队 consolidation job；泵收尾 `memory_job_effects.finish_job` 向该 Run 的会话
+   append `MEMORY_CONSOLIDATED`，而 `run_events.EventWriter._next_seq` 每次 append 都 bump
+   `conversation.update_time`；WS 推送不带 conversation_id，`run_service._resolve_conversation`
+   取 update_time 最新会话。全量顺序下泵 tick 恰好落在用例窗口内：
+   - S-05：`/new`（07:00:22.155）之后旧会话被收尾 append 顶成最新 → 第二轮推送（22.458）落回旧会话，
+     探针 `tool_once`（`_has_tool_result`）看到历史工具结果不再调 `remember` → 永远没有候选
+     （pytest-448 模块 6 runtime.log 只有一条 `memory_confirmation_proposed`）。
+   - E-04：种子 RUNNING 会话被顶掉 → 不返回 RUN_BUSY 而是新建 Run（模块 13 runtime.log
+     `memory_consolidation_failed reason=REJECTED` 07:08:08.256/08.266，与推送 08.294 同窗）。
+2. 抢记忆表清空（`test_memory_redesign_e2e::test_e05_default`，清单命令本轮暴露）：
+   前序用例（e03）的 job 在下一个用例 `_reset_memories` 清空**之后**才收尾，并按**当时**探针脚本
+   （e05_default 的 `_task_batch`）写入 `task.<旧会话>`（watcher：job 07:32:56.604 入队、
+   07:32:57.489 收尾；e05_default 于 ~56.8 清空）→ 断言面被污染。
+
+**修法（测试侧确定性同步；不弱化断言、不加 sleep）**
+`tests/acceptance/im_gateway/environment.py` 新增 `wait_for_memory_background_idle(stack)`：
+等本租户无 `PENDING/RUNNING/RETRY` 的 `memory_consolidation_job` 且无 `WAITING` 的
+`MEMORY_CONFIRMATION` 中断（job 终态与它的 append 同事务提交；过期清扫只对 WAITING 中断再写）
+⇒ 条件满足后不会再有后台 append 抢会话解析/抢清空。调用点：`test_memory_flow::_new_conversation`、
+`test_runtime_stream::test_e04`（种 C3 前）与 `_seed_conversation`、`test_memory_redesign_e2e::_reset_memories`
+与 `_new_conversation`。wecom s05 既有修复保留（`_is_business_request` 按 `CONSOLIDATION_MARKER`
+分离业务/提炼调用），断言不降级。
+
+**GREEN**
+- 清单命令连续两次：**87 passed**（11:02，`/tmp/task034/green1-im_gateway-wecom.txt`）、
+  **87 passed**（11:01，`/tmp/task034/green2-im_gateway-wecom.txt`）。
+- 全量：**331 passed**（21:51，`/tmp/task034/full-acceptance.txt`；对照修复前 3 failed / 328 passed）。
+  栈侧复核：模块 6 runtime.log 两条 `memory_confirmation_proposed`（S-05 真的调了 remember）；
+  模块 13 e04 推送（08:30:04.221）后四帧即时回复（RUN_BUSY 路径），后台 job 收尾（08:30:02.743/03.805）在前。
+
+**断言位置（未削弱）**：test_memory_flow.py:334、test_runtime_stream.py:356、
+test_inbound_image_e2e.py:524、test_memory_redesign_e2e.py:644。
+
+**遗留/不确定项**：产品侧仍存在「`/new` 后旧会话被后台 append 顶回最新」的窗口（WS 推送不带会话指针）；
+本任务按测试侧确定性同步处理，若要产品侧消除该窗口（显式 conversation_id / 会话指针）需另立需求。
+
+### Log
+
+- [2026-10-15] created (draft)；由第 7 次全量 acceptance 复现的缺口显式补任务。
+- [2026-10-15] started
+- [2026-10-15] RED：清单命令 1 failed / 86 passed（失败在 `test_memory_redesign_e2e::test_e05_default`，与两条目标同族）；全量既有 RED `/tmp/fluxion-acceptance-repro2.txt`（3 failed）；根因=记忆后台收尾 append 抢「最新会话」解析 / 抢记忆表清空（栈日志 pytest-448 复核）
+- [2026-10-15] 修：`environment.py::wait_for_memory_background_idle` + 4 个调用点（`test_memory_flow::_new_conversation`、`test_runtime_stream::test_e04`/`_seed_conversation`、`test_memory_redesign_e2e::_reset_memories`/`_new_conversation`）；wecom s05 既有修复保留
+- [2026-10-15] GREEN：清单命令 ×2 = 87 passed / 87 passed；全量 331 passed（21:51）
+- [2026-10-15] completed (done)

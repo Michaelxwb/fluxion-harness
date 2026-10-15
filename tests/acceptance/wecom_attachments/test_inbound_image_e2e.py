@@ -37,6 +37,7 @@ from tests.acceptance.im_gateway.environment import (
     CHAT_ID,
     GatewayStack,
 )
+from tests.e2e.openai_probe_app import CONSOLIDATION_MARKER
 from tests.e2e.wecom_media_server import AES_KEY, MediaServer, wecom_ciphertext
 from tests.e2e.wecom_probe_app import frame_text
 
@@ -224,11 +225,7 @@ async def _wait_reply(probe: Any, reply_id: str, *, timeout: float = WAIT_SEC) -
     """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        frames = [
-            frame
-            for frame in probe.replies
-            if (frame.get("headers") or {}).get("req_id") == reply_id
-        ]
+        frames = [frame for frame in probe.replies if (frame.get("headers") or {}).get("req_id") == reply_id]
         stream_id = _run_stream_id(frames)
         if stream_id:
             for frame in reversed(frames):
@@ -290,6 +287,18 @@ def _image_payloads(messages: list[Any]) -> list[str]:
     return found
 
 
+def _is_business_request(body: dict[str, Any]) -> bool:
+    """排除后台记忆提炼调用：它复用同一探针（Run 冻结主模型），会插进业务请求序列。
+
+    探针用 system 指令里的固定标记区分两类调用（`tests/e2e/openai_probe_app.py` 的
+    `CONSOLIDATION_MARKER`）；只按序列位置取「第二轮首个请求」会被提炼调用抢位。
+    """
+    return not any(
+        isinstance(message, dict) and CONSOLIDATION_MARKER in json.dumps(message, ensure_ascii=False)
+        for message in body.get("messages") or []
+    )
+
+
 def _tool_texts(messages: list[Any]) -> list[str]:
     return [
         str(message.get("content") or "")
@@ -312,9 +321,7 @@ async def _wait_resent_image(
     while time.monotonic() < deadline:
         bodies = _requests(stack)
         observed = [
-            payload
-            for body in bodies[since:]
-            for payload in _image_payloads(body.get("messages") or [])
+            payload for body in bodies[since:] for payload in _image_payloads(body.get("messages") or [])
         ]
         if expected_b64 in observed:
             return bodies, observed
@@ -380,9 +387,7 @@ async def test_s01_image_is_persisted_and_sent_to_the_model_as_a_content_block(
         lambda items: any(_image_payloads(body.get("messages") or []) for body in items),
         what="模型请求体里始终没有出现图像内容块",
     )
-    target = next(
-        body for body in bodies if _image_payloads(body.get("messages") or [])
-    )
+    target = next(body for body in bodies if _image_payloads(body.get("messages") or []))
     messages = target["messages"]
     assert any(question in json.dumps(message, ensure_ascii=False) for message in messages)
     assert _image_payloads(messages)[0] == _b64(PNG_S01)
@@ -427,8 +432,7 @@ async def test_s02_document_is_extracted_by_the_real_tool_and_answered(
 
     # ② 工具真的被调用，且**用的是上下文里那个 ID**（探针从提示里读出来的）
     rows = await _fetch(
-        "SELECT id FROM runtime.artifact WHERE tenant_id = :t AND storage_key LIKE :k "
-        "AND is_deleted = false",
+        "SELECT id FROM runtime.artifact WHERE tenant_id = :t AND storage_key LIKE :k AND is_deleted = false",
         {"t": gateway_stack.tenant_id, "k": f"inbound/{message_id}/%"},
     )
     if len(rows) != 1:
@@ -452,10 +456,7 @@ async def test_s02_document_is_extracted_by_the_real_tool_and_answered(
 
     # ③ 工具结果里的正文与文档实际内容一致（真实解析库抽出来的）
     tool_text = next(
-        text_value
-        for body in bodies
-        for text_value in _tool_texts(body.get("messages") or [])
-        if text_value
+        text_value for body in bodies for text_value in _tool_texts(body.get("messages") or []) if text_value
     )
     assert PDF_TEXT in tool_text
 
@@ -481,9 +482,7 @@ async def test_s05_historical_image_is_resent_as_a_content_block_after_view_imag
     # 基线：探针记录是**跨用例**累积的（同一模块复用同一进程），只看本轮之后新增的请求
     baseline = len(_requests(gateway_stack))
     first_id, first_reply = _new_message()
-    first_url = media_server.serve(
-        f"/s05/{first_id}", wecom_ciphertext(PNG_S05), filename="history.png"
-    )
+    first_url = media_server.serve(f"/s05/{first_id}", wecom_ciphertext(PNG_S05), filename="history.png")
     await _push(
         gateway_stack,
         _callback(first_id, first_reply, _mixed(_text_item("先看这张图"), _item("image", first_url))),
@@ -491,9 +490,7 @@ async def test_s05_historical_image_is_resent_as_a_content_block_after_view_imag
     await _wait_reply(probe, first_reply)
     await _wait_requests(
         gateway_stack,
-        lambda items: any(
-            _image_payloads(body.get("messages") or []) for body in items[baseline:]
-        ),
+        lambda items: any(_image_payloads(body.get("messages") or []) for body in items[baseline:]),
         what="第一轮的图片没有作为内容块发出",
     )
     seen = len(_requests(gateway_stack))
@@ -515,18 +512,18 @@ async def test_s05_historical_image_is_resent_as_a_content_block_after_view_imag
     await _wait_reply(probe, second_reply)
 
     bodies, observed = await _wait_resent_image(gateway_stack, seen, PNG_S05_B64)
-    assert any(
-        PNG_S05_B64 in payload for payload in observed
-    ), f"重看后重发的不是那张历史图片；观察到的图像块（base64 前缀）：{[p[:24] for p in observed]}"
-    second_turn = bodies[seen:]
+    assert any(PNG_S05_B64 in payload for payload in observed), (
+        f"重看后重发的不是那张历史图片；观察到的图像块（base64 前缀）：{[p[:24] for p in observed]}"
+    )
+    # 后台提炼调用会插进请求序列（同探针、同模型），按业务调用过滤后再取第二轮首个请求。
+    second_turn = [body for body in bodies[seen:] if _is_business_request(body)]
+    assert second_turn, "第二轮没有任何业务模型请求"
+    first = second_turn[0]
     # ① 第二轮**首个**请求里没有图像块：历史附件只留文本引用（RULE-03）
-    assert _image_payloads(second_turn[0].get("messages") or []) == []
+    assert _image_payloads(first.get("messages") or []) == []
     assert any(
-        "附件 ID" in json.dumps(message, ensure_ascii=False)
-        for message in second_turn[0].get("messages") or []
+        "附件 ID" in json.dumps(message, ensure_ascii=False) for message in first.get("messages") or []
     ), "历史图片应保留带 artifact_id 的文本引用"
     # ② 重看之后，那张**历史图片本身**被作为内容块重发（字节与第一轮一致）
-    resent = [
-        payload for body in second_turn for payload in _image_payloads(body.get("messages") or [])
-    ]
+    resent = [payload for body in second_turn for payload in _image_payloads(body.get("messages") or [])]
     assert resent and all(payload == PNG_S05_B64 for payload in resent)

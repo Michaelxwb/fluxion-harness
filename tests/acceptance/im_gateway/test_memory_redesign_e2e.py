@@ -39,6 +39,7 @@ from tests.acceptance.im_gateway.environment import (
     CHAT_ID,
     GatewayStack,
     restart_process,
+    wait_for_memory_background_idle,
 )
 from tests.e2e.wecom_probe_app import frame_text
 
@@ -286,7 +287,12 @@ async def _reset_memories(stack: GatewayStack) -> None:
 
     「唯一未决/多条线索」这类断言必须不受前序场景残留影响；运行记录、事件与 job 行保留
     （失败 trace 仍可回查）。同租户的栈级 `purge_tenant` 在模块收尾仍会再清一遍。
+
+    清之前先等记忆后台静止：前序用例的 consolidation job 可能在**清空之后**才收尾，
+    它按当时探针脚本写下的 TASK_STATE 行会重新落进刚清空的表（2026-10-15 实测：
+    e03 的 job 在 e05_default 清空后 0.9s 落地，断言看到两条线索）。
     """
+    await wait_for_memory_background_idle(stack)
     for statement in (
         "DELETE FROM runtime.user_memory_history WHERE tenant_id = :tenant",
         "DELETE FROM runtime.user_memory WHERE tenant_id = :tenant",
@@ -380,7 +386,13 @@ async def _drop_platform_setting(stack: GatewayStack, revision: int) -> None:
 
 
 async def _new_conversation(stack: GatewayStack) -> None:
-    """/new 是真实命令：等真实出站文本（命令不产生 Run）。"""
+    """/new 是真实命令：等真实出站文本（命令不产生 Run）。
+
+    换会话**前**先等记忆后台静止：前序 Run 的 consolidation 收尾会向旧会话追加事件并
+    bump `conversation.update_time`，赶在 `/new` 之后落地就会把新会话顶掉，后续推送落回
+    旧会话（用例对"续接落进新会话"的断言随之错位）。
+    """
+    await wait_for_memory_background_idle(stack)
     replies_before = len(_replies(stack))
     await _push(stack, text="/new")
     await _wait_for(
