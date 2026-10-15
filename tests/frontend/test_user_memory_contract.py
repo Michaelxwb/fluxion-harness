@@ -280,10 +280,11 @@ def test_memory_tab_renders_author_through_memory_options() -> None:
 
 
 def test_memory_tab_commands_carry_version_and_caller_key() -> None:
-    """删除/清空传入读到的 version 与调用方幂等键；HTTP 仍在 service 层。"""
+    """删除/清空传入读到的 version 与操作上下文命令号；HTTP 仍在 service 层。"""
     compact = _compact(_source(MEMORY_TAB))
-    assert "deleteMemory(props.userId,entry.id,entry.version,newRequestId())" in compact
-    assert "clearMemory(props.userId,newRequestId())" in compact
+    assert "(key)=>deleteMemory(props.userId,entry.id,entry.version,key)" in compact
+    assert "(key)=>clearMemory(props.userId,key)" in compact
+    assert "createMemoryCommandContext(newRequestId)" in compact
     assert "from'../../api/client'" in compact
 
 

@@ -27,6 +27,7 @@ import { PaginationFooter } from '../../components/common/PaginationFooter';
 import { StatusTag } from '../../components/common/StatusTag';
 import { TableText } from '../../components/common/TableText';
 import { actionColumn } from '../../components/common/tableLayout';
+import { createMemoryCommandContext } from './memoryCommands';
 import { MemoryHistorySideSheet } from './MemoryHistorySideSheet';
 import {
   memoryAuthorLabel,
@@ -122,6 +123,8 @@ export function MemoryTab(props: MemoryTabProps) {
   const [reenableError, setReenableError] = useState<string | null>(null);
   const formApi = useRef<FormApi | null>(null);
   const requestSeq = useRef(0);
+  // 一次操作 = 一个命令号 + 一份输入快照：结果未明确前的重试复用同一 key（评审条目 3）。
+  const commands = useRef(createMemoryCommandContext(newRequestId));
 
   const reload = useCallback(async () => {
     const seq = ++requestSeq.current;
@@ -156,16 +159,35 @@ export function MemoryTab(props: MemoryTabProps) {
     void reload();
   }, [reload]);
 
-  /** 写操作统一收口：成功刷新列表与计数；失败落到可见错误（版本冲突可刷新后重试）。 */
-  const runAction = async (action: () => Promise<unknown>): Promise<void> => {
-    setActionError(null);
+  /** 写操作统一收口：命令号经操作上下文取（同 identity + 同输入快照复用），成功才释放并刷新。 */
+  const runAction = async (
+    identity: string,
+    input: unknown,
+    action: (key: string) => Promise<unknown>,
+    onError: (error: unknown) => void
+  ): Promise<boolean> => {
     try {
-      await action();
+      await action(commands.current.key(identity, input));
+      commands.current.release(identity);
       await reload();
       props.onMutated?.();
+      return true;
     } catch (error) {
-      setActionError({ code: memoryErrorCode(error) });
+      onError(error);
+      return false;
     }
+  };
+
+  /** 工具行动作（启禁用/删除/清空）的失败落点：版本冲突可刷新后重试。 */
+  const runToolbarAction = (
+    identity: string,
+    input: unknown,
+    action: (key: string) => Promise<unknown>
+  ): void => {
+    setActionError(null);
+    void runAction(identity, input, action, (error) => {
+      setActionError({ code: memoryErrorCode(error) });
+    });
   };
 
   const openCreate = (): void => {
@@ -174,15 +196,22 @@ export function MemoryTab(props: MemoryTabProps) {
   };
 
   const submitCreate = async (values: CreateFormValues): Promise<void> => {
+    const identity = `create:${props.userId}`;
+    const input = createInput(values);
     setCreating(true);
     setCreateError(null);
     try {
-      await createMemory(props.userId, createInput(values), newRequestId());
-      setCreateVisible(false);
-      await reload();
-      props.onMutated?.();
-    } catch (error) {
-      setCreateError(memoryErrorLabel(t, memoryErrorCode(error)));
+      const saved = await runAction(
+        identity,
+        input,
+        (key) => createMemory(props.userId, input, key),
+        (error) => {
+          setCreateError(memoryErrorLabel(t, memoryErrorCode(error)));
+        }
+      );
+      if (saved) {
+        setCreateVisible(false);
+      }
     } finally {
       setCreating(false);
     }
@@ -195,8 +224,9 @@ export function MemoryTab(props: MemoryTabProps) {
       setExpiredTarget(entry);
       return;
     }
-    void runAction(() =>
-      updateMemoryEnabled(props.userId, entry.memory_key, enabledCommand(entry), newRequestId())
+    const input = enabledCommand(entry);
+    runToolbarAction(`toggle:${props.userId}:${entry.memory_key}`, input, (key) =>
+      updateMemoryEnabled(props.userId, entry.memory_key, input, key)
     );
   };
 
@@ -204,31 +234,39 @@ export function MemoryTab(props: MemoryTabProps) {
     if (expiredTarget === null || expiredExpiry === null) {
       return;
     }
+    const identity = `reenable:${props.userId}:${expiredTarget.memory_key}`;
+    const input = enabledCommand(expiredTarget, expiredExpiry.toISOString());
     setReenabling(true);
     setReenableError(null);
     try {
-      await updateMemoryEnabled(
-        props.userId,
-        expiredTarget.memory_key,
-        enabledCommand(expiredTarget, expiredExpiry.toISOString()),
-        newRequestId()
+      const saved = await runAction(
+        identity,
+        input,
+        (key) => updateMemoryEnabled(props.userId, expiredTarget.memory_key, input, key),
+        (error) => {
+          setReenableError(memoryErrorLabel(t, memoryErrorCode(error)));
+        }
       );
-      setExpiredTarget(null);
-      await reload();
-      props.onMutated?.();
-    } catch (error) {
-      setReenableError(memoryErrorLabel(t, memoryErrorCode(error)));
+      if (saved) {
+        setExpiredTarget(null);
+      }
     } finally {
       setReenabling(false);
     }
   };
 
   const remove = (entry: MemoryItem): void => {
-    void runAction(() => deleteMemory(props.userId, entry.id, entry.version, newRequestId()));
+    runToolbarAction(
+      `delete:${props.userId}:${entry.id}`,
+      { memory_id: entry.id, expected_version: entry.version },
+      (key) => deleteMemory(props.userId, entry.id, entry.version, key)
+    );
   };
 
   const clearAll = (): void => {
-    void runAction(() => clearMemory(props.userId, newRequestId()));
+    runToolbarAction(`clear:${props.userId}`, { user_id: props.userId }, (key) =>
+      clearMemory(props.userId, key)
+    );
   };
 
   return (
@@ -238,7 +276,7 @@ export function MemoryTab(props: MemoryTabProps) {
           <Button theme="solid" icon={<IconPlus />} data-testid="memory-create" onClick={openCreate}>
             {t('user.memory.add')}
           </Button>
-          <ConfirmAction title={t('user.common.confirmClear')} onConfirm={clearAll}>
+          <ConfirmAction title={t('user.common.confirmClear')} testId="memory-clear" onConfirm={clearAll}>
             {t('user.memory.clear')}
           </ConfirmAction>
         </div>

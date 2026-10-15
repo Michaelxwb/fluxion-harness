@@ -37,6 +37,7 @@ MODULE = ROOT / "apps/console-platform/frontend/src/modules/user-identity"
 USER_DETAIL = MODULE / "UserDetailTabs.tsx"
 MEMORY_TAB = MODULE / "MemoryTab.tsx"
 MEMORY_HISTORY = MODULE / "MemoryHistorySideSheet.tsx"
+MEMORY_COMMANDS = MODULE / "memoryCommands.ts"
 OPTIONS = MODULE / "memoryOptions.ts"
 LOCALES = ROOT / "apps/console-platform/frontend/src/locales"
 
@@ -130,25 +131,46 @@ def test_memory_create_form_field_order_and_writable_categories() -> None:
     assert "memoryWritableCategoryOptions(t)" in source, "分类选项必须来自可写分类出口"
     assert "memoryCategoryOptions(t)" not in source, "不得把 TASK_STATE 摆进可选分类"
     assert not re.search(r"\bauthor\s*:", _strip_comments(source)), "创建入参不得自选 author"
-    assert "createMemory(props.userId," in _compact(source)
-    assert "newRequestId()" in source, "每次提交必须带调用方幂等键"
+    assert "(key)=>createMemory(props.userId,input,key)" in _compact(source)
+    assert "createMemoryCommandContext(newRequestId)" in _compact(source), (
+        "命令号仍由调用方（操作上下文）生成"
+    )
 
 
 def test_memory_writes_carry_expected_version_and_caller_key() -> None:
-    """启禁用/删除都带读到的 version；清空与创建带幂等键；HTTP 仍只在 service 层。"""
+    """启禁用/删除都带读到的 version；写操作经操作上下文取命令号；HTTP 仍只在 service 层。"""
     compact = _compact(_read(MEMORY_TAB))
-    assert (
-        "updateMemoryEnabled(props.userId,entry.memory_key,enabledCommand(entry),newRequestId())"
-        in compact
-    ), "启禁用必须带当前条目版本与幂等键"
-    assert (
-        "updateMemoryEnabled(props.userId,expiredTarget.memory_key,"
-        "enabledCommand(expiredTarget,expiredExpiry.toISOString()),newRequestId())" in compact
-    ), "过期条目重新启用必须显式给新有效期"
+    assert "enabledCommand(entry)" in compact, "启禁用必须带当前条目状态"
+    assert "enabledCommand(expiredTarget,expiredExpiry.toISOString())" in compact, (
+        "过期条目重新启用必须显式给新有效期"
+    )
     assert compact.count("expected_version:entry.version") >= 2, "两类启禁用都要带 expected_version"
-    assert "deleteMemory(props.userId,entry.id,entry.version,newRequestId())" in compact
-    assert "clearMemory(props.userId,newRequestId())" in compact
+    assert "(key)=>updateMemoryEnabled(props.userId,entry.memory_key,input,key)" in compact
+    assert "(key)=>deleteMemory(props.userId,entry.id,entry.version,key)" in compact
+    assert "(key)=>clearMemory(props.userId,key)" in compact
     assert "from'../../api/client'" in compact
+
+
+def test_memory_tab_writes_hold_command_context_until_success() -> None:
+    """[评审条目 3] 四个写操作统一经「操作上下文（key + 输入快照）」收口。
+
+    调用点不再各次 `newRequestId()`：命令号只在操作上下文生成一次，成功路径唯一释放 —— 结果
+    未明确前的重试（响应丢失）复用同一 key 与输入快照，成功后下一次操作才换新命令号。
+    """
+    compact = _compact(_read(MEMORY_TAB))
+    assert "createMemoryCommandContext(newRequestId)" in compact, "命令上下文必须由组件持有"
+    assert "newRequestId()" not in compact, "调用点不得各次新建命令号（只在操作上下文里生成）"
+    assert compact.count("commands.current.release(identity)") == 1, (
+        "成功释放必须只有一个收口点（写操作统一经 runAction）"
+    )
+    for call in (
+        "(key)=>createMemory(props.userId,input,key)",
+        "(key)=>updateMemoryEnabled(props.userId,entry.memory_key,input,key)",
+        "(key)=>updateMemoryEnabled(props.userId,expiredTarget.memory_key,input,key)",
+        "(key)=>deleteMemory(props.userId,entry.id,entry.version,key)",
+        "(key)=>clearMemory(props.userId,key)",
+    ):
+        assert call in compact, f"写操作必须经操作上下文取命令号：{call}"
 
 
 def test_memory_version_conflict_is_recoverable() -> None:
@@ -225,14 +247,14 @@ def test_memory_tab_copy_keys_are_localized_in_both_locales() -> None:
 
 def _node_toolchain_problem() -> str | None:
     if NODE is None:
-        return "node 不在 PATH（本用例需要真实执行 memoryOptions.ts）"
+        return "node 不在 PATH（本用例需要真实执行前端纯模块）"
     if not ESBUILD.exists():
         return f"缺少 {ESBUILD}；先跑 npm --prefix apps/console-platform/frontend ci 再执行本用例"
     return None
 
 
-def test_memory_writable_category_options_with_real_locales(tmp_path: Path) -> None:
-    """真实行为：可写分类只有三值（无 TASK_STATE），标签来自真实 locale JSON。"""
+def _run_bundled_harness(tmp_path: Path, entry: Path, harness_js: str, *args: str) -> dict[str, Any]:
+    """真实 node + 仓库内 esbuild：打包纯模块并以真实 node 执行行为断言。"""
     problem = _node_toolchain_problem()
     if problem is not None:
         pytest.skip(problem)
@@ -240,10 +262,10 @@ def test_memory_writable_category_options_with_real_locales(tmp_path: Path) -> N
     completed = subprocess.run(
         [
             str(ESBUILD),
-            str(OPTIONS),
+            str(entry),
             "--bundle",
             "--format=esm",
-            f"--outfile={tmp_path / 'memoryOptions.mjs'}",
+            f"--outfile={tmp_path / f'{entry.stem}.mjs'}",
         ],
         capture_output=True,
         text=True,
@@ -251,20 +273,48 @@ def test_memory_writable_category_options_with_real_locales(tmp_path: Path) -> N
     assert completed.returncode == 0, f"esbuild 转译失败：{completed.stderr}"
 
     harness = tmp_path / "harness.mjs"
-    harness.write_text(_HARNESS_JS, encoding="utf-8")
+    harness.write_text(harness_js, encoding="utf-8")
     completed = subprocess.run(
-        [str(NODE), str(harness), str(LOCALES / "zh-CN.json"), str(LOCALES / "en-US.json")],
-        capture_output=True,
-        text=True,
+        [str(NODE), str(harness), *args], capture_output=True, text=True
     )
     assert completed.returncode == 0, f"node 执行失败：{completed.stderr}"
-    result: dict[str, Any] = json.loads(completed.stdout)
+    return json.loads(completed.stdout)
+
+
+def test_memory_writable_category_options_with_real_locales(tmp_path: Path) -> None:
+    """真实行为：可写分类只有三值（无 TASK_STATE），标签来自真实 locale JSON。"""
+    result = _run_bundled_harness(
+        tmp_path,
+        OPTIONS,
+        _HARNESS_JS,
+        str(LOCALES / "zh-CN.json"),
+        str(LOCALES / "en-US.json"),
+    )
 
     zh, en = _locales()
     assert result["values"] == ["PREFERENCE", "WORK_STYLE", "EXPLICIT"], "只允许可写分类"
     assert "TASK_STATE" not in result["values"], "TASK_STATE 是 Agent 保留命名空间，不可选"
     assert result["zh"] == [zh[f"user.memory.category.{value}"] for value in result["values"]]
     assert result["en"] == [en[f"user.memory.category.{value}"] for value in result["values"]]
+
+
+def test_memory_command_context_reuses_key_until_result_is_definite(tmp_path: Path) -> None:
+    """[评审条目 3] 真实行为：一次操作 = 一个命令号 + 一份输入快照，成功后才释放。
+
+    注入确定性 key 生成器后逐次比对：结果未明确前的重试必须命中同一命令号（响应丢失后重试
+    不得变成第二条命令）；输入快照变化（刷新后拿到新版本/改表单）与新操作（release 之后）
+    都必须换新命令号（否则后端按指纹返回 IDEMPOTENCY_MISMATCH）。
+    """
+    result = _run_bundled_harness(tmp_path, MEMORY_COMMANDS, _COMMANDS_HARNESS_JS)
+
+    assert result["retry"] == result["first"], "同一次操作重试必须复用同一命令号"
+    assert result["changed"] != result["first"], "输入快照变化必须换新命令号"
+    assert result["changedRetry"] == result["changed"], "变化后的操作重试同样复用同一命令号"
+    assert result["otherTarget"] not in (result["first"], result["changed"]), "不同目标互不串号"
+    assert result["afterSuccess"] not in (result["first"], result["changed"]), (
+        "成功释放后下一次操作必须换新命令号"
+    )
+    assert result["generated"] == 4, "生成次数 = 新操作数：重试不得多生成命令号"
 
 
 _HARNESS_JS = """
@@ -283,4 +333,22 @@ console.log(JSON.stringify({
   zh: zhOptions.map((option) => option.label),
   en: enOptions.map((option) => option.label),
 }));
+"""
+
+_COMMANDS_HARNESS_JS = """
+import * as commands from './memoryCommands.mjs';
+
+let generated = 0;
+const context = commands.createMemoryCommandContext(() => `key-${(generated += 1)}`);
+const inputA = { enabled: true, expected_version: 3 };
+const inputB = { enabled: true, expected_version: 4 };
+
+const first = context.key('toggle:u:color', inputA);
+const retry = context.key('toggle:u:color', inputA);
+const changed = context.key('toggle:u:color', inputB);
+const changedRetry = context.key('toggle:u:color', inputB);
+const otherTarget = context.key('toggle:u:other', inputA);
+context.release('toggle:u:color');
+const afterSuccess = context.key('toggle:u:color', inputB);
+console.log(JSON.stringify({ first, retry, changed, changedRetry, otherTarget, afterSuccess, generated }));
 """

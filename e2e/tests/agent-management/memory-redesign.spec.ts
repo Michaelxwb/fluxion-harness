@@ -5,7 +5,9 @@ import { expect, test, type Page } from '@playwright/test';
  *
  * 真实边界：真实 Chrome → vite preview（构建产物）→ 真实 Console（真实登录会话 + CSRF）
  * → 真实 Runtime 记忆管理写入口（Console 转命令）→ 真实 PostgreSQL（runtime.user_memory /
- * user_memory_history）。无路由拦截、无 mock。
+ * user_memory_history）。无 mock。唯一一处 `page.route` 是「响应丢失」注入（清空重试用例）：
+ * 请求仍真实送达 Console→Runtime→PG（`route.fetch()`，命令真的执行），只把回包丢弃
+ * （`route.abort()`）——不 mock 数据，也不改写响应体。
  *
  * 环境前提（TASK-030 在 `playwright.agent.config.ts` 接线，不在本文件 mock）：
  * - 独立临时库 + 预置 admin（`support/isolated-datastores.ts` 已导出 E2E_ADMIN_USER/PASSWORD）；
@@ -225,6 +227,67 @@ test('E-04 记忆管理：创建、启禁用、历史分页、删除与本地化
   const listItems = ((await listResponse.json()) as { data: { items: Array<{ memory_key: string }> } })
     .data.items;
   expect(listItems.map((item) => item.memory_key)).not.toContain(memoryKey);
+});
+
+test('E-04 清空重试复用同一命令号：响应丢失后的重试不变成第二条命令（真实 Console→Runtime→PG）', async ({
+  page
+}) => {
+  const stamp = Date.now();
+  const userCode = `e2e-memory-retry-${stamp}`;
+  const memoryKey = `e2e.retry.${stamp}`;
+  const content = `E2E 重试 ${stamp}`;
+  const survivorKey = `e2e.retry.survivor.${stamp}`;
+  const survivor = `E2E 重试幸存 ${stamp}`;
+  const locale: Locale = 'zh-CN';
+
+  await loginAs(page, ADMIN_USER, ADMIN_PASSWORD);
+  const userId = await createUserViaApi(page, userCode, 'E2E Memory Retry');
+  await createMemoryViaApi(page, userId, memoryKey, content);
+  await openMemoryTab(page, userCode, locale);
+  const row = page.locator('.user-memory-table .semi-table-row', { hasText: content });
+  await expect(row).toHaveCount(1);
+
+  // 「响应丢失」注入：请求真实送达 Console→Runtime→PG（`route.fetch()`，命令真的执行），
+  // 只把回包丢弃（`route.abort()`）——不 mock 数据。第二次起放行，模拟用户原样重试。
+  const clearKeys: string[] = [];
+  let dropped = false;
+  await page.route('**/api/v1/users/*/memory', async (route) => {
+    if (route.request().method() !== 'DELETE') {
+      await route.continue();
+      return;
+    }
+    clearKeys.push(route.request().headers()['idempotency-key'] ?? '');
+    if (!dropped) {
+      dropped = true;
+      await route.fetch();
+      await route.abort('failed');
+      return;
+    }
+    await route.continue();
+  });
+  try {
+    const clearButton = page.getByTestId('memory-clear');
+    const confirmClear = () =>
+      page.locator('.semi-popconfirm').getByRole('button', { name: '确定', exact: true });
+
+    // 第一次清空：真实命令已执行，但响应丢失 ⇒ 必须显示可见错误（可原样重试），不得静默成功。
+    await clearButton.click();
+    await confirmClear().click();
+    await expect(page.getByTestId('memory-action-error')).toBeVisible();
+
+    // 第一次尝试与重试之间新建的记忆必须存活：重试是同一命令（回执重放），不是第二条清空。
+    await createMemoryViaApi(page, userId, survivorKey, survivor);
+
+    await clearButton.click();
+    await confirmClear().click();
+    await expect(row).toHaveCount(0);
+    await expect(page.locator('.user-memory-table .semi-table-row', { hasText: survivor })).toHaveCount(1);
+
+    expect(clearKeys).toHaveLength(2);
+    expect(clearKeys[1]).toBe(clearKeys[0]);
+  } finally {
+    await page.unroute('**/api/v1/users/*/memory');
+  }
 });
 
 test('E-04 记忆历史分页：超过一页按 version 倒序翻页（真实 Console→Runtime→PG）', async ({ page }) => {

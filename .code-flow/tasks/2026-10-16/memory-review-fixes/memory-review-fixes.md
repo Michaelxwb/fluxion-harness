@@ -64,7 +64,7 @@
 
 ## TASK-002: 前端重试持有命令号与输入（P1）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: 
 - **Source**: GPT 评审条目 3
@@ -78,24 +78,42 @@
 
 ### Checklist
 
-- [ ] 先写源码/行为契约 RED：同一次操作在结果未明确前的重试必须复用同一命令号与输入；成功后下一次操作才换新命令号。
-- [ ] 实现：四个写操作统一经「操作上下文」（key + 输入）收口；错误可见且可重试；版本冲突路径行为不变。
-- [ ] GREEN：`tests/frontend/test_memory_tab_contract.py` + `tests/frontend` 全绿 + typecheck；`make acceptance-e2e DOMAIN=agent` 通过（含重试路径的浏览器验证）。
-- [ ] 不新增 i18n 框架/HTTP 机制；不弱化既有断言。
+- [x] 先写源码/行为契约 RED：同一次操作在结果未明确前的重试必须复用同一命令号与输入；成功后下一次操作才换新命令号。
+- [x] 实现：四个写操作统一经「操作上下文」（key + 输入）收口；错误可见且可重试；版本冲突路径行为不变。
+- [x] GREEN：`tests/frontend/test_memory_tab_contract.py` + `tests/frontend` 全绿 + typecheck；`make acceptance-e2e DOMAIN=agent` 通过（含重试路径的浏览器验证）。
+- [x] 不新增 i18n 框架/HTTP 机制；不弱化既有断言。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | unit + E2E | 真实源码契约 + 真实 Console/Runtime/PG/Chrome（重试路径） | 同一次操作重试复用同一命令号与输入；成功后换新命令号；清空重试不误删新记忆 | tests/frontend/test_memory_tab_contract.py、e2e/tests/agent-management/memory-redesign.spec.ts | ["bash","-lc","uv run pytest -q tests/frontend/test_memory_tab_contract.py && make acceptance-e2e DOMAIN=agent"] | planned |
+| LOCAL | unit + E2E | 真实源码契约 + 真实 Console/Runtime/PG/Chrome（重试路径） | 同一次操作重试复用同一命令号与输入；成功后换新命令号；清空重试不误删新记忆 | tests/frontend/test_memory_tab_contract.py、e2e/tests/agent-management/memory-redesign.spec.ts | ["bash","-lc","uv run pytest -q tests/frontend/test_memory_tab_contract.py && make acceptance-e2e DOMAIN=agent"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行；RED 依据：评审条目 3 的后端行为实测（复用 key=200 回执；换 key=409/误删）。
+**RED**（先于实现；命令与失败原文）：
+
+- `uv run pytest -q tests/frontend/test_memory_tab_contract.py` → **4 failed / 7 passed**，`/tmp/reviewfix/task002/red.log`：
+  - `test_memory_command_context_reuses_key_until_result_is_definite`：`AssertionError: esbuild 转译失败：✘ [ERROR] Could not resolve ".../user-identity/memoryCommands.ts"`（行为用例要求真实存在的操作上下文模块）；
+  - `test_memory_tab_writes_hold_command_context_until_success`：`AssertionError: 命令上下文必须由组件持有`（`createMemoryCommandContext(newRequestId)` 不在源码）；
+  - `test_memory_writes_carry_expected_version_and_caller_key` / `test_memory_create_form_field_order_and_writable_categories`：`(key)=>updateMemoryEnabled(props.userId,entry.memory_key,input,key)` / `(key)=>createMemory(props.userId,input,key)` 缺失（旧实现每次调用都 `newRequestId()`）。
+- RED 依据（评审条目 3 的后端实测）：复用 key = 200 回执重放；换 key = 第二条命令（清空会把清空后新建的记忆一并删除）。
+
+**GREEN**（修复后；命令、断言位置、日志）：
+
+- 实现：新增纯模块 `apps/console-platform/frontend/src/modules/user-identity/memoryCommands.ts:27`（`createMemoryCommandContext(newKey)`：同 identity + 同输入快照复用同一命令号，`release` 后换新；key 生成器由调用方注入）；`MemoryTab.tsx:127` 组件持有上下文（`useRef(createMemoryCommandContext(newRequestId))`），`:163` `runAction` 为唯一收口（取 key → 成功才 `release` 并刷新；失败经 `onError` 落到可见错误），`:182` `runToolbarAction` 承载工具行错误；四个写操作（创建/启禁用/删除/清空，含过期重新启用）都经该收口取命令号，调用点不再各次 `newRequestId()`；identity 含用户与目标（`toggle:${userId}:${memoryKey}` 等），切换用户不串号。
+- 单元契约：`tests/frontend/test_memory_tab_contract.py` 新增 `test_memory_tab_writes_hold_command_context_until_success`（:154，源码契约：上下文唯一持有、`newRequestId()` 零调用、`commands.current.release(identity)` 唯一收口、五个写调用形状）与 `test_memory_command_context_reuses_key_until_result_is_definite`（:301，真实 node + 仓库内 esbuild 执行 `memoryCommands.ts`：`retry == first`、输入快照变化换新、`changedRetry == changed`、跨目标不串号、`afterSuccess` 换新、`generated == 4`）。
+- 契约命令：`uv run pytest -q tests/frontend/test_memory_tab_contract.py` → **11 passed**，`/tmp/reviewfix/task002/green_contract.log`；`uv run pytest -q tests/frontend` → **342 passed**，`green_frontend.log`；`npm --prefix apps/console-platform/frontend run typecheck` → EXIT=0，`green_typecheck.log`；RULE-front-001 链实跑全绿（api client 4 passed → api usage OK → i18n 1163 → typecheck），`rule_front_001.log`。
+- 浏览器（真实构建产物 + 真实 Console/Runtime/PG）：新增用例 `e2e/tests/agent-management/memory-redesign.spec.ts:232`（响应丢失注入 = `route.fetch()` 真实送达后 `route.abort()` 丢弃回包；断言可见错误、重试后幸存记忆仍在、两次请求 `Idempotency-Key` 相同）；`AGENT_E2E_WEB_PORT=5174 make acceptance-e2e DOMAIN=agent` 连续两次 **25 passed**（46.2s / 41.9s），`/tmp/reviewfix/task002/agent_e2e_run1.log`、`agent_e2e_run2.log`。
+- 负向对照（证明浏览器用例对旧实现为红）：临时还原旧实现（保留 `memory-clear` testid）后重跑该用例 → **1 failed**：`expect(locator).toHaveCount(expected) failed / Expected: 1 / Received: 0`，落在 `:284`「重试后幸存记忆仍在」—— 正是评审条目 3 的误删（`/tmp/reviewfix/task002/negative_control2.log`）；随后恢复修复版并重建。
 
 ### Log
 
 - [2026-10-16] created (draft)。
+- [2026-10-16] started
+- [2026-10-16] RED（4 failed：上下文缺失 + 五个写调用仍是每次 `newRequestId()`）→ 新增 `memoryCommands.ts` + `MemoryTab` 统一收口 → 契约 11 passed、tests/frontend 342 passed、typecheck 0、agent 域 25 passed ×2（含重试路径）、负向对照复现误删。
+- [2026-10-16] started
+- [2026-10-16] completed (done)
 
 ---
 
