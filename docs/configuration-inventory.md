@@ -1,7 +1,7 @@
 # 全仓配置盘点与生效边界
 
-审计日期：2026-10-04；2026-10-05 随平台设置需求（TASK-001..TASK-015）迁移结果校准；2026-10-06 随概览指标化（`/overview/metrics` 聚合常量与 SQL）校准；同日随后续全站列表页量统一 15（前端分页展示契约）校准；**同日再随 im-gateway 评审修复校准**（投递鉴权与产物归属解析、入站排队调度、去重占位所有权、终帧重试、明文尺寸口径等新增常量）；**同日再随 agent-worker 评审修复校准**（回收重试预算与退避、心跳失联码、投递预留租约、执行超时下限、`SKILL_RESULT_INVALID`/`BATCH_FANOUT_STALE`/`DELIVERABLE_STATUSES` 等）；**2026-10-09 随异步工具结果回流与 Run 等待恢复需求（TASK-001..009）校准**（新增 `async_tool_dispatch_*` 环境项、工具并发声明与规划器、MCP 会话常量、契约状态枚举/错误码、等待/接续事件与只读投影常量等，并把全部行号对齐当前源码）；**2026-10-11 随 Console 管理视图、Run 事件详情与概览聚合扩展校准**（新增 Run 事件查询/投影常量与按需拉取 SQL、概览单快照 `OVERVIEW_SQL`，随概览常量内联删除 `MIN/MAX/DEFAULT_METRIC_DAYS`、`RECENT_TASK_LIMIT` 等登记行；Python 行按 AST 重对齐，前端常量行同步至声明行并删除 `TaskDetailSideSheet` 已移除的 `CANCELLABLE_STATUSES`；函数默认参数 / 环境读取 / 内联节拍行的历史漂移一并校正，`POD_NAME` 登记重指向 `main.py`）。基于当前 `main`。
-本文件是**迁移后的现状盘点与分类结论**：Console 系统设置页已交付，平台设置文档按租户持久化（`control.platform_setting`，append-only 版本行），41 个叶子已接入该唯一源，散落的重复默认已按收敛清单收敛。逐项清单见 [configuration-inventory.csv](configuration-inventory.csv)。
+审计日期：2026-10-04；2026-10-05 随平台设置需求（TASK-001..TASK-015）迁移结果校准；2026-10-06 随概览指标化（`/overview/metrics` 聚合常量与 SQL）校准；同日随后续全站列表页量统一 15（前端分页展示契约）校准；**同日再随 im-gateway 评审修复校准**（投递鉴权与产物归属解析、入站排队调度、去重占位所有权、终帧重试、明文尺寸口径等新增常量）；**同日再随 agent-worker 评审修复校准**（回收重试预算与退避、心跳失联码、投递预留租约、执行超时下限、`SKILL_RESULT_INVALID`/`BATCH_FANOUT_STALE`/`DELIVERABLE_STATUSES` 等）；**2026-10-09 随异步工具结果回流与 Run 等待恢复需求（TASK-001..009）校准**（新增 `async_tool_dispatch_*` 环境项、工具并发声明与规划器、MCP 会话常量、契约状态枚举/错误码、等待/接续事件与只读投影常量等，并把全部行号对齐当前源码）；**2026-10-11 随 Console 管理视图、Run 事件详情与概览聚合扩展校准**（新增 Run 事件查询/投影常量与按需拉取 SQL、概览单快照 `OVERVIEW_SQL`，随概览常量内联删除 `MIN/MAX/DEFAULT_METRIC_DAYS`、`RECENT_TASK_LIMIT` 等登记行；Python 行按 AST 重对齐，前端常量行同步至声明行并删除 `TaskDetailSideSheet` 已移除的 `CANCELLABLE_STATUSES`；函数默认参数 / 环境读取 / 内联节拍行的历史漂移一并校正，`POD_NAME` 登记重指向 `main.py`）；**2026-10-15 随记忆体系重构需求（TASK-001..031）校准**（删除 `compaction.memory.budget_ratio`，新增 memory 分组 16 个叶子与 6 条 memory 规则 verifier；`MemoryPolicySettings` 进入 schema 字段精确盘点，新增 `packages/agent-core/src/muad_agent_core/memory/*`、`apps/agent-runtime/src/muad_agent_runtime/application/memory_*.py`、0020 迁移与前端记忆契约的常量行；全部 Python 行按 AST 重新对齐）。基于当前 `main`。
+本文件是**迁移后的现状盘点与分类结论**：Console 系统设置页已交付，平台设置文档按租户持久化（`control.platform_setting`，append-only 版本行），57 个叶子已接入该唯一源，散落的重复默认已按收敛清单收敛。逐项清单见 [configuration-inventory.csv](configuration-inventory.csv)。
 
 ## 分类结论
 
@@ -22,7 +22,7 @@
 
 扫描不把每个 SQL `.limit(1)`、计数器初始零、CSS 尺寸或循环算术都当作配置；调用方传入且没有默认值的参数不属于常量默认。本清单是当前源码快照，不能宣称通过语法扫描穷尽所有隐含业务策略。
 
-**当前声明点合计 1174**：`code` 983、`environment` 121、`business` 58、`business-resource` 12。其中大量 `code` 行是状态码、事件名、协议文本与各服务持有的实现常量。分类由 `tests/test_configuration_inventory.py` 的机检与分类断言兜底（路径/行号/符号/默认值直接与源码 AST 对齐；分类主张逐条钉住）。
+**当前声明点合计 1243**：`code` 1035、`environment` 121、`business` 75、`business-resource` 12。其中大量 `code` 行是状态码、事件名、协议文本与各服务持有的实现常量。分类由 `tests/test_configuration_inventory.py` 的机检与分类断言兜底（路径/行号/符号/默认值直接与源码 AST 对齐；分类主张逐条钉住）。
 
 ## SharedSettings：当前 40 项全部是环境设置
 
@@ -38,25 +38,25 @@
 
 `im_progress_updates_per_second` 是每机器人状态刷新的**服务资源预算上限**，留在环境；面向用户的刷新节拍是平台设置 `im.progress_interval_sec`（见下节），两者语义不同。
 
-## 平台设置已接管的业务默认（41 个叶子）
+## 平台设置已接管的业务默认（57 个叶子）
 
 设置文档 schema、默认值与跨字段联动校验落在 `packages/contracts/src/muad_contracts/platform_settings.py`（9 个分组的唯一权威声明，Console 与三个执行服务共用）。分组与叶子：
 
-- `compaction`（15）：`snip.{enabled,max_groups,keep_head_groups,keep_tail_groups}`、`tool_result.{persist_threshold_bytes,round_budget_bytes,preview_head_bytes,preview_tail_bytes}`、`micro.{enabled,keep_recent_tool_groups}`、`summary.{enabled,threshold_bytes,model_ref}`、`memory.budget_ratio`、`history_budget_messages`
+- `compaction`（15）：`snip.{enabled,max_groups,keep_head_groups,keep_tail_groups}`、`tool_result.{persist_threshold_bytes,round_budget_bytes,preview_head_bytes,preview_tail_bytes}`、`micro.{enabled,keep_recent_tool_groups}`、`summary.{enabled,threshold_bytes,model_ref}`、`history_budget_messages`、`max_history_tool_rounds`
 - `agent`（4）：`max_turns` / `max_tool_calls` / `deadline_ms` / `max_model_retries`
 - `task`（6）：`default_deadline_hours` / `max_attempts` / `batch_max_concurrency` / `misfire_grace_sec` / `delivery_max_attempts` / `delivery_backoff_base_sec`
-- `memory`（5）：`write_enabled` / `max_injected_memories` / `max_injected_bytes` / `max_recall_bytes` / `recall_default_limit`
+- `memory`（21）：`write_enabled` / `max_injected_memories` / `max_injected_bytes` / `max_recall_bytes` / `recall_default_limit` / `inject_inferred` / `task_state_injection_enabled` / `max_entries_per_user` / `max_memory_bytes_per_user` / `ttl_days_user` / `ttl_days_agent` / `ttl_days_task_state` / `consolidation_enabled` / `consolidation_min_user_messages` / `consolidation_max_input_bytes` / `consolidation_max_output_tokens` / `consolidation_timeout_sec` / `consolidation_max_candidates` / `consolidation_max_attempts` / `consolidation_retry_delay_sec` / `consolidation_lease_sec`
 - `artifact`（3）：`retention_days` / `max_archive_files` / `cleanup_batch_size`
 - `auth`（4）：`min_password_length` / `max_failed_attempts` / `lock_duration_minutes` / `session_ttl_hours`
 - `locale`（2）：`default_locale` / `default_timezone`
 - `im`（1）：`progress_interval_sec`
 - `mcp`（1）：`max_tools_per_server`
 
-联动校验必须保留（服务端单一来源，前端只做预检）：保留头尾组数与触发阈值的关系、预览头尾与预算的关系、摘要启用需要有效 `model_ref`（引用既有 `model_definition`，不引入平台默认模型）、memory 比例边界与召回条数上界、`task.batch_max_concurrency ≤ batch_platform_limit`（环境项）、未知键拒绝（fail-closed）。
+联动校验必须保留（服务端单一来源，前端只做预检）：保留头尾组数与触发阈值的关系、预览头尾与预算的关系、摘要启用需要有效 `model_ref`（引用既有 `model_definition`，不引入平台默认模型）、memory 各叶子落在 `MEMORY_SETTING_BOUNDS`（召回条数上界 `RECALL_MAX_LIMIT`、硬配额上界 `MEMORY_MAX_RECORDS`/`MEMORY_MAX_BYTES`）、`memory.consolidation_lease_sec ≥ consolidation_timeout_sec + 15`、`task.batch_max_concurrency ≤ batch_platform_limit`（环境项）、未知键拒绝（fail-closed）。memory 硬额度（`max_entries_per_user`/`max_memory_bytes_per_user`）在线只能提高，降低需维护窗口排空。
 
 认证策略在登录 / 改密 / 续期边界读当前值校验；`session_ttl_hours` 与 Cookie `Max-Age` **同源**（登录时同一次读取），滑动阈值是**派生值**（会话自身窗口的一半），不是独立设置项。改会话时长只影响之后签发 / 续期的会话，不追改已签发会话，存量密码不回改。
 
-41 个叶子在 CSV 里的默认值来源标为 `business`：设置文档 schema 自身（`contracts/platform_settings.py`）、`agent` 分组的 `AgentPolicy` 字段与 `budget.py` 的 `DEFAULT_MAX_*`、`BudgetPolicy.max_messages`（与 `compaction.history_budget_messages` 收敛为同一冻结值）、以及 `model_gateway` 消费这些默认的参数入口。
+57 个叶子在 CSV 里的默认值来源标为 `business`：设置文档 schema 自身（`contracts/platform_settings.py`）、`agent` 分组的 `AgentPolicy` 字段与 `budget.py` 的 `DEFAULT_MAX_*`、`BudgetPolicy.max_messages`（与 `compaction.history_budget_messages` 收敛为同一冻结值）、以及 `model_gateway` 消费这些默认的参数入口。
 
 ### Agent / 模型 / 压缩覆盖的优先级
 

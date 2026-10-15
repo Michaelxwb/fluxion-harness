@@ -13,6 +13,19 @@ from tests.acceptance.runtime.conftest import run_db
 from tests.agent_runtime.memory_redesign_write_support import command, commands, context, upsert
 
 SUMMARY = {"user_goal": "保留摘要诉求", "constraints": [], "progress": [], "open_items": [], "artifacts": []}
+#: 后台提炼（consolidation）请求的识别标记与空批次：本场景只验证业务回合与压缩层，
+#: 提炼请求若不单独处理，会被计成 primary 业务请求并干扰 `len(primary)` 断言（实测 3 == 2）。
+CONSOLIDATION_MARKER = "Consolidate this frozen conversation input"
+EMPTY_BATCH = '{"candidates": [], "task_completed": false}'
+
+
+def _is_consolidation(body):
+    return any(
+        isinstance(message, dict)
+        and message.get("role") == "system"
+        and CONSOLIDATION_MARKER in str(message.get("content") or "")
+        for message in body.get("messages") or []
+    )
 
 
 def model_probe(stack, key):
@@ -23,7 +36,9 @@ def model_probe(stack, key):
         body = await request.json()
         bodies.append(body)
         summary = "恰好" in str(body["messages"][-1].get("content"))
-        if summary:
+        if _is_consolidation(body):
+            message = {"role": "assistant", "content": EMPTY_BATCH}
+        elif summary:
             message = {"role": "assistant", "content": json.dumps(SUMMARY, ensure_ascii=False)}
         else:
             primary.append(body)

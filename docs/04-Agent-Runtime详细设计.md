@@ -687,9 +687,11 @@ flowchart LR
 （`harness-arch` 的同名约定；实现见 `packages/agent-core/src/muad_agent_core/context/compactor.py`
 的 `split_protected_prefix`）。
 
-memory 注入另有自己的**双上限**（条数 `memory.max_injected_memories` × 字节
-`min(max_injected_bytes, ratio × 历史字节)`，由本次 Run 的冻结设置给出），且**第一条永远注入**
-（短会话的比例预算会小到一条都放不下，那等于静默关掉 memory）。
+memory 注入是**独立具名组件**（`MemoryComponent`，由本次 Run 的冻结设置给出双硬限：条数
+`memory.max_injected_memories` × 完整 UTF-8 字节 `memory.max_injected_bytes`）：0 关闭注入；
+长条装不下就跳过并继续尝试后续条目；被丢弃的候选按 count/bytes 各记一次原因，不静默截断，
+也没有按历史比例缩放的旧 ratio 分支。组件在每个模型请求前刷新（见 §11.1），渲染在连续
+SYSTEM 受保护前缀内，压缩层仍不能裁剪该前缀。
 
 不得修改 CanonicalEvent 以实现压缩。
 
@@ -707,23 +709,42 @@ canonical event -> metadata + artifact_id
 
 ## 11. User Memory
 
+记忆事实的唯一写入者是 Runtime（`MemoryService` 短事务 + `memory_scope` 行锁）；Console 只做
+只读投影或把管理写转发成受保护命令。新 Run 创建时冻结完整 `memory` 设置（见 §6.4/§4 快照）。
+
 ### 11.1 Read
 
-Run 开始时按：
+候选查询取**完整有界集合**（tenant/user、未删除、enabled、未过期；绝对上界 1000 条，不做
+latest-N 截断），随后：
 
-```text
-tenant_id + user_id + enabled = true
-```
+- 非空 query：词法覆盖 > 0 的条目才参与排序（SEARCH 零命中就是零条并计 miss）；
+- 空 query：LIST 全量候选；
+- 注入只取 USER/ADMIN 且已确认的 PREFERENCE/WORK_STYLE（`memory.inject_inferred=true` 才带上
+  AGENT 推断）；TASK_STATE 只走明确续接通道，且要求 key/version/candidate hash 与本次 resume
+  引用一致，并在渲染时标注不确定性。
 
-加载受控条目（`user_memory.user_id`）。
+每个模型请求前由 `MemoryContextLoader` 刷新唯一 `MemoryComponent`：冷读用单条一致 SQL 快照；
+暖读用 scope revision + `statement_timestamp` 并逐次过滤 TTL、重新选择/渲染；读取失败清除旧
+缓存与组件（warning + metric，本轮不注入），不把旧成功结果伪装成当前成功。forget 先失效组件，
+失败时本 Run 保持无记忆。
 
 ### 11.2 Write
 
-V1 仅允许：
+写入必须经唯一事务服务（锁 `memory_scope` 后同事务写事实/完整 after 历史/命令回执/scope
+revision），来源（author）只由服务端派生：
 
-- 用户明确要求“记住”；
-- 明确的稳定偏好；
-- 受控规则生成的候选并通过 MemoryWriter policy。
+- **自然语言 remember**：模型只能提交候选（工具回执 `saved=false` + `confirmation_required=true`），
+  Runtime 展示完整候选（key/内容/原话证据/有效期/版本），用户真实确认（`确认 <候选编号>`）后
+  才以 `author=USER` 保存；每 Run 至多一个待确认候选，工具整轮完成后才暂停，resume 先查绝对 deadline。
+- **显式命令**：canonical 用户消息精确等于 `/memory remember <key> <category> <value>` 时直接保存
+  （仍受内容闸门与配额约束），回执 `saved=true` + version。
+- **管理员**：Console 授权后的内部命令走同一 writer，`author=ADMIN`，调用方不能选择 authorship。
+- **后台提炼**：COMPLETED Run 的 consolidation job 只产生 AGENT 候选（`confidence=2`、
+  `explicit_request=false`、必须带 `expires_at`），受 lease/epoch fence 与最多一次原子效果约束。
+
+内容闸门（密钥形态/凭据 canary）在候选、确认、显式命令、管理命令、提炼输出与工具审计各处一致
+生效，拒绝不回显原文。硬配额按冻结设置执行（默认每用户 200 条 / 65536 字节，仅可淘汰 AGENT，
+USER/ADMIN 不免除硬限；在线只能提高，降低需维护窗口）。
 
 不得写入：
 

@@ -1,13 +1,12 @@
-"""[E-06] memory 预算与 micro 豁免（FEAT-09）。
+"""[E-06] memory 预算与 micro 豁免（0020 新契约）。
+
+2026-10-15 随 TASK-031 改写：`memory.budget_ratio` 已从 schema 删除，注入只有**硬上限**
+（条数 × 完整 UTF-8 字节，Run 创建时冻结）；旧「比例 × 历史字节」断言替换为「历史长度不改变
+注入预算、超限条目跳过、注入段落逐字且不受 micro 改写」。
 
 不得 Mock 的真实边界：真实 agent-runtime 请求装配（真实 PG 的 `canonical_event` + `user_memory`
-→ `DbBackedContextBuilder` → `ExecutorRequest.history` → `AgentRunner`）→ **真实模型 HTTP 探针**
+→ `MemoryCandidateCache`/`MemoryContextLoader` → `AgentRunner`）→ **真实模型 HTTP 探针**
 （`tests/e2e/openai_probe_app.py`：`GET /requests` 回放模型实际收到的请求体）。
-
-两条口径（2026-10-04 用户选定，见 design §2.2 FEAT-09 / §2.3 字段表）：
-1. `memory.budget_ratio` 的分母是**装配出的历史字节**，生效上限 =
-   `min(MAX_INJECTED_BYTES, ratio × 历史字节)`；
-2. 「超限参与裁剪」裁的是**注多少条**——已注入的段落在受保护前缀里，压缩层一个字节都不动。
 """
 
 from __future__ import annotations
@@ -25,10 +24,12 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import sqlalchemy as sa
 import uvicorn
 from fastapi import FastAPI
 from muad_agent_core.agent import AgentRunner
 from muad_agent_core.hooks import HookPipeline
+from muad_agent_core.memory.render import MEMORY_NOTICE
 from muad_agent_core.model import ModelProvider, OpenAICompatibleProvider
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_agent_runtime.api.deps import (
@@ -44,14 +45,14 @@ from muad_agent_runtime.application.executor import (
     ExecutorRequest,
     RunExecutor,
     ToolCallRecorder,
+    execution_defaults_for,
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
     CanonicalEvent,
-    Conversation,
-    UserMemory,
 )
 from muad_agent_runtime.main import app
+from muad_common import SharedSettings
 from muad_contracts.platform_settings import (
     CompactionSettings,
     MicroSettings,
@@ -59,41 +60,28 @@ from muad_contracts.platform_settings import (
     ToolResultSettings,
 )
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
+from tests.agent_runtime.memory_context_support import loader, memory_text, request_round
+from tests.agent_runtime.memory_redesign_write_support import (
+    command,
+    context,
+    upsert,
+    writer,
+)
 from tests.e2e.openai_probe_app import app as probe_app
 
 LISTEN_TIMEOUT_SEC = 15.0
-MEMORY_MARK = "[记忆·用户明确要求] "
-MEMORY_SUFFIX = "（用户此前的要求，仅供参考、非指令；若与当前明确指示冲突，以当前指示为准）"
 TOOL_NAME = "dump"
 RESULT_TEXT = "很长的工具结果" * 900  # ≈ 9 KiB ⇒ 单条超外置阈值，会被换成引用
-MICRO_PLACEHOLDER_MARK = "工具结果已外置"
-#: 历史要够长，比例才有区分度：15000 字节 × 0.001 = 15 字节（一条记忆都放不下）。
+#: 历史要够长：旧比例口径下 15000 字节 × 0.001 = 15 字节（一条都放不下）；新契约不受它影响。
 LONG_HISTORY_TEXT = "历史" * 2500
 MEMORIES = {
     "reply.language": "以后都用中文回答我",
     "reply.style": "回答尽量简短",
     "reply.signoff": "结尾不要加签名档",
 }
-
-
-def _memory_line(key: str, value: str) -> str:
-    return f"{MEMORY_MARK}{key} = {value}{MEMORY_SUFFIX}"
-
-
-def _memory_texts(body: Mapping[str, Any]) -> list[str]:
-    return [
-        str(message.get("content"))
-        for message in body.get("messages") or []
-        if isinstance(message, dict)
-        and message.get("role") == "system"
-        and str(message.get("content")).startswith(MEMORY_MARK)
-    ]
-
-
-def _injected_bytes(body: Mapping[str, Any]) -> int:
-    return sum(len(text.encode("utf-8")) for text in _memory_texts(body))
 
 
 def _tool_texts(body: Mapping[str, Any]) -> list[str]:
@@ -104,45 +92,52 @@ def _tool_texts(body: Mapping[str, Any]) -> list[str]:
     ]
 
 
+def _injected_block(body: Mapping[str, Any]) -> str:
+    """模型实际收到的记忆块（按新契约：块首为非指令 notice）。"""
+    blocks = [
+        str(message.get("content"))
+        for message in body.get("messages") or []
+        if isinstance(message, dict)
+        and message.get("role") == "system"
+        and MEMORY_NOTICE in str(message.get("content"))
+    ]
+    assert len(blocks) <= 1, f"记忆组件必须唯一，实得 {len(blocks)}"
+    return blocks[0] if blocks else ""
+
+
 async def _seed(tenant: TenantContext) -> None:
-    """种下：一个带长历史的会话 + 三条 `USER_EXPLICIT` 记忆。"""
-    async with get_session_factory()() as session:
-        conversation = await session.scalar(
-            select(Conversation).where(Conversation.tenant_id == tenant.tenant_id)
+    """种下：一个带长历史的会话 + 三条已确认（ADMIN 写入）记忆。"""
+    engine = create_async_engine(SharedSettings().require_database_url())
+    try:
+        async with engine.begin() as connection:
+            conversation_id = uuid.uuid4()
+            await connection.execute(
+                sa.text(
+                    "INSERT INTO runtime.conversation (id,tenant_id,user_id,agent_id,status,last_seq)"
+                    " VALUES (:id,:tenant,:user,:agent,'ACTIVE',1)"
+                ),
+                {
+                    "id": conversation_id,
+                    "tenant": tenant.tenant_id,
+                    "user": tenant.platform_user_id,
+                    "agent": tenant.agent_id,
+                },
+            )
+            await connection.execute(
+                sa.text(
+                    "INSERT INTO runtime.canonical_event (tenant_id,conversation_id,seq,event_type,"
+                    "payload_json) VALUES (:tenant,:conversation,1,'USER_MESSAGE',"
+                    " jsonb_build_object('text', CAST(:text AS text)))"
+                ),
+                {"tenant": tenant.tenant_id, "conversation": conversation_id, "text": LONG_HISTORY_TEXT},
+            )
+        ctx = context(tenant=tenant.tenant_id, user=tenant.platform_user_id)
+        await writer(engine).execute(
+            ctx,
+            command(*(upsert(key, value) for key, value in MEMORIES.items())),
         )
-        if conversation is None:
-            conversation = Conversation(
-                id=uuid.uuid4(),
-                tenant_id=tenant.tenant_id,
-                user_id=tenant.platform_user_id,
-                agent_id=tenant.agent_id,
-                last_seq=1,
-            )
-            session.add(conversation)
-        else:
-            conversation.last_seq = max(conversation.last_seq, 1)
-        session.add(
-            CanonicalEvent(
-                tenant_id=tenant.tenant_id,
-                conversation_id=conversation.id,
-                seq=1,
-                event_type="USER_MESSAGE",
-                payload_json={"text": LONG_HISTORY_TEXT},
-            )
-        )
-        for key, value in MEMORIES.items():
-            session.add(
-                UserMemory(
-                    tenant_id=tenant.tenant_id,
-                    user_id=tenant.platform_user_id,
-                    memory_key=key,
-                    category="PREFERENCE",
-                    content_json={"value": value},
-                    source_type="USER_EXPLICIT",
-                    enabled=True,
-                )
-            )
-        await session.commit()
+    finally:
+        await engine.dispose()
 
 
 def _registry() -> ToolRegistry:
@@ -183,12 +178,33 @@ async def _serve_http(target: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
         await asyncio.wait_for(serving, timeout=LISTEN_TIMEOUT_SEC)
 
 
+def _memory_loader(request: ExecutorRequest):
+    """与生产 `_memory_runtime_for` 同口径：请求边界刷新的真实 loader（冻结 memory 策略）。"""
+    from muad_agent_runtime.application.memory_cache import MemoryCandidateCache
+    from muad_agent_runtime.application.memory_context import MemoryContextLoader
+    from muad_agent_runtime.application.memory_queries import MemoryQueries, MemoryReadScope
+
+    run_context = request.run_context
+    assert run_context is not None
+    queries = MemoryQueries(get_session_factory())
+    cache = MemoryCandidateCache(
+        queries,
+        scope=MemoryReadScope(tenant_id=run_context.tenant_id, user_id=run_context.user_id),
+        run_id=run_context.run_id,
+    )
+    return MemoryContextLoader(
+        cache,
+        settings=execution_defaults_for(request).memory_policy,
+        query=request.input_text,
+    )
+
+
 def _factory(probe_url: str, budget: dict[str, Any], tmp_path: Path) -> ExecutorFactory:
     """生产同款装配：工具结果经 recorder 外置（不然 micro 无物可降级）+ 请求缝真实压缩器。"""
 
     async def factory(request: ExecutorRequest) -> RunExecutor:
-        context = request.run_context
-        assert context is not None
+        context_ = request.run_context
+        assert context_ is not None
         provider: ModelProvider = OpenAICompatibleProvider(
             base_url=f"{probe_url}/v1", model="probe-model", api_key="probe-key"
         )
@@ -199,7 +215,7 @@ def _factory(probe_url: str, budget: dict[str, Any], tmp_path: Path) -> Executor
             ),
         )
         recorder = ToolCallRecorder(
-            context=context,
+            context=context_,
             audit_writer=None,
             artifact_writer=ArtifactResultWriter(tmp_path),
             settings=ToolResultSettings(),
@@ -209,11 +225,12 @@ def _factory(probe_url: str, budget: dict[str, Any], tmp_path: Path) -> Executor
             registry=_wrap_registry(_registry(), recorder),
             hooks=HookPipeline(),
             tool_round_results=recorder,
+            context_loader=_memory_loader(request),
             context_compactor=RuntimeContextCompactor(
                 settings=settings,
-                tenant_id=context.tenant_id,
-                run_id=context.run_id,
-                conversation_id=context.conversation_id,
+                tenant_id=context_.tenant_id,
+                run_id=context_.run_id,
+                conversation_id=context_.conversation_id,
                 artifact_root=tmp_path,
             ),
         )
@@ -232,32 +249,11 @@ def _wrap_registry(registry: ToolRegistry, recorder: ToolCallRecorder) -> ToolRe
     return wrapped
 
 
-def _with_ratio(fake_resolve: FakeResolveClient, ratio: float) -> None:
-    """把注入占比写进**Agent 的 `runtime_config`**（生产里 `budget_ratio` 就是从这条路进来的）。
-
-    只改执行器手里的那一份是不够的：`memory.budget_ratio` 由 `RunService` 按 Agent 配置解析后
-    传给历史装配，改不到它就等于没测到生产路径。
-    """
-    resolved = fake_resolve.response
-    agent = resolved.agent.model_copy(
-        update={
-            "runtime_config": {
-                "budget": {"compaction": {"memory": {"budget_ratio": ratio}}}
-            }
-        }
-    )
-    fake_resolve.response = resolved.model_copy(update={"agent": agent})
-
-
 @asynccontextmanager
 async def _stack(
     fake_resolve: FakeResolveClient, budget: dict[str, Any], tmp_path: Path
 ) -> AsyncIterator[tuple[httpx.AsyncClient, httpx.AsyncClient]]:
-    """真实 Runtime（依赖覆盖与 `conftest.client` 同口径）+ 真实模型探针。
-
-    探针先起、再建工厂：工厂需要把 `base_url` 指到探针上（少一个覆盖就会落到真实依赖上，
-    表现是 `POST /v1/runs` 直接 500 且服务端不打堆栈）。
-    """
+    """真实 Runtime（依赖覆盖与 `conftest.client` 同口径）+ 真实模型探针。"""
     async with _serve_http(probe_app) as probe:
         app.dependency_overrides[get_resolve_client] = lambda: fake_resolve
         app.dependency_overrides[get_executor_factory] = lambda: _factory(
@@ -271,8 +267,7 @@ async def _stack(
             app.dependency_overrides.pop(get_resolve_client, None)
             app.dependency_overrides.pop(get_executor_factory, None)
             app.dependency_overrides.pop(get_credentials_client, None)
-            # **必须用异步客户端**：探针与 Runtime 跑在同一个事件循环里，同步 httpx 会把循环堵死，
-            # 于是"自己请求自己"必然读超时（实测）。
+            # **必须用异步客户端**：探针与 Runtime 跑在同一个事件循环里，同步 httpx 会把循环堵死。
             async with httpx.AsyncClient(timeout=10.0) as cleanup:
                 await cleanup.post(f"{probe.base_url}/script", json={})
 
@@ -313,36 +308,52 @@ async def _script_tool_round(probe: httpx.AsyncClient) -> None:
     response.raise_for_status()
 
 
-async def test_e06_injection_is_byte_capped_by_the_history_ratio(
-    tenant: TenantContext, fake_resolve: FakeResolveClient, tmp_path: Path
-) -> None:
-    """注入字节 ≤ `min(2048, ratio × 历史字节)`：放宽则三条全注，收紧则一条都不注。"""
-    await _seed(tenant)
-    budget: dict[str, Any] = {"micro": False, "keep_recent": 3}
-    _with_ratio(fake_resolve, 0.9)
-    async with _stack(fake_resolve, budget, tmp_path) as (client, probe):
-        await _send(client, tenant, "第一轮：聊聊")
-        generous_body = await _last_request(probe)
-        generous = _injected_bytes(generous_body)
-        generous_lines = _memory_texts(generous_body)
-
-        # 同一个会话、同一条长历史：只把比例收紧到 0.001（15000 字节 × 0.001 = 15 字节）
-        _with_ratio(fake_resolve, 0.001)
-        await _send(client, tenant, "第二轮：接着说")
-        tight_body = await _last_request(probe)
-        tight = _injected_bytes(tight_body)
-        tight_lines = _memory_texts(tight_body)
-
-    assert generous_lines == [_memory_line(key, value) for key, value in MEMORIES.items()], (
-        f"放宽比例时三条记忆必须逐字注入，实得 {generous_lines}"
+async def test_e06_injection_is_hard_capped_without_history_ratio(async_tool_database) -> None:
+    """注入只受硬上限约束：短历史也全量注入，历史变长不改变注入（无 ratio 分支）。"""
+    ctx = context(tenant=f"e06-{uuid.uuid4()}", user=uuid.uuid4())
+    await writer(async_tool_database).execute(
+        ctx, command(*(upsert(key, value) for key, value in MEMORIES.items()))
     )
-    assert generous <= 2048, "硬上限 2048 字节是绝对兜底，比例再大也不能越"
-    # 下限口径（2026-10-04 用户选定）：比例可以把注入收紧到**一条**，但永不收紧到零 ——
-    # 否则短会话（含每个会话的第 1 轮）会静默失去 memory。收紧后只剩一条（顺序由 SQL 排序决定，
-    # 故只断言"是三条之一"）。
-    assert len(tight_lines) == 1, f"收紧后应当只剩下限那一条，实得 {tight_lines}"
-    assert tight_lines[0] in [_memory_line(key, value) for key, value in MEMORIES.items()]
-    assert tight < generous
+    short_history = loader(async_tool_database, ctx, query=None)
+    _, captured_short = await request_round(async_tool_database, ctx, short_history)
+
+    # 追加一条超长历史（旧口径下会把预算压到 15 字节）：注入必须逐字不变
+    async with async_tool_database.begin() as connection:
+        conversation_id = uuid.uuid4()
+        await connection.execute(
+            sa.text(
+                "INSERT INTO runtime.conversation (id,tenant_id,user_id,agent_id,status,last_seq)"
+                " VALUES (:id,:tenant,:user,:agent,'ACTIVE',1)"
+            ),
+            {
+                "id": conversation_id,
+                "tenant": ctx.tenant_id,
+                "user": ctx.user_id,
+                "agent": uuid.uuid4(),
+            },
+        )
+        await connection.execute(
+            sa.text(
+                "INSERT INTO runtime.canonical_event (tenant_id,conversation_id,seq,event_type,"
+                "payload_json) VALUES (:tenant,:conversation,1,'USER_MESSAGE',"
+                " jsonb_build_object('text', CAST(:text AS text)))"
+            ),
+            {"tenant": ctx.tenant_id, "conversation": conversation_id, "text": LONG_HISTORY_TEXT},
+        )
+    long_history = loader(async_tool_database, ctx, query=None)
+    _, captured_long = await request_round(
+        async_tool_database,
+        replace(ctx, conversation_id=conversation_id),
+        long_history,
+    )
+
+    short_block = memory_text(captured_short[0])
+    long_block = memory_text(captured_long[0])
+    assert short_block is not None and short_block == long_block
+    for key, value in MEMORIES.items():
+        assert f'"memory_key":"{key}"' in short_block
+        assert f'"value":"{value}"' in short_block
+    assert len(short_block.encode("utf-8")) <= 2048, "硬上限 2048 字节是绝对兜底"
 
 
 async def test_e06_injected_memory_is_verbatim_while_micro_degrades_tools(
@@ -355,7 +366,6 @@ async def test_e06_injected_memory_is_verbatim_while_micro_degrades_tools(
     """
     await _seed(tenant)
     budget: dict[str, Any] = {"micro": True, "keep_recent": 0}
-    _with_ratio(fake_resolve, 0.9)
     async with _stack(fake_resolve, budget, tmp_path) as (client, probe):
         await _script_tool_round(probe)
         await _send(client, tenant, "第一轮：帮我 dump 一份内容")
@@ -386,6 +396,8 @@ async def test_e06_injected_memory_is_verbatim_while_micro_degrades_tools(
     }
     assert "micro" in fired_layers, f"micro 必须真的执行过（否则本用例是空转）：{fired_layers}"
 
-    assert _memory_texts(body) == [_memory_line(key, value) for key, value in MEMORIES.items()], (
-        "注入段落在受保护前缀里：micro 不得把它换掉或改写"
-    )
+    block = _injected_block(body)
+    for key, value in MEMORIES.items():
+        assert f'"memory_key":"{key}"' in block and f'"value":"{value}"' in block, (
+            "注入段落在受保护前缀里：micro 不得把它换掉或改写"
+        )

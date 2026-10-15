@@ -1,55 +1,71 @@
-"""[S-08] 上下文重建与预算裁剪（真实 CanonicalEvent/Memory/Artifact→装配→LLM request）。"""
+"""[S-08/S-03/S-04/B-02/E-06/E-07] 上下文重建与记忆注入（0020 新契约）。
+
+2026-10-15 随 TASK-031 改写：删除已不存在的 `source_type`/旧前缀/比例断言，改为稳定身份 +
+`author/version` 契约。记忆注入不再是 `load_history` 的一部分，而是每个模型请求前由
+`MemoryContextLoader` 刷新的具名 `MemoryComponent`（见 docs/04 §10.2/§11.1）。
+
+不得 Mock 的真实边界：真实 PostgreSQL（每用例独立 head 库）+ 真实 `DbBackedContextBuilder` /
+`MemoryCandidateCache` / `MemoryContextLoader` + 真实模型 HTTP 探针（`request_round`）。
+"""
 
 from __future__ import annotations
 
 import logging
+import re
 import uuid
-from datetime import UTC, datetime, timedelta
 from itertools import takewhile
 from typing import Any
 
 import pytest
 import sqlalchemy as sa
 from muad_agent_core.context.compactor import trim_history
-from muad_agent_core.model.provider import ModelRequest, ModelRole
+from muad_agent_core.memory.render import MEMORY_NOTICE
+from muad_agent_core.model.provider import ModelMessage, ModelRole
 from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
-from muad_agent_runtime.application.memory_service import MemoryService
-from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
     Artifact,
     CanonicalEvent,
     Conversation,
-    UserMemory,
 )
-from muad_contracts.platform_settings import MemoryPolicySettings
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
-TENANT = f"ctx-{uuid.uuid4()}"
-CONV_ID = uuid.uuid4()
+from tests.agent_runtime.memory_context_support import loader, memory_text, request_round
+from tests.agent_runtime.memory_redesign_write_support import context, seed_facts
+from tests.agent_runtime.memory_tool_support import recall, tools
+from tests.agent_runtime.test_memory_redesign_cache import queries
+
+pytestmark = pytest.mark.integration
+
 RUN_ID = uuid.uuid4()
 USER_ID = uuid.uuid4()
 
-SOURCE_USER_EXPLICIT = "USER_EXPLICIT"
-SOURCE_AGENT_INFERRED = "AGENT_INFERRED"
-# 历史取值：design §4.4 规定按「非 USER_EXPLICIT」处理（不自动注入），不得因历史数据放宽注入面
-LEGACY_SOURCE = "EXPLICIT"
 
-# 注入双上限现由平台设置 `memory.max_injected_*` 提供；无冻结配置时回落 contracts schema 默认。
-_MEMORY_DEFAULTS = MemoryPolicySettings()
-MAX_INJECTED_MEMORIES = _MEMORY_DEFAULTS.max_injected_memories
-MAX_INJECTED_BYTES = _MEMORY_DEFAULTS.max_injected_bytes
+def _factory(engine):
+    return async_sessionmaker(engine, expire_on_commit=False)
 
 
-@pytest.fixture()
-async def seeded():
+async def _count_events(engine, tenant: str) -> int:
+    async with engine.connect() as connection:
+        return int(
+            (
+                await connection.execute(
+                    sa.text("SELECT count(*) FROM runtime.canonical_event WHERE tenant_id = :tenant"),
+                    {"tenant": tenant},
+                )
+            ).scalar_one()
+        )
+
+
+async def _seed_history(engine, *, tenant: str, conversation_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """一个会话 + 一轮真实工具回合 + 一份大 artifact（历史装配/裁剪用例共用）。"""
     artifact_id = uuid.uuid4()
-
-    async with get_session_factory()() as session:
+    async with _factory(engine).begin() as session:
         session.add(
             Conversation(
-                id=CONV_ID,
-                tenant_id=TENANT,
-                user_id=USER_ID,
+                id=conversation_id,
+                tenant_id=tenant,
+                user_id=user_id,
                 agent_id=uuid.uuid4(),
                 status="ACTIVE",
                 last_seq=6,
@@ -58,8 +74,8 @@ async def seeded():
         session.add_all(
             [
                 CanonicalEvent(
-                    tenant_id=TENANT,
-                    conversation_id=CONV_ID,
+                    tenant_id=tenant,
+                    conversation_id=conversation_id,
                     run_id=RUN_ID,
                     seq=1,
                     event_type="USER_MESSAGE",
@@ -68,8 +84,8 @@ async def seeded():
                 # assistant 回合：声明了 c1（含思维链）。缺了它，下面的 TOOL_CALL 就是
                 # 「孤儿 tool 消息」，历史重建会整条跳过（供应商会拒绝这种历史）。
                 CanonicalEvent(
-                    tenant_id=TENANT,
-                    conversation_id=CONV_ID,
+                    tenant_id=tenant,
+                    conversation_id=conversation_id,
                     run_id=RUN_ID,
                     seq=2,
                     event_type="ASSISTANT_TURN",
@@ -81,8 +97,8 @@ async def seeded():
                     stream_type="assistant.turn",
                 ),
                 CanonicalEvent(
-                    tenant_id=TENANT,
-                    conversation_id=CONV_ID,
+                    tenant_id=tenant,
+                    conversation_id=conversation_id,
                     run_id=RUN_ID,
                     seq=3,
                     event_type="TOOL_CALL",
@@ -91,8 +107,8 @@ async def seeded():
                     artifact_id=artifact_id,
                 ),
                 CanonicalEvent(
-                    tenant_id=TENANT,
-                    conversation_id=CONV_ID,
+                    tenant_id=tenant,
+                    conversation_id=conversation_id,
                     run_id=RUN_ID,
                     seq=4,
                     event_type="ASSISTANT_MESSAGE",
@@ -100,104 +116,53 @@ async def seeded():
                 ),
                 # 其他租户的事件：不得泄漏
                 CanonicalEvent(
-                    tenant_id=f"{TENANT}-other",
+                    tenant_id=f"{tenant}-other",
                     conversation_id=uuid.uuid4(),
                     run_id=uuid.uuid4(),
                     seq=1,
                     event_type="USER_MESSAGE",
                     payload_json={"text": "leak?"},
                 ),
+                Artifact(
+                    id=artifact_id,
+                    tenant_id=tenant,
+                    run_id=RUN_ID,
+                    conversation_id=conversation_id,
+                    artifact_type="TOOL_RESULT",
+                    storage_key="tools/x/result.bin",
+                    media_type="text/plain",
+                    size=5000,
+                    checksum="sha256:" + "0" * 64,
+                    preview_text="PREVIEW-CHUNK",
+                ),
             ]
         )
-        session.add(
-            UserMemory(
-                tenant_id=TENANT,
-                user_id=USER_ID,
-                memory_key="pref.language",
-                category="PREFERENCE",
-                content_json={"value": "zh-CN"},
-                source_type=SOURCE_USER_EXPLICIT,
-                enabled=True,
-            )
-        )
-        session.add(
-            UserMemory(
-                tenant_id=TENANT,
-                user_id=USER_ID,
-                memory_key="pref.disabled",
-                category="PREFERENCE",
-                content_json={"value": "off"},
-                source_type=SOURCE_USER_EXPLICIT,
-                enabled=False,
-            )
-        )
-        session.add(
-            Artifact(
-                id=artifact_id,
-                tenant_id=TENANT,
-                run_id=RUN_ID,
-                conversation_id=CONV_ID,
-                artifact_type="TOOL_RESULT",
-                storage_key="tools/x/result.bin",
-                media_type="text/plain",
-                size=5000,
-                checksum="sha256:" + "0" * 64,
-                preview_text="PREVIEW-CHUNK",
-            )
-        )
-        await session.commit()
-    yield
-    # 清理必须覆盖**对照租户** `{TENANT}-other`：那是为验证跨租户隔离而种的"别人的数据"，
-    # 写入范围大于清理范围会让它每跑一次残留 2 行（2026-10-01 实测，永久累积）。
-    tenants = (TENANT, f"{TENANT}-other")
-    async with get_session_factory()() as session:
-        await session.execute(
-            Artifact.__table__.delete().where(Artifact.tenant_id.in_(tenants))
-        )
-        await session.execute(
-            UserMemory.__table__.delete().where(UserMemory.tenant_id.in_(tenants))
-        )
-        await session.execute(
-            CanonicalEvent.__table__.delete().where(CanonicalEvent.tenant_id.in_(tenants))
-        )
-        await session.execute(
-            Conversation.__table__.delete().where(Conversation.id == CONV_ID)
-        )
-        await session.commit()
 
 
-async def _count_events() -> int:
-    async with get_session_factory()() as session:
-        return await session.scalar(
-            sa.select(sa.func.count()).select_from(CanonicalEvent).where(
-                CanonicalEvent.tenant_id == TENANT
-            )
-        )
+def _builder(engine) -> DbBackedContextBuilder:
+    return DbBackedContextBuilder(session_factory=lambda: _factory(engine))
 
 
-async def test_s08_context_from_db_with_isolation_and_preview(seeded) -> None:
+async def test_s08_context_from_db_with_isolation_and_preview(async_tool_database) -> None:
     """[S-08] 从 DB 构建请求：隔离/预览/裁剪不修改事件（append-only）。"""
-    builder = DbBackedContextBuilder(session_factory=get_session_factory)
-    before = await _count_events()
+    tenant, conversation_id = f"ctx-{uuid.uuid4()}", uuid.uuid4()
+    await _seed_history(
+        async_tool_database, tenant=tenant, conversation_id=conversation_id, user_id=USER_ID
+    )
+    before = await _count_events(async_tool_database, tenant)
 
-    # 走**生产路径**（`load_history`）：`ContextBuilder.build()` 那条约 2026-10-07 删除，
-    # 它没有生产调用方，还会额外塞 system 消息与 `[tool:...]` 目录——生产一个都不发。
-    messages = await builder.load_history(
-        tenant_id=TENANT,
-        conversation_id=CONV_ID,
+    # 走**生产路径**（`load_history`）：记忆已改为请求边界组件（S-03 起覆盖），不在这里。
+    messages = await _builder(async_tool_database).load_history(
+        tenant_id=tenant,
+        conversation_id=conversation_id,
         user_id=USER_ID,
         budget_messages=10,
     )
 
-    # 历史：USER/ASSISTANT 消息按 seq 进入；stream_type=tool.started 不进业务上下文
     content = " ".join(str(m.content) for m in messages)
     assert "hello" in content
     assert "found it" in content
     assert "leak?" not in content  # 跨租户隔离
-
-    # Memory：enabled 条目进入，disabled 不进
-    assert "zh-CN" in content
-    assert "off" not in content
 
     # Artifact：大结果仅 preview
     assert "PREVIEW-CHUNK" in content
@@ -210,34 +175,36 @@ async def test_s08_context_from_db_with_isolation_and_preview(seeded) -> None:
     assert turn.reasoning_content == "REASONING-CHUNK"
     assert [m.tool_call_id for m in messages if m.tool_call_id is not None] == ["c1"]
 
-    # append-only：构建后事件数不变
-    after = await _count_events()
-    assert before == after
+    assert await _count_events(async_tool_database, tenant) == before  # append-only
 
 
-async def test_s08_budget_trims_only_request_keeps_tool_pairs(seeded) -> None:
-    """[S-08] 条数预算只作用于**派生请求**：成对性保住、库不动。
+async def test_s08_budget_trims_only_request_keeps_tool_pairs(async_tool_database) -> None:
+    """[S-08] 条数预算只作用于**派生请求**：受保护前缀保住、成对性保住、库不动。"""
+    tenant, conversation_id = f"ctx-{uuid.uuid4()}", uuid.uuid4()
+    await _seed_history(
+        async_tool_database, tenant=tenant, conversation_id=conversation_id, user_id=USER_ID
+    )
+    ctx = context(tenant=tenant, user=USER_ID)
+    await seed_facts(async_tool_database, ctx, 1, author="USER")
+    memory = loader(async_tool_database, ctx)
+    component = await memory.refresh()
+    assert component is not None and component.message is not None, "样本前提：存在真实记忆组件"
 
-    2026-10-04 订正：裁剪不再发生在历史装配侧（`load_history` 只装配、不裁），改由压缩层在
-    `AgentRunner` 组装 `ModelRequest` 的唯一处按冻结预算兜底——同一份历史只有一种口径。本用例
-    因此改成：把装配出来的消息喂给 `trim_history`，验成对性与"不写库"。
-    """
-    builder = DbBackedContextBuilder(session_factory=get_session_factory)
-    messages = await builder.load_history(
-        tenant_id=TENANT,
-        conversation_id=CONV_ID,
+    messages = await _builder(async_tool_database).load_history(
+        tenant_id=tenant,
+        conversation_id=conversation_id,
         user_id=USER_ID,
         budget_messages=2,
     )
-    out = trim_history(messages, 2)
+    # Runner 的请求形态：system 提示 + memory 组件 + 历史（组件插入在首条之后）。
+    request_messages = (ModelMessage(ModelRole.SYSTEM, "fixed instructions"), component.message, *messages)
+    out = trim_history(request_messages, 2)
 
-    # 受保护前缀（本层是 memory 注入；系统提示由 `AgentRunner` 另加）不参与条数预算：
-    # 裁掉的只能是对话区。断言"开局连续那段 SYSTEM 一条不少"。
     protected_roles = [
         str(message.role)
-        for message in takewhile(lambda item: item.role is ModelRole.SYSTEM, messages)
+        for message in takewhile(lambda item: item.role is ModelRole.SYSTEM, request_messages)
     ]
-    assert protected_roles, "样本前提：本层至少注入了一条 SYSTEM（memory）"
+    assert protected_roles == ["system", "system"]  # 提示 + 记忆组件都在受保护前缀
     assert [str(message.role) for message in out[: len(protected_roles)]] == protected_roles
 
     # 成对性：留下来的 tool 消息必须有声明它的 assistant 回合（切点落在组中间时整条丢弃）。
@@ -245,11 +212,11 @@ async def test_s08_budget_trims_only_request_keeps_tool_pairs(seeded) -> None:
     orphans = [m for m in out if m.role is ModelRole.TOOL and m.tool_call_id not in declared]
     assert not orphans, f"裁剪留下了孤儿 TOOL：{orphans}"
 
-    # 裁剪不修改 DB（种入 4 条：USER_MESSAGE / ASSISTANT_TURN / TOOL_CALL / ASSISTANT_MESSAGE）
-    assert await _count_events() == 4
+    # 裁剪不修改 DB（种入 4 条本租户事件）
+    assert await _count_events(async_tool_database, tenant) == 4
 
 
-async def test_orphan_tool_messages_are_dropped_from_history() -> None:
+async def test_orphan_tool_messages_are_dropped_from_history(async_tool_database) -> None:
     """没有前置 assistant 回合的 tool 消息**不得**进历史。
 
     回归（2026-10-01 排查）：`ASSISTANT_TURN` 上线前的存量会话里，tool 消息前面没有
@@ -258,9 +225,8 @@ async def test_orphan_tool_messages_are_dropped_from_history() -> None:
     「会话用过一次工具之后就永久不可用，只能 /new 逃生」。历史重建改为「成对才收」后，
     孤儿一律跳过 ⇒ 存量会话无需迁移即可自愈（代价是丢那几轮的工具上下文）。
     """
-    tenant = f"orphan-{uuid.uuid4()}"
-    conv_id = uuid.uuid4()
-    async with get_session_factory()() as session:
+    tenant, conv_id = f"orphan-{uuid.uuid4()}", uuid.uuid4()
+    async with _factory(async_tool_database).begin() as session:
         session.add(
             Conversation(
                 id=conv_id,
@@ -300,292 +266,29 @@ async def test_orphan_tool_messages_are_dropped_from_history() -> None:
                 ),
             ]
         )
-        await session.commit()
 
-    try:
-        builder = DbBackedContextBuilder(session_factory=get_session_factory)
-        messages = await builder.load_history(
-            tenant_id=tenant,
-            conversation_id=conv_id,
-            user_id=USER_ID,
-            budget_messages=20,
-        )
-        roles = [str(message.role) for message in messages]
-        # 系统提示不在这里（由 `AgentRunner` 的 `DefaultPromptBuilder` 负责）
-        assert roles == ["user", "assistant"], roles
-        assert all(message.tool_call_id is None for message in messages)
-        assert all(not message.tool_calls for message in messages)
-    finally:
-        async with get_session_factory()() as session:
-            await session.execute(
-                sa.delete(CanonicalEvent).where(CanonicalEvent.tenant_id == tenant)
-            )
-            await session.execute(sa.delete(Conversation).where(Conversation.id == conv_id))
-            await session.commit()
-
-
-# ---------------------------------------------------------------------------
-# TASK-003：分级注入 / 双上限 / 非指令措辞 / 读失败降级（RULE-05/06/10、RULE-09 的注入侧）
-# ---------------------------------------------------------------------------
-
-
-async def _seed_injection_tenant(
-    entries: tuple[tuple[str, str, str], ...],
-) -> tuple[str, uuid.UUID, uuid.UUID]:
-    """种一个隔离租户：1 个会话 + N 条记忆，`update_time` **显式递增**以保证排序确定。
-
-    `update_time` 必须显式给值：同一事务插入的行会拿到相同的 `now()`（事务开始时刻），
-    并列时"取最近 N 条"就没有确定顺序，断言会变成掷骰子。
-    """
-    tenant = f"inj-{uuid.uuid4()}"
-    conversation_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    base = datetime.now(UTC) - timedelta(days=1)
-    async with get_session_factory()() as session:
-        session.add(
-            Conversation(
-                id=conversation_id,
-                tenant_id=tenant,
-                user_id=user_id,
-                agent_id=uuid.uuid4(),
-                status="ACTIVE",
-                last_seq=1,
-            )
-        )
-        for index, (key, value, source) in enumerate(entries):
-            session.add(
-                UserMemory(
-                    tenant_id=tenant,
-                    user_id=user_id,
-                    memory_key=key,
-                    category="PREFERENCE",
-                    content_json={"value": value},
-                    source_type=source,
-                    enabled=True,
-                    update_time=base + timedelta(minutes=index),
-                )
-            )
-        # **必须带一段像样的历史**：FEAT-09 的注入上限是
-        # `min(MAX_INJECTED_BYTES, memory.budget_ratio × 装配出的历史字节)`——历史太短时
-        # 比例先触顶，本组用例要验的"条数/字节硬上限"根本轮不到。给够 15KB ⇒ 0.2 × 15KB > 2048，
-        # 生效上限回到 2048（硬上限），断言口径不变。
-        session.add(
-            CanonicalEvent(
-                tenant_id=tenant,
-                conversation_id=conversation_id,
-                seq=1,
-                event_type="USER_MESSAGE",
-                payload_json={"text": "历史" * 2500},
-            )
-        )
-        await session.commit()
-    return tenant, conversation_id, user_id
-
-
-async def _purge_injection_tenant(tenant: str) -> None:
-    async with get_session_factory()() as session:
-        await session.execute(
-            UserMemory.__table__.delete().where(UserMemory.tenant_id == tenant)
-        )
-        await session.execute(
-            CanonicalEvent.__table__.delete().where(CanonicalEvent.tenant_id == tenant)
-        )
-        await session.execute(
-            Conversation.__table__.delete().where(Conversation.tenant_id == tenant)
-        )
-        await session.commit()
-
-
-async def _request_for(tenant: str, conversation_id: uuid.UUID, user_id: uuid.UUID) -> Any:
-    """测试侧的「一次完整装配」：把生产的两条装配合起来，便于一起断言。
-
-    生产里这两段是**分开**的——system 提示由 `AgentRunner` 用 `DefaultPromptBuilder` 渲染，
-    历史/记忆/摘要由 `load_history` 装。这里拼成一个 `ModelRequest` 只是因为用例要一起看。
-    """
-    builder = DbBackedContextBuilder(session_factory=get_session_factory)
-    messages = await builder.load_history(
+    messages = await _builder(async_tool_database).load_history(
         tenant_id=tenant,
-        conversation_id=conversation_id,
-        user_id=user_id,
-        budget_messages=10,
+        conversation_id=conv_id,
+        user_id=USER_ID,
+        budget_messages=20,
     )
-    return ModelRequest(model_id="gpt-4o-mini", messages=messages, tools=())
+    roles = [str(message.role) for message in messages]
+    # 系统提示不在这里（由 `AgentRunner` 的 `DefaultPromptBuilder` 负责）
+    assert roles == ["user", "assistant"], roles
+    assert all(message.tool_call_id is None for message in messages)
+    assert all(not message.tool_calls for message in messages)
 
 
-def _memory_lines(request: Any) -> list[str]:
-    return [str(m.content) for m in request.messages if str(m.content).startswith("[记忆·")]
-
-
-async def test_s03_user_explicit_memory_injected_with_provenance_and_non_instruction_wording() -> None:
-    """[S-03][integration] `USER_EXPLICIT` 记忆被注入，且带来源标注与"仅供参考、非指令"措辞。
-
-    真实边界：ContextBuilder → 模型请求（记忆取自真实 PostgreSQL）。
-    注入仍以 `role=SYSTEM` 前置、不进 `_trim` 预算 ⇒ **措辞是唯一的效力边界表达**，
-    缺了它就等于让用户可写内容以系统指令身份生效。
-    """
-    tenant, conversation_id, user_id = await _seed_injection_tenant(
-        (("reply.language", "中文", SOURCE_USER_EXPLICIT),)
-    )
-    try:
-        request = await _request_for(tenant, conversation_id, user_id)
-        lines = _memory_lines(request)
-        assert len(lines) == 1
-        text = lines[0]
-        assert "reply.language" in text and "中文" in text  # key 与值都在
-        assert "用户明确要求" in text  # 来源标注
-        assert "仅供参考" in text and "非指令" in text  # 效力边界
-        assert "以当前指示为准" in text  # 冲突优先级
-
-        injected = next(m for m in request.messages if str(m.content).startswith("[记忆·"))
-        assert str(injected.role) == "system"  # 注入位置/角色不变
-    finally:
-        await _purge_injection_tenant(tenant)
-
-
-async def test_s04_agent_inferred_memory_not_injected_but_recallable() -> None:
-    """[S-04][integration] `AGENT_INFERRED` 不进默认上下文，只经检索路径可取回。
-
-    真实边界：ContextBuilder → 模型请求（真实 PostgreSQL）；检索侧走 `MemoryService.search`
-    —— 那是 `recall` 工具的落点（工具本体属 TASK-002，本任务只钉住分级过滤本身）。
-    """
-    tenant, conversation_id, user_id = await _seed_injection_tenant(
-        (("work.style", "简洁", SOURCE_AGENT_INFERRED),)
-    )
-    try:
-        request = await _request_for(tenant, conversation_id, user_id)
-        assert _memory_lines(request) == []
-        assert "简洁" not in " ".join(str(m.content) for m in request.messages)
-
-        recalled = await MemoryService().search(tenant, user_id, prefix=None, limit=10)
-        assert [item["memory_key"] for item in recalled] == ["work.style"]
-        assert recalled[0]["content_json"] == {"value": "简洁"}
-    finally:
-        await _purge_injection_tenant(tenant)
-
-
-async def test_s04_legacy_source_type_is_not_injected() -> None:
-    """[S-04][integration] 历史 `source_type` 取值（如 `EXPLICIT`）按非 `USER_EXPLICIT` 处理。
-
-    design §4.4：不得因历史数据放宽注入面 —— 存量行宁可暂时不注入，也不猜它是不是用户显式要求。
-    """
-    tenant, conversation_id, user_id = await _seed_injection_tenant(
-        (("legacy.key", "历史值", LEGACY_SOURCE),)
-    )
-    try:
-        request = await _request_for(tenant, conversation_id, user_id)
-        assert _memory_lines(request) == []
-        assert "历史值" not in " ".join(str(m.content) for m in request.messages)
-    finally:
-        await _purge_injection_tenant(tenant)
-
-
-async def test_b02_injection_caps_count_and_keeps_newest() -> None:
-    """[B-02][integration] 12 条短记忆：只注入最近 `MAX_INJECTED_MEMORIES` 条，其余不注入且不报错。"""
-    entries = tuple((f"k.{index:02d}", f"v{index}", SOURCE_USER_EXPLICIT) for index in range(12))
-    tenant, conversation_id, user_id = await _seed_injection_tenant(entries)
-    try:
-        request = await _request_for(tenant, conversation_id, user_id)
-        lines = _memory_lines(request)
-        assert len(lines) == MAX_INJECTED_MEMORIES
-
-        injected_keys = [line.split("] ", 1)[1].split(" =", 1)[0] for line in lines]
-        assert injected_keys == [f"k.{index:02d}" for index in range(11, 1, -1)]  # 最新的 10 条
-        assert "v00" not in " ".join(lines) and "v01" not in " ".join(lines)  # 被截掉的确实没进来
-    finally:
-        await _purge_injection_tenant(tenant)
-
-
-async def test_b02_injection_caps_bytes_before_count() -> None:
-    """[B-02][integration] 写满 512 字符的记忆：字节上限先触顶，只注入放得下的那几条。
-
-    中文 512 字 ≈ 1.5KB，`MAX_INJECTED_BYTES`(2048) 只够一条 ⇒ 条数上限不是主约束。
-    """
-    long_value = "长" * 512
-    tenant, conversation_id, user_id = await _seed_injection_tenant(
-        (
-            ("big.old", long_value + "旧", SOURCE_USER_EXPLICIT),
-            ("big.new", long_value + "新", SOURCE_USER_EXPLICIT),
-        )
-    )
-    try:
-        request = await _request_for(tenant, conversation_id, user_id)
-        lines = _memory_lines(request)
-        assert len(lines) == 1  # 第二条会越过字节上限 ⇒ 停
-        assert "big.new" in lines[0]  # 先到先得：最新那条先进
-        assert sum(len(line.encode("utf-8")) for line in lines) <= MAX_INJECTED_BYTES
-    finally:
-        await _purge_injection_tenant(tenant)
-
-
-async def test_e06_injection_read_failure_degrades_without_breaking_run(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    """[E-06][integration] 注入查询失败：本轮不注入 + 记 warning，请求照常构建。
-
-    注入是**每轮对话的必经查询**，DB 抖动不得让整轮对话失败 —— 那会把一次查询故障放大成
-    "用户发不出消息"。故障注入在记忆查询这一处（会话与历史仍走真实 PostgreSQL）。
-    """
-    tenant, conversation_id, user_id = await _seed_injection_tenant(
-        (("reply.language", "中文", SOURCE_USER_EXPLICIT),)
-    )
-
-    async def _boom(*args: Any, **kwargs: Any) -> Any:
-        # 用 SQLAlchemy 的异常族：实现只吞这一类（DB 层故障），编程错误必须继续上抛
-        raise SQLAlchemyError("injection query failed")
-
-    monkeypatch.setattr(MemoryService, "list_for_injection_with_session", _boom)
-    try:
-        with caplog.at_level(logging.WARNING, logger="muad_agent_runtime.application.context_builder"):
-            request = await _request_for(tenant, conversation_id, user_id)
-
-        assert _memory_lines(request) == []  # 本轮无注入
-        assert request.model_id == "gpt-4o-mini"  # 请求照常构建（Run 不中断）
-        assert any(
-            record.levelno == logging.WARNING for record in caplog.records
-        ), "读失败必须留 warning，否则故障完全静默"
-    finally:
-        await _purge_injection_tenant(tenant)
-
-
-async def test_e07_platform_secrets_never_reach_the_model_request_through_memory() -> None:
-    """[E-07][integration] 平台密钥不经记忆链进入模型请求（探针断言）。
-
-    真实边界：ContextBuilder → 模型请求体（记忆取自真实 PostgreSQL）。
-    断言两件事：① 已知密钥值不出现在请求的任何位置（消息/工具/参数）；② 注入行只由
-    「措辞 + key + 存储值」构成，不夹带任何其它列的内容（否则列里的密钥会被顺带带出去）。
-    """
-    probes = ("sk-owner-table-key", "mcp-owner-secret", "bot-secret-value")
-    tenant, conversation_id, user_id = await _seed_injection_tenant(
-        (("reply.language", "中文", SOURCE_USER_EXPLICIT),)
-    )
-    try:
-        request = await _request_for(tenant, conversation_id, user_id)
-        haystack = " ".join(
-            [str(m.content) for m in request.messages]
-            + [repr(tool) for tool in request.tools]
-            + [repr(request.params)]
-        )
-        for probe in probes:
-            assert probe not in haystack
-
-        line = _memory_lines(request)[0]
-        assert line.count("中文") == 1
-        assert "reply.language = 中文" in line  # 只有 key 与存储值，无其它列
-        assert line.endswith("）")
-    finally:
-        await _purge_injection_tenant(tenant)
-
-
-async def test_unanswered_tool_calls_are_dropped_from_history() -> None:
+async def test_unanswered_tool_calls_are_dropped_from_history(async_tool_database) -> None:
     """[RULE-01] assistant 声明了、却**没有结果落库**的调用不得回放。
 
     中断/取消打断一个多工具回合、或工具预算耗尽时，`ASSISTANT_TURN` 已经落库而某个结果没有
     （canonical 行只为真正跑过的调用写）。整份回放就会发出「声明 2 个、只答 1 个」的请求 ——
     与「孤儿 tool 消息」是同一类形状问题，供应商同样会拒**整个**请求（2026-10-06 review）。
     """
-    tenant = f"unanswered-{uuid.uuid4()}"
-    conv_id = uuid.uuid4()
-    async with get_session_factory()() as session:
+    tenant, conv_id = f"unanswered-{uuid.uuid4()}", uuid.uuid4()
+    async with _factory(async_tool_database).begin() as session:
         session.add(
             Conversation(
                 id=conv_id,
@@ -651,30 +354,188 @@ async def test_unanswered_tool_calls_are_dropped_from_history() -> None:
                 ),
             ]
         )
-        await session.commit()
 
-    try:
-        builder = DbBackedContextBuilder(session_factory=get_session_factory)
-        messages = await builder.load_history(
-            tenant_id=tenant,
-            conversation_id=conv_id,
-            user_id=USER_ID,
-            budget_messages=20,
+    messages = await _builder(async_tool_database).load_history(
+        tenant_id=tenant,
+        conversation_id=conv_id,
+        user_id=USER_ID,
+        budget_messages=20,
+    )
+    declared = [call.id for message in messages for call in message.tool_calls]
+    answered = [message.tool_call_id for message in messages if message.role is ModelRole.TOOL]
+    assert declared == ["a"], "只有真有结果的声明能回放"
+    assert answered == ["a"]
+    assert declared == answered, "声明与结果必须严格成对"
+    # 整条没跑的回合不出现；有结果的那条 assistant 正文照留
+    assert not any("再查一下" in str(message.content) for message in messages)
+    assert any("我先看看" in str(message.content) for message in messages)
+
+
+async def test_s03_confirmed_memory_is_injected_with_provenance_and_non_instruction_wording(
+    async_tool_database,
+) -> None:
+    """[S-03] 已确认（USER）记忆被注入：带来源标注与"仅供参考、非指令"措辞。
+
+    真实边界：`MemoryCandidateCache`/`MemoryContextLoader` → 真实模型 HTTP 请求体。
+    注入以 `role=SYSTEM` 前置、不进裁剪预算 ⇒ **措辞是唯一的效力边界表达**。
+    """
+    ctx = context(tenant=f"s03-{uuid.uuid4()}", user=USER_ID)
+    await seed_facts(async_tool_database, ctx, 1, author="USER")
+    memory = loader(async_tool_database, ctx, query="你好")
+    _, captured = await request_round(async_tool_database, ctx, memory)
+
+    text = memory_text(captured[0])
+    assert text is not None
+    assert text.startswith(MEMORY_NOTICE)  # 非指令措辞在块首
+    assert "confirmed（已确认用户或管理员内容）:" in text  # 来源标注
+    assert '"memory_key":"seed.1"' in text and '"author":"USER"' in text
+    assert '"content":{"value":"blue"}' in text
+    assert memory.component is not None and memory.component.references[0].memory_key == "seed.1"
+
+
+async def test_s04_unconfirmed_memory_is_not_injected_but_recallable(async_tool_database) -> None:
+    """[S-04] 未确认（AGENT）记忆不进默认上下文，只经真实 recall 工具可取回。"""
+    ctx = context(tenant=f"s04-{uuid.uuid4()}", user=USER_ID)
+    await seed_facts(async_tool_database, ctx, 1, author="AGENT")
+    memory = loader(async_tool_database, ctx, query="你好")
+    _, captured = await request_round(async_tool_database, ctx, memory)
+
+    assert memory_text(captured[0]) is None
+    assert "blue" not in " ".join(str(item.get("content")) for item in captured[0]["messages"])
+
+    receipt = await recall(tools(async_tool_database, ctx), {"memory_key": "seed.1"})
+    assert [item["memory_key"] for item in receipt["items"]] == ["seed.1"]
+    assert receipt["items"][0]["content"] == {"value": "blue"}
+
+
+async def test_s04_only_confirmed_rows_are_injected_not_legacy_unconfirmed(async_tool_database) -> None:
+    """[S-04] 旧库存量来源不再被猜成已确认：只有 USER/ADMIN 行进默认注入面。
+
+    0020 迁移把无可证明确认的旧来源统一落为 AGENT（见 `tests/migrations/test_memory_redesign_migration.py`）；
+    本用例在注入边界钉住「确认级别决定注入，存在性不决定」。
+    """
+    ctx = context(tenant=f"s04b-{uuid.uuid4()}", user=USER_ID)
+    await seed_facts(async_tool_database, ctx, 1, author="USER", prefix="confirmed")
+    await seed_facts(async_tool_database, ctx, 1, author="AGENT", prefix="legacy")
+    memory = loader(async_tool_database, ctx, query="你好")
+    _, captured = await request_round(async_tool_database, ctx, memory)
+
+    text = memory_text(captured[0])
+    assert '"memory_key":"confirmed.1"' in text
+    assert "legacy.1" not in text
+
+
+async def test_b02_injection_caps_count_and_keeps_newest(async_tool_database) -> None:
+    """[B-02] 12 条已确认记忆：只注入最近 `max_injected_memories` 条，其余计丢弃且不报错。"""
+    ctx = context(tenant=f"b02-{uuid.uuid4()}", user=USER_ID)
+    await seed_facts(async_tool_database, ctx, 12, author="USER")
+    async with async_tool_database.begin() as connection:
+        await connection.execute(
+            sa.text(
+                "UPDATE runtime.user_memory"
+                " SET update_time = statement_timestamp()"
+                " - ((13 - substring(memory_key from 6)::int) * interval '1 minute')"
+                " WHERE tenant_id = :tenant"
+            ),
+            {"tenant": ctx.tenant_id},
         )
-        declared = [call.id for message in messages for call in message.tool_calls]
-        answered = [
-            message.tool_call_id for message in messages if message.role is ModelRole.TOOL
-        ]
-        assert declared == ["a"], "只有真有结果的声明能回放"
-        assert answered == ["a"]
-        assert declared == answered, "声明与结果必须严格成对"
-        # 整条没跑的回合不出现；有结果的那条 assistant 正文照留
-        assert not any("再查一下" in str(message.content) for message in messages)
-        assert any("我先看看" in str(message.content) for message in messages)
-    finally:
-        async with get_session_factory()() as session:
-            await session.execute(
-                sa.delete(CanonicalEvent).where(CanonicalEvent.tenant_id == tenant)
-            )
-            await session.execute(sa.delete(Conversation).where(Conversation.id == conv_id))
-            await session.commit()
+    memory = loader(async_tool_database, ctx, query=None)
+    _, captured = await request_round(async_tool_database, ctx, memory)
+
+    text = memory_text(captured[0])
+    keys = re.findall(r'"memory_key":"(seed\.\d+)"', text)
+    assert keys == [f"seed.{index}" for index in range(12, 2, -1)]  # 最新的 10 条
+    assert "seed.1" not in keys and "seed.2" not in keys  # 被截掉的确实没进来
+    assert memory.component is not None and memory.component.block.dropped_count == 2
+
+
+async def test_b02_injection_caps_bytes_before_count(async_tool_database) -> None:
+    """[B-02] 写满 512 字符的记忆：字节上限先触顶，只注入放得下的那条（无首条越限）。"""
+    ctx = context(tenant=f"b02b-{uuid.uuid4()}", user=USER_ID)
+    async with async_tool_database.begin() as connection:
+        await connection.execute(
+            sa.text(
+                "INSERT INTO runtime.user_memory (tenant_id,user_id,memory_key,category,content_json,"
+                "author,explicit_request,confirmation_event_id,write_policy,update_time) VALUES"
+                " (:tenant,:user,'big.old','PREFERENCE',"
+                " jsonb_build_object('value',CAST(:old AS text)),'USER',true,"
+                " gen_random_uuid(),'SERVER_CONTROLLED',statement_timestamp() - interval '1 minute'),"
+                " (:tenant,:user,'big.new','PREFERENCE',"
+                " jsonb_build_object('value',CAST(:new AS text)),'USER',true,"
+                " gen_random_uuid(),'SERVER_CONTROLLED',statement_timestamp())"
+            ),
+            {
+                "tenant": ctx.tenant_id,
+                "user": ctx.user_id,
+                "old": "长" * 511 + "旧",
+                "new": "长" * 511 + "新",
+            },
+        )
+    memory = loader(async_tool_database, ctx, query=None)
+    _, captured = await request_round(async_tool_database, ctx, memory)
+
+    text = memory_text(captured[0])
+    assert '"memory_key":"big.new"' in text  # 最新那条先进
+    assert "big.old" not in text  # 第二条越过字节上限 ⇒ 跳过
+    assert len(text.encode("utf-8")) <= 2048
+    assert memory.component is not None and memory.component.block.dropped_bytes == 1
+
+
+async def test_e06_injection_read_failure_degrades_without_breaking_run(
+    async_tool_database, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """[E-06] 注入查询失败：本轮不注入 + 记 warning，请求照常构建（Run 不中断）。"""
+    ctx = context(tenant=f"e06-{uuid.uuid4()}", user=USER_ID)
+    await seed_facts(async_tool_database, ctx, 1, author="USER")
+
+    async def _boom(*args: Any, **kwargs: Any) -> Any:
+        # 用 SQLAlchemy 的异常族：实现只吞这一类（DB 层故障），编程错误必须继续上抛
+        raise SQLAlchemyError("injection query failed")
+
+    monkeypatch.setattr(type(queries(async_tool_database)), "read_snapshot", _boom)
+    memory = loader(async_tool_database, ctx)
+    with caplog.at_level(logging.WARNING, logger="muad_agent_runtime.application.memory_cache"):
+        _, captured = await request_round(async_tool_database, ctx, memory)
+
+    assert memory_text(captured[0]) is None  # 本轮无注入
+    assert memory.component is None  # 失败后不保留旧组件
+    assert any(record.levelno == logging.WARNING for record in caplog.records), (
+        "读失败必须留 warning，否则故障完全静默"
+    )
+
+
+async def test_e07_platform_secrets_never_reach_the_model_request_through_memory(
+    async_tool_database,
+) -> None:
+    """[E-07] 平台密钥不经记忆链进入模型请求（探针断言）。
+
+    断言两件事：① 已知密钥值不出现在请求的任何位置（消息/工具/参数）；② 注入行只由
+    「措辞 + key + 存储值 + 受控元数据」构成，不夹带其它列（如 `source_quote`）。
+    """
+    probes = ("sk-owner-table-key", "mcp-owner-secret", "bot-secret-value")
+    ctx = context(tenant=f"e07-{uuid.uuid4()}", user=USER_ID)
+    await seed_facts(async_tool_database, ctx, 1, author="USER")
+    # 非渲染列里埋入 canary：渲染必须只取受控字段，不能整行外带
+    async with async_tool_database.begin() as connection:
+        await connection.execute(
+            sa.text(
+                "UPDATE runtime.user_memory SET source_quote = :probe WHERE tenant_id = :tenant"
+            ),
+            {"probe": probes[0], "tenant": ctx.tenant_id},
+        )
+    memory = loader(async_tool_database, ctx, query="你好")
+    _, captured = await request_round(async_tool_database, ctx, memory)
+
+    body = captured[0]
+    haystack = " ".join(
+        [str(message.get("content")) for message in body["messages"]]
+        + [repr(body.get("tools"))]
+        + [repr(body.get("params"))]
+    )
+    for probe in probes:
+        assert probe not in haystack
+
+    text = memory_text(body)
+    assert text.count("blue") == 1
+    assert '"content":{"value":"blue"}' in text
+    assert "source_quote" not in text  # 只有受控字段，不整行外带

@@ -78,18 +78,18 @@
 | harness-mcp#RULE-mcp-001 | TASK-018 | code | ["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"] | planned |
 | harness-im#RULE-im-001 | TASK-017 | code | ["uv","run","pytest","-q","tests/console_channel","tests/gateway"] | planned |
 | harness-im#RULE-im-002 | TASK-017 | code | ["uv","run","pytest","-q","tests/architecture/test_channel_neutrality.py"] | planned |
-| harness-rel#RULE-rel-001 | TASK-024 | code | ["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"] | planned |
+| harness-rel#RULE-rel-001 | TASK-024 | code | ["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"] | verified（TASK-024 实测 3 passed） |
 
-memory Tier-1规范已由TASK-001创建并通过CLI增量绑定到同一Context。六条verifier均为stage=review（跨组件闭合），测试仍待对应任务实现与执行。
+memory Tier-1规范已由TASK-001创建并通过CLI增量绑定到同一Context。六条verifier均为stage=review（跨组件闭合），TASK-031已按元数据argv在隔离head库逐条实跑（80/25/56/59/35/12 passed）；正式review Gate裁决仍由需求终验执行。
 
 | Spec Rule | 最终负责人 | 要求 | review verifier | 状态 |
 |---|---|---|---|---|
-| harness-memory#RULE-memory-001 | TASK-015 | 来源证据、真实候选确认、禁止模型授予USER/ADMIN | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py","tests/agent_runtime/test_memory_redesign_confirmation.py"] | planned |
-| harness-memory#RULE-memory-002 | TASK-009 | 稳定identity、scope锁、历史/receipt原子性、硬配额 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py","tests/agent_runtime/test_memory_redesign_quotas.py"] | planned |
-| harness-memory#RULE-memory-003 | TASK-012 | 有界完整候选、缓存一致性、SEARCH零命中、完整块预算 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py","tests/agent_runtime/test_memory_redesign_context.py","tests/agent_core/test_memory_redesign_selection.py"] | planned |
-| harness-memory#RULE-memory-004 | TASK-021 | 用户删除墓碑、forget_epoch、新依据退休恢复、禁止来源降权 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_confirmation.py"] | planned |
-| harness-memory#RULE-memory-005 | TASK-021 | 固定提炼输入、lease/epoch fence、最多一次原子效果、失败可见且Run不变 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_input_boundary.py"] | planned |
-| harness-memory#RULE-memory-006 | TASK-007 | 设置/预算冻结、稳定迁移基线、存量TTL与维护窗口 | ["uv","run","pytest","-q","tests/migrations/test_memory_redesign_migration.py","tests/agent_runtime/test_memory_redesign_snapshot.py"] | planned |
+| harness-memory#RULE-memory-001 | TASK-015 | 来源证据、真实候选确认、禁止模型授予USER/ADMIN | ["uv","run","pytest","-q","tests/agent_core/test_memory_redesign_evidence.py","tests/agent_runtime/test_memory_redesign_confirmation.py"] | verified（TASK-031 实跑 80 passed） |
+| harness-memory#RULE-memory-002 | TASK-009 | 稳定identity、scope锁、历史/receipt原子性、硬配额 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_writes.py","tests/agent_runtime/test_memory_redesign_quotas.py"] | verified（TASK-031 实跑 25 passed） |
+| harness-memory#RULE-memory-003 | TASK-012 | 有界完整候选、缓存一致性、SEARCH零命中、完整块预算 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py","tests/agent_runtime/test_memory_redesign_context.py","tests/agent_core/test_memory_redesign_selection.py"] | verified（TASK-031 实跑 56 passed） |
+| harness-memory#RULE-memory-004 | TASK-021 | 用户删除墓碑、forget_epoch、新依据退休恢复、禁止来源降权 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_confirmation.py"] | verified（TASK-031 实跑 59 passed） |
+| harness-memory#RULE-memory-005 | TASK-021 | 固定提炼输入、lease/epoch fence、最多一次原子效果、失败可见且Run不变 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_input_boundary.py"] | verified（TASK-031 实跑 35 passed） |
+| harness-memory#RULE-memory-006 | TASK-007 | 设置/预算冻结、稳定迁移基线、存量TTL与维护窗口 | ["uv","run","pytest","-q","tests/migrations/test_memory_redesign_migration.py","tests/agent_runtime/test_memory_redesign_snapshot.py"] | verified（TASK-031 实跑 12 passed） |
 
 ## Design Rule Responsibility
 
@@ -805,7 +805,7 @@ MEMORY_CONFIRMATION专用分派；合法输入/事实/history/receipt/interrupt/
 - [x] [B-15][integration] 先写真实Gateway/Runtime/PG确认、拒绝、无效编号仍等待、stale合法续跑、超Run deadline不恢复RED。
 - [x] 其他用户/版本/hash/epoch/重复message_id不能授予另一份内容。
 - [x] 不先无条件消费所有WAITING interrupt，不改已持久化候选回执。
-- [x] [RULE-memory-001] 原argv功能测试已实际执行：43个来源证据+26个真实确认用例，69 passed；review层正式裁决仍由需求终验统一执行，不把编码期功能通过写成review Gate通过。
+- [x] [RULE-memory-001] verifier：原argv功能测试已实际执行：43个来源证据+26个真实确认用例，69 passed；review层正式裁决仍由需求终验统一执行，不把编码期功能通过写成review Gate通过。
 
 ### Acceptance Contract
 
@@ -1242,6 +1242,7 @@ ACTIVE/DISABLED/EXPIRED过滤、history按version分页，list/count同条件；
 - [x] [E-04][integration] 辅助先写跨租户、过期/禁用/删除、总数与items齐平、版本排序RED。
 - [x] 展示author与actor分离，Console时间投影复用统一入口。
 - [x] 只读runtime表，移除旧source_type投影，测试旧未知值明确回退。
+- [x] [RULE-rel-001] verifier：按元数据argv ["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"]（cwd=., timeout=600s）实际执行并登记（3 passed，见下方 Scope 扩展说明）；不得把未执行标verified。
 - [x] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
 
 ### Acceptance Contract
@@ -1315,7 +1316,7 @@ ACTIVE/DISABLED/EXPIRED过滤、history按version分页，list/count同条件；
 - 实现：新增 `infrastructure/runtime_memory_client.py`（`X-Internal-Service`/`X-Tenant-Id`/`X-Trace-Id`/`Idempotency-Key`/`X-Actor-Id` 透传；上游业务码原样上抛，transport/封套异常统一 `COMMON_INTERNAL_ERROR`，日志只记方法与路径）；`application/dto.py` 新增 `MemoryCreateRequest`（复用 contracts 的 `RememberMemoryInput` 拒 `task.*`）与 `MemoryEnabledUpdateRequest`；`application/memory_service.py` 拆为只读 `MemoryService` 与 `MemoryAdminService`（新增/启禁用/删除/清空全走 Runtime，`Idempotency-Key` 即命令号）；`api/users.py` 新增 `POST /api/v1/users/{id}/memory`、`PATCH /api/v1/users/{id}/memory/{memory_key}`，`DELETE`（按 id，`expected_version` 必填）与 `DELETE`（清空）改走 Runtime，四条路由统一返回 Runtime 命令回执（`MemoryCommandResponse`，含 `command_id`/`status`/`changed_count`/`items`）；`api/deps.py` 新增 `get_runtime_memory_client`（缺 `AGENT_RUNTIME_URL`/`INTERNAL_SERVICE_TOKEN` 时 warning 指名 + `COMMON_INTERNAL_ERROR`，不发必然 403 的裸请求）；`infrastructure/repositories/memory_repository.py` 删除 `get_for_user/soft_delete/soft_delete_all` 三个直写方法（design §3.2.1「不直接 UPDATE runtime 表」终态）。
 - 审计与日志口径（不宣称原子）：Runtime `user_memory_history`（actor/version/command_id）是权威审计；Console 每次成功请求写一条 `control.config_audit_log`（`resource_type=USER_MEMORY`、`resource_id=user_id`、`after={command_id,status,changed_count,memory_keys}`，不含记忆正文），并记 `console_memory_command_applied`（`command_id` 在 `extra` 里）。两者**不同库不同事务**：本地审计在远端命令返回之后写，失败不回滚远端事实，重放请求会多记一条本地日志（`test_s05` 断言 4 条日志/3 份回执即此口径）。
 - 回归：`tests/console_platform` = **300 passed, 2 failed**（`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task025-regression.txt`，连跑两轮同结果）；2 failed 为存量且与本 diff 无关（`test_platform_settings_table.py` 把迁移 head 钉在 `0019`，HEAD 已含 TASK-007 的 `0020`；该文件无 diff）。TASK-023 的 Runtime 管理 API 用例 `tests/agent_runtime/test_memory_redesign_admin_api.py` = **9 passed**。harness-api/harness-data/harness-log verifier 同口径实跑：`tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py tests/console_skill/test_import_idempotency.py` = **23 passed**；`uv run pytest -q tests -k schema_parity` = **41 passed, 3301 deselected**；`tests/test_logging.py tests/test_logging_redaction.py` = **13 passed**。`uv run ruff check .` 仅剩 2 条存量违规（agent-runtime I001、TASK-023 的 E501，均非本 diff）；`uv run mypy apps packages` = Success（386 files）。
-- 跨任务边界（他任务收口，不在本任务宣称）：前端 `services/users.ts` 的 `deleteMemory/clearMemory` 与 `UserDetailTabs.tsx` 仍按旧契约调用（不带 `Idempotency-Key`、读 `deleted`/`deleted_count`，并仍用 `source_type` 列），TASK-026/028 收口；E-04 浏览器场景（创建/启禁用/删除/历史分页/越权）owner 是 TASK-030，本任务不执行 E2E；`harness-rel#RULE-rel-001`（owner TASK-024）的 verifier 文件 `test_user_side_relations.py` 因写契约变更同步改造（同一路径仍全绿，种子内容形状对齐 `MemoryCandidate`、清理补历史/回执外键顺序）；`test_users_api.py::_cleanup_seeded` 补删记忆历史/回执（Runtime 现在会写这两张表）。
+- 跨任务边界（他任务收口，不在本任务宣称）：前端 `services/users.ts` 的 `deleteMemory/clearMemory` 与 `UserDetailTabs.tsx` 仍按旧契约调用（不带 `Idempotency-Key`、读 `deleted`/`deleted_count`，并仍用 `source_type` 列），TASK-026/028 收口；E-04 浏览器场景（创建/启禁用/删除/历史分页/越权）owner 是 TASK-030，本任务不执行 E2E；harness-rel 规则（owner TASK-024）的 verifier 文件 `test_user_side_relations.py` 因写契约变更同步改造（同一路径仍全绿，种子内容形状对齐 `MemoryCandidate`、清理补历史/回执外键顺序）；`test_users_api.py::_cleanup_seeded` 补删记忆历史/回执（Runtime 现在会写这两张表）。
 - Scope 说明：diff 命中 `apps/**/api/**` 与 `**/*relations*` 路径，故上述 harness-api/harness-rel 相关命令一并实跑登记；本任务无新增 Spec-Refs（责任表未给 TASK-025 分配 Tier-1 规则行），LOCAL 行是唯一契约行。
 
 ### Log
@@ -1414,7 +1415,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
   - 平台设置存量缺口：`:398-408`（17 条 `settings.field.*` 双侧齐备、非空、zh≠en）。
   - 无硬编码文案：`:411-415`（`memoryOptions.ts` 与 `UserDetailTabs.tsx` 去注释后无汉字字面量）。
 - verifier（元数据 argv 原样实跑，cwd=.，timeout=300s）：`bash -lc "uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"` → `6 passed in 1.67s` + `i18n keys OK: 1141`，日志 `/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task027-verifier.txt`。
-- 回归：`uv run pytest -q tests/frontend` → **1 failed, 329 passed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task027-regression.txt`；唯一 failed 是存量且与本 diff 无关的 `test_audit_gap_contract.py::test_b214_resource_type_options_cover_backend_domain`（TASK-026 基线同样红）。TASK-026 点名的 `test_platform_settings_contract.py::test_backend_catalog_label_keys_are_translated_in_both_locales` 由本任务补齐 17 条词条后转绿（该文件 38 用例中相关 7 条全绿，另跑 `test_platform_settings_contract.py test_user_identity_contract.py test_user_memory_contract.py test_detail_sidesheet_contract.py` = 38 passed）。`npm --prefix apps/console-platform/frontend run typecheck` 通过；另跑 `tests/frontend/test_api_client_contract.py`（4 passed）与 `scripts/check_frontend_api_usage.py`（OK）作旁证（`harness-frontend#RULE-front-001` 责任仍归 TASK-026，本任务不宣称）。
+- 回归：`uv run pytest -q tests/frontend` → **1 failed, 329 passed**，`/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/opencode/task027-regression.txt`；唯一 failed 是存量且与本 diff 无关的 `test_audit_gap_contract.py::test_b214_resource_type_options_cover_backend_domain`（TASK-026 基线同样红）。TASK-026 点名的 `test_platform_settings_contract.py::test_backend_catalog_label_keys_are_translated_in_both_locales` 由本任务补齐 17 条词条后转绿（该文件 38 用例中相关 7 条全绿，另跑 `test_platform_settings_contract.py test_user_identity_contract.py test_user_memory_contract.py test_detail_sidesheet_contract.py` = 38 passed）。`npm --prefix apps/console-platform/frontend run typecheck` 通过；另跑 `tests/frontend/test_api_client_contract.py`（4 passed）与 `scripts/check_frontend_api_usage.py`（OK）作旁证（frontend 规则责任仍归 TASK-026，本任务不宣称）。
 - 实现：新增 `memoryOptions.ts`（模块唯一的枚举→文案/选项构造口：author/actor/category/status/confirmation/changeReason 六个 `as const` 枚举族 + `memoryEnumLabel` 动态键求值 + `MemoryOption{value,label}` 选项工厂 + `MEMORY_ERROR_KEYS`/`MEMORY_ERROR_FALLBACK_KEY`/`memoryErrorLabel`；`t: TFunction` 一律由调用方注入，模块内无任何译文缓存）。两侧词条新增 54 条（`user.memory.*` 37 条 + `settings.field.*` 17 条），键顺序两侧逐行一致（1141/1141）。
 - 顺带清理（同一契约要求）：删除两侧既有的孤儿词条 `user.memory.category`（"类别"/"Category"）——TASK-026 把来源列改为 `author` 后组件已不再引用它（全仓库仅剩词条自身），"无孤儿词条"不允许它继续躺着；TASK-028 渲染类别列时用 `memoryCategoryLabel` 取 `user.memory.category.<VALUE>`，列标题键届时按需重建。
 - 跨任务边界（登记）：本任务**不改组件**（`UserDetailTabs.tsx` 未在 diff 内），`memoryOptions.ts` 的接入、状态/历史/动作 UI 与版本冲突恢复归 TASK-028；`user.memory.sourceType.*` 两条 legacy 键仍被现有组件静态引用（非孤儿），由 TASK-028 收口。E-04 浏览器场景（创建/启禁用/删除/历史分页与本地化）owner 是 TASK-030，本任务只做 [E-04][unit] 辅助，不宣称 E2E。行为用例依赖仓库内 node+esbuild（前端依赖未安装时**显式 skip** 并提示 `npm ci`，不静默通过；本机为真实执行）。
@@ -1609,7 +1610,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ## TASK-031: 规范/文档同步、inventory 与需求终验
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-030
 - **Source**: memory-redesign.design.md#6.1 Spec Compliance Matrix, memory-redesign.design.md#6.2 设计进入 Plan 的条件, memory-redesign.design.md#4.3 回滚
@@ -1623,22 +1624,31 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ### Checklist
 
-- [ ] 先写inventory缺失/删场景/改owner/改level或command/缺Evidence/假测试名的RED，至少4类扰动复绿。
-- [ ] 新增memory规范verifier实际执行；旧source/prefix/ratio/自动复活断言替换为新契约，不只删测试。
-- [ ] functional全部verified后verify-e2e/全量校验，Gate结论取finish实际返回再提交/归档；不重生已有Evidence manifest。
-- [ ] 范围较多的docs同步按清单逐项处理（非生产代码原子单元），不能只改configuration-inventory。
-- [ ] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
+- [x] 先写inventory缺失/删场景/改owner/改level或command/缺Evidence/假测试名的RED，至少4类扰动复绿。`tests/memory_redesign_inventory.py` 用真实解析器核对设计15条RULE/31场景、任务责任表19+6条required Rule（含TASK-024新增的 harness-rel 规则行）、锁定manifest与真实测试盘面；8类扰动（缺失Rule/删场景/改owner/改level/改command/缺Evidence/假测试名/删设计规则）逐类证明会红；真实RED=HEAD任务文件的3条`plan_coverage_block`（见Evidence）。
+- [x] 新增memory规范verifier实际执行；旧source/prefix/ratio/自动复活断言替换为新契约，不只删测试。6条`harness-memory#RULE-memory-00x` review verifier按元数据argv在隔离head库逐条实跑全绿（80/25/56/59/35/12 passed）；`test_memory_flow.py`的`source_type`断言改为author/status/候选确认契约，S-01管理命令体改`{actor_id,mutation}`，E-01[summary]修提炼请求混入业务探针计数，均保留原覆盖意图。
+- [x] functional全部verified后verify-e2e/全量校验，Gate结论取finish实际返回再提交/归档；不重生已有Evidence manifest。本任务不跑verify-e2e（需求级收口），不重锁manifest；Done Gate结论见Log。
+- [x] 范围较多的docs同步按清单逐项处理（非生产代码原子单元），不能只改configuration-inventory。docs/02 §3.1/§4.23/§4.23.1-4/§4.25、docs/04 §10.2/§11、docs/07 §9.3/§10.5、docs/15 §2/§9、configuration-inventory.md+CSV（AST重对齐1243行）全部按代码事实改写。
+- [x] 本任务不领取最终场景owner；辅助测试仍必须有真实文件、RED/GREEN与证据，并与责任表中对应验收衔接；不能仅用no_owned_scenarios作为验证结论。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | unit/integration | 本任务纯逻辑或真实存储载体，按Checklist具体边界 | Checklist列出的独立行为及失败反例，最终场景由责任表owner验证 | 编码阶段登记真实辅助测试；无当前执行Evidence | planned | planned |
+| LOCAL | unit/integration | 真实设计/任务/锁定manifest/spec-context/Spec元数据与真实测试盘面文件；不mock | 15条设计RULE与31场景闭合；19+1条required Rule owner/verifier/文件存在；锁定manifest有效；verified有Evidence、e2e保持deferred；8类扰动可复现为红 | tests/memory_redesign_inventory.py / test_inventory_closure_holds_for_real_requirement_artifacts + 8条扰动用例 | ["uv","run","pytest","-q","tests/memory_redesign_inventory.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行测试或verifier。编码时逐项记录实际RED、GREEN、断言位置/真实边界；E2E保持planned/deferred，直到需求终验；没有manual或N/A确认。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| LOCAL / inventory 闭包 | 真实RED：对 HEAD 版任务文件跑同一 `collect_issues` → **3 issues**（`plan_coverage_block`：frontend 多责任 TASK、memory-001 缺 verifier Checklist、rel-001 多责任 TASK，均为 TASK-024/025/027 文本引入的门禁回归，`tests/test_memory_redesign_spec_contract.py::test_memory_rule_has_exactly_one_owner_and_duplicate_is_blocked` 同点失败）。日志 `…/T/opencode/task031/inventory-red-green.txt` | 修正任务文本（非owner段落不再出现完整规则ref、TASK-015 checklist 补 verifier、TASK-024 补 rel-001 verifier 行）后同检查 **0 issues**；`uv run pytest -q tests/memory_redesign_inventory.py` → **9 passed**；`tests/test_memory_redesign_spec_contract.py` → 9 passed；plan coverage 真实 gate decision=pass | `tests/memory_redesign_inventory.py`：`collect_issues`（design规则/场景、Spec Responsibility、Design Rule Responsibility、Coverage owner、命令文件、manifest evidence/域配置、plan gate、memory argv 对 metadata） | 真实 `cf_spec_gate`/`cf_acceptance_manifest`/`cf_spec_metadata` 解析；8条扰动对真实文本最小改写：缺失required Rule、删B-18、改B-03 owner为TASK-999、改B-01层级unit→manual、改B-02命令、B-01假测试名、B-05清空Evidence、删设计RULE-15，逐条断言对应 issue 前缀 | verified |
+| LOCAL / 交付三 acceptance 收口 | TASK-030 全量实跑红（隔离库真实栈）：`test_memory_flow.py` s01/s05 仍断言0020已删除的`source_type`；`test_memory_redesign_security.py` S-01×2/S-02×2 管理命令体旧契约422、清理缺history外键顺序、`/new` 后旧会话异步事件抢占"最新会话"导致不新建Run、canary命中渠道SDK原始入站帧回显；`test_e01[summary]` 提炼请求被计成primary业务请求（3==2） | 组合实跑 `uv run pytest -q tests/acceptance/im_gateway/test_memory_flow.py tests/acceptance/im_gateway/test_memory_redesign_security.py tests/acceptance/runtime/test_memory_redesign_context_e2e.py` → **11 passed ×3连续**（55.6s/55.6s/55.5s）；单文件亦全绿（flow 2、security 6、context-e2e 3） | flow：确认候选→author=USER/version/history/审计；security：`{actor_id,mutation}`+403/422/200、跨用户404、BUILDER 403/ADMIN 200、canary反查面；context-e2e：`len(primary)==2` | 真实 WS 探针→Gateway→Runtime HTTP→PG/Redis→LLM 探针；每轮 `tests/acceptance/conftest.py` 独立空库+独立Redis；修复点：Run到终态再跨用例（`EventWriter._next_seq` 会 bump `conversation.update_time`）、提炼请求按 `CONSOLIDATE` 标记单独应答、FK 引用方先行 | verified |
+| memory review verifiers（6条） | 编码期各自任务已功能实跑；review 层正式裁决原为 planned | 隔离 head 库 `muad_acc_4e63ea9716` + Redis 15 按元数据 argv 逐条实跑：memory-001 **80 passed**、memory-002 **25 passed**、memory-003 **56 passed**、memory-004 **59 passed**、memory-005 **35 passed**、memory-006 **12 passed**（总耗时约 6.7 分钟），跑完 `datastores stop` 已 drop | 每条 argv 与 `harness-memory.md` verifier metadata 逐字一致（inventory `memory_verifier_argv_mismatch` 检查） | 真实 PG（0020 head）、真实 Runtime/模型 HTTP/迁移库；日志 `…/T/opencode/task031/memory-verifiers-1.txt`、`memory-verifiers-2.txt` | verified |
+| docs 同步 | 旧事实：docs/02 §4.23 仍是 `source_type` 单表、docs/04 §10.2 仍写 ratio 注入、docs/07/§15 仍是旧内存 API/字段、configuration-inventory 停在 41 叶子且 `tests/test_configuration_inventory.py` 2 failed | 以实现事实改写：docs/02 §3.1+§4.23（+4.23.1-4 memory_scope/history/receipt/job）+§4.25（proposal_json）；docs/04 §10.2（双硬限、无ratio、请求级刷新）+§11（候选/确认/显式命令/ADMIN/提炼、硬配额）；docs/07 §9.3 受保护管理命令 + §10.5 Console 记忆路由；docs/15 §2 字段+§9 用户记忆字段；configuration-inventory.md+CSV 重生成（1243 行：code 1035/environment 121/business 75/business-resource 12；57 叶子） | `uv run pytest -q tests/test_configuration_inventory.py tests/test_secret_policy_docs.py tests/frontend/test_audit_table_contract.py` → **19 passed**；`grep source_type/budget_ratio` 仅剩"已删除"说明行 | 全部读真实代码/ORM/0020迁移/DTO/前端locale；CSV 与源码 AST 精确对齐（机检兜底） | verified |
+| LOCAL / 旧契约存量测试收口 | Checklist 第2条同类范围：`tests/agent_runtime/test_context_memory.py` + `test_context_memory_budget.py` 仍按旧契约（`UserMemory(source_type=…)` 9 failed/2 error、`budget_ratio` 比例预算、旧 `[记忆·用户明确要求]` 前缀）；`tests/e2e/seed_user_identity.py` 仍插已删除的 `source_type` 列 | 按 0020 新契约改写（非删除）：history/裁剪/孤儿/未答声明用例保留；注入用例改 `MemoryContextLoader`+`author/version`+`MEMORY_NOTICE`；预算用例改硬上限（历史长度不再改变注入、超限跳过）；E2E 种子改 `author/explicit_request/confirmation_event_id`。隔离 head 库实跑：`test_context_memory.py` **11 passed**、`test_context_memory_budget.py` **2 passed**；seed 脚本 normal/corrupt/cleanup 三态实测通过；ruff pass | 真实隔离 head PG + 真实 `MemoryCandidateCache`/`MemoryContextLoader`/`AgentRunner` + 真实模型 HTTP 探针；未新增兼容层，旧断言全部有对应新断言 | verified |
 
 ### Log
 
 - [2026-10-12] created (draft); 未启动编码。
+- [2026-10-15] started
+- [2026-10-15] completed (done)
+- [2026-10-15] 收尾补记（Done Gate pass 之后）：按 Checklist 第 2 条补齐同类存量收口——`tests/agent_runtime/test_context_memory*.py` 旧 source_type/ratio 断言改写为新契约（11+2 passed，隔离 head 库）、`tests/e2e/seed_user_identity.py` 改按新 schema 种记忆；并重跑 plan coverage gate=pass、inventory 0 issues、`tests/test_memory_redesign_spec_contract.py` 9 passed。需求级 verify-e2e 仍为最终裁决。

@@ -173,6 +173,21 @@ def _stack_log_text(stack: GatewayStack) -> str:
     return "\n".join(chunks)
 
 
+def _canary_log_leaks(stack: GatewayStack) -> list[str]:
+    """含 canary 的日志行，排除渠道 SDK 对**原始入站帧**的 DEBUG 回显。
+
+    原始入站帧就是用户自己的输入（与 `canonical_event` / `run_record.input_text` 同类，
+    见上方 `STORE_TABLES` 的边界说明）：渠道 SDK 在 Runtime 处理之前就把它写进自己的
+    DEBUG 日志。本断言的反查面是**记忆特性自己**的持久出口（新增表/历史/回执/提案/job/
+    工具审计/服务日志/提炼 Prompt），不把用户原话在渠道侧的既有回显算成记忆泄漏。
+    """
+    return [
+        line
+        for line in _stack_log_text(stack).splitlines()
+        if CANARY in line and "Received push message" not in line
+    ]
+
+
 async def _tenant_store_text(tenant: str) -> str:
     chunks = []
     for table in STORE_TABLES:
@@ -209,8 +224,31 @@ async def _run_status(run_id: str) -> str | None:
     return None if value is None else str(value)
 
 
+async def _cancel_active_runs(stack: GatewayStack) -> None:
+    """取消本租户的活跃 Run，保证下一条消息**新建** Run 而不是续跑上一条。
+
+    真实 Runtime 的 `create_run` 对同会话 WAITING_INPUT 会做恢复而不是新建（run_service.py），
+    所以上一个用例留下的待确认 Run 会让本用例拿不到新 Run。取消走真实 HTTP API（WAITING 直接
+    CAS 为 CANCELLED），不直接改库。
+    """
+    rows = await _fetch(
+        "SELECT id::text AS id FROM runtime.run_record WHERE tenant_id = :tenant"
+        " AND status IN ('CREATED','RUNNING','WAITING_INPUT','WAITING_TOOL')"
+        " ORDER BY create_time",
+        {"tenant": stack.tenant_id},
+    )
+    for row in rows:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{stack.runtime_url}/v1/runs/{row['id']}/cancel",
+                headers={"X-Tenant-Id": stack.tenant_id},
+            )
+            assert response.status_code == 200, response.text
+
+
 async def _started_run(stack: GatewayStack, text: str) -> str:
     """推送一条真实消息并返回本次新建的 Run id（不假设终态：确认类 Run 会停在 WAITING_INPUT）。"""
+    await _cancel_active_runs(stack)
     previous = await _scalar(
         "SELECT id::text FROM runtime.run_record WHERE tenant_id = :tenant"
         " ORDER BY create_time DESC LIMIT 1",
@@ -284,7 +322,8 @@ async def test_s01_memory_redesign_internal_calls_require_real_service_identity(
     mutation = {
         "action": "UPSERT", "memory_key": "security.forged", "category": "EXPLICIT", "value": "blue",
     }
-    command = {"command_id": uuid.uuid4().hex, "endpoint": "memory.admin", "mutations": [mutation]}
+    # TASK-023 契约：`{actor_id, mutation}`；command_id 只从 Idempotency-Key 头取，author 由服务端派生
+    command = {"actor_id": str(uuid.uuid4()), "mutation": mutation}
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             missing = await client.post(
@@ -300,7 +339,7 @@ async def test_s01_memory_redesign_internal_calls_require_real_service_identity(
             assert forged.status_code == 403, forged.text
             # 调用方不得选择 authorship（author 只由 Runtime 按服务身份派生）
             author = await client.post(
-                url, json={**command, "mutations": [{**mutation, "author": "USER"}]},
+                url, json={**command, "mutation": {**mutation, "author": "USER"}},
                 headers={**gateway_stack.service_headers(), "Idempotency-Key": uuid.uuid4().hex},
             )
             assert author.status_code == 422, author.text
@@ -314,6 +353,10 @@ async def test_s01_memory_redesign_internal_calls_require_real_service_identity(
         assert await _memory_rows(gateway_stack.tenant_id, "security.forged") == []
         assert await _memory_rows(forged_tenant, "security.forged") != []
     finally:
+        # 0020 表带 FK：history 引用 memory，引用方先行
+        await _execute(
+            "DELETE FROM runtime.user_memory_history WHERE tenant_id = :tenant", {"tenant": forged_tenant}
+        )
         await _execute("DELETE FROM runtime.user_memory WHERE tenant_id = :tenant", {"tenant": forged_tenant})
         await _execute(
             "DELETE FROM runtime.memory_command_receipt WHERE tenant_id = :tenant", {"tenant": forged_tenant}
@@ -391,9 +434,20 @@ async def test_s01_memory_redesign_unauthorized_console_admin_does_not_write(
             rows = await _memory_rows(gateway_stack.tenant_id, key)
             assert len(rows) == 1 and rows[0]["author"] == "ADMIN"
     finally:
+        # 0020 表带 FK：history 引用 memory，引用方先行
+        await _execute(
+            "DELETE FROM runtime.user_memory_history WHERE tenant_id = :tenant AND memory_key = :key",
+            {"tenant": gateway_stack.tenant_id, "key": key},
+        )
         await _execute(
             "DELETE FROM runtime.user_memory WHERE tenant_id = :tenant AND memory_key = :key",
             {"tenant": gateway_stack.tenant_id, "key": key},
+        )
+        await _execute(
+            "DELETE FROM control.console_session WHERE account_id IN ("
+            " SELECT id FROM control.console_account WHERE tenant_id = :tenant"
+            " AND username IN (:admin, :builder))",
+            {"tenant": gateway_stack.tenant_id, "admin": accounts["admin"], "builder": accounts["builder"]},
         )
         await _execute(
             "DELETE FROM control.console_account WHERE tenant_id = :tenant"
@@ -405,7 +459,11 @@ async def test_s01_memory_redesign_unauthorized_console_admin_does_not_write(
 async def test_s02_memory_redesign_unconfirmed_candidate_stays_annotated_and_unsaved(
     gateway_stack: GatewayStack,
 ) -> None:
-    """标注引用与未经确认：提案带真实原话引用，未确认前不落 USER 事实。"""
+    """标注引用与未经确认：提案带真实原话引用，未确认前不落 USER 事实。
+
+    原话证据按新契约要求**整条消息**（`evidence.verify_quote`），故推送文本与 `source_quote` 一致；
+    被截取的片段不会成为来源（那是另一条独立契约）。
+    """
     key = f"security.annotated.{uuid.uuid4().hex[:6]}"
     quote = "以后都用中文回答我"
     _configure_probe(
@@ -414,7 +472,7 @@ async def test_s02_memory_redesign_unconfirmed_candidate_stays_annotated_and_uns
         final_text="请确认是否保存这条偏好。",
     )
     await _wait_for_gateway_ws(gateway_stack)
-    run_id = await _started_run(gateway_stack, f"记住：{quote}")
+    run_id = await _started_run(gateway_stack, quote)
     await _wait_for(
         lambda: _pending_proposals(run_id), what="真实 Run 未停在待确认的记忆提案", timeout=REPLY_TIMEOUT_SEC
     )
@@ -473,8 +531,8 @@ async def test_s02_memory_redesign_canary_never_reaches_stores_logs_or_prompt(
         assert CANARY not in json.dumps(row["args_preview_json"], ensure_ascii=False)
     # ③ 新增表/历史/回执/提案/job/审计：canary 反查
     assert CANARY not in await _tenant_store_text(gateway_stack.tenant_id)
-    # ④ 真实服务日志文件
-    assert CANARY not in _stack_log_text(gateway_stack)
+    # ④ 真实服务日志文件（排除渠道 SDK 对原始入站帧的既有回显，见 `_canary_log_leaks`）
+    assert _canary_log_leaks(gateway_stack) == []
     # ⑤ 模型 consolidation Prompt：真实探针请求体里不得出现 canary
     prompts = _consolidation_prompts(gateway_stack)
     assert prompts, "未捕获到 consolidation 请求"

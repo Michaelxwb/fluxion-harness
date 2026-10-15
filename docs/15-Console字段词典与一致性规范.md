@@ -54,6 +54,12 @@
 | `action` | 动作 | 运行审计 |
 | `result_status` | 执行结果 | 运行审计（映射规则见 07 §10.11） |
 | `trace_id` | Trace ID | 运行审计 |
+| Memory `memory_key` | 记忆键 | 用户记忆 |
+| Memory `author` | 来源 | 用户记忆（USER 用户已确认 / ADMIN 管理员录入 / AGENT Agent 推断） |
+| Memory `status` | 状态 | 用户记忆（ACTIVE 生效中 / DISABLED 已停用 / EXPIRED 已过期，由 enabled+expires_at 派生） |
+| Memory `version` | 版本 | 用户记忆 / 版本历史 |
+| Memory history `change_reason` | 变更原因 | 版本历史 |
+| Memory history `actor_type` / `actor_id` | 操作者 / 操作者 ID | 版本历史（与来源 author 分列，不合并） |
 
 ## 3. 状态字段规则
 
@@ -131,6 +137,33 @@ ProjectPlatform 共享凭据 <- shared_credential_ref（已配置/未配置，�
 - 操作列只保留编辑、启停、刷新、取消、解绑、调用测试等真实动作；
 - Drawer 标题、对象级操作和关闭 X 在同一行，操作按钮固定靠右；
 - 关系操作保存后立即影响后续新 Run/Task；已有 RuntimeSnapshot 不漂移。
+
+## 9. 用户记忆字段
+
+用户详情“用户记忆”页签与版本历史使用同一组中文名（实现见 Console `MemoryItem`/`MemoryHistoryItem`）：
+
+```text
+记忆键     = memory_key（小写字母/数字/点/连字符，最长 64）
+内容       = content（事实为 value，最长 512 字符，按原文保存）
+类别       = PREFERENCE 偏好 / WORK_STYLE 工作方式 / EXPLICIT 用户显式要求 / TASK_STATE 任务线索
+来源       = author：USER 用户已确认 / ADMIN 管理员录入 / AGENT Agent 推断
+状态       = ACTIVE 生效中 / DISABLED 已停用 / EXPIRED 已过期（由 enabled 与 expires_at 派生）
+版本       = version（跨软删/恢复连续递增）
+有效期     = expires_at（可空；过期条目重新启用必须指定新的有效期）
+变更原因   = change_reason：CREATE 新建 / OVERWRITE 覆盖更新 / CONFIRM 用户确认更新 /
+             RESTORE 恢复 / ENABLE 启用 / DISABLE 停用 / MIGRATION_BASELINE 迁移基线 /
+             USER_DELETE 用户删除 / ADMIN_DELETE 管理员删除 / EXPIRE 到期自动退休 /
+             QUOTA_EVICT 配额淘汰 / TASK_COMPLETE 任务完成退休
+操作者     = actor_type：USER 用户本人 / ADMIN 管理员 / AGENT Agent 自动任务 / SYSTEM 系统后台任务
+```
+
+规则：
+
+- **来源与操作者分列**：列表展示 `author`（内容来源/确认级别）；版本历史展示 `actor_type`/`actor_id`
+  （谁执行了这次修改）。两者语义不同，禁止用一列承载。
+- **未知值原样显示**：历史遗留的 `author`/`actor_type`/`change_reason` 不做映射改写，直接显示原值。
+- 管理员写入口的 `author` 由 Runtime 派生（管理员录入），前端不提供来源选择控件。
+- 已删除条目不在列表出现，但版本历史仍可查询。
 
 
 ## Model 特别约束

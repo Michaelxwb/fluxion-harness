@@ -133,9 +133,10 @@ async def _seed(connection, tenant_id: str, user_id: uuid.UUID, *, corrupt_memor
     await connection.execute(
         text(
             "INSERT INTO runtime.user_memory "
-            "(id, tenant_id, user_id, memory_key, category, content_json, source_type) "
+            "(id, tenant_id, user_id, memory_key, category, content_json, author, explicit_request, "
+            "confirmation_event_id, write_policy, enabled) "
             "VALUES (:id, :tenant_id, :user_id, :memory_key, 'PREFERENCE', "
-            "'{\"note\": \"e2e\"}'::jsonb, 'USER')"
+            "'{\"value\": \"e2e\"}'::jsonb, 'USER', true, gen_random_uuid(), 'SERVER_CONTROLLED', true)"
         ),
         {
             "id": uuid.uuid4(),
@@ -149,8 +150,10 @@ async def _seed(connection, tenant_id: str, user_id: uuid.UUID, *, corrupt_memor
         await connection.execute(
             text(
                 "INSERT INTO runtime.user_memory "
-                "(id, tenant_id, user_id, memory_key, category, content_json, source_type) "
-                "VALUES (:id, :tenant_id, :user_id, :memory_key, 'PREFERENCE', '[]'::jsonb, 'USER')"
+                "(id, tenant_id, user_id, memory_key, category, content_json, author, explicit_request, "
+                "confirmation_event_id, write_policy, enabled) "
+                "VALUES (:id, :tenant_id, :user_id, :memory_key, 'PREFERENCE', '[]'::jsonb, 'USER', true, "
+                "gen_random_uuid(), 'SERVER_CONTROLLED', true)"
             ),
             {
                 "id": uuid.uuid4(),
