@@ -44,7 +44,11 @@ from tests.acceptance.im_gateway.environment import (
 
 #: 会话开头的诉求——被 snip 省略掉中间历史之后，它必须还在（"保头"）。
 OPENING = "开头诉求：这份清单很长，请逐条核对后告诉我结论"
-FOLLOW_UP = "继续：把剩下的也核对一遍"
+#: 第二个来回的追问。**不能写成"继续…"**：那是记忆续接通道的完整请求形式
+#: （design §3.5.2，`muad_agent_core.memory.resume.parse_resume_intent`），零候选 TASK_STATE
+#: 时 Runtime 会直接投"没有可用线索"的 MEMORY_RESUME_NOTICE 并以此收尾、**不再调模型**
+#: ——本用例要验的是 snip 在请求缝执行，不能被另一个通道截走这轮模型调用。
+FOLLOW_UP = "把剩下的也核对一遍"
 FINAL_TEXT = "核对完毕"
 TOOL_ROUNDS = 4
 

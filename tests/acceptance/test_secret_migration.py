@@ -1,8 +1,8 @@
 """S-04/E-03：密钥明文迁移（真实 Alembic/PostgreSQL/backfill CLI）。
 
-注意：本用例会对**共享库**做 `alembic downgrade 0004` → 插旧行 → `upgrade head`（改整库 schema）。
-在 macOS 本地与其它套件同批运行时，后续 `tests/gateway/*` / `tests/e2e/test_gateway_bind_e2e.py`
-可能连锁失败（Linux/CI 上未观察到）——排查这类"失败点随套件而变"的现象时先想到这条。
+E-03 的降级场景在**显式 `revision="0004"` 的独立临时库**上执行（`tests.acceptance.datastores`
+与应用验收同一实现）：0020 是记忆重设计的单向维护迁移，`downgrade` 按设计拒绝回滚
+（design §4.2），head 库上无法再降到 0004；共享库/会话库因此不再被整库改 schema。
 """
 
 from __future__ import annotations
@@ -19,6 +19,8 @@ import pytest
 from muad_common import SharedSettings
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import create_async_engine
+
+from tests.acceptance.datastores import create_datastore, drop_datastore
 
 ROOT = Path(__file__).resolve().parents[2]
 VERSIONS = ROOT / "migrations/versions"
@@ -118,14 +120,19 @@ async def test_s04_contract_state_has_plaintext_columns_only() -> None:
 
 
 async def test_e03_backfill_reports_unresolved_refs_and_fails_fast() -> None:
+    """回填 CLI 遇未解析的旧 `secret_ref` 必须 fail-fast（exit 1 + 明确列出）。
+
+    旧 schema（`secret_ref` 列）由**显式 revision 的独立临时库**承载：0020 是记忆重设计的
+    单向维护迁移，`downgrade` 按设计拒绝回滚（design §4.2），head 库上再也降不回 0004
+    （同 TASK-032 的 `test_platform_settings_table.py` 口径）。降级只打临时库，共享库不受影响。
+    """
     legacy_ref = "secret://e2e/definitely-missing"
     tenant_id = SharedSettings().default_tenant_id
     suffix = uuid.uuid4().hex[:8]
     model_id, agent_id, bot_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    engine = create_async_engine(_database_url())
+    info = create_datastore(prefix="muad_sec_", revision="0004")
+    engine = create_async_engine(info["database_url"])
     try:
-        _run_alembic("upgrade", "head")
-        _run_alembic("downgrade", "0004")
         async with engine.begin() as connection:
             await connection.execute(
                 text(
@@ -167,7 +174,7 @@ async def test_e03_backfill_reports_unresolved_refs_and_fails_fast() -> None:
             )
 
         env = {key: value for key, value in os.environ.items() if not key.startswith("MUAD_SECRET__")}
-        env["DATABASE_URL"] = _database_url()
+        env["DATABASE_URL"] = info["database_url"]
         cli = subprocess.run(
             [sys.executable, "-m", "muad_console_platform.cli", "backfill-secrets"],
             cwd=ROOT,
@@ -179,22 +186,6 @@ async def test_e03_backfill_reports_unresolved_refs_and_fails_fast() -> None:
         assert "unresolved secret refs" in cli.stdout
         assert str(bot_id) in cli.stdout
     finally:
-        _run_alembic("upgrade", "head")
-        async with engine.begin() as connection:
-            restored = await connection.scalar(
-                text(
-                    "SELECT count(*) FROM information_schema.tables "
-                    "WHERE table_schema = 'runtime' AND table_name = 'run_submission'"
-                )
-            )
-            assert restored == 1, "迁移链恢复失败：共享库停留在不一致状态"
-            await connection.execute(
-                text("DELETE FROM control.bot_account WHERE id = :id"), {"id": bot_id}
-            )
-            await connection.execute(
-                text("DELETE FROM control.agent_definition WHERE id = :id"), {"id": agent_id}
-            )
-            await connection.execute(
-                text("DELETE FROM control.model_definition WHERE id = :id"), {"id": model_id}
-            )
         await engine.dispose()
+        # 临时库整体丢弃（含旧 schema 与插入的旧行），共享库与本会话库都不需要回滚。
+        drop_datastore(info["name"], info["admin_database_url"], info["redis_url"])

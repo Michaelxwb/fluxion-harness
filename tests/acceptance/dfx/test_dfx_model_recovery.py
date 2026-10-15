@@ -4,6 +4,10 @@
 HTTP 探针**承载（Runtime 经真实 HTTP 调用该端点；非拦截、非响应改写、无 monkeypatch）。
 探针按用例注入 429+`Retry-After`（**响应头**）、5xx、连接重置、以及"一直限流"等形态。
 
+**探针只对本用例目标 Run 投故障**：记忆提炼（consolidation）复用来源 Run 冻结的主模型，
+会经同一端点发起后台调用（design §3.6.1）。目标 Run 的入站文本带一次性 token，探针据此
+区分：非目标调用按健康模型回 200、不消费故障脚本、不计入 `calls`/`gaps()`。
+
 覆盖（E-09，逐条对齐 design §3.4.6 的"代码现状"列）：
 - 429 + `Retry-After`：按其等待后重试（`_retry_delay` 优先用响应头值）；
 - 5xx / 连接重置：指数退避重试（`RETRY_BASE_SEC * 2**attempt`）；
@@ -23,6 +27,7 @@ HTTP 探针**承载（Runtime 经真实 HTTP 调用该端点；非拦截、非�
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 import time
 import uuid
@@ -55,6 +60,13 @@ def live_stack(_runtime_live_stack: LiveStack) -> LiveStack:  # noqa: F811  (参
 MODEL_API_KEY = "recovery-probe-key-9f2c"
 RUN_TIMEOUT_SEC = 60.0
 CANCEL_TIMEOUT_SEC = 20.0
+#: 健康模型响应（目标 Run 走完脚本后的 `ok`，以及非目标调用一律用它）。
+_OK_BODY = (
+    '{"id":"cmpl-probe","object":"chat.completion","model":"gpt-4o-mini",'
+    '"choices":[{"index":0,"finish_reason":"stop","message":'
+    '{"role":"assistant","content":"probe-ok"}}],'
+    '"usage":{"prompt_tokens":5,"completion_tokens":3}}'
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -63,12 +75,21 @@ CANCEL_TIMEOUT_SEC = 20.0
 
 
 class FaultProbe:
-    """按脚本依次给出响应的真实 provider 端点；并记录每次调用的时刻。"""
+    """按脚本依次给出响应的真实 provider 端点；并记录每次调用的时刻。
+
+    **只对本用例的目标 Run 投故障**：同一模型端点上还有记忆提炼等后台维护调用
+    （consolidation 复用来源 Run 冻结的主模型，design §3.6.1），它们既会吃掉脚本里的
+    500/429（把"两次重试"变成一次），也会混进 `gaps()` 污染退避观测。目标 Run 的入站
+    文本带一次性 token（`_target_text`），只有请求体含该 token 的调用才计入 `calls`
+    并消费 `plan`；其余调用按健康模型回 200，记在 `background_calls` 供排查。
+    """
 
     def __init__(self) -> None:
         self.app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
         self.plan: list[str] = []      # 队列：'ok' | '429:<seconds>' | '500' | 'reset' | 'hang'
-        self.calls: list[float] = []   # 每次请求到达的 monotonic 时刻
+        self.calls: list[float] = []   # 目标 Run 每次请求到达的 monotonic 时刻
+        self.background_calls: list[float] = []  # 非目标调用（记忆提炼等后台维护）
+        self.marker: str = ""          # 目标 Run 的 token；空 = 不区分（按目标处理）
         self.auth_headers: list[str] = []
         self._server: uvicorn.Server | None = None
         self._thread: threading.Thread | None = None
@@ -80,8 +101,12 @@ class FaultProbe:
 
         @self.app.post("/v1/chat/completions")
         async def completions(request: Request) -> Response:  # noqa: ANN202
-            self.calls.append(time.monotonic())
+            body = await request.json()
             self.auth_headers.append(request.headers.get("authorization", ""))
+            if self.marker and self.marker not in json.dumps(body, ensure_ascii=False):
+                self.background_calls.append(time.monotonic())
+                return Response(content=_OK_BODY, media_type="application/json")
+            self.calls.append(time.monotonic())
             step = self.plan.pop(0) if self.plan else "ok"
             if step == "reset":
                 raise ConnectionResetError("probe: injected connection reset")
@@ -100,15 +125,7 @@ class FaultProbe:
                 )
             if step.startswith("hang"):
                 await asyncio.sleep(float(step.split(":", 1)[1]))
-            return Response(
-                content=(
-                    '{"id":"cmpl-probe","object":"chat.completion","model":"gpt-4o-mini",'
-                    '"choices":[{"index":0,"finish_reason":"stop","message":'
-                    '{"role":"assistant","content":"probe-ok"}}],'
-                    '"usage":{"prompt_tokens":5,"completion_tokens":3}}'
-                ),
-                media_type="application/json",
-            )
+            return Response(content=_OK_BODY, media_type="application/json")
 
     def start(self) -> str:
         config = uvicorn.Config(self.app, host="127.0.0.1", port=0, log_level="error")
@@ -180,8 +197,6 @@ def _point_model_at_probe(stack: LiveStack, probe: FaultProbe) -> None:
 
 
 def _set_policy(stack: LiveStack, **policy: Any) -> None:
-    import json
-
     _execute(
         "UPDATE control.agent_definition SET runtime_config_json = cast(:c as jsonb) WHERE id = :id",
         {"c": json.dumps(policy), "id": stack.agent_id},
@@ -219,6 +234,16 @@ def _payload(stack: LiveStack, text: str) -> dict[str, Any]:
     }
 
 
+def _target_text(text: str) -> tuple[str, str]:
+    """给入站文本加一次性 token，返回 (文本, token)。
+
+    token 只用于让故障探针认出**本用例目标 Run**的模型调用（探针只看真实请求体）；
+    同一租户里记忆提炼等后台维护调用不会带这个 token。
+    """
+    token = f"probe-{uuid.uuid4().hex[:10]}"
+    return f"{text} [{token}]", token
+
+
 def _run(
     stack: LiveStack,
     probe: FaultProbe,
@@ -227,19 +252,18 @@ def _run(
     wait: float = RUN_TIMEOUT_SEC,
 ) -> list[dict[str, Any]]:
     """发起一轮真实 Run 并读完 SSE（终态事件在末尾）。"""
+    target_text, token = _target_text(text)
+    probe.marker = token
     events: list[dict[str, Any]] = []
     with httpx.Client(timeout=wait) as client:
         with client.stream(
-            "POST", f"{stack.runtime_url}/v1/runs", json=_payload(stack, text),
+            "POST", f"{stack.runtime_url}/v1/runs", json=_payload(stack, target_text),
             headers={"X-Tenant-Id": stack.tenant_id},
         ) as response:
             assert response.status_code == 200, response.read()
             for line in response.iter_lines():
                 if line.startswith("data:"):
-                    import json
-
                     events.append(json.loads(line[len("data:"):].strip()))
-    del probe
     return events
 
 
@@ -343,17 +367,17 @@ def test_e09_cancel_stops_retries_immediately(live_stack: LiveStack, fault_probe
     _set_policy(live_stack, max_model_retries=5, deadline_ms=120_000)
     fault_probe.plan = ["429:30"] * 10   # 首次调用后就进入长退避
     fault_probe.calls.clear()
+    cancel_text, cancel_token = _target_text("cancel me")
+    fault_probe.marker = cancel_token
 
     with httpx.Client(timeout=RUN_TIMEOUT_SEC) as client:
         streamed: list[dict[str, Any]] = []
         with client.stream(
             "POST", f"{live_stack.runtime_url}/v1/runs",
-            json=_payload(live_stack, "cancel me"),
+            json=_payload(live_stack, cancel_text),
             headers={"X-Tenant-Id": live_stack.tenant_id},
         ) as response:
             assert response.status_code == 200, response.read()
-            import json
-
             for line in response.iter_lines():
                 if not line.startswith("data:"):
                     continue

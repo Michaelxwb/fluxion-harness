@@ -394,6 +394,11 @@ def test_b01_idempotency_replay_over_http(live_stack: LiveStack, http: httpx.Cli
     assert conflict.json()["code"] == "IDEMPOTENCY_MISMATCH"
 
     run_id = first_events[0]["run_id"]
+    # 重放覆盖的是本 submission 持久化的事件区间；区间**之外**还会有记忆提炼的审计事件
+    # （MEMORY_CONSOLIDATED，design §3.3.5：run 级审计、不属于任何 submission，submission_id
+    # 为 NULL，且由后台 job 在 Run 终态之后追加）。"每条重放事件都有 submission 回执"这条
+    # 契约因此按重放区间来钉，不把后台维护事件误算进 submission。
+    replayed_through_seq = max(event["seq"] for event in second_events)
 
     async def verify(factory: Any) -> int:
         async with factory() as session:
@@ -404,9 +409,13 @@ def test_b01_idempotency_replay_over_http(live_stack: LiveStack, http: httpx.Cli
             )
             rows = (
                 await session.execute(
-                    sa.select(CanonicalEvent).where(CanonicalEvent.run_id == uuid.UUID(run_id))
+                    sa.select(CanonicalEvent).where(
+                        CanonicalEvent.run_id == uuid.UUID(run_id),
+                        CanonicalEvent.seq <= replayed_through_seq,
+                    )
                 )
             ).scalars().all()
+            assert rows, "重放区间内没有任何 canonical 事件"
             assert all(row.submission_id is not None for row in rows)
             return int(count or 0)
 

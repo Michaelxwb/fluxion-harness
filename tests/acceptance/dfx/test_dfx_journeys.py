@@ -537,10 +537,19 @@ async def test_s09_waiting_input_resume_continues_without_seq_reset(
         )
     assert resumed.status_code == 200, resumed.text
     events = _parse_sse(resumed.text)
-    assert events and events[0]["type"] == "run.created", events[:1]
-    assert events[0]["data"].get("resumed") is True, events[0]
-    assert events[0]["run_id"] == run_id, "恢复必须续同一 Run"
-    assert int(events[0]["seq"]) > 1, f"seq 从 1 重排了：{events[0]['seq']}"
+    # "继续" 是**明确的续接请求**（design §3.5.2）：本会话没有未决 TASK_STATE ⇒ Runtime 按
+    # "零条明确说明没有可用线索" 直接投 MEMORY_RESUME_NOTICE（message.delta），并以这条
+    # Runtime 消息作为本轮回复收尾（不再调模型）。因此 `run.created` 不再是流的**第一帧**；
+    # 恢复语义（同一 Run、seq 不重排、终态与 interrupt 解除）不变，断言改为按帧类型定位。
+    created = [event for event in events if event["type"] == "run.created"]
+    assert len(created) == 1, events[:3]
+    assert created[0]["data"].get("resumed") is True, created[0]
+    assert created[0]["run_id"] == run_id, "恢复必须续同一 Run"
+    assert int(created[0]["seq"]) > 1, f"seq 从 1 重排了：{created[0]['seq']}"
+    assert any(
+        event["type"] == "message.delta" and "没有可用的任务线索" in str(event["data"].get("delta"))
+        for event in events
+    ), f"续接请求未按零候选契约投递线索说明：{events}"
     assert events[-1]["type"] == "run.completed", events[-1]
 
     interrupt = await _scalar(

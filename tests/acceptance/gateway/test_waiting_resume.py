@@ -352,10 +352,15 @@ async def test_e17_waiting_tool_rejects_resume_queues_message_and_recovers_after
     conversation = await _conversation_of(run_id)
 
     # 显式人类 resume 在 WAITING_TOOL 上被 RUN_BUSY 拒绝，且不替换等待输入。
+    # `platform_user_id` 是 resume 契约的必填字段（TASK-015 起，`ResumeRunRequest`）；
+    # 缺了会在校验层 422，到不了"忙态拒绝"这条断言。
     response = httpx.post(
         f"{stack.live.runtime_url}/v1/runs/{run_id}/resume",
         headers={"X-Tenant-Id": TENANT, "Idempotency-Key": f"resume-rejected-{uuid.uuid4().hex}"},
-        json={"input": {"type": "text", "text": "替换等待输入"}},
+        json={
+            "platform_user_id": str(stack.live.platform_user_id),
+            "input": {"type": "text", "text": "替换等待输入"},
+        },
         timeout=30,
     )
     assert response.status_code == 409, response.text

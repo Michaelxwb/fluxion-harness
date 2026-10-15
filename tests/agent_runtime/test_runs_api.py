@@ -113,7 +113,9 @@ async def _insert_run(
                 model_json=resolved.model.model_dump(mode="json"),
                 skill_catalog_json=[skill.model_dump(mode="json") for skill in resolved.skills],
                 mcp_catalog_json=[server.model_dump(mode="json") for server in resolved.mcp_servers],
-                policy_json={"max_model_retries": 3},
+                # 执行期策略按生产口径冻结：resume 路径要求 `memory` 分组叶子完整
+                # （`run_service._frozen_memory_policy`），手写残缺快照会被拒。
+                policy_json=snapshot_policy(),
                 prompt_template_version="1",
                 content_hash="sha256:" + "0" * 64,
             )

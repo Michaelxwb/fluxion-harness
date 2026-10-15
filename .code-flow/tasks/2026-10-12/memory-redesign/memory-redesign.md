@@ -1696,3 +1696,79 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 - [2026-10-15] started
 - [2026-10-15] completed (done)
 - [2026-10-15] 收尾补记（Done Gate pass 之后）：本任务的常量删除使 `docs/configuration-inventory.csv` 的 python-constant 行陈旧（`tests/test_configuration_inventory.py` 红）；按 AST 重生成 CSV（1243→1240 行，category/reason 沿用既有口径），`tests/test_configuration_inventory.py` 4 passed。属本任务改动的直接后果，未重开任务。
+
+---
+
+## TASK-033: 终验全量校验暴露的跨套件陈旧断言修复
+
+- **Status**: done
+- **Priority**: P0
+- **Depends**: TASK-032
+- **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界, memory-redesign.design.md#3.4.3 设置冻结
+- **Spec-Refs**: 
+- **Acceptance-Refs**: 
+- **Files**: tests/agent_runtime/test_runs_api.py, tests/acceptance/test_secret_migration.py, tests/acceptance/dfx/test_dfx_journeys.py, tests/acceptance/dfx/test_dfx_model_recovery.py, tests/acceptance/gateway/test_waiting_resume.py, tests/acceptance/im_gateway/test_context_compaction.py, tests/acceptance/runtime/test_run_lifecycle.py
+
+### Description
+
+需求终验 heavy 全量校验（隔离 head 库、清孤儿后复现）暴露 8 条稳定失败，逐条定位根因：平台设置快照缺 memory 叶子（`PlatformSettingsError`）、0020 单向迁移下 `downgrade 0004` 必失败、TASK_STATE/续接行为变化与旧断言不符等。按代码事实修断言或修实现，不弱化、不删除。
+
+### Checklist
+
+- [x] 先逐条跑失败用例记录真实 RED（8 failed）与根因分类（测试陈旧 / 实现缺陷）。
+- [x] `test_runs_api.py` 两条：快照构造补 memory 叶子（复用真实默认/叶子枚举），断言不降级。
+- [x] `test_secret_migration.py`：0020 单向迁移后不得从 head 降级到 0004；改用显式旧 revision 的独立库（同 TASK-032 口径）。
+- [x] `dfx_journeys` s09 / `dfx_model_recovery` e09 / `gateway/test_waiting_resume` e17 / `context_compaction` s01 / `run_lifecycle` b01：逐条定位——属本需求行为变化的按新契约改断言；属实现缺陷的修实现并给证据；属纯环境/时序的在证据中说明并给出可复跑的判定口径。
+- [x] 回归：`tests/agent_runtime`（隔离 head 库）+ 受影响 acceptance 文件连续两次全绿；不修无关存量红。
+- [x] 全部转绿后跑 `tests/acceptance` 全量（隔离库）确认本批不再复发，登记命令与结果。
+
+### Acceptance Contract
+
+| 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| LOCAL | integration | 真实 PG（隔离 head 库）+ 真实 Gateway/Runtime/模型探针栈 | 8 条失败用例转绿且语义未削弱；每条的根因与修法在 Evidence 中可复核 | 上述 Files 中对应测试文件 | ["uv","run","pytest","-q","tests/agent_runtime/test_runs_api.py","tests/acceptance/test_secret_migration.py","tests/acceptance/dfx/test_dfx_journeys.py","tests/acceptance/dfx/test_dfx_model_recovery.py","tests/acceptance/gateway/test_waiting_resume.py","tests/acceptance/im_gateway/test_context_compaction.py","tests/acceptance/runtime/test_run_lifecycle.py"] | planned |
+
+### Acceptance Evidence
+
+隔离 head 库 `muad_acc_30ab67a490`（`uv run python -m tests.acceptance.datastores start`）+ 跑前清孤儿；命令模板 `DATABASE_URL=postgresql+asyncpg://muad:muad@localhost:5432/muad_acc_30ab67a490 REDIS_URL=redis://localhost:6379/12 uv run pytest -q <节点>`。
+
+- RED（逐条）：
+  1. `tests/agent_runtime/test_runs_api.py::test_create_run_auto_resumes_waiting_input_run` → `run_service.py:217: PlatformSettingsError: snapshot memory policy must contain every schema leaf`（`/tmp/task033/red-1-runs-api.txt`）。
+  2. `tests/agent_runtime/test_runs_api.py::test_resume_endpoint_completes_waiting_input_run` → 同上（同文件，两条同因）。
+  3. `tests/acceptance/test_secret_migration.py::test_e03_backfill_reports_unresolved_refs_and_fails_fast` → `alembic ... downgrade 0004` 非零退出（`/tmp/task033/red-3-secret-migration.txt`）。
+  4. `tests/acceptance/dfx/test_dfx_journeys.py::test_s09_waiting_input_resume_continues_without_seq_reset` → `events[0]` 是 `message.delta`「没有可用的任务线索，请提供具体主题或任务内容。」（`/tmp/task033/red-4-dfx-journeys.txt`）。
+  5. `tests/acceptance/dfx/test_dfx_model_recovery.py::test_e09_unavailable_backs_off_exponentially` → `len(gaps)==2` 实测 3 段 `[0.126, 0.236, 0.413]`（`/tmp/task033/red-5-model-recovery.txt`；父级全量跑实测 `[0.0034, 0.1306]`）。
+  6. `tests/acceptance/gateway/test_waiting_resume.py::test_e17_waiting_tool_rejects_resume_queues_message_and_recovers_after_stop` → 422 `body.platform_user_id missing`（`/tmp/task033/red-6-waiting-resume.txt`）。
+  7. `tests/acceptance/im_gateway/test_context_compaction.py::test_s01_compaction_composes_on_the_real_chain` → 「没有任何一次模型请求带省略标记：snip 没在请求缝执行（共 2 次请求）」（`/tmp/task033/red-7-context-compaction.txt`）。
+  8. `tests/acceptance/runtime/test_run_lifecycle.py::test_b01_idempotency_replay_over_http` → 父级全量跑 `assert False` @410（`/tmp/fluxion-suspects-files3.txt`、`/tmp/fluxion-full-validation2.json`）；本地单跑命中竞态窗口之外为 GREEN，根因另由直接证据钉住（见下条）。
+
+- 逐条根因与修法：
+  1-2. **测试陈旧**。`_insert_run` 手写 `policy_json={"max_model_retries": 3}`，缺 `memory` 分组叶子；resume 路径按本需求契约（design §3.4.3 设置冻结，`run_service.execution_defaults_of` → `_frozen_memory_policy`）要求快照携带完整 memory 叶子，残缺快照必须显式失败。修法：测试快照改用生产唯一构建口径 `snapshot_policy()`（真实默认 + 叶子枚举），**实现校验不放宽**；断言未降级（`run.status == COMPLETED`、interrupt `RESOLVED`/`resolution_json`、`conversation.last_seq == len(rows)`）。
+  3. **测试陈旧 + 迁移契约变化**。0020 是单向维护迁移（design §4.2），`downgrade` 按设计 raise；从 head 降级到 0004 必失败。修法：同 TASK-032 口径，改用 `create_datastore(prefix="muad_sec_", revision="0004")` 的独立临时库承载旧 schema + 旧行 + backfill CLI 场景，`finally` 里 `drop_datastore` 整体丢弃；共享库/会话库不再被整库改 schema。断言（exit 1、`unresolved secret refs`、bot id 被列出）原样保留。
+  4. **本需求行为变化（按新契约改断言）**。「继续」是明确续接请求（design §3.5.2），零候选 TASK_STATE ⇒ Runtime 按「零条明确说明没有可用线索」直接投 `MEMORY_RESUME_NOTICE`（`message.delta`）并以该消息收尾（不再调模型），因此 `run.created` 不再是流的**第一帧**。修法：断言改为按帧类型定位唯一的 `run.created`（`resumed=True`、同一 run_id、`seq>1`），并新增「零候选线索说明已投递」断言；终态 `run.completed`、interrupt `RESOLVED`、seq 单调无重排断言全部保留。
+  5. **环境时序（非实现缺陷）**。记忆提炼（consolidation）复用来源 Run 冻结的主模型（design §3.6.1），后台调用打到同一故障探针：既吃掉脚本里的 500/429（把两次重试变一次），又混进 `calls`/`gaps()`。修法：探针只对**本用例目标 Run** 投故障——目标 Run 入站文本带一次性 token（`_target_text`），非目标调用按健康模型回 200、不消费脚本、记入 `background_calls`；`plan`/`calls`/`gaps()` 语义（恰好 2 次重试、指数增长、429 `Retry-After` 优先、deadline 不足不重试、cancel 立即停止）与全部审计断言原样保留。稳定化做法是**按调用来源隔离**，不是 sleep。
+  6. **测试陈旧**。`platform_user_id` 自 TASK-015 起是 resume 契约必填字段（`ResumeRunRequest`），缺失在校验层 422，到不了「忙态拒绝」断言。修法：请求体补 `str(stack.live.platform_user_id)`（该 Run 的真实 owner）；409/`RUN_BUSY`、等待输入未被替换、排队消息不新建 Run、`/stop` 后可恢复等断言保留。
+  7. **测试文本与新通道冲突**。第二条入站文本「继续：把剩下的也核对一遍」命中续接完整请求语法（`muad_agent_core.memory.resume.parse_resume_intent`），零候选 ⇒ 该轮被记忆通道截走、不调模型，snip 没有请求缝可执行。修法：追问改为不含续接语法的同义句「把剩下的也核对一遍」，用例本意（两个来回 + 四个工具回合触发真实 snip）不变；省略标记出现、保头、本轮追问仍在、无孤儿 tool、`CONTEXT_COMPACTED` 落库等断言全部保留。
+  8. **断言竞态（本需求新增的后台审计事件）**。`MEMORY_CONSOLIDATED` 由提炼 job 在 Run 终态之后异步追加，`run_id` 指向来源 Run 且**不带 submission**（`memory_job_effects.finish_job`；design §3.3.5：run 级审计，job 才是执行权威）；旧断言「该 Run 全部 canonical 事件都有 submission 回执」因此随后台 job 是否已落库而红绿。修法：断言钉在**重放区间**（`seq <= 重放流最大 seq`）内的 canonical 事件上（`rows` 非空 + 全部带 `submission_id`），与 `harness-api#RULE-api-002`「SSE 按 submission 重放已落库事件」同口径。直接证据（临时用例，跑完即删）：`[evidence] MEMORY_CONSOLIDATED submission_id=None`、`all submission ids = [UUID('…'), None]`（`/tmp/task033/evidence-8-memory-consolidated-null-submission.txt`）——同一谓词在维护事件落库后必假。
+  9. **未发现实现缺陷**：8 条全部为测试陈旧 / 本需求行为变化 / 测试环境隔离与时序，无一条需要改实现（`run_service` 的 memory 叶子校验、0020 单向迁移、续接通道与 `MEMORY_CONSOLIDATED` 形状均按 design 保持）。
+
+- GREEN（同环境、同节点）：
+  - 1-2：`uv run pytest -q tests/agent_runtime/test_runs_api.py::test_create_run_auto_resumes_waiting_input_run tests/agent_runtime/test_runs_api.py::test_resume_endpoint_completes_waiting_input_run` → **2 passed**。
+  - 3：`uv run pytest -q tests/acceptance/test_secret_migration.py` → **3 passed**。
+  - 4：`…/test_dfx_journeys.py::test_s09_waiting_input_resume_continues_without_seq_reset` → **1 passed**（19.01s，`/tmp/task033/green-4-dfx-journeys.txt`）。
+  - 5：`…/dfx/test_dfx_model_recovery.py`（整文件）→ **6 passed**（11.33s，`/tmp/task033/green-5-model-recovery.txt`）。
+  - 6：`…/gateway/test_waiting_resume.py::test_e17_…` → **1 passed**（30.53s，`/tmp/task033/green-6-waiting-resume.txt`）。
+  - 7：`…/im_gateway/test_context_compaction.py::test_s01_…` → **1 passed**（18.67s，`/tmp/task033/green-7-context-compaction.txt`）。
+  - 8：`…/runtime/test_run_lifecycle.py::test_b01_idempotency_replay_over_http` → **1 passed**。
+
+- 回归：`uv run pytest -q tests/agent_runtime` → **761 passed**（583.61s，`/tmp/task033/reg-1-agent-runtime.txt`）；受影响 acceptance 文件（`test_secret_migration.py` + `dfx/test_dfx_journeys.py` + `dfx/test_dfx_model_recovery.py` + `gateway/test_waiting_resume.py` + `im_gateway/test_context_compaction.py` + `runtime/test_run_lifecycle.py`）连跑两次 → **27 passed**（111.67s）/ **27 passed**（117.67s）（`/tmp/task033/reg-2-acceptance-round1.txt`、`/tmp/task033/reg-3-acceptance-round2.txt`）。
+
+- 全量 acceptance：`uv run pytest -q tests/acceptance`（隔离库）→ **2 failed, 329 passed**（1423.83s，`/tmp/task033/reg-4-acceptance-full.txt`）；本批 8 条无一复发。2 条失败均不在本任务 Files，且**只跑这两个文件时即可复现**（本批 7 个改动文件未参与执行），故与本批改动无交集，按「不修无关存量红」未改：
+  1. `im_gateway/test_memory_flow.py::test_s05_receipt_reaches_model_and_write_is_audited`：全量跑停在「真实 Run 未停在待确认的记忆候选」（120s 超时）；单节点合跑绿（`2 passed`，36.18s）；整文件复跑红在另一处断言「确认后版本历史未递增」（`/tmp/task033/reg-5-unrelated-flaky-files.txt`）。失败现场诊断：`确认 <proposal_id>` 的 Run 落进**旧会话**（conv 64ae），而提案所在 Run（conv 22b5）的 interrupt 转 `EXPIRED` ⇒ 确认没打到提案所在会话，版本历史自然不增。属 TASK-030 已登记过的同一类竞态（`/new` 后旧会话异步事件抢占「最新会话」：`EventWriter._next_seq` 会 bump `conversation.update_time`，本需求新增的 `MEMORY_CONSOLIDATED` 也在 Run 终态后异步 bump 旧会话），非本批改动引入；因不在 TASK-033 Files 内，留作需求侧待办（建议按 TASK-030 口径在用例间等旧会话异步事件收尾，或让 `_pending_proposal` 按会话过滤）。
+  2. `task_schedule/test_schedules.py::test_b142_revoked_grant_skips_with_reason_and_advances`：分钟边界时序 flake（`next_fire_at=03:56:00` 与 `now=03:56:00.334` 比较）；单节点合跑绿、整文件复跑绿（该文件 3 passed，`/tmp/task033/reg-5-unrelated-flaky-files.txt`）。
+
+### Log
+
+- [2026-10-15] created (draft)；由需求终验 heavy 校验缺口显式补任务。
+- [2026-10-15] started
+- [2026-10-15] completed (done)
