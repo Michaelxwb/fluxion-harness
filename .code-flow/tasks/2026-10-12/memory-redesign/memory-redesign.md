@@ -1652,3 +1652,46 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 - [2026-10-15] started
 - [2026-10-15] completed (done)
 - [2026-10-15] 收尾补记（Done Gate pass 之后）：按 Checklist 第 2 条补齐同类存量收口——`tests/agent_runtime/test_context_memory*.py` 旧 source_type/ratio 断言改写为新契约（11+2 passed，隔离 head 库）、`tests/e2e/seed_user_identity.py` 改按新 schema 种记忆；并重跑 plan coverage gate=pass、inventory 0 issues、`tests/test_memory_redesign_spec_contract.py` 9 passed。需求级 verify-e2e 仍为最终裁决。
+
+---
+
+## TASK-032: 终验暴露的陈旧断言修复（迁移 head 与审计常量口径）
+
+- **Status**: done
+- **Priority**: P1
+- **Depends**: TASK-031
+- **Source**: memory-redesign.design.md#3.7 API 与 Console, memory-redesign.design.md#4.2 一次性迁移与切换
+- **Spec-Refs**: 
+- **Acceptance-Refs**: 
+- **Files**: apps/console-platform/backend/src/muad_console_platform/application/memory_service.py, tests/console_platform/test_platform_settings_table.py
+
+### Description
+
+需求终验（verify-e2e 的 heavy 全量校验）暴露 3 条与本需求改动直接相关的陈旧断言：0020 单向迁移后 `platform_setting` 用例仍钉 0019 且在 0020 库上做 0016 往返；TASK-025 新增的 `AUDIT_CREATE/UPDATE/DELETE` 常量与「`AUDIT_*` 即资源类型」的既有审计口径冲突，使前端资源类型覆盖契约（B-214）误判。按代码事实修正，不弱化断言。
+
+### Checklist
+
+- [x] 先跑失败用例记录真实 RED（3 failed）。
+- [x] `memory_service.py` 审计动作按仓库既有内联 `action="..."` 口径书写，不再占用 `AUDIT_*` 资源类型命名空间；`AUDIT_RESOURCE_TYPE` 保留。
+- [x] `test_platform_settings_table.py`：head 断言随迁移 head（0020）；0016↔0019 往返改用显式 `create_datastore(revision="0019")` 的独立库（0020 downgrade 按设计拒绝）。
+- [x] 不弱化或删除断言；不改无关文件；不重开已 done 任务。
+- [x] 跑相关回归（console_platform / frontend 契约 / memory 相关）并登记。
+
+### Acceptance Contract
+
+| 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| LOCAL | integration | 真实 PG（隔离库、真实迁移子进程）+ 真实源码契约解析 | 3 条失败用例转绿且语义未削弱；head 断言随 0020；审计动作不再被解析为资源类型 | tests/console_platform/test_platform_settings_table.py、tests/frontend/test_audit_gap_contract.py | ["uv","run","pytest","-q","tests/console_platform/test_platform_settings_table.py","tests/frontend/test_audit_gap_contract.py"] | planned |
+
+### Acceptance Evidence
+
+- RED：`DATABASE_URL=<隔离 head 库> REDIS_URL=... uv run pytest -q tests/console_platform/test_platform_settings_table.py tests/frontend/test_audit_gap_contract.py` → **3 failed, 6 passed**，`/tmp/fluxion-task032-red.txt`。失败：`test_upgrade_to_head_creates_table_matching_orm_model`（`assert '0020' == '0019'`）、`test_downgrade_drops_table_and_upgrade_restores`（0020 单向迁移拒绝 downgrade）、`test_b214_resource_type_options_cover_backend_domain`（`筛选项未覆盖后端实际取值：['CREATE','DELETE','UPDATE']`）。
+- GREEN：同命令 → **9 passed**，`/tmp/fluxion-task032-green.txt`。
+- 实现：`application/memory_service.py` 删除 `AUDIT_CREATE/UPDATE/DELETE` 三个常量、审计动作改按仓库既有内联 `action="CREATE"/"UPDATE"/"DELETE"` 口径（`AUDIT_RESOURCE_TYPE="USER_MEMORY"` 保留）；`tests/console_platform/test_platform_settings_table.py` 引入 `HEAD_REVISION="0020"`（head 断言随迁移 head），0016↔0019 往返改在 `create_datastore(revision="0019")` 的独立库上执行（0020 downgrade 按 design §4.2 拒绝回滚），抽出 `_datastore_with_ini`/`_drop_datastore` 复用。断言未删除、未弱化。
+- 回归：`DATABASE_URL=<隔离 head 库> ... uv run pytest -q tests/console_platform tests/frontend` → **641 passed**，`/tmp/fluxion-task032-regression.txt`；改动文件 ruff/mypy 全绿。
+
+### Log
+
+- [2026-10-15] created (draft)；由需求终验 heavy 校验缺口显式补任务。
+- [2026-10-15] started
+- [2026-10-15] completed (done)

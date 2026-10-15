@@ -26,9 +26,6 @@ from .audit_service import AuditActor, AuditService
 from .dto import MemoryCreateRequest, MemoryEnabledUpdateRequest
 
 AUDIT_RESOURCE_TYPE = "USER_MEMORY"
-AUDIT_CREATE = "CREATE"
-AUDIT_UPDATE = "UPDATE"
-AUDIT_DELETE = "DELETE"
 
 _logger = logging.getLogger(__name__)
 
@@ -124,9 +121,7 @@ class MemoryAdminService:
             # 要声明 restore，否则明确拒绝（design §3.4.4）。两条都由 Runtime 强制，这里照实传。
             restore=True,
             enable=True,
-            **_provided(
-                expected_version=payload.expected_version, expires_at=payload.expires_at
-            ),
+            **_provided(expected_version=payload.expected_version, expires_at=payload.expires_at),
         )
         return await self._forward(
             tenant_id,
@@ -134,7 +129,7 @@ class MemoryAdminService:
             actor,
             command_id,
             mutation,
-            audit_action=AUDIT_CREATE,
+            audit_action="CREATE",
         )
 
     async def set_enabled(
@@ -158,7 +153,7 @@ class MemoryAdminService:
             actor,
             command_id,
             mutation,
-            audit_action=AUDIT_UPDATE,
+            audit_action="UPDATE",
         )
 
     async def delete(
@@ -179,7 +174,7 @@ class MemoryAdminService:
             actor,
             command_id,
             mutation,
-            audit_action=AUDIT_DELETE,
+            audit_action="DELETE",
         )
 
     async def clear(
@@ -197,7 +192,7 @@ class MemoryAdminService:
             command_id=command_id,
             trace_id=current_trace_id(),
         )
-        await self._record(tenant_id, user_id, actor, command_id, response, AUDIT_DELETE)
+        await self._record(tenant_id, user_id, actor, command_id, response, "DELETE")
         return response
 
     async def _forward(

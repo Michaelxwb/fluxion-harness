@@ -30,7 +30,11 @@ from tests.console_platform.test_schema_parity import _compare
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = "control"
 TABLE = "platform_setting"
+# platform_setting 建表 revision（0016→0019）与当前迁移 head。
+# 0020 是记忆重设计的**单向维护迁移**（downgrade 按设计拒绝回滚，见 design §4.2），
+# 因此 0016↔0019 的往返在显式 revision="0019" 的独立库上验证，head 断言随 0020。
 REVISION = "0019"
+HEAD_REVISION = "0020"
 PARENT_REVISION = "0016"
 # 设计 §3.3 的列清单：四列口径（id/is_deleted/create_time/update_time）+ 四个业务列。
 EXPECTED_COLUMNS = frozenset(
@@ -47,15 +51,16 @@ EXPECTED_COLUMNS = frozenset(
 )
 
 
-@pytest.fixture(scope="module")
-def isolated_db(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, str]]:
-    """独立临时库（由 create_datastore 迁到 head）+ 只含该 DSN 的 alembic ini。
+def _datastore_with_ini(
+    tmp_path_factory: pytest.TempPathFactory, prefix: str, revision: str = "head"
+) -> dict[str, str]:
+    """独立临时库（由 create_datastore 迁到指定 revision）+ 只含该 DSN 的 alembic ini。
 
     迁移脚本只认 ini、不读环境变量（`migrations/_config.py`），所以往返必须自带一份 ini
     指向临时库 —— 这同时保证 `downgrade` 打不到共享 dev 库。
     """
-    info = create_datastore(prefix="muad_pst_")
-    ini = tmp_path_factory.mktemp("platform-setting") / "alembic.pst.ini"
+    info = create_datastore(prefix=prefix, revision=revision)
+    ini = tmp_path_factory.mktemp(prefix.strip("_")) / "alembic.pst.ini"
     ini.write_text(
         "[alembic]\n"
         "script_location = migrations\n"
@@ -63,17 +68,28 @@ def isolated_db(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, 
         f"sqlalchemy.url = {info['database_url']}\n",
         encoding="utf-8",
     )
+    return {
+        "url": info["database_url"],
+        "ini": str(ini),
+        "name": info["name"],
+        "admin": info["admin_database_url"],
+        "redis": info["redis_url"],
+    }
+
+
+def _drop_datastore(info: dict[str, str]) -> None:
+    # FORCE 断连后丢弃临时库，并归还本次占用的 Redis 号位。
+    drop_datastore(info["name"], info["admin"], info["redis"])
+
+
+@pytest.fixture(scope="module")
+def isolated_db(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, str]]:
+    """独立临时库（迁到 head）+ 只含该 DSN 的 alembic ini。"""
+    info = _datastore_with_ini(tmp_path_factory, "muad_pst_")
     try:
-        yield {
-            "url": info["database_url"],
-            "ini": str(ini),
-            "name": info["name"],
-            "admin": info["admin_database_url"],
-            "redis": info["redis_url"],
-        }
+        yield info
     finally:
-        # FORCE 断连后丢弃临时库，并归还本次占用的 Redis 号位。
-        drop_datastore(info["name"], info["admin_database_url"], info["redis_url"])
+        _drop_datastore(info)
 
 
 def _alembic(ini: str, *args: str) -> None:
@@ -131,10 +147,10 @@ async def _alembic_version(url: str) -> str:
 
 
 async def test_upgrade_to_head_creates_table_matching_orm_model(isolated_db: dict[str, str]) -> None:
-    """`alembic upgrade 0001→0019` 后的列 / 主键 / 外键 / 索引与 ORM model 定义一致。"""
+    """`alembic upgrade 0001→head` 后的列 / 主键 / 外键 / 索引与 ORM model 定义一致。"""
     reflected = await _reflect(isolated_db["url"])
     assert reflected, f"{SCHEMA}.{TABLE} 在迁到 head 后不存在（迁移未建表）"
-    assert await _alembic_version(isolated_db["url"]) == REVISION
+    assert await _alembic_version(isolated_db["url"]) == HEAD_REVISION
 
     db_columns = {str(item["name"]) for item in reflected["columns"]}
     assert db_columns == EXPECTED_COLUMNS
@@ -170,8 +186,13 @@ async def test_partial_unique_rejects_duplicate_tenant_revision(
     await _run(isolated_db["url"], insert, tenant_id=tenant_id, revision=1)
 
 
-async def test_downgrade_drops_table_and_upgrade_restores(isolated_db: dict[str, str]) -> None:
-    """`downgrade 0016` 干净删表，`upgrade 0019` 可再次建出同形的表（真实往返）。"""
+async def test_downgrade_drops_table_and_upgrade_restores(tmp_path_factory: pytest.TempPathFactory) -> None:
+    """`downgrade 0016` 干净删表，`upgrade 0019` 可再次建出同形的表（真实往返）。
+
+    往返固定在 0019 库上做：当前 head 0020 是单向维护迁移（downgrade 按设计拒绝），
+    从 head 库无法降到 0016。
+    """
+    isolated_db = _datastore_with_ini(tmp_path_factory, "muad_pst_rt_", revision=REVISION)
     ini = isolated_db["ini"]
     try:
         _alembic(ini, "downgrade", PARENT_REVISION)
@@ -184,5 +205,4 @@ async def test_downgrade_drops_table_and_upgrade_restores(isolated_db: dict[str,
         assert await _alembic_version(isolated_db["url"]) == REVISION
         assert _compare(PlatformSetting.__table__, reflected) == []
     finally:
-        # 无论断言是否失败，都把临时库还原到 head，避免影响模块内其它用例。
-        _alembic(ini, "upgrade", REVISION)
+        _drop_datastore(isolated_db)
