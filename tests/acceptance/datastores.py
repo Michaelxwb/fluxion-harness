@@ -105,20 +105,41 @@ def new_database_name(prefix: str = DEFAULT_PREFIX) -> str:
 
 
 def _claim_redis_db(url_with_db: str, owner: str) -> bool:
-    """在该号上原子占位（`SET NX EX`）。True = 本运行独占该号。"""
+    """在该号上原子占位（`SET NX EX`）并**清空号位内既有键**；True = 本运行独占该号。
+
+    只占位不清空是不够的：号位按值释放后会被后续运行复用，上一轮（尤其被 SIGKILL 的）
+    遗留的 `delivery:dedupe:*`、`run:cancel:*` 等键会让新运行继承旧状态，表现为
+    「单跑绿、串跑红」。清空保留占位键本身（SCAN+DEL 跳过它），避免出现「已清空但未占位」
+    的竞态窗口。
+    """
 
     async def claim() -> bool:
         client = redis.asyncio.from_url(url_with_db)
         try:
-            return bool(await client.set(REDIS_CLAIM_KEY, owner, nx=True, ex=REDIS_CLAIM_TTL_SEC))
+            if not await client.set(REDIS_CLAIM_KEY, owner, nx=True, ex=REDIS_CLAIM_TTL_SEC):
+                return False
+            await _flush_claimed_db(client)
+            return True
         finally:
             await client.aclose()
 
     return bool(_run_in_thread(claim))
 
 
+async def _flush_claimed_db(client: redis.asyncio.Redis) -> None:
+    """清掉号位内除占位键外的所有键（保留占位键，调用方仍持有该号）。"""
+    cursor = 0
+    while True:
+        cursor, keys = await client.scan(cursor=cursor, count=500)
+        stale = [key for key in keys if key != REDIS_CLAIM_KEY.encode()]
+        if stale:
+            await client.delete(*stale)
+        if cursor == 0:
+            return
+
+
 def _release_redis_db(redis_url: str, owner: str) -> None:
-    """释放**值等于本次库名**的占号；值属于别的运行的，一律不动。"""
+    """释放**值等于本次库名**的占号（顺带清空遗留键）；值属于别的运行的，一律不动。"""
 
     async def release() -> None:
         encoded = owner.encode()
@@ -126,6 +147,7 @@ def _release_redis_db(redis_url: str, owner: str) -> None:
             client = redis.asyncio.from_url(_redis_url_with_db(redis_url, index))
             try:
                 if (await client.get(REDIS_CLAIM_KEY)) == encoded:
+                    await _flush_claimed_db(client)
                     await client.delete(REDIS_CLAIM_KEY)
             finally:
                 await client.aclose()
@@ -196,10 +218,7 @@ def _drop_database(dsn: str, name: str, *, attempts: int = 4) -> None:
 def _migrate_to_head(database_url: str, workdir: Path, revision: str = "head") -> None:
     ini = workdir / "alembic.acceptance.ini"
     ini.write_text(
-        "[alembic]\n"
-        "script_location = migrations\n"
-        "prepend_sys_path = .\n"
-        f"sqlalchemy.url = {database_url}\n",
+        f"[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = {database_url}\n",
         encoding="utf-8",
     )
     completed = subprocess.run(
@@ -211,8 +230,7 @@ def _migrate_to_head(database_url: str, workdir: Path, revision: str = "head") -
     )
     if completed.returncode != 0:
         raise RuntimeError(
-            "acceptance 临时库迁移失败：\n"
-            f"{completed.stdout[-2000:]}\n{completed.stderr[-2000:]}"
+            f"acceptance 临时库迁移失败：\n{completed.stdout[-2000:]}\n{completed.stderr[-2000:]}"
         )
 
 
@@ -265,9 +283,7 @@ def create_datastore(prefix: str = DEFAULT_PREFIX, *, revision: str = "head") ->
     }
 
 
-def drop_datastore(
-    name: str, admin_database_url: str | None = None, redis_url: str | None = None
-) -> None:
+def drop_datastore(name: str, admin_database_url: str | None = None, redis_url: str | None = None) -> None:
     """丢弃临时库（FORCE 断连）并**归还 Redis 号位**。
 
     两个 URL 缺省时都取环境里的基准值：`_redis_url_with_db` 只替换路径，故传进来的 URL
@@ -319,8 +335,7 @@ def seed_console_admin(
     )
     if completed.returncode != 0:
         raise RuntimeError(
-            "预置 Console 管理员失败：\n"
-            f"{completed.stdout[-2000:]}\n{completed.stderr[-2000:]}"
+            f"预置 Console 管理员失败：\n{completed.stdout[-2000:]}\n{completed.stderr[-2000:]}"
         )
 
 
