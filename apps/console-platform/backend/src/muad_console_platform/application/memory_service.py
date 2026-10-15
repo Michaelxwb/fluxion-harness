@@ -23,7 +23,7 @@ from ..infrastructure.repositories.platform_user_repository import PlatformUserR
 from ..infrastructure.runtime_memory_client import RuntimeMemoryClient
 from .audit_query_service import format_console_time
 from .audit_service import AuditActor, AuditService
-from .dto import MemoryCreateRequest, MemoryEnabledUpdateRequest
+from .dto import MemoryCreateRequest, MemoryEnabledUpdateRequest, MemoryRestoreRequest
 
 AUDIT_RESOURCE_TYPE = "USER_MEMORY"
 
@@ -194,6 +194,39 @@ class MemoryAdminService:
         )
         await self._record(tenant_id, user_id, actor, command_id, response, "DELETE")
         return response
+
+    async def restore(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        actor: AuditActor,
+        command_id: str,
+        memory_key: str,
+        payload: MemoryRestoreRequest,
+    ) -> MemoryCommandResponse:
+        """恢复删除墓碑（评审条目 5）：按调用方读到的**保留版本**恢复，identity/version 不重置。
+
+        删除保留版本；创建路由不传 `expected_version`（新 key 形态），对 tombstone 直接 UPSERT
+        必然 409。恢复因此是独立动作：版本由界面从 tombstone 的版本历史读到（与删除同口径），
+        Runtime 做权威版本检查 —— 并发修改明确 409（不静默覆盖），刷新后按新版本重试；
+        同命令号重放返回首次回执（指纹含版本，调用方必须持有同一版本，不能每次现读）。
+        """
+        mutation = MemoryAdminMutation(
+            action="RESTORE",
+            memory_key=memory_key,
+            expected_version=payload.expected_version,
+            # 显式恢复 = 重新生效（与显式 UPSERT 的 enable=True 同口径）；过期墓碑仍要求新有效期，
+            # 由 Runtime 明确拒绝（MEMORY_VALUE_INVALID），这里不替它延长 TTL。
+            enable=True,
+        )
+        return await self._forward(
+            tenant_id,
+            user_id,
+            actor,
+            command_id,
+            mutation,
+            audit_action="UPDATE",
+        )
 
     async def _forward(
         self,

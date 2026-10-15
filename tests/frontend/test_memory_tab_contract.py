@@ -38,6 +38,7 @@ USER_DETAIL = MODULE / "UserDetailTabs.tsx"
 MEMORY_TAB = MODULE / "MemoryTab.tsx"
 MEMORY_HISTORY = MODULE / "MemoryHistorySideSheet.tsx"
 MEMORY_COMMANDS = MODULE / "memoryCommands.ts"
+MEMORY_HISTORY_STATE = MODULE / "memoryHistory.ts"
 OPTIONS = MODULE / "memoryOptions.ts"
 LOCALES = ROOT / "apps/console-platform/frontend/src/locales"
 
@@ -70,6 +71,11 @@ NEW_COPY_KEYS = (
     "user.memory.categoryLabel",
     "user.memory.statusLabel",
     "user.memory.expiresAt",
+    # 评审条目 5/6：删除后按 key 查历史 + 恢复同一 key 的界面文案。
+    "user.memory.lookupKey",
+    "user.memory.lookupHistory",
+    "user.memory.restore",
+    "user.memory.confirmRestore",
 )
 
 # 实现术语不得进入用户界面（原文来自任务 Checklist 第 2 条）。
@@ -216,6 +222,52 @@ def test_memory_history_sheet_uses_shared_shell_and_pagination() -> None:
     assert "closeOnEsc" in history, "最上层详情壳的 ESC 行为必须显式声明"
 
 
+def test_memory_tab_offers_history_lookup_by_key() -> None:
+    """[评审条目 6] 删除后历史必须有**界面入口**：工具栏按 key 查询（已删除行不再出现在列表）。
+
+    查询是只读动作，不受 `canManage` 门控；写动作（新增/清空）仍在门控内。
+    """
+    source = _read(MEMORY_TAB)
+    compact = _compact(source)
+    assert 'data-testid="memory-history-lookup-key"' in source, "缺少按 key 查询历史的输入"
+    assert 'data-testid="memory-history-lookup"' in source, "缺少按 key 查询历史的动作"
+    assert "constkey=lookupKey.trim()" in compact, "查询必须取输入的键（空白输入不请求）"
+    assert "setHistoryKey(key)" in compact, "查询必须打开该 key 的历史面板"
+
+    toolbar = compact[compact.index('className="detail-toolbar"') :]
+    gate_end = toolbar.index("</>):null}")
+    assert "memory-history-lookup" not in toolbar[:gate_end], (
+        "历史查询是只读动作，不得放进写动作的 canManage 门控"
+    )
+    assert "memory-history-lookup-key" in toolbar[gate_end:], "查询入口必须在工具行里"
+    assert "canManage={canManage}" in compact, "历史面板必须显式接收动作权限"
+
+
+def test_memory_history_sheet_restores_tombstone_through_ui() -> None:
+    """[评审条目 5] 删除后可经界面恢复同一 key：历史面板对 tombstone 提供恢复动作。
+
+    恢复动作 = RESTORE 路由（服务层）+ tombstone 的保留版本（最新历史行的 version）+ 管理员确认
+    （ConfirmAction）；命令号仍由操作上下文持有（重试复用，评审条目 3 同口径）。
+    """
+    history = _read(MEMORY_HISTORY)
+    compact = _compact(history)
+    assert "canManage" in compact, "恢复动作只在 ADMIN 下渲染"
+    assert "memoryTombstoneVersion" in compact, "恢复入口必须按最新版本的删除态判定（tombstone）"
+    assert "constinput={expected_version:tombstoneVersion}" in compact, "恢复必须用保留版本"
+    assert "restoreMemory(props.userId,props.memoryKey,input.expected_version,key)" in compact, (
+        "恢复必须走 services 层并带调用方命令号"
+    )
+    assert "createMemoryCommandContext(newRequestId)" in compact, "恢复命令号由操作上下文持有"
+    assert "memory-restore-${props.memoryKey}" in compact, "恢复动作必须有稳定 testid"
+    assert "ConfirmAction" in compact, "恢复必须经管理员确认"
+    assert "memoryErrorLabel" in compact, "恢复失败必须给本地化错误码文案"
+    assert "props.onRestored?.()" in compact, "恢复成功后必须通知外层刷新列表"
+    assert "restoreError" in compact, "恢复失败必须有可见落点"
+    assert "awaitreload()" in compact, "恢复失败必须刷新保留版本（可重试）"
+    code = _strip_comments(history)
+    assert not re.search(r"catch\s*(\([^)]*\))?\s*\{\s*\}", code), "不得出现空 catch"
+
+
 def test_memory_tab_section_structure_and_hint() -> None:
     """详情结构：工具行 → 分区标题 → 表格（内容分配剩余空间）→ 底部说明。"""
     tab = _read(MEMORY_TAB)
@@ -315,6 +367,60 @@ def test_memory_command_context_reuses_key_until_result_is_definite(tmp_path: Pa
         "成功释放后下一次操作必须换新命令号"
     )
     assert result["generated"] == 4, "生成次数 = 新操作数：重试不得多生成命令号"
+
+
+def test_memory_tombstone_version_reads_real_history_snapshots(tmp_path: Path) -> None:
+    """[评审条目 5] 真实行为：删除态只由最新版本（version DESC 首行）的完整快照决定。
+
+    恢复入口不能在旧版本（历史里的删除记录）上误判：只有**最新** `after.is_deleted=true` 才是
+    当前 tombstone（返回它的保留版本）；恢复后的最新行是 RESTORE（is_deleted=false），入口消失。
+    """
+    result = _run_bundled_harness(tmp_path, MEMORY_HISTORY_STATE, _HISTORY_STATE_HARNESS_JS)
+
+    assert result["deleted"] == 2, "最新版本是删除快照 ⇒ 返回 tombstone 的保留版本"
+    assert result["restored"] is None, "最新版本是恢复快照 ⇒ 不再是 tombstone"
+    assert result["deletedNotLatest"] is None, "旧版本里的删除记录不决定当前状态"
+    assert result["empty"] is None, "无历史 ⇒ 不可恢复"
+    assert result["missingFlag"] is None, "快照缺 is_deleted ⇒ 不误判为可恢复"
+    assert result["truthyString"] is None, "只有布尔 true 才算删除态（不做真值转换）"
+
+
+_HISTORY_STATE_HARNESS_JS = """
+import * as history from './memoryHistory.mjs';
+
+const snapshot = (version, after) => ({
+  id: `h${version}`,
+  origin_id: 'origin',
+  memory_key: 'key',
+  version,
+  change_reason: 'ADMIN_DELETE',
+  actor_type: 'ADMIN',
+  actor_id: null,
+  command_id: `c${version}`,
+  source_run_id: null,
+  after,
+  create_time: '2026-01-01T00:00:00Z',
+});
+const deleted = [snapshot(2, { is_deleted: true, version: 2 }), snapshot(1, { is_deleted: false })];
+const restored = [
+  snapshot(3, { is_deleted: false, version: 3 }),
+  ...deleted,
+];
+const reenabled = [
+  snapshot(4, { is_deleted: false, version: 4 }),
+  snapshot(3, { is_deleted: false, version: 3 }),
+  snapshot(2, { is_deleted: true, version: 2 }),
+  snapshot(1, { is_deleted: false }),
+];
+console.log(JSON.stringify({
+  deleted: history.memoryTombstoneVersion(deleted),
+  restored: history.memoryTombstoneVersion(restored),
+  deletedNotLatest: history.memoryTombstoneVersion(reenabled),
+  empty: history.memoryTombstoneVersion([]),
+  missingFlag: history.memoryTombstoneVersion([snapshot(1, { version: 1 })]),
+  truthyString: history.memoryTombstoneVersion([snapshot(1, { is_deleted: 'true' })]),
+}));
+"""
 
 
 _HARNESS_JS = """

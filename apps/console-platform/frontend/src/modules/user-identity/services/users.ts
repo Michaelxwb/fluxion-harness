@@ -207,6 +207,25 @@ export async function deleteMemory(
   );
 }
 
+/**
+ * 恢复删除墓碑（评审条目 5）：`expected_version` 是界面从 tombstone 版本历史读到的**保留版本**
+ * （删除不重置 version）；版本冲突由 Runtime 明确 409，刷新后按新版本重试。命令号仍由调用方持有。
+ */
+export async function restoreMemory(
+  id: string,
+  memoryKey: string,
+  expectedVersion: number,
+  idempotencyKey: string
+): Promise<MemoryCommandReceipt> {
+  return unwrap(
+    await api.post<ApiResponse<MemoryCommandReceipt>>(
+      `/users/${id}/memory/${memoryKey}/restore`,
+      { expected_version: expectedVersion },
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    )
+  );
+}
+
 export async function clearMemory(id: string, idempotencyKey: string): Promise<MemoryCommandReceipt> {
   return unwrap(
     await api.delete<ApiResponse<MemoryCommandReceipt>>(`/users/${id}/memory`, {

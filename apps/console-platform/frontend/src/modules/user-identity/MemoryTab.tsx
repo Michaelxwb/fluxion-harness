@@ -10,7 +10,7 @@
  * - 写入动作只在 ADMIN（`props.canManage`）下渲染；非管理员只读列表与历史。
  */
 
-import { Button, DatePicker, Form, Spin } from '@douyinfe/semi-ui';
+import { Button, DatePicker, Form, Input, Spin } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { IconPlus } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -114,6 +114,7 @@ export function MemoryTab(props: MemoryTabProps) {
   const [failed, setFailed] = useState(false);
   const [actionError, setActionError] = useState<MemoryActionError | null>(null);
   const [historyKey, setHistoryKey] = useState<string | null>(null);
+  const [lookupKey, setLookupKey] = useState('');
   const [createVisible, setCreateVisible] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -195,6 +196,14 @@ export function MemoryTab(props: MemoryTabProps) {
     setCreateVisible(true);
   };
 
+  /** 按 key 查历史（评审条目 6）：已删除的行不在列表里，这是删除后唯一的界面入口。 */
+  const openHistoryLookup = (): void => {
+    const key = lookupKey.trim();
+    if (key !== '') {
+      setHistoryKey(key);
+    }
+  };
+
   const submitCreate = async (values: CreateFormValues): Promise<void> => {
     const identity = `create:${props.userId}`;
     const input = createInput(values);
@@ -271,16 +280,30 @@ export function MemoryTab(props: MemoryTabProps) {
 
   return (
     <div>
-      {canManage ? (
-        <div className="detail-toolbar">
-          <Button theme="solid" icon={<IconPlus />} data-testid="memory-create" onClick={openCreate}>
-            {t('user.memory.add')}
-          </Button>
-          <ConfirmAction title={t('user.common.confirmClear')} testId="memory-clear" onConfirm={clearAll}>
-            {t('user.memory.clear')}
-          </ConfirmAction>
-        </div>
-      ) : null}
+      <div className="detail-toolbar">
+        {canManage ? (
+          <>
+            <Button theme="solid" icon={<IconPlus />} data-testid="memory-create" onClick={openCreate}>
+              {t('user.memory.add')}
+            </Button>
+            <ConfirmAction title={t('user.common.confirmClear')} testId="memory-clear" onConfirm={clearAll}>
+              {t('user.memory.clear')}
+            </ConfirmAction>
+          </>
+        ) : null}
+        {/* 历史查询是只读动作：不受 canManage 门控（删除后列表没有该行，只能按 key 查）。 */}
+        <Input
+          data-testid="memory-history-lookup-key"
+          value={lookupKey}
+          placeholder={t('user.memory.lookupKey')}
+          style={{ width: 220, marginLeft: 'auto' }}
+          onChange={(value) => setLookupKey(value)}
+          onEnterPress={openHistoryLookup}
+        />
+        <Button data-testid="memory-history-lookup" onClick={openHistoryLookup}>
+          {t('user.memory.lookupHistory')}
+        </Button>
+      </div>
       {actionError ? (
         <div className="detail-hint" data-testid="memory-action-error">
           <span>{memoryErrorLabel(t, actionError.code)}</span>
@@ -504,7 +527,13 @@ export function MemoryTab(props: MemoryTabProps) {
       <MemoryHistorySideSheet
         userId={props.userId}
         memoryKey={historyKey}
+        canManage={canManage}
         onCancel={() => setHistoryKey(null)}
+        onRestored={() => {
+          setHistoryKey(null);
+          void reload();
+          props.onMutated?.();
+        }}
       />
     </div>
   );

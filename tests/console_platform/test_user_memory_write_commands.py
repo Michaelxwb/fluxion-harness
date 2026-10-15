@@ -229,6 +229,36 @@ async def _delete_memory(
     )
 
 
+async def _restore_memory(
+    client: AsyncClient,
+    tenant: TenantContext,
+    user_id: str,
+    *,
+    command_id: str,
+    expected_version: int,
+    memory_key: str = "pref-answer",
+) -> httpx.Response:
+    """恢复动作：版本是调用方从 tombstone 版本历史读到的保留版本（与删除同口径）。"""
+    return await client.post(
+        f"/api/v1/users/{user_id}/memory/{memory_key}/restore",
+        json={"expected_version": expected_version},
+        headers=_headers(tenant, command_id),
+    )
+
+
+async def _history_reasons(tenant_id: str, user_id: str, memory_key: str) -> list[str]:
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        rows = await session.scalars(
+            text(
+                "SELECT change_reason FROM runtime.user_memory_history WHERE tenant_id = :tenant_id "
+                "AND user_id = :user_id AND memory_key = :memory_key ORDER BY version DESC"
+            ),
+            {"tenant_id": tenant_id, "user_id": uuid.UUID(user_id), "memory_key": memory_key},
+        )
+        return list(rows)
+
+
 def _created_item(response: httpx.Response) -> dict[str, Any]:
     items = response.json()["data"]["items"]
     assert len(items) == 1
@@ -550,3 +580,122 @@ async def test_local_07_console_dto_whitelist_and_tenant_scope(
     listed = await client.get(f"/api/v1/users/{user_id}/memory", headers=_headers(tenant))
     assert listed.status_code == 200
     assert listed.json()["data"]["total"] == 1
+
+
+async def test_local_08_restore_reads_tombstone_version_and_keeps_identity(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[评审条目 5] 删除后恢复同一 key：按 tombstone 的保留版本恢复，identity/version 不重置。
+
+    创建路由不传 `expected_version`（新 key 形态），tombstone 又保留版本 ⇒ 直接 UPSERT 必然
+    409；恢复动作按**保留的版本**做版本检查，并保留同一 id / 同一 key 的连续版本。
+    """
+    user_id = await _create_user(client, tenant)
+    created = await _create_memory(client, tenant, user_id, command_id=uuid.uuid4().hex)
+    assert created.status_code == 200, created.text
+    memory_id = _created_item(created)["id"]
+
+    deleted = await _delete_memory(
+        client, tenant, user_id, command_id=uuid.uuid4().hex, memory_id=memory_id, expected_version=1
+    )
+    assert deleted.status_code == 200, deleted.text
+    tombstone = await _memory_row(tenant.tenant_id, user_id, "pref-answer")
+    assert tombstone["is_deleted"] is True and tombstone["version"] == 2, "删除保留身份与版本"
+
+    command_id = uuid.uuid4().hex
+    restored = await _restore_memory(
+        client, tenant, user_id, command_id=command_id, expected_version=2
+    )
+    assert restored.status_code == 200, restored.text
+    data = restored.json()["data"]
+    assert data["command_id"] == command_id, "恢复的命令号仍是 Console 收到的 Idempotency-Key"
+    item = _created_item(restored)
+    assert item["status"] == "RESTORED" and item["version"] == 3 and item["id"] == memory_id
+    row = await _memory_row(tenant.tenant_id, user_id, "pref-answer")
+    assert row["is_deleted"] is False and row["version"] == 3, "恢复保留 identity/version（不重造 key）"
+    assert row["content_json"] == {"value": "concise answers"} and row["enabled"] is True
+    assert row["author"] == "ADMIN", "恢复不改来源：管理员录入仍是 ADMIN"
+    assert await _history_reasons(tenant.tenant_id, user_id, "pref-answer") == [
+        "RESTORE",
+        "ADMIN_DELETE",
+        "CREATE",
+    ], "恢复写 RESTORE 历史原因，删除记录保留"
+    counts = await _counts(tenant.tenant_id, user_id)
+    assert (counts.live, counts.forget_epoch) == (1, 1), "删除的撤销边界已推进，恢复不重置也不重复递增"
+
+    replay = await _restore_memory(client, tenant, user_id, command_id=command_id, expected_version=2)
+    assert replay.status_code == 200
+    assert replay.json()["data"] == data, "同命令号 + 同保留版本重放返回首次回执"
+    after_replay = await _counts(tenant.tenant_id, user_id)
+    assert (
+        after_replay.memories,
+        after_replay.live,
+        after_replay.history,
+        after_replay.receipts,
+        after_replay.forget_epoch,
+    ) == (counts.memories, counts.live, counts.history, counts.receipts, counts.forget_epoch), (
+        "重放不得产生第二次效果（事实/历史/回执不变）"
+    )
+    assert after_replay.audits == counts.audits + 1, "本地操作日志按 Console 收到的成功请求计数"
+
+    live_restore = await _restore_memory(
+        client, tenant, user_id, command_id=uuid.uuid4().hex, expected_version=3
+    )
+    assert live_restore.status_code == 200
+    assert live_restore.json()["data"]["status"] == "UNCHANGED", "已在存活状态的 key 恢复是显式空操作"
+    assert (await _memory_row(tenant.tenant_id, user_id, "pref-answer"))["version"] == 3
+
+    unknown = await _restore_memory(
+        client,
+        tenant,
+        user_id,
+        command_id=uuid.uuid4().hex,
+        expected_version=1,
+        memory_key="no-such-key",
+    )
+    assert unknown.status_code == 404
+    assert unknown.json()["code"] == "MEMORY_NOT_FOUND", "没有保留行的 key 不存在可恢复的墓碑"
+
+
+async def test_local_09_restore_version_conflict_is_visible_and_retryable(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[评审条目 5] 并发修改墓碑：旧保留版本恢复被明确拒绝（409），刷新后按新版本重试成功。"""
+    user_id = await _create_user(client, tenant)
+    created = await _create_memory(client, tenant, user_id, command_id=uuid.uuid4().hex)
+    memory_id = _created_item(created)["id"]
+    deleted = await _delete_memory(
+        client, tenant, user_id, command_id=uuid.uuid4().hex, memory_id=memory_id, expected_version=1
+    )
+    assert deleted.status_code == 200, deleted.text
+    # 另一位管理员用同一保留版本恢复后又删除：保留版本推进到 4，本地手里的版本 2 已过期。
+    peer_restored = await _restore_memory(
+        client, tenant, user_id, command_id=uuid.uuid4().hex, expected_version=2
+    )
+    assert peer_restored.status_code == 200, peer_restored.text
+    deleted_again = await _delete_memory(
+        client, tenant, user_id, command_id=uuid.uuid4().hex, memory_id=memory_id, expected_version=3
+    )
+    assert deleted_again.status_code == 200, deleted_again.text
+    before = await _counts(tenant.tenant_id, user_id)
+    assert (before.memories, before.live, before.history, before.receipts) == (1, 0, 4, 4)
+
+    conflicted = await _restore_memory(
+        client, tenant, user_id, command_id=uuid.uuid4().hex, expected_version=2
+    )
+    assert conflicted.status_code == 409, conflicted.text
+    assert conflicted.json()["code"] == "MEMORY_VERSION_CONFLICT"
+    assert conflicted.json()["data"] is None
+    tombstone = await _memory_row(tenant.tenant_id, user_id, "pref-answer")
+    assert tombstone["is_deleted"] is True and tombstone["version"] == 4, "版本冲突不覆盖墓碑"
+    after_conflict = await _counts(tenant.tenant_id, user_id)
+    assert (after_conflict.history, after_conflict.receipts, after_conflict.audits) == (4, 4, 4), (
+        "被拒的恢复不得产生历史、回执或成功审计"
+    )
+
+    retried = await _restore_memory(
+        client, tenant, user_id, command_id=uuid.uuid4().hex, expected_version=4
+    )
+    assert retried.status_code == 200, retried.text
+    assert _created_item(retried)["version"] == 5, "重试按最新保留版本成功"
+    assert (await _memory_row(tenant.tenant_id, user_id, "pref-answer"))["is_deleted"] is False

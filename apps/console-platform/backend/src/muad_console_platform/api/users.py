@@ -17,6 +17,7 @@ from ..application.dto import (
     MemoryEnabledUpdateRequest,
     MemoryHistoryItem,
     MemoryItem,
+    MemoryRestoreRequest,
     UserBasic,
     UserCreateRequest,
     UserDetail,
@@ -282,6 +283,29 @@ async def revoke_agent(
         request.app.state.message_catalog,
         {"user_id": str(user_id), "agent_id": str(agent_id), "revoked": True},
     )
+
+
+@router.post("/{user_id}/memory/{memory_key}/restore")
+async def restore_user_memory(
+    user_id: uuid.UUID,
+    memory_key: MemoryKey,
+    payload: MemoryRestoreRequest,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+    runtime: RuntimeMemoryClientDep,
+    idempotency_key: CommandKey,
+) -> ApiResponse[Any]:
+    """恢复删除墓碑：按 tombstone 的**保留版本**恢复（identity/version 不重置）。
+
+    版本由界面从 tombstone 的版本历史读到（与删除同口径）：创建路由不传 `expected_version`，
+    对已删除的 key 直接 UPSERT 必然 409；版本冲突由 Runtime 明确拒绝，刷新后重试。
+    """
+    result = await MemoryAdminService(session, runtime).restore(
+        tenant_id, user_id, _actor(account, request), idempotency_key, memory_key, payload
+    )
+    return ok(request.app.state.message_catalog, result.model_dump(mode="json"))
 
 
 @router.delete("/{user_id}/memory/{memory_id}")

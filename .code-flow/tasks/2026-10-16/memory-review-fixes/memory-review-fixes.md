@@ -171,11 +171,11 @@
 
 ## TASK-004: 删除后的恢复与历史界面入口（P2）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: 
 - **Source**: GPT 评审条目 5、6；memory-redesign.design.md#3.7（RESTORE 语义、deleted 历史可查）
-- **Spec-Refs**: 
+- **Spec-Refs**: harness-i18n#RULE-i18n-001
 - **Acceptance-Refs**: 
 - **Files**: apps/console-platform/frontend/src/modules/user-identity/MemoryTab.tsx, apps/console-platform/frontend/src/modules/user-identity/MemoryHistorySideSheet.tsx, apps/console-platform/backend/src/muad_console_platform/api/users.py, e2e/tests/agent-management/memory-redesign.spec.ts
 
@@ -185,24 +185,47 @@
 
 ### Checklist
 
-- [ ] 先写 RED：界面/契约测试断言「删除后可恢复同一 key」与「删除后历史可经界面查看」；浏览器域断言改为经 UI 入口（不得再直调 API 绕开）。
-- [ ] 实现：恢复动作（RESTORE 路由 + 版本读取 + 确认）与历史入口（含 deleted）；错误码语义清晰（版本冲突可见、可重试）。
-- [ ] GREEN：`tests/frontend` + typecheck + `make acceptance-e2e DOMAIN=agent` 连续两次全绿。
-- [ ] 不弱化既有断言；不新增 i18n 框架（文案两语言齐平）。
+- [x] 先写 RED：界面/契约测试断言「删除后可恢复同一 key」与「删除后历史可经界面查看」；浏览器域断言改为经 UI 入口（不得再直调 API 绕开）。
+- [x] 实现：恢复动作（RESTORE 路由 + 版本读取 + 确认）与历史入口（含 deleted）；错误码语义清晰（版本冲突可见、可重试）。
+- [x] GREEN：`tests/frontend` + typecheck + `make acceptance-e2e DOMAIN=agent` 连续两次全绿。
+- [x] 不弱化既有断言；不新增 i18n 框架（文案两语言齐平）。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | E2E | browser，真实 Console/Runtime/PG/Chrome | 删除后可经界面恢复同一 key（RESTORE）；删除后历史经界面入口可查；越权不可操作 | e2e/tests/agent-management/memory-redesign.spec.ts | ["make","acceptance-e2e","DOMAIN=agent"] | planned |
+| LOCAL | E2E | browser，真实 Console/Runtime/PG/Chrome | 删除后可经界面恢复同一 key（RESTORE）；删除后历史经界面入口可查；越权不可操作 | e2e/tests/agent-management/memory-redesign.spec.ts | ["make","acceptance-e2e","DOMAIN=agent"] | verified |
+| LOCAL | integration | 真实 Console HTTP + 真实 Runtime 管理路由（ASGI）+ 真实 PG | 恢复按 tombstone 保留版本（RESTORED、版本连续、identity 不重置、重放同回执）；并发修改 409 且重试成功 | tests/console_platform/test_user_memory_write_commands.py | ["uv","run","pytest","-q","tests/console_platform/test_user_memory_write_commands.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行；RED 依据：评审条目 5/6（409 实测与用例绕开）。
+**RED**（先于实现；命令与失败原文）：
+
+- 前端契约 RED：`uv run pytest -q tests/frontend/test_memory_tab_contract.py tests/frontend/test_user_memory_contract.py` → **6 failed / 25 passed**，`/tmp/reviewfix/task004/red_frontend.log`：`缺少声明：export async function restoreMemory(`、`assert 'data-testid="memory-history-lookup-key"' in source`（查询入口缺失）、`恢复入口必须按最新版本的删除态判定`、`记忆管理文案键缺失：{'user.memory.lookupKey', ...}`、esbuild 转译失败（`memoryHistory.ts` 不存在）。
+- Console API RED：`DATABASE_URL=<隔离 head 库 muad_acc_5c1593d939> REDIS_URL=redis://localhost:6379/13 uv run pytest -q tests/console_platform/test_user_memory_write_commands.py -k "local_08 or local_09"` → **2 failed / 7 deselected**，`/tmp/reviewfix/task004/red_console.log`：`assert restored.status_code == 200` → `AssertionError: {"code":"COMMON_NOT_FOUND","msg":"请求的资源不存在",...}` / `assert 404 == 200` —— RESTORE 路由未开（评审条目 5 的入口缺口）。
+- 浏览器 RED（真实构建产物上的负向对照，证明新断言真的咬住行为；与旧实现的「没有入口」等价）：
+  - 移除按 key 查询入口（保留其余实现）→ 主用例 **1 failed / 24 passed**：`Error: locator.fill: Test timeout of 90000ms exceeded. waiting for getByTestId('memory-history-lookup-key')`，`/tmp/reviewfix/task004/negative_lookup.log`。
+  - 移除历史面板的恢复动作（保留查询入口）→ 主用例 **1 failed / 24 passed**：`waiting for locator('.semi-sidesheet').last().getByTestId('memory-restore-e2e.preference.<stamp>')`，`/tmp/reviewfix/task004/negative_restore.log`。
+
+**GREEN**（修复后；命令、断言位置、日志）：
+
+- 实现（断言背后的代码）：Console `api/users.py:289`（`POST /api/v1/users/{user_id}/memory/{memory_key}/restore`，`Idempotency-Key` 必填）+ `application/memory_service.py:198`（`restore`：`RESTORE` + 调用方读到的保留版本 + `enable=True`，审计动作 UPDATE）+ `application/dto.py:423`（`MemoryRestoreRequest.expected_version` 必填）；前端 `memoryHistory.ts:15`（`memoryTombstoneVersion`：只有最新版本快照 `is_deleted=true` 才返回保留版本）、`services/users.ts:214`（`restoreMemory(id, memoryKey, expectedVersion, idempotencyKey)`）、`MemoryTab.tsx:200`（`openHistoryLookup`：按 key 打开历史，只读动作不进门控）、`MemoryHistorySideSheet.tsx:106`（`submitRestore`：保留版本来自最新历史行、命令号经操作上下文持有、失败给本地化错误码并刷新状态）。版本由**界面从 tombstone 版本历史**读取（与删除同口径）而非服务端现读：现读会让同一 `Idempotency-Key` 重试的指纹随版本漂移，违反 RULE-api-002「同命令号重放返回首次回执」。
+- 契约（前端，真实源码 + node/esbuild 行为）：`uv run pytest -q tests/frontend` → **345 passed**，`/tmp/reviewfix/task004/green_frontend.log`；新增用例 `tests/frontend/test_memory_tab_contract.py:225`（查询入口不受门控、`setHistoryKey(key)`）、`:246`（恢复动作：保留版本 + ConfirmAction + 操作上下文 + 可见错误）、`:372`（真实行为：`memoryTombstoneVersion` 只认最新版本布尔 `is_deleted`）；`tests/frontend/test_user_memory_contract.py:220`（五个写路由签名与 `Idempotency-Key`）、`:239`（`restoreMemory` 路径与 body）。
+- Console API（真实 Console HTTP + 真实 Runtime 路由 + 真实 PG）：`uv run pytest -q tests/console_platform/test_user_memory_write_commands.py` → **9 passed**；新增 `test_local_08`（:585：删除 v2 → 恢复 `expected_version=2` → `RESTORED` v3、同一 id/内容/author、历史 `[RESTORE, ADMIN_DELETE, CREATE]`、`forget_epoch` 不重置、同命令号 + 同版本重放同回执且零第二次效果、存活行恢复 `UNCHANGED`、未知 key 404 `MEMORY_NOT_FOUND`）与 `test_local_09`（:660：他人用同一保留版本恢复并再删除后，旧版本恢复 409 `MEMORY_VERSION_CONFLICT` 且墓碑不被覆盖、零历史/回执/审计，按刷新后的版本重试 → `RESTORED` v5）。
+- 浏览器（真实构建产物 + 真实 Console/Runtime/PG/Chrome；5173 被无关项目占用，用 `AGENT_E2E_WEB_PORT=5174`）：`AGENT_E2E_WEB_PORT=5174 make acceptance-e2e DOMAIN=agent` 连续两次 **25 passed**（42.8s / 42.9s），`/tmp/reviewfix/task004/agent_e2e_run8.log`、`agent_e2e_run9.log`；新断言位置 `e2e/tests/agent-management/memory-redesign.spec.ts:241-265`（删除后经工具栏按 key 打开历史 → v4 `ADMIN_DELETE` + 管理员 actor → 恢复确认 → 面板关闭且列表重现该行（来源/状态/内容）→ 再查历史见 v5 `RESTORE`），历史断言不再直调 API（`memoryHistoryViaApi` 已删除）。
+- 回归：`uv run pytest -q tests/console_platform` → **306 passed**（隔离 head 库，35.47s），`/tmp/reviewfix/task004/green_console_platform.log`；`npm --prefix apps/console-platform/frontend run typecheck` → 0；RULE-front-001 链全绿（api client 4 passed → api usage OK → i18n 1167 → typecheck）。
+- 静态：`uv run ruff check`（7 文件）All checks passed；`uv run mypy`（4 个产品文件）Success: no issues found。
+- 范围扩展（本任务改了 `src/locales/*.json`，finish 的 scope 解析把 required `harness-i18n` 纳入并暂停 TASK；按「局部 Plan」收口）：Spec-Refs 登记 `harness-i18n#RULE-i18n-001`；verifier 实跑全绿 —— `uv run pytest -q tests/acceptance/test_foundation_i18n.py` → **6 passed**（`/tmp/reviewfix/task004/green_i18n_acceptance.log`）、`uv run python scripts/check_frontend_i18n.py` → `i18n keys OK: 1167`；两侧词条齐平由 `tests/frontend/test_memory_tab_contract.py` 的 `NEW_COPY_KEYS` 与 `test_user_memory_i18n_contract.py` 的键集/非空/真翻译断言钉死（新增 4 键：`user.memory.lookupKey` / `lookupHistory` / `restore` / `confirmRestore`），未新增 i18n 框架或改框架代码。
+- 偶发（与本任务改动无关，已按「先查环境再下结论」复核）：修复前 `make acceptance-e2e DOMAIN=agent` 在 run3/run6 偶发 1 failed，落在**用户列表页**的 `openMemoryTab`（点 `user-link-*` 超时）：本域并行的 S-13 用例批量造 100 个用户，把目标用户挤出第一页（15 条/页，109 条实测）——分页竞争，与记忆功能无关。按 `platform.spec.ts` 同款「目标不在第一页才按账号过滤」修好（`memory-redesign.spec.ts:149`）；run7 另观测到一次 Semi Table 的 React #185（`setAllDisabledRowKeys`，trace 栈在 Semi 内部），同样在用户列表页、不在记忆链路。修好后 run8/run9 连续全绿。
 
 ### Log
 
 - [2026-10-16] created (draft)。
+- [2026-10-16] started
+- [2026-10-16] RED（契约 6 failed：恢复路由/查询入口/词条缺失；Console 404：RESTORE 未开路由；浏览器负向对照两次 1 failed）→ 实现 RESTORE 路由 + 保留版本读取 + 历史面板恢复动作 + 工具栏按 key 查询 → 契约 345 passed、Console 9 passed、agent 域 25 passed ×2（run8/run9）。
+- [2026-10-16] 范围扩展：locales 命中 required `harness-i18n` 并暂停 TASK → 局部 Plan 登记 Spec-Refs（RULE-i18n-001），verifier 实跑 6 passed + i18n keys OK: 1167。
+- [2026-10-16] completed (done)
+- [2026-10-16] resumed (in-progress)
 
 ---
 

@@ -227,6 +227,7 @@ def test_write_functions_require_caller_owned_idempotency_key() -> None:
         ),
         "deleteMemory": "(id:string,memoryId:string,expectedVersion:number,idempotencyKey:string)",
         "clearMemory": "(id:string,idempotencyKey:string)",
+        "restoreMemory": "(id:string,memoryKey:string,expectedVersion:number,idempotencyKey:string)",
     }
     for name, signature in signatures.items():
         body = _decl(source, f"export async function {name}(")
@@ -236,7 +237,7 @@ def test_write_functions_require_caller_owned_idempotency_key() -> None:
 
 
 def test_service_paths_and_verbs_match_backend_contract() -> None:
-    """后端四条路由：GET 列表/历史、POST、PATCH、DELETE（按 id）/DELETE（清空）。"""
+    """后端五条路由：GET 列表/历史、POST 新增、PATCH 启禁用、DELETE（按 id）/DELETE（清空）、POST 恢复。"""
     source = _source(SERVICE)
     list_body = _decl(source, "export async function listMemory(")
     assert "api.get<ApiResponse<Page<MemoryItem>>>(`/users/${id}/memory`,{params})" in list_body
@@ -257,6 +258,11 @@ def test_service_paths_and_verbs_match_backend_contract() -> None:
     assert "params:{expected_version:expectedVersion}" in delete_body
     clear_body = _decl(source, "export async function clearMemory(")
     assert "api.delete<ApiResponse<MemoryCommandReceipt>>(`/users/${id}/memory`,{" in clear_body
+    restore_body = _decl(source, "export async function restoreMemory(")
+    assert (
+        "api.post<ApiResponse<MemoryCommandReceipt>>(`/users/${id}/memory/${memoryKey}/restore`,"
+        "{expected_version:expectedVersion},{" in restore_body
+    ), "恢复是独立路由：按 tombstone 的保留版本恢复"
 
 
 def test_error_semantics_only_through_api_error_body() -> None:

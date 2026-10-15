@@ -420,6 +420,19 @@ class MemoryEnabledUpdateRequest(BaseModel):
         return self
 
 
+class MemoryRestoreRequest(BaseModel):
+    """恢复删除墓碑（评审条目 5）：显式给出**从 tombstone 版本历史读到的保留版本**。
+
+    删除保留 identity 与 version（不重置）；创建路由不传 `expected_version`（新 key 形态），
+    对已删除的 key 直接 UPSERT 必然 409。恢复动作按调用方读到的保留版本做版本检查：并发修改
+    由 Runtime 明确 409（不静默覆盖），刷新后按新版本重试；同命令号重放返回首次回执。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: PositiveVersion
+
+
 class BindCodeCreateResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /**
  * E-04 记忆管理浏览器验收（TASK-028 编写；真实执行归 TASK-030 / 需求终验，编码期不跑）。
@@ -14,7 +14,8 @@ import { expect, test, type Page } from '@playwright/test';
  * - Console 指向真实 Runtime 的连接配置（AGENT_RUNTIME_URL / INTERNAL_SERVICE_TOKEN），
  *   否则创建/启禁用会落 COMMON_INTERNAL_ERROR。
  *
- * 覆盖：创建 → 启禁用 → 历史（含分页）→ 删除 → 越权；中英文 × 明暗主题 × 窄屏。
+ * 覆盖：创建 → 启禁用 → 历史（含分页）→ 删除 → 按 key 查历史（含已删除条目）→ 恢复 → 越权；
+ * 中英文 × 明暗主题 × 窄屏。
  */
 
 const ADMIN_USER = process.env.E2E_ADMIN_USER ?? 'admin';
@@ -38,10 +39,13 @@ const COPY = {
     history: '版本历史',
     historyEmpty: '暂无版本历史',
     version: '版本',
-    reason: { CREATE: '新建', DISABLE: '停用', ENABLE: '启用', ADMIN_DELETE: '管理员删除' },
+    reason: { CREATE: '新建', DISABLE: '停用', ENABLE: '启用', ADMIN_DELETE: '管理员删除', RESTORE: '恢复' },
     actor: '管理员',
+    lookupHistory: '查看历史',
+    restore: '恢复',
     refresh: '刷新',
-    usersNav: '用户'
+    usersNav: '用户',
+    searchPlaceholder: '姓名 / 账号'
   },
   'en-US': {
     memoryTab: /Memories/,
@@ -60,10 +64,13 @@ const COPY = {
     history: 'Version history',
     historyEmpty: 'No version history',
     version: 'Version',
-    reason: { CREATE: 'Created', DISABLE: 'Disabled', ENABLE: 'Enabled', ADMIN_DELETE: 'Deleted by admin' },
+    reason: { CREATE: 'Created', DISABLE: 'Disabled', ENABLE: 'Enabled', ADMIN_DELETE: 'Deleted by admin', RESTORE: 'Restored' },
     actor: 'Administrator',
+    lookupHistory: 'View history',
+    restore: 'Restore',
     refresh: 'Refresh',
-    usersNav: 'Users'
+    usersNav: 'Users',
+    searchPlaceholder: 'Name / account'
   }
 } as const;
 
@@ -129,23 +136,30 @@ async function toggleMemoryViaApi(
   return version as number;
 }
 
-async function memoryHistoryViaApi(
-  page: Page,
-  userId: string,
-  memoryKey: string
-): Promise<Array<{ version: number; change_reason: string; actor_type: string }>> {
-  const response = await page.request.get(
-    `/api/v1/users/${userId}/memory/${memoryKey}/history?page=1&page_size=100`
-  );
-  expect(response.status(), await response.text()).toBe(200);
-  return ((await response.json()) as {
-    data: { items: Array<{ version: number; change_reason: string; actor_type: string }> };
-  }).data.items;
+/** 经界面打开任意 key 的版本历史（含已删除 key）：列表里没有该行时唯一的入口。 */
+async function openHistoryViaLookup(page: Page, locale: Locale, memoryKey: string): Promise<Locator> {
+  await page.getByTestId('memory-history-lookup-key').fill(memoryKey);
+  await page.getByTestId('memory-history-lookup').click();
+  const history = page.locator('.semi-sidesheet').last();
+  await expect(history.locator('.detail-title')).toHaveText(COPY[locale].history);
+  await expect(history.locator('.detail-subtitle')).toHaveText(memoryKey);
+  return history;
 }
 
 async function openMemoryTab(page: Page, userCode: string, locale: Locale): Promise<void> {
   await page.goto('/users');
-  await page.getByTestId(`user-link-${userCode}`).click();
+  // 等列表首次加载完成，再判断目标用户是否在第一页。
+  await expect(page.getByTestId('create-user')).toBeVisible();
+  await expect(page.locator('.user-table .semi-table-row').first()).toBeVisible();
+  const link = page.getByTestId(`user-link-${userCode}`);
+  if ((await link.count()) === 0) {
+    // 并行的 S-13 用例会批量造 100 个用户（`fillUserGrantPage`），目标用户可能被挤出第一页
+    // （15 条/页）：按账号过滤后再点，与 platform.spec.ts 同款入口，不依赖分页运气。
+    const search = page.getByPlaceholder(COPY[locale].searchPlaceholder);
+    await search.fill(userCode);
+    await search.press('Enter');
+  }
+  await link.click();
   const sheet = page.getByRole('dialog');
   await sheet.getByRole('tab', { name: COPY[locale].memoryTab }).click();
 }
@@ -215,18 +229,41 @@ test('E-04 记忆管理：创建、启禁用、历史分页、删除与本地化
   await expect(page.locator('.semi-sidesheet')).toHaveCount(1);
   await expect(page.getByRole('dialog').getByRole('tab', { name: COPY[locale].memoryTab })).toBeVisible();
 
-  // 删除：列表不再显示（后端已删除不出现在列表）；历史仍可查且含删除记录。
+  // 删除：列表不再显示（后端已删除不出现在列表）。
   await page.getByTestId(`memory-delete-${memoryKey}`).click();
   await page.locator('.semi-popconfirm').getByRole('button', { name: '确定', exact: true }).click();
   await expect(row).toHaveCount(0);
-
-  const historyItems = await memoryHistoryViaApi(page, userId, memoryKey);
-  expect(historyItems[0].change_reason).toBe('ADMIN_DELETE');
-  expect(historyItems[0].actor_type).toBe('ADMIN');
   const listResponse = await page.request.get(`/api/v1/users/${userId}/memory?page=1&page_size=100`);
   const listItems = ((await listResponse.json()) as { data: { items: Array<{ memory_key: string }> } })
     .data.items;
   expect(listItems.map((item) => item.memory_key)).not.toContain(memoryKey);
+
+  // 历史入口（评审条目 6）：列表已无该行，经工具栏按 key 查询（不再直调历史 API 绕开）。
+  const deletedHistory = await openHistoryViaLookup(page, locale, memoryKey);
+  const deletedRows = deletedHistory.locator('.memory-history-table .semi-table-tbody > .semi-table-row');
+  await expect(deletedRows).toHaveCount(4);
+  await expect(deletedRows.nth(0).getByRole('gridcell').first()).toHaveText('4');
+  await expect(deletedRows.nth(0)).toContainText(COPY[locale].reason.ADMIN_DELETE);
+  await expect(deletedRows.nth(0)).toContainText(COPY[locale].actor);
+
+  // 恢复（评审条目 5）：从历史面板恢复同一 key，RESTORE 保留 identity/version，列表重新出现该行。
+  await deletedHistory.getByTestId(`memory-restore-${memoryKey}`).click();
+  await page.locator('.semi-popconfirm').getByRole('button', { name: '确定', exact: true }).click();
+  await expect(page.locator('.semi-sidesheet')).toHaveCount(1); // 恢复成功后关闭历史面板
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText(COPY[locale].author);
+  await expect(row).toContainText(COPY[locale].active);
+  await expect(row).toContainText(content);
+
+  // 恢复同样进历史：RESTORE 行经同一界面入口可查。
+  const restoredHistory = await openHistoryViaLookup(page, locale, memoryKey);
+  const restoredRows = restoredHistory.locator('.memory-history-table .semi-table-tbody > .semi-table-row');
+  await expect(restoredRows).toHaveCount(5);
+  await expect(restoredRows.nth(0).getByRole('gridcell').first()).toHaveText('5');
+  await expect(restoredRows.nth(0)).toContainText(COPY[locale].reason.RESTORE);
+  await expect(restoredRows.nth(1)).toContainText(COPY[locale].reason.ADMIN_DELETE);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.semi-sidesheet')).toHaveCount(1);
 });
 
 test('E-04 清空重试复用同一命令号：响应丢失后的重试不变成第二条命令（真实 Console→Runtime→PG）', async ({
