@@ -27,21 +27,27 @@ validators:
       timeout: 30000
       on_fail: "检查类型注解，参见 specs/arch/harness-arch.md"
 
-    - name: "Pytest"
+    # 拆两条：验收与单测各自一个 pytest 进程（各自独立会话/独立数据存储）。
+    # 原因（2026-10-15 实测）：`tests/acceptance/conftest.py` 的 session fixture 会把
+    # `os.environ` 的 DATABASE_URL/REDIS_URL 覆盖成本轮验收库**直到会话结束**，而
+    # 记忆 job/任务领取不带租户谓词——同一进程里跑在验收库上的单测会领到验收残留，
+    # 表现为「单跑绿、整跑红」（实例：test_memory_redesign_job_effects 的 B-11 整跑红、
+    # 单跑 1 passed×2）。拆进程后单测用环境注入的库、验收用自建库，互不可见。
+    # 两条都标 heavy：Stop 与任务 finish 跳过（deferred_heavy），由需求终验 verify-e2e /
+    # 归档 cf_validation 与显式 /cf-validate 执行；结果按工作树内容指纹缓存。
+    - name: "Pytest (acceptance)"
       trigger: "**/*.py"
-      command: ".venv/bin/python -m pytest --tb=short -q"
-      # Stop 链预算只有 30s（cf_stop_hook 的 TOTAL_BUDGET_SECONDS），全量套件永远跑不完——
-      # 表现是「超时（>900s）」的**假失败**（cf_exec_base 用 min(timeout, remaining)，
-      # 报错文案却按声明值打印）。故标为 heavy：Stop 与任务 finish 都跳过（deferred_heavy），
-      # 只由需求终验 verify-e2e / 归档 cf_validation 与显式 /cf-validate 全量执行一次；
-      # 结果按工作树内容指纹缓存，同一内容不会重复执行。
+      command: ".venv/bin/python -m pytest --tb=short -q tests/acceptance"
       heavy: true
-      # 套件含真实进程验收（uvicorn/子进程/探针/双 Worker 等）。2026-09-27 实测 1562 passed
-      # 用时 717s（0:11:57），当时预算取 900s。2026-09-29：在 900s 预算下 finish 报
-      # 「预算耗尽，部分未执行: Pytest」——注意该次观测发生时共享库上存在一套**孤儿验收栈**
-      # （PPID=1 的 runtime×2+worker+gateway），其 Worker 会抢走验收任务（claim 无 tenant
-      # 谓词），把耗时显著放大（同批用例清孤儿前后 369s → 56s）。故 1171s 类数字**不足以**
-      # 作为标定依据。清孤儿后预算上限放宽到 1800s 并实测通过（Done Gate pass，
-      # 2026-09-29 15:07）；真实分段耗时待下次干净单跑补记。
-      timeout: 3600000
+      # 验收含真实进程栈（uvicorn/子进程/探针/双 Worker/浏览器域外的一切），2026-10-15 实测
+      # 331 passed ≈ 22–25 分钟；预算给 45 分钟留负载余量。
+      timeout: 2700000
+      on_fail: "验收失败：检查真实栈/探针/租户清理与断言，参见 specs/test/harness-test.md"
+    - name: "Pytest (unit)"
+      trigger: "**/*.py"
+      command: ".venv/bin/python -m pytest --tb=short -q --ignore=tests/acceptance"
+      heavy: true
+      # 单测（agent_runtime/console_platform/frontend/gateway/sdk/migrations 等）2026-10-15
+      # 实测 ≈ 12 分钟；预算给 30 分钟。
+      timeout: 1800000
       on_fail: "测试失败，检查断言和 mock 是否需要更新"
