@@ -284,7 +284,7 @@
 
 ## TASK-006: E-03 经真实用户确认（P2）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: 
 - **Source**: GPT 评审条目 8
@@ -298,20 +298,35 @@ E-03 直接经管理 API 写入偏好并断言 `author == ADMIN`，没有走真�
 
 ### Checklist
 
-- [ ] 先写 RED：把确认链路断言改为「USER 来源 + 真实确认」后，若注入链路被人为破坏（临时负向注入）必须红。
-- [ ] 实现：E-03 走候选→确认→`/new` 首轮可见；保留 ADMIN 场景为独立断言。
-- [ ] GREEN：`tests/acceptance/im_gateway/test_memory_redesign_e2e.py` 连续两次全绿；`code-flow acceptance run`（E-03 所属 manifest）复验。
+- [x] 先写 RED：把确认链路断言改为「USER 来源 + 真实确认」后，若注入链路被人为破坏（临时负向注入）必须红。
+- [x] 实现：E-03 走候选→确认→`/new` 首轮可见；保留 ADMIN 场景为独立断言。
+- [x] GREEN：`tests/acceptance/im_gateway/test_memory_redesign_e2e.py` 连续两次全绿；`code-flow acceptance run`（E-03 所属 manifest）复验。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | E2E | acceptance，真实 Gateway → Runtime → resume | 已确认 USER 偏好在 `/new` 后首轮请求可见；ADMIN 来源单独断言 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | planned |
+| LOCAL | E2E | acceptance，真实 Gateway → Runtime → resume | 已确认 USER 偏好在 `/new` 后首轮请求可见；ADMIN 来源单独断言 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行；RED 依据：评审条目 8（现用例 author=ADMIN、未走确认）。
+**RED**（先于实现；命令与失败原文）：
+
+- 负向注入（临时把偏好注入的作者域从 `USER|ADMIN` 收成 `ADMIN`，模拟「USER 注入链路损坏」；`packages/agent-core/src/muad_agent_core/memory/rank.py:101-105`，跑完已还原）：`uv run pytest -q tests/acceptance/im_gateway/test_memory_redesign_e2e.py -k "e03"` → **1 failed / 1 passed**，`/tmp/reviewfix/task006/red_e03_injection.log`：
+  - 新 USER 用例：`AssertionError: 已确认偏好在 /new 后的首轮请求必须可见` / `assert ('e03.preference.cfa7bd' in 'You are the IM e2e agent.')`（事实已按真实确认写入 USER 行，但注入链路被破坏 ⇒ 必须红）；
+  - 同一注入下 ADMIN 对照用例仍通过 —— 正是评审条目 8 的盲区实证（旧形态覆盖不到 USER 链路）。
+- 注入还原核对：`git status --porcelain packages/` 为空、`git diff packages/` 无输出。
+
+**GREEN**（修复后；命令、断言位置、日志）：
+
+- 实现（断言背后的代码）：`tests/acceptance/im_gateway/test_memory_redesign_e2e.py:615` 新 USER 用例 —— 候选展示（:653 真实 SSE→WS 帧「候选编号」）、未确认零事实、真实确认（:671 `resolution_json.outcome == CONFIRMED`、:675 `MEMORY_CONFIRMATION_RESOLVED` 事件 `source_event_id = interrupt.id`、:682 WS「记忆已保存」）、:687 经 `/new` 首轮可见；事实列断言 :665-669（`author=USER`、`explicit_request=true`、`confirmed_count=1`、`confirmation_event_id`/`last_confirmed_at` 非空）。可见性收口在 :578 helper（:605 `key`+`中文` 进 system 块、:612 断言不依赖 query 含原文）；ADMIN 来源独立成 :690 用例（管理 API 直写、来源保持 ADMIN，:719 同样经 `/new` 首轮可见）。新用例先 `/new` 建新会话（:641）：`tool_once` 按「整段会话是否已有工具结果」判定，留在前序会话会让探针直接给 final_text、候选永不出现（实测踩过，已写进注释）。
+- 契约命令：`uv run pytest -q tests/acceptance/im_gateway/test_memory_redesign_e2e.py` 连续两次 **7 passed**（135.91s / 132.20s），`/tmp/reviewfix/task006/green_e2e_run1.log`、`green_e2e_run2.log`。
+- E-03 所属 manifest 复验：`code-flow acceptance run --manifest .code-flow/tasks/archived/2026-10-12/memory-redesign/.acceptance-manifest.json --root "$PWD" --owner TASK-030 --include-e2e --write-evidence` → `{"decision": "pass", "results": [E-02 passed, E-03 passed, E-04 passed, E-05 passed, E-06 passed]}`，`/tmp/reviewfix/task006/manifest_e03.log`；E-03 证据刷新到 revision 5（`executed_at 2026-10-15T19:42:47Z`，含 E-04 的 agent 浏览器域）。
+- 静态：`uv run ruff check`（1 文件）All checks passed。
 
 ### Log
 
 - [2026-10-16] created (draft)。
+- [2026-10-16] started
+- [2026-10-16] RED（负向注入破坏 USER 注入链：新 USER 用例红、ADMIN 对照仍绿）→ E-03 改为候选→真实确认→`/new` 首轮可见（USER 事实 + 确认事件断言），ADMIN 另设独立用例 → 契约 7 passed ×2、manifest E-02..E-06 全绿并刷新 E-03 证据。
+- [2026-10-16] completed (done)

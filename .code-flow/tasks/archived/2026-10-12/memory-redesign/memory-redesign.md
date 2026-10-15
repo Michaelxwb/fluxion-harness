@@ -1637,6 +1637,11 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 - E-04: verified — automated command passed; run_id=91817cc97e714b5ebecd30ff439e9187 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=91817cc97e714b5ebecd30ff439e9187 (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=91817cc97e714b5ebecd30ff439e9187 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=5b5a4c250b0945798cb8d6b0cfc6dbae (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=5b5a4c250b0945798cb8d6b0cfc6dbae (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=5b5a4c250b0945798cb8d6b0cfc6dbae (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=5b5a4c250b0945798cb8d6b0cfc6dbae (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=5b5a4c250b0945798cb8d6b0cfc6dbae (confirmed_by: runner)
 
 ### Log
 

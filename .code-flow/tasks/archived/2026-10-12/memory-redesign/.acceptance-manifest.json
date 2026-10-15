@@ -1991,15 +1991,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "E-02",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 4,
-        "run_id": "91817cc97e714b5ebecd30ff439e9187",
-        "executed_at": "2026-10-15T12:08:28.083492+00:00",
+        "revision": 5,
+        "run_id": "5b5a4c250b0945798cb8d6b0cfc6dbae",
+        "executed_at": "2026-10-15T19:42:47.577756+00:00",
         "command": [
           "uv",
           "run",
@@ -2009,7 +2009,7 @@
         ],
         "cwd": ".",
         "timeout": 1800.0,
-        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
+        "fingerprint": "07717c95e4f163099bae76f3ca1a89b36d92eeac08ffe3304047d70c9ea43cea"
       },
       "runs": [
         {
@@ -2083,6 +2083,25 @@
           "cwd": ".",
           "timeout": 1800.0,
           "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
+        },
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "5b5a4c250b0945798cb8d6b0cfc6dbae",
+          "executed_at": "2026-10-15T19:42:47.577756+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "07717c95e4f163099bae76f3ca1a89b36d92eeac08ffe3304047d70c9ea43cea"
         }
       ]
     },
@@ -2104,15 +2123,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "E-03",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 4,
-        "run_id": "91817cc97e714b5ebecd30ff439e9187",
-        "executed_at": "2026-10-15T12:08:28.083492+00:00",
+        "revision": 5,
+        "run_id": "5b5a4c250b0945798cb8d6b0cfc6dbae",
+        "executed_at": "2026-10-15T19:42:47.577756+00:00",
         "command": [
           "uv",
           "run",
@@ -2122,7 +2141,7 @@
         ],
         "cwd": ".",
         "timeout": 1800.0,
-        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
+        "fingerprint": "07717c95e4f163099bae76f3ca1a89b36d92eeac08ffe3304047d70c9ea43cea"
       },
       "runs": [
         {
@@ -2196,6 +2215,25 @@
           "cwd": ".",
           "timeout": 1800.0,
           "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
+        },
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "5b5a4c250b0945798cb8d6b0cfc6dbae",
+          "executed_at": "2026-10-15T19:42:47.577756+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "07717c95e4f163099bae76f3ca1a89b36d92eeac08ffe3304047d70c9ea43cea"
         }
       ]
     },
@@ -2215,15 +2253,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "E-04",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 4,
-        "run_id": "91817cc97e714b5ebecd30ff439e9187",
-        "executed_at": "2026-10-15T12:08:28.083492+00:00",
+        "revision": 5,
+        "run_id": "5b5a4c250b0945798cb8d6b0cfc6dbae",
+        "executed_at": "2026-10-15T19:42:47.577756+00:00",
         "command": [
           "make",
           "acceptance-e2e",
@@ -2231,7 +2269,7 @@
         ],
         "cwd": ".",
         "timeout": 1800.0,
-        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
+        "fingerprint": "07717c95e4f163099bae76f3ca1a89b36d92eeac08ffe3304047d70c9ea43cea"
       },
       "runs": [
         {
@@ -2297,6 +2335,23 @@
           "cwd": ".",
           "timeout": 1800.0,
           "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
+        },
+        {
+          "id": "E-04",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "5b5a4c250b0945798cb8d6b0cfc6dbae",
+          "executed_at": "2026-10-15T19:42:47.577756+00:00",
+          "command": [
+            "make",
+            "acceptance-e2e",
+            "DOMAIN=agent"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "07717c95e4f163099bae76f3ca1a89b36d92eeac08ffe3304047d70c9ea43cea"
         }
       ]
     },
@@ -2318,15 +2373,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "E-05",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 4,
-        "run_id": "91817cc97e714b5ebecd30ff439e9187",
-        "executed_at": "2026-10-15T12:08:28.083492+00:00",
+        "revision": 5,
+        "run_id": "5b5a4c250b0945798cb8d6b0cfc6dbae",
+        "executed_at": "2026-10-15T19:42:47.577756+00:00",
         "command": [
           "uv",
           "run",
@@ -2336,7 +2391,7 @@
         ],
         "cwd": ".",
         "timeout": 1800.0,
-        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
+        "fingerprint": "07717c95e4f163099bae76f3ca1a89b36d92eeac08ffe3304047d70c9ea43cea"
       },
       "runs": [
         {
@@ -2410,6 +2465,25 @@
           "cwd": ".",
           "timeout": 1800.0,
           "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "5b5a4c250b0945798cb8d6b0cfc6dbae",
+          "executed_at": "2026-10-15T19:42:47.577756+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "07717c95e4f163099bae76f3ca1a89b36d92eeac08ffe3304047d70c9ea43cea"
         }
       ]
     },
@@ -2431,15 +2505,15 @@
       "cwd": ".",
       "timeout": 1800.0,
       "depends_on": [],
-      "revision": 4,
+      "revision": 5,
       "evidence": {
         "id": "E-06",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 4,
-        "run_id": "91817cc97e714b5ebecd30ff439e9187",
-        "executed_at": "2026-10-15T12:08:28.083492+00:00",
+        "revision": 5,
+        "run_id": "5b5a4c250b0945798cb8d6b0cfc6dbae",
+        "executed_at": "2026-10-15T19:42:47.577756+00:00",
         "command": [
           "uv",
           "run",
@@ -2449,7 +2523,7 @@
         ],
         "cwd": ".",
         "timeout": 1800.0,
-        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
+        "fingerprint": "07717c95e4f163099bae76f3ca1a89b36d92eeac08ffe3304047d70c9ea43cea"
       },
       "runs": [
         {
@@ -2523,6 +2597,25 @@
           "cwd": ".",
           "timeout": 1800.0,
           "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
+        },
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "5b5a4c250b0945798cb8d6b0cfc6dbae",
+          "executed_at": "2026-10-15T19:42:47.577756+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_memory_redesign_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "07717c95e4f163099bae76f3ca1a89b36d92eeac08ffe3304047d70c9ea43cea"
         }
       ]
     },

@@ -256,7 +256,8 @@ async def _waiting_proposal(run_id: str) -> dict[str, Any]:
 
 async def _memory_rows(stack: GatewayStack, key: str) -> list[dict[str, Any]]:
     return await _fetch(
-        "SELECT memory_key,author,content_json,version,enabled,is_deleted,retirement_reason"
+        "SELECT memory_key,author,content_json,version,enabled,is_deleted,retirement_reason,"
+        " explicit_request,confirmed_count,confirmation_event_id,last_confirmed_at"
         " FROM runtime.user_memory WHERE tenant_id = :tenant AND memory_key = :key",
         {"tenant": stack.tenant_id, "key": key},
     )
@@ -574,11 +575,126 @@ async def test_e02_memory_redesign_real_confirmation_replay_and_rejection(
     assert resolved[0]["resolution_json"]["outcome"] == "REJECTED", resolved
 
 
-async def test_e03_memory_redesign_confirmed_preference_visible_after_new_conversation(
+async def _assert_preference_visible_after_new_conversation(
+    stack: GatewayStack, *, key: str, value: str = "中文"
+) -> None:
+    """/new 后「你好」首轮请求必须带该偏好；断言不依赖 query 含偏好原文。"""
+    _set_script(stack, final_text="好的。", consolidation_text=EMPTY_BATCH)
+    await _wait_for_gateway_ws(stack)
+    conversations_before = int(
+        await _scalar(
+            "SELECT count(*) FROM runtime.conversation WHERE tenant_id = :tenant",
+            {"tenant": stack.tenant_id},
+        )
+        or 0
+    )
+    await _new_conversation(stack)
+    conversations_after = int(
+        await _scalar(
+            "SELECT count(*) FROM runtime.conversation WHERE tenant_id = :tenant",
+            {"tenant": stack.tenant_id},
+        )
+        or 0
+    )
+    assert conversations_after == conversations_before + 1
+
+    run_id = await _started_run(stack, "你好")
+    await _wait_run_terminal(run_id)
+    body = _last_business_request(stack)
+    block = _system_text(body)
+    assert key in block and value in block, "已确认偏好在 /new 后的首轮请求必须可见"
+    user_texts = [
+        str(message.get("content") or "")
+        for message in body.get("messages") or []
+        if isinstance(message, dict) and message.get("role") == "user"
+    ]
+    assert any("你好" in item for item in user_texts)
+    assert all(value not in item for item in user_texts), "断言不依赖 query 含偏好原文"
+
+
+async def test_e03_memory_redesign_confirmed_user_preference_visible_after_new_conversation(
     gateway_stack: GatewayStack,
 ) -> None:
-    """已确认中文偏好在 /new 后「你好」首轮可见；query 不含「中文」。"""
+    """E-03：**真实用户确认**得到的 USER 偏好在 /new 后「你好」首轮可见（query 不含「中文」）。
+
+    链路必须真的经过：候选展示（真实 SSE→WS 帧）→ 用户真实确认（真实入站消息 + 确认事件）
+    → USER 事实（author/explicit_request/confirmed_count/confirmation_event_id 均为确认产物）
+    → /new 首轮请求。评审条目 8：直接经管理 API 写 ADMIN 事实覆盖不到这条链路，任何一环损坏
+    都必须红（ADMIN 通道另设独立对照用例）。
+    """
     key = f"e03.preference.{uuid.uuid4().hex[:6]}"
+    quote = "以后都用中文回答我"
+    _set_script(
+        gateway_stack,
+        tool_name="remember",
+        tool_arguments=_remember_arguments(key=key, value="中文", quote=quote),
+        final_text="请确认是否保存这条偏好。",
+        consolidation_text=EMPTY_BATCH,
+        tool_once=True,
+    )
+    await _wait_for_gateway_ws(gateway_stack)
+    # 新会话：`tool_once` 按「整段会话是否已有工具结果」判定，前序用例的会话里已有工具结果，
+    # 留在旧会话会让探针直接给 final_text（实测：候选永远不会出现）。
+    await _new_conversation(gateway_stack)
+    replies_before = len(_replies(gateway_stack))
+    run_id = await _started_run(gateway_stack, quote)
+
+    await _wait_for(
+        lambda: _scalar(
+            "SELECT count(*) FROM runtime.run_interrupt WHERE run_id = :run_id"
+            " AND interrupt_type = 'MEMORY_CONFIRMATION' AND status = 'WAITING'",
+            {"run_id": uuid.UUID(run_id)},
+        ),
+        what="真实 Run 未停在待确认的记忆提案",
+        timeout=REPLY_TIMEOUT_SEC,
+    )
+    proposal = await _waiting_proposal(run_id)
+    await _wait_for(
+        lambda: f"候选编号：{proposal['id']}" in "\n".join(_replies(gateway_stack)[replies_before:]),
+        what="候选提示未经真实 SSE 渲染投递到 WS 帧",
+        timeout=REPLY_TIMEOUT_SEC,
+    )
+    assert await _memory_rows(gateway_stack, key) == [], "未经确认不得产生事实"
+
+    await _push(gateway_stack, text=f"确认 {proposal['id']}")
+    await _wait_run_terminal(run_id)
+    rows = await _memory_rows(gateway_stack, key)
+    assert len(rows) == 1, rows
+    row = rows[0]
+    assert row["author"] == "USER" and row["version"] == 1, rows
+    assert row["explicit_request"] is True and row["confirmed_count"] == 1, rows
+    assert row["confirmation_event_id"] is not None and row["last_confirmed_at"] is not None, rows
+    resolution = await _fetch(
+        "SELECT resolution_json FROM runtime.run_interrupt WHERE id = :id",
+        {"id": uuid.UUID(str(proposal["id"]))},
+    )
+    assert resolution[0]["resolution_json"]["outcome"] == "CONFIRMED", resolution
+    assert (
+        await _scalar(
+            "SELECT count(*) FROM runtime.canonical_event WHERE tenant_id = :tenant"
+            " AND event_type = 'MEMORY_CONFIRMATION_RESOLVED' AND source_event_id = :id"
+            " AND is_deleted = false",
+            {"tenant": gateway_stack.tenant_id, "id": uuid.UUID(str(proposal["id"]))},
+        )
+        == 1
+    ), "真实确认必须有 MEMORY_CONFIRMATION_RESOLVED 事件"
+    await _wait_for(
+        lambda: "记忆已保存" in "\n".join(_replies(gateway_stack)[replies_before:]),
+        what="确认结果未投递到 WS 帧",
+        timeout=REPLY_TIMEOUT_SEC,
+    )
+
+    await _assert_preference_visible_after_new_conversation(gateway_stack, key=key)
+
+
+async def test_e03_memory_redesign_admin_preference_visible_after_new_conversation(
+    gateway_stack: GatewayStack,
+) -> None:
+    """E-03 对照：ADMIN 显式录入（管理 API）的偏好在 /new 后首轮同样可见，来源保持 ADMIN。
+
+    与 USER 链路分开断言：ADMIN 通道不经过候选确认，不能用它代替真实用户确认的覆盖。
+    """
+    key = f"e03.admin.{uuid.uuid4().hex[:6]}"
     command_id = uuid.uuid4().hex
     # Runtime 管理命令契约（TASK-023）：一条命令一个 mutation，调用方不选作者。
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -599,38 +715,8 @@ async def test_e03_memory_redesign_confirmed_preference_visible_after_new_conver
     assert created.status_code == 200, created.text
     rows = await _memory_rows(gateway_stack, key)
     assert len(rows) == 1 and rows[0]["author"] == "ADMIN", rows
-    # 偏好通道与 query 无关：不依赖用户输入出现「中文」
-    _set_script(gateway_stack, final_text="好的。", consolidation_text=EMPTY_BATCH)
-    await _wait_for_gateway_ws(gateway_stack)
-    conversations_before = int(
-        await _scalar(
-            "SELECT count(*) FROM runtime.conversation WHERE tenant_id = :tenant",
-            {"tenant": gateway_stack.tenant_id},
-        )
-        or 0
-    )
-    await _new_conversation(gateway_stack)
-    conversations_after = int(
-        await _scalar(
-            "SELECT count(*) FROM runtime.conversation WHERE tenant_id = :tenant",
-            {"tenant": gateway_stack.tenant_id},
-        )
-        or 0
-    )
-    assert conversations_after == conversations_before + 1
 
-    run_id = await _started_run(gateway_stack, "你好")
-    await _wait_run_terminal(run_id)
-    body = _last_business_request(gateway_stack)
-    block = _system_text(body)
-    assert key in block and "中文" in block, "已确认偏好在 /new 后的首轮请求必须可见"
-    user_texts = [
-        str(message.get("content") or "")
-        for message in body.get("messages") or []
-        if isinstance(message, dict) and message.get("role") == "user"
-    ]
-    assert any("你好" in item for item in user_texts)
-    assert all("中文" not in item for item in user_texts), "断言不依赖 query 含「中文」"
+    await _assert_preference_visible_after_new_conversation(gateway_stack, key=key)
 
 
 async def test_e05_memory_redesign_default_consolidation_then_new_conversation_resume(
