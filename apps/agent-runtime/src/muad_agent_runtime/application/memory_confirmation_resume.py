@@ -52,10 +52,24 @@ class ConfirmationResult(ContractModel):
 
 
 def prepare_confirmation(interrupts: list[RunInterrupt], text: str) -> PendingConfirmation | None:
-    pending = [row for row in interrupts if row.interrupt_type == "MEMORY_CONFIRMATION"]
-    if not pending:
-        return None
+    """`interrupts` 是该 Run 的全部中断：终态提议的确认必须被拒，不得静默降级为普通消息。"""
+    pending = [
+        row
+        for row in interrupts
+        if row.interrupt_type == "MEMORY_CONFIRMATION" and row.status == "WAITING"
+    ]
     match = _ANSWER.fullmatch(text.strip())
+    if not pending:
+        reference = UUID(match.group(2)) if match is not None else None
+        revoked = [
+            row
+            for row in interrupts
+            if row.interrupt_type == "MEMORY_CONFIRMATION" and row.id == reference
+        ]
+        if revoked:
+            observe("memory_confirmation_total", labels={"outcome": "EXPIRED"})
+            raise AppError(ErrorCode.MEMORY_CONFIRMATION_EXPIRED)
+        return None
     if len(pending) != 1 or match is None or UUID(match.group(2)) != pending[0].id:
         observe("memory_confirmation_total", labels={"outcome": "INVALID"})
         raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)

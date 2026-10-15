@@ -20,6 +20,11 @@ def ensure_human_resume(run: RunRecord, now: datetime) -> None:
 
 
 async def lock_human_resume(session: AsyncSession, run: RunRecord) -> list[RunInterrupt]:
+    """锁定该 Run 的**全部**中断：终态的记忆提议也要进入 `prepare_confirmation` 的裁决。
+
+    只锁 WAITING 会让「被撤销/已过期提议」的确认静默降级成普通消息；把终态行一并锁住，
+    确认路径才能对它显式拒绝（`MEMORY_CONFIRMATION_EXPIRED`）且与撤销方互斥。
+    """
     owned = await session.scalar(
         select(Conversation.id)
         .where(
@@ -54,7 +59,6 @@ async def lock_human_resume(session: AsyncSession, run: RunRecord) -> list[RunIn
                 RunInterrupt.tenant_id == run.tenant_id,
                 RunInterrupt.run_id == run.id,
                 RunInterrupt.conversation_id == run.conversation_id,
-                RunInterrupt.status == "WAITING",
                 RunInterrupt.is_deleted.is_(False),
             )
             .order_by(RunInterrupt.id)
@@ -86,6 +90,8 @@ async def transition_human_resume(session: AsyncSession, run: RunRecord) -> None
 async def resolve_generic_interrupts(session: AsyncSession, rows: list[RunInterrupt], text: str) -> None:
     now = await _database_now(session)
     for row in rows:
+        if row.status != "WAITING":
+            continue
         if row.interrupt_type == "MEMORY_CONFIRMATION":
             raise RuntimeError("memory confirmation must use the dedicated dispatcher")
         row.status, row.resolved_at, row.update_time = "RESOLVED", now, now

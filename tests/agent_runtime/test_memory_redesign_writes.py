@@ -7,10 +7,21 @@ from uuid import uuid4
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_runtime.application.memory_admin import MemoryAdminService
+from muad_agent_runtime.infrastructure.models.runtime import (
+    MemoryCommandReceipt,
+    RunInterrupt,
+    RunRecord,
+    UserMemory,
+    UserMemoryHistory,
+)
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts.memory_admin import MemoryAdminMutation, MemoryAdminRequest
+from muad_contracts.platform_settings import MemoryPolicySettings
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from tests.agent_runtime.memory_confirmation_resume_support import confirmation_stack, rows
 from tests.agent_runtime.memory_redesign_write_support import (
     command,
     commands,
@@ -326,3 +337,56 @@ async def test_b03_memory_redesign_enable_restore_keep_author_and_require_new_ex
     )
     row = (await service.list_entries(ctx.tenant_id, ctx.user_id))[0]
     assert row["author"] == "AGENT" and row["expires_at"] is not None
+
+
+async def _admin_clear(stack, request: MemoryAdminRequest, command_id: str):
+    """真实 Runtime 管理链路：Console 清空走同一 `MemoryAdminService` 命令入口。"""
+    async with stack.factory() as session:
+        return await MemoryAdminService(session, MemoryPolicySettings()).execute(
+            stack.run.tenant_id, stack.run.user_id, request, command_id=command_id
+        )
+
+
+async def test_b03_memory_redesign_clear_revokes_pending_proposal_and_rejects_late_confirmation(
+    async_tool_database, monkeypatch
+):
+    """[RULE-memory-004] CLEAR 是显式删除边界：空库也撤销 pending 提议、推进撤销边界并拒绝迟到确认。
+
+    真实边界：真实 PostgreSQL（隔离 head 库）+ 真实 Runtime 管理入口（MemoryAdminService）
+    + 真实 Runtime HTTP/SSE 确认链路（confirmation_stack）。RED 依据：评审条目 1 的独立 PG
+    复现（清空后提议仍 WAITING、确认成功写入 USER 事实）。
+    """
+    async with confirmation_stack(async_tool_database, monkeypatch) as stack:
+        assert await rows(stack, UserMemory) == [], "场景前提：库内没有已保存记忆"
+        pending = (await rows(stack, RunInterrupt))[0]
+        assert pending.status == "WAITING" and pending.interrupt_type == "MEMORY_CONFIRMATION"
+
+        clear = MemoryAdminRequest(actor_id=uuid4(), mutation=MemoryAdminMutation(action="CLEAR"))
+        response = await _admin_clear(stack, clear, "clear-pending")
+        assert response.changed_count == 0, "空库清空不产生事实变更"
+        assert response.forget_epoch == 1, "空库清空也必须推进撤销边界（forget_epoch+1）"
+        revoked = (await rows(stack, RunInterrupt))[0]
+        assert revoked.status == "CANCELLED", "CLEAR 必须把该用户全部 pending 提议置终态"
+        assert revoked.resolution_json["reason"] == "MEMORY_CLEAR"
+        revoked_at = revoked.resolved_at
+
+        with pytest.raises(AppError) as exc:
+            await stack.submit(f"确认 {stack.proposal_id}")
+        assert exc.value.code == ErrorCode.MEMORY_CONFIRMATION_EXPIRED
+        assert await rows(stack, UserMemory) == [], "被撤销提议的确认不得产生 USER 事实"
+        assert await rows(stack, UserMemoryHistory) == []
+        assert stack.captured == [], "拒绝必须发生在模型调用之前"
+
+        # 重连/重复提交（新消息号）同样被拒：提议已终态，拒绝必须可重放且无副作用。
+        with pytest.raises(AppError) as duplicate:
+            await stack.submit(f"确认 {stack.proposal_id}", message_id="reconnect-confirm")
+        assert duplicate.value.code == ErrorCode.MEMORY_CONFIRMATION_EXPIRED
+        assert await rows(stack, UserMemory) == [] and stack.captured == []
+        assert (await rows(stack, RunInterrupt))[0].status == "CANCELLED"
+        assert (await rows(stack, RunRecord))[0].status == "WAITING_INPUT"
+
+        replay = await _admin_clear(stack, clear, "clear-pending")
+        assert replay.model_dump(mode="json") == response.model_dump(mode="json"), "重放返回首次回执"
+        replayed = (await rows(stack, RunInterrupt))[0]
+        assert replayed.status == "CANCELLED" and replayed.resolved_at == revoked_at, "重放不得二次撤销"
+        assert len(await rows(stack, MemoryCommandReceipt)) == 1

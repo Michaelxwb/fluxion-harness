@@ -24,6 +24,8 @@ from ..infrastructure.models.runtime import (
     Conversation,
     MemoryCommandReceipt,
     MemoryScope,
+    RunInterrupt,
+    RunRecord,
     UserMemory,
 )
 from .memory_commands import MemoryCommand, MemoryCommandOutcome, MemoryWriteContext
@@ -87,6 +89,53 @@ async def _lock_command(session: AsyncSession, ctx: MemoryWriteContext, command:
     identity = canonical_json(["memory_command_receipt", ctx.tenant_id, command.command_id])
     key = int.from_bytes(hashlib.sha256(identity.encode()).digest()[:8], "big", signed=True)
     await session.execute(select(func.pg_advisory_xact_lock(key)))
+
+
+async def _lock_clear_revocations(
+    session: AsyncSession, ctx: MemoryWriteContext, command: MemoryCommand
+) -> list[RunInterrupt]:
+    """CLEAR 撤销该用户全部 pending 记忆提议；先于 memory_scope 取 interrupt 锁（见 `_execute_locked`）。"""
+    if not any(item.action == "CLEAR" for item in command.mutations):
+        return []
+    return list(
+        await session.scalars(
+            select(RunInterrupt)
+            .join(RunRecord, RunInterrupt.run_id == RunRecord.id)
+            .where(
+                RunInterrupt.tenant_id == ctx.tenant_id,
+                RunInterrupt.interrupt_type == "MEMORY_CONFIRMATION",
+                RunInterrupt.status == "WAITING",
+                RunInterrupt.is_deleted.is_(False),
+                RunRecord.tenant_id == ctx.tenant_id,
+                RunRecord.user_id == ctx.user_id,
+                RunRecord.is_deleted.is_(False),
+            )
+            .with_for_update(of=RunInterrupt)
+        )
+    )
+
+
+def _revoke_pending_proposals(rows: list[RunInterrupt], now: datetime) -> None:
+    """置终态而不是删行：提议的展示/审计轨迹保留，`WAITING` 唯一索引同时释放。"""
+    for row in rows:
+        row.status = "CANCELLED"
+        row.resolved_at = now
+        row.update_time = now
+        row.resolution_json = {"reason": "MEMORY_CLEAR"}
+
+
+def _advance_scope(
+    scope: MemoryScope, command: MemoryCommand, plan: MemoryBatchPlan, now: datetime
+) -> None:
+    """CLEAR 是显式删除边界：即使库内没有事实变更（空库）也推进 forget_epoch。"""
+    clear = any(item.action == "CLEAR" for item in command.mutations)
+    deleted = any(change.reason in ("USER_DELETE", "ADMIN_DELETE") for change in plan.changes)
+    if plan.changes:
+        scope.revision += 1
+    if clear or deleted:
+        scope.forget_epoch += 1
+    if plan.changes or clear:
+        scope.update_time = now
 
 
 async def _receipt(
@@ -246,11 +295,14 @@ class MemoryService:
         self, session: AsyncSession, ctx: MemoryWriteContext, command: MemoryCommand
     ) -> MemoryCommandOutcome:
         fingerprint = command_fingerprint(ctx, command)
-        scope = await self.lock_scope(session, ctx)
         await _lock_command(session, ctx, command)
         replay = await _receipt(session, ctx, command, fingerprint)
         if replay is not None:
             return replay
+        # 锁序：CLEAR 的 interrupt 锁必须在 memory_scope 之前。确认/过期路径按
+        # Conversation→Run→interrupt→memory_scope 取锁；先 scope 后 interrupt 会与之成环。
+        revoked = await _lock_clear_revocations(session, ctx, command)
+        scope = await self.lock_scope(session, ctx)
         response = MemoryCommandResponse(
             command_id=command.command_id,
             scope_revision=scope.revision,
@@ -260,7 +312,7 @@ class MemoryService:
             items=[],
         )
         if not _stale(scope, ctx, command):
-            response = await self._apply(session, ctx, command, scope)
+            response = await self._apply(session, ctx, command, scope, revoked)
         receipt = await _save_receipt(session, ctx, command, fingerprint, response)
         after_commit(
             session,
@@ -277,7 +329,11 @@ class MemoryService:
 
     @staticmethod
     async def _apply(
-        session: AsyncSession, ctx: MemoryWriteContext, command: MemoryCommand, scope: MemoryScope
+        session: AsyncSession,
+        ctx: MemoryWriteContext,
+        command: MemoryCommand,
+        scope: MemoryScope,
+        revoked: list[RunInterrupt],
     ) -> MemoryCommandResponse:
         await _validate_confirmation(session, ctx, command)
         now: datetime = (await session.execute(select(func.statement_timestamp()))).scalar_one()
@@ -301,11 +357,8 @@ class MemoryService:
         plan = plan_mutations(command, ctx, rows, now, scope.revision + 1, times)
         results = await persist_plan(session, ctx, command, rows, plan, now)
         _observe_retirements(session, plan)
-        if plan.changes:
-            scope.revision += 1
-            scope.update_time = now
-            if any(change.reason in ("USER_DELETE", "ADMIN_DELETE") for change in plan.changes):
-                scope.forget_epoch += 1
+        _advance_scope(scope, command, plan, now)
+        _revoke_pending_proposals(revoked, now)
         return MemoryCommandResponse(
             command_id=command.command_id,
             scope_revision=scope.revision,
