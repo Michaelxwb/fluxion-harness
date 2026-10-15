@@ -11,7 +11,7 @@
 
 ## TASK-001: CLEAR 撤销 pending 提议并推进撤销边界（P1）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: 
 - **Source**: GPT 评审条目 1；memory-redesign.design.md#3.7 API 与 Console（“清空撤销所有 pending 提议”）
@@ -64,7 +64,7 @@
 
 ## TASK-002: 前端重试持有命令号与输入（P1）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: 
 - **Source**: GPT 评审条目 3
@@ -119,7 +119,7 @@
 
 ## TASK-003: Console 列表与总数同一读取快照（P2）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: 
 - **Source**: GPT 评审条目 4
@@ -171,7 +171,7 @@
 
 ## TASK-004: 删除后的恢复与历史界面入口（P2）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: 
 - **Source**: GPT 评审条目 5、6；memory-redesign.design.md#3.7（RESTORE 语义、deleted 历史可查）
@@ -231,7 +231,7 @@
 
 ## TASK-005: dfx 探针按调用用途区分业务与提炼（P2）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: 
 - **Source**: GPT 评审条目 7
@@ -284,7 +284,7 @@
 
 ## TASK-006: E-03 经真实用户确认（P2）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: 
 - **Source**: GPT 评审条目 8
@@ -335,7 +335,7 @@ E-03 直接经管理 API 写入偏好并断言 `author == ADMIN`，没有走真�
 
 ## TASK-007: multipod 杀进程用例的确定性窗口（消除 flaky）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-006
 - **Source**: 本需求 verify-e2e 的 acceptance 段实测；memory-redesign.design.md#3.6 consolidation 生命周期（旁证：整跑负载下的时序窗口）

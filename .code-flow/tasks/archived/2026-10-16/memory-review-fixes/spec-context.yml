@@ -1,7 +1,7 @@
 version: 1
 task: memory-review-fixes
 enforcement: required
-updated_at: '2026-10-15T19:20:00.556559+00:00'
+updated_at: '2026-10-15T22:45:41.216748+00:00'
 sources:
 - type: cli
   ref: bind
@@ -47,12 +47,16 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-002
+          item_id: TASK-002
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -145,6 +149,29 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-15T22:15:49.815964+00:00'
+          status: verified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: c691c4fd1c42be8a9502f790f2ad9d8af11a4231e777d3666b3fc3717f138fa5
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 84e0448ccbf0640b1612abedb4e2155304501ab0dc416b5570699564f875bdc1
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.01s
+
+              '
       review:
         status: pending
         refs: []
@@ -165,12 +192,16 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-004
+          item_id: TASK-004
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -269,6 +300,35 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-15T22:15:52.436540+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: f58483c8351370098b563d5579f4b2fd4a08397382b09c5473ef3c01612cbcd6
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 0bb234a89630d566d88d52456e58665767cdc1ce1591cbcd6d328639a2352420
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.22s\n"
       review:
         status: pending
         refs: []
@@ -308,12 +368,16 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-002
+          item_id: TASK-002
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -394,6 +458,39 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-15T22:15:54.851762+00:00'
+          status: verified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: 61d0c813384ff177250354fc5c060099477c136e8bc8f0adc7ee1e201bebc10e
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run
+              python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: 3b11f880530f85a47dc1071cff884df426ae4a0cb981abe26338791982c5906d
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.02s
+
+              frontend api usage check OK
+
+              i18n keys OK: 1167
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
       review:
         status: pending
         refs: []
@@ -429,12 +526,16 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-004
+          item_id: TASK-004
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -484,6 +585,30 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-15T22:15:56.778817+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: 0d4a0d8470f046d8811b241c33d2116d15563e2afa0f9463178c378831d818ba
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 8a9a3d07d46f339ab0c589bccfd29ed0ea118afaddd164d02ed6146973cd4906
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.52s
+
+              i18n keys OK: 1167
+
+              '
       review:
         status: pending
         refs: []
@@ -520,8 +645,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
@@ -530,10 +659,37 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-001
+          executed_at: '2026-10-15T22:17:25.042360+00:00'
+          status: verified
+          rule_text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: 5b197f47ac188281a347c22a0c304c992755b1402e93f80040571fce99193da2
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_core/test_memory_redesign_evidence.py
+            - tests/agent_runtime/test_memory_redesign_confirmation.py
+            exit_code: 0
+            stdout_sha256: 56127daaa9996cdf4378d08bbc787f6bd4cda082423b1648bf41bc5056ab2996
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 90%]
+
+              ........                                                                 [100%]
+
+              80 passed in 86.38s (0:01:26)
+
+              '
   - ref: RULE-memory-002
     summary: Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。同
       tenant/user/key 使用完整唯一身份，软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope
@@ -549,8 +705,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
@@ -559,10 +719,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-002
+          executed_at: '2026-10-15T22:18:03.805743+00:00'
+          status: verified
+          rule_text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: b7ea7c53c3cbdff3ba659acea3cfb693167207364a0c51c7544101a8f492014e
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_writes.py
+            - tests/agent_runtime/test_memory_redesign_quotas.py
+            exit_code: 0
+            stdout_sha256: f2fdb1ce923f2a132ce533636a6d37f925118e94679b58317da29a67f8ede85d
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..........................                                               [100%]
+
+              26 passed in 37.71s
+
+              '
   - ref: RULE-memory-003
     summary: 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖
       query。revision 缓存只存候选行：冷读取行与实际 revision 同快照，暖读取 revision 与当前语句时间，并逐次过滤 TTL、重新选择/渲染；读取失败清除旧缓存和
@@ -579,8 +763,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
@@ -589,10 +777,35 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-003
+          executed_at: '2026-10-15T22:19:07.478504+00:00'
+          status: verified
+          rule_text_sha256: 906176dd9052cf4e5a36ed341041e759f6fb1f9e6b37f0447f715926715f85b7
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: 90eb24b46cf39f67a8a9bf7b7c882a8dde78308c6894d4a3d6b7a3dd183dba33
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_cache.py
+            - tests/agent_runtime/test_memory_redesign_context.py
+            - tests/agent_core/test_memory_redesign_selection.py
+            exit_code: 0
+            stdout_sha256: bed594837f33cb64feda0a609ae798b1a9fb8cb3c258891c8c1ae8ad2739bd70
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................                 [100%]
+
+              56 passed in 62.58s (0:01:02)
+
+              '
   - ref: RULE-memory-004
     summary: 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled
       或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision
@@ -608,8 +821,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
@@ -618,10 +835,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-004
+          executed_at: '2026-10-15T22:21:23.654603+00:00'
+          status: verified
+          rule_text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: 7a9a1f55576c2373239da7aff9ce8b5f0d103299175fd32e373ee0c40e1531f5
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_job_effects.py
+            - tests/agent_runtime/test_memory_redesign_confirmation.py
+            exit_code: 0
+            stdout_sha256: 69be2bff8a1cb7779c7feffe86aebc2f1fbd3685885358514abe849d3a47053e
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...........................................................              [100%]
+
+              59 passed in 133.97s (0:02:13)
+
+              '
   - ref: RULE-memory-005
     summary: 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同
       fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立
@@ -638,8 +879,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
@@ -648,10 +893,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-005
+          executed_at: '2026-10-15T22:22:22.307555+00:00'
+          status: verified
+          rule_text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: 204918f83dcc768821b394f2fa89b14239125bd147d3631adce5438779529b5e
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_job_effects.py
+            - tests/agent_runtime/test_memory_redesign_input_boundary.py
+            exit_code: 0
+            stdout_sha256: 846072ff38a5745aee0a6f8f027356699811f42a0c56803ee931d93828d93a79
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...................................                                      [100%]
+
+              35 passed in 57.39s
+
+              '
   - ref: RULE-memory-006
     summary: 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途
       Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和
@@ -667,8 +936,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
@@ -677,10 +950,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-006
+          executed_at: '2026-10-15T22:22:33.705461+00:00'
+          status: verified
+          rule_text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: 4a14374a16058b416919002a9d27c68172f80b7298bdc0f2580e76a913a38a3c
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/migrations/test_memory_redesign_migration.py
+            - tests/agent_runtime/test_memory_redesign_snapshot.py
+            exit_code: 0
+            stdout_sha256: fba8422cadb81f2c57a6bf2f72fe5899504c7af8825eeb7544e8664b4d151342
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............                                                             [100%]
+
+              12 passed in 10.26s
+
+              '
 - spec_id: harness-snapshot
   path: snapshot/harness-snapshot.md
   status: active
@@ -713,12 +1010,16 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -799,6 +1100,32 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-15T22:22:47.137917+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: 55a43962e6f0881b5b352f99abca7ecffee905fd1f1e048bbb2b110f8187f116
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 05a877060e318b397a00b65a8af1c5676337393aa03e9f9aa104268694241c81
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.82s
+
+              ..................................                                       [100%]
+
+              34 passed, 731 deselected in 9.53s
+
+              '
       review:
         status: pending
         refs: []
@@ -834,12 +1161,16 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-006
+          item_id: TASK-006
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -920,6 +1251,64 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-15T22:45:09.072030+00:00'
+          status: verified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: 01aec4b265c3f392126d9518a0520ce9f6471c228c7c15b4ef4fcf1ef7e81fd0
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend
+              run build && npm --prefix e2e test
+            exit_code: 0
+            stdout_sha256: def01772322b60f84193e6c01aa5b5586f39f1cd1febe10fb9d3c1dfc4706a7f
+            stderr_sha256: d5234247878c579f1fb63c5d374a1bff7cd196d09035591391c670478a52ac25
+            output: "ad-console-web@0.1.0 typecheck\n> tsc --noEmit\n\nvite v5.4.21\
+              \ building for production...\ntransforming...\n✓ 4110 modules transformed.\n\
+              rendering chunks...\ncomputing gzip size...\ndist/index.html       \
+              \              0.44 kB │ gzip:     0.30 kB\ndist/assets/index-DvIw6pX8.css\
+              \    733.51 kB │ gzip:    86.28 kB\ndist/assets/index-iwLsWGfe.js  \
+              \ 3,383.99 kB │ gzip: 1,026.65 kB\n✓ built in 4.28s\n\n> fluxion-harness-e2e@0.1.0\
+              \ test\n> playwright test\n\n\nRunning 4 tests using 1 worker\n\n  ✓\
+              \  1 tests/foundation.spec.ts:17:1 › S-03 切到 English 后触发错误时页面文案与后端 msg\
+              \ 同步为 en-US (1.3s)\n  ✓  2 tests/foundation.spec.ts:36:1 › S-12 切换模块路由时\
+              \ Layout 不重建且菜单选中正确 (419ms)\n  ✓  3 tests/foundation.spec.ts:52:1 ›\
+              \ S-13 切换 English 后刷新语言保持且请求带 X-Locale=en-US (542ms)\n  ✓  4 tests/foundation.spec.ts:64:1\
+              \ › E-09 会话失效访问业务页跳转登录并保留 returnUrl，不渲染业务数据 (483ms)\n\n  4 passed (9.6s)\n\
+              [plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter]\
+              \ [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n\n(!) Some\
+              \ chunks are larger than 500 kB after minification. Consider:\n- Using\
+              \ dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n\
+              [WebServer] INFO:     Started server process [47652]\n[WebServer] INFO:\
+              \     Waiting for application startup.\n[WebServer] INFO:     Application\
+              \ startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4173\
+              \ (Press CTRL+C to quit)\n"
       review:
         status: pending
         refs: []
@@ -955,12 +1344,16 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-review-fixes.md
+          section_id: TASK-004
+          item_id: TASK-004
+          artifact_sha256: 57d683eb59b2ec9a0f0f3fc085a85fd7e0320f8be2dfbbed8e977aed6db439fe
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1041,6 +1434,57 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-15T22:45:15.345123+00:00'
+          status: verified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: head:85ae10d53b4c4efe34cdc6968973e4d2a7698073
+          result_sha256: 091cb72100056215cc0b688c5550a2a0a9040a3a5a5db0a19b54ae322432e9c8
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
+              && npm --prefix apps/console-platform/frontend run build
+            exit_code: 0
+            stdout_sha256: f4d63364f48132390ee51f73951e4a597875c0720b7678c4823ca7629c8ec1bc
+            stderr_sha256: 5cca1eb16663f21b3842cf16b16a9da001d1240a85c73c5e1e8d43619b24c354
+            output: ".........                                                   \
+              \             [100%]\n9 passed in 0.02s\n\n> muad-console-web@0.1.0\
+              \ build\n> npm run typecheck && vite build\n\n\n> muad-console-web@0.1.0\
+              \ typecheck\n> tsc --noEmit\n\nvite v5.4.21 building for production...\n\
+              transforming...\n✓ 4110 modules transformed.\nrendering chunks...\n\
+              computing gzip size...\ndist/index.html                     0.44 kB\
+              \ │ gzip:     0.30 kB\ndist/assets/index-DvIw6pX8.css    733.51 kB │\
+              \ gzip:    86.28 kB\ndist/assets/index-iwLsWGfe.js   3,383.99 kB │ gzip:\
+              \ 1,026.65 kB\n✓ built in 3.98s\n[plugin:vite:reporter] [plugin vite:reporter]\
+              \ \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter]\
+              \ [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n\n(!) Some\
+              \ chunks are larger than 500 kB after minification. Consider:\n- Using\
+              \ dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n"
       review:
         status: pending
         refs: []
