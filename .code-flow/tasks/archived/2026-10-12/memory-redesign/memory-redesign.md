@@ -199,6 +199,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 |---|---|---|---|---|---|
 | B-01 | uv run pytest -q tests/agent_core/test_memory_redesign_evidence.py --tb=short：32 failed，缺少目标 contracts.memory 和 core.memory.evidence 实现；测试已正常收集 | uv run pytest -q tests/agent_core/test_memory_redesign_evidence.py tests/test_memory_redesign_spec_contract.py：52 passed（43 新契约 + 9 规范回归）；mypy 3 files + ruff pass | tests/agent_core/test_memory_redesign_evidence.py:26,38,47,95,102,134,145 | 直接执行纯函数与严格 Pydantic DTO，无 IO/mock；参数覆盖否定/条件/片段/伪造身份 | verified |
 - B-01: verified — automated command passed; run_id=f264f08512314c8688487eccfa49bb58 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Log
 
@@ -324,6 +325,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 |---|---|---|---|---|---|
 | B-02 | uv run pytest -q tests/agent_core/test_memory_redesign_selection.py --tb=no：16 failed；缺少纯词法和排序模块 | 两个 core memory 契约文件：61 passed（18 selection + 43 evidence）；mypy 4 files 与 ruff pass；acceptance runner owner TASK-005 pass | tests/agent_core/test_memory_redesign_selection.py:29,46,57,69,81,93,105,110 | 直接执行分词、匹配、选择；now 显式传入，无 DB/network/mock；结构 JSON 字段不冒充内容命中 | verified |
 - B-02: verified — automated command passed; run_id=7f0ca5e018744b63ae01c57eaa7dae56 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Log
 
@@ -429,6 +431,9 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 - B-13: verified — automated command passed; run_id=eee5c9571f1446cfb6a78c37734aa236 (confirmed_by: runner)
 - B-14: verified — automated command passed; run_id=eee5c9571f1446cfb6a78c37734aa236 (confirmed_by: runner)
 - B-20: verified — automated command passed; run_id=eee5c9571f1446cfb6a78c37734aa236 (confirmed_by: runner)
+- B-13: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
+- B-14: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
+- B-20: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Log
 
@@ -527,6 +532,9 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 - B-03: verified — automated command passed; run_id=a031545c3bf9418aaf87cd3ecf5595c3 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=a031545c3bf9418aaf87cd3ecf5595c3 (confirmed_by: runner)
 - B-18: verified — automated command passed; run_id=a031545c3bf9418aaf87cd3ecf5595c3 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
+- B-18: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Log
 
@@ -572,6 +580,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 - 补充回归：uv run pytest -q tests/agent_core/test_memory_redesign_selection.py tests/agent_core/test_memory_redesign_render.py tests/agent_runtime/test_memory_service.py tests/agent_runtime/test_memory_redesign_writes.py tests/agent_runtime/test_memory_redesign_quotas.py --tb=short：61 passed。
 - 验证：code-flow validate --no-heavy pass；ruff/mypy pass；所有新增函数≤50行。SQL计数故障已澄清：首次17 passed/1 failed仅因把writer scope SELECT混入reader计数；改用独立reader engine后真实full=2/head=2、18 passed，不降低边界。
+- B-23: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Log
 
@@ -675,6 +684,8 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 - E-01: e2e_deferred — automated command e2e_deferred; run_id=7801ac29e8f84f299e91e2329acee90b (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=1551ea02791047329170f3a0f008c561 (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
+- B-09: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Log
 
@@ -721,6 +732,8 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 | B-07 | 同一实际命令：production_forget 三例失败，真实 HTTP 第二次请求仍含 old_memory_value；registry 未注册 forget | GREEN：同55例命令；最终历史查询/构造抽取经Done Gate契约重跑通过；runner run_id=8482717bbbc94964b5d8034f95481b9e，decision=pass | test_memory_redesign_context.py:430、_assert_forget_history（下一HTTP组件、删除失败/刷新失败、history/canonical保留）；test_memory_tools.py:23（生产remember完整回合暂停） | 真实 default_executor_factory、PG、模型 HTTP；删除失败用 PG history trigger，刷新失败用 PG 事实损坏 trigger；canonical/history 不 mock | verified |
 - B-06: verified — automated command passed; run_id=8482717bbbc94964b5d8034f95481b9e (confirmed_by: runner)
 - B-07: verified — automated command passed; run_id=8482717bbbc94964b5d8034f95481b9e (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Regression Evidence
 
@@ -877,6 +890,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 - 凭据剥离/hash稳定性由原Snapshot用例及TASK-015真实API-09旋转覆盖；source memory.consolidation_timeout_sec与主Run deadline_ms单腿对照不互相覆盖。正式job执行B-12仍由TASK-021最终验收。
 - 轻量validation：语法/mypy已pass；Ruff已pass。无E2E提前执行。
 - B-22: verified — automated command passed; run_id=7fbe93fc130b4b61a10d99dc25d8acff (confirmed_by: runner)
+- B-22: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Log
 
@@ -927,6 +941,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 - 明确命令匹配发生于Runtime的当前canonical USER_MESSAGE，复核受信submission/owner/epoch/deadline并走统一writer；其他候选保持完整回合暂停。`memory.confirmation_required`贯穿SSE白名单/Progress/Renderer/Inbound等待判断，重放不再被误报断流；续接编号仍由Runtime message.delta原文承载，不在Gateway重排。
 - 新模块/重写函数≤50行，Ruff与轻量语法/mypy validation pass。日志 `/tmp/fluxion-task017-regression.txt`、`/tmp/fluxion-task017-im-verifier.txt`、`/tmp/fluxion-task017-validation.json`。E-02/E-05最终E2E仍由TASK-030登记，未提前执行。
 - B-15: verified — automated command passed; run_id=421fd0ea281f447bb5be359071f5afa9 (confirmed_by: runner)
+- B-15: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Log
 
@@ -1021,6 +1036,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 - 原Rule verifier：独立PG环境按元数据bash argv实际执行，8 passed + 1 passed/13 deselected，`/tmp/fluxion-task019-verifier.txt`。
 - 受影响回归：context events/rebuild、memory policy/observability共通过，`/tmp/fluxion-task019-regression.txt`；轻量validation pass。B-21最终持久输入hash/epoch断言归TASK-021，本任务仅提供不可越界的构建器与strict DTO。
 - B-19: verified — automated command passed; run_id=cb997276ad644928a247a3bb0a600474 (confirmed_by: runner)
+- B-19: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Log
 
@@ -1128,6 +1144,12 @@ COMPLETED终态内savepoint入队；PG claim/epoch/lease/attempt唯一；首次�
 - B-16: verified — automated command passed; run_id=1ce19268a54748e5a6716d295f2e35e9 (confirmed_by: runner)
 - B-17: verified — automated command passed; run_id=1ce19268a54748e5a6716d295f2e35e9 (confirmed_by: runner)
 - B-21: verified — automated command passed; run_id=1ce19268a54748e5a6716d295f2e35e9 (confirmed_by: runner)
+- B-10: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
+- B-11: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
+- B-12: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
+- B-16: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
+- B-17: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
+- B-21: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Log
 
@@ -1539,6 +1561,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 - S-02: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=1551ea02791047329170f3a0f008c561 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=1551ea02791047329170f3a0f008c561 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=da47e86638a74dc4952d4d688930bc8e (confirmed_by: runner)
 
 ### Log
 

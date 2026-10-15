@@ -1,7 +1,7 @@
 version: 1
 task: memory-redesign
 enforcement: required
-updated_at: '2026-10-15T10:04:24.915382+00:00'
+updated_at: '2026-10-15T13:55:47.924817+00:00'
 sources:
 - type: cli
   ref: bind
@@ -60,7 +60,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         - artifact: memory-redesign.md
           section_id: TASK-009
           item_id: idempotency-receipt
@@ -626,7 +626,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-023
           item_id: TASK-023
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -1257,7 +1257,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-022
           item_id: TASK-022
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -1765,7 +1765,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -2274,7 +2274,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-026
           item_id: TASK-026
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -2787,7 +2787,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-027
           item_id: TASK-027
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -3308,7 +3308,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -3821,7 +3821,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -4328,7 +4328,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-018
           item_id: TASK-018
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -4840,7 +4840,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-018
           item_id: TASK-018
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -5150,7 +5150,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-015
           item_id: TASK-015
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -5241,7 +5241,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -5327,7 +5327,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-012
           item_id: TASK-012
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -5414,7 +5414,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-021
           item_id: TASK-021
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -5500,7 +5500,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-021
           item_id: TASK-021
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -5585,7 +5585,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -5685,7 +5685,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-019
           item_id: TASK-019
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -6174,8 +6174,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: memory-redesign.md
+          section_id: TASK-024
+          item_id: TASK-024
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -6430,7 +6434,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-029
           item_id: TASK-029
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -6956,7 +6960,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -7463,7 +7467,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-016
           item_id: TASK-016
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -7962,7 +7966,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-030
           item_id: TASK-030
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -8531,7 +8535,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -9064,7 +9068,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-028
           item_id: TASK-028
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:
@@ -9613,7 +9617,7 @@ bindings:
         - artifact: memory-redesign.md
           section_id: TASK-028
           item_id: TASK-028
-          artifact_sha256: a65df7e1593be993c2412d3d020a635488da814ed932564cdd86a3f11fc1a23b
+          artifact_sha256: 2aa124a74a0c97775e80aa267cc3b5c1faf6e679c7c9c461de4b2ea07408eef8
         decision: null
         evidence: []
       code:

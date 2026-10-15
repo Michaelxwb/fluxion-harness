@@ -21,15 +21,15 @@
       "cwd": ".",
       "timeout": 120.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-01",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "f264f08512314c8688487eccfa49bb58",
-        "executed_at": "2026-10-12T13:05:00.820600+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -39,7 +39,7 @@
         ],
         "cwd": ".",
         "timeout": 120.0,
-        "fingerprint": "dbed9fb8705ab5521c48a39de3a1705efdfb021bb6244fdd99cd1d2c5a083fca"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -60,6 +60,25 @@
           "cwd": ".",
           "timeout": 120.0,
           "fingerprint": "dbed9fb8705ab5521c48a39de3a1705efdfb021bb6244fdd99cd1d2c5a083fca"
+        },
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_redesign_evidence.py"
+          ],
+          "cwd": ".",
+          "timeout": 120.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -81,15 +100,15 @@
       "cwd": ".",
       "timeout": 120.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-02",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "7f0ca5e018744b63ae01c57eaa7dae56",
-        "executed_at": "2026-10-12T13:11:45.755609+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -99,7 +118,7 @@
         ],
         "cwd": ".",
         "timeout": 120.0,
-        "fingerprint": "672eda35418431b03f7eb70bff8722970590b67cdf32a9d63ec82af96aa1dd73"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -120,6 +139,25 @@
           "cwd": ".",
           "timeout": 120.0,
           "fingerprint": "672eda35418431b03f7eb70bff8722970590b67cdf32a9d63ec82af96aa1dd73"
+        },
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_redesign_selection.py"
+          ],
+          "cwd": ".",
+          "timeout": 120.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -141,15 +179,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-03",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "a031545c3bf9418aaf87cd3ecf5595c3",
-        "executed_at": "2026-10-13T02:37:38.927205+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -159,7 +197,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "aee0e55cdd11d9b414282c8dadaf8927588d9fe388567fa631f60281f4f2b252"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -180,6 +218,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "aee0e55cdd11d9b414282c8dadaf8927588d9fe388567fa631f60281f4f2b252"
+        },
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_writes.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -201,15 +258,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-04",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "a031545c3bf9418aaf87cd3ecf5595c3",
-        "executed_at": "2026-10-13T02:37:38.927205+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -219,7 +276,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "aee0e55cdd11d9b414282c8dadaf8927588d9fe388567fa631f60281f4f2b252"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -240,6 +297,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "aee0e55cdd11d9b414282c8dadaf8927588d9fe388567fa631f60281f4f2b252"
+        },
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_quotas.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -261,15 +337,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-05",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "f53ea70a4a50434cb139c33ad59242c1",
-        "executed_at": "2026-10-14T19:09:25.191943+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -279,7 +355,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "b15cc91459b83de17e5f147bf24fae5136e8dfe2ee89946f39a2dd9693a388b2"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -300,6 +376,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "b15cc91459b83de17e5f147bf24fae5136e8dfe2ee89946f39a2dd9693a388b2"
+        },
+        {
+          "id": "B-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_secrets.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -321,15 +416,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-06",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "8482717bbbc94964b5d8034f95481b9e",
-        "executed_at": "2026-10-13T10:49:40.832254+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -339,7 +434,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "0aad8a87116ae2d7d35e5bac049ece855009eda362cd45207ee24834551b56c3"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -360,6 +455,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "0aad8a87116ae2d7d35e5bac049ece855009eda362cd45207ee24834551b56c3"
+        },
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_recall.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -381,15 +495,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-07",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "8482717bbbc94964b5d8034f95481b9e",
-        "executed_at": "2026-10-13T10:49:40.832254+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -399,7 +513,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "0aad8a87116ae2d7d35e5bac049ece855009eda362cd45207ee24834551b56c3"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -420,6 +534,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "0aad8a87116ae2d7d35e5bac049ece855009eda362cd45207ee24834551b56c3"
+        },
+        {
+          "id": "B-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_context.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -441,15 +574,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-08",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "7801ac29e8f84f299e91e2329acee90b",
-        "executed_at": "2026-10-13T10:08:59.560876+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -459,7 +592,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "dcbab4723743a29870de69acd36e589b67cba445a1340053e53c88a57f7e7d46"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -480,6 +613,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "dcbab4723743a29870de69acd36e589b67cba445a1340053e53c88a57f7e7d46"
+        },
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_context.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -501,15 +653,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-09",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "7801ac29e8f84f299e91e2329acee90b",
-        "executed_at": "2026-10-13T10:08:59.560876+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -519,7 +671,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "dcbab4723743a29870de69acd36e589b67cba445a1340053e53c88a57f7e7d46"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -540,6 +692,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "dcbab4723743a29870de69acd36e589b67cba445a1340053e53c88a57f7e7d46"
+        },
+        {
+          "id": "B-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_context.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -561,15 +732,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-10",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "1ce19268a54748e5a6716d295f2e35e9",
-        "executed_at": "2026-10-14T12:47:27.277488+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -579,7 +750,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -600,6 +771,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        },
+        {
+          "id": "B-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_job_effects.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -621,15 +811,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-11",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "1ce19268a54748e5a6716d295f2e35e9",
-        "executed_at": "2026-10-14T12:47:27.277488+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -639,7 +829,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -660,6 +850,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        },
+        {
+          "id": "B-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_job_effects.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -681,15 +890,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-12",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "1ce19268a54748e5a6716d295f2e35e9",
-        "executed_at": "2026-10-14T12:47:27.277488+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -699,7 +908,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -720,6 +929,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        },
+        {
+          "id": "B-12",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_snapshot.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -741,15 +969,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "B-13",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "eee5c9571f1446cfb6a78c37734aa236",
-        "executed_at": "2026-10-12T23:59:50.782840+00:00",
+        "revision": 3,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -759,7 +987,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "0d750a1176918f686c09d5b79c9fe4934469f85f5e262abbd111e947c5277a36"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -799,6 +1027,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "0d750a1176918f686c09d5b79c9fe4934469f85f5e262abbd111e947c5277a36"
+        },
+        {
+          "id": "B-13",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/migrations/test_memory_redesign_schema_parity.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -820,15 +1067,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "B-14",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "eee5c9571f1446cfb6a78c37734aa236",
-        "executed_at": "2026-10-12T23:59:50.782840+00:00",
+        "revision": 3,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -838,7 +1085,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "0d750a1176918f686c09d5b79c9fe4934469f85f5e262abbd111e947c5277a36"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -878,6 +1125,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "0d750a1176918f686c09d5b79c9fe4934469f85f5e262abbd111e947c5277a36"
+        },
+        {
+          "id": "B-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/migrations/test_memory_redesign_migration.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -899,15 +1165,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-15",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "421fd0ea281f447bb5be359071f5afa9",
-        "executed_at": "2026-10-14T03:54:11.732632+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -917,7 +1183,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "edd108c0c8593c207136b9c2647cada40d97627bbe6155847a0c993cc9807829"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -938,6 +1204,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "edd108c0c8593c207136b9c2647cada40d97627bbe6155847a0c993cc9807829"
+        },
+        {
+          "id": "B-15",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_confirmation.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -959,15 +1244,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-16",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "1ce19268a54748e5a6716d295f2e35e9",
-        "executed_at": "2026-10-14T12:47:27.277488+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -977,7 +1262,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -998,6 +1283,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        },
+        {
+          "id": "B-16",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_job_effects.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -1019,15 +1323,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-17",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "1ce19268a54748e5a6716d295f2e35e9",
-        "executed_at": "2026-10-14T12:47:27.277488+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -1037,7 +1341,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -1058,6 +1362,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        },
+        {
+          "id": "B-17",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_job_effects.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -1079,15 +1402,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-18",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "a031545c3bf9418aaf87cd3ecf5595c3",
-        "executed_at": "2026-10-13T02:37:38.927205+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -1097,7 +1420,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "aee0e55cdd11d9b414282c8dadaf8927588d9fe388567fa631f60281f4f2b252"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -1118,6 +1441,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "aee0e55cdd11d9b414282c8dadaf8927588d9fe388567fa631f60281f4f2b252"
+        },
+        {
+          "id": "B-18",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_quotas.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -1139,15 +1481,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-19",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "cb997276ad644928a247a3bb0a600474",
-        "executed_at": "2026-10-14T12:11:06.612766+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -1157,7 +1499,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "4b5e626b816c2b4ac01895b5a22f7033ea1779f5d9d30cf99731476e98551580"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -1178,6 +1520,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "4b5e626b816c2b4ac01895b5a22f7033ea1779f5d9d30cf99731476e98551580"
+        },
+        {
+          "id": "B-19",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_provider.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -1199,15 +1560,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "B-20",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "eee5c9571f1446cfb6a78c37734aa236",
-        "executed_at": "2026-10-12T23:59:50.782840+00:00",
+        "revision": 3,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -1217,7 +1578,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "0d750a1176918f686c09d5b79c9fe4934469f85f5e262abbd111e947c5277a36"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -1257,6 +1618,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "0d750a1176918f686c09d5b79c9fe4934469f85f5e262abbd111e947c5277a36"
+        },
+        {
+          "id": "B-20",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/migrations/test_memory_redesign_preflight.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -1278,15 +1658,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-21",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "1ce19268a54748e5a6716d295f2e35e9",
-        "executed_at": "2026-10-14T12:47:27.277488+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -1296,7 +1676,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -1317,6 +1697,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "20493b328d571552b12fcca7a594acd7503901d7b08c73965cb96992d336cebc"
+        },
+        {
+          "id": "B-21",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_input_boundary.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -1338,15 +1737,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-22",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "7fbe93fc130b4b61a10d99dc25d8acff",
-        "executed_at": "2026-10-14T03:39:30.902038+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -1356,7 +1755,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "c1a6d06c418c23b7ac3fe7340f8c02f79c2683e524191709a5bd05cb5bc0e1f0"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -1377,6 +1776,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "c1a6d06c418c23b7ac3fe7340f8c02f79c2683e524191709a5bd05cb5bc0e1f0"
+        },
+        {
+          "id": "B-22",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_snapshot.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
@@ -1398,15 +1816,15 @@
       "cwd": ".",
       "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-23",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "21e98006586e44dbb76cb90b32390aff",
-        "executed_at": "2026-10-13T03:56:50.590238+00:00",
+        "revision": 2,
+        "run_id": "da47e86638a74dc4952d4d688930bc8e",
+        "executed_at": "2026-10-15T14:02:17.981326+00:00",
         "command": [
           "uv",
           "run",
@@ -1416,7 +1834,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "1316c6a3c633bf1a375323d9f9fa630d1dd5d5eee892e545cd060dcf167a901e"
+        "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
       },
       "runs": [
         {
@@ -1437,6 +1855,25 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "1316c6a3c633bf1a375323d9f9fa630d1dd5d5eee892e545cd060dcf167a901e"
+        },
+        {
+          "id": "B-23",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "da47e86638a74dc4952d4d688930bc8e",
+          "executed_at": "2026-10-15T14:02:17.981326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_redesign_cache.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b6d7aaf17be8594bee64b7ee4aab56893d977020f010ee74a4d9f1ddac09aeb0"
         }
       ]
     },
