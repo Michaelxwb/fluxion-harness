@@ -119,7 +119,7 @@
 
 ## TASK-003: Console 列表与总数同一读取快照（P2）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: 
 - **Source**: GPT 评审条目 4
@@ -133,23 +133,39 @@
 
 ### Checklist
 
-- [ ] 先写 RED：真实 PG 并发写入/到期跨界下 total 与 items 必须同快照（构造可复现的跨界断言）。
-- [ ] 实现：count 与分页行同一语句（同谓词、同 `statement_timestamp()` 口径）。
-- [ ] GREEN + 回归：`tests/console_platform/test_user_memory_api.py` + `tests/console_platform` 全绿。
+- [x] 先写 RED：真实 PG 并发写入/到期跨界下 total 与 items 必须同快照（构造可复现的跨界断言）。
+- [x] 实现：count 与分页行同一语句（同谓词、同 `statement_timestamp()` 口径）。
+- [x] GREEN + 回归：`tests/console_platform/test_user_memory_api.py` + `tests/console_platform` 全绿。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | integration | 真实 Console HTTP + 真实 PG（并发与到期边界） | total 与 items 来自同一快照；过滤谓词与状态口径不回归 | tests/console_platform/test_user_memory_api.py | ["uv","run","pytest","-q","tests/console_platform/test_user_memory_api.py"] | planned |
+| LOCAL | integration | 真实 Console HTTP + 真实 PG（并发与到期边界） | total 与 items 来自同一快照；过滤谓词与状态口径不回归 | tests/console_platform/test_user_memory_api.py | ["uv","run","pytest","-q","tests/console_platform/test_user_memory_api.py"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行；RED 依据：评审条目 4 实测（total=0/items=1）。
+**RED**（先于实现；命令与失败原文）：
+
+- `DATABASE_URL=<隔离 head 库 muad_acc_76bfd85040> REDIS_URL=redis://localhost:6379/10 uv run pytest -q tests/console_platform/test_user_memory_api.py -k "local_06 or local_07"` → **2 failed / 5 deselected**，`/tmp/reviewfix/task003/red.log`：
+  - `test_local_06`（:545）：`AssertionError: count 与行集必须同一快照：到期跨界不得让 total=0 而 items 有 1 条` / `assert 0 == 1` —— 评审条目 4 的原样复现。
+  - `test_local_07`（:593）：`AssertionError: 历史 count 与行集必须同一快照：并发追加不得让 total=1 而 items 有 2 条` / `assert 1 == 2`。
+- RED 构造（真实边界，非 mock）：`_committed_write_after_first_read`（:484）监听 Console 引擎，在请求对目标表的**第一条**读取语句完成后，用另一条 psycopg 连接提交一次真实写入 —— READ COMMITTED 下该提交只被第二条语句看见，正是 count/items 分叉的机制；到期跨界用 `UPDATE expires_at = statement_timestamp() - interval '1 hour'`，并发追加用真实 `INSERT` 新版本。
+
+**GREEN**（修复后；命令、断言位置、日志）：
+
+- 实现（断言背后的代码）：`memory_repository.py:56` 新增 `_paged_snapshot` —— **单条语句**产出 count 与分页行：`(SELECT count(*) …) AS snapshot LEFT JOIN (SELECT 列/ORDER/OFFSET/LIMIT …) AS page_rows ON true`，两个子查询共用同一 `where`（含 `status` 过滤的 `statement_timestamp()`，同一语句内恒定），count 恒有 1 行 ⇒ 空页也带出 total；`list_by_user`（:92）与 `history`（:127）都收口到该语句（history 分页与 list 是同一缺陷，一并按同一口径修复）。状态口径 `EXPIRED` 优先 `DISABLED` 与 `is_deleted = false` 谓词未变。
+- 新增用例：`tests/console_platform/test_user_memory_api.py:519`（到期跨界：断言 :545 `total == len(items)`、:548 快照 `(0, 0)`）、`:554`（并发追加：断言 :593、:596 `(1, [1])`）；真实 Console HTTP + 真实会话鉴权 + 真实 PG。
+- 契约命令：`uv run pytest -q tests/console_platform/test_user_memory_api.py` → **7 passed**（连续三次，含新增两例），`/tmp/reviewfix/task003/green_contract.log`。
+- 回归：`uv run pytest -q tests/console_platform` → **304 passed**（35.13s），`/tmp/reviewfix/task003/green_console_platform.log`；既有筛选/分页/历史用例（`test_local_01`～`05`）全绿。
+- 静态：`uv run ruff check`（2 文件）All checks passed；`uv run mypy`（产品代码 memory_repository.py）Success: no issues found（测试文件不在 validation.yml 的 mypy 触发范围）。
 
 ### Log
 
 - [2026-10-16] created (draft)。
+- [2026-10-16] started
+- [2026-10-16] RED（local_06 total=0/items=1、local_07 total=1/items=2）→ 单条语句 `_paged_snapshot` 收口 list/history → 契约 7 passed ×3、tests/console_platform 304 passed。
+- [2026-10-16] completed (done)
 
 ---
 

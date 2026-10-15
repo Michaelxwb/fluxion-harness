@@ -7,11 +7,17 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import psycopg
+import pytest
 from httpx import AsyncClient
+from muad_common import SharedSettings
 from muad_console_platform.application.audit_query_service import format_console_time
 from muad_console_platform.application.auth_service import hash_password
 from muad_console_platform.infrastructure.db import get_engine, get_session_factory
@@ -467,3 +473,126 @@ async def test_local_05_cross_tenant_user_is_not_found(
         assert own_user not in reverse.text
     finally:
         await _drop_foreign_tenant(foreign_tenant)
+
+
+def _sync_dsn() -> str:
+    """同一 `DATABASE_URL` 的同步 DSN：注入写入要用另一条连接提交，不能借用被测会话。"""
+    return SharedSettings().require_database_url().replace("postgresql+asyncpg://", "postgresql://", 1)
+
+
+@contextmanager
+def _committed_write_after_first_read(
+    table: str, mutate: Callable[[psycopg.Connection[Any]], None]
+) -> Iterator[None]:
+    """在请求对目标表的**第一条**读取语句完成后，用另一条连接提交一次真实写入。
+
+    READ COMMITTED 下每条语句各取快照：仓储若分两条语句取 count 与行集，这条提交只被第二条
+    语句看见 —— 正是评审条目 4 的 total/items 分叉；单条语句实现整段只看同一个快照。
+    """
+    engine = get_engine()
+    fired = False
+
+    def on_after_execute(
+        _conn: Any,
+        _cursor: Any,
+        statement: str,
+        _parameters: Any,
+        _context: Any,
+        _executemany: bool,
+    ) -> None:
+        nonlocal fired
+        if fired or re.search(rf"\b{re.escape(table)}\b", statement) is None:
+            return
+        fired = True
+        with psycopg.connect(_sync_dsn(), autocommit=True) as connection:
+            mutate(connection)
+
+    event.listen(engine.sync_engine, "after_cursor_execute", on_after_execute)
+    try:
+        yield
+    finally:
+        event.remove(engine.sync_engine, "after_cursor_execute", on_after_execute)
+        assert fired, f"故障注入未触发：请求没有读取 {table}"
+
+
+@pytest.mark.integration
+async def test_local_06_list_total_and_items_share_one_snapshot_across_expiry_boundary(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """到期跨界：行在 count 与行集之间越过 `expires_at`（评审条目 4 的 total=0/items=1）。"""
+    user_id = await _create_user(client, tenant)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        await _seed_memory(session, tenant.tenant_id, user_id, memory_key="expiry-crossing")
+        await session.commit()
+
+    def expire_row(connection: psycopg.Connection[Any]) -> None:
+        connection.execute(
+            "UPDATE runtime.user_memory SET expires_at = statement_timestamp() - interval '1 hour' "
+            "WHERE tenant_id = %s AND user_id = %s",
+            (tenant.tenant_id, uuid.UUID(user_id)),
+        )
+
+    with _committed_write_after_first_read("runtime.user_memory", expire_row):
+        listing = await client.get(
+            f"/api/v1/users/{user_id}/memory",
+            params={"status": "EXPIRED"},
+            headers=_headers(tenant),
+        )
+
+    assert listing.status_code == 200
+    page = listing.json()["data"]
+    assert page["total"] == len(page["items"]), (
+        "count 与行集必须同一快照：到期跨界不得让 total=0 而 items 有 1 条"
+    )
+    assert (page["total"], len(page["items"])) == (0, 0), (
+        "单条语句的快照里该行仍 ACTIVE，EXPIRED 过滤不得只落在其中一半"
+    )
+
+
+@pytest.mark.integration
+async def test_local_07_history_total_and_items_share_one_snapshot_on_concurrent_append(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """并发追加：新版本在 count 与行集之间提交，历史 total 与 items 必须同一快照。"""
+    user_id = await _create_user(client, tenant)
+    base = datetime.now(UTC)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        row = await _seed_memory(session, tenant.tenant_id, user_id, memory_key="history-crossing")
+        await _seed_history(
+            session, tenant_id=tenant.tenant_id, user_id=user_id,
+            memory_key="history-crossing", origin_id=row["id"], version=1,
+            change_reason="CREATE", actor_type="ADMIN", actor_id=str(uuid.uuid4()),
+            create_time=base,
+        )
+        await session.commit()
+
+    appended = {"id": uuid.uuid4(), "actor_id": str(uuid.uuid4())}
+
+    def append_version(connection: psycopg.Connection[Any]) -> None:
+        connection.execute(
+            "INSERT INTO runtime.user_memory_history "
+            "(id, tenant_id, user_id, memory_key, origin_id, version, change_reason, actor_type, "
+            "actor_id, command_id, after_json, create_time) "
+            "VALUES (%s, %s, %s, %s, %s, 2, 'OVERWRITE', 'ADMIN', %s, %s, CAST(%s AS jsonb), %s)",
+            (
+                appended["id"], tenant.tenant_id, uuid.UUID(user_id), "history-crossing",
+                row["id"], appended["actor_id"], f"cmd-{uuid.uuid4().hex[:8]}",
+                json.dumps({"version": 2}), base + timedelta(minutes=1),
+            ),
+        )
+
+    with _committed_write_after_first_read("runtime.user_memory_history", append_version):
+        history = await client.get(
+            f"/api/v1/users/{user_id}/memory/history-crossing/history", headers=_headers(tenant)
+        )
+
+    assert history.status_code == 200
+    data = history.json()["data"]
+    assert data["total"] == len(data["items"]), (
+        "历史 count 与行集必须同一快照：并发追加不得让 total=1 而 items 有 2 条"
+    )
+    assert (data["total"], [item["version"] for item in data["items"]]) == (1, [1]), (
+        "单条语句的快照里 v2 尚未提交"
+    )
