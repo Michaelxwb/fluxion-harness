@@ -17,7 +17,7 @@
 
 ## TASK-001: 设置版本历史面板 activeTab 修复与详情壳静态守卫
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: 
 - **Source**: .code-flow/tasks/archived/2026-10-12/memory-redesign/memory-redesign.design.md#3.7 API 与 Console
@@ -64,7 +64,7 @@
 
 ## TASK-002: user-identity 浏览器域 spec 存量漂移修复
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: 
 - **Source**: .code-flow/tasks/archived/2026-10-12/memory-redesign/memory-redesign.design.md#3.7 API 与 Console
@@ -122,7 +122,7 @@
 
 ## TASK-003: `/new` 后会话解析被后台事件顶回的产品侧收口
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: 
 - **Source**: .code-flow/tasks/archived/2026-10-12/memory-redesign/memory-redesign.design.md#3.6 consolidation 生命周期
@@ -177,7 +177,7 @@ WS 入站不带会话指针，`RunService._resolve_conversation`（`run_service.
 
 ## TASK-004: 归档与新提交引发的存量契约修复（inventory 路径回落 + 配置清单重生成）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-003
 - **Source**: .code-flow/tasks/archived/2026-10-12/memory-redesign/memory-redesign.design.md#6.1 Spec Compliance Matrix
@@ -220,7 +220,7 @@ WS 入站不带会话指针，`RunService._resolve_conversation`（`run_service.
 
 ## TASK-005: dfx 终态断言对「终态后后台追加」的容忍
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-004
 - **Source**: .code-flow/tasks/archived/2026-10-12/memory-redesign/memory-redesign.design.md#3.3.5 Run 级审计
