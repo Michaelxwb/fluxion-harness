@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/archived/2026-10-12/memory-redesign/memory-redesign.design.md#3.7 API 与 Console（记忆重设计终验遗留项收口）
 - **Created**: 2026-10-15
-- **Updated**: 2026-10-15
+- **Updated**: 2026-10-16
 - **Plan status**: draft；阶段裁决以 CLI 输出为准
 
 ## Proposal
@@ -215,3 +215,45 @@ WS 入站不带会话指针，`RunService._resolve_conversation`（`run_service.
 - [2026-10-15] started
 - [2026-10-15] resumed (in-progress)
 - [2026-10-15] completed (done)
+
+---
+
+## TASK-005: dfx 终态断言对「终态后后台追加」的容忍
+
+- **Status**: done
+- **Priority**: P1
+- **Depends**: TASK-004
+- **Source**: .code-flow/tasks/archived/2026-10-12/memory-redesign/memory-redesign.design.md#3.3.5 Run 级审计
+- **Spec-Refs**: 
+- **Acceptance-Refs**: 
+- **Files**: tests/acceptance/dfx/test_dfx_journeys.py
+
+### Description
+
+`test_s06_stream_reply_envelope_and_monotonic_seq` 偶发超时「Run 未落终态 run.completed（最后观测：[]）」（本机连续两次复跑 1 failed/1 passed 实测）。根因：`_canonical_events(run_id)` 取该 run **全部**事件，而记忆提炼 job 会在 Run 终态之后向**同一 run** 追加 `MEMORY_CONSOLIDATED`（design §3.3.5 run 级审计；TASK-033 已在 `test_run_lifecycle::b01` 修过同族断言）；`_completed_events` 要求「最后一条 == run.completed」⇒ 后台一追加即永远等不到（时序相关 ⇒ 偶发）。修法：把终态当**边界**（切到 `run.completed` 为止），并在 s06 内加**确定性**覆盖（终态后插入合成事件，仍能返回终态视图）。
+
+### Checklist
+
+- [x] 记录 RED：dfx 复跑实测失败原文（`/tmp/postverify/dfx-check.txt` run2）+ 机制说明。
+- [x] `_completed_events` 改为按终态切界（不改封套/单调性/终态状态断言的覆盖意图）。
+- [x] s06 增确定性断言：终态后向该 run 插入合成 canonical 事件（直接 SQL），`_completed_events` 仍返回以 `run.completed` 结尾的视图。
+- [x] GREEN：`tests/acceptance/dfx/test_dfx_journeys.py` **连续三次全绿**。
+
+### Acceptance Contract
+
+| 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| LOCAL | integration | 真实 Gateway/Runtime/PG 栈 + 直接 DB 校验 | 终态后追加事件不影响 `run.completed` 视图；封套/seq 单调/终态状态断言不弱化 | tests/acceptance/dfx/test_dfx_journeys.py | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_journeys.py"] | planned |
+
+### Acceptance Evidence
+
+- RED：`uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py` 连续两次复跑 **run1 6 passed / run2 1 failed**（`/tmp/postverify/dfx-check.txt`），失败原文 `test_s06_stream_reply_envelope_and_monotonic_seq`：`AssertionError: Run 未落终态 run.completed（最后观测：[]）`（`test_dfx_journeys.py:124`）。机制：`_canonical_events(run_id)` 取该 run 全部事件，而后台提炼在终态后向同 run 追加 `MEMORY_CONSOLIDATED`（design §3.3.5），旧 `_completed_events` 要求「最后一条 == run.completed」⇒ 追加后永远等不到（时序相关 ⇒ 偶发）。
+- 修复：抽出纯函数 `_terminal_slice`（切到 `run.completed` 为止），`_completed_events` 用它；s06 增**确定性**覆盖（终态视图 + 合成非流式追加事件 → `_terminal_slice` 仍以 `run.completed` 结尾）。
+- GREEN：`uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py` **连续三次全绿**（6 passed / 6 passed / 6 passed，34.49s / 25.03s / 35.06s，`/tmp/postverify/dfx-fix2.txt`）；ruff 全绿。
+- 过程说明：首版用「终态后插入合成 DB 事件」做覆盖，run3 撞 `uq_canonical_event_conversation_seq`（与真实后台写入的 TOCTOU 竞争，属自引入问题）→ 改为纯逻辑覆盖（不写库），三次全绿。
+
+### Log
+
+- [2026-10-15] created (draft)；由 dfx 复跑的偶发超时与机制定位显式补任务。
+- [2026-10-16] started
+- [2026-10-16] completed (done)

@@ -139,9 +139,7 @@ async def gateway_stack(tmp_path_factory: pytest.TempPathFactory) -> AsyncIterat
     root = tmp_path_factory.mktemp("dfx-journeys")
     probe = WeComProbe(expected_bots={BOT_ID: BOT_SECRET})
     await probe.start()
-    stack, processes = start_gateway_stack(
-        root, ws_probe_url=probe.ws_url, ws_ca_file=str(probe.cert_path)
-    )
+    stack, processes = start_gateway_stack(root, ws_probe_url=probe.ws_url, ws_ca_file=str(probe.cert_path))
     stack.ws_probe = probe
     try:
         yield stack
@@ -215,9 +213,7 @@ def _reply_texts(stack: GatewayStack) -> list[str]:
     """出站**文本**：会话内回复走 `aibot_respond_msg`（可能是流式体、也可能是纯文本体），
     主动投递走 `aibot_send_msg`（纯文本体）——两种载体都要读，否则会漏掉文本回执。"""
     return [
-        frame_text(frame)
-        for cmd in ("aibot_respond_msg", "aibot_send_msg")
-        for frame in _frames(stack, cmd)
+        frame_text(frame) for cmd in ("aibot_respond_msg", "aibot_send_msg") for frame in _frames(stack, cmd)
     ]
 
 
@@ -251,17 +247,27 @@ async def _canonical_events(run_id: str) -> list[dict[str, Any]]:
     ]
 
 
+def _terminal_slice(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """切到 `run.completed` 为止的事件视图（终态是**边界**，不是最后一行）。
+
+    记忆提炼 job 会在 Run 终态之后向同一 run 追加 `MEMORY_CONSOLIDATED`（design §3.3.5
+    run 级审计），要求「最后一条 == run.completed」会在后台一追加就永远等不到
+    （时序相关 ⇒ 偶发）。纯函数，便于对「终态后追加」做确定性覆盖。
+    """
+    terminal = next(
+        (index for index, item in enumerate(events) if item["stream_type"] == "run.completed"),
+        None,
+    )
+    return [] if terminal is None else events[: terminal + 1]
+
+
 async def _completed_events(run_id: str) -> list[dict[str, Any]]:
-    events = await _canonical_events(run_id)
-    if events and events[-1]["stream_type"] == "run.completed":
-        return events
-    return []
+    return _terminal_slice(await _canonical_events(run_id))
 
 
 async def _latest_run_id(tenant_id: str) -> str:
     value = await _scalar(
-        "SELECT id::text FROM runtime.run_record WHERE tenant_id = :t "
-        "ORDER BY create_time DESC LIMIT 1",
+        "SELECT id::text FROM runtime.run_record WHERE tenant_id = :t ORDER BY create_time DESC LIMIT 1",
         {"t": tenant_id},
     )
     assert value, "本租户没有真实 Run"
@@ -377,9 +383,7 @@ async def _warm_up_real_run(stack: GatewayStack) -> str:
     await _wait_gateway_ws(stack)
     await _push(stack, text="S-09 预热：制造一次真实执行")
     return str(
-        await _await_value(
-            lambda: _terminal_run_id(stack.tenant_id), what="预热 Run 未在超时内到达终态"
-        )
+        await _await_value(lambda: _terminal_run_id(stack.tenant_id), what="预热 Run 未在超时内到达终态")
     )
 
 
@@ -449,16 +453,13 @@ async def test_s05_bind_maps_identity_stably_without_granting_agent(
 
     # 「再次对话」：同一 external_user 发消息后，新建 Run 的 user_id 仍是同一 PlatformUser
     await _push(stack, text="绑定后继续对话", external_user_id=stack.unbound_external_user_id)
-    run_user = await _await_value(
-        lambda: _latest_run_user(stack.tenant_id), what="再次对话未创建真实 Run"
-    )
+    run_user = await _await_value(lambda: _latest_run_user(stack.tenant_id), what="再次对话未创建真实 Run")
     assert run_user == str(stack.platform_user_id), "身份映射不稳定（Run 归属了别的用户）"
 
 
 async def _latest_run_user(tenant_id: str) -> str:
     value = await _scalar(
-        "SELECT user_id::text FROM runtime.run_record WHERE tenant_id = :t "
-        "ORDER BY create_time DESC LIMIT 1",
+        "SELECT user_id::text FROM runtime.run_record WHERE tenant_id = :t ORDER BY create_time DESC LIMIT 1",
         {"t": tenant_id},
     )
     return str(value or "")
@@ -482,9 +483,7 @@ async def test_s06_stream_reply_envelope_and_monotonic_seq(gateway_stack: Gatewa
     )
 
     run_id = await _latest_run_id(stack.tenant_id)
-    events = await _await_value(
-        lambda: _completed_events(run_id), what="Run 未落终态 run.completed"
-    )
+    events = await _await_value(lambda: _completed_events(run_id), what="Run 未落终态 run.completed")
     # `canonical_event` 同时承载业务事件（`stream_type IS NULL`，如 USER_MESSAGE/CANCEL）
     # 与流式事件；封套断言只对后者，seq 单调性对整条事件流成立。
     streamed = [item for item in events if item["stream_type"]]
@@ -512,6 +511,24 @@ async def test_s06_stream_reply_envelope_and_monotonic_seq(gateway_stack: Gatewa
     )
     assert final_status in {"COMPLETED", "FAILED"}, final_status
 
+    # 终态是边界：终态之后的追加（同 run 的后台审计）不得把视图顶掉。
+    # 纯逻辑覆盖（不写库，避免与真实后台写入抢 (conversation_id, seq) 唯一键）。
+    still_terminal = await _completed_events(run_id)
+    assert still_terminal, "run.completed 视图为空"
+    assert still_terminal[-1]["stream_type"] == "run.completed", still_terminal[-1]
+    synthetic = [
+        *still_terminal,
+        {
+            "run_id": run_id,
+            "seq": still_terminal[-1]["seq"] + 1,
+            "stream_type": None,
+            "payload": {},
+            "timestamp": still_terminal[-1]["timestamp"],
+        },
+    ]
+    sliced = _terminal_slice(synthetic)
+    assert sliced and sliced[-1]["stream_type"] == "run.completed", sliced[-1]
+
 
 # --------------------------------------------------------------------------- #
 # S-09：中断 / 恢复 / 取消
@@ -524,9 +541,7 @@ async def test_s09_waiting_input_resume_continues_without_seq_reset(
     stack = gateway_stack
     await _warm_up_real_run(stack)
     run_id, conversation_id = await _seed_waiting_run(stack)
-    status = await _scalar(
-        "SELECT status FROM runtime.run_record WHERE id = :r", {"r": uuid.UUID(run_id)}
-    )
+    status = await _scalar("SELECT status FROM runtime.run_record WHERE id = :r", {"r": uuid.UUID(run_id)})
     assert status == "WAITING_INPUT", status
 
     async with httpx.AsyncClient(timeout=STREAM_TIMEOUT_SEC) as client:
@@ -650,9 +665,7 @@ async def test_s09_cancel_waiting_input_is_cas_cancelled(gateway_stack: GatewayS
 
     # 该路径一次写成终态，不经过「请求取消 → 执行者协作」两段：实测 `cancel_requested`
     # 保持 false（与运行中协作取消不同），故此处不断言该列。
-    row = await _rows(
-        "SELECT status FROM runtime.run_record WHERE id = :r", {"r": uuid.UUID(run_id)}
-    )
+    row = await _rows("SELECT status FROM runtime.run_record WHERE id = :r", {"r": uuid.UUID(run_id)})
     assert row[0][0] == "CANCELLED", row
     interrupt = await _scalar(
         "SELECT status FROM runtime.run_interrupt WHERE run_id = :r", {"r": uuid.UUID(run_id)}
@@ -664,9 +677,7 @@ async def test_s09_cancel_waiting_input_is_cas_cancelled(gateway_stack: GatewayS
         {"r": uuid.UUID(run_id)},
     )
     assert "CANCEL" in {str(item[0]) for item in business}, business
-    events = await _await_value(
-        lambda: _completed_events(run_id), what="取消后未落终态 run.completed"
-    )
+    events = await _await_value(lambda: _completed_events(run_id), what="取消后未落终态 run.completed")
     assert events[-1]["payload"].get("status") == "CANCELLED", events[-1]
 
 
@@ -675,9 +686,7 @@ async def test_s09_cancel_active_without_active_run_returns_no_active_run(
 ) -> None:
     stack = gateway_stack
     # 前置用例已把该用户的 Run 全部置终态
-    await _await_value(
-        lambda: _no_active_run(stack), what="无活跃 Run 的前置条件未满足"
-    )
+    await _await_value(lambda: _no_active_run(stack), what="无活跃 Run 的前置条件未满足")
 
 
 async def _no_active_run(stack: GatewayStack) -> bool:
