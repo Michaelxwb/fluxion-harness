@@ -48,7 +48,7 @@
 | E-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Runtime + PG/Redis + 模型 HTTP | TASK-012 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_memory_redesign_context_e2e.py"] | . | 1800 |  |
 | E-02 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway → Runtime → resume | TASK-030 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
 | E-03 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway + 两个 conversation | TASK-030 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
-| E-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | browser，真实 Console/Runtime/PG/Chrome | TASK-030 | failed | ["make","acceptance-e2e","DOMAIN=agent"] | . | 1800 |  |
+| E-04 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | browser，真实 Console/Runtime/PG/Chrome | TASK-030 | verified | ["make","acceptance-e2e","DOMAIN=agent"] | . | 1800 |  |
 | E-05 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实 Gateway/Runtime/PG + 模型探针 | TASK-030 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
 | E-06 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | acceptance，真实两个 Runtime 子进程 | TASK-030 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | . | 1800 |  |
 | S-01 | memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界 | E2E | security，真实 API 身份与租户边界 | TASK-029 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_security.py"] | . | 1800 |  |
@@ -127,7 +127,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-001: 新增记忆规范并扩展同一 Spec Context
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: 
 - **Source**: memory-redesign.design.md#6.1 Spec Compliance Matrix, memory-redesign.design.md#6.2 设计进入 Plan 的条件
@@ -168,7 +168,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-002: 严格记忆契约与原话证据校验
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: memory-redesign.design.md#3.4.1 原话证据, memory-redesign.design.md#3.3.2 user_memory（稳定 identity）
@@ -210,7 +210,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-003: 平台记忆设置 schema、catalog 与边界
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-004
 - **Source**: memory-redesign.design.md#2.3.3 配置项, memory-redesign.design.md#3.4.5 内容闸门与配额
@@ -252,7 +252,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-004: 记忆错误枚举与中英文目录
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: memory-redesign.design.md#3.7 API 与 Console, memory-redesign.design.md#3.8 可靠性与观测
@@ -293,7 +293,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-005: 分词、SEARCH/LIST 与偏好选择纯函数
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: memory-redesign.design.md#3.5.1 完整候选与排序
@@ -335,7 +335,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-006: 完整 SYSTEM 块与 recall JSON 字节预算
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-005
 - **Source**: memory-redesign.design.md#3.5.3 完整渲染预算, memory-redesign.design.md#3.2.2 模型请求组件
@@ -377,7 +377,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-007: 稳定身份 ORM、约束 DDL 与存量迁移
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
 - **Source**: memory-redesign.design.md#3.3 数据设计, memory-redesign.design.md#4.2 一次性迁移与切换, memory-redesign.design.md#4.1 发布前置条件
@@ -440,7 +440,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-008: 内容闸门、硬配额与自动退休决策
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003, TASK-004
 - **Source**: memory-redesign.design.md#3.4.4 同 key 冲突矩阵, memory-redesign.design.md#3.4.5 内容闸门与配额
@@ -481,7 +481,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-009: 唯一事务写入、历史与命令回执
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-007, TASK-008
 - **Source**: memory-redesign.design.md#3.4.3 唯一事务服务, memory-redesign.design.md#3.3.1 memory_scope（新增）, memory-redesign.design.md#3.3.3 user_memory_history（新增，append-only）, memory-redesign.design.md#3.3.4 memory_command_receipt（新增）
@@ -538,7 +538,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-010: 完整候选 snapshot 与 revision 缓存
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-005
 - **Source**: memory-redesign.design.md#3.5.1 完整候选与排序, memory-redesign.design.md#3.3.1 memory_scope（新增）
@@ -583,7 +583,7 @@ INV-01→RULE-01/12；INV-02/03→RULE-03/04；INV-04→RULE-08；INV-05→RULE-
 
 ## TASK-011: 候选确认提议与整轮工具暂停
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-006
 - **Source**: memory-redesign.design.md#3.4.2 remember 与真实确认
@@ -628,7 +628,7 @@ handler登记typed suspend_request，整轮结果/审计收口后保存checkpoin
 
 ## TASK-012: 每模型调用前刷新 MemoryComponent 与 forget
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-010, TASK-006, TASK-011
 - **Source**: memory-redesign.design.md#3.2.2 模型请求组件, memory-redesign.design.md#3.5.3 完整渲染预算
@@ -674,6 +674,7 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 - B-09: verified — automated command passed; run_id=7801ac29e8f84f299e91e2329acee90b (confirmed_by: runner)
 - E-01: e2e_deferred — automated command e2e_deferred; run_id=7801ac29e8f84f299e91e2329acee90b (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=1551ea02791047329170f3a0f008c561 (confirmed_by: runner)
 
 ### Log
 
@@ -685,7 +686,7 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 
 ## TASK-013: remember/recall/forget 工具 schema 与回执
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-012, TASK-011, TASK-004
 - **Source**: memory-redesign.design.md#3.4.2 remember 与真实确认, memory-redesign.design.md#3.7 API 与 Console
@@ -740,7 +741,7 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 
 ## TASK-014: 续接意图、options 单次消费与任务 lineage
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-012, TASK-009
 - **Source**: memory-redesign.design.md#3.5.2 任务续接闭环, memory-redesign.design.md#3.3.6 其余硬约束索引（文本提到但必须落到 DDL）
@@ -789,7 +790,7 @@ typed context-loader刷新唯一具名组件；首次不双查；forget预先inv
 
 ## TASK-015: 真实确认 resume 原子提交与 deadline
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-013, TASK-014
 - **Source**: memory-redesign.design.md#3.4.2 remember 与真实确认
@@ -839,7 +840,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ## TASK-016: Run/job 冻结全部记忆策略与工具历史预算
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-015
 - **Source**: memory-redesign.design.md#2.3.3 配置项, memory-redesign.design.md#3.2.2 模型请求组件, memory-redesign.design.md#4.2 一次性迁移与切换
@@ -887,7 +888,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ## TASK-017: Gateway /memory 前缀、确认与续接事件投递
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-016, TASK-014
 - **Source**: memory-redesign.design.md#3.4.2 remember 与真实确认, memory-redesign.design.md#3.5.2 任务续接闭环
@@ -937,7 +938,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ## TASK-018: 记忆指标 catalog、日志与审计脱敏
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-013, TASK-004
 - **Source**: memory-redesign.design.md#3.8 可靠性与观测, memory-redesign.design.md#3.4.5 内容闸门与配额, memory-redesign.design.md#6.1 Spec Compliance Matrix
@@ -985,7 +986,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ## TASK-019: 固定 consolidation 输入与独立主模型 provider
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-016, TASK-018
 - **Source**: memory-redesign.design.md#3.6.1 入队与执行, memory-redesign.design.md#3.6.2 顺序与恢复
@@ -1031,7 +1032,7 @@ Run/API/事件/等待态回归：`PYTHONPATH="$PWD" .venv/bin/python /tmp/fluxio
 
 ## TASK-020: 持久 job 入队、claim、lease 与接管
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-007, TASK-016, TASK-019
 - **Source**: memory-redesign.design.md#3.3.5 memory_consolidation_job（新增）, memory-redesign.design.md#3.6.1 入队与执行
@@ -1072,7 +1073,7 @@ COMPLETED终态内savepoint入队；PG claim/epoch/lease/attempt唯一；首次�
 
 ## TASK-021: 批量提炼效果、history/event/job 原子收口
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-020, TASK-009, TASK-014
 - **Source**: memory-redesign.design.md#3.6.1 入队与执行, memory-redesign.design.md#3.6.2 顺序与恢复, memory-redesign.design.md#3.4.4 同 key 冲突矩阵
@@ -1138,7 +1139,7 @@ COMPLETED终态内savepoint入队；PG claim/epoch/lease/attempt唯一；首次�
 
 ## TASK-022: Runtime 后台接线、TTL 与过期确认清扫
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-021, TASK-015, TASK-018
 - **Source**: memory-redesign.design.md#3.8 可靠性与观测, memory-redesign.design.md#3.6 consolidation 生命周期
@@ -1181,7 +1182,7 @@ lifespan启动停止有界job/expiry泵，PG权威无实例绑定；过期确认
 
 ## TASK-023: Runtime 管理命令 API、服务身份与分页
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-015, TASK-022
 - **Source**: memory-redesign.design.md#3.7 API 与 Console
@@ -1226,7 +1227,7 @@ lifespan启动停止有界job/expiry泵，PG权威无实例绑定；过期确认
 
 ## TASK-024: Console 记忆状态/历史只读仓储
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-007, TASK-023
 - **Source**: memory-redesign.design.md#3.7 API 与 Console
@@ -1278,7 +1279,7 @@ ACTIVE/DISABLED/EXPIRED过滤、history按version分页，list/count同条件；
 
 ## TASK-025: Console 写操作转 Runtime 并保持命令回执
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-024, TASK-023
 - **Source**: memory-redesign.design.md#3.2.1 组件分工, memory-redesign.design.md#3.7 API 与 Console
@@ -1330,7 +1331,7 @@ ACTIVE/DISABLED/EXPIRED过滤、history按version分页，list/count同条件；
 
 ## TASK-026: 前端记忆 API 服务层与严格 DTO
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-025
 - **Source**: memory-redesign.design.md#3.7 API 与 Console
@@ -1378,7 +1379,7 @@ ACTIVE/DISABLED/EXPIRED过滤、history按version分页，list/count同条件；
 
 ## TASK-027: 记忆来源/状态/历史原因及错误本地化
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-004
 - **Source**: memory-redesign.design.md#3.7 API 与 Console, memory-redesign.design.md#6.1 Spec Compliance Matrix
@@ -1431,7 +1432,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ## TASK-028: Memory Tab 管理动作、状态与历史
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-026, TASK-027
 - **Source**: memory-redesign.design.md#3.7 API 与 Console
@@ -1490,7 +1491,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ## TASK-029: 新增存储/Prompt 出口安全端到端
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-022, TASK-025, TASK-017, TASK-018
 - **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界, memory-redesign.design.md#3.8 可靠性与观测, memory-redesign.design.md#3.4.5 内容闸门与配额, memory-redesign.design.md#4.2 一次性迁移与切换
@@ -1536,6 +1537,8 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 - S-02: e2e_deferred — automated command e2e_deferred; run_id=f53ea70a4a50434cb139c33ad59242c1 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=1551ea02791047329170f3a0f008c561 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=1551ea02791047329170f3a0f008c561 (confirmed_by: runner)
 
 ### Log
 
@@ -1547,7 +1550,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ## TASK-030: 跨会话、真实确认、浏览器与崩溃验收
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-029, TASK-028, TASK-022
 - **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界
@@ -1577,7 +1580,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 |---|---|---|---|---|---|---|
 | E-02 | E2E | acceptance，真实 Gateway → Runtime → resume | 自然语言候选展示后用户真实确认，重连/重复提交不重复保存；拒绝后不产生 USER 事实 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e02_memory_redesign_real_confirmation_replay_and_rejection | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | verified |
 | E-03 | E2E | acceptance，真实 Gateway + 两个 conversation | 已确认中文偏好在 /new 后“你好”首轮可见；不要求 query 包含“中文” | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e03_memory_redesign_confirmed_preference_visible_after_new_conversation | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | verified |
-| E-04 | E2E | browser，真实 Console/Runtime/PG/Chrome | 创建、启禁用、删除、历史分页和来源状态本地化；越权不可操作 | e2e/tests/agent-management/memory-redesign.spec.ts / 4 用例（创建启禁用删除+历史分页+本地化布局矩阵+越权403） | ["make","acceptance-e2e","DOMAIN=agent"] | failed |
+| E-04 | E2E | browser，真实 Console/Runtime/PG/Chrome | 创建、启禁用、删除、历史分页和来源状态本地化；越权不可操作 | e2e/tests/agent-management/memory-redesign.spec.ts / 4 用例（创建启禁用删除+历史分页+本地化布局矩阵+越权403） | ["make","acceptance-e2e","DOMAIN=agent"] | verified |
 | E-05 | E2E | acceptance，真实 Gateway/Runtime/PG + 模型探针 | 默认设置提炼未决项；/new后续接进入请求；多条→用户“第2个”→目标实际进入请求；A→B→C仍唯一，B完成后无旧未决；大checkpoint投递引用，引用超预算仅计丢弃 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e05_memory_redesign_default_consolidation_then_new_conversation_resume、test_e05_memory_redesign_second_option_selection_enters_real_request、test_e05_memory_redesign_completion_retires_original_and_large_checkpoint_reference | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | verified |
 | E-06 | E2E | acceptance，真实两个 Runtime 子进程 | SIGKILL claim 执行者，另一实例接管；故障与成功可见；持久写入效果最多一次 | tests/acceptance/im_gateway/test_memory_redesign_e2e.py / test_e06_memory_redesign_sigkill_claim_owner_and_successor_takeover | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_memory_redesign_e2e.py"] | verified |
 | harness-test#RULE-test-001 | E2E | 原verifier真实组件与本任务设计边界；不可mock业务API/数据库/浏览器 | 本任务行为满足该Rule且原回归不退化；以元数据命令裁决 | 原verifier指定真实链路（全量 tests/acceptance + 前端构建 + foundation 浏览器域） | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | e2e_deferred |
@@ -1606,6 +1609,11 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 - E-04: failed — automated command failed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=c2a2f00749d94cb5979cfaeab45ef791 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=91817cc97e714b5ebecd30ff439e9187 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=91817cc97e714b5ebecd30ff439e9187 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=91817cc97e714b5ebecd30ff439e9187 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=91817cc97e714b5ebecd30ff439e9187 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=91817cc97e714b5ebecd30ff439e9187 (confirmed_by: runner)
 
 ### Log
 
@@ -1618,7 +1626,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ## TASK-031: 规范/文档同步、inventory 与需求终验
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-030
 - **Source**: memory-redesign.design.md#6.1 Spec Compliance Matrix, memory-redesign.design.md#6.2 设计进入 Plan 的条件, memory-redesign.design.md#4.3 回滚
@@ -1665,7 +1673,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ## TASK-032: 终验暴露的陈旧断言修复（迁移 head 与审计常量口径）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-031
 - **Source**: memory-redesign.design.md#3.7 API 与 Console, memory-redesign.design.md#4.2 一次性迁移与切换
@@ -1709,7 +1717,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ## TASK-033: 终验全量校验暴露的跨套件陈旧断言修复
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-032
 - **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界, memory-redesign.design.md#3.4.3 设置冻结
@@ -1785,7 +1793,7 @@ author/actor/category/退休原因/确认状态与动态键齐备，译文每次
 
 ## TASK-034: 终验 acceptance 顺序依赖修复（提炼调用插位与 im_gateway 超时）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-033
 - **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界, memory-redesign.design.md#3.6 consolidation 生命周期
@@ -1872,7 +1880,7 @@ test_inbound_image_e2e.py:524、test_memory_redesign_e2e.py:644。
 
 ## TASK-035: E-04 浏览器域首次真机执行的修复与终验复跑
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-034
 - **Source**: memory-redesign.design.md#2.5.2 验收场景与不得 mock 的边界, memory-redesign.design.md#3.7 API 与 Console
@@ -1889,7 +1897,7 @@ E-04 浏览器域（`make acceptance-e2e DOMAIN=agent`）在 verify-e2e 首次�
 - [x] 复现并记录 RED：`make acceptance-e2e DOMAIN=agent`（保留 trace 与失败清单）。
 - [x] en-US 布局：按 spec 意图让右侧操作列真正固定（`fixed:'right'` 生效所需条件，如 `scroll.x`/宽度口径），中英文与明暗主题在 1280/390 下删除按钮都在视口内；不改断言口径。
 - [x] `:171` / `:226`：定位是用例假设（role/时序）还是 UI 缺陷，按事实修；断言与覆盖意图不降级。
-- [x] 修复后 `make acceptance-e2e DOMAIN=agent` 连续两次全绿；`harness-test#RULE-test-001` 的 argv（`uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test`）实跑全绿并登记（若失败在非本任务段落，给出分段证据）。
+- [x] 修复后 `make acceptance-e2e DOMAIN=agent` 连续两次全绿；聚合 verifier（全量 acceptance + 前端 build + foundation 浏览器域）的 argv 实跑全绿并登记（若失败在非本任务段落，给出分段证据）。
 - [x] 复跑 `code-flow task verify-e2e`（本任务 finish 后由主 agent 执行）所需的全部前置证据齐备；Evidence 记录命令、断言位置与日志路径。
 
 ### Acceptance Contract
