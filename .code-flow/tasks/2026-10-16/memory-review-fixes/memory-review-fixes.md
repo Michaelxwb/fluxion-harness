@@ -330,3 +330,43 @@ E-03 直接经管理 API 写入偏好并断言 `author == ADMIN`，没有走真�
 - [2026-10-16] started
 - [2026-10-16] RED（负向注入破坏 USER 注入链：新 USER 用例红、ADMIN 对照仍绿）→ E-03 改为候选→真实确认→`/new` 首轮可见（USER 事实 + 确认事件断言），ADMIN 另设独立用例 → 契约 7 passed ×2、manifest E-02..E-06 全绿并刷新 E-03 证据。
 - [2026-10-16] completed (done)
+
+---
+
+## TASK-007: multipod 杀进程用例的确定性窗口（消除 flaky）
+
+- **Status**: done
+- **Priority**: P1
+- **Depends**: TASK-006
+- **Source**: 本需求 verify-e2e 的 acceptance 段实测；memory-redesign.design.md#3.6 consolidation 生命周期（旁证：整跑负载下的时序窗口）
+- **Spec-Refs**: 
+- **Acceptance-Refs**: 
+- **Files**: tests/acceptance/runtime/test_multipod_recovery.py
+
+### Description
+
+`test_s04_e07_process_kill_reaped_and_takeover` 偶发 `assert 'COMPLETED' == 'FAILED'`：用例以 `OPENAI_PROBE_DELAY_MS=5000` 制造在飞 Run，再 kill Pod A 期待 Reaper 回收为 `RUN_ABANDONED`；整跑负载下「读到 run.created → kill」这段可能超过 5s ⇒ Run 先自然完成，回收断言必假。修法：把在飞窗口放大到远大于该段耗时（探针为进程内 ASGI app，`await asyncio.sleep` 非阻塞），使「kill 时 Run 必在飞」成为确定性前提；断言不弱化。
+
+### Checklist
+
+- [x] 记录 RED：verify-e2e acceptance 段实测失败原文（`assert 'COMPLETED' == 'FAILED'`）。
+- [x] 把在飞窗口从 5s 放大（如 60s）并注明理由；断言与等待预算不变。
+- [x] GREEN：该用例 **连续三次全绿**；`tests/acceptance/runtime` 全绿。
+
+### Acceptance Contract
+
+| 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| LOCAL | integration | 真实两个 Runtime 子进程 + SIGKILL + Reaper | kill 时 Run 必在飞 ⇒ 回收为 FAILED/RUN_ABANDONED；Pod B 接管完成 | tests/acceptance/runtime/test_multipod_recovery.py | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py"] | planned |
+
+### Acceptance Evidence
+
+- RED：verify-e2e 的 acceptance 段实测 `1 failed / 333 passed`（`/tmp/fluxion-reviewfix-e2e2.json`），失败原文 `tests/acceptance/runtime/test_multipod_recovery.py::test_s04_e07_process_kill_reaped_and_takeover` → `assert 'COMPLETED' == 'FAILED'`：整跑负载下「读到 run.created → kill Pod A」耗时超过 5s 在飞窗口，Run 先自然完成 ⇒ 回收断言必假。
+- 修复：在飞窗口 `OPENAI_PROBE_DELAY_MS` 5s → **60s**（探针为进程内 ASGI app，`await asyncio.sleep` 非阻塞；窗口放大不影响其它用例），断言与等待预算不变。
+- GREEN：`uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py` **连续三次全绿**（1 passed / 9.01s / 9.19s / 8.40s，`/tmp/reviewfix/multipod-fix.txt`）。
+
+### Log
+
+- [2026-10-16] created (draft)。
+- [2026-10-16] started
+- [2026-10-16] completed (done)

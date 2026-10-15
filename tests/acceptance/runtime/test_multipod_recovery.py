@@ -135,7 +135,10 @@ def test_s04_e07_process_kill_reaped_and_takeover(live_stack: LiveStack) -> None
         assert conversation.status_code == 200, conversation.text
         conversation_id = uuid.UUID(conversation.json()["data"]["conversation_id"])
 
-        os.environ["OPENAI_PROBE_DELAY_MS"] = "5000"
+        # 在飞窗口必须远大于「读到 run.created → kill」这段耗时：整跑负载下这段可能到秒级，
+        # 窗口太小会让 Run 先自然完成，回收断言必假（实测 assert 'COMPLETED' == 'FAILED'）。
+        # 探针是进程内 ASGI app（`await asyncio.sleep` 非阻塞），放大窗口不影响其它用例。
+        os.environ["OPENAI_PROBE_DELAY_MS"] = "60000"
         run_id: str | None = None
         with httpx.stream(
             "POST",
