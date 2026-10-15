@@ -64,37 +64,59 @@
 
 ## TASK-002: user-identity 浏览器域 spec 存量漂移修复
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: 
 - **Source**: .code-flow/tasks/archived/2026-10-12/memory-redesign/memory-redesign.design.md#3.7 API 与 Console
 - **Spec-Refs**: 
 - **Acceptance-Refs**: 
-- **Files**: e2e/tests/user-detail-layout.spec.ts
+- **Files**: e2e/tests/user-detail-layout.spec.ts, apps/console-platform/frontend/src/modules/user-identity/MemoryTab.tsx
 
 ### Description
 
-该 spec 仍 import 已删除的 `Memory` 类型、按 `source_type`（`USER_EXPLICIT`/`AGENT_INFERRED`/`FUTURE_SOURCE`）构造 4 列记忆表 mock 并断言来源列 —— 记忆 Tab 已在记忆重设计中拆到 `MemoryTab`（author/status/version/动作列），该 spec 属存量漂移。按现状修：记忆相关断言改为新契约（或按「记忆已不在 UserDetailTabs 内」调整布局断言），保持该 spec 对**布局**的覆盖意图。
+该 spec 仍 import 已删除的 `Memory` 类型、按 `source_type`（`USER_EXPLICIT`/`AGENT_INFERRED`/`FUTURE_SOURCE`）构造 4 列记忆表 mock 并断言来源列 —— 记忆 Tab 已在记忆重设计中拆到 `MemoryTab`（author/status/version/动作列），该 spec 属存量漂移。按现状修：记忆相关断言改为新契约，保持该 spec 对**布局**的覆盖意图。
+
+执行期补充事实：① 该 spec 的**真实所属域是 `form-layout`**（`playwright.form-layout.config.ts` 的 testMatch 含 `user-detail-layout.spec.ts`，CI 13 域之一）；`playwright.user-identity.config.ts` 的 testDir 为 `./tests/user-identity`、**不收集**本 spec（其命令实跑 6 passed，见 Evidence）。② 改断言后本 spec 的 `expectContentFits` 实测暴露 `MemoryTab` 新表两处列宽缺陷（updated 152 装不下 142.2px 的日期、author 120 装不下 119px 的来源值），按「保持布局覆盖意图、不弱化断言」修组件列宽：author 120→144、status 152→140、updated 152→176。
 
 ### Checklist
 
-- [ ] 先跑 `npm --prefix e2e test -- --config playwright.user-identity.config.ts` 记录 RED（或该 spec 相关用例的真实失败）。
-- [ ] 按新契约改 mock 与断言；不删覆盖意图、不引入 mock 之外的旁路。
-- [ ] GREEN：该域连续两次全绿；`npm --prefix apps/console-platform/frontend run build` 通过。
+- [x] 先跑 RED（该 spec 的真实所属域）：`npm --prefix e2e test -- --config playwright.form-layout.config.ts user-detail-layout.spec.ts` → **12 failed / 24 passed**（列数 4≠6、来源列断言错位；`playwright.user-identity.config.ts` 不收集本 spec，其 6 passed 见 Evidence）。
+- [x] 按新契约改 mock 与断言（`MemoryItem`/author 列/6 列/逐按钮可见性）；不删覆盖意图、不引入 mock 之外的旁路。
+- [x] 修复 spec 暴露的 `MemoryTab` 列宽缺陷（author 120→144、status 152→140、updated 152→176），内容列保持 ≥120；不改共享组件语义。
+- [x] GREEN：form-layout 域连续两次全绿（209 passed ×2）+ 过滤 spec 两次 36 passed；`npm --prefix apps/console-platform/frontend run build` 通过；agent 域 E-04（MemoryTab 回归）11 passed。
 
 ### Acceptance Contract
 
 | 场景ID / 规则 | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| LOCAL | E2E | browser，真实 Console（构建产物 + 真实会话） | 用户详情布局契约按新契约成立；无 `source_type`/旧 `Memory` 类型残留 | e2e/tests/user-detail-layout.spec.ts | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts"] | planned |
+| LOCAL | E2E | browser，真实构建产物（vite preview 跑 build 产物）；布局 fixture 经 `page.route` 改写 API（该 spec 既有形态） | 用户详情布局契约按新契约成立；无 `source_type`/旧 `Memory` 类型残留 | e2e/tests/user-detail-layout.spec.ts | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.form-layout.config.ts"] | verified |
 
 ### Acceptance Evidence
 
-计划阶段未执行。
+**RED**（真实失败原文；命令 = 该 spec 的真实所属域）：
+
+- `npm --prefix e2e test -- --config playwright.form-layout.config.ts user-detail-layout.spec.ts` → **12 failed / 24 passed**（`/tmp/postverify/task002/red-user-detail-layout.log`），失败全部集中在记忆用例，两族原文：
+  - `memory sources …`（4 例）：`Expected: "用户要求记住" / Received: "preference"` —— gridcell nth(1) 已从旧来源列变为新类别列；旧 mock 的 `source_type` 不在新 DTO 里。
+  - `user memory table fits …`（8 例）：`getByRole('columnheader') Expected: 4 / Received: 6` —— 新表 6 列（内容/类别/来源/状态/更新时间/操作）。
+- 域覆盖事实：`playwright.user-identity.config.ts` 的 testDir=`./tests/user-identity` 不收集本 spec；该命令实跑 **6 passed**（`/tmp/postverify/task002/user-identity-domain.log`），仅作该域自身回归证据。契约命令已按事实改登记为 form-layout 域（CI 13 域之一，testMatch 含本 spec）。
+- 修 spec 过程中暴露的组件缺陷（几何实测，probe 日志 `/tmp/postverify/task002/probe-layout.log`、`/tmp/postverify/task002/probe-widths.log`）：updated 列 152 下 `2026-10-09 22:09:02` 实测 **142.2px**、溢出单元格内边距盒 6.2px（`rect=920.0..1062.2 | cell=912.0..1064.0 | pad=8px/8px`）；author 列 120 下 `FUTURE_SOURCE`/`Confirmed by user` 实测 **119px**（列内容宽 104）被截断。
+
+**GREEN**（命令、断言位置、日志路径）：
+
+- **组件修**（`MemoryTab.tsx:305/315/339`）：author 120→**144**（来源值 119px 完整显示，旧 source 列同为 144）、status 152→**140**（12px 有效期行实测 122.8px）、updated 152→**176**（与其余详情表同口径；`YYYY-MM-DD HH:mm:ss` 实测 142.2px）。内容列 = 880−(104+144+140+176+196) = **120**，满足 spec 的 `flexible ≥120`。
+- **spec 修**（断言位置）：fixture 改 `MemoryItem` 新 DTO（author/status/version/explicit_request 等，`e2e/tests/user-detail-layout.spec.ts:32-41`）；来源断言改 author 列 `gridcell.nth(2)`（`:77-89`，本地化 label + `title` 保留原始码 + no-truncation 原样保留）；列数 6/操作列 196（`:47`）；`statusMax` 140（`:148`）；时间列 176（`:151`）；390px 固定操作列改逐按钮断言（`:163-167`，记忆表每格 3 个动作，单按钮表语义不变）。
+- **过滤 spec 连续两次**：`… --config playwright.form-layout.config.ts user-detail-layout.spec.ts` → **36 passed**（`/tmp/postverify/task002/green-run1.log`、`green-run2.log`）。
+- **全域连续两次**：`… --config playwright.form-layout.config.ts` → **209 passed**（`/tmp/postverify/task002/form-layout-full.log`、`form-layout-full2.log`）。
+- **build**：`npm --prefix apps/console-platform/frontend run build` → `✓ built`（`build-final.log`）。
+- **回归**：agent 域 E-04（MemoryTab 的真实数据域，端口经 env 偏移避让本机 5173 占用）→ **11 passed**（`/tmp/postverify/task002/agent-e04.log`）；`uv run pytest -q tests/frontend` → **340 passed**；`grep source_type\|Memory\b` 于 spec 无残留。
 
 ### Log
 
 - [2026-10-15] created (draft)。
+- [2026-10-15] started
+- [2026-10-15] RED（form-layout 域 12 failed/24 passed）→ 按新契约改 mock/断言 → 修 MemoryTab 列宽（144/140/176）→ 全域两轮 209 passed、过滤 spec 两轮 36 passed、agent E-04 11 passed、tests/frontend 340 passed。
+- [2026-10-15] 登记事实修正：本 spec 由 form-layout 域收集（user-identity 域 testDir 不含它）；契约命令据此改登记。
+- [2026-10-15] completed (done)
 
 ---
 

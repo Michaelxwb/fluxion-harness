@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import type { AgentGrant, Identity, Memory, UserDetail } from '../../apps/console-platform/frontend/src/modules/user-identity/services/users';
+import type { AgentGrant, Identity, UserDetail } from '../../apps/console-platform/frontend/src/modules/user-identity/services/users';
+import type { MemoryItem } from '../../apps/console-platform/frontend/src/modules/user-identity/memoryTypes';
 import type { PlatformItem } from '../../apps/console-platform/frontend/src/modules/project-platform/services/platforms';
 import { expectBlueActions } from '../support/action-colors';
 import { expectTableSurfaces } from '../support/table-surface';
@@ -28,19 +29,25 @@ const identities: Identity[] = [true, false].map((active, index) => ({
   bot_id: index ? longValue : 'demo-bot', bound_at: time, last_active_at: active ? time : null,
   user_status: active ? 'ACTIVE' : 'DISABLED'
 }));
-const memories: Memory[] = [true, false].map((enabled, index) => ({
-  id: `memory-${index}`, memory_key: `memory-${index}`, category: 'preference',
-  content: { preference: index ? longValue : '使用中文回复' }, source_type: index ? longValue : 'USER_EXPLICIT',
-  source_ref: null, version: 1, enabled, create_time: time, update_time: time
+const memories: MemoryItem[] = [true, false].map((enabled, index) => ({
+  id: `memory-${index}`, memory_key: `memory-${index}`,
+  category: index ? 'WORK_STYLE' : 'PREFERENCE',
+  content: { value: index ? longValue : '使用中文回复' },
+  author: index ? 'AGENT' : 'USER', version: 1, enabled,
+  explicit_request: !index, confirmed_count: index ? 0 : 1,
+  status: enabled ? 'ACTIVE' : 'DISABLED',
+  source_ref: null, source_quote: null, expires_at: null, last_confirmed_at: null,
+  create_time: time, update_time: time
 }));
 const cases = [
-  { key: 'grants', zh: 'Agent 授权', en: 'Agent grants', columns: 5, flexible: [0, 1], status: 2, actionWidth: 112 },
-  { key: 'credentials', zh: '项目平台凭据', en: 'Credentials', columns: 6, flexible: [0], status: 3, actionWidth: 104 },
-  { key: 'identities', zh: 'IM 身份', en: 'IM identities', columns: 7, flexible: [1, 2], status: 5, actionWidth: 80 },
-  { key: 'memory', zh: '用户记忆', en: 'Memories', columns: 4, flexible: [0], status: null, actionWidth: 80 }
+  { key: 'grants', zh: 'Agent 授权', en: 'Agent grants', columns: 5, flexible: [0, 1], status: 2, statusMax: 128, actionWidth: 112 },
+  { key: 'credentials', zh: '项目平台凭据', en: 'Credentials', columns: 6, flexible: [0], status: 3, statusMax: 128, actionWidth: 104 },
+  { key: 'identities', zh: 'IM 身份', en: 'IM identities', columns: 7, flexible: [1, 2], status: 5, statusMax: 128, actionWidth: 80 },
+  // 记忆表（记忆重设计后的列契约）：内容/类别/来源(author)/状态/更新时间/操作；状态列 140，操作列 196。
+  { key: 'memory', zh: '用户记忆', en: 'Memories', columns: 6, flexible: [0], status: 3, statusMax: 140, actionWidth: 196 }
 ] as const;
 
-async function prepare(page: Page, width: number, theme: string, locale: string, memoryItems: readonly Memory[] = memories): Promise<void> {
+async function prepare(page: Page, width: number, theme: string, locale: string, memoryItems: readonly MemoryItem[] = memories): Promise<void> {
   await page.setViewportSize({ width, height: 1000 });
   await page.addInitScript(({ theme, locale }) => {
     localStorage.setItem('muad.theme', theme);
@@ -64,38 +71,43 @@ async function prepare(page: Page, width: number, theme: string, locale: string,
   await expect.poll(() => page.getByRole('dialog').evaluate((node) => Math.round(node.getBoundingClientRect().right))).toBe(width);
 }
 
-const memorySources = ['USER_EXPLICIT', 'AGENT_INFERRED', 'EXPLICIT', 'FUTURE_SOURCE', 'constructor'] as const;
+// 记忆「来源」列 = author（USER/ADMIN/AGENT）；域外取值必须原样透出（不吞原始码）。
+const memoryAuthors = ['USER', 'ADMIN', 'AGENT', 'FUTURE_SOURCE', 'constructor'] as const;
 
-async function expectMemorySources(table: Locator, locale: string): Promise<void> {
+async function expectMemoryAuthors(table: Locator, locale: string): Promise<void> {
   const labels = locale === 'zh-CN'
-    ? ['用户要求记住', 'Agent 自动归纳', 'EXPLICIT', 'FUTURE_SOURCE', 'constructor']
-    : ['User requested', 'Agent inferred', 'EXPLICIT', 'FUTURE_SOURCE', 'constructor'];
+    ? ['用户已确认', '管理员录入', 'Agent 推断', 'FUTURE_SOURCE', 'constructor']
+    : ['Confirmed by user', 'Entered by admin', 'Agent inferred', 'FUTURE_SOURCE', 'constructor'];
   const rows = table.locator('.semi-table-tbody > .semi-table-row');
-  await expect(rows).toHaveCount(memorySources.length);
-  for (const [index, source] of memorySources.entries()) {
-    const text = rows.nth(index).getByRole('gridcell').nth(1).locator('.table-text');
+  await expect(rows).toHaveCount(memoryAuthors.length);
+  for (const [index, author] of memoryAuthors.entries()) {
+    const text = rows.nth(index).getByRole('gridcell').nth(2).locator('.table-text');
     await expect(text).toHaveText(labels[index]);
-    await expect(text).toHaveAttribute('title', source);
+    await expect(text).toHaveAttribute('title', author);
     expect(await text.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(false);
   }
 }
 
 for (const locale of ['zh-CN', 'en-US']) {
   for (const theme of ['light', 'dark']) {
-    test(`memory sources explain known types and preserve raw codes in ${locale} ${theme}`, async ({ page }) => {
-      const items = memorySources.map((source_type, index) => ({ ...memories[0], id: `source-${index}`, source_type }));
+    test(`memory authors explain known values and preserve raw codes in ${locale} ${theme}`, async ({ page }) => {
+      const items: MemoryItem[] = memoryAuthors.map((author, index) => ({
+        ...memories[0], id: `author-${index}`, memory_key: `author-${index}`,
+        // 域外 author 取值按事实模拟：后端未来新增枚举也必须原样透出（不吞码）。
+        author: author as MemoryItem['author']
+      }));
       await prepare(page, 1280, theme, locale, items);
       const sheet = page.getByRole('dialog');
       await sheet.getByRole('tab', { name: `${locale === 'zh-CN' ? '用户记忆' : 'Memories'} (${items.length})`, exact: true }).click();
       const table = sheet.locator('.user-memory-table');
-      await expectMemorySources(table, locale);
+      await expectMemoryAuthors(table, locale);
       await sheet.locator('.semi-sidesheet-close').click();
       await expect(sheet).toHaveCount(0);
       await page.getByTestId('locale-switch').click();
       await page.getByTestId('user-link-layout-user').click();
       const nextLocale = locale === 'zh-CN' ? 'en-US' : 'zh-CN';
       await sheet.getByRole('tab', { name: `${nextLocale === 'zh-CN' ? '用户记忆' : 'Memories'} (${items.length})`, exact: true }).click();
-      await expectMemorySources(table, nextLocale);
+      await expectMemoryAuthors(table, nextLocale);
     });
   }
 }
@@ -133,7 +145,7 @@ async function expectDesktopFits(table: Locator, entry: typeof cases[number]): P
   }))).toEqual({ overflow: 0, unused: 0 });
   const cells = table.locator('.semi-table-tbody > .semi-table-row').first().getByRole('gridcell');
   expect((await cells.last().boundingBox())!.width).toBeCloseTo(entry.actionWidth, 0);
-  if (entry.status !== null) expect((await cells.nth(entry.status).boundingBox())!.width).toBeLessThanOrEqual(128);
+  if (entry.status !== null) expect((await cells.nth(entry.status).boundingBox())!.width).toBeLessThanOrEqual(entry.statusMax);
   for (const index of entry.flexible) expect((await cells.nth(index).boundingBox())!.width).toBeGreaterThanOrEqual(120);
   for (const date of await table.locator('.datetime-text').all()) {
     expect(await date.evaluate((node) => node.closest('td')!.getBoundingClientRect().width)).toBeCloseTo(176, 0);
@@ -149,7 +161,10 @@ async function expectFixedActions(table: Locator, locale: string): Promise<void>
   await body.evaluate((node) => { node.scrollLeft = node.scrollWidth; });
   expect(await body.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
   await expect.poll(async () => (await first.boundingBox())!.x).toBeCloseTo(left, 0);
-  for (const action of await actions.all()) await expect(action.getByRole('button')).toBeInViewport({ ratio: 1 });
+  // 记忆表每格三个行内动作（历史/启停用/删除），逐按钮断言全部在视口内；单按钮表语义不变。
+  for (const action of await actions.all()) {
+    for (const button of await action.getByRole('button').all()) await expect(button).toBeInViewport({ ratio: 1 });
+  }
   const more = first.getByRole('button', { name: locale === 'zh-CN' ? '更多' : 'More', exact: true });
   if (await more.count()) {
     await more.click();

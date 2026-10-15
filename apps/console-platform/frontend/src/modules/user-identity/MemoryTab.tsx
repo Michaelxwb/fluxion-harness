@@ -300,7 +300,9 @@ export function MemoryTab(props: MemoryTabProps) {
             {
               title: t('user.memory.source'),
               dataIndex: 'author',
-              width: 120,
+              // 来源列 144：en「Confirmed by user」与域外原始码「FUTURE_SOURCE」实测均 119px，
+              // 来源值必须完整显示（user-detail-layout.spec.ts 的 no-truncation 断言），144 留 9px 余量。
+              width: 144,
               ellipsis: true,
               render: (value: string) => (
                 <TableText title={value}>{memoryAuthorLabel(t, value)}</TableText>
@@ -309,9 +311,8 @@ export function MemoryTab(props: MemoryTabProps) {
             {
               title: t('user.memory.statusLabel'),
               dataIndex: 'status',
-              // 状态标签 + 12px 有效期第二行实测 135px（en-US/zh-CN 同口径），152 足够且不留空白；
-              // 省下的宽度留给操作列（196）与内容列（auto）。
-              width: 152,
+              // 状态列 140：列内容宽 124，12px 有效期第二行实测 122.8px（余量 1.2px；无有效期时只有标签）。
+              width: 140,
               render: (value: string, entry: MemoryItem) => (
                 <div className="memory-status-cell">
                   <StatusTag
@@ -333,8 +334,9 @@ export function MemoryTab(props: MemoryTabProps) {
             {
               title: t('user.memory.updated'),
               dataIndex: 'update_time',
-              // 时间列实测 135px（`2026-10-15 18:19:03` + 单元格内边距），152 与状态列同宽。
-              width: 152,
+              // 时间列 176：与其余详情表同口径。`YYYY-MM-DD HH:mm:ss` 实测 142.2px，152 会溢出
+              // 单元格内边距盒 6.2px（user-detail-layout.spec.ts 的 expectContentFits 实测变红）。
+              width: 176,
               render: (value: string) => <DateTimeText value={value} />
             },
             {
