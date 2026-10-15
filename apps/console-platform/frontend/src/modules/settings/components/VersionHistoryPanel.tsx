@@ -82,7 +82,14 @@ export function VersionHistoryPanel({
   }
 
   return (
-    <DetailSideSheet visible={visible} title={t('settings.history.title')} onCancel={onClose}>
+    <DetailSideSheet
+      visible={visible}
+      title={t('settings.history.title')}
+      // 单 Pane 也要给 activeKey：Semi 的 Tabs 在没有 activeKey 时所有 Pane 都是 inactive
+      // （display:none + aria-hidden），版本列表与分页会整体不可见。
+      activeTab="history"
+      onCancel={onClose}
+    >
       <TabPane itemKey="history" tab={t('settings.history.title')}>
         {body}
       </TabPane>

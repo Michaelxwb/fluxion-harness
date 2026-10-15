@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 COMPONENT = ROOT / "apps/console-platform/frontend/src/components/common/DetailSideSheet.tsx"
 COMMON = ROOT / "apps/console-platform/frontend/src/components/common"
+FRONTEND_SRC = ROOT / "apps/console-platform/frontend/src"
 USER_DETAIL = ROOT / "apps/console-platform/frontend/src/modules/user-identity/UserDetailTabs.tsx"
 # 记忆 Tab 于 TASK-028 拆到独立组件：详情面的结构断言跨两份源码检查（同一详情 Tab 面）。
 MEMORY_TAB = ROOT / "apps/console-platform/frontend/src/modules/user-identity/MemoryTab.tsx"
@@ -38,6 +39,47 @@ def test_detail_sidesheet_uses_semi_header_and_tabs() -> None:
 def test_detail_sidesheet_renders_no_empty_action_area() -> None:
     source = _source()
     assert re.search(r"props\.actions\s*\?", source), "actions must be conditionally rendered"
+
+
+def _jsx_opening_tag(source: str, start: int) -> str:
+    """Return the JSX opening tag beginning at `start`; braces may contain `>` (arrow props)."""
+    depth = 0
+    for pos in range(start, len(source)):
+        char = source[pos]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+        elif char == ">" and depth == 0:
+            return source[start:pos + 1]
+    raise AssertionError(f"unterminated JSX tag at offset {start}")
+
+
+def _detail_sidesheet_usages() -> list[tuple[Path, str]]:
+    """Every `<DetailSideSheet ...>` opening tag in the frontend source tree, with its file."""
+    usages: list[tuple[Path, str]] = []
+    for path in sorted(FRONTEND_SRC.rglob("*.tsx")):
+        source = path.read_text(encoding="utf-8")
+        cursor = 0
+        while (found := source.find("<DetailSideSheet", cursor)) != -1:
+            tag = _jsx_opening_tag(source, found)
+            usages.append((path, tag))
+            cursor = found + len(tag)
+    return usages
+
+
+def test_every_detail_sidesheet_usage_declares_active_tab() -> None:
+    # Semi `Tabs` 没有 activeKey 时所有 Pane 恒 inactive（display:none + aria-hidden）：
+    # 单 Pane 详情壳打开即空壳（TASK-035 在 MemoryHistorySideSheet、TASK-001 在
+    # VersionHistoryPanel 实测命中），故每个调用点都必须显式给 `activeTab`。
+    usages = _detail_sidesheet_usages()
+    assert usages, "源码扫描未找到任何 DetailSideSheet 调用点（扫描口径失效？）"
+    missing = [
+        f"{path.relative_to(ROOT)}: {' '.join(tag.split())[:110]}"
+        for path, tag in usages
+        if not re.search(r"\bactiveTab\s*=", tag)
+    ]
+    assert not missing, "DetailSideSheet 调用点必须显式给 activeTab，缺失：\n" + "\n".join(missing)
 
 
 def test_detail_layout_components_exist_and_are_shared() -> None:
