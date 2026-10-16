@@ -80,6 +80,9 @@ E2E 创建的业务数据（无删除端点的资源尤其如此）必须：用�
   - **路径双写 live→archived**：`_dir()` 先试 `.code-flow/tasks/<日期>/<需求>`，不存在再取 `archived/`——硬编码 live 路径会让归档后整个验收套件变红（09/11/13 均踩过）。
   - **扰动锚点不得假设行处于某个非终态**：全量终验后所有行都是 `verified`，按 `e2e_deferred` 之类硬编码状态做锚点会让扰动用例在终态盘面上自红；应读取当前终态、改为非终态（如 `planned`），断言变红且指名条目、逐字节还原后复绿（2026-10-09 实例：`tests/async_tool_runtime_inventory.py::test_perturbation_changed_status_turns_terminal_check_red`）。
   - ❌ 只断言「本文件里的清单已勾选」——那是对自查结果自查，任务文档写错时清单照样绿。
+  - **改动 `apps/`、`packages/` 模块级常量（大写赋值）的任务，checklist 必须包含重生成 `docs/configuration-inventory.csv`**：该 CSV 的 `python-constant` 行由 AST 扫描逐行比对，行号位移或常量增删都会让它红（2026-10-16 同一条收尾链上咬了 3 次）；重生成沿用既有 `category`/`reason` 口径，只重算 `python-constant` 行。
+    - ✅ 改完常量后重算并跑 `tests/test_configuration_inventory.py`（4 passed）再提交
+    - ❌ 只跑目标测试就收尾——整跑时 `test_configuration_inventory` 红，终验白跑一轮
 
 ✅ 真实边界（浏览器链路端到端）：
 
@@ -140,6 +143,19 @@ assert (await session.get(RunRecord, run_id)).status == "RUNNING"               
   - ✅ 定名之前先 `find tests -name "<basename>.py"`；撞名就补包标记，或改一个更具体的名字
   - ❌ 同一需求里按场景层各建一个 `test_<需求名>.py`（本次实例：`tests/gateway/test_execution_progress.py` 与 `tests/acceptance/im_gateway/test_execution_progress.py` 同名 ⇒ `pytest tests/` 一条都跑不了，而 `pytest tests/gateway` 与 acceptance 单跑都绿）
   - 机检：`tests/test_collection_layout.py::test_no_two_test_modules_share_an_import_name`（按 pytest 的 prepend 规则推导入名：目录链上有 `__init__.py` 的算包段，否则该目录名即模块名的起点）
+- **命令边界、同响应多字段与「删除后可达性」必须点名断言**（2026-10-16 评审实例）：只测「有变更时的主路径」会漏掉三类语义。
+  - 命令的**副作用边界**：CLEAR 在空库（无已保存记忆、只有 pending 提议）也须撤销全部 pending 提议并推进撤销边界；只测「有记忆时清空」时，空库路径返回 `UNCHANGED` 且提议仍可确认。
+  - **同一响应的多字段必须同快照**：`total` 与 `items` 分两条 SQL 时，READ COMMITTED 下并发写入/到期跨界会让 `total=0` 而 `items` 有 1 条；两字段必须由**同一条语句**产出（`(SELECT count(*)) … LEFT JOIN (行子查询) …`）。
+  - **删除后的可达性**：删除后历史/恢复必须有**界面入口**，且浏览器用例必须**经该入口**验证——直调 API 断言等于绕开用户真实路径。
+  - ✅ 三类语义各写一条可独立失败的用例（空库 / 跨界 / 删除后三种边界各一）
+  - ❌ 只断言「有变更时的主路径」，或让浏览器用例直调 API 绕开界面入口
+- **「单跑绿、整跑红」先分类再动手**：区分「测试时序假设」与「产品行为变化」——前者把窗口改成**确定性前提**（放大在飞窗口/等待终态/按用途过滤），后者**必须修产品**，不得用「等后台收尾」把产品语义问题绕过去。
+  - ✅ 后台维护事件 bump 会话 `update_time` 让「当前会话」解析错位 ⇒ 修解析口径（按用户最近发言），测试侧等待只是补充（2026-10-16 评审条目 2）
+  - ✅ 杀进程用例的在飞窗口小于「读到事件 → kill」耗时 ⇒ 把窗口放大成确定性前提（5s→60s），断言不变
+  - ❌ 把产品行为变化当测试竞态：只在测试里等后台静止，生产链路仍把 `/new` 后的消息路由回旧会话
+- **修复类任务必须带负向对照**：修断言/修竞态/修缺口的任务，GREEN 证据必须包含「移除修复（或注入旧行为）→ 必须红」的一次实证；只报「新用例通过」证明不了新用例覆盖了被修的行为。
+  - ✅ 前端命令号修复：还原旧行为后新用例必红（清空重试误删新建记忆）；E-03 用户确认：临时把注入作者域收成 ADMIN 后新用例必红
+  - ❌ 只贴 GREEN 输出，不证明它在旧行为下会失败
 
 ## Avoid
 
