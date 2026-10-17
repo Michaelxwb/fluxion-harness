@@ -1,7 +1,7 @@
 version: 1
 task: Agent 并发容量与通用 Webchat
 enforcement: required
-updated_at: '2026-10-17T18:03:03.662307+00:00'
+updated_at: '2026-10-17T19:04:48.070626+00:00'
 sources:
 - type: cli
   ref: bind
@@ -22,469 +22,6 @@ bindings:
   - code
   - review
   rules:
-  - ref: RULE-api-001
-    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
-      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
-      只来自 `config/api-messages.yaml`。
-    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-    enforcement: required
-    verifier_ref: harness-api#RULE-api-001
-    verifier_stage: code
-    stage_status:
-      code:
-        status: unverified
-        refs: []
-        decision: null
-        evidence:
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-16T22:58:26.172823+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-16T23:02:24.023122+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-16T23:50:27.358816+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-16T23:57:00.076177+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T04:14:27.797659+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T04:18:05.425760+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T04:21:27.185314+00:00'
-          status: verified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
-          result_sha256: 06bd510bc6d7885698225c094d3e5d3f71b910cd8219cd28f9cd8aa3ffebe5f0
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_api_i18n.py
-            - tests/test_error_catalog.py
-            - tests/acceptance/test_foundation_api_envelope.py
-            exit_code: 0
-            stdout_sha256: d748e5d67193c188cc5b213173dd2ed080cbb1761506d9f6a8d47d35d071f113
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                          \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 1 warning in 2.25s\n"
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T04:27:36.811464+00:00'
-          status: verified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
-          result_sha256: 8969a25768225e8e32321ffeedf1fa94b363894b9a10e394080835e8ba7ff586
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_api_i18n.py
-            - tests/test_error_catalog.py
-            - tests/acceptance/test_foundation_api_envelope.py
-            exit_code: 0
-            stdout_sha256: 5ef68dcb7c8a0a67b46c5abf1c49a626ecc9a0b3bb55696ab6ab17676f255d02
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                          \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 1 warning in 2.45s\n"
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T09:05:06.433846+00:00'
-          status: verified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
-          result_sha256: 621aef0a744602606685374d176096f546c22d76f5c0b8b2d993a1ec743865f4
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_api_i18n.py
-            - tests/test_error_catalog.py
-            - tests/acceptance/test_foundation_api_envelope.py
-            exit_code: 0
-            stdout_sha256: b2ab128afa54af215c8622b96f4d9c9bf2f879ab488067420ccef39cf2c37a79
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                          \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 1 warning in 2.43s\n"
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T09:52:39.468286+00:00'
-          status: verified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
-          result_sha256: 65ae407cc96804a55ea148add85f2ead9d4801201e7c29a8e24e76b7c8ce61d5
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_api_i18n.py
-            - tests/test_error_catalog.py
-            - tests/acceptance/test_foundation_api_envelope.py
-            exit_code: 0
-            stdout_sha256: c771ccc6dec9f52d70e07724c616754caacb1dde01778a2859315bbbdb5967d7
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                          \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 1 warning in 2.14s\n"
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T10:05:03.371305+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 773ea84faf8c4d0d3f4ae46c4817d80480934b793d7701a3a3623a703b819ce6
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T10:43:25.434806+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: af710d260053d9cfc4d7ee22827fb2befdf995e7fee643451ce5bb39c1fbdbb2
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T11:06:43.172597+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 1cb00825daae2c5e6396f5329357e5756e19fe81defc15fe3466dc20892fbae5
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T11:48:19.586537+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 36c74c967b5a648c261ee19c869196f0c1b79821377f144d05c3d185e24bb735
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T12:21:46.292582+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 7fd8802969c9c18b901f07e12e9532905ddefbd0b59b89d413ab98fb7d903b3c
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T12:42:04.339668+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 60f24a5a4a25af28c21ea8039d675241bc708f0d5fc5db37b93c414518dfae2d
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T13:15:28.378094+00:00'
-          status: verified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: ce474c45e6d8e8eb0734dc6ad320818fd740cf0015c2b74cc895859c6f71a0fd
-          result_sha256: 8969a25768225e8e32321ffeedf1fa94b363894b9a10e394080835e8ba7ff586
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_api_i18n.py
-            - tests/test_error_catalog.py
-            - tests/acceptance/test_foundation_api_envelope.py
-            exit_code: 0
-            stdout_sha256: 5ef68dcb7c8a0a67b46c5abf1c49a626ecc9a0b3bb55696ab6ab17676f255d02
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                          \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 1 warning in 2.45s\n"
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T13:29:38.227411+00:00'
-          status: verified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
-          result_sha256: a4fdd6e8019692a007f89d70a8d64f757ef4a57d14a4935451714cfb5600f2c3
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_api_i18n.py
-            - tests/test_error_catalog.py
-            - tests/acceptance/test_foundation_api_envelope.py
-            exit_code: 0
-            stdout_sha256: bfc851932159df765e5e15ecdc97ffe3b0a03fcb959b104d6ca4c7d781d3cb0e
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                          \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 1 warning in 3.03s\n"
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T13:48:11.234777+00:00'
-          status: verified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: f129150f99a988c546f9463bddb96d4f992c394ee152061b94c66556235081be
-          result_sha256: 34e09f6550e4a780c697dcb8ebaa82930b4e691b0662f429c597b8551418765e
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_api_i18n.py
-            - tests/test_error_catalog.py
-            - tests/acceptance/test_foundation_api_envelope.py
-            exit_code: 0
-            stdout_sha256: 52fa883f400e8cdac91a29bc9dfd6480d2328fe00122c63d6007fb44f609c4e6
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                          \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 1 warning in 2.75s\n"
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T16:11:51.578329+00:00'
-          status: verified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 0f079ef483d9939dc84ab4e8e4238fb79c15b2328faff392277f15e9e1438260
-          result_sha256: e3b5156771fa632f09254a577bcef48f62cb00fe69600fb99678ce42cb31c888
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_api_i18n.py
-            - tests/test_error_catalog.py
-            - tests/acceptance/test_foundation_api_envelope.py
-            exit_code: 0
-            stdout_sha256: 2c6cb5200ded1d906355a8cd2cba063257514bb36d00a32ad2a8531977465cb4
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                          \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 1 warning in 2.91s\n"
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T17:26:57.158811+00:00'
-          status: verified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 832fe9c172a23a42ae159d227fe3670645a154d9bda334fd8ceff21638bcc8c1
-          result_sha256: a7e10b87ec05e262f4fc78dca7ad11d10fb03d793f9090c452dbddda382c5e62
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_api_i18n.py
-            - tests/test_error_catalog.py
-            - tests/acceptance/test_foundation_api_envelope.py
-            exit_code: 0
-            stdout_sha256: b0d5ea09fd0eede50bce58410c3c328967a9ff9d2fe4bf2a1634d1397bef7813
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                          \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 1 warning in 2.74s\n"
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T19:03:32.307802+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 5813e8d21412945b3d17fa72a81d8a8b76c631b646d1789546a890da71095900
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T18:17:25.779208+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: abacdd747b73eb28d2f97636bed8c895a4919a064311e5ac475866cf62a75f20
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-10-17T18:10:49.381979+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 2b3a1d7a1dcf7177db4edc04d984138fcc8e9e6c57cc9b4b16b72fa21579acac
-          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
-          error_code: deferred_to_review
-          details:
-            reason: out_of_task_scope
-            deferred_to_review: true
-      design:
-        status: applied
-        refs:
-        - artifact: agent-capacity-webchat.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-api-001
-          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
-        decision: null
-        evidence: []
-      plan:
-        status: applied
-        refs:
-        - artifact: agent-capacity-webchat.md
-          section_id: TASK-007
-          item_id: TASK-007
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
-        decision: null
-        evidence: []
-      review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
   - ref: RULE-api-002
     summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
       `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
@@ -940,7 +477,470 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-030
           item_id: TASK-030
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-001
+    verifier_stage: code
+    stage_status:
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-16T22:58:26.172823+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-16T23:02:24.023122+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-16T23:50:27.358816+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-16T23:57:00.076177+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T04:14:27.797659+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T04:18:05.425760+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T04:21:27.185314+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: 06bd510bc6d7885698225c094d3e5d3f71b910cd8219cd28f9cd8aa3ffebe5f0
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: d748e5d67193c188cc5b213173dd2ed080cbb1761506d9f6a8d47d35d071f113
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.25s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T04:27:36.811464+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: 8969a25768225e8e32321ffeedf1fa94b363894b9a10e394080835e8ba7ff586
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 5ef68dcb7c8a0a67b46c5abf1c49a626ecc9a0b3bb55696ab6ab17676f255d02
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.45s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T09:05:06.433846+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: 621aef0a744602606685374d176096f546c22d76f5c0b8b2d993a1ec743865f4
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: b2ab128afa54af215c8622b96f4d9c9bf2f879ab488067420ccef39cf2c37a79
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.43s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T09:52:39.468286+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: 65ae407cc96804a55ea148add85f2ead9d4801201e7c29a8e24e76b7c8ce61d5
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: c771ccc6dec9f52d70e07724c616754caacb1dde01778a2859315bbbdb5967d7
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.14s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T10:05:03.371305+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 773ea84faf8c4d0d3f4ae46c4817d80480934b793d7701a3a3623a703b819ce6
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T10:43:25.434806+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: af710d260053d9cfc4d7ee22827fb2befdf995e7fee643451ce5bb39c1fbdbb2
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T11:06:43.172597+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 1cb00825daae2c5e6396f5329357e5756e19fe81defc15fe3466dc20892fbae5
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T11:48:19.586537+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 36c74c967b5a648c261ee19c869196f0c1b79821377f144d05c3d185e24bb735
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T12:21:46.292582+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 7fd8802969c9c18b901f07e12e9532905ddefbd0b59b89d413ab98fb7d903b3c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T12:42:04.339668+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 60f24a5a4a25af28c21ea8039d675241bc708f0d5fc5db37b93c414518dfae2d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T13:15:28.378094+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: ce474c45e6d8e8eb0734dc6ad320818fd740cf0015c2b74cc895859c6f71a0fd
+          result_sha256: 8969a25768225e8e32321ffeedf1fa94b363894b9a10e394080835e8ba7ff586
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 5ef68dcb7c8a0a67b46c5abf1c49a626ecc9a0b3bb55696ab6ab17676f255d02
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.45s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T13:29:38.227411+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: a4fdd6e8019692a007f89d70a8d64f757ef4a57d14a4935451714cfb5600f2c3
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: bfc851932159df765e5e15ecdc97ffe3b0a03fcb959b104d6ca4c7d781d3cb0e
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 3.03s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T13:48:11.234777+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: f129150f99a988c546f9463bddb96d4f992c394ee152061b94c66556235081be
+          result_sha256: 34e09f6550e4a780c697dcb8ebaa82930b4e691b0662f429c597b8551418765e
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 52fa883f400e8cdac91a29bc9dfd6480d2328fe00122c63d6007fb44f609c4e6
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.75s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T16:11:51.578329+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 0f079ef483d9939dc84ab4e8e4238fb79c15b2328faff392277f15e9e1438260
+          result_sha256: e3b5156771fa632f09254a577bcef48f62cb00fe69600fb99678ce42cb31c888
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 2c6cb5200ded1d906355a8cd2cba063257514bb36d00a32ad2a8531977465cb4
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.91s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T17:26:57.158811+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 832fe9c172a23a42ae159d227fe3670645a154d9bda334fd8ceff21638bcc8c1
+          result_sha256: a7e10b87ec05e262f4fc78dca7ad11d10fb03d793f9090c452dbddda382c5e62
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: b0d5ea09fd0eede50bce58410c3c328967a9ff9d2fe4bf2a1634d1397bef7813
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.74s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T19:03:32.307802+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 5813e8d21412945b3d17fa72a81d8a8b76c631b646d1789546a890da71095900
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T18:17:25.779208+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: abacdd747b73eb28d2f97636bed8c895a4919a064311e5ac475866cf62a75f20
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T18:10:49.381979+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 2b3a1d7a1dcf7177db4edc04d984138fcc8e9e6c57cc9b4b16b72fa21579acac
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-007
+          item_id: TASK-007
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -1256,7 +1256,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-104
           item_id: TASK-104
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -1574,7 +1574,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-043
           item_id: TASK-043
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -1893,7 +1893,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -2213,7 +2213,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-071
           item_id: TASK-071
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -2672,7 +2672,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-090
           item_id: TASK-090
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -2988,7 +2988,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-046
           item_id: TASK-046
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -3290,7 +3290,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-048
           item_id: TASK-048
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -3608,7 +3608,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-098
           item_id: TASK-098
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -3924,7 +3924,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-037
           item_id: TASK-037
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -3977,7 +3977,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-056
           item_id: TASK-056
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -4014,7 +4014,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-056
           item_id: TASK-056
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -4052,7 +4052,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-025
           item_id: TASK-025
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -4089,7 +4089,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-049
           item_id: TASK-049
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -4127,7 +4127,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-026
           item_id: TASK-026
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -4164,7 +4164,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -4480,7 +4480,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-019
           item_id: TASK-019
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -4819,7 +4819,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -5214,7 +5214,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-020
           item_id: TASK-020
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -5535,7 +5535,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-053
           item_id: TASK-053
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -5853,7 +5853,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -6169,7 +6169,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-118
           item_id: TASK-118
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -6613,7 +6613,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-035
           item_id: TASK-035
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -6929,7 +6929,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-091
           item_id: TASK-091
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -7245,7 +7245,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-085
           item_id: TASK-085
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
@@ -7564,7 +7564,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-033
           item_id: TASK-033
-          artifact_sha256: 83f4cc9c42e6a5a781286d2bfeba63f9c4ff6d67546c924248ad3878a0bde871
+          artifact_sha256: 3390c55e7755a589326885541a886d844ff2b9dac0434155ca207f53494b7b37
         decision: null
         evidence: []
       review:
