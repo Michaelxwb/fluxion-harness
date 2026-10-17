@@ -45,7 +45,12 @@ from ..infrastructure.model_capacity_store import (
     CredentialLimits,
     LeaseSnapshot,
 )
-from ..infrastructure.model_dispatch_store import DispatchState, LiveMember, ModelDispatchStore
+from ..infrastructure.model_dispatch_store import (
+    DispatchState,
+    FrozenCandidate,
+    LiveMember,
+    ModelDispatchStore,
+)
 from .model_capacity_service import ModelCapacityService
 
 #: 被延迟的工作负载原因：物理额度都满了（或绑定额度不足）
@@ -100,6 +105,18 @@ class ModelMemberCandidate:
     key_resource_id: uuid.UUID
     quota_group_id: uuid.UUID | None
     weight: int
+
+    @classmethod
+    def of(cls, frozen: FrozenCandidate) -> ModelMemberCandidate:
+        """把短事务外读到的候选元信息映射成调度输入（身份逐字段搬运，不做补默认）。"""
+        return cls(
+            deployment_id=frozen.deployment_id,
+            credential_id=frozen.credential_id,
+            credential_revision=frozen.credential_revision,
+            key_resource_id=frozen.key_resource_id,
+            quota_group_id=frozen.quota_group_id,
+            weight=frozen.weight,
+        )
 
 
 @dataclass(frozen=True, slots=True)
