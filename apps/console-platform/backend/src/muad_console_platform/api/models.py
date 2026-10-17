@@ -3,15 +3,21 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok, paginate
+from muad_contracts.model_pool import (
+    ModelDeploymentConfig,
+    ModelDeploymentInput,
+    ModelDeploymentUpdate,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
 from ..application.dto import ModelBatchTestRequest, ModelCreateRequest, ModelListItem, ModelUpdateRequest
+from ..application.model_deployment_service import ModelDeploymentService
 from ..application.model_service import ModelService, model_configured
 from ..application.model_test_service import ModelTestService
 from ..infrastructure.db import get_session
-from ..infrastructure.models.control import ModelDefinition
-from .deps import AccountTenantId, CurrentAccount, get_source_ip
+from ..infrastructure.models.control import ModelDefinition, ModelDeployment
+from .deps import AccountTenantId, AdminAccount, CurrentAccount, get_source_ip
 
 TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -40,6 +46,19 @@ def _item(model: ModelDefinition) -> dict[str, Any]:
 
 def _actor(account: CurrentAccount, request: Request) -> AuditActor:
     return AuditActor(account_id=account.id, source_ip=get_source_ip(request))
+
+
+def _deployment_item(deployment: ModelDeployment) -> dict[str, Any]:
+    """成员读取投影：关系字段 + revision；不含任何密钥/连接字段。"""
+    return ModelDeploymentConfig(
+        id=deployment.id,
+        key=deployment.key,
+        model_id=deployment.model_id,
+        credential_id=deployment.credential_id,
+        weight=deployment.weight,
+        enabled=deployment.enabled,
+        revision=deployment.revision,
+    ).model_dump(mode="json")
 
 
 @router.get("")
@@ -127,3 +146,74 @@ async def delete_model(
 ) -> ApiResponse[Any]:
     await ModelService(session).delete_model(tenant_id, model_id, _actor(account, request))
     return ok(request.app.state.message_catalog, {"id": str(model_id), "deleted": True})
+
+
+# ------------------------------------------------- API-01 成员关系（ADMIN；单关系 POST/PUT/DELETE）
+@router.get("/{model_id}/deployments")
+async def list_model_deployments(
+    model_id: uuid.UUID,
+    request: Request,
+    account: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> ApiResponse[Any]:
+    deployments, total = await ModelDeploymentService(session).list_deployments(
+        tenant_id, model_id, page, page_size
+    )
+    return ok(
+        request.app.state.message_catalog,
+        paginate(
+            items=[_deployment_item(deployment) for deployment in deployments],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
+    )
+
+
+@router.post("/{model_id}/deployments")
+async def create_model_deployment(
+    model_id: uuid.UUID,
+    payload: ModelDeploymentInput,
+    request: Request,
+    account: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    deployment = await ModelDeploymentService(session).create_deployment(
+        tenant_id, model_id, payload, _actor(account, request)
+    )
+    return ok(request.app.state.message_catalog, _deployment_item(deployment))
+
+
+@router.put("/{model_id}/deployments/{deployment_id}")
+async def update_model_deployment(
+    model_id: uuid.UUID,
+    deployment_id: uuid.UUID,
+    payload: ModelDeploymentUpdate,
+    request: Request,
+    account: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    deployment = await ModelDeploymentService(session).update_deployment(
+        tenant_id, model_id, deployment_id, payload, _actor(account, request)
+    )
+    return ok(request.app.state.message_catalog, _deployment_item(deployment))
+
+
+@router.delete("/{model_id}/deployments/{deployment_id}")
+async def delete_model_deployment(
+    model_id: uuid.UUID,
+    deployment_id: uuid.UUID,
+    request: Request,
+    account: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    await ModelDeploymentService(session).delete_deployment(
+        tenant_id, model_id, deployment_id, _actor(account, request)
+    )
+    return ok(request.app.state.message_catalog, {"id": str(deployment_id), "deleted": True})

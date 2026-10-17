@@ -48,6 +48,7 @@ NonnegativeCount = Annotated[int, Field(strict=True, ge=0, le=(1 << 63) - 1)]
 PositiveSlots = Annotated[int, Field(strict=True, ge=1, le=(1 << 31) - 1)]
 HttpEndpoint = Annotated[StrictStr, AfterValidator(_http_endpoint)]
 ApiKeyValue = Annotated[SecretStr, AfterValidator(_non_blank_secret)]
+MemberWeight = Annotated[int, Field(strict=True, ge=1, le=100)]
 
 
 class ModelPoolContract(ContractModel):
@@ -96,8 +97,21 @@ class ModelCredentialConfig(ModelCredentialFields):
 class ModelDeploymentInput(ModelPoolContract):
     key: ResourceKey
     credential_id: UUID
-    weight: Annotated[int, Field(strict=True, ge=1, le=100)] = 1
+    weight: MemberWeight = 1
     enabled: StrictBool = True
+
+
+class ModelDeploymentUpdate(ModelPoolContract):
+    """PUT 更新单条成员关系（成员名/权重/启用 + 并发版本）。
+
+    不携带 `credential_id`：更换凭据是另一条关系（DELETE 旧 + POST 新），
+    不能用整份替换把整个关系集合盖掉（RULE-rel-001）。
+    """
+
+    key: ResourceKey
+    weight: MemberWeight = 1
+    enabled: StrictBool = True
+    expected_revision: PositiveCount
 
 
 class ModelDeploymentConfig(ModelDeploymentInput):

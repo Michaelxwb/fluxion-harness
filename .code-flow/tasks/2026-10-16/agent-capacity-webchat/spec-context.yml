@@ -1,7 +1,7 @@
 version: 1
 task: Agent 并发容量与通用 Webchat
 enforcement: required
-updated_at: '2026-10-17T12:42:29.676438+00:00'
+updated_at: '2026-10-17T13:15:49.726022+00:00'
 sources:
 - type: cli
   ref: bind
@@ -56,7 +56,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-030
           item_id: TASK-030
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -355,6 +355,29 @@ bindings:
               5 passed in 0.99s
 
               '
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-17T13:29:34.771138+00:00'
+          status: verified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: 445911d17694a49d7974136f1b5462da27429491fae1ce37787d7c1ee3581118
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 42aa27fe2cd2eed1543ebbf0ad635ab3a3941254ddff5778d3f2f599f3e8a16d
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.02s
+
+              '
       review:
         status: pending
         refs: []
@@ -384,7 +407,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -669,6 +692,35 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               18 passed, 1 warning in 2.45s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T13:29:38.227411+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: a4fdd6e8019692a007f89d70a8d64f757ef4a57d14a4935451714cfb5600f2c3
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: bfc851932159df765e5e15ecdc97ffe3b0a03fcb959b104d6ca4c7d781d3cb0e
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 3.03s\n"
       review:
         status: pending
         refs: []
@@ -713,7 +765,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-104
           item_id: TASK-104
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -908,6 +960,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-17T13:29:38.228539+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -954,7 +1017,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-043
           item_id: TASK-043
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -1149,6 +1212,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-17T13:29:38.229228+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1196,7 +1270,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -1391,6 +1465,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-17T13:29:38.229925+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1439,7 +1524,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-071
           item_id: TASK-071
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -1634,6 +1719,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-17T13:29:38.230659+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1678,7 +1774,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-090
           item_id: TASK-090
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -2003,6 +2099,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-17T13:29:38.231302+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2047,7 +2154,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-046
           item_id: TASK-046
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -2242,6 +2349,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-17T13:29:38.232331+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2272,7 +2390,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-048
           item_id: TASK-048
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -2467,6 +2585,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-17T13:29:38.232341+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2513,7 +2642,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-098
           item_id: TASK-098
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -2708,6 +2837,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-17T13:29:38.233035+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2752,7 +2892,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-037
           item_id: TASK-037
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -2947,6 +3087,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-17T13:29:38.233905+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2992,7 +3143,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-056
           item_id: TASK-056
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -3029,7 +3180,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-056
           item_id: TASK-056
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -3067,7 +3218,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-025
           item_id: TASK-025
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -3104,7 +3255,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-049
           item_id: TASK-049
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -3142,7 +3293,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-026
           item_id: TASK-026
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -3179,7 +3330,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -3231,7 +3382,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-019
           item_id: TASK-019
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -3426,6 +3577,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-17T13:29:38.237262+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -3469,11 +3631,11 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -3664,6 +3826,29 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-17T13:29:40.519770+00:00'
+          status: verified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: f86910866c0a76825b13d596fab029e112eef5a7f21254416941659e06c40237
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_platform/test_user_side_relations.py
+            exit_code: 0
+            stdout_sha256: 783a2ffe74d6521276d5db9faaefb7bd9b24297ff0d303ec18a89934b448afb8
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 1.03s
+
+              '
       review:
         status: pending
         refs: []
@@ -3709,7 +3894,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-020
           item_id: TASK-020
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -3956,6 +4141,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-17T13:29:40.521544+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -4005,7 +4201,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-053
           item_id: TASK-053
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -4200,6 +4396,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-17T13:29:40.522660+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -4246,7 +4453,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -4441,6 +4648,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-17T13:29:40.523628+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -4485,7 +4703,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-118
           item_id: TASK-118
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -4680,6 +4898,17 @@ bindings:
           details:
             reason: over_finish_budget
             deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-17T13:29:40.524791+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -4724,7 +4953,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-035
           item_id: TASK-035
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -5031,6 +5260,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-17T13:29:40.525629+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -5075,7 +5315,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-091
           item_id: TASK-091
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -5270,6 +5510,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-17T13:29:40.526608+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -5314,7 +5565,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-085
           item_id: TASK-085
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -5509,6 +5760,17 @@ bindings:
           details:
             reason: out_of_task_scope
             deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-17T13:29:40.527584+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -5556,7 +5818,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-033
           item_id: TASK-033
-          artifact_sha256: 670b9b8040a11cdc9864cfeb889947f6109f1deb29a0b47059420887a47884a7
+          artifact_sha256: 4e346e9f31cb5dee446666aeff761972c6993803cf71ec1da6d5483a085863cc
         decision: null
         evidence: []
       code:
@@ -5746,6 +6008,17 @@ bindings:
           rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
           artifact_sha256: null
           diff_sha256: ce474c45e6d8e8eb0734dc6ad320818fd740cf0015c2b74cc895859c6f71a0fd
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-17T13:29:40.528450+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: 7b4284c02d9b3cd6e13eed7d326a6ab8c6a3437ae67fc46e6f0456b52664e799
           result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
           error_code: deferred_to_review
           details:

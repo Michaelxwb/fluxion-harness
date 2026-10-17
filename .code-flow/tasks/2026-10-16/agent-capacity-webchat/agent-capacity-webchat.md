@@ -356,7 +356,7 @@
 | B-214 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-014 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"] | . | 300 |  |
 | B-215 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-015 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"] | . | 300 |  |
 | B-216 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-016 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"] | . | 300 |  |
-| B-217 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-017 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"] | . | 300 |  |
+| B-217 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-017 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"] | . | 300 |  |
 | B-218 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-018 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_quota_groups.py"] | . | 300 |  |
 | B-219 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-019 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_logical_model_api.py"] | . | 300 |  |
 | B-220 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-020 | planned | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_resolve_credential.py"] | . | 300 |  |
@@ -1339,7 +1339,7 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 
 ## TASK-017: 模型成员绑定、解绑及权重修改
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-016
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计
@@ -1354,27 +1354,44 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 
 ### Checklist
 
-- [ ] [B-217][integration] 先在`tests/console_platform/test_capacity_webchat_deployment_relations.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：成员只引用credential，不复制Key。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-217] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-217] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-rel#RULE-rel-001`（stage: review；timeout=300秒）：`["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-217][integration] 先在`tests/console_platform/test_capacity_webchat_deployment_relations.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：成员只引用credential，不复制Key。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-217] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-217] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] verifier `harness-rel#RULE-rel-001`（stage: review；timeout=300秒）：`["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-217 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 成员只引用credential，不复制Key；同供方/逻辑模型核属，POST/DELETE单关系修改、权重版本冲突可见，禁止集合整体PUT | tests/console_platform/test_capacity_webchat_deployment_relations.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"] | planned |
+| B-217 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 成员只引用credential，不复制Key；同供方/逻辑模型核属，POST/DELETE单关系修改、权重版本冲突可见，禁止集合整体PUT | tests/console_platform/test_capacity_webchat_deployment_relations.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"] | verified |
 | harness-rel#RULE-rel-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 关系类修改使用单关系 POST/DELETE 并由独立事务完成；禁止用全量 PUT 覆盖整个关系集合。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"] | planned |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-217 | `uv run pytest -q tests/console_platform/test_capacity_webchat_deployment_relations.py` → **6 failed**（exit=1, 0.87s）：实现前成员端点未挂载，六个用例全部 `assert 404 == ...` 失败 | 同命令 → **6 passed**（exit=0, 1.09s；`ruff format` 后复跑 6 passed/1.90s）；required verifier `uv run pytest -q tests/console_platform/test_user_side_relations.py` → **3 passed**（exit=0, 0.99s）；回归 `uv run pytest -q tests/console_platform tests/contracts` → **1619 passed**（exit=0, 50.22s）；`uv run mypy apps packages` → Success: no issues found in 394 source files；`uv run ruff check` 逐文件干净 | `test_b217_bind_member_references_credential_without_copying_key` L254-280（投影恰为 MEMBER_FIELDS L254、响应无 api_key/明文 L258、行内 credential_id/weight/is_deleted L262-263、information_schema 无密钥/连接列 L275、列表无明文 L280）；`test_b217_provider_and_tenancy_are_verified` L293-310/L348-361（异供方 422 MODEL_PROVIDER_MISMATCH L293-294、未知模型 404 COMMON_NOT_FOUND L299-300、未知凭据 404 L307-308、被拒绑定零落行 L310、异租户模型/凭据 404 且异租户零成员 L352-361）；`test_b217_duplicate_member_key_or_credential_conflicts` L385-404（同 key 409 L385、同凭据 409 L393、零第二行 L396、零审计 L397、软删后同 key 重绑新行且旧行保留 L400-404）；`test_b217_single_relation_mutations_never_replace_the_set` L422-465（单关系更新 revision=2 L422-424、另一关系不受影响 L427-429、陈旧 revision 409 L436、重命名撞名 409 L443-444、集合 PUT 405 L451、被拒写入不动已提交行 L453-457、单删不连带/再删 404/审计动作序 L459-465）；`test_b217_member_identity_survives_credential_rotation` L493-498（轮换后成员 id/credential_id 不变 L495、revision 不递增 L496、无任何密钥明文 L497-498）；`test_b217_writes_are_admin_only_and_csrf_guarded` L506-532（BUILDER 读 403 L507-508、BUILDER 写 403 L512、缺 CSRF 403 L521、错 CSRF 403 L528、被拒请求零落行 L529、正确 CSRF 受理 L531-532） | 真实 Console ASGI 应用 + 真实 PostgreSQL（每用例独立租户；partial unique 与复合 FK 由数据库真实裁决）；ADMIN/BUILDER 均真实登录会话；「成员不复制 Key」以 information_schema + 响应文本双重断言；审计行从 `control.config_audit_log` 真实回读；轮换以对 `control.model_credential` 的真实 UPDATE 造册 | verified |
+| harness-rel#RULE-rel-001 | 同 B-217（成员端点未挂载时全 404） | `uv run pytest -q tests/console_platform/test_user_side_relations.py` → **3 passed**（exit=0, 0.99s）；B-217 用例内 RULE-rel-001 的可执行断言同命令一并覆盖（集合 PUT 405 L451、单关系 PUT/DELETE 独立生效 L459-465） | 沿用 Spec 原 verifier 文件，未重写成更弱测试 | 真实 Console ASGI + 真实 PG；单关系写由独立请求事务完成 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件（含超出计划 Files 的披露）：`api/models.py`（deployments 四个单关系端点，per-route `AdminAccount`）、`application/model_deployment_service.py`（核属/同供方/重复归一/CAS/审计快照，新增）、`infrastructure/repositories/model_deployment_repository.py`（分页列表、get/find_by_key/find_by_credential、add、cas_update，新增）、`packages/contracts/src/muad_contracts/model_pool.py`（新增 `MemberWeight` 严格 1..100 与 `ModelDeploymentUpdate`）。计划 Files 仅列 `models.py`/服务/测试；仓储与契约属实现必需，已在此披露；无迁移、无 schema 变更。
+- 契约与语义事实：成员投影恰为 `{id,key,model_id,credential_id,weight,enabled,revision}`（`ModelDeploymentConfig`，`api/models.py::_deployment_item`）；PUT/DELETE 是**单关系**操作并由独立请求事务完成，集合整体 PUT 不可用（405，RULE-rel-001 的可执行编码）；更新不含 `credential_id`（重绑 = DELETE + POST），`expected_revision` CAS 未命中 `REVISION_CONFLICT`；重复（同 key 或同凭据）409 `MODEL_DEPLOYMENT_EXISTS`，partial unique（`uq_model_deployment_tenant_model_key`/`..._model_credential`）兜底并发落败者；删除=软删（行与审计保留，同 key/凭据可重绑为新行）；`credential.provider_key != model.provider_key` → 422 `MODEL_PROVIDER_MISMATCH`（`provider_key=''` 的遗留模型因此显式拒绝收成员，不写模型行）；缺失/跨租户模型与凭据 → 404 `COMMON_NOT_FOUND`（设计 §3.4「资源归属缺失返回 COMMON_NOT_FOUND」，与既有 `GET /api/v1/models/{id}` 一致——`MODEL_NOT_FOUND` 是平台设置的 400 码，不适用于本面）；读取同样要求 ADMIN；审计 `resource_type=MODEL_DEPLOYMENT`，动作 CREATE/UPDATE/DELETE 且被拒请求零审计；快照不含任何密钥/连接字段。
+- 中间过程（诚实记录）：(1) 实现后首跑 4 passed / 2 failed：轮换用例把凭据密钥轮换成夹具第二条凭据的同一值，撞 `uq_model_credential_tenant_provider_digest`（测试侧），改用独立 `SECRET_ROTATED`；(2) provider/tenancy 用例原期望模型缺失为 `MODEL_NOT_FOUND`，实测 400——该码属平台设置（`config/api-messages.yaml` http_status=400），与既有模型路由行为及设计 §3.4 均不符；修正为 `COMMON_NOT_FOUND`（服务 `_require_model`）并同步测试期望（语义以设计为准，实现与测试同改）。
+- 仓库 lint/format 现状：本次改动文件 `ruff check` 逐文件干净；新文件（服务/仓储/测试）已 `ruff format`；`api/models.py` 与 `model_pool.py` 的 format 偏差在 HEAD 即存在（预存长行/既有代码），未做无关重排；`uv run mypy apps packages` 394 文件无问题。
+- B-217: verified — automated command passed; run_id=306d551e820148a49ccd0919a16dd2be (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-17] started
+- [2026-10-17] B-217 RED：`tests/console_platform/test_capacity_webchat_deployment_relations.py` 先行建立 → **6 failed**（0.87s；成员端点未挂载，全 404）
+- [2026-10-17] 实现：契约新增 `MemberWeight`/`ModelDeploymentUpdate`；成员服务（核属/同供方/重复归一/CAS/审计快照）+ 仓储；`api/models.py` 挂四个单关系端点（ADMIN）+ 关系投影
+- [2026-10-17] 首跑 4 passed/2 failed：轮换用例撞凭据摘要 partial unique（测试侧，改独立 `SECRET_ROTATED`）；模型缺失原期望 `MODEL_NOT_FOUND`（平台设置 400 码）实测 400，按设计 §3.4 与既有模型路由改为 `COMMON_NOT_FOUND`（实现+测试同改）
+- [2026-10-17] B-217 GREEN：6 passed；verifier `test_user_side_relations.py` 3 passed；回归 `tests/console_platform tests/contracts` 1619 passed；mypy 394 files 无问题；ruff 逐文件干净
+- [2026-10-17] completed (done)
 
 ---
 
