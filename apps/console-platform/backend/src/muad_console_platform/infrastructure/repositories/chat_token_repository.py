@@ -25,6 +25,26 @@ class ChatTokenRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def find_by_token_hash(self, token_hash: str) -> ChatAccessToken | None:
+        """按摘要定位 Token 行（**不含租户谓词**：交换时浏览器只提交 Token，租户由记录导出）。"""
+        row: ChatAccessToken | None = await self._session.scalar(
+            select(ChatAccessToken).where(
+                ChatAccessToken.token_hash == token_hash,
+                ChatAccessToken.is_deleted.is_(False),
+            )
+        )
+        return row
+
+    async def find_by_id(self, token_id: uuid.UUID) -> ChatAccessToken | None:
+        """按主键定位 Token 行：会话读取用它复核来源 Token 的当前状态。"""
+        row: ChatAccessToken | None = await self._session.scalar(
+            select(ChatAccessToken).where(
+                ChatAccessToken.id == token_id,
+                ChatAccessToken.is_deleted.is_(False),
+            )
+        )
+        return row
+
     async def find_latest(self, tenant_id: str, user_id: uuid.UUID) -> ChatAccessToken | None:
         """版本基准行：最大 `revision`（撤销不删行，故可能是已撤销/已过期的历史行）。"""
         row: ChatAccessToken | None = await self._session.scalar(

@@ -307,7 +307,7 @@
 | B-05 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 实际准入计数、Run 事务、取消/领取竞态和 PG 行锁 | TASK-031 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_release.py"] | . | 300 |  |
 | B-06 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 实际公开事件 DTO/水位和恢复服务 | TASK-060 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_shared_tail.py"] | . | 300 |  |
 | B-07 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实保留/清理查询、活跃 Run/job 与共享文件系统 | TASK-069 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | . | 300 |  |
-| B-08 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实 PG Token/会话约束、有效期裁决与用户锁 | TASK-040 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | . | 300 |  |
+| B-08 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实 PG Token/会话约束、有效期裁决与用户锁 | TASK-040 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | . | 300 |  |
 | B-09 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | contracts配置解析、真实PG配置/快照、全局准入版本和启动settings | TASK-094 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_wiring.py"] | . | 300 |  |
 | S-101 | agent-capacity-webchat.frontend.design.md#2.4 验收条件 | E2E | ADMIN 为已有用户生成 Token，用户直接打开 /chat 输入后进入聊天；有效 Cookie 刷新恢复，仅见获授权入口；无需注册/密码/管理账号，访问管理 URL 被拒 | TASK-112 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
 | S-102 | agent-capacity-webchat.frontend.design.md#2.4 验收条件 | E2E | 发文字和附件，用户气泡先显示待受理，202 后绑定真实 Run；模型增量显示，终态只结算一次 | TASK-114 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"] | . | 1800 |  |
@@ -379,7 +379,7 @@
 | B-237 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-037 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"] | . | 300 |  |
 | B-238 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-038 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_service.py"] | . | 300 |  |
 | B-239 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-039 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_admin_api.py"] | . | 300 |  |
-| B-240 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-040 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | . | 300 |  |
+| B-240 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-040 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | . | 300 |  |
 | B-241 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.1 技术选型 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-041 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_cookie_security.py"] | . | 300 |  |
 | B-242 | agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-042 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_auth_api.py"] | . | 300 |  |
 | B-243 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-043 | planned | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_chat_internal_principal.py"] | . | 300 |  |
@@ -2482,7 +2482,7 @@ B-239: verified — automated command passed; run_id=2b81adc3c10043c39443663a90d
 
 ## TASK-040: Token交换与独立CHAT会话生命周期
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-038
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -2497,27 +2497,46 @@ B-239: verified — automated command passed; run_id=2b81adc3c10043c39443663a90d
 
 ### Checklist
 
-- [ ] [B-240][integration] 先在`tests/console_auth/test_capacity_webchat_chat_session_service.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：验证来源Token/用户状态后生成独立会话摘要。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-240] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-240] 执行`["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] [B-08][integration] 将原B-08落入`tests/console_auth/test_capacity_webchat_chat_session_service.py`，先RED后GREEN；真实 PG Token/会话约束、有效期裁决与用户锁；断言：有效期必须正整数且有界；到期瞬间拒绝，Token最后1小时交换只能获≤1小时会话，读请求不滑动续期；同用户并发重置仅一个expected_revision成功，响应丢失重试不再次轮换或回放明文；旧版本撤销重放不影响后续新Token；摘要唯一且每用户至多一个未撤销Token。
+- [x] [B-240][integration] 先在`tests/console_auth/test_capacity_webchat_chat_session_service.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：验证来源Token/用户状态后生成独立会话摘要。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-240] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-240] 执行`["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-08][integration] 将原B-08落入`tests/console_auth/test_capacity_webchat_chat_session_service.py`，先RED后GREEN；真实 PG Token/会话约束、有效期裁决与用户锁；断言：有效期必须正整数且有界；到期瞬间拒绝，Token最后1小时交换只能获≤1小时会话，读请求不滑动续期；同用户并发重置仅一个expected_revision成功，响应丢失重试不再次轮换或回放明文；旧版本撤销重放不影响后续新Token；摘要唯一且每用户至多一个未撤销Token。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-240 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 验证来源Token/用户状态后生成独立会话摘要；expires=min(PG now+12h,Token expires)，不滑动续期；Cookie到期重认同用户保留历史，logout只撤本会话 | tests/console_auth/test_capacity_webchat_chat_session_service.py | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | planned |
-| B-08 | integration | 真实 PG Token/会话约束、有效期裁决与用户锁 | 有效期必须正整数且有界；到期瞬间拒绝，Token最后1小时交换只能获≤1小时会话，读请求不滑动续期；同用户并发重置仅一个expected_revision成功，响应丢失重试不再次轮换或回放明文；旧版本撤销重放不影响后续新Token；摘要唯一且每用户至多一个未撤销Token | tests/console_auth/test_capacity_webchat_chat_session_service.py | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | planned |
+| B-240 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 验证来源Token/用户状态后生成独立会话摘要；expires=min(PG now+12h,Token expires)，不滑动续期；Cookie到期重认同用户保留历史，logout只撤本会话 | tests/console_auth/test_capacity_webchat_chat_session_service.py | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | verified |
+| B-08 | integration | 真实 PG Token/会话约束、有效期裁决与用户锁 | 有效期必须正整数且有界；到期瞬间拒绝，Token最后1小时交换只能获≤1小时会话，读请求不滑动续期；同用户并发重置仅一个expected_revision成功，响应丢失重试不再次轮换或回放明文；旧版本撤销重放不影响后续新Token；摘要唯一且每用户至多一个未撤销Token | tests/console_auth/test_capacity_webchat_chat_session_service.py | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-240 | `uv run pytest -q tests/console_auth/test_capacity_webchat_chat_session_service.py` → exit=2，**1 error（收集失败，0 passed / 0 failed）**：`ModuleNotFoundError: No module named 'muad_console_platform.application.chat_auth_service'`——验收文件先落地、实现尚不存在 | 同命令 → **16 passed**（exit=0，0.77–0.95s；连续 5 次复跑同为 16 passed，含真实行锁与并发用例） | `test_b240_exchange_creates_an_independent_session_after_validating_source` L318-372（公开会话信息恰七字段 L330、服务端导出身份/展示名与 `auth_context_id==session_id` L331-335、原文 ≥256 位且 SecretStr 表示无泄漏 L336-337、库内只有会话摘要且与用户 Token 摘要相互独立 L341-350、交换不改写来源 Token L353-355、明文与摘要不进审计/日志 L359-366、伪造与"会话原文再交换"一律 CHAT_TOKEN_INVALID L369-372）；`test_b240_session_expiry_is_min_of_exchange_ttl_and_source_remaining` L375-429（默认 12 小时 L378-381、设置 24h 按来源生效 L386-394、设置 1h 只影响后续且已建会话不漂移 L397-408、Token 只剩 1 小时 → 会话恰在来源到期时刻结束且 ≤1 小时 L410-428）；`test_b240_resolve_reads_live_session_and_source_without_sliding` L432-484（三次读取投影一致 L445-446、读取不改写会话行也不延长来源 L448-455、损坏设置不影响已认证读取 L457-459、未知摘要 UNAUTHORIZED 且不回显 L462-466、停用用户与直接撤销来源 Token 都拒绝 L469-483）；`test_b240_expiry_instant_is_rejected_for_token_and_session` L487-522（同一事务 `expires_at = now()` 交换 CHAT_TOKEN_EXPIRED 且不落会话行 L492-504、会话到期瞬间 CHAT_SESSION_EXPIRED 且被拒读取不改写期限 L507-521）；`test_b240_logout_revokes_only_the_presented_session` L525-552（多设备会话并存 L530-533、登出只撤本会话且不动其他会话/来源 Token L535-540、被撤会话读取 CHAT_SESSION_REVOKED 而另一会话仍可读 L542-545、重放幂等与未知会话空操作 L547-551）；`test_b240_cookie_expiry_reauthentication_keeps_identity_and_history` L555-597（Cookie 到期读取 CHAT_SESSION_EXPIRED L571-576、重新认证回同租户同用户且新会话标识/新原文 L578-586、过期会话行保留、其他设备不受影响 L587-592、随后登出只作用于本会话 L594-597）；`test_b240_chat_session_cannot_authenticate_as_console` L600-631（Bearer 会话原文对 /auth/me、/users、webchat-token 管理端点全 401 且不回显原文/摘要 L608-625、`muad_session` Cookie 冒充同样 401 L622-624、库内无对应 Console 会话行 L626-631） | 真实 Console 应用服务与真实 ASGI `muad_console_platform.main.app`（会话裁决依赖，不伪造主体）；真实 PostgreSQL（共享 dev 库，仅 DML、无 DDL）：`control.chat_access_token` / `chat_session` 的 partial unique 与 `token_hash ~ '^[0-9a-f]{64}$'` CHECK 由 0024 兜底，`conftest.database_guard` 校验表存在；期限裁决全部用 **PG `now()`**（同一事务内固定）——"到期瞬间"用例在事务内把 `expires_at` 设为 `now()`、"只剩 1 小时"用 `now() + interval '1 hour'`，无时钟替身；服务只 flush，提交由调用方决定；本路径无外部模型调用，故"外部模型真实 HTTP 探针"边界不适用（既无 mock 也无探针需要） | verified |
+| B-08 | 同上（同一文件/同一命令，RED 与 B-240 同批：收集失败 1 error） | 同上 → **16 passed**（B-08 用例与 B-240 同文件同命令；连续 5 次复跑稳定） | `test_b08_out_of_bounds_validity_fails_explicitly` L634-656（参数化 `session_ttl_hours` 0/25/1.5 与 `access_ttl_days` 0/366 → PLATFORM_SETTINGS_UNAVAILABLE、不落半写出会话、不撤销来源、不回显凭据）；`test_b08_positive_session_ttl_bounds_are_applied` L658-681（1 与 24 小时两个边界内的正整数按来源生效）；`test_b08_concurrent_reset_has_a_single_winner_and_replay_never_rotates` L683-757（并发重置恰好一胜一 REVISION_CONFLICT L712-718、只产生一个新版本且每用户至多一个未撤销 Token L719-723、摘要匹配胜者而旧版本关联会话同事务撤销 L724-731、响应丢失重放不轮换不回放明文 L733-741、跨用户摘要唯一 L743-754、被重置的旧 Token 交换 CHAT_TOKEN_REVOKED L756-757）；`test_b08_exchange_serializes_on_the_user_row_lock` L759-790（`pg_blocking_pids` 观测交换等待平台用户行锁、等待期间不落会话行、释放后单行成功）；`test_b08_late_revoke_replay_spares_later_token_and_its_session` L792-835（旧版本迟到的撤销保持 rev2 ACTIVE、新版本会话仍可读、摘要匹配新原文） | 真实 PG 行锁与约束："用户→Token" 锁序用 `SELECT … FOR UPDATE` 真实观测（`pg_blocking_pids` 判定等待者被持锁者阻塞；`test_b08_exchange_serializes_on_the_user_row_lock`）；`find_live_for_update` + partial unique `uq_chat_access_token_tenant_user_unrevoked` 使"每用户至多一个未撤销 Token"在库层闭合；并发重置用两个真实连接 `asyncio.gather`；会话/Token 的时间列全部 timestamptz、`expires_at > issued_at` 与摘要形态 CHECK 由 0024 兜底 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件：`apps/console-platform/backend/src/muad_console_platform/application/chat_auth_service.py`（`ChatSessionService.exchange`/`resolve`/`logout` + `ChatSessionGrant` + `_create_session`/`_session_ttl`/`_pg_now`/`_info`）、`apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/chat_session_repository.py`（`find_by_token_hash`/`add`/`revoke`）、`apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/chat_token_repository.py`（新增 `find_by_token_hash`/`find_by_id`）。零重写复用 TASK-038 的 `generate_chat_token`/`hash_chat_token`/`find_live_for_update`/`ChatTokenService`。
+- 关键设计落点：①**交换不接受 tenant/user 参数**——按摘要定位 Token 行，再从记录导出租户/用户/展示名；②**"用户→Token"锁序**（先 `platform_user FOR UPDATE`，再锁该用户当前未撤销 Token 行），使交换与重置/停用串行，且写会话前复核来源有效期/撤销与用户状态；③**期限** `chat_session.expires_at = min(PG now + session_ttl_hours, 来源 Token 到期)`，时间取 PG 服务端（事务内固定），设置只影响本次交换；④**读取不读设置、不写任何行**（不滑动续期），实时复核会话/来源 Token/用户三者；⑤**登出只撤本会话**（幂等），其他设备会话与来源 Token 不受影响；⑥**错误码零新增**，复用既有 `CHAT_TOKEN_INVALID`/`CHAT_TOKEN_REVOKED`/`CHAT_TOKEN_EXPIRED`/`UNAUTHORIZED`/`CHAT_SESSION_REVOKED`/`CHAT_SESSION_EXPIRED`/`PLATFORM_SETTINGS_UNAVAILABLE`（三处登记由 TASK-007 完成），且凭据判定先于设置读取（503 不掩盖 401）；⑦**明文卫生**：会话原文只出现在 `ChatSessionGrant`（SecretStr）一次，库内只有 SHA-256 摘要，日志只含 session_id/tenant/platform_user/expires_at。
+- 配置盘点：新增 2 行（`PLATFORM_USER_STATUS_ACTIVE`=ACTIVE 行 50、`AUTH_METHOD_USER_TOKEN`=USER_TOKEN 行 53）写入 `docs/configuration-inventory.csv`；`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**。
+- 静态校验：`uv run ruff check`（服务/两个仓储/验收文件）干净；`uv run mypy apps packages` → **Success: no issues found in 404 source files**。
+- 聚焦回归：`uv run pytest -q tests/console_auth` → **73 passed**（8.61s，含本任务 16 例）；`uv run pytest -q tests/contracts` → **1281 passed**（3.22s）；`uv run pytest -q tests/test_configuration_inventory.py tests/console_platform` → **367 passed**（54.39s）。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）。
+- 交接给后续任务：API-04 端点（TASK-041/042）直接消费 `ChatSessionService.exchange/resolve/logout`——`ChatSessionGrant.session_token` 写独立 HttpOnly CHAT Cookie 与 CSRF（Cookie `Max-Age` 与库内剩余期限同源）、`info.auth_context_id` 做 X-Chat-Context 匹配、响应 no-store；公开路由只接受 `WebchatTokenExchange.token`（SecretStr），不接受可信 user_id/tenant。TASK-112 的跨用户浏览器 E2E 沿用本层语义。本层"保留历史"的可验证事实是身份连续与会话/Token 行不删（Conversation/Run/消息历史归 Runtime，不在本任务范围）。
+- B-08: verified — automated command passed; run_id=bee1219dbaa04c2491da101067f722af (confirmed_by: runner)
+- B-240: verified — automated command passed; run_id=bee1219dbaa04c2491da101067f722af (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-240/B-08 RED：`uv run pytest -q tests/console_auth/test_capacity_webchat_chat_session_service.py` → exit=2，1 error（`ModuleNotFoundError: muad_console_platform.application.chat_auth_service`）
+- [2026-10-18] 实现 `ChatSessionService` + `ChatSessionRepository`（+ `ChatTokenRepository` 摘要/主键查找）：PG now 期限裁决、用户→Token 锁序、独立会话摘要、登出只撤本会话
+- [2026-10-18] B-240/B-08 GREEN：16 passed（连续 5 次复跑稳定）；`tests/console_auth` 73 passed；`tests/contracts` 1281 passed；console_platform+inventory 367 passed；ruff/mypy 干净；新增 2 行配置盘点
+- [2026-10-18] completed (done)
 
 ---
 
