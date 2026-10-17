@@ -2112,7 +2112,7 @@
       "kind": "functional",
       "boundary": "隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2122,7 +2122,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-212",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "298f320d1dfe4cc9877169fd2a267d70",
+        "executed_at": "2026-10-17T11:06:42.970181+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/migrations/test_capacity_webchat_chat_auth_schema.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "007613a6ae515413b79b33251aba3d09c7bd8d0ffa4f2d2af548f5b386add230"
+      },
+      "runs": [
+        {
+          "id": "B-212",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "298f320d1dfe4cc9877169fd2a267d70",
+          "executed_at": "2026-10-17T11:06:42.970181+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/migrations/test_capacity_webchat_chat_auth_schema.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "007613a6ae515413b79b33251aba3d09c7bd8d0ffa4f2d2af548f5b386add230"
+        }
+      ]
     },
     {
       "id": "B-213",

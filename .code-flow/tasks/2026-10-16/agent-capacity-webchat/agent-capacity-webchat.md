@@ -351,7 +351,7 @@
 | B-209 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-009 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_control_pool_schema.py"] | . | 300 |  |
 | B-210 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-010 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_runtime_pool_schema.py"] | . | 300 |  |
 | B-211 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-011 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_admission_schema.py"] | . | 300 |  |
-| B-212 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-012 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_chat_auth_schema.py"] | . | 300 |  |
+| B-212 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-012 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_chat_auth_schema.py"] | . | 300 |  |
 | B-213 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-013 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"] | . | 300 |  |
 | B-214 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-014 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"] | . | 300 |  |
 | B-215 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-015 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"] | . | 300 |  |
@@ -1039,7 +1039,7 @@ policy按tenant完整唯一、版本单调；完整分支及可观测结果见�
 
 ## TASK-012: 用户Token及独立CHAT会话结构
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-005, TASK-011
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计
@@ -1054,25 +1054,45 @@ Token/会话只存摘要、时间带时区，来源Token和platform_user为同Ow
 
 ### Checklist
 
-- [ ] [B-212][integration] 先在`tests/migrations/test_capacity_webchat_chat_auth_schema.py`建立行为验收并记录RED；真实边界：隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库；关键断言：Token/会话只存摘要、时间带时区，来源Token和platform_user为同Owner FK。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-212] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-212] 执行`["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_chat_auth_schema.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-212][integration] 先在`tests/migrations/test_capacity_webchat_chat_auth_schema.py`建立行为验收并记录RED；真实边界：隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库；关键断言：Token/会话只存摘要、时间带时区，来源Token和platform_user为同Owner FK。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-212] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-212] 执行`["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_chat_auth_schema.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-212 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | Token/会话只存摘要、时间带时区，来源Token和platform_user为同Owner FK；每用户至多一个未撤销Token且最新版本记录保留 | tests/migrations/test_capacity_webchat_chat_auth_schema.py | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_chat_auth_schema.py"] | planned |
+| B-212 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | Token/会话只存摘要、时间带时区，来源Token和platform_user为同Owner FK；每用户至多一个未撤销Token且最新版本记录保留 | tests/migrations/test_capacity_webchat_chat_auth_schema.py | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_chat_auth_schema.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-212 | `uv run pytest -q tests/migrations/test_capacity_webchat_chat_auth_schema.py` → exit=1，**5 failed / 1 passed**（10.70s）：`AttributeError: module 'muad_console_platform.infrastructure.models.auth' has no attribute 'ChatAccessToken'`——ORM 两模型与 0024 均不存在。唯一通过的空库回退用例此时是空洞通过（目标 0023 即当时 head、无迁移动作），实现后由 GREEN 复跑真正覆盖 drop 路径 | 同命令 → **6 passed**（exit=0, 11.99s） | `test_b212_empty_database_schema_parity` L123-175（两新表 `migrated == created` 全量比对 L132；无 `token/raw_token/access_token/secret` 原文列且 `token_hash` VARCHAR(64) L136-138；时间列 timezone=True、issued/expires 非空、revoked 可空且无默认、issued_at 默认 now() L141-146；FK `platform_user_id→control.platform_user(id)` L147-148 与 `chat_session.access_token_id→control.chat_access_token(id)` L149；三 CHECK 名 L152-157；`token_hash`/`(tenant,user,revision)` partial unique 以软删为界 L159-164、`(tenant,user)` 未撤销唯一含 `revoked_at IS NULL` L165-167；会话摘要唯一 L168-170、`(tenant,user,expires_at)` 非唯一索引 L171-172、活跃 `access_token_id` partial index L173-175）；`test_b212_token_and_session_stores_only_digests_with_timezone_times` L178-206（sha256 hexdigest 入库、revision=1、`expires_at - issued_at == 30d` L183-187；原文串/非十六进制 64 串被摘要 CHECK 拒 L191-193；65 字符被 varchar(64) 物理上限拒 L194-200；`expires_at <= issued_at` L201-203 与 revision≤0 L204-205 拒；不存在的用户 FK 拒 L206）；`test_b212_one_unrevoked_token_per_user_revisions_and_tombstones` L209-253（未撤销行存在时新签被拒 L218-219；撤销后 rev2 成功、旧行保留且最新 revision 为唯一未撤销行 L220-231；同用户同 revision 拒 L233；活跃摘要全局唯一（同租户他人 L235-236、跨租户 L237-238）；tombstone 释放摘要与 revision 重录 L240-243；过期未撤销必须先撤销再重签 L245-253）；`test_b212_chat_session_requires_persisted_token_and_user_and_digest` L256-299（独立会话摘要入库且未撤销 L276-278；同来源 Token 多条会话并存 L279-281；来源 Token/用户不存在的 FK 拒 L282-285；原文/大写十六进制拒 L286-288；`expires_at == issued_at` 拒 L289；活跃摘要唯一 L290；tombstone 释放后 live==2 L291-299）；`test_b212_downgrade_requires_backup_for_issued_credentials` L302-332（有凭据/会话时回退非 0 退出 + `CHAT_AUTH_DOWNGRADE_REQUIRES_BACKUP` L320-321，链头与两表/数据原样 L324-330）；`test_b212_downgrade_on_pristine_schema_returns_to_0023` L335-352（空库回退成功：0023、两表消失，再 `upgrade head` 成功） | 隔离库 `create_datastore()`（默认 head）与真实 `migrations/db_migrate.py -c <ini>` 子进程；隔离 PostgreSQL、真实 Alembic 链、无 mock；整链单事务（`migrations/env.py` `context.begin_transaction()`）：0024 拒绝回退时链头与结构原样 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件：`apps/console-platform/backend/src/muad_console_platform/infrastructure/models/auth.py`（新增 `ChatAccessToken`/`ChatSession` 及其约束/索引）、`migrations/versions/0024_chat_auth.py`（down_revision=0023；纯 DDL）。
+- 结构决策：只存 64 位小写十六进制摘要（`token_hash ~ '^[0-9a-f]{64}$'`）把"不落原文"变成数据库事实（与 `ConsoleSession` 的 sha256 摘要口径、`model_credential.api_key_digest` 先例一致）；每用户至多一个未撤销 Token（含过期未撤销者——必须先显式撤销再按更高 revision 重签），旧行保留、tombstone 不阻塞重录；摘要唯一是全局身份（不按租户复用）；同一来源 Token 可有多条独立会话，logout 只撤本条；"本会话期限 ≤ 来源 Token 期限"是服务端跨表原子校验，不落库级约束。
+- 回退策略：仅当两表为空时允许；否则 `CHAT_AUTH_DOWNGRADE_REQUIRES_BACKUP`（design §4.2 的"回退需确认新写入数据保留策略"）。
+- 静态校验：`py_compile` 三个文件通过；mypy `auth.py` → Success；ruff check 新文件与改动文件干净。
+- 回归与真实边界：`uv run pytest -q tests/migrations` → **69 passed** (125.12s)；verifier 口径 `uv run pytest -q tests -k schema_parity` → **45 passed**, 4714 deselected (22.88s)；`uv run pytest -q tests/console_platform` → **317 passed** (43.70s)。
+- 链头推进的连带修订：`tests/console_platform/test_platform_settings_table.py` 原先钉死 `HEAD_REVISION="0020"`，链到 0021 起即红（在无 0024 的环境实测 `assert '0023' == '0020'`，与本次实现无关）；改为动态读取迁移链 head（`ScriptDirectory.from_config`），链继续推进时该文件不再需要维护。
+- dev 库升级（已披露的环境变更）：本地 dev 库 0023→0024（纯增量：两张空表），`uv run python migrations/db_migrate.py -c /tmp/agent-capacity-webchat-dev/dev.ini upgrade head`。
+- B-212: verified — automated command passed; run_id=298f320d1dfe4cc9877169fd2a267d70 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-17] started
+- [2026-10-17] B-212 RED：`tests/migrations/test_capacity_webchat_chat_auth_schema.py` → 5 failed / 1 passed（`ChatAccessToken`/`ChatSession` ORM 与 0024 均不存在；空库回退用例此时空洞通过）
+- [2026-10-17] 实现 0024：`auth.py` 新增 `ChatAccessToken`/`ChatSession`（摘要形态与 `expires_at > issued_at` CHECK、同 Owner FK、软删界 partial unique、活跃会话索引）；`migrations/versions/0024_chat_auth.py`（纯 DDL；仅空表允许回退，否则 `CHAT_AUTH_DOWNGRADE_REQUIRES_BACKUP`）
+- [2026-10-17] B-212 GREEN：6 passed；`tests/migrations` 69 passed；verifier 口径 `tests -k schema_parity` 45 passed；`tests/console_platform` 317 passed；py_compile/mypy/ruff 通过
+- [2026-10-17] 连带修订：`test_platform_settings_table.py` 的 head 断言改为动态读取迁移链 head（原钉死 0020，链推进后必红；无 0024 时同样实测红）
+- [2026-10-17] dev 库升级 0023→0024（纯增量，已披露）
+- [2026-10-17] completed (done)
 
 ---
 

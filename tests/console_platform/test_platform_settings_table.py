@@ -19,6 +19,8 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from muad_console_platform.infrastructure.models.control import PlatformSetting
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
@@ -30,11 +32,9 @@ from tests.console_platform.test_schema_parity import _compare
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = "control"
 TABLE = "platform_setting"
-# platform_setting 建表 revision（0016→0019）与当前迁移 head。
-# 0020 是记忆重设计的**单向维护迁移**（downgrade 按设计拒绝回滚，见 design §4.2），
-# 因此 0016↔0019 的往返在显式 revision="0019" 的独立库上验证，head 断言随 0020。
+# 0019 / 0016 是 platform_setting 自身的历史窗口（稳定常量）；迁移 head 会持续推进，
+# **不钉死**：升级断言动态读取迁移链的当前 head（旧写法把 head 写成 0020，链到 0021 后必红）。
 REVISION = "0019"
-HEAD_REVISION = "0020"
 PARENT_REVISION = "0016"
 # 设计 §3.3 的列清单：四列口径（id/is_deleted/create_time/update_time）+ 四个业务列。
 EXPECTED_COLUMNS = frozenset(
@@ -146,11 +146,20 @@ async def _alembic_version(url: str) -> str:
     return str(value)
 
 
+def _repository_head() -> str:
+    """迁移链的真实 head（不钉死常量）：链推进时本文件不需要跟着改。"""
+    config = Config()
+    config.set_main_option("script_location", str(ROOT / "migrations"))
+    head = ScriptDirectory.from_config(config).get_current_head()
+    assert head is not None
+    return head
+
+
 async def test_upgrade_to_head_creates_table_matching_orm_model(isolated_db: dict[str, str]) -> None:
     """`alembic upgrade 0001→head` 后的列 / 主键 / 外键 / 索引与 ORM model 定义一致。"""
     reflected = await _reflect(isolated_db["url"])
     assert reflected, f"{SCHEMA}.{TABLE} 在迁到 head 后不存在（迁移未建表）"
-    assert await _alembic_version(isolated_db["url"]) == HEAD_REVISION
+    assert await _alembic_version(isolated_db["url"]) == _repository_head()
 
     db_columns = {str(item["name"]) for item in reflected["columns"]}
     assert db_columns == EXPECTED_COLUMNS
