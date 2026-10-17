@@ -64,6 +64,7 @@ from muad_contracts import (
 )
 from muad_contracts.memory import MemoryResumeRef
 from muad_contracts.model_pool import (
+    ModelCallOwner,
     ModelCallSettlement,
     ModelTokenUsage,
     RemoteCompletionProof,
@@ -82,10 +83,11 @@ from muad_platform_sdk.types import SecretValue
 from pydantic import JsonValue, ValidationError
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
-from ..infrastructure.db import get_session_factory
+from ..infrastructure.db import SessionFactoryProvider, get_session_factory
 from ..infrastructure.gateway_delivery_client import GatewayDeliveryClient
 from ..infrastructure.model_dispatch_store import MemberRef, ModelDispatchStore
 from ..metrics import (
+    CONTEXT_SUMMARY_METRIC,
     MODEL_INVOCATIONS_METRIC,
     SKILL_CATALOG_TRUNCATED_METRIC,
     TOOL_CALLS_METRIC,
@@ -116,6 +118,7 @@ from .model_allocator import (
     ModelAllocator,
     ModelDispatchPolicy,
     ModelMemberCandidate,
+    WorkloadName,
 )
 from .model_call_trace import ModelCallTrace
 from .model_capacity_service import ModelCapacityService
@@ -235,6 +238,9 @@ class ExecutorRequest:
     #: 摘要模型（`compaction.summary.model_ref` 解析后的那条模型定义 + API-09 实时凭据）。None =
     #: 摘要层本轮不跑；**没有"退回主模型"这个分支**（ADR-06）。
     summary_model: ResolvedModel | None = None
+    #: 摘要模型的**冻结**非密钥成员引用（`policy_json.summary_model_members`）。None = 旧行/直构
+    #: 路径：摘要不启用池链路，按既有直连语义跑；`()` 是合法冻结事实（该模型当前没有成员）。
+    summary_model_members: tuple[MemberRef, ...] | None = None
     #: 本次 Run **冻结**的执行期平台默认（来自 `policy_json`）；None = schema 默认。
     execution: ExecutionDefaults | None = None
     checkpoint: RunnerCheckpoint | None = None
@@ -647,7 +653,13 @@ SettlementOutcome = Literal["SUCCEEDED", "FAILED", "NOT_SENT", "UNKNOWN"]
 
 @dataclass(frozen=True, slots=True)
 class PoolCallScope:
-    """一次 Run 的模型池调用范围：冻结策略 + 非密钥成员引用 + 调用归属（都不含密钥）。"""
+    """一次模型池调用范围：冻结策略 + 非密钥成员引用 + 调用归属（都不含密钥）。
+
+    `run_id` 是**解析/审计关联**的执行引用（`RuntimeExecutionRef(type="RUN", id=...)`）：Run 自己
+    的调用与它的摘要都指向该 Run，提炼 job 指向来源 Run；`owner` 才是容量归属（Run / memory job /
+    探针），两者对提炼 job 不同。`workload` 决定调度份额（交互不受份额门限制，后台按冻结权重让路
+    并在老化后放行）。
+    """
 
     tenant_id: str
     model_id: uuid.UUID
@@ -656,6 +668,8 @@ class PoolCallScope:
     policy: PoolExecutionPolicy
     members: tuple[MemberRef, ...]
     deadline_at: datetime
+    owner: ModelCallOwner
+    workload: WorkloadName
 
 
 @dataclass(slots=True)
@@ -703,6 +717,39 @@ def _pool_scope_for(request: ExecutorRequest) -> PoolCallScope | None:
         policy=request.pool,
         members=request.model_members,
         deadline_at=request.deadline_at,
+        owner=RunCallOwner(run_id=context.run_id),
+        workload="INTERACTIVE",
+    )
+
+
+def _summary_pool_scope_for(request: ExecutorRequest) -> PoolCallScope | None:
+    """摘要调用的池化范围：冻结摘要模型 + 它的**冻结成员引用** + 后台份额。
+
+    摘要与主调用共享同一物理资源上限（design §3.2/§3.3）：物理额度、计量身份与结算规则完全
+    相同，只有工作负载份额是 `BACKGROUND`（高峰让路、老化后放行）。缺冻结成员事实（旧行/测试
+    直构）时返回 None ⇒ 该层按既有直连语义跑，不补新默认。
+    """
+    context, identity, model = request.run_context, request.execution_identity, request.summary_model
+    if (
+        request.pool is None
+        or request.summary_model_members is None
+        or request.credentials_client is None
+        or context is None
+        or identity is None
+        or model is None
+        or request.deadline_at is None
+    ):
+        return None
+    return PoolCallScope(
+        tenant_id=context.tenant_id,
+        model_id=model.id,
+        run_id=context.run_id,
+        lease_owner=identity.owner,
+        policy=request.pool,
+        members=request.summary_model_members,
+        deadline_at=request.deadline_at,
+        owner=RunCallOwner(run_id=context.run_id),
+        workload="BACKGROUND",
     )
 
 
@@ -820,6 +867,8 @@ class PooledModelProvider:
         heartbeat_sec: float | None = None,
         reselection_limit: int = POOL_RESELECTION_LIMIT,
         wait_since: datetime | None = None,
+        ledger: ModelAttemptLedger | None = None,
+        session_factory_provider: SessionFactoryProvider = get_session_factory,
     ) -> None:
         self._scope = scope
         self._allocator = allocator
@@ -838,7 +887,9 @@ class PooledModelProvider:
         self._reselection_limit = reselection_limit
         #: 本段模型等待起点：同一执行片段内的重试不刷新该预算（design §3.2/§3.7）
         self._wait_since = wait_since if wait_since is not None else datetime.now(UTC)
-        self._ledger = ModelAttemptLedger()
+        #: 逐 attempt 审计序号账本：同一 Run 的主调用与摘要共用一份（序号不重复）
+        self._ledger = ledger if ledger is not None else ModelAttemptLedger()
+        self._session_factory_provider = session_factory_provider
         self._audited: AuditedModelProvider | None = None
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
@@ -893,7 +944,7 @@ class PooledModelProvider:
 
     async def _candidates(self) -> tuple[ModelMemberCandidate, ...]:
         """短事务外读冻结成员的非密钥候选元信息（不持锁、不联网、不含密钥明文）。"""
-        async with get_session_factory()() as session:
+        async with self._session_factory_provider()() as session:
             frozen = await ModelDispatchStore(session).read_frozen_candidates(
                 tenant_id=self._scope.tenant_id,
                 model_id=self._scope.model_id,
@@ -917,8 +968,8 @@ class PooledModelProvider:
                     model_id=self._scope.model_id,
                     request=ModelAllocationRequest(
                         call_attempt_id=uuid.uuid4(),
-                        owner=RunCallOwner(run_id=self._scope.run_id),
-                        workload="INTERACTIVE",
+                        owner=self._scope.owner,
+                        workload=self._scope.workload,
                         deadline_at=self._scope.deadline_at,
                         reserved_tokens=reserved_tokens,
                         wait_since=self._wait_since,
@@ -1629,6 +1680,9 @@ async def default_executor_factory(
     budget = ModelBudget(deadline_ms=frozen.deadline_ms, max_model_retries=frozen.max_model_retries)
     audit_writer = _audit_writer_for(request)
     model_trace = ModelCallTrace() if audit_writer is not None else None
+    # 逐 attempt 审计序号账本按**本次 Run 片段**共享：主调用与摘要调用（两条模型定义、两个
+    # provider 实例）的尝试序号因此不重复，审计可按序号逐条追溯。
+    ledger = ModelAttemptLedger()
     scope = _pool_scope_for(request)
     if scope is not None:
         # 启用池的 Run：预占→按冻结引用解析 Key→发上游→续租→结算全在 `PooledModelProvider`
@@ -1639,6 +1693,7 @@ async def default_executor_factory(
             model_trace=model_trace,
             timeout_sec=budget.request_timeout_sec(),
             transport=model_transport,
+            ledger=ledger,
         )
     else:
         provider = await _model_provider(
@@ -1646,23 +1701,22 @@ async def default_executor_factory(
         )
         if audit_writer is not None:
             provider = AuditedModelProvider(
-                provider, audit_writer, model=request.model.model_id, model_trace=model_trace
+                provider,
+                audit_writer,
+                model=request.model.model_id,
+                model_trace=model_trace,
+                ledger=ledger,
             )
     # 摘要模型是**另一条模型定义**（ADR-06）：endpoint / 模型名 / 凭据都取自它自己那一份，凭据
-    # 由 API-09 在 Run 边界取到、随 `ExecutorRequest` 进内存。没有它就不装摘要层，绝不退回主模型。
-    owned_summary_provider: ModelProvider | None = None
-    summary_provider: ModelProvider | None = None
-    if request.summary_model is not None:
-        owned_summary_provider = await _model_provider(
-            request.summary_model,
-            timeout_sec=budget.request_timeout_sec(),
-            transport=model_transport,
-        )
-        summary_provider = owned_summary_provider
-        if audit_writer is not None:
-            summary_provider = AuditedModelProvider(
-                summary_provider, audit_writer, model=request.summary_model.model_id
-            )
+    # 由 API-09 在调用边界按**冻结成员引用**实时解析（池化）。没有它就不装摘要层，绝不退回主模型。
+    summary_pooled = _summary_pool_scope_for(request) is not None
+    summary_provider, owned_summary_provider = await _summary_provider_for(
+        request,
+        audit_writer=audit_writer,
+        timeout_sec=budget.request_timeout_sec(),
+        transport=model_transport,
+        ledger=ledger,
+    )
     mcp_adapter = McpRuntimeAdapter(audit_writer=audit_writer)
     settings = SharedSettings()
     # 交付客户端：**只有本次 Run 有交付路由时才建**（没路由的 Run 谈不上交付）。
@@ -1713,7 +1767,9 @@ async def default_executor_factory(
         tool_pipeline=ToolExecutionPipeline(
             registry=registry, audit=recorder, policy=_frozen_tool_policy(request), hooks=hooks
         ),
-        context_compactor=_context_compactor(request, summary_provider, artifact_root=settings.artifact_root),
+        context_compactor=_context_compactor(
+            request, summary_provider, pooled=summary_pooled, artifact_root=settings.artifact_root
+        ),
         tool_round_results=recorder,
         runtime_events=request.runtime_events,
         context_loader=memory.loader if memory is not None else None,
@@ -1775,6 +1831,7 @@ def _context_compactor(
     request: ExecutorRequest,
     summary_provider: ModelProvider | None,
     *,
+    pooled: bool,
     artifact_root: str,
 ) -> RuntimeContextCompactor | None:
     """请求缝的压缩器：只在本次 Run 有冻结配置与 Run 上下文时才装。"""
@@ -1787,16 +1844,29 @@ def _context_compactor(
         run_id=context.run_id,
         conversation_id=context.conversation_id,
         artifact_root=artifact_root,
-        summary_runner=_summary_runner(summary_provider, request),
+        summary_runner=_summary_runner(summary_provider, request, pooled=pooled),
     )
 
 
-def _summary_runner(provider: ModelProvider | None, request: ExecutorRequest) -> SummaryRunner | None:
+def _output_budget_of(model: ResolvedModel) -> int | None:
+    """冻结模型定义里的显式输出预算（`params.max_tokens`）；缺省/非法返回 None。"""
+    value = model.params.get("max_tokens")
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return None
+    return value
+
+
+def _summary_runner(
+    provider: ModelProvider | None, request: ExecutorRequest, *, pooled: bool
+) -> SummaryRunner | None:
     """摘要模型调用：只在开了摘要、且**冻结的摘要模型**与它的 provider 都在时才装。
 
     摘要跑在自己那条模型定义上（endpoint / 模型名 / 凭据都不同，ADR-06 的 `model_ref`）。
     缺模型或缺凭据就返回 None ⇒ 这一层本轮不跑；**绝不退回主模型**——那正是修复前的行为
     （`model_ref` 写了却不生效，2026-10-06 review）。
+
+    池化链路必须显式给出输出预算（design §3.7：预占 = 保守输入估算 + 本次实际发送的上限）：
+    冻结定义里没有它时**跳过该层并留痕**（warning + `SKIPPED`），不猜一个上限去预占。
     """
     settings = request.compaction.summary if request.compaction is not None else None
     if settings is None or not settings.enabled or not settings.model_ref:
@@ -1804,7 +1874,58 @@ def _summary_runner(provider: ModelProvider | None, request: ExecutorRequest) ->
     model = request.summary_model
     if model is None or provider is None:
         return None
-    return make_summary_runner(provider=provider, model_id=model.model_id)
+    max_tokens = _output_budget_of(model)
+    if pooled and max_tokens is None:
+        logger.warning("summary_model_output_budget_missing", extra={"model_id": str(model.id)})
+        record_outcome(CONTEXT_SUMMARY_METRIC, "SKIPPED")
+        return None
+    return make_summary_runner(provider=provider, model_id=model.model_id, max_tokens=max_tokens)
+
+
+async def _summary_provider_for(
+    request: ExecutorRequest,
+    *,
+    audit_writer: RuntimeAuditWriter | None,
+    timeout_sec: float,
+    transport: httpx.AsyncBaseTransport | None,
+    ledger: ModelAttemptLedger,
+) -> tuple[ModelProvider | None, ModelProvider | None]:
+    """摘要 provider 与它的 owned 句柄（池化时没有 owned：每次尝试的上游连接自己收）。
+
+    冻结成员事实齐备（新 Run 的快照）⇒ 摘要走**同一资源池**（BACKGROUND 份额、冻结引用解析）；
+    旧行/直构缺该键时退回既有直连语义（定义级凭据，Run 边界已解析）。
+    """
+    if request.summary_model is None:
+        return None, None
+    summary_model = request.summary_model
+    scope = _summary_pool_scope_for(request)
+    if scope is not None:
+        credentials = request.credentials_client
+        assert credentials is not None  # `_summary_pool_scope_for` 已要求
+        return (
+            build_pooled_provider(
+                scope=scope,
+                credentials=credentials,
+                provider_factory=lambda credential: OpenAICompatibleProvider(
+                    base_url=credential.base_url,
+                    model=summary_model.model_id,
+                    api_key=credential.api_key.get_secret_value(),
+                    timeout_sec=timeout_sec,
+                    transport=transport,
+                ),
+                model=request.summary_model.model_id,
+                audit_writer=audit_writer,
+                ledger=ledger,
+            ),
+            None,
+        )
+    owned = await _model_provider(request.summary_model, timeout_sec=timeout_sec, transport=transport)
+    provider: ModelProvider = owned
+    if audit_writer is not None:
+        provider = AuditedModelProvider(
+            provider, audit_writer, model=request.summary_model.model_id, ledger=ledger
+        )
+    return provider, owned
 
 
 async def _model_provider(
@@ -1823,6 +1944,42 @@ async def _model_provider(
     )
 
 
+def build_pooled_provider(
+    *,
+    scope: PoolCallScope,
+    credentials: CredentialsClient,
+    provider_factory: ProviderFactory,
+    model: str,
+    audit_writer: RuntimeAuditWriter | None = None,
+    model_trace: ModelCallTrace | None = None,
+    ledger: ModelAttemptLedger | None = None,
+    session_factory_provider: SessionFactoryProvider = get_session_factory,
+) -> PooledModelProvider:
+    """按生产装配口径构造池化 provider：真实分配器/容量服务/受信解析客户端/模型 HTTP。
+
+    分配器与续租/结算**共用同一个容量服务**：额度判定与窗口算法只有一处实现
+    （`ModelCapacityService`），池化链路不复制它。每次尝试的上游 provider 由
+    `provider_factory` 按解析出的凭据（连接 + 密钥）新建——凭据只进调用内存。
+
+    Run 的主调用、摘要调用与记忆提炼 job 都从这一处装配：物理额度、计量身份与结算规则完全
+    相同（同一 `runtime.model_capacity` 行按 `key_resource_id` 合并），差异只在 `scope` 的
+    归属/工作负载与各自的 `session_factory_provider`（提炼 job 用自己那条库的工厂）。
+    """
+    capacity = ModelCapacityService(session_factory_provider)
+    return PooledModelProvider(
+        scope=scope,
+        allocator=ModelAllocator(session_factory_provider, capacity=capacity),
+        capacity=capacity,
+        credentials=credentials,
+        provider_factory=provider_factory,
+        model=model,
+        audit_writer=audit_writer,
+        model_trace=model_trace,
+        ledger=ledger,
+        session_factory_provider=session_factory_provider,
+    )
+
+
 def _pooled_provider_for(
     request: ExecutorRequest,
     *,
@@ -1831,20 +1988,13 @@ def _pooled_provider_for(
     model_trace: ModelCallTrace | None,
     timeout_sec: float,
     transport: httpx.AsyncBaseTransport | None = None,
+    ledger: ModelAttemptLedger | None = None,
 ) -> PooledModelProvider:
-    """按生产装配口径构造池化 provider：真实分配器/容量服务/受信解析客户端/模型 HTTP。
-
-    分配器与续租/结算**共用同一个容量服务**：额度判定与窗口算法只有一处实现
-    （`ModelCapacityService`），池化链路不复制它。每次尝试的上游 provider 由
-    `provider_factory` 按解析出的凭据（连接 + 密钥）新建——凭据只进调用内存。
-    """
+    """Run 主调用的池化 provider（真实装配口径见 `build_pooled_provider`）。"""
     credentials = request.credentials_client
     assert credentials is not None  # `_pool_scope_for` 已要求
-    capacity = ModelCapacityService(get_session_factory)
-    return PooledModelProvider(
+    return build_pooled_provider(
         scope=scope,
-        allocator=ModelAllocator(get_session_factory, capacity=capacity),
-        capacity=capacity,
         credentials=credentials,
         provider_factory=lambda credential: OpenAICompatibleProvider(
             base_url=credential.base_url,
@@ -1856,6 +2006,7 @@ def _pooled_provider_for(
         model=request.model.model_id,
         audit_writer=audit_writer,
         model_trace=model_trace,
+        ledger=ledger,
     )
 
 

@@ -284,7 +284,7 @@
 | E-03 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两入口、真实 Run/待确认状态 | TASK-113 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
 | E-04 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实故障模型 HTTP 服务和调度存储 | TASK-025 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
 | E-05 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两租户、真实认证/归属查询/下载与 SSE | TASK-112 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
-| E-06 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实压缩/记忆提炼接线、持久快照和 model HTTP | TASK-026 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | . | 300 |  |
+| E-06 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实压缩/记忆提炼接线、持久快照和 model HTTP | TASK-026 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | . | 300 |  |
 | E-07 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 慢浏览器、SSE 代理、PG、重连 | TASK-113 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
 | E-08 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 双入口、真实确认请求、记忆 PG 状态与模型 HTTP 输入 | TASK-113 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
 | E-09 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 队列实际存储、并发受理/取消、SSE、模型探针计数 | TASK-113 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
@@ -365,7 +365,7 @@
 | B-223 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-023 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_allocator.py"] | . | 300 |  |
 | B-224 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-024 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"] | . | 300 |  |
 | B-225 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-025 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
-| B-226 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-026 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | . | 300 |  |
+| B-226 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-026 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | . | 300 |  |
 | B-227 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-027 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"] | . | 300 |  |
 | B-228 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-028 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_probe.py"] | . | 300 |  |
 | B-229 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-029 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_policy.py"] | . | 300 |  |
@@ -1895,7 +1895,7 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 
 ## TASK-026: 摘要和记忆提炼共享模型容量
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-025
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -1910,29 +1910,48 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 
 ### Checklist
 
-- [ ] [B-226][integration] 先在`tests/agent_runtime/test_capacity_webchat_background_pool.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：摘要/提炼都走统一物理资源预算。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-226] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-226] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] [E-06][integration] 将原E-06落入`tests/agent_runtime/test_capacity_webchat_background_pool.py`，先RED后GREEN；真实压缩/记忆提炼接线、持久快照和 model HTTP；断言：摘要失败保留原历史；提炼失败整批回滚且主 Run 不变；槽位泄漏和旧记忆缓存不残留。
-- [ ] verifier `harness-memory#RULE-memory-005`（stage: review；timeout=600秒）：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_input_boundary.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-226][integration] 先在`tests/agent_runtime/test_capacity_webchat_background_pool.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：摘要/提炼都走统一物理资源预算。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-226] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-226] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [E-06][integration] 将原E-06落入`tests/agent_runtime/test_capacity_webchat_background_pool.py`，先RED后GREEN；真实压缩/记忆提炼接线、持久快照和 model HTTP；断言：摘要失败保留原历史；提炼失败整批回滚且主 Run 不变；槽位泄漏和旧记忆缓存不残留。
+- [x] verifier `harness-memory#RULE-memory-005`（stage: review；timeout=600秒）：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_input_boundary.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-226 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 摘要/提炼都走统一物理资源预算；摘要失败原历史继续、批量提炼失败回滚且主Run不失败，冻结来源/epoch/forget tombstone与可观测退化保留 | tests/agent_runtime/test_capacity_webchat_background_pool.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | planned |
-| E-06 | integration | 真实压缩/记忆提炼接线、持久快照和 model HTTP | 摘要失败保留原历史；提炼失败整批回滚且主 Run 不变；槽位泄漏和旧记忆缓存不残留 | tests/agent_runtime/test_capacity_webchat_background_pool.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | planned |
-| harness-memory#RULE-memory-005 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同 fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立 provider 使用冻结主模型、实时凭据并显式关闭。模型调用次数不保证一次，持久效果/历史/完成事件/job 终态必须同事务最多一次；失败整批回滚，warning/metric 可见，主 Run 终态不变。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_input_boundary.py"] | planned |
+| B-226 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 摘要/提炼都走统一物理资源预算；摘要失败原历史继续、批量提炼失败回滚且主Run不失败，冻结来源/epoch/forget tombstone与可观测退化保留 | tests/agent_runtime/test_capacity_webchat_background_pool.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | verified |
+| E-06 | integration | 真实压缩/记忆提炼接线、持久快照和 model HTTP | 摘要失败保留原历史；提炼失败整批回滚且主 Run 不变；槽位泄漏和旧记忆缓存不残留 | tests/agent_runtime/test_capacity_webchat_background_pool.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | verified |
+| harness-memory#RULE-memory-005 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同 fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立 provider 使用冻结主模型、实时凭据并显式关闭。模型调用次数不保证一次，持久效果/历史/完成事件/job 终态必须同事务最多一次；失败整批回滚，warning/metric 可见，主 Run 终态不变。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_input_boundary.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-226 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_background_pool.py` → **4 failed**（exit=1, 8.25s）：实现前摘要/提炼仍走定义级直连，池化计量/让路/老化分支不存在 | 同命令 → **6 passed**（exit=0, 13.68s）；全量域回归 `uv run pytest -q tests/agent_runtime` → **850 passed**（exit=0, 732.98s） | `test_b226_summary_call_uses_the_shared_pool_with_background_workload` L686（摘要走同一池、workload=BACKGROUND、真实发送冻结输出预算）；`test_b226_consolidation_call_uses_the_shared_pool_and_merges_metering` L1159（提炼与主调用/摘要同一物理 Key 合并计量）；`test_b226_background_call_yields_without_reserving_when_interactive_is_active` L1238（交互在飞时后台让路且不占位）；`test_b226_background_call_proceeds_after_aging_while_interactive_is_active` L1273（老化后推进） | 真实 Runtime 业务服务 + 真实 PostgreSQL（租约/容量/计数/审计）+ 真实模型 HTTP 探针；不 mock 存储与租约 | verified |
+| E-06 | 同上（同批用例） | 同上 → **6 passed** | `test_e06_summary_failure_keeps_original_history_and_visible_degradation` L776（摘要失败保留原历史 + 降级显式可见 warning/metric）；`test_e06_consolidation_failure_rolls_back_batch_and_keeps_run_completed` L1312（提炼失败整批回滚、主 Run 终态不变、槽位/旧缓存不残留） | 同 B-226（真实压缩/记忆提炼接线、持久快照与 model HTTP） | verified |
+| harness-memory#RULE-memory-005 | —（沿用原 Spec verifier，不重写；本任务只做消费者接线） | `uv run pytest -q tests/agent_runtime/test_memory_redesign_job_effects.py tests/agent_runtime/test_memory_redesign_input_boundary.py` → **35 passed**（exit=0, 70.65s） | 沿用原Spec verifier（job 唯一/claim fence/冻结输入/同事务最多一次） | 同域真实 PG + 真实 provider | verified |
+
+**实施范围与证据说明**
+
+- 实现文件（含超出计划 Files 的披露）：`application/context_compaction.py`（`make_summary_runner` 增加 `max_tokens` 并**真实发送**——预占与实际发送同源；旧快照缺叶时不带上限）、`application/memory_consolidation.py`（快照含池策略 + 主模型非密钥成员引用时经 `PooledModelProvider`：owner=memory job、workload=BACKGROUND、预占→按冻结引用解析当前 Key→发上游→续租→按证据结算；旧快照保持既有直连语义不补默认）、`application/executor.py`（`PoolCallScope` L655、`PooledModelProvider` L838、`build_pooled_provider` L1947）、`application/run_service.py`（`frozen_summary_members_of`：摘要模型成员引用一并冻进快照）、`docs/configuration-inventory.csv`（行号同步）。
+- 契约与语义事实：摘要与记忆提炼都走**统一物理资源预算**（同一物理 Key 跨主调用/摘要/提炼合并计量，不按调用方拆开）；后台（BACKGROUND）在交互在飞时让路且**不占位**，老化后推进；摘要失败 → 原历史保留 + 降级显式可见（warning+metric），提炼失败 → **整批回滚**且主 Run 终态不变；密钥只进调用内存（不落日志/回执/快照）。
+- 中间过程（诚实记录）：(1) 子 agent 会话在实现与 focused 回归完成后中断（全量域回归进程成为孤儿、输出不可回收）——由主 agent 接管：终止孤儿进程、在 worktree 内重跑 `tests/agent_runtime`（850 passed）、补齐本证据与 Log、执行 finish 并按裁决提交；(2) `test_capacity_webchat_provider_pool.py`/`test_summary_model_resolution.py` 各按新事实同步（摘要/提炼走池化解析、显式输出预算），原断言未放宽。
+- 延后项：`WAITING_MODEL` 持久排队/状态投影 → TASK-036；执行槽 → TASK-032；真实供方额度与 1000 并发结论 → TASK-110/116；review 层 verifier 与 heavy validator 由需求级 verify-e2e/archive 全量复跑。
+- E-06: verified — automated command passed; run_id=ac69d3c3fc3340a1ba467692978d76b4 (confirmed_by: runner)
+- B-226: verified — automated command passed; run_id=ac69d3c3fc3340a1ba467692978d76b4 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-226/E-06 RED：`tests/agent_runtime/test_capacity_webchat_background_pool.py` 先行建立 → **4 failed**（8.25s；摘要/提炼仍走定义级直连）
+- [2026-10-18] 实现：摘要器真实发送冻结输出预算（预占与实际发送同源）；提炼在含池策略/冻结成员引用的快照上走 `PooledModelProvider`（BACKGROUND，同一物理 Key 合并计量；旧快照保持直连不补默认）；`run_service` 冻结摘要成员引用；executor 新增 PoolCallScope/PooledModelProvider/build_pooled_provider
+- [2026-10-18] B-226/E-06 GREEN：6 passed（13.68s）；verifier memory-005 35 passed；回归 contracts+architecture 1314、console_internal+凭据服务 57、inventory 4、ruff 干净、mypy 407 files
+- [2026-10-18] 子 agent 中断接管：终止孤儿回归进程并在 worktree 内重跑全量域 `tests/agent_runtime` → **850 passed**（732.98s）；补证据/Log 后 finish
+- [2026-10-18] completed (done)
 
 ---
 

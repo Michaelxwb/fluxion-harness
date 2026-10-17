@@ -1,4 +1,4 @@
-"""[ADR-06] 摘要跑在**自己那条模型定义**上：endpoint / 模型名 / 凭据都取自 `summary.model_ref`。
+""" [ADR-06] 摘要跑在**自己那条模型定义**上：endpoint / 模型名 / 凭据都取自 `summary.model_ref`。
 
 不得 Mock 的真实边界：真实 `POST /v1/runs` → 真实 `RunService` 建 Run + 真实快照冻结 → 真实
 `default_executor_factory` 装配 → 真实 `OpenAICompatibleProvider` / 真实 `RuntimeContextCompactor`
@@ -8,6 +8,10 @@
 ADR-06 换掉内部解析端点（`resolve-model`）与 API-09 凭据端点——这两个是本用例要断言的**真实契约**。
 
 修复前的行为：`summary.model_ref` 完全不生效，摘要始终打主模型的 endpoint 与凭据。
+
+TASK-026 起摘要调用与主调用共享物理资源上限：两条模型定义**各自**的成员非密钥引用都随快照
+冻结，摘要按自己那条定义的冻结成员走 API-09 解析当前 Key，因此夹具为两条定义各给一个真实成员
+（摘要定义也给显式 `max_tokens`——池化预占 = 保守输入估算 + 本次实际发送的输出预算）。
 """
 
 from __future__ import annotations
@@ -62,13 +66,17 @@ def _completion(content: str) -> dict[str, Any]:
 
 MAIN_BASE_URL = "https://api.example.com/v1"
 MAIN_MEMBER_KEY = "sk-main-member"
+SUMMARY_MAX_TOKENS = 24
 MAX_TOKENS = 64
 
 
 @dataclass(frozen=True, slots=True)
-class _MainMember:
-    """主模型的真实成员事实（TASK-025 起主链路按冻结引用解析这把 Key）。"""
+class _Member:
+    """一条模型定义的真实成员事实（TASK-025/026 起调用按冻结引用解析这把 Key）。"""
 
+    model_id: uuid.UUID
+    base_url: str
+    api_key: str
     deployment_id: uuid.UUID
     credential_id: uuid.UUID
     digest: str
@@ -78,35 +86,41 @@ class _MainMember:
 
 
 class _Credentials:
-    """API-09 替身：按 `model_id` 回密钥，并记下**被问了哪些模型**。
+    """API-09 替身：按 `model_id` 回该定义成员的密钥，并记下**被问了哪些模型**。
 
     冻结引用（`deployment_id`+`credential_id`+`expected_revision`）给齐时返回完整的
-    `SelectedModelCredential` 投影——主链路（TASK-025）就按它解析并校验预占身份；
-    缺省（摘要模型 / Run 创建边界的过渡解析）仍是过渡投影。
+    `SelectedModelCredential` 投影——主链路（TASK-025）与摘要（TASK-026）都按它解析并校验
+    预占身份；缺省（Run 创建边界的过渡解析）仍是过渡投影。
     """
 
-    def __init__(self, member: _MainMember, model_id: uuid.UUID) -> None:
+    def __init__(self, members: tuple[_Member, ...]) -> None:
         self.model_ids: list[str] = []
-        self._member, self._model_id = member, model_id
+        self._members = {str(member.model_id): member for member in members}
+
+    def _member(self, payload: dict[str, Any]) -> _Member:
+        member = self._members.get(str(payload["model_id"]))
+        assert member is not None, "credentials must be requested for a seeded model"
+        return member
 
     async def resolve_credentials(
         self, *, tenant_id: str, payload: dict[str, Any], trace_id: str = ""
     ) -> dict[str, Any]:
         model_id = str(payload["model_id"])
         self.model_ids.append(model_id)
+        member = self._member(payload)
         if payload.get("deployment_id") is None:
-            return {"model": {"id": model_id, "api_key": f"key-for-{model_id}"}, "mcp_servers": []}
+            return {"model": {"id": model_id, "api_key": member.api_key}, "mcp_servers": []}
         return {
             "model": {
                 "model_id": model_id,
-                "deployment_id": str(self._member.deployment_id),
-                "credential_id": str(self._member.credential_id),
+                "deployment_id": str(member.deployment_id),
+                "credential_id": str(member.credential_id),
                 "credential_revision": int(payload["expected_revision"]),
-                "key_resource_id": str(self._member.key_resource_id(tenant_id)),
+                "key_resource_id": str(member.key_resource_id(tenant_id)),
                 "quota_group_id": None,
                 "provider_key": "openai",
-                "base_url": MAIN_BASE_URL,
-                "api_key": MAIN_MEMBER_KEY,
+                "base_url": member.base_url,
+                "api_key": member.api_key,
             },
             "mcp_servers": [],
         }
@@ -164,29 +178,41 @@ async def _send(client: AsyncClient, tenant: TenantContext, text: str) -> uuid.U
     return uuid.UUID(str(events[0]["run_id"]))
 
 
-async def _seed_main_member(tenant: TenantContext, model_id: uuid.UUID) -> _MainMember:
-    """主模型的真实控制面行：成员关系 + 成员凭据（TASK-025 起冻结候选的来源）。
+async def _seed_member(
+    tenant: TenantContext,
+    *,
+    model_id: uuid.UUID,
+    model_name: str,
+    base_url: str,
+    api_key: str,
+    params: dict[str, Any],
+) -> _Member:
+    """一条模型定义的真实控制面行：定义 + 成员关系 + 成员凭据（冻结候选的来源）。
 
-    TASK-024 起 Run 创建边界会冻结成员的非密钥引用；TASK-025 起主链路按冻结引用解析密钥，
-    因此本用例必须给出真实成员事实，而不是让主模型停在"没有执行入口"。
+    TASK-024 起 Run 创建边界会冻结成员的非密钥引用；TASK-025/026 起主链路与摘要都按冻结引用
+    解析密钥，因此两条定义都必须给出真实成员事实，而不是停在"没有执行入口"。
     """
-    member = _MainMember(
+    member = _Member(
+        model_id=model_id,
+        base_url=base_url,
+        api_key=api_key,
         deployment_id=uuid.uuid4(),
         credential_id=uuid.uuid4(),
-        digest=hashlib.sha256(MAIN_MEMBER_KEY.encode()).hexdigest(),
+        digest=hashlib.sha256(api_key.encode()).hexdigest(),
     )
     async with get_session_factory()() as session:
         await session.execute(
             sa.text(
                 "INSERT INTO control.model_definition (id, tenant_id, key, name, model_id, provider_key,"
-                " params_json) VALUES (:id, :tenant_id, :key, :name, 'gpt-4o-mini', 'openai',"
+                " params_json) VALUES (:id, :tenant_id, :key, :name, :provider_model, 'openai',"
                 " CAST(:params AS jsonb))"
             ).bindparams(
                 id=model_id,
                 tenant_id=tenant.tenant_id,
                 key=f"model-{uuid.uuid4().hex[:10]}",
-                name="summary-main-model",
-                params=json.dumps({"temperature": 0.0, "max_tokens": MAX_TOKENS}),
+                name=f"summary-{model_name}",
+                provider_model=model_name,
+                params=json.dumps(params),
             )
         )
         await session.execute(
@@ -198,8 +224,8 @@ async def _seed_main_member(tenant: TenantContext, model_id: uuid.UUID) -> _Main
                 id=member.credential_id,
                 tenant_id=tenant.tenant_id,
                 key=f"key-{uuid.uuid4().hex[:10]}",
-                base_url=MAIN_BASE_URL,
-                api_key=MAIN_MEMBER_KEY,
+                base_url=base_url,
+                api_key=api_key,
                 digest=member.digest,
             )
         )
@@ -239,9 +265,24 @@ async def _stack(
         }
     )
     model_id = fake_resolve.response.model.id
-    member = await _seed_main_member(tenant, model_id)
+    main_member = await _seed_member(
+        tenant,
+        model_id=model_id,
+        model_name="gpt-4o-mini",
+        base_url=MAIN_BASE_URL,
+        api_key=MAIN_MEMBER_KEY,
+        params={"temperature": 0.0, "max_tokens": MAX_TOKENS},
+    )
+    summary_member = await _seed_member(
+        tenant,
+        model_id=SUMMARY_MODEL_ID,
+        model_name=SUMMARY_MODEL_NAME,
+        base_url=SUMMARY_BASE_URL,
+        api_key=f"key-for-{SUMMARY_MODEL_ID}",
+        params={"temperature": 0.0, "max_tokens": SUMMARY_MAX_TOKENS},
+    )
     seen: list[httpx.Request] = []
-    credentials = _Credentials(member, model_id)
+    credentials = _Credentials((main_member, summary_member))
     app.dependency_overrides[get_resolve_client] = lambda: fake_resolve
     app.dependency_overrides[get_executor_factory] = lambda: partial(
         default_executor_factory, model_transport=_transport(seen)
@@ -289,7 +330,7 @@ async def test_summary_call_goes_to_the_frozen_summary_model(
         model_id=SUMMARY_MODEL_NAME,
         base_url=SUMMARY_BASE_URL,
         api_key=None,  # 凭据只走 API-09（定义里不带）
-        params={},
+        params={"temperature": 0.0, "max_tokens": SUMMARY_MAX_TOKENS},
     )
     _enable_summary(fake_resolve)
 

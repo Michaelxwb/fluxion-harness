@@ -77,8 +77,15 @@ SUMMARY_INSTRUCTION = (
 )
 
 
-def make_summary_runner(*, provider: ModelProvider, model_id: str) -> SummaryRunner:
-    """用既有 provider 组一个摘要器；模型返回什么形状由 `try_parse_summary` 把关。"""
+def make_summary_runner(
+    *, provider: ModelProvider, model_id: str, max_tokens: int | None = None
+) -> SummaryRunner:
+    """用既有 provider 组一个摘要器；模型返回什么形状由 `try_parse_summary` 把关。
+
+    `max_tokens` 是**冻结摘要模型定义**里的输出预算：池化链路按"保守输入估算 + 本次实际发送的
+    最大输出预算"预占（design §3.7），所以请求里必须真的发送它——预占不能只读一个没发出去的
+    同义字段。旧行（本需求上线前的快照）没有该叶时保持原样发送（None = 不带上限）。
+    """
 
     async def runner(messages: Sequence[ModelMessage]) -> SummaryFields | None:
         response = await provider.complete(
@@ -89,6 +96,7 @@ def make_summary_runner(*, provider: ModelProvider, model_id: str) -> SummaryRun
                     ModelMessage(role=ModelRole.USER, content=SUMMARY_INSTRUCTION),
                 ),
                 temperature=0.0,
+                max_tokens=max_tokens,
             )
         )
         # token 用量只有发起调用的一侧知道，且**无论采不采用都已经花掉了**，所以记在这里；

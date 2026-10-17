@@ -158,6 +158,7 @@ def snapshot_policy(
     summary_model: ResolvedModel | None = None,
     pool: PoolExecutionPolicy | None = None,
     members: Sequence[MemberRef] | None = None,
+    summary_members: Sequence[MemberRef] | None = None,
 ) -> dict[str, Any]:
     """Run 侧 execution snapshot 的执行期策略——`policy_json` 的唯一构建口径。
 
@@ -179,7 +180,9 @@ def snapshot_policy(
 
     `summary_model` 是 `compaction.summary.model_ref` 指向的那条模型定义**解析后的结果**（ADR-06）：
     摘要要打到自己那个 endpoint / 凭据上，所以在 Run 创建边界解析一次、连同非密钥字段一起冻进
-    本快照（`api_key` 剥离，认证走 API-09 实时读）。
+    本快照（`api_key` 剥离，认证走 API-09 实时读）。**它的成员引用**（`summary_model_members`）
+    走与主模型同一口径冻结：摘要调用与主调用共享物理资源上限，冻结的是非密钥关系与权重，
+    实际 Key 与在飞额度实时协调（`members=None` 与 `[]` 的区别同主模型）。
 
     `artifact.retention_days` / `artifact.cleanup_batch_size` **不进本快照**：它们属 Console
     清理（一条 CLI 操作，不是 Run），在操作边界从平台设置取。
@@ -207,6 +210,10 @@ def snapshot_policy(
         # 只在真的解析出摘要模型时写这个键：老快照没有它 ⇔ 该 Run 的摘要层没跑（`summary_model_of`
         # 读回 None），语义与"配置里没开摘要"一致。
         policy["summary_model"] = _snapshot_model(summary_model)
+    if summary_members is not None:
+        policy[SUMMARY_MODEL_MEMBERS_POLICY_KEY] = [
+            frozen_member_payload(member) for member in summary_members
+        ]
     return policy
 
 
@@ -226,11 +233,26 @@ def frozen_model_members_of(policy: Mapping[str, Any] | None) -> tuple[MemberRef
     是 Run 的执行语义，宁可失败也不按猜出的值解释。旧行**不补新默认**——返回 None 而不是
     当前库里的成员事实。
     """
-    entries = (policy or {}).get(MODEL_MEMBERS_POLICY_KEY)
+    return _frozen_members_section(policy, MODEL_MEMBERS_POLICY_KEY)
+
+
+def frozen_summary_members_of(policy: Mapping[str, Any] | None) -> tuple[MemberRef, ...] | None:
+    """从**已冻结**的 `policy_json` 还原**摘要模型**的成员非密钥引用；缺该键返回 None。
+
+    与主模型同一读回口径（同一形状校验、同样不补新默认）：摘要调用与主调用共享物理资源上限，
+    冻结的只是非密钥关系与权重，实际 Key 实时经受信接口解析。
+    """
+    return _frozen_members_section(policy, SUMMARY_MODEL_MEMBERS_POLICY_KEY)
+
+
+def _frozen_members_section(
+    policy: Mapping[str, Any] | None, key: str
+) -> tuple[MemberRef, ...] | None:
+    entries = (policy or {}).get(key)
     if entries is None:
         return None
     if not isinstance(entries, Sequence) or isinstance(entries, (str, bytes)):
-        raise PlatformSettingsError("frozen model members must be a list")
+        raise PlatformSettingsError(f"frozen {key} must be a list")
     return tuple(_frozen_member(entry) for entry in entries)
 
 
@@ -393,6 +415,8 @@ STREAM_BUSINESS_TYPES: dict[str, str] = {
 
 #: `policy_json` 里冻结的成员段：非密钥引用 + 权重（Key/指纹/计量身份不在其中）
 MODEL_MEMBERS_POLICY_KEY = "model_members"
+#: 摘要模型的成员段：与主模型同一冻结口径（摘要调用与主调用共享物理资源上限）
+SUMMARY_MODEL_MEMBERS_POLICY_KEY = "summary_model_members"
 #: 一名冻结成员允许携带的全部键；多一个（例如 `key_resource_id`）就是泄漏，显式拒绝
 FROZEN_MEMBER_KEYS = ("deployment_id", "credential_id", "weight")
 
@@ -458,6 +482,7 @@ def build_snapshot(
     summary_model: ResolvedModel | None = None,
     pool: PoolExecutionPolicy | None = None,
     members: Sequence[MemberRef] | None = None,
+    summary_members: Sequence[MemberRef] | None = None,
 ) -> RuntimeSnapshot:
     # 未显式传入时按「无平台设置」（`platform_overrides={}`）合并 Agent 覆盖——仅用于不经过
     # Run 创建边界的直构调用点；生产路径由 `_create_run` 在取到平台快照后显式传入。
@@ -466,7 +491,7 @@ def build_snapshot(
         if compaction is not None
         else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
-    policy = snapshot_policy(settings, execution, summary_model, pool, members)
+    policy = snapshot_policy(settings, execution, summary_model, pool, members, summary_members)
     from muad_contracts import AsyncToolPolicy
 
     policy["async_tools"] = AsyncToolPolicy.model_validate(
@@ -1157,9 +1182,17 @@ class RunService:
             tenant_id=tenant_id, model_id=resolved.model.id
         )
         # 摘要模型（`compaction.summary.model_ref`）同样在这个边界解析一次：它是一条普通的模型
-        # 定义，endpoint / 凭据都与主模型不同，必须随快照冻结（ADR-06）。
+        # 定义，endpoint / 凭据都与主模型不同，必须随快照冻结（ADR-06）。它的成员引用也在此冻结
+        # （与主模型同一口径）：摘要调用与主调用共享物理资源上限，冻结的是非密钥关系与权重。
         summary_model = await self._resolve_summary_model(
             tenant_id, compaction, run_id=run_id, actor_user_id=request.platform_user_id
+        )
+        summary_members = (
+            None
+            if summary_model is None
+            else await ModelDispatchStore(self._session).read_member_refs(
+                tenant_id=tenant_id, model_id=summary_model.id
+            )
         )
         model, summary_model, mcp_secrets = await self._runtime_credentials(
             run_id,
@@ -1198,7 +1231,8 @@ class RunService:
         try:
             await self._session.flush()
             snapshot = self._build_snapshot(
-                run.id, tenant_id, resolved, compaction, execution, summary_model, pool, members
+                run.id, tenant_id, resolved, compaction, execution, summary_model, pool, members,
+                summary_members,
             )
             self._session.add(snapshot)
             await self._session.flush()
@@ -1279,6 +1313,7 @@ class RunService:
             summary_model=summary_model,
             pool=pool,
             members=members,
+            summary_members=summary_members,
         )
         await self._launch_execution(run, stream)
         return RunStart(
@@ -1336,7 +1371,8 @@ class RunService:
             execution=execution_defaults_of(snapshot.policy_json), summary_model=summary_model,
             current_text=input_text, current_attachments=persisted,
             pool=pool_execution_policy_of(snapshot.policy_json),
-            members=frozen_model_members_of(snapshot.policy_json))
+            members=frozen_model_members_of(snapshot.policy_json),
+            summary_members=frozen_summary_members_of(snapshot.policy_json))
         await self._launch_execution(run, stream)
         return RunStart(run_id=run.id, conversation_id=run.conversation_id, resumed=True,
             events=self._replay_events(submission))
@@ -1636,6 +1672,7 @@ class RunService:
         summary_model: ResolvedModel | None = None,
         pool: PoolExecutionPolicy | None = None,
         members: Sequence[MemberRef] | None = None,
+        summary_members: Sequence[MemberRef] | None = None,
     ) -> RuntimeSnapshot:
         return build_snapshot(
             run_id=run_id,
@@ -1646,6 +1683,7 @@ class RunService:
             summary_model=summary_model,
             pool=pool,
             members=members,
+            summary_members=summary_members,
         )
 
     def _event_writer(self) -> EventWriter:
@@ -1733,6 +1771,7 @@ class RunService:
         memory_resume_ref: MemoryResumeRef | None = None,
         pool: PoolExecutionPolicy | None = None,
         members: Sequence[MemberRef] | None = None,
+        summary_members: Sequence[MemberRef] | None = None,
     ) -> RunExecutor:
         text = run.input_text if current_text is None else current_text
         # `None` ⇒ 取本 Run 全部的入站附件（新建 Run 的常规路径）；续跑显式传**本次新落的**那批，
@@ -1773,6 +1812,7 @@ class RunService:
                 # 快照读回（旧行缺键 ⇒ None，不补新默认）；受信解析客户端只进调用内存。
                 pool=pool,
                 model_members=None if members is None else tuple(members),
+                summary_model_members=None if summary_members is None else tuple(summary_members),
                 credentials_client=self._credentials_client,
                 run_context=ExecutorRunContext(
                     tenant_id=run.tenant_id,
@@ -1824,6 +1864,7 @@ class RunService:
         current_attachments: tuple[PersistedAttachment, ...] | None = None,
         pool: PoolExecutionPolicy | None = None,
         members: Sequence[MemberRef] | None = None,
+        summary_members: Sequence[MemberRef] | None = None,
     ) -> AsyncIterator[ExecutorEvent]:
         yield await self._start_segment_event(run, submission_id, resumed)
         resume = await resume_decision(get_session_factory(), run, submission_id=submission_id)
@@ -1833,7 +1874,7 @@ class RunService:
                 compaction=compaction, execution=execution, summary_model=summary_model,
                 current_text=current_text, current_attachments=current_attachments,
                 submission_id=submission_id, memory_resume_ref=resume.reference,
-                pool=pool, members=members)
+                pool=pool, members=members, summary_members=summary_members)
 
         result = (SegmentResult(final_text=resume.message) if resume.message is not None
             else await self._run_segment(run, submission_id, agent.key, build))

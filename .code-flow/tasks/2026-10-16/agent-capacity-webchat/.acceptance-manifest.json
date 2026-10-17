@@ -445,7 +445,7 @@
       "kind": "functional",
       "boundary": "真实压缩/记忆提炼接线、持久快照和 model HTTP",
       "owner": "TASK-026",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -455,7 +455,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ac69d3c3fc3340a1ba467692978d76b4",
+        "executed_at": "2026-10-17T23:58:09.448735+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_capacity_webchat_background_pool.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "2e373af22929daef4f079207f81349476e3673b6f5e316c07174085acce07feb"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ac69d3c3fc3340a1ba467692978d76b4",
+          "executed_at": "2026-10-17T23:58:09.448735+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_capacity_webchat_background_pool.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "2e373af22929daef4f079207f81349476e3673b6f5e316c07174085acce07feb"
+        }
+      ]
     },
     {
       "id": "E-07",
@@ -3075,7 +3116,7 @@
       "kind": "functional",
       "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
       "owner": "TASK-026",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3085,7 +3126,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-226",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ac69d3c3fc3340a1ba467692978d76b4",
+        "executed_at": "2026-10-17T23:58:09.448735+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_capacity_webchat_background_pool.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "2e373af22929daef4f079207f81349476e3673b6f5e316c07174085acce07feb"
+      },
+      "runs": [
+        {
+          "id": "B-226",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ac69d3c3fc3340a1ba467692978d76b4",
+          "executed_at": "2026-10-17T23:58:09.448735+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_capacity_webchat_background_pool.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "2e373af22929daef4f079207f81349476e3673b6f5e316c07174085acce07feb"
+        }
+      ]
     },
     {
       "id": "B-227",
