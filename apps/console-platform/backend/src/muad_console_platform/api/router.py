@@ -28,9 +28,12 @@ from .security import require_csrf
 from .skills import router as skills_router
 from .tasks import router as tasks_router
 from .users import router as users_router
+from .webchat_auth import public_router as webchat_auth_public_router
 
 router = APIRouter()
 router.include_router(auth_public_router)
+# CHAT 公开认证面（API-04）：与管理登录守卫完全分离，只认独立 CHAT 凭据（TASK-042）。
+router.include_router(webchat_auth_public_router)
 
 authenticated = APIRouter(dependencies=[Depends(get_current_account), Depends(require_csrf)])
 authenticated.include_router(auth_router)
