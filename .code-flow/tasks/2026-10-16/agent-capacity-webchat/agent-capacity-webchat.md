@@ -353,7 +353,7 @@
 | B-211 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-011 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_admission_schema.py"] | . | 300 |  |
 | B-212 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-012 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_chat_auth_schema.py"] | . | 300 |  |
 | B-213 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-013 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"] | . | 300 |  |
-| B-214 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-014 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"] | . | 300 |  |
+| B-214 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-014 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"] | . | 300 |  |
 | B-215 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-015 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"] | . | 300 |  |
 | B-216 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-016 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"] | . | 300 |  |
 | B-217 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-017 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"] | . | 300 |  |
@@ -1159,7 +1159,7 @@ Token/会话只存摘要、时间带时区，来源Token和platform_user为同Ow
 
 ## TASK-014: 用户通知feed、交付租约与稳定回执结构
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-006, TASK-013
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约
@@ -1174,25 +1174,51 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 
 ### Checklist
 
-- [ ] [B-214][integration] 先在`tests/migrations/test_capacity_webchat_notification_schema.py`建立行为验收并记录RED；真实边界：隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库；关键断言：feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯一。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-214] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-214] 执行`["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-214][integration] 先在`tests/migrations/test_capacity_webchat_notification_schema.py`建立行为验收并记录RED；真实边界：隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库；关键断言：feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯一。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-214] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-214] 执行`["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-214 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯一；已读/送达分离，出站租约及首次结果可恢复 | tests/migrations/test_capacity_webchat_notification_schema.py | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"] | planned |
+| B-214 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯一；已读/送达分离，出站租约及首次结果可恢复 | tests/migrations/test_capacity_webchat_notification_schema.py | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-214 | `uv run pytest -q tests/migrations/test_capacity_webchat_notification_schema.py` → exit=1，**7 failed / 0 passed**（14.44s）：`AttributeError: module 'muad_agent_runtime.infrastructure.models.runtime' has no attribute 'ChannelNotificationFeed'/'ChannelNotification'`（parity L157、feed L236、tombstone L266、租约 L321、守卫 L412 两参数）；空库回退用例因 0026 尚不存在，重升级只到 0025 → `AssertionError: assert '0025' == '0026'`（L461） | 同命令 → **7 passed**（exit=0, 13.06s） | `test_b214_empty_database_schema_parity` L157-233（两表 `migrated == created` 全量比对 L174，索引定义按 `pg_indexes` 原文比对；feed 列型/非空 L180-181、完整唯一 `(tenant_id,user_id)` 无谓词 L187-188、无物理 FK L185；通知列型/可空 L192-210（`delivery_state` **无** server default L205、`artifact_ids` 为 `uuid[]` 且 item_type=UUID L208-210）、同 Owner 三物理 FK L211-214、两完整唯一无谓词 L220-223、未读 partial `read_at IS NULL` L225-226、due/lease partial 谓词且不含 `is_deleted` L227-232）；`test_b214_feed_identity_is_stable` L236-263（注册行唯一 L241-243；重复注册拒 L243；软删被 CHECK 拒 L246-248；负水位拒 L250-253；原地推进 `last_seq=7` 且仍恰 1 行 L255-263）；`test_b214_sequence_and_delivery_key_unique_survive_tombstones` L266-318（初始租约事实 L280-281；同用户重复 seq 拒 L283；同租户 delivery_key 跨用户不可复用拒 L285-288；软删 tombstone 后重插同 seq/同 key 均拒 L293-294；悬空 feed/conversation/run 物理 FK 拒 L296-298；逻辑 UUID task/entry 可写 L300-303；契约枚举外 kind/state、seq≤0、负计数拒 L305-315；三契约 kind 全部接受 L316-318）；`test_b214_delivery_lease_read_separation_and_first_result` L321-407（默认意图空 `uuid[]` L335；引用原样往返 L338-344；reserve→DELIVERING+lease_owner/epoch/attempt 落库 L349-353；续租保 epoch/attempt L355-359；ack 写首次结果、清租约且 `read_at` 仍 NULL L363-367；重放恢复同一 JSON 与 delivery_key L369-371；PENDING 可直接已读 L376-381；隐藏 PENDING 仍在到期集合 L386-395；NOT_REQUIRED 不在投递泵集合 L397-404；五状态全接受 L405-407）；`test_b214_downgrade_requires_backup_for_notification_state` L412-439（feed/notification 两类占用均非 0 退出 + `CHANNEL_NOTIFICATION_DOWNGRADE_REQUIRES_BACKUP` L428，链头/表/数据原样 L431-438）；`test_b214_downgrade_on_pristine_schema_returns_to_0025` L442-463（空库干净落 0025 L446-452，重升级动态 head L454-463） | 隔离 PostgreSQL（`async_tool_datastore` 建空库 + 真实 Alembic 链）、真实迁移子进程（`migrations/db_migrate.py -c ini` 升降级）、真实 ORM metadata `create_all` 与 `pg_indexes`/inspector 比对、真实 `uuid[]`/JSONB 往返；未 mock 迁移或数据库 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件：`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py`（新增 `ChannelNotificationFeed`/`ChannelNotification`，位于 `ChannelConversation` 与 `RunRecord` 之间）、`migrations/versions/0026_channel_notifications.py`（down_revision=0025；纯 DDL，无回填——不存在历史通知行，feed 由首次写入在锁内登记）。
+- 结构决策（design §3.3/§3.6 的事实化）：
+  - feed 的 `(tenant_id,user_id)` 完整唯一 + `is_deleted CHECK false`：删除动作被数据库拒绝，不存在"删掉再注册让水位回零"的路径；`last_seq >= 0` 且缺省 0，原地推进不新建行。
+  - 通知的 `(tenant_id,user_id,seq)` 与 `(tenant_id,delivery_key)` 完整唯一且**无谓词**：隐藏/清理只留 tombstone，序号与交付回执不放回（"仍可能重投/UNKNOWN 的结果不得清除唯一回执"）；delivery_key 是租户级命名空间（跨用户不可复用），过期旧键由读取层返回过期语义而不是当新投递。
+  - `read_at` 与 `delivery_state` 两条独立事实：送达不代替已读（ack 后 `read_at` 仍可为 NULL），已读不要求送达（PENDING 可直接标读）；未读 partial 索引只认 `read_at IS NULL`。
+  - 出站投递状态机 `PENDING`→`DELIVERING`→`DELIVERED`（+`UNKNOWN` 核实保留 /`NOT_REQUIRED` 网页持久入箱）；`delivery_state` **无 server default**，写入方必须显式选择，不静默把入箱通知当成出站意图；`delivery_result` 存 **首次**结果供 ack 重放恢复；due/lease partial 索引不带 `is_deleted` 谓词——隐藏通知不丢投递回执与重试资格。
+  - `feed_id`/`conversation_id`/`run_id` 是同 Owner 物理 FK；`user_id`/`entry_id`/`task_id` 是逻辑 UUID；DTO 的 `agent_id`/`summary` 由 conversation 与引用在读取时投影，不落列（设计字段清单没有 agent/摘要列——不把面向用户的文案写成行内事实，i18n 与安全投影留在读取层）。
+- 回退策略：仅当两张新表都为空时允许（0026 的 DDL 无回填，空表即"尚未产生持久通知事实"）；否则 `CHANNEL_NOTIFICATION_DOWNGRADE_REQUIRES_BACKUP`——结构回退会静默丢掉 feed 水位、未读状态、投递租约与交付回执。
+- 静态校验：`py_compile` 迁移文件通过；mypy `runtime.py` → Success；ruff check 改动文件干净（修掉两处 E501 后全绿）。
+- 回归与真实边界：`uv run pytest -q tests/migrations` → **84 passed** (153.39s)；verifier 口径 `uv run pytest -q tests -k schema_parity` → **47 passed**, 4727 deselected (26.82s)；`uv run pytest -q tests/agent_runtime` → **765 passed** (676.63s)；`uv run pytest -q tests/console_platform` → **317 passed** (46.64s)。
+- 连带修订：`tests/migrations/test_capacity_webchat_conversation_upload_schema.py` 的链头钉死常量 `"0025"`（TASK-013 引入）改为动态 `_head()`（`ScriptDirectory.get_current_head()`，同 `tests/console_platform/test_platform_settings_table.py` 既有口径）——0026 推进后该用例失败于 `assert '0025' == '0026'`，属钉死常量的连带修订，不是回退行为缺陷。
+- 环境事实（非实现缺陷）：dev 库升级前 `tests/agent_runtime` 的 ORM 对比会缺新表；先 `uv run python migrations/db_migrate.py -c /tmp/agent-capacity-webchat-dev/dev.ini upgrade head` 升级 dev 库到 0026（纯 DDL、无回填），`channel_notification_feed`/`channel_notification` 均 0 行，随后全套通过。
+- dev 库升级（已披露的环境变更）：0025→0026，无数据变更（无回填；两新表 0 行）。
+- B-214: verified — automated command passed; run_id=d7b25380987040f6bf8221c189f33e42 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-17] started
+- [2026-10-17] B-214 RED：`tests/migrations/test_capacity_webchat_notification_schema.py` → 7 failed（`ChannelNotificationFeed`/`ChannelNotification` 与 0026 均不存在；空库回退用例停在 0025）
+- [2026-10-17] 实现 0026：`runtime.py` 新增 feed（完整唯一/不软删/水位非负）与 notification（seq/delivery_key 完整唯一、租约/首次结果、未读与投递 partial 索引）；`migrations/versions/0026_channel_notifications.py`（纯 DDL；回退守卫 `CHANNEL_NOTIFICATION_DOWNGRADE_REQUIRES_BACKUP`）
+- [2026-10-17] B-214 GREEN：7 passed；`tests/migrations` 84 passed；verifier 口径 47 passed；`tests/agent_runtime` 765 passed；`tests/console_platform` 317 passed；py_compile/mypy/ruff 通过
+- [2026-10-17] 连带修订：B-213 用例链头钉死 `"0025"` 改动态 head（0026 推进的连带，非回退缺陷）；修补两处 E501
+- [2026-10-17] dev 库升级 0025→0026（纯 DDL 无回填，两新表 0 行，已披露）
+- [2026-10-17] completed (done)
 
 ---
 

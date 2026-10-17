@@ -130,6 +130,121 @@ class ChannelConversation(StandardColumnsMixin, Base):
     )
 
 
+class ChannelNotificationFeed(StandardColumnsMixin, Base):
+    """每用户的通知 feed 稳定注册行（design §3.3）：序号在锁内分配，清理/重登不重置水位。
+
+    `(tenant_id,user_id)` 是**完整唯一**而不是 partial：注册行不允许软删（数据库 CHECK
+    拒绝），因此不存在"删掉再注册让水位回零"的路径；`last_seq >= 0` 是数据库事实。
+    """
+
+    __tablename__ = "channel_notification_feed"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "user_id", name="uq_channel_notification_feed_tenant_user"),
+        sa.CheckConstraint("last_seq >= 0", name="last_seq"),
+        sa.CheckConstraint("is_deleted = false", name="not_deleted"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    last_seq: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+
+
+class ChannelNotification(StandardColumnsMixin, Base):
+    """用户活动收件箱的通知行 + 出站交付回执（design §3.3/§3.6）。
+
+    - `feed_id`/`conversation_id`/`run_id` 是同 Owner 物理 FK；`user_id`/`entry_id`/`task_id`
+      是跨 Owner 逻辑 UUID（核属在业务边界）。DTO 的 `agent_id`/`summary` 由 conversation 与
+      引用在读取时投影，不落列：面向用户的文案不成为行内事实，i18n 与安全投影都留在读取层。
+    - `seq`/`delivery_key` 是**完整唯一**（没有 `WHERE` 谓词）：隐藏/清理留下的 tombstone
+      也不放回序号或交付回执（"仍可能重投/UNKNOWN 的结果不得清除唯一回执"）；投递键按租户
+      唯一、跨用户共享同一命名空间，超过重放保留期的旧键返回过期语义而不是新投递。
+    - `read_at` 与 `delivery_state` 是两条独立事实：送达不代替已读，已读不要求送达。
+    - 出站投递：`PENDING`（意图/待投）→ `DELIVERING`（租约期内，lease_owner/lease_epoch/
+      lease_until 可续租与接管）→ `DELIVERED`（实际发送成功，`delivery_result` 存**首次**
+      结果供 ack 重放恢复）；`UNKNOWN` 保留核实与唯一回执；`NOT_REQUIRED` 是网页持久入箱。
+      `delivery_state` 无 server default：写入方必须显式选择，不静默把入箱通知当成出站意图。
+      投递 partial 索引不带 `is_deleted` 谓词——隐藏通知不丢投递回执与重试资格。
+    """
+
+    __tablename__ = "channel_notification"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "tenant_id", "user_id", "seq", name="uq_channel_notification_tenant_user_seq"
+        ),
+        sa.UniqueConstraint(
+            "tenant_id", "delivery_key", name="uq_channel_notification_tenant_delivery_key"
+        ),
+        sa.Index(
+            "ix_channel_notification_tenant_user_unread",
+            "tenant_id",
+            "user_id",
+            "seq",
+            postgresql_where=sa.text("read_at IS NULL"),
+        ),
+        sa.Index(
+            "ix_channel_notification_due",
+            "tenant_id",
+            "next_attempt_at",
+            postgresql_where=sa.text("delivery_state = 'PENDING'"),
+        ),
+        sa.Index(
+            "ix_channel_notification_lease",
+            "tenant_id",
+            "lease_until",
+            postgresql_where=sa.text("delivery_state = 'DELIVERING'"),
+        ),
+        sa.CheckConstraint("kind IN ('RUN_COMPLETED','RUN_WAITING_INPUT','TASK_RESULT')", name="kind"),
+        sa.CheckConstraint("seq > 0", name="seq"),
+        sa.CheckConstraint(
+            "delivery_state IN ('PENDING','DELIVERING','DELIVERED','UNKNOWN','NOT_REQUIRED')",
+            name="delivery_state",
+        ),
+        sa.CheckConstraint("attempt >= 0 AND lease_epoch >= 0", name="counters"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    feed_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(),
+        sa.ForeignKey("runtime.channel_notification_feed.id"),
+        nullable=False,
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(),
+        sa.ForeignKey("runtime.conversation.id"),
+        nullable=False,
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(),
+        sa.ForeignKey("runtime.run_record.id"),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    entry_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    task_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    kind: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    seq: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    delivery_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    read_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    event_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    artifact_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        sa.ARRAY(sa.Uuid()),
+        nullable=False,
+        server_default=sa.text("'{}'::uuid[]"),
+    )
+    delivery_state: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    attempt: Mapped[int] = mapped_column(sa.SmallInteger(), nullable=False, server_default=sa.text("0"))
+    next_attempt_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")
+    )
+    lease_owner: Mapped[str | None] = mapped_column(sa.String(128))
+    lease_epoch: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+    lease_until: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    #: ack 的**首次**投递结果（已送达重放读取它，不重写）；核实中的 UNKNOWN 也保留回执。
+    delivery_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
 class RunRecord(StandardColumnsMixin, Base):
     __tablename__ = "run_record"
     __table_args__ = (

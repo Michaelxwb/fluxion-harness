@@ -32,6 +32,8 @@ from uuid import UUID, uuid4
 
 import pytest
 import sqlalchemy as sa
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from muad_contracts.channel import AttachmentKind
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
@@ -84,6 +86,15 @@ async def _indexdefs(connection: AsyncConnection, table: str) -> dict[str, str]:
 
 def _columns(structure: tuple[object, ...]) -> dict[str, tuple[object, ...]]:
     return {str(column[0]): column for column in structure[0]}  # type: ignore[index]
+
+
+def _head() -> str:
+    """迁移链的真实 head（不钉死常量）：链推进时本文件不需要跟着改。"""
+    config = Config()
+    config.set_main_option("script_location", str(Path(__file__).resolve().parents[2] / "migrations"))
+    head = ScriptDirectory.from_config(config).get_current_head()
+    assert head is not None
+    return head
 
 
 async def _migrate(
@@ -462,6 +473,6 @@ async def test_b213_downgrade_on_pristine_schema_returns_to_0024(
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(
-                sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == "0025"
+                sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == _head()
     finally:
         await engine.dispose()
