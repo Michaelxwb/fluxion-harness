@@ -861,7 +861,7 @@
       "kind": "functional",
       "boundary": "真实 PG Token/会话约束、有效期裁决与用户锁",
       "owner": "TASK-040",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -871,7 +871,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "bee1219dbaa04c2491da101067f722af",
+        "executed_at": "2026-10-17T20:18:52.540391+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_auth/test_capacity_webchat_chat_session_service.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ebb04be75b4595aace097359762038cd4c0cc21372fb8f41fda4348a77051ed7"
+      },
+      "runs": [
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "bee1219dbaa04c2491da101067f722af",
+          "executed_at": "2026-10-17T20:18:52.540391+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_auth/test_capacity_webchat_chat_session_service.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ebb04be75b4595aace097359762038cd4c0cc21372fb8f41fda4348a77051ed7"
+        }
+      ]
     },
     {
       "id": "B-09",
@@ -3341,7 +3382,7 @@
       "kind": "functional",
       "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
       "owner": "TASK-040",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3351,7 +3392,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-240",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "bee1219dbaa04c2491da101067f722af",
+        "executed_at": "2026-10-17T20:18:52.540391+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_auth/test_capacity_webchat_chat_session_service.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ebb04be75b4595aace097359762038cd4c0cc21372fb8f41fda4348a77051ed7"
+      },
+      "runs": [
+        {
+          "id": "B-240",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "bee1219dbaa04c2491da101067f722af",
+          "executed_at": "2026-10-17T20:18:52.540391+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_auth/test_capacity_webchat_chat_session_service.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ebb04be75b4595aace097359762038cd4c0cc21372fb8f41fda4348a77051ed7"
+        }
+      ]
     },
     {
       "id": "B-241",
