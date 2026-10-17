@@ -206,5 +206,8 @@ async def test_b12_only_history_budget_leaf_changes_new_run_while_old_resume_kee
     assert (await _policy_json(new)) == {
         **before,
         "compaction": {**before["compaction"], "max_history_tool_rounds": 0},
+        # 真实创建路径还冻结成员事实（B-224）：该夹具的模型没有成员 ⇒ 冻结为空列表；
+        # `before` 来自直构快照（没有成员事实可冻结）因此没有这一键。断言仍是整份相等。
+        "model_members": [],
     }
     assert not [message for message in new_capture.requests[0].history if message.tool_call_id]
