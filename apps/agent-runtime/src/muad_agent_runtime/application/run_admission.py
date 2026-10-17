@@ -18,9 +18,10 @@ import logging
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.platform_settings import (
@@ -31,10 +32,15 @@ from muad_contracts.platform_settings import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactoryProvider
+from ..infrastructure.models.runtime import RunRecord
 from ..infrastructure.run_admission_store import SCOPE_TENANT, SCOPE_USER, RunAdmissionStore
 from .ports import PlatformSettingsClient, PlatformSettingsSnapshot
 
 CAPACITY_SECTION = "capacity"
+#: 新 Run 的初始排队态：受理后等 Runtime 执行槽（`runtime.run_record.queue_stage` 表级 CHECK 同源）。
+QUEUE_STAGE_WAITING_RUNTIME = "WAITING_RUNTIME"
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,10 +53,15 @@ class CapacityLimits:
 
 @dataclass(frozen=True, slots=True)
 class CapacitySnapshot:
-    """事务外取得的一次配置：Console 设置版本 + capacity 阈值。"""
+    """事务外取得的一次配置：Console 设置版本 + capacity 阈值 + 本次受理冻结的排队预算。
+
+    `queue_wait_timeout_sec` 只随本次受理冻进 Run 行（`queue_deadline_at`），不参与跨实例
+    阈值判定，因此不进 `run_admission_policy` 投影行（§3.7：投影只承载接纳上限）。
+    """
 
     revision: int
     limits: CapacityLimits
+    queue_wait_timeout_sec: int = CapacitySettings().queue_wait_timeout_sec
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +104,63 @@ def parse_capacity(snapshot: PlatformSettingsSnapshot) -> CapacitySnapshot:
             max_open_runs_per_tenant=capacity.max_open_runs_per_tenant,
             max_open_runs_per_user=capacity.max_open_runs_per_user,
         ),
+        queue_wait_timeout_sec=capacity.queue_wait_timeout_sec,
     )
+
+
+def queue_deadline(
+    queued_at: datetime, wait_timeout_sec: int, run_deadline_at: datetime | None
+) -> datetime:
+    """初始排队期限：`min(受理 + 配置, 原 Run 绝对 deadline)`（§3.7）。
+
+    只约束开始执行前的等待：首次受理确定后 HTTP 重试/Pod 接管都不延长，执行阶段仍按原 Run
+    绝对期限收尾（不因排队期限过去而拒绝合法完成）。
+    """
+    deadline = queued_at + timedelta(seconds=wait_timeout_sec)
+    if run_deadline_at is None:
+        return deadline
+    return min(deadline, run_deadline_at)
+
+
+async def release_admission_in(session: AsyncSession, *, run: RunRecord) -> bool:
+    """终态释放（与 Run 终态更新**同事务**）：`admission_released_at` CAS 恰一次 → USER→TENANT 递减。
+
+    - CAS（`admission_released_at IS NULL`）保证每个 Run 只释放一次：并发取消/收尾/回收的
+      落败者拿到 0 行即返回 False，绝不二次递减（幂等重放同理，不双扣也不欠账）；
+    - 锁序：调用方已持有 Conversation → Run 行锁，本函数只追加 USER → TENANT 计数行锁；
+      终态释放**不需要** policy 锁，也不从计数行倒锁会话（§3.2 固定锁序）；
+    - 计数行缺失按 0 建立后截断在 0（表级 CHECK `open_run_count >= 0`）：早于准入计数的历史
+      Run 不会把共享计数压成负数；截断说明投影与 Run 事实不一致，留告警（降级可见）。
+    """
+    store = RunAdmissionStore(session)
+    won = await session.scalar(
+        sa.update(RunRecord)
+        .where(
+            RunRecord.id == run.id,
+            RunRecord.tenant_id == run.tenant_id,
+            RunRecord.admission_released_at.is_(None),
+        )
+        .values(admission_released_at=sa.func.now(), update_time=sa.func.now())
+        .returning(RunRecord.id)
+    )
+    if won is None:
+        return False
+    for scope_type, scope_key in ((SCOPE_USER, str(run.user_id)), (SCOPE_TENANT, run.tenant_id)):
+        held = await store.lock_counter(
+            tenant_id=run.tenant_id, scope_type=scope_type, scope_key=scope_key
+        )
+        if held == 0:
+            logger.warning(
+                "admission_counter_floor tenant=%s scope=%s scope_key=%s run=%s",
+                run.tenant_id,
+                scope_type,
+                scope_key,
+                run.id,
+            )
+        await store.decrement_counter(
+            tenant_id=run.tenant_id, scope_type=scope_type, scope_key=scope_key
+        )
+    return True
 
 
 class AdmissionPolicyService:

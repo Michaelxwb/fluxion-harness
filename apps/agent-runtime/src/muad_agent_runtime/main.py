@@ -35,7 +35,7 @@ from .application.memory_consolidation import ConsolidationInvoker
 from .application.memory_consolidation_effects import ConsolidationWorker
 from .application.memory_supervisor import MemorySupervisor
 from .application.run_deadline import expire_runs
-from .application.run_service import reap_abandoned_runs
+from .application.run_service import expire_queued_runs, reap_abandoned_runs
 from .infrastructure.cancel_hint import create_cancel_hint_store
 from .infrastructure.console_client import ConsoleCredentialsClient, ConsoleResolveClient
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
@@ -64,6 +64,11 @@ async def _deadline_loop(interval_sec: float) -> None:
             await expire_runs(get_session_factory())
         except Exception:
             logger.exception("run_deadline_sweep_failed")
+        try:
+            # 初始排队期限到期：与「领取」竞争同一状态 CAS，超时后不再调用模型（§3.2）。
+            await expire_queued_runs(get_session_factory())
+        except Exception:
+            logger.exception("run_queue_deadline_sweep_failed")
         await asyncio.sleep(interval_sec)
 
 

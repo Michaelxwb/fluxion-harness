@@ -392,6 +392,20 @@ def _ready_predicate() -> ColumnElement[bool]:
     return inbox | events
 
 
+def _initial_queue_deadline_passed(run: RunRecord, now: datetime) -> bool:
+    """初始排队期限已过且仍在初始排队（未被领取过）：不得被领取（超时后不再调用模型）。
+
+    `execution_epoch == 0` 是「从未被领取」的持久标记：初始排队期限只约束**首次领取**前的等待，
+    续跑/人工恢复（epoch ≥ 1）按原 Run 绝对期限收尾，不因初始排队期限过去而被拒绝。
+    """
+    return (
+        run.execution_epoch == 0
+        and run.queue_stage is not None
+        and run.queue_deadline_at is not None
+        and run.queue_deadline_at <= now
+    )
+
+
 async def _claim_one(
     factory: SessionFactory,
     candidate: RunRecord,
@@ -420,11 +434,18 @@ async def _claim_one(
             generation is not None and (saved is None or saved.wait_generation != generation)
         ):
             return None
+        # 初始排队期限只约束**首次领取**前的等待：仍带排队投影（queue_stage 非空）、未被领取过
+        # （epoch=0）且已过期的行不得被领取（超时后不得再调用模型）；终态由 `expire_queued_runs`
+        # 的同一状态 CAS 裁决。续跑/人工恢复（epoch ≥ 1）不受初始排队期限约束。
+        if starting and _initial_queue_deadline_passed(run, now):
+            return None
         if not starting and (saved is None or not await has_ready(session, run, saved.consumed_event_seq)):
             return None
         run.status, run.execution_epoch = RunStatus.RUNNING, run.execution_epoch + 1
         run.lease_owner, run.lease_until = owner, now + timedelta(seconds=lease_sec)
         run.heartbeat_at, run.update_time = now, now
+        # 领取成功即离开排队：清空排队投影，旧排队期限不再影响本 Run 的后续续跑。
+        run.queue_stage, run.queue_reason = None, None
         if saved is not None:
             saved.ready = False
         if not starting:

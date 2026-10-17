@@ -123,9 +123,12 @@ from .ports import (
     ResolveClient,
 )
 from .run_admission import (
+    QUEUE_STAGE_WAITING_RUNTIME,
     AdmissionPolicyService,
     AdmissionPolicyStaleError,
     parse_capacity,
+    queue_deadline,
+    release_admission_in,
 )
 from .run_events import EventWriter
 from .run_resume import (
@@ -384,6 +387,8 @@ def history_tool_rounds_of(policy: Mapping[str, Any]) -> int:
 #: 新 Run 的 `policy_json` 一律由 Run 创建边界取到的平台快照 + Agent 覆盖解析后冻结（`_create_run`）。
 DEFAULT_POLICY: dict[str, Any] = snapshot_policy()
 RUN_ABANDONED = "RUN_ABANDONED"
+#: 初始排队期限到期（与领取竞争同一状态 CAS）：超时后不得再调用模型。
+RUN_QUEUE_TIMEOUT = "RUN_QUEUE_TIMEOUT"
 USER_MESSAGE_EVENT = "USER_MESSAGE"
 ASSISTANT_MESSAGE_EVENT = "ASSISTANT_MESSAGE"
 CANCEL_EVENT = "CANCEL"
@@ -599,12 +604,15 @@ async def _reap_one(factory: async_sessionmaker[AsyncSession], candidate: RunRec
                 end_time=now,
                 lease_owner=None,
                 lease_until=None,
+                queue_stage=None,
                 update_time=now,
             )
             .returning(RunRecord.id)
         )
         if changed is None:
             return 0
+        # 接管后的终态释放：与回收同事务，重复回收不再递减（CAS 幂等）。
+        await release_admission_in(session, run=run)
         await EventWriter(session).append(
             tenant_id=run.tenant_id,
             conversation_id=run.conversation_id,
@@ -614,6 +622,111 @@ async def _reap_one(factory: async_sessionmaker[AsyncSession], candidate: RunRec
             payload={"status": str(RunStatus.FAILED), "error_code": RUN_ABANDONED},
         )
     return 1
+
+
+async def expire_queued_runs(
+    session_factory: async_sessionmaker[AsyncSession], *, limit: int = 128
+) -> int:
+    """初始排队期限到期的 Run：CAS 置 FAILED/RUN_QUEUE_TIMEOUT 并释放份额（§3.2）。
+
+    与「领取」竞争同一行状态 CAS：领取胜出即清 `queue_stage` ⇒ 本扫描不再命中；本扫描胜出
+    ⇒ 领取的 `starting` 判定失败 ⇒ 超时后绝不调用模型。候选限定「从未被领取过」
+    （`execution_epoch == 0` 且 `queue_stage` 非空）：只约束首次领取前的等待，已开跑/续跑/
+    人工恢复的 Run 不会被旧排队期限误杀（后续模型等待另受等待预算与 Run 绝对期限约束）。
+    """
+    async with session_factory() as session:
+        candidates = list(
+            await session.scalars(
+                sa.select(RunRecord)
+                .where(
+                    RunRecord.queue_stage.is_not(None),
+                    RunRecord.status == RunStatus.CREATED,
+                    RunRecord.execution_epoch == 0,
+                    RunRecord.queue_deadline_at.is_not(None),
+                    RunRecord.queue_deadline_at <= sa.func.now(),
+                    RunRecord.is_deleted.is_(False),
+                )
+                .order_by(RunRecord.queue_deadline_at, RunRecord.id)
+                .limit(limit)
+            )
+        )
+    expired = 0
+    for candidate in candidates:
+        expired += await _expire_queued_one(session_factory, candidate)
+    return expired
+
+
+async def _expire_queued_one(
+    factory: async_sessionmaker[AsyncSession], candidate: RunRecord
+) -> int:
+    from .tool_result_receipts import lock_run_source
+
+    run_id, tenant_id = candidate.id, candidate.tenant_id
+    async with factory() as session, session.begin():
+        run, _ = await lock_run_source(session, tenant_id, candidate)
+        changed = await session.scalar(
+            sa.update(RunRecord)
+            .where(
+                RunRecord.id == run.id,
+                RunRecord.tenant_id == run.tenant_id,
+                RunRecord.is_deleted.is_(False),
+                RunRecord.status == RunStatus.CREATED,
+                RunRecord.execution_epoch == 0,
+                RunRecord.queue_stage.is_not(None),
+                RunRecord.queue_deadline_at.is_not(None),
+                RunRecord.queue_deadline_at <= sa.func.now(),
+            )
+            .values(
+                status=RunStatus.FAILED,
+                error_code=RUN_QUEUE_TIMEOUT,
+                error_message=RUN_QUEUE_TIMEOUT,
+                queue_stage=None,
+                queue_reason=RUN_QUEUE_TIMEOUT,
+                end_time=sa.func.now(),
+                lease_owner=None,
+                lease_until=None,
+                update_time=sa.func.now(),
+            )
+            .returning(RunRecord.id)
+        )
+        if changed is None:
+            return 0
+        await release_admission_in(session, run=run)
+        await _close_queued_run(session, run)
+    logger.warning("run_queue_timeout", extra={"run_id": str(run_id), "tenant_id": tenant_id})
+    return 1
+
+
+async def _close_queued_run(session: AsyncSession, run: RunRecord) -> None:
+    """排队过期的收尾（与终态更新同事务）：RUN_FAILED 事件 + 关闭仍 OPEN 的提交。
+
+    终态 Run 不得留下可被继续领取的 OPEN 提交，否则重放/领取路径会读到半开的旧提交。
+    """
+    seq = await EventWriter(session).append(
+        tenant_id=run.tenant_id,
+        conversation_id=run.conversation_id,
+        run_id=run.id,
+        event_type="RUN_FAILED",
+        stream_type=RUN_FAILED_EVENT,
+        payload={"status": str(RunStatus.FAILED), "error_code": RUN_QUEUE_TIMEOUT},
+    )
+    submission_id = await session.scalar(
+        sa.select(RunSubmission.id).where(
+            RunSubmission.tenant_id == run.tenant_id,
+            RunSubmission.run_id == run.id,
+            RunSubmission.status == "OPEN",
+            RunSubmission.is_deleted.is_(False),
+        )
+    )
+    if submission_id is None:
+        return
+    await RunSubmissionService(get_session_factory).finalize_in(
+        session,
+        submission_id,
+        status=SUBMISSION_CLOSED,
+        last_seq=int(seq),
+        terminal_result_json={"status": str(RunStatus.FAILED), "error_code": RUN_QUEUE_TIMEOUT},
+    )
 
 
 def _creation_fingerprint(request: RunRequest, tenant_id: str) -> str:
@@ -1207,6 +1320,13 @@ class RunService:
         policy = await self._admission.lock_and_apply_in(
             self._session, tenant_id=tenant_id, capacity=capacity
         )
+        # 初始排队投影在此冻结（与绝对期限同一份 `now`）：`queue_deadline = min(受理+配置,
+        # 原 Run 绝对 deadline)`，只约束开始执行前的等待；领取/终态由各自的 CAS 清空 stage。
+        deadline_at = now + timedelta(
+            milliseconds=AgentPolicy.from_runtime_config(
+                resolved.agent.runtime_config, base=execution.agent_policy
+            ).deadline_ms
+        )
         run = RunRecord(
             id=run_id,
             tenant_id=tenant_id,
@@ -1217,12 +1337,10 @@ class RunService:
             input_text=request.message.text,
             trace_id=current_trace_id() or uuid.uuid4().hex,
             start_time=now,
-            deadline_at=now
-            + timedelta(
-                milliseconds=AgentPolicy.from_runtime_config(
-                    resolved.agent.runtime_config, base=execution.agent_policy
-                ).deadline_ms
-            ),
+            deadline_at=deadline_at,
+            queue_stage=QUEUE_STAGE_WAITING_RUNTIME,
+            queued_at=now,
+            queue_deadline_at=queue_deadline(now, capacity.queue_wait_timeout_sec, deadline_at),
             cancel_requested=False,
             execution_epoch=0,
             channel_json=request.channel.model_dump(mode="json"),
@@ -1564,10 +1682,13 @@ class RunService:
             return run
         await cancel_operations(self._session, run)
         now = _utcnow()
-        waiting = run.status in (RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)
-        if run.status in (RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL):
-            await self._cancel_waiting(run, now)
-        else:
+        # 未开始执行（CREATED 排队 / WAITING_*）：直接 CAS 终态并释放份额；执行中才走协作取消。
+        cooperative = run.status not in (
+            RunStatus.CREATED,
+            RunStatus.WAITING_INPUT,
+            RunStatus.WAITING_TOOL,
+        )
+        if cooperative:
             await self._session.execute(
                 sa.update(RunRecord)
                 .where(
@@ -1578,13 +1699,20 @@ class RunService:
                 )
                 .values(cancel_requested=True, update_time=now)
             )
+        else:
+            await self._cancel_not_started(run, now)
         await self._session.commit()
-        if not waiting:
+        if cooperative:
             await self._safe_set_cancel_hint(run.id)
         await self._session.refresh(run)
         return run
 
-    async def _cancel_waiting(self, run: RunRecord, now: datetime) -> None:
+    async def _cancel_not_started(self, run: RunRecord, now: datetime) -> None:
+        """未开始执行的 Run：CAS 置 CANCELLED、释放准入份额、写取消事件（同一事务）。
+
+        与「领取」「排队过期」竞争同一行状态 CAS：只有一个终态，`admission_released_at` 只被
+        赢家置位一次，落败者不释放（不双扣）。调用方已持有 Run 行锁（`lock_run_source`）。
+        """
         changed = await self._session.scalar(
             sa.update(RunRecord)
             .where(
@@ -1599,12 +1727,19 @@ class RunService:
                 end_time=now,
                 lease_owner=None,
                 lease_until=None,
+                queue_stage=None,
                 update_time=now,
             )
             .returning(RunRecord.id)
         )
         if changed is None:
             raise AppError(ErrorCode.RUN_BUSY)
+        await release_admission_in(self._session, run=run)
+        await self._close_waiting_interrupts(run, now)
+        await self._append_cancelled_events(run)
+
+    async def _close_waiting_interrupts(self, run: RunRecord, now: datetime) -> None:
+        """把仍在 WAITING 的中断标为取消（未开始执行的 Run 不再接受人工恢复）。"""
         await self._session.execute(
             sa.update(RunInterrupt)
             .where(
@@ -1620,6 +1755,9 @@ class RunService:
                 update_time=now,
             )
         )
+
+    async def _append_cancelled_events(self, run: RunRecord) -> None:
+        """取消的持久事件：CANCEL 业务事实 + 终态 `RUN_COMPLETED(CANCELLED)`（SSE 排空）。"""
         writer = self._event_writer()
         await writer.append(
             tenant_id=run.tenant_id,
@@ -1992,6 +2130,7 @@ class RunService:
                     update_time=sa.func.now(),
                     lease_owner=None,
                     lease_until=None,
+                    queue_stage=None,
                 )
                 .returning(RunRecord.id)
             )
@@ -2004,6 +2143,8 @@ class RunService:
                 if fresh is None:
                     raise AppError(ErrorCode.COMMON_NOT_FOUND)
                 return await self._terminal_event(session, fresh)
+            # 终态释放与终态更新同事务：CAS 落败（并发收尾/回收已释放）即不递减。
+            await release_admission_in(session, run=row)
             writer = EventWriter(session)
             # 业务事实行（ContextBuilder 读取）与对外 SSE 行分开，保证重放与历史互不混淆
             await writer.append(
@@ -2068,6 +2209,7 @@ class RunService:
                     error_message=code,
                     lease_owner=None,
                     lease_until=None,
+                    queue_stage=None,
                     end_time=sa.func.now(),
                     update_time=sa.func.now(),
                 )
@@ -2079,6 +2221,8 @@ class RunService:
                 if row is None:
                     raise AppError(ErrorCode.COMMON_NOT_FOUND)
                 return await self._terminal_event(session, row)
+            # 终态释放与终态更新同事务：CAS 落败（并发收尾/回收已释放）即不递减。
+            await release_admission_in(session, run=current)
             payload = {"status": str(RunStatus.FAILED), "error_code": code}
             seq = await EventWriter(session).append(
                 tenant_id=run.tenant_id,
