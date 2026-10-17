@@ -354,7 +354,7 @@
 | B-212 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-012 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_chat_auth_schema.py"] | . | 300 |  |
 | B-213 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-013 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"] | . | 300 |  |
 | B-214 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-014 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"] | . | 300 |  |
-| B-215 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-015 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"] | . | 300 |  |
+| B-215 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-015 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"] | . | 300 |  |
 | B-216 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-016 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"] | . | 300 |  |
 | B-217 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-017 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"] | . | 300 |  |
 | B-218 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-018 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_quota_groups.py"] | . | 300 |  |
@@ -1224,7 +1224,7 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 
 ## TASK-015: 物理Key管理与稳定计量身份
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-009
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计
@@ -1239,25 +1239,44 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 
 ### Checklist
 
-- [ ] [B-215][integration] 先在`tests/console_platform/test_capacity_webchat_credential_service.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：按tenant/provider/Key摘要去重并派生稳定key_resource_id。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-215] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-215] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-215][integration] 先在`tests/console_platform/test_capacity_webchat_credential_service.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：按tenant/provider/Key摘要去重并派生稳定key_resource_id。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-215] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-215] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-215 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 按tenant/provider/Key摘要去重并派生稳定key_resource_id；重录不重置额度、轮换不迁移旧占用；明文不进读取/审计/快照 | tests/console_platform/test_capacity_webchat_credential_service.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"] | planned |
+| B-215 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 按tenant/provider/Key摘要去重并派生稳定key_resource_id；重录不重置额度、轮换不迁移旧占用；明文不进读取/审计/快照 | tests/console_platform/test_capacity_webchat_credential_service.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-215 | `uv run pytest -q tests/console_platform/test_capacity_webchat_credential_service.py` → exit=2，**1 error during collection**（0.06s）：`ModuleNotFoundError: No module named 'muad_console_platform.application.model_credential_service'`（测试已先行建立） | 同命令 → **8 passed**（exit=0, 0.50s） | `test_b215_create_stores_digest_identity_and_audits_without_plaintext` L158-188（摘要=sha256 且与列 CHECK 同口径 L170-171、登记值回读 L172-174、repr 无明文 L175、派生可重复 L178、派生≠行 ID L179、审计动作/resource_id L182-183、明文与指纹不进审计 L185-186、非密钥字段保留 L187）；`test_b215_same_physical_key_is_rejected_within_tenant_and_provider` L190-260（同摘要重录拒 L203-204、key 重名拒 L209-210、不存在额度组 `COMMON_NOT_FOUND` L223-224、被拒不落行/不落审计 L227-229、跨租户额度组拒 L240-241、跨租户同 Key 是不同归属 L258-260）；`test_b215_concurrent_duplicate_is_backed_by_the_real_unique_index` L265-293（预检失效后真实 partial unique 裁决→同一冲突码 L288-289、落败无第二行 L293）；`test_b215_delete_then_re_record_keeps_the_same_metering_identity` L296-332（软删后读不到 L315-316、重录建新行 L325、行状态 L327、计量身份与首次一致 L329-331、审计 CREATE/DELETE/CREATE L332）；`test_b215_rotation_keeps_row_identity_and_switches_metering_identity` L335-383（同行同身份只递增 revision L353-356、新值=新身份 L359-361、旧值重录回旧身份 L369-373、原地重提同值幂等 L381-383）；`test_b215_update_conflicts_are_explicit` L386-435（撞他行摘要 L407、过期 revision L413、未知 ID L419、换 provider 即换身份 L431-435）；`test_b215_delete_referenced_credential_is_rejected` L438-468（`MODEL_CREDENTIAL_IN_USE` L464、行保留 L467、无删除审计 L468）；`test_b215_list_and_get_are_tenant_scoped_and_skip_soft_deleted` L471-502（列表/合计 L489、分页边界 L492-494、未知与软删 404 L498/L502） | 真实 PostgreSQL：`control.model_credential` 的 `uq_model_credential_tenant_provider_digest` 在竞争用例中真实裁决（insert 撞唯一索引 → `IntegrityError`），`(tenant_id, quota_group_id)` 复合 FK 拒绝跨租户组；`control.model_deployment` 引用按真实行计数；审计行真实回读 `control.config_audit_log`（jsonb 文本扫描）。真实 Console 应用服务 `ModelCredentialService`（无替身；服务只 flush、不提交，提交/回滚由测试决定）。唯一注入 = 竞争窗口（monkeypatch 预检失效），让真实唯一索引裁决；未 mock 服务/数据库 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件：`apps/console-platform/backend/src/muad_console_platform/application/model_credential_service.py`（`ModelCredentialService` + `compute_api_key_digest`/`derive_key_resource_id`/`credential_snapshot` 模块函数）、`apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/model_credential_repository.py`（带租户谓词的读写 + CAS + 引用计数 + 复合 FK 目标存在性查询）、`tests/console_platform/test_capacity_webchat_credential_service.py`。未新增/修改 schema、无迁移、无 dev 库变更。
+- 计量身份（ADR-08 的事实化）：`key_resource_id = uuid5(NAMESPACE_URL, "muad:model-key:{tenant_id}:{provider_key}:{api_key_digest}")`——纯派生、不落库（credential 表没有该列），与仓库既有稳定 ID 口径同形（`muad:` 前缀 + `NAMESPACE_URL`；如 `muad:tool-result:*`、`muad:run-start:*`）。去重/派生只用摘要：`api_key_digest = sha256(明文).hexdigest()`（小写十六进制，与 0021 列 CHECK `^[0-9a-f]{64}$` 及迁移回填口径一致）。
+- 重录/轮换语义：**同一物理 Key**（同 tenant+provider+摘要）重复登记被拒（`MODEL_CREDENTIAL_EXISTS`）；删除后重录建新行但派生回**同一** `key_resource_id` ⇒ 旧计量窗口不重置。**轮换**（PUT 新值）更新同一行（行 ID/成员引用不变，revision+1），摘要变化 ⇒ 新计量身份；旧身份不迁移、不删改，旧在飞/UNKNOWN 占用留在旧身份；旧值此后重新登记（该 provider 下已无活跃占用）仍回到旧身份。`key` 重名与摘要重复归一到同一冲突码；并发窗口由真实 partial unique 兜底。
+- 写入边界：`update_credential` 以 `expected_revision` 做 CAS（`rowcount==1`），未命中 → `REVISION_CONFLICT`；`quota_group_id` 必须指向同租户活跃额度组（复合 FK 目标），否则 `COMMON_NOT_FOUND`；仍被 `model_deployment` 引用时删除 → `MODEL_CREDENTIAL_IN_USE`（软删、行保留）。
+- 明文卫生：审计快照按 `mcp_snapshot` 先例剔除 `api_key` 与 `api_key_digest`，保留 key/provider_key/base_url/quota_group_id/max_inflight/enabled/revision；ORM `__repr__`（TASK-009 既有）与本次快照共同保证明文/指纹不进入审计、repr 或后续读取投影（读取投影由 TASK-016 输出 `configured`）。
+- 中间过程（诚实记录）：实现后首跑 7 passed / 1 failed，两处均为**测试侧**修正——(1) 同事务 `now()` 常量导致 `create_time` 相同，不能按插入顺序断言（改 `sorted`）；(2) 跨租户额度组被服务正确拒绝，该测试需为其他租户建自有额度组并显式断言拒绝分支。非实现缺陷。
+- 静态/回归：`ruff check` 干净、`ruff format` 已应用到三个文件；mypy 两个源文件 `Success: no issues found`；`uv run pytest -q tests/console_platform` → **325 passed**（exit=0, 42.81s）。
+- 契约文本说明：本任务不含上游模型调用路径（"外部模型真实HTTP协议探针"属探针类任务 TASK-027/028），真实边界为真实 PG + 真实 Console 服务 + 真实事务；`tests/console_platform` 按本套件既有口径使用 dev PostgreSQL 实例、以每用例唯一 `tenant_id` 隔离并在夹具内清理新增表行。
+- B-215: verified — automated command passed; run_id=8b0276ef9ef348a49e0a2554f195b1d1 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-17] started
+- [2026-10-17] B-215 RED：`tests/console_platform/test_capacity_webchat_credential_service.py` 先行建立 → exit=2，1 error during collection（`ModuleNotFoundError: ...application.model_credential_service`）
+- [2026-10-17] 实现 `ModelCredentialService`（摘要去重/派生稳定 key_resource_id/CAS 轮换/引用计数删除/审计快照无明文）与 `ModelCredentialRepository`；首跑 7 passed/1 failed 为测试侧两处修正（同事务 create_time 相同不定序；跨租户额度组需自有组并断言拒绝）
+- [2026-10-17] B-215 GREEN：8 passed；`tests/console_platform` 325 passed；ruff check/format 与 mypy 通过
+- [2026-10-17] completed (done)
 
 ---
 
