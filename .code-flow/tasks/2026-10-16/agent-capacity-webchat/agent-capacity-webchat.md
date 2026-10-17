@@ -368,7 +368,7 @@
 | B-226 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-026 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | . | 300 |  |
 | B-227 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-027 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"] | . | 300 |  |
 | B-228 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-028 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_probe.py"] | . | 300 |  |
-| B-229 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-029 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_policy.py"] | . | 300 |  |
+| B-229 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-029 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_policy.py"] | . | 300 |  |
 | B-230 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-030 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_create.py"] | . | 300 |  |
 | B-231 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-031 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_release.py"] | . | 300 |  |
 | B-232 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-032 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_slots.py"] | . | 300 |  |
@@ -1988,7 +1988,7 @@ API-17只接受受信probe身份、正确attempt/epoch与期限；完整分支�
 
 ## TASK-029: 全局准入阈值的单调版本应用
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-011
 - **Source**: agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -2003,25 +2003,41 @@ source_settings_revision只增不退，policy锁在会话锁之前；完整分�
 
 ### Checklist
 
-- [ ] [B-229][integration] 先在`tests/agent_runtime/test_capacity_webchat_admission_policy.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：source_settings_revision只增不退，policy锁在会话锁之前。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-229] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-229] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_policy.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-229][integration] 先在`tests/agent_runtime/test_capacity_webchat_admission_policy.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：source_settings_revision只增不退，policy锁在会话锁之前。→ RED：`uv run pytest -q tests/agent_runtime/test_capacity_webchat_admission_policy.py` → **1 error in 0.17s**（exit=4，`ModuleNotFoundError: No module named 'muad_agent_runtime.application.run_admission'`）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 新增 `application/run_admission.py`（198 行）+ `infrastructure/run_admission_store.py`（124 行）；最长函数 34 行（`lock_and_apply_in`）；ruff 无违规、`mypy apps packages` 404 源文件无问题；日志只记 tenant/revision，无凭据或原始设置内容
+- [x] [B-229] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 6 个用例逐条对应契约 5 条断言（见 Acceptance Evidence）
+- [x] [B-229] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_policy.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **6 passed in 2.63s**（exit=0）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-229 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | source_settings_revision只增不退，policy锁在会话锁之前；旧实例不能按旧阈值超收，降额不杀现有Run，低版本网络刷新在事务外 | tests/agent_runtime/test_capacity_webchat_admission_policy.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_policy.py"] | planned |
+| B-229 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | source_settings_revision只增不退，policy锁在会话锁之前；旧实例不能按旧阈值超收，降额不杀现有Run，低版本网络刷新在事务外 | tests/agent_runtime/test_capacity_webchat_admission_policy.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_policy.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-229 | 首建 `tests/agent_runtime/test_capacity_webchat_admission_policy.py`（6 个行为用例，730 行）→ `uv run pytest -q tests/agent_runtime/test_capacity_webchat_admission_policy.py` → **1 error in 0.17s**（exit=4，`ModuleNotFoundError: No module named 'muad_agent_runtime.application.run_admission'`；两个实现模块均不存在） | 同命令 → **6 passed in 2.63s**（exit=0）；复跑全绿（2.63s / 2.72s） | 只增不退 `test_b229_policy_revision_only_increases` L419-459（rev 5 应用 L425；更低 rev 3 刷新一次后显式失败 L434；事务内原语抛 `AdmissionPolicyStaleError` L437-441；投影行仍 rev 5/4/2 L443-447；更高 rev 9 原地推进 L452-457）；policy 锁先于会话锁 `test_b229_policy_row_lock_precedes_session_lock` L465-520（真实 `pg_stat_activity` 等到受理事务阻塞在带标记的会话行锁上 L495-499，此刻策略行 `FOR UPDATE NOWAIT` 返回 **LOCKED** L502-504；放行后受理完成且策略行恢复 **FREE** L508-509）；旧实例不超收 `test_b229_old_instance_cannot_over_admit_with_old_thresholds` L530-588（真实 Console 应用 rev 9/2-2 L536-541；旧实例 rev 5/10-5 刷新一次仍低 → 显式失败且投影行仍是 9/2/2 L551-558；有效阈值 2/2 下计数 2 被拒 `RUN_CAPACITY_EXCEEDED` L574-582，旧阈值 5 本会放行）；降额不杀现有 Run `test_b229_downgrade_keeps_open_runs_and_blocks_new_admission` L591-648（3 条 RUNNING Run + 计数 3/3 在降额到 2/2 后逐行比对不变 L617-626；计数 3 ≥ 2 拒绝 L629-639；释放到 1 < 2 后放行 L640-648）；刷新在事务外 `test_b229_stale_refresh_happens_outside_any_transaction` L659-698（首次取配置与低版本刷新在途时策略行 `FOR UPDATE NOWAIT` 均 **FREE** L678-685；恰好 3 次请求 L697）；坏源不回落默认 `test_b229_bad_source_never_falls_back_to_defaults` L702-730（源 500 → 显式失败且**不建**默认投影行 L711-713；阈值越界文档 → `PLATFORM_SETTINGS_UNAVAILABLE` 且保留 rev 5 原值 L724-730） | 真实 `AdmissionPolicyService`+`RunAdmissionStore`；真实 PG `runtime.run_admission_policy`/`run_admission_counter`/`conversation`/`run_record` 行（共享 dev 库按 tenant 增删，无 DDL）；真实 Console 内部取设置端点（uvicorn + 真实 socket，源为 `control.platform_setting` 版本行，Runtime 侧用真实 `ConsolePlatformSettingsClient` 经真实 TCP 取快照）；低版本/坏文档/失败用脚本化 HTTP 探针（真实 uvicorn + 真实 TCP，不是替身客户端），并在请求在途时用真实 `FOR UPDATE NOWAIT` 观察行锁归属；无 mock 存储或租约 | verified |
+
+**实施范围与风险说明**
+
+- 实现文件与计划 Files 一致：`application/run_admission.py`（198 行）、`infrastructure/run_admission_store.py`（124 行）、`tests/agent_runtime/test_capacity_webchat_admission_policy.py`（730 行）；未新增表/列/索引（复用 0023 已交付的 policy/counter 结构与 `run_record` 排队列），未新增迁移，未改动既有运行路径（TASK-030/031 才接线）。
+- 单调语义事实：`runtime.run_admission_policy` 是有效阈值的唯一判定来源。`lock_and_apply_in` 是受理事务的**第一条语句**（`INSERT ... ON CONFLICT DO NOTHING` + `SELECT ... FOR UPDATE`）：`capacity.revision > 行版本` 才原地推进；`<` 抛 `AdmissionPolicyStaleError`（调用方回滚）；`==` 但阈值不同视为投影损坏并显式失败。`resolve` 把「事务外取配置 → 锁内应用 → 低版本退出事务后**只重取一次**」串起来，重取仍低即 `PLATFORM_SETTINGS_UNAVAILABLE`，绝不覆盖更高版本、绝不按旧阈值放行。
+- 计数语义事实：`check_counts_in` 按 USER → TENANT 顺序 `SELECT ... FOR UPDATE`（缺失按 0 建立）后与**投影行阈值**比较，达到即 `RUN_CAPACITY_EXCEEDED`；降额只改阈值，不改写 Run 行与计数行（终态释放是 TASK-031 的职责，本任务只消费计数事实）。
+- 判别性验证（防止断言空转）：去掉 `lock_policy` 的 `with_for_update()` → `test_b229_policy_row_lock_precedes_session_lock` **失败**（说明会话行锁等待期间确实已持有策略行锁）；把单调比较改成 `!=` → 3 个用例失败（单调/旧实例/刷新）；把低版本刷新挪进 session 事务内 → `test_b229_stale_refresh_happens_outside_any_transaction` **失败**。三处变异均先复现失败再还原，随后 6 passed 复跑确认。
+- 配置清单：新增模块级常量 `CAPACITY_SECTION`/`SCOPE_USER`/`SCOPE_TENANT` 已登记 `docs/configuration-inventory.csv`（`tests/test_configuration_inventory.py` → **4 passed**）。
+- 延后项（诚实记录）：同事务建 Run/自增计数与指纹属 TASK-030；终态释放、取消与排队期限竞态属 TASK-031；Runtime 执行槽属 TASK-032；准入指标目录属 TASK-098；1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责。
+- 中间过程（诚实记录）：(1) 降额用例首版把 3 条 RUNNING Run 放进同一会话，撞真实约束 `uq_run_record_active_conversation`（同会话只允许一个活跃 Run）→ 改为三条 Run 分属三个会话，断言不变；(2) 锁序用例首版让受理事务在等会话锁时**同时**应用更高版本，`UPDATE` 自身也会持行锁，导致去掉 `FOR UPDATE` 的变异仍通过 → 改为「同一版本不触发 UPDATE」后该用例才真正只由策略行锁决定，变异即失败。
+- B-229: verified — automated command passed; run_id=77afecde5d3c4ee0a08837b666c18651 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-229 RED→GREEN：先建 `tests/agent_runtime/test_capacity_webchat_admission_policy.py` 记录 RED（1 error，模块不存在），实现 `run_admission.py`/`run_admission_store.py` 后 **6 passed**；三处变异验证断言判别性后还原；回归 `tests/agent_runtime` **814 passed**（665.47s）、`tests/contracts tests/architecture` **1314 passed**（4.02s）、`tests/test_configuration_inventory.py` **4 passed**；ruff 干净、mypy 404 源文件无问题
+- [2026-10-18] completed (done)
 
 ---
 
