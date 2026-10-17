@@ -21,6 +21,7 @@
 import asyncio
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from importlib import import_module
 from pathlib import Path
@@ -33,6 +34,8 @@ from muad_contracts.webchat_events import WebchatNotification
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
+
+from tests.async_tool_datastores import migration_head
 
 pytestmark = pytest.mark.integration
 TABLES = ("channel_notification_feed", "channel_notification")
@@ -410,10 +413,12 @@ async def test_b214_delivery_lease_read_separation_and_first_result(
 
 @pytest.mark.parametrize("blocker", ["feed", "notification"])
 async def test_b214_downgrade_requires_backup_for_notification_state(
-    async_tool_datastore: dict[str, str], tmp_path: Path, blocker: str,
+    datastore_at_revision: Callable[[str], dict[str, str]], tmp_path: Path, blocker: str,
 ) -> None:
+    # 只验证 0026 自身的回退门禁：建库停在 0026（head 之后的 revision 有自己的门禁）
+    info = datastore_at_revision("0026")
     models = _models()
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             feed_id, conversation_id, run_id, user_id = await _seed(connection)
@@ -424,9 +429,9 @@ async def test_b214_downgrade_requires_backup_for_notification_state(
             assert head == "0026"
     finally:
         await engine.dispose()
-    result = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0025")
+    result = await _migrate(info, tmp_path, direction="downgrade", target="0025")
     assert result.returncode != 0 and "CHANNEL_NOTIFICATION_DOWNGRADE_REQUIRES_BACKUP" in result.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(
@@ -440,11 +445,12 @@ async def test_b214_downgrade_requires_backup_for_notification_state(
 
 
 async def test_b214_downgrade_on_pristine_schema_returns_to_0025(
-    async_tool_datastore: dict[str, str], tmp_path: Path,
+    datastore_at_revision: Callable[[str], dict[str, str]], tmp_path: Path,
 ) -> None:
-    result = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0025")
+    info = datastore_at_revision("0026")
+    result = await _migrate(info, tmp_path, direction="downgrade", target="0025")
     assert result.returncode == 0, result.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(
@@ -453,12 +459,12 @@ async def test_b214_downgrade_on_pristine_schema_returns_to_0025(
             assert not (set(TABLES) & tables)
     finally:
         await engine.dispose()
-    rerun = await _migrate(async_tool_datastore, tmp_path, direction="upgrade", target="head")
+    rerun = await _migrate(info, tmp_path, direction="upgrade", target="head")
     assert rerun.returncode == 0, rerun.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(
-                sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == "0026"
+                sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == migration_head()
     finally:
         await engine.dispose()

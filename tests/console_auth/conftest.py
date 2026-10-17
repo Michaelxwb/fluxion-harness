@@ -105,7 +105,6 @@ async def auth(database_guard: None) -> AsyncIterator[AuthContext]:
             key=_unique_key("model"),
             name="Auth Model",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
         )
         session.add_all([admin, builder, disabled, model])
         await session.flush()

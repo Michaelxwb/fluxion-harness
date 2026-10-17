@@ -127,9 +127,9 @@ LEAK_MARKERS = (SECRET_ARGS, SECRET_MODEL, RAW_INSTRUCTIONS, RAW_INPUT, "sk-live
 _INSERT_MODEL = text(
     """
     INSERT INTO control.model_definition
-        (id, tenant_id, key, name, protocol, model_id, base_url, params_json, revision, enabled)
+        (id, tenant_id, key, name, protocol, model_id, params_json, revision, enabled)
     VALUES (:model_id, :tenant_id, :key, :name, 'OPENAI', 'gpt-4o-mini',
-            'https://api.example.com/v1', '{}'::jsonb, 1, true)
+            '{}'::jsonb, 1, true)
     """
 )
 

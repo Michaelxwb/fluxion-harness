@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -24,6 +25,8 @@ from muad_agent_worker.scheduler.service import SchedulerLoop, ScheduleService
 from muad_common import SharedSettings
 from muad_console_platform.infrastructure.db import get_session_factory as console_session_factory
 from muad_console_platform.infrastructure.models.control import (
+    ModelCredential,
+    ModelDeployment,
     AgentAccessGrant,
     AgentDefinition,
     AgentSkillBinding,
@@ -63,6 +66,8 @@ CLEANUP_CONTROL = (
     "(SELECT id FROM control.skill WHERE tenant_id = :tenant_id)",
     "DELETE FROM control.skill WHERE tenant_id = :tenant_id",
     "DELETE FROM control.platform_user WHERE tenant_id = :tenant_id",
+    "DELETE FROM control.model_deployment WHERE tenant_id = :tenant_id",
+    "DELETE FROM control.model_credential WHERE tenant_id = :tenant_id",
     "DELETE FROM control.model_definition WHERE tenant_id = :tenant_id",
 )
 
@@ -103,10 +108,31 @@ async def stack(
             key=f"model-{uuid.uuid4()}",
             name="Schedule Model",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
             enabled=True,
         )
         session.add_all([actor, model])
+        await session.flush()
+        # 调度真的经 Console resolve-definition 解析执行入口：补成员凭据行
+        credential = ModelCredential(
+            tenant_id=tenant_id,
+            key=f"cred-{uuid.uuid4()}",
+            provider_key="openai",
+            base_url="https://api.example.com/v1",
+            api_key="sk-schedule-fixture",
+            api_key_digest=hashlib.sha256(b"sk-schedule-fixture").hexdigest(),
+            max_inflight=8,
+        )
+        session.add(credential)
+        await session.flush()
+        session.add(
+            ModelDeployment(
+                tenant_id=tenant_id,
+                key=f"member-{uuid.uuid4()}",
+                model_id=model.id,
+                credential_id=credential.id,
+                weight=1,
+            )
+        )
         await session.flush()
         agent = AgentDefinition(
             tenant_id=tenant_id,

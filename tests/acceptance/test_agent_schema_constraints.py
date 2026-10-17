@@ -71,7 +71,6 @@ async def _make_agent(session: AsyncSession, tenant: str, key: str) -> AgentDefi
         key=f"model-{uuid.uuid4()}",
         name="m",
         model_id="gpt-4o-mini",
-        base_url="https://api.example.com/v1",
     )
     session.add(model)
     await session.flush()

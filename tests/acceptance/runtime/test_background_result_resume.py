@@ -19,7 +19,9 @@ from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, Run
 from muad_agent_worker.infrastructure.models.task import TaskExecution
 from muad_console_platform.infrastructure.models.control import (
     AgentDefinition,
+    ModelCredential,
     ModelDefinition,
+    ModelDeployment,
     SkillArtifact,
 )
 from sqlalchemy import select, text
@@ -29,6 +31,20 @@ from tests.acceptance.task_schedule.conftest import live_stack as schedule_stack
 from tests.acceptance.task_schedule.environment import ServiceProcess, build_skill_zip, free_port
 
 pytestmark = pytest.mark.e2e
+
+
+async def _member_credential(session, model_id):
+    """该模型的成员凭据行：运行期的"实时认证值"在这里（逻辑模型已无密钥列）。"""
+    return (
+        await session.scalars(
+            select(ModelCredential)
+            .join(ModelDeployment, ModelDeployment.credential_id == ModelCredential.id)
+            .where(
+                ModelDeployment.model_id == model_id,
+                ModelDeployment.is_deleted.is_(False),
+            )
+        )
+    ).one()
 
 
 @pytest.fixture(scope="module", name="live_stack")
@@ -53,8 +69,8 @@ def join_stack(tmp_path_factory):
 
         async def update(factory, stack=stack, probe=probe):
             async with factory() as session, session.begin():
-                model = await session.get(ModelDefinition, stack.model_id)
-                model.base_url = probe.url + "/v1"
+                credential = await _member_credential(session, stack.model_id)
+                credential.base_url = probe.url + "/v1"
                 artifact = (
                     await session.scalars(
                         select(SkillArtifact).where(
@@ -213,11 +229,12 @@ def test_s05_frozen_configuration_authorization_and_rotated_credentials(live_sta
                 ).one()
                 agent = await session.get(AgentDefinition, live_stack.agent_id)
                 model = await session.get(ModelDefinition, live_stack.model_id)
-                before = agent.instructions, model.params_json, model.api_key, model.model_id
+                credential = await _member_credential(session, live_stack.model_id)
+                before = agent.instructions, model.params_json, credential.api_key, model.model_id
                 agent.instructions = "new configuration only"
                 model.params_json = {"temperature": 0.8}
                 model.model_id = "new-model-only"
-                model.api_key = "rotated-memory-only-canary"
+                credential.api_key = "rotated-memory-only-canary"
                 await session.execute(
                     text("UPDATE control.agent_access_grant SET is_deleted=true WHERE agent_id=:id"),
                     {"id": live_stack.agent_id},
@@ -264,7 +281,8 @@ def test_s05_frozen_configuration_authorization_and_rotated_credentials(live_sta
                 async with factory() as session, session.begin():
                     agent = await session.get(AgentDefinition, live_stack.agent_id)
                     model = await session.get(ModelDefinition, live_stack.model_id)
-                    agent.instructions, model.params_json, model.api_key, model.model_id = original
+                    credential = await _member_credential(session, live_stack.model_id)
+                    agent.instructions, model.params_json, credential.api_key, model.model_id = original
                     await session.execute(
                         text("UPDATE control.agent_access_grant SET is_deleted=false WHERE agent_id=:id"),
                         {"id": live_stack.agent_id},
@@ -422,9 +440,9 @@ def test_e12_cleared_credential_has_no_fallback_or_new_surface_leak(live_stack, 
 
         async def clear(factory):
             async with factory() as session, session.begin():
-                model = await session.get(ModelDefinition, live_stack.model_id)
-                value = model.api_key
-                model.api_key = ""
+                credential = await _member_credential(session, live_stack.model_id)
+                value = credential.api_key
+                credential.api_key = ""
                 return value
 
         original = _db(clear)
@@ -465,7 +483,7 @@ def test_e12_cleared_credential_has_no_fallback_or_new_surface_leak(live_stack, 
 
             async def restore(factory):
                 async with factory() as session, session.begin():
-                    (await session.get(ModelDefinition, live_stack.model_id)).api_key = original
+                    (await _member_credential(session, live_stack.model_id)).api_key = original
 
             _db(restore)
             thread.join(timeout=5)

@@ -52,7 +52,7 @@ async def _make_users(client: AsyncClient, tenant: TenantContext, count: int) ->
 
 
 async def test_s04_grant_revoke_affects_resolve_snapshot_stable(
-    client: AsyncClient, tenant: TenantContext
+    client: AsyncClient, tenant: TenantContext, model_member: TenantContext
 ) -> None:
     """[S-04] 授权后 resolve 可用；撤销=软删除，resolve 拒绝；key 重建不影响。"""
     agent_id = await _make_agent(client, tenant)

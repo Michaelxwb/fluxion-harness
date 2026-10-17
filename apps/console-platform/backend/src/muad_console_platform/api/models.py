@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..application.audit_service import AuditActor
 from ..application.dto import ModelBatchTestRequest, ModelCreateRequest, ModelListItem, ModelUpdateRequest
 from ..application.model_deployment_service import ModelDeploymentService
-from ..application.model_service import ModelService, model_configured
+from ..application.model_service import ModelService
 from ..application.model_test_service import ModelTestService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.control import ModelDefinition, ModelDeployment
@@ -26,14 +26,14 @@ router = APIRouter(prefix="/api/v1/models", tags=["models"])
 
 
 def _item(model: ModelDefinition) -> dict[str, Any]:
+    """逻辑模型投影：只有声明字段，**没有**连接/密钥（执行入口在成员凭据，见 API-09）。"""
     return ModelListItem(
         id=model.id,
         key=model.key,
         name=model.name,
         protocol=model.protocol,
         model_id=model.model_id,
-        base_url=model.base_url,
-        api_key_configured=model_configured(model),
+        provider_key=model.provider_key,
         params=model.params_json,
         revision=model.revision,
         enabled=model.enabled,

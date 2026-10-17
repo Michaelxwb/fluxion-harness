@@ -1,3 +1,4 @@
+import hashlib
 import shutil
 import uuid
 from collections.abc import AsyncIterator, Iterator
@@ -17,7 +18,11 @@ from muad_console_platform.api.security import CSRF_COOKIE, CSRF_HEADER
 from muad_console_platform.application.auth_service import hash_password
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
-from muad_console_platform.infrastructure.models.control import ModelDefinition
+from muad_console_platform.infrastructure.models.control import (
+    ModelCredential,
+    ModelDefinition,
+    ModelDeployment,
+)
 from muad_console_platform.infrastructure.runtime_memory_client import RuntimeMemoryClient
 from muad_console_platform.main import app
 from sqlalchemy import inspect, text
@@ -31,6 +36,10 @@ AGENT_TABLE = "agent_definition"
 MODEL_TABLE = "model_definition"
 AUTH_TABLES = ("console_account", "console_session")
 ADMIN_PASSWORD = "console-admin-password"
+#: 夹具模型的执行入口：resolve-* 返回的即这行成员凭据（逻辑模型只声明供方）
+FIXTURE_PROVIDER_KEY = "openai"
+FIXTURE_MODEL_BASE_URL = "https://api.example.com/v1"
+FIXTURE_MODEL_API_KEY = "sk-console-fixture"
 
 
 @dataclass(frozen=True)
@@ -71,7 +80,8 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
             key=f"model-{uuid.uuid4()}",
             name="Enabled Model",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
+            provider_key=FIXTURE_PROVIDER_KEY,
+            params_json={"temperature": 0.0, "max_tokens": 1024},
             enabled=True,
         )
         disabled_model = ModelDefinition(
@@ -79,7 +89,7 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
             key=f"model-{uuid.uuid4()}",
             name="Disabled Model",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
+            params_json={"temperature": 0.0, "max_tokens": 1024},
             enabled=False,
         )
         session.add_all([enabled_model, disabled_model])
@@ -125,6 +135,9 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
                 "(SELECT id FROM control.platform_user WHERE tenant_id = :tenant_id)",
                 "DELETE FROM control.platform_user WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.config_audit_log WHERE tenant_id = :tenant_id",
+                # 成员 → 凭据 → 逻辑模型：外键要求先解绑再删凭据，最后删模型
+                "DELETE FROM control.model_deployment WHERE tenant_id = :tenant_id",
+                "DELETE FROM control.model_credential WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.model_definition WHERE tenant_id = :tenant_id",
             ):
                 await session.execute(text(statement), {"tenant_id": tenant_id})
@@ -132,6 +145,39 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
         artifact_root = Path(SharedSettings().artifact_root)
         for skill_id in skill_ids:
             shutil.rmtree(artifact_root / "skills" / str(skill_id), ignore_errors=True)
+
+
+@pytest.fixture
+async def model_member(tenant: TenantContext) -> AsyncIterator[TenantContext]:
+    """给夹具的启用模型补一条成员凭据（执行入口）。
+
+    只有真正走 resolve/执行入口的用例依赖它：夹具默认不建凭据，池资源类用例的
+    租户作用域计数（凭据/成员/额度组）不被夹具噪声污染。清理由 `tenant` 收尾统一完成。
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        credential = ModelCredential(
+            tenant_id=tenant.tenant_id,
+            key=f"cred-{uuid.uuid4()}",
+            provider_key=FIXTURE_PROVIDER_KEY,
+            base_url=FIXTURE_MODEL_BASE_URL,
+            api_key=FIXTURE_MODEL_API_KEY,
+            api_key_digest=hashlib.sha256(FIXTURE_MODEL_API_KEY.encode()).hexdigest(),
+            max_inflight=8,
+        )
+        session.add(credential)
+        await session.flush()
+        session.add(
+            ModelDeployment(
+                tenant_id=tenant.tenant_id,
+                key=f"member-{uuid.uuid4()}",
+                model_id=tenant.model_id,
+                credential_id=credential.id,
+                weight=1,
+            )
+        )
+        await session.commit()
+    yield tenant
 
 
 @pytest.fixture

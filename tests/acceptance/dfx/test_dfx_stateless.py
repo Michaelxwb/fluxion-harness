@@ -40,8 +40,13 @@ from typing import Any, cast
 import httpx
 import pytest
 from muad_common import SharedSettings
-from muad_console_platform.infrastructure.models.control import AgentDefinition, ModelDefinition
-from sqlalchemy import text
+from muad_console_platform.infrastructure.models.control import (
+    AgentDefinition,
+    ModelCredential,
+    ModelDefinition,
+    ModelDeployment,
+)
+from sqlalchemy import select, text
 
 from tests.acceptance.im_gateway.environment import restart_process
 from tests.acceptance.task_schedule.environment import (
@@ -283,14 +288,25 @@ def _set_model_params(stack: LiveStack) -> None:
 
 
 def _rotate_api_key(stack: LiveStack) -> None:
-    """真实 PG 凭据轮换：按 B-104 口径 api_key 不进 content_hash / model_json。"""
+    """真实 PG 凭据轮换：按 B-104 口径 api_key 不进 content_hash / model_json。
+
+    轮换发生在**成员凭据行**（执行入口的唯一权威）；逻辑模型没有密钥列可改。
+    """
 
     async def apply(factory: Any) -> None:
         async with factory() as session:
-            model = await session.get(ModelDefinition, stack.model_id)
-            assert model is not None, "ModelDefinition 不存在"
-            assert model.api_key == MODEL_API_KEY
-            model.api_key = ROTATED_API_KEY
+            credential = (
+                await session.scalars(
+                    select(ModelCredential)
+                    .join(ModelDeployment, ModelDeployment.credential_id == ModelCredential.id)
+                    .where(
+                        ModelDeployment.model_id == stack.model_id,
+                        ModelDeployment.is_deleted.is_(False),
+                    )
+                )
+            ).one()
+            assert credential.api_key == MODEL_API_KEY
+            credential.api_key = ROTATED_API_KEY
             await session.commit()
 
     run_db(apply)

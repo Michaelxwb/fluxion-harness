@@ -219,8 +219,13 @@ def _select(statement: str, params: dict[str, Any]) -> list[Any]:
 
 
 def _point_model_at_probe(stack: LiveStack, probe: FaultProbe) -> None:
+    # 执行入口在成员凭据行：把端点与密钥实值改到故障探针（逻辑模型已无旧执行列）
     _execute(
-        "UPDATE control.model_definition SET base_url = :u, api_key = :k WHERE id = :id",
+        "UPDATE control.model_credential SET base_url = :u, api_key = :k, update_time = now() "
+        "WHERE id = ("
+        " SELECT m.credential_id FROM control.model_deployment m "
+        " WHERE m.model_id = :id AND m.is_deleted = false "
+        " ORDER BY m.key, m.id LIMIT 1)",
         {"u": f"{probe.base_url}/v1", "k": MODEL_API_KEY, "id": stack.model_id},
     )
 

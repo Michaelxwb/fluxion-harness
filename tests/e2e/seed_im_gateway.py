@@ -17,7 +17,9 @@ from muad_console_platform.infrastructure.models.channel import BotAccount, Chan
 from muad_console_platform.infrastructure.models.control import (
     AgentAccessGrant,
     AgentDefinition,
+    ModelCredential,
     ModelDefinition,
+    ModelDeployment,
     PlatformUser,
 )
 
@@ -64,10 +66,31 @@ async def _seed(session_factory: Any, llm_url: str) -> dict[str, Any]:
             key=MODEL_KEY,
             name="IM E2E Model",
             model_id="gpt-4o-mini",
-            base_url=f"{llm_url}/v1",
-            api_key="e2e-model-key",
+            provider_key="openai",
         )
         session.add(model)
+        await session.flush()
+        # 执行入口是成员凭据（逻辑模型不再持有连接/密钥）
+        credential = ModelCredential(
+            tenant_id=TENANT,
+            key=f"{MODEL_KEY}-cred",
+            provider_key="openai",
+            base_url=f"{llm_url}/v1",
+            api_key="e2e-model-key",
+            api_key_digest=hashlib.sha256(b"e2e-model-key").hexdigest(),
+            max_inflight=8,
+        )
+        session.add(credential)
+        await session.flush()
+        session.add(
+            ModelDeployment(
+                tenant_id=TENANT,
+                key=f"{MODEL_KEY}-member",
+                model_id=model.id,
+                credential_id=credential.id,
+                weight=1,
+            )
+        )
         await session.flush()
         agent = AgentDefinition(
             tenant_id=TENANT,

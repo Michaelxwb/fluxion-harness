@@ -33,8 +33,15 @@ def load_resolved(live_stack: LiveStack) -> dict[str, Any]:
             model = (
                 await session.execute(
                     text(
-                        "SELECT id, revision, model_id, base_url FROM control.model_definition "
-                        "WHERE id = :id"
+                        "SELECT d.id, d.revision, d.model_id, c.base_url "
+                        "FROM control.model_definition AS d "
+                        "JOIN control.model_deployment AS m "
+                        "ON m.model_id = d.id AND m.tenant_id = d.tenant_id "
+                        "JOIN control.model_credential AS c "
+                        "ON c.id = m.credential_id AND c.tenant_id = m.tenant_id "
+                        "WHERE d.id = :id AND m.is_deleted = false AND m.enabled = true "
+                        "AND c.is_deleted = false AND c.enabled = true "
+                        "ORDER BY m.key, m.id LIMIT 1"
                     ),
                     {"id": agent[4]},
                 )

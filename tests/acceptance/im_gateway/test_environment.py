@@ -93,10 +93,15 @@ async def test_b121_model_is_called_over_real_http(gateway_stack: GatewayStack) 
 
     async with get_session_factory()() as session:
         base_url = await session.scalar(
-            text("SELECT base_url FROM control.model_definition WHERE tenant_id = :t"),
+            text(
+                "SELECT c.base_url FROM control.model_credential c "
+                "JOIN control.model_deployment m ON m.credential_id = c.id "
+                "WHERE m.tenant_id = :t AND m.model_id = ("
+                " SELECT id FROM control.model_definition WHERE tenant_id = :t)"
+            ),
             {"t": TENANT},
         )
-    assert base_url == f"{gateway_stack.llm_url}/v1"  # 模型经真实 HTTP 探针
+    assert base_url == f"{gateway_stack.llm_url}/v1"  # 模型经真实 HTTP 探针（连接在成员凭据）
 
 
 async def test_b121_process_restart_recovers(gateway_stack: GatewayStack) -> None:

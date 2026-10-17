@@ -5,8 +5,10 @@
 Key 名与真实预算，因此维护窗口必须提供一份**无密钥迁移清单**。
 
 旧执行列的物理删除**不在 0021**：消费方（模型配置、探针、内部凭据解析）重写完成后，
-由升级链末段的删列 revision 执行——维护窗口仍是一次 `upgrade head` 到完整 head，
-生产上不会停留在"两处并存"的中间形态（见 §5）。
+由升级链末段的删列 revision `0027_model_pool_legacy_column_drop` 执行（B-219）——维护窗口
+仍是一次 `upgrade head` 到完整 head，生产上不会停留在"两处并存"的中间形态（见 §5）。
+0027 的升级门禁要求"仍有明文 Key 的模型"必须有可用成员（否则报
+`MODEL_POOL_LEGACY_KEY_NOT_MIGRATED` 整链回滚）。
 
 - 修订：0021（head 从 0020 前进一位，单次升级到完整 head，不引入运行兼容层或双写）
 - 代码：`migrations/versions/0021_model_pool_control.py`、`migrations/model_pool_control_data.py`
@@ -94,17 +96,21 @@ Key 名与真实预算，因此维护窗口必须提供一份**无密钥迁移�
 | `MODEL_POOL_MIGRATION_INVALID` | 字段缺失/类型错/未知键、容量非正整数、额度组未声明、有 Key 却声明 `null`（或反之） | 按 §2 修正 |
 | `MODEL_POOL_MIGRATION_UNMAPPED` | 库里有模型没在清单里 | 补齐逐行声明 |
 | `MODEL_POOL_MIGRATION_UNKNOWN_MODEL` | 清单里有库中不存在的模型 id | 删掉或改正 id |
-| `MODEL_POOL_DOWNGRADE_REQUIRES_BACKUP` | 任何降级尝试 | 见 §6 |
+| `MODEL_POOL_LEGACY_KEY_NOT_MIGRATED`（0027 门禁） | 仍有非空 `api_key` 的模型没有**可用成员**（未删除且启用的成员 + 同条件凭据） | 修清单补成员/启用后再重跑；直接删列会丢掉唯一认证值 |
+| `MODEL_POOL_DOWNGRADE_REQUIRES_BACKUP` | 任何降级尝试（0021 / 0027 都会拒绝） | 见 §6 |
 
-上述任一错误都发生在**改动结构之前**：库停在 0020，`base_url`/`api_key` 原样保留，可以修清单后重跑。
+上述任一错误都发生在**改动结构之前**：库停在 0020（0021 清单错误）或 0026（0027 门禁，
+含 0021 已建的新表一并回滚），`base_url`/`api_key` 原样保留，可以修清单后重跑。
 
 ## 5. 迁移后的字段变化
 
 - `control.model_definition`：保留 `key/name/protocol/model_id/params_json/revision/enabled`，
   新增 `provider_key`（NOT NULL，默认空串 = 尚未声明供方）；`base_url`/`api_key` 在 0021
-  **原值保留**（迁移只写 `model_credential`，不改旧列），由升级链末段的删列 revision 移除——
-  届时执行入口才真正只剩 `model_credential`。存量行的 `provider_key` 由清单显式声明，
-  默认空串只服务尚未重写的旧建模型入口（成员绑定要求供方一致，见 API-01）。
+  **原值保留**（迁移只写 `model_credential`，不改旧列），0027 在消费方重写完成后物理删除——
+  执行入口只剩 `model_credential`。存量行的 `provider_key` 由清单显式声明，
+  新入口要求创建时声明（成员绑定要求供方一致，见 API-01）。
+- `model_definition.params_json` 的 `max_tokens` 必须是正整数：它是 OPENAI 调用实际发送的输出
+  预算键（容量预占按它计算）；探针固定发送 1。
 - 新增 `control.model_quota_group`、`control.model_credential`、`control.model_deployment`。
 - 跨租户归属由**复合 FK**（`(tenant_id, model_id)`、`(tenant_id, credential_id)`、
   `(tenant_id, quota_group_id)`）在数据库层拒绝，不靠应用层自证。
@@ -113,6 +119,8 @@ Key 名与真实预算，因此维护窗口必须提供一份**无密钥迁移�
 
 ## 6. 回退
 
-0021 不可降级：它已按物理 Key 去重并建立了成员归属，回退映像无法还原"哪把 Key 属于哪个模型"。
-需要回退时恢复维护窗口备份（`MODEL_POOL_DOWNGRADE_REQUIRES_BACKUP` 会拒绝直接 `downgrade`）。
+0021 与 0027 都不可降级：前者已按物理 Key 去重并建立了成员归属，回退映像无法还原"哪把 Key
+属于哪个模型"；后者已物理删除 `base_url`/`api_key`，回退只能补回空列（`base_url` 还是
+NOT NULL），旧执行入口不会回来。需要回退时恢复维护窗口备份
+（`MODEL_POOL_DOWNGRADE_REQUIRES_BACKUP` 会拒绝直接 `downgrade`）。
 新写入数据的保留策略在回退前必须确认——不能假设回滚旧镜像即可降级 schema。

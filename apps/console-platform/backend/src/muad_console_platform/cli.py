@@ -20,7 +20,8 @@ from .infrastructure.models.auth import ROLE_ADMIN, ROLE_BUILDER
 DEFAULT_TENANT = SharedSettings().default_tenant_id
 
 SECRET_TABLES = (
-    ("model_definition", "secret_ref", "api_key", False),
+    # 逻辑模型不再持有明文密钥：模型 Key 的权威是 `model_credential.api_key`（0021 建表、
+    # 0027 删旧列），它不由 secret_ref 回填而来（迁移执行时从旧列读明文），故无映射行。
     ("bot_account", "secret_ref", "secret", False),
     ("mcp_server", "auth_secret_ref", "auth_secret", False),
     ("user_credential_ref", "secret_ref", "credential_json", True),

@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-10-16/agent-capacity-webchat/（前后端v0.6设计合并）
 - **Created**: 2026-10-16
-- **Updated**: 2026-10-17
+- **Updated**: 2026-10-18
 - **Plan-State**: 用户已确认正式任务清单并授权执行；实际进度以各TASK状态与验收证据为准
 
 ## Proposal
@@ -358,7 +358,7 @@
 | B-216 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-016 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"] | . | 300 |  |
 | B-217 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-017 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"] | . | 300 |  |
 | B-218 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-018 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_quota_groups.py"] | . | 300 |  |
-| B-219 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-019 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_logical_model_api.py"] | . | 300 |  |
+| B-219 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-019 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_logical_model_api.py"] | . | 300 |  |
 | B-220 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-020 | planned | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_resolve_credential.py"] | . | 300 |  |
 | B-221 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_reserve.py"] | . | 300 |  |
 | B-222 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-022 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_settle.py"] | . | 300 |  |
@@ -1450,7 +1450,7 @@ RPM/TPM与max_inflight按真实资源存储，null仅关闭该维度限流；完
 
 ## TASK-019: 逻辑模型配置去除执行密钥并要求真实输出预算
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-017, TASK-018
 - **Source**: agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -1467,28 +1467,48 @@ Agent继续显式选择model_id、无默认模型；完整分支及可观测结�
 
 ### Checklist
 
-- [ ] [B-219][integration] 先在`tests/console_platform/test_capacity_webchat_logical_model_api.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：Agent继续显式选择model_id、无默认模型。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-219] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-219] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_logical_model_api.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-model#RULE-model-001`（stage: review；timeout=600秒）：`["bash","-lc","uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-219][integration] 先在`tests/console_platform/test_capacity_webchat_logical_model_api.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：Agent继续显式选择model_id、无默认模型。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-219] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-219] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_logical_model_api.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] verifier `harness-model#RULE-model-001`（stage: review；timeout=600秒）：`["bash","-lc","uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-219 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | Agent继续显式选择model_id、无默认模型；OPENAI/protocol不暗换，模型最大输出使用真正发送的max_tokens，旧base_url/api_key执行入口删除（末段 revision 物理删列；0021 为过渡保留，删列生命周期由本任务收口） | tests/console_platform/test_capacity_webchat_logical_model_api.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_logical_model_api.py"] | planned |
-| harness-model#RULE-model-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | `model_definition` 不设 `is_default`；每个 Agent 必须显式保存 `model_id`，不存在平台默认模型回退；模型调用只允许 OPENAI 兼容协议。 | 沿用原Spec verifier，不重写成更弱测试 | ["bash","-lc","uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled"] | planned |
+| B-219 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | Agent继续显式选择model_id、无默认模型；OPENAI/protocol不暗换，模型最大输出使用真正发送的max_tokens，旧base_url/api_key执行入口删除（末段 revision 物理删列；0021 为过渡保留，删列生命周期由本任务收口） | tests/console_platform/test_capacity_webchat_logical_model_api.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_logical_model_api.py"] | verified |
+| harness-model#RULE-model-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | `model_definition` 不设 `is_default`；每个 Agent 必须显式保存 `model_id`，不存在平台默认模型回退；模型调用只允许 OPENAI 兼容协议。 | 沿用原Spec verifier，不重写成更弱测试 | ["bash","-lc","uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-219 | `uv run pytest -q tests/console_platform/test_capacity_webchat_logical_model_api.py` → **8 failed, 9 passed**（exit=1, 2.25s）：实现前旧入口仍在，`_payload` 的 `provider_key` 被 `extra_forbidden`（响应 `{"loc":["body","base_url"],"type":"missing"},{"loc":["body","provider_key"],"type":"extra_forbidden"}`）、投影仍带 `api_key_configured`、head 库还是 0026（`information_schema` 仍有旧列）、探针鉴权走旧列、供方声明/锁定分支未实现 | 同命令 → **17 passed**（exit=0, 2.39s）；required verifier `["bash","-lc","uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest -q tests/console_platform/test_agents_api.py -k disabled"]` → **8 passed + 1 passed/13 deselected**（exit=0, 0.98s/0.22s）；回归 `uv run pytest -q tests/console_platform tests/console_internal` → **397 passed**（51.81s）；`uv run pytest -q tests/migrations` → **87 passed**（153.40s）；`uv run pytest -q tests/frontend` → **345 passed**；`uv run pytest -q tests/console_skill` → **69 passed**；`uv run pytest -q tests/console_platform/test_models_batch_test.py tests/console_platform/test_agent_lifecycle_api.py tests/console_platform/test_agent_mcp_bindings.py tests/console_platform/test_agent_skill_bindings.py tests/console_platform/test_agent_user_grants_api.py tests/console_platform/test_agents_api.py` → **32 passed**；`uv run pytest -q tests/agent_worker/test_schedule_trigger.py` → **8 passed**；`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**；`uv run mypy apps packages` → Success: no issues found in 396 source files；`npx tsc --noEmit`（frontend）→ exit=0；`uv run ruff check`（全部改动文件）无新增违规（仅剩基线既有 E501） | `test_b219_create_requires_positive_integer_max_tokens` L183-207（参数化 9 例：缺 `max_tokens`、仅 temperature、0/-1/True/2.5/"2048"/None、以及**同义但从不发送**的 `max_output_tokens`-only 全部 422 COMMON_VALIDATION_ERROR）；`test_b219_create_persists_the_sent_output_budget` L209-222（响应 params 原样 L214、`params_json` SQL 回读 L220-222）；`test_b219_update_requires_positive_integer_max_tokens` L224-238（PUT 三种非法 params 422 且不改动已存预算 L233-234）；`test_b219_legacy_execution_fields_rejected_on_write` L240-258（POST/PUT 带 `base_url`/`api_key` 均 422）；`test_b219_projection_carries_no_execution_secrets_or_endpoints` L261-275（创建/详情/列表三个投影都无 base_url/api_key/api_key_configured 且带 provider_key）；`test_b219_final_revision_drops_legacy_execution_columns` L277-295（真实 `information_schema`：model_definition 无 base_url/api_key/is_default 且有 provider_key L286-290、密码仍在 model_credential L291、ORM 属性已消失）；`test_b219_only_openai_protocol_and_explicit_agent_model` L297-355（ANTHROPIC 422、is_default 422、OPENAI 原样回显、Agent 缺 model_id 422、未知 model_id 404 COMMON_NOT_FOUND、显式 model_id 200 且回显一致 L339-351）；`test_b219_execution_entry_is_the_bound_member_credential` L357-383（真 HTTPServer 探针记录 Authorization：绑定成员凭据→AVAILABLE 且探针恰收到 `Bearer good-key` L372-374、无成员→FAILED/CREDENTIAL_MISSING 且不发请求 L370-371/374）；`test_b219_provider_declared_before_members_then_locked` L385-411（无成员时可声明 provider_key 200 L389-390、绑定成员后改供方 409 COMMON_CONFLICT L397-399、重复声明同值 200 L405-406） | 真实 Console ASGI 应用 + 真实登录会话（ADMIN + CSRF）；真实 PostgreSQL（dev 库已按用户确认升级到 0027；`information_schema` 直读列集合，ORM 属性同步缺失）；真实本地 HTTP 协议探针（`ProbeEndpoint` 记录真实请求路径与 `Authorization` 头，证明执行入口只剩成员凭据）；成员/凭据以真实行写入（复合 FK 与 partial unique 由数据库裁决）；`runtime_credentials` 的 API-09 用例以真实 credential 轮换/停用回读当前值 | verified |
+| harness-model#RULE-model-001 | —（沿用原 Spec verifier，不重写；本任务只做消费者适配） | `uv run pytest -q tests/console_platform/test_models_api.py` → **8 passed**（exit=0, 0.98s）+ `uv run pytest -q tests/console_platform/test_agents_api.py -k disabled` → **1 passed, 13 deselected**（exit=0, 0.22s） | 逻辑模型投影不再含 `api_key_configured`：`test_s01_create_persists_declared_fields_without_execution_secrets` L26-60（创建/列表/详情三处投影字段集合断言 + `params_json`/`provider_key` SQL 回读）；`test_e02_e05_schema_rejects_reserved_and_immutable_fields` L144-169（`is_default`/`protocol`/`key` 非法写全 422）；`test_duplicate_key_conflict_and_validation` L172-188（重复 key 409 MODEL_KEY_EXISTS 且 msg 带 key；非法输出预算 422）；`test_agents_api.py -k disabled` → `test_e02_disabled_model_blocks_agent_create`（Agent 必须显式 model_id，无默认模型回退） | 同文件真实 Console ASGI + 真实 PG；`provider_key`/`params.max_tokens` 由真实写路径持久化，Agent 侧 model_id 为真实外键行；本次仅在 S-01 用「投影无执行字段 + 声明字段落库」替换旧「明文密钥落库」断言（旧 `api_key_configured` 语义已删除，属事实同步而非弱化） | verified |
+
+**实施范围与证据说明**
+
+- 实现文件（含超出计划 Files 的披露）：`application/dto.py`（逻辑模型写契约重写：去 `base_url`/`api_key`、加 `provider_key`、`params.max_tokens` 正整数必填）、`application/model_service.py`（快照/创建/更新 + 供方声明-锁定）、`api/models.py`（投影重写）、`infrastructure/models/control.py`（删 `base_url`/`api_key` 属性）、`infrastructure/repositories/model_deployment_repository.py`（`has_live_members`、`find_execution_credential(s)` 过渡解析）、`application/resolve_service.py` + `application/runtime_credentials.py` + `application/model_test_service.py`（三个消费方改从成员凭据取执行入口，无成员即 `CREDENTIAL_MISSING`）、`cli.py`（`SECRET_TABLES` 去掉 `model_definition` 行）、`migrations/versions/0027_model_pool_legacy_column_drop.py`（末段删列 + 门禁 + 拒绝降级）、`docs/model-pool-control-migration.md`（§4/§5/§6 同步 0027 事实）、`docs/configuration-inventory.csv`（`SECRET_TABLES` 值 + 6 行行号位移）。计划 Files 只列了 service/api/测试/迁移；DTO、ORM、仓储、三个消费方、CLI 与文档属"消费方重写 + 删列"的必需联动，在此披露。
+- 契约与语义事实：`POST/PUT /api/v1/models` 不再接收 `base_url`/`api_key`（`extra=forbid` → 422）；`params.max_tokens` 必须是**正整数**（bool/float/str/None/0/负数/缺失，以及只会是"从不发送的同义字段"的 `max_output_tokens`-only 全部 422）；该键就是运行时真正发送的输出预算（`executor.py:431` 读 `params["max_tokens"]` → `packages/agent-core/.../openai_provider.py:267-268` 写入请求体 `payload["max_tokens"]`；线级发送证明按计划留给 B-225/E-04）；`provider_key` 创建时可声明（默认 `''`），有成员后不可改（无成员可改；同值重复声明是 no-op）；执行入口 = 可用成员凭据（未删除未停用、非空密钥；批量测试/解析/API-09 同一口径），无成员 → `CREDENTIAL_MISSING`；0027 门禁：仍有非空旧 `api_key` 且无可用成员的模型 → `MODEL_POOL_LEGACY_KEY_NOT_MIGRATED` 整链回滚；`downgrade` → `MODEL_POOL_DOWNGRADE_REQUIRES_BACKUP`。
+- 中间过程（诚实记录）：(1) RED 文件三处**测试自身**缺陷在 GREEN 阶段修正（探针用例漏传 `api_key="good-key"`、供方用例未显式传 `provider_key=""`、purge 未删 Agent 触发外键；`session.run_sync` 内 `inspect` 需 `sync.connection()`）——语义与断言未弱化；(2) 夹具让路：console 平台 `tenant` 夹具不再默认建凭据/成员（池资源类用例的租户作用域计数会受噪声影响），改由显式 `model_member` 夹具给真正走 resolve 的 7 个用例补执行入口；`console_skill`/`agent_worker` 夹具同理补成员凭据；(3) 基线既有红转绿：`tests/frontend/test_audit_gap_contract.py::test_b214_resource_type_options_cover_backend_domain` 在 HEAD（0ed35068，独立 worktree 复现）即红——TASK-016/017/018 新增的 `MODEL_CREDENTIAL/MODEL_DEPLOYMENT/MODEL_QUOTA_GROUP` 未进审计筛选域；本任务一并补齐 `AuditFilterBar.RESOURCE_TYPES` 与 zh/en 词条（否则整树不绿）；(4) 迁移单测口径调整：head 前进到 0027 后，B-210..B-214 的"本 revision 回退"用例不再借 head 库（会先撞 0027 的拒绝），改用 `datastore_at_revision` 固定建到各自 revision；断言的拒绝码/回滚事实不变，属"测试只验证自己的 revision"的口径收细而非弱化；(5) dev 库按用户确认执行 `uv run alembic -c migrations/alembic.ini upgrade head`（0026→0027；升级前用迁移同款门禁 SQL 复核：34 行模型、2 行有密钥且都有可用成员 → 门禁通过、无执行入口丢失）。
+- 延后项（明确移交）：浏览器 E2E 中仍按旧响应形状断言模型接口的用例（`e2e/tests/model-management/*`、`form-layout`/`model-list-layout`/`detail-layout`/`console-auth`.spec.ts）属前端模型管理改造范围，由 TASK-086/087（模型凭据/成员界面）与 TASK-115（模型池与 Token 管理 E2E）收口；本任务未触碰前端模型管理模块，仅补审计筛选域缺口。
+- 全量单测回归：`uv run pytest -q --ignore=tests/acceptance -p no:randomly` → **4490 passed**（exit=0, 1084.67s）。
+- B-219: verified — automated command passed; run_id=39202116681f4e03ab82f3bfa512f001 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
 - [2026-10-17] 承接计划变更：`model_definition.base_url`/`api_key` 的物理删除从 TASK-009 的 0021 移至本任务的末段删列 revision（用户确认；0021 只建新结构并保留旧列，`provider_key` 过渡期 `''`）
+- [2026-10-17] started
+- [2026-10-17] B-219 RED：`tests/console_platform/test_capacity_webchat_logical_model_api.py` 先行建立 → **8 failed, 9 passed**（2.25s；旧写入口仍要 base_url/api_key、投影仍带 api_key_configured、head 仍是 0026、探针仍读旧列）
+- [2026-10-17] 实现：DTO 去旧执行字段 + `provider_key` + `params.max_tokens` 正整数校验；`ModelService` 供方声明-锁定；投影重写；ORM 删 `base_url`/`api_key`；`ModelDeploymentRepository` 新增可执行成员解析（单/批量）并接入 resolve/API-09/批量探针（无成员 → CREDENTIAL_MISSING）；`cli.SECRET_TABLES` 去 model_definition 行；新增 `migrations/versions/0027_model_pool_legacy_column_drop.py`（门禁 `MODEL_POOL_LEGACY_KEY_NOT_MIGRATED` + 拒绝降级）；迁移手册 §4/§5/§6 同步
+- [2026-10-17] dev 库按用户确认升级 0026→0027（升级前门禁 SQL 复核：34 行模型、2 行有密钥且都有可用成员 → 无执行入口丢失）
+- [2026-10-17] B-219 GREEN：17 passed；required verifier 8 passed + 1 passed/13 deselected；回归 `tests/console_platform tests/console_internal` 397 passed、`tests/migrations` 87 passed、`tests/frontend` 345 passed、`tests/console_skill` 69 passed、`tests/agent_worker/test_schedule_trigger.py` 8 passed、inventory 4 passed；mypy 396 files 无问题；frontend tsc exit=0；ruff 无新增违规；全量单测（`--ignore=tests/acceptance`）**4490 passed**（1084.67s）
+- [2026-10-17] 夹具/口径联动：console `tenant` 夹具不再默认建成员（改 `model_member` 显式夹具供 7 个 resolve 用例）；`console_skill`/`agent_worker` 补成员凭据；B-210..B-214 单 revision 回退用例改用 `datastore_at_revision` 固定各自 revision；补齐审计筛选域 `MODEL_CREDENTIAL/MODEL_DEPLOYMENT/MODEL_QUOTA_GROUP`（HEAD 即红的基线遗留）
+- [2026-10-18] 验收冒烟（非全量，全量留给需求级 verify-e2e）：`uv run pytest -q tests/acceptance/task_schedule` → **25 passed**（86.80s）；`tests/acceptance/runtime/test_capability_snapshot.py` → **2 passed**（首轮暴露 runtime 验收清理未先删成员触发 FK，已补 `model_deployment/model_credential` 删除后复跑绿）；`tests/acceptance/dfx/test_dfx_stateless.py::test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash` → **1 passed**（17.00s，凭据轮换走成员凭据行）
+- [2026-10-18] completed (done)
 
 ---
 

@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.models.control import ModelDefinition
 from ..infrastructure.repositories.agent_access_grant_repository import AgentAccessGrantRepository
 from ..infrastructure.repositories.agent_repository import AgentRepository
+from ..infrastructure.repositories.model_deployment_repository import ModelDeploymentRepository
 from ..infrastructure.repositories.skill_repository import SkillRepository
 from .agent_mcp_service import AgentMcpService
 
@@ -26,6 +27,7 @@ class ResolveService:
         self._agents = AgentRepository(session)
         self._grants = AgentAccessGrantRepository(session)
         self._skills = SkillRepository(session)
+        self._deployments = ModelDeploymentRepository(session)
         self._mcp = AgentMcpService(session)
 
     async def resolve_definition(
@@ -58,7 +60,7 @@ class ResolveService:
                 instructions=agent.instructions,
                 runtime_config=agent.runtime_config,
             ),
-            model=self._resolved_model(model),
+            model=await self._resolved_model(tenant_id, model),
             skills=await self._resolved_skills(tenant_id, payload),
             mcp_servers=await self._mcp.effective_mcp_servers(
                 tenant_id, payload.agent_id, payload.actor_user_id
@@ -81,17 +83,24 @@ class ResolveService:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
         if not model.enabled:
             raise AppError(ErrorCode.MODEL_DISABLED)
-        return ResolveModelResponse(model=self._resolved_model(model))
+        return ResolveModelResponse(model=await self._resolved_model(tenant_id, model))
 
-    @staticmethod
-    def _resolved_model(model: ModelDefinition) -> ResolvedModel:
+    async def _resolved_model(self, tenant_id: str, model: ModelDefinition) -> ResolvedModel:
+        """解析执行入口：连接与密钥只来自当前可用成员凭据。
+
+        逻辑模型本身不再持有 `base_url`/`api_key`；没有可用成员就是"没有执行入口"，
+        明确失败（CREDENTIAL_MISSING），不退回任何旧列/环境变量/平台默认。
+        """
+        credential = await self._deployments.find_execution_credential(tenant_id, model.id)
+        if credential is None:
+            raise AppError(ErrorCode.CREDENTIAL_MISSING)
         return ResolvedModel(
             id=model.id,
             revision=model.revision,
             protocol=cast(Literal["OPENAI"], model.protocol),
             model_id=model.model_id,
-            base_url=model.base_url,
-            api_key=model.api_key,
+            base_url=credential.base_url,
+            api_key=credential.api_key,
             params=model.params_json,
         )
 

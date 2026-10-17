@@ -91,7 +91,7 @@ async def test_s02_bind_skill_immediate_and_paginated_envelope(
 
 
 async def test_s02_resolve_reflects_binding_immediately(
-    client: AsyncClient, tenant: TenantContext
+    client: AsyncClient, tenant: TenantContext, model_member: TenantContext
 ) -> None:
     """[S-02 延伸] 绑定后 resolve-definition 立即可见（ALL scope Skill）。"""
     from muad_console_platform.infrastructure.db import get_session_factory
@@ -149,7 +149,7 @@ async def test_s02_resolve_reflects_binding_immediately(
 
 
 async def test_e03_bind_disabled_skill_allowed_but_filtered(
-    client: AsyncClient, tenant: TenantContext
+    client: AsyncClient, tenant: TenantContext, model_member: TenantContext
 ) -> None:
     """[E-03] 禁用 Skill 可绑定（行保留 enabled=false）；不存在/软删 → COMMON_NOT_FOUND。"""
     agent_id = await _make_agent(client, tenant)

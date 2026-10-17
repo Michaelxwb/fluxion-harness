@@ -144,6 +144,9 @@ CONTROL_CLEANUP = (
     "(SELECT id FROM control.agent_definition WHERE tenant_id = :t)",
     "DELETE FROM control.platform_user WHERE tenant_id = :t",
     "DELETE FROM control.agent_definition WHERE tenant_id = :t",
+    # 成员 → 凭据 → 逻辑模型：执行入口先解绑，再删凭据与定义（复合外键顺序）
+    "DELETE FROM control.model_deployment WHERE tenant_id = :t",
+    "DELETE FROM control.model_credential WHERE tenant_id = :t",
     "DELETE FROM control.model_definition WHERE tenant_id = :t",
 )
 
@@ -279,7 +282,9 @@ def seed_control(
         AgentAccessGrant,
         AgentDefinition,
         AgentSkillBinding,
+        ModelCredential,
         ModelDefinition,
+        ModelDeployment,
         PlatformUser,
         Skill,
         SkillArtifact,
@@ -294,11 +299,32 @@ def seed_control(
                 key=f"e2e-model-{uuid.uuid4().hex[:8]}",
                 name="E2E Model",
                 model_id="gpt-4o-mini",
-                base_url=f"{llm_url}/v1",
-                api_key=MODEL_API_KEY,
+                provider_key="openai",
                 params_json={"temperature": 0.0},
             )
             session.add(model)
+            await session.flush()
+            # 执行入口是成员凭据（逻辑模型不再持有连接/密钥）
+            credential = ModelCredential(
+                tenant_id=TENANT,
+                key=f"e2e-cred-{uuid.uuid4().hex[:8]}",
+                provider_key="openai",
+                base_url=f"{llm_url}/v1",
+                api_key=MODEL_API_KEY,
+                api_key_digest=hashlib.sha256(MODEL_API_KEY.encode()).hexdigest(),
+                max_inflight=8,
+            )
+            session.add(credential)
+            await session.flush()
+            session.add(
+                ModelDeployment(
+                    tenant_id=TENANT,
+                    key=f"e2e-member-{uuid.uuid4().hex[:8]}",
+                    model_id=model.id,
+                    credential_id=credential.id,
+                    weight=1,
+                )
+            )
             await session.flush()
             agent = AgentDefinition(
                 tenant_id=TENANT,

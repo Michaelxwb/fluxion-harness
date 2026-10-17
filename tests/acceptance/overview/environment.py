@@ -205,7 +205,6 @@ async def _insert_control_rows(
                 key=f"model-{uuid.uuid4().hex[:8]}",
                 name="Overview Model",
                 model_id="gpt-4o-mini",
-                base_url="https://api.example.com/v1",
                 enabled=True,
             )
             session.add(model)

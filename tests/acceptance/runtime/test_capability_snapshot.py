@@ -163,8 +163,15 @@ def test_s02_snapshot_freeze_and_api09_credentials_on_resume(
 
     async def rotate(factory: Any) -> None:
         async with factory.begin() as connection:
+            # 轮换发生在成员凭据行：API-09 实时读取该行的当前值（逻辑模型已无密钥列）
             await connection.execute(
-                sa.text("UPDATE control.model_definition SET api_key = :key WHERE id = :id"),
+                sa.text(
+                    "UPDATE control.model_credential SET api_key = :key "
+                    "WHERE id = ("
+                    " SELECT m.credential_id FROM control.model_deployment m "
+                    " WHERE m.model_id = :id AND m.is_deleted = false "
+                    " ORDER BY m.key, m.id LIMIT 1)"
+                ),
                 {"key": ROTATED_API_KEY, "id": live_stack.model_id},
             )
 

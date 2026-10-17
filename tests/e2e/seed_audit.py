@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import uuid
@@ -226,7 +227,9 @@ async def _create_agent(
     from muad_console_platform.infrastructure.models.control import (
         AgentAccessGrant,
         AgentDefinition,
+        ModelCredential,
         ModelDefinition,
+        ModelDeployment,
     )
 
     async with factory() as session:
@@ -235,10 +238,31 @@ async def _create_agent(
             key=MODEL_KEY,
             name="Audit Acceptance Model",
             model_id=MODEL_NAME,
-            base_url=model_base_url,
-            api_key=MODEL_API_KEY,
+            provider_key="openai",
         )
         session.add(model)
+        await session.flush()
+        # 执行入口是成员凭据：审计/回放只经真实路径读取凭据行
+        credential = ModelCredential(
+            tenant_id=TENANT,
+            key=f"{MODEL_KEY}-cred",
+            provider_key="openai",
+            base_url=model_base_url,
+            api_key=MODEL_API_KEY,
+            api_key_digest=hashlib.sha256(MODEL_API_KEY.encode()).hexdigest(),
+            max_inflight=8,
+        )
+        session.add(credential)
+        await session.flush()
+        session.add(
+            ModelDeployment(
+                tenant_id=TENANT,
+                key=f"{MODEL_KEY}-member",
+                model_id=model.id,
+                credential_id=credential.id,
+                weight=1,
+            )
+        )
         await session.flush()
         agent = AgentDefinition(
             tenant_id=TENANT,

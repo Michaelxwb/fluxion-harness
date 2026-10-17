@@ -8,7 +8,8 @@ from typing import Any
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.models.control import ModelDefinition
+from ..infrastructure.models.control import ModelCredential, ModelDefinition
+from ..infrastructure.repositories.model_deployment_repository import ModelDeploymentRepository
 from ..infrastructure.repositories.model_repository import ModelRepository
 
 PROBE_TIMEOUT_SEC = 5.0
@@ -17,9 +18,12 @@ CHAT_PROBE_PATH = "/chat/completions"
 MODELS_PATH = "/models"
 
 
-async def _probe(client: httpx.AsyncClient, model: ModelDefinition) -> tuple[str, str | None]:
-    headers = {"Authorization": f"Bearer {model.api_key}"} if model.api_key else {}
-    base = model.base_url.rstrip("/")
+async def _probe(
+    client: httpx.AsyncClient, model: ModelDefinition, credential: ModelCredential
+) -> tuple[str, str | None]:
+    """真实探测：连接与密钥取**成员凭据**（执行入口唯一权威），输出预算固定 1。"""
+    headers = {"Authorization": f"Bearer {credential.api_key}"}
+    base = credential.base_url.rstrip("/")
     try:
         response = await client.get(f"{base}{MODELS_PATH}", headers=headers)
         if response.status_code in (404, 405):
@@ -52,10 +56,14 @@ class ModelTestService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
         self._models = ModelRepository(session)
+        self._deployments = ModelDeploymentRepository(session)
 
     async def batch_test(self, tenant_id: str, model_ids: Sequence[uuid.UUID]) -> list[dict[str, Any]]:
         models = list(await self._models.list_by_ids(tenant_id, list(model_ids)))
         known = {model.id for model in models}
+        credentials = await self._deployments.find_execution_credentials(
+            tenant_id, [model.id for model in models]
+        )
         semaphore = asyncio.Semaphore(PROBE_CONCURRENCY)
 
         async with httpx.AsyncClient(timeout=PROBE_TIMEOUT_SEC) as client:
@@ -64,8 +72,12 @@ class ModelTestService:
                 started = time.monotonic()
                 if not model.enabled:
                     return self._entry(model.id, "FAILED", "MODEL_DISABLED", started)
+                credential = credentials.get(model.id)
+                if credential is None:
+                    # 没有可用成员就没有执行入口：不发请求，如实报 CREDENTIAL_MISSING
+                    return self._entry(model.id, "FAILED", "CREDENTIAL_MISSING", started)
                 async with semaphore:
-                    status, error_code = await _probe(client, model)
+                    status, error_code = await _probe(client, model, credential)
                 return self._entry(model.id, status, error_code, started)
 
             results = list(await asyncio.gather(*(run(model) for model in models)))

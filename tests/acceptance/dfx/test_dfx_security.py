@@ -269,14 +269,17 @@ def _purge_module_rows(tenant_id: str) -> None:
 
 
 def _set_owner_secrets(stack: LiveStack) -> None:
-    """把 canary 写进 Owner 表（模型 `api_key`、bot `secret`）——真实列写入，运行期实时读取。"""
+    """把 canary 写进 Owner 表（成员凭据 `api_key`、bot `secret`）——真实列写入，运行期实时读取。"""
 
     async def update(factory: Any) -> None:
         async with factory() as session:
             await session.execute(
                 text(
-                    "UPDATE control.model_definition SET api_key = :k"
-                    " WHERE tenant_id = :t AND id = :id"
+                    "UPDATE control.model_credential SET api_key = :k "
+                    "WHERE tenant_id = :t AND id = ("
+                    " SELECT m.credential_id FROM control.model_deployment m "
+                    " WHERE m.model_id = :id AND m.is_deleted = false "
+                    " ORDER BY m.key, m.id LIMIT 1)"
                 ),
                 {"k": CANARY, "t": stack.tenant_id, "id": stack.model_id},
             )
@@ -819,7 +822,7 @@ def test_e07_canary_never_reaches_run_audit_tables(
     # 阳性对照：同一反查口径在两处 Owner 表上**必须**命中（明文按设计存这里）——
     # 证明上面的「四表零命中」不是扫描器失效造成的空断言。
     assert _canary_hits("control.mcp_server", stack.tenant_id) >= 1
-    assert _canary_hits("control.model_definition", stack.tenant_id) >= 1
+    assert _canary_hits("control.model_credential", stack.tenant_id) >= 1
 
 
 def test_e07_bot_snapshot_is_gated_and_im_outbound_carries_no_plaintext(

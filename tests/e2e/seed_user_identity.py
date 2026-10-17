@@ -65,9 +65,9 @@ async def _seed(connection, tenant_id: str, user_id: uuid.UUID, *, corrupt_memor
     now = datetime.now(UTC)
     await connection.execute(
         text(
-            "INSERT INTO control.model_definition (id, tenant_id, key, name, model_id, base_url, enabled) "
-            "VALUES (:id, :tenant_id, 'e2e-model', 'E2E Model', 'gpt-4o-mini', "
-            "'https://api.example.com/v1', true)"
+            "INSERT INTO control.model_definition "
+            "(id, tenant_id, key, name, model_id, provider_key, enabled) "
+            "VALUES (:id, :tenant_id, 'e2e-model', 'E2E Model', 'gpt-4o-mini', 'openai', true)"
         ),
         {"id": model_id, "tenant_id": tenant_id},
     )

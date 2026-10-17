@@ -99,7 +99,7 @@ async def test_e01_stale_revision_conflict(
 
 
 async def test_s01_revision_bump_and_resolve_uses_new_config(
-    client: AsyncClient, tenant: TenantContext
+    client: AsyncClient, tenant: TenantContext, model_member: TenantContext
 ) -> None:
     """[S-01] 编辑后 revision+1；resolve-definition 返回新 instructions。
 

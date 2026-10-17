@@ -26,7 +26,8 @@ ROOT = Path(__file__).resolve().parents[2]
 VERSIONS = ROOT / "migrations/versions"
 
 NEW_COLUMNS = {
-    "model_definition": "api_key",
+    # 逻辑模型的明文密钥在 0021/0027 后归**物理凭据表**（model_definition 的旧列被末段 revision 删除）
+    "model_credential": "api_key",
     "bot_account": "secret",
     "mcp_server": "auth_secret",
     "project_platform": "auth_secret",
@@ -34,12 +35,14 @@ NEW_COLUMNS = {
     "shared_credential_ref": "credential_json",
 }
 OLD_COLUMNS = {
-    "model_definition": "secret_ref",
+    "model_credential": "secret_ref",
     "bot_account": "secret_ref",
     "mcp_server": "auth_secret_ref",
     "user_credential_ref": "secret_ref",
     "shared_credential_ref": "secret_ref",
 }
+#: 已退休的旧执行列：head 上必须不存在（明文密钥只此一处，不残留第二份）
+RETIRED_COLUMNS = {"model_definition": ("secret_ref", "api_key")}
 
 
 def _database_url() -> str:
@@ -106,7 +109,7 @@ async def test_s04_contract_state_has_plaintext_columns_only() -> None:
             tables = await connection.run_sync(
                 lambda sync: {
                     table: _column_names(sync, table)
-                    for table in set(NEW_COLUMNS) | set(OLD_COLUMNS)
+                    for table in set(NEW_COLUMNS) | set(OLD_COLUMNS) | set(RETIRED_COLUMNS)
                 }
             )
     finally:
@@ -117,6 +120,13 @@ async def test_s04_contract_state_has_plaintext_columns_only() -> None:
     assert all(NEW_COLUMNS[table] in tables[table] for table in NEW_COLUMNS)
     leftovers = [f"{table}.{column}" for table, column in OLD_COLUMNS.items() if column in tables[table]]
     assert leftovers == [], f"contract 后旧列残留: {leftovers}"
+    retired = [
+        f"{table}.{column}"
+        for table, columns in RETIRED_COLUMNS.items()
+        for column in columns
+        if column in tables[table]
+    ]
+    assert retired == [], f"末段删列后旧执行列残留: {retired}"
 
 
 async def test_e03_backfill_reports_unresolved_refs_and_fails_fast() -> None:

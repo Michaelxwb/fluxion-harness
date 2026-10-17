@@ -257,7 +257,6 @@ async def bot_config() -> AsyncIterator[dict[str, Any]]:
             key=f"model-{uuid.uuid4().hex[:8]}",
             name="B105 Model",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
         )
         session.add(model)
         await session.flush()

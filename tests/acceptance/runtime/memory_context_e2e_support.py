@@ -6,11 +6,27 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from muad_agent_runtime.application.run_events import EventWriter
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, CanonicalEvent, RunRecord
-from muad_console_platform.infrastructure.models.control import AgentDefinition, ModelDefinition
+from muad_console_platform.infrastructure.models.control import (
+    AgentDefinition,
+    ModelCredential,
+    ModelDefinition,
+    ModelDeployment,
+)
 from sqlalchemy import select
 
 from tests.acceptance.runtime.conftest import run_db
 from tests.agent_runtime.memory_redesign_write_support import command, commands, context, upsert
+
+
+async def _member_credential(session, model_id):
+    """该模型的成员凭据行：运行期连接/密钥在这里（逻辑模型已无旧执行列）。"""
+    return (
+        await session.scalars(
+            select(ModelCredential)
+            .join(ModelDeployment, ModelDeployment.credential_id == ModelCredential.id)
+            .where(ModelDeployment.model_id == model_id, ModelDeployment.is_deleted.is_(False))
+        )
+    ).one()
 
 SUMMARY = {"user_goal": "保留摘要诉求", "constraints": [], "progress": [], "open_items": [], "artifacts": []}
 #: 后台提炼（consolidation）请求的识别标记与空批次：本场景只验证业务回合与压缩层，
@@ -85,10 +101,10 @@ async def delete_fact(stack, key):
 def configure(stack, endpoint, layer):
     async def update(factory):
         async with factory.begin() as session:
-            model = await session.get(ModelDefinition, stack.model_id)
+            credential = await _member_credential(session, stack.model_id)
             agent = await session.get(AgentDefinition, stack.agent_id)
-            original = model.base_url, agent.runtime_config
-            model.base_url = endpoint + "/v1"
+            original = credential.base_url, agent.runtime_config
+            credential.base_url = endpoint + "/v1"
             compaction = {
                 "snip": {
                     "enabled": layer == "snip",
@@ -112,9 +128,9 @@ def configure(stack, endpoint, layer):
 def restore(stack, original):
     async def update(factory):
         async with factory.begin() as session:
-            model = await session.get(ModelDefinition, stack.model_id)
+            credential = await _member_credential(session, stack.model_id)
             agent = await session.get(AgentDefinition, stack.agent_id)
-            model.base_url, agent.runtime_config = original
+            credential.base_url, agent.runtime_config = original
 
     run_db(update)
 

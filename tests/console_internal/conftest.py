@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -14,7 +15,9 @@ from muad_console_platform.infrastructure.models.auth import ROLE_ADMIN, Console
 from muad_console_platform.infrastructure.models.control import (
     AgentAccessGrant,
     AgentDefinition,
+    ModelCredential,
     ModelDefinition,
+    ModelDeployment,
 )
 from muad_console_platform.main import app
 from sqlalchemy import inspect, text
@@ -30,6 +33,10 @@ GUARD_TABLES = (
     "console_session",
 )
 ADMIN_PASSWORD = "console-admin-password"
+#: 内部解析用例的固定执行身份：逻辑模型声明供方，连接与密钥在成员凭据
+PROVIDER_KEY = "openai"
+MODEL_BASE_URL = "https://api.example.com/v1"
+MODEL_API_KEY = "sk-happy"
 
 PLATFORM_USER = sa.table(
     "platform_user",
@@ -53,6 +60,7 @@ class TenantContext:
     model_base_url: str
     model_api_key: str
     model_params: dict[str, Any]
+    model_credential_id: uuid.UUID
     disabled_model_id: uuid.UUID
     deleted_model_id: uuid.UUID
     agent_id: uuid.UUID
@@ -125,8 +133,7 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
             name="Enabled Model",
             protocol="OPENAI",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
-            api_key="sk-happy",
+            provider_key=PROVIDER_KEY,
             params_json={"temperature": 0.3},
             revision=5,
             enabled=True,
@@ -136,7 +143,6 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
             key=_unique_key("model"),
             name="Disabled Model",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
             enabled=False,
         )
         deleted_model = ModelDefinition(
@@ -144,10 +150,31 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
             key=_unique_key("model"),
             name="Deleted Model",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
             is_deleted=True,
         )
         session.add_all([enabled_model, disabled_model, deleted_model])
+        await session.flush()
+        # 执行入口是成员凭据：逻辑模型只声明供方，连接与密钥实体在上面的凭据行
+        credential = ModelCredential(
+            tenant_id=tenant_id,
+            key=_unique_key("credential"),
+            provider_key=PROVIDER_KEY,
+            base_url=MODEL_BASE_URL,
+            api_key=MODEL_API_KEY,
+            api_key_digest=hashlib.sha256(MODEL_API_KEY.encode()).hexdigest(),
+            max_inflight=8,
+        )
+        session.add(credential)
+        await session.flush()
+        session.add(
+            ModelDeployment(
+                tenant_id=tenant_id,
+                key=_unique_key("member"),
+                model_id=enabled_model.id,
+                credential_id=credential.id,
+                weight=1,
+            )
+        )
         await session.flush()
         granted_agent = AgentDefinition(
             tenant_id=tenant_id,
@@ -253,9 +280,10 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
             model_id=enabled_model.id,
             model_revision=enabled_model.revision,
             model_model_id=enabled_model.model_id,
-            model_base_url=enabled_model.base_url,
-            model_api_key=enabled_model.api_key or "",
+            model_base_url=MODEL_BASE_URL,
+            model_api_key=MODEL_API_KEY,
             model_params=enabled_model.params_json,
+            model_credential_id=credential.id,
             disabled_model_id=disabled_model.id,
             deleted_model_id=deleted_model.id,
             agent_id=granted_agent.id,
@@ -283,6 +311,15 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
             )
             await session.execute(
                 text("DELETE FROM control.agent_definition WHERE tenant_id = :tenant_id"),
+                {"tenant_id": tenant_id},
+            )
+            # 成员 → 凭据 → 逻辑模型（外键顺序）
+            await session.execute(
+                text("DELETE FROM control.model_deployment WHERE tenant_id = :tenant_id"),
+                {"tenant_id": tenant_id},
+            )
+            await session.execute(
+                text("DELETE FROM control.model_credential WHERE tenant_id = :tenant_id"),
                 {"tenant_id": tenant_id},
             )
             await session.execute(

@@ -39,14 +39,12 @@ class PlatformUser(StandardColumnsMixin, Base):
 
 
 class ModelDefinition(StandardColumnsMixin, Base):
-    """逻辑模型定义（设计 §3.3）：连接与密钥的权威归属是 ``model_credential``。
+    """逻辑模型定义（设计 §3.3）：只有声明字段，连接与密钥的权威归属是 ``model_credential``。
 
-    `provider_key` 是供方标识（Owner 规范化后的小写串）。空串表示"尚无可用成员"的存量行，
-    成员（`model_deployment`）的 credential.provider_key 必须与本列一致。
-
-    旧的 `base_url` / `api_key` 是**待删除的冗余执行列**：0021 只把数据迁成凭据与成员，
-    物理删列在后续 revision 执行（消费方重写完再删，见 `docs/model-pool-control-migration.md`）。
-    在此期间两处并存不代表双写——迁移只写 `model_credential`，旧列保持原值不动。
+    `provider_key` 是供方标识（创建时原样保存；迁移清单规范化后为小写串）。空串表示
+    "尚无可用成员"的存量行，成员（`model_deployment`）的 credential.provider_key 必须与本列
+    一致。旧的 `base_url` / `api_key` 执行列在末段 revision（0027）已物理删除：执行入口只剩
+    成员凭据一条路，逻辑模型既写不了也读不到连接与密钥。
 
     `(tenant_id, id)` 的唯一约束只为让 `model_deployment` 能在**数据库层**用复合 FK
     锁定同租户归属（PG 要求 FK 目标列上有唯一约束）；它不与主键冲突，也不参与业务查询。
@@ -74,16 +72,12 @@ class ModelDefinition(StandardColumnsMixin, Base):
         server_default=sa.text("'OPENAI'"),
     )
     model_id: Mapped[str] = mapped_column(sa.String(128), nullable=False)
-    #: 供方标识（Owner 规范化后的小写串）；空串 = 尚未声明供方（旧建模型入口的中间态，
-    #: 维护窗口迁移的存量行由清单显式声明，见 `docs/model-pool-control-migration.md`）
+    #: 供方标识（创建时原样保存）；空串 = 尚未声明供方（待成员绑定前显式声明）
     provider_key: Mapped[str] = mapped_column(
         sa.String(128),
         nullable=False,
         server_default=sa.text("''"),
     )
-    #: 冗余旧执行列：随列删除的 revision 一并移除，届时连接与密钥只在 `model_credential`
-    base_url: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    api_key: Mapped[str | None] = mapped_column(sa.Text())
     params_json: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,

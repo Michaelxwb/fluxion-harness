@@ -44,9 +44,8 @@ async def _ensure_model(connection: Any, tenant_id: str) -> str:
         await connection.execute(
             text(
                 "INSERT INTO control.model_definition "
-                "(id, tenant_id, key, name, protocol, model_id, base_url, enabled) "
-                "VALUES (:id, :tenant_id, :key, 'E2E Agent Model', 'OPENAI', 'gpt-4o-mini', "
-                "'https://api.example.com/v1', true)"
+                "(id, tenant_id, key, name, protocol, model_id, enabled) "
+                "VALUES (:id, :tenant_id, :key, 'E2E Agent Model', 'OPENAI', 'gpt-4o-mini', true)"
             ),
             {"id": model_id, "tenant_id": tenant_id, "key": f"e2e-model-{uuid.uuid4().hex[:8]}"},
         )

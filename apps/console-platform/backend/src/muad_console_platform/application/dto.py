@@ -453,24 +453,43 @@ class IdentityItem(BaseModel):
     user_status: str
 
 
+def require_sent_output_budget(params: dict[str, Any]) -> dict[str, Any]:
+    """`params.max_tokens` 必须是正整数 —— 它是 OPENAI 调用**真正发送**的输出预算键。
+
+    Runtime 侧把该键直传供方（`executor` → OPENAI provider 的请求体）；同义但从不发送的
+    键（如 `max_output_tokens`）不能冒充输出预算：容量预占按实际发送上限算，写错键会让
+    预占与真实消耗脱节。缺失、布尔、浮点、字符串、非正数一律拒绝。
+    """
+    budget = params.get("max_tokens")
+    if isinstance(budget, bool) or not isinstance(budget, int) or budget <= 0:
+        raise ValueError(
+            "params.max_tokens must be a positive integer: it is the output budget actually sent"
+        )
+    return params
+
+
 class ModelCreateRequest(BaseModel):
+    """逻辑模型创建：只声明协议/型号/供方与参数，**不携带**连接与密钥。
+
+    执行入口（base_url/api_key）的唯一权威是物理凭据 `model_credential`，由成员关系
+    （`model_deployment`）挂载；逻辑模型既不接收也不回显这两类字段。
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     key: str = Field(min_length=1, max_length=128)
     name: str = Field(min_length=1, max_length=128)
     protocol: Literal["OPENAI"] = "OPENAI"
-    base_url: str = Field(min_length=1)
     model_id: str = Field(min_length=1, max_length=128)
-    api_key: str | None = Field(default=None, max_length=512)
-    params: dict[str, Any] = Field(default_factory=dict)
+    #: 供方标识，原样保存（`''` = 尚未声明，待成员绑定前显式声明；不静默归一大小写）
+    provider_key: str = Field(default="", max_length=128)
+    params: dict[str, Any]
     enabled: bool = True
 
-    @field_validator("base_url")
+    @field_validator("params")
     @classmethod
-    def _require_http_url(cls, value: str) -> str:
-        if not value.startswith(("http://", "https://")):
-            raise ValueError("base_url must start with http:// or https://")
-        return value
+    def _require_output_budget(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return require_sent_output_budget(value)
 
 
 class ModelUpdateRequest(BaseModel):
@@ -479,17 +498,14 @@ class ModelUpdateRequest(BaseModel):
     expected_revision: int = Field(ge=1)
     name: str | None = Field(default=None, min_length=1, max_length=128)
     model_id: str | None = Field(default=None, min_length=1, max_length=128)
-    base_url: str | None = Field(default=None, min_length=1)
-    api_key: str | None = Field(default=None, max_length=512)
+    provider_key: str | None = Field(default=None, max_length=128)
     params: dict[str, Any] | None = None
     enabled: bool | None = None
 
-    @field_validator("base_url")
+    @field_validator("params")
     @classmethod
-    def _require_http_url(cls, value: str | None) -> str | None:
-        if value is not None and not value.startswith(("http://", "https://")):
-            raise ValueError("base_url must start with http:// or https://")
-        return value
+    def _require_output_budget(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        return None if value is None else require_sent_output_budget(value)
 
 
 class ModelListItem(BaseModel):
@@ -500,8 +516,7 @@ class ModelListItem(BaseModel):
     name: str
     protocol: str
     model_id: str
-    base_url: str
-    api_key_configured: bool
+    provider_key: str
     params: dict[str, Any]
     revision: int
     enabled: bool

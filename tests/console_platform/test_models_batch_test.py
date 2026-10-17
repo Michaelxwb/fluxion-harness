@@ -77,13 +77,13 @@ def probe_endpoint():
     endpoint.stop()
 
 
-def _model_payload(key: str, base_url: str, api_key: str | None, enabled: bool = True) -> dict[str, object]:
+def _model_payload(key: str, enabled: bool = True) -> dict[str, object]:
     return {
         "key": key,
         "name": f"Probe {key}",
-        "base_url": base_url,
+        "provider_key": "openai",
         "model_id": "gpt-4o-mini",
-        "api_key": api_key,
+        "params": {"max_tokens": 2048},
         "enabled": enabled,
     }
 
@@ -94,25 +94,62 @@ async def _create_model(client: AsyncClient, tenant: TenantContext, **payload: o
     return created.json()["data"]
 
 
+async def _create_credential(
+    client: AsyncClient, tenant: TenantContext, *, base_url: str, api_key: str
+) -> str:
+    """真实控制面写一条物理凭据，返回 id（同一把 Key 只登记一次，模型成员复用）。"""
+    credential = await client.post(
+        "/api/v1/model-credentials",
+        json={
+            "key": f"cred-{uuid.uuid4().hex[:6]}",
+            "provider_key": "openai",
+            "base_url": base_url,
+            "api_key": api_key,
+            "max_inflight": 8,
+        },
+        headers=_headers(tenant),
+    )
+    assert credential.status_code == 200, credential.text
+    return credential.json()["data"]["id"]
+
+
+async def _bind_member(client: AsyncClient, tenant: TenantContext, model_id: str, credential_id: str) -> None:
+    """成员绑定：模型 → 物理凭据（执行入口只在成员凭据一侧）。"""
+    member = await client.post(
+        f"/api/v1/models/{model_id}/deployments",
+        json={
+            "key": f"member-{uuid.uuid4().hex[:6]}",
+            "credential_id": credential_id,
+            "weight": 1,
+        },
+        headers=_headers(tenant),
+    )
+    assert member.status_code == 200, member.text
+
+
 @pytest.mark.asyncio()
 async def test_e04_and_fallback_mapping(
     client: AsyncClient, tenant: TenantContext, probe_endpoint: ProbeEndpoint
 ) -> None:
-    healthy = await _create_model(
-        client, tenant, **_model_payload(f"m-{uuid.uuid4().hex[:6]}", f"{probe_endpoint.url}/v1", "good-key")
+    # 一把物理 Key 一条凭据（身份 = tenant+provider+摘要，端点/容量随之唯一）：
+    # healthy 与 fallback 用不同端点的不同 Key，unauthorized 用错 Key 触发 401。
+    good_credential = await _create_credential(
+        client, tenant, base_url=f"{probe_endpoint.url}/v1", api_key="good-key"
     )
-    unauthorized = await _create_model(
-        client, tenant, **_model_payload(f"m-{uuid.uuid4().hex[:6]}", f"{probe_endpoint.url}/v1", "bad-key")
+    bad_credential = await _create_credential(
+        client, tenant, base_url=f"{probe_endpoint.url}/v1", api_key="bad-key"
     )
-    fallback = await _create_model(
-        client,
-        tenant,
-        **_model_payload(f"m-{uuid.uuid4().hex[:6]}", f"{probe_endpoint.url}/fallback", "good-key"),
+    fallback_credential = await _create_credential(
+        client, tenant, base_url=f"{probe_endpoint.url}/fallback", api_key="fallback-key"
     )
+    healthy = await _create_model(client, tenant, **_model_payload(f"m-{uuid.uuid4().hex[:6]}"))
+    await _bind_member(client, tenant, healthy["id"], good_credential)
+    unauthorized = await _create_model(client, tenant, **_model_payload(f"m-{uuid.uuid4().hex[:6]}"))
+    await _bind_member(client, tenant, unauthorized["id"], bad_credential)
+    fallback = await _create_model(client, tenant, **_model_payload(f"m-{uuid.uuid4().hex[:6]}"))
+    await _bind_member(client, tenant, fallback["id"], fallback_credential)
     disabled = await _create_model(
-        client,
-        tenant,
-        **_model_payload(f"m-{uuid.uuid4().hex[:6]}", f"{probe_endpoint.url}/v1", "good-key", enabled=False),
+        client, tenant, **_model_payload(f"m-{uuid.uuid4().hex[:6]}", enabled=False)
     )
 
     requests_before = sum(probe_endpoint.counter.values())

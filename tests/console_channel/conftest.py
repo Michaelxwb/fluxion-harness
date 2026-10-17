@@ -166,14 +166,12 @@ async def channel(database_guard: None) -> AsyncIterator[ChannelContext]:
             key=_unique_key("model"),
             name="Channel Model",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
         )
         other_model = ModelDefinition(
             tenant_id=other_tenant_id,
             key=_unique_key("model"),
             name="Other Channel Model",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
         )
         session.add_all([model, other_model])
         await session.flush()

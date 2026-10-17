@@ -81,7 +81,6 @@ async def _model_and_account(session: AsyncSession) -> ModelDefinition:
         key="e2e-overview-model",
         name="Overview Model",
         model_id="overview-model",
-        base_url="https://example.test/v1",
         enabled=True,
     )
     session.add(model)

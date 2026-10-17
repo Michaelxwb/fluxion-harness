@@ -310,7 +310,6 @@ async def _create(state_path: str) -> None:
                 key=f"e2e-run-obs-model-{uuid.uuid4().hex[:8]}",
                 name="Run Obs E2E Model",
                 model_id="gpt-4o-mini",
-                base_url="https://api.example.com/v1",
                 enabled=True,
             )
             session.add(model)

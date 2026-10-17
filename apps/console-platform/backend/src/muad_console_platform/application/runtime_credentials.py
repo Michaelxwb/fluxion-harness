@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import ModelDefinition
 from ..infrastructure.models.mcp import McpServer
+from ..infrastructure.repositories.model_deployment_repository import ModelDeploymentRepository
 
 VALID_EXECUTION_TYPES = frozenset({"RUN"})
 
@@ -38,8 +39,10 @@ async def resolve_runtime_credentials(
     model = await session.get(ModelDefinition, model_id)
     if model is None or model.is_deleted or model.tenant_id != tenant_id:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
-    if not model.api_key:
-        # 密钥缺失明确失败，不退回环境变量
+    # 当前认证值只来自可用成员凭据（逻辑模型不再持有连接/密钥）
+    credential = await ModelDeploymentRepository(session).find_execution_credential(tenant_id, model_id)
+    if credential is None:
+        # 密钥缺失明确失败，不退回环境变量，也不退回模型自身的旧列
         raise AppError(ErrorCode.CREDENTIAL_MISSING)
 
     mcp_servers: list[dict[str, Any]] = []
@@ -59,4 +62,7 @@ async def resolve_runtime_credentials(
                 {"mcp_server_id": str(server_id), "auth_secret": server.auth_secret}
             )
 
-    return {"model": {"id": str(model_id), "api_key": model.api_key}, "mcp_servers": mcp_servers}
+    return {
+        "model": {"id": str(model_id), "api_key": credential.api_key},
+        "mcp_servers": mcp_servers,
+    }

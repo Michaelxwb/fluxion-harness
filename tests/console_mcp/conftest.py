@@ -88,7 +88,6 @@ async def mcp_env(database_guard) -> AsyncIterator[dict[str, object]]:
             key=f"model-{uuid.uuid4()}",
             name="MCP Model",
             model_id="gpt-4o-mini",
-            base_url="https://model.example.com/v1",
         )
         user = PlatformUser(
             tenant_id=tenant_id, user_code=f"user-{uuid.uuid4()}", display_name="Actor"

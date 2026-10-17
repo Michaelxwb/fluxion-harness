@@ -1,11 +1,25 @@
 """Isolated PostgreSQL fixtures for async-tool integration and migration tests."""
 
 from collections.abc import AsyncIterator, Iterator
+from pathlib import Path
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from tests.acceptance.datastores import create_datastore, drop_datastore
+
+MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "migrations"
+
+
+def migration_head() -> str:
+    """迁移链的真实 head（不钉死常量）：链推进时断言不需要跟着改。"""
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS_DIR))
+    head = ScriptDirectory.from_config(config).get_current_head()
+    assert head is not None
+    return head
 
 
 @pytest.fixture

@@ -10,7 +10,7 @@ import uuid
 import pytest
 from httpx import AsyncClient
 from muad_console_platform.infrastructure.db import get_session_factory
-from muad_console_platform.infrastructure.models.control import ModelDefinition
+from muad_console_platform.infrastructure.models.control import ModelCredential
 from muad_console_platform.infrastructure.models.mcp import McpServer
 from sqlalchemy import update
 
@@ -96,7 +96,7 @@ async def test_b128_requires_service_identity(client: AsyncClient, tenant: Tenan
 async def test_b128_returns_model_key_and_rotation(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
-    """[B-128] 返回当前 api_key；轮换后读取新值；不返回 params/catalog 字段。"""
+    """[B-128] 返回当前 api_key；轮换成员凭据后读取新值；不返回 params/catalog 字段。"""
     response = await client.post(URL, json=_payload(tenant), headers=_service_headers(tenant))
     assert response.status_code == 200, response.text
     data = response.json()["data"]
@@ -105,10 +105,11 @@ async def test_b128_returns_model_key_and_rotation(
     assert set(data["model"].keys()) == {"id", "api_key"}  # 不含 params/base_url
     assert data["mcp_servers"] == []
 
+    # 轮换发生在成员凭据行（逻辑模型已无密钥列）：同一身份换值，读取侧立刻看到新值
     async with get_session_factory()() as session:
         await session.execute(
-            update(ModelDefinition)
-            .where(ModelDefinition.id == tenant.model_id)
+            update(ModelCredential)
+            .where(ModelCredential.id == tenant.model_credential_id)
             .values(api_key="rotated-key-value")
         )
         await session.commit()
@@ -119,8 +120,8 @@ async def test_b128_returns_model_key_and_rotation(
 
     async with get_session_factory()() as session:
         await session.execute(
-            update(ModelDefinition)
-            .where(ModelDefinition.id == tenant.model_id)
+            update(ModelCredential)
+            .where(ModelCredential.id == tenant.model_credential_id)
             .values(api_key=tenant.model_api_key)
         )
         await session.commit()
@@ -139,12 +140,12 @@ async def test_b128_cross_tenant_model_rejected(
 async def test_b128_missing_secret_returns_credential_missing(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
-    """[B-128] 密钥清空 → CREDENTIAL_MISSING，不退回环境变量。"""
+    """[B-128] 无可用成员凭据（凭据停用）→ CREDENTIAL_MISSING，不退回环境变量/旧列。"""
     async with get_session_factory()() as session:
         await session.execute(
-            update(ModelDefinition)
-            .where(ModelDefinition.id == tenant.model_id)
-            .values(api_key=None)
+            update(ModelCredential)
+            .where(ModelCredential.id == tenant.model_credential_id)
+            .values(enabled=False)
         )
         await session.commit()
 
@@ -154,9 +155,9 @@ async def test_b128_missing_secret_returns_credential_missing(
 
     async with get_session_factory()() as session:
         await session.execute(
-            update(ModelDefinition)
-            .where(ModelDefinition.id == tenant.model_id)
-            .values(api_key=tenant.model_api_key)
+            update(ModelCredential)
+            .where(ModelCredential.id == tenant.model_credential_id)
+            .values(enabled=True)
         )
         await session.commit()
 

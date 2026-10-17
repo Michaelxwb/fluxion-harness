@@ -63,9 +63,8 @@ async def test_s03_gateway_consumes_bot_secret_from_db(engine: AsyncEngine) -> N
         await connection.execute(
             text(
                 "INSERT INTO control.model_definition "
-                "(id, tenant_id, key, name, model_id, base_url, enabled) "
-                "VALUES (:id, :tenant_id, :key, 'Consumer Model', 'gpt-4o-mini', "
-                "'https://api.example.com/v1', true)"
+                "(id, tenant_id, key, name, model_id, enabled) "
+                "VALUES (:id, :tenant_id, :key, 'Consumer Model', 'gpt-4o-mini', true)"
             ),
             {"id": model_id, "tenant_id": tenant_id, "key": f"consumer-model-{suffix}"},
         )

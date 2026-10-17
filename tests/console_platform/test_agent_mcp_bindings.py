@@ -72,7 +72,7 @@ async def _grant_user(tenant: TenantContext) -> tuple[uuid.UUID, uuid.UUID]:
 
 
 async def test_s06_unbind_then_rebind_updates_resolve(
-    client: AsyncClient, tenant: TenantContext
+    client: AsyncClient, tenant: TenantContext, model_member: TenantContext
 ) -> None:
     """[S-06] 绑定→解除（软删除，resolve 立即不可见）→再绑定恢复同一逻辑关系。"""
     agent_id = await _make_agent(client, tenant)
@@ -167,7 +167,7 @@ async def test_s06_unbind_then_rebind_updates_resolve(
 
 
 async def test_b02_effective_mcp_formula_matrix(
-    client: AsyncClient, tenant: TenantContext
+    client: AsyncClient, tenant: TenantContext, model_member: TenantContext
 ) -> None:
     """[B-02][RULE-auth-001] EffectiveMcp 公式分支：binding 软删 / MCP 禁用 / SELECTED 无 grant /
     ALL 直通。"""

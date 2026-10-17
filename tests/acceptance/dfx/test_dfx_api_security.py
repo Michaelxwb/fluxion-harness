@@ -145,8 +145,6 @@ def _seed() -> ApiSecurityContext:
                 key=_unique("dfx-cross-model"),
                 name="DFX Cross Model",
                 model_id="gpt-4o-mini",
-                base_url="https://api.example.com/v1",
-                api_key="dfx-cross-model-key",
             )
             session.add(cross_model)
             await session.flush()

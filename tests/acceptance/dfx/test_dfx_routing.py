@@ -214,8 +214,15 @@ class ScriptedLlmProbe:
 def _point_model_at(stack: LiveStack, base_url: str) -> None:
     async def update(factory: Any) -> None:
         async with factory() as session:
+            # 执行入口在成员凭据行（逻辑模型已无连接列）
             await session.execute(
-                text("UPDATE control.model_definition SET base_url = :u WHERE id = :id"),
+                text(
+                    "UPDATE control.model_credential SET base_url = :u, update_time = now() "
+                    "WHERE id = ("
+                    " SELECT m.credential_id FROM control.model_deployment m "
+                    " WHERE m.model_id = :id AND m.is_deleted = false "
+                    " ORDER BY m.key, m.id LIMIT 1)"
+                ),
                 {"u": base_url, "id": stack.model_id},
             )
             await session.commit()

@@ -17,6 +17,7 @@ DFX 自己的唯一租户、控制面种子与最小真实服务链（Console + 
 
 from __future__ import annotations
 
+import hashlib
 import os
 import socket
 import subprocess
@@ -235,7 +236,9 @@ def seed_control(database_url: str, artifact_root: Path) -> dict[str, Any]:
         AgentAccessGrant,
         AgentDefinition,
         AgentSkillBinding,
+        ModelCredential,
         ModelDefinition,
+        ModelDeployment,
         PlatformUser,
         Skill,
         SkillArtifact,
@@ -250,11 +253,32 @@ def seed_control(database_url: str, artifact_root: Path) -> dict[str, Any]:
                 key=f"dfx-model-{uuid.uuid4().hex[:8]}",
                 name="DFX Reliability Model",
                 model_id="gpt-4o-mini",
-                base_url="http://127.0.0.1:9/v1",
-                api_key=MODEL_API_KEY,
-                params_json={"temperature": 0.0},
+                provider_key="openai",
+                params_json={"temperature": 0.0, "max_tokens": 1024},
             )
             session.add(model)
+            await session.flush()
+            # 执行入口是成员凭据：连接/密钥的实体从逻辑模型移到凭据行（内容不变）
+            credential = ModelCredential(
+                tenant_id=TENANT,
+                key=f"dfx-cred-{uuid.uuid4().hex[:8]}",
+                provider_key="openai",
+                base_url="http://127.0.0.1:9/v1",
+                api_key=MODEL_API_KEY,
+                api_key_digest=hashlib.sha256(MODEL_API_KEY.encode()).hexdigest(),
+                max_inflight=8,
+            )
+            session.add(credential)
+            await session.flush()
+            session.add(
+                ModelDeployment(
+                    tenant_id=TENANT,
+                    key=f"dfx-member-{uuid.uuid4().hex[:8]}",
+                    model_id=model.id,
+                    credential_id=credential.id,
+                    weight=1,
+                )
+            )
             await session.flush()
             agent = AgentDefinition(
                 tenant_id=TENANT,

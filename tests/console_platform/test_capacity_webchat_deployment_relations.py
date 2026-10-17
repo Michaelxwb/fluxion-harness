@@ -89,7 +89,6 @@ async def relation_tenant(tenant: TenantContext) -> AsyncIterator[RelationContex
             name="Pooled Model",
             model_id="gpt-4o-mini",
             provider_key=PROVIDER,
-            base_url="https://model.example/v1",
             enabled=True,
         )
         other_model = ModelDefinition(
@@ -98,7 +97,6 @@ async def relation_tenant(tenant: TenantContext) -> AsyncIterator[RelationContex
             name="Azure Model",
             model_id="gpt-4o-mini",
             provider_key=OTHER_PROVIDER,
-            base_url="https://model.example/v1",
             enabled=True,
         )
         credentials = [
@@ -320,7 +318,6 @@ async def test_b217_provider_and_tenancy_are_verified(
                 name="Foreign Model",
                 model_id="gpt-4o-mini",
                 provider_key=PROVIDER,
-                base_url="https://model.example/v1",
                 enabled=True,
             )
         )

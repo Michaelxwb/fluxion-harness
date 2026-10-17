@@ -8,7 +8,8 @@ run/job/probe 归属；UNKNOWN 保留占用、不会被软删除隐藏。
 import asyncio
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from importlib import import_module
 from pathlib import Path
 from typing import Any
@@ -78,7 +79,7 @@ def _lease(**changes: object) -> dict[str, object]:
         "workload": "PROBE",
         "lease_owner": "probe-1",
         "epoch": 1,
-        "lease_until": datetime.now(timezone.utc) + timedelta(seconds=60),
+        "lease_until": datetime.now(UTC) + timedelta(seconds=60),
         "reserved_tokens": 128,
         "state": "ACTIVE",
     }
@@ -279,11 +280,13 @@ async def test_b210_unknown_lease_retains_occupancy_and_cannot_be_hidden(async_t
 
 
 async def test_b210_downgrade_on_empty_tables_returns_to_0021(
-    async_tool_datastore: dict[str, str], tmp_path: Path,
+    datastore_at_revision: Callable[[str], dict[str, str]], tmp_path: Path,
 ) -> None:
-    result = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0021")
+    # 只验证 0022 自身的回退：建库停在 0022（head 之后的 revision 有自己的门禁）
+    info = datastore_at_revision("0022")
+    result = await _migrate(info, tmp_path, direction="downgrade", target="0021")
     assert result.returncode == 0, result.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == "0021"
@@ -291,24 +294,25 @@ async def test_b210_downgrade_on_empty_tables_returns_to_0021(
             assert not (set(TABLES) & tables)
     finally:
         await engine.dispose()
-    rerun = await _migrate(async_tool_datastore, tmp_path, direction="upgrade", target="head")
+    rerun = await _migrate(info, tmp_path, direction="upgrade", target="head")
     assert rerun.returncode == 0, rerun.stderr
 
 
 async def test_b210_downgrade_with_lease_rows_requires_backup(
-    async_tool_datastore: dict[str, str], tmp_path: Path,
+    datastore_at_revision: Callable[[str], dict[str, str]], tmp_path: Path,
 ) -> None:
+    info = datastore_at_revision("0022")
     models = _models()
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             await connection.execute(models.ModelCallLease.__table__.insert().values(**_lease()))
             head = (await connection.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one()
     finally:
         await engine.dispose()
-    result = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0021")
+    result = await _migrate(info, tmp_path, direction="downgrade", target="0021")
     assert result.returncode != 0 and "MODEL_CAPACITY_DOWNGRADE_REQUIRES_BACKUP" in result.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             # 整链一个事务：0022 拒绝即回滚，链头与数据都保持原样（不钉死在具体 revision 号）。

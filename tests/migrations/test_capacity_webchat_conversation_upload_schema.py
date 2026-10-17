@@ -24,6 +24,7 @@
 import asyncio
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from importlib import import_module
 from pathlib import Path
@@ -32,8 +33,6 @@ from uuid import UUID, uuid4
 
 import pytest
 import sqlalchemy as sa
-from alembic.config import Config
-from alembic.script import ScriptDirectory
 from muad_contracts.channel import AttachmentKind
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
@@ -90,11 +89,8 @@ def _columns(structure: tuple[object, ...]) -> dict[str, tuple[object, ...]]:
 
 def _head() -> str:
     """迁移链的真实 head（不钉死常量）：链推进时本文件不需要跟着改。"""
-    config = Config()
-    config.set_main_option("script_location", str(Path(__file__).resolve().parents[2] / "migrations"))
-    head = ScriptDirectory.from_config(config).get_current_head()
-    assert head is not None
-    return head
+    from tests.async_tool_datastores import migration_head
+    return migration_head()
 
 
 async def _migrate(
@@ -241,12 +237,12 @@ async def test_b213_empty_database_schema_parity(async_tool_database: AsyncEngin
 
 
 async def test_b213_backfill_attributes_only_reliable_run_entries(
-    async_tool_datastore: dict[str, str], tmp_path: Path,
+    datastore_at_revision: Callable[[str], dict[str, str]], tmp_path: Path,
 ) -> None:
-    pristine = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0024")
-    assert pristine.returncode == 0, pristine.stderr
+    # 只验证 0025 自身的回填：建库停在 0024（0025 之后的 revision 不属于本套）
+    info = datastore_at_revision("0024")
     models = _models()
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             agent = await _seed_agent(connection)
@@ -290,9 +286,9 @@ async def test_b213_backfill_attributes_only_reliable_run_entries(
             before_update = pre["update_time"]
     finally:
         await engine.dispose()
-    result = await _migrate(async_tool_datastore, tmp_path, direction="upgrade", target="head")
+    result = await _migrate(info, tmp_path, direction="upgrade", target="head")
     assert result.returncode == 0, result.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             rows = (await connection.execute(sa.text(
@@ -412,10 +408,12 @@ async def test_b213_channel_upload_staging_ttl_size_and_immutable_key(
 
 @pytest.mark.parametrize("blocker", ["upload", "pointer", "attribution"])
 async def test_b213_downgrade_requires_backup_for_entry_or_staging_state(
-    async_tool_datastore: dict[str, str], tmp_path: Path, blocker: str,
+    datastore_at_revision: Callable[[str], dict[str, str]], tmp_path: Path, blocker: str,
 ) -> None:
+    # 只验证 0025 自身的回退门禁：建库停在 0025（head 之后的 revision 有自己的门禁）
+    info = datastore_at_revision("0025")
     models = _models()
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             if blocker == "upload":
@@ -434,9 +432,9 @@ async def test_b213_downgrade_requires_backup_for_entry_or_staging_state(
             head = (await connection.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one()
     finally:
         await engine.dispose()
-    result = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0024")
+    result = await _migrate(info, tmp_path, direction="downgrade", target="0024")
     assert result.returncode != 0 and "CHANNEL_ENTRY_DOWNGRADE_REQUIRES_BACKUP" in result.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(
@@ -451,11 +449,12 @@ async def test_b213_downgrade_requires_backup_for_entry_or_staging_state(
 
 
 async def test_b213_downgrade_on_pristine_schema_returns_to_0024(
-    async_tool_datastore: dict[str, str], tmp_path: Path,
+    datastore_at_revision: Callable[[str], dict[str, str]], tmp_path: Path,
 ) -> None:
-    result = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0024")
+    info = datastore_at_revision("0025")
+    result = await _migrate(info, tmp_path, direction="downgrade", target="0024")
     assert result.returncode == 0, result.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(
@@ -467,9 +466,9 @@ async def test_b213_downgrade_on_pristine_schema_returns_to_0024(
             assert not (set(TABLES) & tables)
     finally:
         await engine.dispose()
-    rerun = await _migrate(async_tool_datastore, tmp_path, direction="upgrade", target="head")
+    rerun = await _migrate(info, tmp_path, direction="upgrade", target="head")
     assert rerun.returncode == 0, rerun.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(

@@ -1,3 +1,4 @@
+import hashlib
 import shutil
 import uuid
 from collections.abc import AsyncIterator
@@ -21,7 +22,9 @@ from muad_console_platform.infrastructure.models.control import (
     AgentAccessGrant,
     AgentDefinition,
     AgentSkillBinding,
+    ModelCredential,
     ModelDefinition,
+    ModelDeployment,
     PlatformUser,
     Skill,
     SkillArtifact,
@@ -169,7 +172,6 @@ async def skill_env(database_guard: None) -> AsyncIterator[SkillContext]:
             key=_unique_key("model"),
             name="Skill Model",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
         )
         actor = PlatformUser(
             tenant_id=tenant_id,
@@ -187,6 +189,28 @@ async def skill_env(database_guard: None) -> AsyncIterator[SkillContext]:
             display_name="Other Tenant User",
         )
         session.add_all([admin, builder, model, actor, other_user, other_tenant_user])
+        await session.flush()
+        # resolve-definition 现在从成员凭据取执行入口（逻辑模型无连接/密钥列）
+        credential = ModelCredential(
+            tenant_id=tenant_id,
+            key=_unique_key("cred"),
+            provider_key="openai",
+            base_url="https://api.example.com/v1",
+            api_key="sk-skill-fixture",
+            api_key_digest=hashlib.sha256(b"sk-skill-fixture").hexdigest(),
+            max_inflight=8,
+        )
+        session.add(credential)
+        await session.flush()
+        session.add(
+            ModelDeployment(
+                tenant_id=tenant_id,
+                key=_unique_key("member"),
+                model_id=model.id,
+                credential_id=credential.id,
+                weight=1,
+            )
+        )
         await session.flush()
         agent = AgentDefinition(
             tenant_id=tenant_id,
@@ -343,6 +367,8 @@ async def _cleanup(
             "(SELECT id FROM control.agent_definition WHERE tenant_id IN "
             "(:tenant_id, :other_tenant_id))",
             "DELETE FROM control.agent_definition WHERE tenant_id IN (:tenant_id, :other_tenant_id)",
+            "DELETE FROM control.model_deployment WHERE tenant_id IN (:tenant_id, :other_tenant_id)",
+            "DELETE FROM control.model_credential WHERE tenant_id IN (:tenant_id, :other_tenant_id)",
             "DELETE FROM control.model_definition WHERE tenant_id IN (:tenant_id, :other_tenant_id)",
             "DELETE FROM control.platform_user WHERE tenant_id IN (:tenant_id, :other_tenant_id)",
         ):

@@ -139,7 +139,6 @@ async def _seed_agent_with_compaction_override(tenant_id: str, *, max_groups: in
             key=f"model-{uuid.uuid4()}",
             name="Seeded Model",
             model_id="gpt-4o-mini",
-            base_url="https://api.example.com/v1",
             revision=1,
             enabled=True,
         )

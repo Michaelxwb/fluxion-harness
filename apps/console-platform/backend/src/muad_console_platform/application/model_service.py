@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import ModelDefinition
+from ..infrastructure.repositories.model_deployment_repository import ModelDeploymentRepository
 from ..infrastructure.repositories.model_repository import ModelRepository
 from .audit_service import AuditActor, AuditService
 from .dto import ModelCreateRequest, ModelUpdateRequest
@@ -15,26 +16,24 @@ AUDIT_RESOURCE_TYPE = "MODEL"
 
 
 def model_snapshot(model: ModelDefinition) -> dict[str, Any]:
+    """审计快照：只列逻辑字段；连接与密钥的权威在 `model_credential`，不在此投影。"""
     return {
         "key": model.key,
         "name": model.name,
         "protocol": model.protocol,
         "model_id": model.model_id,
-        "base_url": model.base_url,
+        "provider_key": model.provider_key,
         "params": model.params_json,
         "revision": model.revision,
         "enabled": model.enabled,
     }
 
 
-def model_configured(model: ModelDefinition) -> bool:
-    return bool(model.api_key)
-
-
 class ModelService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
         self._models = ModelRepository(session)
+        self._deployments = ModelDeploymentRepository(session)
         self._audit = AuditService(session)
 
     async def list_models(
@@ -68,8 +67,7 @@ class ModelService:
             name=payload.name,
             protocol=payload.protocol,
             model_id=payload.model_id,
-            base_url=payload.base_url,
-            api_key=payload.api_key,
+            provider_key=payload.provider_key,
             params_json=payload.params,
             enabled=payload.enabled,
         )
@@ -94,11 +92,7 @@ class ModelService:
             values["name"] = payload.name
         if payload.model_id is not None:
             values["model_id"] = payload.model_id
-        if payload.base_url is not None:
-            values["base_url"] = payload.base_url
-        if payload.api_key:
-            # 留空/省略表示保持现有 Key；不提供"清空 Key"语义
-            values["api_key"] = payload.api_key
+        values.update(await self._provider_values(tenant_id, model, payload.provider_key))
         if payload.params is not None:
             values["params_json"] = payload.params
         if payload.enabled is not None:
@@ -130,6 +124,21 @@ class ModelService:
         model.is_deleted = True
         await self._session.flush()
         await self._record_audit(tenant_id, actor, "DELETE", model, before, None)
+
+    async def _provider_values(
+        self, tenant_id: str, model: ModelDefinition, provider_key: str | None
+    ) -> dict[str, Any]:
+        """供方标识随逻辑模型维护：无成员时可声明/更正，已有成员后不得改动。
+
+        成员（`model_deployment`）的凭据必须与逻辑模型同供方（绑定时的 422 规则）；
+        改动供方会让既有成员悄悄失效，因此只允许在**没有活跃成员**时声明，之后要改先解绑。
+        相同值是无副作用的重复声明，不视为改动。
+        """
+        if provider_key is None or provider_key == model.provider_key:
+            return {}
+        if await self._deployments.has_live_members(tenant_id, model.id):
+            raise AppError(ErrorCode.COMMON_CONFLICT)
+        return {"provider_key": provider_key}
 
     async def _record_audit(
         self,

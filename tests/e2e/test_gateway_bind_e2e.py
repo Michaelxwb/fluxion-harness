@@ -106,9 +106,8 @@ async def test_s02_gateway_bind_creates_identity_without_grant(
         await connection.execute(
             text(
                 "INSERT INTO control.model_definition "
-                "(id, tenant_id, key, name, model_id, base_url, enabled) "
-                "VALUES (:id, :tenant_id, :key, 'Bind E2E Model', 'gpt-4o-mini', "
-                "'https://api.example.com/v1', true)"
+                "(id, tenant_id, key, name, model_id, enabled) "
+                "VALUES (:id, :tenant_id, :key, 'Bind E2E Model', 'gpt-4o-mini', true)"
             ),
             {"id": model_id, "tenant_id": tenant_id, "key": f"bind-model-{suffix}"},
         )

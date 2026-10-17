@@ -8,7 +8,8 @@
 import asyncio
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from importlib import import_module
 from pathlib import Path
 from typing import Any
@@ -220,8 +221,8 @@ async def test_b211_queue_fields_only_expose_waiting_stages_and_release_marker(
             connection,
             queue_stage="WAITING_RUNTIME",
             queue_reason="RUN_CAPACITY_EXCEEDED",
-            queued_at=datetime.now(timezone.utc),
-            queue_deadline_at=datetime.now(timezone.utc) + timedelta(seconds=60),
+            queued_at=datetime.now(UTC),
+            queue_deadline_at=datetime.now(UTC) + timedelta(seconds=60),
         )
         row = (await connection.execute(run.select().where(run.c.id == run_id))).mappings().one()
         assert row["queue_stage"] == "WAITING_RUNTIME" and row["admission_released_at"] is None
@@ -234,7 +235,7 @@ async def test_b211_queue_fields_only_expose_waiting_stages_and_release_marker(
                     ))  # 队列投影只表达等待阶段，不复制执行/工具状态
         await connection.execute(run.update().where(run.c.id == run_id).values(
             queue_stage="WAITING_MODEL", queue_reason="MODEL_CAPACITY_UNAVAILABLE",
-            queue_deadline_at=datetime.now(timezone.utc) + timedelta(seconds=30),
+            queue_deadline_at=datetime.now(UTC) + timedelta(seconds=30),
             update_time=sa.func.now(),
         ))
         await connection.execute(run.update().where(run.c.id == run_id).values(
@@ -248,10 +249,12 @@ async def test_b211_queue_fields_only_expose_waiting_stages_and_release_marker(
 
 @pytest.mark.parametrize("blocker", ["counter", "waiting"])
 async def test_b211_downgrade_requires_drain_for_live_admission_state(
-    async_tool_datastore: dict[str, str], tmp_path: Path, blocker: str,
+    datastore_at_revision: Callable[[str], dict[str, str]], tmp_path: Path, blocker: str,
 ) -> None:
+    # 只验证 0023 自身的回退门禁：建库停在 0023（head 之后的 revision 有自己的门禁）
+    info = datastore_at_revision("0023")
     models = _models()
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             if blocker == "counter":
@@ -261,15 +264,15 @@ async def test_b211_downgrade_requires_drain_for_live_admission_state(
             else:
                 await _insert_run(
                     connection, queue_stage="WAITING_RUNTIME", queue_reason="RUN_CAPACITY_EXCEEDED",
-                    queued_at=datetime.now(timezone.utc),
-                    queue_deadline_at=datetime.now(timezone.utc) + timedelta(seconds=60),
+                    queued_at=datetime.now(UTC),
+                    queue_deadline_at=datetime.now(UTC) + timedelta(seconds=60),
                 )
             head = (await connection.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one()
     finally:
         await engine.dispose()
-    result = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0022")
+    result = await _migrate(info, tmp_path, direction="downgrade", target="0022")
     assert result.returncode != 0 and "RUN_ADMISSION_DOWNGRADE_REQUIRES_DRAIN" in result.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == head
@@ -283,11 +286,12 @@ async def test_b211_downgrade_requires_drain_for_live_admission_state(
 
 
 async def test_b211_downgrade_on_pristine_schema_returns_to_0022(
-    async_tool_datastore: dict[str, str], tmp_path: Path,
+    datastore_at_revision: Callable[[str], dict[str, str]], tmp_path: Path,
 ) -> None:
-    result = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0022")
+    info = datastore_at_revision("0023")
+    result = await _migrate(info, tmp_path, direction="downgrade", target="0022")
     assert result.returncode == 0, result.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == "0022"
@@ -298,5 +302,5 @@ async def test_b211_downgrade_on_pristine_schema_returns_to_0022(
             assert not (set(QUEUE_COLUMNS) & columns)
     finally:
         await engine.dispose()
-    rerun = await _migrate(async_tool_datastore, tmp_path, direction="upgrade", target="head")
+    rerun = await _migrate(info, tmp_path, direction="upgrade", target="head")
     assert rerun.returncode == 0, rerun.stderr

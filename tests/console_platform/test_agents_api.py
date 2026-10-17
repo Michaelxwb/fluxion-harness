@@ -252,7 +252,7 @@ async def test_b01_list_aggregates_and_filters(
 
 
 async def test_s01_revision_bumps_and_frozen_snapshot_not_drifted(
-    client: AsyncClient, tenant: TenantContext
+    client: AsyncClient, tenant: TenantContext, model_member: TenantContext
 ) -> None:
     """[S-01] 编辑 model/instructions → revision+1；resolve 返回新配置；
     已冻结 runtime_snapshot 行（经生产 build_snapshot 写入）不随配置漂移。"""

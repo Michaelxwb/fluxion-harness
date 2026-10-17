@@ -18,6 +18,7 @@ import asyncio
 import hashlib
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from importlib import import_module
 from pathlib import Path
@@ -300,10 +301,12 @@ async def test_b212_chat_session_requires_persisted_token_and_user_and_digest(
 
 
 async def test_b212_downgrade_requires_backup_for_issued_credentials(
-    async_tool_datastore: dict[str, str], tmp_path: Path,
+    datastore_at_revision: Callable[[str], dict[str, str]], tmp_path: Path,
 ) -> None:
+    # 只验证 0024 自身的回退门禁：建库停在 0024（head 之后的 revision 有自己的门禁）
+    info = datastore_at_revision("0024")
     models = _models()
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             user = await _platform_user(connection)
@@ -317,9 +320,9 @@ async def test_b212_downgrade_requires_backup_for_issued_credentials(
             head = (await connection.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one()
     finally:
         await engine.dispose()
-    result = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0023")
+    result = await _migrate(info, tmp_path, direction="downgrade", target="0023")
     assert result.returncode != 0 and "CHAT_AUTH_DOWNGRADE_REQUIRES_BACKUP" in result.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(
@@ -333,11 +336,12 @@ async def test_b212_downgrade_requires_backup_for_issued_credentials(
 
 
 async def test_b212_downgrade_on_pristine_schema_returns_to_0023(
-    async_tool_datastore: dict[str, str], tmp_path: Path,
+    datastore_at_revision: Callable[[str], dict[str, str]], tmp_path: Path,
 ) -> None:
-    result = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0023")
+    info = datastore_at_revision("0024")
+    result = await _migrate(info, tmp_path, direction="downgrade", target="0023")
     assert result.returncode == 0, result.stderr
-    engine = create_async_engine(async_tool_datastore["database_url"])
+    engine = create_async_engine(info["database_url"])
     try:
         async with engine.begin() as connection:
             assert (await connection.execute(
@@ -346,5 +350,5 @@ async def test_b212_downgrade_on_pristine_schema_returns_to_0023(
             assert not (set(TABLES) & tables)
     finally:
         await engine.dispose()
-    rerun = await _migrate(async_tool_datastore, tmp_path, direction="upgrade", target="head")
+    rerun = await _migrate(info, tmp_path, direction="upgrade", target="head")
     assert rerun.returncode == 0, rerun.stderr

@@ -6,6 +6,7 @@ resolve-credentials）与 LLM/MCP 探针；数据落真实 PostgreSQL。
 
 from __future__ import annotations
 
+import hashlib
 import os
 import threading
 import time
@@ -86,7 +87,9 @@ def _seed_console(database_url: str, llm_url: str, mcp_url: str, artifact_root: 
         AgentAccessGrant,
         AgentDefinition,
         AgentSkillBinding,
+        ModelCredential,
         ModelDefinition,
+        ModelDeployment,
         PlatformUser,
         Skill,
         SkillArtifact,
@@ -104,11 +107,32 @@ def _seed_console(database_url: str, llm_url: str, mcp_url: str, artifact_root: 
                 key=f"acc-model-{uuid.uuid4().hex[:8]}",
                 name="Acceptance Model",
                 model_id="gpt-4o-mini",
-                base_url=f"{llm_url}/v1",
-                api_key=MODEL_API_KEY,
-                params_json={"temperature": 0.0},
+                provider_key="openai",
+                params_json={"temperature": 0.0, "max_tokens": 1024},
             )
             session.add(model)
+            await session.flush()
+            # 执行入口是成员凭据：连接与密钥实体在上面的凭据行
+            credential = ModelCredential(
+                tenant_id=TENANT,
+                key=f"acc-cred-{uuid.uuid4().hex[:8]}",
+                provider_key="openai",
+                base_url=f"{llm_url}/v1",
+                api_key=MODEL_API_KEY,
+                api_key_digest=hashlib.sha256(MODEL_API_KEY.encode()).hexdigest(),
+                max_inflight=8,
+            )
+            session.add(credential)
+            await session.flush()
+            session.add(
+                ModelDeployment(
+                    tenant_id=TENANT,
+                    key=f"acc-member-{uuid.uuid4().hex[:8]}",
+                    model_id=model.id,
+                    credential_id=credential.id,
+                    weight=1,
+                )
+            )
             await session.flush()
             agent = AgentDefinition(
                 tenant_id=TENANT,
@@ -289,6 +313,13 @@ def _cleanup(database_url: str, ids: dict[str, object], artifact_root: Path) -> 
             )
             await connection.execute(
                 text("DELETE FROM control.agent_definition WHERE tenant_id = :t"), {"t": TENANT}
+            )
+            # 成员 → 凭据 → 逻辑模型：执行入口行先解绑再删（复合外键顺序）
+            await connection.execute(
+                text("DELETE FROM control.model_deployment WHERE tenant_id = :t"), {"t": TENANT}
+            )
+            await connection.execute(
+                text("DELETE FROM control.model_credential WHERE tenant_id = :t"), {"t": TENANT}
             )
             await connection.execute(
                 text("DELETE FROM control.model_definition WHERE tenant_id = :t"), {"t": TENANT}

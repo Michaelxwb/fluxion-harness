@@ -14,46 +14,50 @@ def _payload(key: str | None = None, **overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
         "key": key or f"model-{uuid.uuid4().hex[:8]}",
         "name": "GPT Test",
-        "base_url": "https://api.example.com/v1",
         "model_id": "gpt-4o-mini",
-        "api_key": "sk-plaintext-e2e",
-        "params": {"temperature": 0.3},
+        "provider_key": "openai",
+        "params": {"temperature": 0.3, "max_tokens": 2048},
     }
     body.update(overrides)
     return body
 
 
-async def test_s01_create_persists_plaintext_key_without_exposing_it(
+async def test_s01_create_persists_declared_fields_without_execution_secrets(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
+    """S-01（改写后）：创建只持久化**声明字段**；连接/密钥的读写入口都不在逻辑模型上。"""
     key = f"model-{uuid.uuid4().hex[:8]}"
     created = await client.post("/api/v1/models", json=_payload(key), headers=_headers(tenant))
     assert created.status_code == 200
     model = created.json()["data"]
     assert model["key"] == key
-    assert model["api_key_configured"] is True
+    assert model["provider_key"] == "openai"
     assert model["revision"] == 1
     assert model["last_test_status"] == "UNTESTED"
-    assert "api_key" not in model
+    assert {"base_url", "api_key", "api_key_configured"} & set(model) == set()
 
     listing = await client.get(
         "/api/v1/models", params={"keyword": key}, headers=_headers(tenant)
     )
     items = listing.json()["data"]["items"]
     assert len(items) == 1
-    assert items[0]["api_key_configured"] is True
-    assert "api_key" not in items[0]
+    assert {"base_url", "api_key", "api_key_configured"} & set(items[0]) == set()
 
     detail = await client.get(f"/api/v1/models/{model['id']}", headers=_headers(tenant))
-    assert "api_key" not in detail.json()["data"]
+    assert {"base_url", "api_key", "api_key_configured"} & set(detail.json()["data"]) == set()
 
     session_factory = get_session_factory()
     async with session_factory() as session:
-        api_key = await session.scalar(
-            text("SELECT api_key FROM control.model_definition WHERE id = :id"),
-            {"id": uuid.UUID(model["id"])},
-        )
-    assert api_key == "sk-plaintext-e2e"
+        stored = (
+            await session.execute(
+                text(
+                    "SELECT params_json, provider_key FROM control.model_definition WHERE id = :id"
+                ),
+                {"id": uuid.UUID(model["id"])},
+            )
+        ).one()
+    assert stored.params_json == {"temperature": 0.3, "max_tokens": 2048}
+    assert stored.provider_key == "openai"
 
 
 async def test_s03_disable_and_soft_delete_model(client: AsyncClient, tenant: TenantContext) -> None:
@@ -179,10 +183,11 @@ async def test_duplicate_key_conflict_and_validation(
     # 专用码必须把冲突的 key 带到 msg（通用 COMMON_CONFLICT 无占位符）
     assert key in duplicate.json()["msg"]
 
-    bad_url = await client.post(
-        "/api/v1/models", json=_payload(base_url="ftp://api.example.com"), headers=_headers(tenant)
+    bad_budget = await client.post(
+        "/api/v1/models", json=_payload(params={"max_tokens": 0}), headers=_headers(tenant)
     )
-    assert bad_url.status_code == 422
+    assert bad_budget.status_code == 422
+    assert bad_budget.json()["code"] == "COMMON_VALIDATION_ERROR"
 
 
 async def test_e01_cas_primitive_rejects_stale_revision(

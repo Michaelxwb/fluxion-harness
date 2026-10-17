@@ -1,7 +1,8 @@
 """B-209: real 0020→0021 conversion, scoped constraints and ORM/schema parity.
 
-0021 建凭据/成员/额度组并迁移存量 Key；旧执行列 `base_url`/`api_key` 保留到升级链的末段
-删列 revision（消费方重写完成后再删，不属于本任务）。
+0021 建凭据/成员/额度组并迁移存量 Key；旧执行列 `base_url`/`api_key` 由升级链末段 revision
+（0027，B-219 持有）在消费方重写完成后物理删除：删前门禁要求"仍有明文 Key 的行"必须有可用
+成员，删后库与 ORM 都不再有旧列。
 """
 
 import asyncio
@@ -111,11 +112,10 @@ async def test_b209_empty_database_schema_parity(async_tool_database: AsyncEngin
         created = {name: await connection.run_sync(_structure, name) for name in TABLES}
     assert migrated == created
     assert "provider_key" in {c[0] for c in migrated["model_definition"][0]}
-    # 0021 只迁数据不删列：旧执行列 `base_url`/`api_key` 仍与凭据并存，物理删列是升级链的
-    # 末段 revision（消费方重写完成后再删，见 docs/model-pool-control-migration.md §5）。
-    # ORM 必须与库 parity，此刻两个属性仍可用，存量夹具/读取入口不因建表而断链。
-    assert {"base_url", "api_key"} <= {c[0] for c in migrated["model_definition"][0]}
-    assert hasattr(models.ModelDefinition, "base_url") and hasattr(models.ModelDefinition, "api_key")
+    # 0021 迁数据、0027（B-219）物理删列：head 上旧执行列不存在，ORM 必须与库 parity，
+    # 连接与密钥只在 `model_credential`（读取入口见 API-09 / resolve-*）。
+    assert {"base_url", "api_key"} & {c[0] for c in migrated["model_definition"][0]} == set()
+    assert not hasattr(models.ModelDefinition, "base_url") and not hasattr(models.ModelDefinition, "api_key")
     for name in TABLES[1:]:
         assert {"id", "tenant_id", "is_deleted", "create_time", "update_time"} <= {
             c[0] for c in migrated[name][0]
@@ -278,7 +278,6 @@ async def test_b209_owner_foreign_keys_and_partial_uniqueness_are_enforced(async
         await connection.execute(credential.insert().values(**source))  # Soft deletion permits a new incarnation.
         model_id = (await connection.execute(models.ModelDefinition.__table__.insert().values(
             tenant_id="a", key="model", name="Model", model_id="model-a", provider_key="vendor-a",
-            base_url="https://models.example/v1",
         ).returning(models.ModelDefinition.__table__.c.id))).scalar_one()
         member = {"tenant_id": "a", "key": "member", "model_id": model_id,
                   "credential_id": credential_id, "weight": 1}
@@ -321,3 +320,75 @@ async def test_b209_downgrade_requires_backup_for_populated_pool(
     async with pool_legacy_db.connect() as connection:
         assert (await connection.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == "0021"
         assert (await connection.execute(sa.text("SELECT count(*) FROM control.model_credential"))).scalar_one() == 1
+
+
+async def test_b219_final_revision_preflight_refuses_to_strand_a_legacy_key(
+    pool_legacy_db: AsyncEngine, pool_legacy_store: dict[str, str], tmp_path: Path,
+) -> None:
+    """[B-219] 末段删列门禁：明文 Key 只剩旧列（成员因模型停用而不可执行）→ 整链回滚到 0020。
+
+    0021 会为停用模型建一条 `enabled=false` 的成员；0027 的门禁要求"未删除且启用"的成员 +
+    同条件凭据，故这次升级必须被拒，旧列与版本号原样保留。
+    """
+    async with pool_legacy_db.begin() as connection:
+        identity = await _seed(connection, enabled=False)
+    result = await _migrate(pool_legacy_store, tmp_path, _manifest(identity), target="0027")
+    assert result.returncode != 0 and "MODEL_POOL_LEGACY_KEY_NOT_MIGRATED" in result.stderr
+    assert "key-migration-canary" not in result.stderr
+    async with pool_legacy_db.connect() as connection:
+        await _assert_unchanged(connection, identity)
+
+
+async def test_b219_final_revision_drops_execution_columns_and_keeps_pool_rows(
+    pool_legacy_db: AsyncEngine, pool_legacy_store: dict[str, str], tmp_path: Path,
+) -> None:
+    """[B-219] 门禁通过后删列：有可用成员的 Key 归凭据，只带 endpoint 的存量行原样通过。"""
+    async with pool_legacy_db.begin() as connection:
+        keyed = await _seed(connection)
+        keyless = await _seed(connection, api_key=None, enabled=False)
+    manifest = _manifest(keyed, keyless)
+    manifest["models"][str(keyless)]["credential"] = None
+    result = await _migrate(pool_legacy_store, tmp_path, manifest, target="0027")
+    assert result.returncode == 0, result.stderr
+    async with pool_legacy_db.connect() as connection:
+        columns = await connection.run_sync(
+            lambda sync: {c["name"] for c in sa.inspect(sync).get_columns("model_definition", "control")}
+        )
+        assert {"base_url", "api_key"} & columns == set()
+        assert {"provider_key", "params_json"} <= columns
+        assert (await connection.execute(
+            sa.text("SELECT version_num FROM alembic_version")
+        )).scalar_one() == "0027"
+        credentials = (await connection.execute(sa.text(
+            "SELECT api_key, provider_key FROM control.model_credential"
+        ))).all()
+        assert [(row.api_key, row.provider_key) for row in credentials] == [
+            ("key-migration-canary", "vendor-a")
+        ]
+        members = (await connection.execute(sa.text(
+            "SELECT model_id, enabled FROM control.model_deployment"
+        ))).all()
+        assert [(row.model_id, row.enabled) for row in members] == [(keyed, True)]
+        assert (await connection.execute(sa.text(
+            "SELECT provider_key, params_json FROM control.model_definition WHERE id=:id"
+        ), {"id": keyless})).one() == ("vendor-a", {"temperature": 0.5, "max_tokens": 2048})
+
+
+async def test_b219_final_revision_downgrade_requires_backup(
+    pool_legacy_db: AsyncEngine, pool_legacy_store: dict[str, str], tmp_path: Path,
+) -> None:
+    """[B-219] 删列后不可结构回退：补不回空列语义，`downgrade` 一律要求恢复备份。"""
+    async with pool_legacy_db.begin() as connection:
+        identity = await _seed(connection)
+    result = await _migrate(pool_legacy_store, tmp_path, _manifest(identity), target="0027")
+    assert result.returncode == 0, result.stderr
+    rejected = await _migrate(pool_legacy_store, tmp_path, direction="downgrade", target="0026")
+    assert rejected.returncode != 0 and "MODEL_POOL_DOWNGRADE_REQUIRES_BACKUP" in rejected.stderr
+    async with pool_legacy_db.connect() as connection:
+        assert (await connection.execute(
+            sa.text("SELECT version_num FROM alembic_version")
+        )).scalar_one() == "0027"
+        columns = await connection.run_sync(
+            lambda sync: {c["name"] for c in sa.inspect(sync).get_columns("model_definition", "control")}
+        )
+        assert {"base_url", "api_key"} & columns == set()
