@@ -361,7 +361,7 @@
 | B-219 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-019 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_logical_model_api.py"] | . | 300 |  |
 | B-220 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-020 | verified | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_resolve_credential.py"] | . | 300 |  |
 | B-221 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-021 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_reserve.py"] | . | 300 |  |
-| B-222 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-022 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_settle.py"] | . | 300 |  |
+| B-222 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-022 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_settle.py"] | . | 300 |  |
 | B-223 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-023 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_allocator.py"] | . | 300 |  |
 | B-224 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-024 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"] | . | 300 |  |
 | B-225 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-025 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
@@ -1637,7 +1637,7 @@ Agent继续显式选择model_id、无默认模型；完整分支及可观测结�
 
 ## TASK-022: 调用续租、usage结算与UNKNOWN保留
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-021
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约
@@ -1652,25 +1652,47 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 
 ### Checklist
 
-- [ ] [B-222][integration] 先在`tests/agent_runtime/test_capacity_webchat_capacity_settle.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：epoch/租约CAS、重复释放和跨分钟结算正确。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-222] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-222] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_settle.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-222][integration] 先在`tests/agent_runtime/test_capacity_webchat_capacity_settle.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：epoch/租约CAS、重复释放和跨分钟结算正确。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-222] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-222] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_settle.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-222 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | epoch/租约CAS、重复释放和跨分钟结算正确；本地超时不释放远端未知占用，有完成证据才结算，无usage保留保守预占 | tests/agent_runtime/test_capacity_webchat_capacity_settle.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_settle.py"] | planned |
+| B-222 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | epoch/租约CAS、重复释放和跨分钟结算正确；本地超时不释放远端未知占用，有完成证据才结算，无usage保留保守预占 | tests/agent_runtime/test_capacity_webchat_capacity_settle.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_settle.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-222 | 首建 `tests/agent_runtime/test_capacity_webchat_capacity_settle.py`（13 个行为用例）→ `uv run pytest -q tests/agent_runtime/test_capacity_webchat_capacity_settle.py` **1 error in 0.11s**（`ImportError: cannot import name 'CapacityRenewal' from ...application.model_capacity_service`：续租/结算/清扫 API 面尚不存在）；按契约钉住 API 面（`CapacityRenewal` + `renew`/`settle`/`sweep_expired` 空实现）后再跑 → **13 failed in 33.08s**（exit=1，全部 `NotImplementedError`） | 同命令 → **13 passed in 0.92s**（exit=0）；复跑 3 次 0.66s / 0.69s / 0.73s 全绿 | 续租推进与容量不动 `test_b222_renew_extends_lease_until_deadline_and_keeps_the_lease` L415-447（`reservation.lease_until < renewal.lease_until <= deadline`、行内值一致、续租后 `ensure_lease_held` 通过、计数仍 (1,1,100)）；epoch/owner CAS 与终态拒续租 `test_b222_renew_fences_stale_holders_and_finished_leases` L449-509；失约即停手（过期不续、占用保留、不超发）`test_b222_renew_refuses_expired_lease_and_keeps_capacity_reserved` L511-560；绝对期限已过拒续租 `test_b222_renew_refuses_a_deadline_that_already_passed` L562-587；并发续租串行且单调不倒退 `test_b222_concurrent_renewals_serialize_without_moving_the_lease_backwards` L589-626（3 并发成功 + 陈旧 owner `MODEL_CALL_LEASE_LOST`、行值 == max(返回值)）；续租 vs 结算真实行锁竞争 `test_b222_renew_and_settle_race_settles_the_attempt_exactly_once` L628-681（结算恰好一次、三计数归零不为负）；成功按实际 usage 释放多余预占 `test_b222_settle_success_releases_excess_reservation_by_actual_usage` L683-702（500→200，请求数保留 1）；有证据无 usage 保守保留 + 重复结算幂等 `test_b222_settle_without_usage_keeps_the_conservative_reservation` L704-736；失败无证据 → UNKNOWN 保留、拒绝未发送、凭证据迟到结算 `test_b222_settle_failure_without_evidence_holds_unknown_until_evidence_arrives` L738-793；UNKNOWN 不得声称未发送 `test_b222_settle_unknown_holds_capacity_and_refuses_unsent_claims` L795-824；跨分钟结算只改当窗 `test_b222_settle_across_minute_boundary_adjusts_only_the_counted_window` L826-858（150+800=950≤1000 允许、+100 拒绝）；窗口整体滚过不污染新桶 `test_b222_settle_after_window_rollover_leaves_the_new_bucket_untouched` L860-899；ACTIVE→UNKNOWN 有界清扫 `test_b222_sweep_marks_expired_active_leases_unknown_without_releasing` L901-955（limit=2 分批、幂等、不释放、不超发、凭证据再结算） | 真实 `ModelCapacityService` + `ModelCapacityStore`；真实 PG `runtime.model_capacity`/`runtime.model_call_lease` 行（无 mock、无替身存储）；续租/结算竞争用真实阻塞事务 + 真实 `pg_locks`/`pg_stat_activity` 观测两个等待者后再放行；跨分钟用真实行更新（窗口起点回拨、租约签发时间回拨），本地超时用真实 `lease_until` 过期；额度上限读真实 `control.model_credential`/`control.model_quota_group` | verified |
+
+**实施范围与风险说明**
+
+- 实现文件与计划 Files 一致：`apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py`（614 行）、`.../infrastructure/model_capacity_store.py`（362 行）、`tests/agent_runtime/test_capacity_webchat_capacity_settle.py`（955 行）；未新增表/列/索引与迁移（复用 0022 结构），无 DDL。
+- 计划外披露：`docs/configuration-inventory.csv` 按既有硬约束登记 2 个新增模块级常量并同步被改动行的行号（`EXPIRED_SWEEP_LIMIT=50`、`EXPIRED_SWEEP_LIMIT_MAX=200`）；`tests/test_configuration_inventory.py` 4 passed。
+- 结算口径（依据 design §3.2/§3.3/§3.6 与既有契约 `ModelCallSettlement.can_release_capacity`）：无完成证据（`UNKNOWN`，或 `FAILED` 无 `remote_completion`）→ 状态 `UNKNOWN`、在飞与窗口计数全保留（不释放、不超发）；`NOT_SENT`（确定未发送）→ `SETTLED` 并回收在飞 + 请求数 + token；`SUCCEEDED`/`FAILED` + 完成证据 → `SETTLED` 并释放在飞，有 usage 按实际用量替换预占（释放多余），无 usage 保留保守预占（失败不假定供应商未计费）；`SETTLED` 幂等（重复结算/释放不再二次扣减）；`UNKNOWN` 上再声称未发送 → `MODEL_CALL_OUTCOME_UNKNOWN`（与 `release_unsent` 同口径）。
+- 续租口径：`renew` 要求 epoch/owner 相符、状态 `ACTIVE` 且当前 `lease_until > now`（失约即停手，同 Worker 租约续租先例 `apps/agent-worker/.../worker/service.py:595`），新期限 `max(旧值, min(now+lease_sec, deadline_at))`——只前进不倒退（并发下陈旧时钟不会缩短期限），不越绝对期限；期限已过 → `MODEL_WAIT_TIMEOUT` 且不延长。**冻结的绝对期限不在租约行**（0022 无该列且本任务禁止 DDL），由调用方（Run/Task 冻结期限，权威归 TASK-035）传入——这是本任务的显式边界裁决，已在用例与实现 docstring 中写明。
+- 窗口口径（未改动 TASK-021 的保守滚动 60 秒分桶）：释放/结算只改仍计入当窗的行（`lease.create_time >= row.window_start`）；窗口整体滚过时不再重写新桶（不污染、不出现负计数），旧尝试只释放自己的在飞。`inflight` 始终按证据减 1，不受窗口滚动影响。
+- 清扫口径：`sweep_expired` 只把过期 `ACTIVE` 标记 `UNKNOWN` 并保留占用（不写容量行），扫描用 `FOR UPDATE SKIP LOCKED` + `lease_until <= now`（READ COMMITTED 下锁授予后重判谓词，并发续租成功的租约不会被误扫），批量有界 1..200，越界显式 `ValueError`；多实例重复清扫幂等。
+- 中间过程（诚实记录）：① 竞争用例首版只统计 `pg_locks` 中 `transactionid` 未授予锁，实测同一行上两个等待者分别走 `transactionid` 与 tuple 锁两条真实路径（实测观测到 1/2，30 秒轮询仍不足），改为「未授予锁属于该 xid 或属于 `runtime.model_call_lease` 表」统计独立等待 backend 数，保留“两个操作都已在真实行锁上排队”的观测强度而不放宽断言；② 测试内窗口回拨改为 KEY 与组行同一事务更新（同一 PG 时间），避免两行桶边界漂移。
+- 延后项（诚实记录）：执行链装配（预占→解析→发上游→续租心跳→结算接线）属 TASK-025/027；真实供方额度与实际 usage 采集、1000 并发容量结论属 TASK-110/116；受影响 Key 的隔离与管理员核实提示属 Console 侧端口（TASK-027/028）。本任务只交付容量权威端口的续租/usage 结算/UNKNOWN 保留与清扫语义及其真实 PG 证据。
+- B-222: verified — automated command passed; run_id=177c1f703ab7405caea24421ada4c527 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-222 RED：首建 `tests/agent_runtime/test_capacity_webchat_capacity_settle.py`（13 个行为用例）→ **1 error in 0.11s**（`ImportError: cannot import name 'CapacityRenewal'`，续租/结算/清扫 API 面不存在）；按契约钉住 API 面（`CapacityRenewal` + `renew`/`settle`/`sweep_expired` 空实现）后再跑 → **13 failed in 33.08s**（exit=1，全部 `NotImplementedError`）
+- [2026-10-18] 实现：`application/model_capacity_service.py`（`renew` epoch/owner CAS + 失约即停手 + 单调不倒退与绝对期限上限；`settle` 走既有契约 `ModelCallSettlement.can_release_capacity` 分档——NOT_SENT 全量回收、有证据按实际 usage 释放多余预占、无 usage 保守保留、无证据保留 UNKNOWN；`sweep_expired` 有界 ACTIVE→UNKNOWN 保留；释放/保留/结算共用一份容量计划）+ `infrastructure/model_capacity_store.py`（`write_lease_until`、`lock_expired_active`：`FOR UPDATE SKIP LOCKED` + 过期谓词）；未新增表/列/索引与迁移
+- [2026-10-18] B-222 GREEN：**13 passed in 0.92s**（exit=0；复跑 3 次 0.66s / 0.69s / 0.73s 全绿）；随后为「无共享额度组的 Key」补 1 个用例（结算只动 KEY 行、不虚构组身份）→ 单文件 **14 passed in 0.90s**
+- [2026-10-18] 竞争用例口径：真实阻塞事务占住 attempt 行，`pg_locks`/`pg_stat_activity` 观测到两个操作都已在行锁上排队（同一行上分别走 `transactionid` 与 tuple 锁两条真实路径）后再放行——保留观测强度，不放宽断言
+- [2026-10-18] 回归：`uv run pytest -q tests/agent_runtime tests/contracts` → **2073 passed in 668.45s**（exit=0；相对 TASK-021 基线 1281+779 恰为 +13，即本任务当时版本的 13 个用例；第 14 个用例于该轮之后补入，由单文件复跑与 Done Gate 的验收命令覆盖）；`tests/test_configuration_inventory.py` **4 passed**（新增 2 常量已登记并同步行号）；`uv run ruff check` 逐文件干净；`uv run mypy apps packages` 400 files 无问题
+- [2026-10-18] 口径裁定（诚实记录）：① 冻结的绝对期限不在租约行（0022 无该列、本任务禁止 DDL），续租由调用方传入该期限，权威归 TASK-035；② 窗口已整体滚过时结算不再重写新桶（不污染、不为负），旧尝试只释放自己的在飞；③ 过期 ACTIVE 清扫只保留占用，凭完成证据才释放（不存在任意冷却释放配置）
+- [2026-10-18] completed (done)
 
 ---
 

@@ -1362,9 +1362,11 @@ packages/skill-sdk/src/muad_skill_sdk/skill_package.py,20,SCRIPT_EXTENSIONS,"fro
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,27,MAX_NAME_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,28,MAX_PLATFORM_LABEL_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,29,MAX_DESCRIPTION_BYTES,500,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py,43,QUOTA_WINDOW_SECONDS,60,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py,45,QUOTA_WINDOW_BUCKETS,2,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py,47,INITIAL_LEASE_EPOCH,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py,49,QUOTA_WINDOW_SECONDS,60,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py,51,QUOTA_WINDOW_BUCKETS,2,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py,53,INITIAL_LEASE_EPOCH,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py,55,EXPIRED_SWEEP_LIMIT,50,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py,56,EXPIRED_SWEEP_LIMIT_MAX,200,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,24,RESOURCE_KEY,'KEY',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,25,RESOURCE_QUOTA_GROUP,'QUOTA_GROUP',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,26,POOL_LOCK_NAMESPACE,'muad:model-capacity-pool',python-constant,code,协议标识、枚举、schema、文本或实现常量

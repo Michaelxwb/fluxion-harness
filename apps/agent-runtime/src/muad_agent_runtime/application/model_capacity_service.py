@@ -1,4 +1,4 @@
-"""物理 Key / 共享额度组的原子预占与释放（设计 §3.2/§3.3/§3.7）。
+"""物理 Key / 共享额度组的原子预占、续租、usage 结算与 UNKNOWN 保留（设计 §3.2/§3.3/§3.7）。
 
 - 预占先取 tenant/model 的池调度 advisory 事务锁，再按 quota_group → key_resource → attempt
   固定锁序加行锁；事务内不发起任何网络请求（凭据解析在提交之后另行进行）；
@@ -7,7 +7,12 @@
 - 额度窗口固定为保守滚动 60 秒并按 60 秒桶有界分桶：保留与窗口相交的边界桶（保守侧取整），
   只有整个窗口与边界桶都过期才清零，绝不清空仍在窗口内的在飞预占；
 - 只有“确定未发送”才能释放占用；取消/异常退出按 UNKNOWN 保留占用，UNKNOWN 不能被当成
-  未发送释放（`MODEL_CALL_OUTCOME_UNKNOWN`），本地租约过期也不等于远端已停。
+  未发送释放（`MODEL_CALL_OUTCOME_UNKNOWN`），本地租约过期也不等于远端已停；
+- 续租只前进不倒退且不越过调用冻结的绝对期限；失约（非 ACTIVE、已过期、epoch/owner 不符）
+  一律 `MODEL_CALL_LEASE_LOST`，执行方必须停手；
+- 结算按证据分档：成功按实际 usage 释放多余预占；有完成证据但缺 usage、失败、UNKNOWN 一律
+  保守保留（失败不假定供应商未计费）；SETTLED 幂等，重复结算不再二次扣减；
+- 过期 ACTIVE 由有界清扫标记 UNKNOWN：只保留占用（不释放、不超发），等证据再结算释放。
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ from muad_common import SharedSettings
 from muad_contracts.model_pool import (
     MemoryJobCallOwner,
     ModelCallOwner,
+    ModelCallSettlement,
     ModelCapacityReservationRequest,
     RunCallOwner,
 )
@@ -45,6 +51,9 @@ QUOTA_WINDOW_SECONDS = 60
 QUOTA_WINDOW_BUCKETS = 2
 #: 首次预占的租约代次（续租/接管由 TASK-022 在同 attempt 上推进）
 INITIAL_LEASE_EPOCH = 1
+#: 过期 ACTIVE 租约单次清扫为 UNKNOWN 的默认/最大批量（有界批处理，避免长事务与热点锁）
+EXPIRED_SWEEP_LIMIT = 50
+EXPIRED_SWEEP_LIMIT_MAX = 200
 
 StoreFactory = Callable[[AsyncSession], ModelCapacityStore]
 
@@ -82,6 +91,29 @@ class CapacityRelease:
     epoch: int
     state: str
     released: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CapacityRenewal:
+    """续租结果：租约身份与只前进不倒退的新期限（不超过冻结的绝对期限）。"""
+
+    reservation_id: uuid.UUID
+    call_attempt_id: uuid.UUID
+    epoch: int
+    lease_owner: str
+    lease_until: datetime
+    state: str
+
+
+@dataclass(frozen=True, slots=True)
+class _CapacityPlan:
+    """一次租约状态推进对容量的影响（释放、结算与保留共用一份计划）。"""
+
+    target: str
+    release_inflight: bool
+    release_request: bool = False
+    #: 结算后该调用留在窗口里的 token 数；`None` = 保守保留原预占
+    tokens_after: int | None = None
 
 
 def _bucket_start(now: datetime) -> datetime:
@@ -218,16 +250,24 @@ async def _write_admission(
     )
 
 
-async def _release_capacity(
+def _settled_tokens(row: CapacitySnapshot, lease: LeaseSnapshot, plan: _CapacityPlan) -> int:
+    """窗口 token 计数：`tokens_after` 给结算后的实际用量，`None` 表示保守保留原预占。"""
+    if plan.tokens_after is None:
+        return row.reserved_tokens
+    return max(row.reserved_tokens - lease.reserved_tokens + plan.tokens_after, 0)
+
+
+async def _apply_capacity(
     store: ModelCapacityStore,
     *,
     tenant_id: str,
     lease: LeaseSnapshot,
     key_row: CapacitySnapshot,
     group_row: CapacitySnapshot | None,
+    plan: _CapacityPlan,
     now: datetime,
 ) -> None:
-    """只“确定未发送”才回收：在飞必减 1，窗口计数仅在该租约仍计入当前窗口时减。"""
+    """把计划写进容量行：在飞按证据释放；窗口只改仍计入当窗的租约（跨分钟不污染新桶）。"""
     for row in (group_row, key_row):
         if row is None:
             continue
@@ -235,10 +275,12 @@ async def _release_capacity(
         await store.write_capacity(
             tenant_id=tenant_id,
             snapshot=row,
-            inflight=max(row.inflight - 1, 0),
+            inflight=max(row.inflight - (1 if plan.release_inflight else 0), 0),
             window_start=row.window_start,
-            reserved_requests=max(row.reserved_requests - (1 if counted else 0), 0),
-            reserved_tokens=max(row.reserved_tokens - (lease.reserved_tokens if counted else 0), 0),
+            reserved_requests=max(
+                row.reserved_requests - (1 if counted and plan.release_request else 0), 0
+            ),
+            reserved_tokens=_settled_tokens(row, lease, plan) if counted else row.reserved_tokens,
             now=now,
         )
 
@@ -283,17 +325,53 @@ def _reservation(lease: LeaseSnapshot, *, reused: bool) -> CapacityReservation:
     )
 
 
-async def _apply_transition(
+def _settlement_plan(settlement: ModelCallSettlement) -> _CapacityPlan:
+    """结算分支：只有完成证据（或确定未发送）才释放在飞；缺 usage 一律保守保留预占。"""
+    if not settlement.can_release_capacity:
+        return _CapacityPlan(target="UNKNOWN", release_inflight=False)
+    if settlement.outcome == "NOT_SENT":
+        return _CapacityPlan(
+            target="SETTLED", release_inflight=True, release_request=True, tokens_after=0
+        )
+    tokens_after = None if settlement.usage is None else settlement.usage.total_tokens
+    return _CapacityPlan(target="SETTLED", release_inflight=True, tokens_after=tokens_after)
+
+
+def _finished_release(lease: LeaseSnapshot, released: bool) -> CapacityRelease:
+    """把租约当前状态投影为结果（不动任何计数）。"""
+    return CapacityRelease(
+        lease.reservation_id, lease.call_attempt_id, lease.epoch, lease.state, released
+    )
+
+
+def _parked_release(lease: LeaseSnapshot, plan: _CapacityPlan) -> CapacityRelease | None:
+    """已终态/UNKNOWN 租约的幂等分支：`None` = 本次要真的推进容量与状态。
+
+    - SETTLED 幂等：重复结算/释放只回放既有终态，不再二次扣减；
+    - UNKNOWN 上声称“确定未发送”是自相矛盾，明确拒绝（`MODEL_CALL_OUTCOME_UNKNOWN`）；
+    - UNKNOWN 上无完成证据的结算保持原样（保留占用），有证据才允许结算释放。
+    """
+    if lease.state == "SETTLED":
+        return _finished_release(lease, False)
+    if lease.state != "UNKNOWN":
+        return None
+    if plan.release_request:
+        raise AppError(ErrorCode.MODEL_CALL_OUTCOME_UNKNOWN)
+    if plan.release_inflight:
+        return None
+    return _finished_release(lease, False)
+
+
+async def _advance_transition(
     store: ModelCapacityStore,
     *,
     tenant_id: str,
     call_attempt_id: uuid.UUID,
     epoch: int,
     lease_owner: str,
-    target: str,
-    release: bool,
+    plan: _CapacityPlan,
 ) -> CapacityRelease:
-    """释放（确定未发送）与保留（UNKNOWN）共用的状态推进：先身份后锁序，不超发。"""
+    """状态推进的共用路径：先身份后锁序，经 `_parked_release` 处理幂等与拒绝分支。"""
     now = await store.database_clock()
     identity = await store.read_lease(tenant_id=tenant_id, call_attempt_id=call_attempt_id)
     if identity is None:
@@ -309,27 +387,22 @@ async def _apply_transition(
     if lease is None:  # pragma: no cover - 无锁读与行锁之间不可能删除
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
     _require_lease_holder(lease, epoch=epoch, lease_owner=lease_owner)
-    if lease.state != "ACTIVE":
-        if release and lease.state == "UNKNOWN":
-            raise AppError(ErrorCode.MODEL_CALL_OUTCOME_UNKNOWN)
-        return CapacityRelease(
-            lease.reservation_id, lease.call_attempt_id, lease.epoch, lease.state, False
-        )
-    if release:
-        await _release_capacity(
-            store,
-            tenant_id=tenant_id,
-            lease=lease,
-            key_row=key_row,
-            group_row=group_row,
-            now=now,
-        )
+    parked = _parked_release(lease, plan)
+    if parked is not None:
+        return parked
+    await _apply_capacity(
+        store,
+        tenant_id=tenant_id,
+        lease=lease,
+        key_row=key_row,
+        group_row=group_row,
+        plan=plan,
+        now=now,
+    )
     updated = await store.write_lease_state(
-        tenant_id=tenant_id, call_attempt_id=call_attempt_id, state=target, now=now
+        tenant_id=tenant_id, call_attempt_id=call_attempt_id, state=plan.target, now=now
     )
-    return CapacityRelease(
-        updated.reservation_id, updated.call_attempt_id, updated.epoch, updated.state, release
-    )
+    return _finished_release(updated, plan.release_inflight)
 
 
 class ModelCapacityService:
@@ -396,27 +469,117 @@ class ModelCapacityService:
         self, *, tenant_id: str, call_attempt_id: uuid.UUID, epoch: int, lease_owner: str
     ) -> CapacityRelease:
         """“确定未发送”释放：回收在飞与窗口计数；重复释放只回放既有终态。"""
-        return await self._transition(
+        return await self._advance(
             tenant_id=tenant_id,
             call_attempt_id=call_attempt_id,
             epoch=epoch,
             lease_owner=lease_owner,
-            target="SETTLED",
-            release=True,
+            plan=_CapacityPlan(
+                target="SETTLED", release_inflight=True, release_request=True, tokens_after=0
+            ),
         )
 
     async def mark_unknown(
         self, *, tenant_id: str, call_attempt_id: uuid.UUID, epoch: int, lease_owner: str
     ) -> CapacityRelease:
         """无法确认远端结束时保留占用（取消/异常退出），不释放任何容量。"""
-        return await self._transition(
+        return await self._advance(
             tenant_id=tenant_id,
             call_attempt_id=call_attempt_id,
             epoch=epoch,
             lease_owner=lease_owner,
-            target="UNKNOWN",
-            release=False,
+            plan=_CapacityPlan(target="UNKNOWN", release_inflight=False),
         )
+
+    async def renew(
+        self,
+        *,
+        tenant_id: str,
+        call_attempt_id: uuid.UUID,
+        epoch: int,
+        lease_owner: str,
+        deadline_at: datetime,
+    ) -> CapacityRenewal:
+        """续租：核 epoch/owner 且当前租约仍有效；期限只前进不倒退且不越过绝对期限。
+
+        失约（非 ACTIVE、已过期、epoch/owner 不符）一律 `MODEL_CALL_LEASE_LOST`：执行方必须
+        停手，不能靠一次心跳把失效的执行权续到未来（同 Worker 租约续租口径）。续租不触碰
+        容量行，只取 attempt 行锁（固定锁序的最后一步），不引入新的锁序。
+        """
+        async with self._session_factory_provider()() as session, session.begin():
+            store = self._store_factory(session)
+            now = await store.database_clock()
+            lease = await store.lock_attempt(tenant_id=tenant_id, call_attempt_id=call_attempt_id)
+            if lease is None:
+                raise AppError(ErrorCode.COMMON_NOT_FOUND)
+            _require_lease_holder(lease, epoch=epoch, lease_owner=lease_owner)
+            if lease.state != "ACTIVE" or lease.lease_until <= now:
+                raise AppError(ErrorCode.MODEL_CALL_LEASE_LOST)
+            extended = max(lease.lease_until, _lease_until(now, deadline_at, self._lease_seconds))
+            updated = await store.write_lease_until(
+                tenant_id=tenant_id,
+                call_attempt_id=call_attempt_id,
+                lease_until=extended,
+                now=now,
+            )
+            return CapacityRenewal(
+                updated.reservation_id,
+                updated.call_attempt_id,
+                updated.epoch,
+                updated.lease_owner,
+                updated.lease_until,
+                updated.state,
+            )
+
+    async def settle(
+        self,
+        *,
+        tenant_id: str,
+        call_attempt_id: uuid.UUID,
+        settlement: ModelCallSettlement,
+    ) -> CapacityRelease:
+        """按完成证据结算：成功按实际 usage 释放多余预占，缺证据一律保留占用。
+
+        - `NOT_SENT`（确定未发送）→ SETTLED，回收在飞与窗口计数；
+        - `SUCCEEDED`/`FAILED` + 远端完成证据 → SETTLED 并释放在飞；有 usage 按实际用量替换
+          预占，无 usage 保留保守预占（失败不假定供应商未计费）；
+        - `UNKNOWN` 或缺完成证据 → UNKNOWN 保留占用（不释放、不超发），等证据再结算；
+        - SETTLED 幂等：重复结算不再二次扣减；UNKNOWN 上声称未发送即
+          `MODEL_CALL_OUTCOME_UNKNOWN`。
+        """
+        return await self._advance(
+            tenant_id=tenant_id,
+            call_attempt_id=call_attempt_id,
+            epoch=settlement.epoch,
+            lease_owner=settlement.lease_owner,
+            plan=_settlement_plan(settlement),
+        )
+
+    async def sweep_expired(
+        self, *, tenant_id: str, limit: int = EXPIRED_SWEEP_LIMIT
+    ) -> list[CapacityRelease]:
+        """把已过期仍 ACTIVE 的租约标记 UNKNOWN（有界批处理，只保留占用不释放）。
+
+        本地租约过期只说明本进程失去执行权，不证明远端已停：清扫不写容量行，`inflight` 与
+        窗口计数原样保留，后续只能凭完成证据经 `settle` 释放。扫描取行锁且 `SKIP LOCKED`，
+        多实例重复清扫幂等。
+        """
+        if not 1 <= limit <= EXPIRED_SWEEP_LIMIT_MAX:
+            raise ValueError(f"limit must be within 1..{EXPIRED_SWEEP_LIMIT_MAX}")
+        async with self._session_factory_provider()() as session, session.begin():
+            store = self._store_factory(session)
+            now = await store.database_clock()
+            expired = await store.lock_expired_active(tenant_id=tenant_id, now=now, limit=limit)
+            swept: list[CapacityRelease] = []
+            for lease in expired:
+                updated = await store.write_lease_state(
+                    tenant_id=tenant_id,
+                    call_attempt_id=lease.call_attempt_id,
+                    state="UNKNOWN",
+                    now=now,
+                )
+                swept.append(_finished_release(updated, False))
+            return swept
 
     async def ensure_lease_held(
         self, *, tenant_id: str, call_attempt_id: uuid.UUID, epoch: int, lease_owner: str
@@ -431,24 +594,21 @@ class ModelCapacityService:
         if lease.state != "ACTIVE" or lease.lease_until <= now:
             raise AppError(ErrorCode.MODEL_CALL_LEASE_LOST)
 
-    async def _transition(
+    async def _advance(
         self,
         *,
         tenant_id: str,
         call_attempt_id: uuid.UUID,
         epoch: int,
         lease_owner: str,
-        target: str,
-        release: bool,
+        plan: _CapacityPlan,
     ) -> CapacityRelease:
         async with self._session_factory_provider()() as session, session.begin():
-            store = self._store_factory(session)
-            return await _apply_transition(
-                store,
+            return await _advance_transition(
+                self._store_factory(session),
                 tenant_id=tenant_id,
                 call_attempt_id=call_attempt_id,
                 epoch=epoch,
                 lease_owner=lease_owner,
-                target=target,
-                release=release,
+                plan=plan,
             )

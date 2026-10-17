@@ -322,3 +322,41 @@ class ModelCapacityStore:
         if row is None:  # pragma: no cover - 行锁内已确认存在
             raise RuntimeError("lease row missing while writing state")
         return _lease_snapshot(row)
+
+    async def write_lease_until(
+        self, *, tenant_id: str, call_attempt_id: uuid.UUID, lease_until: datetime, now: datetime
+    ) -> LeaseSnapshot:
+        """推后租约期限；调用方已持有该行锁并保证不越过调用的绝对期限。"""
+        row = await self._session.scalar(
+            sa.update(ModelCallLease)
+            .where(
+                ModelCallLease.tenant_id == tenant_id,
+                ModelCallLease.call_attempt_id == call_attempt_id,
+            )
+            .values(lease_until=lease_until, update_time=now)
+            .returning(ModelCallLease)
+        )
+        if row is None:  # pragma: no cover - 行锁内已确认存在
+            raise RuntimeError("lease row missing while extending lease")
+        return _lease_snapshot(row)
+
+    async def lock_expired_active(
+        self, *, tenant_id: str, now: datetime, limit: int
+    ) -> list[LeaseSnapshot]:
+        """锁定一批已过期仍 ACTIVE 的租约（`SKIP LOCKED`：多实例清扫互不阻塞）。
+
+        谓词在锁授予后按 READ COMMITTED 重新求值，因此并发续租成功的租约不会被误扫成
+        UNKNOWN；只读不写容量行，占用保留。
+        """
+        rows = await self._session.scalars(
+            sa.select(ModelCallLease)
+            .where(
+                ModelCallLease.tenant_id == tenant_id,
+                ModelCallLease.state == "ACTIVE",
+                ModelCallLease.lease_until <= now,
+            )
+            .order_by(ModelCallLease.lease_until)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+        )
+        return [_lease_snapshot(row) for row in rows]
