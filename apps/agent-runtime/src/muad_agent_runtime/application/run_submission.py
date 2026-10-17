@@ -67,6 +67,33 @@ class RunSubmissionService:
         key = int.from_bytes(hashlib.sha256(identity.encode()).digest()[:8], "big", signed=True)
         await session.execute(select(sa.func.pg_advisory_xact_lock(key)))
 
+    async def claim_in(
+        self,
+        session: AsyncSession,
+        *,
+        tenant_id: str,
+        idempotency_key: str,
+        endpoint: str,
+        fingerprint: str,
+    ) -> RunSubmission | None:
+        """同键受理的串行化入口：先取事务 advisory 锁，再复查首次提交（RULE-api-002）。
+
+        返回既有提交 ⇒ 调用方按重放返回首次持久化结果（不重新占位、不重新执行）；返回 None
+        ⇒ 本事务是首次提交。同键异指纹在复查时抛 `IDEMPOTENCY_MISMATCH`。advisory 锁必须在
+        策略行锁**之前**取：同键事务只在 advisory 锁上排队，不在 policy/计数行上互相等待；
+        partial unique 仍是并发插入的兜底。
+        """
+        await self.lock_identity(
+            session, tenant_id=tenant_id, idempotency_key=idempotency_key, endpoint=endpoint
+        )
+        return await self.find_replay_in(
+            session,
+            tenant_id=tenant_id,
+            idempotency_key=idempotency_key,
+            endpoint=endpoint,
+            fingerprint=fingerprint,
+        )
+
     async def record_submission(
         self,
         *,

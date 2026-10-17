@@ -19,7 +19,7 @@ from muad_agent_runtime.application.executor import (
     ExecutorRequest,
     RunExecutor,
 )
-from muad_agent_runtime.application.ports import NullPlatformSettingsClient
+from muad_agent_runtime.application.ports import PlatformSettingsSnapshot
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.main import app
 from muad_api import AppError
@@ -243,13 +243,30 @@ async def execution_supervisor_boundary():
         await supervisor.close()
 
 
+class _SuitePlatformSettings:
+    """本套件的默认设置源：revision 0（该租户无记录）+ **显式** capacity 组。
+
+    准入按 schema 默认（每用户 2 个非终态 Run）会挡住既有「同一用户连建 3 个 Run」的用例
+    ——终态释放属 TASK-031；本套件因此显式声明足够大的容量组，其余分组仍回落 schema 默认
+    （冻结策略与「无设置」逐键一致）。真实取值路径与失败路径见 `test_platform_settings_source.py`。
+    """
+
+    async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "") -> PlatformSettingsSnapshot:
+        return PlatformSettingsSnapshot(
+            revision=0,
+            settings={
+                "capacity": {
+                    "max_open_runs_per_tenant": 100_000,
+                    "max_open_runs_per_user": 100,
+                }
+            },
+        )
+
+
 @pytest.fixture(autouse=True)
 def no_platform_settings_client() -> AsyncIterator[None]:
-    """本套件默认「无平台设置」：Run 创建不真打内部端点（真实取值路径另有专门用例覆盖）。
-
-    真实 HTTP client 的装配与失败路径见 `test_platform_settings_source.py`。
-    """
-    app.dependency_overrides[get_platform_settings_client] = lambda: NullPlatformSettingsClient()
+    """本套件默认「无平台设置」：Run 创建不真打内部端点（真实取值路径另有专门用例覆盖）。"""
+    app.dependency_overrides[get_platform_settings_client] = lambda: _SuitePlatformSettings()
     try:
         yield
     finally:

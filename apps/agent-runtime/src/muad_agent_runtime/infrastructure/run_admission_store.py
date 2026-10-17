@@ -122,3 +122,23 @@ class RunAdmissionStore:
         if count is None:  # pragma: no cover - upsert 后必然存在
             raise RuntimeError("admission counter row missing after upsert")
         return int(count)
+
+    async def increment_counter(self, *, tenant_id: str, scope_type: str, scope_key: str) -> int:
+        """把已锁定的计数行原地 +1（调用方在同一事务内先经 `lock_counter` 判定阈值）。
+
+        自增与 Run 行同事务提交：达阈值被拒时调用方回滚整个事务，计数与 Run 一起消失，
+        不出现「只增不减」的占位残留；相对自增在行锁下与并发受理串行收敛到阈值。
+        """
+        count = await self._session.scalar(
+            sa.update(RunAdmissionCounter)
+            .where(
+                RunAdmissionCounter.tenant_id == tenant_id,
+                RunAdmissionCounter.scope_type == scope_type,
+                RunAdmissionCounter.scope_key == scope_key,
+            )
+            .values(open_run_count=RunAdmissionCounter.open_run_count + 1)
+            .returning(RunAdmissionCounter.open_run_count)
+        )
+        if count is None:  # pragma: no cover - 行锁内已确认存在
+            raise RuntimeError("admission counter row missing while incrementing")
+        return int(count)
