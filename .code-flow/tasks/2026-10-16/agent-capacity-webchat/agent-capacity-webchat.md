@@ -362,7 +362,7 @@
 | B-220 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-020 | verified | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_resolve_credential.py"] | . | 300 |  |
 | B-221 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-021 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_reserve.py"] | . | 300 |  |
 | B-222 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-022 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_settle.py"] | . | 300 |  |
-| B-223 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-023 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_allocator.py"] | . | 300 |  |
+| B-223 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-023 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_allocator.py"] | . | 300 |  |
 | B-224 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-024 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"] | . | 300 |  |
 | B-225 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-025 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
 | B-226 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-026 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | . | 300 |  |
@@ -453,6 +453,7 @@
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
 
 ---
+
 
 ## TASK-001: 容量与模型调度设置的typed schema
 
@@ -1698,7 +1699,7 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 
 ## TASK-023: 加权均衡、共享epoch与工作负载公平调度
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-021
 - **Source**: agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -1713,25 +1714,48 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 
 ### Checklist
 
-- [ ] [B-223][integration] 先在`tests/agent_runtime/test_capacity_webchat_pool_allocator.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：等权空闲池预占次数差≤1。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-223] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-223] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_allocator.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-223][integration] 先在`tests/agent_runtime/test_capacity_webchat_pool_allocator.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：等权空闲池预占次数差≤1。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-223] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-223] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_allocator.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-223 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 等权空闲池预占次数差≤1；按dispatch_count/weight与在飞量稳定轮转，重试计尝试、低额度不超发，后台工作按冻结权重/老化可进展 | tests/agent_runtime/test_capacity_webchat_pool_allocator.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_allocator.py"] | planned |
+| B-223 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 等权空闲池预占次数差≤1；按dispatch_count/weight与在飞量稳定轮转，重试计尝试、低额度不超发，后台工作按冻结权重/老化可进展 | tests/agent_runtime/test_capacity_webchat_pool_allocator.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_allocator.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-223 | 首建 `tests/agent_runtime/test_capacity_webchat_pool_allocator.py`（14 个行为用例）→ `uv run pytest -q tests/agent_runtime/test_capacity_webchat_pool_allocator.py` **1 error in 0.10s**（exit=1，收集期 `ModuleNotFoundError: muad_agent_runtime.application.model_allocator`，实现文件尚未创建）；实现后再补 1 个并发低额度用例（现 15 个） | 同命令 → **15 passed in 1.55s**（exit=0；复跑 1.48s / 1.59s 全绿） | 等权均衡 `test_b223_equal_weight_idle_pool_spreads_picks_within_one`（顺序 10 次 → 计数 `[3,3,4]`，差 ≤1，返回成员与真实计数逐一对齐，Key 在飞=计数）；并发均衡 `test_b223_equal_weight_pool_concurrent_picks_stay_balanced`（12 次真实并发 → `[4,4,4]`，每 Key 在飞 4）；加权 `test_b223_weighted_picks_follow_count_over_weight`（权重 3:1、8 次 → 6:2）；平局规则 `test_b223_tie_breaks_by_normalized_inflight_then_rotation`（先在飞归一化、再稳定轮转，两成员各 1）；共享 epoch 归一 `test_b223_shared_epoch_normalizes_stale_counts_without_blanket_reset`（旧 epoch 计数 9 → 归一后 0 并被选中、写回当前 epoch=1；未选中行仍是旧 epoch 的 3 未被全量清零；同 epoch 累加 1→2→3→4；平局改由在飞归一化决定）；策略版本 `test_b223_policy_hash_separates_versions_and_must_self_verify`（两 policy_hash 各自一列、伪造哈希 `COMMON_VALIDATION_ERROR` 且不写计数）；低额度不超发 `test_b223_low_key_quota_member_is_skipped_and_never_oversubscribed`（Key 上限 1 满员即跳过、该成员计数 0）、`test_b223_shared_quota_group_capacity_blocks_oversubscribe`（组上限 2：第 3 次 `MODEL_CAPACITY_UNAVAILABLE`+reason `NO_CAPACITY`，组行在飞=2）、`test_b223_concurrent_shared_group_never_oversubscribes`（并发 6 → 恰 2 成功、4 明确拒绝，组在飞恒 2、每 Key 不超自身上限）；工作负载公平 `test_b223_background_defers_under_interactive_load_then_advances`（8:1 且交互在飞 1 → 新后台 `MODEL_CAPACITY_UNAVAILABLE`+reason `WORKLOAD_SHARE` 且不写计数；等待 31s 超老化 30s → 必须可进展）、`test_b223_frozen_weights_and_interactive_never_gated_by_background`（冻结同权 8:8 → 后台按同权进展；后台在飞 3 次不阻止新交互）；尝试计数与复用 `test_b223_retry_counts_one_attempt_and_replay_reuses_lease`（重试新 attempt → 2；同 attempt 重放 `reused=True`、不重复计数、租约/到期复用；候选与既有冻结身份不符 → `MODEL_CALL_LEASE_LOST`）；失败不计数 `test_b223_expired_deadline_and_missing_members_never_count`（期限已过 `MODEL_WAIT_TIMEOUT`、无候选 `CREDENTIAL_MISSING`，两者都不写调度计数/租约/容量行）；成员事实 `test_b223_disabled_or_rebound_members_are_not_picked`（停用成员与冻结凭据不符候选不可执行）；锁与无网络 `test_b223_selection_happens_under_pool_lock_without_network`（真实存储调用序列：首调用即池 advisory 锁、选择事务 1 次计数写入、被延迟的尝试不计、预占事务才写容量行、`bump_dispatch_state` 先于 `insert_lease`；真实 socket 仅允许 PG 端口 + httpx 一调用即失败） | 真实 `ModelAllocator`/`ModelDispatchStore` + 真实 `ModelCapacityService`；真实 PG 行 `runtime.model_dispatch_state`（唯一 (tenant,model_id,deployment_id,policy_hash)）/`runtime.model_capacity`/`runtime.model_call_lease`，成员与额度上限读真实 `control.model_deployment`/`model_credential`/`model_quota_group`（无 mock、无替身存储；记录型 Store 逐调用直通 super 只记录顺序）；epoch 为 PG 时钟派生并断言落在真实 `clock_timestamp()` 前后窗口内；并发用真实事务与池 advisory 锁（无 sleep 伪并发） | verified |
+
+**实施范围与风险说明**
+
+- 实现文件与计划 Files 一致：`apps/agent-runtime/src/muad_agent_runtime/application/model_allocator.py`（`ModelAllocator`/`ModelDispatchPolicy`/`ModelMemberCandidate`/`ModelAllocationRequest`/`ModelAllocation`、`dispatch_policy_hash`、`dispatch_epoch_for`）、`apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_dispatch_store.py`（`ModelDispatchStore` 继承 `ModelCapacityStore`，只增成员/计数/在飞读与原子计数语句）、`tests/agent_runtime/test_capacity_webchat_pool_allocator.py`（15 个用例）；未新增表/列/索引与迁移（复用 0022 `runtime.model_dispatch_state`），未改 `model_capacity_service.py`/`model_capacity_store.py`。
+- 调度事实：选择事务先取 tenant/model 池 advisory 锁（与 TASK-021 同一 `pool_lock_key`），锁内完成候选扫描（成员启用/凭据匹配/绑定额度/共享组在飞/调度计数/工作负载分布）与一次尝试的计数；排序 = `dispatch_count/weight` → 归一化在飞量（取 Key 与共享组中更紧的一侧）→ 最久未选 → 成员 ID 稳定序；事务内不发任何网络请求。
+- 计数与额度分离（诚实记录）：计数在池锁内的选择事务提交，额度预占交给既有 `ModelCapacityService.reserve` 紧随的短事务（冻结身份原样传入）；正常路径即"预占成功同时递增计数"，预占被其它池抢走额度时按 `MODEL_CAPACITY_UNAVAILABLE` 明确回压且本次尝试已计入（契约的"重试也计一次尝试"）；额度判定与滚动窗口算法**只有一处实现**（TASK-021/022），本任务不复制，避免与其续租/结算事实漂移。
+- 共享 epoch：`dispatch_epoch = floor(PG 时钟秒 / dispatch_epoch_sec)`（跨实例同值，不用本机墙钟）；计数按 epoch 归一为"读作 0 / 选中时就地写回",不做全量清零；`policy_hash` 由 `dispatch_policy_hash`（规范 JSON + SHA-256，≤128 字符）唯一确定并强制自洽校验，TASK-024 冻结快照时必须复用同一函数（不同版本分布分别解释）。
+- 工作负载公平：交互与 `PROBE` 不设份额门（探针并发由 Console 探针预算与 API-17 占额约束）；`BACKGROUND` 按冻结权重让路（`(n_b+1)×W_i ≤ (n_i+1)×W_b`，空闲池首个请求直接放行），真实等待 ≥ `aging_interval_sec` 后一律放行（老化，不能永久饿死）。
+- 错误事实：无当前可执行成员 `CREDENTIAL_MISSING`；额度/份额延迟 `MODEL_CAPACITY_UNAVAILABLE`（`data.reason` = `NO_CAPACITY`/`WORKLOAD_SHARE`）；期限已过 `MODEL_WAIT_TIMEOUT`；既有 attempt 冻结身份不在候选集 `MODEL_CALL_LEASE_LOST`；策略字段非正或哈希不自洽 `COMMON_VALIDATION_ERROR`。
+- 延后项（诚实记录）：把分配器接进真实调用链（预占→按 credential_id+expected_revision 解析 Key→发上游、轮换不一致按未发送释放/有界重选）属 TASK-025；旧 policy_hash 行的回收（"不再被活跃 Run 引用后才可回收"）与任务级模型等待队列投影（WAITING_MODEL/queue_reason 消费 `data.reason`）属 TASK-036/后续维护任务；调度/均衡指标进入指标目录属 TASK-098；本任务 1000 并发容量结论仍由 TASK-110/116 的 E2E/profile 负责。
+- 中间过程（诚实记录）：实现后首轮 12 passed / 2 failed，均为**测试期望写错**而实现正确——① 共享 epoch 用例把"排序取最小计数"写成"期望取最大"，并误以为同 epoch 会清零（事实是同 epoch 内继续累加，只有旧 epoch 归一）；② 锁序用例把池锁次数写成 2，实际为 3（两次选择事务 + 一次预占事务）。修正期望后 15 passed；未放宽任何断言。
+- 环境发现（不属于本任务改动，供协调）：与另一 worktree（TASK-022）并行跑全量 `tests/agent_runtime` 时，`tests/agent_runtime/test_capacity_webchat_capacity_reserve.py::test_b221_pool_advisory_lock_held_before_capacity_row_lock` 在跨进程竞争下可能让观察轮询失败并留下"已检出但未关闭的 blocker 连接"，其后的租户清理 `DELETE FROM runtime.model_capacity` 永久等 `tuple` 锁（`pg_stat_activity` 现场：一个 `idle in transaction` 持组行锁 18 分钟、一个等候者等 `transactionid`、一个清理等 `tuple`），表现为整轮串跑挂死；单跑该文件 0.68s 全绿。该文件骨架属 TASK-021 已 verified 资产，本任务不改，按"先怀疑环境残留/共享库竞争"处理并复跑。
+- B-223: verified — automated command passed; run_id=acbb139ecde94d2882cc9a1b85f33e95 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-223 RED：首建 `tests/agent_runtime/test_capacity_webchat_pool_allocator.py` → `uv run pytest -q tests/agent_runtime/test_capacity_webchat_pool_allocator.py` **1 error in 0.10s**（exit=1，`ModuleNotFoundError: muad_agent_runtime.application.model_allocator`）
+- [2026-10-18] 实现：`application/model_allocator.py`（池锁内候选扫描→工作负载份额/老化门→dispatch_count/weight 排序→共享 epoch 归一计数；预占交既有 `ModelCapacityService.reserve`）+ `infrastructure/model_dispatch_store.py`（`ModelDispatchStore`：真实成员/计数/在飞读 + 原子 upsert 计数）；未新增表/列/索引与迁移
+- [2026-10-18] B-223 GREEN：**15 passed in 1.55s**（exit=0；复跑 1.48s / 1.59s 全绿）；断言逐项见 Acceptance Evidence
+- [2026-10-18] 回归：`tests/contracts` **1281 passed**；`tests/architecture` **33 passed**；`tests/test_configuration_inventory.py` **4 passed**（新增 3 个常量已入盘点）；`tests/agent_runtime` **794 passed in 668.80s**（exit=0，含本任务 15 个用例；此前一次与 TASK-022 并行跑时被共享库跨进程竞争拖入 TASK-021 文件的环境性挂死，清理后空载窗口一次全绿）
+- [2026-10-18] 质量门：`uv run ruff check` 三文件干净；`uv run mypy apps packages` 402 files 无问题；新增 3 个模块级常量已入 `docs/configuration-inventory.csv`（盘点用例 4 passed）；函数最长 50 行（`_select`）
+- [2026-10-18] completed (done)
+
 
 ---
 
