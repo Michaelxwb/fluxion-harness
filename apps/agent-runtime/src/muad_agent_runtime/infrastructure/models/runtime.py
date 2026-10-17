@@ -21,6 +21,16 @@ class Conversation(StandardColumnsMixin, Base):
             "agent_id",
             sa.text("update_time DESC"),
         ),
+        sa.Index(
+            "ix_conversation_tenant_user_channel_agent_last_message",
+            "tenant_id",
+            "user_id",
+            "channel_account_id",
+            "agent_id",
+            sa.text("last_message_at DESC"),
+            sa.text("id DESC"),
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
         {"schema": "runtime"},
     )
 
@@ -31,6 +41,93 @@ class Conversation(StandardColumnsMixin, Base):
     status: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'ACTIVE'"))
     last_seq: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
     last_run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    #: 入口（control.bot_account.id）与它承载的外线线程：跨 Owner 逻辑 UUID，核属在业务边界；
+    #: 旧会话只按可靠 Run 归属回填，无法证实的历史保持 NULL（不冒认成网页历史）。
+    channel_account_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    external_thread_id: Mapped[str | None] = mapped_column(sa.String(256))
+    #: 只在真实可见消息事务内更新（首轮创建也算一次），不随 heartbeat/订阅刷新。
+    last_message_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
+
+class ChannelUpload(StandardColumnsMixin, Base):
+    """运行前的暂存上传登记（design §3.3）：**不是** artifact 行；受理时另建 Run 自己的制品。
+
+    `(tenant_id, storage_key)` 活跃唯一是不可变键：同一租户内一个暂存键只属于一条登记，
+    同消息重投按 upload_id 重复验证内容。`user_id`/`entry_id` 是跨 Owner 逻辑 UUID
+    （核属在业务边界），不建物理 FK。`expires_at > create_time` 与 `size > 0` 是数据库事实；
+    过期只阻止**新受理**，清理候选按 `(tenant_id,user_id,entry_id,expires_at)` 扫描
+    （含已过期/已软删行，故清理索引不设谓词）。
+    """
+
+    __tablename__ = "channel_upload"
+    __table_args__ = (
+        sa.Index(
+            "uq_channel_upload_tenant_storage_key",
+            "tenant_id",
+            "storage_key",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.Index(
+            "ix_channel_upload_tenant_user_entry_expires",
+            "tenant_id",
+            "user_id",
+            "entry_id",
+            "expires_at",
+        ),
+        sa.CheckConstraint("size > 0", name="size"),
+        sa.CheckConstraint("kind IN ('IMAGE','DOCUMENT','OTHER')", name="kind"),
+        sa.CheckConstraint("expires_at > create_time", name="expires_after_created"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    entry_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    storage_key: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    kind: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    media_type: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    checksum: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    filename: Mapped[str | None] = mapped_column(sa.String(255))
+    size: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+
+
+class ChannelConversation(StandardColumnsMixin, Base):
+    """无显式会话入口的当前会话指针（design §3.3）：锁内按租户/用户/Agent/入口/外线线程切换。
+
+    Webchat 写目标由显式 `conversation_id` 决定、不依赖此指针；指针切换是原地更新，
+    软删 tombstone 不阻塞重新登记同一入口线程。`user_id`/`agent_id`/`channel_account_id`
+    是跨 Owner 逻辑 UUID，只有同 Owner 的 `conversation_id` 是物理 FK。
+    """
+
+    __tablename__ = "channel_conversation"
+    __table_args__ = (
+        sa.Index(
+            "uq_channel_conversation_tenant_user_entry_thread",
+            "tenant_id",
+            "user_id",
+            "agent_id",
+            "channel_account_id",
+            "external_thread_id",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    channel_account_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    external_thread_id: Mapped[str] = mapped_column(
+        sa.String(256), nullable=False, server_default=sa.text("''")
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(),
+        sa.ForeignKey("runtime.conversation.id"),
+        nullable=False,
+    )
 
 
 class RunRecord(StandardColumnsMixin, Base):
@@ -556,7 +653,9 @@ class ModelCapacity(StandardColumnsMixin, Base):
         sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")
     )
     reserved_tokens: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
-    reserved_requests: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+    reserved_requests: Mapped[int] = mapped_column(
+        sa.BigInteger(), nullable=False, server_default=sa.text("0")
+    )
 
 
 class ModelDispatchState(StandardColumnsMixin, Base):

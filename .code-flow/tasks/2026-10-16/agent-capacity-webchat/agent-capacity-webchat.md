@@ -352,7 +352,7 @@
 | B-210 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-010 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_runtime_pool_schema.py"] | . | 300 |  |
 | B-211 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-011 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_admission_schema.py"] | . | 300 |  |
 | B-212 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-012 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_chat_auth_schema.py"] | . | 300 |  |
-| B-213 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-013 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"] | . | 300 |  |
+| B-213 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-013 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"] | . | 300 |  |
 | B-214 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-014 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"] | . | 300 |  |
 | B-215 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-015 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"] | . | 300 |  |
 | B-216 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-016 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"] | . | 300 |  |
@@ -1098,7 +1098,7 @@ Token/会话只存摘要、时间带时区，来源Token和platform_user为同Ow
 
 ## TASK-013: 会话入口归属、列表索引及暂存上传结构
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-011, TASK-012
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.2 发布与迁移
@@ -1113,25 +1113,47 @@ Token/会话只存摘要、时间带时区，来源Token和platform_user为同Ow
 
 ### Checklist
 
-- [ ] [B-213][integration] 先在`tests/migrations/test_capacity_webchat_conversation_upload_schema.py`建立行为验收并记录RED；真实边界：隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库；关键断言：扩展原Conversation并建指针/上传登记。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-213] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-213] 执行`["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-213][integration] 先在`tests/migrations/test_capacity_webchat_conversation_upload_schema.py`建立行为验收并记录RED；真实边界：隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库；关键断言：扩展原Conversation并建指针/上传登记。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-213] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-213] 执行`["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-213 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | 扩展原Conversation并建指针/上传登记；仅按可靠Run来源回填旧入口，未知历史不冒认为网页；列表复合索引和上传TTL/不可变键与ORM一致 | tests/migrations/test_capacity_webchat_conversation_upload_schema.py | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"] | planned |
+| B-213 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | 扩展原Conversation并建指针/上传登记；仅按可靠Run来源回填旧入口，未知历史不冒认为网页；列表复合索引和上传TTL/不可变键与ORM一致 | tests/migrations/test_capacity_webchat_conversation_upload_schema.py | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-213 | `uv run pytest -q tests/migrations/test_capacity_webchat_conversation_upload_schema.py` → exit=1，**8 failed / 0 passed**（14.29s）：`AttributeError: module 'muad_agent_runtime.infrastructure.models.runtime' has no attribute 'ChannelUpload'/'ChannelConversation'`（parity L172、指针 L319、上传 L356/362、守卫 L401/404 用例）与 `UndefinedColumnError: column "channel_account_id" of relation "conversation" does not exist`（回填 L232、空库回退 L442 用例）——ORM 两模型、`conversation` 三新列与 0025 均不存在；空库回退用例此时空洞通过（0024 即当时 head、无迁移动作），实现后由 GREEN 复跑真正覆盖回退路径 | 同命令 → **8 passed**（exit=0, 15.78s） | `test_b213_empty_database_schema_parity` L172-229（三表 `migrated == created` 全量比对 L184，索引定义按 `pg_indexes` 原文比对含 DESC 表达式与谓词；`conversation` 三新列可空/类型 L188-192、无物理 FK L193、活跃列表索引表达式 `(tenant_id, user_id, channel_account_id, agent_id, last_message_at DESC, id DESC) WHERE (is_deleted = false)` L195-197；`channel_upload` 列型/非空 L199-206、三 CHECK 名 L207-209、无物理 FK L210、`(tenant_id, storage_key)` 活跃唯一 L212-213、清理索引含 expires_at 且无谓词 L214-216；`channel_conversation` 默认 `''`/非空 L220-221、同 Owner FK 恰一条 L223-224、active unique 五列 L227-229）；`test_b213_backfill_attributes_only_reliable_run_entries` L232-317（先降级到 0024 后按真实旧数据播种：唯一入口+最近运行线程 `grp-213` L293-296；无线程不编造 L297-299；未知 bot/多入口冲突/停用入口/跨租户同名 bot/无渠道记录/无 Run/软删会话 7 类一律 NULL 且 ≠ 网页入口 L300-305；`last_message_at` 全空与 `update_time` 不变 L306-308；不伪造暂存/指针行 L310-315）；`test_b213_channel_conversation_pointer_unique_per_entry_thread` L319-357（默认线程 `''` L331；同入口线程重复 L333；不同线程/入口并存 L335-337；指针原地切换 L338-340；悬空会话 FK 拒 L341；tombstone 后重登记 live==1 L343-357）；`test_b213_channel_upload_staging_ttl_size_and_immutable_key` L360-400（TTL 落库 L364-366；同租户异用户复用键拒 L367-368、跨租户各持同形键 L369；`expires_at <= create_time` 拒 L371-372、过期行留存待清理 L373-377、清理候选计数 L395-396；契约枚举外 kind 拒 L378、size 0/-1 拒 L379-381、IMAGE/DOCUMENT/OTHER 接受 L382-384；tombstone 释放键后重登记 L397-400）；`test_b213_downgrade_requires_backup_for_entry_or_staging_state` L403-439（三类占用状态均非 0 退出 + `CHANNEL_ENTRY_DOWNGRADE_REQUIRES_BACKUP` L427，链头/表/列原样 L430-438）；`test_b213_downgrade_on_pristine_schema_returns_to_0024` L442-466（空库回退干净落 0024 L451-456，再升级回 0025 L461-466） | 隔离 PostgreSQL（`async_tool_datastore` 建空库 + 真实 Alembic 链）、真实迁移子进程（`migrations/db_migrate.py -c ini`）、真实 ORM metadata `create_all` 与 `pg_indexes`/inspector 比对；未 mock 迁移或数据库 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件：`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py`（`Conversation` 增 `channel_account_id`/`external_thread_id`/`last_message_at` 与活跃列表索引；新增 `ChannelUpload`/`ChannelConversation`）、`migrations/versions/0025_channel_conversations_uploads.py`（down_revision=0024；纯 DDL + 一次数据回填）。
+- 回填规则（design §3.3/§3.3 叙述）：只认可靠 Run 证据——`run_record.channel_json->>'bot_id'` 命中**同租户、未删除** `control.bot_account`；整个会话解析出唯一入口才归属，多个入口并存即无法证实、保持 NULL；线程取最近一次可靠运行的 `external_conversation_id`（1:1 回退 `external_user_id`）。未知 bot_id、停用入口、无渠道记录、无 Run、软删会话一律 NULL，保留审计、不冒认成网页历史。`last_message_at` 由真实可见消息事务维护，迁移不臆造；回填不动 `update_time`（不是业务变更）。
+- 结构决策：`channel_upload` 是运行前暂存登记（非 artifact 行）——活跃 `(tenant_id, storage_key)` 唯一即不可变键，`expires_at > create_time`/`size > 0`/`kind` 与 `AttachmentKind` 契约枚举一致都是数据库事实，清理索引 `(tenant_id,user_id,entry_id,expires_at)` **不设谓词**（过期/软删行也要能被清）；`channel_conversation` 是无显式会话入口的指针（active unique 五列 + 同 Owner FK），Webchat 写目标不依赖它；`conversation.channel_account_id`/`agent_id` 等跨 Owner 归属均为逻辑 UUID，不建物理 FK（parity 断言 FK 列表为空）。
+- 回退策略：仅当两张新表为空且无任何已归属会话（`channel_account_id`/`external_thread_id`/`last_message_at` 全空）时允许；否则 `CHANNEL_ENTRY_DOWNGRADE_REQUIRES_BACKUP`（design §4.2 的"回退需确认新写入数据保留策略"）。
+- 静态校验：`py_compile` 迁移文件通过；mypy `runtime.py` → Success；ruff check 改动文件干净。
+- 回归与真实边界：`uv run pytest -q tests/migrations` → **77 passed** (134.81s)；verifier 口径 `uv run pytest -q tests -k schema_parity` → **46 passed**, 4721 deselected (24.23s)；`uv run pytest -q tests/agent_runtime` → **765 passed** (671.57s)；`uv run pytest -q tests/console_platform` → **317 passed** (45.09s)。
+- 连带修订：`ModelCallLease.reserved_requests` 的 E501（110 列上限，HEAD 上即存在）顺带修复——本次触碰同文件，不修则本任务 lint 门禁必红。
+- 环境事实（非实现缺陷）：首次跑 `tests/agent_runtime` 得 142 failed / 10 errors，全部为共享 dev 库仍在 0024（ORM 已到 0025）导致的 `UndefinedColumnError`；按根 AGENTS 口径升级 dev 库后同命令 765 passed。
+- dev 库升级（已披露的环境变更）：`uv run python migrations/db_migrate.py -c /tmp/agent-capacity-webchat-dev/dev.ini upgrade head`，0024→0025；回填实测把 **10 个 dev 历史会话**归属到 dev WECOM bot 账号（升级前预览同为 10，逐个一致），`last_message_at` 全空、`channel_upload`/`channel_conversation` 均 0 行。
+- B-213: verified — automated command passed; run_id=79bd13687dca4bf58b036597d71ac289 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-17] started
+- [2026-10-17] B-213 RED：`tests/migrations/test_capacity_webchat_conversation_upload_schema.py` → 8 failed（`ChannelUpload`/`ChannelConversation` 与 `conversation` 新列均不存在；空库回退用例此时空洞通过）
+- [2026-10-17] 实现 0025：`runtime.py` 扩展 `Conversation` 并新增 `ChannelUpload`/`ChannelConversation`（活跃列表索引、不可变暂存键、指针 active unique 与同 Owner FK）；`migrations/versions/0025_channel_conversations_uploads.py`（DDL + 可靠 Run 回填 CTE；回退守卫 `CHANNEL_ENTRY_DOWNGRADE_REQUIRES_BACKUP`）
+- [2026-10-17] B-213 GREEN：8 passed；`tests/migrations` 77 passed；verifier 口径 46 passed；`tests/agent_runtime` 765 passed；`tests/console_platform` 317 passed；py_compile/mypy/ruff 通过
+- [2026-10-17] 连带修订：`ModelCallLease.reserved_requests` 预存在 E501 顺带修复；先出现的 142 failed/10 errors 经 dev 库升级后全消（环境残留，非实现缺陷）
+- [2026-10-17] dev 库升级 0024→0025（回填 10 个 dev 历史会话的入口归属，已披露）
+- [2026-10-17] completed (done)
 
 ---
 
