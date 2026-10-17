@@ -14,11 +14,13 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
+from muad_contracts.model_pool import derive_model_key_resource_id
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,6 +35,14 @@ _MEMBER_REFS_SQL = sa.text(
     "SELECT id, credential_id, weight FROM control.model_deployment"
     " WHERE tenant_id = :tenant_id AND model_id = :model_id AND is_deleted = false"
     " ORDER BY key, id"
+)
+_FROZEN_CANDIDATE_SQL = sa.text(
+    "SELECT d.id AS deployment_id, d.credential_id, d.weight, c.revision, c.provider_key,"
+    " c.quota_group_id, c.api_key_digest FROM control.model_deployment d"
+    " JOIN control.model_credential c"
+    " ON c.tenant_id = d.tenant_id AND c.id = d.credential_id"
+    " WHERE d.tenant_id = :tenant_id AND d.model_id = :model_id AND d.is_deleted = false"
+    " AND c.is_deleted = false AND d.id = ANY(:deployment_ids)"
 )
 
 
@@ -56,6 +66,22 @@ class MemberRef:
 
     deployment_id: uuid.UUID
     credential_id: uuid.UUID
+    weight: int
+
+
+@dataclass(frozen=True, slots=True)
+class FrozenCandidate:
+    """一名**冻结成员**的当前非密钥候选元信息（Key 计量身份 + 版本 + 额度组 + 冻结权重）。
+
+    与 `MemberRef` 的区别：这里带调用前实时读到的 Key 身份事实，因此**只用于本次选择/预占**，
+    不进快照；密钥明文与指纹本身都不在其中（指纹只在读取时用于派生计量身份）。
+    """
+
+    deployment_id: uuid.UUID
+    credential_id: uuid.UUID
+    credential_revision: int
+    key_resource_id: uuid.UUID
+    quota_group_id: uuid.UUID | None
     weight: int
 
 
@@ -115,6 +141,48 @@ class ModelDispatchStore(ModelCapacityStore):
                 deployment_id=row["id"],
                 credential_id=row["credential_id"],
                 weight=int(row["weight"]),
+            )
+            for row in rows
+        )
+
+    async def read_frozen_candidates(
+        self,
+        *,
+        tenant_id: str,
+        model_id: uuid.UUID,
+        members: Sequence[MemberRef],
+    ) -> tuple[FrozenCandidate, ...]:
+        """按**冻结成员引用**读当前非密钥元信息：Key 计量身份、版本、额度组与冻结权重。
+
+        非密钥候选元信息在短事务外取得（design §3.3）：本读不持锁、不发网络请求，密钥明文不在
+        其中；`key_resource_id` 由共享派生（`derive_model_key_resource_id`）从当前指纹得到——
+        与 Owner 同一口径。预占提交后仍要经 API-09 按 `credential_id`+`expected_revision` 解析
+        并校验一致，**轮换竞争由那一步裁决**。成员或凭据已软删即不在候选集内（解绑只影响后续
+        选择，不伪造身份）；停用成员保留在候选集里，由实时扫描裁决可执行性。
+        """
+        if not members:
+            return ()
+        rows = (
+            await self._session.execute(
+                _FROZEN_CANDIDATE_SQL,
+                {
+                    "tenant_id": tenant_id,
+                    "model_id": model_id,
+                    "deployment_ids": [member.deployment_id for member in members],
+                },
+            )
+        ).mappings().all()
+        weights = {member.deployment_id: member.weight for member in members}
+        return tuple(
+            FrozenCandidate(
+                deployment_id=row["deployment_id"],
+                credential_id=row["credential_id"],
+                credential_revision=int(row["revision"]),
+                key_resource_id=derive_model_key_resource_id(
+                    tenant_id, str(row["provider_key"]), str(row["api_key_digest"])
+                ),
+                quota_group_id=row["quota_group_id"],
+                weight=weights[row["deployment_id"]],
             )
             for row in rows
         )

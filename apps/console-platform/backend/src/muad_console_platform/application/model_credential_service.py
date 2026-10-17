@@ -22,7 +22,11 @@ from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.model_pool import ModelCredentialCreate, ModelCredentialUpdate
+from muad_contracts.model_pool import (
+    ModelCredentialCreate,
+    ModelCredentialUpdate,
+    derive_model_key_resource_id,
+)
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,8 +54,11 @@ def derive_key_resource_id(tenant_id: str, provider_key: str, api_key_digest: st
 
     同一物理 Key 在多模型/Agent 上共享同一计量身份；轮换出新 Key 值则换新身份，
     旧身份上的在飞/UNKNOWN 占用不被迁移，删除重录回到同一身份。
+
+    口径的**唯一实现**在 `muad_contracts.model_pool.derive_model_key_resource_id`：Runtime 的
+    候选扫描也要算出同一个身份，两处各写一份必然漂移。本函数是 Console 侧的稳定名字。
     """
-    return uuid.uuid5(uuid.NAMESPACE_URL, f"muad:model-key:{tenant_id}:{provider_key}:{api_key_digest}")
+    return derive_model_key_resource_id(tenant_id, provider_key, api_key_digest)
 
 
 def credential_snapshot(credential: ModelCredential) -> dict[str, Any]:

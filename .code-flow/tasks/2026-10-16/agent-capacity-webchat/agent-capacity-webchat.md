@@ -282,7 +282,7 @@
 | E-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两并发请求、PG、模型探针计数 | TASK-110 | planned | ["uv","run","pytest","-q","tests/acceptance/capacity/test_model_execution.py","tests/acceptance/capacity/test_admission_recovery.py"] | . | 1800 |  |
 | E-02 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | PG/Redis 故障代理、真实执行/连接 | TASK-111 | planned | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | . | 1800 |  |
 | E-03 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两入口、真实 Run/待确认状态 | TASK-113 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
-| E-04 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实故障模型 HTTP 服务和调度存储 | TASK-025 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
+| E-04 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实故障模型 HTTP 服务和调度存储 | TASK-025 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
 | E-05 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两租户、真实认证/归属查询/下载与 SSE | TASK-112 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
 | E-06 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实压缩/记忆提炼接线、持久快照和 model HTTP | TASK-026 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | . | 300 |  |
 | E-07 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 慢浏览器、SSE 代理、PG、重连 | TASK-113 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
@@ -364,7 +364,7 @@
 | B-222 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-022 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_settle.py"] | . | 300 |  |
 | B-223 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-023 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_allocator.py"] | . | 300 |  |
 | B-224 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-024 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"] | . | 300 |  |
-| B-225 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-025 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
+| B-225 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-025 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
 | B-226 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-026 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | . | 300 |  |
 | B-227 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-027 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"] | . | 300 |  |
 | B-228 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-028 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_probe.py"] | . | 300 |  |
@@ -1824,7 +1824,7 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 
 ## TASK-025: 真实AuditedModelProvider调用链接入资源池
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-022, TASK-024
 - **Source**: agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约
@@ -1839,29 +1839,57 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 
 ### Checklist
 
-- [ ] [B-225][integration] 先在`tests/agent_runtime/test_capacity_webchat_provider_pool.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：预占提交后解析所选Key，轮换不一致按未发送释放/有界重选。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-225] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-225] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] [E-04][integration] 将原E-04落入`tests/agent_runtime/test_capacity_webchat_provider_pool.py`，先RED后GREEN；真实故障模型 HTTP 服务和调度存储；断言：429/5xx/断流在 deadline/重试预算内处理；已输出正文不混拼另一轮回复；不跨型号暗换。
-- [ ] verifier `harness-memory#RULE-memory-003`（stage: review；timeout=600秒）：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py","tests/agent_runtime/test_memory_redesign_context.py","tests/agent_core/test_memory_redesign_selection.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-225][integration] 先在`tests/agent_runtime/test_capacity_webchat_provider_pool.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：预占提交后解析所选Key，轮换不一致按未发送释放/有界重选。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-225] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-225] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [E-04][integration] 将原E-04落入`tests/agent_runtime/test_capacity_webchat_provider_pool.py`，先RED后GREEN；真实故障模型 HTTP 服务和调度存储；断言：429/5xx/断流在 deadline/重试预算内处理；已输出正文不混拼另一轮回复；不跨型号暗换。
+- [x] verifier `harness-memory#RULE-memory-003`（stage: review；timeout=600秒）：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py","tests/agent_runtime/test_memory_redesign_context.py","tests/agent_core/test_memory_redesign_selection.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-225 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 预占提交后解析所选Key，轮换不一致按未发送释放/有界重选；同会话可换Key但上下文/型号一致，429遵守Retry-After与原deadline，逐attempt审计可追溯 | tests/agent_runtime/test_capacity_webchat_provider_pool.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | planned |
-| E-04 | integration | 真实故障模型 HTTP 服务和调度存储 | 429/5xx/断流在 deadline/重试预算内处理；已输出正文不混拼另一轮回复；不跨型号暗换 | tests/agent_runtime/test_capacity_webchat_provider_pool.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | planned |
+| B-225 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 预占提交后解析所选Key，轮换不一致按未发送释放/有界重选；同会话可换Key但上下文/型号一致，429遵守Retry-After与原deadline，逐attempt审计可追溯 | tests/agent_runtime/test_capacity_webchat_provider_pool.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | verified |
+| E-04 | integration | 真实故障模型 HTTP 服务和调度存储 | 429/5xx/断流在 deadline/重试预算内处理；已输出正文不混拼另一轮回复；不跨型号暗换 | tests/agent_runtime/test_capacity_webchat_provider_pool.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | verified |
 | harness-memory#RULE-memory-003 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖 query。revision 缓存只存候选行：冷读取行与实际 revision 同快照，暖读取 revision 与当前语句时间，并逐次过滤 TTL、重新选择/渲染；读取失败清除旧缓存和 MemoryComponent。每个模型请求前刷新独立 MemoryComponent，完整 SYSTEM 块及 recall JSON 严守最终 UTF-8 字节与条数预算；0 关闭注入，长条跳过，无首条越限保底，压缩不能吞掉记忆组件。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_cache.py","tests/agent_runtime/test_memory_redesign_context.py","tests/agent_core/test_memory_redesign_selection.py"] | planned |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-225 | 首建 `tests/agent_runtime/test_capacity_webchat_provider_pool.py`（11 个行为用例）→ `uv run pytest -q tests/agent_runtime/test_capacity_webchat_provider_pool.py` **1 error in 0.18s**（exit=1，收集期 `ImportError: cannot import name 'POOL_RESELECTION_LIMIT' from 'muad_agent_runtime.application.executor'`，池化链路尚未存在） | 同命令 → **11 passed in 13.27s**（exit=0；复跑 13.34s/13.26s/13.27s 全绿） | 预占先于解析 `test_b225_reserves_before_key_resolution_then_settles_by_usage` L823：解析载荷恰为冻结三件套 L845-847、**解析时点**租约已 ACTIVE 且冻结同一 Key 身份/版本 L848-851（观察层逐调用直通真实 HTTP，读取真实 `runtime.model_call_lease`）、上游只收到一次且型号/鉴权来自所选成员 L836-839、结算 `reserved_tokens == 实际 usage` 且 inflight 归零 L856-862、逐 attempt 审计 attempt=0/OK + 真实 usage L866-868；轮换竞争 L880：两个租约（先释放后重选）L907-914、旧身份容量行 inflight=0 且窗口计数=0 L916-918、**发送的 Key 与第二次预占身份一致**（不回显旧 Key、不拿新 Key 消费旧槽位）L921-933、审计序列 `[RETRY/CREDENTIAL_CHANGED, OK]` + attempt 序号 [0,1] + 行 id 互异 L937-942、调度计数=2（重试也计一次尝试）L944；有界重选 L947：租约数 = 上限+1 L976、全部 SETTLED 且无泄漏 L977-982、上游零调用 L974；同会话换 Key L992：两轮型号恒为冻结型号 L1025、两轮 Key 不同且第二轮 = 另一成员 L1026-1028、SYSTEM 与本轮输入逐字节一致 L1030-1031、租约计量身份分别等于两成员 L1034-1039；续租心跳 L1047：`lease_until - create_time > 租期+0.3s` L1071（调用 1.5s、租期 1s；L1066 断言调用真的跑满）；失约停手 L1076：耗时 < 2.5s（探针延迟 3.0s）L1114、租约 UNKNOWN 且 inflight/token 保留 L1116-1118、审计无 OK L1120；预占估算 L1290：`reserved ≥ max_tokens+1` L1313、倍率 4.0 与 1.0 的差 ≥ 3×输入字节 L1314 | 真实 Runtime 业务路径：Run 经真实 `RunService.start`（真实快照/受理/终态）+ 真实 `default_executor_factory` 装配；真实 PostgreSQL 行：`runtime.model_call_lease`/`model_capacity`/`model_dispatch_state`/`model_invocation_audit` 与 `control.model_definition`/`model_credential`/`model_deployment`（隔离租户 `test-<uuid>`，只写/删本租户行）；真实 Console 应用（uvicorn 127.0.0.1 + 真实服务身份门控）提供 API-09，轮换竞争是真实凭据行 UPDATE 后的真实 409；真实模型 HTTP 探针（uvicorn 127.0.0.1）记录型号/鉴权/正文；无 mock 存储/租约/解析服务 | verified |
+| E-04 | 同上（11 用例同批 1 error） | 同上 → **11 passed**（同一命令，exit=0） | 429 遵守 Retry-After `test_e04_429_honors_retry_after_and_settles_each_attempt` L1156：两次上游调用间隔 ≥ 0.4s L1172-1174、两次尝试各 SETTLED 且 429 那次 token 预占保守保留 L1176-1186、审计 `[RETRY/RATE_LIMITED, OK]` L1179-1182；超 deadline 即停 L1189：`Retry-After: 5s` 对 1s deadline → 只有 1 次调用（L1207）+ `RunnerDeadlineExceeded` L1204-1205；5xx 有界重试 L1219：恰好 3 次调用（= max_model_retries+1）L1236、三租约 UNKNOWN 且 inflight/token 全额保留（不超发）L1238-1241、审计三行 RETRY/UNAVAILABLE L1243-1247；断流不混拼 L1255：真实 `AgentRunner` 抛 `RunnerModelError` 且增量只出现一次 L1277、只有 1 次上游调用（不重试）L1278、租约 UNKNOWN 保留占用 L1280-1282；不跨型号暗换：两轮/两次尝试的请求型号恒为冻结型号 L1025/L1296 | 与上同：真实故障模型 HTTP 探针按脚本返回 429（带 Retry-After）/5xx/断流；真实 `AgentRunner` 重试预算与 deadline 生效；真实 `ModelCapacityService` 结算分档（远端已应答释放槽位、保留 token；传输层失败/断流 UNKNOWN 保留占用） | verified |
+| harness-memory#RULE-memory-003 | —（沿用原 Spec verifier，不重写） | `uv run pytest -q tests/agent_runtime/test_memory_redesign_cache.py tests/agent_runtime/test_memory_redesign_context.py tests/agent_core/test_memory_redesign_selection.py` → **56 passed in 70.51s**（exit=0） | 记忆候选/缓存/上下文预算与选择的原 verifier 全量复跑（本任务改动未触碰记忆组件；池化链路每次模型请求前的记忆刷新路径不变） | 真实 PostgreSQL + 真实记忆组件（原用例边界不变） | verified（review 层由需求级 verify-e2e 复跑） |
+
+**实施范围与证据说明**
+
+- 实现文件（含超出计划 Files 的披露）：`apps/agent-runtime/src/muad_agent_runtime/application/executor.py`（`PoolCallScope`/`_pool_scope_for`/`conservative_input_estimate`/`reserved_tokens_for`/`PooledModelProvider`/`ModelAttemptLedger`；`AuditedModelProvider` 增 `bind`/`ledger`；`ExecutorRequest` 增 `pool`/`model_members`/`credentials_client`；`default_executor_factory` 装配分支）、`.../application/model_call_trace.py`（`begin_attempt`：回合 id 与逐 attempt 审计行 id 的认领口径）、`.../infrastructure/model_dispatch_store.py`（`FrozenCandidate` + `read_frozen_candidates`：按冻结引用读非密钥候选元信息）、`.../application/model_allocator.py`（`ModelMemberCandidate.of` 映射）、`.../application/run_service.py`（`_create_run`/`_resume_run` → `_stream_run` → `_build_executor` 透传冻结池策略与成员 + 受信解析客户端）、`packages/contracts/src/muad_contracts/model_pool.py`（`derive_model_key_resource_id`：计量身份派生唯一实现）、`apps/console-platform/.../application/model_credential_service.py`（`derive_key_resource_id` 委托到同一实现，杜绝两处漂移）、`tests/agent_runtime/test_capacity_webchat_provider_pool.py`（11 用例）、`tests/agent_runtime/test_summary_model_resolution.py`（**新事实同步**，见下）、`docs/configuration-inventory.csv`（新增 4 个常量行 + 改动文件行号位移）。
+- 调用链口径（design §3.3 逐句落地）：**短事务外**读冻结成员的非密钥候选元信息（`read_frozen_candidates` 不持锁不联网）→ `ModelAllocator` 池锁内选择 + `reserve` 预占（提交后才解析密钥）→ 按 `deployment_id`+`credential_id`+`expected_revision` 走 API-09 解析当前密钥并**校验 `key_resource_id` 与预占一致** → 发上游（期间按 `MODEL_CALL_HEARTBEAT_SEC` 续租）→ 结算。轮换竞争（409 或身份不一致）按**确定未发送**释放该预占并有界重选（`POOL_RESELECTION_LIMIT=3`，耗尽即显式 `MODEL_CREDENTIAL_CHANGED`，绝不拿新 Key 消费旧 Key 的槽位）。锁内不联网由结构保证：预占事务在 `_allocate` 内提交后才进入解析/发送。
+- 结算分档事实：成功（有 `finish_reason`）按**实际 usage** 释放多余预占；远端**已应答**的失败（429/4xx，agent-core 只在收到 HTTP 状态码时抛这两个类型）释放槽位但保留 token 预占（失败不假定供方未计费）；传输层失败/超时/断流（同一异常类型不区分来源，设计不允许靠消息文本猜）与取消一律 UNKNOWN **保留占用**，等供方确认或有证据的硬超时再释放。断流（无收尾信号）不构成远端完成证据，且 `AgentRunner` 不重试——已输出正文因此不会被另一 attempt 拼上；已输出正文后的任何可重试失败一律转 `ModelRequestError`（终止策略）。
+- 预占估算事实：`预占 = ceil(保守输入估算 × 冻结 input_estimate_multiplier) + 本次实际发送的 max_tokens`；保守估算 = 消息/工具定义的 UTF-8 字节量 + 每条消息协议开销（`MESSAGE_PROTOCOL_OVERHEAD_BYTES=32`）。`max_tokens` 缺失或非正时**显式失败**（`COMMON_VALIDATION_ERROR`）——design §3.7「启用池时显式填写、不读未发送的同义字段」，不猜上限。
+- 额度暂不可用：在冻结 `capacity.model_wait_timeout_sec` 与 Run 绝对期限的较小者之内按 `POOL_CAPACITY_RETRY_INTERVAL_SEC` 有界退避重试（等待起点在 provider 实例上，同一执行片段内的重试不刷新该预算），超出即按原错误码回压（WAITING_MODEL 的持久投影属 TASK-036）。
+- 中间过程（诚实记录）：(1) 首轮 RED 后 11 用例全红为 `FORBIDDEN`（内部服务身份）——测试改用本进程同源 `SharedSettings().internal_service_token`，不另造一份；(2) 断言修正两处**测试自身缺陷**：成员选择由分配器按 `dispatch_count/weight→在飞→稳定轮转` 决定，用例原先预设"第一个成员必被选中"，改为按租约里的计量身份/解析载荷定位实际成员（断言未弱化，仍是逐字段相等）；跨尝试的容量断言改为按实际出现的**不同 Key 身份**汇总（同 Key 时等价于原断言）；(3) 首轮实现的 `_run_row` 误读 `run_record.policy_json`（冻结策略在 `runtime_snapshot`），改为从快照读回；(4) 失约停手的尝试原先落不进审计（被取消的调用不走审计包装的错误分支），实现补一条 `LEASE_LOST` attempt 审计行。
+- **新事实同步（非本任务计划 Files，披露）**：`tests/agent_runtime/test_summary_model_resolution.py` 的 `_stack` 夹具原先只给主模型一个**过渡解析**的替身凭据且模型参数无 `max_tokens`；TASK-025 起主链路按冻结成员解析，故该用例补种真实成员（`control.model_definition`/`model_credential`/`model_deployment`）、让 API-09 替身在冻结引用下返回完整 `SelectedModelCredential` 投影、并给主模型显式 `max_tokens=64`（断言未放宽：摘要路由/凭据/快照排除项的原有断言逐条保留）。
+- 环境发现（不属于本任务改动，供协调）：共享 dev 库里存在 **15 条孤儿 `runtime.memory_consolidation_job`**（来源快照已被各自套件清理、claim 又不带租户谓词），会让 `tests/agent_runtime/test_memory_redesign_snapshot.py` 的 `MemoryJobs.claim` 抛 `source snapshot unavailable`（单跑也复现，与本次改动无关）。已删除这些 `tenant LIKE 'test-%'` 且来源快照不存在的孤儿行（可证明是测试残留），并在本任务用例的清理顺序里补上记忆类表；清理后该文件全绿。
+- B-225: verified — automated command passed（Done Gate 执行）
+- E-04: verified — automated command passed（Done Gate 执行）
+- E-04: verified — automated command passed; run_id=81cdba8bd2d340868b8023f469728163 (confirmed_by: runner)
+- B-225: verified — automated command passed; run_id=81cdba8bd2d340868b8023f469728163 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-225/E-04 RED：首建 `tests/agent_runtime/test_capacity_webchat_provider_pool.py`（11 用例）→ `uv run pytest -q tests/agent_runtime/test_capacity_webchat_provider_pool.py` **1 error in 0.18s**（exit=1，收集期 `ImportError: POOL_RESELECTION_LIMIT`）
+- [2026-10-18] 实现：`executor.py` 池化 provider（候选读取→预占→按冻结引用解析 Key 并校验→心跳续租→按证据结算；轮换竞争按未发送释放 + 有界重选；已输出正文后的失败终止）+ `model_call_trace.begin_attempt`（逐 attempt 审计行 id）+ `model_dispatch_store.read_frozen_candidates` + `model_allocator.ModelMemberCandidate.of` + `contracts.derive_model_key_resource_id`（Console 委托同一实现）+ `run_service` 透传冻结策略/成员/受信解析客户端；无新增表/列/索引与迁移
+- [2026-10-18] B-225/E-04 GREEN：**11 passed in 13.27s**（exit=0；复跑 13.34s/13.26s 全绿）；断言逐项位置见 Acceptance Evidence
+- [2026-10-18] verifier `harness-memory#RULE-memory-003`：`uv run pytest -q tests/agent_runtime/test_memory_redesign_cache.py tests/agent_runtime/test_memory_redesign_context.py tests/agent_core/test_memory_redesign_selection.py` → **56 passed in 70.51s**（exit=0）
+- [2026-10-18] 回归：`tests/agent_runtime` **831 passed in 686.81s**（exit=0，含本任务 11 个用例）；`tests/contracts tests/architecture` **1314 passed in 4.29s**；`tests/console_internal` + Console 凭据服务/API 用例 **65 passed in 7.04s**（派生委托同源）；`tests/test_configuration_inventory.py` **4 passed**（新增 4 个常量行 + 行号位移已入盘点）
+- [2026-10-18] 质量门：`uv run ruff check` 九文件干净；`uv run mypy apps packages` 406 files 无问题；函数最长 ≤50 行
+- [2026-10-18] 环境处置：删除共享库里 15 条孤儿 `memory_consolidation_job`（来源快照已不存在、tenant 为 test-*），本任务用例清理顺序补记忆类表；`test_summary_model_resolution.py` 按新调用链同步夹具（补真实成员 + 冻结引用投影 + 显式 max_tokens）
+- [2026-10-18] completed (done)
 
 ---
 

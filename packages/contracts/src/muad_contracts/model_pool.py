@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal, Self
 from urllib.parse import urlsplit
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from pydantic import (
     AfterValidator,
@@ -23,6 +23,16 @@ def _non_blank(value: str) -> str:
     if not value.strip():
         raise ValueError("model resource text must not be blank")
     return value
+
+
+def derive_model_key_resource_id(tenant_id: str, provider_key: str, api_key_digest: str) -> UUID:
+    """由 tenant/provider/Key 指纹派生**稳定计量身份**（ADR-08）。
+
+    同一物理 Key 在多模型/Agent/摘要/提炼/探针上共享同一 `key_resource_id`；轮换出新 Key 值
+    即换新身份（旧身份上的在飞/UNKNOWN 占用不迁移），删除重录回到同一身份。Owner（Console）
+    与 Runtime 的候选扫描都调这一处，口径不会分叉；指纹与派生结果都不进快照、审计或响应。
+    """
+    return uuid5(NAMESPACE_URL, f"muad:model-key:{tenant_id}:{provider_key}:{api_key_digest}")
 
 
 def _non_blank_secret(value: SecretStr) -> SecretStr:

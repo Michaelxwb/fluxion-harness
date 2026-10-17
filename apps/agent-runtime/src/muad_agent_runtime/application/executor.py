@@ -5,12 +5,13 @@ import contextlib
 import hashlib
 import json
 import logging
+import math
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
-from typing import Any, Protocol, cast
+from datetime import UTC, datetime, timedelta
+from typing import Any, Literal, Protocol, cast
 
 import httpx
 from muad_agent_core.agent import (
@@ -23,12 +24,14 @@ from muad_agent_core.agent.continuation import RunnerCheckpoint, RuntimeEventPor
 from muad_agent_core.agent.runner import AgentRunResult, AgentRunStatus
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
+    DeltaCallback,
     ModelBudget,
     ModelContent,
     ModelMessage,
     ModelProvider,
     ModelRateLimitedError,
     ModelRequest,
+    ModelRequestError,
     ModelResponse,
     ModelRole,
     ModelUnavailableError,
@@ -52,12 +55,21 @@ from muad_artifact_store import SkillArtifactCache
 from muad_common import SharedSettings
 from muad_contracts import (
     DeliveryRouteInput,
+    ResolveCredentialsRequest,
     ResolvedAgent,
     ResolvedMcpServer,
     ResolvedModel,
     ResolvedSkill,
+    RuntimeExecutionRef,
 )
 from muad_contracts.memory import MemoryResumeRef
+from muad_contracts.model_pool import (
+    ModelCallSettlement,
+    ModelTokenUsage,
+    RemoteCompletionProof,
+    RunCallOwner,
+    SelectedModelCredential,
+)
 from muad_contracts.platform_settings import (
     ArtifactSettings,
     CompactionSettings,
@@ -67,11 +79,12 @@ from muad_contracts.platform_settings import (
 )
 from muad_logging.redaction import redact_text
 from muad_platform_sdk.types import SecretValue
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 from ..infrastructure.db import get_session_factory
 from ..infrastructure.gateway_delivery_client import GatewayDeliveryClient
+from ..infrastructure.model_dispatch_store import MemberRef, ModelDispatchStore
 from ..metrics import (
     MODEL_INVOCATIONS_METRIC,
     SKILL_CATALOG_TRUNCATED_METRIC,
@@ -91,12 +104,22 @@ from .attachments.tool_results import (
 )
 from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
+from .context_settings import PoolExecutionPolicy
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_observability import memory_audit_preview
 from .memory_queries import MemoryReadScope
 from .memory_runtime import RunMemory, create_run_memory
 from .memory_tools import memory_write_enabled
+from .model_allocator import (
+    ModelAllocation,
+    ModelAllocationRequest,
+    ModelAllocator,
+    ModelDispatchPolicy,
+    ModelMemberCandidate,
+)
 from .model_call_trace import ModelCallTrace
+from .model_capacity_service import ModelCapacityService
+from .ports import CredentialsClient
 from .skill_tools import TaskSubmissionProtocol, build_default_skill_cache, build_skill_registry
 from .task_client import TaskSubmissionContext, WorkerTaskClient
 from .task_tools import BackgroundTaskToolSet
@@ -120,6 +143,13 @@ CANCEL_POLL_INTERVAL_SEC = 0.25
 MAX_INLINE_RESULT_BYTES = 256 * 1024
 PROVIDER_NAME = "openai-compatible"
 MCP_TOOL_PREFIX = "mcp::"
+#: 资源池单次调用的**有界**重选次数：轮换竞争导致"确定未发送"后重新选择成员
+POOL_RESELECTION_LIMIT = 3
+#: 额度暂不可用时的重试间隔（秒）：冻结等待预算内的有界退避，不是无限自旋
+POOL_CAPACITY_RETRY_INTERVAL_SEC = 0.25
+#: 未知 tokenizer 的保守输入估算：每条消息的协议开销（role/字段名/分隔符）按字节计
+MESSAGE_PROTOCOL_OVERHEAD_BYTES = 32
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,6 +245,14 @@ class ExecutorRequest:
     parallel_limit: int = DEFAULT_PARALLEL_LIMIT
     context_cursor: int | None = None
     execution_identity: ExecutionIdentity | None = None
+    #: 本次 Run 冻结的模型池执行策略（`policy_json` 的 `model_pool` + `capacity` 段）。
+    #: None = 旧行/直构路径：不启用资源池链路，也不补新默认（TASK-024 的读回口径）。
+    pool: PoolExecutionPolicy | None = None
+    #: 冻结的非密钥成员引用与权重（`policy_json.model_members`）。空元组是**合法冻结事实**
+    #: （该模型当前确实没有成员）——仍然走池链路，由分配器按 `CREDENTIAL_MISSING` 明确失败。
+    model_members: tuple[MemberRef, ...] | None = None
+    #: API-09 受信解析客户端（密钥只进调用内存）；None = 测试/本地装配，不启用池链路。
+    credentials_client: CredentialsClient | None = None
 
 
 def execution_defaults_for(request: ExecutorRequest) -> ExecutionDefaults:
@@ -464,6 +502,22 @@ class AgentRunnerExecutor:
             await asyncio.sleep(CANCEL_POLL_INTERVAL_SEC)
 
 
+class ModelAttemptLedger:
+    """一次 Run 的模型调用尝试序号：资源池的每次尝试与上游发送共享同一序号。
+
+    每次上游尝试的 provider 都是新建的（按解析出的 Key/连接重建），实例内的计数器会归零；
+    逐 attempt 审计要求跨尝试连续，因此序号由本账本统一发放（只增不减）。
+    """
+
+    def __init__(self) -> None:
+        self._next = 0
+
+    def take(self) -> int:
+        index = self._next
+        self._next += 1
+        return index
+
+
 class AuditedModelProvider:
     """逐 attempt 模型审计：成功/重试/失败都落 model_invocation_audit。"""
 
@@ -475,6 +529,7 @@ class AuditedModelProvider:
         model: str,
         provider: str = PROVIDER_NAME,
         model_trace: ModelCallTrace | None = None,
+        ledger: ModelAttemptLedger | None = None,
     ) -> None:
         self._inner = inner
         self._writer = writer
@@ -482,6 +537,11 @@ class AuditedModelProvider:
         self._provider = provider
         self._attempt = 0
         self._model_trace = model_trace
+        self._ledger = ledger
+
+    def bind(self, inner: ModelProvider) -> None:
+        """换绑底层 provider：资源池每次尝试按解析出的 Key/连接重建，尝试计数保持连续。"""
+        self._inner = inner
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
         return await self._invoke(request, None)
@@ -560,7 +620,7 @@ class AuditedModelProvider:
         input_tokens: int | None = None,
         output_tokens: int | None = None,
     ) -> None:
-        attempt = self._attempt
+        attempt = self._ledger.take() if self._ledger is not None else self._attempt
         self._attempt += 1
         await self._writer.record_model_invocation(
             audit_id=self._model_trace.audit_id if self._model_trace is not None else None,
@@ -581,9 +641,599 @@ class AuditedModelProvider:
         )
 
 
+ProviderFactory = Callable[[SelectedModelCredential], ModelProvider]
+SettlementOutcome = Literal["SUCCEEDED", "FAILED", "NOT_SENT", "UNKNOWN"]
+
+
+@dataclass(frozen=True, slots=True)
+class PoolCallScope:
+    """一次 Run 的模型池调用范围：冻结策略 + 非密钥成员引用 + 调用归属（都不含密钥）。"""
+
+    tenant_id: str
+    model_id: uuid.UUID
+    run_id: uuid.UUID
+    lease_owner: str
+    policy: PoolExecutionPolicy
+    members: tuple[MemberRef, ...]
+    deadline_at: datetime
+
+
+@dataclass(slots=True)
+class _Emitted:
+    """本回合是否已经把正文外发（决定失败是"可重试"还是"必须终止"）。"""
+
+    value: bool = False
+
+
+class _RotationRace(Exception):
+    """轮换竞争：预占提交后解析出的 Key 身份与预占不一致（该预占必须按"确定未发送"释放）。"""
+
+
+@dataclass(frozen=True, slots=True)
+class _PoolAttempt:
+    """一次资源池尝试：调度结果 + 已按冻结引用核验过身份与版本的当前密钥。"""
+
+    allocation: ModelAllocation
+    credential: SelectedModelCredential
+
+
+def _pool_scope_for(request: ExecutorRequest) -> PoolCallScope | None:
+    """本次 Run 是否走资源池链路：冻结池策略 + 非密钥成员 + 归属 + 受信解析客户端 + 期限。
+
+    `model_members` 为空元组是**合法冻结事实**（该模型当前确实没有成员）⇒ 仍然启用池链路，
+    由分配器按 `CREDENTIAL_MISSING` 明确失败，绝不回退到过渡解析的定义内密钥。
+    缺受信解析客户端（测试/本地装配）或旧行（`model_members`/`model_pool` 缺键，读回 None、
+    不补新默认）时退回直连 provider——那是这些调用点既有的冻结语义。
+    """
+    context, identity = request.run_context, request.execution_identity
+    if (
+        request.pool is None
+        or request.model_members is None
+        or request.credentials_client is None
+        or context is None
+        or identity is None
+        or request.deadline_at is None
+    ):
+        return None
+    return PoolCallScope(
+        tenant_id=context.tenant_id,
+        model_id=request.model.id,
+        run_id=context.run_id,
+        lease_owner=identity.owner,
+        policy=request.pool,
+        members=request.model_members,
+        deadline_at=request.deadline_at,
+    )
+
+
+def conservative_input_estimate(request: ModelRequest) -> int:
+    """未知 tokenizer 的保守输入估算（design §3.7）：UTF-8 字节量 + 协议开销。
+
+    按"1 token ≈ 1 字节"计（英文约 4 字节/token、中文约 1.5 字节/token，取字节数即高估），
+    每条消息再加协议开销（role/字段名/分隔符），工具定义按同一口径计入。这是**保守估算**，
+    不是精确 TPM：实际偏差由容量报告核对，真实供方额度仍需资源声明。
+    """
+    total = MESSAGE_PROTOCOL_OVERHEAD_BYTES * len(request.messages)
+    for message in request.messages:
+        total += len(text_of(message.content).encode("utf-8"))
+        if message.tool_call_id is not None:
+            total += len(message.tool_call_id.encode("utf-8"))
+        if message.reasoning_content is not None:
+            total += len(message.reasoning_content.encode("utf-8"))
+        for call in message.tool_calls:
+            total += len(call.name.encode("utf-8"))
+            total += len(json.dumps(dict(call.arguments), ensure_ascii=False).encode("utf-8"))
+    for definition in request.tools:
+        total += len(definition.name.encode("utf-8"))
+        total += len(definition.description.encode("utf-8"))
+        total += len(
+            json.dumps(dict(definition.input_schema), ensure_ascii=False, sort_keys=True).encode("utf-8")
+        )
+    return total
+
+
+def reserved_tokens_for(request: ModelRequest, *, policy: PoolExecutionPolicy) -> int:
+    """预占 = ceil(保守输入估算 × 冻结倍率) + 本次**实际发送**的最大输出预算（design §3.7）。"""
+    max_tokens = request.max_tokens
+    if max_tokens is None or max_tokens < 1:
+        # 启用池时输出预算必须显式填写：不读未发送的同义字段，也不猜一个上限
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    estimate = conservative_input_estimate(request)
+    return max(math.ceil(estimate * policy.input_estimate_multiplier) + max_tokens, 1)
+
+
+def _usage_of(response: ModelResponse) -> ModelTokenUsage | None:
+    """实际 usage：两个计数都在才算已知（缺一即保守保留预占，不假定供方未计费）。"""
+    if response.input_tokens is None or response.output_tokens is None:
+        return None
+    return ModelTokenUsage(
+        input_tokens=response.input_tokens, output_tokens=response.output_tokens
+    )
+
+
+def _remote_proof_for(exc: BaseException, *, provider_name: str) -> RemoteCompletionProof | None:
+    """失败时的远端完成证据：只有**远端应答过**的失败（429/4xx）才算已确认结束。
+
+    传输层失败、超时与断流（agent-core 用同一异常类型表达，不区分来源）都没有"远端已停"的
+    证据，一律按未知处理：UNKNOWN 保留占用，等供方确认或有证据的硬超时再释放（design §3.3）。
+    """
+    if isinstance(exc, ModelRateLimitedError):
+        reference = "http-429"
+    elif isinstance(exc, ModelRequestError):
+        reference = "http-4xx"
+    else:
+        return None
+    return RemoteCompletionProof(
+        kind="PROVIDER_CONFIRMED",
+        reference=f"{provider_name}:{reference}",
+        completed_at=datetime.now(UTC),
+    )
+
+
+def _terminal_or_retryable(exc: BaseException, *, emitted: bool) -> BaseException:
+    """已输出正文后的失败一律按"终止"处理（design §3.6）：另一 attempt 的回答不能拼到旧正文上。
+
+    增量已经外发给用户了，重试会把同一段话再吐一遍；未输出正文时维持原异常，交给
+    `AgentRunner` 的重试预算（429 遵守 Retry-After、5xx 有界重试）处理。
+    """
+    if not emitted or not isinstance(exc, (ModelRateLimitedError, ModelUnavailableError)):
+        return exc
+    return ModelRequestError("model call failed after partial output")
+
+
+async def _aclose_provider(provider: ModelProvider) -> None:
+    """关闭一次尝试的上游 provider（每次尝试独立建连接池，谁造谁收）。"""
+    closer = getattr(provider, "aclose", None)
+    if closer is not None:
+        await closer()
+
+
+class PooledModelProvider:
+    """把真实模型调用接入物理资源池（design §3.2/§3.3/§3.6）。
+
+    每次上游尝试都是一条完整链路，两个短事务之间不持锁、锁内不联网：
+
+    1. **短事务外**读冻结成员的**非密钥**候选元信息（当前 Key 计量身份/版本/额度组/冻结权重）；
+    2. `ModelAllocator` 在池锁内选择成员并预占；**提交之后**才解析密钥；
+    3. 按所选 `deployment_id`+`credential_id`+`expected_revision` 走 API-09 解析当前密钥，并
+       校验返回的 `key_resource_id` 与预占一致；轮换竞争（409/身份不一致）按"确定未发送"释放
+       该预占并**有界重选**——绝不拿新 Key 消费旧 Key 的槽位；
+    4. 发上游期间按心跳续租；失约立即停手（取消本地调用），不把停手伪装成远端已结束；
+    5. 结算按证据分档：成功按**实际 usage** 释放多余预占；远端已应答的失败释放槽位但保留
+       token 预占（失败不假定供方未计费）；传输层失败/断流一律 UNKNOWN 保留占用；
+    6. 已输出正文后的失败按"终止"处理，另一 attempt 的回答不得拼到旧正文上；型号与上下文
+       始终取自同一条冻结模型定义，不跨型号暗换。
+    """
+
+    def __init__(
+        self,
+        *,
+        scope: PoolCallScope,
+        allocator: ModelAllocator,
+        capacity: ModelCapacityService,
+        credentials: CredentialsClient,
+        provider_factory: ProviderFactory,
+        model: str,
+        audit_writer: RuntimeAuditWriter | None = None,
+        model_trace: ModelCallTrace | None = None,
+        provider_name: str = PROVIDER_NAME,
+        heartbeat_sec: float | None = None,
+        reselection_limit: int = POOL_RESELECTION_LIMIT,
+        wait_since: datetime | None = None,
+    ) -> None:
+        self._scope = scope
+        self._allocator = allocator
+        self._capacity = capacity
+        self._credentials = credentials
+        self._provider_factory = provider_factory
+        self._model = model
+        self._provider_name = provider_name
+        self._audit_writer = audit_writer
+        self._trace = model_trace
+        self._heartbeat_sec = (
+            heartbeat_sec
+            if heartbeat_sec is not None
+            else float(SharedSettings().model_call_heartbeat_sec)
+        )
+        self._reselection_limit = reselection_limit
+        #: 本段模型等待起点：同一执行片段内的重试不刷新该预算（design §3.2/§3.7）
+        self._wait_since = wait_since if wait_since is not None else datetime.now(UTC)
+        self._ledger = ModelAttemptLedger()
+        self._audited: AuditedModelProvider | None = None
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        return await self._invoke(request, None)
+
+    async def stream(self, request: ModelRequest, on_delta: DeltaCallback) -> ModelResponse:
+        return await self._invoke(request, on_delta)
+
+    async def aclose(self) -> None:
+        """无常驻连接：每次尝试的上游 provider 在 `_send` 的 finally 里关闭。"""
+
+    async def _invoke(
+        self, request: ModelRequest, on_delta: DeltaCallback | None
+    ) -> ModelResponse:
+        reserved_tokens = reserved_tokens_for(request, policy=self._scope.policy)
+        emitted = _Emitted()
+        try:
+            attempt = await self._select_and_reserve(reserved_tokens)
+            return await self._send(attempt, request, on_delta, emitted)
+        except Exception as exc:
+            mapped = _terminal_or_retryable(exc, emitted=emitted.value)
+            if mapped is exc:
+                raise
+            raise mapped from exc
+
+    @property
+    def _dispatch_policy(self) -> ModelDispatchPolicy:
+        """冻结策略 → 分配器输入（`policy_hash` 由同一 `dispatch_policy_hash` 唯一确定）。"""
+        policy = self._scope.policy
+        return ModelDispatchPolicy.frozen(
+            dispatch_epoch_sec=policy.dispatch_epoch_sec,
+            interactive_weight=policy.interactive_weight,
+            background_weight=policy.background_weight,
+            aging_interval_sec=policy.aging_interval_sec,
+        )
+
+    async def _select_and_reserve(self, reserved_tokens: int) -> _PoolAttempt:
+        """选择 + 预占 → 按冻结引用解析 Key；轮换竞争按未发送释放并有界重选。"""
+        reselects = 0
+        while True:
+            candidates = await self._candidates()
+            allocation = await self._allocate(candidates, reserved_tokens)
+            self._claim_attempt_audit_id()
+            try:
+                credential = await self._resolve_selected(allocation)
+            except _RotationRace:
+                if reselects >= self._reselection_limit:
+                    raise AppError(ErrorCode.MODEL_CREDENTIAL_CHANGED) from None
+                reselects += 1
+                continue
+            return _PoolAttempt(allocation=allocation, credential=credential)
+
+    async def _candidates(self) -> tuple[ModelMemberCandidate, ...]:
+        """短事务外读冻结成员的非密钥候选元信息（不持锁、不联网、不含密钥明文）。"""
+        async with get_session_factory()() as session:
+            frozen = await ModelDispatchStore(session).read_frozen_candidates(
+                tenant_id=self._scope.tenant_id,
+                model_id=self._scope.model_id,
+                members=self._scope.members,
+            )
+        return tuple(ModelMemberCandidate.of(candidate) for candidate in frozen)
+
+    async def _allocate(
+        self, candidates: Sequence[ModelMemberCandidate], reserved_tokens: int
+    ) -> ModelAllocation:
+        """池锁内选择并预占；额度暂不可用时在冻结等待预算内退避重试（重试不刷新预算）。"""
+        wait_until = min(
+            self._wait_since + timedelta(seconds=self._scope.policy.model_wait_timeout_sec),
+            self._scope.deadline_at,
+        )
+        while True:
+            try:
+                return await self._allocator.allocate(
+                    tenant_id=self._scope.tenant_id,
+                    lease_owner=self._scope.lease_owner,
+                    model_id=self._scope.model_id,
+                    request=ModelAllocationRequest(
+                        call_attempt_id=uuid.uuid4(),
+                        owner=RunCallOwner(run_id=self._scope.run_id),
+                        workload="INTERACTIVE",
+                        deadline_at=self._scope.deadline_at,
+                        reserved_tokens=reserved_tokens,
+                        wait_since=self._wait_since,
+                    ),
+                    candidates=candidates,
+                    policy=self._dispatch_policy,
+                )
+            except AppError as exc:
+                if (
+                    exc.code != str(ErrorCode.MODEL_CAPACITY_UNAVAILABLE)
+                    or datetime.now(UTC) >= wait_until
+                ):
+                    raise
+                await asyncio.sleep(POOL_CAPACITY_RETRY_INTERVAL_SEC)
+
+    async def _resolve_selected(self, allocation: ModelAllocation) -> SelectedModelCredential:
+        """按冻结引用解析所选成员的当前密钥，并校验身份与预占一致（design §3.3 调用链）。"""
+        member = allocation.member
+        payload = ResolveCredentialsRequest(
+            execution_ref=RuntimeExecutionRef(type="RUN", id=self._scope.run_id),
+            model_id=self._scope.model_id,
+            deployment_id=member.deployment_id,
+            credential_id=member.credential_id,
+            expected_revision=member.credential_revision,
+        )
+        try:
+            data = await self._credentials.resolve_credentials(
+                tenant_id=self._scope.tenant_id,
+                payload=payload.model_dump(mode="json"),
+                trace_id=current_trace_id() or "",
+            )
+            credential = SelectedModelCredential.model_validate(data.get("model"))
+        except AppError as exc:
+            if exc.code != str(ErrorCode.MODEL_CREDENTIAL_CHANGED):
+                # 预占后、发上游前的任何解析失败都**确定未发送**：释放预占，不保留占用
+                await self._release_unsent(allocation, reason="RESOLVE_FAILED", error_code=exc.code)
+                raise
+            await self._release_unsent(
+                allocation, reason="CREDENTIAL_CHANGED", error_code=exc.code
+            )
+            raise _RotationRace from exc
+        except (ValidationError, AttributeError) as exc:
+            await self._release_unsent(
+                allocation, reason="RESOLVE_INVALID", error_code=str(ErrorCode.COMMON_INTERNAL_ERROR)
+            )
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+        if (
+            credential.deployment_id != member.deployment_id
+            or credential.credential_id != member.credential_id
+            or credential.key_resource_id != member.key_resource_id
+        ):
+            await self._release_unsent(
+                allocation, reason="KEY_IDENTITY_MISMATCH", error_code=str(ErrorCode.MODEL_CREDENTIAL_CHANGED)
+            )
+            raise _RotationRace
+        return credential
+
+    def _claim_attempt_audit_id(self) -> None:
+        """为本次尝试认领审计行身份（第一次尝试复用回合 id，重选各铸新 id）。"""
+        if self._trace is not None:
+            self._trace.begin_attempt()
+
+    async def _release_unsent(
+        self, allocation: ModelAllocation, *, reason: str, error_code: str
+    ) -> None:
+        """确定未发送：释放该预占（回收在飞与窗口计数），并留一条 attempt 审计行。"""
+        await self._capacity.release_unsent(
+            tenant_id=self._scope.tenant_id,
+            call_attempt_id=allocation.call_attempt_id,
+            epoch=allocation.lease_epoch,
+            lease_owner=allocation.lease_owner,
+        )
+        await self._record_attempt(status="RETRY", retry_reason=reason, error_code=error_code)
+
+    async def _record_attempt(
+        self, *, status: str, retry_reason: str, error_code: str
+    ) -> None:
+        """逐 attempt 审计：资源池的每次尝试（含轮换释放）都有自己的审计行与尝试序号。"""
+        if self._audit_writer is None:
+            return
+        await self._audit_writer.record_model_invocation(
+            provider=self._provider_name,
+            model=self._model,
+            attempt=self._ledger.take(),
+            retry_reason=retry_reason,
+            input_tokens=None,
+            output_tokens=None,
+            latency_ms=None,
+            status=status,
+            error_code=error_code,
+            audit_id=self._trace.audit_id if self._trace is not None else None,
+        )
+
+    def _audited_for(self, inner: ModelProvider) -> ModelProvider:
+        """把每次尝试的上游 provider 接到同一个审计包装上（尝试序号跨尝试连续）。"""
+        if self._audit_writer is None:
+            return inner
+        if self._audited is None:
+            self._audited = AuditedModelProvider(
+                inner,
+                self._audit_writer,
+                model=self._model,
+                provider=self._provider_name,
+                model_trace=self._trace,
+                ledger=self._ledger,
+            )
+        else:
+            self._audited.bind(inner)
+        return self._audited
+
+    async def _send(
+        self,
+        attempt: _PoolAttempt,
+        request: ModelRequest,
+        on_delta: DeltaCallback | None,
+        emitted: _Emitted,
+    ) -> ModelResponse:
+        """发上游（带续租心跳）并按证据结算；上游 provider 每次尝试独立创建并关闭。"""
+        inner = self._provider_factory(attempt.credential)
+        provider = self._audited_for(inner)
+        lost, stop = asyncio.Event(), asyncio.Event()
+        renewer = asyncio.create_task(
+            self._renew_loop(attempt.allocation, stop=stop, lost=lost)
+        )
+        try:
+            response = await self._call_until_lost(provider, request, on_delta, emitted, lost)
+        except asyncio.CancelledError:
+            await self._mark_unknown_quietly(attempt.allocation)
+            raise
+        except Exception as exc:
+            await self._settle_failure(attempt.allocation, exc)
+            raise
+        finally:
+            stop.set()
+            renewer.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await renewer
+            await _aclose_provider(inner)
+        await self._settle_response(attempt.allocation, response)
+        return response
+
+    async def _call_until_lost(
+        self,
+        provider: ModelProvider,
+        request: ModelRequest,
+        on_delta: DeltaCallback | None,
+        emitted: _Emitted,
+        lost: asyncio.Event,
+    ) -> ModelResponse:
+        """发上游并监听失约：续租失败立即停手，本地调用取消（远端未知仍保留 UNKNOWN 占额）。"""
+        call = asyncio.create_task(self._call(provider, request, on_delta, emitted))
+        lost_wait = asyncio.create_task(lost.wait())
+        done, _ = await asyncio.wait({call, lost_wait}, return_when=asyncio.FIRST_COMPLETED)
+        if call in done:
+            lost_wait.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await lost_wait
+            return await call
+        call.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await call
+        # 被取消的调用不会走审计包装的错误分支：停手本身必须留一条 attempt 审计
+        await self._record_attempt(
+            status="ERROR" if emitted.value else "RETRY",
+            retry_reason="LEASE_LOST",
+            error_code=str(ErrorCode.MODEL_CALL_LEASE_LOST),
+        )
+        raise ModelUnavailableError("model call lease lost")
+
+    async def _call(
+        self,
+        provider: ModelProvider,
+        request: ModelRequest,
+        on_delta: DeltaCallback | None,
+        emitted: _Emitted,
+    ) -> ModelResponse:
+        streamer = getattr(provider, "stream", None)
+        if on_delta is None or streamer is None:
+            return await provider.complete(request)
+
+        async def tracked(text: str) -> None:
+            emitted.value = True
+            await on_delta(text)
+
+        return await cast(StreamingModelProvider, provider).stream(request, tracked)
+
+    async def _renew_loop(
+        self, allocation: ModelAllocation, *, stop: asyncio.Event, lost: asyncio.Event
+    ) -> None:
+        """调用期间续租心跳：失约（非 ACTIVE/已过期/epoch/owner 不符）即置 lost，执行方停手。
+
+        瞬时故障（数据库抖动）不退出：下一拍照续（与 Run 租约心跳同一口径）。
+        """
+        while not stop.is_set():
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=self._heartbeat_sec)
+                return
+            except TimeoutError:
+                pass
+            try:
+                await self._capacity.renew(
+                    tenant_id=self._scope.tenant_id,
+                    call_attempt_id=allocation.call_attempt_id,
+                    epoch=allocation.lease_epoch,
+                    lease_owner=allocation.lease_owner,
+                    deadline_at=self._scope.deadline_at,
+                )
+            except AppError as exc:
+                logger.warning(
+                    "model_call_lease_lost",
+                    extra={"run_id": str(self._scope.run_id), "code": exc.code},
+                )
+                record_outcome(
+                    MODEL_INVOCATIONS_METRIC,
+                    "LEASE_LOST",
+                    {"provider": self._provider_name, "model": self._model},
+                )
+                lost.set()
+                return
+            except Exception as exc:  # noqa: BLE001 —— 心跳是后台任务，瞬时故障不得带走调用
+                logger.warning(
+                    "model_call_renew_failed",
+                    extra={"run_id": str(self._scope.run_id), "error": type(exc).__name__},
+                )
+
+    async def _settle_response(
+        self, allocation: ModelAllocation, response: ModelResponse
+    ) -> None:
+        """按响应结算：有收尾信号才算远端确认结束；缺 usage 一律保守保留预占。"""
+        if not response.finish_reason:
+            # 断流：连接结束但没有收尾信号 ⇒ 无法确认远端结束，保留 UNKNOWN 占用
+            logger.warning(
+                "model_stream_truncated",
+                extra={"run_id": str(self._scope.run_id), "model": self._model},
+            )
+            record_outcome(
+                MODEL_INVOCATIONS_METRIC,
+                "UNKNOWN",
+                {"provider": self._provider_name, "model": self._model},
+            )
+            await self._settle(allocation, outcome="UNKNOWN", usage=None, proof=None)
+            return
+        await self._settle(
+            allocation,
+            outcome="SUCCEEDED",
+            usage=_usage_of(response),
+            proof=RemoteCompletionProof(
+                kind="PROVIDER_CONFIRMED",
+                reference=f"{self._provider_name}:{response.finish_reason}",
+                completed_at=datetime.now(UTC),
+            ),
+        )
+
+    async def _settle_failure(
+        self, allocation: ModelAllocation, exc: BaseException
+    ) -> None:
+        """失败结算：远端已应答的失败释放槽位、保留 token 预占；其余保留 UNKNOWN 占用。"""
+        proof = _remote_proof_for(exc, provider_name=self._provider_name)
+        await self._settle(
+            allocation,
+            outcome="FAILED" if proof is not None else "UNKNOWN",
+            usage=None,
+            proof=proof,
+        )
+
+    async def _mark_unknown_quietly(self, allocation: ModelAllocation) -> None:
+        """取消/异常退出：无法确认远端结束 ⇒ UNKNOWN 保留占用（绝不当作"未发送"释放）。"""
+        try:
+            await self._capacity.mark_unknown(
+                tenant_id=self._scope.tenant_id,
+                call_attempt_id=allocation.call_attempt_id,
+                epoch=allocation.lease_epoch,
+                lease_owner=allocation.lease_owner,
+            )
+        except AppError as exc:
+            logger.warning(
+                "model_call_unknown_mark_failed",
+                extra={"run_id": str(self._scope.run_id), "code": exc.code},
+            )
+
+    async def _settle(
+        self,
+        allocation: ModelAllocation,
+        *,
+        outcome: SettlementOutcome,
+        usage: ModelTokenUsage | None,
+        proof: RemoteCompletionProof | None,
+    ) -> None:
+        """结算一次尝试；结算失败不得掩盖调用结果，但必须留痕（warning + 指标）。"""
+        try:
+            await self._capacity.settle(
+                tenant_id=self._scope.tenant_id,
+                call_attempt_id=allocation.call_attempt_id,
+                settlement=ModelCallSettlement(
+                    epoch=allocation.lease_epoch,
+                    lease_owner=allocation.lease_owner,
+                    outcome=outcome,
+                    usage=usage,
+                    remote_completion=proof,
+                ),
+            )
+        except AppError as exc:
+            logger.warning(
+                "model_call_settle_failed",
+                extra={"run_id": str(self._scope.run_id), "code": exc.code},
+            )
+            record_outcome(
+                MODEL_INVOCATIONS_METRIC,
+                "SETTLE_FAILED",
+                {"provider": self._provider_name, "model": self._model},
+            )
+
+
 def _tool_kind(name: str) -> str:
     return "MCP" if name.startswith(MCP_TOOL_PREFIX) else "SKILL"
-
 
 def _args_hash(arguments: Mapping[str, Any]) -> str:
     canonical = json.dumps(dict(arguments), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -977,15 +1627,27 @@ async def default_executor_factory(
     # 上限**，不含 Agent 的 runtime_config 覆盖（覆盖由 `AgentRunner` 在重试/截止判定里生效）。
     frozen = request.execution.agent_policy if request.execution is not None else AgentPolicy()
     budget = ModelBudget(deadline_ms=frozen.deadline_ms, max_model_retries=frozen.max_model_retries)
-    provider: ModelProvider = await _model_provider(
-        request.model, timeout_sec=budget.request_timeout_sec(), transport=model_transport
-    )
     audit_writer = _audit_writer_for(request)
     model_trace = ModelCallTrace() if audit_writer is not None else None
-    if audit_writer is not None:
-        provider = AuditedModelProvider(
-            provider, audit_writer, model=request.model.model_id, model_trace=model_trace
+    scope = _pool_scope_for(request)
+    if scope is not None:
+        # 启用池的 Run：预占→按冻结引用解析 Key→发上游→续租→结算全在 `PooledModelProvider`
+        provider: ModelProvider = _pooled_provider_for(
+            request,
+            scope=scope,
+            audit_writer=audit_writer,
+            model_trace=model_trace,
+            timeout_sec=budget.request_timeout_sec(),
+            transport=model_transport,
         )
+    else:
+        provider = await _model_provider(
+            request.model, timeout_sec=budget.request_timeout_sec(), transport=model_transport
+        )
+        if audit_writer is not None:
+            provider = AuditedModelProvider(
+                provider, audit_writer, model=request.model.model_id, model_trace=model_trace
+            )
     # 摘要模型是**另一条模型定义**（ADR-06）：endpoint / 模型名 / 凭据都取自它自己那一份，凭据
     # 由 API-09 在 Run 边界取到、随 `ExecutorRequest` 进内存。没有它就不装摘要层，绝不退回主模型。
     owned_summary_provider: ModelProvider | None = None
@@ -1158,6 +1820,42 @@ async def _model_provider(
         api_key=await resolve_model_api_key(model),
         timeout_sec=timeout_sec,
         transport=transport,
+    )
+
+
+def _pooled_provider_for(
+    request: ExecutorRequest,
+    *,
+    scope: PoolCallScope,
+    audit_writer: RuntimeAuditWriter | None,
+    model_trace: ModelCallTrace | None,
+    timeout_sec: float,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> PooledModelProvider:
+    """按生产装配口径构造池化 provider：真实分配器/容量服务/受信解析客户端/模型 HTTP。
+
+    分配器与续租/结算**共用同一个容量服务**：额度判定与窗口算法只有一处实现
+    （`ModelCapacityService`），池化链路不复制它。每次尝试的上游 provider 由
+    `provider_factory` 按解析出的凭据（连接 + 密钥）新建——凭据只进调用内存。
+    """
+    credentials = request.credentials_client
+    assert credentials is not None  # `_pool_scope_for` 已要求
+    capacity = ModelCapacityService(get_session_factory)
+    return PooledModelProvider(
+        scope=scope,
+        allocator=ModelAllocator(get_session_factory, capacity=capacity),
+        capacity=capacity,
+        credentials=credentials,
+        provider_factory=lambda credential: OpenAICompatibleProvider(
+            base_url=credential.base_url,
+            model=request.model.model_id,
+            api_key=credential.api_key.get_secret_value(),
+            timeout_sec=timeout_sec,
+            transport=transport,
+        ),
+        model=request.model.model_id,
+        audit_writer=audit_writer,
+        model_trace=model_trace,
     )
 
 

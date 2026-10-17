@@ -98,6 +98,7 @@ from .context_builder import BudgetPolicy, DbBackedContextBuilder
 from .context_settings import (
     PoolExecutionPolicy,
     compaction_settings_of,
+    pool_execution_policy_of,
     pool_policy_payload,
     resolve_compaction_settings,
     resolve_pool_execution_policy,
@@ -1214,6 +1215,8 @@ class RunService:
             compaction=compaction,
             execution=execution,
             summary_model=summary_model,
+            pool=pool,
+            members=members,
         )
         await self._launch_execution(run, stream)
         return RunStart(
@@ -1269,7 +1272,9 @@ class RunService:
             mcp_servers=servers, mcp_secrets=secrets, history=history, submission_id=submission.id,
             resumed=True, compaction=compaction_settings_of(snapshot.policy_json),
             execution=execution_defaults_of(snapshot.policy_json), summary_model=summary_model,
-            current_text=input_text, current_attachments=persisted)
+            current_text=input_text, current_attachments=persisted,
+            pool=pool_execution_policy_of(snapshot.policy_json),
+            members=frozen_model_members_of(snapshot.policy_json))
         await self._launch_execution(run, stream)
         return RunStart(run_id=run.id, conversation_id=run.conversation_id, resumed=True,
             events=self._replay_events(submission))
@@ -1664,6 +1669,8 @@ class RunService:
         current_attachments: tuple[PersistedAttachment, ...] | None = None,
         submission_id: uuid.UUID | None = None,
         memory_resume_ref: MemoryResumeRef | None = None,
+        pool: PoolExecutionPolicy | None = None,
+        members: Sequence[MemberRef] | None = None,
     ) -> RunExecutor:
         text = run.input_text if current_text is None else current_text
         # `None` ⇒ 取本 Run 全部的入站附件（新建 Run 的常规路径）；续跑显式传**本次新落的**那批，
@@ -1700,6 +1707,11 @@ class RunService:
                 parallel_limit=async_policy.parallel_limit,
                 execution_identity=ExecutionIdentity.of(run),
                 credentials=ExecutorCredentials(mcp_secrets=mcp_secrets),
+                # 模型池执行链路（TASK-025）：冻结策略与**非密钥**成员引用只从本 Run 自己的
+                # 快照读回（旧行缺键 ⇒ None，不补新默认）；受信解析客户端只进调用内存。
+                pool=pool,
+                model_members=None if members is None else tuple(members),
+                credentials_client=self._credentials_client,
                 run_context=ExecutorRunContext(
                     tenant_id=run.tenant_id,
                     run_id=run.id,
@@ -1748,6 +1760,8 @@ class RunService:
         summary_model: ResolvedModel | None = None,
         current_text: str | None = None,
         current_attachments: tuple[PersistedAttachment, ...] | None = None,
+        pool: PoolExecutionPolicy | None = None,
+        members: Sequence[MemberRef] | None = None,
     ) -> AsyncIterator[ExecutorEvent]:
         yield await self._start_segment_event(run, submission_id, resumed)
         resume = await resume_decision(get_session_factory(), run, submission_id=submission_id)
@@ -1756,7 +1770,8 @@ class RunService:
             return await self._build_executor(run, agent, model, skills, mcp_servers, mcp_secrets, history,
                 compaction=compaction, execution=execution, summary_model=summary_model,
                 current_text=current_text, current_attachments=current_attachments,
-                submission_id=submission_id, memory_resume_ref=resume.reference)
+                submission_id=submission_id, memory_resume_ref=resume.reference,
+                pool=pool, members=members)
 
         result = (SegmentResult(final_text=resume.message) if resume.message is not None
             else await self._run_segment(run, submission_id, agent.key, build))
