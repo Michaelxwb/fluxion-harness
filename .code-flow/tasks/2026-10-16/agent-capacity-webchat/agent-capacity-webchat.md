@@ -350,7 +350,7 @@
 | B-208 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-008 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_settings_catalog.py"] | . | 300 |  |
 | B-209 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-009 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_control_pool_schema.py"] | . | 300 |  |
 | B-210 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-010 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_runtime_pool_schema.py"] | . | 300 |  |
-| B-211 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-011 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_admission_schema.py"] | . | 300 |  |
+| B-211 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-011 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_admission_schema.py"] | . | 300 |  |
 | B-212 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-012 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_chat_auth_schema.py"] | . | 300 |  |
 | B-213 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-013 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"] | . | 300 |  |
 | B-214 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-014 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"] | . | 300 |  |
@@ -973,13 +973,14 @@ capacity/dispatch_state/call_lease具有稳定实际Key身份和完整唯一键�
 - [2026-10-17] B-210 RED：`tests/migrations/test_capacity_webchat_runtime_pool_schema.py` → 13 failed / 1 passed（head 0021 上三表与 ORM 模型缺失）
 - [2026-10-17] 实现 0022：`runtime.py` 新增 ModelCapacity/ModelDispatchState/ModelCallLease（完整唯一含 tombstone、恰一归属 CHECK、UNKNOWN 不可软删、partial index）；`migrations/versions/0022_model_capacity_runtime.py`（纯 DDL，down_revision 0021，downgrade 仅空表允许否则 `MODEL_CAPACITY_DOWNGRADE_REQUIRES_BACKUP`）
 - [2026-10-17] B-210 GREEN：14 passed；verifier 口径 `tests -k schema_parity` 43 passed；py_compile/mypy 通过
+- [2026-10-17] 后续修订（TASK-011 推进链头到 0023）：`test_b210_downgrade_with_lease_rows_requires_backup` 不再钉死 `version_num == '0022'`，改为记录回退尝试前的链头并断言不变——整链单事务回滚的语义与断言强度不变（`migrations/env.py` `context.begin_transaction()`）
 - [2026-10-17] completed (done)
 
 ---
 
 ## TASK-011: 全局准入版本、计数与排队字段
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-010
 - **Source**: agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -994,25 +995,45 @@ policy按tenant完整唯一、版本单调；完整分支及可观测结果见�
 
 ### Checklist
 
-- [ ] [B-211][integration] 先在`tests/migrations/test_capacity_webchat_admission_schema.py`建立行为验收并记录RED；真实边界：隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库；关键断言：policy按tenant完整唯一、版本单调。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-211] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-211] 执行`["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_admission_schema.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-211][integration] 先在`tests/migrations/test_capacity_webchat_admission_schema.py`建立行为验收并记录RED；真实边界：隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库；关键断言：policy按tenant完整唯一、版本单调。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-211] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-211] 执行`["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_admission_schema.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-211 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | policy按tenant完整唯一、版本单调；USER/TENANT计数唯一且非负，Run队列/释放标记及deadline索引反映全部非终态 | tests/migrations/test_capacity_webchat_admission_schema.py | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_admission_schema.py"] | planned |
+| B-211 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | policy按tenant完整唯一、版本单调；USER/TENANT计数唯一且非负，Run队列/释放标记及deadline索引反映全部非终态 | tests/migrations/test_capacity_webchat_admission_schema.py::test_b211_* | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_admission_schema.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-211 | `uv run pytest -q tests/migrations/test_capacity_webchat_admission_schema.py` → exit=1，**6 failed / 1 passed**（12.35s）：`run_record` 队列列在 ORM 中缺失（`CompileError: Unconsumed column names: queue_deadline_at, queued_at, queue_reason, queue_stage`）且两个准入表不存在。唯一通过的空表 downgrade 用例此时是空洞通过（目标 0022 即当时 head、无迁移动作），实现后由 GREEN 复跑真正覆盖 drop 路径 | `uv run pytest -q tests/migrations/test_capacity_webchat_admission_schema.py` → **7 passed** (exit=0, 12.68s) | `test_b211_empty_database_schema_parity` L108-138（两新表 `migrated == created` 全量比对；标准列齐全；`queue_stage` VARCHAR(24)/`queue_reason` VARCHAR(64) 可空、三个时间列 timestamptz 且可空、ORM 同步暴露；`ck_run_record_queue_stage` 在库；`ix_run_record_queue_deadline` 列 (`queue_deadline_at`) 非唯一且谓词含 `queue_stage IS NOT NULL`+四个非终态+`is_deleted = false`）；`test_b211_policy_is_single_row_per_tenant_and_version_moves_in_place` L141-172（同租户第二行/软删被拒；条件更新 `< 8` 生效、`< 3` rowcount=0 → 版本原地单调；6 组非法阈值/负 revision 逐个 IntegrityError；契约边界 2/2 与 100000/100 被接受）；`test_b211_counters_are_complete_unique_per_scope_and_non_negative` L175-211（默认 (0,1)；同 scope 重复行与 tombstone 重录均拒；`scope_type='POD'`/负计数/revision=0 拒；释放计数回退成功、负计数更新拒）；`test_b211_queue_fields_only_expose_waiting_stages_and_release_marker` L214-246（WAITING_RUNTIME→WAITING_MODEL 可切换；WAITING_TOOL/RUNNING/COMPLETED 作为排队阶段被 `ck_run_record_queue_stage` 拒；终态清 `queue_stage` 并写 `admission_released_at`）；`test_b211_downgrade_requires_drain_for_live_admission_state[counter|waiting]` L249-282（计数行或等待 Run 任一存在 → 非 0 退出 + `RUN_ADMISSION_DOWNGRADE_REQUIRES_DRAIN`，链头/结构/数据保持）；`test_b211_downgrade_on_pristine_schema_returns_to_0022` L285-303（空库回退成功：0022、两表与五列消失，再 `upgrade head` 成功） | 隔离库 `create_datastore()`（默认 head）与真实 `migrations/db_migrate.py -c <ini>` 子进程；隔离 PostgreSQL、真实 Alembic 链、无 mock；整链单事务（`migrations/env.py` `context.begin_transaction()`）：0023 拒绝回退时链头与结构原样 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件：`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py`（`RunRecord` 加 `queue_stage/queue_reason/queued_at/queue_deadline_at/admission_released_at` 与排队 CHECK/deadline partial index；新增 `RunAdmissionPolicy`/`RunAdmissionCounter`）、`migrations/versions/0023_run_admission.py`（down_revision=0022；纯 DDL）。
+- 结构决策：policy 每租户恰一行（完整唯一、`is_deleted=false`）使版本只能原地前进、无 tombstone 分叉可复活；阈值 CHECK 与 §3.7 契约一致（tenant 2～100000、user 2～100 且 ≤tenant、revision≥0）；counter 完整唯一 (tenant,scope_type,scope_key) 且计数/版本非负；排队投影只表达 WAITING_RUNTIME/WAITING_MODEL，deadline partial index 只覆盖全部非终态等待行。
+- 回退策略：仅当无等待中的排队投影且无准入投影行时允许结构回退；否则 `RUN_ADMISSION_DOWNGRADE_REQUIRES_DRAIN`（两种 blocker 分别有测试）。
+- 静态校验：`.venv/bin/python -m py_compile` 四文件通过；mypy `runtime.py` → Success。
+- 回归与真实边界：`uv run pytest -q tests/migrations` → **63 passed** (104.45s)；verifier 口径 `uv run pytest -q tests -k schema_parity` → **44 passed**, 4709 deselected (19.09s)。
+- dev 库升级（已披露的环境变更）：本地 dev 库原在 0021，ORM 前移到 0023 后 `tests/agent_runtime` 曾 128 failed/4 errors（`column run_record.queue_stage does not exist`）。执行 `uv run python migrations/db_migrate.py -c /tmp/agent-capacity-webchat-dev/dev.ini upgrade head`（0021→0023，纯增量：5 个可空列 + CHECK + partial index + 两张空表），复跑 `tests/agent_runtime` → **765 passed** (10:56)、`tests/agent_worker` → **299 passed** (1:03)。失败根因是环境陈旧，不是实现缺陷，未改实现迁就。
+- 链头推进的连带修订：TASK-010 测试 `test_b210_downgrade_with_lease_rows_requires_backup` 原钉死 `version_num == '0022'`，链头到 0023 后误报；改为记录回退尝试前的链头并断言不变（同时佐证整链单事务回滚），已写入 TASK-010 Log。
+- B-211: verified — automated command passed; run_id=9c46c6fe279148169083415cbb223565 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-17] started
+- [2026-10-17] B-211 RED：`tests/migrations/test_capacity_webchat_admission_schema.py` → 6 failed / 1 passed（run_record 队列列在 ORM 中缺失、两准入表不存在）
+- [2026-10-17] 实现 0023：`runtime.py` 加 RunRecord 排队投影列与 `ck_run_record_queue_stage`/`ix_run_record_queue_deadline`，新增 RunAdmissionPolicy/RunAdmissionCounter；`migrations/versions/0023_run_admission.py`（纯 DDL，downgrade 仅在无等待投影/无投影行时允许，否则 `RUN_ADMISSION_DOWNGRADE_REQUIRES_DRAIN`）
+- [2026-10-17] B-211 GREEN：7 passed；`tests/migrations` 63 passed；verifier 口径 `tests -k schema_parity` 44 passed；py_compile/mypy 通过
+- [2026-10-17] dev 库升级 0021→0023（纯增量 DDL，已披露）：此前 `tests/agent_runtime` 128 failed/4 errors 均为 `run_record.queue_stage does not exist`；升级后 `tests/agent_runtime` 765 passed、`tests/agent_worker` 299 passed
+- [2026-10-17] 连带修订：TASK-010 的 downgrade 备份测试不再钉死链头（记录断言前后版本不变），详见 TASK-010 Log
+- [2026-10-17] completed (done)
 
 ---
 

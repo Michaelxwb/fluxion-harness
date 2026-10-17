@@ -303,6 +303,7 @@ async def test_b210_downgrade_with_lease_rows_requires_backup(
     try:
         async with engine.begin() as connection:
             await connection.execute(models.ModelCallLease.__table__.insert().values(**_lease()))
+            head = (await connection.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one()
     finally:
         await engine.dispose()
     result = await _migrate(async_tool_datastore, tmp_path, direction="downgrade", target="0021")
@@ -310,7 +311,8 @@ async def test_b210_downgrade_with_lease_rows_requires_backup(
     engine = create_async_engine(async_tool_datastore["database_url"])
     try:
         async with engine.begin() as connection:
-            assert (await connection.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == "0022"
+            # 整链一个事务：0022 拒绝即回滚，链头与数据都保持原样（不钉死在具体 revision 号）。
+            assert (await connection.execute(sa.text("SELECT version_num FROM alembic_version"))).scalar_one() == head
             assert (await connection.execute(sa.text("SELECT count(*) FROM runtime.model_call_lease"))).scalar_one() == 1
     finally:
         await engine.dispose()

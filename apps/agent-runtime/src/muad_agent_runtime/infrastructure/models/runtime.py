@@ -57,6 +57,17 @@ class RunRecord(StandardColumnsMixin, Base):
             "deadline_at",
             postgresql_where=sa.text("status IN ('WAITING_TOOL','WAITING_INPUT') AND is_deleted = false"),
         ),
+        sa.Index(
+            "ix_run_record_queue_deadline",
+            "queue_deadline_at",
+            postgresql_where=sa.text(
+                "queue_stage IS NOT NULL AND status IN ('CREATED','RUNNING','WAITING_TOOL','WAITING_INPUT') "
+                "AND is_deleted = false"
+            ),
+        ),
+        sa.CheckConstraint(
+            "queue_stage IS NULL OR queue_stage IN ('WAITING_RUNTIME','WAITING_MODEL')", name="queue_stage"
+        ),
         {"schema": "runtime"},
     )
 
@@ -89,6 +100,11 @@ class RunRecord(StandardColumnsMixin, Base):
     lease_until: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     heartbeat_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     channel_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    queue_stage: Mapped[str | None] = mapped_column(sa.String(24))
+    queue_reason: Mapped[str | None] = mapped_column(sa.String(64))
+    queued_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    queue_deadline_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    admission_released_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
 
 class RuntimeSnapshot(StandardColumnsMixin, Base):
@@ -611,3 +627,46 @@ class ModelCallLease(StandardColumnsMixin, Base):
     lease_until: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
     reserved_tokens: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
     state: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'ACTIVE'"))
+
+
+class RunAdmissionPolicy(StandardColumnsMixin, Base):
+    """Runtime 持有的全局准入阈值投影（来源为 Console capacity 设置）。
+
+    每租户恰一行（完整唯一，不可软删）：版本只能按 `source_settings_revision` 原地单调
+    前进，旧实例不能把旧阈值覆盖回去；阈值边界与配置契约一致（§3.7）。
+    """
+
+    __tablename__ = "run_admission_policy"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", name="uq_run_admission_policy_tenant"),
+        sa.CheckConstraint("source_settings_revision >= 0", name="source_settings_revision"),
+        sa.CheckConstraint("max_open_runs_per_tenant BETWEEN 2 AND 100000", name="tenant_limit"),
+        sa.CheckConstraint("max_open_runs_per_user BETWEEN 2 AND 100", name="user_limit"),
+        sa.CheckConstraint("max_open_runs_per_user <= max_open_runs_per_tenant", name="user_within_tenant"),
+        sa.CheckConstraint("is_deleted = false", name="not_deleted"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    source_settings_revision: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    max_open_runs_per_tenant: Mapped[int] = mapped_column(sa.Integer(), nullable=False)
+    max_open_runs_per_user: Mapped[int] = mapped_column(sa.Integer(), nullable=False)
+
+
+class RunAdmissionCounter(StandardColumnsMixin, Base):
+    """事务内准入计数：Run 为权威，此表只承载 USER/TENANT 两个 scope 的计数。"""
+
+    __tablename__ = "run_admission_counter"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "scope_type", "scope_key", name="uq_run_admission_counter_scope"),
+        sa.CheckConstraint("scope_type IN ('USER','TENANT')", name="scope_type"),
+        sa.CheckConstraint("open_run_count >= 0", name="open_run_count"),
+        sa.CheckConstraint("revision >= 1", name="revision"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    scope_type: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    scope_key: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    open_run_count: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+    revision: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("1"))
