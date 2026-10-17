@@ -1,0 +1,71 @@
+# 容量验收 profile（规范示例；设计 §3.7「验收profile字段」+ §4.3 分层验收与报告）
+#
+# 用法：容量 harness 按本文件锁定一次测量，报告记录 profile hash 与服务配置 revision。
+# 口径：
+# - CONTROLLED_PROBE 模式由真实 HTTP 探针承担模型侧；探针吞吐不冒充真实模型吞吐。
+#   真实模型（REAL 模式）的额度证据只允许 `env:NAME` 引用，禁止在本文件内嵌凭据原文。
+# - 正式验收要求 workload.users >= 1000、slo 与 resources 全量声明；缺任一项只能产出
+#   诊断结果，不能给出容量验收 pass。
+# - 下面的阈值/分布是起始示例，不是实测结论；正式测量前按业务确认后锁定。
+workload:
+  # 1000 用户各一个活跃 Run 的目标；空闲连接不算执行负载。
+  users: 1000
+  active_runs_per_user: 1
+  # ramp=0 可用于验证同时受理；稳态与突发结果分开记录。
+  ramp_sec: 60
+  steady_sec: 600
+  # 每个用户的真实轮数；消息频率/大小/轮数必须显式声明。
+  turns_per_user: 8
+  input_distribution:
+    think_time_ms:
+      p50: 3000
+      p95: 15000
+      max: 60000
+    text_bytes:
+      p50: 256
+      p95: 4096
+      max: 65536
+  # 附件轮次比例；ratio=0 表示纯文本负载，此时不声明 upload_bytes。
+  attachment_distribution:
+    ratio: 0.1
+    upload_bytes:
+      p50: 1048576
+      p95: 10485760
+      max: 52428800
+model:
+  mode: CONTROLLED_PROBE
+  probe_latency_ms:
+    p50: 800
+    p95: 2500
+    max: 10000
+  output_distribution:
+    p50: 256
+    p95: 1024
+    max: 4096
+slo:
+  # 有限正数，正式验收必填无默认：运行前确定阈值并记录。
+  admission_p95_ms: 500
+  admission_p99_ms: 1500
+  framework_first_delta_p95_ms: 1200
+  recovery_max_sec: 60
+  # [0,1]；系统错误、明确过载/429、排队超时分别计数，不能靠排除失败制造成功率。
+  max_system_error_ratio: 0.01
+resources:
+  # 四单元固定：console-platform / agent-runtime / agent-worker / im-gateway。
+  hardware:
+    console-platform: {cpu_request_millicores: 500, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 4096}
+    agent-runtime: {cpu_request_millicores: 1000, cpu_limit_millicores: 4000, memory_request_mb: 2048, memory_limit_mb: 8192}
+    agent-worker: {cpu_request_millicores: 1000, cpu_limit_millicores: 4000, memory_request_mb: 2048, memory_limit_mb: 8192}
+    im-gateway: {cpu_request_millicores: 500, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 4096}
+  # 每 Pod 进程数：>1 时连接预算按 进程数 × 最大副本数 求和。
+  process_counts: {console-platform: 1, agent-runtime: 1, agent-worker: 1, im-gateway: 1}
+  replica_counts: {console-platform: 1, agent-runtime: 2, agent-worker: 2, im-gateway: 1}
+  # Console/Gateway 各一个 Pod 是部署约束；Runtime/Worker 的 HPA 上界按实测。
+  max_replica_counts: {console-platform: 1, agent-runtime: 4, agent-worker: 8, im-gateway: 1}
+  # 全进程 × 最大副本的 PG 连接总预算另留维护/迁移余量。
+  pg_connection_budget: 200
+  fd_budget: 4096
+  storage_budget:
+    event_bytes_per_day: 5368709120
+    retention_days: 30
+    artifact_bytes: 107374182400

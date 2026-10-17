@@ -4371,7 +4371,7 @@
       "kind": "functional",
       "boundary": "真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收",
       "owner": "TASK-105",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -4381,7 +4381,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-305",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "9a690bcf84d344e2b0cd307c39e7e481",
+        "executed_at": "2026-10-17T18:10:49.058066+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/capacity/test_capacity_webchat_load_profile.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "5f647a42611c4aa7bfdaf5de63b4d1ceba0bff7c09c934221a1c1e4697b21fb6"
+      },
+      "runs": [
+        {
+          "id": "B-305",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "9a690bcf84d344e2b0cd307c39e7e481",
+          "executed_at": "2026-10-17T18:10:49.058066+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/capacity/test_capacity_webchat_load_profile.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "5f647a42611c4aa7bfdaf5de63b4d1ceba0bff7c09c934221a1c1e4697b21fb6"
+        }
+      ]
     },
     {
       "id": "B-306",
