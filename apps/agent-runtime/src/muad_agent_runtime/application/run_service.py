@@ -122,6 +122,11 @@ from .ports import (
     PlatformSettingsClient,
     ResolveClient,
 )
+from .run_admission import (
+    AdmissionPolicyService,
+    AdmissionPolicyStaleError,
+    parse_capacity,
+)
 from .run_events import EventWriter
 from .run_resume import (
     ensure_human_resume,
@@ -657,6 +662,7 @@ class RunService:
         context_builder: DbBackedContextBuilder | None = None,
         *,
         supervisor: ExecutionSupervisor,
+        admission: AdmissionPolicyService | None = None,
     ) -> None:
         self._session = session
         self._supervisor = supervisor
@@ -669,6 +675,11 @@ class RunService:
         # 新建调用点忘记注入真 client 会静默按空设置跑；取消/回收/直构的调用点若要
         # 「无设置源」语义，显式传 `NullPlatformSettingsClient()`。
         self._settings_client: PlatformSettingsClient = settings_client
+        # 全局准入（TASK-029/030）：策略行锁与 USER→TENANT 计数都在 Run 创建事务内完成，
+        # 与设置源同一份快照；显式注入用于测试或替换装配。
+        self._admission = admission or AdmissionPolicyService(
+            get_session_factory, settings_client
+        )
         self._submissions = submissions or RunSubmissionService(get_session_factory)
         self._context_builder = context_builder or DbBackedContextBuilder(
             session_factory=get_session_factory,
@@ -682,9 +693,43 @@ class RunService:
         tenant_id: str,
         idempotency_key: str | None = None,
     ) -> RunStart:
+        """受理入口：幂等重放优先；新提交在建 Run 的事务内完成全局准入与计数占位。
+
+        读到更低设置版本（`AdmissionPolicyStaleError`）时退出事务后**重取一次**有效配置，
+        绝不按旧阈值放行；重取仍低即显式失败（§3.7）。
+        """
         key = idempotency_key or request.message.id
         fingerprint = _creation_fingerprint(request, tenant_id)
+        for attempt in range(self._admission.stale_refresh_attempts + 1):
+            try:
+                return await self._admit(request, tenant_id, key, fingerprint)
+            except AdmissionPolicyStaleError:
+                # 先退出事务（连同 policy 行锁与未提交的 Run/会话）再重取，锁内不联网。
+                await self._session.rollback()
+                logger.warning(
+                    "admission_policy_stale_on_create",
+                    extra={"tenant_id": tenant_id, "attempt": attempt},
+                )
+                continue
+        raise AppError(ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE)
+
+    async def _admit(
+        self, request: RunRequest, tenant_id: str, key: str, fingerprint: str
+    ) -> RunStart:
+        """一次受理尝试：重放检查 → 同键串行化 → 会话/活跃 Run 判定 → 建 Run（含准入）。"""
         replay = await self._submissions.find_replay_in(
+            self._session,
+            tenant_id=tenant_id,
+            idempotency_key=key,
+            endpoint=ENDPOINT_CREATE_RUN,
+            fingerprint=fingerprint,
+        )
+        if replay is not None:
+            self._assert_replay_owner(replay, request.platform_user_id, request.conversation_id)
+            return self._replay_start(replay)
+        # 同键请求先经事务 advisory 锁串行化（RULE-api-002）：锁先于 policy 行锁，同键事务
+        # 只在 advisory 锁上排队；锁内复查首次提交 ⇒ 落败者直接重放，不建第二个 Run。
+        replay = await self._submissions.claim_in(
             self._session,
             tenant_id=tenant_id,
             idempotency_key=key,
@@ -696,24 +741,8 @@ class RunService:
             return self._replay_start(replay)
         conversation = await self._resolve_conversation(request, tenant_id)
         active = await self._active_run(conversation.id)
-        replay = await self._submissions.find_replay_in(self._session, tenant_id=tenant_id,
-            idempotency_key=key, endpoint=ENDPOINT_CREATE_RUN, fingerprint=fingerprint)
-        if replay is not None:
-            self._assert_replay_owner(replay, request.platform_user_id, request.conversation_id)
-            return self._replay_start(replay)
         if active is not None:
-            if active.status == RunStatus.WAITING_INPUT:
-                return await self._resume_run(
-                    active,
-                    request.message.text,
-                    message_id=request.message.id,
-                    # 暂停期间这条消息带的附件必须与文本一起进去（否则等于静默丢弃）
-                    attachments=request.message.attachments,
-                    submission_key=key,
-                    request_fingerprint=fingerprint,
-                    endpoint=ENDPOINT_CREATE_RUN,
-                )
-            raise AppError(ErrorCode.RUN_BUSY)
+            return await self._resume_active(active, request, key, fingerprint)
         resolved = await self._resolve_client.resolve(
             ResolveDefinitionRequest(
                 agent_id=request.agent_id,
@@ -724,6 +753,23 @@ class RunService:
             trace_id=current_trace_id(),
         )
         return await self._create_run(request, tenant_id, conversation, resolved, key, fingerprint)
+
+    async def _resume_active(
+        self, active: RunRecord, request: RunRequest, key: str, fingerprint: str
+    ) -> RunStart:
+        """会话已有活跃 Run：暂停中走 resume，其余明确 `RUN_BUSY`（不建第二个 Run）。"""
+        if active.status != RunStatus.WAITING_INPUT:
+            raise AppError(ErrorCode.RUN_BUSY)
+        return await self._resume_run(
+            active,
+            request.message.text,
+            message_id=request.message.id,
+            # 暂停期间这条消息带的附件必须与文本一起进去（否则等于静默丢弃）
+            attachments=request.message.attachments,
+            submission_key=key,
+            request_fingerprint=fingerprint,
+            endpoint=ENDPOINT_CREATE_RUN,
+        )
 
     async def resume(
         self,
@@ -1086,11 +1132,13 @@ class RunService:
     ) -> RunStart:
         now = _utcnow()
         run_id = uuid.uuid4()
-        # 平台设置在此边界取一次（每个新 Run 一次），随即冻结进这一行的 snapshot。源不可读即
-        # 明确失败（RULE-06）——绝不回退到任何过期默认值，失败计数由 client 在调用方侧记。
+        # 平台设置在此边界取**一次**：这份快照既冻结本 Run 的执行策略，也给出本次受理的
+        # capacity 阈值（准入投影与冻结策略同源，不二次取配置）。源不可读即明确失败
+        # （RULE-06）——绝不回退到任何过期默认值，失败计数由 client 在调用方侧记。
         snapshot_settings = await self._settings_client.fetch_snapshot(
             tenant_id=tenant_id, trace_id=current_trace_id() or ""
         )
+        capacity = parse_capacity(snapshot_settings)
         # 压缩配置在此解析一次：既冻进这一行的 snapshot，也供本次历史装配用同一个值——
         # 二者若各解析一次，配置恰好在两次之间变更就会让"冻结值"与"实际用的值"分叉。
         compaction = resolve_compaction_settings(
@@ -1120,6 +1168,11 @@ class RunService:
             resolved.model,
             resolved.mcp_servers,
             summary_model=summary_model,
+        )
+        # 准入段（锁内不联网）：策略行锁是首个共享行锁，随后 Run → USER → TENANT（§3.2 锁序）。
+        # 更低设置版本在此抛 `AdmissionPolicyStaleError`，由 `start` 退出事务后重取一次。
+        policy = await self._admission.lock_and_apply_in(
+            self._session, tenant_id=tenant_id, capacity=capacity
         )
         run = RunRecord(
             id=run_id,
@@ -1181,6 +1234,11 @@ class RunService:
             await self._append_submission_start(self._session, run, submission.id, resumed=False)
             conversation.last_run_id = run.id
             conversation.update_time = now
+            # 计数自增与 Run 行同事务（B-230）：达阈值即拒，整个事务回滚——不留半建 Run，
+            # 也不留下只增不减的占位。
+            await self._admission.reserve_counts_in(
+                self._session, tenant_id=tenant_id, user_id=request.platform_user_id, policy=policy
+            )
             await self._session.commit()
         except IntegrityError as exc:
             # 并发同 key 幂等记录落败：读取首次提交结果（设计 API-01）
@@ -1195,6 +1253,10 @@ class RunService:
             if replay is not None:
                 return self._replay_start(replay)
             raise AppError(ErrorCode.RUN_BUSY) from exc
+        except AppError:
+            # 准入拒绝等显式失败：整事务回滚，绝不留下半建 Run/会话/提交/计数。
+            await self._session.rollback()
+            raise
         history = await self._load_history(
             conversation.id,
             tenant_id,

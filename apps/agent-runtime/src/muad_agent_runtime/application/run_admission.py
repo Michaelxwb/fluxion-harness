@@ -114,6 +114,11 @@ class AdmissionPolicyService:
         snapshot = await self._settings_client.fetch_snapshot(tenant_id=tenant_id, trace_id=trace_id)
         return parse_capacity(snapshot)
 
+    @property
+    def stale_refresh_attempts(self) -> int:
+        """低版本时「退出事务后重取有效配置」的允许次数（与 `resolve` 同一口径）。"""
+        return self._stale_refresh_attempts
+
     async def resolve(self, *, tenant_id: str, trace_id: str = "") -> AdmissionPolicy:
         """投影流程：事务外取配置 → 锁内应用更高版本 → 低版本退出事务后重取一次。"""
         for _ in range(self._stale_refresh_attempts + 1):
@@ -196,3 +201,21 @@ class AdmissionPolicyService:
         )
         if tenant_count >= policy.limits.max_open_runs_per_tenant:
             raise AppError(ErrorCode.RUN_CAPACITY_EXCEEDED)
+
+    async def reserve_counts_in(
+        self, session: AsyncSession, *, tenant_id: str, user_id: uuid.UUID, policy: AdmissionPolicy
+    ) -> None:
+        """受理占位（USER → TENANT）：达有效阈值即拒，通过则原地自增，与 Run 行**同事务**。
+
+        调用方在同一事务内先插入 Run 行再调用本方法（§3.2 锁序 Conversation → Run → USER →
+        TENANT）；任一 scope 达阈值即 `RUN_CAPACITY_EXCEEDED`，调用方回滚整个事务——Run、会话、
+        提交、事件与计数一起消失，不留半建 Run，也不留下只增不减的占位。
+        """
+        await self.check_counts_in(session, tenant_id=tenant_id, user_id=user_id, policy=policy)
+        store = RunAdmissionStore(session)
+        await store.increment_counter(
+            tenant_id=tenant_id, scope_type=SCOPE_USER, scope_key=str(user_id)
+        )
+        await store.increment_counter(
+            tenant_id=tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant_id
+        )
