@@ -70,13 +70,21 @@ class ModelCredentialFields(ModelPoolContract):
     key: ResourceKey
     provider_key: ResourceKey
     base_url: HttpEndpoint
-    quota_group_id: UUID
+    #: 无共享账号额度组时该 Key 独占自身容量（0021 迁移清单允许 `quota_group: null`）
+    quota_group_id: UUID | None = None
     max_inflight: PositiveSlots
     enabled: StrictBool = True
 
 
 class ModelCredentialCreate(ModelCredentialFields):
     api_key: ApiKeyValue = Field(exclude=True, repr=False)
+
+
+class ModelCredentialUpdate(ModelCredentialFields):
+    """PUT 整份替换可编辑字段；缺省 `api_key` 表示保留原值（留空不是合法表达）。"""
+
+    expected_revision: PositiveCount
+    api_key: ApiKeyValue | None = Field(default=None, exclude=True, repr=False)
 
 
 class ModelCredentialConfig(ModelCredentialFields):

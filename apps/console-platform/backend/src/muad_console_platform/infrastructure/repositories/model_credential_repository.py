@@ -3,6 +3,10 @@
 去重与并发由真实 partial unique 兜底（`uq_model_credential_tenant_key` /
 `uq_model_credential_tenant_provider_digest`）；本层只做带租户谓词的读写，
 不提交事务（提交/回滚由调用方决定）。
+
+**为什么读 `runtime.model_call_lease`**：降额/换归属的排空判定需要知道该凭据是否仍有
+在飞/未确定调用——占用事实由 Runtime 的租约表承载，Console 不拥有该表，只读同一先例
+（`audit_query_repository` JOIN `runtime.run_record`、`artifact_retention_repository`）。
 """
 
 from __future__ import annotations
@@ -10,10 +14,18 @@ from __future__ import annotations
 import uuid
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, func, select, update
+from sqlalchemy import CursorResult, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.control import ModelCredential, ModelDeployment, ModelQuotaGroup
+
+#: 在飞/未确定租约仍占容量（SETTLED 才是终态；过期 ACTIVE 也不能断言远端已停）。
+_HAS_LIVE_LEASES_SQL = text(
+    "SELECT EXISTS ("
+    "SELECT 1 FROM runtime.model_call_lease "
+    "WHERE tenant_id = :tenant_id AND credential_id = :credential_id "
+    "AND state IN ('ACTIVE','UNKNOWN') AND is_deleted = false)"
+)
 
 
 class ModelCredentialRepository:
@@ -121,3 +133,11 @@ class ModelCredentialRepository:
             )
         )
         return int(total or 0)
+
+    async def has_live_leases(self, tenant_id: str, credential_id: uuid.UUID) -> bool:
+        """该凭据是否仍有在飞/未确定租约（降额或换归属的排空判定）。"""
+        exists = await self._session.scalar(
+            _HAS_LIVE_LEASES_SQL,
+            {"tenant_id": tenant_id, "credential_id": credential_id},
+        )
+        return bool(exists)

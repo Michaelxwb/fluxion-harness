@@ -355,7 +355,7 @@
 | B-213 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-013 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"] | . | 300 |  |
 | B-214 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-014 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_notification_schema.py"] | . | 300 |  |
 | B-215 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-015 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"] | . | 300 |  |
-| B-216 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-016 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"] | . | 300 |  |
+| B-216 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-016 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"] | . | 300 |  |
 | B-217 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-017 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"] | . | 300 |  |
 | B-218 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-018 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_quota_groups.py"] | . | 300 |  |
 | B-219 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-019 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_logical_model_api.py"] | . | 300 |  |
@@ -1282,7 +1282,7 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 
 ## TASK-016: ADMIN模型凭据路由与读写边界
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007, TASK-015
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案
@@ -1297,25 +1297,43 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 
 ### Checklist
 
-- [ ] [B-216][integration] 先在`tests/console_platform/test_capacity_webchat_credential_api.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：凭据创建/更新/删除仅ADMIN+CSRF，读取仅configured。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-216] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-216] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-216][integration] 先在`tests/console_platform/test_capacity_webchat_credential_api.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：凭据创建/更新/删除仅ADMIN+CSRF，读取仅configured。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-216] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-216] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-216 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 凭据创建/更新/删除仅ADMIN+CSRF，读取仅configured；关联删除/降额冲突明确，创建按strict canonical JSON持久幂等回放 | tests/console_platform/test_capacity_webchat_credential_api.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"] | planned |
+| B-216 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 凭据创建/更新/删除仅ADMIN+CSRF，读取仅configured；关联删除/降额冲突明确，创建按strict canonical JSON持久幂等回放 | tests/console_platform/test_capacity_webchat_credential_api.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-216 | `uv run pytest -q tests/console_platform/test_capacity_webchat_credential_api.py` → **8 failed**（exit=1, 1.03s）：全部为路由未挂载（`assert 404 == 403` 于 L272、`assert 404 == 200` 于 L198×4/L502、契约 `ModelCredentialUpdate` 与 `has_live_leases` 不存在）与 `TypeError: ModelCredentialService.create_credential() got an unexpected keyword argument 'idempotency_key'`（L591）；异租户列表读 `data` 为 None（L665）。首轮 RED 因测试 7 裸等 `started.wait()` 在缺实现时挂死（测试侧），改为 `asyncio.wait(timeout=10, FIRST_COMPLETED)` 传播首个写者真实异常后获得上述快速 RED | 同命令 → **8 passed**（exit=0, 1.95s）；回归 `uv run pytest -q tests/console_platform tests/contracts` → **1613 passed**（exit=0, 48.22s）；契约 `tests/contracts/test_capacity_webchat_model_contracts.py` 24 passed；TASK-015 服务用例 8 passed；`uv run mypy apps packages` → Success: no issues found in 392 source files；`uv run ruff check` 逐文件干净；`scripts/check_error_message_hardcode.py` OK | `test_b216_admin_and_csrf_guard_every_write` L265-291（BUILDER 读 403 FORBIDDEN L272-273、BUILDER 写 403 L275、缺 CSRF 403 L282-283、错 CSRF 403 L286、被拒请求零落行 L288、正确 CSRF 受理且 configured L290-291）；`test_b216_reads_expose_only_configured_and_accept_group_less_keys` L294-340（投影字段集恰为 READ_FIELDS L300、configured 与 quota_group_id L301、详情无 api_key/明文 L304、列表信封 L307-309、带组创建写组 L329、0021 遗留无组 Key 可读 L333、无组创建可建 L339-340）；`test_b216_create_conflicts_and_referenced_delete_are_explicit` L343-388（未知额度组 404 L351、key 重复 409 L355-356、同物理 Key 摘要重复 409 L358-359、被成员引用删除 409 L375、解除引用后删除 200 L384、软删后 404 L386、行保留 L388）；`test_b216_update_keeps_secret_unless_explicit_rotation` L391-441（缺省保留密钥 200 L404、max_inflight/revision L406、响应无明文 L407、库内明文与摘要不动 L409-410、更新同行 L411、空串 422 L418、轮换 200/revision 3 L427-428、新摘要 L430、陈旧 revision 409 L437、未覆盖 L439）；`test_b216_downgrade_and_ownership_change_require_drain` L444-493（降额 409 `MODEL_CAPACITY_DRAIN_REQUIRED` L458-459、扩容 200 L466、值轮换 200 L472、UNKNOWN 换组 409 L480、SETTLED 后换组+降额 200 L490-493）；`test_b216_create_replays_first_result_by_persisted_canonical_fingerprint` L496-570（首建 200 L504、同键重放同 ID L506、endpoint=model-credential-create L545、重放不建第二行/不写审计 L546、指纹=规范化 JSON+判别键 L564、回执无明文 L567、异指纹 409 `IDEMPOTENCY_MISMATCH` L570）；`test_b216_same_idempotency_key_serializes_concurrent_creation` L573-638（首个写者进入未提交窗口 L618、同键第二写者被 0.5s 超时串行 L620、提交后重放同 ID L631、行存在 L632、总数 1 L638）；`test_b216_cross_tenant_credentials_are_invisible` L641-677（异租户详情 404 L664、删除 404 L665、列表 0 且不出现异租户 key L667、PUT 404 L675、异租户行未改动 L677） | 真实 ASGI 应用（`muad_console_platform.main.app`）+ 真实登录会话：ADMIN 客户端与 BUILDER 客户端都是真实 `ConsoleAccount` 行，角色裁决（403）与 CSRF（cookie/header 双比对）走真实依赖，不伪造身份；真实 PostgreSQL：`credential_tenant` 夹具建两个真实 `model_quota_group` 行（复合 FK 目标），每用例唯一 tenant_id，结束清理新表行；幂等与并发由真实 `pg_advisory_xact_lock`（(tenant,key,endpoint) 派生）+ `control.skill_import_idempotency` 行裁决（未 mock 服务/数据库）；排空判定用真实 INSERT 的 `runtime.model_call_lease` 行（ACTIVE→UNKNOWN→SETTLED 真实状态迁移）；明文/摘要事后从库内真实回读比对 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件（含超出计划 Files 的披露）：`api/model_resources.py`（新增，API-16 五个端点 + 仅 configured 投影）、`api/router.py`（挂入 admin 组）、`application/model_credential_service.py`（创建幂等/缺省保留密钥/排空判定；`update_credential` 签名放宽为 `ModelCredentialCreate | ModelCredentialUpdate` 以兼容 TASK-015 既有用例）、`infrastructure/repositories/model_credential_repository.py`（`has_live_leases` 只读 runtime 租约）、`packages/contracts/src/muad_contracts/model_pool.py`（`quota_group_id` 可空 + 新增 `ModelCredentialUpdate`）、`tests/console_platform/test_capacity_webchat_credential_api.py`。计划 Files 仅列 `model_resources.py`/`router.py`/测试，服务、仓储与契约属实现必需，已在此披露；无迁移、无 schema 变更。
+- 契约事实（0021 迁移清单）：`quota_group: null` → `quota_group_id NULL` 是受支持状态（dev 库现有 2 行凭据均为 NULL，含 `default` 租户 `deep`），故 `ModelCredentialFields.quota_group_id: UUID | None = None`；严格必填会让无组 Key 的 GET/列表 500。`SelectedModelCredential`/`ModelCapacityReservationRequest` 的 `quota_group_id` 仍为必填，留待 TASK-020/021 以「leases 允许 NULL」的事实重新裁决（届时如需放开在本任务系改动上继续）。
+- PUT 语义与排空：整份字段替换 + `expected_revision` CAS（未命中 `REVISION_CONFLICT`）；`api_key` 缺省=保留原值、空串在契约层 422（`_non_blank_secret`）；`max_inflight` 变小或 provider/base_url/额度组变化且存在 `ACTIVE`/`UNKNOWN` 租约 → `MODEL_CAPACITY_DRAIN_REQUIRED`；扩容与同目标值轮换实时生效（§3.6、§3.7 `max_inflight` 行）。
+- 幂等（RULE-api-002）：endpoint `model-credential-create`；先取 `(tenant_id, key, endpoint)` 派生的事务 advisory 锁再判重放；指纹 = 规范化 JSON（`sort_keys=True` + 紧凑分隔符 + `ensure_ascii=False`）的 `sha256:`，判别键含 endpoint/tenant/actor，密钥只以 SHA-256 摘要入指纹；`response_json={"id": ...}` 重放按 ID 回读当时行；异指纹 `IDEMPOTENCY_MISMATCH`。与 `platform_settings_idempotency` 同口径，沿用 `control.skill_import_idempotency` 既有表（`agent-create`/`mcp-register` 先例）。
+- 中间过程（诚实记录）：(1) 首轮 RED 因测试 7 裸等事件在缺实现时挂死，测试改为 `asyncio.wait` + 超时并传播真实异常（测试侧修正，非实现缺陷）；(2) 实现后首跑 7 passed / 1 failed：PUT 轮换用例用**更新前**的 item 快照重提 `max_inflight=8`，却断言旧值 6 存活——在任何「整份替换」语义下自相矛盾；按前端「读当前状态 → 改密钥 → 提交」流程改为携带当前值（测试侧修正，已在此与日志披露）。
+- 仓库 lint 现状：`uv run ruff check .` 共 37 项均为未触达文件（`tests/agent_runtime`、`tests/migrations`、`apps/agent-runtime` 等）的 HEAD 既有告警；本次改动文件逐文件 `ruff check` 全部干净。`model_pool.py` 的 `ruff format` 偏差在 HEAD 即存在（预存长行，非本次引入），未做无关重排；本次新增/修改的三处源码文件已 `ruff format`。
+- B-216: verified — automated command passed; run_id=6e4d1bd12d134316b79e19766cb1891d (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-17] started
+- [2026-10-17] B-216 RED：`tests/console_platform/test_capacity_webchat_credential_api.py` 先行建立 → **8 failed**（1.03s；路由 404、缺 `idempotency_key` 参数与契约类型）；首轮因测试裸等挂死，测试侧改为 `asyncio.wait`+超时后重跑获得快速 RED
+- [2026-10-17] 实现：契约 `quota_group_id` 可空 + `ModelCredentialUpdate`；`ModelCredentialService` 增加创建幂等（advisory 锁/规范 JSON 指纹/回执重放）、缺省保留密钥、排空判定；仓储加 `has_live_leases`；新增 `api/model_resources.py` 并挂 admin 组
+- [2026-10-17] 首跑 7 passed/1 failed：PUT 轮换用例以陈旧 item 快照重提旧 max_inflight 却断言旧值存活（测试侧自相矛盾），改为按当前状态整份提交后 GREEN
+- [2026-10-17] B-216 GREEN：8 passed；`tests/console_platform tests/contracts` 1613 passed；mypy 392 files 无问题；ruff 逐文件干净
+- [2026-10-17] completed (done)
 
 ---
 

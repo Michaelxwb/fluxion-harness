@@ -2352,7 +2352,7 @@
       "kind": "functional",
       "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
       "owner": "TASK-016",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2362,7 +2362,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-216",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6e4d1bd12d134316b79e19766cb1891d",
+        "executed_at": "2026-10-17T13:15:23.161506+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_platform/test_capacity_webchat_credential_api.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "4ebe94b4a1641f4f59aac53413d86dc82c071b0e9e654cf74680ee77c302c831"
+      },
+      "runs": [
+        {
+          "id": "B-216",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6e4d1bd12d134316b79e19766cb1891d",
+          "executed_at": "2026-10-17T13:15:23.161506+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_capacity_webchat_credential_api.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "4ebe94b4a1641f4f59aac53413d86dc82c071b0e9e654cf74680ee77c302c831"
+        }
+      ]
     },
     {
       "id": "B-217",
