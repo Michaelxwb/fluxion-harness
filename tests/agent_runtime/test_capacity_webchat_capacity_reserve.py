@@ -16,6 +16,7 @@ PostgreSQL 容量行（`runtime.model_capacity`）与租约行（`runtime.model_
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import socket
 import uuid
@@ -50,7 +51,13 @@ from muad_contracts.model_pool import (
     ProbeCallOwner,
     RunCallOwner,
 )
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
+    AsyncEngine,
+    AsyncSession,
+    AsyncTransaction,
+    create_async_engine,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -414,38 +421,40 @@ async def test_b221_locks_pool_then_group_then_key_then_attempt(tenant: Tenant) 
     assert order == ["pool", f"capacity:{RESOURCE_QUOTA_GROUP}", f"capacity:{RESOURCE_KEY}", "attempt"]
 
 
+#: 等行锁在真实 `pg_locks`/`pg_stat_activity` 里的两种等待态：等持锁事务提交（transactionid）
+#: 与等行级元组锁（tuple）。并行批次下两种都实际出现过，观测必须同时覆盖。
+_ROW_LOCK_WAITS = ("transactionid", "tuple")
+
+
 async def _wait_for_advisory_holder(engine: AsyncEngine, key: int, *, tries: int = 600) -> dict[str, Any]:
-    """在真实 pg_locks 中找到持有池 advisory 锁的后端及其等待事件。
+    """等到「池 advisory 已授予且事务仍阻塞在行锁」的真实后端，返回其观测行。
 
     共享 dev 库上并行批次可能让预占排队数十秒，因此轮询上限按 30 秒给足；
-    这里只等待“观察到达”，不改变任何断言强度。
+    只等待目标状态到达（`granted` advisory + `Lock`/`transactionid|tuple`），达到即返回。
+    这里不降低任何断言强度——断言对象仍是「先取池锁、后等行锁」的真实锁序。
     """
     classid, objid = (key >> 32) & 0xFFFFFFFF, key & 0xFFFFFFFF
-    observed = 0
+    observed: list[dict[str, Any]] = []
     for _ in range(tries):
         async with engine.connect() as connection:
-            row = (
+            rows = (
                 await connection.execute(
                     sa.text(
                         "SELECT l.pid, a.wait_event_type, a.wait_event, a.query FROM pg_locks l"
                         " JOIN pg_stat_activity a ON a.pid = l.pid"
-                        " WHERE l.locktype = 'advisory' AND l.objid::bigint = :objid"
+                        " WHERE l.locktype = 'advisory' AND l.granted"
+                        " AND l.objid::bigint = :objid"
                         " AND l.classid::bigint = :classid"
                     ).bindparams(classid=classid, objid=objid)
                 )
             ).mappings().all()
-            if row:
-                return dict(row[0])
-            observed = (
-                await connection.execute(
-                    sa.text(
-                        "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND not granted"
-                    )
-                )
-            ).scalar_one()
+        observed = [dict(row) for row in rows]
+        for item in observed:
+            if item["wait_event_type"] == "Lock" and item["wait_event"] in _ROW_LOCK_WAITS:
+                return item
         await asyncio.sleep(0.05)
     raise AssertionError(
-        f"池 advisory 锁在超时内未被观察到：预占没有先取池锁（未授予 advisory 锁数={observed}）"
+        f"超时未观察到「池 advisory 已授予且阻塞在行锁」（wait∈{_ROW_LOCK_WAITS}）：最后观测={observed}"
     )
 
 
@@ -455,6 +464,9 @@ async def test_b221_pool_advisory_lock_held_before_capacity_row_lock(tenant: Ten
     service = ModelCapacityService(get_session_factory)
     call = RunCall()
     blocker_engine = create_async_engine(SharedSettings().require_database_url())
+    blocker: AsyncConnection | None = None
+    transaction: AsyncTransaction | None = None
+    waiter: asyncio.Task[Any] | None = None
     try:
         await _reserve(service, tenant, seed, owner=_probe(), reserved_tokens=10, call=call)
         blocker = await blocker_engine.connect()
@@ -480,12 +492,24 @@ async def test_b221_pool_advisory_lock_held_before_capacity_row_lock(tenant: Ten
             blocker_engine, pool_lock_key(tenant.tenant_id, call.model_id)
         )
         assert holder["wait_event_type"] == "Lock", holder
-        assert holder["wait_event"] == "transactionid", holder
+        assert holder["wait_event"] in _ROW_LOCK_WAITS, holder
         await transaction.rollback()
         second = await waiter
         assert second.state == "ACTIVE"
         await blocker.close()
     finally:
+        # 任何失败路径都不得把组行锁留在 `idle in transaction`：先放行 waiter，再关连接。
+        # 清理步骤各自吞掉次生异常，避免掩盖主失败。
+        if transaction is not None and transaction.is_active:
+            with contextlib.suppress(Exception):
+                await transaction.rollback()
+        if waiter is not None and not waiter.done():
+            waiter.cancel()
+        if waiter is not None:
+            await asyncio.gather(waiter, return_exceptions=True)
+        if blocker is not None:
+            with contextlib.suppress(Exception):
+                await blocker.close()
         await blocker_engine.dispose()
 
 
