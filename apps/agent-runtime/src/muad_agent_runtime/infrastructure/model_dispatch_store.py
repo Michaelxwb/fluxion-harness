@@ -29,6 +29,11 @@ _LIVE_MEMBERS_SQL = sa.text(
     "SELECT id, credential_id, enabled FROM control.model_deployment"
     " WHERE tenant_id = :tenant_id AND model_id = :model_id AND is_deleted = false"
 )
+_MEMBER_REFS_SQL = sa.text(
+    "SELECT id, credential_id, weight FROM control.model_deployment"
+    " WHERE tenant_id = :tenant_id AND model_id = :model_id AND is_deleted = false"
+    " ORDER BY key, id"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +43,20 @@ class LiveMember:
     deployment_id: uuid.UUID
     credential_id: uuid.UUID
     enabled: bool
+
+
+@dataclass(frozen=True, slots=True)
+class MemberRef:
+    """成员的**非密钥**引用与权重：新 Run 冻结的候选身份。
+
+    只含这三件非密钥事实；`api_key` / `api_key_digest` / 由其派生的计量身份
+    （`key_resource_id`）与 `credential_revision` 都不在这里——调用前经受信接口按本引用
+    实时解析（API-09），密钥与指纹因此永不落进快照。
+    """
+
+    deployment_id: uuid.UUID
+    credential_id: uuid.UUID
+    weight: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +96,28 @@ class ModelDispatchStore(ModelCapacityStore):
             )
             for row in rows
         }
+
+    async def read_member_refs(
+        self, *, tenant_id: str, model_id: uuid.UUID
+    ) -> tuple[MemberRef, ...]:
+        """该模型当前未删除的成员引用（含停用：停用是运行期事实，不是解绑）。
+
+        这是**冻结**口径的读：权重随 Run 冻结，因此这里带权重；成员是否可执行仍由调用方的
+        实时扫描（`read_live_members` + 凭据/额度上限）裁决。
+        """
+        rows = (
+            await self._session.execute(
+                _MEMBER_REFS_SQL, {"tenant_id": tenant_id, "model_id": model_id}
+            )
+        ).mappings().all()
+        return tuple(
+            MemberRef(
+                deployment_id=row["id"],
+                credential_id=row["credential_id"],
+                weight=int(row["weight"]),
+            )
+            for row in rows
+        )
 
     async def read_capacity_inflight(
         self, *, tenant_id: str, resource_type: str, resource_ids: list[uuid.UUID]

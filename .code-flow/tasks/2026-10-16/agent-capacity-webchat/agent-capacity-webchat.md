@@ -363,7 +363,7 @@
 | B-221 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-021 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_reserve.py"] | . | 300 |  |
 | B-222 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-022 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_settle.py"] | . | 300 |  |
 | B-223 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-023 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_allocator.py"] | . | 300 |  |
-| B-224 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-024 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"] | . | 300 |  |
+| B-224 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-024 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"] | . | 300 |  |
 | B-225 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-025 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
 | B-226 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-026 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | . | 300 |  |
 | B-227 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-027 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"] | . | 300 |  |
@@ -1761,7 +1761,7 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 
 ## TASK-024: 冻结模型池语义与非密钥执行策略
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-020, TASK-023
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -1776,29 +1776,49 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 
 ### Checklist
 
-- [ ] [B-224][integration] 先在`tests/agent_runtime/test_capacity_webchat_pool_snapshot.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：冻结model/member/路由/输出/等待及完整记忆设置，排除Key/指纹/计量身份与启动预算。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-224] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-224] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-memory#RULE-memory-006`（stage: review；timeout=600秒）：`["uv","run","pytest","-q","tests/migrations/test_memory_redesign_migration.py","tests/agent_runtime/test_memory_redesign_snapshot.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
-- [ ] verifier `harness-snapshot#RULE-snapshot-001`（stage: review；timeout=600秒）：`["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-224][integration] 先在`tests/agent_runtime/test_capacity_webchat_pool_snapshot.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：冻结model/member/路由/输出/等待及完整记忆设置，排除Key/指纹/计量身份与启动预算。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-224] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-224] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] verifier `harness-memory#RULE-memory-006`（stage: review；timeout=600秒）：`["uv","run","pytest","-q","tests/migrations/test_memory_redesign_migration.py","tests/agent_runtime/test_memory_redesign_snapshot.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] verifier `harness-snapshot#RULE-snapshot-001`（stage: review；timeout=600秒）：`["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-224 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 冻结model/member/路由/输出/等待及完整记忆设置，排除Key/指纹/计量身份与启动预算；旧resume不补新默认、不更换型号或延长原deadline | tests/agent_runtime/test_capacity_webchat_pool_snapshot.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"] | planned |
+| B-224 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 冻结model/member/路由/输出/等待及完整记忆设置，排除Key/指纹/计量身份与启动预算；旧resume不补新默认、不更换型号或延长原deadline | tests/agent_runtime/test_capacity_webchat_pool_snapshot.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"] | verified |
 | harness-memory#RULE-memory-006 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途 Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和 ORM 约束/索引同构；移除旧 ratio/source_type 协议，历史快照原样保留仅作审计，不加兼容写层。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/migrations/test_memory_redesign_migration.py","tests/agent_runtime/test_memory_redesign_snapshot.py"] | planned |
 | harness-snapshot#RULE-snapshot-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP 版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run 侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新 Run/Task；终态写入必须 CAS。 | 沿用原Spec verifier，不重写成更弱测试 | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | planned |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-224 | 首建 `tests/agent_runtime/test_capacity_webchat_pool_snapshot.py`（6 个行为用例）→ `uv run pytest -q tests/agent_runtime/test_capacity_webchat_pool_snapshot.py` **1 error in 0.10s**（exit=1，收集期 `ImportError: cannot import name 'PoolExecutionPolicy' from 'muad_agent_runtime.application.context_settings'`，冻结/读回实现尚未存在） | 同命令 → **6 passed in 4.34s**（exit=0） | 冻结主场景 `test_b224_new_run_freezes_members_routing_output_wait_and_memory` L405：路由段逐键等于设置值且 `policy_hash == dispatch_policy_hash(...)` L429-441（复用 TASK-023 唯一口径、长度 64 ≤128 列 L442）、等待段 `capacity.model_wait_timeout_sec` L444、成员段恰三键（`deployment_id`/`credential_id`/`weight`，按 `key,id` 稳定序冻结）L446-458、完整 memory 分组 L460-461、预算载体 `max_model_retries` L463、输出预算与型号/版本在 `model_json.params` L465-468、读回口径 `pool_execution_policy_of`/`frozen_model_members_of` L470-481；只影响新 Run `test_b224_settings_member_and_model_changes_only_affect_new_runs` L484（真实控制面三腿变更证据 L513-519；新 Run 吃新策略/新权重/新定义 L521-533；旧 Snapshot 行逐列不变 L536-540）；旧 resume `test_b224_resume_keeps_frozen_pool_model_and_deadline` L543（续跑请求仍是冻结型号/版本/参数/连接 L583-585、冻结执行预算 L586-587、快照整行不变 L589、原 deadline 不延长 L591-593、新设置只对新 Run 生效 L603-608）；排除项 `test_b224_snapshot_excludes_key_fingerprint_identity_and_startup_budget` L627（明文/指纹/计量身份都不在盘面 L643-654、启动资源预算键集不相交 L655-656）；读回口径 `test_b224_legacy_policy_without_pool_leaves_is_not_backfilled` L664 与 `test_b224_tampered_or_malformed_frozen_policy_is_rejected` L683（篡改哈希/缺叶/非法成员 7 处 `PlatformSettingsError`，空列表 `()` 是合法冻结事实 L721） | 真实 Runtime 业务路径：Run 经真实 `RunService.start`（`_create_run` 在创建边界取一次设置快照）与真实 `RunService.resume` 创建/续跑；真实 PostgreSQL 行：`control.platform_setting`（经真实 Console `PlatformSettingsService` 读写）、`control.model_definition`/`model_credential`/`model_deployment`（真实权重 UPDATE 与新增成员）、`runtime.runtime_snapshot` 逐列回读、`runtime.run_record` 绝对期限；隔离租户（`test-<uuid>`）只写/删本租户行，不删共享 dev 数据；无 DDL/迁移（复用既有列/表） | verified |
+
+**实施范围与证据说明**
+
+- 实现文件与计划 Files 一致：`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`（`snapshot_policy(pool=…, members=…)` 两段新冻结 + `frozen_member_payload`/`frozen_model_members_of`/`_frozen_member` 读回 + `_create_run` 在创建边界读成员并解析池策略）、`apps/agent-runtime/src/muad_agent_runtime/application/context_settings.py`（`PoolExecutionPolicy`/`resolve_pool_execution_policy`/`pool_policy_payload`/`pool_execution_policy_of`：模型池策略的设置→冻结→读回缝）、`tests/agent_runtime/test_capacity_webchat_pool_snapshot.py`（6 用例）。**超出计划 Files 的披露**：`apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_dispatch_store.py` 新增 `MemberRef` 与 `read_member_refs`（成员非密钥引用+权重的真实 PG 读，Runtime 只读 `control.model_deployment` 的先例与 `_LIVE_MEMBERS_SQL` 同文件同表）；`tests/agent_runtime/test_memory_redesign_snapshot.py` 与 `tests/agent_runtime/test_runs_api.py` 各一处期望同步（真实创建路径多冻结 `model_members` 空列表，断言仍是整份 policy/整份 hash 相等）；`docs/configuration-inventory.csv`（新增 5 个模块级常量行 + run_service.py 既有常量行号位移）。
+- 冻结口径（诚实记录）：`policy_json.model_pool` = 路由五叶 + `policy_hash`（**复用** `model_allocator.dispatch_policy_hash`，不自造哈希口径）；`policy_json.capacity` = `model_wait_timeout_sec`（准入/排队叶属 TASK-029/030 的受理边界，本任务不越界）；`policy_json.model_members` = 成员 `deployment_id`/`credential_id`/`weight`（按 `key,id` 稳定序，**非密钥**）；输出预算就是 `model_json.params.max_tokens`（TASK-019 起写入即要求正整数），不另存第二份来源。`members=None`（直构/历史路径）不写键，`[]` 才是"该模型当前确实没有成员"的冻结事实——旧行**不补新默认**（读回返回 None）。
+- 排除项是硬约束：Key 明文、`api_key_digest`、由其派生的计量身份 `key_resource_id`、`credential_revision` 与启动资源预算（`SharedSettings` 全部环境项键）都不进快照/哈希；成员读回对多余键（例如 `key_resource_id`）显式拒绝而不是忽略。`credential_revision` 按设计只记录在调用租约（API-09 实时解析），本任务不冻结它。
+- 调用链装配**未越界**：预占→按 `credential_id`+`expected_revision` 解析 Key→发上游、以及按冻结成员构造候选并调用 `ModelAllocator` 属 TASK-025/027；本任务只交付"冻结 + 策略 + 读回口径"。
+- 中间过程（诚实记录）：(1) 首轮 4 passed / 2 failed——① 读回用例里 `del policy["model_members"]` 在直构策略上没有该键（测试自身缺陷，改 `pop(..., None)`，断言未弱化）；② 续跑用例用文本"继续"触发的是**记忆续接选项**流程（真实 `MEMORY_RESUME_NOTICE`，不装配执行器），改用普通消息后走真实模型路径；(2) 两处既有断言按新事实同步（**不是放宽**，仍是整份相等）：`test_memory_redesign_snapshot.py` 的整份 policy 期望补 `"model_members": []`（真实创建路径比直构快照多冻结成员事实）、`test_runs_api.py` 的 `policy_json == snapshot_policy(members=())` 与 `_expected_hash` 同口径（真实 POST 路径）；(3) mypy 一处 `Mapping|None` 收窄后 402 files 无问题；(4) 全量 `tests/agent_runtime` 首轮 813 passed / 1 failed（正是上面第 (2) 条的 `test_runs_api.py` 整份相等断言），同步后复跑见下。
+- B-224: verified — automated command passed; run_id=7d257a21333e4fd49d700448e649469b (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-224 RED：首建 `tests/agent_runtime/test_capacity_webchat_pool_snapshot.py`（6 用例）→ `uv run pytest -q tests/agent_runtime/test_capacity_webchat_pool_snapshot.py` **1 error in 0.10s**（exit=1，收集期 `ImportError: cannot import name 'PoolExecutionPolicy' from 'muad_agent_runtime.application.context_settings'`）
+- [2026-10-18] 实现：`context_settings.py` 新增 `PoolExecutionPolicy`（`policy_hash` 复用 `dispatch_policy_hash`）+ `resolve_pool_execution_policy` + `pool_policy_payload` + `pool_execution_policy_of`；`run_service.py` 的 `snapshot_policy`/`build_snapshot` 增加 `pool`/`members` 两参、`_create_run` 在同一份设置快照上解析池策略并读成员非密钥引用；`model_dispatch_store.py` 新增 `MemberRef`/`read_member_refs`（只读 `control.model_deployment`，含停用成员，权重随 Run 冻结）；无新增表/列/迁移
+- [2026-10-18] B-224 GREEN：**6 passed in 4.34s**（exit=0）；断言逐项位置见 Acceptance Evidence
+- [2026-10-18] verifier `harness-memory#RULE-memory-006`：`uv run pytest -q tests/migrations/test_memory_redesign_migration.py tests/agent_runtime/test_memory_redesign_snapshot.py` → **12 passed in 13.85s**（exit=0；含按新事实同步的整份相等断言）
+- [2026-10-18] verifier `harness-snapshot#RULE-snapshot-001`：`bash -lc 'uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"'` → **4 passed in 1.89s + 35 passed/779 deselected in 14.11s**（exit=0）
+- [2026-10-18] 质量门：`uv run ruff check` 四文件干净；`uv run mypy apps packages` 402 files 无问题；`tests/test_configuration_inventory.py` **4 passed**（新增 5 个常量行 + 行号位移已入盘点）
+- [2026-10-18] 回归：`tests/agent_runtime` **814 passed in 678.53s**（exit=0，含本任务 6 个用例；首轮 813 passed/1 failed 是上表已同步的 `test_runs_api.py` 整份相等断言，同步后复跑全绿）；`tests/contracts tests/architecture` **1314 passed in 4.59s**（exit=0）
+- [2026-10-18] completed (done)
 
 ---
 

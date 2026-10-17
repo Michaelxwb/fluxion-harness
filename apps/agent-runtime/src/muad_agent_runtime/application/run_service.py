@@ -58,6 +58,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.db import get_session_factory
+from ..infrastructure.model_dispatch_store import MemberRef, ModelDispatchStore
 from ..infrastructure.models.async_tools import RunContinuation, ToolOperation
 from ..infrastructure.models.runtime import (
     Artifact,
@@ -94,7 +95,13 @@ from .attachments.inbound import (
     persist_inbound_attachments,
 )
 from .context_builder import BudgetPolicy, DbBackedContextBuilder
-from .context_settings import compaction_settings_of, resolve_compaction_settings
+from .context_settings import (
+    PoolExecutionPolicy,
+    compaction_settings_of,
+    pool_policy_payload,
+    resolve_compaction_settings,
+    resolve_pool_execution_policy,
+)
 from .dto import RunWaitSummary
 from .executor import (
     ExecutionDefaults,
@@ -143,6 +150,8 @@ def snapshot_policy(
     compaction: CompactionSettings | None = None,
     execution: ExecutionDefaults | None = None,
     summary_model: ResolvedModel | None = None,
+    pool: PoolExecutionPolicy | None = None,
+    members: Sequence[MemberRef] | None = None,
 ) -> dict[str, Any]:
     """Run 侧 execution snapshot 的执行期策略——`policy_json` 的唯一构建口径。
 
@@ -150,6 +159,17 @@ def snapshot_policy(
     ADR-07）、完整 `memory` 分组、`artifact.max_archive_files`、`locale.default_timezone` 与压缩
     配置一并冻结在这里：配置变更只影响后续新 Run，在飞的 Run 用的是它自己那一份冻结值
     （`harness-snapshot#RULE-snapshot-001` 的"Run 侧等价载体"）。
+
+    **模型池语义与非密钥执行策略**同样冻在这里（B-224）：
+
+    - `model_pool`：路由五叶 + `dispatch_policy_hash`（与 TASK-023 同一函数，唯一口径）；
+    - `capacity`：Run 创建时冻结的模型等待预算（准入/排队叶属 TASK-029/030 的边界）；
+    - `model_members`：成员的非密钥引用与权重（`deployment_id` / `credential_id` / `weight`）；
+      Key 明文、去重指纹、由其派生的计量身份与 `credential_revision` 都**不进快照**——调用
+      凭据实时经 API-09 按冻结引用解析。输出预算就是 `model_json.params` 里真正发送的
+      `max_tokens`（TASK-019 起写入即要求正整数），不在这里另存一份。
+    - `members=None` 表示调用点没有成员事实可冻结（直构/历史路径）——**不写空列表冒充**；
+      `[]` 才是"该模型当前确实没有成员"的冻结事实。
 
     `summary_model` 是 `compaction.summary.model_ref` 指向的那条模型定义**解析后的结果**（ADR-06）：
     摘要要打到自己那个 endpoint / 凭据上，所以在 Run 创建边界解析一次、连同非密钥字段一起冻进
@@ -162,7 +182,7 @@ def snapshot_policy(
     defaults = execution if execution is not None else ExecutionDefaults()
     agent = defaults.agent_policy
     memory = defaults.memory_policy
-    policy = {
+    policy: dict[str, Any] = {
         "async_tools": AsyncToolPolicy().model_dump(mode="json"),
         "max_turns": agent.max_turns,
         "max_tool_calls": agent.max_tool_calls,
@@ -173,11 +193,55 @@ def snapshot_policy(
         "locale": {"default_timezone": defaults.timezone},
         "compaction": compaction_payload(settings),
     }
+    frozen_pool = pool if pool is not None else resolve_pool_execution_policy(None)
+    policy.update(pool_policy_payload(frozen_pool))
+    if members is not None:
+        policy[MODEL_MEMBERS_POLICY_KEY] = [frozen_member_payload(member) for member in members]
     if summary_model is not None:
         # 只在真的解析出摘要模型时写这个键：老快照没有它 ⇔ 该 Run 的摘要层没跑（`summary_model_of`
         # 读回 None），语义与"配置里没开摘要"一致。
         policy["summary_model"] = _snapshot_model(summary_model)
     return policy
+
+
+def frozen_member_payload(member: MemberRef) -> dict[str, Any]:
+    """一名成员被冻结成**恰三键**：非密钥身份 + 权重（每一项都参与 content_hash）。"""
+    return {
+        "deployment_id": str(member.deployment_id),
+        "credential_id": str(member.credential_id),
+        "weight": member.weight,
+    }
+
+
+def frozen_model_members_of(policy: Mapping[str, Any] | None) -> tuple[MemberRef, ...] | None:
+    """从**已冻结**的 `policy_json` 还原成员非密钥引用；缺该键（旧行/直构路径）返回 None。
+
+    形状坏（键集不符 / 引用非 UUID / 权重非正整数）显式抛 `PlatformSettingsError`：冻结数据
+    是 Run 的执行语义，宁可失败也不按猜出的值解释。旧行**不补新默认**——返回 None 而不是
+    当前库里的成员事实。
+    """
+    entries = (policy or {}).get(MODEL_MEMBERS_POLICY_KEY)
+    if entries is None:
+        return None
+    if not isinstance(entries, Sequence) or isinstance(entries, (str, bytes)):
+        raise PlatformSettingsError("frozen model members must be a list")
+    return tuple(_frozen_member(entry) for entry in entries)
+
+
+def _frozen_member(entry: Any) -> MemberRef:
+    if not isinstance(entry, Mapping) or set(entry) != set(FROZEN_MEMBER_KEYS):
+        raise PlatformSettingsError("frozen model member must carry exactly its non-secret keys")
+    weight = entry["weight"]
+    if isinstance(weight, bool) or not isinstance(weight, int) or weight <= 0:
+        raise PlatformSettingsError("frozen model member weight must be a positive integer")
+    try:
+        return MemberRef(
+            deployment_id=uuid.UUID(str(entry["deployment_id"])),
+            credential_id=uuid.UUID(str(entry["credential_id"])),
+            weight=weight,
+        )
+    except (ValueError, AttributeError) as exc:
+        raise PlatformSettingsError("frozen model member references must be UUIDs") from exc
 
 
 def summary_model_of(policy: Mapping[str, Any] | None) -> ResolvedModel | None:
@@ -321,6 +385,11 @@ STREAM_BUSINESS_TYPES: dict[str, str] = {
     RUN_FAILED_EVENT: "RUN_FAILED",
 }
 
+#: `policy_json` 里冻结的成员段：非密钥引用 + 权重（Key/指纹/计量身份不在其中）
+MODEL_MEMBERS_POLICY_KEY = "model_members"
+#: 一名冻结成员允许携带的全部键；多一个（例如 `key_resource_id`）就是泄漏，显式拒绝
+FROZEN_MEMBER_KEYS = ("deployment_id", "credential_id", "weight")
+
 
 @dataclass(frozen=True)
 class RunStart:
@@ -381,6 +450,8 @@ def build_snapshot(
     compaction: CompactionSettings | None = None,
     execution: ExecutionDefaults | None = None,
     summary_model: ResolvedModel | None = None,
+    pool: PoolExecutionPolicy | None = None,
+    members: Sequence[MemberRef] | None = None,
 ) -> RuntimeSnapshot:
     # 未显式传入时按「无平台设置」（`platform_overrides={}`）合并 Agent 覆盖——仅用于不经过
     # Run 创建边界的直构调用点；生产路径由 `_create_run` 在取到平台快照后显式传入。
@@ -389,7 +460,7 @@ def build_snapshot(
         if compaction is not None
         else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
-    policy = snapshot_policy(settings, execution, summary_model)
+    policy = snapshot_policy(settings, execution, summary_model, pool, members)
     from muad_contracts import AsyncToolPolicy
 
     policy["async_tools"] = AsyncToolPolicy.model_validate(
@@ -1028,6 +1099,14 @@ class RunService:
         # 执行期平台默认（`agent`/`memory`/`artifact.max_archive_files`/`locale.default_timezone`）
         # 同样在此冻结一次（ADR-07 等）：既是本次装配的基值，也冻进 policy_json 供 resume 读回。
         execution = execution_defaults_from_platform(snapshot_settings.settings)
+        # 模型池路由（`model_pool` 五叶 + 规范 policy_hash）与模型等待预算（`capacity`）走**同一份**
+        # 设置快照冻结：池策略变更只影响后续新 Run，旧 Run 的调度分布按自己那份 policy_hash 解释。
+        pool = resolve_pool_execution_policy(snapshot_settings.settings)
+        # 成员的非密钥引用与权重（B-224）：Key/指纹/计量身份实时解析，不落快照。这是"关系随 Run
+        # 冻结"的输入——绑定/解绑/权重变更只影响后续新 Run，旧 Run 不能带出另一份物理额度。
+        members = await ModelDispatchStore(self._session).read_member_refs(
+            tenant_id=tenant_id, model_id=resolved.model.id
+        )
         # 摘要模型（`compaction.summary.model_ref`）同样在这个边界解析一次：它是一条普通的模型
         # 定义，endpoint / 凭据都与主模型不同，必须随快照冻结（ADR-06）。
         summary_model = await self._resolve_summary_model(
@@ -1064,7 +1143,9 @@ class RunService:
         self._session.add(run)
         try:
             await self._session.flush()
-            snapshot = self._build_snapshot(run.id, tenant_id, resolved, compaction, execution, summary_model)
+            snapshot = self._build_snapshot(
+                run.id, tenant_id, resolved, compaction, execution, summary_model, pool, members
+            )
             self._session.add(snapshot)
             await self._session.flush()
             run.snapshot_id = snapshot.id
@@ -1486,6 +1567,8 @@ class RunService:
         compaction: CompactionSettings | None = None,
         execution: ExecutionDefaults | None = None,
         summary_model: ResolvedModel | None = None,
+        pool: PoolExecutionPolicy | None = None,
+        members: Sequence[MemberRef] | None = None,
     ) -> RuntimeSnapshot:
         return build_snapshot(
             run_id=run_id,
@@ -1494,6 +1577,8 @@ class RunService:
             compaction=compaction,
             execution=execution,
             summary_model=summary_model,
+            pool=pool,
+            members=members,
         )
 
     def _event_writer(self) -> EventWriter:
