@@ -39,8 +39,22 @@ class PlatformUser(StandardColumnsMixin, Base):
 
 
 class ModelDefinition(StandardColumnsMixin, Base):
+    """逻辑模型定义（设计 §3.3）：连接与密钥的权威归属是 ``model_credential``。
+
+    `provider_key` 是供方标识（Owner 规范化后的小写串）。空串表示"尚无可用成员"的存量行，
+    成员（`model_deployment`）的 credential.provider_key 必须与本列一致。
+
+    旧的 `base_url` / `api_key` 是**待删除的冗余执行列**：0021 只把数据迁成凭据与成员，
+    物理删列在后续 revision 执行（消费方重写完再删，见 `docs/model-pool-control-migration.md`）。
+    在此期间两处并存不代表双写——迁移只写 `model_credential`，旧列保持原值不动。
+
+    `(tenant_id, id)` 的唯一约束只为让 `model_deployment` 能在**数据库层**用复合 FK
+    锁定同租户归属（PG 要求 FK 目标列上有唯一约束）；它不与主键冲突，也不参与业务查询。
+    """
+
     __tablename__ = "model_definition"
     __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "id", name="uq_model_definition_tenant_id_id"),
         sa.Index(
             "uq_model_definition_tenant_key",
             "tenant_id",
@@ -60,6 +74,14 @@ class ModelDefinition(StandardColumnsMixin, Base):
         server_default=sa.text("'OPENAI'"),
     )
     model_id: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    #: 供方标识（Owner 规范化后的小写串）；空串 = 尚未声明供方（旧建模型入口的中间态，
+    #: 维护窗口迁移的存量行由清单显式声明，见 `docs/model-pool-control-migration.md`）
+    provider_key: Mapped[str] = mapped_column(
+        sa.String(128),
+        nullable=False,
+        server_default=sa.text("''"),
+    )
+    #: 冗余旧执行列：随列删除的 revision 一并移除，届时连接与密钥只在 `model_credential`
     base_url: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     api_key: Mapped[str | None] = mapped_column(sa.Text())
     params_json: Mapped[dict[str, Any]] = mapped_column(
@@ -671,3 +693,182 @@ class PlatformSettingIdempotency(StandardColumnsMixin, Base):
     endpoint: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     request_fingerprint: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     response_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
+class ModelQuotaGroup(StandardColumnsMixin, Base):
+    """共享账号额度组（设计 §3.3）：**多个物理 Key 共用一个供方账号额度**。
+
+    额度按账号归属声明，不按 Key 数乘算——同账号加 Key 不增加预算，多个部署共享本行的
+    rpm/tpm/max_inflight。`rpm`/`tpm` 为 `NULL` 表示该窗口不设上限（不是"零额度"）。
+
+    `(tenant_id, id)` 唯一约束是 `model_credential` 复合 FK 的目标（PG 要求 FK 目标列唯一）。
+    """
+
+    __tablename__ = "model_quota_group"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "id", name="uq_model_quota_group_tenant_id_id"),
+        sa.Index(
+            "uq_model_quota_group_tenant_key",
+            "tenant_id",
+            "key",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.CheckConstraint("max_inflight > 0", name="max_inflight"),
+        sa.CheckConstraint("rpm IS NULL OR rpm > 0", name="rpm"),
+        sa.CheckConstraint("tpm IS NULL OR tpm > 0", name="tpm"),
+        sa.CheckConstraint("revision >= 1", name="revision"),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    #: 保守滚动 60 秒窗口的请求数上限；`None` = 不设上限
+    rpm: Mapped[int | None] = mapped_column(sa.BigInteger())
+    #: 同一窗口的 token 上限；`None` = 不设上限
+    tpm: Mapped[int | None] = mapped_column(sa.BigInteger())
+    max_inflight: Mapped[int] = mapped_column(sa.Integer(), nullable=False)
+    revision: Mapped[int] = mapped_column(
+        sa.BigInteger(),
+        nullable=False,
+        server_default=sa.text("1"),
+    )
+
+
+class ModelCredential(StandardColumnsMixin, Base):
+    """物理模型凭据（设计 §3.3）：**一把真实 Key 一行**，身份不随模型/用量拆分。
+
+    去重身份 = `(tenant_id, provider_key, api_key_digest)`（partial unique）。`api_key_digest`
+    只是 SHA-256 摘要，用于识别"同一把物理 Key 被登记两次"；明文仍在 `api_key`，仅受信解析
+    进入调用内存。轮换更新同一身份（本行），旧计量不因为换值而清零。
+
+    `api_key` 带自定义 `__repr__`：`repr()`/异常文本不会带出密钥（RULE-secret-001 的类型腿）。
+
+    `(tenant_id, quota_group_id)` 复合 FK：额度组与凭据必须同租户，跨租户归属在数据库层失败。
+    """
+
+    __tablename__ = "model_credential"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "id", name="uq_model_credential_tenant_id_id"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "quota_group_id"],
+            ["control.model_quota_group.tenant_id", "control.model_quota_group.id"],
+            name="fk_model_credential_tenant_quota_group",
+        ),
+        sa.Index(
+            "uq_model_credential_tenant_key",
+            "tenant_id",
+            "key",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.Index(
+            "uq_model_credential_tenant_provider_digest",
+            "tenant_id",
+            "provider_key",
+            "api_key_digest",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.CheckConstraint("max_inflight > 0", name="max_inflight"),
+        sa.CheckConstraint("revision >= 1", name="revision"),
+        sa.CheckConstraint("api_key_digest ~ '^[0-9a-f]{64}$'", name="api_key_digest"),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    #: 供方标识；必须与引用它的 `model_definition.provider_key` 一致
+    provider_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    base_url: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    #: 明文密钥：仅受信解析进入调用内存，不进日志/审计/快照/响应
+    api_key: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    #: 明文密钥的 SHA-256 十六进制摘要（64 位小写），仅用于去重
+    api_key_digest: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    #: 共享账号额度组；`None` = 该 Key 独占自己的额度
+    quota_group_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    max_inflight: Mapped[int] = mapped_column(sa.Integer(), nullable=False)
+    enabled: Mapped[bool] = mapped_column(
+        sa.Boolean(),
+        nullable=False,
+        server_default=sa.text("true"),
+    )
+    revision: Mapped[int] = mapped_column(
+        sa.BigInteger(),
+        nullable=False,
+        server_default=sa.text("1"),
+    )
+
+    def __repr__(self) -> str:
+        """只列身份字段：`api_key`/`base_url` 不参与，repr 与异常文本不会带出凭据。"""
+        return (
+            f"ModelCredential(id={self.id!r}, tenant_id={self.tenant_id!r}, "
+            f"key={self.key!r}, provider_key={self.provider_key!r})"
+        )
+
+
+class ModelDeployment(StandardColumnsMixin, Base):
+    """模型成员（设计 §3.3）：逻辑模型 ↔ 物理凭据的**关系行**，不复制密钥。
+
+    同一逻辑模型可以有多个成员（加权均衡），但**同一凭据只能挂一次**
+    （partial unique `(tenant_id, model_id, credential_id)`）；`key` 是成员在本模型内的稳定名。
+    协议/型号/参数继承逻辑模型，成员不另存一份。
+
+    `(tenant_id, model_id)` 与 `(tenant_id, credential_id)` 复合 FK：成员、模型、凭据必须
+    同租户，跨租户归属在数据库层失败。
+    """
+
+    __tablename__ = "model_deployment"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "id", name="uq_model_deployment_tenant_id_id"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "model_id"],
+            ["control.model_definition.tenant_id", "control.model_definition.id"],
+            name="fk_model_deployment_tenant_model_definition",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "credential_id"],
+            ["control.model_credential.tenant_id", "control.model_credential.id"],
+            name="fk_model_deployment_tenant_model_credential",
+        ),
+        sa.Index(
+            "uq_model_deployment_tenant_model_credential",
+            "tenant_id",
+            "model_id",
+            "credential_id",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.Index(
+            "uq_model_deployment_tenant_model_key",
+            "tenant_id",
+            "model_id",
+            "key",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.CheckConstraint("weight BETWEEN 1 AND 100", name="weight"),
+        sa.CheckConstraint("revision >= 1", name="revision"),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    model_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    credential_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    #: 加权均衡权重（1..100）
+    weight: Mapped[int] = mapped_column(
+        sa.Integer(),
+        nullable=False,
+        server_default=sa.text("1"),
+    )
+    enabled: Mapped[bool] = mapped_column(
+        sa.Boolean(),
+        nullable=False,
+        server_default=sa.text("true"),
+    )
+    revision: Mapped[int] = mapped_column(
+        sa.BigInteger(),
+        nullable=False,
+        server_default=sa.text("1"),
+    )

@@ -1,0 +1,4031 @@
+version: 1
+task: Agent 并发容量与通用 Webchat
+enforcement: required
+updated_at: '2026-10-17T04:27:57.947046+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: harness-api
+  path: api/harness-api.md
+  status: active
+  hashes:
+    file_sha256: d3e052b669aced7cd3cc66cd1d8b478d98f0238b28e6af0fdb2a49eb4be23420
+    metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
+    rules_sha256: 8ee17f7b3e997864a74bb3aea23898161ecbeb65a39354aeb33766476a958fa6
+  selected_by: agent
+  reason: 受理/重放、Webchat HTTP/SSE 和内部服务身份契约
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
+      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
+      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
+      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
+      unique 只作兜底（`channel_service.py:153-159`、`auth_service.py:270-276`、`audit_export_service.py:386-392`、`agent_service.py:159-162`、`mcp_service.py:240-243`、`skill_service.py:278-286`）。**存量待收敛**：console
+      侧 `agent_service`/`mcp_service`/`skill_service` 三处 `_fingerprint` 仍用 `|` 拼接且不含
+      endpoint/tenant，须按本口径对齐（合规参考 `channel_service.py:59-74`、`auth_service.py:253-267`、`audit_export_service.py:100-119`、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py:30-49`）。
+      Runtime 记忆命令使用永久回执 `runtime.memory_command_receipt`，完整唯一 `(tenant_id, command_id)`
+      且禁止软删；Scope 行锁后取同一 `(tenant_id, command_id)` 身份的事务 advisory lock，复查首次回执，完整唯一约束兜底。endpoint/user/actor/source_run/来源事件和规范化输入均进入指纹；同命令号跨
+      endpoint 或 user 返回 `IDEMPOTENCY_MISMATCH`，不新建第二份回执。回执、事实、完整历史、scope revision
+      同事务；批量清空只写一个回执。
+    text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-002
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-030
+          item_id: TASK-030
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-16T22:58:26.172806+00:00'
+          status: unverified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-16T23:02:24.023103+00:00'
+          status: unverified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-16T23:50:27.358799+00:00'
+          status: unverified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-16T23:57:00.076158+00:00'
+          status: unverified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-17T04:14:27.797644+00:00'
+          status: unverified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-17T04:18:05.425745+00:00'
+          status: unverified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-17T04:21:24.515118+00:00'
+          status: verified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: 445911d17694a49d7974136f1b5462da27429491fae1ce37787d7c1ee3581118
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 42aa27fe2cd2eed1543ebbf0ad635ab3a3941254ddff5778d3f2f599f3e8a16d
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.02s
+
+              '
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-17T04:27:33.765533+00:00'
+          status: verified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: c6ccdfa9bcd92145880a1cc89e261617a99308abcef2b69fc9c8e172d103c637
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 6149f77691adbb83ea978ea83ee7cf59c8fd3ef770118de4224682c76200cb7f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 0.88s
+
+              '
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-17T09:05:03.594612+00:00'
+          status: unverified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: 3bf856ac54eb61f2d43070344f1c54c305eb57ec64f3c6b64f1d85f054f39f45
+          error_code: command_failed
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 1
+            stdout_sha256: ec7d403973656e43f053f2401039f1a9dc31fe1fc3f8b000ec601f0ce2c68687
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "e='Task-12' coro=<_wrap_asyncgen_fixture.<locals>._asyncgen_fixture_wrapper.<locals>.setup()\
+              \ done, d...ges/pytest_asyncio/plugin.py:339> exception=TypeError(\"\
+              'base_url' is an invalid keyword argument for ModelDefinition\")>\n\n\
+              \    @functools.wraps(fixture)\n    def _asyncgen_fixture_wrapper(request:\
+              \ FixtureRequest, **kwargs: Any):\n        func = _perhaps_rebind_fixture_func(fixture,\
+              \ request.instance)\n        event_loop_fixture_id = _get_event_loop_fixture_id_for_async_fixture(\n\
+              \            request, func\n        )\n        event_loop = request.getfixturevalue(event_loop_fixture_id)\n\
+              \        kwargs.pop(event_loop_fixture_id, None)\n        gen_obj =\
+              \ func(**_add_kwargs(func, kwargs, event_loop, request))\n    \n   \
+              \     async def setup():\n            res = await gen_obj.__anext__()\
+              \  # type: ignore[union-attr]\n            return res\n    \n      \
+              \  context = contextvars.copy_context()\n        setup_task = _create_task_in_context(event_loop,\
+              \ setup(), context)\n>       result = event_loop.run_until_complete(setup_task)\n\
+              \                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:345:\
+              \ \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ \n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/asyncio/base_events.py:691:\
+              \ in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n\
+              .venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:340: in\
+              \ setup\n    res = await gen_obj.__anext__()  # type: ignore[union-attr]\n\
+              \          ^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/console_skill/conftest.py:167:\
+              \ in skill_env\n    model = ModelDefinition(\n.venv/lib/python3.12/site-packages/sqlalchemy/orm/state.py:596:\
+              \ in _initialize_instance\n    with util.safe_reraise():\n         ^^^^^^^^^^^^^^^^^^^\n\
+              .venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py:122:\
+              \ in __exit__\n    raise exc_value.with_traceback(exc_tb)\n.venv/lib/python3.12/site-packages/sqlalchemy/orm/state.py:594:\
+              \ in _initialize_instance\n    manager.original_init(*mixed[1:], **kwargs)\n\
+              _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ \n\nself = <muad_console_platform.infrastructure.models.control.ModelDefinition\
+              \ object at 0x10ce1e180>\nkwargs = {'base_url': 'https://api.example.com/v1',\
+              \ 'key': 'model-17829a26-133f-4ac9-ae47-cc4f7c79e060', 'model_id': 'gpt-4o-mini',\
+              \ 'name': 'Skill Model', ...}\ncls_ = <class 'muad_console_platform.infrastructure.models.control.ModelDefinition'>\n\
+              k = 'base_url'\n\n    def _declarative_constructor(self: Any, **kwargs:\
+              \ Any) -> None:\n        \"\"\"A simple constructor that allows initialization\
+              \ from kwargs.\n    \n        Sets attributes on the constructed instance\
+              \ using the names and\n        values in ``kwargs``.\n    \n       \
+              \ Only keys that are present as\n        attributes of the instance's\
+              \ class are allowed. These could be,\n        for example, any mapped\
+              \ columns or relationships.\n        \"\"\"\n        cls_ = type(self)\n\
+              \        for k in kwargs:\n            if not hasattr(cls_, k):\n> \
+              \              raise TypeError(\n                    \"%r is an invalid\
+              \ keyword argument for %s\" % (k, cls_.__name__)\n                )\n\
+              E               TypeError: 'base_url' is an invalid keyword argument\
+              \ for ModelDefinition\n\n.venv/lib/python3.12/site-packages/sqlalchemy/orm/decl_base.py:2193:\
+              \ TypeError\n=========================== short test summary info ============================\n\
+              ERROR tests/console_skill/test_import_idempotency.py::test_s04_import_replay_same_idempotency_key_returns_first_result\n\
+              ERROR tests/console_skill/test_import_idempotency.py::test_s04_artifact_replay_same_idempotency_key_no_new_artifact\n\
+              ERROR tests/console_skill/test_import_idempotency.py::test_s04_same_key_different_payload_returns_mismatch\n\
+              ERROR tests/console_skill/test_import_idempotency.py::test_s04_concurrent_same_key_replays_single_import\n\
+              ERROR tests/console_skill/test_import_idempotency.py::test_e03_duplicate_version_or_checksum_returns_skill_version_exists\n\
+              5 errors in 0.52s\n"
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-17T09:52:36.925310+00:00'
+          status: verified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: dc78bf5258b66d2f3d4a84c9734806b0b7f05810f1d06d1fccf6efe5f34dbc0a
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 2928adf7f4acff2ac90882c821e00c5a088e75affe01c61a15ba0e83aa36f7d8
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 0.96s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-007
+          item_id: TASK-007
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-16T22:58:26.172823+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-16T23:02:24.023122+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-16T23:50:27.358816+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-16T23:57:00.076177+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T04:14:27.797659+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T04:18:05.425760+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T04:21:27.185314+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: 06bd510bc6d7885698225c094d3e5d3f71b910cd8219cd28f9cd8aa3ffebe5f0
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: d748e5d67193c188cc5b213173dd2ed080cbb1761506d9f6a8d47d35d071f113
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.25s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T04:27:36.811464+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: 8969a25768225e8e32321ffeedf1fa94b363894b9a10e394080835e8ba7ff586
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 5ef68dcb7c8a0a67b46c5abf1c49a626ecc9a0b3bb55696ab6ab17676f255d02
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.45s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T09:05:06.433846+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: 621aef0a744602606685374d176096f546c22d76f5c0b8b2d993a1ec743865f4
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: b2ab128afa54af215c8622b96f4d9c9bf2f879ab488067420ccef39cf2c37a79
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.43s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-17T09:52:39.468286+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: 65ae407cc96804a55ea148add85f2ead9d4801201e7c29a8e24e76b7c8ce61d5
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: c771ccc6dec9f52d70e07724c616754caacb1dde01778a2859315bbbdb5967d7
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 2.14s\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-arch
+  path: arch/harness-arch.md
+  status: active
+  hashes:
+    file_sha256: b05e30c9e8e101826c53751fa4539e7ba4fac32bb8ff5f2b6f2f852b9206a2c7
+    metadata_sha256: 39a976af1534eeebee31887b5b054dd8406536a86fd2e9dc8d6f27e6e0e1bda7
+    rules_sha256: 11ae8f2db7be71dfeebbf0d395ea7f65402138090add6e7aa91602ff60c6b12b
+  selected_by: agent
+  reason: 保持四部署单元、无状态执行池、Gateway 不持库
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-arch-001
+    summary: 固定四个部署单元（console-platform / agent-runtime / agent-worker / im-gateway）；Runtime
+      与 Worker 无状态、可横向扩展，不绑定 Pod、bot_id 或用户；同一会话可被任意 Pod 执行。
+    text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+    enforcement: required
+    verifier_ref: harness-arch#RULE-arch-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-arch-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-104
+          item_id: TASK-104
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-16T22:58:26.173489+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-16T23:02:24.023785+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-16T23:50:27.359433+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-16T23:57:00.076868+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-17T04:14:27.798261+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-17T04:18:05.426404+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-17T04:21:27.186464+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-17T04:27:36.813025+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-17T09:05:06.437091+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-10-17T09:52:39.471621+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-auth
+  path: auth/harness-auth.md
+  status: active
+  hashes:
+    file_sha256: 3214a3b041cdaa2a58d601754dce9ea10e02ccc2bbf8cb757a700baf35ec9b5e
+    metadata_sha256: 282fc035519e5c5b8561dea4584ebcd8df997e78dc811a803b0dec769bd31e77
+    rules_sha256: 2c0d8492b6adb9167c4309b44a5b1be42b1920f5e241f629d2f2bf9825cdc570
+  selected_by: agent
+  reason: 普通聊天用户认证、既有 Agent/Skill/MCP 授权边界
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-auth-001
+    summary: 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED
+      资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false`
+      与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill
+      Catalog。
+    text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+    enforcement: required
+    verifier_ref: harness-auth#RULE-auth-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-auth-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-043
+          item_id: TASK-043
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-16T22:58:26.174148+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-16T23:02:24.024438+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-16T23:50:27.360063+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-16T23:57:00.077512+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-17T04:14:27.798870+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-17T04:18:05.427062+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-17T04:21:27.187152+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-17T04:27:36.813819+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-17T09:05:06.438717+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-10-17T09:52:39.473137+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-data
+  path: persistence/harness-data.md
+  status: active
+  hashes:
+    file_sha256: af1d5aca3962e02907fbae12b44a09d2197accfb49ba1743873c569d773738dd
+    metadata_sha256: 7d1f9d0220849592b3262f71451e8eb62a816bb1e1dc20a98261ff463bd02406
+    rules_sha256: bff4e046d47cecba0e97c8a83921f635292d2a2e009c836fece1462a9024a68d
+  selected_by: agent
+  reason: 新增控制面/运行时表、租户索引与迁移 ORM parity
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-data-001
+    summary: 产品表统一 `id/is_deleted/create_time/update_time`；普通软删除实体用 partial unique
+      `WHERE is_deleted=false`，稳定身份注册表 `runtime.user_memory` / `memory_scope` 的完整唯一键包含
+      tombstone，append-only history/receipt/job 保持 `is_deleted=false` 且使用完整唯一约束；时间统一
+      `timestamptz`；同 Owner Schema 的业务归属用物理 FK，跨 Owner Schema 与需跨清理保留的审计来源引用用逻辑 UUID；JSON
+      配置用 `jsonb`，关键查询字段必须有物理列。
+    text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+    enforcement: required
+    verifier_ref: harness-data#RULE-data-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-data-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-009
+          item_id: TASK-009
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-16T22:58:26.174782+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-16T23:02:24.025081+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-16T23:50:27.360750+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-16T23:57:00.078164+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-17T04:14:27.799489+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-17T04:18:05.427734+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-17T04:21:27.187878+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-17T04:27:36.814559+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-17T09:05:06.439654+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-17T09:52:39.474100+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-frontend
+  path: frontend/harness-frontend.md
+  status: active
+  hashes:
+    file_sha256: 18f4c201a9696a8eb2bbaf61acb4634a62c53de3b323d5792b2b22841cad7a09
+    metadata_sha256: 7f5c2085d89106ae171030c7c04f2475462a10f840e5d9ee22977374bf419c53
+    rules_sha256: b0eb465f1af1410517f0f4650cdd228f2c8ccfd05d3fe885ca0249c704d6492e
+  selected_by: agent
+  reason: 聊天服务层、SSE 客户端、管理界面复用
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-front-001
+    summary: 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的
+      service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿
+      `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId`
+      是无副作用的纯工具，组件可直接 import（现网 7 处，均为纯函数引用）。所有文案只使用 i18n key（zh-CN/en-US）——`scripts/check_frontend_i18n.py`
+      校验两侧词条的键集齐平与空值，并校验源码中 `t('字面量键')` 引用的键**必须已定义**（增删词条后务必跑它）；模板串动态键变体的齐备性由各模块的
+      `tests/frontend/*_i18n*.py` 契约钉死。列表/详情遵循 RULE-ui-001 与 RULE-ui-detail-001。
+    text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+    enforcement: required
+    verifier_ref: harness-frontend#RULE-front-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-front-001
+          artifact_sha256: 71cddb522aa8715b9d046245fda44c3c8bf25bea0e2e83a5359440416a3a6cbf
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-071
+          item_id: TASK-071
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-16T22:58:26.175432+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-16T23:02:24.025767+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-16T23:50:27.361424+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-16T23:57:00.078848+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-17T04:14:27.800132+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-17T04:18:05.428434+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-17T04:21:27.188616+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-17T04:27:36.816693+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-17T09:05:06.440578+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-17T09:52:39.475008+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-i18n
+  path: i18n/harness-i18n.md
+  status: active
+  hashes:
+    file_sha256: c04be9ab078613ccc32e506fa78453b5b67a4527d89819f820555b6de62f4e47
+    metadata_sha256: b60d271a6656981b54ee716fcd5dece1c41d2402b50ed56d5197effcf17a7959
+    rules_sha256: 2f76d4b7d9b26cf3be95f2d812aaca26dd9e576c7e57bf665b65b986a7a1829f
+  selected_by: agent
+  reason: 聊天及模型部署管理的中英文状态和错误词条
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-i18n-001
+    summary: 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language`
+      协商。
+    text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+    enforcement: required
+    verifier_ref: harness-i18n#RULE-i18n-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-i18n-001
+          artifact_sha256: 71cddb522aa8715b9d046245fda44c3c8bf25bea0e2e83a5359440416a3a6cbf
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-090
+          item_id: TASK-090
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-16T22:58:28.335284+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: 7cf853d4ca36beab9b3591a1c1329ef3f8c29439e12c45eba6097e48d0dedbdc
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: ae7d50cb7a971008bc681599a4cb397ea7c6e75a1d89f4d3c132954fe2bb3a32
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.41s
+
+              i18n keys OK: 1178
+
+              '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-16T23:02:26.167721+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: 758a64f3875f83e6786cb9fb116fd335b28ce3ba91461457931efd42c589dde0
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: b16145eac1bbbbecdf1b4dba611e07be0936ebeb3eecdc92002e8772b7f70327
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.70s
+
+              i18n keys OK: 1193
+
+              '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-16T23:50:29.546814+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: c071aa7d16e49402c9a736ae9786f073b32e8cbda55ab859daa8e7f6ccb185f4
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 44090283b1bd90f69102ff8a81722297edacf26bb1ecd372d6badfcd3468e2b6
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.65s
+
+              i18n keys OK: 1193
+
+              '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-16T23:57:02.206254+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: 85a81bb95acc198431c6873101e2ed1109dc27e765b5949afef9f0f3ec28a655
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 09a704c43561944e21d162553cb24c6b66a5152e5f3fe7200ab039a2a204a465
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.50s
+
+              i18n keys OK: 1193
+
+              '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-17T04:14:29.876352+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: d9dc2c8745cfa14aae794d720854c20984f7b37386228955fb96db622b6082d2
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: cfabc41f060b2a55788a88060853347fb38ca752e091a62cb6222f48b898d846
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.66s
+
+              i18n keys OK: 1193
+
+              '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-17T04:18:07.274251+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: d63e56bfee7311ce4f59af4b9f92aa6fe9172115c74198e8750e76039d980d0e
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 3f31169e5cca17212ac497ff1e55ea7db96867001bd91bb5d108b5f4b37ca854
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.42s
+
+              i18n keys OK: 1193
+
+              '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-17T04:21:29.093385+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: 53b8ffff4a17bcd0661256e8ba535c81861f86589af841a3513d14fc16de69e4
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 7c2d662327479ea674756a785e9deb7301d869e1a1a5a5ee8ca31e8e8c4d7343
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.48s
+
+              i18n keys OK: 1193
+
+              '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-17T04:27:38.413113+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: c4c9f6768bd8384ba32364fdbf78add543e4d779b10155dd653dd0e1461de68c
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 453586ff23fa31452a3d0e6ba72d9e9db9acf083590e1598a9d71d53105fd5a4
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.11s
+
+              i18n keys OK: 1204
+
+              '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-17T09:05:08.620269+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: 0eda15a58fa53e76713a1dadb01b1b1b7c2f5b1b18a99fce83765fb578e53dbd
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 40af9c779f90aaa7fbe6134e85ee990f461e60873a5ebe0e24f5f175970c16ab
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.71s
+
+              i18n keys OK: 1204
+
+              '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-17T09:52:41.553106+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: de391d62640234f5040aa23b1f567c074f29dc5524fd2eec089356d37a19250d
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 474f32a7363c125e3211d8e95b453aec9471bdc14ffd356190e805e79bed24ba
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.65s
+
+              i18n keys OK: 1204
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-im
+  path: im/harness-im.md
+  status: active
+  hashes:
+    file_sha256: 98abf298cb44b37762cdfabb1b174959793d3e6536d6e37cda98704c19ca1c65
+    metadata_sha256: c336a33882eed3b2d1382972be7605ca7221004df04cefa876a48669ef94bdf2
+    rules_sha256: c66aefb237993f572ffaa445b976664ba1316fb721469e3049d9a56d9850402d
+  selected_by: agent
+  reason: WEBCHAT 适配器、单机器人基线、入口会话与回复路由
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-im-001
+    summary: 一个逻辑 Agent 可绑定 0..N 个 IM 通道账号；每个 `bot_id` 只路由到一个 Agent；Bot 与 Runtime/Worker
+      Pod 无任何绑定；Gateway 不保存 `agent_id→Pod` 映射。
+    text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+    enforcement: required
+    verifier_ref: harness-im#RULE-im-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-im-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-046
+          item_id: TASK-046
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-16T22:58:28.336987+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-16T23:02:26.169071+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-16T23:50:29.548438+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-16T23:57:02.207579+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-17T04:14:29.877874+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-17T04:18:07.275605+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-17T04:21:29.094839+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-17T04:27:38.414493+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-17T09:05:08.622197+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-10-17T09:52:41.554808+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-im-002
+    summary: '**渠道差异只活在适配器层**：核心域（`agent-runtime` / `agent-worker`）零渠道专有字样与取件形状；`im-gateway`
+      除 `channels/` 与装配根 `main.py` 外同样为零。取件、下载、解密、媒体 URL/密钥**一律不出适配器**——上层只看到「已解密字节
+      + 元信息」。机检见 `tests/architecture/test_channel_neutrality.py`（三条：核心域全文零字样 / 核心域不得给
+      `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）。'
+    text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+    enforcement: required
+    verifier_ref: harness-im#RULE-im-002
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-im-002
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-048
+          item_id: TASK-048
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-16T22:58:28.337002+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-16T23:02:26.169080+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-16T23:50:29.548451+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-16T23:57:02.207587+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-17T04:14:29.877884+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-17T04:18:07.275614+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-17T04:21:29.094848+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-17T04:27:38.414501+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-17T09:05:08.622207+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-10-17T09:52:41.554821+00:00'
+          status: unverified
+          rule_text_sha256: d0b1e71583db2d861c5bb7da90b692e3334e5e8d42bbed9e0690460a2e81fb9f
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-log
+  path: logging/harness-log.md
+  status: active
+  hashes:
+    file_sha256: ae4a40c1bdfb2c07691bb4a8276b7d888a33a7482ddf8b434ff7c7b6f971689b
+    metadata_sha256: 8bb67ae0c5cf82baee539013ff9840ed3004f3747460534ec4a8784e4b9640a1
+    rules_sha256: 3b69c6ff06cb317f71f02b594214665b7f8ef095506ccf453279985f494811a8
+  selected_by: agent
+  reason: 容量/调度/认证/重连的日志关联与脱敏
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-log-001
+    summary: 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`（另读 `LOG_LEVEL`，缺省 `INFO`；非法级别直接 `raise
+      ValueError` 而非静默回退；`console=True` 为默认值，会额外挂一个 stdout handler）；日志按 `service/YYYY-MM-DD.log`
+      输出 JSON，自动携带 `trace_id/request_id/tenant_id`，并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password
+      等敏感字段脱敏。
+    text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+    enforcement: required
+    verifier_ref: harness-log#RULE-log-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-log-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-098
+          item_id: TASK-098
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-16T22:58:28.337900+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-16T23:02:26.169772+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-16T23:50:29.549272+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-16T23:57:02.208255+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-17T04:14:29.878641+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-17T04:18:07.276294+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-17T04:21:29.095530+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-17T04:27:38.415184+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-17T09:05:08.623133+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-10-17T09:52:41.555818+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-mcp
+  path: mcp/harness-mcp.md
+  status: active
+  hashes:
+    file_sha256: b37ba0a8ce8528c80b5d44d2fab3f37802ba93b13f69f4ea676d255ec0b5d064
+    metadata_sha256: 10fb3c0716fce5fff5a48023d4e3c690aeb9e2ea9fdf3f252258c486af9c7a97
+    rules_sha256: e17b2c3a76c397162bd3651ce8b9de3d4404d55ae0034cfaa209a2f2b41576c4
+  selected_by: agent
+  reason: v0.4 综合复核覆盖 MCP 外部调用的副作用、冻结目录与故障恢复，补入对应 required 规则；保留原19份绑定。
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-mcp-001
+    summary: V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅
+      Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。
+    text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+    enforcement: required
+    verifier_ref: harness-mcp#RULE-mcp-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-mcp-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-037
+          item_id: TASK-037
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-16T22:58:28.338958+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-16T23:02:26.170621+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-16T23:50:29.550244+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-16T23:57:02.209073+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-17T04:14:29.879565+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-17T04:18:07.277143+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-17T04:21:29.096347+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-17T04:27:38.416041+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-17T09:05:08.624309+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-10-17T09:52:41.556903+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-memory
+  path: memory/harness-memory.md
+  status: active
+  hashes:
+    file_sha256: 3b93fb405da997601d5fe1da6b92269dd40a98bdba72faf96de4d2632f70b0dc
+    metadata_sha256: 5a0e74e5eff26769a06ae9b0e2325db35ab45b961330152c4a7cced88c1270a7
+    rules_sha256: d76538936bc433d5957aa11b86d5816ffa8c32613c4f8c82f5bc6361e2bed3ef
+  selected_by: agent
+  reason: 双入口共享用户记忆、确认来源与模型池接入提炼任务的不变量
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-memory-001
+    summary: 原话仅证明文本来源，不能授予保存授权；模型不得提供 author/explicit_request。自然语言 remember 必须展示完整候选，绑定租户/用户/Run/submission、候选
+      hash、预期版本、forget_epoch 和有效期，由真实用户确认原子保存；只有真实入站的显式命令或已授权管理员可以直接保存。候选每 Run 至多一个，工具整轮完成后才暂停；resume
+      先检查绝对 deadline。options 消费以租户和 source_event_id 唯一，结果 outcome 不进入唯一键。
+    text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-memory-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-056
+          item_id: TASK-056
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-002
+    summary: Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。同
+      tenant/user/key 使用完整唯一身份，软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope
+      revision 同事务提交。锁内按写后有效集合验证冻结条数/UTF-8 字节限额及绝对上限；仅可淘汰 AGENT，USER/ADMIN 不免除硬限；既有超额时治理可减少但不可增加。
+    text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-002
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-memory-002
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-056
+          item_id: TASK-056
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-003
+    summary: 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖
+      query。revision 缓存只存候选行：冷读取行与实际 revision 同快照，暖读取 revision 与当前语句时间，并逐次过滤 TTL、重新选择/渲染；读取失败清除旧缓存和
+      MemoryComponent。每个模型请求前刷新独立 MemoryComponent，完整 SYSTEM 块及 recall JSON 严守最终 UTF-8
+      字节与条数预算；0 关闭注入，长条跳过，无首条越限保底，压缩不能吞掉记忆组件。
+    text_sha256: 906176dd9052cf4e5a36ed341041e759f6fb1f9e6b37f0447f715926715f85b7
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-003
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-memory-003
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-025
+          item_id: TASK-025
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-004
+    summary: 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled
+      或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision
+      证明，不以 job 开始时间冒充新依据。自动批量提交核对原 scope revision，过期输入为 STALE；同任务 lineage 续接原稳定 key，完成后清除未决状态。
+    text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-004
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-memory-004
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-049
+          item_id: TASK-049
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-005
+    summary: 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同
+      fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立
+      provider 使用冻结主模型、实时凭据并显式关闭。模型调用次数不保证一次，持久效果/历史/完成事件/job 终态必须同事务最多一次；失败整批回滚，warning/metric
+      可见，主 Run 终态不变。
+    text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-005
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-memory-005
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-026
+          item_id: TASK-026
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-006
+    summary: 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途
+      Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和
+      ORM 约束/索引同构；移除旧 ratio/source_type 协议，历史快照原样保留仅作审计，不加兼容写层。
+    text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-006
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-memory-006
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-024
+          item_id: TASK-024
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-model
+  path: model/harness-model.md
+  status: active
+  hashes:
+    file_sha256: ed84d91e620366d3c1ee1bc3ea0557a94fb5c10045e08b9bcee2abd1a06b8704
+    metadata_sha256: 6a2d580437c8b00f81ed56195982db49f26ff42ac0109e44bd28281b5d49f9cd
+    rules_sha256: ca794c666a9657f8e324ca978ce2aeade30bb0b4f48ddb36f7a204ac87fa77c6
+  selected_by: agent
+  reason: 显式逻辑模型绑定、同模型部署池与统一调用恢复
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-model-001
+    summary: '`model_definition` 不设 `is_default`；每个 Agent 必须显式保存 `model_id`，不存在平台默认模型回退；模型调用只允许
+      OPENAI 兼容协议。'
+    text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+    enforcement: required
+    verifier_ref: harness-model#RULE-model-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-model-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-019
+          item_id: TASK-019
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-16T22:58:28.342733+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-16T23:02:26.173837+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-16T23:50:29.554261+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-16T23:57:02.212090+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-17T04:14:29.882880+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-17T04:18:07.280433+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-17T04:21:29.099489+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-17T04:27:38.419255+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-17T09:05:08.628184+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-10-17T09:52:41.560553+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-rel
+  path: rel/harness-rel.md
+  status: active
+  hashes:
+    file_sha256: cd2d0a4aef81e288ad4147cb32582eac2eb2b1f0d4dbbdce5412d0657a588300
+    metadata_sha256: 30f77141e0115f249c3aac13a4b61a7b4d53604ba5903fac8c1f3f9e07aafa42
+    rules_sha256: 7be20b1f02503c2865570605bc0dc751cff99da8487a1cec7be80bf7633416a5
+  selected_by: agent
+  reason: 部署成员及身份关联使用逐条关系事务和审计
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-rel-001
+    summary: 关系类修改使用单关系 POST/DELETE 并由独立事务完成；禁止用全量 PUT 覆盖整个关系集合。
+    text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+    enforcement: required
+    verifier_ref: harness-rel#RULE-rel-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-rel-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-017
+          item_id: TASK-017
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-16T22:58:28.343462+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-16T23:02:26.174432+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-16T23:50:29.554984+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-16T23:57:02.212687+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-17T04:14:29.883521+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-17T04:18:07.281073+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-17T04:21:29.100111+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-17T04:27:38.419863+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-17T09:05:08.629019+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-10-17T09:52:41.561327+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-secret
+  path: secret/harness-secret.md
+  status: active
+  hashes:
+    file_sha256: c78342dc6651a2239efe07538e1be682383a1c5b3c37f1b800966deed7d01ca5
+    metadata_sha256: af4b34f2fb0332b6cfa359e3771ee61db87085d03bf7bef36e0c5628b1150ffb
+    rules_sha256: d72b90f97ac3a4c118df8a8d415344355cc395920a2aad7a767857c0375fc378
+  selected_by: agent
+  reason: 模型部署凭据、本地聊天密码和会话令牌的 Owner 与输出边界
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-secret-001
+    summary: 密钥明文存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；**平台侧无自有密钥列**，见
+      Conventions 的休眠列说明），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM
+      Prompt 或 API 响应（对外以 `*_configured` 表达）。
+    text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+    enforcement: required
+    verifier_ref: harness-secret#RULE-secret-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-secret-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-020
+          item_id: TASK-020
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-16T22:58:28.344667+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-16T23:02:26.175263+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-16T23:50:29.555977+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-16T23:57:02.213577+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-17T04:14:29.884418+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-17T04:18:07.281956+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-17T04:21:31.181886+00:00'
+          status: verified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: f24a4d43ee4fe8b678febda8d85fee61f31e6c774272de54d82db2b1e52c71e2
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: de9420528a89e80850132446ef7e6d53657e9141e6b50a6536966f2320d326a5
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 1.68s
+
+              '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-17T04:27:40.815166+00:00'
+          status: verified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: 3537895f0c910313d6b393e7e2dc8b3c3a3e1174db07d19c1d1902a5dbbcf2d2
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: ab806e41db7d6484e2b48874724de202a5895595190da8b8bc599fea428bf25f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 1.91s
+
+              '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-17T09:05:11.090382+00:00'
+          status: verified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: cdb2a51acfb0ab6a2a5f2dccd795f68ea0b3b37df11293f1eb4309ce71f1abf5
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: c61127f3db51ba7bf379d1f78a942a3f364f648e126a936c12ef6674f2b48f25
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.02s
+
+              '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-17T09:52:43.426462+00:00'
+          status: verified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: 3d045a965d79a4dd8b2828b3c419dffa62f7fee8f24d715aad5d6c2e59b5b1ce
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 020bf5d621836a9c677aa20352a64c159d85110a359ec3efce8967000cd5f8f6
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 1.45s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-skill
+  path: artifact/harness-skill.md
+  status: active
+  hashes:
+    file_sha256: 328d01f025d8518b5ce05e04fe323fe152ea68fc8b44f0e1f3ef411b81d647c0
+    metadata_sha256: d401c91bc5271f353f28b5a053cae47eacd8e5ea3eb13f27ab8919e8c74d493b
+    rules_sha256: 5f3bec101c0e111bed1a9f5eb9662dcea899eb5ee8e546d9c2226acb15b0fc94
+  selected_by: agent
+  reason: 并发 Skill 缓存、进程组回收与 Webchat 附件不可变存储
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-skill-001
+    summary: 'Artifact Store 为 **RWX PVC**（硬事实是 `accessModes: ReadWriteMany`，`deploy/k8s/base/pvc-artifacts.yaml:7-8`；是否落在
+      NFS 由部署侧 StorageClass 决定，清单里 `storageClassName` 并未固定；V1 不建 MinIO/S3）；数据库只保存相对
+      `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从
+      NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight（**限每进程内**：跨 Pod 的正确性由
+      `os.replace` 幂等与 DB CAS 承载，不得当作跨进程互斥）；Artifact 写入不可变（**目标不存在才发布**：临时文件 + `os.link`，同
+      `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans`
+      CLI 宽限期扫描清理（默认 1h，保护进行中事务）。'
+    text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+    enforcement: required
+    verifier_ref: harness-skill#RULE-skill-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-skill-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-053
+          item_id: TASK-053
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-16T22:58:28.345590+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-16T23:02:26.175906+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-16T23:50:29.556776+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-16T23:57:02.214273+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-17T04:14:29.885135+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-17T04:18:07.282626+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-17T04:21:31.182930+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-17T04:27:40.816724+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-17T09:05:11.093790+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-10-17T09:52:43.429921+00:00'
+          status: unverified
+          rule_text_sha256: cb30d4dc8ae6243d0248a9c1e2e06acd89020049eb68da2bee6cc5638e75a869
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-snapshot
+  path: snapshot/harness-snapshot.md
+  status: active
+  hashes:
+    file_sha256: b9ed44b84d8262300986abdb1cca10d5747161925d16314de6a93660c9e59520
+    metadata_sha256: 4772b9dff35dcd7ef80935ac4770a4fc804a0080c8bd92d7ab8108a3cfaac583
+    rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
+  selected_by: agent
+  reason: 冻结逻辑模型/成员/策略，恢复不重选语义配置
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-snapshot-001
+    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP
+      版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run
+      侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新
+      Run/Task；终态写入必须 CAS。
+    text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+    enforcement: required
+    verifier_ref: harness-snapshot#RULE-snapshot-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-snapshot-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-024
+          item_id: TASK-024
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-16T22:58:28.346431+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-16T23:02:26.176533+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-16T23:50:29.557474+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-16T23:57:02.214937+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-17T04:14:29.885826+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-17T04:18:07.283282+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-17T04:21:31.183576+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-17T04:27:40.817757+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-17T09:05:11.095345+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-17T09:52:43.431460+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 0440a5694a7f58501963362f01affd6d20eaaaa92abf3123d270d297cef53f6e
+    metadata_sha256: 90ff1d9439f397d39a57d2bcbd591071cea018a7eec01c134eb038389d936776
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: 容量探针、隔离验收库、真实跨服务与浏览器 E2E
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-118
+          item_id: TASK-118
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-16T22:58:28.347487+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-16T23:02:26.177374+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-16T23:50:29.558429+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-16T23:57:02.215818+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-17T04:14:29.886781+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-17T04:18:07.284195+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-17T04:21:31.184389+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-17T04:27:40.818970+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-17T09:05:11.096599+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-17T09:52:43.432604+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-time
+  path: time/harness-time.md
+  status: active
+  hashes:
+    file_sha256: f8d0e62469f27159cf1fdb86360c23467e5cce09e9c99cf6cd8eb2e0f72a67a1
+    metadata_sha256: b520353c89741d56ccc5210a46c2666921ad8a3bac8b93c2c7fcdc75187788fd
+    rules_sha256: 6d0ba1245ffb637c5b161372f63c6c0d1108ac0f2b8240449b1954dba3192202
+  selected_by: agent
+  reason: 租约/期限/会话与审计时间使用带时区格式
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-time-001
+    summary: 数据库统一 `timestamptz` 存储；Console 展示统一 `YYYY-MM-DD HH:mm:ss`；调度时区使用 IANA
+      时区（如 `Asia/Shanghai`）。
+    text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+    enforcement: required
+    verifier_ref: harness-time#RULE-time-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-time-001
+          artifact_sha256: 71cddb522aa8715b9d046245fda44c3c8bf25bea0e2e83a5359440416a3a6cbf
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-035
+          item_id: TASK-035
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-16T22:58:28.348238+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-16T23:02:26.178071+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-16T23:50:29.559122+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-16T23:57:02.216557+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-17T04:14:29.887462+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-17T04:18:07.284880+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-17T04:21:31.185007+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-17T04:27:40.819751+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-17T09:05:28.169715+00:00'
+          status: verified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: c88361c8ccf1b261b29a1a608750c02ca0ac38d1a8bf0c93405e6fd3e28e0b30
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: b0483b3b595cef838633a8bd61ddef84c2b7ffddfda6de17bf69129fbdf02596
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed in 0.02s\n..........................................\
+              \                               [100%]\n===============================\
+              \ warnings summary ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              42 passed, 4690 deselected, 1 warning in 15.68s\n"
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-17T09:52:59.387998+00:00'
+          status: verified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: 90353d02e4479eefbd5d019b1a87af9a77fe132913efd901213c800e209736fc
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: e1510ea8b88b945d21ae6e01f4ae19f2484e29de4e55f6443f3590d530a1693d
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed in 0.02s\n..........................................\
+              \                               [100%]\n===============================\
+              \ warnings summary ===============================\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              42 passed, 4690 deselected, 1 warning in 14.67s\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui
+  path: ui/harness-ui.md
+  status: active
+  hashes:
+    file_sha256: 62d724b2b7e1f532fd0142a3a50506f5bf19e364b39f31e7952352aa1bee71f9
+    metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
+    rules_sha256: 0d6fad1166722627698f4572c7bc2c668524ea36584993dc0614242a9896b8d5
+  selected_by: agent
+  reason: 管理界面沿用 Semi 与十一项菜单，聊天使用独立页面
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-001
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十一项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/系统设置。
+    text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+    enforcement: required
+    verifier_ref: harness-ui#RULE-ui-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-ui-001
+          artifact_sha256: 71cddb522aa8715b9d046245fda44c3c8bf25bea0e2e83a5359440416a3a6cbf
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-091
+          item_id: TASK-091
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-16T22:58:28.349033+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-16T23:02:26.178759+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-16T23:50:29.559874+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-16T23:57:02.217262+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-17T04:14:29.888188+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-17T04:18:07.285555+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-17T04:21:31.185693+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-17T04:27:40.820527+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-17T09:05:28.171235+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-17T09:52:59.389423+00:00'
+          status: unverified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: 3db3e98f794c703479c5f3b278adeb46aaf5970f0ccd12119cdc6afe7aed35b4
+          error_code: deferred_to_review
+          details:
+            reason: over_finish_budget
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui-detail
+  path: ui-detail/harness-ui-detail.md
+  status: active
+  hashes:
+    file_sha256: 42b519238d1ffe9fe13ccf9bb832fd5dc3e2f8355a9f053d81b0cc98da3f8994
+    metadata_sha256: 2d144b46e00201718c64f6017c85ae49bfc79d3aa03b7ba800734d251ae18889
+    rules_sha256: 4cd416fc91fef9809fdf6ef80701c09a46d3884e38e96ce0e9d814028449b989
+  selected_by: agent
+  reason: 模型部署和聊天资格管理详情沿用共享 SideSheet
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-detail-001
+    summary: 详情使用 SideSheet：标题与副标题居左，关闭 X 同行靠右；列表对象级操作集中到主列表最后一列「操作」，详情不重复渲染，Tabs
+      位于其下；关系操作保存后立即影响后续新 Run/Task。
+    text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+    enforcement: required
+    verifier_ref: harness-ui-detail#RULE-ui-detail-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-ui-detail-001
+          artifact_sha256: 71cddb522aa8715b9d046245fda44c3c8bf25bea0e2e83a5359440416a3a6cbf
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-085
+          item_id: TASK-085
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-16T22:58:28.349854+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-16T23:02:26.179422+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-16T23:50:29.560587+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-16T23:57:02.217929+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-17T04:14:29.888905+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-17T04:18:07.286222+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-17T04:21:31.186486+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-17T04:27:40.821422+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-17T09:05:28.172282+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-10-17T09:52:59.390352+00:00'
+          status: unverified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-worker
+  path: worker/harness-worker.md
+  status: active
+  hashes:
+    file_sha256: 4cd5c4d6e33952431cffc77d37a57d2bfc3fea1d6592fda2c1dcfe470b817fa4
+    metadata_sha256: 185250e5e95b30103f5592a48a99064876217aa17b4fc2caeadd5c3ca692b0c3
+    rules_sha256: 11fbb17617ae9335d2f9190b83c7784825fb4ccc8118ed41bdd812419ad9da02
+  selected_by: agent
+  reason: 并发领取/心跳/回收/投递保留 PG 权威与租约 CAS
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-worker-001
+    summary: PostgreSQL 是 Task/Schedule/lease 的唯一权威源；Redis 仅作 wake-up/cancel hint；`task_type`
+      仅 `SKILL/BATCH`（外部等待用 WAITING 表达）；claim 使用 `FOR UPDATE SKIP LOCKED`，进入 WAITING
+      释放 lease，deadline 到期由 Scheduler sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`。**deadline
+      是领取与收尾两侧的硬条件**：claim 排除 `deadline_at <= now` 的行（过期任务绝不执行），执行跨过 deadline 也不得写
+      `COMPLETED`，同样以 `FAILED(TASK_DEADLINE_EXCEEDED)` 收尾（`worker/claimer.py:20`、`worker/service.py:491`）。
+    text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+    enforcement: required
+    verifier_ref: harness-worker#RULE-worker-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-worker-001
+          artifact_sha256: e505584619c9eae67770b86e63cb1d8162bc584a6c0c35c6f7e3b50b7a07bf6d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-capacity-webchat.md
+          section_id: TASK-033
+          item_id: TASK-033
+          artifact_sha256: 70843db183eea6531678457514a4240e06183dfd3ec9ce78e320424477aa248e
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-16T22:58:28.350623+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: 6cbe6472b9fa8490c9cb279fff1affda920630adcd090838c68bbb06422fe41c
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-16T23:02:26.180042+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: 94f88017523d0bbbe6cdb633cfb31c87715e8bed7ec84b6aa4d2c80f7e26aeb8
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-16T23:50:29.561336+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: b1b90835219b39e607a7c0da2c1d0abbdc4bec1b4071e3f300fdfc38c06d505f
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-16T23:57:02.218547+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: 01bff5950a2a2f2d35075aded342ceac8060757c3b239ebb6cb95f2f83cddecb
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-17T04:14:29.889568+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: 3a02c750db2a9eb2216e946d3be938ae4ce629991fbf7df822a2701875254047
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-17T04:18:07.286919+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: 19a1ab50ac301af7d01bbfe19ee638f35448dfbaabdd27c9f5613a00bf05a545
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-17T04:21:31.187151+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: 58db01572b36f659669ebe4fe305e77e92071aec503c93729952ce450b693882
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-17T04:27:40.822151+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: 3074f6f687c50361e126b30cd57b8c6266a2a4c14d996c5d9d67ace263ac4251
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-17T09:05:28.173303+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: 155c7e71592209646780f02dd59bc552c707e377a856e94a5d744382caa13c9d
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-10-17T09:52:59.391326+00:00'
+          status: unverified
+          rule_text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+          artifact_sha256: null
+          diff_sha256: d9abc378356a0803ca2f2c13f5e266a5ab1099d951098db594b7966f18394892
+          result_sha256: af3dc8226a5c0d131d240b46baf7642c736ac06602062bbfafaec2c25afa83a5
+          error_code: deferred_to_review
+          details:
+            reason: out_of_task_scope
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []

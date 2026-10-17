@@ -43,7 +43,7 @@ def _runtime_env(pod_name: str, stack: LiveStack) -> dict[str, str]:
         "ARTIFACT_ROOT": str(stack.artifact_root),
         "SKILL_CACHE_ROOT": os.environ["SKILL_CACHE_ROOT"],
         "POD_NAME": pod_name,
-        "RUN_LEASE_SEC": "2",
+        "RUN_LEASE_SEC": "3",
         "RUN_HEARTBEAT_SEC": "1",
         "RUN_REAPER_INTERVAL_SEC": "1",
     }

@@ -13,10 +13,14 @@ agent 执行预算键（agent 分组）、`memory_write`（memory 分组）。�
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from typing import Any
 
-from muad_contracts.platform_settings import MEMORY_SETTING_BOUNDS, PlatformSettings
+from muad_contracts.platform_settings import (
+    MEMORY_SETTING_BOUNDS,
+    PlatformSettings,
+    default_platform_settings,
+)
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,6 +41,9 @@ _GROUP_APPLIES_TO: dict[str, str] = {
     "locale": NEXT_OPERATION,
     "im": NEXT_OPERATION,
     "mcp": NEXT_OPERATION,
+    "capacity": NEXT_OPERATION,
+    "model_pool": NEW_RUN,
+    "webchat": NEXT_OPERATION,
 }
 
 #: 逐字段范围/枚举/单位/生效方式覆盖（键为前端使用的字段路径）。
@@ -82,6 +89,29 @@ _FIELD_META: dict[str, dict[str, Any]] = {
     "locale.default_locale": {"enum": ["zh-CN", "en-US"]},
     "im.progress_interval_sec": {"min": 1.0, "unit_key": "settings.unit.seconds"},
     "mcp.max_tools_per_server": {"min": 1},
+    "capacity.max_open_runs_per_tenant": {"effect_key": "settings.effect.new_admission"},
+    "capacity.max_open_runs_per_user": {"effect_key": "settings.effect.new_admission"},
+    "capacity.queue_wait_timeout_sec": {"applies_to": NEW_RUN, "effect_key": "settings.effect.new_run"},
+    "capacity.model_wait_timeout_sec": {"applies_to": NEW_RUN, "effect_key": "settings.effect.new_run"},
+    "model_pool.dispatch_epoch_sec": {"effect_key": "settings.effect.new_run_or_job"},
+    "model_pool.input_estimate_multiplier": {"effect_key": "settings.effect.new_run_or_job"},
+    "model_pool.interactive_weight": {"effect_key": "settings.effect.new_run_or_job"},
+    "model_pool.background_weight": {"effect_key": "settings.effect.new_run_or_job"},
+    "model_pool.aging_interval_sec": {"effect_key": "settings.effect.new_run_or_job"},
+    "webchat.access_ttl_days": {"effect_key": "settings.effect.token_issuance"},
+    "webchat.session_ttl_hours": {"effect_key": "settings.effect.session_exchange"},
+    "webchat.text_max_bytes": {"effect_key": "settings.effect.new_message"},
+    "webchat.upload_max_bytes": {"effect_key": "settings.effect.new_upload"},
+    "webchat.upload_max_per_message": {"effect_key": "settings.effect.new_message"},
+    "webchat.upload_staging_ttl_sec": {"effect_key": "settings.effect.new_upload"},
+    "webchat.history_page_size": {"effect_key": "settings.effect.new_query"},
+    "webchat.notification_poll_sec": {"effect_key": "settings.effect.page_initialization"},
+    "webchat.reconnect_base_ms": {"effect_key": "settings.effect.new_connection"},
+    "webchat.reconnect_cap_ms": {"effect_key": "settings.effect.new_connection"},
+    "webchat.reconnect_max_attempts": {"effect_key": "settings.effect.new_connection"},
+    "webchat.stream_replay_retention_hours": {"effect_key": "settings.effect.next_cleanup"},
+    "webchat.notification_retention_days": {"effect_key": "settings.effect.next_cleanup"},
+    "webchat.history_retention_days": {"effect_key": "settings.effect.next_cleanup"},
 }
 
 #: 非本页管理的项（`.env` + 重启 / 资源页面 / 代码）的归属说明。
@@ -158,19 +188,25 @@ def _field_meta(path: str, value: Any, applies_to: str) -> dict[str, Any]:
 
 
 def build_groups(
-    settings: PlatformSettings, *, overrides: Mapping[str, int]
+    settings: PlatformSettings, *, overrides: Mapping[str, int],
+    chat_message_hard_max_bytes: int | None = None, chat_upload_hard_max_bytes: int | None = None,
 ) -> list[dict[str, Any]]:
-    """构建 API-01 的 `data.groups[]`：默认值/类型取自 schema，范围/生效方式取自本模块。
+    """默认/类型/新字段范围与单位取schema；部署硬上限只约束可编辑范围，不裁剪生效值。
 
     `overrides` 是**分组 → 资源覆盖数**（`count_resource_overrides`）；没有载体的分组缺省即 0。
     """
     document = asdict(settings)
+    defaults = default_platform_settings()
+    schema_meta = _bounded_schema_metadata(defaults, chat_message_hard_max_bytes, chat_upload_hard_max_bytes)
     groups: list[dict[str, Any]] = []
-    for group_key, group_document in document.items():
+    for group_key, group_defaults in asdict(defaults).items():
         applies_to = _GROUP_APPLIES_TO[group_key]
+        values = _flatten(group_key, document[group_key])
         fields = []
-        for path, value in _flatten(group_key, group_document).items():
+        for path, value in _flatten(group_key, group_defaults).items():
             field = _field_meta(path, value, applies_to)
+            field.update(schema_meta.get(path, {}))
+            field["value"] = values[path]
             field["overridden_by_resources"] = overrides.get(group_key, 0)
             fields.append(field)
         groups.append(
@@ -183,6 +219,28 @@ def build_groups(
             }
         )
     return groups
+
+
+def _bounded_schema_metadata(
+    defaults: PlatformSettings, message_hard_cap: int | None, upload_hard_cap: int | None,
+) -> dict[str, dict[str, object]]:
+    result: dict[str, dict[str, object]] = {}
+    for group_key in ("capacity", "model_pool", "webchat"):
+        for item in fields(getattr(defaults, group_key)):
+            meta: dict[str, object] = {"min": item.metadata["minimum"]}
+            if "maximum" in item.metadata:
+                meta["max"] = item.metadata["maximum"]
+            if "unit" in item.metadata:
+                meta["unit_key"] = f"settings.unit.{item.metadata['unit']}"
+            result[f"{group_key}.{item.name}"] = meta
+    for path, hard_cap in (("webchat.text_max_bytes", message_hard_cap),
+                           ("webchat.upload_max_bytes", upload_hard_cap)):
+        if hard_cap is not None:
+            maximum = result[path].get("max", hard_cap)
+            if not isinstance(maximum, (int, float)):
+                raise ValueError(f"schema maximum must be numeric: {path}")
+            result[path]["max"] = min(maximum, hard_cap)
+    return result
 
 
 def readonly_notes() -> list[dict[str, str]]:

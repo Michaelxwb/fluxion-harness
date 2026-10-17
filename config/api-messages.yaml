@@ -449,6 +449,158 @@ codes:
       zh-CN: 等待检查点损坏，无法安全恢复
       en-US: The waiting checkpoint is invalid and cannot be safely resumed
 
+  # Capacity and Webchat messages never interpolate credentials or raw provider errors.
+  PLATFORM_SETTINGS_UNAVAILABLE:
+    http_status: 503
+    messages:
+      zh-CN: 当前设置暂时不可用，请稍后重试
+      en-US: Current settings are temporarily unavailable. Please try again later.
+  CHAT_TOKEN_INVALID:
+    http_status: 401
+    messages:
+      zh-CN: 聊天 Token 无效，请检查后重新输入
+      en-US: The chat token is invalid. Check it and try again.
+  CHAT_TOKEN_EXPIRED:
+    http_status: 401
+    messages:
+      zh-CN: 聊天 Token 已过期，请联系管理员获取新 Token
+      en-US: The chat token has expired. Contact an administrator for a new token.
+  CHAT_TOKEN_REVOKED:
+    http_status: 401
+    messages:
+      zh-CN: 聊天 Token 已撤销，请联系管理员获取新 Token
+      en-US: The chat token has been revoked. Contact an administrator for a new token.
+  CHAT_SESSION_EXPIRED:
+    http_status: 401
+    messages:
+      zh-CN: 聊天登录已过期，请重新输入有效 Token
+      en-US: Your chat session has expired. Enter a valid token to continue.
+  CHAT_SESSION_REVOKED:
+    http_status: 401
+    messages:
+      zh-CN: 聊天登录已失效，请重新进入聊天
+      en-US: Your chat session has been revoked. Enter chat again to continue.
+  AUTH_CONTEXT_CHANGED:
+    http_status: 409
+    messages:
+      zh-CN: 当前聊天身份已变化，请重新进入聊天
+      en-US: The current chat identity has changed. Enter chat again to continue.
+  CHAT_AUTH_RATE_LIMITED:
+    http_status: 429
+    messages:
+      zh-CN: 进入聊天的请求过于频繁，请稍后重试
+      en-US: Too many chat authentication requests. Please try again later.
+  REQUEST_BODY_TOO_LARGE:
+    http_status: 413
+    messages:
+      zh-CN: 请求内容超过大小限制，请减少内容后重试
+      en-US: The request exceeds the size limit. Reduce its content and try again.
+  RUN_CAPACITY_EXCEEDED:
+    http_status: 429
+    messages:
+      zh-CN: 当前请求数量已达上限，请等待已有请求完成后再试
+      en-US: The active request limit has been reached. Wait for an existing request to finish.
+  RUN_QUEUE_TIMEOUT:
+    http_status: 408
+    messages:
+      zh-CN: 本轮请求排队超时，未开始执行
+      en-US: This request timed out in the queue before execution started.
+  MODEL_CAPACITY_UNAVAILABLE:
+    http_status: 503
+    messages:
+      zh-CN: 当前没有可用的模型资源
+      en-US: No model capacity is currently available.
+  MODEL_WAIT_TIMEOUT:
+    http_status: 504
+    messages:
+      zh-CN: 等待模型资源超时，本轮请求已停止
+      en-US: The model capacity wait timed out. This request has stopped.
+  MODEL_CAPACITY_DRAIN_REQUIRED:
+    http_status: 409
+    messages:
+      zh-CN: 请等待现有模型调用结束并核实未确定结果后，再调整容量或归属
+      en-US: Wait for existing model calls to finish and resolve unknown outcomes before changing capacity or ownership.
+  MODEL_CALL_OUTCOME_UNKNOWN:
+    http_status: 409
+    messages:
+      zh-CN: 模型调用是否结束尚未确认，相关资源仍保留占用，请联系管理员核实
+      en-US: Model call completion is unconfirmed. Its capacity remains reserved; contact an administrator.
+  MODEL_CREDENTIAL_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: 已存在相同的模型凭据，请引用已有凭据
+      en-US: The model credential already exists. Reference the existing credential.
+  MODEL_CREDENTIAL_IN_USE:
+    http_status: 409
+    messages:
+      zh-CN: 模型凭据仍被引用，无法删除
+      en-US: The model credential is still referenced and cannot be deleted.
+  MODEL_DEPLOYMENT_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: 已存在相同的模型成员绑定或成员标识
+      en-US: This model member binding or member key already exists.
+  MODEL_QUOTA_GROUP_IN_USE:
+    http_status: 409
+    messages:
+      zh-CN: 额度组仍被模型凭据引用，无法删除
+      en-US: The quota group is still referenced by model credentials and cannot be deleted.
+  MODEL_PROVIDER_MISMATCH:
+    http_status: 422
+    messages:
+      zh-CN: 模型与凭据的供方不一致，无法绑定
+      en-US: The model and credential providers differ and cannot be bound.
+  MODEL_CREDENTIAL_CHANGED:
+    http_status: 409
+    messages:
+      zh-CN: 模型凭据版本已变化，需要重新申请调用资源
+      en-US: The model credential revision has changed. A new capacity reservation is required.
+  MODEL_CALL_LEASE_LOST:
+    http_status: 409
+    messages:
+      zh-CN: 模型调用租约已失效，当前执行方不能继续提交
+      en-US: The model call lease is no longer valid. This executor cannot submit further updates.
+  CONVERSATION_MODEL_MISMATCH:
+    http_status: 409
+    messages:
+      zh-CN: 当前模型配置与此会话不兼容，请新建会话
+      en-US: The current model configuration is incompatible with this conversation. Start a new conversation.
+  CURSOR_EXPIRED:
+    http_status: 410
+    messages:
+      zh-CN: 事件游标已过期，请重新加载会话状态
+      en-US: The event cursor has expired. Reload the conversation state.
+  CURSOR_AHEAD:
+    http_status: 400
+    messages:
+      zh-CN: 事件游标超出已保存的范围，请重新加载当前状态
+      en-US: The event cursor is beyond the persisted range. Reload the current state.
+  CURSOR_RUN_MISMATCH:
+    http_status: 400
+    messages:
+      zh-CN: 事件游标与当前请求不匹配，请重新加载会话状态
+      en-US: The event cursor does not match this run. Reload the conversation state.
+  UPLOAD_EXPIRED:
+    http_status: 410
+    messages:
+      zh-CN: 暂存附件已过期，请重新上传
+      en-US: The staged attachment has expired. Upload it again.
+  DELIVERY_RECEIPT_EXPIRED:
+    http_status: 410
+    messages:
+      zh-CN: 投递回执已超过保留期限，无法作为新投递重放
+      en-US: The delivery receipt has expired and cannot be replayed as a new delivery.
+  DELIVERY_LEASE_LOST:
+    http_status: 409
+    messages:
+      zh-CN: 投递租约已失效，当前发送方不能继续确认
+      en-US: The delivery lease is no longer valid. This sender cannot acknowledge it.
+  EXECUTION_OUTCOME_UNKNOWN:
+    http_status: 409
+    messages:
+      zh-CN: 操作结果尚待核实，已停止自动重试，请联系管理员
+      en-US: The operation outcome requires verification. Automatic retries have stopped; contact an administrator.
+
 # Transient IM activity presentation; these are UI templates, not API error codes.
 activity_messages:
   PREPARING:

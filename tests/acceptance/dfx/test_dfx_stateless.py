@@ -95,7 +95,7 @@ def _pod_env(pod_name: str, stack: LiveStack, skill_cache_root: Path) -> dict[st
         "SKILL_CACHE_ROOT": str(skill_cache_root),
         "POD_NAME": pod_name,
         # 短租约：Pod A 被强杀后由另一个 reaper 在秒级回收（RUN_ABANDONED）。
-        "RUN_LEASE_SEC": "2",
+        "RUN_LEASE_SEC": "3",
         "RUN_HEARTBEAT_SEC": "1",
         "RUN_REAPER_INTERVAL_SEC": "1",
     }

@@ -63,6 +63,9 @@ def test_configuration_inventory_covers_shared_settings_and_policy_fields() -> N
         "LocaleSettings",
         "ImSettings",
         "McpSettings",
+        "CapacitySettings",
+        "ModelPoolSettings",
+        "WebchatSettings",
     }
     for base in ("apps", "packages"):
         for path in (ROOT / base).rglob("*.py"):

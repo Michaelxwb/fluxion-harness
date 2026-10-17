@@ -111,6 +111,16 @@ def _batch_platform_limit() -> int:
     return SharedSettings().batch_platform_limit
 
 
+def _validate_operation_settings(settings: PlatformSettings) -> None:
+    """Owner writes, including restore, must obey the same deployment budgets as HTTP input."""
+    resources = SharedSettings()
+    validate_platform_settings(
+        settings, batch_platform_limit=resources.batch_platform_limit,
+        chat_message_hard_max_bytes=resources.chat_message_hard_max_bytes,
+        chat_upload_hard_max_bytes=resources.chat_upload_hard_max_bytes,
+    )
+
+
 def _flatten(document: Mapping[str, Any], prefix: str = "") -> dict[str, Any]:
     """把设置文档压成 `dotted.path -> 叶子值`，用于逐叶子 diff。"""
     flat: dict[str, Any] = {}
@@ -160,7 +170,7 @@ class PlatformSettingsService:
         settings: PlatformSettings,
     ) -> PlatformSettingsSnapshot:
         """校验 → 事务内比对版本 → `INSERT revision+1` → 同事务写审计。"""
-        validate_platform_settings(settings, batch_platform_limit=_batch_platform_limit())
+        _validate_operation_settings(settings)
         await self._require_summary_model(tenant_id, settings)
         current = await self._current_revision(tenant_id)
         if current != expected_revision:
@@ -241,6 +251,7 @@ class PlatformSettingsService:
         restored = parse_platform_settings(
             target.settings_json, batch_platform_limit=_batch_platform_limit()
         )
+        _validate_operation_settings(restored)
         current = await self._current_revision(tenant_id)
         before = await self._revision_document(tenant_id, current) if current else None
         _require_non_decreasing_memory_quota(before, restored)

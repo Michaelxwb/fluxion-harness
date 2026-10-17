@@ -1,0 +1,3927 @@
+{
+  "schema": 2,
+  "task_file": "agent-capacity-webchat.md",
+  "task_sha256": "9b7be5584b8d06afa7ecaf5c3969190d4f938d33a2a36c1141ade0de53730937",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针",
+      "owner": "TASK-116",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实企微协议探针、浏览器、Gateway、Runtime、Worker、PG/Redis",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-03",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "两个 Runtime 实例、PG、真实 SSE、故障进程",
+      "owner": "TASK-111",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_stream_delivery.py",
+        "tests/acceptance/capacity/test_worker_delivery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "多 Runtime、同模型多 Key HTTP 探针、实际额度存储和审计",
+      "owner": "TASK-110",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_model_execution.py",
+        "tests/acceptance/capacity/test_admission_recovery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-05",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "管理员/普通用户真实浏览器、Console Token 签发/交换、PG、Gateway",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-06",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "canonical、共享卷、Gateway、真实浏览器",
+      "owner": "TASK-114",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-07",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Worker 多实例、实际 Skill 子进程组、PG、投递链路",
+      "owner": "TASK-111",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_stream_delivery.py",
+        "tests/acceptance/capacity/test_worker_delivery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-08",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Console 管理界面、PG、Runtime 实际模型请求",
+      "owner": "TASK-115",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-09",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "企微协议探针、真实浏览器/SSE、PG、受控模型与 Worker",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-10",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实浏览器、Gateway、Runtime、PG 与捕获模型 HTTP 输入的探针",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-11",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "两浏览器页面、两个 Runtime、PG、真实 SSE 和等待中的模型探针",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-12",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "两个 Runtime、主模型/摘要/记忆任务、Console 探针和真实 HTTP Key 计数服务",
+      "owner": "TASK-110",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_model_execution.py",
+        "tests/acceptance/capacity/test_admission_recovery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-13",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "浏览器、PG、真实 Run/Worker 投递与提交后故障注入",
+      "owner": "TASK-114",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-14",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "容量栈真实 PG/HTTP/SSE、可配置增量模型探针",
+      "owner": "TASK-116",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-15",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换",
+      "owner": "TASK-116",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-16",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Console 策略/签发、浏览器 Cookie、真实 PG 时间与历史续聊接口",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-17",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Console系统设置/资源配置、两个Runtime、真实PG准入、Gateway启动配置与浏览器",
+      "owner": "TASK-115",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "两并发请求、PG、模型探针计数",
+      "owner": "TASK-110",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_model_execution.py",
+        "tests/acceptance/capacity/test_admission_recovery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "PG/Redis 故障代理、真实执行/连接",
+      "owner": "TASK-111",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_stream_delivery.py",
+        "tests/acceptance/capacity/test_worker_delivery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "两入口、真实 Run/待确认状态",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实故障模型 HTTP 服务和调度存储",
+      "owner": "TASK-025",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_provider_pool.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "两租户、真实认证/归属查询/下载与 SSE",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实压缩/记忆提炼接线、持久快照和 model HTTP",
+      "owner": "TASK-026",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_background_pool.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-07",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "慢浏览器、SSE 代理、PG、重连",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-08",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "双入口、真实确认请求、记忆 PG 状态与模型 HTTP 输入",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-09",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "队列实际存储、并发受理/取消、SSE、模型探针计数",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-10",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实随机 Token、Console、两租户用户、PG CHAT 会话",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-11",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "两租户/用户/入口的真实列表、详情、发送和确认 API",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-12",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "同一浏览器 A/B 用户 Token、共享 Cookie、API/SSE/下载",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-13",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime 实际持久事件、Gateway 公开投影和浏览器",
+      "owner": "TASK-114",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-14",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "浏览器上传、真实共享文件系统、PG、清理与幂等受理",
+      "owner": "TASK-114",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-15",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Worker 子进程、PG claim/reclaim、受控外部写 HTTP 服务",
+      "owner": "TASK-110",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_model_execution.py",
+        "tests/acceptance/capacity/test_admission_recovery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-16",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "模型服务端处理中断、真实 Key/账户计数和租约存储",
+      "owner": "TASK-110",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_model_execution.py",
+        "tests/acceptance/capacity/test_admission_recovery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-17",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "单租户 Gateway、其他租户有效 CHAT 会话、稳定入口/Run 来源",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-18",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "实际代理/应用解析、浏览器、PG 与模型计数服务",
+      "owner": "TASK-114",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-19",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "单 Gateway 重启、真实 Run 终态/PG投递意图、企微协议探针",
+      "owner": "TASK-111",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_stream_delivery.py",
+        "tests/acceptance/capacity/test_worker_delivery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-20",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "ADMIN 重置/撤销、两个浏览器 CHAT 会话、真实 PG 事务与长流复核",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-21",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "设置保存API、真实PG版本行、进程启动与正式部署清单/容量harness",
+      "owner": "TASK-115",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-01",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "并发预占/释放、实际租约存储",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_capacity_reserve.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-02",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实凭据/会话/附件归属存储",
+      "owner": "TASK-053",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_upload_staging.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-03",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "跨页读取和提交顺序、PG",
+      "owner": "TASK-064",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_activity_read.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-04",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "实际 Conversation/CanonicalEvent 查询与索引",
+      "owner": "TASK-050",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_history_queries.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-05",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "实际准入计数、Run 事务、取消/领取竞态和 PG 行锁",
+      "owner": "TASK-031",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_admission_release.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-06",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "实际公开事件 DTO/水位和恢复服务",
+      "owner": "TASK-060",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_shared_tail.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-07",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实保留/清理查询、活跃 Run/job 与共享文件系统",
+      "owner": "TASK-069",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_retention.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-08",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG Token/会话约束、有效期裁决与用户锁",
+      "owner": "TASK-040",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_auth/test_capacity_webchat_chat_session_service.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-09",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "contracts配置解析、真实PG配置/快照、全局准入版本和启动settings",
+      "owner": "TASK-094",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_runtime_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-101",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "ADMIN 为已有用户生成 Token，用户直接打开 /chat 输入后进入聊天；有效 Cookie 刷新恢复，仅见获授权入口；无需注册/密码/管理账号，访问管理 URL 被拒",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-102",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "发文字和附件，用户气泡先显示待受理，202 后绑定真实 Run；模型增量显示，终态只结算一次",
+      "owner": "TASK-114",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-103",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "断网、页面刷新及服务实例切换后恢复正确 Run/文本/附件，不重复提交、不重复显示",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-104",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "与企微同时处理不同任务，网页停止/new/确认仅影响网页当前 Run/会话",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-105",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "离线 Task 完成，重开拉取持久通知，定位结果、下载附件并标记已读",
+      "owner": "TASK-114",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-106",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "模型 Key 新增/编辑/解绑、用户 Token 签发/重置/撤销及策略设置影响对应后续请求；关闭 SideSheet 不破坏列表，BUILDER/CHAT 不显示凭据维护入口且后端拒绝越权",
+      "owner": "TASK-115",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-107",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "中英文、明暗主题、桌面和窄屏下状态/时间/操作可见；消息区域滚动不盖住输入和确认",
+      "owner": "TASK-115",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-101",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "CHAT 会话过期/撤销时关闭流并清私有状态，回到 Token 输入；提示重新输入有效 Token，无效/过期则联系管理员；不跳 Console 登录、不自动保存或交换Token、不保留他人消息缓存",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-102",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "未授权入口、过载、受理超时和消息幂等冲突有明确状态；重试沿用原消息ID；不显示伪成功",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-103",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "慢消费者或事件缺口触发游标恢复；取消旧连接后迟到数据不得污染新入口",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-104",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "确认过期、附件拒绝/失效和下载越权有本地化反馈，其余有效内容可继续",
+      "owner": "TASK-114",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-101",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "解析器覆盖跨 chunk UTF-8、CRLF、多行 data、心跳、重复seq与delta/snapshot顺序",
+      "owner": "TASK-072",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_browser_sse_parser.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-102",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "请求序号和 AbortSignal 屏蔽迟到响应；空列表、空 children 和字段边界完整显示",
+      "owner": "TASK-093",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_frontend_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-108",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "控制模型/工具容量触发等待，显示“已收到，正在排队/正在等待模型资源/正在执行任务”；刷新恢复，取消后停止等待，状态不显示为模型正文",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-105",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "伪造/过期/撤销 Token 与停用用户不能进入聊天；重新输入有效Token后恢复原用户，先前消息不自动重提；Token不进地址/持久缓存/日志，错误不回显Token或暴露他人身份",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-109",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "使用正式 Console 镜像及真实入口代理/浏览器/Gateway；直接打开并刷新 `/chat/{entryId}`、加载静态资源、交换用户Token和订阅SSE均成功；渲染部署清单确认未增加 Webchat 前端 Pod/Service，CHAT 不经过 Console 管理登录守卫",
+      "owner": "TASK-115",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-110",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实浏览器经 API 新建 A/B；侧栏显示标题与活动分组，打开 A 看原消息后继续提问，新增 Run 仍归 A；刷新含 conversation 的 URL 恢复 A；首屏50条，可加载超过200条保留消息",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-111",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "A 流式输出时切 B，A 在后端继续执行；切回恢复全部已持久正文和真实状态，不重复、不被 B 迟到响应覆盖；WAITING_INPUT 回到原确认操作",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-106",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "会话越权/其他入口、归档不可续聊、同会话正在运行或授权撤销均有准确反馈；忙碌不自动新建/换会话，切换不隐式取消",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-103",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "entry/conversation/generation 变化时旧页、旧流和待发送草稿按会话隔离；列表分页合并去重，向前载入消息保留滚动锚点，不将历史水位误作活跃 Run 已应用游标",
+      "owner": "TASK-078",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_conversation_state.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-112",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "同浏览器退出A并输入B的Token，验证旧流/消息/草稿/图片Blob已清，先完成B认证才拉B历史；共享Cookie切换导致旧页上下文不匹配时明确停用，不能自动互相换Token循环",
+      "owner": "TASK-112",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-113",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "查看 B 时 A 完成或待确认，服务端活动通知可见且能定位 A；隐藏页暂停轮询，回前台同步；重放不重复累计未读，打开 A 不清 B 的未读",
+      "owner": "TASK-114",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-107",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "公开流合法跳号不重连；显式游标过期才恢复详情/消息/安全快照，内部工具/推理内容不显示；原消息不重提，恢复正文不重复",
+      "owner": "TASK-114",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-108",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "已受理消息响应丢失且上传暂存后来过期，原身份重试仍恢复原 Run 与附件；未知受理不新建消息号，不因切换会话改投",
+      "owner": "TASK-114",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-109",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "外部任务结果待核实时清楚显示状态并定位原任务，不自动重试写操作或显示伪成功；新建/切换会话不改变该结果",
+      "owner": "TASK-113",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-104",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "X-Chat-Context来自验证后的bootstrap，401不自动交换/重发POST，Token交换singleflight，AUTH_CONTEXT_CHANGED停自动重试；头像/附件请求经共享传输，身份变化撤销Blob URL，SSE退避和单帧大小有界",
+      "owner": "TASK-074",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_chat_auth_state.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-114",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Console 设置/签发和浏览器Cookie；管理员可见Token到期时间且原文仅本次显示/复制，刷新详情不能再次读取；默认30天/12小时及自定义TTL均受后端期限约束；Cookie到期重新认证或Token重签后，同用户原历史仍可继续",
+      "owner": "TASK-115",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-110",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "两个真实浏览器登录同用户后，ADMIN重置/撤销Token，旧Token和关联Cookie拒绝访问、长流有界关闭；重置响应丢失只刷新版本、不自动再次重置，用户Token原文不进入持久store，关闭结果框即清除",
+      "owner": "TASK-115",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-115",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实系统设置API、Gateway配置投影和浏览器；调整消息/附件/分页/轮询/重连值后新操作使用同一有效配置；页面展示单位/范围/生效说明，非法值按后端details落字段；不暴露服务地址/池大小/模型Key或另存默认值",
+      "owner": "TASK-115",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-111",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "配置加载失败、设置版本冲突及进程新旧transport_revision的真实HTTP边界；失败单独可重试，不重复交换Token/发送消息；传输上限变化只影响新连接，旧流不被中途换规则，历史与已受理附件仍可读取",
+      "owner": "TASK-115",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-105",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "共享流解析器、后端typed DTO和配置投影；检验字节单位/边界、配置更新/旧请求失效和snapshot分片；同canonical seq的part全部到齐才原子替换及推进游标，缺片/重复片/超额缓冲按安全游标恢复，不拼出半份正文",
+      "owner": "TASK-072",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_browser_sse_parser.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-201",
+      "source": "agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#3.3 数据设计",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/contracts/test_capacity_webchat_capacity_schema.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-201",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "f4d658868d05472e8af7d160c66b2d98",
+        "executed_at": "2026-10-16T22:57:56.999666+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_capacity_webchat_capacity_schema.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "0050d6c8877d59d9a697f689e6f76002c212f0a29c66740881f7aed3d75d1928"
+      },
+      "runs": [
+        {
+          "id": "B-201",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "f4d658868d05472e8af7d160c66b2d98",
+          "executed_at": "2026-10-16T22:57:56.999666+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_capacity_webchat_capacity_schema.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "0050d6c8877d59d9a697f689e6f76002c212f0a29c66740881f7aed3d75d1928"
+        }
+      ]
+    },
+    {
+      "id": "B-202",
+      "source": "agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/contracts/test_capacity_webchat_webchat_schema.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-202",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "96bd717c93304c31913295ac58e8af86",
+        "executed_at": "2026-10-16T23:01:55.772965+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_capacity_webchat_webchat_schema.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "b92e3fad37ace4c5f94a9f8a34e65f2c151fa1d3ddda458f72bccfb43ee6fc46"
+      },
+      "runs": [
+        {
+          "id": "B-202",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "96bd717c93304c31913295ac58e8af86",
+          "executed_at": "2026-10-16T23:01:55.772965+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_capacity_webchat_webchat_schema.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b92e3fad37ace4c5f94a9f8a34e65f2c151fa1d3ddda458f72bccfb43ee6fc46"
+        }
+      ]
+    },
+    {
+      "id": "B-203",
+      "source": "agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/contracts/test_capacity_webchat_startup_schema.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-203",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "a94b5e0dfc27426c99ac4bd5cb93d344",
+        "executed_at": "2026-10-16T23:49:56.753868+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_capacity_webchat_startup_schema.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "1f16861a4c64f2bddf26e175ad5c59509d33e7921ddb0ad2668e639976abf1b0"
+      },
+      "runs": [
+        {
+          "id": "B-203",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "a94b5e0dfc27426c99ac4bd5cb93d344",
+          "executed_at": "2026-10-16T23:49:56.753868+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_capacity_webchat_startup_schema.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "1f16861a4c64f2bddf26e175ad5c59509d33e7921ddb0ad2668e639976abf1b0"
+        }
+      ]
+    },
+    {
+      "id": "B-204",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/contracts/test_capacity_webchat_model_contracts.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-204",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "cccab1c1bf364be0a60dc5c968184e62",
+        "executed_at": "2026-10-16T23:56:36.938857+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_capacity_webchat_model_contracts.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "2e872d992dd852a2bc8e56d80eb9e6eceef120fea8c00b8a676517af8cea7bb1"
+      },
+      "runs": [
+        {
+          "id": "B-204",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "cccab1c1bf364be0a60dc5c968184e62",
+          "executed_at": "2026-10-16T23:56:36.938857+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_capacity_webchat_model_contracts.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "2e872d992dd852a2bc8e56d80eb9e6eceef120fea8c00b8a676517af8cea7bb1"
+        }
+      ]
+    },
+    {
+      "id": "B-205",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/contracts/test_capacity_webchat_chat_contracts.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-205",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "486dd5b78cca497783594909c5301424",
+        "executed_at": "2026-10-17T04:14:05.198820+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_capacity_webchat_chat_contracts.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "2c437e6419cdbc5690d450a7cfbd3e8cd2e138c3e03e999ca865c630b04df819"
+      },
+      "runs": [
+        {
+          "id": "B-205",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "486dd5b78cca497783594909c5301424",
+          "executed_at": "2026-10-17T04:14:05.198820+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_capacity_webchat_chat_contracts.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "2c437e6419cdbc5690d450a7cfbd3e8cd2e138c3e03e999ca865c630b04df819"
+        }
+      ]
+    },
+    {
+      "id": "B-206",
+      "source": "agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收",
+      "owner": "TASK-006",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/contracts/test_capacity_webchat_event_contracts.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-206",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "3229c94166c848b49a6689b0cc140bb3",
+        "executed_at": "2026-10-17T04:17:42.489596+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_capacity_webchat_event_contracts.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "18f46a03c16e6575e6297e50d5b0d2ad0d977027eb85d761d274b59083e21372"
+      },
+      "runs": [
+        {
+          "id": "B-206",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "\n\ntests/contracts/test_capacity_webchat_event_contracts.py:208: AssertionError\n__ test_b206_every_public_payload_forbids_additional_fields[artifact.created] __\n\nevent_type = 'artifact.created'\n\n    @pytest.mark.parametrize(\"event_type\", [\"message.delta\", \"message.snapshot\", \"run.stage\", \"run.terminal\",\n                                           \"run.error\", \"confirmation.required\", \"artifact.created\", \"checkpoint\"])\n    def test_b206_every_public_payload_forbids_additional_fields(event_type: str) -> None:\n        with pytest.raises(ValidationError, match=\"private_canary\") as error:\n            _module().parse_public_event(_envelope(event_type, {\"private_canary\": \"secret-canary-value\"}))\n>       assert \"secret-canary-value\" not in str(error.value)\nE       AssertionError: assert 'secret-canary-value' not in '7 validatio...ra_forbidden'\nE         \nE         'secret-canary-value' is contained here:\nE           canary': 'secret-canary-value'}, input_type=dict]\nE         ?           +++++++++++++++++++\nE               For further information visit https://errors.pydantic.dev/2.13/v/missing\nE           `artifact.created`.data.media_type\nE             Field required [type=missing, input_value={'private_canary': 'secret-canary-value'}, input_type=dict]...\nE         \nE         ...Full output truncated (16 lines hidden), use '-vv' to show\n\ntests/contracts/test_capacity_webchat_event_contracts.py:208: AssertionError\n_____ test_b206_every_public_payload_forbids_additional_fields[checkpoint] _____\n\nevent_type = 'checkpoint'\n\n    @pytest.mark.parametrize(\"event_type\", [\"message.delta\", \"message.snapshot\", \"run.stage\", \"run.terminal\",\n                                           \"run.error\", \"confirmation.required\", \"artifact.created\", \"checkpoint\"])\n    def test_b206_every_public_payload_forbids_additional_fields(event_type: str) -> None:\n        with pytest.raises(ValidationError, match=\"private_canary\") as error:\n            _module().parse_public_event(_envelope(event_type, {\"private_canary\": \"secret-canary-value\"}))\n>       assert \"secret-canary-value\" not in str(error.value)\nE       AssertionError: assert 'secret-canary-value' not in '2 validatio...ra_forbidden'\nE         \nE         'secret-canary-value' is contained here:\nE           ut_value='secret-canary-value', input_type=str]\nE         ?           +++++++++++++++++++\nE               For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden\nE           checkpoint.event_id\nE             Extra inputs are not permitted [type=extra_forbidden, input_value='39fbf6ed-adba-479b-a80e-d37e095ef956', input_type=str]\nE               For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden\n\ntests/contracts/test_capacity_webchat_event_contracts.py:208: AssertionError\n=========================== short test summary info ============================\nFAILED tests/contracts/test_capacity_webchat_event_contracts.py::test_b206_every_public_payload_forbids_additional_fields[message.delta]\nFAILED tests/contracts/test_capacity_webchat_event_contracts.py::test_b206_every_public_payload_forbids_additional_fields[message.snapshot]\nFAILED tests/contracts/test_capacity_webchat_event_contracts.py::test_b206_every_public_payload_forbids_additional_fields[run.stage]\nFAILED tests/contracts/test_capacity_webchat_event_contracts.py::test_b206_every_public_payload_forbids_additional_fields[run.terminal]\nFAILED tests/contracts/test_capacity_webchat_event_contracts.py::test_b206_every_public_payload_forbids_additional_fields[run.error]\nFAILED tests/contracts/test_capacity_webchat_event_contracts.py::test_b206_every_public_payload_forbids_additional_fields[confirmation.required]\nFAILED tests/contracts/test_capacity_webchat_event_contracts.py::test_b206_every_public_payload_forbids_additional_fields[artifact.created]\nFAILED tests/contracts/test_capacity_webchat_event_contracts.py::test_b206_every_public_payload_forbids_additional_fields[checkpoint]\n8 failed, 50 passed in 0.12s",
+          "revision": 1,
+          "run_id": "803dbb20519c4248a7c8e900a383f2cc",
+          "executed_at": "2026-10-17T04:17:25.367790+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_capacity_webchat_event_contracts.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "B-206",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "3229c94166c848b49a6689b0cc140bb3",
+          "executed_at": "2026-10-17T04:17:42.489596+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_capacity_webchat_event_contracts.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "18f46a03c16e6575e6297e50d5b0d2ad0d977027eb85d761d274b59083e21372"
+        }
+      ]
+    },
+    {
+      "id": "B-207",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/contracts/test_capacity_webchat_error_catalog.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-207",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "97abe069ca504e088a9b561b4416e0a1",
+        "executed_at": "2026-10-17T04:21:00.076771+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_capacity_webchat_error_catalog.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "0c3e2347374b783e4ab2f832c6b3e6633483e1710e2d4615eaace81f160248ed"
+      },
+      "runs": [
+        {
+          "id": "B-207",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "68a10976f06a4eea9a36863ed818f6e2",
+          "executed_at": "2026-10-17T04:20:23.939150+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_capacity_webchat_error_catalog.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "d39a806a65ac6f4d49d27ec6d8f3f72b31a1003a2f7342ab180d59ab8e943dff"
+        },
+        {
+          "id": "B-207",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "97abe069ca504e088a9b561b4416e0a1",
+          "executed_at": "2026-10-17T04:21:00.076771+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_capacity_webchat_error_catalog.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "0c3e2347374b783e4ab2f832c6b3e6633483e1710e2d4615eaace81f160248ed"
+        }
+      ]
+    },
+    {
+      "id": "B-208",
+      "source": "agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-008",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_capacity_webchat_settings_catalog.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-208",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5ba3303655d246818a6051380bac44a5",
+        "executed_at": "2026-10-17T04:26:42.038457+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_platform/test_capacity_webchat_settings_catalog.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "a1b58f2756d17377aac824ba54784346316f33b868679155d736deb6c4aa78e6"
+      },
+      "runs": [
+        {
+          "id": "B-208",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ba3303655d246818a6051380bac44a5",
+          "executed_at": "2026-10-17T04:26:42.038457+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_capacity_webchat_settings_catalog.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "a1b58f2756d17377aac824ba54784346316f33b868679155d736deb6c4aa78e6"
+        }
+      ]
+    },
+    {
+      "id": "B-209",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#4.2 发布与迁移",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库",
+      "owner": "TASK-009",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/migrations/test_capacity_webchat_control_pool_schema.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-209",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "eb8d0a930d2e4d958535bc5eef13a3f9",
+        "executed_at": "2026-10-17T09:52:34.732657+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/migrations/test_capacity_webchat_control_pool_schema.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ac296d765c71daef79d92c84847abde7614195d359b7bc0fd61f74819dd7b5ac"
+      },
+      "runs": [
+        {
+          "id": "B-209",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "791aff4eface44f99896da6fa8945671",
+          "executed_at": "2026-10-17T09:05:01.798020+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/migrations/test_capacity_webchat_control_pool_schema.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "e570640a0f30c3a12f37b3fcb44043e8c1ca701f7b1999549016825e184879b0"
+        },
+        {
+          "id": "B-209",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "eb8d0a930d2e4d958535bc5eef13a3f9",
+          "executed_at": "2026-10-17T09:52:34.732657+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/migrations/test_capacity_webchat_control_pool_schema.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ac296d765c71daef79d92c84847abde7614195d359b7bc0fd61f74819dd7b5ac"
+        }
+      ]
+    },
+    {
+      "id": "B-210",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/migrations/test_capacity_webchat_runtime_pool_schema.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-211",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/migrations/test_capacity_webchat_admission_schema.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-212",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/migrations/test_capacity_webchat_chat_auth_schema.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-213",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.2 发布与迁移",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库",
+      "owner": "TASK-013",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/migrations/test_capacity_webchat_conversation_upload_schema.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-214",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/migrations/test_capacity_webchat_notification_schema.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-215",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-015",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_capacity_webchat_credential_service.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-216",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-016",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_capacity_webchat_credential_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-217",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_capacity_webchat_deployment_relations.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-218",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-018",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_capacity_webchat_quota_groups.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-219",
+      "source": "agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-019",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_capacity_webchat_logical_model_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-220",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-020",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_internal/test_capacity_webchat_resolve_credential.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-221",
+      "source": "agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_capacity_reserve.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-222",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-022",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_capacity_settle.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-223",
+      "source": "agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-023",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_pool_allocator.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-224",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-024",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-225",
+      "source": "agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-025",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_provider_pool.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-226",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-026",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_background_pool.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-227",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-027",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-228",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-028",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_capacity_webchat_console_probe.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-229",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-029",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_admission_policy.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-230",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-030",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_admission_create.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-231",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-031",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_admission_release.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-232",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-032",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_runtime_slots.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-233",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针",
+      "owner": "TASK-033",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_capacity_webchat_worker_slots.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-234",
+      "source": "agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针",
+      "owner": "TASK-034",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_capacity_webchat_retry_safety.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-235",
+      "source": "agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-035",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_clock_lease.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-236",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-036",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_queue_projection.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-237",
+      "source": "agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-037",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-238",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-038",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_auth/test_capacity_webchat_token_service.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-239",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-039",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_auth/test_capacity_webchat_token_admin_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-240",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-040",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_auth/test_capacity_webchat_chat_session_service.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-241",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.1 技术选型",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-041",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_auth/test_capacity_webchat_chat_cookie_security.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-242",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-042",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_auth/test_capacity_webchat_chat_auth_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-243",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-043",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_internal/test_capacity_webchat_chat_internal_principal.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-244",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
+      "owner": "TASK-044",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_capacity_webchat_gateway_chat_auth.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-245",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-045",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_auth/test_capacity_webchat_token_redaction.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-246",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-046",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_capacity_webchat_webchat_entry.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-247",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
+      "owner": "TASK-047",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_capacity_webchat_webchat_adapter.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-248",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
+      "owner": "TASK-048",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_capacity_webchat_gateway_admission.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-249",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-049",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_conversation_scope.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-250",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-050",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_history_queries.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-251",
+      "source": "agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-051",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_public_projection.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-252",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
+      "owner": "TASK-052",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_capacity_webchat_webchat_resource_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-253",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-053",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_upload_staging.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-254",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
+      "owner": "TASK-054",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_capacity_webchat_upload_gateway.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-255",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
+      "owner": "TASK-055",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_capacity_webchat_artifact_download.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-256",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-056",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_run_controls.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-257",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
+      "owner": "TASK-057",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_capacity_webchat_client_config_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-258",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-058",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-259",
+      "source": "agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-059",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_durable_deltas.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-260",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-060",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_shared_tail.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-261",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
+      "owner": "TASK-061",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_capacity_webchat_gateway_sse.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-262",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-062",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_reply_generations.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-263",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-063",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_activity_write.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-264",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-064",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_activity_read.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-265",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-065",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_delivery_reservation.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-266",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-066",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_delivery_pump.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-267",
+      "source": "agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
+      "owner": "TASK-067",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_capacity_webchat_gateway_delivery.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-268",
+      "source": "agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针",
+      "owner": "TASK-068",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_capacity_webchat_worker_notifications.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-269",
+      "source": "agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-069",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_retention.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-270",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
+      "owner": "TASK-070",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_capacity_webchat_gateway_notification_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-271",
+      "source": "agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-071",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_chat_transport.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-272",
+      "source": "agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-072",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_browser_sse_parser.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-273",
+      "source": "agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-073",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_webchat_services.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-274",
+      "source": "agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-074",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_chat_auth_state.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-275",
+      "source": "agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.6 UI 状态",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-075",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_token_access_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-276",
+      "source": "agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-076",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_client_config_state.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-277",
+      "source": "agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-077",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_chat_route.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-278",
+      "source": "agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-078",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_conversation_state.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-279",
+      "source": "agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.7 样式方案, agent-capacity-webchat.frontend.design.md#3.8 可访问性",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-079",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_history_sidebar.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-280",
+      "source": "agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.7 样式方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-080",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_message_history_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-281",
+      "source": "agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-081",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_composer_uploads.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-282",
+      "source": "agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-082",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_reply_stream_state.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-283",
+      "source": "agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.6 UI 状态",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-083",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_run_actions_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-284",
+      "source": "agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-084",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_activity_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-285",
+      "source": "agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.7 样式方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-085",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_user_token_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-286",
+      "source": "agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.7 样式方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-086",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_credential_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-287",
+      "source": "agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-087",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_deployment_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-288",
+      "source": "agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.7 样式方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-088",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_quota_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-289",
+      "source": "agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-089",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_settings_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-290",
+      "source": "agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.7 样式方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-090",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_webchat_i18n.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-291",
+      "source": "agent-capacity-webchat.frontend.design.md#3.7 样式方案, agent-capacity-webchat.frontend.design.md#3.8 可访问性",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-091",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_webchat_layout.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-292",
+      "source": "agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.7 样式方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-092",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_model_admin_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-293",
+      "source": "agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-093",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_frontend_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-294",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
+      "owner": "TASK-094",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_capacity_webchat_runtime_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-295",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针",
+      "owner": "TASK-095",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_capacity_webchat_worker_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-296",
+      "source": "agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
+      "owner": "TASK-096",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_capacity_webchat_gateway_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-297",
+      "source": "agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针",
+      "owner": "TASK-097",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_capacity_webchat_console_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-298",
+      "source": "agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据",
+      "owner": "TASK-098",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture/test_capacity_webchat_runtime_gateway_metrics.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-299",
+      "source": "agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据",
+      "owner": "TASK-099",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture/test_capacity_webchat_worker_console_metrics.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-300",
+      "source": "agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据",
+      "owner": "TASK-100",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture/test_capacity_webchat_console_gateway_deploy.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-301",
+      "source": "agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.2 发布与迁移",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据",
+      "owner": "TASK-101",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture/test_capacity_webchat_runtime_worker_deploy.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-302",
+      "source": "agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据",
+      "owner": "TASK-102",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture/test_capacity_webchat_configmap_ingress.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-303",
+      "source": "agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据",
+      "owner": "TASK-103",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture/test_capacity_webchat_hpa_budget.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-304",
+      "source": "agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.2 发布与迁移, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据",
+      "owner": "TASK-104",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture/test_capacity_webchat_deployment_preflight.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-305",
+      "source": "agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收",
+      "owner": "TASK-105",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/capacity/test_capacity_webchat_load_profile.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-306",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测",
+      "owner": "TASK-106",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/capacity/test_capacity_webchat_http_probes.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-307",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测",
+      "owner": "TASK-107",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/capacity/test_capacity_webchat_isolated_stack.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-308",
+      "source": "agent-capacity-webchat.frontend.design.md#2.4 验收条件, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
+      "owner": "TASK-108",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_capacity_webchat_browser_harness.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-309",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测",
+      "owner": "TASK-109",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/capacity/test_capacity_webchat_load_driver.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-317",
+      "source": "agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测",
+      "owner": "TASK-117",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/capacity/test_capacity_webchat_capacity_report.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-318",
+      "source": "agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测",
+      "owner": "TASK-118",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/capacity/test_capacity_webchat_acceptance_audit.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    }
+  ]
+}

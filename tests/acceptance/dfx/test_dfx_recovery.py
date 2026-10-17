@@ -88,7 +88,7 @@ VICTIM_SLEEP_SEC = 12
 
 # 「过期执行者晚到写入」对照样本：stale 行用 2s 租约（很快过期），fresh 行用长租约（正对照必须写成功）。
 STALE_OWNER = "dfx-stale-executor"
-STALE_LEASE_SEC = 2
+STALE_LEASE_SEC = 3
 FRESH_OWNER = "dfx-fresh-executor"
 FRESH_LEASE_SEC = 300
 # 占住唯一存活 Worker 的时长：必须覆盖「领两行 → 等租约过期 → 晚到写入」这段窗口。
@@ -309,7 +309,8 @@ def _claim_in_process(task_id: uuid.UUID, instance_id: str, *, lease_sec: int) -
         engine = create_async_engine(_database_url())
         try:
             factory = async_sessionmaker(engine, expire_on_commit=False)
-            claimer = TaskClaimer(factory, SharedSettings(task_lease_sec=lease_sec))
+            settings = SharedSettings(task_lease_sec=lease_sec, task_heartbeat_sec=RECOVERY_HEARTBEAT_SEC)
+            claimer = TaskClaimer(factory, settings)
             task = await claimer.claim_one(instance_id)
         finally:
             await engine.dispose()
@@ -336,7 +337,7 @@ def _run_terminal_write(
             executor = _ResultExecutor(result)
             loop = WorkerLoop(
                 factory,
-                SharedSettings(task_lease_sec=lease_sec),
+                SharedSettings(task_lease_sec=lease_sec, task_heartbeat_sec=RECOVERY_HEARTBEAT_SEC),
                 executor=executor,
                 claimer=cast(Any, _FixedClaimer(task)),
                 instance_id=instance_id,

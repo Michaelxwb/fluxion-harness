@@ -19,7 +19,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, AppError, ErrorCode, inc_counter, ok, paginate
 from muad_common import SharedSettings
-from muad_contracts.platform_settings import PlatformSettingsError, parse_platform_settings
+from muad_contracts.platform_settings import PlatformSettings, PlatformSettingsError, parse_platform_settings
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -92,10 +92,13 @@ def _validation_error(error: PlatformSettingsError) -> AppError:
     return AppError(ErrorCode.VALIDATION_FAILED, data={"details": [validation_detail(error)]})
 
 
-def _parse_settings(document: dict[str, Any]) -> Any:
+def _parse_settings(document: dict[str, Any]) -> PlatformSettings:
+    resources = SharedSettings()
     try:
         return parse_platform_settings(
-            document, batch_platform_limit=SharedSettings().batch_platform_limit
+            document, batch_platform_limit=resources.batch_platform_limit,
+            chat_message_hard_max_bytes=resources.chat_message_hard_max_bytes,
+            chat_upload_hard_max_bytes=resources.chat_upload_hard_max_bytes,
         )
     except PlatformSettingsError as error:
         _record_save(SAVE_VALIDATION_FAILED)
@@ -128,11 +131,16 @@ async def read_platform_settings(
             snapshot.actor_user_id
         )
     overrides = await count_resource_overrides(session, tenant_id)
+    resources = SharedSettings()
     data = {
         "revision": snapshot.revision,
         "updated_at": snapshot.updated_at.isoformat() if snapshot.updated_at else None,
         "updated_by": updated_by,
-        "groups": build_groups(snapshot.settings, overrides=overrides),
+        "groups": build_groups(
+            snapshot.settings, overrides=overrides,
+            chat_message_hard_max_bytes=resources.chat_message_hard_max_bytes,
+            chat_upload_hard_max_bytes=resources.chat_upload_hard_max_bytes,
+        ),
         "readonly_notes": readonly_notes(),
     }
     return ok(request.app.state.message_catalog, data)

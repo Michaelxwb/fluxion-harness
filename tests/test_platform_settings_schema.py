@@ -45,7 +45,10 @@ def test_default_document_has_designed_groups_and_defaults() -> None:
     document = asdict(settings)
 
     counts = {group: _count_leaves(document[group]) for group in document}
-    assert set(counts) == {"compaction", "agent", "task", "memory", "artifact", "auth", "locale", "im", "mcp"}
+    assert set(counts) == {
+        "compaction", "agent", "task", "memory", "artifact", "auth", "locale", "im", "mcp",
+        "capacity", "model_pool", "webchat",
+    }
     assert all(count > 0 for count in counts.values())
 
     compaction = settings.compaction

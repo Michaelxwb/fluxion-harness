@@ -1,6 +1,6 @@
 """平台设置文档的唯一 schema、默认值与跨字段联动校验（design §2.3.2 / ADR-10）。
 
-整份文档按 9 个分组建模，memory 策略独立于压缩；字段、默认值与联动校验只在这里写一次，
+整份文档按业务分组建模，memory 策略独立于压缩；字段、默认值与联动校验只在这里写一次，
 Console 与三个执行服务共用。按 ADR-10，压缩分组 schema 由 `muad_agent_core.context.settings`
 **整体迁移**至此（原模块已删除，不留 re-export 薄壳）。
 
@@ -208,8 +208,65 @@ class McpSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class CapacitySettings:
+    """租户/用户共享准入上限与新 Run 冻结的等待预算，范围由字段元信息唯一声明。"""
+
+    max_open_runs_per_tenant: int = field(default=2000, metadata={"minimum": 2, "maximum": 100000})
+    max_open_runs_per_user: int = field(default=2, metadata={"minimum": 2, "maximum": 100})
+    queue_wait_timeout_sec: int = field(
+        default=60, metadata={"minimum": 1, "maximum": 3600, "unit": "seconds"},
+    )
+    model_wait_timeout_sec: int = field(
+        default=30, metadata={"minimum": 1, "maximum": 600, "unit": "seconds"},
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ModelPoolSettings:
+    """新 Run/job 冻结的分配策略；不声明或放大供方实际额度。"""
+
+    dispatch_epoch_sec: int = field(
+        default=60, metadata={"minimum": 10, "maximum": 3600, "unit": "seconds"},
+    )
+    input_estimate_multiplier: float = field(default=1.25, metadata={"minimum": 1, "maximum": 4})
+    interactive_weight: int = field(default=8, metadata={"minimum": 1, "maximum": 100})
+    background_weight: int = field(default=1, metadata={"minimum": 1, "maximum": 100})
+    aging_interval_sec: int = field(
+        default=30, metadata={"minimum": 1, "maximum": 300, "unit": "seconds"},
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class WebchatSettings:
+    """首签/交换、输入、历史和重连默认；部署硬预算由调用方独立注入。"""
+
+    access_ttl_days: int = field(default=30, metadata={"minimum": 1, "maximum": 365, "unit": "days"})
+    session_ttl_hours: int = field(default=12, metadata={"minimum": 1, "maximum": 24, "unit": "hours"})
+    text_max_bytes: int = field(default=65536, metadata={"minimum": 1, "maximum": 1048576, "unit": "bytes"})
+    upload_max_bytes: int = field(default=52428800, metadata={"minimum": 1, "unit": "bytes"})
+    upload_max_per_message: int = field(default=5, metadata={"minimum": 1, "maximum": 20})
+    upload_staging_ttl_sec: int = field(
+        default=86400, metadata={"minimum": 60, "maximum": 604800, "unit": "seconds"},
+    )
+    history_page_size: int = field(default=50, metadata={"minimum": 1, "maximum": 100})
+    notification_poll_sec: float = field(
+        default=5.0, metadata={"minimum": 1, "maximum": 60, "unit": "seconds"},
+    )
+    reconnect_base_ms: int = field(default=500, metadata={"minimum": 100, "maximum": 5000, "unit": "ms"})
+    reconnect_cap_ms: int = field(default=30000, metadata={"minimum": 1000, "maximum": 120000, "unit": "ms"})
+    reconnect_max_attempts: int = field(default=10, metadata={"minimum": 1, "maximum": 100})
+    stream_replay_retention_hours: int = field(
+        default=24, metadata={"minimum": 1, "maximum": 168, "unit": "hours"},
+    )
+    notification_retention_days: int = field(
+        default=30, metadata={"minimum": 1, "maximum": 365, "unit": "days"},
+    )
+    history_retention_days: int = field(default=0, metadata={"minimum": 0, "maximum": 3650, "unit": "days"})
+
+
+@dataclass(frozen=True, slots=True)
 class PlatformSettings:
-    """整份平台设置文档（9 个分组）。"""
+    """Console 与执行服务共用的整份平台设置文档。"""
 
     compaction: CompactionSettings = field(default_factory=CompactionSettings)
     agent: AgentSettings = field(default_factory=AgentSettings)
@@ -220,6 +277,9 @@ class PlatformSettings:
     locale: LocaleSettings = field(default_factory=LocaleSettings)
     im: ImSettings = field(default_factory=ImSettings)
     mcp: McpSettings = field(default_factory=McpSettings)
+    capacity: CapacitySettings = field(default_factory=CapacitySettings)
+    model_pool: ModelPoolSettings = field(default_factory=ModelPoolSettings)
+    webchat: WebchatSettings = field(default_factory=WebchatSettings)
 
 
 _SECTIONS: dict[str, type] = {
@@ -240,6 +300,9 @@ _GROUPS: dict[str, type] = {
     "locale": LocaleSettings,
     "im": ImSettings,
     "mcp": McpSettings,
+    "capacity": CapacitySettings,
+    "model_pool": ModelPoolSettings,
+    "webchat": WebchatSettings,
 }
 
 
@@ -370,12 +433,13 @@ def parse_compaction_settings(payload: Mapping[str, Any] | None) -> CompactionSe
 
 
 def parse_platform_settings(
-    payload: Mapping[str, Any] | None = None, *, batch_platform_limit: int | None = None
+    payload: Mapping[str, Any] | None = None, *, batch_platform_limit: int | None = None,
+    chat_message_hard_max_bytes: int | None = None, chat_upload_hard_max_bytes: int | None = None,
 ) -> PlatformSettings:
     """从（部分）JSON 解析出完整设置文档；任何非法输入显式抛 `PlatformSettingsError`。
 
     未提供的分组回落 schema 默认；未知分组/键一律拒绝（fail-closed）。`batch_platform_limit`
-    是环境项上界，由调用方注入（本模块不读环境）。
+    及 chat_*_hard_max_bytes 是环境项上界，由调用方注入（本模块不读环境）。
     """
     if payload is None:
         payload = {}
@@ -393,7 +457,11 @@ def parse_platform_settings(
             kwargs[name] = cls(**_coerce_section(name, payload[name], cls, PlatformSettingsError))
 
     settings = PlatformSettings(**kwargs)
-    validate_platform_settings(settings, batch_platform_limit=batch_platform_limit)
+    validate_platform_settings(
+        settings, batch_platform_limit=batch_platform_limit,
+        chat_message_hard_max_bytes=chat_message_hard_max_bytes,
+        chat_upload_hard_max_bytes=chat_upload_hard_max_bytes,
+    )
     return settings
 
 
@@ -525,8 +593,54 @@ def _validate_mcp(mcp: McpSettings) -> None:
     _at_least("mcp.max_tools_per_server", mcp.max_tools_per_server, 1)
 
 
+def _validate_bounded_settings(
+    name: str, settings: CapacitySettings | ModelPoolSettings | WebchatSettings,
+) -> None:
+    """同时保护解析输入和直接构造的 dataclass；有限范围也拒绝 NaN/Infinity。"""
+    for item in fields(settings):
+        path = f"{name}.{item.name}"
+        value: object = getattr(settings, item.name)
+        integer = isinstance(item.default, int)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise PlatformSettingsError(f"{path} 必须是{'整数' if integer else '数字'}")
+        if integer and not isinstance(value, int):
+            raise PlatformSettingsError(f"{path} 必须是整数")
+        minimum, maximum = item.metadata["minimum"], item.metadata.get("maximum")
+        if not value >= minimum or (maximum is not None and not value <= maximum):
+            allowed = f"≥ {minimum}" if maximum is None else f"[{minimum}, {maximum}]"
+            raise PlatformSettingsError(f"{path} 必须是 {allowed} 内的有限数")
+
+
+def _validate_capacity(capacity: CapacitySettings) -> None:
+    _validate_bounded_settings("capacity", capacity)
+    if capacity.max_open_runs_per_user > capacity.max_open_runs_per_tenant:
+        raise PlatformSettingsError(
+            "capacity.max_open_runs_per_user 不得超过 capacity.max_open_runs_per_tenant"
+        )
+
+
+def _validate_webchat(
+    webchat: WebchatSettings, *, chat_message_hard_max_bytes: int | None,
+    chat_upload_hard_max_bytes: int | None,
+) -> None:
+    _validate_bounded_settings("webchat", webchat)
+    if webchat.reconnect_base_ms > webchat.reconnect_cap_ms:
+        raise PlatformSettingsError("webchat.reconnect_base_ms 不得超过 webchat.reconnect_cap_ms")
+    for key, budget_key, maximum in (
+        ("text_max_bytes", "chat_message_hard_max_bytes", chat_message_hard_max_bytes),
+        ("upload_max_bytes", "chat_upload_hard_max_bytes", chat_upload_hard_max_bytes),
+    ):
+        if maximum is None:
+            continue
+        if isinstance(maximum, bool) or not isinstance(maximum, int) or maximum < 1:
+            raise PlatformSettingsError(f"{budget_key} 必须是正整数")
+        if getattr(webchat, key) > maximum:
+            raise PlatformSettingsError(f"webchat.{key} 不得超过 {budget_key}（{maximum}）")
+
+
 def validate_platform_settings(
-    settings: PlatformSettings, *, batch_platform_limit: int | None = None
+    settings: PlatformSettings, *, batch_platform_limit: int | None = None,
+    chat_message_hard_max_bytes: int | None = None, chat_upload_hard_max_bytes: int | None = None,
 ) -> None:
     """校验整份设置文档：分组内范围 + 跨字段联动（未知键在 parse 层拒绝）。
 
@@ -543,6 +657,12 @@ def validate_platform_settings(
     _validate_locale(settings.locale)
     _validate_im(settings.im)
     _validate_mcp(settings.mcp)
+    _validate_capacity(settings.capacity)
+    _validate_bounded_settings("model_pool", settings.model_pool)
+    _validate_webchat(
+        settings.webchat, chat_message_hard_max_bytes=chat_message_hard_max_bytes,
+        chat_upload_hard_max_bytes=chat_upload_hard_max_bytes,
+    )
 
 
 #: `auth.min_password_length` 的**绝对下界**（schema 不变量，不是策略值）：策略值由平台设置给出，
@@ -558,11 +678,13 @@ __all__ = [
     "AgentSettings",
     "ArtifactSettings",
     "AuthSettings",
+    "CapacitySettings",
     "CompactionConfigError",
     "CompactionSettings",
     "ImSettings",
     "LocaleSettings",
     "McpSettings",
+    "ModelPoolSettings",
     "MemoryPolicySettings",
     "MEMORY_SETTING_BOUNDS",
     "MicroSettings",
@@ -572,6 +694,7 @@ __all__ = [
     "SummarySettings",
     "TaskSettings",
     "ToolResultSettings",
+    "WebchatSettings",
     "compaction_payload",
     "default_compaction_settings",
     "default_platform_settings",
