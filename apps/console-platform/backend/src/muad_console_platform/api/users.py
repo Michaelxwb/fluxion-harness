@@ -1,14 +1,16 @@
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from muad_api import ApiResponse, ok, paginate
 from muad_contracts.memory import MemoryAuthor, MemoryCategory, MemoryKey
 from muad_contracts.memory_admin import MemoryStatus
+from muad_contracts.webchat import WebchatTokenMutation
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
 from ..application.channel_service import ChannelService
+from ..application.chat_token_service import ChatTokenService
 from ..application.dto import (
     AgentGrantItem,
     BindCodeCreateResponse,
@@ -29,13 +31,21 @@ from ..application.memory_service import MemoryAdminService, MemoryService
 from ..application.user_service import UserService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.control import PlatformUser
-from .deps import AccountTenantId, CurrentAccount, RuntimeMemoryClientDep, get_source_ip
+from .deps import (
+    AccountTenantId,
+    AdminAccount,
+    CurrentAccount,
+    RuntimeMemoryClientDep,
+    get_source_ip,
+)
 
 TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
 #: 记忆命令的幂等键 = Runtime 命令号（design §3.7「Idempotency-Key 必填」）。
 CommandKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=256)]
 ExpectedVersion = Annotated[int, Query(ge=1)]
+#: API-03 的版本号从 0 起：`0` = 尚未配置（首签），`N` = 处置目录里的最新签发行。
+TokenRevision = Annotated[int, Query(ge=0)]
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -80,6 +90,11 @@ def _detail(user: PlatformUser, counts: dict[str, int]) -> dict[str, Any]:
 
 def _actor(account: CurrentAccount, request: Request) -> AuditActor:
     return AuditActor(account_id=account.id, source_ip=get_source_ip(request))
+
+
+def _no_store(response: Response) -> None:
+    """Token 元信息与一次性签发明文都是私有数据：浏览器与中间层都不许缓存（design §3.4）。"""
+    response.headers["Cache-Control"] = "no-store"
 
 
 @router.get("")
@@ -414,3 +429,72 @@ async def update_user(
 ) -> ApiResponse[Any]:
     user = await UserService(session).update_user(tenant_id, user_id, payload, _actor(account, request))
     return ok(request.app.state.message_catalog, _basic(user))
+
+
+@router.get("/{user_id}/webchat-token")
+async def get_webchat_token(
+    user_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    """API-03 GET：只元信息（NOT_CONFIGURED/ACTIVE/EXPIRED/REVOKED），永不返回原文或摘要。
+
+    查询按"登录账号租户 + 路径用户"收敛（`AccountTenantId`）：别的租户给同一用户签发的 Token
+    在这里读作未配置，浏览器可改写的 `X-Tenant-Id` 不参与租户判定。
+    """
+    metadata = await ChatTokenService(session).read_metadata(tenant_id, user_id)
+    _no_store(response)
+    return ok(request.app.state.message_catalog, metadata.model_dump(mode="json"))
+
+
+@router.put("/{user_id}/webchat-token")
+async def issue_webchat_token(
+    user_id: uuid.UUID,
+    payload: WebchatTokenMutation,
+    request: Request,
+    response: Response,
+    account: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    """API-03 PUT：首签/重置（`expected_revision` 0=首签，N=按最新签发行重置）单胜。
+
+    签发属凭据动作：除整组 ADMIN 门控外，这里显式声明 `AdminAccount`（与 API-16 同口径）。
+    原文只在本次响应里出现一次；响应 no-store，也不写任何可回放的幂等回执——重放与过期版本
+    一律 `REVISION_CONFLICT`，需要明文只能再次显式重置（design §3.4）。
+    """
+    issued = await ChatTokenService(session).issue_token(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        expected_revision=payload.expected_revision,
+        actor=_actor(account, request),
+    )
+    _no_store(response)
+    return ok(request.app.state.message_catalog, issued.to_issuance_payload())
+
+
+@router.delete("/{user_id}/webchat-token")
+async def revoke_webchat_token(
+    user_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    account: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+    expected_revision: TokenRevision,
+) -> ApiResponse[Any]:
+    """API-03 DELETE：按版本幂等撤销指定 Token 及**关联会话**，不误伤后续新签发版本。
+
+    `expected_revision` 必填（与 curl 的 `?expected_revision=N` 一致）：版本 0 在尚无签发行时
+    是空操作，不把"未配置"当成错误；资源归属缺失（未知/跨租户用户）返回 `COMMON_NOT_FOUND`。
+    """
+    metadata = await ChatTokenService(session).revoke_token(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        expected_revision=expected_revision,
+        actor=_actor(account, request),
+    )
+    _no_store(response)
+    return ok(request.app.state.message_catalog, metadata.model_dump(mode="json"))

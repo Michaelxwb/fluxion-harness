@@ -378,7 +378,7 @@
 | B-236 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-036 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_queue_projection.py"] | . | 300 |  |
 | B-237 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-037 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"] | . | 300 |  |
 | B-238 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-038 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_service.py"] | . | 300 |  |
-| B-239 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-039 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_admin_api.py"] | . | 300 |  |
+| B-239 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-039 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_admin_api.py"] | . | 300 |  |
 | B-240 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-040 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | . | 300 |  |
 | B-241 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.1 技术选型 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-041 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_cookie_security.py"] | . | 300 |  |
 | B-242 | agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-042 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_auth_api.py"] | . | 300 |  |
@@ -2388,7 +2388,7 @@ B-238: verified — automated command passed; run_id=f399ab79e5884c5dbd84de1b005
 
 ## TASK-039: 用户详情Token管理的ADMIN端点
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007, TASK-038
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案
@@ -2403,25 +2403,44 @@ API-03 ADMIN+CSRF、租户取当前管理员主体；完整分支及可观测结
 
 ### Checklist
 
-- [ ] [B-239][integration] 先在`tests/console_auth/test_capacity_webchat_token_admin_api.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：API-03 ADMIN+CSRF、租户取当前管理员主体。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-239] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-239] 执行`["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_admin_api.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-239][integration] 先在`tests/console_auth/test_capacity_webchat_token_admin_api.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：API-03 ADMIN+CSRF、租户取当前管理员主体。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-239] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-239] 执行`["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_admin_api.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-239 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | API-03 ADMIN+CSRF、租户取当前管理员主体；GET只元信息，首签/重置响应no-store且不入幂等回执，BUILDER/CHAT不能维护 | tests/console_auth/test_capacity_webchat_token_admin_api.py | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_admin_api.py"] | planned |
+| B-239 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | API-03 ADMIN+CSRF、租户取当前管理员主体；GET只元信息，首签/重置响应no-store且不入幂等回执，BUILDER/CHAT不能维护 | tests/console_auth/test_capacity_webchat_token_admin_api.py | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_admin_api.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-239 | `uv run pytest -q tests/console_auth/test_capacity_webchat_token_admin_api.py` → exit=1，**6 failed / 0 passed**（1.24s）：三条 `/api/v1/users/{id}/webchat-token` 路由尚未注册——ADMIN 首签 PUT 落 404 `COMMON_NOT_FOUND`、BUILDER 读也 404（未挂路由）；验收文件先落地、实现尚不存在 | 同命令 → **6 passed**（exit=0，1.41–1.66s；连续 5 次复跑同为 6 passed） | `test_b239_only_admin_with_csrf_may_manage_the_token` L231-268（匿名 GET 401 UNAUTHORIZED L237-238、BUILDER 对 GET/PUT/DELETE 全 403 FORBIDDEN 且零 Token 行 L247-251、ADMIN 缺/错 CSRF 的 PUT 与 DELETE 403 且零行 L256-262、安全方法 GET 免 CSRF L264-266、带正确 CSRF 的首签 200 L267-268）；`test_b239_get_returns_metadata_only_and_never_crosses_tenants` L271-302（元信息恰好六字段且全 NOT_CONFIGURED L280-283、no-store L281/L299、外租户真 Token 读作未配置且不回显原文 L285-288、伪造 `X-Tenant-Id` 不切租户 L289-293、签发后 GET 仍只有元信息且无原文/token_hash L296-302）；`test_b239_first_issue_reveals_plaintext_once_without_any_receipt` L305-340（PUT no-store L315、响应键集=元信息+token L317、≥43 字符随机原文 L319、原文全响应恰出现一次 L321、库内仅 SHA-256 摘要且任何列无原文 L324-327、审计仅 CREATE 且无原文与摘要 L330-332、两张真实回执表本租户零行 L334/L340、同键同体重放 409 REVISION_CONFLICT 且不回放明文/不轮换 L336-340）；`test_b239_reset_single_winner_never_rotates_on_stale_or_replayed_revision` L343-380（过期版本 0 → 409 L354-356、按最新版本重置出 rev2 与新原文 L359-362、库内 rev1 已撤销/rev2 未撤销且摘要匹配 L364-370、响应丢失重放 409 且行数仍 2 L372-374、未知版本 0/3 → 409、GET 仍 rev2 ACTIVE L376-380）；`test_b239_revoke_is_version_scoped_and_takes_sessions_in_transaction` L383-434（缺 `expected_revision` → 422 L396-397、版本 0 空操作且不动会话 L399-403、按版本撤销后状态 REVOKED L405-407、真实 `chat_session` 行与来源 Token 同一 `revoked_at` L409-411、重放不改时间戳 L413-415、撤销后按基准重签 rev2 且**旧版本迟到撤销不误伤新 Token** L417-424、未知/跨租户用户 PUT/DELETE → 404 COMMON_NOT_FOUND 且外租户零行 L429-434）；`test_b239_user_token_is_not_a_console_credential` L437-457（Bearer 用户 Token 读/写/列用户均 401 UNAUTHORIZED L444-449、被拒响应不回显凭据 L450-451、同名 Cookie 冒充 Console 会话也 401 L453-456、状态零变化 L457） | 真实 Console ASGI（`muad_console_platform.main.app`）+ 真实登录会话与 CSRF cookie：ADMIN/BUILDER 由 `tests/console_auth/conftest.py` 的真实账号登录裁决，无身份替身；真实 PostgreSQL：`control.chat_access_token`/`control.chat_session`/`control.config_audit_log`/`control.skill_import_idempotency`/`control.platform_setting_idempotency` 全部按 `tenant_id` 真实读写与计数；外租户 Token 由 `ChatTokenService` 真实签发构造（L188-199），活跃会话按真实 FK 落库（L201-216）；四个测试各自 tenant 每用例唯一，teardown 按会话→Token→用户→设置→回执→审计顺序清理（L92-96、L99-130） | verified |
+
+B-239: verified — automated command passed; run_id=2b81adc3c10043c39443663a90dc2047 (confirmed_by: runner)
+
+**实施范围与证据说明**
+
+- 实现文件：`apps/console-platform/backend/src/muad_console_platform/api/users.py`（新增 `GET/PUT/DELETE /api/v1/users/{user_id}/webchat-token` + `TokenRevision`/`_no_store`）；测试：`tests/console_auth/test_capacity_webchat_token_admin_api.py`。新签名依赖零重写：直接复用 TASK-038 的 `ChatTokenService.issue_token/revoke_token/read_metadata` 与 `WebchatTokenIssued.to_issuance_payload()`。
+- 关键设计落点：①**ADMIN+CSRF 双门**——三条路由挂在 `api/router.py` 的 `admin` 组（`require_admin`+`require_csrf`），且凭据写入口显式声明 `AdminAccount`（与 API-16 同口径），非 ADMIN 连 GET 都 403；②**租户取管理员主体**——`tenant_id: AccountTenantId`（登录账号租户），浏览器可改写的 `X-Tenant-Id` 不参与判定，外租户同一用户的真实 Token 在此读作 `NOT_CONFIGURED`；③**GET 只元信息**——响应恰为 `{configured,status,token_id,revision,issued_at,expires_at}`，无 `token`/`token_hash` 字段；④**原文一次性与 no-store**——PUT 用 `to_issuance_payload()` 显式放行一次明文，响应 `Cache-Control: no-store`（GET/DELETE 同样），明文不进库（只有 SHA-256）、不进审计（连摘要都不写）、不回显在被拒响应里；⑤**不写幂等回执**——API-03 的并发/重放由 `expected_revision` 单胜裁决（0=首签、N=按最新签发行重置），即使请求携带 `Idempotency-Key`，两张真实回执表本租户零行，重放只得到 409 而不是可回放明文；⑥**版本撤销幂等**——DELETE 按 `?expected_revision=N` 只作用于该版本（含关联会话同事务同刻撤销），旧版本迟到重放不撤销后续新 Token，0 在已有签发行时是空操作；⑦**错误码零新增**，复用 `COMMON_NOT_FOUND`(404)/`REVISION_CONFLICT`(409)/`FORBIDDEN`(403)/`UNAUTHORIZED`(401)，三处登记由 TASK-007 完成。
+- 配置盘点：未新增模块级大写常量（`TokenRevision`/`_no_store` 不属扫描口径），`docs/configuration-inventory.csv` 无需变更；`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**（含在同域回归的 18 passed 内）。
+- 静态校验：`uv run ruff check`（users.py + 验收文件）干净；`uv run mypy apps packages` → **Success: no issues found in 400 source files**。
+- 聚焦回归：`uv run pytest -q tests/console_auth` → **57 passed**（8.37s，含本任务 6 例）；`uv run pytest -q tests/contracts` → **1281 passed**（3.27s）；`uv run pytest -q tests/test_configuration_inventory.py tests/console_platform/test_users_api.py tests/console_platform/test_user_detail_api.py tests/console_platform/test_user_side_relations.py tests/console_platform/test_bind_codes_api.py` → **18 passed**。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）。
+- 真实边界说明：本任务路径不发起任何外部模型调用，故"外部模型真实 HTTP 探针"边界在 API-03 上不适用（无 mock 也无探针需要）；其余真实边界（真实 Console 应用服务/依赖、独立 PostgreSQL 与事务）全部如实执行。
+- 交接给后续任务：TASK-085 前端凭据卡片按 `GET` 元信息 → `PUT {expected_revision}` 首签/重置（原文只在本次响应展示一次）→ `DELETE ?expected_revision=N` 版本撤销接线；TASK-042 的 CHAT 交换仍按 `hash_chat_token` 摘要定位 Token，不经过本端点。
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-239 RED：`uv run pytest -q tests/console_auth/test_capacity_webchat_token_admin_api.py` → exit=1，6 failed / 0 passed（三条 webchat-token 路由未注册，首签 PUT 落 404）
+- [2026-10-18] 实现 API-03 三条路由（GET 元信息 / PUT 首签重置 / DELETE 版本撤销）：ADMIN 门控 + CSRF、租户取登录管理员主体、明文一次性 + no-store、不写幂等回执、版本单胜
+- [2026-10-18] B-239 GREEN：6 passed（连续 5 次复跑稳定）；`tests/console_auth` 57 passed；`tests/contracts` 1281 passed；用户域回归 18 passed；ruff/mypy 干净；配置盘点无新增
+- [2026-10-18] completed (done)
 
 ---
 
