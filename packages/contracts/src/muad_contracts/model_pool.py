@@ -127,14 +127,19 @@ class ModelDeploymentConfig(ModelDeploymentInput):
 
 
 class SelectedModelCredential(ModelPoolContract):
-    """Only trusted credential resolution explicitly serializes the actual key."""
+    """Only trusted credential resolution explicitly serializes the actual key.
+
+    `quota_group_id` 可空：无共享额度组的 Key 独占自身容量（`model_credential.quota_group_id`
+    与 `model_call_lease.quota_group_id` 都允许 NULL，TASK-016 把本字段的裁决留给本任务——
+    按库与租约的事实放开，不发明"自身组"虚构身份）。
+    """
 
     model_id: UUID
     deployment_id: UUID
     credential_id: UUID
     credential_revision: PositiveCount
     key_resource_id: UUID
-    quota_group_id: UUID
+    quota_group_id: UUID | None
     provider_key: ResourceKey
     base_url: HttpEndpoint
     api_key: ApiKeyValue = Field(exclude=True, repr=False)
@@ -144,7 +149,8 @@ class SelectedModelCredential(ModelPoolContract):
         return {
             "model_id": str(self.model_id), "deployment_id": str(self.deployment_id),
             "credential_id": str(self.credential_id), "credential_revision": self.credential_revision,
-            "key_resource_id": str(self.key_resource_id), "quota_group_id": str(self.quota_group_id),
+            "key_resource_id": str(self.key_resource_id),
+            "quota_group_id": None if self.quota_group_id is None else str(self.quota_group_id),
             "provider_key": self.provider_key, "base_url": self.base_url,
             "api_key": self.api_key.get_secret_value(),
         }
@@ -175,7 +181,8 @@ class ModelCapacityReservationRequest(ModelPoolContract):
     credential_id: UUID
     credential_revision: PositiveCount
     key_resource_id: UUID
-    quota_group_id: UUID
+    #: `None` = 该 Key 没有共享额度组：只预占自身 KEY 资源，不虚构组身份
+    quota_group_id: UUID | None
     owner: ModelCallOwner
     workload: Literal["INTERACTIVE", "BACKGROUND", "PROBE"]
     deadline_at: AwareDatetime

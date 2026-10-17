@@ -45,6 +45,7 @@ from .enums import (
     WaitReason,
 )
 from .resolve import (
+    ResolveCredentialsRequest,
     ResolvedAgent,
     ResolveDefinitionRequest,
     ResolveDefinitionResponse,
@@ -53,6 +54,7 @@ from .resolve import (
     ResolvedSkill,
     ResolveModelRequest,
     ResolveModelResponse,
+    RuntimeExecutionRef,
 )
 from .runtime import ChannelContext, MessageInput, RunRequest
 from .snapshot import (
@@ -141,6 +143,7 @@ __all__ = [
     "MessageInput",
     "NonCanonicalJsonError",
     "PageMeta",
+    "ResolveCredentialsRequest",
     "ResolveDefinitionRequest",
     "ResolveDefinitionResponse",
     "ResolvedAgent",
@@ -150,6 +153,7 @@ __all__ = [
     "ResolveModelResponse",
     "ResolvedSkill",
     "RunRequest",
+    "RuntimeExecutionRef",
     "RunStatus",
     "ScheduleListQuery",
     "ScheduleSpec",

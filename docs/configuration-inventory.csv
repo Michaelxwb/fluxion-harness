@@ -486,7 +486,6 @@ apps/console-platform/backend/src/muad_console_platform/application/run_event_qu
 apps/console-platform/backend/src/muad_console_platform/application/run_event_view.py,37,TEXT_LIMIT,12000,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/console-platform/backend/src/muad_console_platform/application/run_event_view.py,38,ITEM_LIMIT,20,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/console-platform/backend/src/muad_console_platform/application/run_event_view.py,39,_QUOTED_PAIR,"re.compile('""(?P<key>[^""\\\\\\r\\n]{1,128})""\\s*:\\s*""(?P<value>(?:\\\\.|[^""\\\\])*)""')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/runtime_credentials.py,17,VALID_EXECUTION_TYPES,frozenset({'RUN'}),python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,50,AUDIT_SKILL,'SKILL',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,51,AUDIT_ARTIFACT,'SKILL_ARTIFACT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,52,AUDIT_GRANT,'SKILL_USER_GRANT',python-constant,code,协议标识、枚举、schema、文本或实现常量

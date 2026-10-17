@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Self
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from .enums import ChannelName, SkillExecutionMode
+from .model_pool import PositiveCount
 from .tasks import ContractModel
 
 
@@ -79,3 +80,45 @@ class ResolveModelRequest(ContractModel):
 
 class ResolveModelResponse(ContractModel):
     model: ResolvedModel
+
+
+class RuntimeExecutionRef(ContractModel):
+    """调用归属引用：当前只有 RUN 一种受信执行（提炼/探针在各自任务接入时扩展 Literal）。
+
+    单独类型而不复用容量层的 `ModelCallOwner`：这里是**公网之外的内部解析入口**，
+    `id` 只作审计关联，不承担容量归属（容量由 API-17 的 owner 决定）。
+    """
+
+    type: Literal["RUN"] = "RUN"
+    id: UUID
+
+
+class ResolveCredentialsRequest(ContractModel):
+    """API-09：按**冻结引用**读取所选成员的当前凭据（只进调用内存，不落盘）。
+
+    三个冻结引用（member `deployment_id` / `credential_id` / `expected_revision`）**同生同灭**：
+    给齐 = 按冻结归属解析并核对版本；缺省 = 尚未冻结成员选择的过渡解析（模型级首个可用成员，
+    见 `ModelDeploymentRepository.find_execution_credential`），TASK-024/025 把 Runtime 的冻结
+    引用接上后由那条链路收口。部分给齐是客户端缺陷，契约层直接拒绝。
+
+    明文与派生指纹都不出现在响应里；响应只给"当前 Key 身份 + 版本"（`quota_group_id` 可空：
+    无共享额度组的 Key 独占自身容量）。
+    """
+
+    execution_ref: RuntimeExecutionRef
+    model_id: UUID
+    #: 只作审计关联，不是门控：调用方身份来自服务身份 + 租户头，受信调用方可不带
+    actor_user_id: UUID | None = None
+    deployment_id: UUID | None = None
+    credential_id: UUID | None = None
+    expected_revision: PositiveCount | None = None
+    mcp_server_ids: list[UUID] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _frozen_refs_are_all_or_none(self) -> Self:
+        frozen = (self.deployment_id, self.credential_id, self.expected_revision)
+        if any(value is not None for value in frozen) and not all(
+            value is not None for value in frozen
+        ):
+            raise ValueError("frozen member credential references must be provided together")
+        return self

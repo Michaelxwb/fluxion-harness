@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 
 import pytest
@@ -14,10 +15,21 @@ from muad_console_platform.infrastructure.models.control import ModelCredential
 from muad_console_platform.infrastructure.models.mcp import McpServer
 from sqlalchemy import update
 
-from console_internal.conftest import TenantContext
+from console_internal.conftest import MODEL_BASE_URL, PROVIDER_KEY, TenantContext
 
 URL = "/internal/runtime/resolve-credentials"
 DEFINITION_URL = "/internal/runtime/resolve-definition"
+MEMBERSHIP_FIELDS = {
+    "model_id",
+    "deployment_id",
+    "credential_id",
+    "credential_revision",
+    "key_resource_id",
+    "quota_group_id",
+    "provider_key",
+    "base_url",
+    "api_key",
+}
 
 
 def _definition_payload() -> dict[str, object]:
@@ -30,6 +42,13 @@ def _definition_payload() -> dict[str, object]:
 
 def _service_headers(tenant: TenantContext) -> dict[str, str]:
     return {"X-Tenant-Id": tenant.tenant_id, "X-Internal-Service": "test-internal-token"}
+
+
+SECRET_DIGEST = hashlib.sha256(b"sk-happy").hexdigest()
+
+
+def _digest(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
 
 
 def _payload(tenant: TenantContext, model_id: str | None = None) -> dict[str, object]:
@@ -96,33 +115,41 @@ async def test_b128_requires_service_identity(client: AsyncClient, tenant: Tenan
 async def test_b128_returns_model_key_and_rotation(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
-    """[B-128] 返回当前 api_key；轮换成员凭据后读取新值；不返回 params/catalog 字段。"""
+    """[B-128] 返回当前 api_key 与真实 Key 身份；轮换成员凭据后读取新值且身份随值切换。"""
     response = await client.post(URL, json=_payload(tenant), headers=_service_headers(tenant))
     assert response.status_code == 200, response.text
     data = response.json()["data"]
-    assert data["model"]["id"] == str(tenant.model_id)
+    assert data["model"]["model_id"] == str(tenant.model_id)
     assert data["model"]["api_key"] == tenant.model_api_key
-    assert set(data["model"].keys()) == {"id", "api_key"}  # 不含 params/base_url
+    assert data["model"]["credential_id"] == str(tenant.model_credential_id)
+    assert data["model"]["deployment_id"] == str(tenant.model_deployment_id)
+    assert data["model"]["provider_key"] == PROVIDER_KEY
+    assert data["model"]["base_url"] == MODEL_BASE_URL
+    # 响应只给当前 Key 身份+版本（解锁密前缀）；去重指纹不出现
+    assert set(data["model"].keys()) == MEMBERSHIP_FIELDS
+    assert "api_key_digest" not in response.text and SECRET_DIGEST not in response.text
+    first_identity = data["model"]["key_resource_id"]
     assert data["mcp_servers"] == []
 
-    # 轮换发生在成员凭据行（逻辑模型已无密钥列）：同一身份换值，读取侧立刻看到新值
+    # 轮换发生在成员凭据行（逻辑模型已无密钥列）：同一身份换值（含去重摘要），读取侧立刻看到新值
     async with get_session_factory()() as session:
         await session.execute(
             update(ModelCredential)
             .where(ModelCredential.id == tenant.model_credential_id)
-            .values(api_key="rotated-key-value")
+            .values(api_key="rotated-key-value", api_key_digest=_digest("rotated-key-value"))
         )
         await session.commit()
 
     rotated = await client.post(URL, json=_payload(tenant), headers=_service_headers(tenant))
     assert rotated.status_code == 200
     assert rotated.json()["data"]["model"]["api_key"] == "rotated-key-value"
+    assert rotated.json()["data"]["model"]["key_resource_id"] != first_identity
 
     async with get_session_factory()() as session:
         await session.execute(
             update(ModelCredential)
             .where(ModelCredential.id == tenant.model_credential_id)
-            .values(api_key=tenant.model_api_key)
+            .values(api_key=tenant.model_api_key, api_key_digest=_digest(tenant.model_api_key))
         )
         await session.commit()
 

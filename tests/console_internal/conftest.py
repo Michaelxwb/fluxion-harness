@@ -61,6 +61,7 @@ class TenantContext:
     model_api_key: str
     model_params: dict[str, Any]
     model_credential_id: uuid.UUID
+    model_deployment_id: uuid.UUID
     disabled_model_id: uuid.UUID
     deleted_model_id: uuid.UUID
     agent_id: uuid.UUID
@@ -166,15 +167,14 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
         )
         session.add(credential)
         await session.flush()
-        session.add(
-            ModelDeployment(
-                tenant_id=tenant_id,
-                key=_unique_key("member"),
-                model_id=enabled_model.id,
-                credential_id=credential.id,
-                weight=1,
-            )
+        deployment = ModelDeployment(
+            tenant_id=tenant_id,
+            key=_unique_key("member"),
+            model_id=enabled_model.id,
+            credential_id=credential.id,
+            weight=1,
         )
+        session.add(deployment)
         await session.flush()
         granted_agent = AgentDefinition(
             tenant_id=tenant_id,
@@ -284,6 +284,7 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
             model_api_key=MODEL_API_KEY,
             model_params=enabled_model.params_json,
             model_credential_id=credential.id,
+            model_deployment_id=deployment.id,
             disabled_model_id=disabled_model.id,
             deleted_model_id=deleted_model.id,
             agent_id=granted_agent.id,

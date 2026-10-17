@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Request
 from muad_api import ApiResponse, ok
-from muad_contracts import ResolveDefinitionRequest, ResolveModelRequest
+from muad_contracts import ResolveCredentialsRequest, ResolveDefinitionRequest, ResolveModelRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.resolve_egress_service import resolve_egress_access
@@ -57,13 +57,13 @@ async def resolve_model(
 
 @router.post("/resolve-credentials")
 async def resolve_credentials(
-    payload: dict[str, Any],
+    payload: ResolveCredentialsRequest,
     request: Request,
     tenant_id: TenantId,
     session: Session,
     x_internal_service: Annotated[str | None, Header()] = None,
 ) -> ApiResponse[Any]:
-    """API-09：仅受信 Runtime 可调用；按冻结主键读取当前认证值。"""
+    """API-09：仅受信 Runtime 可调用；按冻结的成员/凭据引用读取当前认证值。"""
     require_service_identity(x_internal_service)
     data = await resolve_runtime_credentials(session, tenant_id, payload)
     return ok(request.app.state.message_catalog, data)

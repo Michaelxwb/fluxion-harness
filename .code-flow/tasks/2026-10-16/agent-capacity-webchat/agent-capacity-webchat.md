@@ -359,7 +359,7 @@
 | B-217 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-017 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"] | . | 300 |  |
 | B-218 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-018 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_quota_groups.py"] | . | 300 |  |
 | B-219 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-019 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_logical_model_api.py"] | . | 300 |  |
-| B-220 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-020 | planned | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_resolve_credential.py"] | . | 300 |  |
+| B-220 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-020 | verified | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_resolve_credential.py"] | . | 300 |  |
 | B-221 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_reserve.py"] | . | 300 |  |
 | B-222 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-022 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_settle.py"] | . | 300 |  |
 | B-223 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-023 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_allocator.py"] | . | 300 |  |
@@ -1514,7 +1514,7 @@ Agent继续显式选择model_id、无默认模型；完整分支及可观测结�
 
 ## TASK-020: 所选成员凭据的内部实时解析
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-015, TASK-019
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案
@@ -1529,27 +1529,45 @@ Agent继续显式选择model_id、无默认模型；完整分支及可观测结�
 
 ### Checklist
 
-- [ ] [B-220][integration] 先在`tests/console_internal/test_capacity_webchat_resolve_credential.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：服务身份门控，按冻结model/member/credential核属并检查expected_revision。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-220] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-220] 执行`["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_resolve_credential.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-secret#RULE-secret-001`（stage: review；timeout=300秒）：`["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-220][integration] 先在`tests/console_internal/test_capacity_webchat_resolve_credential.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：服务身份门控，按冻结model/member/credential核属并检查expected_revision。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-220] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-220] 执行`["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_resolve_credential.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] verifier `harness-secret#RULE-secret-001`（stage: review；timeout=300秒）：`["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-220 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 服务身份门控，按冻结model/member/credential核属并检查expected_revision；返回真实Key身份/版本仅在调用内存使用，MCP可选鉴权语义保留 | tests/console_internal/test_capacity_webchat_resolve_credential.py | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_resolve_credential.py"] | planned |
-| harness-secret#RULE-secret-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 密钥明文存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；**平台侧无自有密钥列**，见 Conventions 的休眠列说明），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt 或 API 响应（对外以 `*_configured` 表达）。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | planned |
+| B-220 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 服务身份门控，按冻结model/member/credential核属并检查expected_revision；返回真实Key身份/版本仅在调用内存使用，MCP可选鉴权语义保留 | tests/console_internal/test_capacity_webchat_resolve_credential.py | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_resolve_credential.py"] | verified |
+| harness-secret#RULE-secret-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 密钥明文存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；**平台侧无自有密钥列**，见 Conventions 的休眠列说明），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt 或 API 响应（对外以 `*_configured` 表达）。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-220 | `uv run pytest -q tests/console_internal/test_capacity_webchat_resolve_credential.py` → **11 failed, 4 passed**（exit=1, 2.11s）：实现前 API-09 只认 `model_id`（旧投影 `{id, api_key}`，冻结字段被忽略）——冻结引用成功用例断言整份 `SelectedModelCredential` 失败（响应多 `id`、缺 8 项）、版本不匹配仍返回 200（应 409 `MODEL_CREDENTIAL_CHANGED`）、部分冻结三件套仍 200（应 422）、软删/错配/未知引用全 200（应 404/409） | 同命令 → **15 passed**（exit=0, 1.67s）；required verifier `uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py` → **14 passed**（exit=0, 2.01s）；回归 `tests/console_internal tests/contracts`+模型池相关 console 用例 → **1361 passed**（13.68s）；`tests/console_platform tests/console_internal tests/contracts tests/agent_runtime tests/test_configuration_inventory.py` → **2461 passed**（745.71s）；DFX E-07 门控验收 `tests/acceptance/dfx/test_dfx_security.py -k internal_endpoints_gate` → **1 passed**（9.02s，无 actor 的受信载荷仍 200 且带 canary）；Runtime→Console 真链路 `tests/acceptance/runtime/test_capability_snapshot.py` → **2 passed**（6.56s）；`uv run mypy apps packages` → Success: no issues found in 396 source files；`uv run ruff check` 逐文件干净 | `test_b220_frozen_references_resolve_the_selected_member_credential` L66-101（响应恰为 `SelectedModelCredential` 九个字段 L70-92：model_id/deployment_id/credential_id/credential_revision=1、`key_resource_id`=`derive_key_resource_id(tenant,provider,digest)`、`quota_group_id=None`、provider_key/base_url/api_key；指纹与摘要不外泄 L94-96；不带 actor 的受信载荷仍 200 L98-101）；`test_b220_credential_revision_mismatch_requires_a_new_reservation` L103-131（真实 UPDATE 轮换到 revision=2 后旧 `expected_revision=1` → 409 `MODEL_CREDENTIAL_CHANGED` 且不回显新旧明文 L118-121；新版本 200 且明文/计量身份随值切换 L123-131）；`test_b220_frozen_member_credential_pair_must_still_match` L133-157（成员-凭据不再是同一对 → 409 且不回显另一把 Key L155-157）；`test_b220_unknown_or_foreign_references_are_not_found` L159-179（未知成员/未知凭据/跨租户 404 COMMON_NOT_FOUND L161-179）；`test_b220_soft_deleted_member_or_credential_is_not_an_entry` L181-211（软删成员 404 L183-192、软删凭据 404 且不回显明文 L194-211）；`test_b220_frozen_triplet_and_execution_ref_are_strict` L213-237（缺任一冻结字段/`expected_revision=0`/`execution_ref.type=SESSION`/`model_id` 非 UUID 全部 422 COMMON_VALIDATION_ERROR）；`test_b220_service_identity_gates_both_branches` L239-252（冻结与过渡两条分支缺/错服务身份均 401/403）；`test_b220_mcp_optional_auth_semantics_are_preserved` L254-291（有 secret 返回秘密 L279-284、无鉴权返回 `null` L285-286）；`test_b220_unfrozen_call_still_returns_the_same_wire_shape` L293-306（过渡分支与冻结分支同一投影 L303-306）；`test_b220_key_rows_are_the_only_authority_for_the_plaintext` L308-327（`information_schema`：明文只在 `model_credential`，逻辑模型无回退列） | 真实 Console ASGI 应用 + 真实服务身份门控（`X-Internal-Service`）+ 真实 PostgreSQL（成员/凭据以真实行写入、轮换是真实 UPDATE、软删是真实 `is_deleted`）；`key_resource_id` 由 tenant/provider/指纹真实派生（`uuid5`，与 TASK-015 ADR-08 同函数）；DFX E-07 用真实栈验证"匿名/伪造 403、受信 200 且可见 canary"；Runtime 侧真链路（capability snapshot）证明新契约对现有调用方兼容 | verified |
+| harness-secret#RULE-secret-001 | —（沿用原 Spec verifier，不重写） | `uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py` → **14 passed**（exit=0, 2.01s） | `tests/test_logging_redaction.py`（敏感键清单脱敏）；`tests/acceptance/test_foundation_ops_audit.py`（真实栈审计不落明文） | 本任务新增的响应路径以 `SelectedModelCredential`（`api_key` 为 `SecretStr`：repr/异常不带出，`model_dump()` 排除）装配明文；新增测试断言 `api_key_digest` 与摘要值不出现在响应文本，409/404 分支同样不回显新旧明文 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件（含超出计划 Files 的披露）：`packages/contracts/src/muad_contracts/resolve.py`（新增 `RuntimeExecutionRef`、`ResolveCredentialsRequest`：冻结三件套 all-or-none、`execution_ref` 只接受 RUN）、`packages/contracts/src/muad_contracts/model_pool.py`（`SelectedModelCredential.quota_group_id` 与 `ModelCapacityReservationRequest.quota_group_id` 放开为可空）、`packages/contracts/src/muad_contracts/__init__.py`（导出新契约）、`application/runtime_credentials.py`（冻结分支 + 过渡分支同一投影）、`api/internal_runtime.py`（API-09 改 typed payload）。计划 Files 的三项均在列；契约两处属"冻结引用/可空裁决"的必需载体，在此披露。
+- 契约与语义事实：请求体接受冻结三件套（`deployment_id`+`credential_id`+`expected_revision`）同生同灭（部分给齐 422）；按冻结引用核属——缺失/软删/跨租户 404 `COMMON_NOT_FOUND`（不外泄存在性），成员-凭据错配或凭据 revision 前进 409 `MODEL_CREDENTIAL_CHANGED`（调用方重新选择/预占；该码早在错误目录中为此保留，本任务首次使用）；成功响应恰为 `SelectedModelCredential.to_internal_payload()` 九字段（含 `key_resource_id` 与 `credential_revision`，明文只进调用内存），去重指纹不入响应；`quota_group_id` 可空的裁决依据 = `model_credential.quota_group_id` 与 `model_call_lease.quota_group_id` 均为 NULL 允许（TASK-016 把裁决显式留给本任务：不发明"自身组"虚构身份）；`actor_user_id` 按事实定为可选（服务身份才是门控，DFX E-07 受信调用方不带它也须 200）。
+- 过渡分支（诚实记录）：三件套缺省时仍按 TASK-019 的"模型级首个可用成员"解析并返回同一投影——这是成员选取（TASK-023）与 Runtime 冻结引用（TASK-024/025）落地前的当前事实；本任务的验收对象是冻结引用分支，收口责任留给 TASK-024/025（JSON 解析入口的 `VALID_EXECUTION_TYPES` 常量随之删除并已从配置盘点移除）。
+- 中间过程（诚实记录）：(1) 本任务首版把 `actor_user_id` 定为必填，会让 DFX E-07 的既有受信载荷（无该字段）由 200 变 422；按"服务身份是门控、actor 只是审计关联"的事实改为可选，并在 B-220 用例中显式断言该口径；(2) 既有 `test_runtime_credentials.py` 的旧投影断言（`{id, api_key}`）按新契约适配为九字段并补"轮换后计量身份随值切换"断言（旧断言描述的是已删除的形状，属事实同步而非弱化）；(3) 删除 `VALID_EXECUTION_TYPES` 后配置盘点行同步移除（盘点只记录真实声明）。
+- 延后项：review 层 verifier 由需求级 verify-e2e 全量复跑；浏览器/E2E 场景不受本任务影响（无前端改动）。
+- B-220: verified — automated command passed; run_id=c0a1cf3d34b24b3cb0f69e21a66797bd (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-220 RED：`tests/console_internal/test_capacity_webchat_resolve_credential.py` 先行建立 → **11 failed, 4 passed**（2.11s；API-09 只认 model_id，冻结引用被忽略、版本不校验、响应仍是旧投影）
+- [2026-10-18] 实现：契约新增 `ResolveCredentialsRequest`（冻结三件套 all-or-none、execution_ref 只认 RUN）；`SelectedModelCredential`/`ModelCapacityReservationRequest` 的 `quota_group_id` 按库与租约事实放开为可空（TASK-016 留待本任务裁决）；`runtime_credentials` 冻结分支（404 归属缺失 / 409 MODEL_CREDENTIAL_CHANGED 需重新预占）；API-09 改 typed payload；`api_key` 以 SecretStr 装载
+- [2026-10-18] B-220 GREEN：15 passed；verifier `test_logging_redaction.py + test_foundation_ops_audit.py` 14 passed；回归 `tests/console_internal tests/contracts` 1361 passed、`tests/console_platform tests/console_internal tests/contracts tests/agent_runtime tests/test_configuration_inventory.py` 2461 passed；DFX E-07 门控 1 passed、Runtime 真链路 capability snapshot 2 passed；mypy 396 files 无问题；ruff 逐文件干净；配置盘点移除已删常量 `VALID_EXECUTION_TYPES`
+- [2026-10-18] 口径裁定：`actor_user_id` 按事实定为可选（服务身份才是门控——DFX E-07 受信载荷不带它也须 200）；过渡分支（缺省三件套）保留同一投影，收口责任 TASK-024/025
+- [2026-10-18] completed (done)
 
 ---
 
