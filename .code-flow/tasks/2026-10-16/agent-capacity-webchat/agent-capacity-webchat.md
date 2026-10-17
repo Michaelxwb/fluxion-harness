@@ -380,7 +380,7 @@
 | B-238 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-038 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_service.py"] | . | 300 |  |
 | B-239 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-039 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_admin_api.py"] | . | 300 |  |
 | B-240 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-040 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | . | 300 |  |
-| B-241 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.1 技术选型 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-041 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_cookie_security.py"] | . | 300 |  |
+| B-241 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.1 技术选型 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-041 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_cookie_security.py"] | . | 300 |  |
 | B-242 | agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-042 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_auth_api.py"] | . | 300 |  |
 | B-243 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-043 | planned | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_chat_internal_principal.py"] | . | 300 |  |
 | B-244 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-044 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_chat_auth.py"] | . | 300 |  |
@@ -2590,7 +2590,7 @@ B-239: verified — automated command passed; run_id=2b81adc3c10043c39443663a90d
 
 ## TASK-041: CHAT独立Cookie、CSRF与Origin校验
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-040
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.1 技术选型
@@ -2605,25 +2605,42 @@ CHAT Cookie名称与管理会话隔离，HttpOnly/Secure/SameSite及Max-Age同�
 
 ### Checklist
 
-- [ ] [B-241][integration] 先在`tests/console_auth/test_capacity_webchat_chat_cookie_security.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：CHAT Cookie名称与管理会话隔离，HttpOnly/Secure/SameSite及Max-Age同源。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-241] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-241] 执行`["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_cookie_security.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-241][integration] 先在`tests/console_auth/test_capacity_webchat_chat_cookie_security.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：CHAT Cookie名称与管理会话隔离，HttpOnly/Secure/SameSite及Max-Age同源。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-241] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-241] 执行`["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_cookie_security.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-241 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | CHAT Cookie名称与管理会话隔离，HttpOnly/Secure/SameSite及Max-Age同源；交换POST验证Origin，写请求核独立CSRF，不把Console身份当PlatformUser | tests/console_auth/test_capacity_webchat_chat_cookie_security.py | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_cookie_security.py"] | planned |
+| B-241 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | CHAT Cookie名称与管理会话隔离，HttpOnly/Secure/SameSite及Max-Age同源；交换POST验证Origin，写请求核独立CSRF，不把Console身份当PlatformUser | tests/console_auth/test_capacity_webchat_chat_cookie_security.py | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_cookie_security.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-241 | `uv run pytest -q tests/console_auth/test_capacity_webchat_chat_cookie_security.py` → exit=2，**1 error（收集失败，0 passed / 0 failed）**：`ModuleNotFoundError: No module named 'muad_console_platform.api.chat_security'`——验收文件先落地、实现尚不存在 | 同命令 → **6 passed**（exit=0，1.15–1.22s；连续复跑稳定） | `test_b241_chat_cookies_are_independent_and_max_age_tracks_the_stored_session` L362-412（交换 200 + `Cache-Control: no-store` L373-374、公开会话信息恰七字段 L376、身份由服务端导出与 `auth_context_id==session_id` L378-381、**只写 CHAT 两枚 Cookie 且与 `muad_session`/`muad_csrf` 名完全分离** L384-386、**HttpOnly/Secure(dev 关)/SameSite=strict/Path=/ 与 `Max-Age`=库内 `expires_at-issued_at`（43200）同源** L388-393、`expires_at`/`session_id` 与真实行一致 L394-395、会话原文独立于用户 Token 且 ≥256 位 L398-400、库内只有会话摘要 L399-401、凭据不进响应体/非 Cookie 响应头/日志 L403-407、交换不写审计 L408、交换不改写来源 Token L411-412）；`test_b241_max_age_is_sourced_from_the_session_row_not_the_settings_ttl` L415-454（设置 24h 但来源 Token 只剩 1h → 会话与来源同一到期时刻、`Max-Age`=行内剩余（~3600）而非 86400 L435-443；剩余 ≤0 → 显式 `CHAT_SESSION_EXPIRED`（含负剩余）L446-452、正剩余向下取整 L453-454）；`test_b241_cookie_secure_flag_follows_the_shared_non_dev_policy` L456-471（`ENV=prod` → 两枚 CHAT Cookie 均带 `Secure` 且 `Max-Age` 仍同源 L463-471）；`test_b241_exchange_requires_a_same_origin_request_before_credentials` L476-525（异源 403 FORBIDDEN、零 Cookie/零会话/零审计且不回显 Token L481-489、`Origin: null` 403 L491-495、**异源+自报 user_id/tenant 仍是 403（Origin 先于请求体/凭据判定）** L497-505、同源+自报身份 422 且零落行 L507-517、同源放行 L519-522、缺 Origin 的非浏览器客户端放行 L523-525）；`test_b241_chat_writes_require_the_independent_chat_csrf_pair` L528-582（GET /me 免 CSRF 且零 Set-Cookie（不滑动续期）L540-544、缺 CSRF 403 且会话未撤销/零清除 Cookie L546-550、**Console `muad_csrf`+`X-CSRF-Token` 对无效 403** L552-557、CHAT Cookie 在而头错值 403 L559-563、正确 CHAT 对受理并真实撤销本会话、只清 CHAT 两枚 Cookie（Max-Age=0）L565-574、撤销后 /me 401 与重放幂等不改时间戳 L576-582）；`test_b241_chat_and_console_credentials_never_cross_authenticate` L588-648（CHAT 原文 Bearer/`muad_session` 冒充 Console → /auth/me 与 /users 全 401 且不回显、库内无对应 Console 会话行 L603-613、只带 Console Cookie 的 CHAT /me 401 L616-622、Console 原文塞进 CHAT Cookie → 401 + 服务层 UNAUTHORIZED + 零会话行 L624-633、Console 原文不能交换（CHAT_TOKEN_INVALID）且 Console 账号 id 不是 PlatformUser L635-642、登录/交换各自只下发自己的 Cookie L645-648） | 真实 Console ASGI 应用（`muad_console_platform.main.app`，真实登录会话/角色裁决/Console Cookie 名）+ 真实 FastAPI 依赖与 api-kit 真实封套（探针应用用 `install_api_foundation` 挂本任务交付的真实依赖；API-04 生产路由归 TASK-042/B-242）；真实 PostgreSQL（共享 dev 库，仅 DML、无 DDL）：`control.chat_access_token`/`chat_session`/`console_session`/`config_audit_log` 全部按 tenant 真实读写与计数，每用例唯一 tenant 并在 teardown 清理；`Max-Age` 同源证据直接比对真实行的 `issued_at`/`expires_at`（PG 服务端时间），反例用真实 SQL 把来源 Token 压到 `now()+1h`；`Secure` 分支用真实 `SharedSettings.env`（monkeypatch ENV）；本路径无外部模型调用，故"外部模型真实 HTTP 探针"边界不适用 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件：`apps/console-platform/backend/src/muad_console_platform/api/chat_security.py`（新增：CHAT Cookie 名/CSRF 名/no-store 常量、`set_chat_cookies`/`clear_chat_cookies`/`mark_no_store`/`chat_cookie_max_age`/`require_chat_origin`/`require_chat_csrf`）、`apps/console-platform/backend/src/muad_console_platform/api/security.py`（共享安全底座：`_cookie_secure` 公开为 `cookie_secure`、抽 `csrf_token_matches`、新增 `ORIGIN_HEADER`/`request_origin`/`is_same_origin`；`require_csrf` 行为不变）。
+- 关键设计落点：①**独立**——CHAT 用 `muad_chat_session`/`muad_chat_csrf`，与 `muad_session`/`muad_csrf` 不共用 Cookie 也不共用 CSRF 值（Console 的 CSRF 对在 CHAT 写请求上 403）；②**`Max-Age` 同源**——`chat_cookie_max_age(session, expires_at)` 用 **PG 服务端时间**算剩余整秒并向下取整（Cookie 不会比权威会话行活得更久），剩余 ≤0 显式 `CHAT_SESSION_EXPIRED`，普通请求不重发 Cookie（不滑动续期）；③**Origin 首期同源**——允许来源集合来自请求自身权威（Host/scheme，浏览器/代理写入、页面脚本不可改写），`null`/异源 403 且判定先于凭据与请求体；缺 Origin 仅对无 ambient 凭据面的非浏览器客户端放行；④**属性沿用安全底座**——HttpOnly 只给会话 Cookie、CSRF Cookie 可读、`SameSite=strict`、`Secure` 取 `cookie_secure()`（仅非 dev）；⑤**凭据卫生**——会话原文以 `SecretStr` 进本层、只写 HttpOnly Cookie，不进响应体/非 Cookie 头/日志/审计；⑥**错误码零新增**，复用 `FORBIDDEN`(403)/`UNAUTHORIZED`(401)/`CHAT_SESSION_EXPIRED`(401)/`COMMON_INTERNAL_ERROR`(500)（三处登记由 TASK-007 完成）。
+- 配置盘点：新增 4 行（`ORIGIN_HEADER`=`'Origin'` 行 13、`CHAT_SESSION_COOKIE`=`'muad_chat_session'` 行 41、`CHAT_CSRF_COOKIE`=`'muad_chat_csrf'` 行 43、`NO_STORE_CACHE_CONTROL`=`'no-store'` 行 45）写入 `docs/configuration-inventory.csv`（保持 CRLF，仅追加）；`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**。
+- 静态校验：`uv run ruff check`（`security.py`/`chat_security.py`/验收文件）干净；`uv run mypy apps packages` → **Success: no issues found in 407 source files**；`uv run python scripts/check_error_message_hardcode.py` → OK。
+- 聚焦回归：`uv run pytest -q tests/console_auth` → **79 passed**（10.19s，含本任务 6 例）；`uv run pytest -q tests/contracts` → **1281 passed**（3.22s）；`uv run pytest -q tests/console_platform` → **363 passed**（54.04s，`security.py` 改动面）；`uv run pytest -q tests/console_platform/test_auth_policy_settings.py tests/console_skill/test_skill_rbac.py tests/console_channel/test_artifact_fetch.py` → **19 passed**；`uv run pytest -q tests/test_logging_redaction.py tests/test_api_i18n.py tests/test_error_catalog.py` → **26 passed**；`uv run pytest -q tests/console_skill/test_import_idempotency.py` → **5 passed**。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）。
+- 交接给 TASK-042：`webchat_auth.py` 直接消费本层——exchange 挂 `Depends(require_chat_origin)` 并以 `set_chat_cookies(response, grant.session_token, new_csrf_token(), await chat_cookie_max_age(session, grant.info.expires_at))` + `mark_no_store(response)`；me/logout 与其余 CHAT 写路由挂 `Depends(require_chat_csrf)`、读 `CHAT_SESSION_COOKIE`、登出 `clear_chat_cookies(response)`；`X-Chat-Context` 匹配（`info.auth_context_id`）归 TASK-043/044。
+- B-241: verified — automated command passed; run_id=0cb9e8e8b69d4d239d9487fef0ba72fa (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-241 RED：`uv run pytest -q tests/console_auth/test_capacity_webchat_chat_cookie_security.py` → exit=2，1 error（`ModuleNotFoundError: muad_console_platform.api.chat_security`）
+- [2026-10-18] 实现 CHAT 安全层 `chat_security.py`（独立 Cookie/CSRF/Origin/no-store/Max-Age 同源）+ `security.py` 共享底座（`cookie_secure`/`csrf_token_matches`/`is_same_origin`）
+- [2026-10-18] B-241 GREEN：6 passed；`tests/console_auth` 79 passed；`tests/contracts` 1281 passed；`tests/console_platform` 363 passed；ruff/mypy 干净；新增 4 行配置盘点
+- [2026-10-18] completed (done)
 
 ---
 

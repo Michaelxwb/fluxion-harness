@@ -397,6 +397,9 @@ apps/agent-worker/src/muad_agent_worker/worker/service.py,38,RETRY_BACKOFF_BASE_
 apps/agent-worker/src/muad_agent_worker/worker/service.py,40,TASK_ATTEMPTS_EXHAUSTED,'TASK_ATTEMPTS_EXHAUSTED',python-constant,code,状态或错误码，不是时间参数
 apps/agent-worker/src/muad_agent_worker/worker/service.py,42,HEARTBEAT_LOST_CODE,'WORKER_HEARTBEAT_LOST',python-constant,code,状态或错误码，不是时间参数
 apps/agent-worker/src/muad_agent_worker/worker/service.py,44,HEARTBEAT_RENEW_ATTEMPTS,3,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/console-platform/backend/src/muad_console_platform/api/chat_security.py,41,CHAT_SESSION_COOKIE,'muad_chat_session',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/api/chat_security.py,43,CHAT_CSRF_COOKIE,'muad_chat_csrf',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/api/chat_security.py,45,NO_STORE_CACHE_CONTROL,'no-store',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/service.py,45,HEARTBEAT_RENEW_RETRY_SEC,1.0,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
 apps/console-platform/backend/src/muad_console_platform/api/internal_artifacts.py,32,FETCH_PATH,'/api/v1/artifacts/{artifact_id}/content',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/api/internal_platform_settings.py,32,CALLERS,"frozenset({'runtime', 'worker', 'gateway'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -410,6 +413,7 @@ apps/console-platform/backend/src/muad_console_platform/api/runs.py,29,OPERATION
 apps/console-platform/backend/src/muad_console_platform/api/security.py,9,SESSION_COOKIE,'muad_session',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/api/security.py,10,CSRF_COOKIE,'muad_csrf',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/api/security.py,11,CSRF_HEADER,'X-CSRF-Token',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/api/security.py,13,ORIGIN_HEADER,'Origin',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/api/security.py,12,SAFE_METHODS,"frozenset({'GET', 'HEAD', 'OPTIONS', 'TRACE'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/agent_mcp_service.py,22,AUDIT_RESOURCE_TYPE,'AGENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/agent_service.py,19,AUDIT_RESOURCE_TYPE,'AGENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
