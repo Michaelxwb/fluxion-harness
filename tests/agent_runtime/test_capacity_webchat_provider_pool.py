@@ -60,7 +60,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
 from muad_contracts import ResolvedAgent, ResolveDefinitionResponse, ResolvedModel
-from muad_contracts.model_pool import derive_model_key_resource_id
+from muad_contracts.model_pool import RunCallOwner, derive_model_key_resource_id
 from muad_contracts.platform_settings import CapacitySettings, ModelPoolSettings
 
 pytestmark = pytest.mark.integration
@@ -742,6 +742,8 @@ async def _pool_provider(
             _member_ref(member) for member in tenant.members
         ),
         deadline_at=datetime.now(UTC) + timedelta(minutes=5),
+        owner=RunCallOwner(run_id=run_id),
+        workload="INTERACTIVE",
     )
     audit_writer = RuntimeAuditWriter(
         tenant_id=tenant.tenant_id,
