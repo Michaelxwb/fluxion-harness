@@ -444,7 +444,7 @@
 | B-302 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-102 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_configmap_ingress.py"] | . | 300 |  |
 | B-303 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-103 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_hpa_budget.py"] | . | 300 |  |
 | B-304 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.2 发布与迁移, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-104 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_deployment_preflight.py"] | . | 300 |  |
-| B-305 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | unit | 真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收 | TASK-105 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_profile.py"] | . | 300 |  |
+| B-305 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | unit | 真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收 | TASK-105 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_profile.py"] | . | 300 |  |
 | B-306 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-106 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_http_probes.py"] | . | 300 |  |
 | B-307 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-107 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_isolated_stack.py"] | . | 300 |  |
 | B-308 | agent-capacity-webchat.frontend.design.md#2.4 验收条件, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-108 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_harness.py"] | . | 300 |  |
@@ -4966,7 +4966,7 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 
 ## TASK-105: 容量验收profile严格schema与示例
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003
 - **Source**: agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告
@@ -4981,25 +4981,41 @@ users/负载分布/资源/SLO/模型模式typed校验，正式验收缺必填拒
 
 ### Checklist
 
-- [ ] [B-305][unit] 先在`tests/capacity/test_capacity_webchat_load_profile.py`建立行为验收并记录RED；真实边界：真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收；关键断言：users/负载分布/资源/SLO/模型模式typed校验，正式验收缺必填拒绝pass。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-305] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-305] 执行`["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_profile.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-305][unit] 先在`tests/capacity/test_capacity_webchat_load_profile.py`建立行为验收并记录RED；真实边界：真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收；关键断言：users/负载分布/资源/SLO/模型模式typed校验，正式验收缺必填拒绝pass。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-305] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-305] 执行`["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_profile.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-305 | unit | 真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收 | users/负载分布/资源/SLO/模型模式typed校验，正式验收缺必填拒绝pass；1000用户不能由空闲连接代替，不在配置中嵌真实密钥 | tests/capacity/test_capacity_webchat_load_profile.py | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_profile.py"] | planned |
+| B-305 | unit | 真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收 | users/负载分布/资源/SLO/模型模式typed校验，正式验收缺必填拒绝pass；1000用户不能由空闲连接代替，不在配置中嵌真实密钥 | tests/capacity/test_capacity_webchat_load_profile.py | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_profile.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-305 | `uv run pytest -q tests/capacity/test_capacity_webchat_load_profile.py` → **1 error, 0 passed**（exit=1, 0.06s，collection ERROR）：`ModuleNotFoundError: No module named 'tests.capacity.profile'`（实现前测试先行，新增的 typed schema/规范示例尚不存在） | 同命令 → **98 passed**（exit=0, 0.07s）；聚焦回归 `tests/test_platform_settings_schema.py tests/test_settings.py tests/test_configuration_inventory.py` → **114 passed**（0.86s）；`uv run ruff check tests/capacity/` 逐文件干净；`tests/capacity --collect-only` → 98 tests collected | `test_b305_example_profile_parses_and_is_acceptance_ready` L166-177（users=1000、turns_per_user≥1、text_bytes.max≥1、mode=CONTROLLED_PROBE、blockers==()、require_formal_acceptance 通过）；`test_b305_example_matches_canonical_document` L179-181（示例 = 规范文档）；`test_b305_no_embedded_secrets_and_no_env_resolution` L183-196（文件文本无 api_key/secret/password/bearer/private_key 与 sk-/ghp_/AKIA/私钥标记，且 delenv 后解析结果不变）；`test_b305_integer_fields_reject_bool_float_and_out_of_range` L199-221（19 组 bool/小数/字符串/越界：users/turns/active_runs/ramp/steady/分布/连接/FD/存储/副本数）；`test_b305_slo_numbers_must_be_finite_positive` L232-237（bool/NaN/±inf/字符串/None/0/-1 全拒）；`test_b305_error_ratio_is_bounded_number` L240-244（[0,1] 外拒）；`test_b305_slo_percentiles_must_be_ordered` L247-251（p95≤p99）；`test_b305_distribution_percentiles_must_be_ordered` L254-261（p50≤p95≤max、max≥0）；`test_b305_users_below_target_only_blocks_the_pass` L266-273（users=999 可诊断但 blockers 含 workload.users 且抛 ProfileAcceptanceError）；`test_b305_missing_required_keys_are_rejected` L279-301（20 条路径缺键拒绝）；`test_b305_missing_slo_and_resources_never_yield_an_acceptance_pass` L308-316（缺整段 → 明确拒绝 pass）；`test_b305_unknown_keys_are_rejected` L319-334（顶层/各段/部署单元/未知单元 10 处未知键）；`test_b305_model_mode_is_a_closed_enum` L346-350（MOCK/小写/空/非字符串拒）；`test_b305_real_mode_requires_quota_evidence` L353-357、`test_b305_mode_specific_keys_are_rejected` L360-373（模式专属键互斥）；`test_b305_real_mode_records_quota_evidence_with_env_references_only` L376-386（credential_ref/quota_group_ref 为 env: 引用，referenced_env_vars 只回变量名）；`test_b305_quota_entries_are_strictly_typed` L400-409、`test_b305_quota_entries_must_declare_a_quota_dimension` L411-417（max_inflight 正整数必填、rpm/tpm 正整数或 null 且不得同时 null）；`test_b305_credential_fields_are_rejected_without_echoing_the_secret` L429-438、`test_b305_secret_looking_values_are_rejected_without_echoing_them` L441-446（错误消息不回带原文）；`test_b305_resources_keep_console_and_gateway_single_pod` L449-458（Console/Gateway maxReplicas=1）、`test_b305_resources_require_every_deployment_unit_and_replica_room` L461-470（四单元齐全、replica≤max）、`test_b305_hardware_requests_must_fit_limits` L473-477、`test_b305_attachment_ratio_governs_upload_distribution` L480-497（ratio∈[0,1]、ratio>0 必填 upload_bytes、ratio=0 纯文本）；`test_b305_profile_hash_freezes_content_and_round_trips` L504-516（profile_hash = sha256(规范 JSON)、回灌不变、改一值即变、file_digest=文件字节摘要）；`test_b305_load_profile_reports_missing_broken_or_non_mapping_input` L519-533（缺文件/坏 YAML/非对象根均显式报错） | 真实 typed schema：`tests/capacity/profile.py` 的 `parse_profile`/`load_profile`（不读 env、不联网、不连 PG/Redis），真实 YAML 文件 `tests/capacity/profiles/agent-capacity-webchat.example.yml`（经 `yaml.safe_load` 解析，模式/分布/资源声明逐键校验）；契约裁决由 `acceptance_blockers`/`require_formal_acceptance` 实现，缺 SLO/资源或 users<1000 一律 `ProfileAcceptanceError`，绝不静默给 pass（E-21）；密钥边界：`_reject_secrets` 按凭据键名与 `sk-`/`ghp_`/`AKIA`/私钥/Bearer 形态 fail-closed，REAL 模式额度证据只允许 `env:NAME` 引用 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件与计划 Files 完全一致：`tests/capacity/profile.py`（严格 schema/解析/验收裁决/冻结 hash）、`tests/capacity/profiles/agent-capacity-webchat.example.yml`（可解析通过的规范示例，CONTROLLED_PROBE 模式，无任何密钥与真实额度数字）、`tests/capacity/test_capacity_webchat_load_profile.py`（98 个用例）。未改动 apps/packages/migrations，故 `uv run mypy apps packages` 与配置盘点无新增项（`tests/test_configuration_inventory.py` 4 passed 复验）。
+- 契约口径（设计 §3.7「验收profile字段」）：`workload.users`（≥1000 才可验收本目标，否则只给诊断）、`active_runs_per_user`（≥1 且 ≤users）、`ramp_sec`（≥0）/`steady_sec`（>0）、`turns_per_user`（≥1）、`input_distribution.think_time_ms|text_bytes`（p50≤p95≤max，text_bytes.max≥1：空闲连接不算执行负载）、`attachment_distribution.ratio`（[0,1]，>0 必填 `upload_bytes`）；`model.mode` 只认 CONTROLLED_PROBE/REAL，模式专属键互斥，REAL 必填 `credentials_and_quotas`（provider/model/`env:` 凭据引用/max_inflight 正整数/rpm|tpm 至少一维）；`slo` 五项（有限正数、p95≤p99、ratio∈[0,1]）与 `resources`（四部署单元 hardware requests≤limits、process/replica/max_replica 计数、Console/Gateway maxReplicas=1、pg/fd/storage 预算）在正式验收必填且无默认。
+- 供后续任务使用的稳定接口（TASK-106/107/109/117/118）：`load_profile`/`parse_profile`/`profile_payload`/`profile_hash`/`file_digest`/`acceptance_blockers`/`is_acceptance_ready`/`require_formal_acceptance`/`referenced_env_vars` 与 dataclass 类型；示例文档与测试内规范文档逐键一致（`test_b305_example_matches_canonical_document` 守卫漂移）。
+- 诚实记录：YAML 解析失败时只用 `problem_mark` 的 行列 定位并且 `from None` 不链接原文异常——PyYAML 的原始报错会带出源码片段，可能含密钥原文，故错误路径不回带内部内容（与"错误不回带原文"一致）。
+- 延后项：真实模型（REAL）额度实测、探针/负载驱动/隔离栈与容量报告分别由 TASK-106/107/109/116/117/118 落地；本任务只保证 profile 的 typed schema、规范示例与"缺必填拒绝 pass"的裁决事实。
+- B-305: verified — automated command passed; run_id=9a690bcf84d344e2b0cd307c39e7e481 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-305 RED：`tests/capacity/test_capacity_webchat_load_profile.py` 先行建立 → **1 error, 0 passed**（0.06s，collection ERROR：`ModuleNotFoundError: No module named 'tests.capacity.profile'`）
+- [2026-10-18] 实现：`tests/capacity/profile.py` 严格 typed schema（bool 冒充整数拒绝、NaN/Inf 拒绝、未知键/缺失必填拒绝、分布有序、模式专属键互斥、四单元资源与 console/gateway 单 Pod 约束、凭据键与密钥形态 fail-closed 且不回带原文）+ `acceptance_blockers`/`require_formal_acceptance`（缺 SLO/资源或 users<1000 拒绝 pass）+ `profile_hash`/`file_digest`；规范示例 `tests/capacity/profiles/agent-capacity-webchat.example.yml`
+- [2026-10-18] B-305 GREEN：98 passed（0.07s）；聚焦回归 114 passed；ruff 逐文件干净；`tests/capacity --collect-only` 98 collected
+- [2026-10-18] completed (done)
 
 ---
 
