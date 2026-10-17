@@ -431,6 +431,11 @@ apps/console-platform/backend/src/muad_console_platform/application/channel_serv
 apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,45,FINGERPRINT_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,46,AUDIT_RESOURCE_TYPE_BIND_CODE,'BIND_CODE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,47,AUDIT_RESOURCE_TYPE_IDENTITY,'CHANNEL_IDENTITY',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/chat_token_service.py,45,AUDIT_RESOURCE_TYPE,'CHAT_ACCESS_TOKEN',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/chat_token_service.py,46,ACTION_CREATE,'CREATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/chat_token_service.py,47,ACTION_UPDATE,'UPDATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/chat_token_service.py,48,ACTION_DELETE,'DELETE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/chat_token_service.py,50,TOKEN_ENTROPY_BYTES,32,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/console-platform/backend/src/muad_console_platform/application/dto.py,22,MAX_INSTRUCTIONS_BYTES,32 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/dto.py,329,CONSOLE_TIME_PATTERN,'^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/dto.py,485,McpCreateRequest.connect_timeout_ms,"Field(default=None, ge=100, le=60000)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
