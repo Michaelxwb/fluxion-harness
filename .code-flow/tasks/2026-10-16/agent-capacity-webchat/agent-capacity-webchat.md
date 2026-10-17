@@ -349,7 +349,7 @@
 | B-207 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | unit | 真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收 | TASK-007 | verified | ["uv","run","pytest","-q","tests/contracts/test_capacity_webchat_error_catalog.py"] | . | 300 |  |
 | B-208 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-008 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_settings_catalog.py"] | . | 300 |  |
 | B-209 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-009 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_control_pool_schema.py"] | . | 300 |  |
-| B-210 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-010 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_runtime_pool_schema.py"] | . | 300 |  |
+| B-210 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-010 | verified | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_runtime_pool_schema.py"] | . | 300 |  |
 | B-211 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-011 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_admission_schema.py"] | . | 300 |  |
 | B-212 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-012 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_chat_auth_schema.py"] | . | 300 |  |
 | B-213 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | TASK-013 | planned | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_conversation_upload_schema.py"] | . | 300 |  |
@@ -923,7 +923,7 @@ capacity/model_pool/webchat通过原整份设置协议读写，默认/范围/单
 
 ## TASK-010: 运行时模型容量、分配计数与租约结构
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-009
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -938,25 +938,42 @@ capacity/dispatch_state/call_lease具有稳定实际Key身份和完整唯一键�
 
 ### Checklist
 
-- [ ] [B-210][integration] 先在`tests/migrations/test_capacity_webchat_runtime_pool_schema.py`建立行为验收并记录RED；真实边界：隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库；关键断言：capacity/dispatch_state/call_lease具有稳定实际Key身份和完整唯一键。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-210] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-210] 执行`["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_runtime_pool_schema.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-210][integration] 先在`tests/migrations/test_capacity_webchat_runtime_pool_schema.py`建立行为验收并记录RED；真实边界：隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库；关键断言：capacity/dispatch_state/call_lease具有稳定实际Key身份和完整唯一键。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-210] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-210] 执行`["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_runtime_pool_schema.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-210 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | capacity/dispatch_state/call_lease具有稳定实际Key身份和完整唯一键；run/job/probe三者恰一，UNKNOWN不被软删除隐藏，标准列/时区与迁移一致 | tests/migrations/test_capacity_webchat_runtime_pool_schema.py | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_runtime_pool_schema.py"] | planned |
+| B-210 | integration | 隔离PostgreSQL、实际Alembic迁移链和ORM约束/索引；不得mock迁移或数据库 | capacity/dispatch_state/call_lease具有稳定实际Key身份和完整唯一键；run/job/probe三者恰一，UNKNOWN不被软删除隐藏，标准列/时区与迁移一致 | tests/migrations/test_capacity_webchat_runtime_pool_schema.py::test_b210_* | ["uv","run","pytest","-q","tests/migrations/test_capacity_webchat_runtime_pool_schema.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-210 | `uv run pytest -q tests/migrations/test_capacity_webchat_runtime_pool_schema.py` → exit=1，**13 failed / 1 passed**（21.86s）：head 0021 上三表不存在（parity 用例 `set(TABLES) <= actual` 缺失 `model_capacity`/`model_dispatch_state`/`model_call_lease`；ORM `AttributeError: module ... has no attribute 'ModelCallLease'`）。唯一通过的空表 downgrade 用例此时是空洞通过（目标 0021 即当时 head、无迁移动作），实现后由 GREEN 复跑真正覆盖 drop 路径 | `uv run pytest -q tests/migrations/test_capacity_webchat_runtime_pool_schema.py` → **14 passed** (exit=0, 23.27s) | `test_b210_empty_database_schema_parity` L114-142（`migrated == created` 全量比对列/索引/CHECK/FK/唯一约束/主键；标准列齐全；FK 恰 `runtime.run_record.id`+`runtime.memory_consolidation_job.id`；`window_start`/`last_picked_at`/`lease_until`/`create_time` 为 timestamptz；`epoch` 为 BIGINT；`ck_model_call_lease_state` 含 UNKNOWN）；`test_b210_capacity_identity_is_complete_unique_including_tombstone` L145-166（同身份二次插入/软删后重录均 IntegrityError；`resource_type='MODEL'`、负 inflight/reserved/requests、`capacity_revision=0` 逐个被拒；默认值 0/0/0、revision=1、window_start 带时区）；`test_b210_dispatch_state_policy_identity_is_complete_unique_including_tombstone` L169-186（完整唯一含 tombstone；负 dispatch_epoch/count 被拒；另一 policy_hash 独立解释不并计数）；`test_b210_lease_attempt_is_complete_unique_and_freezes_key_identity` L189-217（call_attempt 完整唯一、重试不重复占位；两个 attempt 共享同一 key 计量身份且 credential_revision=3 冻结；FK 恰 run/job 两个）；`test_b210_owner_is_exactly_one_of_run_job_probe` L220-239（none/run_and_job/run_and_probe/job_and_probe 四分支 IntegrityError；run/job/probe 三分支各恰一成功）；`test_b210_unknown_lease_retains_occupancy_and_cannot_be_hidden` L242-278（ACTIVE→UNKNOWN 保留 reserved_tokens=128、capacity.inflight 保持 1；state='STALE' 被拒；UNKNOWN 行 `is_deleted=true` 被 `ck_model_call_lease_not_deleted` 拒绝；partial index 覆盖 UNKNOWN 且谓词含 is_deleted）；`test_b210_downgrade_on_empty_tables_returns_to_0021` L281-296（空表回退成功：alembic 停 0021 且三表消失，再 `upgrade head` 成功）；`test_b210_downgrade_with_lease_rows_requires_backup` L298-319（有租约行回退非 0 退出 + `MODEL_CAPACITY_DOWNGRADE_REQUIRES_BACKUP`，库仍 0022 且行保留） | 隔离库 `create_datastore()`（默认 head）与真实 `migrations/db_migrate.py -c <ini>` 子进程；隔离 PostgreSQL、真实 Alembic 链、无 mock | verified |
+
+**实施范围与证据说明**
+
+- 实现文件：`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py`（新增 ModelCapacity/ModelDispatchState/ModelCallLease 三模型，短约束名由命名约定展开为 `ck_model_*`）、`migrations/versions/0022_model_capacity_runtime.py`（down_revision=0021 的纯 DDL；不读环境变量）。
+- 结构决策：三表均为完整唯一键（capacity `(tenant_id,resource_type,resource_id)` 含 tombstone、dispatch `(tenant_id,model_id,deployment_id,policy_hash)`、lease `(tenant_id,call_attempt_id)`）；lease 用 `num_nonnulls(run_id,memory_job_id,probe_id)=1` 恰一归属、`is_deleted=false` 防 UNKNOWN 隔离证据被软删隐藏、partial index 只覆盖 ACTIVE/UNKNOWN 占额集合；FK 仅 run/job 两个同 Owner 物理 FK，probe/成员/凭据/Key 全部逻辑 UUID（运行时不复制物理额度）。
+- 回退策略：仅三表为空允许回退（本任务交付的结构回退）；有数据时抛 `MODEL_CAPACITY_DOWNGRADE_REQUIRES_BACKUP`，与 0021 的备份口径一致，避免在飞占用/UNKNOWN 证据被静默丢弃。
+- 静态校验：`.venv/bin/python -m py_compile` 三文件通过；`.venv/bin/python -m mypy apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py` → Success。
+- 回归（verifier 口径）：`uv run pytest -q tests -k schema_parity` → **43 passed**, 4703 deselected (exit=0, 17.00s)。
+- 服务层（预占/续租/结算/隔离）不在本任务：TASK-011+ 消费本结构。
+- B-210: verified — automated command passed; run_id=e0a33537cd6f41fe87f2c237b8730f5d (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-17] started
+- [2026-10-17] B-210 RED：`tests/migrations/test_capacity_webchat_runtime_pool_schema.py` → 13 failed / 1 passed（head 0021 上三表与 ORM 模型缺失）
+- [2026-10-17] 实现 0022：`runtime.py` 新增 ModelCapacity/ModelDispatchState/ModelCallLease（完整唯一含 tombstone、恰一归属 CHECK、UNKNOWN 不可软删、partial index）；`migrations/versions/0022_model_capacity_runtime.py`（纯 DDL，down_revision 0021，downgrade 仅空表允许否则 `MODEL_CAPACITY_DOWNGRADE_REQUIRES_BACKUP`）
+- [2026-10-17] B-210 GREEN：14 passed；verifier 口径 `tests -k schema_parity` 43 passed；py_compile/mypy 通过
+- [2026-10-17] completed (done)
 
 ---
 

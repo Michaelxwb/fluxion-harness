@@ -509,3 +509,105 @@ class ModelInvocationAudit(StandardColumnsMixin, Base):
     latency_ms: Mapped[int | None] = mapped_column(sa.Integer())
     status: Mapped[str] = mapped_column(sa.String(16), nullable=False)
     error_code: Mapped[str | None] = mapped_column(sa.String(64))
+
+
+class ModelCapacity(StandardColumnsMixin, Base):
+    """实际 Key / 额度组的计量身份（容量以 PG 预占为权威）。
+
+    完整唯一含 tombstone：轮换或删除重录不重置旧计量，同一实际 Key 在所有池中
+    合并为一行；窗口与调度计数分开，`window_start` 只表示当前额度窗口起点。
+    """
+
+    __tablename__ = "model_capacity"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "resource_type", "resource_id", name="uq_model_capacity_resource"),
+        sa.CheckConstraint("resource_type IN ('KEY','QUOTA_GROUP')", name="resource_type"),
+        sa.CheckConstraint("capacity_revision >= 1", name="capacity_revision"),
+        sa.CheckConstraint("inflight >= 0", name="inflight"),
+        sa.CheckConstraint("reserved_tokens >= 0", name="reserved_tokens"),
+        sa.CheckConstraint("reserved_requests >= 0", name="reserved_requests"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    resource_type: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    resource_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    capacity_revision: Mapped[int] = mapped_column(
+        sa.BigInteger(), nullable=False, server_default=sa.text("1")
+    )
+    inflight: Mapped[int] = mapped_column(sa.Integer(), nullable=False, server_default=sa.text("0"))
+    window_start: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")
+    )
+    reserved_tokens: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+    reserved_requests: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+
+
+class ModelDispatchState(StandardColumnsMixin, Base):
+    """按冻结策略版本（policy_hash）分别解释的调度计数；池锁内更新，不承载物理额度。"""
+
+    __tablename__ = "model_dispatch_state"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "tenant_id", "model_id", "deployment_id", "policy_hash", name="uq_model_dispatch_state_policy"
+        ),
+        sa.CheckConstraint("dispatch_epoch >= 0", name="dispatch_epoch"),
+        sa.CheckConstraint("dispatch_count >= 0", name="dispatch_count"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    model_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    deployment_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    policy_hash: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    dispatch_epoch: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+    dispatch_count: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+    last_picked_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
+
+class ModelCallLease(StandardColumnsMixin, Base):
+    """单次模型调用尝试的容量租约：冻结实际 Key 身份，UNKNOWN 保留占用。
+
+    一次 call_attempt 恰好归属 run/memory_job/probe 之一（同 Owner 物理 FK，probe 逻辑
+    UUID）；`is_deleted = false` 保证 UNKNOWN 隔离证据不能被软删除隐藏。
+    """
+
+    __tablename__ = "model_call_lease"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "call_attempt_id", name="uq_model_call_lease_attempt"),
+        sa.Index(
+            "ix_model_call_lease_active",
+            "tenant_id",
+            "key_resource_id",
+            postgresql_where=sa.text("state IN ('ACTIVE','UNKNOWN') AND is_deleted = false"),
+        ),
+        sa.CheckConstraint("num_nonnulls(run_id, memory_job_id, probe_id) = 1", name="owner"),
+        sa.CheckConstraint("state IN ('ACTIVE','UNKNOWN','SETTLED')", name="state"),
+        sa.CheckConstraint("workload IN ('INTERACTIVE','BACKGROUND','PROBE')", name="workload"),
+        sa.CheckConstraint("credential_revision >= 1", name="credential_revision"),
+        sa.CheckConstraint("epoch >= 1", name="epoch"),
+        sa.CheckConstraint("reserved_tokens >= 0", name="reserved_tokens"),
+        sa.CheckConstraint("is_deleted = false", name="not_deleted"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    call_attempt_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("runtime.run_record.id")
+    )
+    memory_job_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("runtime.memory_consolidation_job.id")
+    )
+    probe_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    deployment_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    credential_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    key_resource_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    quota_group_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    credential_revision: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    workload: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    lease_owner: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    epoch: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("1"))
+    lease_until: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    reserved_tokens: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    state: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'ACTIVE'"))
