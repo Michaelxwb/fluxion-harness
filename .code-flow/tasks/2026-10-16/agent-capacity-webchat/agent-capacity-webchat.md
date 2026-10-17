@@ -357,7 +357,7 @@
 | B-215 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-015 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_service.py"] | . | 300 |  |
 | B-216 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-016 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_credential_api.py"] | . | 300 |  |
 | B-217 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-017 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_deployment_relations.py"] | . | 300 |  |
-| B-218 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-018 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_quota_groups.py"] | . | 300 |  |
+| B-218 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-018 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_quota_groups.py"] | . | 300 |  |
 | B-219 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-019 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_logical_model_api.py"] | . | 300 |  |
 | B-220 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-020 | planned | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_resolve_credential.py"] | . | 300 |  |
 | B-221 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_reserve.py"] | . | 300 |  |
@@ -1397,7 +1397,7 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 
 ## TASK-018: 共享账号额度组管理与降额限制
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-016
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -1412,25 +1412,39 @@ RPM/TPM与max_inflight按真实资源存储，null仅关闭该维度限流；完
 
 ### Checklist
 
-- [ ] [B-218][integration] 先在`tests/console_platform/test_capacity_webchat_quota_groups.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：RPM/TPM与max_inflight按真实资源存储，null仅关闭该维度限流。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-218] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-218] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_quota_groups.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-218][integration] 先在`tests/console_platform/test_capacity_webchat_quota_groups.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：RPM/TPM与max_inflight按真实资源存储，null仅关闭该维度限流。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-218] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-218] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_quota_groups.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-218 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | RPM/TPM与max_inflight按真实资源存储，null仅关闭该维度限流；被引用不可删除，额度归属/降额按排空契约处理 | tests/console_platform/test_capacity_webchat_quota_groups.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_quota_groups.py"] | planned |
+| B-218 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | RPM/TPM与max_inflight按真实资源存储，null仅关闭该维度限流；被引用不可删除，额度归属/降额按排空契约处理 | tests/console_platform/test_capacity_webchat_quota_groups.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_quota_groups.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-218 | `uv run pytest -q tests/console_platform/test_capacity_webchat_quota_groups.py` → **7 failed**（exit=1, 0.98s）：实现前额度组路由未挂载，七个用例全部失败（403 边界断言得 404、列表/详情读不到 `data`） | 同命令 → **7 passed**（exit=0, 1.24s；`ruff format` 收口后复跑 7 passed/1.29s）；回归 `uv run pytest -q tests/console_platform tests/contracts` → **1627 passed**（exit=0, 51.06s）；`uv run pytest -q tests/test_configuration_inventory.py tests/test_error_catalog.py` → **14 passed**（exit=0, 1.46s）；`uv run mypy apps packages` → Success: no issues found in 396 source files；`uv run ruff check` 逐文件干净 | `test_b218_admin_and_csrf_guard_every_write` L191-217（BUILDER 读/写均 403 FORBIDDEN L197-201、缺 CSRF 403 且零落行 L209/214、错 CSRF 403 L212、正确 CSRF 受理 revision=1 L216-217）；`test_b218_limits_store_real_values_and_null_only_closes_that_dimension` L220-252（投影字段集恰为 READ_FIELDS L228、SQL 层 NULL 回读 L229-231、读取投影 null 语义 L237、列表封套 L241、0/负数 422 且零落行 L244-252）；`test_b218_duplicate_key_cas_conflict_and_missing_group_are_explicit` L255-295（同 key 409 MODEL_QUOTA_GROUP_EXISTS L261-263、CAS 命中 revision=2 且库内同步 L265-277、陈旧 revision 409 不覆盖 L279-283、缺失归属 GET/PUT/DELETE 404 L285-295）；`test_b218_tightening_requires_drain_but_relaxation_and_expansion_do_not` L298-366（其他组租约不阻塞本组 L307-313、rpm/max_inflight 调小 409 L315-322、放开 tpm 200 L324-329、扩容 200 L331-337、UNKNOWN 保留占用 409 L339-347、no-op 200 L349-354、SETTLED 后降额+新开限流生效 L356-366）；`test_b218_referenced_delete_conflicts_and_recreation_is_new_identity` L369-410（被活跃凭据引用 409 MODEL_QUOTA_GROUP_IN_USE L391-393、引用解除后删除 200 L398-403、软删行保留 L404-405、同名重建新行新身份 L407-409）；`test_b218_create_replays_first_result_by_persisted_canonical_fingerprint` L413-484（同键同指纹重放同 ID L418-421、endpoint=model-quota-group-create L462、单行单审计 L463、规范 JSON 指纹公式 L465-480、异指纹 409 IDEMPOTENCY_MISMATCH L482-484）；`test_b218_cross_tenant_groups_are_invisible` L487-517（异租户 GET/DELETE 404、列表排除 L506-508、PUT 404 COMMON_NOT_FOUND L510-516、异租户行未被改动 L516-517） | 真实 Console ASGI 应用 + 真实 PostgreSQL（每用例独立租户；partial unique 与复合 FK 由数据库真实裁决）；ADMIN/BUILDER 均真实登录会话（真实 CSRF Cookie/头）；额度组行、幂等回执与审计行走 `control.*` 真实表回读；排空裁决以 `runtime.model_call_lease` 真实行（按 quota_group_id 归属，ACTIVE/UNKNOWN/SETTLED 三态迁移）为准；`null` 以 SQL NULL 回读验证（未设限 ≠ 零额度） | verified |
+
+**实施范围与证据说明**
+
+- 实现文件（含超出计划 Files 的披露）：`application/model_quota_service.py`（服务，新增）、`api/model_resources.py`（新增 `quota_router` 并挂 `api/router.py` admin 组）、`infrastructure/repositories/model_quota_group_repository.py`（仓储，新增）、`packages/contracts/src/muad_contracts/model_pool.py`（新增 `ModelQuotaGroupUpdate`）、`packages/api-kit/src/muad_api/error_codes.py` + `config/api-messages.yaml`（新增 `MODEL_QUOTA_GROUP_EXISTS`，409）、`tests/contracts/test_capacity_webchat_error_catalog.py`（ERROR_STATUSES 扩一项）、`docs/configuration-inventory.csv`（新常量盘点行 + error_codes 行号最小平移）。计划 Files 仅列服务/路由/测试；仓储、契约、错误码与配置盘点属实现必需，已在此披露；无迁移、无 schema 变更（0021 已建表）。
+- 契约与语义事实：读取投影恰为 `{id,key,max_inflight,rpm,tpm,revision}`；`rpm`/`tpm` 的 `null` 表示该维度不设应用内限流（SQL NULL 回读验证，不是 0；`0`/负数在契约层 422）；PUT 为整份替换（key/max_inflight/rpm/tpm）+ `expected_revision` CAS，未命中 `REVISION_CONFLICT`；同 key 重复 409 `MODEL_QUOTA_GROUP_EXISTS`（partial unique `uq_model_quota_group_tenant_key` 兜底并发落败者）；降额判定 = `max_inflight` 调小，或 rpm/tpm 数值调小，或从 `null` 新开限流——该组仍有 `ACTIVE`/`UNKNOWN` 租约时 409 `MODEL_CAPACITY_DRAIN_REQUIRED`（扩容、数值调大、放开为 `null`、no-op 与 SETTLED 租约实时生效；判定按租约的 `quota_group_id` 归属，别的组的在飞占用不阻塞）；删除=软删，仍被活跃凭据引用 409 `MODEL_QUOTA_GROUP_IN_USE`（被软删凭据不再阻塞），同名重建为新行新身份；创建幂等（RULE-api-002）endpoint=`model-quota-group-create`，规范 JSON 指纹含 endpoint/tenant/actor 判别键，异指纹 409 `IDEMPOTENCY_MISMATCH`；缺失/跨租户 404 `COMMON_NOT_FOUND`；审计 `resource_type=MODEL_QUOTA_GROUP`，动作 CREATE/UPDATE/DELETE，被拒请求零审计。
+- 中间过程（诚实记录）：(1) 新增错误码插入 `error_codes.py` 后其后续枚举成员行号整体位移，配置盘点按最小平移 + 新行补齐；首次自动化脚本写坏 CSV，以 `git checkout` 还原后改为最小变更重做（未把整表重排混入提交）；(2) 测试文件一处断言超长行经 `ruff format` 收口后复跑 GREEN；实现侧无返工。
+- B-218: verified — automated command passed; run_id=8ee99f679cb44563a987ab6385287f95 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-17] started
+- [2026-10-17] B-218 RED：`tests/console_platform/test_capacity_webchat_quota_groups.py` 先行建立 → **7 failed**（0.98s；额度组路由未挂载，读写全 403/404）
+- [2026-10-17] 实现：契约新增 `ModelQuotaGroupUpdate`；`ModelQuotaGroupService`（幂等创建/降额排空判定/CAS/软删引用冲突/审计快照）+ `ModelQuotaGroupRepository`；`api/model_resources.py` 新增 `quota_router` 并挂 admin 组；新增错误码 `MODEL_QUOTA_GROUP_EXISTS`（目录+契约）
+- [2026-10-17] B-218 GREEN：7 passed；回归 `tests/console_platform tests/contracts` 1627 passed；inventory/error-catalog 14 passed；mypy 396 files 无问题；ruff 逐文件干净；`docs/configuration-inventory.csv` 同步新常量与 error_codes 行号平移
+- [2026-10-17] completed (done)
 
 ---
 

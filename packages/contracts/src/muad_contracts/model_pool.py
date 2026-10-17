@@ -62,6 +62,12 @@ class ModelQuotaGroupInput(ModelPoolContract):
     tpm: PositiveCount | None = None
 
 
+class ModelQuotaGroupUpdate(ModelQuotaGroupInput):
+    """PUT 整份替换额度组可编辑字段（key/rpm/tpm/max_inflight）+ 并发版本。"""
+
+    expected_revision: PositiveCount
+
+
 class ModelQuotaGroupConfig(ModelQuotaGroupInput):
     id: UUID
     revision: PositiveCount

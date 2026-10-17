@@ -13,6 +13,7 @@ from .internal_channel import router as internal_channel_router
 from .internal_platform_settings import router as internal_platform_settings_router
 from .internal_runtime import router as internal_runtime_router
 from .mcp_servers import router as mcp_servers_router
+from .model_resources import quota_router as model_quota_groups_router
 from .model_resources import router as model_resources_router
 from .models import router as models_router
 from .overview import router as overview_router
@@ -58,6 +59,8 @@ admin.include_router(credentials_router)
 admin.include_router(platform_settings_admin_router)
 # 模型凭据管理仅 ADMIN（API-16「ADMIN 维护」；读取仅 configured，写要 CSRF）。
 admin.include_router(model_resources_router)
+# 共享账号额度组管理仅 ADMIN（API-02「ADMIN 维护」；删除被引用项明确冲突）。
+admin.include_router(model_quota_groups_router)
 router.include_router(admin)
 
 router.include_router(internal_runtime_router)

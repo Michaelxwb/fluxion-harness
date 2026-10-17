@@ -540,6 +540,11 @@ codes:
     messages:
       zh-CN: 已存在相同的模型成员绑定或成员标识
       en-US: This model member binding or member key already exists.
+  MODEL_QUOTA_GROUP_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: 已存在同名额度组，请使用其他标识
+      en-US: A quota group with this key already exists. Use another key.
   MODEL_QUOTA_GROUP_IN_USE:
     http_status: 409
     messages:
