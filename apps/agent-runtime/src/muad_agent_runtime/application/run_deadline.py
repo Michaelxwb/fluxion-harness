@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.runtime import RunInterrupt, RunRecord, RunSubmission
 from .async_tools.operations import cancel_operations
+from .run_admission import release_admission_in
 from .run_events import EventWriter
 from .tool_result_receipts import lock_run_source
 
@@ -48,6 +49,9 @@ async def _expire_one(factory: SessionFactory, candidate: RunRecord, now: dateti
             "RUN_DEADLINE_EXCEEDED",
         )
         run.lease_owner, run.lease_until, run.end_time, run.update_time = None, None, now, now
+        run.queue_stage = None
+        # 绝对期限收尾同样释放准入份额：与终态同事务，重复扫描不再递减（CAS 幂等）。
+        await release_admission_in(session, run=run)
         seq = await EventWriter(session).append(
             tenant_id=run.tenant_id,
             conversation_id=run.conversation_id,

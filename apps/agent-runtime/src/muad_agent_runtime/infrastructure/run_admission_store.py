@@ -142,3 +142,26 @@ class RunAdmissionStore:
         if count is None:  # pragma: no cover - 行锁内已确认存在
             raise RuntimeError("admission counter row missing while incrementing")
         return int(count)
+
+    async def decrement_counter(self, *, tenant_id: str, scope_type: str, scope_key: str) -> int:
+        """把已锁定的计数行原地 -1，并在 0 处截断（绝不产生负计数）。
+
+        终态释放与 Run 终态同事务：`admission_released_at` CAS 已保证每个 Run 恰释放一次，
+        这里的截断是最后一道防线——早于准入计数的历史 Run 或人工种入的行不会把共享计数压到
+        0 以下（`open_run_count >= 0` 是表级 CHECK，负值会直接违反约束并卡住终态收尾）。
+        """
+        count = await self._session.scalar(
+            sa.update(RunAdmissionCounter)
+            .where(
+                RunAdmissionCounter.tenant_id == tenant_id,
+                RunAdmissionCounter.scope_type == scope_type,
+                RunAdmissionCounter.scope_key == scope_key,
+            )
+            .values(
+                open_run_count=sa.func.greatest(RunAdmissionCounter.open_run_count - 1, 0)
+            )
+            .returning(RunAdmissionCounter.open_run_count)
+        )
+        if count is None:  # pragma: no cover - 行锁内已确认存在
+            raise RuntimeError("admission counter row missing while decrementing")
+        return int(count)
