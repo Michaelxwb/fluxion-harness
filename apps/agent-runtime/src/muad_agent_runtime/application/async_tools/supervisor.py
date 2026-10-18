@@ -1,39 +1,77 @@
-"""One registration lock seals admission before bounded execution cleanup."""
+"""有界执行槽：本地有槽才 PG claim，每个槽独立监督、独立回收。
+
+- **本地槽先于 PG 领取**：`claim_and_submit` 先看本进程的空闲槽，没有槽就直接返回 False，
+  `claim` 一次都不会被调用（design §3.2「每个工作进程先获得本地槽，再在短事务中 claim；
+  没有槽不领取」）。这把原先"每 tick 最多领 16 条、总量不设上限"的无界并发换成有界监督。
+- **每个槽独立监督**：一个片段就是一个独立 asyncio 任务 + 独立完成回调；单槽卡死/超时/异常
+  只占自己的槽，不阻塞其它槽，也不阻塞心跳/回收/控制等各自独立的循环。
+- **槽释放与 Run 终态解耦**：片段结束（终态、WAITING_TOOL/WAITING_INPUT、租约丢失、异常）
+  即释放槽；`reclaim_stale_executions` 按 PG 行事实回收那些"Run 已不再由本实例持有"的卡死槽。
+"""
 
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from uuid import UUID
+
+from muad_contracts import RunStatus
+from sqlalchemy import select
+
+from ...infrastructure.db import SessionFactory
+from ...infrastructure.models.runtime import RunRecord
 
 logger = logging.getLogger(__name__)
 
+Claim = Callable[
+    [frozenset[UUID]], Awaitable[tuple[UUID, Callable[[], Awaitable[object]]] | None]
+]
+
 
 class ExecutionSupervisor:
-    def __init__(self, *, close_timeout_sec: float = 10) -> None:
+    """有界执行槽：并发上限由装配根按 `RUNTIME_EXECUTION_CONCURRENCY` 注入。"""
+
+    def __init__(self, *, max_concurrency: int = 8, close_timeout_sec: float = 10) -> None:
+        if isinstance(max_concurrency, bool) or not 1 <= max_concurrency <= 256:
+            raise ValueError("invalid execution slot budget")
+        if close_timeout_sec <= 0:
+            raise ValueError("invalid supervisor close budget")
+        self._limit = max_concurrency
         self._lock = asyncio.Lock()
         self._closing = False
         self._tasks: dict[UUID, asyncio.Task[object]] = {}
         self._timeout = close_timeout_sec
 
     @property
+    def slot_limit(self) -> int:
+        return self._limit
+
+    @property
     def execution_count(self) -> int:
         return len(self._tasks)
 
+    @property
+    def free_slots(self) -> int:
+        return max(self._limit - len(self._tasks), 0)
+
+    def active_runs(self) -> frozenset[UUID]:
+        """当前占槽的 Run 只读快照（独立监督回收据此核验 PG 归属）。"""
+        return frozenset(self._tasks)
+
+    def _has_free_slot(self) -> bool:
+        return not self._closing and len(self._tasks) < self._limit
+
     async def submit(self, run_id: UUID, execution: Callable[[], Awaitable[object]]) -> bool:
         async with self._lock:
-            if self._closing or run_id in self._tasks:
+            if not self._has_free_slot() or run_id in self._tasks:
                 return False
-
             self._start(run_id, execution)
             return True
 
-    async def claim_and_submit(
-        self,
-        claim: Callable[[frozenset[UUID]], Awaitable[tuple[UUID, Callable[[], Awaitable[object]]] | None]],
-    ) -> bool:
-        """Claim and register under the same shutdown lock; active local segments are excluded."""
+    async def claim_and_submit(self, claim: Claim) -> bool:
+        """本地有槽才 claim：没有空闲槽时不触碰 PG（`claim` 不会被调用）。"""
         async with self._lock:
-            if self._closing:
+            if not self._has_free_slot():
                 return False
             admitted = await claim(frozenset(self._tasks))
             if admitted is None:
@@ -41,6 +79,14 @@ class ExecutionSupervisor:
             run_id, execution = admitted
             self._start(run_id, execution)
             return True
+
+    def reclaim(self, run_id: UUID) -> bool:
+        """回收单个槽：取消该 Run 的本地片段，完成后由完成回调释放槽。"""
+        task = self._tasks.get(run_id)
+        if task is None or task.done() or task.cancelling():
+            return False
+        task.cancel()
+        return True
 
     def _start(self, run_id: UUID, execution: Callable[[], Awaitable[object]]) -> None:
         async def invoke() -> object:
@@ -51,10 +97,15 @@ class ExecutionSupervisor:
         task.add_done_callback(lambda completed: self._finished(run_id, completed))
 
     def _finished(self, run_id: UUID, task: asyncio.Task[object]) -> None:
+        """单槽独立回收：成功/异常/取消都只释放本槽，不触碰其它槽。"""
         self._tasks.pop(run_id, None)
-        if not task.cancelled() and (error := task.exception()) is not None:
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
             logger.error(
-                "supervised_run_failed", extra={"run_id": str(run_id), "error_type": type(error).__name__}
+                "supervised_run_failed",
+                extra={"run_id": str(run_id), "error_type": type(error).__name__},
             )
 
     async def close(self) -> None:
@@ -69,3 +120,35 @@ class ExecutionSupervisor:
                 logger.error("supervisor_close_timeout", extra={"pending_count": len(pending)})
                 raise TimeoutError("run executions did not stop within close budget")
         self._tasks.clear()
+
+
+async def reclaim_stale_executions(
+    factory: SessionFactory,
+    supervisor: ExecutionSupervisor,
+    *,
+    instance_id: str,
+    now: datetime | None = None,
+) -> int:
+    """独立监督回收：取消已不再由本实例持有的本地片段，释放它们的槽。
+
+    归属判据只用 **PG 行事实**（`RUNNING` + `lease_owner` 为本实例 + 租约未过期）。租约时间
+    由本进程自己的心跳写入，同钟比较安全；这里**不**用本机时钟判定业务绝对期限——那由
+    `expire_runs` 的 PG 时钟扫描负责，超时行会先变成终态，再在这里被回收。
+    """
+    active = supervisor.active_runs()
+    if not active:
+        return 0
+    instant = now or datetime.now(UTC)
+    async with factory() as session:
+        owned = set(
+            await session.scalars(
+                select(RunRecord.id).where(
+                    RunRecord.id.in_(tuple(active)),
+                    RunRecord.status == RunStatus.RUNNING,
+                    RunRecord.lease_owner == instance_id,
+                    RunRecord.lease_until > instant,
+                    RunRecord.is_deleted.is_(False),
+                )
+            )
+        )
+    return sum(1 for run_id in active - owned if supervisor.reclaim(run_id))
