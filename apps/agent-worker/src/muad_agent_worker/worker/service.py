@@ -5,6 +5,7 @@ import logging
 import os
 import socket
 import uuid
+from collections.abc import Awaitable, Callable, Coroutine
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
@@ -66,6 +67,87 @@ def _reclaim_backoff() -> Any:
     )
 
 
+class TaskSlotSupervisor:
+    """有界任务槽：本地有槽才 PG claim；单任务卡死/异常/取消只释放自己的槽。
+
+    并发上限来自每进程启动配置（§3.7 `WORKER_EXECUTION_CONCURRENCY`，1～64），装配根注入。
+    每个槽是一条独立 `asyncio` 任务 + 独立完成回调：单槽卡死只占自己的槽，不阻塞其它槽，
+    也不阻塞心跳/回收/调度各自的循环；完成回调保证成功、异常、取消三条路径都释放槽。
+    """
+
+    def __init__(self, *, max_concurrency: int, close_timeout_sec: float = 10) -> None:
+        if isinstance(max_concurrency, bool) or not 1 <= max_concurrency <= 64:
+            raise ValueError("invalid worker task slot budget")
+        if close_timeout_sec <= 0:
+            raise ValueError("invalid task slot close budget")
+        self._limit = max_concurrency
+        self._close_timeout = close_timeout_sec
+        self._lock = asyncio.Lock()
+        self._closing = False
+        self._tasks: dict[uuid.UUID, asyncio.Task[None]] = {}
+
+    @property
+    def slot_limit(self) -> int:
+        return self._limit
+
+    @property
+    def execution_count(self) -> int:
+        return len(self._tasks)
+
+    async def claim_and_start(
+        self,
+        claim: Callable[[], Awaitable[TaskExecution | None]],
+        supervise: Callable[[TaskExecution], Coroutine[Any, Any, None]],
+    ) -> TaskExecution | None:
+        """本地有槽才 claim：没有空闲槽时 `claim` 一次都不会被调用（§3.2）。"""
+        async with self._lock:
+            if self._closing or len(self._tasks) >= self._limit:
+                return None
+            task = await claim()
+            if task is None:
+                return None
+            self._start(task.id, supervise(task))
+            return task
+
+    def _start(self, task_id: uuid.UUID, supervised: Coroutine[Any, Any, None]) -> None:
+        slot: asyncio.Task[None] = asyncio.create_task(supervised, name=f"task:{task_id}")
+        self._tasks[task_id] = slot
+        slot.add_done_callback(lambda completed: self._finished(task_id, completed))
+
+    def _finished(self, task_id: uuid.UUID, slot: asyncio.Task[None]) -> None:
+        """单槽独立回收：成功/异常/取消都只释放本槽，不触碰其它槽。"""
+        self._tasks.pop(task_id, None)
+        if slot.cancelled():
+            return
+        error = slot.exception()
+        if error is not None:
+            logger.error(
+                "worker_task_slot_failed",
+                extra={"task_id": str(task_id), "error_type": type(error).__name__},
+            )
+
+    async def wait_completion(self, task_id: uuid.UUID) -> None:
+        """等待单个槽收尾（`run_once` 语义）；不取消、不影响其它槽。"""
+        slot = self._tasks.get(task_id)
+        if slot is not None:
+            await asyncio.shield(slot)
+
+    async def close(self) -> None:
+        """取消全部本地片段并等待收尾；超时不静默成功，显式 `TimeoutError`。"""
+        async with self._lock:
+            self._closing = True
+            slots = tuple(self._tasks.values())
+            for slot in slots:
+                slot.cancel()
+        if not slots:
+            return
+        _, pending = await asyncio.wait(slots, timeout=self._close_timeout)
+        if pending:
+            logger.error("task_slot_close_timeout", extra={"pending_count": len(pending)})
+            raise TimeoutError("worker task slots did not stop within close budget")
+        self._tasks.clear()
+
+
 class WorkerLoop:
     def __init__(
         self,
@@ -86,6 +168,8 @@ class WorkerLoop:
         self._cancel_hints: CancelHintStore = cancel_hints or NullCancelHintStore()
         self._wakeup: WakeupListener = wakeup or NullWakeupListener()
         self._settings_client: PlatformSettingsClient = settings_client or NullPlatformSettingsClient()
+        # 有界任务槽：上限是每进程启动配置（§3.7 WORKER_EXECUTION_CONCURRENCY），一处来源。
+        self._slots = TaskSlotSupervisor(max_concurrency=self._settings.worker_execution_concurrency)
 
     def _resolve_executor(self) -> TaskExecutorProtocol:
         if self._executor is None:
@@ -108,22 +192,69 @@ class WorkerLoop:
     def instance_id(self) -> str:
         return self._instance_id
 
+    @property
+    def slot_limit(self) -> int:
+        """本进程任务槽上限（启动配置固定，只限制本进程）。"""
+        return self._slots.slot_limit
+
+    @property
+    def execution_count(self) -> int:
+        return self._slots.execution_count
+
     async def run_forever(self) -> None:
-        """有活就连续处理；空闲时按 poll 间隔等待，`task:wakeup` hint 可提前唤醒。"""
-        while True:
-            processed: uuid.UUID | None = None
-            try:
-                processed = await self.run_once()
-                await self.reclaim_expired()
-            except Exception:
-                logger.exception("worker_loop_tick_failed")
-            if processed is None:
-                await self._wakeup.wait(self._settings.worker_poll_interval_sec)
+        """有界任务池：本地有槽才领取；执行独立监督，回收不排在执行队尾。
+
+        每拍只做两件快事：把空闲槽填满（`run_pending` 不等待任何执行收尾）和按 PG 行事实
+        回收过期租约（`reclaim_expired`）；空闲时按 poll 间隔等待，`task:wakeup` hint 可提前
+        唤醒。长跑/卡死的片段因此不会把回收、调度、投递排在自己后面。
+        """
+        logger.info("execution_slots_configured", extra={"slots": self._slots.slot_limit})
+        try:
+            while True:
+                started = 0
+                try:
+                    started = await self.run_pending()
+                    await self.reclaim_expired()
+                except Exception:
+                    logger.exception("worker_loop_tick_failed")
+                if started == 0:
+                    await self._wakeup.wait(self._settings.worker_poll_interval_sec)
+        except asyncio.CancelledError:
+            # 退出时叫停全部本地片段（执行器自己收尾整组子进程）；终止超时显式失败。
+            await self.aclose()
+            raise
+
+    async def run_pending(self, *, now: datetime | None = None) -> int:
+        """把空闲槽填满：本地有槽才 claim，**不等待任何执行收尾**。
+
+        每个槽拿到任务后立即成为独立监督任务（执行 + 心跳），本循环只负责"领到槽满"。
+        返回本次新占用的槽数。
+        """
+        started = 0
+        while await self._claim_into_slot(now=now) is not None:
+            started += 1
+        return started
+
+    async def _claim_into_slot(self, *, now: datetime | None) -> TaskExecution | None:
+        return await self._slots.claim_and_start(
+            lambda: self._claimer.claim_one(self._instance_id, now=now),
+            lambda claimed: self._supervise_task(claimed, now=now),
+        )
 
     async def run_once(self, *, now: datetime | None = None) -> uuid.UUID | None:
-        task = await self._claimer.claim_one(self._instance_id, now=now)
+        """领取一条任务并**等它收尾**（单槽路径）；没有空闲槽时不领取。"""
+        task = await self._claim_into_slot(now=now)
         if task is None:
             return None
+        await self._slots.wait_completion(task.id)
+        return task.id
+
+    async def aclose(self) -> None:
+        """停止任务池：取消全部本地片段并等待收尾（超时显式失败，不静默）。"""
+        await self._slots.close()
+
+    async def _supervise_task(self, task: TaskExecution, *, now: datetime | None) -> None:
+        """单个槽的完整生命周期：执行与心跳共同监督，收尾只写本任务的结论。"""
         moment = now or datetime.now(UTC)
         cancelled = asyncio.Event()
         execution = asyncio.create_task(self._resolve_executor().execute(task))
@@ -135,25 +266,33 @@ class WorkerLoop:
                 await self._abort_execution(execution)
                 if cancelled.is_set():
                     await self._mark_cancelled_outcome(task, now=now)
-                    return task.id
+                    return
                 raise TaskExecutionError(
                     HEARTBEAT_LOST_CODE, "lease heartbeat stopped before the skill finished"
+                )
+            if execution.cancelled():
+                # 心跳检查点已经叫停本地执行（取消/失约）：按取消收尾，不再解析结果。
+                if cancelled.is_set():
+                    await self._mark_cancelled_outcome(task, now=now)
+                    return
+                raise TaskExecutionError(
+                    HEARTBEAT_LOST_CODE, "local execution was cancelled without a lease decision"
                 )
             result = execution.result()
             # 结果解析放在 try 内（评审 #14）：违反 Skill 协议的结果是**确定性**失败，必须
             # 和别的执行异常走同一条收尾（FAILED），而不是原地冒泡让任务卡在无心跳的 RUNNING。
             outcome = interpret_execution(result, now=moment)
         except asyncio.CancelledError:
+            # 池关闭/进程退出：停止心跳并叫停整组本地执行，再让取消继续传播。
             await self._stop_heartbeat(heartbeat)
+            await self._abort_execution(execution)
             if cancelled.is_set():
-                # 心跳检查点发现取消/失约：executor 已终止子进程，按取消收尾。
                 await self._mark_cancelled_outcome(task, now=now)
-                return task.id
             raise
         except Exception as exc:
             await self._stop_heartbeat(heartbeat)
             await self._handle_failure(task, exc, now=now)
-            return task.id
+            return
         await self._stop_heartbeat(heartbeat)
         # 截止判定用**执行真正结束的时刻**，不是本轮 tick 的起点——Skill 可能跑了五分钟。
         finished_at = datetime.now(UTC)
@@ -161,9 +300,8 @@ class WorkerLoop:
             # 结果产出时已过 deadline：不写 COMPLETED（评审 #8）。已有的副作用收不回，
             # 但「成功」这个结论不能落库。
             await self._mark_deadline_exceeded(task, now=finished_at)
-            return task.id
+            return
         await self._handle_outcome(task, outcome, now=now)
-        return task.id
 
     async def _supervise(
         self,
