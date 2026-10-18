@@ -1408,5 +1408,17 @@
   "chat.sidebar.open": "Open conversation history",
   "chat.sidebar.close": "Close conversation history",
   "chat.workspace.label": "Chat workspace",
-  "chat.workspace.emptyMessages": "Send the first message to start the conversation"
+  "chat.workspace.emptyMessages": "Send the first message to start the conversation",
+  "chat.thread.label": "Message thread",
+  "chat.thread.loadOlder": "Load earlier messages",
+  "chat.thread.empty": "No messages yet",
+  "chat.thread.failed": "Failed to load messages. Retry here.",
+  "chat.thread.localFailed": "The message action did not take effect. Choose the conversation again.",
+  "chat.thread.role.user": "You",
+  "chat.thread.role.assistant": "Assistant",
+  "chat.thread.download": "Download",
+  "chat.thread.attachmentUnavailable": "Attachment unavailable",
+  "chat.thread.attachment.image": "Image",
+  "chat.thread.attachment.document": "Document",
+  "chat.thread.attachment.other": "Attachment"
 }
