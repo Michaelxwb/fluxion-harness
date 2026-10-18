@@ -110,6 +110,11 @@ from .channel_conversations import (
     scope_of,
     title_locale_of,
 )
+from .channel_notifications import (
+    KIND_RUN_COMPLETED,
+    run_terminal_delivery_key,
+    write_run_notification,
+)
 from .channel_uploads import (
     resolve_message_uploads,
     upload_limits_from_settings,
@@ -649,6 +654,7 @@ async def _reap_one(factory: async_sessionmaker[AsyncSession], candidate: RunRec
             return 0
         # 接管后的终态释放：与回收同事务，重复回收不再递减（CAS 幂等）。
         await release_admission_in(session, run=run)
+        terminal_event_id = uuid.uuid4()
         await EventWriter(session).append(
             tenant_id=run.tenant_id,
             conversation_id=run.conversation_id,
@@ -656,6 +662,15 @@ async def _reap_one(factory: async_sessionmaker[AsyncSession], candidate: RunRec
             event_type="RUN_FAILED",
             stream_type=RUN_FAILED_EVENT,
             payload={"status": str(RunStatus.FAILED), "error_code": RUN_ABANDONED},
+            event_id=terminal_event_id,
+        )
+        # 回收也是用户可见的终态：通知与终态同一事务（design §3.6）。
+        await write_run_notification(
+            session,
+            run=run,
+            kind=KIND_RUN_COMPLETED,
+            delivery_key=run_terminal_delivery_key(run.id),
+            event_id=terminal_event_id,
         )
     return 1
 
@@ -734,10 +749,11 @@ async def _expire_queued_one(
 
 
 async def _close_queued_run(session: AsyncSession, run: RunRecord) -> None:
-    """排队过期的收尾（与终态更新同事务）：RUN_FAILED 事件 + 关闭仍 OPEN 的提交。
+    """排队过期的收尾（与终态更新同事务）：RUN_FAILED 事件 + 用户通知 + 关闭仍 OPEN 的提交。
 
     终态 Run 不得留下可被继续领取的 OPEN 提交，否则重放/领取路径会读到半开的旧提交。
     """
+    terminal_event_id = uuid.uuid4()
     seq = await EventWriter(session).append(
         tenant_id=run.tenant_id,
         conversation_id=run.conversation_id,
@@ -745,6 +761,15 @@ async def _close_queued_run(session: AsyncSession, run: RunRecord) -> None:
         event_type="RUN_FAILED",
         stream_type=RUN_FAILED_EVENT,
         payload={"status": str(RunStatus.FAILED), "error_code": RUN_QUEUE_TIMEOUT},
+        event_id=terminal_event_id,
+    )
+    # 排队超时也是用户可见的终态：通知与终态同一事务（design §3.6）。
+    await write_run_notification(
+        session,
+        run=run,
+        kind=KIND_RUN_COMPLETED,
+        delivery_key=run_terminal_delivery_key(run.id),
+        event_id=terminal_event_id,
     )
     submission_id = await session.scalar(
         sa.select(RunSubmission.id).where(
@@ -1964,7 +1989,10 @@ class RunService:
         )
 
     async def _append_cancelled_events(self, run: RunRecord) -> None:
-        """取消的持久事件：CANCEL 业务事实 + 终态 `RUN_COMPLETED(CANCELLED)`（SSE 排空）。"""
+        """取消的持久事件：CANCEL 业务事实 + 终态 `RUN_COMPLETED(CANCELLED)`（SSE 排空）。
+
+        取消是用户可见的终态：用户通知与这两行**同一事务**（design §3.6）。
+        """
         writer = self._event_writer()
         await writer.append(
             tenant_id=run.tenant_id,
@@ -1973,6 +2001,7 @@ class RunService:
             event_type=CANCEL_EVENT,
             payload={"reason": "cancelled"},
         )
+        terminal_event_id = uuid.uuid4()
         await writer.append(
             tenant_id=run.tenant_id,
             conversation_id=run.conversation_id,
@@ -1980,6 +2009,14 @@ class RunService:
             event_type="RUN_COMPLETED",
             stream_type=RUN_COMPLETED_EVENT,
             payload={"status": str(RunStatus.CANCELLED), "final_text": "", "reason": "cancelled"},
+            event_id=terminal_event_id,
+        )
+        await write_run_notification(
+            self._session,
+            run=run,
+            kind=KIND_RUN_COMPLETED,
+            delivery_key=run_terminal_delivery_key(run.id),
+            event_id=terminal_event_id,
         )
 
     async def _safe_set_cancel_hint(self, run_id: uuid.UUID) -> None:
@@ -2373,6 +2410,7 @@ class RunService:
             payload: dict[str, Any] = {"status": str(target), "final_text": final_text}
             if cancelled:
                 payload["reason"] = "cancelled"
+            terminal_event_id = uuid.uuid4()
             seq = await writer.append(
                 tenant_id=row.tenant_id,
                 conversation_id=row.conversation_id,
@@ -2381,6 +2419,7 @@ class RunService:
                 payload=payload,
                 submission_id=submission_id,
                 stream_type=RUN_COMPLETED_EVENT,
+                event_id=terminal_event_id,
             )
             await self._submissions.finalize_in(
                 session,
@@ -2388,6 +2427,15 @@ class RunService:
                 status=SUBMISSION_CLOSED,
                 last_seq=int(seq),
                 terminal_result_json={"status": str(target)},
+            )
+            # 用户通知与终态**同一事务**（design §3.6）：feed 锁在 Conversation/Run 锁之后；
+            # 写不进去就整体回滚，绝不先提交终态再补通知。
+            await write_run_notification(
+                session,
+                run=row,
+                kind=KIND_RUN_COMPLETED,
+                delivery_key=run_terminal_delivery_key(row.id),
+                event_id=terminal_event_id,
             )
             if target == RunStatus.COMPLETED:
                 # 终态 assistant 正文是真实可见消息：会话活动时间与它同事务更新（design §3.3）；
@@ -2447,6 +2495,7 @@ class RunService:
             # 终态释放与终态更新同事务：CAS 落败（并发收尾/回收已释放）即不递减。
             await release_admission_in(session, run=current)
             payload = {"status": str(RunStatus.FAILED), "error_code": code}
+            terminal_event_id = uuid.uuid4()
             seq = await EventWriter(session).append(
                 tenant_id=run.tenant_id,
                 conversation_id=run.conversation_id,
@@ -2455,6 +2504,7 @@ class RunService:
                 payload=payload,
                 submission_id=submission_id,
                 stream_type=RUN_FAILED_EVENT,
+                event_id=terminal_event_id,
             )
             await self._submissions.finalize_in(
                 session,
@@ -2462,6 +2512,14 @@ class RunService:
                 status=SUBMISSION_CLOSED,
                 last_seq=int(seq),
                 terminal_result_json={"status": str(RunStatus.FAILED), "error_code": code},
+            )
+            # 失败也是用户可见的终态：通知与终态同一事务（design §3.6）。
+            await write_run_notification(
+                session,
+                run=current,
+                kind=KIND_RUN_COMPLETED,
+                delivery_key=run_terminal_delivery_key(current.id),
+                event_id=terminal_event_id,
             )
             await session.commit()
         await self._wake_tail(run.tenant_id, run.conversation_id)  # 提交后唤醒（ADR-02）
