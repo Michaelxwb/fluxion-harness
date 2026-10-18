@@ -8,6 +8,9 @@
  * 身份边界（退出/到期/撤销/冲突/切主体）通过认证状态机的 `registerIdentityCleanup` 清空投影，
  * 加载请求挂在当前 `identitySignal()` 上（边界即中止），边界之后完成的迟到响应由服务 fence。
  *
+ * 新连接消费接缝：`newConnectionConfig()` 暴露 service 的冻结投影（回复订阅等新连接据此绑定有效
+ * `transport_revision` 与传输参数），活跃连接持有的旧对象不受配置变更影响。
+ *
  * 本文件不拼装传输头、不发 HTTP、不读 Cookie、不落持久缓存、不打日志。
  */
 
@@ -18,7 +21,7 @@ import {
   type ClientConfigClient,
   type ClientConfigSnapshot
 } from '../clientConfig';
-import type { WebchatRequestOptions } from '../types';
+import type { WebchatClientConfig, WebchatRequestOptions } from '../types';
 import type { ChatAuthController } from './useChatAuth';
 
 /** 页面持有的配置控制器：状态只读，动作只经 service（不暴露写能力）。 */
@@ -29,6 +32,8 @@ export interface ClientConfigController {
   retry(options?: WebchatRequestOptions): Promise<ClientConfigSnapshot>;
   /** 重新读取有效版本供新连接重绑（活跃连接保持原参数）。 */
   reload(options?: WebchatRequestOptions): Promise<ClientConfigSnapshot>;
+  /** 新连接冻结的有效投影（绑定 `transport_revision` 与传输参数；活跃连接不受影响）。 */
+  newConnectionConfig(): WebchatClientConfig;
 }
 
 /**
@@ -68,5 +73,11 @@ export function useClientConfig(
     [service]
   );
 
-  return { snapshot, ready: snapshot.loadState === 'ready', retry, reload };
+  return {
+    snapshot,
+    ready: snapshot.loadState === 'ready',
+    retry,
+    reload,
+    newConnectionConfig: service.newConnectionConfig
+  };
 }

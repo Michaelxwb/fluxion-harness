@@ -421,7 +421,7 @@
 | B-279 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.7 样式方案, agent-capacity-webchat.frontend.design.md#3.8 可访问性 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-079 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_history_sidebar.py"] | . | 300 |  |
 | B-280 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-080 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_message_history_ui.py"] | . | 300 |  |
 | B-281 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-081 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_composer_uploads.py"] | . | 300 |  |
-| B-282 | agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-082 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_reply_stream_state.py"] | . | 300 |  |
+| B-282 | agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-082 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_reply_stream_state.py"] | . | 300 |  |
 | B-283 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-083 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_run_actions_ui.py"] | . | 300 |  |
 | B-284 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-084 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 300 |  |
 | B-285 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-085 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_user_token_ui.py"] | . | 300 |  |
@@ -453,6 +453,38 @@
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
 
 ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5101,7 +5133,7 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 ## TASK-082: 回复订阅、重连与generation状态
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-072, TASK-076, TASK-080
 - **Source**: agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流
@@ -5116,25 +5148,38 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 ### Checklist
 
-- [ ] [B-282][integration] 先在`tests/frontend/test_capacity_webchat_reply_stream_state.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：仅订阅可见Run，断网只重连GET不重发POST。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-282] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-282] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_reply_stream_state.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-282][integration] 先在`tests/frontend/test_capacity_webchat_reply_stream_state.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：仅订阅可见Run，断网只重连GET不重发POST。RED：`uv run pytest -q tests/frontend/test_capacity_webchat_reply_stream_state.py` exit=1，**3 failed + 12 errors（0.39s）**——12 条真实 node 用例在 fixture 阶段 error（esbuild 入口 `export * from 'modules/webchat/runState.ts'` 与 `'hooks/useRunEvents.ts'` 不存在 → `Could not resolve`），3 条源码契约失败（`runState.ts`/`useRunEvents.ts` 缺失、共享流层尚无 typed 连接尝试上报）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。（`runState.ts` 779 行、`useRunEvents.ts` 168 行；全部函数 ≤50 行（最长 `openStream` 46、`connectionForRecovery` 42、`useRunEventService` 38、`createRunEventController` 35、`useRunEvents` 26）；无 `any`/松散类型；错误显式：本地目标/上界非法 `RunStateError`、配置未就绪 `CLIENT_CONFIG_NOT_READY`、游标过期 `CURSOR_EXPIRED`（服务端窗口原样带出）、认证失效 `auth-required`、失败/过期/失效各留 `retry()`/`recover()` 显式动作，零未处理拒绝、零自动补拉；两文件无裸 HTTP/传输头/持久存储/定时器/日志/文案键/凭据。）
+- [x] [B-282] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-282] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_reply_stream_state.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**15 passed（0.57s）**；真实 node 执行证据（真实 `openReplyStream`/分片收集/退避 + 真实配置投影 + 真实会话状态 + 真实 `fetch` 出口的脚本化 SSE 字节流）见 Acceptance Evidence 的真实边界证据列。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-282 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 仅订阅可见Run，断网只重连GET不重发POST；delta/snapshot/终态去重，EOF不当完成，按配置退避+抖动，旧attempt迟到不能串正文 | tests/frontend/test_capacity_webchat_reply_stream_state.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_reply_stream_state.py"] | planned |
+| B-282 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 仅订阅可见Run，断网只重连GET不重发POST；delta/snapshot/终态去重，EOF不当完成，按配置退避+抖动，旧attempt迟到不能串正文 | tests/frontend/test_capacity_webchat_reply_stream_state.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_reply_stream_state.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-282 | `uv run pytest -q tests/frontend/test_capacity_webchat_reply_stream_state.py` exit=1，**3 failed + 12 errors（0.39s）**：12 条真实 node 用例 fixture 阶段 error（esbuild 入口 `export * from 'modules/webchat/runState.ts'`/`'hooks/useRunEvents.ts'` 不存在 → `Could not resolve`），3 条源码契约断言失败 | 同命令 exit=0，**15 passed（0.57s）** | ① `test_b282_only_the_visible_run_is_subscribed_and_reconnects_by_get` L986-1015：两次请求全为 GET 且 URL 只有可见 Run（L988-995）、首连无游标（L991-992）、重连 `?after_seq=2` + `Last-Event-ID=2`（L993-997）、共享传输头/CSRF/CHAT 上下文（L998-1001）、增量按序应用并在持久终态收敛（L1002-1004）、已应用水位写回会话层（L1005-1007）、终态停止重连（L1009-1010）、连接状态显式反映重连（L1011-1013）。② `test_b282_eof_is_not_completion_and_the_budget_comes_from_the_projection` L1016-1052：EOF 不改业务状态（L1018-1020）、预算耗尽的结束原因/重连次数显式（L1023-1030）、显式恢复要求（L1031-1035）、attempts=1 → 2 次连接（L1036）、retry 仍只发 GET 并从本地游标续传（L1039-1046）、attempts=3 → 4 次连接（L1047-1051）。③ `test_b282_dedup_and_generation_keep_the_body_and_the_applied_cursor` L1053-1074：重复/旧代不进正文（L1057-1063）、snapshot 整组替换开新代（L1064）、`noteAppliedSeq` 调用序列 `[1,2,4,5,6]` 证明水位只在应用成功后推进（L1067-1069）、游标写回（L1070）、附件按身份登记一次（L1073）。④ `test_b282_late_frames_from_an_old_attempt_never_reach_the_new_body` L1075-1090：换 Run 先中止旧 GET（L1079）、可见 Run 切到新会话（L1080）、迟到帧不写新正文（L1081）、不推进旧会话游标（L1083）、切回从缓存恢复正文（L1085-1086）、按未推进的游标续传（L1087-1089）。⑤ `test_b282_view_signal_switch_closes_the_old_stream_without_cancelling_the_run` L1091-1105：切换会话中止旧 SSE（L1093）、不把旧正文留给新视图（L1094）、连接回 idle（L1095）、零 POST/cancel（L1096-1100）、已应用游标保留（L1103）。⑥ `test_b282_cursor_expiry_is_explicit_and_recovery_reopens_from_the_safe_snapshot` L1106-1145：过期只发一次 GET 且用本地游标（L1110-1114）、显式 `cursor-recovery` + 服务端窗口原样带出（L1115-1120）、不改业务状态（L1121）、显式恢复要求（L1122-1127）、恢复只重开一次且 `after_seq` 归零（L1130-1134）、整组 snapshot 原子替换正文（L1135）、水位写回（L1135-1137）、恢复后切回按新游标续传（L1140-1142）。⑦ `test_b282_terminal_runs_are_never_reopened` L1146-1153。⑧ `test_b282_chat_401_requires_reauthentication_without_retry` L1154-1166：认证失效通知认证层（L1159）、不跳 Console 登录/不叠加 Toast（L1160-1161）、零自动重试（L1162）、显式 auth 恢复要求且不改 Run 状态（L1163-1165）。⑨ `test_b282_subscription_stays_closed_until_the_projection_is_ready` L1167-1183：未就绪零请求 + `CLIENT_CONFIG_NOT_READY`（L1169-1174）、就绪后显式 retry 才开唯一订阅（L1179-1181）。⑩ `test_b282_transport_revision_is_frozen_for_the_active_connection` L1184-1198：活跃连接保持旧版本（L1187-1189）、冻结单帧预算下超界显式失败（L1191-1193）、新连接重读有效版本（L1194-1196）。⑪ `test_b282_streaming_projection_carries_persistent_phases_and_confirmation` L1199-1234：排队/执行/等待输入/终态阶段与排队原因、排队/执行计时分开（L1202-1221）、确认完整落地（L1222-1227）、终态无恢复残留（L1231）、无可见 Run 不渲染空占位正文（L1228）、阶段/终态纯函数（L1229-1230）。⑫ `test_b282_visible_target_derives_from_the_visible_selection` L1235-1264。⑬ `test_b282_run_state_keeps_the_shared_transport_and_module_boundaries` L1265-1301：复用共享流层（L1271-1273）、不重算退避/不复制投影默认/无定时器（L1274-1278）、无裸 HTTP/传输头/持久存储/日志（L1279-1284）、无松散类型/无文案（L1285-1287）、游标只写回会话层且不拿 `through_seq` 冒充（L1288-1290）、导出面（L1296-1300）。⑭ `test_b282_reply_hook_wires_the_visible_run_and_identity_cleanup` L1302-1335：快照订阅/可见目标派生/身份清场/渲染期可见过滤（L1306-1317）、无裸 HTTP/文案/松散类型（L1318-1324）、配置控制器暴露新连接冻结投影接缝（L1326-1331）。⑮ `test_b282_attempt_observer_is_typed_on_the_shared_stream_layer` L1336-1345 | 真实 esbuild（`node_modules/.bin/esbuild --bundle --platform=node`）+ 真实 node 执行真实编译产物：真实 `src/api/stream.ts` 的 `openReplyStream`/`createReplyStreamCollector`/`reconnectDelayMs` 全链路、真实 `clientConfig.ts` 投影消费、真实 `conversationState.ts` 的 `viewSignal`/`appliedSeq`/`noteAppliedSeq`、真实 `services/webchatApi.ts` 的 `WebchatClient`（axios adapter 观测配置/详情/消息页）、真实 `src/api/authScope.ts` 的 CHAT 401 通知接缝；SSE 只经真实 `fetch` 出口由脚本化服务端（真实 `ReadableStream` 字节流）驱动，请求方法/URL/`Last-Event-ID`/共享传输头/中止都是真实观测；配置/详情/消息页走真实 axios 实例与拦截器。`useRunEvents.ts` 的 React 装配以源码契约 + 编译期端口自检（`RunEventsPortCompatibility` 由 `tsc --noEmit` 钉住真实控制器接线）+ 真实编译产物登记 | verified |
+
+实现要点：**订阅编排只有一处状态机**——`runState.ts` 的 `createRunEventController` 持有「可见 Run」订阅：`watch(target)` 只接受调用方（`useRunEvents` 由所选会话的权威详情派生 `visibleRunTarget`）给出的目标，同目标幂等（每页面/当前 Run 至多一条订阅），换 Run/换会话先 `closeSubscription`（`generation` 递增 + 视图信号监听移除 + `stream.close()`）再开新订阅，终态 Run 不重新打开；`retry()`/`recover()` 是唯一的重开出口（失败类/游标类各归其位，认证失效只等重新进入），因此结构上不存在"自动补拉"和"自动重试"。**断网只重连 GET**——重连完全在 TASK-072 的共享流层：`openReplyStream` 用已应用/已扫描安全水位（`after_seq` + `Last-Event-ID`，游标排他）续传，退避/抖动/次数/单帧预算只来自 `newConnectionConfig()` 冻结的 API-19 投影（attempts=1 → 2 次连接、attempts=3 → 4 次连接；活跃连接保持 `transport_revision` 与预算，新连接重读有效版本）；本层零 POST 能力、零 cancel 请求。**分代与去重只有一处事实**——正文的 delta 追加/snapshot 整组原子替换/旧代 fence 全在共享收集器（重开订阅时把本地已应用 `text`/`replyGeneration` 交回收集器，游标失效时归零由服务端安全快照重建），本层只把已应用结果落到 `activeRun` 并在应用成功后 `noteAppliedSeq` 推进会话层游标（checkpoint 不推进、重复 seq/旧代帧显式 ignored，绝不拿消息页 `through_seq` 冒充）。**迟到旧 attempt 不串正文**——每次打开/重开递增 `generation`，`applyUpdate`/`applyAttempt`/`applyStop` 三重 fence（generation + `stopped`），视图信号中止时同步 `detach` 并清可见 Run（不把旧会话正文留给新视图）；按会话有界的 Run 缓存（LRU，当前订阅会话不淘汰）让切回直接恢复正文并按本地游标续传，不重复、不丢。**展示投影**——`streamingReply` 按持久状态与持久阶段派生 `queued/running/waiting-tool/waiting-input/terminal`，排队原因与排队/执行计时原样带出，无可见 Run 时为 `null`（不渲染空占位助手正文），直接对接 design §3.4 的 `StreamingReply` props 与 TASK-080 的消息区接缝。
+
+回归：`uv run pytest -q tests/frontend` exit=0，**526 passed（5.31s）**（含本任务 15 passed、TASK-072 的 `test_capacity_webchat_browser_sse_parser.py` 10 passed、TASK-073 的 services 契约、TASK-076 的 `test_capacity_webchat_client_config_state.py` 12 passed、TASK-078/080 的会话状态与消息渲染契约）；`npx tsc --noEmit`（apps/console-platform/frontend）exit=0 无输出；`uv run python scripts/check_frontend_i18n.py`「i18n keys OK: 1422」（本任务未改 `src/locales/*.json`，无新增/改动词条）；`uv run python scripts/check_frontend_api_usage.py`「frontend api usage check OK」。逐函数核对：本任务新增/修改函数全部 ≤50 行（TS 最长 `openStream` 46、`connectionForRecovery` 42、`useRunEventService` 38、`createRunEventController` 35、`useRunEvents` 26；复核后把 hook 的实例装配/订阅时机拆成 `useRunEventService`/`useVisibleRunSubscription`）。**变异校验（4 项，全部被对应断言捕获，每次逐字节还原并复跑确认 15 passed）**：① 去掉 `applyUpdate` 的 generation fence → 1 failed（`test_b282_late_frames_from_an_old_attempt_never_reach_the_new_body`）；② 任何结束都收敛为 `COMPLETED`（EOF 当完成）→ 3 passed + 12 errors；③ 不写回会话层已应用游标（`noteAppliedSeq` 变 no-op）→ 6 failed；④ 连接参数覆盖投影重连次数（`reconnect_max_attempts: 3`）→ 1 failed + 2 passed + 12 errors（预算断言/等待超时）。
+
+遗留（deferred，非本任务可闭合）：① **页面级装配**（把 `useRunEvents` 接进 `ChatPage`/`WebchatShell` 的消息区、把 `streaming` 交给 `StreamingReply` 组件渲染、用 `watch()` 接受理回执的新 Run）属 TASK-093/083；本任务只交付状态机、视图绑定与真实接缝，未改 `ChatPage.tsx`（其现有 `ChatWorkspace` 占位保持原样）。② **停止/排队/原 Run 确认交互**（`cancel`/`resume`、确认卡片渲染、排队文案与计时展示）属 TASK-083；本任务只把持久阶段/确认事实落在 `activeRun` 并投影出 `phase`/计时字段。③ **流式区域的可访问性**（`aria-live` 低频播报、滚动到底提示）与样式属 TASK-091；**后台会话活动/未读与安全附件预览**属 TASK-084（本任务只按身份登记 `artifact.created`）。④ **浏览器真实 SSE/断网/实例切换 E2E**（S-103/E-103/E-106 与 RISK-F02/F07 的端到端）保持 planned，由 TASK-113/116 的 verify-e2e 记录完整证据；本任务以真实 node 执行真实编译产物 + `tsc --noEmit` + 源码契约登记，React 装配的渲染路径留 E2E。⑤ **`WebchatClient.openEvents` 端口**：TASK-073 的机器契约把 `WebchatClient` 钉死在 design §3.4 的 16 个 HTTP 方法（其测试显式注明 `openEvents` 属共享流层），本任务因此把订阅出口留在共享流层 `src/api/stream.ts` 并由 `runState.ts` 直接消费，不改 `types.ts`/`webchatApi.ts`（避免削弱 TASK-073 既有断言）；若后续要经 client 端口暴露，需先同步 TASK-073 的方法契约。⑥ **计划外文件披露（计划 Files 之外的必需联动）**：`apps/console-platform/frontend/src/api/stream.ts`（新增 typed 连接尝试上报 `onAttempt`/`WebchatConnectionAttempt` 与收集器恢复种子 `text`/`replyGeneration`——连接状态展示与"重开不丢正文"必须由唯一持有重连/分代语义的流层上报与恢复，TASK-072 的既有 10 条用例保持通过）、`apps/console-platform/frontend/src/modules/webchat/hooks/useClientConfig.ts`（控制器暴露 `newConnectionConfig()` 冻结投影——新连接绑定有效 `transport_revision` 是 TASK-076 已交付的 service 接缝，React 控制器此前未透出，TASK-093 装配需要它；TASK-076 的 12 条用例保持通过）。⑦ **规范刷新**（cf-learn/refresh）：`harness-frontend` Conventions 可补「回复订阅只由共享流层持有重连/分代语义，编排层只消费 `onAttempt` 上报与把已应用正文/代号交回收集器（不重算退避、不复制投影默认）；停止后必须显式 `retry()`/`recover()`，不自动补拉；按会话有界的 Run 缓存让切回恢复正文并按本地游标续传」；本任务不改 spec 文件以免 active context 漂移。
+- B-282: verified — automated command passed; run_id=55bf2411632042fcab9fa60e42ebce10 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] TDD：先建 B-282 行为验收并记录 RED（3 failed + 12 errors）→ 实现 `runState.ts`（可见 Run 订阅编排/分代正文/终态收敛/显式 retry+recover/按会话有界 Run 缓存/StreamingReply 投影）+ `hooks/useRunEvents.ts`（可见目标派生 + 快照订阅 + 身份清场 + 编译期端口自检）+ 共享流层连接尝试上报与收集器恢复种子（计划外联动，TASK-072 用例保持通过）+ 配置控制器透出 `newConnectionConfig()`（计划外联动，TASK-076 用例保持通过）→ GREEN（15 passed）；回归 tests/frontend 526 passed、tsc 干净、i18n 1422 键齐平、api usage OK；4 项变异校验（generation fence/EOF 当完成/游标不写回/覆盖投影预算）全部被捕获并逐字节还原。
+- [2026-10-19] completed (done)
+- [2026-10-19] 复核（≤50 行核对）：hook 拆分为 `useRunEventService`（实例装配/身份清场/卸载释放）与 `useVisibleRunSubscription`（订阅时机），全部函数 ≤50 行（最长 `openStream` 46）；复跑验收 15 passed、tests/frontend 526 passed、tsc 干净、i18n 1422 / api usage OK。
 
 ---
 
