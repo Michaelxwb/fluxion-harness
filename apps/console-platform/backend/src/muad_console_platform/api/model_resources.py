@@ -36,7 +36,14 @@ from ..application.model_probe_service import ModelProbeService
 from ..application.model_quota_service import ModelQuotaGroupService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.control import ModelCredential, ModelQuotaGroup
-from .deps import AccountTenantId, AdminAccount, ProbeCapacityClientDep, get_source_ip
+from .deps import (
+    AccountTenantId,
+    AdminAccount,
+    ProbeBudgetDep,
+    ProbeCapacityClientDep,
+    ProbeHttpClientDep,
+    get_source_ip,
+)
 
 TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -150,13 +157,18 @@ async def test_credential_targets(
     tenant_id: TenantId,
     session: Session,
     capacity: ProbeCapacityClientDep,
+    probe_http: ProbeHttpClientDep,
+    probe_budget: ProbeBudgetDep,
 ) -> ApiResponse[Any]:
     """物理 Key 检测（API-16 检测面）：先经受信容量端口占额，再由 Console 发起 HTTP 探测。
 
     只探测被点名的 (model_id, credential_id)：不自动遍历模型×Key，也不把单个成员的成功
-    展示为整池健康（逐项结果 + 不改逻辑模型 `last_test_status`）。
+    展示为整池健康（逐项结果 + 不改逻辑模型 `last_test_status`）。模型 HTTP 客户端与执行预算
+    都由装配根注入（design §3.7）：探测走独立的 model 池，预算不在请求路径重抄。
     """
-    items = await ModelProbeService(session, capacity).probe(tenant_id, payload.targets)
+    items = await ModelProbeService(
+        session, capacity, http_client=probe_http, budget=probe_budget
+    ).probe(tenant_id, payload.targets)
     return ok(request.app.state.message_catalog, {"items": [item.to_payload() for item in items]})
 
 
