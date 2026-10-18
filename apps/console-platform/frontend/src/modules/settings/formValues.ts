@@ -1,12 +1,12 @@
 /**
- * 设置表单的纯逻辑：扁平值 ↔ 后端整份文档、脏判断（前端设计 §3.5）。
+ * 设置表单的纯逻辑：扁平值 ↔ 后端整份文档、脏判断与字段错误定位（前端设计 §3.5）。
  *
  * 后端 API-01 的字段路径有两套形态：压缩组用**组内相对路径**（`snip.max_groups`），其余分组
  * 带分组前缀（`task.max_attempts`）。API-02 提交的是**整份分组文档**，所以保存前要把扁平值
  * 还原成嵌套结构——本模块是这层转换的唯一落点，组件与 hook 不重复实现。
  */
 
-import type { SettingsGroupMeta, SettingsValues } from './types';
+import type { SettingsFieldMeta, SettingsGroupMeta, SettingsValues } from './types';
 
 /** 该分组在扁平路径里使用的前缀（压缩组不带前缀）。 */
 function groupPrefix(groupKey: string): string {
@@ -75,4 +75,39 @@ export function isDirty(base: SettingsValues, current: SettingsValues): boolean 
     }
   }
   return false;
+}
+
+/** 字段错误定位结果：错误路径命中的分组与字段（控件）。 */
+export interface FieldLocation {
+  group: SettingsGroupMeta;
+  field: SettingsFieldMeta;
+}
+
+/**
+ * 把后端 `details[].path` 解析到具体控件（E-11：错误落到字段行，不整页报错）。
+ *
+ * 两种形态都要认：字段路径（`webchat.upload_max_bytes`）直接命中；压缩组（compaction）的字段
+ * 路径是组内相对路径（`summary.model_ref`），而跨字段校验错误可能带分组前缀
+ * （`compaction.summary.model_ref`，见 `muad_contracts.platform_settings._validate_summary_model_ref`），
+ * 此时按分组前缀归一化后再匹配。解析不到返回 null——不猜、不把错误挂到别的字段上。
+ */
+export function locateField(groups: SettingsGroupMeta[], path: string): FieldLocation | null {
+  for (const group of groups) {
+    const field = group.fields.find((candidate) => candidate.path === path);
+    if (field) {
+      return { group, field };
+    }
+  }
+  for (const group of groups) {
+    const prefix = `${group.key}.`;
+    if (!path.startsWith(prefix)) {
+      continue;
+    }
+    const relative = path.slice(prefix.length);
+    const field = group.fields.find((candidate) => candidate.path === relative);
+    if (field) {
+      return { group, field };
+    }
+  }
+  return null;
 }

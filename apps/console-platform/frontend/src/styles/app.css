@@ -1403,6 +1403,14 @@ body {
   gap: 8px;
 }
 
+/* 生效说明（effect_key）：字段级的操作边界，只读展示 */
+.settings-field-effect {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--semi-color-text-2);
+}
+
 .settings-field-error {
   grid-column: 1 / -1;
   font-size: 12px;

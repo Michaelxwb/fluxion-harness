@@ -22,6 +22,7 @@ import { SettingsGroupPanel } from '../components/SettingsGroupPanel';
 import { SettingsHeader } from '../components/SettingsHeader';
 import { SettingsNotice } from '../components/SettingsNotice';
 import { VersionHistoryPanel } from '../components/VersionHistoryPanel';
+import { locateField } from '../formValues';
 import { usePlatformSettings } from '../hooks/usePlatformSettings';
 import type { SettingsGroupMeta } from '../types';
 
@@ -74,17 +75,15 @@ export function SettingsPage() {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const state = usePlatformSettings();
 
-  // 单面板布局下，保存失败的字段错误必须可见：自动切到第一个出错字段所在的分组。
+  // 单面板布局下，保存失败的字段错误必须可见：按错误路径定位到控件所在分组并切过去。
   useEffect(() => {
     const firstPath = Object.keys(state.errors)[0];
     if (!firstPath) {
       return;
     }
-    const owner = state.groups.find((group) =>
-      group.fields.some((field) => field.path === firstPath)
-    );
+    const owner = locateField(state.groups, firstPath);
     if (owner) {
-      setActiveKey(owner.key);
+      setActiveKey(owner.group.key);
     }
   }, [state.errors, state.groups]);
 
