@@ -6485,7 +6485,7 @@
       "kind": "functional",
       "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
       "owner": "TASK-075",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -6495,7 +6495,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-275",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "fa1a2d0ba631433c927c3ad1064fa577",
+        "executed_at": "2026-10-18T17:58:42.547996+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_capacity_webchat_token_access_ui.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "315f49456aaca41acc2b6b6828f99233172b891c6468708cd8e6838f2e6dac28"
+      },
+      "runs": [
+        {
+          "id": "B-275",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "fa1a2d0ba631433c927c3ad1064fa577",
+          "executed_at": "2026-10-18T17:58:42.547996+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_capacity_webchat_token_access_ui.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "315f49456aaca41acc2b6b6828f99233172b891c6468708cd8e6838f2e6dac28"
+        }
+      ]
     },
     {
       "id": "B-276",

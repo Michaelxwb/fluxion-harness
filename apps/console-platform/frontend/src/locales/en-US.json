@@ -1363,5 +1363,21 @@
   "settings.effect.new_query": "Applies to subsequent history queries",
   "settings.effect.page_initialization": "Applies when opening or refreshing the chat page",
   "settings.effect.new_connection": "Applies to new connections; current connections retain their parameters until closed",
-  "settings.effect.next_cleanup": "Applies at the next cleanup; active references and unresolved delivery receipts remain protected"
+  "settings.effect.next_cleanup": "Applies at the next cleanup; active references and unresolved delivery receipts remain protected",
+  "chat.tokenAccess.title": "Enter chat",
+  "chat.tokenAccess.subtitle": "Paste the chat token issued by an administrator. The chat entry needs no registration, password, or admin account.",
+  "chat.tokenAccess.tokenLabel": "Chat token",
+  "chat.tokenAccess.tokenPlaceholder": "Paste chat token",
+  "chat.tokenAccess.submit": "Enter chat",
+  "chat.tokenAccess.submitting": "Verifying…",
+  "chat.tokenAccess.error.UNAUTHORIZED": "Your chat session is no longer valid. Enter a valid token again.",
+  "chat.tokenAccess.error.CHAT_SESSION_EXPIRED": "Your chat session has expired. Enter a valid token again.",
+  "chat.tokenAccess.error.CHAT_SESSION_REVOKED": "Your chat session has been revoked. Contact an administrator to enter chat again.",
+  "chat.tokenAccess.error.CHAT_TOKEN_INVALID": "The chat token is invalid. Contact an administrator for a valid token.",
+  "chat.tokenAccess.error.CHAT_TOKEN_EXPIRED": "The chat token has expired. Contact an administrator for a new token.",
+  "chat.tokenAccess.error.CHAT_TOKEN_REVOKED": "The chat token has been revoked. Contact an administrator for a new token.",
+  "chat.tokenAccess.error.AUTH_CONTEXT_CHANGED": "The current chat identity has changed. Enter a token again to continue.",
+  "chat.tokenAccess.error.CHAT_AUTH_RATE_LIMITED": "Too many chat authentication requests. Please try again later.",
+  "chat.tokenAccess.error.NETWORK_ERROR": "Network error. Verification did not complete. Please try again.",
+  "chat.tokenAccess.errorFallback": "Could not enter chat. Try again or contact an administrator."
 }

@@ -1363,5 +1363,21 @@
   "settings.effect.new_query": "后续历史查询生效",
   "settings.effect.page_initialization": "重新打开或刷新聊天页面后生效",
   "settings.effect.new_connection": "新连接生效，当前连接关闭前保留原参数",
-  "settings.effect.next_cleanup": "下次清理生效；仍在使用的数据和待核实投递回执受保护"
+  "settings.effect.next_cleanup": "下次清理生效；仍在使用的数据和待核实投递回执受保护",
+  "chat.tokenAccess.title": "进入聊天",
+  "chat.tokenAccess.subtitle": "请粘贴管理员交付的聊天 Token；聊天入口不需要注册、密码或管理账号。",
+  "chat.tokenAccess.tokenLabel": "聊天 Token",
+  "chat.tokenAccess.tokenPlaceholder": "粘贴聊天 Token",
+  "chat.tokenAccess.submit": "进入聊天",
+  "chat.tokenAccess.submitting": "正在验证…",
+  "chat.tokenAccess.error.UNAUTHORIZED": "聊天登录已失效，请重新输入有效 Token",
+  "chat.tokenAccess.error.CHAT_SESSION_EXPIRED": "聊天登录已过期，请重新输入有效 Token",
+  "chat.tokenAccess.error.CHAT_SESSION_REVOKED": "聊天登录已撤销，请联系管理员重新进入",
+  "chat.tokenAccess.error.CHAT_TOKEN_INVALID": "聊天 Token 无效，请联系管理员获取有效 Token",
+  "chat.tokenAccess.error.CHAT_TOKEN_EXPIRED": "聊天 Token 已过期，请联系管理员获取新 Token",
+  "chat.tokenAccess.error.CHAT_TOKEN_REVOKED": "聊天 Token 已撤销，请联系管理员获取新 Token",
+  "chat.tokenAccess.error.AUTH_CONTEXT_CHANGED": "当前聊天身份已变化，请重新输入 Token 进入",
+  "chat.tokenAccess.error.CHAT_AUTH_RATE_LIMITED": "进入聊天的请求过于频繁，请稍后重试",
+  "chat.tokenAccess.error.NETWORK_ERROR": "网络异常，未能完成验证，请重试",
+  "chat.tokenAccess.errorFallback": "未能进入聊天，请重试或联系管理员"
 }
