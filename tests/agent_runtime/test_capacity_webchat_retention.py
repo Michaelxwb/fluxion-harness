@@ -165,6 +165,14 @@ async def retention_ctx(tenant: TenantContext, retention_root: Path) -> AsyncIte
         yield RetentionContext(tenant=tenant, root=retention_root)
     finally:
         async with get_session_factory()() as session:
+            # 本用例自建的制品/暂存行必须按 PURGE_ORDER 清理：`channel_upload`/`artifact`
+            # 不在套件 CLEANUP_ORDER 里，不清理会让整跑读到过期暂存行（TASK-053 的全局计数
+            # 用例据此判红——单跑绿、串跑红）。
+            for table in PURGE_ORDER:
+                await session.execute(
+                    sa.text(f"DELETE FROM runtime.{table} WHERE tenant_id = :tenant_id"),
+                    {"tenant_id": tenant.tenant_id},
+                )
             for table in CONTROL_PURGE_ORDER:
                 await session.execute(
                     sa.text(f"DELETE FROM control.{table} WHERE tenant_id = :tenant_id"),
