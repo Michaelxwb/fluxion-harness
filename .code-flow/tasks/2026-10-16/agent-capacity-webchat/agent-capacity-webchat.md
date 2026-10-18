@@ -415,7 +415,7 @@
 | B-273 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-073 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_services.py"] | . | 300 |  |
 | B-274 | agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-074 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_auth_state.py"] | . | 300 |  |
 | B-275 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-075 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_token_access_ui.py"] | . | 300 |  |
-| B-276 | agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-076 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_client_config_state.py"] | . | 300 |  |
+| B-276 | agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-076 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_client_config_state.py"] | . | 300 |  |
 | B-277 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-077 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_route.py"] | . | 300 |  |
 | B-278 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-078 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_conversation_state.py"] | . | 300 |  |
 | B-279 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.7 样式方案, agent-capacity-webchat.frontend.design.md#3.8 可访问性 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-079 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_history_sidebar.py"] | . | 300 |  |
@@ -453,6 +453,22 @@
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
 
 ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4764,7 +4780,7 @@ restore/显式exchange singleflight，退出/切主体停流并清消息/草稿/
 
 ## TASK-076: 客户端配置加载与版本化消费
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-057, TASK-073
 - **Source**: agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -4779,25 +4795,43 @@ restore/显式exchange singleflight，退出/切主体停流并清消息/草稿/
 
 ### Checklist
 
-- [ ] [B-276][integration] 先在`tests/frontend/test_capacity_webchat_client_config_state.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：认证后加载API-19再开放发送/上传/订阅。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-276] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-276] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_client_config_state.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-276][integration] 先在`tests/frontend/test_capacity_webchat_client_config_state.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：认证后加载API-19再开放发送/上传/订阅。RED：`uv run pytest -q tests/frontend/test_capacity_webchat_client_config_state.py` exit=1，**3 failed + 5 errors + 1 passed（0.18s）**——5 条真实 node 用例在 fixture 阶段 error（esbuild 打包入口 import 缺失 `modules/webchat/clientConfig.ts`），3 条源码契约用例断言 `缺少前端文件：.../modules/webchat/clientConfig.ts` 与 `.../modules/webchat/hooks/useClientConfig.ts`（字段名对照用例只读已存在的 contracts/types，RED 期即通过）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `modules/webchat/clientConfig.ts`（新增）——`createClientConfigService`：`idle/loading/ready/failed` 状态与按引用缓存的快照（`useSyncExternalStore` 语义）；`load()` singleflight（并发合并为一次 API-19、已就绪幂等）、`retry()` 失败后独立重试（已就绪且无错时幂等防按钮风暴）、`reload()` 强制重读有效版本（刷新期间保持已就绪不关闭能力，失败保留最后已验证投影并留稳定码，绝不回落猜测默认）；`parseClientConfig` 严格校验必需字段类型/单位/边界（坏投影 `CLIENT_CONFIG_INVALID`）并整体 `Object.freeze`（消费方不能反向改写唯一来源）；`ready()`/`capabilities()`（send/upload/subscribe 三项由 `loadState` 派生）/`limits()`/`transportConfig()`/`newConnectionConfig()`（未就绪 `CLIENT_CONFIG_NOT_READY`，不返回默认值）；`reset()` 清空投影并递增 epoch，身份边界之后完成的加载/失败按 epoch fence。② `modules/webchat/hooks/useClientConfig.ts`（新增）——`useMemo` 建 service、`useSyncExternalStore` 订阅快照、`registerIdentityCleanup` 在身份边界清空投影（卸载注销）、只在认证态（state+generation 变化）`load({signal: identitySignal()})`，只做接线、不自动重试。
+- [x] [B-276] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-276] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_client_config_state.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**9 passed（0.21–0.24s，多轮稳定）**。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-276 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 认证后加载API-19再开放发送/上传/订阅；失败独立重试不重交换，单位/边界由投影确定、不复制默认；新连接绑transportRevision，旧流参数不突变 | tests/frontend/test_capacity_webchat_client_config_state.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_client_config_state.py"] | planned |
+| B-276 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 认证后加载API-19再开放发送/上传/订阅；失败独立重试不重交换，单位/边界由投影确定、不复制默认；新连接绑transportRevision，旧流参数不突变 | tests/frontend/test_capacity_webchat_client_config_state.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_client_config_state.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+> RED/GREEN 与断言位置如下。真实边界：真实 `modules/webchat/clientConfig.ts` + 真实认证状态机 `authenticationState.ts`（身份边界清理的登记方）+ 真实模块 service `services/webchatApi.ts` + 真实 typed DTO `types.ts` + 真实共享传输（`src/api/client.ts` 的 axios 实例与拦截器、`src/api/authScope.ts` 的 CHAT 域接缝、`src/api/stream.ts` 的 `openReplyStream`）由仓库内 esbuild 打成真实 ESM 编译产物，由真实 node v24 执行（HTTP 经真实 axios 实例的 adapter 观测方法/URL/体/头；SSE 以真实 `ReadableStream` 字节帧驱动）。E2E 保持 planned，最终 verify-e2e 记录完整证据。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-276 | `uv run pytest -q tests/frontend/test_capacity_webchat_client_config_state.py` exit=1，**3 failed + 5 errors + 1 passed（0.18s）**：5 条 node 用例 fixture 阶段 error（esbuild 入口 import 缺失 `modules/webchat/clientConfig.ts`），3 条源码契约用例断言缺少 `clientConfig.ts`/`hooks/useClientConfig.ts` | 同命令 exit=0，**9 passed in 0.21–0.24s** | ① `test_b276_config_loads_only_after_authentication_and_gates_send_upload_subscribe` L776-839：认证前 idle/投影全 null/`ready=false`/三项能力全关/`limits`·`transportConfig`·`newConnectionConfig` 均 `CLIENT_CONFIG_NOT_READY`；请求顺序恰 `POST /webchat/auth/exchange` → `GET /webchat/client-config`（1 交换 + 1 配置）；loading 态不提前开放能力；`limits` 逐项等于投影（17/4096/12345678/3/2.5）、`transport`（512/3.5/111/222/1）、连接配置 `rev-a-276`+`settings_revision 37`；就绪后重复 `load()` 零新请求；配置请求无参无体且携带验证上下文 `CONTEXT_A`+`muad_chat_csrf`+locale/requestId。② `test_b276_failed_load_retries_independently_without_exchanging_or_resending` L841-889：500 `INTERNAL_ERROR` → `failed`+投影全空+能力全关；两个 tick 后请求数不变（无自动重试）；`retry()` → `ready`（配置 GET=2、交换 POST=1、写 POST=1，零重交换零重发）；刷新失败保留 `rev-a-276`+错误码且能力仍开放（`history_page_size==17` 是投影事实而非默认）、再刷新成功换 `rev-b-276`+`reconnect_max_attempts==3`（总 GET=4、总交换=1、总写=1）。③ `test_b276_invalid_projection_fails_explicitly_without_frontend_defaults` L891-913：空 `transport_revision` 与 `sse_event_max_bytes=0` 均 `CLIENT_CONFIG_INVALID`+投影全空+未就绪消费失败。④ `test_b276_projection_units_drive_consumers_and_new_connections_rebind_the_revision` L915-969：投影整体冻结（`mutationBlocked==true`，改写被拒后 `newConnectionConfig()` 仍 `rev-a-276`/attempts 1）；真实 `openReplyStream` 用投影 A：`transportRevision=rev-a-276`、600 字节帧被投影的 512 字节预算拒收（`failed/FRAME_TOO_LARGE`）、连接数 2 = 投影 attempts(1)+1；`reload()` 后活跃连接 revision 不突变，新连接绑定 `rev-b-276` 且同帧一次解析成功（`delta`+`terminal`、正文 600 字）、reload 后零写 POST。⑤ `test_b276_identity_boundary_clears_the_projection_and_fences_late_loads` L971-1025：边界前已有 `rev-a-276` 已验证投影且刷新期间能力不关闭；真实 `logout` 边界 → `idle` 全 null + 身份信号已中止 + 该边界恰 1 次清理；带信号迟到响应保持 idle；切主体后重新加载 `rev-b-276`（新上下文 `CONTEXT_B`）；**无信号**迟到响应（取消不兜底）仍被 epoch fence 保持 idle，两次边界各只清一次（总 GET=4）。⑥ `test_client_config_module_keeps_the_projection_as_the_only_source` L1027-1077：模块源码契约（typed DTO+模块 service 稳定码；无认证/写能力、无裸 axios/fetch、无传输头、无持久存储、无定时器、无 `console.`、无 `any`；投影字段无默认数值/无 `?? <number>`、无 schema 默认字面量）。⑦ `test_client_config_consumes_the_exact_projected_field_names` L1079-1104：前端三个 DTO 的字段集合与 `muad_contracts.webchat` 白名单投影逐一相等。⑧ `test_use_client_config_hook_only_wires_the_service_to_react_and_identity` L1106-1142：hook 只接线（`useSyncExternalStore`+`createClientConfigService`+`registerIdentityCleanup`→`service.reset()`+卸载注销+`state !== 'authenticated'` 才加载+`identitySignal()`），无裸 HTTP/头/存储/定时器/`any`/默认值。⑨ `test_use_client_config_hook_compiles_to_a_real_typescript_artifact` L1144-1168：真实 esbuild 编译 hook exit 0，产物含 `useClientConfig` 且无测试凭据 | 真实 esbuild 把 `clientConfig.ts`+`authenticationState.ts`+`services/webchatApi.ts`+`types.ts`+`src/api/client.ts`/`authScope.ts`/`stream.ts`（含真实 axios/i18next/React 依赖链）打成 ESM，真实 node v24 执行；观测真实 axios 实例经 adapter 实际发出的方法/URL/参数/体/头、真实 `openReplyStream` 的停止原因与连接次数/`transportRevision`、真实认证状态机的身份边界与 `registerIdentityCleanup` 时序。`@douyinfe/semi-ui` 只被别名成可观测 Toast 记录器（展示依赖）；不触 HTTP/DB/浏览器，DOM/React 交互按契约留给 E2E（S-101/E-105，TASK-112） | verified |
+
+实现要点：**唯一来源**——业务上限/传输参数只来自 API-19 白名单投影，模块内不出现任何 schema 默认值（源码契约钉死默认字面量与 `?? <number>` 兜底）；坏投影（缺字段/空 revision/零预算）显式 `CLIENT_CONFIG_INVALID` 并清空半份投影，未就绪时消费接缝抛 `CLIENT_CONFIG_NOT_READY`，绝不返回前端猜测配置。**能力门由状态派生**——`ready()`/`capabilities()` 只由 `loadState` 计算，发送/上传/订阅三项同源，页面不需要各自判断。**版本化消费**——`newConnectionConfig()` 返回整体冻结的当前已验证投影，新连接据此绑定 `transport_revision` 与冻结参数；`reload()` 成功才原子替换，活跃连接持有旧对象不变（旧流参数不突变），刷新失败保留最后已验证版本 + 稳定码而不丢服务端事实。**加载边界**——`load()` singleflight、`retry()` 只重发 API-19（结构上无交换/写能力）、`reset()` 清空并递增 epoch（边界之后完成的加载/失败被 fence，取消不再兜底也挡得住）。
+
+回归（本机无 dev/测试残留进程）：`uv run pytest -q tests/frontend` exit=0，**439 passed in 1.55s**（含本任务 9 条与 TASK-071/072/073/074 的 capacity_webchat 用例）；`npx tsc --noEmit`（apps/console-platform/frontend）exit=0 无输出；继承 verifier `harness-frontend#RULE-front-001`（stage: review；唯一责任 TASK-071）exit=0——`tests/frontend/test_api_client_contract.py` 4 passed、`check_frontend_api_usage.py`「frontend api usage check OK」、`check_frontend_i18n.py`「i18n keys OK: 1365」（零新增词条）、`npm run typecheck` 无输出。`uv run ruff check tests/frontend/test_capacity_webchat_client_config_state.py apps/console-platform/frontend/src/modules/webchat`「All checks passed!」；`.venv/bin/python -m py_compile` 通过；esbuild+acorn AST 逐函数核对：本任务生产函数全部 ≤50 行（无超限），无 `any`。变异校验（改后即还原）：删 `capabilities()` 的 ready 判定 → 3 条失败；删 epoch fence → 身份边界用例失败；`reset()` 不清投影 → 身份边界用例失败；投影不冻结 → 版本化用例失败；`load()` 去掉幂等守卫 → 认证后加载用例失败。
+
+未新增迁移/DDL，未动 `src/locales/*.json`（i18n 词条数不变 1365），无新增依赖。
+
+遗留（deferred，非本任务可闭合）：① React 渲染路径（订阅、卸载注销、认证态触发的加载时机）按契约留真实浏览器 E2E（S-101/E-105，TASK-112）；② 页面编排（何时 `retry()`/`reload()`、入口与会话选择与配置的组合）属 TASK-077/082；③ 消息分页/输入预检/轮询/重连的消费者接线属 TASK-078/080/081/082/084（本任务提供 `limits()`/`transportConfig()`/`newConnectionConfig()` 与能力门）；④ 系统设置页的字段元信息展示属 TASK-089；⑤ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「API-19 投影是前端上限唯一来源、组件不复制默认值；新连接绑定 `transport_revision`」；本任务不改 spec 文件以免 active context 漂移。
+- B-276: verified — automated command passed; run_id=3284e076f53f42f8a0786cd4d910432c (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] B-276 RED：新建 `tests/frontend/test_capacity_webchat_client_config_state.py` → exit=1，**3 failed + 5 errors + 1 passed**（node 用例 fixture 阶段 error：esbuild 入口 import 缺失 `modules/webchat/clientConfig.ts`；静态用例断言缺少 `clientConfig.ts`/`hooks/useClientConfig.ts`）
+- [2026-10-19] 实现 `modules/webchat/clientConfig.ts`（加载状态机/投影校验与冻结/能力门/版本化消费/身份边界 fence）+ `modules/webchat/hooks/useClientConfig.ts`（React 接线）；首轮断言逐项修正：身份边界用例的加载/清场/上下文观测位置（边界前先落地已验证投影、无信号迟到加载独立验证 epoch fence）、刷新失败语义（保留已验证版本 + 稳定码，不关闭能力）
+- [2026-10-19] B-276 GREEN：同命令 exit=0，**9 passed**（0.21–0.24s，多轮稳定）；`tests/frontend` 整跑 **439 passed in 1.55s**；RULE-front-001 verifier exit=0（4 passed / api usage OK / i18n 1365 / typecheck 无输出）；ruff 干净；AST 逐函数 ≤50 行；5 组变异校验均被对应用例捕获
+- [2026-10-19] completed (done)
 
 ---
 
