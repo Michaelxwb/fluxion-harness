@@ -41,6 +41,7 @@ from agent_worker.helpers import (
     create_schedule_payload,
     fetch_task,
     persist_task,
+    retry_safe_snapshot,
     sample_route,
 )
 
@@ -217,6 +218,7 @@ async def test_b212_worker_loop_increments_task_counters(tenant: TenantContext) 
             status="RUNNING",
             lease_owner="b212-dead",
             lease_until=now - timedelta(seconds=1),
+            execution_snapshot_json=retry_safe_snapshot(),
         )
         assert await worker.reclaim_expired(now=now) >= 1
         requeued = await fetch_task(tenant, expired.id)

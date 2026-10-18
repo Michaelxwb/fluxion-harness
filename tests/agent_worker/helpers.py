@@ -35,6 +35,15 @@ DELIVERED_ENVELOPE: dict[str, object] = {
 SNAPSHOT_HASH = "sha256:" + hashlib.sha256(b"snapshot").hexdigest()
 
 
+def retry_safe_snapshot() -> dict[str, Any]:
+    """带**冻结** retry_safety 的执行快照（B-234）。
+
+    自 2026-10-18 起未声明安全性的 Task 不再自动重试（未知按 NON_RETRYABLE）：只有
+    READ_ONLY/IDEMPOTENT 的冻结声明才可有界重试，重试机制用例据此显式声明。
+    """
+    return {"schema_version": 1, "budget": {"retry_safety": "IDEMPOTENT"}}
+
+
 def internal_service_headers(tenant_id: str | None = None, **extra: str) -> dict[str, str]:
     """内部业务路由的调用头：受信服务身份 + 租户（+ 可选 actor / 幂等键）。"""
     headers = {"X-Internal-Service": TEST_INTERNAL_SERVICE_TOKEN}

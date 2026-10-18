@@ -25,11 +25,17 @@ async def test_claim_and_reclaim_increment_metrics(tenant: TenantContext) -> Non
 
     from muad_agent_worker.worker.service import WorkerLoop
 
-    from agent_worker.helpers import persist_task
+    from agent_worker.helpers import persist_task, retry_safe_snapshot
 
     now = datetime.now(UTC)
     await persist_task(tenant)
-    await persist_task(tenant, status="RUNNING", lease_owner="dead", lease_until=now - timedelta(seconds=1))
+    await persist_task(
+        tenant,
+        status="RUNNING",
+        lease_owner="dead",
+        lease_until=now - timedelta(seconds=1),
+        execution_snapshot_json=retry_safe_snapshot(),
+    )
     claims, reclaims = value("task_claim_total"), value("task_reclaim_total")
     worker = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="metrics")
 

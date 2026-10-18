@@ -8,6 +8,7 @@ from enum import StrEnum
 from typing import Any
 
 from muad_agent_core.skill import SkillExecutionStatus
+from muad_contracts import ToolRetrySafety
 
 from .executor import TaskExecutionError
 
@@ -16,6 +17,8 @@ WAIT_KEY = "wait"
 RESULT_ARTIFACT_KEY = "result_artifact_id"
 #: Skill 结果不符合协议：**确定性**失败（同样的结果重跑多少次都一样），不消耗重试预算。
 SKILL_RESULT_INVALID = "SKILL_RESULT_INVALID"
+#: 结果待核实：无法确认远端副作用是否发生（响应丢失），不自动重做，保留现场等待核实。
+TASK_RESULT_UNVERIFIED = "TASK_RESULT_UNVERIFIED"
 
 
 class OutcomeKind(StrEnum):
@@ -34,6 +37,59 @@ class TaskOutcome:
     not_before: datetime | None = None
     error_code: str | None = None
     error_message: str = ""
+
+
+class FailureDisposition(StrEnum):
+    """一次失败的收尾裁决（design §3.6「重试与外部副作用」）。"""
+
+    RETRY = "RETRY"
+    FAILED = "FAILED"
+    UNVERIFIED = "UNVERIFIED"
+
+
+@dataclass(frozen=True, slots=True)
+class FailureOutcome:
+    disposition: FailureDisposition
+    error_code: str
+    error_message: str
+
+
+def classify_failure(
+    *,
+    retry_safety: ToolRetrySafety,
+    error_code: str,
+    error_message: str,
+    retryable: bool,
+) -> FailureOutcome:
+    """把一次执行失败归成显式收尾裁决。
+
+    - 确定性失败（`retryable=False`：快照缺失/协议违规/计划无效等）保持精确错误码直接终态，
+      重试本来就没有意义；
+    - 可重试形状的失败按**冻结的** retry_safety 分流：READ_ONLY/IDEMPOTENT 可有界重试
+      （幂等复用 Task 行恒定的 `idempotency_key`，由执行器经环境变量交给 Skill）；
+    - NON_RETRYABLE（含未声明/未知/非法取值，见 `frozen_retry_safety`）不得假定外部副作用
+      未发生：不自动重做，落 `TASK_RESULT_UNVERIFIED` 待核实，保留现场等人工/业务确认。
+    """
+    if not retryable:
+        return FailureOutcome(
+            disposition=FailureDisposition.FAILED,
+            error_code=error_code,
+            error_message=error_message,
+        )
+    if retry_safety is ToolRetrySafety.NON_RETRYABLE:
+        return FailureOutcome(
+            disposition=FailureDisposition.UNVERIFIED,
+            error_code=TASK_RESULT_UNVERIFIED,
+            error_message=(
+                "external side effect cannot be confirmed; result requires verification"
+                f" (original error: {error_code})"
+            ),
+        )
+    return FailureOutcome(
+        disposition=FailureDisposition.RETRY,
+        error_code=error_code,
+        error_message=error_message,
+    )
 
 
 def _invalid(detail: str) -> TaskExecutionError:

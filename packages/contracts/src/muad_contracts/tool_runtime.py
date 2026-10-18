@@ -1,6 +1,8 @@
 """Shared durable async-tool protocol. Credentials never belong in these DTOs."""
 
-from typing import Literal, Self
+from collections.abc import Mapping
+from enum import StrEnum
+from typing import Any, Literal, Self
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
@@ -10,6 +12,54 @@ from .enums import CompletionMode, RunStatus, TaskStatus, TerminalStatus, WaitRe
 
 MAX_TOOL_RESULT_BYTES = 256 * 1024
 SNAPSHOT_HASH_PATTERN = r"^sha256:[0-9a-f]{64}$"
+#: 冻结执行策略（Task execution snapshot 的 `budget`）中承载重试安全性的唯一键。
+RETRY_SAFETY_POLICY_KEY = "retry_safety"
+#: 不可信提示键：MCP readOnlyHint 等单独不能证明重试安全，解析永不读取。
+UNTRUSTED_RETRY_HINT_KEYS = ("readOnlyHint", "read_only_hint", "destructiveHint", "destructive_hint")
+
+
+class ToolRetrySafety(StrEnum):
+    """冻结的可信重试安全性（design §3.6「重试与外部副作用」）。
+
+    - READ_ONLY：只读操作，可有界重试；
+    - IDEMPOTENT：幂等操作，可重试但必须复用原 operation/business key；
+    - NON_RETRYABLE：未声明/未知/非幂等效果，响应丢失时结果待核实，不得自动重做。
+    """
+
+    READ_ONLY = "READ_ONLY"
+    IDEMPOTENT = "IDEMPOTENT"
+    NON_RETRYABLE = "NON_RETRYABLE"
+
+
+#: 未知/未声明/非法取值的保守默认：不得自动重做外部副作用。
+DEFAULT_TOOL_RETRY_SAFETY = ToolRetrySafety.NON_RETRYABLE
+
+
+def frozen_retry_safety(policy: Mapping[str, Any]) -> ToolRetrySafety:
+    """从**冻结执行策略**解析可信 retry_safety。
+
+    只认 `retry_safety` 一个键：MCP `readOnlyHint` 之类提示字段不参与解析，单独出现一律
+    NON_RETRYABLE（提示不能证明重试安全）；未知/非法取值同样回落 NON_RETRYABLE——保守方向
+    不抛错，把未知静默升级成「可重试」才是真正危险的行为。
+    """
+    value = policy.get(RETRY_SAFETY_POLICY_KEY)
+    if isinstance(value, ToolRetrySafety):
+        return value
+    if not isinstance(value, str):
+        return DEFAULT_TOOL_RETRY_SAFETY
+    try:
+        return ToolRetrySafety(value)
+    except ValueError:
+        return DEFAULT_TOOL_RETRY_SAFETY
+
+
+def task_retry_safety(snapshot: Mapping[str, Any]) -> ToolRetrySafety:
+    """Task execution snapshot → 冻结可信 retry_safety（`budget.retry_safety`）。
+
+    缺失/类型不对/未知取值都按 NON_RETRYABLE：Task 未声明安全性时不得假定外部副作用未发生。
+    """
+    budget = snapshot.get("budget")
+    return frozen_retry_safety(budget if isinstance(budget, Mapping) else {})
 
 
 class RuntimeOperationInput(BaseModel):

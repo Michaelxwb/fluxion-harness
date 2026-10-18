@@ -373,7 +373,7 @@
 | B-231 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-031 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_release.py"] | . | 300 |  |
 | B-232 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-032 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_slots.py"] | . | 300 |  |
 | B-233 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-033 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_slots.py"] | . | 300 |  |
-| B-234 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-034 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_retry_safety.py"] | . | 300 |  |
+| B-234 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-034 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_retry_safety.py"] | . | 300 |  |
 | B-235 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-035 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_clock_lease.py"] | . | 300 |  |
 | B-236 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-036 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_queue_projection.py"] | . | 300 |  |
 | B-237 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-037 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"] | . | 300 |  |
@@ -2363,7 +2363,7 @@ source_settings_revision只增不退，policy锁在会话锁之前；完整分�
 
 ## TASK-034: 外部副作用重试安全与结果待核实
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-033
 - **Source**: agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -2378,25 +2378,46 @@ READ_ONLY/IDEMPOTENT/NON_RETRYABLE由可信配置冻结；完整分支及可观�
 
 ### Checklist
 
-- [ ] [B-234][integration] 先在`tests/agent_worker/test_capacity_webchat_retry_safety.py`建立行为验收并记录RED；真实边界：真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针；关键断言：READ_ONLY/IDEMPOTENT/NON_RETRYABLE由可信配置冻结。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-234] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-234] 执行`["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_retry_safety.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-234][integration] 先在`tests/agent_worker/test_capacity_webchat_retry_safety.py`建立行为验收并记录RED；真实边界：真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针；关键断言：READ_ONLY/IDEMPOTENT/NON_RETRYABLE由可信配置冻结。→ RED：首建 `tests/agent_worker/test_capacity_webchat_retry_safety.py`（9 个行为用例，含 4 个参数化分支）→ `uv run pytest -q tests/agent_worker/test_capacity_webchat_retry_safety.py` → **1 error in 0.11s**（exit=2，收集期 `ImportError: cannot import name 'TASK_RESULT_UNVERIFIED' from 'muad_agent_worker.worker.execution_outcomes'`：契约面与失败分类实现尚不存在）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 实现落在 4 个文件（**超出计划 Files 的披露**）：`packages/contracts/src/muad_contracts/tool_runtime.py`（`ToolRetrySafety` + `frozen_retry_safety`/`task_retry_safety` 严格解析 + `RETRY_SAFETY_POLICY_KEY`/`UNTRUSTED_RETRY_HINT_KEYS`/`DEFAULT_TOOL_RETRY_SAFETY`）、`packages/contracts/src/muad_contracts/__init__.py`（导出）、`apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py`（`FailureDisposition`/`FailureOutcome`/`classify_failure` + `TASK_RESULT_UNVERIFIED`）、`apps/agent-worker/src/muad_agent_worker/worker/service.py`（`_handle_failure` 与 `_reclaim_terminal_change` 两处按冻结 retry_safety 分流；后者是崩溃回收路径，属实现必需，已披露）。改动函数行数：`frozen_retry_safety` 16、`task_retry_safety` 3、`classify_failure` 35、`_reclaim_terminal_change` 25、`_reclaim_task` 42、`_handle_failure` 31，均 ≤50。错误显式：未知/非法/未声明一律回落 NON_RETRYABLE（保守方向，不抛错也不静默升级为可重试）；凭据/原始内部内容不进日志（日志沿用既有低基数结构化字段，本任务未新增日志）。
+- [x] [B-234] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 9 个用例逐条对应契约（见 Acceptance Evidence 的断言位置列）
+- [x] [B-234] 执行`["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_retry_safety.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **9 passed in 18.72s**（exit=0，最终冻结版本）；判别性验证（两处变异先复现失败再还原）：去掉 `classify_failure` 的 NON_RETRYABLE 分流 → 5 failed；让 `frozen_retry_safety` 读取 `readOnlyHint` → 契约用例 + hint-only 集成用例 2 failed；去掉 `_reclaim_terminal_change` 的回收栅栏 → 回收用例 1 failed
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-234 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | READ_ONLY/IDEMPOTENT/NON_RETRYABLE由可信配置冻结；远端成功应答丢失复用业务键，未知非幂等效果不自动重做，MCP readOnlyHint不能单独授权重试 | tests/agent_worker/test_capacity_webchat_retry_safety.py | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_retry_safety.py"] | planned |
+| B-234 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | READ_ONLY/IDEMPOTENT/NON_RETRYABLE由可信配置冻结；远端成功应答丢失复用业务键，未知非幂等效果不自动重做，MCP readOnlyHint不能单独授权重试 | tests/agent_worker/test_capacity_webchat_retry_safety.py | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_retry_safety.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-234 | 首建 `tests/agent_worker/test_capacity_webchat_retry_safety.py`（9 个行为用例）→ `uv run pytest -q tests/agent_worker/test_capacity_webchat_retry_safety.py` → **1 error in 0.11s**（exit=2，收集期 `ImportError: cannot import name 'TASK_RESULT_UNVERIFIED'`） | 同命令 → **9 passed in 18.72s**（exit=0，最终冻结版本） | ①幂等应答丢失复用业务键 `test_b234_idempotent_retry_reuses_business_key_and_keeps_effect_once` L368-401：首次失败仍可重试 L382、第一次尝试已产生外部效果 L384-389、退避后重试 L390、外部效果恰一次 L394、结果携带原业务键 L396、重试先核查已存在结果 L397、两次核查同键 L398；②只读有界重试 `test_b234_read_only_failure_retries_within_the_budget` L409-432：L423/L428/L429（两次只读尝试、零外部写 L425/L430）；③非幂等/未知/仅提示不自动重做 `test_b234_non_retryable_effect_is_not_redone_and_stays_unverified`（参数化 declared-non-retryable / undeclared / unknown-value / mcp-read-only-hint-only）L450-477：FAILED 且 `TASK_RESULT_UNVERIFIED` L464-465、attempt 不推进 L466、无结果 L467、外部写恰一次 L469、无 RETRY 事件 L471、终态不被回收重排 L473-475；④冻结解析只认可信键 `test_b234_frozen_retry_safety_reads_only_the_trusted_key` L480-497：未声明/未知/非法 → NON_RETRYABLE L482/L485-486、提示单独不授权且不覆盖可信声明 L488-493、快照口径 L494-496；⑤崩溃回收同语义 `test_b234_crash_reclaim_requeues_only_retry_safe_tasks` L505-562：非重试安全崩溃 → FAILED/待核实不重排 L547-550、重试安全保持 TASK-033 退避重排 L552-554、BATCH 幂等停放照常重排 L556-558、终态不再回收 L559；⑥失约叫停同语义 `test_b234_lost_lease_keeps_unverified_outcome_and_is_not_requeued` L565-605：真实子进程已产生外部效果 L586-588、心跳死亡后 FAILED/待核实 L595-597、不得自动重做 L598、子进程随组回收 L599、回收不改变终态 L602-604 | 真实边界（不 mock 存储或租约）：隔离 PostgreSQL（空库 + `alembic upgrade head`，跑完即 drop，不触碰共享 dev 库）+ 隔离 Redis 号位；真实 `WorkerLoop`/`TaskClaimer` 领取、心跳、收尾、`reclaim_expired` 全走真实代码；真实 Skill 子进程（`SkillTaskExecutor` + `ScriptSkillExecutor`）用 `urllib` 对测试内真实 HTTP 服务（`_EffectProbe`，真实 socket）发起写/读，外部效果与业务键都在协议层记录；失约用例用真实 pid 文件 + `ps` 验证子进程随组回收 | verified |
+
+**实施范围与证据说明**
+
+- 契约面（TASK-037 的前置）：`retry_safety` 的冻结位置固定为 Task execution snapshot 的 `budget.retry_safety`（`RETRY_SAFETY_POLICY_KEY`）；`frozen_retry_safety` **只认这一个键**，MCP `readOnlyHint` 等提示字段永不参与解析，未知/未声明/非法取值一律 NON_RETRYABLE（`DEFAULT_TOOL_RETRY_SAFETY`）。TASK-037 负责在工具操作策略里**冻结**该值（本任务只定义解析/消费口径）。
+- Worker 语义：`classify_failure` 把失败归成 RETRY/FAILED/UNVERIFIED 三态——确定性失败（`retryable=False`，如快照缺失/协议违规）保持精确错误码终态；可重试形状的失败按冻结 retry_safety 分流，NON_RETRYABLE 落 `FAILED(TASK_RESULT_UNVERIFIED)` 待核实，不自动重做。`_handle_failure` 与 `_reclaim_terminal_change`（崩溃回收）共用同一口径：**回收不改变结局语义**——非重试安全的崩溃尝试不重排、不重跑；重试安全的崩溃任务保持 TASK-033 的退避重排；BATCH 父任务（`_batch_envelope` 幂等停放、扇出按 `(parent_id, item_key)` 唯一键去重）保持重排，避免聚合被误判为待核实。
+- 幂等复用：业务键就是 Task 行恒定的 `idempotency_key`（`executor.task_env` 经 `MUAD_TASK_IDEMPOTENCY_KEY` 交给 Skill，reclaim/重试间不变）；重试前由 Skill 核查外部结果（用例中真实 GET 探针 + `reused=True`）。
+- 既有用例同步（**不是放宽**）：未声明 retry_safety 的任务自本任务起不再自动重试，5 个「重试机制」用例 + 5 个「崩溃回收」用例的种子显式声明 `retry_safety=IDEMPOTENT`（新增共享夹具 `helpers.retry_safe_snapshot()`），断言本身未削弱；`test_reclaim_gives_up_after_max_attempts`（预算耗尽 → `TASK_ATTEMPTS_EXHAUSTED`）与取消/WAITING 分支不受影响。
+- 质量门：`uv run ruff check` 全部改动文件干净；`uv run mypy apps packages` **415 源文件无问题**；`docs/configuration-inventory.csv` 按真实行号同步（CRLF 保持、只改自己行），`tests/test_configuration_inventory.py` **4 passed**。
+- 回归：`uv run pytest -q tests/agent_worker` → **317 passed in 97.13s**（exit=0，含本任务 9 例）；`uv run pytest -q tests/contracts tests/test_configuration_inventory.py tests/test_async_tool_dispatch_settings.py tests/architecture/test_import_direction.py tests/migrations/test_runtime_wait_parity.py tests/console_skill/test_javascript_package.py tests/console_tasks` → **1323 passed in 11.33s**（exit=0）；`uv run pytest -q tests -k schema_parity` → **47 passed**（exit=0）。
+- 延后项（诚实记录）：`retry_safety` 的**冻结写入**（ToolRegistry → execution policy，含「未知默认 NON_RETRYABLE、readOnlyHint 不单独授权」的冻结面）属 TASK-037；E-15 的 E2E（真实 Worker 子进程 + PG claim/reclaim + 受控外部写服务）属 TASK-110；待核实状态的用户通知/投递文案属 TASK-063/068；指标目录属 TASK-098。本任务只交付契约、Worker 结局分类与回收分流。
+- 边界（诚实记录）：确定性失败（协议违规/快照缺失等）保持精确错误码，不落「待核实」——待核实只用于可重试形状的失败（响应丢失/失约/未知远端结果）。未声明 retry_safety 的既有存量任务（含 BATCH 父任务之外的所有类型）在崩溃回收与失败收尾时都按 NON_RETRYABLE 处理，这是设计「未知按 NON_RETRYABLE」的直接后果。
+- B-234: verified — automated command passed; run_id=8ecded3826ee4af7b5d491e848a7ccea (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-234 RED：首建 `tests/agent_worker/test_capacity_webchat_retry_safety.py`（9 个行为用例）→ **1 error in 0.11s**（收集期 ImportError，契约面/分类实现尚不存在）
+- [2026-10-18] 实现：契约 `ToolRetrySafety` + `frozen_retry_safety`/`task_retry_safety`（只认可信键、未知一律 NON_RETRYABLE、提示不授权）；Worker `classify_failure`（RETRY/FAILED/UNVERIFIED）+ `TASK_RESULT_UNVERIFIED`；`_handle_failure` 与 `_reclaim_terminal_change` 按冻结 retry_safety 分流（回收不改变结局语义；BATCH 幂等停放保持重排）；既有 10 个用例种子显式声明 IDEMPOTENT（`helpers.retry_safe_snapshot()`，断言未削弱）
+- [2026-10-18] B-234 GREEN：**9 passed in 18.72s**（exit=0，最终冻结版本）；两处变异（去 NON_RETRYABLE 分流 / 读 readOnlyHint / 去回收栅栏）先复现失败再还原
+- [2026-10-18] 回归：`tests/agent_worker` **317 passed in 97.13s**；`tests/contracts`+inventory+同域聚焦 **1323 passed in 11.33s**；`tests -k schema_parity` **47 passed**；ruff 改动文件干净；mypy 415 文件无问题；inventory 4 passed
+- [2026-10-18] completed (done)
+
 
 ---
 
