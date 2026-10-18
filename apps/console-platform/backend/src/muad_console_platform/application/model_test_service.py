@@ -8,50 +8,18 @@ from typing import Any
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.models.control import ModelCredential, ModelDefinition
+from ..infrastructure.models.control import ModelDefinition
 from ..infrastructure.repositories.model_deployment_repository import ModelDeploymentRepository
 from ..infrastructure.repositories.model_repository import ModelRepository
-
-PROBE_TIMEOUT_SEC = 5.0
-PROBE_CONCURRENCY = 4
-CHAT_PROBE_PATH = "/chat/completions"
-MODELS_PATH = "/models"
-
-
-async def _probe(
-    client: httpx.AsyncClient, model: ModelDefinition, credential: ModelCredential
-) -> tuple[str, str | None]:
-    """真实探测：连接与密钥取**成员凭据**（执行入口唯一权威），输出预算固定 1。"""
-    headers = {"Authorization": f"Bearer {credential.api_key}"}
-    base = credential.base_url.rstrip("/")
-    try:
-        response = await client.get(f"{base}{MODELS_PATH}", headers=headers)
-        if response.status_code in (404, 405):
-            response = await client.post(
-                f"{base}{CHAT_PROBE_PATH}",
-                headers=headers,
-                json={
-                    "model": model.model_id,
-                    "messages": [{"role": "user", "content": "ping"}],
-                    "max_tokens": 1,
-                },
-            )
-    except httpx.TimeoutException:
-        return "FAILED", "MODEL_UNAVAILABLE"
-    except httpx.TransportError:
-        return "FAILED", "MODEL_UNAVAILABLE"
-
-    if 200 <= response.status_code < 300:
-        return "AVAILABLE", None
-    if response.status_code in (401, 403):
-        return "FAILED", "CREDENTIAL_MISSING"
-    if response.status_code >= 500:
-        return "FAILED", "MODEL_UNAVAILABLE"
-    return "FAILED", "COMMON_INTERNAL_ERROR"
+from .model_probe_service import PROBE_CONCURRENCY, PROBE_TIMEOUT_SEC, probe_model_endpoint
 
 
 class ModelTestService:
-    """批量测试：Console 侧 OpenAI 兼容探测，只更新测试状态，不触碰 revision。"""
+    """批量测试：Console 侧 OpenAI 兼容探测，只更新测试状态，不触碰 revision。
+
+    探测原语与物理 Key 检测（`ModelProbeService`）共用同一份实现：401/超时/传输错误的映射
+    只有一处口径，两处不会漂移。
+    """
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -77,8 +45,10 @@ class ModelTestService:
                     # 没有可用成员就没有执行入口：不发请求，如实报 CREDENTIAL_MISSING
                     return self._entry(model.id, "FAILED", "CREDENTIAL_MISSING", started)
                 async with semaphore:
-                    status, error_code = await _probe(client, model, credential)
-                return self._entry(model.id, status, error_code, started)
+                    probe = await probe_model_endpoint(
+                        client, model_id=model.model_id, credential=credential
+                    )
+                return self._entry(model.id, probe.status, probe.error_code, started)
 
             results = list(await asyncio.gather(*(run(model) for model in models)))
 

@@ -30,11 +30,13 @@ from muad_contracts.model_pool import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
+from ..application.dto import ModelCredentialProbeRequest
 from ..application.model_credential_service import ModelCredentialService
+from ..application.model_probe_service import ModelProbeService
 from ..application.model_quota_service import ModelQuotaGroupService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.control import ModelCredential, ModelQuotaGroup
-from .deps import AccountTenantId, AdminAccount, get_source_ip
+from .deps import AccountTenantId, AdminAccount, ProbeCapacityClientDep, get_source_ip
 
 TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -139,6 +141,23 @@ async def delete_credential(
         tenant_id, credential_id, _actor(account, request)
     )
     return ok(request.app.state.message_catalog, {"id": str(credential_id), "deleted": True})
+
+
+@router.post("/test")
+async def test_credential_targets(
+    payload: ModelCredentialProbeRequest,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    capacity: ProbeCapacityClientDep,
+) -> ApiResponse[Any]:
+    """物理 Key 检测（API-16 检测面）：先经受信容量端口占额，再由 Console 发起 HTTP 探测。
+
+    只探测被点名的 (model_id, credential_id)：不自动遍历模型×Key，也不把单个成员的成功
+    展示为整池健康（逐项结果 + 不改逻辑模型 `last_test_status`）。
+    """
+    items = await ModelProbeService(session, capacity).probe(tenant_id, payload.targets)
+    return ok(request.app.state.message_catalog, {"items": [item.to_payload() for item in items]})
 
 
 def _quota_item(group: ModelQuotaGroup) -> dict[str, Any]:

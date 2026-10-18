@@ -14,6 +14,7 @@ from ..application.artifact_fetch_service import ArtifactFetchService, ArtifactR
 from ..application.artifact_fetch_tokens import ArtifactFetchTokens, configured_ttl_sec
 from ..application.auth_service import AuthService, ResolvedConsoleSession
 from ..application.mcp_ports import McpCatalogCache, NullMcpCatalogCache
+from ..application.model_probe_service import ProbeCapacityClient
 from ..application.platform_adapter_service import build_default_registry
 from ..application.platform_ports import NullPlatformSessionInvalidator, PlatformSessionInvalidator
 from ..infrastructure.db import get_session_factory
@@ -142,6 +143,37 @@ def get_runtime_memory_client(request: Request) -> RuntimeMemoryClient:
 
 
 RuntimeMemoryClientDep = Annotated[RuntimeMemoryClient, Depends(get_runtime_memory_client)]
+
+
+def get_probe_capacity_client(request: Request) -> ProbeCapacityClient:
+    """Console → Runtime 受信容量端口（API-17）的共享客户端（按进程缓存，测试可覆盖）。
+
+    探测必须先占额再发 HTTP；配置不齐时在这里**明确报错**并留下指名日志，不放行一个必然被
+    403 拒绝的裸请求——那看起来像权限问题，实际是部署缺配置。
+    """
+    client: ProbeCapacityClient | None = getattr(request.app.state, "probe_capacity_client", None)
+    if client is None:
+        settings = SharedSettings()
+        missing = [
+            name
+            for name, value in (
+                ("AGENT_RUNTIME_URL", settings.agent_runtime_url),
+                ("INTERNAL_SERVICE_TOKEN", settings.internal_service_token),
+            )
+            if not value
+        ]
+        if missing:
+            logger.warning("probe_capacity_client_unconfigured missing=%s", ",".join(missing))
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        client = ProbeCapacityClient(
+            settings.agent_runtime_url,
+            service_token=settings.internal_service_token,
+        )
+        request.app.state.probe_capacity_client = client
+    return client
+
+
+ProbeCapacityClientDep = Annotated[ProbeCapacityClient, Depends(get_probe_capacity_client)]
 
 
 def get_adapter_registry(request: Request) -> "PlatformAdapterRegistry":

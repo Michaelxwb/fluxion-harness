@@ -367,7 +367,7 @@
 | B-225 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-025 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
 | B-226 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-026 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | . | 300 |  |
 | B-227 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-027 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"] | . | 300 |  |
-| B-228 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-028 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_probe.py"] | . | 300 |  |
+| B-228 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-028 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_probe.py"] | . | 300 |  |
 | B-229 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-029 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_policy.py"] | . | 300 |  |
 | B-230 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-030 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_create.py"] | . | 300 |  |
 | B-231 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-031 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_release.py"] | . | 300 |  |
@@ -2012,7 +2012,7 @@ API-17只接受受信probe身份、正确attempt/epoch与期限；完整分支�
 
 ## TASK-028: 物理Key检测保持Console侧HTTP实现
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-016, TASK-018, TASK-019, TASK-027
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -2027,25 +2027,44 @@ API-17只接受受信probe身份、正确attempt/epoch与期限；完整分支�
 
 ### Checklist
 
-- [ ] [B-228][integration] 先在`tests/console_platform/test_capacity_webchat_console_probe.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：至多50个model/credential对、并发≤4、单次≤5秒。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-228] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-228] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_probe.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-228][integration] 先在`tests/console_platform/test_capacity_webchat_console_probe.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：至多50个model/credential对、并发≤4、单次≤5秒。→ RED：首建 7 个行为用例后 `uv run pytest -q tests/console_platform/test_capacity_webchat_console_probe.py` → **1 error in 1.35s**（exit=4，`ImportError: cannot import name 'get_probe_capacity_client' from 'muad_console_platform.api.deps'`；新实现模块与受信容量客户端尚不存在）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 新增 `application/model_probe_service.py`（探测原语 + API-17 客户端 + 检测编排，最长函数 33 行）+ `api/model_resources.py` 的 `POST /api/v1/model-credentials/test`（ADMIN 组）+ `application/dto.py` 两个请求 DTO + `api/deps.py` 共享客户端；`model_test_service.py` 改为复用同一探测原语（401/超时/回退映射只有一处口径）；ruff 逐文件干净、`mypy apps packages` 411 源文件无问题；响应/日志不含密钥（测试断言 `GOOD_KEY`/`BAD_KEY` 不进响应）
+- [x] [B-228] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 8 个用例逐条对应契约 6 条断言（见 Acceptance Evidence）
+- [x] [B-228] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_probe.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **8 passed in 16.72s**（exit=0）；复跑全绿（7 passed 14.48s / 8 passed 16.72s）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-228 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 至多50个model/credential对、并发≤4、单次≤5秒；先占额再由Console探测，单成员成功不伪称整池健康，不改配置revision/计费审计 | tests/console_platform/test_capacity_webchat_console_probe.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_probe.py"] | planned |
+| B-228 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 至多50个model/credential对、并发≤4、单次≤5秒；先占额再由Console探测，单成员成功不伪称整池健康，不改配置revision/计费审计 | tests/console_platform/test_capacity_webchat_console_probe.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_probe.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-228 | 首建 `tests/console_platform/test_capacity_webchat_console_probe.py`（7 个行为用例）→ `uv run pytest -q tests/console_platform/test_capacity_webchat_console_probe.py` → **1 error in 1.35s**（exit=4，collection `ImportError`：`get_probe_capacity_client` 与探测服务模块均不存在） | 同命令 → **8 passed in 16.72s**（exit=0；先 7 passed 14.48s，补「容量端口不可达」用例后 8 passed）；finish 前复跑全绿 | 先占额再探测与合并计量 `test_b228_probe_reserves_shared_key_and_reports_member_scope_only` L453-552（真实 HTTP 只打 `/v1/models` 且授权头为成员 Key L485-486；租约 `workload=PROBE`/`lease_owner=console-probe`/`probe_id` 非空/`SETTLED` L489-494；同一 `key_resource_id` 行结算后 inflight=0、窗口计 1 次请求、tokens=预占 L506-508；逻辑模型 revision=1 且 `last_test_status=UNTESTED`——单成员成功不伪称整池健康 L521-522；无配置审计/计费审计 L540-547；响应恰为 6 个公开字段且不含密钥 L465-470）；容量栅栏先于 HTTP 且与主调用共享 `test_b228_capacity_gate_precedes_http_and_shares_key_with_main_call` L555-601（真实 `ModelCapacityService` 主调用占满 max_inflight=1 → 探针 `NOT_EXECUTED`+`MODEL_CAPACITY_UNAVAILABLE` L578-579、零探测 HTTP L580、零探针租约 L582；释放后同路径 `AVAILABLE`，同 Key 上 INTERACTIVE 与 PROBE 租约并列 L596-600）；批量上界 `test_b228_batch_bounds_50_pairs_concurrency_4_and_single_probe_budget` L608-650（50 对全部执行且每对恰一次 L634；真实并发峰值 ≤4 且 ≥2 L635-636；51 对/空列表 422 `COMMON_VALIDATION_ERROR` 且不触发探测 L647-650）；单次 5 秒预算 `test_b228_single_probe_budget_bounds_slow_endpoint_and_retains_unknown` L653-681（服务端 7 秒慢响应下 `latency_ms<6500` 且整体 <6.5 秒返回 L672-673；已发出无证据 → 租约 `UNKNOWN` 且真实在飞保留 L676-680）；容量端口不可达 `test_b228_unreachable_capacity_port_is_explicitly_not_executed` L688-724（`NOT_EXECUTED`+`COMMON_INTERNAL_ERROR`、零探测 HTTP、零租约/容量行 L715-721）；成员凭据与既有映射 `test_b228_member_credential_resolution_and_error_mapping` L727-793（401→`CREDENTIAL_MISSING`、GET 404→POST chat 回退→`AVAILABLE`、停用模型→`MODEL_DISABLED`、停用成员/未绑定凭据→`CREDENTIAL_MISSING`、未知模型→`COMMON_NOT_FOUND` L775-780；回退请求体 `max_tokens=1` 与真实型号 L786-788；未执行目标零探测 HTTP L790）；跨租户与 ADMIN 门控 `test_b228_cross_tenant_target_is_not_found_and_creates_no_lease` L796-822（跨租户/未知目标一律 `COMMON_NOT_FOUND`、零探测零租约零容量行 L816-819）、`test_b228_admin_only_and_csrf_gate_with_zero_side_effects` L863-894（BUILDER 403、缺 CSRF 403，零副作用 L878-893） | 真实 Console 应用服务（ASGI 直连真实应用 + 真实登录会话/ADMIN/CSRF 裁决）；真实 PostgreSQL（控制面经真实 API 写入 `control.model_*`，`runtime.model_call_lease`/`model_capacity` 承载预占与结算，共享 dev 库按唯一租户增删，无 DDL）；真实 HTTP：外部模型是本地真实 HTTP 协议服务器（真实 socket、记录授权头/正文/并发峰值），受信容量端口是真实 uvicorn 127.0.0.1 上的 Runtime `main.app`（真实 socket 与真实服务身份门控）；主调用侧用同一真实 `ModelCapacityService` 在同一物理 Key 上竞争，证明探针不绕过资源池；检测全链路 `runtime.model_invocation_audit` 为 0 | verified |
+
+**实施范围与风险说明**
+
+- 实现文件与计划 Files 一致：`application/model_probe_service.py`（新建：探测原语 + `ProbeCapacityClient` + `ModelProbeService`）、`api/model_resources.py`（`POST /api/v1/model-credentials/test`）；测试 `tests/console_platform/test_capacity_webchat_console_probe.py`（894 行，8 用例）。
+- 计划外披露：`application/model_test_service.py`（`_probe`/路径常量迁入新模块并改为导入共享原语，401/超时/回退映射保持同一口径、行为不变）、`application/dto.py`（`ModelProbeTarget`/`ModelCredentialProbeRequest`，1..50 对）、`api/deps.py`（`get_probe_capacity_client` 按进程缓存、测试可覆盖）、`docs/configuration-inventory.csv`（删除 model_test_service 4 行、按路径序新增 model_probe_service 10 行，CRLF 保持）。
+- 语义事实：探测 HTTP 仍由 Console 执行（不引入平台侧 SDK/直连）；预占/结算经 API-17，线协议只带 `(probe_id, model_id, credential_id, attempt_id, deadline_at, reserved_tokens)`，计量身份由 Runtime 从 `control.model_*` 解析，探针与主调用/摘要/提炼合并同一物理 Key 与额度组；结算按证据分档——收到远端 HTTP 响应（任意状态码）为完成证据，连接未建立为 `NOT_SENT`（释放），超时/传输中断为 `UNKNOWN`（保守保留）；无 usage 时保留保守预占（探针不解析供方 usage）。
+- 续租口径（诚实记录）：探测的绝对期限即租约上限（`lease_until=min(now+租期, deadline_at)`），续租结构上不能延长期限，因此探测路径不调用 API-17 的 renew（端口侧 renew 由 TASK-027 交付并测试），客户端不提供无调用方的分支。
+- 判别性验证（防止断言空转）：把探测挪到预占之前 → 容量栅栏用例 **失败**（未获批容量仍发出 HTTP）；`PROBE_CONCURRENCY=50` → 批量用例 **失败**（并发峰值 >4）；`PROBE_MAX_OUTPUT_TOKENS=2` → 映射用例 **失败**（回退请求体 max_tokens≠1）。三处变异均先复现失败再还原，随后 8 passed 复跑确认。
+- 配置清单：新增模块级常量 10 个已登记 `docs/configuration-inventory.csv`（`tests/test_configuration_inventory.py` → **4 passed**）。
+- 延后项（诚实记录）：真实供方额度与 1000 并发容量结论属 TASK-110/116；探测资源预算/装配观测属 TASK-097/098/099；前端 Key 检测界面属 TASK-086；探针的取消（客户端断开）不主动释放占用，留给 Runtime 有界清扫标记 UNKNOWN（与主链「本地失约不等于远端已停」一致）。
+- B-228: verified — automated command passed; run_id=83759e48bd504aadad7e3f29bc54e987 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-228 RED：首建 `tests/console_platform/test_capacity_webchat_console_probe.py`（7 个行为用例）→ **1 error in 1.35s**（exit=4，collection ImportError：`get_probe_capacity_client` 与新实现模块尚不存在）
+- [2026-10-18] 实现：新增 `application/model_probe_service.py`（探测原语 + `ProbeCapacityClient` + `ModelProbeService`：先预占后探测、按证据结算、并发≤4、单次 5 秒、`max_tokens:1`）+ `api/model_resources.py` 的 `POST /api/v1/model-credentials/test` + `dto.py` 请求 DTO + `deps.py` 共享客户端；`model_test_service.py` 改为复用同一探测原语
+- [2026-10-18] B-228 GREEN：**8 passed in 16.72s**（exit=0；先 7 passed 14.48s，补「容量端口不可达」用例后 8 passed）；三处变异验证断言判别性后还原
+- [2026-10-18] 回归：`tests/console_platform` **377 passed**（74.77s）、`tests/contracts tests/architecture tests/test_configuration_inventory.py` **1318 passed**（4.94s）；ruff 逐文件干净、`mypy apps packages` 411 源文件无问题
+- [2026-10-18] completed (done)
 
 ---
 
