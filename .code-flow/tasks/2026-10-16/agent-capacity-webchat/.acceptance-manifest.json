@@ -3577,7 +3577,7 @@
       "kind": "functional",
       "boundary": "真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针",
       "owner": "TASK-033",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3587,7 +3587,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-233",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "b17bace694944fd8a018b9817adcb45f",
+        "executed_at": "2026-10-18T02:11:20.375815+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_worker/test_capacity_webchat_worker_slots.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "b8c2741f88b60ab7f3a90f98d78b1771d3a45797118192cc24553995736860d6"
+      },
+      "runs": [
+        {
+          "id": "B-233",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "b17bace694944fd8a018b9817adcb45f",
+          "executed_at": "2026-10-18T02:11:20.375815+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_worker/test_capacity_webchat_worker_slots.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "b8c2741f88b60ab7f3a90f98d78b1771d3a45797118192cc24553995736860d6"
+        }
+      ]
     },
     {
       "id": "B-234",

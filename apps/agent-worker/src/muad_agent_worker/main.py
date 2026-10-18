@@ -71,7 +71,13 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         )
         app.state.platform_settings_client = settings_client
         background = _start_background(
-            session_factory, settings, settings_client, http_client, cancel_hints, wakeup_listener
+            app,
+            session_factory,
+            settings,
+            settings_client,
+            http_client,
+            cancel_hints,
+            wakeup_listener,
         )
         try:
             yield
@@ -92,6 +98,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 def _start_background(
+    app: FastAPI,
     session_factory: async_sessionmaker[AsyncSession],
     settings: SharedSettings,
     settings_client: PlatformSettingsClient,
@@ -106,6 +113,8 @@ def _start_background(
         wakeup=wakeup_listener,
         settings_client=settings_client,
     )
+    # 有界任务槽：上限来自每进程启动配置（§3.7 WORKER_EXECUTION_CONCURRENCY），装配根注入。
+    app.state.worker_loop = worker
     scheduler = SchedulerLoop(
         session_factory,
         ConsoleResolveClient(
