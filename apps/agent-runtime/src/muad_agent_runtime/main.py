@@ -28,7 +28,7 @@ from .api.tool_results import router as tool_results_router
 from .application.async_tools.continuation_pump import ContinuationPump
 from .application.async_tools.control_dispatcher import ControlDispatcher, ControlDispatchPolicy
 from .application.async_tools.runtime import set_control_dispatcher
-from .application.async_tools.supervisor import ExecutionSupervisor
+from .application.async_tools.supervisor import ExecutionSupervisor, reclaim_stale_executions
 from .application.attachments.tool_results import ArtifactResultWriter
 from .application.continuation_execution import continuation_executor
 from .application.executor import default_executor_factory
@@ -73,6 +73,27 @@ async def _deadline_loop(interval_sec: float) -> None:
         await asyncio.sleep(interval_sec)
 
 
+async def _execution_slot_loop(
+    interval_sec: float, supervisor: ExecutionSupervisor, instance_id: str
+) -> None:
+    """执行槽独立监督循环（与领取/回收/控制各自独立，不排在长任务队尾）。
+
+    按 PG 行事实核验每个在飞槽的 Run 是否仍由本实例持有；失去归属（终态、被 Reaper 或别的
+    实例接管、租约已过期）的本地片段即使卡死也被取消并释放槽。归属仍在时不误回收。
+    """
+    while True:
+        await asyncio.sleep(interval_sec)
+        try:
+            reclaimed = await reclaim_stale_executions(
+                get_session_factory(), supervisor, instance_id=instance_id
+            )
+        except Exception:
+            logger.exception("execution_slot_supervision_failed")
+            continue
+        if reclaimed:
+            logger.warning("execution_slots_reclaimed", extra={"reclaimed": reclaimed})
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = SharedSettings()
@@ -110,7 +131,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         policy=ControlDispatchPolicy.from_settings(settings),
     )
     set_control_dispatcher(dispatcher)
-    app.state.execution_supervisor = ExecutionSupervisor()
+    # 有界执行槽：上限是每进程启动配置（§3.7 RUNTIME_EXECUTION_CONCURRENCY），装配根注入。
+    app.state.execution_supervisor = ExecutionSupervisor(
+        max_concurrency=settings.runtime_execution_concurrency
+    )
+    logger.info(
+        "execution_slots_configured", extra={"slots": settings.runtime_execution_concurrency}
+    )
     app.state.instance_id = f"{os.getenv('POD_NAME') or socket.gethostname()}:{uuid.uuid4().hex}"
     resume = continuation_executor(
         resolve_client,
@@ -143,6 +170,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     deadline_task = asyncio.create_task(_deadline_loop(settings.run_reaper_interval_sec))
     control_sender = asyncio.create_task(dispatcher.run_forever())
     reaper = asyncio.create_task(_reaper_loop(settings.run_reaper_interval_sec))
+    # 槽位独立监督循环：与领取/回收/控制各自独立，长任务不阻塞它，它也不阻塞长任务。
+    app.state.execution_slot_task = asyncio.create_task(
+        _execution_slot_loop(
+            settings.run_reaper_interval_sec, app.state.execution_supervisor, app.state.instance_id
+        )
+    )
     try:
         yield
     finally:
@@ -153,6 +186,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         continuation_task.cancel()
         with suppress(asyncio.CancelledError):
             await continuation_task
+        app.state.execution_slot_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await app.state.execution_slot_task
         await app.state.execution_supervisor.close()
         deadline_task.cancel()
         with suppress(asyncio.CancelledError):

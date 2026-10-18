@@ -371,7 +371,7 @@
 | B-229 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-029 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_policy.py"] | . | 300 |  |
 | B-230 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-030 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_create.py"] | . | 300 |  |
 | B-231 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-031 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_release.py"] | . | 300 |  |
-| B-232 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-032 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_slots.py"] | . | 300 |  |
+| B-232 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-032 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_slots.py"] | . | 300 |  |
 | B-233 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-033 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_slots.py"] | . | 300 |  |
 | B-234 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-034 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_retry_safety.py"] | . | 300 |  |
 | B-235 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-035 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_clock_lease.py"] | . | 300 |  |
@@ -2248,7 +2248,7 @@ source_settings_revision只增不退，policy锁在会话锁之前；完整分�
 
 ## TASK-032: Runtime执行槽与独立监督
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-027, TASK-031
 - **Source**: agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量
@@ -2263,25 +2263,41 @@ source_settings_revision只增不退，policy锁在会话锁之前；完整分�
 
 ### Checklist
 
-- [ ] [B-232][integration] 先在`tests/agent_runtime/test_capacity_webchat_runtime_slots.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：本地有槽才PG claim，无界gather替换为有界监督。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-232] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-232] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_slots.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-232][integration] 先在`tests/agent_runtime/test_capacity_webchat_runtime_slots.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：本地有槽才PG claim，无界gather替换为有界监督。→ RED：首建 11 个行为用例后 `uv run pytest -q tests/agent_runtime/test_capacity_webchat_runtime_slots.py` → **11 failed in 14.86s**（exit=1）；失败均为实现缺失的真实行为：`ExecutionSupervisor.__init__() got an unexpected keyword argument 'max_concurrency'`（9 例）、`AttributeError: 'ExecutionSupervisor' object has no attribute 'slot_limit'`（1 例）、`reclaim_stale_executions` 尚不存在（1 例）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 实现落在 3 个文件：`async_tools/supervisor.py`（有界槽 `ExecutionSupervisor(max_concurrency=…)` + `slot_limit`/`free_slots`/`active_runs` + **本地槽闸门** `submit`/`claim_and_submit`（无槽时不调用 claim）+ 单槽独立完成回调 `_finished`（成功/异常/取消都只释放本槽）+ `reclaim`（按 Run 取消本地片段）+ 模块级 `reclaim_stale_executions`（按 PG 行事实回收失去归属的卡死槽））、`main.py`（`ExecutionSupervisor(max_concurrency=settings.runtime_execution_concurrency)` 装配 + `_execution_slot_loop` 独立监督循环 + `app.state.execution_slot_task` + 收尾先取消循环再 `close()`）、新测试文件。改动函数行数：`reclaim_stale_executions` 30、`claim_and_submit` 10、`close` 13、`_finished` 10、`_execution_slot_loop` 18，均 ≤50；`lifespan` 是既有装配函数（本任务只增 9 行，未新增超限函数）。错误显式：非法槽预算/关闭预算 `ValueError`、关闭超时 `TimeoutError`、监督循环失败 `logger.exception` 后继续（不静默）、回收只取消不吞异常（完成回调负责释放）。日志只记 `run_id`/`reclaimed`/`slots` 等低基数与资源 ID，无凭据或消息正文；未新增模块级常量（`docs/configuration-inventory.csv` 无需改行）
+- [x] [B-232] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 11 个用例逐条对应契约（见 Acceptance Evidence 的断言位置列）
+- [x] [B-232] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_slots.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **11 passed in 19.10s**（exit=0，最终版本复跑）；中间版本 **11 passed in 19.24s** / **11 passed in 19.15s**
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-232 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 本地有槽才PG claim，无界gather替换为有界监督；WAITING_TOOL/INPUT释放片段槽，心跳/回收/控制不排在长任务队尾，断流不取消执行 | tests/agent_runtime/test_capacity_webchat_runtime_slots.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_slots.py"] | planned |
+| B-232 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 本地有槽才PG claim，无界gather替换为有界监督；WAITING_TOOL/INPUT释放片段槽，心跳/回收/控制不排在长任务队尾，断流不取消执行 | tests/agent_runtime/test_capacity_webchat_runtime_slots.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_slots.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-232 | 首建 `tests/agent_runtime/test_capacity_webchat_runtime_slots.py`（11 个行为用例）→ `uv run pytest -q tests/agent_runtime/test_capacity_webchat_runtime_slots.py` → **11 failed in 14.86s**（exit=1）：`max_concurrency` 关键字不存在（9 例）、`slot_limit` 属性不存在（1 例）、`reclaim_stale_executions` 不存在（1 例） | 同命令（实现有界槽/本地槽闸门/独立回收/装配后）→ **11 passed in 19.10s**（exit=0，最终版本）；中间版本 **11 passed in 19.24s** / **11 passed in 19.15s** | ①本地有槽才 PG claim：`test_b232_local_slot_gates_pg_claim_and_reclaims_on_segment_end` L410-440（两槽占满 L419-423，槽满时 `claim_and_submit` 返回 False 且 claim 调用次数不变 L426-427，排队行仍 `CREATED`/无租约/epoch 0 L428-430，片段结束后同一真实领取路径补齐 L431-437，Run 仍 `RUNNING` 证明槽释放与终态解耦 L434）；②有界监督：`test_b232_pump_bounds_concurrency_to_local_slots` L448-481（真实 pump `run_once()==2` L459-460、重复 tick 0 且并发仍 2 L462-463、PG 只有 2 行被领取 L465、释放一槽后补齐第 3 条 L471-473）；③WAITING_TOOL/WAITING_INPUT 释放片段槽：`test_b232_wait_boundary_releases_segment_slot[WAITING_TOOL]`/`[WAITING_INPUT]` L485-512（真实 `try_wait`/`release_lease_and_wait` 写 PG 后 Run 非终态且租约已清 L503-505、槽归零 L506、另一条排队 Run 立即被领取 L507-508）；④心跳/回收/控制不排队尾：`test_b232_heartbeat_reclaim_and_control_progress_while_slots_busy` L518-581（槽全忙时 `renew_execution` 真实续租成功并推进租约 L540-543、`reap_abandoned_runs` 接管另一条过期租约 Run 为 FAILED L545-548、`ControlDispatcher.claim` 领到真实 CANCEL_OPERATION L565-570、全程槽数不变 L571）；⑤断流不取消执行：`test_b232_disconnected_stream_keeps_supervised_execution_running` L595-652（`aclose()` 断流 L630 后槽仍占 1、Run 仍 `RUNNING` 且属本实例 L633-635、断流窗口内租约被心跳推进 L637-640、放行后 `COMPLETED` 且槽归零 L642-645）；⑥独立回收卡死槽：`test_b232_stuck_slot_is_reclaimed_after_ownership_is_lost` L656-694（归属仍在时 `reclaim_stale_executions==0` L672、Reaper 接管后 Run 变 `FAILED` 而槽仍被卡死片段占着 L679-681、监督回收 1 个槽 L683、释放出的槽立即可被真实领取 L684-687）；⑦装配：`test_b232_lifespan_injects_slot_budget_and_runs_slot_supervision` L698-720（真实 lifespan 注入 `slot_limit==3` L709、监督循环任务存活 L710-711、按 PG 事实回收无对应 Run 行的槽 L713-715、退出后任务已结束 L720）；⑧真实模型回合：`test_b232_real_model_round_releases_slot_at_tool_wait` L831-889（真实 HTTP 探针两个回合 L884-885、Run 停在 `WAITING_TOOL` 且租约清空 L886、槽归零且不再重复领取 L887-888）；⑨边界：`test_b232_supervisor_rejects_invalid_slot_budget` L724-727（0/257/bool 拒绝）、`test_b232_supervisor_never_double_books_a_run_slot` L730-746（同一 Run 不重复占槽、无空闲槽不接收） | 隔离 PostgreSQL：每例 `create_datastore` 建空库 + `alembic upgrade head` + 隔离 Redis 号位，跑完 drop（`isolated_runtime` fixture L115），只读写本库；真实 `ContinuationPump`/`claim_continuation`/`try_wait`/`release_lease_and_wait`/`RunService`/`reap_abandoned_runs`/`ControlDispatcher.claim`/`reserve_operation` 业务路径，不替换存储或租约；必要 HTTP 模型探针是真实 uvicorn + 真实 socket 的 `/v1/chat/completions`（SSE 两回合：`tool_calls` → `stop`），真实 `OpenAICompatibleProvider`/`AgentRunner`/`AgentRunnerExecutor` 经真实 HTTP 跑完片段；装配用真实 `main.lifespan`（真实 PG/Redis 隔离号位）；无 mock 存储/租约、无共享 dev 库行 | verified |
+
+**实施范围与风险说明**
+
+- 实现文件与计划 Files 一致（`supervisor.py`/`main.py`/新测试文件），未改动其它生产文件；`docs/configuration-inventory.csv` 无新增/移动常量，无需改行（`tests/test_configuration_inventory.py` 4 passed）。
+- 语义事实：**有界槽**上限来自既有 `RUNTIME_EXECUTION_CONCURRENCY`（§3.7，进程启动固定），装配根注入；**本地槽先于 PG 领取**在 `claim_and_submit` 一处实现（无槽直接返回 False，`claim` 不被调用），真实 `ContinuationPump` 因此每 tick 最多领到空闲槽数（原「每 tick 最多 16 条、总量无上限」被替换）；**槽释放与 Run 终态解耦**由独立完成回调保证（终态、`WAITING_TOOL`/`WAITING_INPUT`、租约丢失、异常、取消都只释放本槽）；**独立监督循环** `_execution_slot_loop` 只按 PG 行事实（`RUNNING` + `lease_owner` 为本实例 + 租约未过期）回收失去归属的卡死片段，不使用本机时钟判定业务绝对期限（那属 `expire_runs` 的 PG 时钟扫描，TASK-035 统一服务端时钟）；心跳（每片段 `_renew_lease_loop`）、回收（`_reaper_loop`/`_deadline_loop`）、控制（`ControlDispatcher.run_forever`）各自独立循环，不排在执行槽之后。
+- 判别性验证（防止断言空转，两处变异均先复现失败再还原，随后 11 passed 复跑确认）：(1) 去掉 `claim_and_submit` 的本地槽闸门 → `test_b232_local_slot_gates_pg_claim_and_reclaims_on_segment_end`、`test_b232_pump_bounds_concurrency_to_local_slots` **2 failed**（领取不再受本地槽限制）；(2) 令 `reclaim_stale_executions` 直接返回 0 → `test_b232_stuck_slot_is_reclaimed_after_ownership_is_lost`、`test_b232_lifespan_injects_slot_budget_and_runs_slot_supervision` **2 failed**（卡死槽不再被回收）。
+- 静态检查：`uv run ruff check` 三个改动文件干净；`uv run mypy apps packages` **410 源文件无问题**。
+- 回归证据：`tests/agent_runtime` **882 passed in 774.79s**（全量同域回归，含本任务 11 例；本轮为本任务改动后的最终生产代码，其后仅对本任务测试文件做「领取顺序确定性」修正，最终版本单跑 **11 passed in 19.10s**）；`tests/contracts` **1281 passed in 3.15s**；`tests/agent_worker/test_runtime_operation_races.py`（另一处 `ExecutionSupervisor` 消费者）**21 passed in 39.98s**；`tests/test_configuration_inventory.py` **4 passed**（无新增常量、CSV 未改）。
+- 延后项（诚实记录）：Worker 侧有界任务池/独立回收属 TASK-033；持久排队阶段与两入口状态投影（本任务只保证「无槽不领取」，槽饱和时排队 Run 停在 `CREATED`）属 TASK-036；槽位/队列指标目录属 TASK-098（本任务只留 `execution_slots_configured`/`execution_slots_reclaimed` 结构化日志，未新增指标常量）；PG 服务端时钟统一属 TASK-035；1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责。
+- 风险提示（诚实记录）：`reclaim_stale_executions` 只做「失去归属」的保守回收，不主动取消仍在租约内但卡死的片段——那种情况由租约到期 + Reaper（或绝对期限扫描）先把 Run 变成终态，再由本循环释放槽，语义与「本地超时不等于远端已停止」一致。
+- B-232: verified — automated command passed; run_id=eee8b65981814857a54f476c696a2d2c (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-232 RED→GREEN：先建 11 个行为用例 → **11 failed in 14.86s**（`max_concurrency`/`slot_limit`/`reclaim_stale_executions` 均不存在）；实现有界执行槽（本地槽闸门 + 单槽独立完成回调 + `reclaim`/`reclaim_stale_executions`）+ `main.py` 注入 `RUNTIME_EXECUTION_CONCURRENCY` 与独立监督循环后 **11 passed in 19.15s**；两处变异验证断言判别性后还原；回归 `tests/agent_runtime` **882 passed**（774.79s）、`tests/contracts` **1281 passed**（3.15s）、`tests/agent_worker/test_runtime_operation_races.py` **21 passed**（39.98s）；ruff/mypy（410 文件）干净
+- [2026-10-18] completed (done)
 
 ---
 
