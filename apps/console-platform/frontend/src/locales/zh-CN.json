@@ -1408,5 +1408,17 @@
   "chat.sidebar.open": "打开会话历史",
   "chat.sidebar.close": "关闭会话历史",
   "chat.workspace.label": "聊天工作区",
-  "chat.workspace.emptyMessages": "发送第一条消息开始对话"
+  "chat.workspace.emptyMessages": "发送第一条消息开始对话",
+  "chat.thread.label": "消息线程",
+  "chat.thread.loadOlder": "加载更早消息",
+  "chat.thread.empty": "还没有消息",
+  "chat.thread.failed": "消息加载失败，可在此重试",
+  "chat.thread.localFailed": "消息操作未生效，请重新选择会话",
+  "chat.thread.role.user": "我",
+  "chat.thread.role.assistant": "助手",
+  "chat.thread.download": "下载",
+  "chat.thread.attachmentUnavailable": "附件已失效",
+  "chat.thread.attachment.image": "图片",
+  "chat.thread.attachment.document": "文档",
+  "chat.thread.attachment.other": "附件"
 }
