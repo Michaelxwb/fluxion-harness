@@ -1,30 +1,46 @@
 import { Banner, Modal, Table, Tabs } from '@douyinfe/semi-ui';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '../../auth/AuthContext';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { StatusTag } from '../../components/common/StatusTag';
+import { ModelDeploymentPanel } from './ModelDeploymentPanel';
+import { readModelProviderKey, readOutputBudget } from './services/modelDeployments';
 import type { ModelItem, ModelTestResult } from './services/models';
-import { apiKeyOptions, enabledOptions, testStatusOptions } from './statusOptions';
+import { enabledOptions, testStatusOptions } from './statusOptions';
 
 export interface ModelDetailSideSheetProps {
   model: ModelItem | null;
   onCancel(): void;
+  /** 成员关系变更后的通知（页面按需刷新列表/详情）；缺省无操作。 */
+  onChanged?(): void;
 }
 
 export function ModelDetailSideSheet(props: ModelDetailSideSheetProps) {
   const { t } = useTranslation();
+  const { account } = useAuth();
+  const isAdmin = account?.role === 'ADMIN';
   const model = props.model;
+  const [activeTab, setActiveTab] = useState('basic');
+  // 换一个模型就是一次新详情：回到基本信息页签（成员页签只在 ADMIN 下存在）
+  useEffect(() => {
+    setActiveTab('basic');
+  }, [model?.id]);
   if (model === null) {
     return null;
   }
+  const providerKey = readModelProviderKey(model);
+  const outputBudget = readOutputBudget(model.params);
   return (
     <DetailSideSheet
       visible
       title={model.name}
       subtitle={`${model.key} · ${model.model_id}`}
-      activeTab="basic"
+      activeTab={activeTab}
+      onTabChange={(key) => setActiveTab(key)}
       onCancel={props.onCancel}
     >
       <Tabs.TabPane itemKey="basic" tab={t('model.detail.basic')}>
@@ -35,6 +51,11 @@ export function ModelDetailSideSheet(props: ModelDetailSideSheetProps) {
             { label: t('model.form.key'), value: model.key },
             { label: t('model.form.protocol'), value: model.protocol },
             { label: t('model.form.modelId'), value: model.model_id },
+            { label: t('model.detail.provider'), value: providerKey === '' ? '-' : providerKey },
+            {
+              label: t('model.detail.outputBudget'),
+              value: outputBudget === null ? t('model.detail.outputBudgetMissing') : outputBudget
+            },
             {
               label: t('model.form.enabled'),
               value: <StatusTag status={model.enabled} options={enabledOptions(t)} />
@@ -44,16 +65,21 @@ export function ModelDetailSideSheet(props: ModelDetailSideSheetProps) {
               value: <StatusTag status={model.last_test_status} options={testStatusOptions(t)} />
             },
             { label: t('model.detail.revision'), value: `r${model.revision}` },
-            {
-              label: t('model.form.apiKey'),
-              value: <StatusTag status={model.api_key_configured} options={apiKeyOptions(t)} />
-            },
-            { label: t('model.columns.updateTime'), value: <DateTimeText value={model.update_time} /> },
-            { label: t('model.form.baseUrl'), value: model.base_url }
+            { label: t('model.columns.updateTime'), value: <DateTimeText value={model.update_time} /> }
           ]}
         />
         <Banner type="info" description={t('model.detail.hint')} />
       </Tabs.TabPane>
+      {isAdmin ? (
+        <Tabs.TabPane itemKey="members" tab={t('model.detail.members')}>
+          <div className="detail-section-title">{t('model.detail.members')}</div>
+          <ModelDeploymentPanel
+            modelId={model.id}
+            providerKey={providerKey}
+            onChanged={props.onChanged}
+          />
+        </Tabs.TabPane>
+      ) : null}
     </DetailSideSheet>
   );
 }
