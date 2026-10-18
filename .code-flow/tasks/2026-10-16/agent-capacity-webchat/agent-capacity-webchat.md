@@ -397,7 +397,7 @@
 | B-255 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-055 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_artifact_download.py"] | . | 300 |  |
 | B-256 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-056 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_run_controls.py"] | . | 300 |  |
 | B-257 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-057 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_client_config_api.py"] | . | 300 |  |
-| B-258 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-058 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py"] | . | 300 |  |
+| B-258 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-058 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py"] | . | 300 |  |
 | B-259 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-059 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_durable_deltas.py"] | . | 300 |  |
 | B-260 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-060 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_shared_tail.py"] | . | 300 |  |
 | B-261 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-061 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_sse.py"] | . | 300 |  |
@@ -3665,7 +3665,7 @@ API-19只返回当前CHAT可用的settings/transport revision及分页/输入/�
 
 ## TASK-058: Runtime暂存上传登记的受信端口
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-050, TASK-053
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计
@@ -3680,25 +3680,38 @@ Gateway共享字节写入后仅经服务门控登记upload_id；完整分支及�
 
 ### Checklist
 
-- [ ] [B-258][integration] 先在`tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：Gateway共享字节写入后仅经服务门控登记upload_id。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-258] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-258] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-258][integration] 先在`tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：Gateway共享字节写入后仅经服务门控登记upload_id。RED：`uv run pytest -q tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py` exit=1，**8 failed**（8 条用例全部执行：`POST /internal/webchat/uploads` 在实现前不存在，服务门控用例拿到 404 而不是 403，登记/核属用例在 `_register` 处断言 404≠200；受信端口、入口/Agent 核属与登记原语接线在实现前均不存在）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `api/webchat_history.py`——既有路由器（`/internal/webchat`，路由器级 `require_internal_service` 门控，与 TASK-050 的 API-09/14/15 同文件共存）新增 `POST /uploads`：平台设置快照取一次 → `assert_entry_agent_binding`（入口/Agent 核属）→ `register_staged_upload`（TASK-053 登记原语，词表/键形状/校验和/size/TTL 边界统一裁决）→ 提交 → `WebchatUpload` 投影（`upload_id`+权威元信息+`expires_at`，**无 storage_key、无 artifact 引用**）。② `application/channel_uploads.py`（计划外文件，披露）——新增 `assert_entry_agent_binding`：只读同 PG 的 Console 当前事实 `control.bot_account`（先例 `model_dispatch_store`/`model_capacity_store`），跨租户/不存在/已删除 ⇒ `COMMON_NOT_FOUND`（不泄露存在性），同租户绑定别的 Agent/已停用 ⇒ `FORBIDDEN`；**不**复制 Console 的用户活性/授权裁决（CHAT 认证面在 Gateway 侧实时核验）。③ `packages/contracts/src/muad_contracts/webchat.py`（计划外文件，披露）——新增 `WebchatUploadRegistration`（API-12 内部线协议，Gateway↔Runtime 共用形状；身份三件套显式、extra 拒绝 ⇒ `artifact_id`/`upload_id` 之类预造引用没有字段位置）。④ `docs/configuration-inventory.csv` 同步（新增常量行 + 6 行行号漂移，CRLF 保持）。设计取舍：**核属/TTL/发布不在新端口重复暴露**——它们已由既有受信受理端口 `POST /v1/runs`（RunService，API-06）承载；新增第二个语义源只会制造死端点与漂移，因此本任务用**真实受理路径**验证登记结果可用（过期/越权/发布逐项）。凭据/存储键不进响应与日志：响应只回 `WebchatUpload`，登记日志只记 upload_id/error_type。
+- [x] [B-258] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-258] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，8 passed（1.97s）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-258 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | Gateway共享字节写入后仅经服务门控登记upload_id；核当前用户/入口/Agent与不可变存储键，重复登记/过期/越权明确，不允许任意路径或预造制品引用 | tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py"] | planned |
+| B-258 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | Gateway共享字节写入后仅经服务门控登记upload_id；核当前用户/入口/Agent与不可变存储键，重复登记/过期/越权明确，不允许任意路径或预造制品引用 | tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-258 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py` exit=1，8 failed（端口实现前全部用例已收集执行：服务门控用例 404≠403、登记用例 404≠200——`/internal/webchat/uploads`、入口/Agent 核属与登记接线均不存在） | 同命令 exit=0，**8 passed**（1.97s） | ① `test_b258_registration_is_only_reachable_through_the_service_gate` L369-387：缺失/空/错误 `X-Internal-Service` 一律 403 `FORBIDDEN`（L378-381）、拒绝不留登记行与 artifact 行（L382-383）、受信调用 200 且恰一行（L385-387）。② `test_b258_registration_requires_the_trusted_identity_explicitly` L390-410：`user_id`/`agent_id`/`entry_id`/`storage_key`/`size` 缺一即 422 `COMMON_VALIDATION_ERROR`（L399-403）、注入 `artifact_id`/`upload_id` 预造引用 422（L406-408）、拒绝不留行（L409-410）。③ `test_b258_registration_verifies_the_current_entry_and_agent` L418-473：入口绑定别的 Agent / 入口停用 ⇒ 403（L435-442）、未知入口/已删除入口/**跨租户入口** ⇒ 404 不泄露存在性（L445-452）、自报别的 Agent 403（L454-463）、通过后登记行归属 tenant/user/entry（L468-471）。④ `test_b258_registration_records_authoritative_metadata_without_artifacts` L481-526：响应= `WebchatUpload`（L496-501）、响应键集恰为 upload_id+元信息（L502-510）、无 `storage_key`/`artifact_id` 字样（L512-513）、登记行归属与元信息（L515-521）、**TTL 来自 `webchat.upload_staging_ttl_sec`（显式 120s）**（L522-524）、暂存字节留在共享存储（L525）、**登记不是 artifact 行**（L526）。⑤ `test_b258_registration_rejects_arbitrary_paths_and_duplicate_keys` L529-564：空串/绝对路径/`..`/反斜杠路径一律 422（L535-541）、同租户活跃键重复 409 `COMMON_CONFLICT`（L549-561）、原登记行逐字段不变（L563）、无 artifact 行（L564）。⑥ `test_b258_registration_enforces_the_configured_limits` L567-602：超单文件上限 400 `ATTACHMENT_TOO_LARGE`（L580）、size=0/坏 kind/坏 media_type/坏 checksum/空 filename 422（L581-585）、拒绝不留行（L593）、**恰等于上限放行**（L596-602）。⑦ `test_b258_registered_upload_is_admitted_only_for_its_owner` L638-731：真实 `POST /v1/runs` 受理成功（L646-652）、**发布 Run 自己的键 `runs/<run>/attachments/<upload>`（≠暂存键）且字节来自真实存储**（L654-661）、登记行受理后不变（L663）、另一用户/另一入口借上传 403（L665-693）、跨租户 404（L695-715）、伪造 upload_id 404 且不留制品（L717-730）。⑧ `test_b258_expired_registration_blocks_new_admission_only` L734-769：过期上传新受理 410 `UPLOAD_EXPIRED` 且不留制品（L741-752）、未过期上传照常受理并发布自己的键（L754-768）。 | 真实 Runtime HTTP 应用（真实路由 + `require_internal_service` 门控；`/internal/webchat/uploads` 与 TASK-050 的 `/internal/webchat/conversations/...` 同路由面共存，历史端点回归全绿）；隔离租户的真实 PostgreSQL（`runtime.channel_upload`/`artifact`/`run_record`/`conversation` + Console 拥有的 `control.bot_account`/`control.agent_definition`/`control.model_definition` 真实行；只增删本租户的行）；真实共享文件系统（隔离 `ARTIFACT_ROOT`：真实暂存字节、真实 sha256、`os.link` 发布 Run 自己的键；不 mock 存储或租约）；真实 `RunService` 受理路径（核属/TTL/发布真实代码；仅模型调用与定义解析是进程内替身）。 | verified |
+
+实现要点：**登记**（`POST /internal/webchat/uploads`，服务身份门控 + 身份三件套显式 + 入口/Agent 核属 → `channel_upload` 行=权威元信息，非 artifact；storage_key 形状受控；TTL 取 PG 时钟 + `webchat.upload_staging_ttl_sec`）→ **受理**（既有 `POST /v1/runs`：只有未受理的新提交校验 TTL/归属；跨租户不泄露存在性、越权 `FORBIDDEN`、过期 `UPLOAD_EXPIRED`）→ **发布**（`runs/<run_id>/attachments/<upload_id>` 原子硬链接，校验真实 sha256 后才发布）→ **响应**（只回 `WebchatUpload`：`upload_id`+权威元信息+`expires_at`，不回存储键/制品引用）。
+
+回归：`uv run pytest -q tests/agent_runtime` exit=0，**957 passed**（723.97s；含本任务 8 条）；`uv run pytest -q tests/contracts tests/architecture` exit=0，1314 passed（3.69s）；`uv run pytest -q tests/test_configuration_inventory.py` exit=0，4 passed（0.61s）。
+
+静态检查：`uv run ruff check`（本任务 4 个改动文件）干净；`uv run mypy apps packages` → Success: no issues found in 423 source files；新增函数均 ≤50 行；`docs/configuration-inventory.csv` 保持 CRLF（1459 CRLF、0 裸 LF），只更新自己的行（`channel_uploads.py` 6 行行号 +3 漂移 + 新增 `_ENTRY_BINDING_SQL`）。断言强度经变异验证：临时移除 `assert_entry_agent_binding` 调用后 `test_b258_registration_verifies_the_current_entry_and_agent` 立即失败（核属断言是承重的，不是摆设）。
+
+遗留（deferred，非本任务可闭合）：① **Gateway 侧消费**——`WebchatUploadRegistration` 契约与受信端口已就绪，TASK-054 负责流式写共享字节后调本端口并返回 `WebchatUpload`（API-10）；本任务只保证 Runtime 侧语义与线协议。② **入口/Agent 核属的用户维度**：用户活性与入口授权由 CHAT 认证面（Console API-12 主体 + API-05 授权入口列表）在 Gateway 侧实时核验；Runtime 只核能权威判定的入口身份事实并把受信主体登记到行上（受理时再复核归属），不复制 Console 的授权裁决。③ 暂存核属与清理之间的竞态窗口（核属通过后清理删了暂存文件）与活跃引用/孤儿宽限保护仍属 TASK-069。④ 本任务不新增迁移/DDL：`channel_upload` 结构由 TASK-013/0025 提供，入口核属只读现有 `control.bot_account`。
+- B-258: verified — automated command passed; run_id=3421605482e1436a808969aff55ac7ea (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 

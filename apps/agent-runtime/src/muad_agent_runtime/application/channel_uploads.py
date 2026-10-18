@@ -2,6 +2,9 @@
 
 分工与边界：
 
+- **入口/Agent 核属**（`assert_entry_agent_binding`）：受信登记端口在落行**之前**核当前入口是
+  本租户启用中、绑定该 Agent 的真实 `control.bot_account` 行——自报入口/Agent 或预造入口引用
+  一律显式拒绝（跨租户/不存在不泄露存在性）。用户活性与入口授权由 CHAT 认证面在 Gateway 侧核验。
 - **登记**（`register_staged_upload`）：Gateway 把字节流式写进共享 artifact store 后，经
   受信端口登记**权威元信息**并拿到 `upload_id`。登记行是 `channel_upload`，**不是** artifact
   行；`storage_key` 由系统生成（相对路径），大小/类型/校验和在这里做第一道显式拒绝。
@@ -58,6 +61,12 @@ CLEANUP_BATCH_SIZE = 100
 _CHECKSUM_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _MEDIA_TYPE_PATTERN = re.compile(
     r"^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$"
+)
+#: 入口/Agent 核属：只读 Console 拥有的 `control.bot_account` 当前事实（同一 PG，先例见
+#: `infrastructure/model_dispatch_store`）；跨 Owner 不落副本、不双写。
+_ENTRY_BINDING_SQL = sa.text(
+    "SELECT agent_id, enabled FROM control.bot_account"
+    " WHERE id = :entry_id AND tenant_id = :tenant_id AND is_deleted = false"
 )
 
 
@@ -171,6 +180,26 @@ async def _assert_no_active_staging_key(
     )
     if existing is not None:
         raise AppError(ErrorCode.COMMON_CONFLICT)
+
+
+async def assert_entry_agent_binding(
+    session: AsyncSession, *, tenant_id: str, entry_id: uuid.UUID, agent_id: uuid.UUID
+) -> None:
+    """受信登记端口的入口/Agent 核属：入口必须是本租户**启用中**、绑定该 Agent 的真实入口账号。
+
+    - 跨租户/不存在/已删除 ⇒ `COMMON_NOT_FOUND`（不泄露存在性）；
+    - 同租户入口绑定了别的 Agent 或已停用 ⇒ `FORBIDDEN`（显式越权）。
+
+    用户活性与入口授权由 CHAT 认证面（Console API-12 主体）在 Gateway 侧实时核验；本函数只核
+    Runtime 能权威判定的入口身份事实——自报入口/Agent 没有位置，也不编造未登记的入口引用。
+    """
+    row = (
+        await session.execute(_ENTRY_BINDING_SQL, {"entry_id": entry_id, "tenant_id": tenant_id})
+    ).first()
+    if row is None:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    if row.agent_id != agent_id or not row.enabled:
+        raise AppError(ErrorCode.FORBIDDEN)
 
 
 async def register_staged_upload(

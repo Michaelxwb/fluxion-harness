@@ -223,6 +223,26 @@ class WebchatUpload(WebchatFileMetadata):
     expires_at: AwareDatetime
 
 
+class WebchatUploadRegistration(WebchatContract):
+    """Gateway → Runtime 的受信登记请求（API-12 内部面）：共享字节已写好，这里只登记权威元信息。
+
+    身份三件套（`user_id`/`agent_id`/`entry_id`）由**受信调用方**显式携带——它们来自已验证的
+    CHAT 主体与入口解析，不是浏览器请求体；`storage_key` 是 Gateway 生成的暂存相对键。
+    词表/键形状/大小上限由 Runtime 的登记原语统一裁决（稳定错误码），本形状只保证身份与
+    必需字段的存在性；`artifact_id`/`upload_id` 之类的预造引用没有字段位置（extra 一律拒绝）。
+    """
+
+    user_id: UUID
+    agent_id: UUID
+    entry_id: UUID
+    storage_key: ChatText
+    kind: AttachmentKind
+    media_type: ChatText
+    checksum: ChatText
+    filename: ChatText | None = None
+    size: ChatPositiveCount
+
+
 class WebchatAttachment(WebchatFileMetadata):
     artifact_id: UUID
     available: StrictBool
