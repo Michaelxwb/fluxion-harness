@@ -1677,7 +1677,7 @@
       "kind": "functional",
       "boundary": "entry/conversation/generation 变化时旧页、旧流和待发送草稿按会话隔离；列表分页合并去重，向前载入消息保留滚动锚点，不将历史水位误作活跃 Run 已应用游标",
       "owner": "TASK-078",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1687,7 +1687,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-103",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "58db75e7e0b84630bd2b55bfa7904fae",
+        "executed_at": "2026-10-18T18:50:22.722887+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_capacity_webchat_conversation_state.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "6c57f0f4e60f86935afd5c97cbc9cd57b89b8e571d19f04b2377e32efe0e43a2"
+      },
+      "runs": [
+        {
+          "id": "B-103",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "58db75e7e0b84630bd2b55bfa7904fae",
+          "executed_at": "2026-10-18T18:50:22.722887+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_capacity_webchat_conversation_state.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "6c57f0f4e60f86935afd5c97cbc9cd57b89b8e571d19f04b2377e32efe0e43a2"
+        }
+      ]
     },
     {
       "id": "S-112",
@@ -6665,7 +6706,7 @@
       "kind": "functional",
       "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
       "owner": "TASK-078",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -6675,7 +6716,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-278",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "58db75e7e0b84630bd2b55bfa7904fae",
+        "executed_at": "2026-10-18T18:50:22.722887+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_capacity_webchat_conversation_state.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "6c57f0f4e60f86935afd5c97cbc9cd57b89b8e571d19f04b2377e32efe0e43a2"
+      },
+      "runs": [
+        {
+          "id": "B-278",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "58db75e7e0b84630bd2b55bfa7904fae",
+          "executed_at": "2026-10-18T18:50:22.722887+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_capacity_webchat_conversation_state.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "6c57f0f4e60f86935afd5c97cbc9cd57b89b8e571d19f04b2377e32efe0e43a2"
+        }
+      ]
     },
     {
       "id": "B-279",
