@@ -26,6 +26,13 @@ export interface SettingsFieldMeta {
   max?: number;
   enum?: string[];
   unitKey?: string;
+  /**
+   * 生效说明词条键（API-01 `effect_key`，capacity/model_pool/webchat 等新增字段携带）。
+   *
+   * 与 `appliesTo` 的枚举标记不同，这里给出**具体操作边界**（新受理/签发/交换/清理/新连接…）；
+   * 前端只翻译渲染，不自行编写说明文案。
+   */
+  effectKey?: string;
 }
 
 /** 分组元数据（API-01 groups[]）。 */

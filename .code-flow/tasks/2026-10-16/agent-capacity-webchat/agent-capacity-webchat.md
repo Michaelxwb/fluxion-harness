@@ -428,7 +428,7 @@
 | B-286 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-086 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_credential_ui.py"] | . | 300 |  |
 | B-287 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-087 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_deployment_ui.py"] | . | 300 |  |
 | B-288 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-088 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_quota_ui.py"] | . | 300 |  |
-| B-289 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-089 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_settings_ui.py"] | . | 300 |  |
+| B-289 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-089 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_settings_ui.py"] | . | 300 |  |
 | B-290 | agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-090 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_i18n.py"] | . | 300 |  |
 | B-291 | agent-capacity-webchat.frontend.design.md#3.7 样式方案, agent-capacity-webchat.frontend.design.md#3.8 可访问性 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-091 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_layout.py"] | . | 300 |  |
 | B-292 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-092 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_model_admin_wiring.py"] | . | 300 |  |
@@ -5387,7 +5387,7 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ## TASK-089: 系统设置新增分组与字段错误定位
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-076
 - **Source**: agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态
@@ -5402,25 +5402,38 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ### Checklist
 
-- [ ] [B-289][integration] 先在`tests/frontend/test_capacity_webchat_settings_ui.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：容量/模型池/Webchat字段从groups元信息渲染默认/单位/范围/生效标记。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-289] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-289] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_settings_ui.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-289][integration] 先在`tests/frontend/test_capacity_webchat_settings_ui.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：容量/模型池/Webchat字段从groups元信息渲染默认/单位/范围/生效标记。RED：`uv run pytest -q tests/frontend/test_capacity_webchat_settings_ui.py` exit=1，**5 failed + 3 passed（0.84s）**（实现先 `git stash` 掉再测同一份测试）——① `test_b289_new_group_fields_project_defaults_ranges_units_and_effects`：`effect_key` 未投影（`None != 'settings.effect.new_admission'`）；② `test_b289_field_errors_locate_the_control_instead_of_a_page_error`：前端缺少字段错误定位 `locateField`；③ `test_b289_group_panel_renders_defaults_units_ranges_and_effect_notes`：真实组件未渲染 `settings-effect-<path>` 节点；④ `test_b289_field_error_renders_inside_its_control_row_only`：出错控件无 `aria-describedby="settings-error-<path>"` 关联；⑤ `test_b289_settings_ui_compiles_from_the_real_sources`：编译产物缺 `settings-effect-`。RED 期即通过的 3 条（整份文档+revision/冲突不覆盖、启动配置不进入编辑面、新增分组 label/unit/effect 词条齐平）钉住既有正确行为，避免实现阶段回归。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `modules/settings/types.ts` 的 `SettingsFieldMeta` 增 `effectKey`（API-01 `effect_key`，说明文案只翻译不编写）；② `services/settingsApi.ts` 的 `RawField`/`toField` 投影 `effect_key`（其余元信息字段映射不变）；③ `components/SettingsFieldRow.tsx` 渲染生效说明节点 `settings-effect-<path>`（`t(meta.effectKey)`，无 effect_key 不渲染），并修正字段错误关联：错误节点 `id="settings-error-<path>"`，控件经 `aria-describedby`+`aria-invalid`+`validateStatus` 指回自己的错误（原来 `aria-describedby` 指回输入框自身，方向反了）；④ `modules/settings/formValues.ts` 新增纯函数 `locateField`（错误路径 → 分组/控件：先精确匹配字段路径，再按分组前缀归一化，覆盖 compaction 组「组内相对路径 + 后端带前缀错误」两形态，解析不到返回 null 不猜）；⑤ `pages/SettingsPage.tsx` 用 `locateField` 把首个出错字段所在分组切到前台（单面板下错误必须可见）；⑥ `styles/app.css` 增 `.settings-field-effect`。改动只在设置模块与共享样式，未新增依赖、未动 `src/locales/*.json`（词条由 TASK-008 预置、本任务只消费）。
+- [x] [B-289] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-289] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_settings_ui.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**8 passed（0.63–0.65s，两轮稳定）**。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-289 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 容量/模型池/Webchat字段从groups元信息渲染默认/单位/范围/生效标记；整份文档及revision保存、冲突不覆盖，不给启动连接池做运行时编辑框 | tests/frontend/test_capacity_webchat_settings_ui.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_settings_ui.py"] | planned |
+| B-289 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 容量/模型池/Webchat字段从groups元信息渲染默认/单位/范围/生效标记；整份文档及revision保存、冲突不覆盖，不给启动连接池做运行时编辑框 | tests/frontend/test_capacity_webchat_settings_ui.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_settings_ui.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+> RED/GREEN 与断言位置如下。真实边界：真实模块 service（`modules/settings/services/settingsApi.ts`）+ 真实 typed DTO（`types.ts`）+ 真实共享传输（`src/api/client.ts` 的 axios 实例与拦截器，HTTP 经 adapter 观测方法/URL/体/头）+ 真实后端字段元信息（`platform_settings_catalog.build_groups`）与真实校验错误路径（`platform_settings_guard.validation_detail`，含 `compaction.summary.model_ref` 这类带分组前缀的真实路径）+ 真实组件（`SettingsGroupPanel`/`SettingsFieldRow`，真实 Semi + 真实 zh/en 词条）静态渲染，全部经仓库内 esbuild 编译产物由真实 node v24 执行；DOM 交互（点击/输入/保存按钮）留真实浏览器 E2E（S-F15，TASK-115）。E2E 保持 planned，最终 verify-e2e 记录完整证据。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-289 | `uv run pytest -q tests/frontend/test_capacity_webchat_settings_ui.py` exit=1，**5 failed + 3 passed（0.84s）**：effect_key 未投影、缺 `locateField`、无生效说明节点、控件未关联错误、编译产物缺 `settings-effect-` | 同命令 exit=0，**8 passed in 0.63–0.65s** | ① `test_b289_new_group_fields_project_defaults_ranges_units_and_effects` L473-500：capacity/model_pool/webchat 三组字段清单与真实 catalog 逐一相等（不丢字段/不新增），默认值/当前值/min/max/unit_key/`effect_key`/applies_to/type 逐项等于 API-01 元信息；无 `effect_key` 的 compaction 字段不得伪造说明。② `test_b289_save_keeps_whole_document_and_revision_without_overwriting_on_conflict` L503-526：PUT `/platform-settings` 体 `revision=7` + 整份分组文档（组键集合与 catalog 相等、新分组按分组文档结构提交全部字段）；成功采用服务端 revision=8；409 → `PLATFORM_SETTINGS_VERSION_CONFLICT`；hook 冲突分支只 `setConflict(true)`、不重发保存。③ `test_b289_field_errors_locate_the_control_instead_of_a_page_error` L529-565：真实后端错误路径（capacity 跨字段 `capacity.max_open_runs_per_user`、`model_pool.interactive_weight`、`webchat.session_ttl_hours`、`webchat.upload_max_bytes`（部署硬上限）、compaction 相对 `snip.max_groups`、compaction 前缀 `compaction.summary.model_ref`）逐条定位到存在的控件；前缀形态归位到 `summary.model_ref`；不存在路径返回 null；`VALIDATION_FAILED` 的 `details[].path`/message 原样映射；页面用 `locateField` 切分组、字段错误只经面板下发（页面无 `settings-error` 节点/无 `role="alert"`），页面级只有版本冲突 Banner+重新加载。④ `test_b289_startup_pool_and_transport_keys_stay_out_of_the_settings_form` L567-591：真实元信息无 `db_pool*`/`db_max_overflow`/`model_http*`/`runtime_execution*`/`stream_http*` 与 `*_hard_max_bytes`；设置模块与页面源码也不出现这些键；组件不内联 capacity/model_pool/webchat 分组键（分组只来自元信息）。⑤ `test_b289_group_panel_renders_defaults_units_ranges_and_effect_notes` L601-655：真实组件渲染真实元信息——分组标题本地化；`capacity.max_open_runs_per_tenant`/`capacity.queue_wait_timeout_sec`/`model_pool.input_estimate_multiplier`/`webchat.upload_max_bytes`/`webchat.reconnect_cap_ms` 的标签/默认值/单位/范围/生效说明（`settings-effect-<path>`）都在各自字段行内；字段级 `applies_to` 标签与分组级标签都在；zh 与 en 两侧即时渲染且说明文案不同；无 `effect_key` 的 compaction 不出现生效说明节点。⑥ `test_b289_field_error_renders_inside_its_control_row_only` L657-689：4 类控件（number/switch/text/select）出错时错误节点都在对应字段行内、`role="alert"`、`id` 与控件 `aria-describedby`/`aria-invalid` 关联，且每组只出现 1 个字段错误；未出错的渲染零错误节点。⑦ `test_b289_settings_ui_compiles_from_the_real_sources` L691-716：真实 TSX 编译产物含 `settings-group-`/`settings-field-`/`settings-effect-`/`settings-error-`/`aria-describedby`；字段行源码由 `meta.effectKey`/`meta.defaultValue`/`meta.unitKey` 驱动、说明走 `t(meta.effectKey)`、无硬编码中文文案。⑧ `test_b289_new_group_metadata_keys_are_localized_in_both_languages` L718-756：真实 catalog 的全部 label/unit/effect 词条 zh-CN 与 en-US 齐备，effect 词条两侧文案不同，且覆盖新受理/新Run/签发/交换/清理/新连接 | 真实 esbuild 把设置模块（service+typed DTO+纯逻辑）与真实共享传输打成 ESM，node v24 用真实 axios adapter 观测真实 `getPlatformSettings`/`savePlatformSettings` 发出的方法/URL/体/头；元信息与错误路径来自真实后端 `build_groups`/`validation_detail`（无服务、无 DB）；渲染侧用真实 `SettingsGroupPanel`+真实 Semi 组件+真实 zh/en 词条做静态渲染（无 DOM 交互），断言直接读真实 HTML（默认/单位/范围/生效说明/错误节点的位置与 aria 关联）。`@douyinfe/semi-ui` 只在逻辑侧被别名成可观测 Toast 记录器，渲染侧用真实组件 | verified |
+
+实现要点：**元信息唯一来源**——新分组的默认/范围/单位/生效标记/生效说明全部来自 API-01 投影，前端不复制任何默认值或范围字面量（`effectKey` 只是词条键，文案在 locales 里）；**字段错误定位**——`locateField` 是错误路径 → 控件的唯一落点，兼容「字段路径」与「分组前缀 + 组内相对路径」两种真实形态（compaction 跨字段校验错误带前缀），解析不到返回 null 不误挂；错误渲染在字段行内并用 `aria-describedby`/`aria-invalid` 与控件双向可定位，页面级只保留版本冲突入口（E-11/E-12 不变）。
+
+回归（本机无 dev/测试残留进程）：`uv run pytest -q tests/frontend` exit=0，**459 passed in 2.64s**（含本任务 8 条与 TASK-010 的 `test_platform_settings_contract.py`）；`npx tsc --noEmit`（apps/console-platform/frontend）exit=0 无输出；`.venv/bin/python scripts/check_frontend_i18n.py`「i18n keys OK: 1381」（零新增词条）；`uv run ruff check tests/frontend/test_capacity_webchat_settings_ui.py`「All checks passed!」；`.venv/bin/python -m py_compile` 通过。未新增迁移/DDL，未动 `src/locales/*.json`，无新增依赖。
+
+遗留（deferred，非本任务可闭合）：① 浏览器内交互（切换分组、保存、错误滚动/聚焦到控件、窄屏布局）按契约留真实浏览器 E2E（S-F15，TASK-115）；② 新增分组词条正文（若需再扩写说明文案）属 TASK-090 的词条面，本任务只消费已就绪词条；③ 模型/用户模块的 Key 与 Token 维护面分别属 TASK-085/087/088，不在设置页；④ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「设置字段的默认/范围/单位/生效说明只来自 API-01 元信息；字段错误按 `details[].path` 定位到控件（含分组前缀归一化），错误只渲染在字段行内」；本任务不改 spec 文件以免 active context 漂移。
+- B-289: verified — automated command passed; run_id=57d3677009364f089c47db49e55e05c0 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] completed (done)
 
 ---
 

@@ -33,6 +33,7 @@ interface RawField {
   max?: number;
   enum?: string[];
   unit_key?: string;
+  effect_key?: string;
 }
 
 interface RawGroup {
@@ -114,7 +115,8 @@ function toField(raw: RawField): SettingsFieldMeta {
     min: optional(raw.min),
     max: optional(raw.max),
     enum: optional(raw.enum),
-    unitKey: optional(raw.unit_key)
+    unitKey: optional(raw.unit_key),
+    effectKey: optional(raw.effect_key)
   };
 }
 

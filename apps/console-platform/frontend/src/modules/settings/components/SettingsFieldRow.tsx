@@ -5,6 +5,10 @@
  * 与默认值只来自 `meta`，本组件不写任何默认值或范围字面量（RISK-FE-01，避免前端成为第二套
  * 默认源）。生效方式标签由纯函数 `appliesToLabelKey` 映射，未知取值不兜底（B-06）；标签只在
  * 字段与所在分组的生效方式**不同**时展示——分组级标签由 CMP-04 统一展示，不逐字段重复。
+ *
+ * 生效说明（`meta.effectKey`，如「仅后续签发或重置生效」）与生效方式标记一起构成「生效边界」：
+ * 说明文案只来自后端元信息的词条键，本组件不编写也不复制任何说明文字。字段级错误（E-11）
+ * 渲染在本行内，并用 `aria-describedby`/`aria-invalid` 与控件关联，不整页报错。
  */
 
 import { Input, InputNumber, Select, Switch, Tag } from '@douyinfe/semi-ui';
@@ -62,6 +66,12 @@ export function SettingsFieldRow({
   const { t } = useTranslation();
   const kind = controlKind(meta);
   const inputId = `settings-input-${meta.path}`;
+  const errorId = `settings-error-${meta.path}`;
+  // 字段错误必须能被读屏与自动化定位到具体控件：控件自身关联错误节点并标记非法值。
+  const errorProps = error
+    ? { 'aria-invalid': true as const, 'aria-describedby': errorId }
+    : {};
+  const validateStatus = error ? ('error' as const) : undefined;
   const labelKey = appliesToLabelKey(meta.appliesTo);
   const appliesLabel = labelKey ? t(labelKey) : meta.appliesTo;
   const range = rangeHint(meta, t);
@@ -81,6 +91,7 @@ export function SettingsFieldRow({
         checked={Boolean(value)}
         disabled={disabled}
         onChange={(checked) => onChange(checked)}
+        {...errorProps}
       />
     );
   } else if (kind === 'select') {
@@ -89,9 +100,11 @@ export function SettingsFieldRow({
         id={inputId}
         value={value === null || value === undefined ? undefined : String(value)}
         disabled={disabled}
+        validateStatus={validateStatus}
         style={{ minWidth: 200 }}
         optionList={(meta.enum ?? []).map((option) => ({ value: option, label: option }))}
         onChange={(option) => onChange(option)}
+        {...errorProps}
       />
     );
   } else if (kind === 'number') {
@@ -102,8 +115,10 @@ export function SettingsFieldRow({
         min={meta.min}
         max={meta.max}
         disabled={disabled}
+        validateStatus={validateStatus}
         style={{ width: 200 }}
         onChange={(next) => onChange(next)}
+        {...errorProps}
       />
     );
   } else {
@@ -112,8 +127,10 @@ export function SettingsFieldRow({
         id={inputId}
         value={value === null || value === undefined ? '' : String(value)}
         disabled={disabled}
+        validateStatus={validateStatus}
         style={{ width: 260 }}
         onChange={(text) => onChange(text)}
+        {...errorProps}
       />
     );
   }
@@ -135,11 +152,16 @@ export function SettingsFieldRow({
           <OverrideBadge count={meta.overriddenByResources} />
         </div>
       ) : null}
+      {meta.effectKey ? (
+        <div className="settings-field-effect" data-testid={`settings-effect-${meta.path}`}>
+          {t(meta.effectKey)}
+        </div>
+      ) : null}
       {error ? (
         <div
           className="settings-field-error"
+          id={errorId}
           role="alert"
-          aria-describedby={inputId}
           data-testid={`settings-error-${meta.path}`}
         >
           {error}
