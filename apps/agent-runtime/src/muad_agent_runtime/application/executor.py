@@ -81,6 +81,7 @@ from muad_contracts.platform_settings import (
 from muad_logging.redaction import redact_text
 from muad_platform_sdk.types import SecretValue
 from pydantic import JsonValue, ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory
@@ -887,6 +888,10 @@ class PooledModelProvider:
         self._reselection_limit = reselection_limit
         #: 本段模型等待起点：同一执行片段内的重试不刷新该预算（design §3.2/§3.7）
         self._wait_since = wait_since if wait_since is not None else datetime.now(UTC)
+        #: 模型等待的持久阶段投影（B-236）：是否已写 WAITING_MODEL、原因与等待起点
+        self._model_wait_stage = False
+        self._model_wait_reason: str | None = None
+        self._model_wait_queued_at: datetime | None = None
         #: 逐 attempt 审计序号账本：同一 Run 的主调用与摘要共用一份（序号不重复）
         self._ledger = ledger if ledger is not None else ModelAttemptLedger()
         self._session_factory_provider = session_factory_provider
@@ -955,14 +960,19 @@ class PooledModelProvider:
     async def _allocate(
         self, candidates: Sequence[ModelMemberCandidate], reserved_tokens: int
     ) -> ModelAllocation:
-        """池锁内选择并预占；额度暂不可用时在冻结等待预算内退避重试（重试不刷新预算）。"""
+        """池锁内选择并预占；额度暂不可用时在冻结等待预算内退避重试（重试不刷新预算）。
+
+        等待与恢复都**先落持久阶段投影**（Run 行 + `run.stage` 事件，同一事务；B-236）：
+        受限时显示 `WAITING_MODEL`（原因取自 `MODEL_CAPACITY_UNAVAILABLE.data.reason`），
+        拿到额度即回到 `RUNNING`。投影写入失败只留警告，不打断模型执行。
+        """
         wait_until = min(
             self._wait_since + timedelta(seconds=self._scope.policy.model_wait_timeout_sec),
             self._scope.deadline_at,
         )
         while True:
             try:
-                return await self._allocator.allocate(
+                allocation = await self._allocator.allocate(
                     tenant_id=self._scope.tenant_id,
                     lease_owner=self._scope.lease_owner,
                     model_id=self._scope.model_id,
@@ -983,7 +993,70 @@ class PooledModelProvider:
                     or datetime.now(UTC) >= wait_until
                 ):
                     raise
+                await self._project_model_wait(exc, wait_until=wait_until)
                 await asyncio.sleep(POOL_CAPACITY_RETRY_INTERVAL_SEC)
+                continue
+            await self._project_model_running()
+            return allocation
+
+    async def _project_model_wait(self, exc: AppError, *, wait_until: datetime) -> None:
+        """额度受限：把 WAITING_MODEL 投影落库（同原因重试不重复写；失败降级可见）。"""
+        from .execution_status import normalized_queue_reason, persist_model_wait
+
+        if not isinstance(self._scope.owner, RunCallOwner):
+            return
+        data = exc.data if isinstance(exc.data, Mapping) else {}
+        reason = normalized_queue_reason(data.get("reason"))
+        if self._model_wait_stage and reason == self._model_wait_reason:
+            return
+        if self._model_wait_queued_at is None:
+            self._model_wait_queued_at = datetime.now(UTC)
+        try:
+            await persist_model_wait(
+                self._session_factory_provider,
+                tenant_id=self._scope.tenant_id,
+                run_id=self._scope.run_id,
+                lease_owner=self._scope.lease_owner,
+                reason=reason,
+                queued_at=self._model_wait_queued_at,
+                deadline_at=wait_until,
+            )
+        except (SQLAlchemyError, ValueError) as failure:
+            logger.warning(
+                "run_stage_projection_failed",
+                extra={
+                    "run_id": str(self._scope.run_id),
+                    "stage": "WAITING_MODEL",
+                    "error": type(failure).__name__,
+                },
+            )
+        self._model_wait_stage, self._model_wait_reason = True, reason
+
+    async def _project_model_running(self) -> None:
+        """额度恢复：清排队投影并写 `RUNNING`（只在等待过时执行；失败降级可见）。"""
+        from .execution_status import persist_model_running
+
+        if not self._model_wait_stage:
+            return
+        self._model_wait_stage = False
+        if not isinstance(self._scope.owner, RunCallOwner):
+            return
+        try:
+            await persist_model_running(
+                self._session_factory_provider,
+                tenant_id=self._scope.tenant_id,
+                run_id=self._scope.run_id,
+                lease_owner=self._scope.lease_owner,
+            )
+        except SQLAlchemyError as failure:
+            logger.warning(
+                "run_stage_projection_failed",
+                extra={
+                    "run_id": str(self._scope.run_id),
+                    "stage": "RUNNING",
+                    "error": type(failure).__name__,
+                },
+            )
 
     async def _resolve_selected(self, allocation: ModelAllocation) -> SelectedModelCredential:
         """按冻结引用解析所选成员的当前密钥，并校验身份与预占一致（design §3.3 调用链）。"""

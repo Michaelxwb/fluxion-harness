@@ -1384,6 +1384,8 @@ class RunService:
             )
             submission.first_seq = seq
             await self._append_submission_start(self._session, run, submission.id, resumed=False)
+            # 排队阶段随受理事务一起持久化（行 + `run.stage` 事件同一份 now()；B-236）
+            await self._append_run_stage(run)
             conversation.last_run_id = run.id
             conversation.update_time = now
             # 计数自增与 Run 行同事务（B-230）：达阈值即拒，整个事务回滚——不留半建 Run，
@@ -1570,6 +1572,17 @@ class RunService:
                 "resumed": resumed,
                 "trace_id": run.trace_id,
             })
+
+    async def _append_run_stage(self, run: RunRecord) -> int:
+        """把当前持久阶段投影写成 `run.stage` 事件（与行状态同一事务、同一词表；B-236）。"""
+        from .execution_status import project_execution_status
+
+        return await self._event_writer().append_run_stage(
+            tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id,
+            run_id=run.id,
+            status=project_execution_status(run),
+        )
 
     async def _runtime_credentials(
         self,

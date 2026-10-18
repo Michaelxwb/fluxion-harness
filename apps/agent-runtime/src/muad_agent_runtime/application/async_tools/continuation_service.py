@@ -21,6 +21,7 @@ from ...infrastructure.models.runtime import (
     RunSubmission,
     RuntimeSnapshot,
 )
+from ..execution_status import project_execution_status
 from ..run_events import EventWriter
 from ..tool_result_receipts import OP_TERMINAL, lock_run_source
 
@@ -294,6 +295,13 @@ async def try_wait(
             None,
             instant,
         )
+        # 工具阶段与既有 `run.waiting_tool` 同事务投影（两入口同一阶段词表；B-236）
+        await EventWriter(session).append_run_stage(
+            tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id,
+            run_id=run.id,
+            status=project_execution_status(run),
+        )
     return WaitDecision.WAIT
 
 
@@ -455,5 +463,12 @@ async def _claim_one(
                 payload={"execution_epoch": run.execution_epoch,
                     "wait_generation": saved.wait_generation if saved is not None else 0},
             )
+        # 排队结束/续跑开始：与行状态同一事务写 `RUNNING` 阶段投影（B-236）
+        await EventWriter(session).append_run_stage(
+            tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id,
+            run_id=run.id,
+            status=project_execution_status(run),
+        )
         await session.flush()
     return run
