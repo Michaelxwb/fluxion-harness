@@ -124,6 +124,7 @@ from .context_settings import (
     resolve_pool_execution_policy,
 )
 from .dto import CancelSource, RunWaitSummary
+from .event_tail_hub import CanonicalEventView, EventTailHub, TailBatch, get_event_tail_hub
 from .executor import (
     ExecutionDefaults,
     ExecutorCredentials,
@@ -421,7 +422,6 @@ INTERRUPT_WAITING = "WAITING"
 INTERRUPT_RESOLVED = "RESOLVED"
 INTERRUPT_CANCELLED = "CANCELLED"
 TERMINAL_STREAM_TYPES = (RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)
-REPLAY_POLL_SEC = 0.5
 
 STREAM_BUSINESS_TYPES: dict[str, str] = {
     RUN_CREATED_EVENT: "RUN_CREATED",
@@ -466,6 +466,24 @@ class SegmentResult:
     outcome: AgentRunStatus = AgentRunStatus.COMPLETED
     final_text: str = ""
     failure: Exception | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _TailStop:
+    """追尾停止判定：`stop` 为真即结束流；`event` 非空则先产出（缺终态行时按 Run 记录合成）。"""
+
+    stop: bool
+    event: ExecutorEvent | None = None
+
+
+def _executor_event(row: CanonicalEventView) -> ExecutorEvent:
+    """已提交 canonical 行 → 执行器事件（只搬运事实；公开白名单投影属 SSE 接缝）。"""
+    return ExecutorEvent(
+        type=str(row.stream_type),
+        data=dict(row.payload_json or {}),
+        seq=int(row.seq),
+        timestamp=row.create_time.isoformat() if row.create_time else None,
+    )
 
 
 def _utcnow() -> datetime:
@@ -829,6 +847,7 @@ class RunService:
         supervisor: ExecutionSupervisor,
         admission: AdmissionPolicyService | None = None,
         artifact_root: str | None = None,
+        tail_hub: EventTailHub | None = None,
     ) -> None:
         self._session = session
         self._supervisor = supervisor
@@ -852,6 +871,10 @@ class RunService:
             budget=BudgetPolicy(max_messages=default_compaction_settings().history_budget_messages),
         )
         self._settings = SharedSettings()
+        # 共享事件追尾（ADR-02）：同进程按会话共享上游读取、提交后唤醒、超时按 PG 有界补查。
+        # 写入方与追尾方必须是**同一份**唤醒状态；显式注入用于测试或替换装配。会话工厂按
+        # 本模块的 `get_session_factory` 绑定（与其它共享服务同源，测试可替换）。
+        self._tail_hub = tail_hub or get_event_tail_hub(get_session_factory)
         # 共享 artifact store 根：Run 独立不可变制品（暂存上传受理）与内联图片读取共用；
         # 显式注入用于测试隔离，生产装配回落 `SharedSettings.artifact_root`。
         fallback_root = Path(self._settings.artifact_root)
@@ -1005,9 +1028,14 @@ class RunService:
     ) -> RunStart:
         """API-04：按已确认 canonical seq 重放/续跟既有 Run 的持久事件流。
 
+        游标先分型：超前（`CURSOR_AHEAD`）与已过期（`CURSOR_EXPIRED`）显式失败，不静默夹取；
         只读持久事件，不重新执行、不分配新序号、不重新 resolve 配置；终态排空后关闭。
         """
         run = await self._load_run(run_id, tenant_id)
+        after = max(0, after_seq)
+        await self._tail_hub.check_cursor(
+            tenant_id=run.tenant_id, conversation_id=run.conversation_id, after_seq=after
+        )
         return RunStart(
             run_id=run.id,
             conversation_id=run.conversation_id,
@@ -1016,7 +1044,7 @@ class RunService:
                 tenant_id=run.tenant_id,
                 conversation_id=run.conversation_id,
                 run_id=run.id,
-                after_seq=max(0, after_seq),
+                after_seq=after,
             ),
         )
 
@@ -1547,6 +1575,7 @@ class RunService:
             # 提交前任何其他失败：事务不会带上盘上的 Run 制品，文件先回滚再让异常继续上抛。
             discard_written(self._artifact_root, staged_written)
             raise
+        await self._wake_tail(tenant_id, conversation.id)  # 提交后唤醒（ADR-02）：受理事务已落库
         history = await self._load_history(
             conversation.id,
             tenant_id,
@@ -1587,9 +1616,8 @@ class RunService:
         """冻结快照续跑：锁内复核等待态/期限，再按本 Run 自己那份快照执行（不重新 resolve）。"""
         snapshot = await self._resume_snapshot(run)
         agent, model, skills, servers = self._frozen_definitions(snapshot)
-        model, summary_model, secrets = await self._runtime_credentials(
-            run.id, run.tenant_id, run.user_id, model, servers,
-            summary_model=summary_model_of(snapshot.policy_json))
+        model, summary_model, secrets = await self._runtime_credentials(run.id, run.tenant_id,
+            run.user_id, model, servers, summary_model=summary_model_of(snapshot.policy_json))
         canaries = _credential_canaries(model, summary_model, secrets)
         try:
             submission, persisted, replayed = await self._persist_human_resume(run, input_text,
@@ -1598,6 +1626,7 @@ class RunService:
                 settings=execution_defaults_of(snapshot.policy_json).memory_policy,
                 credential_canaries=canaries, confirmation=confirmation)
             await self._session.commit()
+            await self._wake_tail(run.tenant_id, run.conversation_id)  # 提交后唤醒（ADR-02）
             if replayed:
                 return self._replay_start(submission)
         except IntegrityError as exc:
@@ -1877,6 +1906,9 @@ class RunService:
         else:
             await self._cancel_not_started(run, now)
         await self._session.commit()
+        if not cooperative:
+            # 提交后唤醒：未开始执行的取消写入了取消事件（同事务），订阅方立即看到。
+            await self._wake_tail(run.tenant_id, run.conversation_id)
         if cooperative:
             await self._safe_set_cancel_hint(run.id)
         await self._session.refresh(run)
@@ -2256,6 +2288,13 @@ class RunService:
             )
         return await self._finalize_run(run, submission_id, result.final_text, agent_key=agent_key)
 
+    async def _wake_tail(self, tenant_id: str, conversation_id: uuid.UUID) -> None:
+        """提交后唤醒（ADR-02）：必须在事务提交之后调用；只发轻量提示，不改写任何事实。
+
+        提示丢失/Redis 故障只退化为超时补查，绝不改变写入结果，也不向上抛。
+        """
+        await self._tail_hub.publish(tenant_id=tenant_id, conversation_id=conversation_id)
+
     async def _persist_event(
         self,
         run: RunRecord,
@@ -2276,6 +2315,7 @@ class RunService:
                 artifact_id=_event_artifact_id(data),
             )
             await session.commit()
+        await self._wake_tail(run.tenant_id, run.conversation_id)  # 提交后唤醒（ADR-02）
         return ExecutorEvent(type=sse_type, data=data, seq=int(seq), timestamp=_utcnow().isoformat())
 
     async def _finalize_run(
@@ -2361,6 +2401,7 @@ class RunService:
 
                 await enqueue_completed(session, row, through_seq=int(seq))
             await session.commit()
+        await self._wake_tail(run.tenant_id, run.conversation_id)  # 提交后唤醒（ADR-02）
         record_outcome(AGENT_RUNS_METRIC, str(target), {"agent": agent_key})
         return ExecutorEvent(
             type=RUN_COMPLETED_EVENT,
@@ -2423,6 +2464,7 @@ class RunService:
                 terminal_result_json={"status": str(RunStatus.FAILED), "error_code": code},
             )
             await session.commit()
+        await self._wake_tail(run.tenant_id, run.conversation_id)  # 提交后唤醒（ADR-02）
         record_outcome(AGENT_RUNS_METRIC, str(RunStatus.FAILED), {"agent": agent_key})
         return ExecutorEvent(
             type=RUN_FAILED_EVENT,
@@ -2511,42 +2553,72 @@ class RunService:
         run_id: uuid.UUID,
         after_seq: int,
     ) -> AsyncIterator[ExecutorEvent]:
-        """tail 持久 canonical 事件直到终态排空；等待态保持连接（heartbeat 由 HTTP 层加）。
+        """共享追尾（ADR-02）：注册唤醒 → 读水位 → 按页追到水位 → 等待或超时补查。
 
-        `after_seq` 是调用方**已确认**的 canonical seq：只在它之后回放，不重复不跳跃。
+        - 上游读取按会话共享（`EventTailHub`）：订阅者数量不线性放大查询；
+        - 只产出已提交行，按 seq 严格递增（`seq <= 游标` 不重复投递；过滤跳号合法）；
+        - 读取会话在 yield 之前关闭（慢 SSE 不占数据库连接；design §3.6）；
+        - 心跳由 HTTP 层产出、不经过本游标（心跳不推进业务游标）。
         """
-        after = max(0, after_seq)
-        while True:
-            emitted_terminal = False
-            async with get_session_factory()() as session:
-                rows = await EventWriter(session).list_events(
-                    conversation_id,
-                    tenant_id=tenant_id,
-                    after_seq=after,
+        async for batch in self._tail_hub.tail(
+            tenant_id=tenant_id,
+            conversation_id=conversation_id,
+            after_seq=max(0, after_seq),
+        ):
+            rows = [
+                row for row in batch.rows if row.run_id == run_id and row.stream_type is not None
+            ]
+            for row in rows:
+                yield _executor_event(row)
+                if row.stream_type in TERMINAL_STREAM_TYPES:
+                    return
+            if rows:
+                continue
+            stop = await self._tail_stop(batch, run_id, tenant_id)
+            if stop.event is not None:
+                yield stop.event
+            if stop.stop:
+                return
+
+    async def _tail_stop(
+        self, batch: TailBatch, run_id: uuid.UUID, tenant_id: str
+    ) -> _TailStop:
+        """本批没有本 Run 的行：按 Run 行事实判定停止（只在空闲轮/无关行批次上查一次）。
+
+        终态可能刚提交而终态行尚未读入：此时**不合成**，让下一轮把已提交的终态行追平后送出
+        —— 终态不能先于最后持久正文。
+        """
+        async with get_session_factory()() as session:
+            row = await session.scalar(
+                sa.select(RunRecord).where(
+                    RunRecord.id == run_id,
+                    RunRecord.tenant_id == tenant_id,
+                    RunRecord.is_deleted.is_(False),
                 )
-                for row in rows:
-                    after = int(row.seq)
-                    if row.run_id != run_id or row.stream_type is None:
-                        continue
-                    yield ExecutorEvent(
-                        type=str(row.stream_type),
-                        data=dict(row.payload_json or {}),
-                        seq=int(row.seq),
-                        timestamp=row.create_time.isoformat() if row.create_time else None,
-                    )
-                    if row.stream_type in TERMINAL_STREAM_TYPES:
-                        emitted_terminal = True
-                if emitted_terminal:
-                    return
-                fresh = await session.scalar(sa.select(RunRecord).where(RunRecord.id == run_id))
-                if fresh is None:
-                    return
-                if fresh.status in TERMINAL_RUN_STATUSES:
-                    yield await self._terminal_event(session, fresh)
-                    return
-                if fresh.status == RunStatus.WAITING_INPUT:
-                    return
-            await asyncio.sleep(REPLAY_POLL_SEC)
+            )
+            if row is None:
+                return _TailStop(stop=True)
+            status = str(row.status)
+            if status == RunStatus.WAITING_INPUT:
+                return _TailStop(stop=True)
+            if status not in TERMINAL_RUN_STATUSES:
+                return _TailStop(stop=False)
+            if await self._has_terminal_row(session, run_id):
+                return _TailStop(stop=False)
+            return _TailStop(stop=True, event=await self._terminal_event(session, row))
+
+    async def _has_terminal_row(self, session: AsyncSession, run_id: uuid.UUID) -> bool:
+        """已提交终态行存在性：存在即等追平后送出持久事实，不合成第二份终态。"""
+        found = await session.scalar(
+            sa.select(CanonicalEvent.id)
+            .where(
+                CanonicalEvent.run_id == run_id,
+                CanonicalEvent.stream_type.in_(TERMINAL_STREAM_TYPES),
+                CanonicalEvent.is_deleted.is_(False),
+            )
+            .limit(1)
+        )
+        return found is not None
 
 
 def _error_code_for(exc: Exception) -> str:
