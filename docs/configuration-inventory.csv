@@ -826,27 +826,27 @@ apps/im-gateway/src/muad_im_gateway/application/progress.py,25,COMPLETED,'COMPLE
 apps/im-gateway/src/muad_im_gateway/application/progress.py,26,FAILED,'FAILED',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/application/progress.py,27,CANCELLED,'CANCELLED',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/application/progress.py,141,_STOP_PHASES,"{'interrupt.required': ProgressPhase.WAITING_INPUT, 'memory.confirmation_required': ProgressPhase.WAITING_INPUT, 'task.accepted': ProgressPhase.ACCEPTED, 'run.completed': ProgressPhase.COMPLETED, 'run.failed': ProgressPhase.FAILED}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,26,RUNS_PATH,'/v1/runs',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,27,RUN_PATH,'/v1/runs/{run_id}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,28,RUN_CANCEL_PATH,'/v1/runs/{run_id}/cancel',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,29,RUN_RESUME_PATH,'/v1/runs/{run_id}/resume',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,30,RUN_EVENTS_PATH,'/v1/runs/{run_id}/events',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,31,CONVERSATIONS_PATH,'/v1/conversations',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,33,INTERNAL_CONVERSATIONS_PATH,'/internal/webchat/entries/{entry_id}/conversations',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,34,INTERNAL_CONVERSATION_PATH,'/internal/webchat/conversations/{conversation_id}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,35,INTERNAL_MESSAGES_PATH,'/internal/webchat/conversations/{conversation_id}/messages',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,36,INTERNAL_SCOPE_PATH,'/internal/webchat/conversations/{conversation_id}/scope',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,38,INTERNAL_UPLOADS_PATH,'/internal/webchat/uploads',python-constant,code,受信暂存上传登记端口路径（TASK-058）
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,41,CANCEL_ACTIVE_PATH,'/v1/runs/cancel-active',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,42,REQUEST_TIMEOUT_SEC,10.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,43,STREAM_TIMEOUT_SEC,300.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,44,CALLER_SERVICE,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,33,RUNS_PATH,'/v1/runs',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,34,RUN_PATH,'/v1/runs/{run_id}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,35,RUN_CANCEL_PATH,'/v1/runs/{run_id}/cancel',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,36,RUN_RESUME_PATH,'/v1/runs/{run_id}/resume',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,37,RUN_EVENTS_PATH,'/v1/runs/{run_id}/events',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,38,CONVERSATIONS_PATH,'/v1/conversations',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,40,INTERNAL_CONVERSATIONS_PATH,'/internal/webchat/entries/{entry_id}/conversations',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,41,INTERNAL_CONVERSATION_PATH,'/internal/webchat/conversations/{conversation_id}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,42,INTERNAL_MESSAGES_PATH,'/internal/webchat/conversations/{conversation_id}/messages',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,43,INTERNAL_SCOPE_PATH,'/internal/webchat/conversations/{conversation_id}/scope',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,45,INTERNAL_UPLOADS_PATH,'/internal/webchat/uploads',python-constant,code,受信暂存上传登记端口路径（TASK-058）
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,48,CANCEL_ACTIVE_PATH,'/v1/runs/cancel-active',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,49,REQUEST_TIMEOUT_SEC,10.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,50,STREAM_TIMEOUT_SEC,300.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,51,CALLER_SERVICE,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/webchat_service.py,58,WEBCHAT_CHANNEL,'WEBCHAT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/webchat_service.py,60,MAX_ENTRIES,100,python-constant,code,入口列表上界（当前授权入口的完整集合，不静默截断）
-apps/im-gateway/src/muad_im_gateway/api/webchat.py,46,NO_STORE_CACHE_CONTROL,'no-store',python-constant,code,私有聊天资源响应的缓存指令（design §3.4 no-store）
+apps/im-gateway/src/muad_im_gateway/api/webchat.py,56,NO_STORE_CACHE_CONTROL,'no-store',python-constant,code,私有聊天资源响应的缓存指令（design §3.4 no-store）
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,156,__init__.timeout_sec,REQUEST_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
-apps/im-gateway/src/muad_im_gateway/application/sse.py,23,KNOWN_EVENT_TYPES,"frozenset({'run.created', 'model.started', 'model.completed', 'message.delta', 'skill.loaded', 'tool.started', 'tool.completed', 'tool.submission_pending', 'tool.submitted', 'tool.submission.failed', 'tool.result.received', 'tool.result', 'tool.result.late', 'run.waiting_tool', 'run.resumed', 'task.accepted', 'artifact.created', 'interrupt.required', 'memory.confirmation_required', 'run.completed', 'run.failed'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/sse.py,52,ENVELOPE_KEYS,"('seq', 'timestamp', 'run_id')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/sse.py,23,KNOWN_EVENT_TYPES,"frozenset({'run.created', 'model.started', 'model.completed', 'message.delta', 'message.snapshot', 'run.stage', 'skill.loaded', 'tool.started', 'tool.completed', 'tool.submission_pending', 'tool.submitted', 'tool.submission.failed', 'tool.result.received', 'tool.result', 'tool.result.late', 'run.waiting_tool', 'run.resumed', 'task.accepted', 'artifact.created', 'interrupt.required', 'memory.confirmation_required', 'run.completed', 'run.failed'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/sse.py,57,ENVELOPE_KEYS,"('seq', 'timestamp', 'run_id')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,24,DELTA_FLUSH_INTERVAL_SEC,0.5,python-constant,code,IM 展示节拍实现常量（非平台设置 im.progress_interval_sec）；运行期不可改
 apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,25,CANCELLED_STATUS,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,26,RUN_ABANDONED_CODE,'RUN_ABANDONED',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1493,7 +1493,7 @@ apps/im-gateway/src/muad_im_gateway/application/webchat_uploads.py,56,MAX_HEADER
 apps/im-gateway/src/muad_im_gateway/application/webchat_uploads.py,58,MAX_BOUNDARY_LENGTH,200,python-constant,code,multipart boundary 长度上限（RFC 7578 ≤70 的应用边界）
 apps/im-gateway/src/muad_im_gateway/application/webchat_uploads.py,60,MAX_FILENAME_LENGTH,255,python-constant,code,上传文件名长度上限（与 Runtime 登记校验同值）
 apps/im-gateway/src/muad_im_gateway/application/webchat_uploads.py,62,_HEADER_LINE_PATTERN,re.compile('^([A-Za-z0-9-]+):[ \\t]*(.*)$'),python-constant,code,multipart 头行形状（实现常量）
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,40,INTERNAL_ARTIFACT_PATH,'/internal/webchat/artifacts/{artifact_id}',python-constant,code,受信附件解析端口路径（TASK-055）
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,47,INTERNAL_ARTIFACT_PATH,'/internal/webchat/artifacts/{artifact_id}',python-constant,code,受信附件解析端口路径（TASK-055）
 apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,45,SAFE_PREVIEW_MEDIA_TYPES,"frozenset({'image/png', 'image/jpeg', 'image/gif', 'image/webp'})",python-constant,code,可内联预览的媒体类型白名单（栅格图片；其余按附件下载）
 apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,47,FALLBACK_MEDIA_TYPE,'application/octet-stream',python-constant,code,媒体类型形状不合法时的降级值（绝不当可执行内容内联）
 apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,48,ATTACHMENT_DISPOSITION,'attachment',python-constant,code,可执行/未知内容一律按附件下载的处置值
@@ -1505,3 +1505,9 @@ packages/contracts/src/muad_contracts/channel_delivery.py,36,DELIVERY_LEASE_MAX_
 packages/contracts/src/muad_contracts/channel_delivery.py,37,DELIVERY_LEASE_DEFAULT_SEC,60,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/channel_delivery.py,39,DELIVERY_RESULT_MAX_BYTES,4096,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/webchat_config.py,25,TRANSPORT_FINGERPRINT_HEX_LENGTH,16,python-constant,code,API-19 传输指纹的十六进制摘要长度（不透明、不含内部值；TASK-057）
+apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,63,PUBLIC_STREAM_EVENT_TYPES,"{'message.delta': 'message.delta', 'message.snapshot': 'message.snapshot', 'run.stage': 'run.stage', 'run.completed': 'run.terminal', 'run.failed': 'run.error', 'artifact.created': 'artifact.created', 'interrupt.required': 'confirmation.required', 'memory.confirmation_required': 'confirmation.required'}",python-constant,code,canonical stream_type → 公开事件白名单（未知/内部事件默认不公开；TASK-061）
+apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,74,PUBLIC_IDENTITY_NAMESPACE,uuid.UUID('2c9d4f6a-5b18-4e73-9a20-7d1f3b8c6e54'),python-constant,code,"公开事件身份 (run_id, canonical seq) 的派生命名空间（TASK-061）"
+apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,76,HEARTBEAT_FRAME,': heartbeat\n\n',python-constant,code,公开 SSE 心跳帧（注释帧，无 id、不推进业务游标；TASK-061）
+apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,77,SSE_MEDIA_TYPE,'text/event-stream',python-constant,code,公开 SSE 媒体类型（TASK-061）
+apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,79,SSE_STREAM_HEADERS,"{'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no', 'Connection': 'keep-alive'}",python-constant,code,公开 SSE 响应头（私有数据 no-store + 关闭入口代理响应缓冲；TASK-061）
+apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,85,_SPLIT_ATTEMPTS,4,python-constant,code,snapshot 分片容量收敛的重试次数（实现常量；TASK-061）

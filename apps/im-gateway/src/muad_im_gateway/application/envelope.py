@@ -21,6 +21,14 @@ def error_code_from_payload(payload: Any) -> str:
     return str(ErrorCode.COMMON_INTERNAL_ERROR)
 
 
+def error_data_from_payload(payload: Any) -> Any:
+    """错误封套的 `data`（游标窗口等稳定事实）：Owner 说了什么就原样带出，不补造字段。"""
+    if isinstance(payload, dict):
+        data = payload.get("data")
+        return data if isinstance(data, dict) else None
+    return None
+
+
 async def decode_error_payload(response: httpx.Response) -> Any:
     await response.aread()
     try:

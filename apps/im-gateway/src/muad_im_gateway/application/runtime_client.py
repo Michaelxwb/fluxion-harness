@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, Protocol
 from uuid import UUID
@@ -15,7 +16,13 @@ from muad_common import SharedSettings
 from muad_contracts import RunRequest
 from muad_contracts.webchat import WebchatUploadRegistration
 
-from .envelope import decode_error_payload, decode_json, error_code_from_payload, require_data_dict
+from .envelope import (
+    decode_error_payload,
+    decode_json,
+    error_code_from_payload,
+    error_data_from_payload,
+    require_data_dict,
+)
 
 # SSE 类型的规范归属是 `.sse`；此处显式再导出，既有消费者（inbound/测试）导入路径不变
 from .sse import SseEvent as SseEvent
@@ -221,6 +228,40 @@ class RuntimeClient:
                     raise AppError(error_code_from_payload(payload))
                 async for event in iter_sse_events(response.aiter_text()):
                     yield event
+        except httpx.HTTPError as exc:
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+
+    @asynccontextmanager
+    async def open_event_stream(
+        self,
+        run_id: UUID,
+        *,
+        tenant_id: str,
+        after_seq: int = 0,
+        trace_id: str = "",
+    ) -> AsyncIterator[AsyncIterator[SseEvent]]:
+        """**急切打开**的持久事件流：进入上下文时就完成请求并裁决状态码。
+
+        公开 SSE（API-07）必须在响应头下发**之前**拿到游标分型（`CURSOR_EXPIRED`/`CURSOR_AHEAD`
+        是 HTTP 错误封套，不能塞进已开始的流）；因此这里在 `__aenter__` 阶段就完成请求与状态码
+        裁决，错误码连同 Owner 的游标窗口数据原样上抛，绝不夹取、不补造窗口字段。
+        """
+        headers = build_headers(tenant_id, trace_id)
+        headers["Accept"] = "text/event-stream"
+        try:
+            async with self._client.stream(
+                "GET",
+                RUN_EVENTS_PATH.format(run_id=run_id),
+                params={"after_seq": str(max(0, after_seq))},
+                headers=headers,
+                timeout=httpx.Timeout(STREAM_TIMEOUT_SEC, connect=REQUEST_TIMEOUT_SEC),
+            ) as response:
+                if response.status_code >= 400:
+                    payload = await decode_error_payload(response)
+                    raise AppError(
+                        error_code_from_payload(payload), data=error_data_from_payload(payload)
+                    )
+                yield iter_sse_events(response.aiter_text())
         except httpx.HTTPError as exc:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
 
