@@ -254,11 +254,12 @@ class WorkerLoop:
             return await database_now(session)
 
     async def run_forever(self) -> None:
-        """有界任务池：本地有槽才领取；执行独立监督，回收不排在执行队尾。
+        """领取循环：有界任务池，本地有槽才领取；执行独立监督。
 
-        每拍只做两件快事：把空闲槽填满（`run_pending` 不等待任何执行收尾）和按 PG 行事实
-        回收过期租约（`reclaim_expired`）；空闲时按 poll 间隔等待，`task:wakeup` hint 可提前
-        唤醒。长跑/卡死的片段因此不会把回收、调度、投递排在自己后面。
+        每拍只做一件快事：把空闲槽填满（`run_pending` 不等待任何执行收尾）；空闲时按 poll
+        间隔等待，`task:wakeup` hint 可提前唤醒。长跑/卡死的片段因此不会把领取排在自己后面；
+        回收由**独立**的 `run_maintenance_forever` 按自己的节拍驱动（design §3.2
+        「reclaim/调度/投递独立循环」）。
         """
         logger.info("execution_slots_configured", extra={"slots": self._slots.slot_limit})
         try:
@@ -266,7 +267,6 @@ class WorkerLoop:
                 started = 0
                 try:
                     started = await self.run_pending()
-                    await self.reclaim_expired()
                 except Exception:
                     logger.exception("worker_loop_tick_failed")
                 if started == 0:
@@ -275,6 +275,20 @@ class WorkerLoop:
             # 退出时叫停全部本地片段（执行器自己收尾整组子进程）；终止超时显式失败。
             await self.aclose()
             raise
+
+    async def run_maintenance_forever(self) -> None:
+        """维护循环：Task 租约回收的**独立节拍**（design §3.2「reclaim/调度/投递独立循环」）。
+
+        与领取循环分开的理由是双向的：一次慢的回收扫描不再推迟空闲槽补齐，一次慢的领取也不会
+        让过期租约的回收迟到。节拍沿用 §3.7 的 `RUN_REAPER_INTERVAL_SEC`（一处来源，不另设
+        同义键）；单次失败记日志后继续，不静默吞掉——回收失败必须看得见。
+        """
+        while True:
+            try:
+                await self.reclaim_expired()
+            except Exception:
+                logger.exception("worker_maintenance_reclaim_failed")
+            await asyncio.sleep(self._settings.run_reaper_interval_sec)
 
     async def run_pending(self, *, now: datetime | None = None) -> int:
         """把空闲槽填满：本地有槽才 claim，**不等待任何执行收尾**。

@@ -29,6 +29,7 @@ from .delivery.client import HttpDeliveryClient, HttpWebchatInboxClient
 from .delivery.service import DeliveryLoop
 from .infrastructure.cancel_hint import CancelHintStore, create_cancel_hint_store
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
+from .infrastructure.http_clients import WorkerHttpPools, build_worker_http_pools
 from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
 from .infrastructure.wakeup_hint import (
     RedisWakeupNotifier,
@@ -64,36 +65,42 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     app.state.cancel_hints = cancel_hints
     # Redis 只是低延迟 hint：不可用时降级为 PG 扫描，不阻塞就绪；仅作为诊断详情上报。
     app.state.wakeup_mode = "redis" if isinstance(wakeup_notifier, RedisWakeupNotifier) else "disabled"
-    async with httpx.AsyncClient() as http_client:
-        # 平台设置快照：任务创建/扇出与投递尝试两个边界各取一次（TASK-006）。
-        settings_client = ConsolePlatformSettingsClient(
-            settings.console_platform_url, service_token=settings.internal_service_token
-        )
-        app.state.platform_settings_client = settings_client
+    # 出站分池：预算唯一来源是启动设置（§3.7），装配根建、装配根关，调用方只借用（TASK-095）。
+    pools = build_worker_http_pools(settings)
+    app.state.http_pools = pools
+    # 平台设置快照：任务创建/扇出与投递尝试两个边界各取一次（TASK-006），走控制池。
+    settings_client = ConsolePlatformSettingsClient(
+        settings.console_platform_url,
+        service_token=settings.internal_service_token,
+        client=pools.control,
+    )
+    app.state.platform_settings_client = settings_client
+    background: list[asyncio.Task[None]] = []
+    try:
         background = _start_background(
             app,
             session_factory,
             settings,
             settings_client,
-            http_client,
+            pools,
             cancel_hints,
             wakeup_listener,
         )
-        try:
-            yield
-        finally:
-            for task in background:
-                task.cancel()
-            for task in background:
-                with suppress(asyncio.CancelledError):
-                    await task
-            await wakeup_notifier.aclose()
-            await wakeup_listener.aclose()
-            await cancel_hints.aclose()
-            await settings_client.aclose()
-            # 退出后不留真实 Setting 源：同进程再次进入（测试/多次 lifespan）回落到空对象，
-            # 否则一个已切断的 Console 会被后续请求当成"当前设置源"。
-            app.state.platform_settings_client = NullPlatformSettingsClient()
+        yield
+    finally:
+        for task in background:
+            task.cancel()
+        for task in background:
+            with suppress(asyncio.CancelledError):
+                await task
+        await wakeup_notifier.aclose()
+        await wakeup_listener.aclose()
+        await cancel_hints.aclose()
+        await settings_client.aclose()
+        # 退出后不留真实 Setting 源：同进程再次进入（测试/多次 lifespan）回落到空对象，
+        # 否则一个已切断的 Console 会被后续请求当成"当前设置源"。
+        app.state.platform_settings_client = NullPlatformSettingsClient()
+        await pools.aclose()
     await dispose_engine()
 
 
@@ -102,10 +109,15 @@ def _start_background(
     session_factory: async_sessionmaker[AsyncSession],
     settings: SharedSettings,
     settings_client: PlatformSettingsClient,
-    http_client: httpx.AsyncClient,
+    pools: WorkerHttpPools,
     cancel_hints: CancelHintStore,
     wakeup_listener: WakeupListener,
 ) -> list[asyncio.Task[None]]:
+    """装配并启动各**独立**循环：领取、维护（回收）、调度、投递、结果发件互不排队尾。
+
+    所有出站客户端消费装配根注入的分池实例（控制=Console，业务=Gateway/Runtime），
+    不各自建池；每个循环是独立的 `asyncio` 任务，带自己的节拍（§3.2、§3.7）。
+    """
     worker = WorkerLoop(
         session_factory,
         settings,
@@ -119,36 +131,47 @@ def _start_background(
         session_factory,
         ConsoleResolveClient(
             settings.console_platform_url,
-            http_client,
+            pools.control,
             service_token=settings.internal_service_token,
         ),
         settings,
         settings_client=settings_client,
     )
+    app.state.scheduler_loop = scheduler
     delivery = DeliveryLoop(
         session_factory,
         HttpDeliveryClient(
             settings.im_gateway_url,
-            http_client,
+            pools.egress,
             service_token=settings.internal_service_token,
         ),
         settings,
         # 产物引用解析：worker 只有不透明的 artifact_id，解析口径在 runtime 一处
-        ArtifactResolveClient(settings.agent_runtime_url, service_token=settings.internal_service_token),
+        ArtifactResolveClient(
+            settings.agent_runtime_url,
+            service_token=settings.internal_service_token,
+            client=pools.egress,
+        ),
         settings_client=settings_client,
         # 网页投递的受信入箱端口：网页"送达"以 Runtime 持久用户收件箱提交为准（TASK-068）。
         webchat_inbox=HttpWebchatInboxClient(
             settings.agent_runtime_url,
-            http_client,
+            pools.egress,
             service_token=settings.internal_service_token,
         ),
     )
-    return [
-        asyncio.create_task(worker.run_forever()),
-        asyncio.create_task(scheduler.run_forever()),
-        asyncio.create_task(delivery.run_forever()),
-        asyncio.create_task(_result_dispatcher(session_factory, http_client, settings).run_forever()),
-    ]
+    app.state.delivery_loop = delivery
+    results = _result_dispatcher(session_factory, pools.egress, settings)
+    app.state.result_dispatcher = results
+    loops = (
+        (worker.run_forever(), "worker.claim"),
+        # 维护循环：回收的独立节拍，不排在领取/执行/投递后面（§3.2）。
+        (worker.run_maintenance_forever(), "worker.maintenance"),
+        (scheduler.run_forever(), "worker.scheduler"),
+        (delivery.run_forever(), "worker.delivery"),
+        (results.run_forever(), "worker.results"),
+    )
+    return [asyncio.create_task(loop, name=name) for loop, name in loops]
 
 
 def _result_dispatcher(

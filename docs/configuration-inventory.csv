@@ -393,8 +393,9 @@ apps/agent-worker/src/muad_agent_worker/infrastructure/platform_settings_client.
 apps/agent-worker/src/muad_agent_worker/infrastructure/platform_settings_client.py,23,PLATFORM_SETTINGS_TIMEOUT_SEC,5.0,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/infrastructure/platform_settings_client.py,24,WORKER_CALLER,'worker',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/infrastructure/wakeup_hint.py,14,TASK_WAKEUP_KEY,'task:wakeup',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/infrastructure/http_clients.py,24,WORKER_HTTP_POOLS,"('control', 'egress')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/infrastructure/wakeup_hint.py,15,LISTEN_RETRY_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-worker/src/muad_agent_worker/main.py,45,SERVICE_NAME,'muad-agent-worker',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/main.py,46,SERVICE_NAME,'muad-agent-worker',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/metrics.py,26,TASKS_METRIC,'tasks_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/metrics.py,27,TASK_QUEUE_DEPTH_METRIC,'task_queue_depth',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/metrics.py,28,TASK_RECLAIM_METRIC,'task_reclaim_total',python-constant,code,协议标识、枚举、schema、文本或实现常量

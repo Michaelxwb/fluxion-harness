@@ -434,7 +434,7 @@
 | B-292 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-092 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_model_admin_wiring.py"] | . | 300 |  |
 | B-293 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-093 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_frontend_wiring.py"] | . | 300 |  |
 | B-294 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-094 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_wiring.py"] | . | 300 |  |
-| B-295 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-095 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_wiring.py"] | . | 300 |  |
+| B-295 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-095 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_wiring.py"] | . | 300 |  |
 | B-296 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-096 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_wiring.py"] | . | 300 |  |
 | B-297 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-097 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_wiring.py"] | . | 300 |  |
 | B-298 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-098 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_gateway_metrics.py"] | . | 300 |  |
@@ -5489,7 +5489,7 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ## TASK-095: Worker装配模型外部调用预算与独立维护循环
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-033, TASK-035, TASK-037, TASK-068
 - **Source**: agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量
@@ -5504,25 +5504,47 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ### Checklist
 
-- [ ] [B-295][integration] 先在`tests/agent_worker/test_capacity_webchat_worker_wiring.py`建立行为验收并记录RED；真实边界：真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针；关键断言：真实装配根注入控制/MCP/业务/上传分池、并发和期限。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-295] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-295] 执行`["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_wiring.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-295][integration] 先在`tests/agent_worker/test_capacity_webchat_worker_wiring.py`建立行为验收并记录RED；真实边界：真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针；关键断言：真实装配根注入控制/MCP/业务/上传分池、并发和期限。→ RED：首建 5 个行为用例后 `uv run pytest -q tests/agent_worker/test_capacity_webchat_worker_wiring.py` → **exit=2，1 error in 0.07s**（收集期 `ModuleNotFoundError: No module named 'muad_agent_worker.infrastructure.http_clients'`：装配根分池模块尚不存在，测试对真实应用/真实 lifespan 运行）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 实现落在 6 个文件（**超出计划 Files 的披露**：`worker/service.py`、`infrastructure/platform_settings_client.py`、`delivery/artifact_client.py`）：新增 `infrastructure/http_clients.py`（`WORKER_HTTP_POOLS` 分池声明 + `pool_limits`/`pool_timeout`/`build_pool_client`/`build_worker_http_pools`；本进程不调用的池名显式 `ValueError`）、`main.py` 装配根（建/关分池 + 注入 control/egress 到设置快照/定时解析/投递/收件箱/产物解析/结果发件，暴露 `app.state.http_pools`/`scheduler_loop`/`delivery_loop`/`result_dispatcher`；启动 5 条独立循环任务）、`worker/service.py`（`run_forever` 收敛为**只领取**；新增 `run_maintenance_forever` 独立回收节拍，节拍取 §3.7 `RUN_REAPER_INTERVAL_SEC`）、`platform_settings_client.py`/`artifact_client.py`（注入池为**借用**语义：装配根拥有并关闭，未注入时自建自关；请求改绝对 URL 组装）。改动函数行数：`pool_limits` 12、`pool_timeout` 12、`build_pool_client` 3、`build_worker_http_pools` 5、`lifespan` 46、`_start_background` 49、`run_forever` 18、`run_maintenance_forever` 12，均 ≤50。错误显式：未调用的池名 `ValueError`（不静默按 egress 建池）、维护循环单次失败 `logger.exception` 后继续（不静默吞、不杀死维护循环）、槽关闭超时沿用既有显式 `TimeoutError`；日志只记低基数与资源 ID，无凭据或消息正文
+- [x] [B-295] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 5 个用例逐条对应契约 5 组断言（见 Acceptance Evidence 断言位置列）
+- [x] [B-295] 执行`["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_wiring.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **5 passed in 9.33s**（exit=0，最终冻结版本）；连续复跑 8.89s / 10.29s / 11.35s 全绿
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-295 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | 真实装配根注入控制/MCP/业务/上传分池、并发和期限；续租/回收/投递/调度互不阻塞，进程退出清子进程组，Task旧policy不补默认 | tests/agent_worker/test_capacity_webchat_worker_wiring.py | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_wiring.py"] | planned |
+| B-295 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | 真实装配根注入控制/MCP/业务/上传分池、并发和期限；续租/回收/投递/调度互不阻塞，进程退出清子进程组，Task旧policy不补默认 | tests/agent_worker/test_capacity_webchat_worker_wiring.py | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_wiring.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-295 | 首建 `tests/agent_worker/test_capacity_webchat_worker_wiring.py`（5 个行为用例）→ `uv run pytest -q tests/agent_worker/test_capacity_webchat_worker_wiring.py` → **exit=2，1 error in 0.07s**（收集期 `ModuleNotFoundError: No module named 'muad_agent_worker.infrastructure.http_clients'`：分池装配模块不存在，测试对真实 lifespan 运行；完整输出 `/tmp/agent-capacity-webchat-plan/task095-red.log`） | 同命令（分池装配 + 独立维护循环 + 借用注入落地后）→ **5 passed in 9.33s**（exit=0）；复跑 8.89s / 10.29s / 11.35s 全绿，日志 `/tmp/agent-capacity-webchat-plan/task095-green-final.log` | ①分池预算/并发/期限/独立循环注入 `test_b295_assembly_root_injects_per_pool_budgets_concurrency_and_loops` L436-495（真实 lifespan 内取 `app.state.http_pools` L455；control≠egress L458；**有效池值** (6,3)/(9,4) 取自真实 transport 的 httpcore 池 L461-462 且等于 `pool_limits(SharedSettings())` 派生值 L463-464；连接/池/读超时 (7/11, 4, 3) L467-468；设置快照/定时解析消费 control、投递/收件箱/产物解析/结果发件消费 egress 的**同一实例** L471-476；`slot_limit == 3` L479；结果发件策略取启动设置且 lease>timeout L482-487；`worker.claim/worker.maintenance/worker.scheduler/worker.delivery/worker.results` 五条独立任务 L490-491；lifespan 内未关、退出即关 L492-493；退出无悬挂任务 L494-495）；②预算唯一来源 + 不建未调用的池 `test_b295_pool_budgets_come_from_settings_and_unused_pools_fail_explicitly` L498-523（两类池预算随 env 派生 L510-513；`WORKER_HTTP_POOLS == ("control","egress")` 与 `WorkerHttpPools` 字段集恰两类 L515-518；mcp/upload/stream/model 四类池名**显式 ValueError** L519-523）；③续租/回收/领取/投递/调度互不阻塞 `test_b295_reclaim_claim_heartbeat_and_schedule_do_not_block_on_delivery` L531-644（投递循环先阻塞在真实 TCP 监听的真实 HTTP 读上 L605；领取循环拉起真实 Skill 子进程并占槽 L608-616；心跳在阻塞期间推进 `heartbeat_at` L619-623；维护循环把过期租约回收为 `QUEUED` 且 attempt 不变 L626-628；调度循环 sweep 出 `FAILED(TASK_DEADLINE_EXCEEDED)` L631-634；投递仍在同一条真实请求上：连接未减、`worker.delivery` 任务未结束、行仍 `PENDING` 且恰预留 1 次尝试 L637-641）；④退出清子进程组 `test_b295_lifespan_exit_stops_the_skill_process_group` L651-714（真实 Skill 子进程+孙进程 pid 文件与就绪文件 L692-697、池未关 L698；lifespan 退出后子进程回收 L702、**孙进程随进程组回收** L703、退出即关池 L704；失约实例不写伪造结论：行仍 `RUNNING`/无错误码 L706-707；无悬挂任务 L708-709）；⑤Task 旧 policy 不补默认 `test_b295_old_task_policy_is_not_backfilled_with_new_defaults` L722-770（同一确定性失败形状：缺 `budget.retry_safety` 的旧行落 `FAILED(TASK_RESULT_UNVERIFIED)` 不自动重做 L755、声明 `IDEMPOTENT` 的冻结行按**自己的**值有界重试 `QUEUED`/attempt=1 L757-760；旧行快照与 schema 版本逐字节不变 L763-766；冻结声明不被改写 L769-770） | 真实边界（不 mock 存储、租约与外部协议）：**真实 Worker 装配根** `muad_agent_worker.main.lifespan`（真实 `validate_startup`→迁移到 head、真实 PG/Redis 客户端、真实 `WorkerLoop`/`SchedulerLoop`/`DeliveryLoop`/`ResultDispatcher`）；**隔离 PostgreSQL + 隔离 Redis 号位**（`async_tool_datastore`：每用例空库 + `alembic upgrade head`，跑完 drop；只写/删本用例租户行，无 DDL、不触碰共享 dev 库）；**真实子进程**：Skill 包以 zip 写入隔离 artifact root（`NfsArtifactStore.write`），由真实 `SkillArtifactCache`（checksum 校验 + 安全解包 + READY）拉起真实 Python 子进程（④还有孙进程，pid 文件 + `os.kill(pid,0)` 验证整组回收）；**真实 HTTP 协议探针**：真实 uvicorn TCP 服务承载 Console `/internal/v1/platform-settings`，真实 TCP 监听（接受后永不回应）承载 Gateway 投递；池**有效值**取自 httpx 真实 transport 的 httpcore 池（`max_connections`/`max_keepalive_connections`），不是只比较自己的 helper | verified |
+
+**实施范围与风险说明**
+
+- 实现文件与计划 Files 的差异（披露）：计划 3 个文件中 `main.py`、`infrastructure/http_clients.py`、验收文件按计划；**必需的范围扩张**为 `worker/service.py`（领取循环与维护循环拆成两条独立循环）、`infrastructure/platform_settings_client.py` 与 `delivery/artifact_client.py`（这两个客户端自建 httpx 客户端，若不接受注入，控制/业务分池就有一半走默认池）、`tests/agent_worker/test_worker_lifecycle.py`（既有 B-122 lifespan 用例断言后台循环集合，新增维护循环后必须同步并**加强**为「维护循环也是独立任务且随退出停止」）。
+- 分池口径（诚实记录）：Worker 进程真实调用的调用类别只有两类——**control**（Console 平台设置快照、定时解析）与 **egress**（Gateway 投递、Runtime 结果发件/收件箱/产物解析）。MCP 调用在 Runtime（`mcp_runtime_adapter`），上传大文件在 Gateway/Runtime；Worker 的 Skill 制品经共享盘落盘。按 design §3.7「实例只创建实际需要的池」，本进程**不建** MCP/上传/流/模型池，且这些池名在 `http_clients` 里**显式失败**（不静默按 egress 建一个没人调用的池）；它们的启动预算仍留在唯一来源 `SharedSettings`（`tests/test_settings.py`/盘点覆盖）。
+- 唯一来源与期限：池大小/keepalive/连接/池/读超时全部来自 `SharedSettings` typed 字段，装配根不复制默认值；结果发件策略 `ResultDispatchPolicy.from_settings`（timeout<lease 由类型自校验）；业务调用另受 Task 冻结绝对 deadline（TASK-035）约束，本任务未改该口径。
+- 借用语义（不是兼容层）：注入池时 `ConsolePlatformSettingsClient`/`ArtifactResolveClient` **不关闭**调用方拥有的池（`_owns_client`），未注入时自建自关（测试与单点使用）；请求改由 `base_url + path` 组装绝对 URL——共享池客户端没有 base_url，一个池服务多个目标。`aclose()` 语义显式，不吞异常。
+- 维护循环节拍（诚实记录）：回收节拍沿用 §3.7 的 `RUN_REAPER_INTERVAL_SEC`（沿用 30 秒，一处来源），**不新增同义键**（design §3.7「既有…沿用现有…不新增同义键」；TASK 侧只有 `TASK_LEASE_SEC`/`TASK_HEARTBEAT_SEC`）。`run_forever` 只领取、`run_maintenance_forever` 只回收：慢的回收扫描不再推迟空闲槽补齐，慢的领取也不会让过期租约回收迟到；单次回收失败 `logger.exception` 后继续（可见、不静默、不杀循环），槽关闭超时仍显式 `TimeoutError`（TASK-033 语义不变）。
+- 判别性验证（防止断言空转；四处变异均先复现失败再还原，随后复跑确认全绿）：①`build_worker_http_pools` 忽略设置改回 httpx 默认 → 装配用例 **1 failed**（`assert (100, 20) == (6, 3)`）；②去掉 `_require_worker_pool` 显式拒绝 → ②用例 **1 failed**（`DID NOT RAISE ValueError`）；③`_start_background` 不启动维护循环 → 装配用例 **1 failed**（`缺少独立循环: {'worker.maintenance'}`）且 B-122 用例 **1 failed**；④`TaskSlotSupervisor.close` 不再取消本地片段 → 退出用例 **1 failed**（`Skill 子进程未随退出回收`，25s 有界等待）。旧 policy 用例本身是差分断言（同一失败形状、两种冻结快照分别落 `UNVERIFIED` 与 `QUEUED`），补默认即会失败。
+- 配置盘点：新增 `infrastructure/http_clients.py` 的 `WORKER_HTTP_POOLS` 行；`main.py` 的 `SERVICE_NAME` 行号 +1 同步；CRLF 保持（1518 CRLF / 0 裸 LF），`git -c core.whitespace=cr-at-eol diff --check` 通过；`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**。
+- 静态检查：`uv run ruff check`（6 个实现/验收文件）干净；`uv run mypy apps packages` → **Success: no issues found in 438 source files**。
+- 聚焦回归：`tests/agent_worker` → **327 passed in 99.48s**（exit=0，含本任务 5 例与加强后的 B-122 lifespan 用例，最终冻结代码）；`tests/contracts tests/architecture tests/test_configuration_inventory.py tests/test_collection_layout.py tests/test_settings.py tests/test_configuration_convergence.py tests/console_tasks tests/test_async_tool_dispatch_settings.py` → **1357 passed in 6.83s**（exit=0）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL（共享 dev 库约束）。运行前已确认无 dev 服务残留（同机另有并行 worktree 的测试进程，本任务用例全部使用隔离库/隔离 Redis 号位）。
+- 延后项（诚实记录）：回收/维护节拍的指标目录（如维护循环失败计数）属 TASK-098/099 的指标目录与观测；部署清单里的分池预算显式声明与总连接预算校验属 TASK-101/103；1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责；本任务不引入 MCP/上传池（Worker 无该调用类别，见上）。
+- B-295: verified — automated command passed; run_id=f24b92c858284cd885ec3106534125d1 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-295 RED：`uv run pytest -q tests/agent_worker/test_capacity_webchat_worker_wiring.py` → exit=2，1 collection error（`muad_agent_worker.infrastructure.http_clients` 尚不存在）
+- [2026-10-18] 实现：新增 `infrastructure/http_clients.py`（control/egress 分池预算 + 未调用池名显式失败）、装配根建/关分池并把同一实例注入设置快照/定时解析/投递/收件箱/产物解析/结果发件、`WorkerLoop` 拆出独立维护循环（`run_maintenance_forever`，节拍取 `RUN_REAPER_INTERVAL_SEC`）、两个自建池客户端改为借用语义 + 绝对 URL 组装
+- [2026-10-18] B-295 GREEN：**5 passed in 9.33s**（复跑 8.89s / 10.29s / 11.35s）；四处变异验证断言判别性后还原；`tests/agent_worker` **327 passed**（99.48s）、contracts/architecture/inventory 等 **1357 passed**（6.83s）；ruff 干净、mypy 438 文件无问题、配置盘点 4 passed
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 
