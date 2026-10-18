@@ -29,6 +29,7 @@ from ..infrastructure.mcp_catalog_cache import RedisMcpCatalogCache
 from ..infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
 from ..infrastructure.runtime_memory_client import RuntimeMemoryClient
 from ..infrastructure.worker_client import WorkerAdminClient
+from ..metrics import CONFIG_FAILURE_METRIC, record_reason
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +166,9 @@ def get_probe_capacity_client(request: Request) -> ProbeCapacityClient:
             client = build_probe_capacity_client(SharedSettings())
         except ProbeCapacityUnconfigured as exc:
             logger.warning("probe_capacity_client_unconfigured missing=%s", ",".join(exc.missing))
+            record_reason(
+                CONFIG_FAILURE_METRIC, "missing_service_identity", {"component": "probe_capacity"}
+            )
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
         request.app.state.probe_capacity_client = client
     return client

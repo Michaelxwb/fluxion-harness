@@ -23,6 +23,7 @@ from ..application.model_probe_service import (
     ProbeBudget,
     ProbeCapacityClient,
 )
+from ..metrics import CONFIG_FAILURE_METRIC, record_reason
 
 
 class ProbeCapacityUnconfigured(RuntimeError):
@@ -104,8 +105,13 @@ def build_probe_http_client(
 def _require_within_pool_read_budget(
     name: str, budget_sec: float, field: str, pool_read_sec: float
 ) -> None:
-    """契约预算与部署池读预算冲突时显式失败：不静默取较小值（design §3.7）。"""
+    """契约预算与部署池读预算冲突时显式失败：不静默取较小值（design §3.7）。
+
+    冲突是**配置失败**（不是运行期池等待）：先记进 `console_config_failure_total` 再报错，
+    运维能从指标面看到"启动被预算冲突挡住"，而不是和容量压力混在一起。
+    """
     if budget_sec > pool_read_sec:
+        record_reason(CONFIG_FAILURE_METRIC, "budget_conflict", {"component": "probe_budget"})
         raise ValueError(
             f"{name} budget {budget_sec}s exceeds {field}={pool_read_sec}s; "
             "raise the pool read budget or change the contract budget explicitly"

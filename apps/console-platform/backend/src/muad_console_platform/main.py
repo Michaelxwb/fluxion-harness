@@ -30,7 +30,7 @@ from .infrastructure.http_clients import (
     build_probe_http_client,
     probe_budget,
 )
-from .metrics import install_console_metrics
+from .metrics import CONFIG_FAILURE_METRIC, install_console_metrics, record_reason
 from .spa import install_spa
 
 SERVICE_NAME = "muad-console-platform"
@@ -71,6 +71,9 @@ def _install_probe_clients(fastapi_app: FastAPI, settings: SharedSettings) -> No
         capacity_client = build_probe_capacity_client(settings)
     except ProbeCapacityUnconfigured as exc:
         missing = exc.missing
+        record_reason(
+            CONFIG_FAILURE_METRIC, "missing_service_identity", {"component": "probe_capacity"}
+        )
     http_client = build_probe_http_client(settings)
     fastapi_app.state.probe_budget = budget
     fastapi_app.state.probe_http_client = http_client

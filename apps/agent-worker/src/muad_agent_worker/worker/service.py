@@ -34,9 +34,11 @@ from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.wakeup_hint import NullWakeupListener, WakeupListener
 from ..metrics import (
+    MAINTENANCE_METRIC,
     TASK_LEASE_EXPIRED_METRIC,
     TASK_RECLAIM_METRIC,
     increment,
+    record_outcome,
 )
 from ..scheduler.service import TASK_DEADLINE_EXCEEDED
 from .claimer import TaskClaimer
@@ -281,13 +283,17 @@ class WorkerLoop:
 
         与领取循环分开的理由是双向的：一次慢的回收扫描不再推迟空闲槽补齐，一次慢的领取也不会
         让过期租约的回收迟到。节拍沿用 §3.7 的 `RUN_REAPER_INTERVAL_SEC`（一处来源，不另设
-        同义键）；单次失败记日志后继续，不静默吞掉——回收失败必须看得见。
+        同义键）；单次失败记日志与 `worker_maintenance_total{status="failed"}` 后继续，不静默
+        吞掉——回收失败必须看得见，且不得杀死维护循环本身。
         """
         while True:
             try:
                 await self.reclaim_expired()
             except Exception:
                 logger.exception("worker_maintenance_reclaim_failed")
+                record_outcome(MAINTENANCE_METRIC, "failed")
+            else:
+                record_outcome(MAINTENANCE_METRIC, "ok")
             await asyncio.sleep(self._settings.run_reaper_interval_sec)
 
     async def run_pending(self, *, now: datetime | None = None) -> int:

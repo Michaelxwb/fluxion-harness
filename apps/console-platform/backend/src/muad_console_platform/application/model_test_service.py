@@ -46,7 +46,7 @@ class ModelTestService:
                     return self._entry(model.id, "FAILED", "CREDENTIAL_MISSING", started)
                 async with semaphore:
                     probe = await probe_model_endpoint(
-                        client, model_id=model.model_id, credential=credential
+                        client, model_id=model.model_id, credential=credential, pool="batch"
                     )
                 return self._entry(model.id, probe.status, probe.error_code, started)
 

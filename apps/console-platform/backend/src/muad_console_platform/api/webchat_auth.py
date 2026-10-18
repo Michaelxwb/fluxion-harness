@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.chat_auth_service import ChatSessionService
 from ..infrastructure.db import get_session
+from ..metrics import CHAT_AUTH_METRIC, count_outcome
 from .chat_security import (
     CHAT_SESSION_COOKIE,
     chat_cookie_max_age,
@@ -61,9 +62,10 @@ async def exchange_chat_token(
     session: Session,
 ) -> ApiResponse[Any]:
     """API-04 交换：Origin 先于凭据/请求体；身份从 Token 记录导出，原文只进 HttpOnly Cookie。"""
-    grant = await ChatSessionService(session).exchange(payload.token)
-    max_age = await chat_cookie_max_age(session, grant.info.expires_at)
-    set_chat_cookies(response, grant.session_token, new_csrf_token(), max_age)
+    with count_outcome(CHAT_AUTH_METRIC, {"operation": "exchange"}):
+        grant = await ChatSessionService(session).exchange(payload.token)
+        max_age = await chat_cookie_max_age(session, grant.info.expires_at)
+        set_chat_cookies(response, grant.session_token, new_csrf_token(), max_age)
     mark_no_store(response)
     return ok(request.app.state.message_catalog, grant.info.model_dump(mode="json"))
 
@@ -73,7 +75,8 @@ async def read_chat_identity(
     request: Request, response: Response, session: Session
 ) -> ApiResponse[Any]:
     """API-04 会话信息：按独立 CHAT 凭据实时解析；不滑动续期、不继承管理角色。"""
-    info = await ChatSessionService(session).resolve(_presented_session_token(request))
+    with count_outcome(CHAT_AUTH_METRIC, {"operation": "me"}):
+        info = await ChatSessionService(session).resolve(_presented_session_token(request))
     mark_no_store(response)
     return ok(request.app.state.message_catalog, info.model_dump(mode="json"))
 
@@ -83,7 +86,8 @@ async def logout_chat_session(
     request: Request, response: Response, session: Session
 ) -> ApiResponse[Any]:
     """API-04 登出：撤本会话（幂等）、清 CHAT 两枚 Cookie；来源 Token 与管理会话不受影响。"""
-    await ChatSessionService(session).logout(_presented_session_token(request))
-    clear_chat_cookies(response)
+    with count_outcome(CHAT_AUTH_METRIC, {"operation": "logout"}):
+        await ChatSessionService(session).logout(_presented_session_token(request))
+        clear_chat_cookies(response)
     mark_no_store(response)
     return ok(request.app.state.message_catalog, {"logged_out": True})

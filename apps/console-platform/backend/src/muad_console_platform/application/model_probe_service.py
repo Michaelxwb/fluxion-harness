@@ -51,6 +51,14 @@ from ..infrastructure.models.control import ModelCredential, ModelDefinition
 from ..infrastructure.repositories.model_credential_repository import ModelCredentialRepository
 from ..infrastructure.repositories.model_deployment_repository import ModelDeploymentRepository
 from ..infrastructure.repositories.model_repository import ModelRepository
+from ..metrics import (
+    MODEL_PROBE_FAILURE_METRIC,
+    MODEL_PROBE_METRIC,
+    ConsolePool,
+    record_outcome,
+    record_pool_wait,
+    record_reason,
+)
 from .dto import ModelProbeTarget
 
 logger = logging.getLogger(__name__)
@@ -68,6 +76,22 @@ TENANT_HEADER = "X-Tenant-Id"
 TRACE_HEADER = "X-Trace-Id"
 
 _ResponseT = TypeVar("_ResponseT", bound=BaseModel)
+
+#: 探针失败原因的**封闭词表**：`model_probe_failure_total{reason=...}` 只接受这些取值，
+#: 不把上游错误码/资源 ID 直接当 label（低基数、可区分池等待与模型自身失败）。
+ProbeReason = Literal[
+    "AVAILABLE",
+    "CREDENTIAL_MISSING",
+    "MODEL_UNAVAILABLE",
+    "PROBE_HTTP_ERROR",
+    "CONNECT_ERROR",
+    "MODEL_TIMEOUT",
+    "POOL_WAIT_TIMEOUT",
+    "TRANSPORT_ERROR",
+    "CAPACITY_REFUSED",
+    "COMMON_NOT_FOUND",
+    "MODEL_DISABLED",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,6 +210,11 @@ class ProbeCapacityClient:
             headers[TRACE_HEADER] = trace_id
         try:
             response = await self._client.request(method, path, json=json, headers=headers)
+        except httpx.PoolTimeout:
+            # 池等待超时（control 池）：连接未拿到、请求未发出；与配置失败分开计数。
+            record_pool_wait("control")
+            logger.warning("probe_capacity_request_failed method=%s path=%s", method, path)
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
         except httpx.HTTPError:
             # 只记录方法与路径，不带上游正文。
             logger.warning("probe_capacity_request_failed method=%s path=%s", method, path)
@@ -202,12 +231,13 @@ class ProbeCapacityClient:
 
 @dataclass(frozen=True, slots=True)
 class EndpointProbe:
-    """一次真实 HTTP 探测的结果：业务状态 + 结算证据（不含容量语义）。"""
+    """一次真实 HTTP 探测的结果：业务状态 + 结算证据 + 封闭观测原因（不含容量语义）。"""
 
     status: Literal["AVAILABLE", "FAILED"]
     error_code: str | None
     outcome: SettlementOutcome
     completion_reference: str | None
+    reason: ProbeReason
 
 
 def _completion_reference(status_code: int) -> str:
@@ -215,14 +245,41 @@ def _completion_reference(status_code: int) -> str:
     return f"probe-http-{status_code}"
 
 
+def _record_probe_outcome(status: str, reason: ProbeReason) -> None:
+    """把一次探针结论写进目录：总数按 `status`；非 AVAILABLE 再按封闭 `reason` 记一笔失败。"""
+    record_outcome(MODEL_PROBE_METRIC, status)
+    if status != "AVAILABLE":
+        record_reason(MODEL_PROBE_FAILURE_METRIC, reason)
+
+
 async def probe_model_endpoint(
-    client: httpx.AsyncClient, *, model_id: str, credential: ModelCredential
+    client: httpx.AsyncClient,
+    *,
+    model_id: str,
+    credential: ModelCredential,
+    pool: ConsolePool,
 ) -> EndpointProbe:
     """真实探测：连接与密钥取**成员凭据**（执行入口唯一权威），输出预算固定 1。
 
     业务映射与既有批量测试同一口径；额外区分结算证据：连接未建立 = 确定未发送（可释放
-    占用），其余超时/传输中断 = UNKNOWN（保守保留，不假定供方未计费）。
+    占用），其余超时/传输中断 = UNKNOWN（保守保留，不假定供方未计费）。`pool` 是本调用
+    实际占用的出站池（装配根探针 = `model`，既有批量测试 = 它自己的 `batch` 客户端）：
+    池等待超时按真实池计数，不冒充别的池。每次 HTTP 探测的结论写入 `model_probe_total` /
+    `model_probe_failure_total`（reason 为封闭词表）。
     """
+    probe = await _perform_probe(client, model_id=model_id, credential=credential, pool=pool)
+    _record_probe_outcome(probe.status, probe.reason)
+    return probe
+
+
+async def _perform_probe(
+    client: httpx.AsyncClient,
+    *,
+    model_id: str,
+    credential: ModelCredential,
+    pool: ConsolePool,
+) -> EndpointProbe:
+    """发起一次真实 HTTP 探测并映射传输/协议失败（不做任何容量语义）。"""
     headers = {"Authorization": f"Bearer {credential.api_key}"}
     base = credential.base_url.rstrip("/")
     try:
@@ -237,21 +294,29 @@ async def probe_model_endpoint(
                     "max_tokens": PROBE_MAX_OUTPUT_TOKENS,
                 },
             )
+    except httpx.PoolTimeout:
+        # 池等待超时：连接未拿到、请求未发送；按真实池计数（与配置失败、模型失败分开）。
+        record_pool_wait(pool)
+        return EndpointProbe("FAILED", "MODEL_UNAVAILABLE", "UNKNOWN", None, "POOL_WAIT_TIMEOUT")
     except httpx.ConnectError:
-        return EndpointProbe("FAILED", "MODEL_UNAVAILABLE", "NOT_SENT", None)
+        return EndpointProbe("FAILED", "MODEL_UNAVAILABLE", "NOT_SENT", None, "CONNECT_ERROR")
     except httpx.TimeoutException:
-        return EndpointProbe("FAILED", "MODEL_UNAVAILABLE", "UNKNOWN", None)
+        return EndpointProbe("FAILED", "MODEL_UNAVAILABLE", "UNKNOWN", None, "MODEL_TIMEOUT")
     except httpx.TransportError:
-        return EndpointProbe("FAILED", "MODEL_UNAVAILABLE", "UNKNOWN", None)
+        return EndpointProbe("FAILED", "MODEL_UNAVAILABLE", "UNKNOWN", None, "TRANSPORT_ERROR")
+    return _classify_probe_response(response)
 
+
+def _classify_probe_response(response: httpx.Response) -> EndpointProbe:
+    """HTTP 状态 → 业务映射（与既有批量测试同一口径，B-228 已钉住）。"""
     reference = _completion_reference(response.status_code)
     if 200 <= response.status_code < 300:
-        return EndpointProbe("AVAILABLE", None, "SUCCEEDED", reference)
+        return EndpointProbe("AVAILABLE", None, "SUCCEEDED", reference, "AVAILABLE")
     if response.status_code in (401, 403):
-        return EndpointProbe("FAILED", "CREDENTIAL_MISSING", "FAILED", reference)
+        return EndpointProbe("FAILED", "CREDENTIAL_MISSING", "FAILED", reference, "CREDENTIAL_MISSING")
     if response.status_code >= 500:
-        return EndpointProbe("FAILED", "MODEL_UNAVAILABLE", "FAILED", reference)
-    return EndpointProbe("FAILED", "COMMON_INTERNAL_ERROR", "FAILED", reference)
+        return EndpointProbe("FAILED", "MODEL_UNAVAILABLE", "FAILED", reference, "MODEL_UNAVAILABLE")
+    return EndpointProbe("FAILED", "COMMON_INTERNAL_ERROR", "FAILED", reference, "PROBE_HTTP_ERROR")
 
 
 @dataclass(frozen=True, slots=True)
@@ -292,7 +357,7 @@ class _RefusedTarget:
 
     model_id: uuid.UUID
     credential_id: uuid.UUID
-    error_code: str
+    error_code: ProbeReason
 
 
 class ModelProbeService:
@@ -374,6 +439,7 @@ class ModelProbeService:
     ) -> ProbeResult:
         started = time.monotonic()
         if isinstance(plan, _RefusedTarget):
+            _record_probe_outcome("FAILED", plan.error_code)
             return self._result(plan.model_id, plan.credential_id, "FAILED", plan.error_code, started)
         try:
             grant = await self._capacity.reserve(
@@ -390,11 +456,12 @@ class ModelProbeService:
             )
         except AppError as exc:
             # 未能申请容量 = 明确未执行：不发探测 HTTP，也不产生任何容量行
+            _record_probe_outcome("NOT_EXECUTED", "CAPACITY_REFUSED")
             return self._result(
                 plan.model_id, plan.credential_id, "NOT_EXECUTED", str(exc.code), started
             )
         probe = await probe_model_endpoint(
-            self._http_client, model_id=plan.provider_model, credential=plan.credential
+            self._http_client, model_id=plan.provider_model, credential=plan.credential, pool="model"
         )
         await self._settle(tenant_id, trace_id, grant, probe)
         return self._result(
