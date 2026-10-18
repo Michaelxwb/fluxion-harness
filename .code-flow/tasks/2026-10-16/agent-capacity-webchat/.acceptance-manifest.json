@@ -3817,7 +3817,7 @@
       "kind": "functional",
       "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
       "owner": "TASK-037",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3827,7 +3827,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-237",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "dde7e7b7571142a1a6b129314a9eb878",
+        "executed_at": "2026-10-18T04:26:06.275512+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "66e6a3248d4bf784c3886b363a017b6a30e29ea8e99c0d5046280d20f42a9f6d"
+      },
+      "runs": [
+        {
+          "id": "B-237",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "dde7e7b7571142a1a6b129314a9eb878",
+          "executed_at": "2026-10-18T04:26:06.275512+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "66e6a3248d4bf784c3886b363a017b6a30e29ea8e99c0d5046280d20f42a9f6d"
+        }
+      ]
     },
     {
       "id": "B-238",

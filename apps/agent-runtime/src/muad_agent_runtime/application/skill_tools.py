@@ -18,7 +18,13 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache, SkillArtifactCacheError
 from muad_common import SharedSettings
-from muad_contracts import CompletionMode, ResolvedSkill, SkillExecutionMode
+from muad_contracts import (
+    DEFAULT_TOOL_RETRY_SAFETY,
+    CompletionMode,
+    ResolvedSkill,
+    SkillExecutionMode,
+    ToolRetrySafety,
+)
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
 from pydantic import JsonValue
 
@@ -92,6 +98,7 @@ class TaskSubmissionProtocol(Protocol):
         input_data: Mapping[str, Any],
         call_id: str,
         completion_mode: CompletionMode,
+        retry_safety: ToolRetrySafety | None = None,
     ) -> dict[str, JsonValue]: ...
 
 
@@ -123,6 +130,7 @@ class SkillToolSet:
         executor: ScriptSkillExecutor | None = None,
         task_client: TaskSubmissionProtocol | None = None,
         task_context: TaskSubmissionContext | None = None,
+        async_retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY,
     ) -> None:
         self._cache = cache
         self._skills = {skill.key: skill for skill in skills}
@@ -132,6 +140,9 @@ class SkillToolSet:
         self._packages: dict[str, SkillPackage] = {}
         self._task_client = task_client
         self._task_context = task_context
+        # ASYNC Skill 的 Owner 侧重试安全声明（design §3.6）：默认 NON_RETRYABLE——未声明即未知，
+        # 未知不得自动重做外部副作用。声明同时落在 EXECUTE_SKILL_TOOL 定义与操作提交上。
+        self._async_retry_safety = async_retry_safety
 
     def registry(self) -> ToolRegistry:
         registry = ToolRegistry()
@@ -275,6 +286,7 @@ class SkillToolSet:
                 ),
                 effect=ToolEffect.EXTERNAL,
                 handler=self.execute_skill,
+                retry_safety=self._async_retry_safety,
             ),
             ToolDefinition(
                 name=RUN_SKILL_SCRIPT_TOOL,
@@ -321,6 +333,7 @@ class SkillToolSet:
                 input_data=input_data,
                 call_id=call_id,
                 completion_mode=mode,
+                retry_safety=self._async_retry_safety,
             )
         except AppError as exc:
             raise SkillToolError(BACKGROUND_SUBMIT_FAILED, str(exc.code)) from exc

@@ -7,8 +7,8 @@ apps/agent-runtime/src/muad_agent_runtime/application/async_tools/continuation_s
 apps/agent-runtime/src/muad_agent_runtime/application/async_tools/continuation_service.py,35,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/async_tools/control_dispatcher.py,31,METRIC,'tool_control_dispatch_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/async_tools/control_dispatcher.py,32,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/async_tools/operations.py,41,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/async_tools/operations.py,42,DEPENDENT_JOIN,"(OperationStatus.SUBMITTED, OperationStatus.TASK_ACCEPTED, OperationStatus.RUNNING, OperationStatus.RESULT_RECEIVED, OperationStatus.MATERIALIZED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/async_tools/operations.py,45,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/async_tools/operations.py,46,DEPENDENT_JOIN,"(OperationStatus.SUBMITTED, OperationStatus.TASK_ACCEPTED, OperationStatus.RUNNING, OperationStatus.RESULT_RECEIVED, OperationStatus.MATERIALIZED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,20,CREATE_ARCHIVE_TOOL,'create_archive',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,21,MAX_ARCHIVE_PATH_BYTES,1024,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,22,ARCHIVE_BYTES_LIMIT,MAX_OUTPUT_BYTES,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
@@ -164,26 +164,26 @@ apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,24,SUBMI
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,25,ENDPOINT_CREATE_RUN,'create-run',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,26,ENDPOINT_RESUME_RUN,'resume-run',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,27,ENDPOINT_CREATE_CONVERSATION,'create-conversation',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,28,LOAD_SKILL_TOOL,'load_skill',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,29,READ_SKILL_RESOURCE_TOOL,'read_skill_resource',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,30,EXECUTE_SKILL_TOOL,'execute_skill',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,31,RUN_SKILL_SCRIPT_TOOL,'run_skill_script',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,32,SEARCH_SKILLS_TOOL,'search_skills',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,34,LOAD_SKILL_DESCRIPTION,"""Load a skill's manifest and full SKILL.md instructions by skill key.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,35,READ_SKILL_RESOURCE_TOOL_DESCRIPTION,'Read a file shipped inside a skill package (references/assets) by skill key and path.',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,38,EXECUTE_SKILL_DESCRIPTION,"""Execute a skill's deterministic entry script with a normalized JSON input.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,39,RUN_SKILL_SCRIPT_DESCRIPTION,"""Execute a named script under a skill package's scripts directory.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,41,SEARCH_SKILLS_DESCRIPTION,"'Search the available skills by keyword (matches key, name and description). The system prompt lists only the leading part of the skill catalog; use this to find any skill that is not listed there. Returns catalog entries, so a match can be passed straight to load_skill or execute_skill.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,48,MAX_RESOURCE_BYTES,256 * 1024,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,49,SCRIPTS_PREFIX,'scripts/',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,50,SKILL_NOT_EFFECTIVE,'SKILL_NOT_EFFECTIVE',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,51,SKILL_RESOURCE_NOT_FOUND,'SKILL_RESOURCE_NOT_FOUND',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,52,SKILL_SCRIPT_NOT_FOUND,'SKILL_SCRIPT_NOT_FOUND',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,53,SKILL_EXECUTION_FAILED,'SKILL_EXECUTION_FAILED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,54,BACKGROUND_SUBMIT_FAILED,'BACKGROUND_SUBMIT_FAILED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,55,_STRING_SCHEMA,{'type': 'string'},python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,56,_OBJECT_SCHEMA,{'type': 'object'},python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,57,_CATALOG_RESOURCE_KEY,'skills:catalog',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,34,LOAD_SKILL_TOOL,'load_skill',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,35,READ_SKILL_RESOURCE_TOOL,'read_skill_resource',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,36,EXECUTE_SKILL_TOOL,'execute_skill',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,37,RUN_SKILL_SCRIPT_TOOL,'run_skill_script',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,38,SEARCH_SKILLS_TOOL,'search_skills',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,40,LOAD_SKILL_DESCRIPTION,"""Load a skill's manifest and full SKILL.md instructions by skill key.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,41,READ_SKILL_RESOURCE_TOOL_DESCRIPTION,'Read a file shipped inside a skill package (references/assets) by skill key and path.',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,44,EXECUTE_SKILL_DESCRIPTION,"""Execute a skill's deterministic entry script with a normalized JSON input.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,45,RUN_SKILL_SCRIPT_DESCRIPTION,"""Execute a named script under a skill package's scripts directory.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,47,SEARCH_SKILLS_DESCRIPTION,"'Search the available skills by keyword (matches key, name and description). The system prompt lists only the leading part of the skill catalog; use this to find any skill that is not listed there. Returns catalog entries, so a match can be passed straight to load_skill or execute_skill.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,54,MAX_RESOURCE_BYTES,256 * 1024,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,55,SCRIPTS_PREFIX,'scripts/',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,56,SKILL_NOT_EFFECTIVE,'SKILL_NOT_EFFECTIVE',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,57,SKILL_RESOURCE_NOT_FOUND,'SKILL_RESOURCE_NOT_FOUND',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,58,SKILL_SCRIPT_NOT_FOUND,'SKILL_SCRIPT_NOT_FOUND',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,59,SKILL_EXECUTION_FAILED,'SKILL_EXECUTION_FAILED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,60,BACKGROUND_SUBMIT_FAILED,'BACKGROUND_SUBMIT_FAILED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,61,_STRING_SCHEMA,{'type': 'string'},python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,62,_OBJECT_SCHEMA,{'type': 'object'},python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,63,_CATALOG_RESOURCE_KEY,'skills:catalog',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/sse.py,13,SSE_MEDIA_TYPE,'text/event-stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/sse.py,14,HEARTBEAT_FRAME,': heartbeat\n\n',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/sse.py,15,SSE_HEADERS,"{'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no', 'Connection': 'keep-alive'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -967,12 +967,12 @@ packages/agent-core/src/muad_agent_core/tools/pipeline.py,19,JSON_OBJECT,"TypeAd
 packages/agent-core/src/muad_agent_core/tools/pipeline.py,20,REDACTED_KEYS,"frozenset({'api_key', 'secret', 'token', 'password'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/planner.py,22,DEFAULT_PARALLEL_LIMIT,4,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/planner.py,23,MAX_PARALLEL_LIMIT,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/registry.py,11,MCP_TOOL_NAMESPACE,'mcp',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/registry.py,15,READ,'READ',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/tools/registry.py,16,WRITE,'WRITE',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/tools/registry.py,17,EXTERNAL,'EXTERNAL',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/tools/registry.py,27,SERIAL,'SERIAL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/registry.py,28,PARALLEL_READ,'PARALLEL_READ',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/registry.py,13,MCP_TOOL_NAMESPACE,'mcp',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/registry.py,17,READ,'READ',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/tools/registry.py,18,WRITE,'WRITE',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/tools/registry.py,19,EXTERNAL,'EXTERNAL',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/tools/registry.py,29,SERIAL,'SERIAL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/registry.py,30,PARALLEL_READ,'PARALLEL_READ',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/audit.py,19,SENSITIVE_KEY_MARKERS,"('password', 'secret', 'token', 'api_key', 'credential', 'authorization', 'cookie', 'muad_chat_session', 'muad_chat_csrf')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/audit.py,31,_AUDIT_INSERT,"text('\n    INSERT INTO control.config_audit_log\n        (id, tenant_id, actor_user_id, resource_type, resource_id, action,\n         before_json, after_json, trace_id, source_ip)\n    VALUES\n        (:id, :tenant_id, :actor_user_id, :resource_type, :resource_id, :action,\n         CAST(:before_json AS jsonb), CAST(:after_json AS jsonb), :trace_id, :source_ip)\n    ')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/catalog.py,12,_REQUIRED_LOCALES,"('zh-CN', 'en-US')",python-constant,code,协议标识、枚举、schema、文本或实现常量

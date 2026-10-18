@@ -376,7 +376,7 @@
 | B-234 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-034 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_retry_safety.py"] | . | 300 |  |
 | B-235 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-035 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_clock_lease.py"] | . | 300 |  |
 | B-236 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-036 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_queue_projection.py"] | . | 300 |  |
-| B-237 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-037 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"] | . | 300 |  |
+| B-237 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-037 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"] | . | 300 |  |
 | B-238 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-038 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_service.py"] | . | 300 |  |
 | B-239 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-039 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_admin_api.py"] | . | 300 |  |
 | B-240 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-040 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | . | 300 |  |
@@ -2540,7 +2540,7 @@ WAITING_RUNTIME/WAITING_MODEL/工具阶段与时间原因先持久化；完整�
 
 ## TASK-037: 工具可信重试元数据冻结到操作策略
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-024, TASK-034
 - **Source**: agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -2555,27 +2555,46 @@ ToolRegistry可信retry_safety随execution policy冻结，未知默认NON_RETRYA
 
 ### Checklist
 
-- [ ] [B-237][integration] 先在`tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：ToolRegistry可信retry_safety随execution policy冻结，未知默认NON_RETRYABLE。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-237] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-237] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-mcp#RULE-mcp-001`（stage: review；timeout=300秒）：`["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-237][integration] 先在`tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：ToolRegistry可信retry_safety随execution policy冻结，未知默认NON_RETRYABLE。→ RED：首建验收文件（3 个行为用例）→ `uv run pytest -q tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py` → **1 error in 0.10s**（exit=2，收集期 `ImportError: cannot import name 'frozen_operation_retry_safety' from ...async_tools.operations`：冻结读取面与 ToolDefinition 声明字段尚不存在）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 实现落在 3 个文件（**超出计划 Files 的披露**：`application/skill_tools.py`，仅 15 行声明/透传）：`packages/agent-core/.../tools/registry.py`（`ToolDefinition.retry_safety` Owner 侧声明，默认 `DEFAULT_TOOL_RETRY_SAFETY`=NON_RETRYABLE；提示字段不在 ToolDefinition 上）、`apps/agent-runtime/.../async_tools/operations.py`（`_submission` 冻结写入 `budget.retry_safety` + `reserve_operation`/`DurableTaskSubmitter.submit_task` 透传 + `frozen_operation_retry_safety` 读取）、`application/skill_tools.py`（`SkillToolSet.async_retry_safety` 声明 → 落在 EXECUTE_SKILL_TOOL 定义并随 `submit_task` 提交）。改动函数行数：`_submission` 46、`reserve_operation` 38、`frozen_operation_retry_safety` 9、`submit_task` 46、`SkillToolSet.__init__` 22、`_submit_background` 18，均 ≤50（`_definitions` 为改动前已 67 行的声明式元组，本任务仅 +1 行关键字）。错误显式：未知/未声明/非法取值一律 NON_RETRYABLE（保守方向，不抛错也不静默升级为可重试），复用 TASK-034 的 `frozen_retry_safety`/`task_retry_safety` 唯一口径，不另写枚举校验；凭据/原始内部内容不进日志（本任务未新增日志）。
+- [x] [B-237] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 3 个用例逐条对应契约（见 Acceptance Evidence 的断言位置列）
+- [x] [B-237] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **3 passed in 4.84s**（exit=0，最终冻结版本；最终版全量 `tests/agent_runtime` 复跑 **901 passed in 745.49s**）。判别性验证（两处变异先复现失败再还原）：让冻结忽略可信声明（固定 NON_RETRYABLE）→ 2 failed；去掉冻结写入 → 3 failed
+- [x] verifier `harness-mcp#RULE-mcp-001`（stage: review；timeout=300秒）：`["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。→ `uv run pytest -q tests/console_mcp/test_mcp_rules.py` → **3 passed in 0.01s**（exit=0；Streamable HTTP 唯一 transport、catalog 落 PG JSONB、Server 级范围无 Tool 级启停三项断言原样通过，未削弱）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-237 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | ToolRegistry可信retry_safety随execution policy冻结，未知默认NON_RETRYABLE；恢复不重新tools/list或猜测readOnlyHint，Worker读取的业务幂等键与Run操作一致 | tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"] | planned |
-| harness-mcp#RULE-mcp-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅 Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"] | planned |
+| B-237 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | ToolRegistry可信retry_safety随execution policy冻结，未知默认NON_RETRYABLE；恢复不重新tools/list或猜测readOnlyHint，Worker读取的业务幂等键与Run操作一致 | tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"] | verified |
+| harness-mcp#RULE-mcp-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅 Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-237 | 首建 `tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py`（3 个行为用例）→ `uv run pytest -q tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py` → **1 error in 0.10s**（exit=2，收集期 `ImportError: cannot import name 'frozen_operation_retry_safety'`：冻结写入/读取面与 ToolDefinition 声明字段尚不存在） | 同命令 → **3 passed in 4.84s**（exit=0，最终冻结版本；最终版全量 `tests/agent_runtime` 复跑 **901 passed in 745.49s**） | ①可信声明冻结进操作策略与 Worker 快照 `test_b237_trusted_declaration_freezes_into_operation_policy_and_worker_snapshot` L211-247：ToolRegistry 声明 L227、冻结值 L235-236、Worker 读取口径一致 L237、快照哈希覆盖冻结值 L239、Worker Task 存在 L241、业务幂等键 `runtime-op:<operation_id>:submit` L243、来源操作/工具调用 L244-245、Worker 快照哈希 L246、Worker 侧冻结值 L247；②未知/提示/非法一律 NON_RETRYABLE `test_b237_undeclared_mcp_hint_and_invalid_values_freeze_as_non_retryable` L255-321：MCP 目录 effect=READ（readOnlyHint 归一化）不授权重试 L287-288、注入 READ_ONLY 也不改写冻结值 L299-300、未声明（None）L310、非法取值 L321；③一次冻结/重放不刷新/恢复只读冻结值 `test_b237_freeze_happens_once_and_replay_never_refreshes` L331-372：提交后冻结值 L349、重放复用同一操作 L362、当前声明已变仍读回原值 L364、恢复读取只认冻结值 L366、业务幂等键重放不变 L368、快照哈希不变 L369、无第二条操作/控制指令 L371-372 | 真实边界（不 mock 存储或租约）：隔离 PostgreSQL（空库 + `alembic upgrade head`，跑完即 drop，不触碰共享 dev 库）+ 隔离 Redis 号位；真实 Runtime 业务路径 = `SkillToolSet` 工具注册/处理器 → `DurableTaskSubmitter`（真实 `tool_operation`/`tool_control_outbox` 写入）→ 真实 `ControlDispatcher` 经真实 Internal HTTP（Worker ASGI `muad_agent_worker.main:app`，`X-Internal-Service` 门控）提交；冻结值在 Runtime 侧 `tool_operation.submission_json.execution_snapshot.budget` 与 Worker 侧 `task_execution.execution_snapshot_json` 两处 PG 行上核对，业务幂等键由 Worker Task 行读出；失败分支直接走真实 `reserve_operation`（真实 Run 行锁/容量/出箱），未替换存储或租约 | verified |
+
+**实施范围与证据说明**
+
+- 冻结面（本任务交付）：`ToolDefinition.retry_safety` 是 Owner 侧可信声明（默认 `DEFAULT_TOOL_RETRY_SAFETY`=NON_RETRYABLE；MCP `readOnlyHint` 等提示字段既不在该类型上、也不参与解析，目录 effect 由提示归一化而来≠重试安全）。操作提交时 `_submission` **明确写入** `budget.retry_safety`（即使值是 NON_RETRYABLE），并**覆盖** agent `runtime_config.budget` 里混入的同名键/提示键；`reserve_operation` 重放分支直接返回已存在操作，不重新解析、不刷新。读取面 `frozen_operation_retry_safety(operation)` 只从操作行的冻结快照取 `budget.retry_safety`（`task_retry_safety` 同一口径），不重新 tools/list、不猜提示字段。
+- 复用而非重写（TASK-034 已交付）：解析只用 `frozen_retry_safety`/`task_retry_safety` 与 `RETRY_SAFETY_POLICY_KEY`/`DEFAULT_TOOL_RETRY_SAFETY`；Worker 侧分流（`classify_failure`/`_handle_failure`/`_reclaim_terminal_change`）未改动，本任务只保证 Worker 读到的 `task.execution_snapshot_json` 携带冻结值。
+- 生产语义（诚实记录）：V1 没有任何工具显式声明非默认 retry_safety，因此**异步 Skill 操作冻结值恒为 NON_RETRYABLE**——与 TASK-034「未声明即按 NON_RETRYABLE 处理」的既有语义一致，不改变在飞行为；声明面（`SkillToolSet.async_retry_safety`）为后续可信登记（可验证幂等契约/管理员登记）预留，本任务用测试证明该声明会被冻结并随重放保持不变。
+- 质量门：`uv run ruff check` 全部改动文件干净；`uv run mypy apps packages` **417 源文件无问题**；`docs/configuration-inventory.csv` 按真实行号同步（CRLF 保持、只改本任务 3 个文件的 28 行行号，未触碰其它行），`tests/test_configuration_inventory.py` **4 passed**。
+- 回归：`uv run pytest -q tests/agent_runtime` → **901 passed in 745.49s**（exit=0，最终冻结版本，含本任务 3 例）；`uv run pytest -q tests/agent_core tests/contracts tests/architecture` → **1546 passed in 12.09s**（exit=0）；`uv run pytest -q tests/migrations tests/test_async_tool_dispatch_settings.py tests/test_skill_artifact_cache.py tests/console_mcp` → **133 passed in 161.73s**（exit=0）。
+- 延后项（诚实记录）：E-15 的 E2E（真实 Worker 子进程 + PG claim/reclaim + 受控外部写服务）属 TASK-110；待核实状态的用户通知/投递文案属 TASK-063/068；指标目录属 TASK-098；`harness-mcp#RULE-mcp-001` 为 review 阶段 verifier（本任务已登记真实执行结果，需求级终验复核）。
+- B-237: verified — automated command passed; run_id=dde7e7b7571142a1a6b129314a9eb878 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-237 RED：首建 `tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py`（3 个行为用例）→ **1 error in 0.10s**（收集期 ImportError：冻结读取面/声明字段尚不存在）
+- [2026-10-18] 实现：`ToolDefinition.retry_safety`（Owner 侧声明，默认 NON_RETRYABLE）+ `_submission` 冻结写入 `budget.retry_safety`（覆盖注入键）+ `reserve_operation`/`DurableTaskSubmitter.submit_task` 透传 + `frozen_operation_retry_safety` 读取面 + `SkillToolSet.async_retry_safety` 声明落在 EXECUTE_SKILL_TOOL 并随提交传递（超出计划 Files 的 1 个文件已披露）
+- [2026-10-18] B-237 GREEN：**3 passed in 4.84s**（exit=0，最终冻结版本）；两处变异（冻结忽略可信声明 → 2 failed；去掉冻结写入 → 3 failed）先复现失败再还原
+- [2026-10-18] 子 agent 中断接管：终止孤儿确认跑并在 worktree 内复跑全量域 `tests/agent_runtime` → **901 passed in 745.49s**（与证据内数字一致）；随后 finish 并按裁决提交
+- [2026-10-18] 质量门与回归：ruff 干净、mypy 417 文件无问题、configuration-inventory 28 行同步且 4 passed；`tests/agent_runtime` 901 passed in 745.49s（最终版）、`tests/agent_core tests/contracts tests/architecture` 1546 passed、`tests/migrations + async_tool_dispatch_settings + skill_artifact_cache + console_mcp` 133 passed
+- [2026-10-18] completed (done)
 
 ---
 

@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
+from muad_contracts import DEFAULT_TOOL_RETRY_SAFETY, ToolRetrySafety
+
 if TYPE_CHECKING:
     from ..model.provider import ModelMessage
 
@@ -64,6 +66,11 @@ class ToolDefinition:
     # `PARALLEL_READ` 的资源键声明（只读资源标识）：非空键相同的调用不得并发；返回空/None
     # 表示未知依赖，保持串行。`None`（未声明）同样按未知依赖处理。
     resource_key: Callable[[Mapping[str, Any]], str | None] | None = None
+    # 可信重试安全性（design §3.6「重试与外部副作用」）：**Owner 侧声明**，默认 NON_RETRYABLE
+    # ——未声明即未知，未知不得自动重做外部副作用。MCP `readOnlyHint` 之类提示字段**不在**
+    # ToolDefinition 上、也不参与本值：目录 effect（可能由提示归一化而来）不等于重试安全。
+    # 消费方在操作提交时把它冻进 execution policy（`operations.reserve_operation`）。
+    retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY
 
 
 class ToolNotFoundError(LookupError):
