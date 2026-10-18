@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { Route, Routes } from 'react-router-dom';
 
 import { ThemeButton } from './components/common/ThemeButton';
@@ -18,6 +19,12 @@ import { AuditPage } from './modules/audit-observability/pages/AuditPage';
 import { OverviewPage } from './modules/overview-dashboard/pages/OverviewPage';
 import { SettingsPage } from './modules/settings/pages/SettingsPage';
 
+/**
+ * 独立 CHAT 入口按路由懒加载（design frontend §3.2）：与管理 Console 共用前端产物与镜像，
+ * 但有自己的布局与认证初始化，不放进管理 `RequireAuth`/`AppLayout` 分支，也不进导航菜单。
+ */
+const ChatPage = lazy(() => import('./modules/webchat/ChatPage'));
+
 export default function App() {
   const theme = useThemeMode();
   return (
@@ -31,6 +38,16 @@ export default function App() {
               <ThemeButton mode={theme.mode} onToggle={theme.toggle} />
             </div>
           </>
+        }
+      />
+      <Route
+        path="chat/:entryId?"
+        element={
+          <Suspense
+            fallback={<div className="app-route-loading" data-testid="chat-route-loading" />}
+          >
+            <ChatPage />
+          </Suspense>
         }
       />
       <Route
