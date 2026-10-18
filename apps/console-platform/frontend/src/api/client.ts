@@ -3,6 +3,16 @@ import { Toast } from '@douyinfe/semi-ui';
 
 import { currentLocale } from '../i18n';
 
+import {
+  CHAT_AUTH_SCOPE,
+  CHAT_CONTEXT_HEADER,
+  CHAT_CSRF_COOKIE,
+  chatContextForScope,
+  currentAuthScope,
+  notifyChatUnauthorized,
+  type AuthScope
+} from './authScope';
+
 export interface ApiResponse<T> {
   code: string;
   msg: string;
@@ -48,6 +58,19 @@ function readCookie(name: string): string | null {
   return null;
 }
 
+/**
+ * 每个认证域只读自己的 CSRF Cookie：Console 不读 `muad_chat_csrf`，CHAT 不读 `muad_csrf`。
+ *
+ * 头名两域复用 `X-CSRF-Token`，取源独立（design §3.1/§3.5）；写错来源会把另一域的凭据
+ * 发到当前域，后端双提交校验必然拒绝。
+ */
+function csrfTokenForScope(scope: AuthScope): string | null {
+  if (scope === CHAT_AUTH_SCOPE) {
+    return readCookie(CHAT_CSRF_COOKIE);
+  }
+  return readCookie(CSRF_COOKIE);
+}
+
 function uuidFromRandomValues(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
@@ -76,11 +99,16 @@ export function newRequestId(): string {
 }
 
 api.interceptors.request.use((config) => {
+  const scope = currentAuthScope();
   config.headers['X-Locale'] = currentLocale();
   config.headers['X-Request-Id'] = newRequestId();
-  const csrfToken = readCookie(CSRF_COOKIE);
+  const csrfToken = csrfTokenForScope(scope);
   if (csrfToken) {
     config.headers[CSRF_HEADER] = csrfToken;
+  }
+  const chatContext = chatContextForScope(scope);
+  if (chatContext) {
+    config.headers[CHAT_CONTEXT_HEADER] = chatContext;
   }
   return config;
 });
@@ -95,10 +123,17 @@ api.interceptors.response.use(
     return response;
   },
   (error: AxiosError<ApiResponse<unknown>>) => {
-    if (error.response?.status === UNAUTHORIZED_STATUS && window.location.pathname !== '/login') {
-      const returnUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
-      window.location.assign(`/login?returnUrl=${returnUrl}`);
-      return Promise.reject(error);
+    if (error.response?.status === UNAUTHORIZED_STATUS) {
+      if (currentAuthScope() === CHAT_AUTH_SCOPE) {
+        // CHAT 会话失效：通知认证层关闭流并回到 TokenAccess；不跳 Console 登录、不叠加全局 Toast。
+        notifyChatUnauthorized();
+        return Promise.reject(error);
+      }
+      if (window.location.pathname !== '/login') {
+        const returnUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+        window.location.assign(`/login?returnUrl=${returnUrl}`);
+        return Promise.reject(error);
+      }
     }
     const body = error.response?.data;
     const isSessionProbe = error.config?.url?.includes('/auth/me') ?? false;
