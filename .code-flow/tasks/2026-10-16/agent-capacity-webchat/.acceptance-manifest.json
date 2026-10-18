@@ -1455,7 +1455,7 @@
       "kind": "functional",
       "boundary": "解析器覆盖跨 chunk UTF-8、CRLF、多行 data、心跳、重复seq与delta/snapshot顺序",
       "owner": "TASK-072",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1465,7 +1465,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-101",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5c59d1d827924854b901589634cb490a",
+        "executed_at": "2026-10-18T16:13:53.106115+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_capacity_webchat_browser_sse_parser.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ff072bf1605b6b0ac860f830271b1a2405da070734db937ad838b5eb61d13ac4"
+      },
+      "runs": [
+        {
+          "id": "B-101",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5c59d1d827924854b901589634cb490a",
+          "executed_at": "2026-10-18T16:13:53.106115+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_capacity_webchat_browser_sse_parser.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ff072bf1605b6b0ac860f830271b1a2405da070734db937ad838b5eb61d13ac4"
+        }
+      ]
     },
     {
       "id": "B-102",
@@ -1786,7 +1827,7 @@
       "kind": "functional",
       "boundary": "共享流解析器、后端typed DTO和配置投影；检验字节单位/边界、配置更新/旧请求失效和snapshot分片；同canonical seq的part全部到齐才原子替换及推进游标，缺片/重复片/超额缓冲按安全游标恢复，不拼出半份正文",
       "owner": "TASK-072",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1796,7 +1837,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-105",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5c59d1d827924854b901589634cb490a",
+        "executed_at": "2026-10-18T16:13:53.106115+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_capacity_webchat_browser_sse_parser.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ff072bf1605b6b0ac860f830271b1a2405da070734db937ad838b5eb61d13ac4"
+      },
+      "runs": [
+        {
+          "id": "B-105",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5c59d1d827924854b901589634cb490a",
+          "executed_at": "2026-10-18T16:13:53.106115+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_capacity_webchat_browser_sse_parser.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ff072bf1605b6b0ac860f830271b1a2405da070734db937ad838b5eb61d13ac4"
+        }
+      ]
     },
     {
       "id": "B-201",
@@ -6141,7 +6223,7 @@
       "kind": "functional",
       "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
       "owner": "TASK-072",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -6151,7 +6233,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-272",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5c59d1d827924854b901589634cb490a",
+        "executed_at": "2026-10-18T16:13:53.106115+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_capacity_webchat_browser_sse_parser.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ff072bf1605b6b0ac860f830271b1a2405da070734db937ad838b5eb61d13ac4"
+      },
+      "runs": [
+        {
+          "id": "B-272",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5c59d1d827924854b901589634cb490a",
+          "executed_at": "2026-10-18T16:13:53.106115+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_capacity_webchat_browser_sse_parser.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ff072bf1605b6b0ac860f830271b1a2405da070734db937ad838b5eb61d13ac4"
+        }
+      ]
     },
     {
       "id": "B-273",
