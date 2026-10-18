@@ -39,9 +39,17 @@ class ConsoleResolveClient:
         service_token: str | None = None,
         timeout_sec: float = RESOLVE_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._service_token = service_token
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_sec, transport=transport)
+        # 请求用绝对 URL 组装：注入的共享池客户端没有 base_url（一个池服务多个目标）。
+        self._base_url = base_url.rstrip("/")
+        # 装配根注入的控制池由**装配根拥有并关闭**（本实例只借用）；未注入时自建自关。
+        self._owns_client = client is None
+        # 自建时按单一目标配 base_url（请求仍用绝对 URL，注入共享池时同样成立）。
+        self._client = client or httpx.AsyncClient(
+            base_url=base_url, timeout=timeout_sec, transport=transport
+        )
 
     async def resolve(
         self,
@@ -57,7 +65,7 @@ class ConsoleResolveClient:
         if trace_id:
             headers["X-Trace-Id"] = trace_id
         response = await self._client.post(
-            RESOLVE_DEFINITION_PATH,
+            f"{self._base_url}{RESOLVE_DEFINITION_PATH}",
             json=request.model_dump(mode="json"),
             headers=headers,
         )
@@ -90,7 +98,7 @@ class ConsoleResolveClient:
         if trace_id:
             headers["X-Trace-Id"] = trace_id
         response = await self._client.post(
-            RESOLVE_MODEL_PATH,
+            f"{self._base_url}{RESOLVE_MODEL_PATH}",
             json=request.model_dump(mode="json"),
             headers=headers,
         )
@@ -103,7 +111,8 @@ class ConsoleResolveClient:
         return ResolveModelResponse.model_validate(data)
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        if self._owns_client:
+            await self._client.aclose()
 
 
 class ConsoleCredentialsClient:
@@ -116,9 +125,17 @@ class ConsoleCredentialsClient:
         service_token: str | None = None,
         timeout_sec: float = RESOLVE_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._service_token = service_token
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_sec, transport=transport)
+        # 与 `ConsoleResolveClient` 同一口径：借用注入的控制池（装配根拥有并关闭），
+        # 未注入时自建自关；请求用绝对 URL 组装。
+        self._base_url = base_url.rstrip("/")
+        self._owns_client = client is None
+        # 自建时按单一目标配 base_url（请求仍用绝对 URL，注入共享池时同样成立）。
+        self._client = client or httpx.AsyncClient(
+            base_url=base_url, timeout=timeout_sec, transport=transport
+        )
 
     async def resolve_credentials(
         self,
@@ -133,7 +150,7 @@ class ConsoleCredentialsClient:
         if trace_id:
             headers["X-Trace-Id"] = trace_id
         response = await self._client.post(
-            RESOLVE_CREDENTIALS_PATH, json=payload, headers=headers
+            f"{self._base_url}{RESOLVE_CREDENTIALS_PATH}", json=payload, headers=headers
         )
         payload_body = ConsoleResolveClient._decode(response)
         if response.status_code >= 400:
@@ -144,4 +161,5 @@ class ConsoleCredentialsClient:
         return data
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        if self._owns_client:
+            await self._client.aclose()

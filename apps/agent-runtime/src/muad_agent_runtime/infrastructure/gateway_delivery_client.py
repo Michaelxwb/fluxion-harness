@@ -62,17 +62,23 @@ class GatewayDeliveryClient:
         service_token: str | None = None,
         timeout_sec: float = DELIVERY_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._service_token = service_token
+        # 请求用绝对 URL 组装：注入的共享池客户端没有 base_url（一个池服务多个目标）。
+        self._base_url = base_url.rstrip("/")
+        # 装配根注入的业务池由**装配根拥有并关闭**（本实例只借用）；未注入时自建自关。
+        self._owns_client = client is None
         # 内部服务调用**不**走环境代理：`trust_env` 会把 `HTTP_PROXY` 一类的部署环境变量
         # 变成内部投递的隐形路由（实测：本机代理把 127.0.0.1 的交付变成读超时），
         # 与 `main.py` 的控制面客户端同一口径。
-        self._client = httpx.AsyncClient(
+        self._client = client or httpx.AsyncClient(
             base_url=base_url, timeout=timeout_sec, transport=transport, trust_env=False
         )
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        if self._owns_client:
+            await self._client.aclose()
 
     async def deliver(self, request: DeliveryRequest, *, trace_id: str = "") -> DeliveryResponse:
         """同步投递并拿回**真实结论**。任何没拿到结论的情形都抛 `DeliveryUnavailableError`。"""
@@ -81,7 +87,9 @@ class GatewayDeliveryClient:
             headers[INTERNAL_SERVICE_HEADER] = self._service_token
         try:
             response = await self._client.post(
-                DELIVERIES_PATH, json=request.model_dump(mode="json"), headers=headers
+                f"{self._base_url}{DELIVERIES_PATH}",
+                json=request.model_dump(mode="json"),
+                headers=headers,
             )
         except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as exc:
             # 连接从未建立（拒绝/DNS/池超时）：请求没有发出去 ⇒ 确定没送达，可安全重试。

@@ -12,8 +12,10 @@ import asyncio
 from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from functools import partial
 from typing import Protocol
 
+import httpx
 from muad_agent_core.model import (
     ModelMessage,
     ModelProvider,
@@ -51,9 +53,15 @@ class OwnedProvider(ModelProvider, Protocol):
 ProviderFactory = Callable[[ResolvedModel, str, float], OwnedProvider]
 
 
-def _provider(model: ResolvedModel, key: str, timeout: float) -> OwnedProvider:
+def _provider(
+    model: ResolvedModel, key: str, timeout: float, *, client: httpx.AsyncClient | None = None
+) -> OwnedProvider:
     return OpenAICompatibleProvider(
-        base_url=model.base_url, model=model.model_id, api_key=key, timeout_sec=timeout
+        base_url=model.base_url,
+        model=model.model_id,
+        api_key=key,
+        timeout_sec=timeout,
+        client=client,
     )
 
 
@@ -132,9 +140,15 @@ class ConsolidationInvoker:
         factory: SessionFactory,
         credentials: CredentialsClient,
         *,
-        provider_factory: ProviderFactory = _provider,
+        client: httpx.AsyncClient | None = None,
+        provider_factory: ProviderFactory | None = None,
     ) -> None:
-        self._factory, self._credentials, self._provider_factory = factory, credentials, provider_factory
+        self._factory, self._credentials = factory, credentials
+        # 模型池由装配根注入（本进程的模型调用共享同一连接上限）；未注入时各 provider 自建自关。
+        self._client = client
+        self._provider_factory: ProviderFactory = (
+            provider_factory if provider_factory is not None else partial(_provider, client=client)
+        )
 
     async def generate(
         self,
@@ -238,6 +252,7 @@ class ConsolidationInvoker:
                 model=model.model_id,
                 api_key=credential.api_key.get_secret_value(),
                 timeout_sec=timeout,
+                client=self._client,
             ),
             model=model.model_id,
             audit_writer=self._audit_writer(job),

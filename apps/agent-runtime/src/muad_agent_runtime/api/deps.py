@@ -70,9 +70,17 @@ def get_artifact_writer() -> ArtifactResultWriter:
 
 
 def get_executor_factory(
+    request: Request,
     skill_cache: Annotated[SkillArtifactCache, Depends(get_skill_cache)],
     artifact_writer: Annotated[ArtifactResultWriter, Depends(get_artifact_writer)],
 ) -> ExecutorFactory:
+    """装配根注入的执行器工厂（模型/MCP/业务分池 + 任务/交付客户端同一实例）。
+
+    未装配（测试/直构）时按需自建：不复制池预算，也不给每次 Run 漏一个连接池。
+    """
+    factory = getattr(request.app.state, "executor_factory", None)
+    if factory is not None:
+        return cast(ExecutorFactory, factory)
     return partial(
         default_executor_factory,
         skill_cache=skill_cache,
