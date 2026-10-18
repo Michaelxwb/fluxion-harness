@@ -737,53 +737,53 @@ apps/im-gateway/src/muad_im_gateway/application/final_delivery.py,30,FINAL_DELIV
 apps/im-gateway/src/muad_im_gateway/application/final_delivery.py,31,FINAL_DELIVERY_DEDUPE_PREFIX,'delivery:dedupe',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/final_delivery.py,32,FINAL_DELIVERY_TTL_SEC,604800,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/final_delivery.py,34,FINAL_DELIVERY_IN_FLIGHT_SEC,30,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,82,DEDUPE_PREFIX,'im:dedupe',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,83,DEDUPE_TTL_SEC,600,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,85,AUDIT_RECEIVED,'RECEIVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,86,AUDIT_REJECTED,'REJECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,87,AUDIT_FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,88,UNSUPPORTED_MEDIA_CODE,'UNSUPPORTED_MEDIA',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,90,CHANNEL_BUSY,'CHANNEL_BUSY',python-constant,code,排队积压时给用户的可见拒绝码（RULE-01：不静默丢消息）
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,92,DEFAULT_REPLY_LOCALE,'zh-CN',python-constant,code,取不到平台设置快照时（排队拒绝路径）用于取文案的默认语言
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,94,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,95,MESSAGE_DELTA_EVENT,'message.delta',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,96,TASK_ACCEPTED_EVENT,'task.accepted',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,97,INTERRUPT_REQUIRED_EVENT,'interrupt.required',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,98,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,99,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,102,MAX_CONCURRENT_HANDLERS,8,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,105,MAX_PENDING_HANDLERS,256,python-constant,code,全局排队上限（读循环不阻塞，但内存必须有界）
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,107,MAX_PENDING_PER_ROUTE,8,python-constant,code,单路由排队上限（一个用户狂发不该挤掉别人）
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,109,MAX_PENDING_COMMANDS,32,python-constant,code,命令排队上限（/stop 必须一直读得到）
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,114,_REPLY_SETTINGS,"contextvars.ContextVar('gateway_reply_settings', default=None)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,121,_REPLY_SESSION,"contextvars.ContextVar('gateway_reply_session', default=None)",python-constant,code,_REPLY_SESSION：本次 im-gateway review 修复新增
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,126,MESSAGES_METRIC,'im_messages_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,127,DEDUPE_HITS_METRIC,'im_dedupe_hits_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,128,RUNTIME_ERRORS_METRIC,'im_runtime_errors_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,129,MESSAGE_FAILURES_METRIC,'im_message_failures_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,130,STREAM_FIRST_CHUNK_METRIC,'im_stream_first_chunk_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,131,STREAM_LATENCY_METRIC,'im_stream_latency_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,132,RUNTIME_REQUEST_LATENCY_METRIC,'im_runtime_request_latency_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,133,FINAL_DELIVERY_METRIC,'im_final_delivery_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,134,METRIC_HELP,'IM gateway runtime metric',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,136,BIND_COMMAND,'/bind',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,137,NEW_COMMAND,'/new',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,138,STOP_COMMAND,'/stop',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,139,SKILLS_COMMAND,'/skills',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,141,SKILLS_MAX_PAGES,20,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,142,SKILLS_PAGE_INTERVAL_SEC,0.05,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,144,BIND_SUCCESS_TEXT,'绑定成功',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,145,BIND_USAGE_TEXT,'用法：/bind <绑定码>',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,146,UNBOUND_TEXT,'请先使用 /bind <绑定码> 完成身份绑定',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,147,NO_PERMISSION_TEXT,'当前账号未获得该智能体使用权限',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,148,SKILLS_UNAVAILABLE_TEXT,'技能列表暂不可用',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,149,NO_SKILLS_TEXT,'暂无可用技能',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,150,NEW_CONVERSATION_TEXT,'已创建新会话',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,151,STOP_ACCEPTED_TEXT,'正在停止当前任务…',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,152,STOP_CANCELLED_TEXT,'当前任务已停止',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,155,COMMAND_PREFIXES,"('/bind', '/new', '/stop', '/skills', '/memory')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,356,_FEEDBACK_PRIORITY,"(ATTACHMENT_TOO_LARGE, ATTACHMENT_TYPE_NOT_ALLOWED, ATTACHMENT_COUNT_EXCEEDED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,374,__init__.delta_flush_interval_sec,DELTA_FLUSH_INTERVAL_SEC,function-default,code,IM 展示节拍实现常量（非平台设置 im.progress_interval_sec）；运行期不可改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,83,DEDUPE_PREFIX,'im:dedupe',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,84,DEDUPE_TTL_SEC,600,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,86,AUDIT_RECEIVED,'RECEIVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,87,AUDIT_REJECTED,'REJECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,88,AUDIT_FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,89,UNSUPPORTED_MEDIA_CODE,'UNSUPPORTED_MEDIA',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,91,CHANNEL_BUSY,'CHANNEL_BUSY',python-constant,code,排队积压时给用户的可见拒绝码（RULE-01：不静默丢消息）
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,93,DEFAULT_REPLY_LOCALE,'zh-CN',python-constant,code,取不到平台设置快照时（排队拒绝路径）用于取文案的默认语言
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,95,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,96,MESSAGE_DELTA_EVENT,'message.delta',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,97,TASK_ACCEPTED_EVENT,'task.accepted',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,98,INTERRUPT_REQUIRED_EVENT,'interrupt.required',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,99,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,100,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,104,MAX_CONCURRENT_HANDLERS,8,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,107,MAX_PENDING_HANDLERS,256,python-constant,code,全局排队上限（读循环不阻塞，但内存必须有界）
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,109,MAX_PENDING_PER_ROUTE,8,python-constant,code,单路由排队上限（一个用户狂发不该挤掉别人）
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,111,MAX_PENDING_COMMANDS,32,python-constant,code,命令排队上限（/stop 必须一直读得到）
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,116,_REPLY_SETTINGS,"contextvars.ContextVar('gateway_reply_settings', default=None)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,123,_REPLY_SESSION,"contextvars.ContextVar('gateway_reply_session', default=None)",python-constant,code,_REPLY_SESSION：本次 im-gateway review 修复新增
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,128,MESSAGES_METRIC,'im_messages_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,129,DEDUPE_HITS_METRIC,'im_dedupe_hits_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,130,RUNTIME_ERRORS_METRIC,'im_runtime_errors_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,131,MESSAGE_FAILURES_METRIC,'im_message_failures_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,132,STREAM_FIRST_CHUNK_METRIC,'im_stream_first_chunk_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,133,STREAM_LATENCY_METRIC,'im_stream_latency_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,134,RUNTIME_REQUEST_LATENCY_METRIC,'im_runtime_request_latency_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,135,FINAL_DELIVERY_METRIC,'im_final_delivery_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,136,METRIC_HELP,'IM gateway runtime metric',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,138,BIND_COMMAND,'/bind',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,139,NEW_COMMAND,'/new',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,140,STOP_COMMAND,'/stop',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,141,SKILLS_COMMAND,'/skills',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,143,SKILLS_MAX_PAGES,20,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,144,SKILLS_PAGE_INTERVAL_SEC,0.05,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,146,BIND_SUCCESS_TEXT,'绑定成功',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,147,BIND_USAGE_TEXT,'用法：/bind <绑定码>',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,148,UNBOUND_TEXT,'请先使用 /bind <绑定码> 完成身份绑定',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,149,NO_PERMISSION_TEXT,'当前账号未获得该智能体使用权限',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,150,SKILLS_UNAVAILABLE_TEXT,'技能列表暂不可用',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,151,NO_SKILLS_TEXT,'暂无可用技能',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,152,NEW_CONVERSATION_TEXT,'已创建新会话',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,153,STOP_ACCEPTED_TEXT,'正在停止当前任务…',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,154,STOP_CANCELLED_TEXT,'当前任务已停止',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,157,COMMAND_PREFIXES,"('/bind', '/new', '/stop', '/skills', '/memory')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,414,_FEEDBACK_PRIORITY,"(ATTACHMENT_TOO_LARGE, ATTACHMENT_TYPE_NOT_ALLOWED, ATTACHMENT_COUNT_EXCEEDED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,432,__init__.delta_flush_interval_sec,DELTA_FLUSH_INTERVAL_SEC,function-default,code,IM 展示节拍实现常量（非平台设置 im.progress_interval_sec）；运行期不可改
 apps/im-gateway/src/muad_im_gateway/application/progress.py,19,PREPARING,'PREPARING',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/application/progress.py,20,THINKING,'THINKING',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/application/progress.py,21,EXECUTING,'EXECUTING',python-constant,code,状态或错误码，不是时间参数
@@ -801,7 +801,7 @@ apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,25,CANCEL_ACTI
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,26,REQUEST_TIMEOUT_SEC,10.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,27,STREAM_TIMEOUT_SEC,300.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,28,CALLER_SERVICE,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,97,__init__.timeout_sec,REQUEST_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,104,__init__.timeout_sec,REQUEST_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/application/sse.py,23,KNOWN_EVENT_TYPES,"frozenset({'run.created', 'model.started', 'model.completed', 'message.delta', 'skill.loaded', 'tool.started', 'tool.completed', 'tool.submission_pending', 'tool.submitted', 'tool.submission.failed', 'tool.result.received', 'tool.result', 'tool.result.late', 'run.waiting_tool', 'run.resumed', 'task.accepted', 'artifact.created', 'interrupt.required', 'memory.confirmation_required', 'run.completed', 'run.failed'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/sse.py,52,ENVELOPE_KEYS,"('seq', 'timestamp', 'run_id')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,24,DELTA_FLUSH_INTERVAL_SEC,0.5,python-constant,code,IM 展示节拍实现常量（非平台设置 im.progress_interval_sec）；运行期不可改
@@ -821,7 +821,7 @@ apps/im-gateway/src/muad_im_gateway/channels/base.py,102,ATTACHMENT_DECRYPT_FAIL
 apps/im-gateway/src/muad_im_gateway/channels/base.py,149,ARTIFACT_DELIVERED,'DELIVERED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/channels/base.py,150,ARTIFACT_DEGRADED,'DEGRADED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/channels/base.py,152,ARTIFACT_DELIVERY_FAILED,'ARTIFACT_DELIVERY_FAILED',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/channels/webchat.py,34,WEBCHAT_INBOUND_QUEUE_MAX,256,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入（本常量为代码默认，装配可覆盖）
+apps/im-gateway/src/muad_im_gateway/channels/webchat.py,35,WEBCHAT_INBOUND_QUEUE_MAX,256,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入（本常量为代码默认，装配可覆盖）
 apps/im-gateway/src/muad_im_gateway/channels/probe.py,25,__init__.timeout_sec,10.0,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,74,DEFAULT_BACKOFF_BASE_SEC,1.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,75,DEFAULT_BACKOFF_MAX_SEC,30.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入

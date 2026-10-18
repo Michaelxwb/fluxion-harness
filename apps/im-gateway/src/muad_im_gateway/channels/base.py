@@ -272,6 +272,22 @@ class SnapshotAware(Protocol):
     async def apply_snapshot(self, items: Sequence[BotSnapshotItem]) -> None: ...
 
 
+@runtime_checkable
+class ExplicitConversationSource(Protocol):
+    """可选能力：本通道的入站事件带**显式会话**（Webchat 的 API-06 形状）。
+
+    与 `AttachmentSource`／`OutboundArtifactDelivery` 同一条接缝：应用层只问"这条事件指向哪个
+    会话"，**不认识会话 id 在渠道里长什么样**（`RULE-im-002`）。没实现本能力 = 本通道按
+    **原入口指针**选会话（企微的指针由 Runtime 的 `channel_conversation` 维护，网关不猜）。
+
+    返回 `None` 只表示"本通道这类事件确实没有显式会话"；**声明了本能力却给不出/给错值时必须
+    显式失败**，不得静默返回 `None` —— 那会让上层退回隐式"最新会话"指针，正是多历史会话串写的
+    成因（RULE-10 / RISK-09）。
+    """
+
+    def explicit_conversation_id(self, envelope: ChannelEnvelope) -> UUID | None: ...
+
+
 def adapter_degraded(adapter: ChannelAdapter) -> Mapping[str, str]:
     if isinstance(adapter, AdapterDegradation):
         return adapter.degraded_bots

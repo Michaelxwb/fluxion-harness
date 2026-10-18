@@ -128,6 +128,8 @@ class FakeRuntimeClient:
         self.conversation_error: AppError | None = None
         self.cancel_error: AppError | None = None
         self.run_requests: list[RunRequest] = []
+        #: 每次提交带的幂等身份（缺省即 `request.message.id`）：重投沿用同一条消息的身份。
+        self.run_keys: list[str | None] = []
         self.conversations: list[tuple[UUID, UUID]] = []
         self.conversation_keys: list[str | None] = []
         self.cancel_calls: list[tuple[UUID, UUID]] = []
@@ -138,8 +140,10 @@ class FakeRuntimeClient:
         *,
         tenant_id: str,
         trace_id: str = "",
+        idempotency_key: str | None = None,
     ) -> AsyncIterator[SseEvent]:
         self.run_requests.append(request)
+        self.run_keys.append(idempotency_key)
         if self.run_error is not None:
             raise self.run_error
         for event in self.events:

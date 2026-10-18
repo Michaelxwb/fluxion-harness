@@ -17,6 +17,7 @@ import asyncio
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
+from uuid import UUID
 
 from muad_contracts import (
     AttachmentRef,
@@ -140,6 +141,23 @@ class WebchatChannelAdapter:
 
     async def stream(self, route: DeliveryRouteInput, chunks: AsyncIterator[str]) -> None:
         await self._require_sink().deliver_stream(route, chunks)
+
+    def explicit_conversation_id(self, envelope: ChannelEnvelope) -> UUID | None:
+        """HTTP 提交带**显式会话**（RULE-10：不依赖隐式最新指针）。
+
+        本通道的入站事件**永远**带会话（`submit` 的形状），所以缺失或坏值都**显式失败**：
+        悄悄降级成"按入口指针选会话"会让消息写进另一条会话——那正是多历史会话串写的成因。
+        异常只带稳定文案，不回显原值（会话 id 不进日志正文）。
+        """
+        raw = envelope.external_conversation_id
+        if not raw:
+            raise ChannelAdapterUnavailable("webchat envelope carries no explicit conversation id")
+        try:
+            return UUID(raw)
+        except ValueError as exc:
+            raise ChannelAdapterUnavailable(
+                "webchat envelope carries a malformed conversation id"
+            ) from exc
 
     def _normalize(self, message: WebchatInboundMessage) -> ChannelEnvelope:
         """HTTP 形状 → 统一事件：显式会话、幂等消息 ID、平台用户即外部用户身份。"""

@@ -665,7 +665,12 @@ class _MidStreamFailingRuntime(FakeRuntimeClient):
         self._failure = error
 
     async def create_run(
-        self, request, *, tenant_id: str, trace_id: str = ""  # type: ignore[no-untyped-def]
+        self,
+        request,  # type: ignore[no-untyped-def]
+        *,
+        tenant_id: str,
+        trace_id: str = "",
+        idempotency_key: str | None = None,
     ):
         self.run_requests.append(request)
         for event in self.events:
@@ -751,7 +756,12 @@ async def test_idle_tick_flushes_the_buffered_delta(catalog: MessageCatalog) -> 
 
     class _GatedRuntime(FakeRuntimeClient):
         async def create_run(
-            self, request: Any, *, tenant_id: str, trace_id: str = ""
+            self,
+            request: Any,
+            *,
+            tenant_id: str,
+            trace_id: str = "",
+            idempotency_key: str | None = None,
         ) -> AsyncIterator[SseEvent]:
             self.run_requests.append(request)
             yield SseEvent("run.created", {"run_id": "run-idle"})

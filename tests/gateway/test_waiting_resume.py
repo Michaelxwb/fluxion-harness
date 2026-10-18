@@ -212,7 +212,14 @@ async def test_waiting_keeps_reply_open_and_resume_streams_final_answer_once(
     release = asyncio.Event()
 
     class WaitingRuntime(FakeRuntimeClient):
-        async def create_run(self, request, *, tenant_id: str, trace_id: str = ""):  # type: ignore[no-untyped-def]
+        async def create_run(
+            self,
+            request,  # type: ignore[no-untyped-def]
+            *,
+            tenant_id: str,
+            trace_id: str = "",
+            idempotency_key: str | None = None,
+        ):
             self.run_requests.append(request)
             yield SseEvent("run.created", {"run_id": "run-wait"}, seq=1)
             yield SseEvent("model.started", {}, seq=2)
@@ -252,7 +259,14 @@ async def test_broken_stream_reconnects_from_confirmed_seq_without_creating_run(
     catalog: MessageCatalog,
 ) -> None:
     class DroppingRuntime(FakeRuntimeClient):
-        async def create_run(self, request, *, tenant_id: str, trace_id: str = ""):  # type: ignore[no-untyped-def]
+        async def create_run(
+            self,
+            request,  # type: ignore[no-untyped-def]
+            *,
+            tenant_id: str,
+            trace_id: str = "",
+            idempotency_key: str | None = None,
+        ):
             self.run_requests.append(request)
             yield SseEvent("run.created", {"run_id": "run-drop"}, seq=1)
             yield SseEvent("model.started", {}, seq=2)
