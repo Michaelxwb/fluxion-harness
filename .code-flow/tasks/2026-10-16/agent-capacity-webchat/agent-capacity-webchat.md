@@ -414,7 +414,7 @@
 | B-272 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-072 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_sse_parser.py"] | . | 300 |  |
 | B-273 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-073 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_services.py"] | . | 300 |  |
 | B-274 | agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-074 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_auth_state.py"] | . | 300 |  |
-| B-275 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-075 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_token_access_ui.py"] | . | 300 |  |
+| B-275 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-075 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_token_access_ui.py"] | . | 300 |  |
 | B-276 | agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-076 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_client_config_state.py"] | . | 300 |  |
 | B-277 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-077 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_route.py"] | . | 300 |  |
 | B-278 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-078 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_conversation_state.py"] | . | 300 |  |
@@ -4714,7 +4714,7 @@ restore/显式exchange singleflight，退出/切主体停流并清消息/草稿/
 
 ## TASK-075: 单个Token输入与过期重新进入
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-074
 - **Source**: agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.6 UI 状态
@@ -4729,25 +4729,36 @@ restore/显式exchange singleflight，退出/切主体停流并清消息/草稿/
 
 ### Checklist
 
-- [ ] [B-275][integration] 先在`tests/frontend/test_capacity_webchat_token_access_ui.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：无注册/密码/管理账号。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-275] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-275] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_token_access_ui.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-275][integration] 先在`tests/frontend/test_capacity_webchat_token_access_ui.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：无注册/密码/管理账号。RED：`uv run pytest -q tests/frontend/test_capacity_webchat_token_access_ui.py` exit=1，**5 failed + 7 errors（0.21s）**——7 条真实 node 用例在 fixture 阶段 error（esbuild 打包入口 import 缺失的 `modules/webchat/components/TokenAccess.tsx`），5 条源码/词条契约用例断言 `缺少前端文件：.../modules/webchat/components/TokenAccess.tsx` 与 `zh-CN 缺 ['chat.tokenAccess.title', ...]`。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。（新增导出函数均 ≤50 行；无 `any`；Token 只进一次 exchange 请求体，提示只由稳定码映射，源码无 `console.`/持久存储/URL 写入/裸 HTTP/传输头）
+- [x] [B-275] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-275] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_token_access_ui.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**12 passed（0.14s）**。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-275 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 无注册/密码/管理账号；遮蔽Token、提交防重复且完成清空；Cookie失效提示有效Token，无效Token联系管理员，不回显原文或把Token放URL | tests/frontend/test_capacity_webchat_token_access_ui.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_token_access_ui.py"] | planned |
+| B-275 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 无注册/密码/管理账号；遮蔽Token、提交防重复且完成清空；Cookie失效提示有效Token，无效Token联系管理员，不回显原文或把Token放URL | tests/frontend/test_capacity_webchat_token_access_ui.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_token_access_ui.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-275 | `uv run pytest -q tests/frontend/test_capacity_webchat_token_access_ui.py` exit=1，**5 failed + 7 errors（0.21s）**：7 条真实 node 用例在 fixture 阶段 error（esbuild 入口 import 缺失 `modules/webchat/components/TokenAccess.tsx`），5 条源码/词条契约用例断言 `缺少前端文件：.../components/TokenAccess.tsx`、`zh-CN 缺 ['chat.tokenAccess.title', ...]`、`catalog 未登记`/`缺提示词条` | 同命令 exit=0，**12 passed（0.14s）** | ① `test_b275_first_entry_posts_the_token_once_and_clears_the_input` L630-658：粘贴（含前后空白）提交后恰 1 次 `POST /webchat/auth/exchange`、体恰 `{token: TOKEN_A}`（已去空白）、首访无 CHAT 上下文头、提交完成状态复位为 `{token:'',pending:false,failed:false}`、快照无 Token、`state==authenticated`（`USER_TOKEN`+验证上下文）、零跳转/零 Toast。② `test_b275_submit_is_single_flight_and_respects_the_parent_in_flight` L661-674：同一在飞交换的第二次提交被同步闸门挡住（`duplicate==false`、无第二次 exchange、不重复 settle）、父级在飞与空白输入都不发起提交（`{accepted:false,submits:0}`）。③ `test_b275_expired_cookie_prompts_a_valid_token_and_allows_reentry` L677-707：真实 `/me` 建会话后资源请求 401 → `expired`+`UNAUTHORIZED` 提示“重新输入有效 Token”；精确码经 `handleAuthFailure` 收敛 `CHAT_SESSION_EXPIRED`、CHAT 上下文清空；重新粘贴 `TOKEN_B` 后建立新主体、提示消失、该段仅 1 次显式交换（不自动重试/不自动交换）。④ `test_b275_invalid_or_revoked_token_directs_to_the_administrator` L709-737：`CHAT_TOKEN_INVALID`/`CHAT_TOKEN_REVOKED` 提示词条含“管理员”/“administrator”、不得进入聊天、失败也清空原文、恰 1 请求、CHAT 401 不叠加全局 Toast；`CHAT_AUTH_RATE_LIMITED` 提示重试。⑤ `test_b275_unmapped_submit_failure_falls_back_explicitly` L739-748：父级未收敛的提交失败显式落兜底词条、闸门释放可复用、原文仍清空。⑥ `test_b275_input_state_machine_and_notice_mapping_are_pure` L750-774：`change/submit/settle/clear` 迁移、重复 `submit` 幂等（同一状态对象）、9 个稳定码 → `chat.tokenAccess.error.<CODE>` 同名词条、成功无提示、未知码落兜底、映射只收码（`arity==1`）。⑦ `test_b275_token_plaintext_never_leaves_the_exchange_body` L776-791：五个 canary Token 在全部请求的 URL/查询参数/传输头里零出现，请求体恰一次 `POST /webchat/auth/exchange`，提示文案不包含任何原文。⑧ `test_token_access_is_a_single_masked_input_without_registration_or_admin_account` L793-840：源码契约（`type="password"`+`autoComplete="off"`、恰一个输入框、无注册/密码/管理账号/Console 登录守卫、无持久存储/URL 写入/日志/裸 HTTP/传输头/松散类型/硬编码中文）。⑨ `test_token_access_props_match_the_component_contract` L842-852 / `test_token_access_compiles_to_a_real_typescript_artifact` L854-881：`{submitting,errorCode,onSubmit,onClear}` 端口逐字段对上；真实 TSX 经 esbuild 编译成 ESM 且含入口与提示映射。⑩ `test_notice_codes_are_catalog_registered_and_cover_the_auth_surface` L883-912 / `test_token_access_keys_are_localized` L914-940：映射码与 catalog 同名、service 的认证错误面全覆盖、`NETWORK_ERROR` 为 service 自有码、两侧词条齐平且到期引导重新输入、无效/撤销指向管理员、“无注册/密码/管理账号”写入文案 | 真实 esbuild 把真实 `modules/webchat/components/TokenAccess.tsx` + 真实认证状态机 `authenticationState.ts` + 真实模块 service `services/webchatApi.ts` + 真实 typed DTO `types.ts` + 真实共享传输 `src/api/client.ts`/`authScope.ts`（含真实 axios/React/react-i18next 依赖链）打成 ESM 编译产物，由真实 node v24 执行；观测的是真实 axios 实例经 adapter 实际发出的方法/URL/体/头、真实 `/me` 与 401 出口驱动的状态迁移、真实 reducer/闸门/提示映射。`@douyinfe/semi-ui` 只被别名成展示依赖替身（`Toast` 可观测）；不触 HTTP/DB/浏览器，DOM/React 交互按契约留给 E2E（S-F01/E-F01/E-F05，TASK-112） | verified |
+
+实现要点：**单输入 + 遮蔽**——未认证视图只有一个 `type="password"` 的受控输入（`autoComplete="off"`），无注册/密码/管理账号入口，也不接 Console 登录守卫；文案明示“不需要注册、密码或管理账号”，Token 由管理员交付。**明文零留存**——Token 原文只存在于输入 state 与一次 `onSubmit` 调用之间，`tokenAccessReducer` 的 `settle` 动作在提交完成（成功或失败）时清空原文；提示只由 `tokenAccessNoticeKey(errorCode)` 从稳定目录码映射（函数签名只吃码，永不接收原文），因此错误/提示不可能回显 Token，源码也没有 URL 写入、持久存储或日志出口。**提交单飞**——`createTokenAccessGate()` 是同步闸门（不受 React 渲染批处理影响），`runTokenAccessSubmit` 把“父级在飞/空白输入/闸门占用”三种拒绝与“恰一次 submit + 完成回调”收在一处，并可在 node 下真实执行；失败（父级未收敛的拒绝）释放闸门并置 `failed` 标记，由 `tokenAccessNoticeKey(null, failed)` 落兜底文案，绝不静默。**过期重新进入**——`expired`/`revoked`/`context-changed` 由 TASK-074 快照的 `errorCode` 原样传入：到期/上下文变化引导重新输入有效 Token，无效/过期/撤销 Token 指向管理员；401 出口只判到期、精确码由页面用 `handleAuthFailure` 收敛，本视图不自动重试也不自动交换（同一提交路径重新粘贴即恢复）。**词条与码同名**——`chat.tokenAccess.error.<CODE>` 与 `config/api-messages.yaml` 的 code 同名，未知码落 `chat.tokenAccess.errorFallback`；`NETWORK_ERROR` 是模块 service 在无 HTTP 响应时的前端自有码，故不在 catalog。
+
+回归：`uv run pytest -q tests/frontend` exit=0，**442 passed（2.35s）**（含本任务 12 passed 与 TASK-071/072/073/074 的 capacity_webchat 用例、`test_api_client_contract.py`）；`npx tsc --noEmit`（apps/console-platform/frontend）exit=0 无输出；`scripts/check_frontend_i18n.py`「i18n keys OK: 1381」（本任务新增 16 条 `chat.tokenAccess.*` 词条，zh/en 齐平）；`scripts/check_frontend_api_usage.py`「frontend api usage check OK」；`uv run ruff check tests/frontend/test_capacity_webchat_token_access_ui.py apps/console-platform/frontend/src/modules/webchat`「All checks passed!」；`.venv/bin/python -m py_compile` 通过；新增函数均 ≤50 行、无 `any`。变异校验：`type="password"`→`type="text"` → 恰 1 条失败（遮蔽断言）；删掉 `!ports.gate.tryEnter()` → 恰 2 条失败（首次进入 + 单飞）；`CHAT_TOKEN_INVALID` 映射改成重新输入词条 → 恰 4 条失败（纯映射/编译产物/catalog 覆盖/管理员指引）；`settle` 不清空原文 → 恰 5 条失败（到期重进/无效撤销/兜底/纯状态）。
+
+遗留（非本任务范围）：① 未认证视图的真实渲染与 DOM 交互（键盘提交、遮蔽显示、窄屏/主题、aria）按契约留真实浏览器 E2E（S-F01/E-F01/E-F05，TASK-112）；本任务以源码契约 + `tsc --noEmit` + 编译产物登记。② 页面编排（ChatPage 把快照 `state==='exchanging'`/`errorCode` 接到 props、认证成功后卸载本视图、`onClear` 丢弃页面本地提示）由 TASK-077 接入；本任务已把端口与语义写进 props 契约。③ `onClear` 只在用户主动清空输入时回调（提交完成后的自动清空不回调），页面不得据此清除状态机 `errorCode`——提示的唯一来源是快照。④ 非 401 的 CHAT 业务失败（如 `CHAT_AUTH_RATE_LIMITED`）仍会经共享传输弹全局 Toast（TASK-071 既有行为，只 401 被钉死不弹），本视图同时给出本地化重试提示，属可接受的重复提示；如需收敛应改共享传输而非本组件。⑤ 词条最终收敛与新增设置项文案由 TASK-090 统一（本任务只追加自己的 `chat.tokenAccess.*` 键，未改动其它键）。⑥ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「未认证视图的 Token 输入：单输入遮蔽、完成清空、提示只由稳定码映射」与「前端自有稳定码（NETWORK_ERROR）不入 catalog 但键名仍同名」；本任务不改 spec 文件以免 active context 漂移。
+- B-275: verified — automated command passed; run_id=fa1a2d0ba631433c927c3ad1064fa577 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] completed (done)
 
 ---
 
