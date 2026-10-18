@@ -1,5 +1,6 @@
 import { api, apiErrorBody, type ApiResponse } from '../../../api/client';
 import type { Page } from '../../user-identity/services/users';
+import { listQuotaGroups as listQuotaGroupPage, type ModelQuotaGroupItem } from './modelQuotas';
 
 /**
  * 物理模型凭据（API-16）service：ADMIN 维护面 + 物理 Key 检测（API-16 检测面，design §3.4/§3.7）。
@@ -60,15 +61,8 @@ export interface ModelCredentialUpdateInput {
   expected_revision: number;
 }
 
-/** 凭据表单可选的额度组归属（只读选项；完整额度组维护见 TASK-088）。 */
-export interface ModelQuotaGroupOption {
-  id: string;
-  key: string;
-  max_inflight: number;
-  rpm: number | null;
-  tpm: number | null;
-  revision: number;
-}
+/** 凭据表单可选的额度组归属（只读选项投影；完整额度组 CRUD 见 `services/modelQuotas.ts`）。 */
+export type ModelQuotaGroupOption = ModelQuotaGroupItem;
 
 export interface ModelProbeTarget {
   model_id: string;
@@ -204,12 +198,9 @@ export async function deleteCredential(id: string): Promise<void> {
   await api.delete(`/model-credentials/${id}`);
 }
 
+/** 归属选项：额度组维护面（`ModelQuotaPanel`，API-02）负责 CRUD，这里只取首屏选项（page_size≤100）。 */
 export async function listQuotaGroups(): Promise<Page<ModelQuotaGroupOption>> {
-  return unwrap(
-    await api.get<ApiResponse<Page<ModelQuotaGroupOption>>>('/model-quota-groups', {
-      params: { page: 1, page_size: 100 }
-    })
-  );
+  return listQuotaGroupPage({ page: 1, page_size: 100 });
 }
 
 /** 检测：只点名被选中的成员；占额、合并计量与结算都由服务端完成。 */
