@@ -6021,7 +6021,7 @@
       "kind": "functional",
       "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
       "owner": "TASK-070",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -6031,7 +6031,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-270",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "46f35e111acd4986b2582bc09a56aa4d",
+        "executed_at": "2026-10-18T16:03:29.340503+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/gateway/test_capacity_webchat_gateway_notification_api.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "251e9468584e3607ca55370f6c0937290483c1a31033125973d6f77b1a9e1660"
+      },
+      "runs": [
+        {
+          "id": "B-270",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "46f35e111acd4986b2582bc09a56aa4d",
+          "executed_at": "2026-10-18T16:03:29.340503+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/gateway/test_capacity_webchat_gateway_notification_api.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "251e9468584e3607ca55370f6c0937290483c1a31033125973d6f77b1a9e1660"
+        }
+      ]
     },
     {
       "id": "B-271",
