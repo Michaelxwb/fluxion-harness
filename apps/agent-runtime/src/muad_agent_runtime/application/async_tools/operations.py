@@ -11,6 +11,7 @@ from uuid import uuid4
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
+    RETRY_SAFETY_POLICY_KEY,
     AsyncToolPolicy,
     CompletionMode,
     ControlCommand,
@@ -21,9 +22,12 @@ from muad_contracts import (
     RunStatus,
     RuntimeOperationInput,
     TaskStatus,
+    ToolRetrySafety,
     ToolSubmissionReceipt,
     canonical_json,
+    frozen_retry_safety,
     snapshot_hash,
+    task_retry_safety,
 )
 from muad_contracts.canonical import ensure_strict_json
 from pydantic import JsonValue, TypeAdapter
@@ -107,11 +111,17 @@ def _submission(
     policy: AsyncToolPolicy,
     mode: CompletionMode,
     call_id: str,
+    retry_safety: ToolRetrySafety | None,
 ) -> CreateTaskRequest:
     operation_id = uuid4()
     snapshot, _ = build_task_snapshot(context, skill)
     budget = JSON_OBJECT.validate_python(snapshot["budget"])
     budget.update({"max_attempts": 1, "async_tools": policy.model_dump(mode="json")})
+    # 冻结一次（design §3.6）：可信 retry_safety 只认 Owner 侧工具声明，未知/未声明/非法一律
+    # NON_RETRYABLE；覆盖 runtime_config 混入的同名键与提示字段，重试/恢复不刷新、不重解析。
+    budget[RETRY_SAFETY_POLICY_KEY] = frozen_retry_safety(
+        {RETRY_SAFETY_POLICY_KEY: retry_safety}
+    ).value
     if mode is CompletionMode.JOIN:
         if run.deadline_at is None:
             raise AppError(ErrorCode.RUN_CHECKPOINT_INVALID)
@@ -149,6 +159,7 @@ async def reserve_operation(
     input_data: Mapping[str, object],
     call_id: str,
     completion_mode: CompletionMode,
+    retry_safety: ToolRetrySafety | None = None,
 ) -> ToolOperation:
     data = JSON_OBJECT.validate_python(ensure_strict_json(dict(input_data)))
     fingerprint = _input_hash(skill, data, completion_mode)
@@ -174,10 +185,21 @@ async def reserve_operation(
             raise AppError(ErrorCode.RUN_CHECKPOINT_INVALID)
         policy = AsyncToolPolicy.model_validate(snapshot.policy_json.get("async_tools", {}))
         await _capacity(session, run, policy)
-        body = _submission(context, skill, data, run, policy, completion_mode, call_id)
+        body = _submission(context, skill, data, run, policy, completion_mode, call_id, retry_safety)
         operation = await _insert_operation(session, body, fingerprint)
         session.expunge(operation)
     return operation
+
+
+def frozen_operation_retry_safety(operation: ToolOperation) -> ToolRetrySafety:
+    """读取**已冻结**操作策略里的可信 retry_safety（重试/恢复的唯一读口径）。
+
+    只读提交时冻进 `execution_snapshot.budget` 的那一个值：不重新 tools/list、不猜任何提示
+    字段（`readOnlyHint` 等从不参与）。缺失/形状不对/非法取值一律 NON_RETRYABLE——与
+    `task_retry_safety` 同一口径（本函数只是"从操作行取快照"的那一步）。
+    """
+    snapshot = operation.submission_json.get("execution_snapshot")
+    return task_retry_safety(snapshot if isinstance(snapshot, Mapping) else {})
 
 
 def _input_hash(skill: ResolvedSkill, data: dict[str, JsonValue], mode: CompletionMode) -> str:
@@ -274,6 +296,7 @@ class DurableTaskSubmitter:
         input_data: Mapping[str, object],
         call_id: str,
         completion_mode: CompletionMode,
+        retry_safety: ToolRetrySafety | None = None,
     ) -> dict[str, JsonValue]:
         import asyncio
 
@@ -284,6 +307,7 @@ class DurableTaskSubmitter:
             input_data=input_data,
             call_id=call_id,
             completion_mode=completion_mode,
+            retry_safety=retry_safety,
         )
         try:
             async with asyncio.timeout(5):
