@@ -867,7 +867,7 @@
       "kind": "functional",
       "boundary": "实际 Conversation/CanonicalEvent 查询与索引",
       "owner": "TASK-050",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -877,7 +877,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "09861432860342169c63c1065e1b9a0b",
+        "executed_at": "2026-10-18T06:38:59.739751+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_capacity_webchat_history_queries.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "59eb4854546211094b54ab7646f1919e079fe2555f1ef23e203b82a840c3a5a2"
+      },
+      "runs": [
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "09861432860342169c63c1065e1b9a0b",
+          "executed_at": "2026-10-18T06:38:59.739751+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_capacity_webchat_history_queries.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "59eb4854546211094b54ab7646f1919e079fe2555f1ef23e203b82a840c3a5a2"
+        }
+      ]
     },
     {
       "id": "B-05",
@@ -4597,7 +4638,7 @@
       "kind": "functional",
       "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
       "owner": "TASK-050",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -4607,7 +4648,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-250",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "09861432860342169c63c1065e1b9a0b",
+        "executed_at": "2026-10-18T06:38:59.739751+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_capacity_webchat_history_queries.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "59eb4854546211094b54ab7646f1919e079fe2555f1ef23e203b82a840c3a5a2"
+      },
+      "runs": [
+        {
+          "id": "B-250",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "09861432860342169c63c1065e1b9a0b",
+          "executed_at": "2026-10-18T06:38:59.739751+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_capacity_webchat_history_queries.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "59eb4854546211094b54ab7646f1919e079fe2555f1ef23e203b82a840c3a5a2"
+        }
+      ]
     },
     {
       "id": "B-251",
