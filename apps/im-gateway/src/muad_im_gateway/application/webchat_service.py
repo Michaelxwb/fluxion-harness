@@ -147,13 +147,21 @@ def _project[ContractT: BaseModel](model: type[ContractT], data: dict[str, Any])
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
 
 
-def _required_uuid(data: dict[str, Any], field: str) -> UUID:
+def required_uuid(data: dict[str, Any], field: str) -> UUID:
+    """Owner 封套里的必填 UUID：坏值显式失败（不回显内部内容）。"""
     raw = data.get(field)
     try:
         return UUID(str(raw))
     except (ValueError, TypeError) as exc:
         logger.warning("webchat_owner_field_invalid field=%s", field)
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+
+
+def owned_run_state(identity: ChatIdentity, state: dict[str, Any]) -> dict[str, Any]:
+    """Run 归属核验：他主体的 Run 视同不存在（404 不泄露存在性；资源面/SSE 同口径）。"""
+    if str(state.get("user_id")) != str(identity.principal.platform_user_id):
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    return state
 
 
 class WebchatResourceService:
@@ -226,7 +234,7 @@ class WebchatResourceService:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         state = await self._owned_run(identity, admission.run_id)
         return WebchatMessageAccepted(
-            conversation_id=_required_uuid(state, "conversation_id"),
+            conversation_id=required_uuid(state, "conversation_id"),
             run_id=admission.run_id,
             status=_run_status(state),
             execution_status=_execution_status(state),
@@ -252,8 +260,8 @@ class WebchatResourceService:
             logger.warning("webchat_conversation_create_shape_invalid")
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         return WebchatConversationCreated(
-            conversation_id=_required_uuid(data, "conversation_id"),
-            entry_id=_required_uuid(data, "entry_id"),
+            conversation_id=required_uuid(data, "conversation_id"),
+            entry_id=required_uuid(data, "entry_id"),
             title=str(data.get("title") or ""),
             status="ACTIVE",
             last_seq=0,
@@ -367,11 +375,10 @@ class WebchatResourceService:
         return scope
 
     async def _owned_run(self, identity: ChatIdentity, run_id: UUID) -> dict[str, Any]:
-        """Run 归属核验：他主体的 Run 视同不存在（404 不泄露存在性）。"""
-        data = await self._runtime.get_run(run_id, tenant_id=self._tenant_id)
-        if str(data.get("user_id")) != str(identity.principal.platform_user_id):
-            raise AppError(ErrorCode.COMMON_NOT_FOUND)
-        return data
+        """Run 归属核验（共用口径）：他主体的 Run 视同不存在（404 不泄露存在性）。"""
+        return owned_run_state(
+            identity, await self._runtime.get_run(run_id, tenant_id=self._tenant_id)
+        )
 
 
 @dataclass(frozen=True, slots=True)

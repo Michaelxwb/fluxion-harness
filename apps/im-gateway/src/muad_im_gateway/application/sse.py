@@ -26,6 +26,11 @@ KNOWN_EVENT_TYPES = frozenset(
         "model.started",
         "model.completed",
         "message.delta",
+        # 整组替换正文的 snapshot（公开流按单帧预算分片下发；公开词表见
+        # `application/webchat_streams.PUBLIC_STREAM_EVENT_TYPES`，它必须是本集合的子集）。
+        "message.snapshot",
+        # 业务阶段（排队/执行/等待的持久投影）：公开流按 `run.stage` 原样投影为安全 DTO。
+        "run.stage",
         "skill.loaded",
         "tool.started",
         "tool.completed",

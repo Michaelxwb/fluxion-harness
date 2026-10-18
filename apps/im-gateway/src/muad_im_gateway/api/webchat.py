@@ -1,10 +1,13 @@
-"""Webchat 公开资源路由（design §3.4 API-05/06/08/09/10/14/15/19；TASK-052/054/057）。
+"""Webchat 公开资源路由（design §3.4 API-05/06/07/08/09/10/14/15/19；TASK-052/054/057/061）。
 
 - **主体门控**：读写面统一经 `ChatIdentityDep`（TASK-044）收口——CHAT Cookie + `X-Chat-Context`
   只经 Console 核验，跨部署租户/上下文不符/撤销在这里就被拒；本层不做第二套认证。
 - **完整转 Owner**：入口/会话/消息/取消/恢复全部经 `WebchatResourceService` 走 Console/Runtime
   的受信接口；API-19 的有效设置经 Console 受信接口取快照后投影白名单。网关不持库（架构守卫
   机检零数据库依赖）。
+- **公开 SSE**（API-07）：持久事件流经 `WebchatStreamService` 打开（归属/当前授权先核），
+  游标分型由 Owner 裁决、公开投影/分片/心跳/缓冲回压由流层收口（`application/webchat_streams.py`）；
+  长流经 `ChatStreamGuard` 定时复核会话与来源 Token。
 - **契约形状**：请求体/查询参数用 `muad_contracts.webchat` 的公开契约解析（多余字段显式拒绝），
   响应 data 就是契约的 JSON 投影；202/201 是**受理事实**的真实状态码。
 """
@@ -15,7 +18,7 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from muad_api import ApiResponse, AppError, ok
 from muad_api.error_codes import ErrorCode
 from muad_contracts import MAX_PAGE_SIZE
@@ -39,8 +42,15 @@ from ..application.webchat_config import (
     WebchatTransportBudget,
 )
 from ..application.webchat_service import WebchatResourceService
+from ..application.webchat_streams import (
+    SSE_MEDIA_TYPE,
+    SSE_STREAM_HEADERS,
+    SseBufferLedger,
+    WebchatStreamBudget,
+    WebchatStreamService,
+)
 from ..application.webchat_uploads import WebchatUploadService
-from .deps import ChatIdentityDep
+from .deps import ChatIdentityDep, ChatStreamGuardDep
 
 #: 聊天资源是私有数据（design §3.4）：显式 no-store，不依赖任何默认缓存头。
 NO_STORE_CACHE_CONTROL = "no-store"
@@ -58,6 +68,8 @@ IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1)]
 PageNumber = Annotated[int, Query(ge=1)]
 PageSize = Annotated[int | None, Query(ge=1, le=MAX_PAGE_SIZE)]
 ThroughSeq = Annotated[int | None, Query(ge=0)]
+AfterSeq = Annotated[int | None, Query(ge=0)]
+LastEventId = Annotated[str | None, Header(alias="Last-Event-ID")]
 
 
 def get_webchat_service(request: Request) -> WebchatResourceService:
@@ -122,6 +134,54 @@ def get_webchat_config_service(request: Request) -> WebchatClientConfigService:
 WebchatConfigServiceDep = Annotated[
     WebchatClientConfigService, Depends(get_webchat_config_service)
 ]
+
+
+def get_webchat_sse_ledger(request: Request) -> SseBufferLedger:
+    """进程级公开流缓冲账本：装配根发布共享实例；未发布时按同一预算就地建立。
+
+    单订阅与进程总缓冲必须**全进程同一本账**（否则总预算会被每个请求各算一份），所以这里
+    优先用装配根发布的对象，并在首次使用时固定下来（预算字段不再各读一遍）。
+    """
+    ledger = getattr(request.app.state, "webchat_sse_ledger", None)
+    if ledger is None:
+        ledger = SseBufferLedger(total_bytes=request.app.state.sse_total_buffer_bytes)
+        request.app.state.webchat_sse_ledger = ledger
+    return ledger
+
+
+WebchatSseLedgerDep = Annotated[SseBufferLedger, Depends(get_webchat_sse_ledger)]
+
+
+def get_webchat_stream_service(request: Request, ledger: WebchatSseLedgerDep) -> WebchatStreamService:
+    """公开 SSE 服务：Owner 客户端 + 部署租户 + 传输预算 + 进程缓冲账本（网关不持库）。"""
+    return WebchatStreamService(
+        runtime=request.app.state.runtime_client,
+        tenant_id=request.app.state.tenant_id,
+        budget=WebchatStreamBudget(
+            sse_event_max_bytes=request.app.state.sse_event_max_bytes,
+            sse_heartbeat_sec=request.app.state.run_event_heartbeat_sec,
+            sse_subscriber_buffer_bytes=request.app.state.sse_subscriber_buffer_bytes,
+            sse_total_buffer_bytes=request.app.state.sse_total_buffer_bytes,
+        ),
+        ledger=ledger,
+    )
+
+
+WebchatStreamServiceDep = Annotated[WebchatStreamService, Depends(get_webchat_stream_service)]
+
+
+def _resume_cursor(after_seq: int | None, last_event_id: str | None) -> int:
+    """断线重连游标：显式 `after_seq` 与 `Last-Event-ID` 都是"已应用水位"，取更靠前者。
+
+    绝不回退重投（那会把已应用的事件再发一遍）；坏 `Last-Event-ID` 显式拒绝，不猜测意图。
+    """
+    cursor = after_seq or 0
+    if last_event_id is None:
+        return cursor
+    value = last_event_id.strip()
+    if not (value.isascii() and value.isdigit()):
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    return max(cursor, int(value))
 
 
 def _download_response(download: ArtifactDownload) -> FileResponse:
@@ -287,6 +347,26 @@ async def resume_run(
     """API-08：显式绑定 WAITING_INPUT 的原 Run/submission/source 恢复。"""
     receipt = await service.resume_run(chat, run_id, payload)
     return ok(request.app.state.message_catalog, receipt.model_dump(mode="json"))
+
+
+@router.get("/runs/{run_id}/events")
+async def stream_run_events(
+    run_id: uuid.UUID,
+    chat: ChatIdentityDep,
+    service: WebchatStreamServiceDep,
+    guard: ChatStreamGuardDep,
+    after_seq: AfterSeq = None,
+    last_event_id: LastEventId = None,
+) -> StreamingResponse:
+    """API-07：公开白名单 SSE（`id:seq`/`event:type` + 安全 DTO；过滤跳号合法）。
+
+    游标分型（过期/超前）在**响应开始之前**由 Owner 裁决并原样返回；长流由 `ChatStreamGuard`
+    定时复核会话与来源 Token（空闲也复核）。心跳、分片与缓冲回压都在流层收口。
+    """
+    stream = await service.open(chat, run_id, after_seq=_resume_cursor(after_seq, last_event_id))
+    return StreamingResponse(
+        guard.rechecked(stream.frames()), media_type=SSE_MEDIA_TYPE, headers=SSE_STREAM_HEADERS
+    )
 
 
 @router.get("/artifacts/{artifact_id}/content")
