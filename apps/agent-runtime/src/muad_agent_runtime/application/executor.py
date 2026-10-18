@@ -124,6 +124,7 @@ from .model_allocator import (
 from .model_call_trace import ModelCallTrace
 from .model_capacity_service import ModelCapacityService
 from .ports import CredentialsClient
+from .run_events import DeltaWindow, delta_payload, delta_window_from_settings
 from .skill_tools import TaskSubmissionProtocol, build_default_skill_cache, build_skill_registry
 from .task_client import TaskSubmissionContext, WorkerTaskClient
 from .task_tools import BackgroundTaskToolSet
@@ -140,6 +141,8 @@ TOOL_COMPLETED_EVENT = "tool.completed"
 # 一个 assistant 回合（含 tool_calls 与思维链）原样落库；历史重建靠它产出**合法**的消息序列
 ASSISTANT_TURN_EVENT = "assistant.turn"
 CANCEL_POLL_INTERVAL_SEC = 0.25
+#: 事件队列轮询节拍（秒）：也是增量时间窗口刷新的**最大等待粒度**（到界即提前醒来落库）。
+QUEUE_POLL_SEC = 0.05
 # 内容投递类工具（`externalizable_result=False`）的内联上限：**不是无限直通**。
 # 超过它仍然外置，否则一个超大 SKILL.md 会直接打爆上下文；这也把「渐进式披露」从建议变成
 # 硬约束（正文放 SKILL.md / 大段规范放 references）。取值与 `MAX_RESOURCE_BYTES`（单次资源
@@ -162,6 +165,11 @@ class ExecutorEvent:
     data: dict[str, Any]
     seq: int | None = None
     timestamp: str | None = None
+
+
+def _delta_event(text: str) -> ExecutorEvent:
+    """合并后的正文增量：载荷形状由 canonical 契约定义（含生成代号，TASK-062 的多代由此接续）。"""
+    return ExecutorEvent(type=MESSAGE_DELTA_EVENT, data=delta_payload(text))
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,6 +293,109 @@ class RunExecutor(Protocol):
 ExecutorFactory = Callable[[ExecutorRequest], Awaitable[RunExecutor]]
 
 
+class _ExecutorEventEmitter:
+    """runner 回调 → 执行器事件：增量走**有界窗口**，结构边界与终态前先 flush（顺序不破）。
+
+    - 字节到界在回调内即刻入队（`push` 等 `queue.join()`：canonical 写入先于完整回合 checkpoint）；
+    - 非增量事件（model.started/completed、工具、assistant.turn）是正文的结构性边界：先落库缓冲正文；
+    - 时间到界由读取循环 `yield`（见 `AgentRunnerExecutor._consume_queue`）。
+    """
+
+    def __init__(
+        self,
+        *,
+        queue: asyncio.Queue[ExecutorEvent],
+        window: DeltaWindow,
+        request: ExecutorRequest,
+        model_trace: ModelCallTrace | None,
+    ) -> None:
+        self._queue = queue
+        self._window = window
+        self._request = request
+        self._model_trace = model_trace
+        self.delta_emitted = False
+
+    async def push(self, event: ExecutorEvent) -> None:
+        await self._queue.put(event)
+        # Canonical writes must finish before a complete-round checkpoint is taken.
+        await self._queue.join()
+
+    async def flush_deltas(self) -> None:
+        """到界/结构边界/终态的增量 flush：合并文本先入队落库，调用方再继续。"""
+        merged = self._window.drain()
+        if merged is not None:
+            await self.push(_delta_event(merged))
+
+    async def emit(self, event: ExecutorEvent) -> None:
+        if event.type != MESSAGE_DELTA_EVENT:
+            await self.flush_deltas()
+        await self.push(event)
+
+    async def on_delta(self, text: str) -> None:
+        self.delta_emitted = True
+        merged = self._window.add(text)
+        if merged is not None:
+            await self.push(_delta_event(merged))
+
+    async def on_model_started(self) -> None:
+        data = self._model_trace.begin() if self._model_trace is not None else {}
+        await self.emit(ExecutorEvent(type=MODEL_STARTED_EVENT, data=data))
+
+    async def on_model_completed(self) -> None:
+        data = self._model_trace.event_fields() if self._model_trace is not None else {}
+        await self.emit(ExecutorEvent(type=MODEL_COMPLETED_EVENT, data=data))
+
+    async def on_tool_started(self, call_id: str, name: str) -> None:
+        await self.emit(
+            ExecutorEvent(type=TOOL_STARTED_EVENT, data={"tool_call_id": call_id, "tool_name": name})
+        )
+
+    async def on_assistant_turn(self, message: ModelMessage) -> None:
+        """把带 tool_calls 的 assistant 回合**原样**落事件，供后续 Run 重建合法历史。
+
+        只有带 `tool_calls` 的回合需要落：纯文本回合已由 run 结束时的 `ASSISTANT_MESSAGE`
+        承载；而思考模式**只**在带 tool_calls 时要求回传 `reasoning_content`（实测），
+        所以纯文本回合的思维链不必存。
+        """
+        if not message.tool_calls:
+            return
+        await self.emit(
+            ExecutorEvent(
+                type=ASSISTANT_TURN_EVENT,
+                data={
+                    # 事件载荷只接受文本：多模态消息取其文本视图（助手回合本就是文本）
+                    "text": text_of(message.content),
+                    "reasoning_content": message.reasoning_content,
+                    "tool_calls": [
+                        {"id": call.id, "name": call.name, "arguments": dict(call.arguments)}
+                        for call in message.tool_calls
+                    ],
+                },
+            )
+        )
+
+    async def on_tool_completed(
+        self, call_id: str, name: str, status: str, artifact_id: str | None, result_text: str | None
+    ) -> None:
+        data: dict[str, Any] = {
+            "tool_call_id": call_id,
+            "tool_name": name,
+            "status": status,
+            "artifact_id": artifact_id,
+        }
+        if result_text is not None:
+            # 未外置的结果：正文在这里留一份**有界预览**（沿用引用预览的同一组字节上限）。
+            # 不留就只有工具名进 canonical 行，下一 Run 重建历史时这条结果净丢（2026-10-06
+            # review）。外置过的结果不带这个键——它有 artifact_id，重建按引用还原。
+            settings = tool_result_settings(self._request)
+            data["preview"] = preview_head_tail(
+                result_text,
+                head_bytes=settings.preview_head_bytes,
+                tail_bytes=settings.preview_tail_bytes,
+            )
+        await self.emit(ExecutorEvent(type=TOOL_COMPLETED_EVENT, data=data))
+
+
 class AgentRunnerExecutor:
     def __init__(
         self,
@@ -293,135 +404,29 @@ class AgentRunnerExecutor:
         request: ExecutorRequest,
         close: Callable[[], Awaitable[None]] | None = None,
         model_trace: ModelCallTrace | None = None,
+        delta_window: DeltaWindow | None = None,
     ) -> None:
         self._runner = runner
         self._request = request
         self._close = close
         self._model_trace = model_trace
+        # 有界合并窗口：装配根显式注入（`default_executor_factory`）；直构调用点按启动设置
+        # 取值——窗口参数是每进程容量配置（design §3.7），不在调用点另立第二份默认。
+        self._delta_window = (
+            delta_window if delta_window is not None else delta_window_from_settings(SharedSettings())
+        )
 
     async def run(self) -> AsyncIterator[ExecutorEvent]:
         queue: asyncio.Queue[ExecutorEvent] = asyncio.Queue()
         cancelled = asyncio.Event()
         poller = asyncio.create_task(self._poll_cancel(cancelled))
-        delta_emitted = False
-
-        async def emit(event: ExecutorEvent) -> None:
-            await queue.put(event)
-            # Canonical writes must finish before a complete-round checkpoint is taken.
-            await queue.join()
-
-        async def on_model_started() -> None:
-            data = self._model_trace.begin() if self._model_trace is not None else {}
-            await emit(ExecutorEvent(type=MODEL_STARTED_EVENT, data=data))
-
-        async def on_model_completed() -> None:
-            data = self._model_trace.event_fields() if self._model_trace is not None else {}
-            await emit(ExecutorEvent(type=MODEL_COMPLETED_EVENT, data=data))
-
-        async def on_delta(text: str) -> None:
-            nonlocal delta_emitted
-            delta_emitted = True
-            await emit(ExecutorEvent(type=MESSAGE_DELTA_EVENT, data={"delta": text}))
-
-        async def on_tool_started(call_id: str, name: str) -> None:
-            await emit(
-                ExecutorEvent(
-                    type=TOOL_STARTED_EVENT,
-                    data={"tool_call_id": call_id, "tool_name": name},
-                )
-            )
-
-        async def on_assistant_turn(message: ModelMessage) -> None:
-            """把带 tool_calls 的 assistant 回合**原样**落事件，供后续 Run 重建合法历史。
-
-            只有带 `tool_calls` 的回合需要落：纯文本回合已由 run 结束时的 `ASSISTANT_MESSAGE`
-            承载；而思考模式**只**在带 tool_calls 时要求回传 `reasoning_content`（实测），
-            所以纯文本回合的思维链不必存。
-            """
-            if not message.tool_calls:
-                return
-            await emit(
-                ExecutorEvent(
-                    type=ASSISTANT_TURN_EVENT,
-                    data={
-                        # 事件载荷只接受文本：多模态消息取其文本视图（助手回合本就是文本）
-                        "text": text_of(message.content),
-                        "reasoning_content": message.reasoning_content,
-                        "tool_calls": [
-                            {
-                                "id": call.id,
-                                "name": call.name,
-                                "arguments": dict(call.arguments),
-                            }
-                            for call in message.tool_calls
-                        ],
-                    },
-                )
-            )
-
-        async def on_tool_completed(
-            call_id: str,
-            name: str,
-            status: str,
-            artifact_id: str | None,
-            result_text: str | None,
-        ) -> None:
-            data: dict[str, Any] = {
-                "tool_call_id": call_id,
-                "tool_name": name,
-                "status": status,
-                "artifact_id": artifact_id,
-            }
-            if result_text is not None:
-                # 未外置的结果：正文在这里留一份**有界预览**（沿用引用预览的同一组字节上限）。
-                # 不留就只有工具名进 canonical 行，下一 Run 重建历史时这条结果净丢（2026-10-06
-                # review）。外置过的结果不带这个键——它有 artifact_id，重建按引用还原。
-                settings = tool_result_settings(self._request)
-                data["preview"] = preview_head_tail(
-                    result_text,
-                    head_bytes=settings.preview_head_bytes,
-                    tail_bytes=settings.preview_tail_bytes,
-                )
-            await emit(ExecutorEvent(type=TOOL_COMPLETED_EVENT, data=data))
-
-        task = asyncio.create_task(
-            self._execute(
-                cancelled,
-                on_delta,
-                on_tool_started,
-                on_assistant_turn,
-                on_tool_completed,
-                on_model_started,
-                on_model_completed,
-            )
+        emitter = _ExecutorEventEmitter(
+            queue=queue, window=self._delta_window, request=self._request, model_trace=self._model_trace
         )
+        task = asyncio.create_task(self._execute(cancelled, emitter))
         try:
-            while True:
-                if task.done() and queue.empty():
-                    break
-                try:
-                    item = await asyncio.wait_for(queue.get(), timeout=0.05)
-                except TimeoutError:
-                    continue
-                try:
-                    yield item
-                finally:
-                    queue.task_done()
-            await task
-            result = task.result()
-            if (
-                not delta_emitted
-                and result is not None
-                and result.final_text
-                and result.status == AgentRunStatus.COMPLETED
-            ):
-                # 非流式 provider：把最终回答作为单个 delta，保证渠道侧拼接可用
-                yield ExecutorEvent(type=MESSAGE_DELTA_EVENT, data={"delta": result.final_text})
-            if result is not None:
-                yield ExecutorEvent(
-                    type="runner.outcome",
-                    data={"status": str(result.status), "final_text": result.final_text},
-                )
+            async for event in self._consume_queue(task, queue, emitter):
+                yield event
         finally:
             poller.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -433,26 +438,78 @@ class AgentRunnerExecutor:
             if self._close is not None:
                 await self._close()
 
-    async def _execute(
+    async def _consume_queue(
         self,
-        cancelled: asyncio.Event,
-        on_delta: Callable[[str], Awaitable[None]],
-        on_tool_started: Callable[[str, str], Awaitable[None]],
-        on_assistant_turn: Callable[[ModelMessage], Awaitable[None]],
-        on_tool_completed: Callable[[str, str, str, str | None, str | None], Awaitable[None]],
-        on_model_started: Callable[[], Awaitable[None]],
-        on_model_completed: Callable[[], Awaitable[None]],
+        task: asyncio.Task[AgentRunResult | None],
+        queue: asyncio.Queue[ExecutorEvent],
+        emitter: _ExecutorEventEmitter,
+    ) -> AsyncIterator[ExecutorEvent]:
+        """读事件直到片段结束：时间到界即 flush；终态（含失败）之前 flush 全部已产生正文。"""
+        window = self._delta_window
+        while True:
+            if task.done() and queue.empty():
+                break
+            merged = window.drain() if window.due() else None
+            if merged is not None:
+                # 时间边界：模型可能长时间没有新块，到界即落库（停顿期间也必须可推送）。
+                yield _delta_event(merged)
+                continue
+            try:
+                item = await asyncio.wait_for(queue.get(), timeout=self._queue_wait(window))
+            except TimeoutError:
+                continue
+            try:
+                yield item
+            finally:
+                queue.task_done()
+        failure: Exception | None = None
+        try:
+            await task
+            result = task.result()
+        except Exception as exc:  # noqa: BLE001 —— 失败同样先 flush 已产生正文，再上抛原异常
+            failure = exc
+            result = None
+        merged = window.drain()
+        if merged is not None:
+            # 终态前 flush：已产生的正文必须先落库，终态行（含失败终态）才排在它之后。
+            yield _delta_event(merged)
+        if failure is not None:
+            raise failure
+        if (
+            not emitter.delta_emitted
+            and result is not None
+            and result.final_text
+            and result.status == AgentRunStatus.COMPLETED
+        ):
+            # 非流式 provider：把最终回答作为单个 delta，保证渠道侧拼接可用
+            yield _delta_event(result.final_text)
+        if result is not None:
+            yield ExecutorEvent(
+                type="runner.outcome",
+                data={"status": str(result.status), "final_text": result.final_text},
+            )
+
+    @staticmethod
+    def _queue_wait(window: DeltaWindow) -> float:
+        """事件队列等待时长：时间窗口剩余不足轮询节拍时提前醒来（到界即 flush）。"""
+        remaining = window.remaining_seconds()
+        if remaining is None:
+            return QUEUE_POLL_SEC
+        return min(QUEUE_POLL_SEC, remaining)
+
+    async def _execute(
+        self, cancelled: asyncio.Event, emitter: _ExecutorEventEmitter
     ) -> AgentRunResult | None:
         try:
             return await self._runner.run(
                 self._build_run_request(),
                 is_cancelled=cancelled.is_set,
-                on_delta=on_delta,
-                on_model_started=on_model_started,
-                on_model_completed=on_model_completed,
-                on_tool_started=on_tool_started,
-                on_assistant_turn=on_assistant_turn,
-                on_tool_completed=on_tool_completed,
+                on_delta=emitter.on_delta,
+                on_model_started=emitter.on_model_started,
+                on_model_completed=emitter.on_model_completed,
+                on_tool_started=emitter.on_tool_started,
+                on_assistant_turn=emitter.on_assistant_turn,
+                on_tool_completed=emitter.on_tool_completed,
                 checkpoint=self._request.checkpoint,
                 context_cursor=self._request.context_cursor,
             )
@@ -1861,7 +1918,13 @@ async def default_executor_factory(
         if owned_delivery_client is not None:
             await owned_delivery_client.aclose()
 
-    return AgentRunnerExecutor(runner=runner, request=request, close=close, model_trace=model_trace)
+    return AgentRunnerExecutor(
+        runner=runner,
+        request=request,
+        close=close,
+        model_trace=model_trace,
+        delta_window=delta_window_from_settings(settings),
+    )
 
 
 def _frozen_tool_policy(request: ExecutorRequest) -> Callable[[PreparedToolCall], ToolPolicyDecision]:

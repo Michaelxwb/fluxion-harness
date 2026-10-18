@@ -5096,7 +5096,7 @@
       "kind": "functional",
       "boundary": "真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约",
       "owner": "TASK-059",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -5106,7 +5106,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-259",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "b5f1fd657821449cb7360f270ceaf955",
+        "executed_at": "2026-10-18T08:32:10.576473+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_capacity_webchat_durable_deltas.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "2ee4d049b118c58c3b4f9bba04c03b85433ac8081408b66164a6101f9f6f5ad8"
+      },
+      "runs": [
+        {
+          "id": "B-259",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "b5f1fd657821449cb7360f270ceaf955",
+          "executed_at": "2026-10-18T08:32:10.576473+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_capacity_webchat_durable_deltas.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "2ee4d049b118c58c3b4f9bba04c03b85433ac8081408b66164a6101f9f6f5ad8"
+        }
+      ]
     },
     {
       "id": "B-260",
