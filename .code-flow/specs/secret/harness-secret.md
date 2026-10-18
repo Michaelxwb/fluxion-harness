@@ -44,9 +44,10 @@ checks:
 - **第三条明文出口（受控例外，与 API-08/09 并列）**：`POST /internal/runtime/resolve-definition` 的响应含模型明文 `api_key`，这是**有意契约**（`tests/console_internal/test_resolve_definition_api.py` 断言该字段必在响应里），故只能门控、不能删字段。Console 侧三个 internal 端点（`resolve-definition`/`resolve-credentials`/`resolve-egress-access`）统一由 `require_service_identity` 门控（`apps/console-platform/backend/src/muad_console_platform/api/internal_runtime.py`，2026-09-28 补齐），调用方 Worker/Runtime 必须发 `X-Internal-Service`。
   - ✅ 端点带 `require_service_identity` + 调用方带 `X-Internal-Service` 头。
   - ❌ 裸端点（修复前状态）：无门控却回明文密钥 ⇒ 任意可达该端口的调用方都能取走模型密钥。
-- **敏感键清单三处独立维护，无单一来源**：`packages/api-kit/src/muad_api/audit.py`（`SENSITIVE_KEY_MARKERS`，7 键 password/secret/token/api_key/credential/authorization/cookie）、`packages/logging-kit/src/muad_logging/redaction.py`（更宽，另含 `set-cookie`/`id_token`/`passwd`/`private_key`）、`apps/agent-runtime/src/muad_agent_runtime/infrastructure/audit_writer.py`（与 api-kit 同 7 键）。新增敏感键必须三处同改。
+- **敏感键清单三处独立维护，无单一来源**：`packages/api-kit/src/muad_api/audit.py`（`SENSITIVE_KEY_MARKERS`，9 键 password/secret/token/api_key/credential/authorization/cookie/muad_chat_session/muad_chat_csrf）、`packages/logging-kit/src/muad_logging/redaction.py`（更宽，另含 `set-cookie`/`id_token`/`passwd`/`private_key`，两枚 CHAT Cookie 名写作 `muad[_-]?chat[_-]?session|muad[_-]?chat[_-]?csrf`）、`apps/agent-runtime/src/muad_agent_runtime/infrastructure/audit_writer.py`（与 api-kit 同 9 键）。新增敏感键必须三处同改。
   - ✅ 一处新增 → 另两处同步补齐。
   - ❌ 只加 api-kit → 日志与 runtime 三张审计表两侧漏脱敏。
+  - 实例（2026-10-18 TASK-045）：`Cookie: muad_chat_session=…; muad_chat_csrf=…` 的 `cookie` 前缀键只吃掉第一对，第二对按名字入清单后才被遮蔽/丢键；canary 反查在 `control.config_audit_log` 里真的抓到过 `muad_chat_session` 的会话原文。
 - **两类脱敏语义不同，断言不可混用**：审计侧是**丢弃键**（`packages/api-kit/src/muad_api/audit.py` 的 `sanitize_audit_payload` 直接过滤掉键，故敏感键在 before/after 里**整个消失**；`tests/acceptance/test_secret_consumers.py` 断言 `sanitize_audit_payload({"api_key": ..., "secret": ..., "name": "ok"}) == {"name": "ok"}`）；日志侧是**值置换 `***`**（`packages/logging-kit/src/muad_logging/redaction.py` 的 `REDACTED = "***"`）。
   - ❌ 按 `***` 语义写审计断言：键已被丢弃，永远匹配不到该字面量。
 - **`*_configured` 命名有一处例外**：用户凭据读接口回的是 `"configured": True` + `credential_schema_version`/`status`/`last_verified_at`（`apps/console-platform/backend/src/muad_console_platform/application/credential_service.py` 的 `_user_credential_payload`），字段名不是 `*_configured`。该例外只表达「已配置」这一事实，仍不得回明文。
