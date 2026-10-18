@@ -166,10 +166,11 @@ def _artifact_id_of(entry: object) -> uuid.UUID | None:
         return None
 
 
-def _attachment_of(
+def project_attachment(
     artifact_id: uuid.UUID, artifacts: Mapping[uuid.UUID, Artifact]
 ) -> WebchatAttachment | None:
-    """附件安全投影：只出引用与元信息；失效附件明确 `available=false`，不伪造不可用字节。
+    """附件安全投影（历史/SSE/通知共用的**唯一实现**）：只出引用与元信息；失效附件明确
+    `available=false`，不伪造不可用字节。
 
     无权威行/尺寸不可投影的引用**不伪造**（不猜 checksum）；内部留档（`TRANSCRIPT`）不是可下载的
     公开附件，一律不投影。字节是否可取（清理/预览授权）属下载端点（TASK-055）。
@@ -201,7 +202,7 @@ def _project_attachments(
         artifact_id = _artifact_id_of(entry)
         if artifact_id is None:
             continue
-        attachment = _attachment_of(artifact_id, artifacts)
+        attachment = project_attachment(artifact_id, artifacts)
         if attachment is not None:
             projected.append(attachment)
     return projected
@@ -300,7 +301,7 @@ def _artifact_event(
     artifact_id = row.artifact_id or _artifact_id_of(_payload(row))
     if artifact_id is None:
         return None
-    attachment = _attachment_of(artifact_id, artifacts)
+    attachment = project_attachment(artifact_id, artifacts)
     if attachment is None:
         return None
     return WebchatArtifactEvent(type="artifact.created", data=attachment, **_identity(row, run_id))

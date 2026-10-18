@@ -1,4 +1,4 @@
-"""Webchat Owner 端点（design §3.4 API-09/14/15；API-12 内部面；TASK-050/TASK-058）。
+"""Webchat Owner 端点（design §3.4 API-09/11/14/15；API-12 内部面；TASK-050/058/064）。
 
 - 只对受信服务身份开放（`X-Internal-Service`，与 `/internal/admin/runs` 同门控）；租户从部署
   中间件导出，主体（`user_id`）与入口/Agent 由受信调用方显式携带 —— 浏览器自报字段没有位置。
@@ -10,7 +10,11 @@
   统一裁决，响应只回 `upload_id` 与权威元信息（无存储键、无预造制品引用）。
 - **下载/预览解析**（`GET /internal/webchat/artifacts/{id}`，TASK-055）：`artifact_id` → 本主体
   名下会话的归属 + 渠道中立引用（含存储键，只在受信面传递）；跨租户/他主体/已失效一律 404。
-- 响应只含 `WebchatHistoryService` 的安全公开投影；不暴露快照、存储键或内部事件。
+- **活动收件箱**（`GET /internal/webchat/notifications`、`POST .../{id}/read`、
+  `POST /internal/webchat/task-results`，TASK-064）：按用户 feed seq 增量读取、显式已读（独立于
+  投递状态）与受信 Task 结果入箱（核真实来源，持久入箱后才回 `persisted`）。
+- 响应只含 `WebchatHistoryService`/`ChannelNotificationQueryService` 的安全公开投影；不暴露
+  快照、存储键、投递/租约内部字段或内部事件。
 - 页大小默认值来自 Console 平台设置（`webchat.history_page_size`），不在端点里硬编码。
 """
 
@@ -25,7 +29,12 @@ from muad_api.security import require_internal_service
 from muad_contracts import MAX_PAGE_SIZE
 from muad_contracts.platform_settings import parse_platform_settings
 from muad_contracts.webchat import WebchatUpload, WebchatUploadRegistration
+from muad_contracts.webchat_events import WebchatTaskResultRegistration
 
+from ..application.channel_notification_queries import (
+    ChannelNotificationQueryService,
+    NotificationScope,
+)
 from ..application.channel_uploads import (
     assert_entry_agent_binding,
     register_staged_upload,
@@ -49,6 +58,7 @@ UserId = Annotated[uuid.UUID, Query()]
 AgentId = Annotated[uuid.UUID, Query()]
 EntryId = Annotated[uuid.UUID, Query()]
 ThroughSeq = Annotated[int | None, Query(ge=0)]
+AfterSeq = Annotated[int, Query(ge=0)]
 
 
 async def _effective_page_size(
@@ -225,3 +235,56 @@ async def list_messages(
         through_seq=through_seq,
     )
     return ok(request.app.state.message_catalog, page_view.model_dump(mode="json"))
+
+
+@router.get("/notifications")
+async def list_notifications(
+    request: Request,
+    tenant_id: TenantDep,
+    session: SessionDep,
+    settings_client: PlatformSettingsClientDep,
+    user_id: UserId,
+    after_seq: AfterSeq = 0,
+    page: PageNumber = 1,
+    page_size: PageSize = None,
+) -> ApiResponse[dict[str, Any]]:
+    """API-11：按用户 feed seq 增量分页（`next_seq` 为下一次读取水位）。"""
+    size = await _effective_page_size(settings_client, tenant_id, page_size)
+    page_view = await ChannelNotificationQueryService(session).list_notifications(
+        NotificationScope(tenant_id=tenant_id, user_id=user_id),
+        after_seq=after_seq,
+        page=page,
+        page_size=size,
+    )
+    return ok(request.app.state.message_catalog, page_view.model_dump(mode="json"))
+
+
+@router.post("/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantDep,
+    session: SessionDep,
+    user_id: UserId,
+) -> ApiResponse[dict[str, Any]]:
+    """API-11：显式已读（幂等；与投递状态独立；只标记明确读过的行）。"""
+    receipt = await ChannelNotificationQueryService(session).mark_read(
+        NotificationScope(tenant_id=tenant_id, user_id=user_id), notification_id
+    )
+    await session.commit()
+    return ok(request.app.state.message_catalog, receipt.model_dump(mode="json"))
+
+
+@router.post("/task-results")
+async def register_task_result(
+    body: WebchatTaskResultRegistration,
+    request: Request,
+    tenant_id: TenantDep,
+    session: SessionDep,
+) -> ApiResponse[dict[str, Any]]:
+    """受信 Task 结果入箱（TASK-064）：核真实来源；提交后才回 `persisted=true`。"""
+    receipt = await ChannelNotificationQueryService(session).register_task_result(
+        tenant_id=tenant_id, registration=body
+    )
+    await session.commit()
+    return ok(request.app.state.message_catalog, receipt.model_dump(mode="json"))

@@ -12,6 +12,9 @@
   seq、不新增未读；隐藏（软删）通知同样保留唯一回执，不因隐藏而重新投递。
 - **投递状态**由调用方显式选择：网页持久入箱是 `NOT_REQUIRED`（无出站投递）；出站意图
   （`PENDING`）由机器人交付路径在同一接缝上给出。
+- **Task 结果入箱**（TASK-064）：`kind=TASK_RESULT` 必须带真实 `task_id` 与属于该 Task 的
+  `artifact_ids`；核验真实来源在读取层（`channel_notification_queries`），本模块只保证行内事实
+  与词表一致。
 - **无入口归属的会话不进网页收件箱**：`entry_id` 是通知 DTO 的必填身份，
   `conversation.channel_account_id IS NULL` 时返回 `None`（不编造入口 UUID）。
 """
@@ -19,7 +22,9 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import sqlalchemy as sa
 from muad_api import AppError
@@ -35,10 +40,15 @@ from ..infrastructure.models.runtime import (
 )
 
 #: `channel_notification.kind` 取值（与 0026 的 CHECK 同词表）。
-KIND_RUN_COMPLETED = "RUN_COMPLETED"
-KIND_RUN_WAITING_INPUT = "RUN_WAITING_INPUT"
-KIND_TASK_RESULT = "TASK_RESULT"
-NOTIFICATION_KINDS = (KIND_RUN_COMPLETED, KIND_RUN_WAITING_INPUT, KIND_TASK_RESULT)
+NotificationKind = Literal["RUN_COMPLETED", "RUN_WAITING_INPUT", "TASK_RESULT"]
+KIND_RUN_COMPLETED: NotificationKind = "RUN_COMPLETED"
+KIND_RUN_WAITING_INPUT: NotificationKind = "RUN_WAITING_INPUT"
+KIND_TASK_RESULT: NotificationKind = "TASK_RESULT"
+NOTIFICATION_KINDS: tuple[NotificationKind, ...] = (
+    KIND_RUN_COMPLETED,
+    KIND_RUN_WAITING_INPUT,
+    KIND_TASK_RESULT,
+)
 #: 网页持久入箱：站内通知不需要出站投递。
 DELIVERY_NOT_REQUIRED = "NOT_REQUIRED"
 #: 出站投递意图（机器人交付路径显式选择；本模块只认词表，不替调用方决定）。
@@ -55,6 +65,11 @@ def run_terminal_delivery_key(run_id: uuid.UUID) -> str:
 def run_waiting_delivery_key(run_id: uuid.UUID, interrupt_id: uuid.UUID) -> str:
     """待确认的稳定交付键：一次中断一份确认，重投按中断身份命中同一回执。"""
     return f"run:{run_id}:waiting-input:{interrupt_id}"
+
+
+def task_result_delivery_key(task_id: uuid.UUID) -> str:
+    """Task 结果的稳定交付键：一个 Task 一份结果，重投命中同一回执（与交付契约同形）。"""
+    return f"task:{task_id}:final"
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,12 +89,14 @@ async def write_run_notification(
     delivery_key: str,
     event_id: uuid.UUID | None = None,
     delivery_state: str = DELIVERY_NOT_REQUIRED,
+    task_id: uuid.UUID | None = None,
+    artifact_ids: Sequence[uuid.UUID] = (),
 ) -> RunNotificationReceipt | None:
     """事务内写一条 Run 用户通知（调用方负责提交；失败即与终态一起整体回滚）。
 
     返回 `None` 表示该会话没有入口归属（不进网页收件箱）。
     """
-    _validate(kind=kind, delivery_state=delivery_state)
+    _validate(kind=kind, delivery_state=delivery_state, task_id=task_id)
     entry_id = await _entry_id_of(session, run)
     if entry_id is None:
         return None
@@ -99,7 +116,8 @@ async def write_run_notification(
         seq=seq,
         delivery_key=delivery_key,
         event_id=event_id,
-        artifact_ids=[],
+        task_id=task_id,
+        artifact_ids=list(artifact_ids),
         delivery_state=delivery_state,
     )
     session.add(row)
@@ -107,12 +125,18 @@ async def write_run_notification(
     return RunNotificationReceipt(id=row.id, seq=seq, created=True)
 
 
-def _validate(*, kind: str, delivery_state: str) -> None:
-    """协议词表由数据库 CHECK 定义：未知取值显式失败，不静默落库等约束报错。"""
+def _validate(*, kind: str, delivery_state: str, task_id: uuid.UUID | None) -> None:
+    """协议词表由数据库 CHECK 定义：未知取值显式失败，不静默落库等约束报错。
+
+    `task_id` 与 kind 互斥性同契约（`WebchatNotification`）：TASK_RESULT 必须有真实 Task 身份，
+    其余 kind 没有它的位置。
+    """
     if kind not in NOTIFICATION_KINDS:
         raise ValueError(f"unknown notification kind: {kind}")
     if delivery_state not in DELIVERY_STATES:
         raise ValueError(f"unknown delivery state: {delivery_state}")
+    if (kind == KIND_TASK_RESULT) != (task_id is not None):
+        raise ValueError("task_id is required for TASK_RESULT and has no place for other kinds")
 
 
 async def _entry_id_of(session: AsyncSession, run: RunRecord) -> uuid.UUID | None:
