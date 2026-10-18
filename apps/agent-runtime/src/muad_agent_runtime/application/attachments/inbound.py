@@ -13,12 +13,16 @@ import base64
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 from muad_agent_core.model import ImagePart, ModelContent
+from muad_artifact_store import NfsArtifactStore
 from muad_contracts import AttachmentRef
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...infrastructure.models.runtime import Artifact
+from ...infrastructure.models.runtime import Artifact, ChannelUpload
+from ..channel_uploads import publish_run_artifact, run_artifact_storage_key
+from .immutable_store import discard_written
 
 INBOUND_IMAGE = "INBOUND_IMAGE"
 INBOUND_DOCUMENT = "INBOUND_DOCUMENT"
@@ -98,6 +102,102 @@ async def persist_inbound_attachments(
                 storage_key=ref.storage_key,
             )
         )
+    return tuple(persisted)
+
+
+async def _publish_one_staged_attachment(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    run_id: uuid.UUID,
+    conversation_id: uuid.UUID | None,
+    upload: ChannelUpload,
+    store: NfsArtifactStore,
+    source: str | None,
+    published: list[str],
+) -> PersistedAttachment:
+    """发布一个 Run 自己的制品并落 artifact 行；键在发布成功后立刻登记进 `published`（回滚用）。"""
+    storage_key = run_artifact_storage_key(run_id=run_id, upload_id=upload.id)
+    publish_run_artifact(store=store, upload=upload, storage_key=storage_key)
+    published.append(storage_key)
+    row = Artifact(
+        id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        run_id=run_id,
+        task_id=None,
+        conversation_id=conversation_id,
+        artifact_type=artifact_type_for(upload.kind),
+        storage_key=storage_key,
+        media_type=upload.media_type,
+        size=upload.size,
+        checksum=upload.checksum,
+        metadata_json={
+            "kind": upload.kind,
+            "filename": upload.filename,
+            "source": source,
+            "upload_id": str(upload.id),
+        },
+    )
+    session.add(row)
+    await session.flush()
+    return PersistedAttachment(
+        artifact_id=row.id,
+        kind=upload.kind,
+        media_type=upload.media_type,
+        filename=upload.filename,
+        size=upload.size,
+        storage_key=storage_key,
+    )
+
+
+async def persist_staged_inbound_attachments(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    run_id: uuid.UUID,
+    conversation_id: uuid.UUID | None,
+    uploads: Sequence[ChannelUpload],
+    artifact_root: str | Path,
+    source: str | None = None,
+    written: list[str] | None = None,
+) -> tuple[PersistedAttachment, ...]:
+    """把**暂存上传**落成 Run 自己的不可变制品（design §3.3）：每 Run 一个独立 `storage_key`。
+
+    与 `persist_inbound_attachments` 的分工：渠道直投的 `AttachmentRef` 用渠道给的键原样落行；
+    暂存上传则**先发布再落行**——校验真实字节的 sha256 后用 `os.link` 原子发布到
+    `runs/<run_id>/attachments/<upload_id>`（≠暂存键），因此：
+
+    - 同一上传被多个 Run 引用时各自得到独立键，任一 Run 的制品清理不影响其他 Run 的字节；
+    - 暂存清理（软删登记 + 删暂存文件）不触碰 Run 键，已受理内容仍可读；
+    - 目标键已存在即 `FileExistsError`（受理层转显式冲突），绝不覆盖。
+
+    **只 flush 不 commit**：与 Run/Snapshot/事件同事务（同 `persist_inbound_attachments`）。
+    本函数在失败时回滚**自己**发布的文件；调用方在后续步骤失败（提交前）时按 `written`
+    里的键删除。`written` 是出参：成功返回后调用方拿到本次发布的全部键。
+    """
+    store = NfsArtifactStore(artifact_root)
+    published: list[str] = []
+    persisted: list[PersistedAttachment] = []
+    try:
+        for upload in uploads:
+            persisted.append(
+                await _publish_one_staged_attachment(
+                    session,
+                    tenant_id=tenant_id,
+                    run_id=run_id,
+                    conversation_id=conversation_id,
+                    upload=upload,
+                    store=store,
+                    source=source,
+                    published=published,
+                )
+            )
+    except BaseException:
+        # 行没落成（或调用方事务注定回滚），盘上的 Run 制品也不留。
+        discard_written(Path(artifact_root), published)
+        raise
+    if written is not None:
+        written.extend(published)
     return tuple(persisted)
 
 

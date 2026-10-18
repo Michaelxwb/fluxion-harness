@@ -301,7 +301,7 @@
 | E-20 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | ADMIN 重置/撤销、两个浏览器 CHAT 会话、真实 PG 事务与长流复核 | TASK-112 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
 | E-21 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 设置保存API、真实PG版本行、进程启动与正式部署清单/容量harness | TASK-115 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"] | . | 1800 |  |
 | B-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 并发预占/释放、实际租约存储 | TASK-021 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_reserve.py"] | . | 300 |  |
-| B-02 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实凭据/会话/附件归属存储 | TASK-053 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | . | 300 |  |
+| B-02 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实凭据/会话/附件归属存储 | TASK-053 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | . | 300 |  |
 | B-03 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 跨页读取和提交顺序、PG | TASK-064 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_activity_read.py"] | . | 300 |  |
 | B-04 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 实际 Conversation/CanonicalEvent 查询与索引 | TASK-050 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | . | 300 |  |
 | B-05 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 实际准入计数、Run 事务、取消/领取竞态和 PG 行锁 | TASK-031 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_release.py"] | . | 300 |  |
@@ -392,7 +392,7 @@
 | B-250 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-050 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | . | 300 |  |
 | B-251 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-051 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_public_projection.py"] | . | 300 |  |
 | B-252 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-052 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_resource_api.py"] | . | 300 |  |
-| B-253 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-053 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | . | 300 |  |
+| B-253 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-053 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | . | 300 |  |
 | B-254 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-054 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_upload_gateway.py"] | . | 300 |  |
 | B-255 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-055 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_artifact_download.py"] | . | 300 |  |
 | B-256 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-056 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_run_controls.py"] | . | 300 |  |
@@ -3407,13 +3407,13 @@ API-05/06/08/09/14/15完整转Owner；完整分支及可观测结果见下面验
 
 ## TASK-053: 上传登记与Run独立不可变制品
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-013, TASK-049
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约
 - **Spec-Refs**: harness-skill#RULE-skill-001
 - **Acceptance-Refs**: B-253, B-02
-- **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py`, `apps/agent-runtime/src/muad_agent_runtime/application/attachments/inbound.py`, `tests/agent_runtime/test_capacity_webchat_upload_staging.py`
+- **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py`, `apps/agent-runtime/src/muad_agent_runtime/application/attachments/inbound.py`, `apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`, `packages/contracts/src/muad_contracts/runtime.py`, `tests/agent_runtime/test_capacity_webchat_upload_staging.py`
 - **Estimate**: 60分钟
 
 ### Description
@@ -3422,29 +3422,44 @@ API-05/06/08/09/14/15完整转Owner；完整分支及可观测结果见下面验
 
 ### Checklist
 
-- [ ] [B-253][integration] 先在`tests/agent_runtime/test_capacity_webchat_upload_staging.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：暂存TTL/tenant/user/entry归属受控，受理创建Run自己的不可变storage_key。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-253] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-253] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] [B-02][integration] 将原B-02落入`tests/agent_runtime/test_capacity_webchat_upload_staging.py`，先RED后GREEN；真实凭据/会话/附件归属存储；断言：未授权、过期、空正文、纯附件、大小/数量边界与现有附件门控一致。
-- [ ] verifier `harness-skill#RULE-skill-001`（stage: review；timeout=300秒）：`["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-253][integration] 先在`tests/agent_runtime/test_capacity_webchat_upload_staging.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：暂存TTL/tenant/user/entry归属受控，受理创建Run自己的不可变storage_key。RED：`uv run pytest -q tests/agent_runtime/test_capacity_webchat_upload_staging.py` exit=2，1 error during collection（`ModuleNotFoundError: No module named 'muad_agent_runtime.application.channel_uploads'`——登记/核属/发布/清理与 Run 受理接线在实现前均不存在）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `application/channel_uploads.py`（新增）——`register_staged_upload`（storage_key 相对路径形状校验：空串/绝对路径/反斜杠/`.`/`..` 段一律拒绝；kind 词表/media_type 形状/`sha256:<64hex>` 校验和/filename 长度/`size>0`；超 `upload_max_bytes` 用附件门控词表 `ATTACHMENT_TOO_LARGE`；TTL=PG 时钟+`upload_staging_ttl_sec`；同租户活跃暂存键重复登记 `COMMON_CONFLICT`（预检+唯一索引兜底））；`load_owned_upload`/`resolve_message_uploads`（跨租户/不存在/已软删 `COMMON_NOT_FOUND`；同租户越权用户/借入口 `FORBIDDEN`；过期 `UPLOAD_EXPIRED`；数量超限 `ATTACHMENT_COUNT_EXCEEDED`；空正文且无上传 `COMMON_VALIDATION_ERROR`；重复 upload_id 非法）；`run_artifact_storage_key`（`runs/<run_id>/attachments/<upload_id>`，只由系统 UUID 拼出）；`publish_run_artifact`（读暂存字节算真实 sha256 与登记比对：缺失 `UPLOAD_EXPIRED`、不一致 `COMMON_CONFLICT`；`os.link` 原子发布，目标已存在 `FileExistsError`→`COMMON_CONFLICT`，绝不覆盖）；`cleanup_expired_staging`（`FOR UPDATE SKIP LOCKED` 有界扫描过期活跃行→软删+删暂存文件，幂等）。② `application/attachments/inbound.py`——新增 `persist_staged_inbound_attachments`：逐上传发布 Run 自己的键后落 `artifact` 行（`run_id` 非空维持 `ck_artifact_run_task_xor`），`metadata_json` 带 `upload_id/kind/filename/source`；只 flush 不 commit，失败时回滚自己发布的文件（`discard_written`）。③ `application/run_service.py`——`_create_run` 在设置快照后、昂贵解析前调用 `_resolve_message_uploads`（重放已在 `_admit` 返回，只新受理校验 TTL；入口不可归属时显式 `COMMON_VALIDATION_ERROR`）；受理事务内调用 `persist_staged_inbound_attachments`（`written` 出参），提交前失败（IntegrityError/AppError/其他）一律 `discard_written` 回滚盘上文件；`_creation_fingerprint` 纳入 upload_ids（同键换上传→`IDEMPOTENCY_MISMATCH`）；`_resume_active` 对 upload_ids 显式拒绝（不静默丢）；构造器可选 `artifact_root` 注入（测试隔离，生产回落 `SharedSettings.artifact_root`）。④ `packages/contracts/runtime.py`——`MessageInput.upload_ids`（API-06 `upload_ids[]` 的 Runtime 契约形状）。凭据/存储键不进公开响应：事件载荷只有 `artifact_id` 等安全摘要，日志只记 upload_id/error_type。
+- [x] [B-253] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-253] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，12 passed（3.52s）。
+- [x] [B-02][integration] 将原B-02落入`tests/agent_runtime/test_capacity_webchat_upload_staging.py`，先RED后GREEN；真实凭据/会话/附件归属存储；断言：未授权、过期、空正文、纯附件、大小/数量边界与现有附件门控一致。断言位置：`test_admission_rejects_cross_tenant_forbidden_and_soft_deleted`（L469-521）、`test_admission_rejects_expired_count_and_empty_content`（L524-562）、`test_upload_limits_follow_webchat_settings`（L448-461，默认 50 MiB/5 与既有附件门控常量同值）、`test_registration_rejects_unsafe_keys_bad_checksum_and_oversize`（L348-403，恰等于上限放行、超 1 字节拒绝）。
+- [x] verifier `harness-skill#RULE-skill-001`（stage: review；timeout=300秒）：`["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。实际执行：exit=0，4 passed（0.02s）。本任务不改 skill 缓存/发布原语；上传受理的 Run 制品发布复用同一不可变契约（`os.link` 目标存在即失败、不覆盖、只相对 storage_key、DB 只存相对键），并在用例 ⑦/⑧/⑨ 以真实文件系统证明"发布不可变 + 暂存/其他 Run 清理不删当前字节"。review 阶段仍需按原 verifier 复核。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-253 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 暂存TTL/tenant/user/entry归属受控，受理创建Run自己的不可变storage_key；暂存或其他Run清理不删当前字节；幂等重放先查已受理结果再检查暂存TTL | tests/agent_runtime/test_capacity_webchat_upload_staging.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | planned |
-| B-02 | integration | 真实凭据/会话/附件归属存储 | 未授权、过期、空正文、纯附件、大小/数量边界与现有附件门控一致 | tests/agent_runtime/test_capacity_webchat_upload_staging.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | planned |
+| B-253 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 暂存TTL/tenant/user/entry归属受控，受理创建Run自己的不可变storage_key；暂存或其他Run清理不删当前字节；幂等重放先查已受理结果再检查暂存TTL | tests/agent_runtime/test_capacity_webchat_upload_staging.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | verified |
+| B-02 | integration | 真实凭据/会话/附件归属存储 | 未授权、过期、空正文、纯附件、大小/数量边界与现有附件门控一致 | tests/agent_runtime/test_capacity_webchat_upload_staging.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | verified |
 | harness-skill#RULE-skill-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | Artifact Store 为 **RWX PVC**（硬事实是 `accessModes: ReadWriteMany`，`deploy/k8s/base/pvc-artifacts.yaml:7-8`；是否落在 NFS 由部署侧 StorageClass 决定，清单里 `storageClassName` 并未固定；V1 不建 MinIO/S3）；数据库只保存相对 `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从 NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight（**限每进程内**：跨 Pod 的正确性由 `os.replace` 幂等与 DB CAS 承载，不得当作跨进程互斥）；Artifact 写入不可变（**目标不存在才发布**：临时文件 + `os.link`，同 `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans` CLI 宽限期扫描清理（默认 1h，保护进行中事务）。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"] | planned |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-253 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_upload_staging.py` exit=2，1 error during collection（`ModuleNotFoundError: No module named 'muad_agent_runtime.application.channel_uploads'`；登记/核属/发布/清理与 Run 受理接线在实现前均不存在） | 同命令 exit=0，12 passed（3.52s） | ① `test_registration_records_attribution_and_ttl_without_artifact_rows` L325-345：tenant/user/entry 归属（L333-335）、TTL=PG 时钟+86400s（L343）、暂存字节在共享存储（L344）、**登记不是 artifact 行**（L345）。② `test_registration_rejects_unsafe_keys_bad_checksum_and_oversize` L348-403：任意路径/坏校验和/坏 kind/media_type/size≤0 → `COMMON_VALIDATION_ERROR`（L383-389）、超上限 → `ATTACHMENT_TOO_LARGE`（L390）、**恰等于上限放行**（L396）、拒绝不留行（L403）。③ `test_duplicate_registration_conflicts_but_other_tenants_reuse_the_key` L406-445：同租户活跃暂存键重复 `COMMON_CONFLICT`（L429）、另一租户同键可复用（L437）。④ `test_upload_limits_follow_webchat_settings` L448-461：限额来自 webchat 设置（L455-457），默认 50 MiB/5/86400s（L459-461）。⑤ `test_admission_rejects_cross_tenant_forbidden_and_soft_deleted` L469-521：跨租户 `COMMON_NOT_FOUND`（L486）、越权用户/借入口 `FORBIDDEN`（L498/L508）、软删视同不存在（L521）。⑥ `test_admission_rejects_expired_count_and_empty_content` L524-562：空正文无上传 `COMMON_VALIDATION_ERROR`（L535）、**纯附件放行**（L545）、数量超限 `ATTACHMENT_COUNT_EXCEEDED`（L549）、重复 upload_id 非法（L555）、过期 `UPLOAD_EXPIRED` 只挡新受理（L560-562）。⑦ `test_run_admission_publishes_its_own_immutable_artifact` L570-633：**受理创建 Run 自己的 storage_key**（L596-597 `runs/<run>/attachments/<upload>` ≠ 暂存键）、checksum/元信息/upload_id 溯源（L598-604）、真实字节与校验和不可变（L608-609）、同键二次写入 `FileExistsError`（L611-612）、**登记行受理后不变**（L615-619）、事件载荷无存储键（L632-633）。⑧ `test_two_runs_get_independent_immutable_copies_of_the_same_upload` L636-680：同一上传两个 Run 各自独立键（L667-675）、删 A 不删 B（L679-680）。⑨ `test_staging_cleanup_never_deletes_accepted_run_artifacts` L683-726：清理软删暂存行并删暂存文件（L715-721）、**已受理 Run 制品字节完好**（L722）、清理幂等（L726）。⑩ `test_replay_after_staging_expiry_returns_the_original_run` L729-801：暂存过期且字节已删后同键同指纹重放仍回原 Run（L777-779）、未受理新提交才校验 TTL 且不留 Run/制品（L799-801）。⑪ `test_missing_or_tampered_staged_bytes_fail_explicitly_without_side_effects` L804-850：缺失字节 `UPLOAD_EXPIRED`（L828）、篡改 `COMMON_CONFLICT`（L844）、失败不留 Run/制品文件（L846-848）。⑫ `test_unattributable_entry_cannot_admit_staged_uploads` L853-881：入口不可归属时 upload_ids 显式 `COMMON_VALIDATION_ERROR`（L880）。 | 真实 `RunService` 受理路径（重放检查→会话核属→暂存核属→Run/快照/提交/事件→制品发布→提交/回滚全部真实代码；模型调用是进程内替身，本任务不验证模型执行）；隔离租户的真实 PostgreSQL（`runtime.channel_upload`/`artifact`/`run_record`/`run_submission`/`canonical_event`，只增删本租户的行）；真实共享文件系统（临时 ARTIFACT_ROOT：真实暂存字节、真实 sha256 校验、`os.link` 原子硬链接发布、清理真实 unlink；不 mock 存储或租约）；`MessageInput.upload_ids` 契约由真实 Pydantic 校验；`artifact` 行经真实 ORM/事务与 `ck_artifact_run_task_xor` 约束。 | verified |
+| B-02 | 同文件（含入 B-253 的 12 条用例；实现前整文件 collection error，B-02 断言同批转绿） | 同命令 exit=0，12 passed（3.52s） | `test_admission_rejects_cross_tenant_forbidden_and_soft_deleted`（未授权，L486-521）；`test_admission_rejects_expired_count_and_empty_content`（过期/数量/空正文/纯附件，L535-562）；`test_upload_limits_follow_webchat_settings`（大小/数量边界与既有附件门控默认一致：50 MiB/5，L459-460）；`test_registration_rejects_unsafe_keys_bad_checksum_and_oversize`（大小边界含恰等于上限，L390-396）。 | 真实凭据（受验证主体 tenant/user/entry 由请求参数与登记行真实比对）、真实会话（`runtime.conversation` 真实行）、真实附件归属存储（`channel_upload`/`artifact` + 真实文件字节）；未 mock 存储或租约。 | verified |
+
+实现要点：**登记**（`channel_upload` 行=权威元信息，非 artifact；storage_key 系统生成且形状受控；TTL 取 PG 时钟）→ **受理**（只有未受理的新提交校验 TTL/归属；跨租户不泄露存在性、越权 `FORBIDDEN`、过期 `UPLOAD_EXPIRED`、数量 `ATTACHMENT_COUNT_EXCEEDED`）→ **Run 独立不可变制品**（`os.link` 原子发布到 `runs/<run_id>/attachments/<upload_id>`：校验真实 sha256 后才发布，目标存在即失败；暂存键与各 Run 键是不同目录项，清理任一路径都不影响其他引用的字节）→ **幂等重放优先**（`_admit` 的重放/同键串行化在暂存核属之前，指纹含 upload_ids）→ **失败回滚**（发布文件与 DB 事务同生共死：函数内失败自回滚，提交前失败由 `_create_run` 按 `written` 回滚）。
+
+回归：`uv run pytest -q tests/agent_runtime` exit=0，**920 passed**（831.06s；908 条既有 + 本任务 12 条）；`uv run pytest -q tests/contracts` exit=0，1281 passed（3.08s）；`uv run pytest -q tests/architecture` exit=0，33 passed（0.94s，含附件服务依赖方向与通道中立性）；`uv run pytest -q tests/test_attachment_contract.py tests/test_error_catalog.py` exit=0，13 passed（0.28s）；`uv run pytest -q tests/test_configuration_inventory.py` exit=0，4 passed（0.80s）。
+
+静态检查：`uv run ruff check`（本任务 5 个改动文件）干净；`uv run mypy apps packages` → Success: no issues found in 420 source files；新增函数均 ≤50 行；`docs/configuration-inventory.csv` 保持 CRLF，只新增 `channel_uploads.py` 6 行并同步 `inbound.py`（+4）/`run_service.py`（+8）行号漂移。
+
+遗留（deferred，非本任务可闭合）：① **Runtime HTTP DTO 的 upload_ids 接线**——`MessageInput.upload_ids` 契约与 `RunService` 受理路径已就绪，Gateway→Runtime 的消息提交（API-06）由 TASK-052/054 把 HTTP `upload_ids[]` 映射进来；本任务只保证 Runtime 侧语义。② **活跃引用与孤儿宽限的完整清理保护**属 TASK-069（本任务只提供暂存侧最小正确清理：过期行软删+删暂存文件，已受理制品在 Run 自己的键上不受影响）。③ 暂存核属与清理之间存在小竞态窗口（核属通过后清理进程删了暂存文件）：受理会以 `UPLOAD_EXPIRED` 显式失败且不留半建 Run，用户重传即可；宽限期保护由 TASK-069 收口。④ `_resume_active` 对带 upload_ids 的 resume 显式拒绝（API-08 的 resume 显式绑定原 Run/submission/source，不承载新暂存上传）；若后续需求要支持"暂停期间补传附件"，需在 resume 契约中显式设计。
+- B-02: verified — automated command passed; run_id=e826a5acdfee41cbaeb39204c3b968eb (confirmed_by: runner)
+- B-253: verified — automated command passed; run_id=e826a5acdfee41cbaeb39204c3b968eb (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 
