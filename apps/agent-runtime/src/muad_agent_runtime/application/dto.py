@@ -3,12 +3,13 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from muad_contracts import RunStatus, WaitReason
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from ..infrastructure.models.runtime import Conversation, RunRecord, RuntimeSnapshot
+from .memory_confirmation_resume import ConfirmationBinding
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +36,45 @@ class ResumeRunRequest(BaseModel):
 
     platform_user_id: uuid.UUID
     input: ResumeInput
+    #: 待确认恢复的原提议身份（API-08 `WebchatResumeRequest` 的两个判别键）：要么都给、要么都
+    #: 不给 —— 半个绑定不是请求语义，显式拒绝；给了就在锁内逐项复核（`ConfirmationBinding`）。
+    submission_id: uuid.UUID | None = None
+    source_event_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def _confirmation_binding_is_complete(self) -> Self:
+        if (self.submission_id is None) != (self.source_event_id is None):
+            raise ValueError("confirmation binding requires both submission_id and source_event_id")
+        return self
+
+    def confirmation_binding(self) -> ConfirmationBinding | None:
+        """请求字段 → 应用层绑定对象（无绑定返回 None；半个绑定在校验层已被拒）。"""
+        if self.submission_id is None or self.source_event_id is None:
+            return None
+        return ConfirmationBinding(
+            submission_id=self.submission_id, source_event_id=self.source_event_id
+        )
+
+
+class CancelSource(BaseModel):
+    """精确取消的来源身份（design §3.4 API-08 / RISK-F03：不用「用户+Agent 最新 Run」定位）。
+
+    显式会话（网页：`conversation_id`）或入口+外线线程（入口指针：`entry_id`/
+    `external_thread_id`）**至少给一个**；两个都给时以会话为准，入口归属仍要一致
+    （核属在应用层完成，不在这里猜）。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    conversation_id: uuid.UUID | None = None
+    entry_id: uuid.UUID | None = None
+    external_thread_id: str = ""
+
+    @model_validator(mode="after")
+    def _identifies_a_source(self) -> Self:
+        if self.conversation_id is None and self.entry_id is None:
+            raise ValueError("cancel source must carry a conversation_id or an entry_id")
+        return self
 
 
 class CancelActiveRequest(BaseModel):
@@ -42,6 +82,9 @@ class CancelActiveRequest(BaseModel):
 
     agent_id: uuid.UUID
     platform_user_id: uuid.UUID
+    #: 来源身份：给了就只取消**该来源**的活跃 Run；没给保留既有 (agent,user) 口径
+    #: （调用方没有来源事实时不猜来源）。
+    source: CancelSource | None = None
 
 
 class CreateConversationRequest(BaseModel):

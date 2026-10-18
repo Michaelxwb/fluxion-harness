@@ -21,7 +21,7 @@ from muad_contracts.memory import (
 )
 from muad_contracts.platform_settings import MemoryPolicySettings
 from muad_contracts.tasks import ContractModel
-from pydantic import AwareDatetime, StrictBool
+from pydantic import AwareDatetime, StrictBool, ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,13 +35,38 @@ from .memory_service import MemoryService
 from .run_events import EventWriter
 
 logger = logging.getLogger(__name__)
-_ANSWER = re.compile(r"(确认|拒绝)\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", re.I)
+#: 用户确认/拒绝的动词：文本解析（`_ANSWER`）与 API-15 的选项值（`confirmation_selection`）
+#: **共用这一份**——投影出来的选项就是 resume 能消费的文本，两处各拼一份就会漂移。
+CONFIRM_VERB = "确认"
+REJECT_VERB = "拒绝"
+_ANSWER = re.compile(
+    rf"({CONFIRM_VERB}|{REJECT_VERB})\s+"
+    r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+    re.I,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmationBinding:
+    """网页 resume 携带的原提议身份（API-08 `submission_id` + `source_event_id` 两个判别键）。
+
+    两个都要：半个绑定不是请求语义（`ResumeRunRequest` 在校验层拒绝），应用层因此不用处理
+    「只有一半」的中间态。
+    """
+
+    submission_id: UUID
+    source_event_id: UUID
 
 
 @dataclass(frozen=True, slots=True)
 class PendingConfirmation:
     interrupt: RunInterrupt
     answer: MemoryConfirmationInput
+
+
+def confirmation_selection(action: Literal["CONFIRM", "REJECT"], proposal_id: UUID) -> str:
+    """选项值 = resume 能消费的文本：动词与编号格式与 `_ANSWER` 同源（不另拼一份）。"""
+    return f"{CONFIRM_VERB if action == 'CONFIRM' else REJECT_VERB} {proposal_id}"
 
 
 class ConfirmationResult(ContractModel):
@@ -52,8 +77,18 @@ class ConfirmationResult(ContractModel):
     expires_at: AwareDatetime | None = None
 
 
-def prepare_confirmation(interrupts: list[RunInterrupt], text: str) -> PendingConfirmation | None:
-    """`interrupts` 是该 Run 的全部中断：终态提议的确认必须被拒，不得静默降级为普通消息。"""
+def prepare_confirmation(
+    interrupts: list[RunInterrupt],
+    text: str,
+    *,
+    confirmation: ConfirmationBinding | None = None,
+) -> PendingConfirmation | None:
+    """`interrupts` 是该 Run 的全部中断：终态提议的确认必须被拒，不得静默降级为普通消息。
+
+    `confirmation` 是网页 resume 的原提议身份（API-08）：给出时必须与**锁内读到的**原提议逐项
+    一致 —— 别的 submission/source 的确认不能消费本 Run 的待确认（RISK-F03），不一致即显式
+    `MEMORY_CONFIRMATION_INVALID` 且不消费 source。
+    """
     pending = [
         row
         for row in interrupts
@@ -74,13 +109,31 @@ def prepare_confirmation(interrupts: list[RunInterrupt], text: str) -> PendingCo
     if len(pending) != 1 or match is None or UUID(match.group(2)) != pending[0].id:
         observe("memory_confirmation_total", labels={"outcome": "INVALID"})
         raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
+    _assert_binding(pending[0], confirmation)
     return PendingConfirmation(
         pending[0],
         MemoryConfirmationInput(
             proposal_id=pending[0].id,
-            action="CONFIRM" if match.group(1) == "确认" else "REJECT",
+            action="CONFIRM" if match.group(1) == CONFIRM_VERB else "REJECT",
         ),
     )
+
+
+def _assert_binding(interrupt: RunInterrupt, confirmation: ConfirmationBinding | None) -> None:
+    """原提议身份逐项复核（锁内、消费之前）：坏提议或不一致一律 INVALID，不消费 source。"""
+    if confirmation is None:
+        return
+    try:
+        proposal = MemoryConfirmationProposal.model_validate(interrupt.proposal_json)
+    except ValidationError as exc:
+        observe("memory_confirmation_total", labels={"outcome": "INVALID"})
+        raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID) from exc
+    if (
+        proposal.submission_id != confirmation.submission_id
+        or proposal.evidence.source_event_id != confirmation.source_event_id
+    ):
+        observe("memory_confirmation_total", labels={"outcome": "INVALID"})
+        raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
 
 
 async def consume_confirmation(
@@ -120,7 +173,7 @@ async def _consume_confirmation(
     else:
         if not settings.write_enabled:
             raise AppError(ErrorCode.FORBIDDEN)
-        proposal = await _validated_proposal(session, run, interrupt)
+        proposal = await validated_proposal(session, run, interrupt)
         result = (
             ConfirmationResult(outcome="STALE")
             if proposal is None
@@ -148,11 +201,16 @@ async def _consume_confirmation(
     after_commit(session, "memory_confirmation_total", labels={"outcome": result.outcome})
 
 
-async def _validated_proposal(
+async def validated_proposal(
     session: AsyncSession,
     run: RunRecord,
     interrupt: RunInterrupt,
 ) -> MemoryConfirmationProposal | None:
+    """提议必须与它**展示过的** canonical 证据逐项一致；不一致返回 None（调用方显式裁决）。
+
+    消费路径把它判为 `STALE`（提议已失效，不保存）；读取路径（API-15 待确认恢复）把它判为
+    数据异常 —— 同一份校验，两个消费者不会各自解释一遍。
+    """
     try:
         proposal = MemoryConfirmationProposal.model_validate(interrupt.proposal_json)
         if (proposal.tenant_id, proposal.user_id, proposal.run_id) != (run.tenant_id, run.user_id, run.id):

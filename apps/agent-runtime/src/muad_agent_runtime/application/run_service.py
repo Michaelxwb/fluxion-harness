@@ -106,6 +106,7 @@ from .channel_conversations import (
     record_user_message,
     register_pointer,
     resolve_pointer_conversation,
+    resolve_source_conversation,
     scope_of,
     title_locale_of,
 )
@@ -122,7 +123,7 @@ from .context_settings import (
     resolve_compaction_settings,
     resolve_pool_execution_policy,
 )
-from .dto import RunWaitSummary
+from .dto import CancelSource, RunWaitSummary
 from .executor import (
     ExecutionDefaults,
     ExecutorCredentials,
@@ -133,7 +134,11 @@ from .executor import (
     RunExecutor,
     default_executor_factory,
 )
-from .memory_confirmation_resume import consume_confirmation, prepare_confirmation
+from .memory_confirmation_resume import (
+    ConfirmationBinding,
+    consume_confirmation,
+    prepare_confirmation,
+)
 from .memory_resume import MemoryResumeService, resume_decision
 from .ports import (
     CredentialsClient,
@@ -774,6 +779,33 @@ def _creation_fingerprint(request: RunRequest, tenant_id: str) -> str:
         message_id=request.message.id,
     )
 
+def _resume_fingerprint(
+    run_id: uuid.UUID,
+    tenant_id: str,
+    platform_user_id: uuid.UUID,
+    input_text: str,
+    message_id: str | None,
+    confirmation: ConfirmationBinding | None,
+) -> str:
+    """resume 幂等指纹：原提议绑定（submission/source）是**请求语义的一部分**。
+
+    同键换了绑定就是另一个请求（`IDEMPOTENCY_MISMATCH`），而不是把新绑定悄悄丢给旧回执。
+    """
+    return submission_fingerprint(
+        endpoint=ENDPOINT_RESUME_RUN,
+        run_id=run_id,
+        key_payload={
+            "tenant_id": tenant_id,
+            "platform_user_id": str(platform_user_id),
+            "type": "text",
+            "text": input_text,
+            "submission_id": str(confirmation.submission_id) if confirmation else None,
+            "source_event_id": str(confirmation.source_event_id) if confirmation else None,
+        },
+        message_id=message_id,
+    )
+
+
 def _credential_canaries(
     model: ResolvedModel, summary: ResolvedModel | None, secrets: Mapping[str, str],
 ) -> tuple[str, ...]:
@@ -922,17 +954,19 @@ class RunService:
         platform_user_id: uuid.UUID,
         idempotency_key: str | None = None,
         input_id: str | None = None,
+        confirmation: ConfirmationBinding | None = None,
     ) -> RunStart:
+        """续跑/确认入口：路径绑定原 Run、身份核属原用户、`confirmation` 绑定原提议身份。
+
+        网页 resume 的 `submission_id`+`source_event_id` 是**请求语义的一部分**（进幂等指纹）：
+        同键换了绑定就是另一个请求（`IDEMPOTENCY_MISMATCH`），而不是把新绑定悄悄丢给旧回执。
+        """
         run = await self._load_run(run_id, tenant_id)
         if run.user_id != platform_user_id:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
         key = require_resume_idempotency(idempotency_key=idempotency_key, input_id=input_id)
-        fingerprint = submission_fingerprint(
-            endpoint=ENDPOINT_RESUME_RUN,
-            run_id=run_id,
-            key_payload={"tenant_id": tenant_id, "platform_user_id": str(platform_user_id),
-                "type": "text", "text": input_text},
-            message_id=input_id,
+        fingerprint = _resume_fingerprint(
+            run_id, tenant_id, platform_user_id, input_text, input_id, confirmation
         )
         replay = await self._submissions.find_replay_in(
             self._session,
@@ -959,6 +993,7 @@ class RunService:
             submission_key=key,
             request_fingerprint=fingerprint,
             endpoint=ENDPOINT_RESUME_RUN,
+            confirmation=confirmation,
         )
 
     async def tail_run_events(
@@ -994,22 +1029,55 @@ class RunService:
         agent_id: uuid.UUID,
         platform_user_id: uuid.UUID,
         tenant_id: str,
+        *,
+        source: CancelSource | None = None,
     ) -> RunRecord:
-        run = await self._session.scalar(
-            sa.select(RunRecord)
-            .where(
-                RunRecord.tenant_id == tenant_id,
-                RunRecord.agent_id == agent_id,
-                RunRecord.user_id == platform_user_id,
-                RunRecord.status.in_(ACTIVE_RUN_STATUSES),
-                RunRecord.is_deleted.is_(False),
-            )
-            .order_by(RunRecord.create_time.desc())
-            .limit(1)
-        )
+        """停止命令：按**来源身份**定位该来源的活跃 Run（RISK-F03：不用「用户+Agent 最新 Run」）。
+
+        `source` 给出显式会话或入口+外线线程时，只在该来源的会话里找活跃 Run —— 同 Agent/用户的
+        其他会话（网页 vs 企微、两个历史会话）完全不受影响；未给来源时保留既有 (agent,user)
+        口径（调用方没有来源事实时不猜来源）。
+        """
+        run = await self._active_run_for(agent_id, platform_user_id, tenant_id, source)
         if run is None:
             raise AppError(ErrorCode.NO_ACTIVE_RUN)
         return await self._cancel(run)
+
+    async def _active_run_for(
+        self,
+        agent_id: uuid.UUID,
+        platform_user_id: uuid.UUID,
+        tenant_id: str,
+        source: CancelSource | None,
+    ) -> RunRecord | None:
+        """来源 → 活跃 Run：给来源就核属到具体会话再取该会话的活跃 Run（只读定位，不建会话）。"""
+        if source is None:
+            latest: RunRecord | None = await self._session.scalar(
+                sa.select(RunRecord)
+                .where(
+                    RunRecord.tenant_id == tenant_id,
+                    RunRecord.agent_id == agent_id,
+                    RunRecord.user_id == platform_user_id,
+                    RunRecord.status.in_(ACTIVE_RUN_STATUSES),
+                    RunRecord.is_deleted.is_(False),
+                )
+                .order_by(RunRecord.create_time.desc())
+                .limit(1)
+            )
+            return latest
+        scope = ConversationScope(
+            tenant_id=tenant_id,
+            user_id=platform_user_id,
+            agent_id=agent_id,
+            entry_id=source.entry_id,
+            external_thread_id=source.external_thread_id,
+        )
+        conversation = await resolve_source_conversation(
+            self._session, scope, conversation_id=source.conversation_id
+        )
+        if conversation is None:
+            return None
+        return await self._active_run(conversation.id)
 
     async def get_run(
         self,
@@ -1514,30 +1582,27 @@ class RunService:
     async def _resume_run(
         self, run: RunRecord, input_text: str, *, attachments: Sequence[AttachmentRef] = (),
         submission_key: str, request_fingerprint: str, endpoint: str, message_id: str | None,
+        confirmation: ConfirmationBinding | None = None,
     ) -> RunStart:
-        ensure_human_resume(run, await database_now(self._session))
-        snapshot = await self._load_snapshot(run)
-        agent = ResolvedAgent.model_validate(snapshot.agent_json)
-        model = ResolvedModel.model_validate(snapshot.model_json)
-        skills = tuple(ResolvedSkill.model_validate(item) for item in snapshot.skill_catalog_json)
-        servers = tuple(ResolvedMcpServer.model_validate(item) for item in snapshot.mcp_catalog_json)
+        """冻结快照续跑：锁内复核等待态/期限，再按本 Run 自己那份快照执行（不重新 resolve）。"""
+        snapshot = await self._resume_snapshot(run)
+        agent, model, skills, servers = self._frozen_definitions(snapshot)
         model, summary_model, secrets = await self._runtime_credentials(
             run.id, run.tenant_id, run.user_id, model, servers,
             summary_model=summary_model_of(snapshot.policy_json))
-        tenant_id, run_id = run.tenant_id, run.id
         canaries = _credential_canaries(model, summary_model, secrets)
         try:
             submission, persisted, replayed = await self._persist_human_resume(run, input_text,
                 message_id=message_id, attachments=attachments, submission_key=submission_key,
                 request_fingerprint=request_fingerprint, endpoint=endpoint,
                 settings=execution_defaults_of(snapshot.policy_json).memory_policy,
-                credential_canaries=canaries)
+                credential_canaries=canaries, confirmation=confirmation)
             await self._session.commit()
             if replayed:
                 return self._replay_start(submission)
         except IntegrityError as exc:
             await self._session.rollback()
-            replay = await self._submissions.find_replay_in(self._session, tenant_id=tenant_id,
+            replay = await self._submissions.find_replay_in(self._session, tenant_id=run.tenant_id,
                 idempotency_key=submission_key, endpoint=endpoint, fingerprint=request_fingerprint)
             if replay is not None:
                 return self._replay_start(replay)
@@ -1547,8 +1612,8 @@ class RunService:
             raise
         except SQLAlchemyError as exc:
             await self._session.rollback()
-            logger.warning("human_resume_transaction_failed", extra={"tenant_id": tenant_id,
-                "run_id": str(run_id), "error_type": type(exc).__name__})
+            logger.warning("human_resume_transaction_failed", extra={"tenant_id": run.tenant_id,
+                "run_id": str(run.id), "error_type": type(exc).__name__})
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
         history = await self._load_history(run.conversation_id, run.tenant_id, run.user_id,
             budget_messages=history_budget_of(snapshot.policy_json),
@@ -1565,20 +1630,42 @@ class RunService:
         return RunStart(run_id=run.id, conversation_id=run.conversation_id, resumed=True,
             events=self._replay_events(submission))
 
+    async def _resume_snapshot(self, run: RunRecord) -> RuntimeSnapshot:
+        """resume 前置：等待态与绝对期限在**锁内**复核，再取本 Run 自己那份冻结快照。"""
+        ensure_human_resume(run, await database_now(self._session))
+        return await self._load_snapshot(run)
+
+    @staticmethod
+    def _frozen_definitions(
+        snapshot: RuntimeSnapshot,
+    ) -> tuple[
+        ResolvedAgent, ResolvedModel, tuple[ResolvedSkill, ...], tuple[ResolvedMcpServer, ...]
+    ]:
+        """冻结快照 → 本 Run 的定义：resume 只读它自己那一份，不重新 resolve 任何配置。"""
+        return (
+            ResolvedAgent.model_validate(snapshot.agent_json),
+            ResolvedModel.model_validate(snapshot.model_json),
+            tuple(ResolvedSkill.model_validate(item) for item in snapshot.skill_catalog_json),
+            tuple(ResolvedMcpServer.model_validate(item) for item in snapshot.mcp_catalog_json),
+        )
+
     async def _persist_human_resume(
         self, run: RunRecord, input_text: str, *, attachments: Sequence[AttachmentRef],
         submission_key: str, request_fingerprint: str, endpoint: str, message_id: str | None,
         settings: MemoryPolicySettings, credential_canaries: tuple[str, ...],
+        confirmation: ConfirmationBinding | None = None,
     ) -> tuple[RunSubmission, tuple[PersistedAttachment, ...], bool]:
         await self._submissions.lock_identity(self._session, tenant_id=run.tenant_id,
             idempotency_key=submission_key, endpoint=endpoint)
+        # 幂等重放先于任何复核：同一提交的重放返回**原回执**（中断已 RESOLVED，不能再复核一次）。
         replay = await self._submissions.find_replay_in(self._session, tenant_id=run.tenant_id,
             idempotency_key=submission_key, endpoint=endpoint, fingerprint=request_fingerprint)
         if replay is not None:
             self._assert_replay_owner(replay, run.user_id, run.conversation_id)
             return replay, (), True
         interrupts = await lock_human_resume(self._session, run)
-        pending = prepare_confirmation(interrupts, input_text)
+        # 绑定复核在行锁之后：原提议身份必须与**锁内读到的**那一份一致，否则显式拒绝且不消费。
+        pending = prepare_confirmation(interrupts, input_text, confirmation=confirmation)
         submission = await self._submissions.record_in(self._session,
             tenant_id=run.tenant_id, idempotency_key=submission_key, endpoint=endpoint,
             actor_user_id=run.user_id, run_id=run.id, conversation_id=run.conversation_id,

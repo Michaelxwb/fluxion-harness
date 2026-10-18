@@ -317,6 +317,37 @@ async def _load_pointer_target(
     return conversation
 
 
+async def resolve_source_conversation(
+    session: AsyncSession,
+    scope: ConversationScope,
+    *,
+    conversation_id: uuid.UUID | None,
+) -> Conversation | None:
+    """精确控制（停止/取消）的来源会话定位：**只读** —— 不创建会话、不移动指针。
+
+    - 显式会话（网页）：`load_explicit_conversation` 的核属（tenant/user/agent/入口），未命中
+      即 `COMMON_NOT_FOUND`（不泄露存在性）；
+    - 入口+外线线程（入口指针）：当前指针目标 → 同线程最近会话 → `None`（该来源还没有会话
+      ⇒ 它没有活跃 Run，`NO_ACTIVE_RUN` 由调用方裁决）。
+
+    与 `resolve_pointer_conversation` 的关键区别：定位不到**不建新会话** —— 一条停止命令不该
+    凭空造出一个会话；不可归属入口（无入口身份）同样返回 `None`，不退回 (tenant,user,agent)
+    的最新会话（那正是 RISK-F03 要避免的「取消最新 Run」）。
+    """
+    if conversation_id is not None:
+        return await load_explicit_conversation(session, scope, conversation_id)
+    if scope.entry_id is None:
+        return None
+    pointer = await session.scalar(
+        sa.select(ChannelConversation).where(*_pointer_conditions(scope))
+    )
+    if pointer is not None:
+        target = await _load_pointer_target(session, scope, pointer.conversation_id)
+        if target is not None:
+            return target
+    return await _latest_entry_thread_conversation(session, scope)
+
+
 async def resolve_pointer_conversation(
     session: AsyncSession, scope: ConversationScope
 ) -> Conversation:
