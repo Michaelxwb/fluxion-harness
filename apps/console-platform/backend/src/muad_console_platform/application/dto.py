@@ -532,6 +532,23 @@ class ModelBatchTestRequest(BaseModel):
     model_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
 
 
+class ModelProbeTarget(BaseModel):
+    """物理 Key 检测的一组显式成员目标：只探测被点名的 (model_id, credential_id)。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_id: uuid.UUID
+    credential_id: uuid.UUID
+
+
+class ModelCredentialProbeRequest(BaseModel):
+    """物理 Key 检测请求（API-16 的检测面）：至多 50 组，不自动遍历模型×Key。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    targets: list[ModelProbeTarget] = Field(min_length=1, max_length=50)
+
+
 class PlatformCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
