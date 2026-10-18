@@ -837,6 +837,7 @@
   "audit.resourceType.AGENT_SKILL_BINDING": "Agent skill binding",
   "audit.resourceType.BIND_CODE": "Bind code",
   "audit.resourceType.CHANNEL_IDENTITY": "Channel identity",
+  "audit.resourceType.CHAT_ACCESS_TOKEN": "Chat access token",
   "audit.resourceType.MCP": "MCP",
   "audit.resourceType.MCP_SERVER": "MCP server",
   "audit.resourceType.MODEL": "Model",

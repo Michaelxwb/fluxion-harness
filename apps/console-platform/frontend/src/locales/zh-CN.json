@@ -837,6 +837,7 @@
   "audit.resourceType.AGENT_SKILL_BINDING": "Agent 技能绑定",
   "audit.resourceType.BIND_CODE": "绑定码",
   "audit.resourceType.CHANNEL_IDENTITY": "渠道身份",
+  "audit.resourceType.CHAT_ACCESS_TOKEN": "聊天访问令牌",
   "audit.resourceType.MCP": "MCP",
   "audit.resourceType.MCP_SERVER": "MCP 服务",
   "audit.resourceType.MODEL": "模型",
