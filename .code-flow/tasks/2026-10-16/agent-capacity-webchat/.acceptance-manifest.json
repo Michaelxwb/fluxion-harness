@@ -1781,7 +1781,7 @@
       "kind": "functional",
       "boundary": "X-Chat-Context来自验证后的bootstrap，401不自动交换/重发POST，Token交换singleflight，AUTH_CONTEXT_CHANGED停自动重试；头像/附件请求经共享传输，身份变化撤销Blob URL，SSE退避和单帧大小有界",
       "owner": "TASK-074",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1791,7 +1791,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-104",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "0f57f9ded7fb4c0e8aed1a3aa966343b",
+        "executed_at": "2026-10-18T17:14:46.770862+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_capacity_webchat_chat_auth_state.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "9ac1170444e38c1e6b92d40309bec4e0386e51d0ad90f0243a9097533c222696"
+      },
+      "runs": [
+        {
+          "id": "B-104",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "0f57f9ded7fb4c0e8aed1a3aa966343b",
+          "executed_at": "2026-10-18T17:14:46.770862+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_capacity_webchat_chat_auth_state.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "9ac1170444e38c1e6b92d40309bec4e0386e51d0ad90f0243a9097533c222696"
+        }
+      ]
     },
     {
       "id": "S-114",
@@ -6384,7 +6425,7 @@
       "kind": "functional",
       "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
       "owner": "TASK-074",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -6394,7 +6435,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-274",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "0f57f9ded7fb4c0e8aed1a3aa966343b",
+        "executed_at": "2026-10-18T17:14:46.770862+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_capacity_webchat_chat_auth_state.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "9ac1170444e38c1e6b92d40309bec4e0386e51d0ad90f0243a9097533c222696"
+      },
+      "runs": [
+        {
+          "id": "B-274",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "0f57f9ded7fb4c0e8aed1a3aa966343b",
+          "executed_at": "2026-10-18T17:14:46.770862+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_capacity_webchat_chat_auth_state.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "9ac1170444e38c1e6b92d40309bec4e0386e51d0ad90f0243a9097533c222696"
+        }
+      ]
     },
     {
       "id": "B-275",
