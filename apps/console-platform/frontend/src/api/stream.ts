@@ -13,6 +13,8 @@
  * - **重连**：只重连 GET（不重发 POST）；`after_seq`/`Last-Event-ID` 都用已应用/已扫描安全水位
  *   （游标排他），EOF 不当完成；`CURSOR_EXPIRED`/`CURSOR_AHEAD`/`CURSOR_RUN_MISMATCH` 显式上抛
  *   由调用方恢复安全快照，不自动补拉；CHAT 401 通知认证层回到 TokenAccess。
+ *   每次连接尝试经 `onAttempt` 显式上报（序号/连续重连次数/本次续传游标），调用方据此展示连接状态，
+ *   不自行重算退避。
  * - **版本绑定**：连接创建时冻结 `transport_revision` 与传输参数，活跃连接不因新配置中途换规则；
  *   新连接重新读取有效版本（TASK-057 投影，TASK-076/082 消费）。
  *
@@ -320,6 +322,10 @@ export interface ReplyStreamCollectorOptions {
   runId: string;
   /** 已知的已应用水位（重连/恢复续传；必须真实应用过，不能拿历史页水位冒充）。 */
   afterSeq?: number;
+  /** 已知的已应用正文（同一订阅重开时恢复；缺省为空，由服务端安全快照/增量重建）。 */
+  text?: string;
+  /** 已知的回复代（与 `text` 同时恢复；缺省为 null，以首个正文事件的代号为准）。 */
+  replyGeneration?: number | null;
 }
 
 export interface ReplyStreamCollector {
@@ -640,13 +646,21 @@ export function createReplyStreamCollector(
 ): ReplyStreamCollector {
   const runId = options.runId.trim();
   const afterSeq = options.afterSeq ?? 0;
-  if (runId === '' || !Number.isInteger(afterSeq) || afterSeq < 0) {
-    throw new WebchatStreamError('INVALID_CONFIG', 'runId and afterSeq must be valid');
+  const text = options.text ?? '';
+  const generation = options.replyGeneration ?? null;
+  if (
+    runId === '' ||
+    !Number.isInteger(afterSeq) ||
+    afterSeq < 0 ||
+    typeof text !== 'string' ||
+    (generation !== null && (!Number.isInteger(generation) || generation < 0))
+  ) {
+    throw new WebchatStreamError('INVALID_CONFIG', 'runId/afterSeq/text/replyGeneration must be valid');
   }
   const state: ReplyCollectorState = {
     runId,
-    text: '',
-    generation: null,
+    text,
+    generation,
     applied: afterSeq,
     scanned: afterSeq,
     pending: null
@@ -837,11 +851,30 @@ export interface WebchatReplyStreamOptions {
   config: WebchatClientConfig;
   /** 已知的已应用水位（刷新/重连续传；必须真实应用过）。 */
   afterSeq?: number;
+  /** 已知的已应用正文（同一订阅重开时恢复；缺省由服务端安全快照/增量重建）。 */
+  text?: string;
+  /** 已知的回复代（与 `text` 同时恢复；缺省以首个正文事件的代号为准）。 */
+  replyGeneration?: number | null;
   /** 调用方持有的 AbortSignal（切换会话/卸载）；与 close() 等价。 */
   signal?: AbortSignal;
   onUpdate?: (update: ReplyStreamUpdate) => void;
+  /**
+   * 每次连接尝试（首连与重连都是 GET）的显式上报：编排层据此展示连接状态与重连次数，
+   * 退避/次数仍只由本层按配置投影计算。
+   */
+  onAttempt?: (attempt: WebchatConnectionAttempt) => void;
   /** 抖动源（默认 Math.random）；测试可注入确定值。 */
   random?: () => number;
+}
+
+/** 一次连接尝试：序号/连续重连次数/本次续传游标（只重连 GET，不重发 POST）。 */
+export interface WebchatConnectionAttempt {
+  /** 本次订阅内的连接序号（1 起；>1 即断流后的重连）。 */
+  attempt: number;
+  /** 自上次有进展以来的连续重连次数（0 = 首连或上一连接已有进展）。 */
+  retries: number;
+  /** 本次连接使用的续传游标（排他；0 = 无本地游标，从起点/服务端安全快照恢复）。 */
+  cursor: number;
 }
 
 export type WebchatReplyStop =
@@ -978,6 +1011,7 @@ interface ReplyLoopContext {
   collector: ReplyStreamCollector;
   signal: AbortSignal;
   onUpdate: ((update: ReplyStreamUpdate) => void) | undefined;
+  onAttempt: ((attempt: WebchatConnectionAttempt) => void) | undefined;
   random: (() => number) | undefined;
   /** 订阅是否已被调用方结束（close/abort）；循环据此退出。 */
   stopped: () => boolean;
@@ -986,8 +1020,15 @@ interface ReplyLoopContext {
 
 async function runReplyLoop(context: ReplyLoopContext): Promise<void> {
   let reconnects = 0;
+  let attempts = 0;
   let lastError: WebchatStreamError | null = null;
   while (!context.stopped()) {
+    attempts += 1;
+    context.onAttempt?.({
+      attempt: attempts,
+      retries: reconnects,
+      cursor: context.collector.resumeCursor()
+    });
     const attempt = await attemptReplyConnection(
       context.runId,
       context.transport,
@@ -1022,7 +1063,12 @@ export function openReplyStream(options: WebchatReplyStreamOptions): WebchatRepl
     throw new WebchatStreamError('INVALID_CONFIG', 'runId is required');
   }
   const transport = freezeTransport(options.config);
-  const collector = createReplyStreamCollector({ runId, afterSeq: options.afterSeq ?? 0 });
+  const collector = createReplyStreamCollector({
+    runId,
+    afterSeq: options.afterSeq ?? 0,
+    text: options.text,
+    replyGeneration: options.replyGeneration
+  });
   const controller = new AbortController();
   let stop: WebchatReplyStop | null = null;
   let resolveDone: (value: WebchatReplyStop) => void = () => undefined;
@@ -1046,6 +1092,7 @@ export function openReplyStream(options: WebchatReplyStreamOptions): WebchatRepl
     collector,
     signal: controller.signal,
     onUpdate: options.onUpdate,
+    onAttempt: options.onAttempt,
     random: options.random,
     stopped: () => stop !== null,
     finish
