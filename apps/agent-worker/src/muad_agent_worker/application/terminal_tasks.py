@@ -14,8 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from ..infrastructure.models.runtime_operations import RuntimeOperation, RuntimeResultOutbox
-from ..infrastructure.models.task import TaskEvent, TaskExecution
+from ..infrastructure.models.task import DeliveryRoute, TaskEvent, TaskExecution
 from ..metrics import TASKS_METRIC, record_outcome
+from .delivery_routes import WEBCHAT_CHANNEL
 from .task_events import TaskEventType, append_event
 
 NON_TERMINAL = (TaskStatus.QUEUED.value, TaskStatus.RUNNING.value, TaskStatus.WAITING.value)
@@ -164,7 +165,7 @@ async def write_terminal(
 async def _enqueue_result(
     session: AsyncSession, task: TaskExecution, change: TerminalChange, moment: datetime, event: TaskEvent
 ) -> None:
-    if task.completion_mode is not CompletionMode.JOIN or task.parent_id is not None:
+    if task.parent_id is not None or not await _publishes_result(session, task):
         return
     payload = _payload(task, change, moment, event.seq)
     body = JSON_OBJECT.validate_python(redact_value(payload.model_dump(mode="json")))
@@ -181,3 +182,27 @@ async def _enqueue_result(
             not_before=moment,
         )
     )
+
+
+async def _publishes_result(session: AsyncSession, task: TaskExecution) -> bool:
+    """本次终态是否要把结果发布给 Runtime Owner（TASK-068）。
+
+    - **JOIN 根**：Runtime 用结果继续/收口 Run（既有语义，不变）；
+    - **WEBCHAT 投递意图**：网页"送达"是把结果提交进 Runtime 的持久用户收件箱，而 Runtime
+      只接受已被受理（`tool_result_inbox`）的结果——结果必须先在终态事务里发出，投递才有
+      可核验的来源（design §3.6「通过 Runtime 接口提交收件箱后才确认送达」）。企微路由的
+      结果仍只走 Gateway 出站，不额外写 Runtime 事件。
+    """
+    if task.completion_mode is CompletionMode.JOIN:
+        return True
+    if task.completion_mode is not CompletionMode.DETACH:
+        return False
+    if task.source_operation_id is None or task.source_run_id is None or task.delivery_route_id is None:
+        return False
+    channel = await session.scalar(
+        select(DeliveryRoute.channel).where(
+            DeliveryRoute.id == task.delivery_route_id,
+            DeliveryRoute.is_deleted.is_(False),
+        )
+    )
+    return channel == WEBCHAT_CHANNEL

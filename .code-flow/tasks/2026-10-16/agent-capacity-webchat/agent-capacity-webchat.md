@@ -407,7 +407,7 @@
 | B-265 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-065 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_reservation.py"] | . | 300 |  |
 | B-266 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-066 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_pump.py"] | . | 300 |  |
 | B-267 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-067 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_delivery.py"] | . | 300 |  |
-| B-268 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-068 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"] | . | 300 |  |
+| B-268 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-068 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"] | . | 300 |  |
 | B-269 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-069 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | . | 300 |  |
 | B-270 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-070 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_notification_api.py"] | . | 300 |  |
 | B-271 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-071 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_transport.py"] | . | 300 |  |
@@ -4255,7 +4255,7 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 ## TASK-068: Worker离线结果接入持久用户收件箱
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-033, TASK-065
 - **Source**: agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.4 接口设计
@@ -4270,25 +4270,48 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 ### Checklist
 
-- [ ] [B-268][integration] 先在`tests/agent_worker/test_capacity_webchat_worker_notifications.py`建立行为验收并记录RED；真实边界：真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针；关键断言：任务结果由Runtime持久入箱确认后才完成投递。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-268] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-268] 执行`["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-268][integration] 先在`tests/agent_worker/test_capacity_webchat_worker_notifications.py`建立行为验收并记录RED；真实边界：真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针；关键断言：任务结果由Runtime持久入箱确认后才完成投递。RED：`uv run pytest -q tests/agent_worker/test_capacity_webchat_worker_notifications.py` exit=2，**1 error during collection（0 passed / 0 failed, 0.83s）**：`ImportError: cannot import name 'HttpWebchatInboxClient' from 'muad_agent_worker.delivery.client'`——验收文件先落地，受信入箱客户端与 WEBCHAT 投递分支尚不存在。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `delivery/client.py`——`HttpWebchatInboxClient`/`WebchatInboxClientProtocol`/`WebchatInboxReceipt`（受信入箱端口的 HTTP 客户端：服务身份 + 租户头，只有**明确** `data.persisted == true` 且回执 `task_id` 一致才算入箱，非法 JSON/缺字段一律按未入箱返回，可重试）；② `delivery/service.py`——`DeliveryLoop` 按路由通道分流：WEBCHAT 走 `_attempt_webchat_delivery`（先核受信端口/来源 Run/结果发件状态 → 提交 `WebchatTaskResultRegistration{task_id,run_id,user_id,artifact_ids}` → `persisted=true` 才 `_record_sent`；4xx 确定性失败、5xx/传输可重试）；`_webchat_result_settled()` 候选门槛（结果发件仍 `PENDING` 时不消耗投递尝试）；③ `application/terminal_tasks.py`——`_publishes_result()`：终态事务里为 **WEBCHAT 投递意图** 的 DETACH 任务一并写结果发件（Runtime 只接受已被受理的结果，网页送达才有可核验来源；企微路由不变）；④ `application/delivery_routes.py`——`WEBCHAT_CHANNEL`（worker 侧通道名唯一来源）；⑤ `main.py`——装配根注入入箱客户端。
+- [x] [B-268] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-268] 执行`["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**5 passed in 7.99s**（实现首跑 7.35s、重构后收尾 7.99s 同绿）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-268 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | 任务结果由Runtime持久入箱确认后才完成投递；送达/已读分开，按原来源conversation定位；Worker重启/重投不重复通知或业务执行 | tests/agent_worker/test_capacity_webchat_worker_notifications.py | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"] | planned |
+| B-268 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | 任务结果由Runtime持久入箱确认后才完成投递；送达/已读分开，按原来源conversation定位；Worker重启/重投不重复通知或业务执行 | tests/agent_worker/test_capacity_webchat_worker_notifications.py | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+> RED/GREEN 与断言位置如下。真实边界：隔离 PostgreSQL（每用例一个空库 + `alembic upgrade head`，跑完 drop，不触碰共享 dev 库）、真实 `WorkerLoop`/`TaskClaimer` 领取与任务槽监督、真实 Skill 子进程（现场脚本，每次执行追加一行标记）、真实 uvicorn TCP 服务上的 Runtime 路由（`/internal/tool-results`、`/internal/webchat/task-results`、`/internal/webchat/notifications`）与真实 `require_internal_service` 门控。E2E 保持 planned，最终 verify-e2e 记录完整证据。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-268 | `uv run pytest -q tests/agent_worker/test_capacity_webchat_worker_notifications.py` exit=2，**1 error during collection（0 passed / 0 failed, 0.83s）**：`ImportError: cannot import name 'HttpWebchatInboxClient' from 'muad_agent_worker.delivery.client'` | 同命令 exit=0，**5 passed in 7.99s** | ① `test_b268_offline_result_enters_the_persistent_inbox_only_after_runtime_acceptance` L597-673：真实 Worker 跑完（L610-612：`COMPLETED`、真实 `result_json`、脚本标记**恰一行**）；结果发件与终态同事务且 `PENDING`（L614-615）；**受理前不成为投递候选**（L619 `run_once() is None`、L621-622 `delivery_attempts == 0`、L623 无通知行）；真实发件后 `tool_result_inbox` 就位（L627-629，`late=True`）；入箱 `persisted=true` 才 `SENT`（L633-638）；**独立连接**在回执返回时已读到已提交的通知行（L641-651：`kind=TASK_RESULT`、`seq=1`、`delivery_key=task:{task_id}:final`、`delivery_state=NOT_REQUIRED`、`read_at IS NULL`、`conversation_id`/`entry_id`/`user_id` 都是**原来源**身份、`artifact_ids` 是该 Task 的真实产物、`event_id` 指向受理回执事件、feed 水位 1）；真实 HTTP 分页（L654-660：未读 1、附件投影）；**送达/已读分开**（L669-674：显式已读写 `read_at` 但 `delivery_state`/`delivery_status` 不变）。② `test_b268_redelivery_after_a_lost_receipt_hits_the_original_notification_once` L681-724：代理吞掉回执 ⇒ 2xx 无持久确认**不置 SENT**（L697-701：仍 `PENDING`、`DELIVERY_RETRY` 事件）；重投（新循环实例 = 重启）命中**原回执**（L710-716：唯一通知行、同 id/seq、`read_at` 仍 NULL、feed 水位不变）；**不重复业务执行**（L720-725：`delivery_attempts` 2 而 `attempt` 仍 1、脚本标记恰一行、终态事件恰一条、`CLAIMED` 恰一条、`DELIVERY_SENT` 恰一条）。③ `test_b268_webchat_delivery_without_source_run_or_entry_fails_explicitly` L732-763：无来源 Run（计划触发形状）⇒ 显式终态失败且**不编造会话通知**（L746-753）；会话无入口归属 ⇒ Runtime 核属 404 ⇒ 确定性失败、不落通知行（L757-764）。④ `test_b268_non_webchat_routes_keep_gateway_delivery_without_runtime_publication` L771-798：企微路由不产生 Runtime 结果发件（L778），Gateway 出站照旧（L789-795）；入箱端口指向死地址仍成功 ⇒ 证明 WEBCHAT 分支未被误用（L796-799）。⑤ `test_b268_webchat_channel_constant_matches_the_shared_vocabulary` L806-808：通道名与共享词表一致。 | **真实 Worker 监督/claim**：`WorkerLoop.run_once`（真实 `TaskClaimer` 行锁领取 + 任务槽监督 + 心跳 + 终态 CAS）走生产代码；**真实子进程**：`SkillTaskExecutor` + `scripts/main.py`（每次执行写一行 `MUAD_TASK_ID`，因此"业务执行只一次"是**可数**事实）；**外部 HTTP 协议探针**：uvicorn 真实 TCP 端口上的真实 Runtime 路由与真实服务门控（`/internal/tool-results` 由真实 `ResultDispatcher` 调用、`/internal/webchat/task-results` 由投递循环调用）；**隔离 PostgreSQL**：真实 `task.*` 行 + 真实 `runtime.conversation/run_record/tool_operation/tool_result_inbox/artifact/channel_notification` 行与完整唯一约束；**故障注入**：真实 HTTP 故障代理（转发但回执不含持久确认，模拟响应丢失）。 | verified |
+
+实现要点：**通道分流**——投递循环按路由通道分流：`WEBCHAT` 之外（企微）保持既有 Gateway 出站与产物解析，一字未改；`WEBCHAT` 走"持久用户收件箱"路径（socket 写入在用户离线时什么都留不下）。**先持久后 ack**——只有 `persisted=true` 才写 `SENT`；2xx 缺持久确认、5xx、传输错误都是可重试失败（与 Gateway 的 `delivered` 同一纪律）；4xx（核属/绑定不符）是确定性失败，不无限重试。**来源可核验**——Runtime 的入箱端口核 `tool_result_inbox`/`tool_operation`/`Run`/用户/入口与每个 artifact 的 `task_id`；因此终态边界为 **WEBCHAT 投递意图** 的 DETACH 任务在**同一事务**里写结果发件（`RULE-worker-001` 禁止提交终态后再补发件），企微路由不额外写 Runtime 事件。**不烧预算**——`_webchat_result_settled()` 把"结果发件仍 `PENDING`"的行挡在投递候选之外：发件在退避时投递不消耗尝试，避免"发件还没结论、投递先把预算烧光、用户永远看不到结果"。**按原来源定位**——提交只带 Worker 真实持有的身份（task/run/actor user/产物引用），会话/入口由 Runtime 从真实行导出；没有来源 Run 或没有入口归属都**显式失败**，不编造会话。**重投命中**——交付键稳定 `task:{task_id}:final`，重投由 Runtime 命中原回执（同 id/seq、feed 水位不变、不新增未读），用户已读另记。
+
+静态检查：`uv run ruff check`（本任务 5 个改动源文件 + 新增测试文件）干净；`uv run mypy apps packages` → Success: no issues found in 435 source files；AST 逐函数核对：本任务新增/修改的生产函数全部 ≤50 行（最长 `_attempt_webchat_delivery` 46、`_webchat_publication_outcome` 20、`_interpret_webchat_receipt` 23、`_result_publication` 14、`_publishes_result` 20、`register_task_result` 客户端方法 15）。`docs/configuration-inventory.csv` 保持 CRLF（1509 行、0 裸 LF），只新增本任务 2 行常量并更新本任务改动文件的行号，`uv run pytest -q tests/test_configuration_inventory.py` exit=0，4 passed。
+
+诚实记录（测试强度自检，两次变异都被现有断言抓住）：① 去掉 `_webchat_result_settled()` 候选门槛 ⇒ `test_b268_offline_result_...` 失败（受理前消耗了投递尝试）；② 把"2xx 即送达"写回 ⇒ `test_b268_redelivery_...` 失败（丢回执被当成送达）。两次变异均已还原。
+
+计划外披露：① `apps/agent-worker/src/muad_agent_worker/delivery/client.py`（受信入箱客户端与 Gateway 投递客户端同址，投递模块 HTTP 客户端唯一实现处）；② `apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py`（结果发件必须与终态同事务，见上）；③ `apps/agent-worker/src/muad_agent_worker/application/delivery_routes.py`（`WEBCHAT_CHANNEL` worker 侧唯一来源，终态边界与投递循环共用）；④ `apps/agent-worker/src/muad_agent_worker/main.py`（装配根注入入箱客户端，否则装配后 WEBCHAT 投递仍无端口）；⑤ `docs/configuration-inventory.csv`（项目硬约束）。**`results/dispatcher.py` 未改动**：结果发件的 durable 证据规则（只有同 `event_id` 且 `persisted=true` 才写 SENT）在 TASK-068 之前就成立（`RULE-worker-001`），本任务只需要投递循环读它的**结论**（发件状态门槛），不改发件器。未新增迁移/DDL（0026 的两张表够用，无新列）。
+
+遗留（deferred，非本任务可闭合）：① **计划触发的 WEBCHAT 任务**（`trigger_type=SCHEDULED`，无来源 Run/operation）无法定位会话 ⇒ 投递显式终态失败、不编造入口——要让这类结果也进持久收件箱，需要 Runtime 入箱端口支持按投递路由（`external_conversation_id`）定位会话，属 TASK-064 端口的扩展面，不在本任务 Files 内；② 通知清理/保留与"用户活动游标最早可用水位"属 TASK-069；③ 通知/投递指标目录属 TASK-098；④ Gateway 公开面（API-11 公共路由与 CHAT 复核）属 TASK-070；⑤ S-07/S-105 的端到端（多实例、真实浏览器、断线重开拉取）由 TASK-111/114 的 verify-e2e 记录。
+- B-268: verified — automated command passed; run_id=8fdafe0e8e3b44c2a04da27d0bfdc5e6 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-268 RED：`tests/agent_worker/test_capacity_webchat_worker_notifications.py` → exit=2，1 error during collection（`HttpWebchatInboxClient` 尚不存在）
+- [2026-10-18] 实现：`delivery/client.py` 受信入箱客户端；`delivery/service.py` 通道分流 + 候选门槛 + 先持久后 ack；`application/terminal_tasks.py` WEBCHAT 投递意图的结果发件与终态同事务；`application/delivery_routes.py` `WEBCHAT_CHANNEL`；`main.py` 装配注入；同步 `docs/configuration-inventory.csv`（CRLF 保持）
+- [2026-10-18] B-268 GREEN：同命令 exit=0，5 passed in 7.99s；断言位置与真实边界证据见 Acceptance Evidence
+- [2026-10-18] 测试强度自检（变异两次，均已还原）：去掉候选门槛 ⇒ 用例① 失败；"2xx 即送达" ⇒ 用例② 失败
+- [2026-10-18] 域回归（最终代码；无本机 dev 残留进程）：`uv run pytest -q tests/agent_worker tests/contracts tests/test_configuration_inventory.py` exit=0，**1607 passed in 91.43s**。诚实记录：同一命令的首轮为 **1606 passed / 1 failed**——失败是 `test_configuration_inventory.py`（本任务自己的 CSV 行号在重构后陈旧），重算行号后复跑全绿
+- [2026-10-18] 静态检查：`ruff` 干净；`mypy apps packages` 435 files 无问题；新增/修改生产函数全部 ≤50 行
+- [2026-10-18] completed (done)
 
 ---
 

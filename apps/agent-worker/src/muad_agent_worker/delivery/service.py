@@ -11,6 +11,7 @@ import sqlalchemy as sa
 from muad_common import SharedSettings
 from muad_contracts import (
     AttachmentRef,
+    ControlOutboxStatus,
     DeliveryMode,
     DeliveryRequest,
     DeliveryRouteInput,
@@ -18,12 +19,16 @@ from muad_contracts import (
     TaskStatus,
 )
 from muad_contracts.platform_settings import PlatformSettings, TaskSettings
+from muad_contracts.webchat_events import WebchatTaskResultRegistration
 from sqlalchemy import CursorResult, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.sql.elements import ColumnElement
 
+from ..application.delivery_routes import WEBCHAT_CHANNEL
 from ..application.platform_settings import resolve_platform_settings
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from ..application.task_events import TaskEventSeed, TaskEventType, append_event, append_events
+from ..infrastructure.models.runtime_operations import RuntimeResultOutbox
 from ..infrastructure.models.task import DeliveryRoute, TaskExecution
 from ..metrics import DELIVERY_METRIC, increment, record_outcome
 from .artifact_client import (
@@ -31,7 +36,13 @@ from .artifact_client import (
     ArtifactResolveClient,
     ArtifactResolveError,
 )
-from .client import DeliveryClientProtocol, DeliveryResult, DeliveryTransportError
+from .client import (
+    DeliveryClientProtocol,
+    DeliveryResult,
+    DeliveryTransportError,
+    WebchatInboxClientProtocol,
+    WebchatInboxReceipt,
+)
 from .messages import build_delivery_message
 
 logger = logging.getLogger(__name__)
@@ -54,6 +65,37 @@ ARTIFACT_GONE_TOTAL = "delivery_artifact_gone_total"
 DELIVERY_RESERVATION_LEASE_SEC = 300
 
 
+def _webchat_result_settled() -> ColumnElement[bool]:
+    """WEBCHAT 投递的前置条件：该 Task 结果的 Runtime 发件已出结论（TASK-068）。
+
+    网页"送达"是提交进 Runtime 的持久用户收件箱，而 Runtime 只接受已被受理的结果。结果
+    发件还在 `PENDING` 时不得消耗投递尝试——否则发件还在退避，投递先把预算烧光，用户
+    永远看不到结果（design §3.6「Worker 结果沿任务完成后的持久投递意图重试」）。
+    """
+    webchat_route = (
+        select(DeliveryRoute.id)
+        .where(
+            DeliveryRoute.id == TaskExecution.delivery_route_id,
+            DeliveryRoute.channel == WEBCHAT_CHANNEL,
+        )
+        .exists()
+    )
+    publishing = (
+        select(RuntimeResultOutbox.id)
+        .where(
+            RuntimeResultOutbox.task_id == TaskExecution.id,
+            RuntimeResultOutbox.is_deleted.is_(False),
+            RuntimeResultOutbox.status == ControlOutboxStatus.PENDING,
+        )
+        .exists()
+    )
+    return or_(
+        sa.not_(webchat_route),
+        TaskExecution.source_run_id.is_(None),
+        sa.not_(publishing),
+    )
+
+
 @dataclass(frozen=True)
 class DeliveryOutcome:
     task_id: uuid.UUID
@@ -71,6 +113,7 @@ class DeliveryLoop:
         resolver: ArtifactResolveClient | None = None,
         *,
         settings_client: PlatformSettingsClient | None = None,
+        webchat_inbox: WebchatInboxClientProtocol | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._client = client
@@ -80,6 +123,8 @@ class DeliveryLoop:
         self._settings_client: PlatformSettingsClient = (
             settings_client or NullPlatformSettingsClient()
         )
+        #: WEBCHAT 投递的受信入箱端口（TASK-068）：网页送达以 Runtime 的收件箱提交为准。
+        self._webchat_inbox = webchat_inbox
         #: 跨租户公平游标 `(该租户最早待投递记录的 create_time, tenant_id)`：每轮从这一格
         #: **之后**继续取，取空则回到开头。见 `_pending_tenants`。
         self._tenant_cursor: tuple[datetime, str] | None = None
@@ -176,6 +221,9 @@ class DeliveryLoop:
             error = "delivery route missing"
             await self._record_terminal_failure(task, error=error, now=now, max_attempts=max_attempts)
             return DeliveryOutcome(task_id=task.id, http_status=None, error=error, sent=False)
+        if route.channel == WEBCHAT_CHANNEL:
+            # 网页没有可推送的外部目标：送达 = Runtime 持久用户收件箱提交（TASK-068）。
+            return await self._attempt_webchat_delivery(task, now=now, max_attempts=max_attempts)
         artifact = await self._resolve_artifact(task, now=now, max_attempts=max_attempts)
         if isinstance(artifact, DeliveryOutcome):
             return artifact  # 解析没拿到结论：按可重试失败收场，**不降级成文本**
@@ -228,6 +276,113 @@ class DeliveryLoop:
                 task, error=error, now=now, max_attempts=max_attempts
             )
         return DeliveryOutcome(task_id=task.id, http_status=status_code, error=error, sent=False)
+
+    async def _attempt_webchat_delivery(
+        self, task: TaskExecution, *, now: datetime, max_attempts: int
+    ) -> DeliveryOutcome:
+        """WEBCHAT 送达 = Runtime 持久用户收件箱提交（TASK-068；design §3.5/§3.6）。
+
+        三条纪律：
+
+        1. **先持久后 ack**：只有 Runtime 回 `persisted=true`（行已提交）才置 `SENT`；
+           2xx 但没有持久确认按可重试失败处理——socket 写入/占位不是送达；
+        2. **按原来源定位**：提交只带 Worker 真实持有的身份（task/run/actor user/产物），
+           会话/入口由 Runtime 从真实行导出；没有来源 Run 就无法定位会话，显式终态失败，
+           不编造入口身份；
+        3. **重投命中**：交付键稳定为 `task:{task_id}:final`，重投由 Runtime 命中原回执
+           （不新占 seq、不新增未读），用户已读另记。
+        """
+        if self._webchat_inbox is None:
+            error = "webchat delivery requires the trusted inbox port"
+            await self._record_terminal_failure(task, error=error, now=now, max_attempts=max_attempts)
+            return DeliveryOutcome(task_id=task.id, http_status=None, error=error, sent=False)
+        run_id = task.source_run_id
+        if run_id is None:
+            error = "webchat delivery requires the source run to locate the conversation"
+            await self._record_terminal_failure(task, error=error, now=now, max_attempts=max_attempts)
+            return DeliveryOutcome(task_id=task.id, http_status=None, error=error, sent=False)
+        publication = await self._result_publication(task)
+        if publication is not ControlOutboxStatus.SENT:
+            return await self._webchat_publication_outcome(
+                task, publication, now=now, max_attempts=max_attempts
+            )
+        registration = WebchatTaskResultRegistration(
+            task_id=task.id,
+            run_id=run_id,
+            user_id=task.actor_user_id,
+            artifact_ids=[task.result_artifact_id] if task.result_artifact_id else [],
+        )
+        try:
+            receipt = await self._webchat_inbox.register_task_result(
+                tenant_id=task.tenant_id, registration=registration
+            )
+        except DeliveryTransportError as exc:
+            error = str(exc)
+            await self._record_retryable_failure(
+                task, error=error, now=now, max_attempts=max_attempts
+            )
+            return DeliveryOutcome(task_id=task.id, http_status=None, error=error, sent=False)
+        return await self._interpret_webchat_receipt(task, receipt, now=now, max_attempts=max_attempts)
+
+    async def _interpret_webchat_receipt(
+        self,
+        task: TaskExecution,
+        receipt: WebchatInboxReceipt,
+        *,
+        now: datetime,
+        max_attempts: int,
+    ) -> DeliveryOutcome:
+        """入箱回执裁决：`persisted=true` 才送达；4xx 是确定性失败，其余可重试。"""
+        if 200 <= receipt.status_code < 300 and receipt.persisted:
+            await self._record_sent(task, now=now)
+            return DeliveryOutcome(task_id=task.id, http_status=receipt.status_code, error=None, sent=True)
+        error = f"webchat inbox did not confirm persistence ({receipt.status_code})"
+        if receipt.error_code:
+            error = f"{error}: {receipt.error_code}"
+        if 400 <= receipt.status_code < 500:
+            # 核属/绑定失败是确定性错误：重试不会让来源变得可核验（评审 #11 同一纪律）。
+            await self._record_terminal_failure(task, error=error, now=now, max_attempts=max_attempts)
+        else:
+            await self._record_retryable_failure(task, error=error, now=now, max_attempts=max_attempts)
+        return DeliveryOutcome(
+            task_id=task.id, http_status=receipt.status_code, error=error, sent=False
+        )
+
+    async def _webchat_publication_outcome(
+        self,
+        task: TaskExecution,
+        publication: ControlOutboxStatus | None,
+        *,
+        now: datetime,
+        max_attempts: int,
+    ) -> DeliveryOutcome:
+        """结果发件还没出结论：可重试（投递候选门槛已挡住未出结论的行，这里只兜住竞态）。"""
+        if publication is ControlOutboxStatus.FAILED:
+            error = "background result was never accepted by the runtime"
+            await self._record_terminal_failure(task, error=error, now=now, max_attempts=max_attempts)
+            return DeliveryOutcome(task_id=task.id, http_status=None, error=error, sent=False)
+        if publication is None:
+            error = "background result was never published for this delivery intent"
+            await self._record_terminal_failure(task, error=error, now=now, max_attempts=max_attempts)
+            return DeliveryOutcome(task_id=task.id, http_status=None, error=error, sent=False)
+        error = "background result is still being published to the runtime"
+        await self._record_retryable_failure(task, error=error, now=now, max_attempts=max_attempts)
+        return DeliveryOutcome(task_id=task.id, http_status=None, error=error, sent=False)
+
+    async def _result_publication(self, task: TaskExecution) -> ControlOutboxStatus | None:
+        """该 Task 终态结果的 Runtime 发件状态（`None` = 从未发布）。"""
+        async with self._session_factory() as session:
+            status = await session.scalar(
+                select(RuntimeResultOutbox.status)
+                .where(
+                    RuntimeResultOutbox.tenant_id == task.tenant_id,
+                    RuntimeResultOutbox.task_id == task.id,
+                    RuntimeResultOutbox.is_deleted.is_(False),
+                )
+                .order_by(RuntimeResultOutbox.task_event_seq.desc())
+                .limit(1)
+            )
+        return None if status is None else ControlOutboxStatus(status)
 
     async def _pending_tenants(self) -> list[tuple[str, datetime]]:
         """有可投递记录的租户 `[(tenant_id, 该租户最早待投递记录的 create_time)]`。
@@ -322,12 +477,17 @@ class DeliveryLoop:
 
     @staticmethod
     def _detectable_conditions() -> tuple[Any, ...]:
-        """设置无关的「这条记录还想被投递」谓词（退避/上限判断留到取到快照后）。"""
+        """设置无关的「这条记录还想被投递」谓词（退避/上限判断留到取到快照后）。
+
+        WEBCHAT 投递额外要求结果发件已出结论（`_webchat_result_settled`）：受理前不消耗
+        投递尝试，也不把"还在发件"误判成投递失败。
+        """
         return (
             TaskExecution.status.in_(TERMINAL_STATUSES),
             TaskExecution.delivery_mode == str(DeliveryMode.FINAL_ONLY),
             TaskExecution.delivery_status.in_(DELIVERABLE_STATUSES),
             TaskExecution.is_deleted.is_(False),
+            _webchat_result_settled(),
         )
 
     async def _reserve_candidate(
