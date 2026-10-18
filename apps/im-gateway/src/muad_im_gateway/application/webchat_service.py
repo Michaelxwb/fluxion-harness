@@ -349,23 +349,8 @@ class WebchatResourceService:
         return _project(WebchatMessagePage, data)
 
     # --- 内部：授权与归属 -------------------------------------------------------------
-    def _resolve_entry(self, identity: ChatIdentity, entry_id: UUID) -> _ResolvedEntry:
-        """入口 → (agent, entry)：未启用/非本通道/未知一律 404，未授权 Agent 越权 403。"""
-        item = next(
-            (
-                candidate
-                for candidate in self._entries.items
-                if candidate.bot_account_id == entry_id
-                and candidate.enabled
-                and candidate.channel == WEBCHAT_CHANNEL
-            ),
-            None,
-        )
-        if item is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND)
-        if item.agent_id not in {agent.agent_id for agent in identity.agents}:
-            raise AppError(ErrorCode.FORBIDDEN)
-        return _ResolvedEntry(entry_id=entry_id, agent_id=item.agent_id)
+    def _resolve_entry(self, identity: ChatIdentity, entry_id: UUID) -> ResolvedEntry:
+        return resolve_authorized_entry(self._entries, identity, entry_id)
 
     async def _resolve_scope(
         self, identity: ChatIdentity, conversation_id: UUID
@@ -390,11 +375,36 @@ class WebchatResourceService:
 
 
 @dataclass(frozen=True, slots=True)
-class _ResolvedEntry:
+class ResolvedEntry:
     """入口解析结论：公开 entry_id 就是 Runtime 可归属的入口账号 UUID。"""
 
     entry_id: UUID
     agent_id: UUID
+
+
+def resolve_authorized_entry(
+    entries: WebchatEntrySource, identity: ChatIdentity, entry_id: UUID
+) -> ResolvedEntry:
+    """入口 → (agent, entry)：未启用/非本通道/未知一律 404，未授权 Agent 越权 403。
+
+    入口事实只来自入口快照、授权只来自本次 Console 核验的授权集合：入口显式读写面与上传面
+    共用这一条裁决，不复制第二份判定。
+    """
+    item = next(
+        (
+            candidate
+            for candidate in entries.items
+            if candidate.bot_account_id == entry_id
+            and candidate.enabled
+            and candidate.channel == WEBCHAT_CHANNEL
+        ),
+        None,
+    )
+    if item is None:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    if item.agent_id not in {agent.agent_id for agent in identity.agents}:
+        raise AppError(ErrorCode.FORBIDDEN)
+    return ResolvedEntry(entry_id=entry_id, agent_id=item.agent_id)
 
 
 def _run_status(state: dict[str, Any]) -> RunStatus:
