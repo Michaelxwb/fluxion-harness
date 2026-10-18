@@ -134,6 +134,8 @@ logger = logging.getLogger(__name__)
 
 CancelCheck = Callable[[], Awaitable[bool]]
 MESSAGE_DELTA_EVENT = "message.delta"
+#: 新代替换边界：已产生部分正文后的重试显式分代时先落这条持久 snapshot（整组替换语义）。
+MESSAGE_SNAPSHOT_EVENT = "message.snapshot"
 MODEL_STARTED_EVENT = "model.started"
 MODEL_COMPLETED_EVENT = "model.completed"
 TOOL_STARTED_EVENT = "tool.started"
@@ -167,9 +169,18 @@ class ExecutorEvent:
     timestamp: str | None = None
 
 
-def _delta_event(text: str) -> ExecutorEvent:
-    """合并后的正文增量：载荷形状由 canonical 契约定义（含生成代号，TASK-062 的多代由此接续）。"""
-    return ExecutorEvent(type=MESSAGE_DELTA_EVENT, data=delta_payload(text))
+def _delta_event(text: str, *, reply_generation: int) -> ExecutorEvent:
+    """合并后的正文增量：载荷形状由 canonical 契约定义（含生成代号，多代按代替换）。"""
+    return ExecutorEvent(
+        type=MESSAGE_DELTA_EVENT, data=delta_payload(text, reply_generation=reply_generation)
+    )
+
+
+def _snapshot_event(reply_generation: int) -> ExecutorEvent:
+    """新代边界：以**空正文**整组替换旧代（`reply_generation` 之后的 delta 从零重建本代）。"""
+    return ExecutorEvent(
+        type=MESSAGE_SNAPSHOT_EVENT, data={"reply_generation": reply_generation, "text": ""}
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -298,7 +309,9 @@ class _ExecutorEventEmitter:
 
     - 字节到界在回调内即刻入队（`push` 等 `queue.join()`：canonical 写入先于完整回合 checkpoint）；
     - 非增量事件（model.started/completed、工具、assistant.turn）是正文的结构性边界：先落库缓冲正文；
-    - 时间到界由读取循环 `yield`（见 `AgentRunnerExecutor._consume_queue`）。
+    - 时间到界由读取循环 `yield`（见 `AgentRunnerExecutor._consume_queue`）；
+    - **分代**（TASK-062）：回合在已产生正文后失败时，重试回合先落 `message.snapshot` 替换边界
+      再继续本代 delta；回合之外到达的迟到输出被 fence（不并入任何一代正文）。
     """
 
     def __init__(
@@ -312,19 +325,33 @@ class _ExecutorEventEmitter:
         self._queue = queue
         self._window = window
         self._request = request
-        self._model_trace = model_trace
+        # 分代账本是**流正确性**设施：没有注入审计账本时也要存在（audit_enabled=False）。
+        self._model_trace = model_trace if model_trace is not None else ModelCallTrace(audit_enabled=False)
+        self._generation = self._model_trace.reply_generation
         self.delta_emitted = False
+
+    @property
+    def generation(self) -> int:
+        """当前生效的回复生成代号（正文事件按它落载荷）。"""
+        return self._generation
 
     async def push(self, event: ExecutorEvent) -> None:
         await self._queue.put(event)
         # Canonical writes must finish before a complete-round checkpoint is taken.
         await self._queue.join()
 
+    def drain_delta(self) -> ExecutorEvent | None:
+        """窗口合并文本 → 当前代号的增量事件；空窗口返回 None（不产出空事件）。"""
+        merged = self._window.drain()
+        if merged is None:
+            return None
+        return _delta_event(merged, reply_generation=self._generation)
+
     async def flush_deltas(self) -> None:
         """到界/结构边界/终态的增量 flush：合并文本先入队落库，调用方再继续。"""
-        merged = self._window.drain()
-        if merged is not None:
-            await self.push(_delta_event(merged))
+        event = self.drain_delta()
+        if event is not None:
+            await self.push(event)
 
     async def emit(self, event: ExecutorEvent) -> None:
         if event.type != MESSAGE_DELTA_EVENT:
@@ -332,17 +359,35 @@ class _ExecutorEventEmitter:
         await self.push(event)
 
     async def on_delta(self, text: str) -> None:
+        if not self._model_trace.accepts_output():
+            # 旧尝试迟到输出：回合已结束/被取代 —— fence，不并入任何一代正文（design §3.6）。
+            logger.warning(
+                "reply_delta_fenced",
+                extra={
+                    "run_id": str(self._request.run_context.run_id)
+                    if self._request.run_context is not None
+                    else None,
+                    "reply_generation": self._generation,
+                },
+            )
+            return
+        self._model_trace.note_delta()
         self.delta_emitted = True
         merged = self._window.add(text)
         if merged is not None:
-            await self.push(_delta_event(merged))
+            await self.push(_delta_event(merged, reply_generation=self._generation))
 
     async def on_model_started(self) -> None:
-        data = self._model_trace.begin() if self._model_trace is not None else {}
-        await self.emit(ExecutorEvent(type=MODEL_STARTED_EVENT, data=data))
+        opened = self._model_trace.begin()
+        await self.flush_deltas()  # 旧代缓冲先落库（按旧代号），再切换新代
+        if opened.supersedes:
+            self._generation = opened.generation
+            await self.push(_snapshot_event(self._generation))
+        await self.push(ExecutorEvent(type=MODEL_STARTED_EVENT, data=opened.event_fields))
 
     async def on_model_completed(self) -> None:
-        data = self._model_trace.event_fields() if self._model_trace is not None else {}
+        self._model_trace.close_round()
+        data = self._model_trace.event_fields()
         await self.emit(ExecutorEvent(type=MODEL_COMPLETED_EVENT, data=data))
 
     async def on_tool_started(self, call_id: str, name: str) -> None:
@@ -449,10 +494,10 @@ class AgentRunnerExecutor:
         while True:
             if task.done() and queue.empty():
                 break
-            merged = window.drain() if window.due() else None
-            if merged is not None:
+            due = emitter.drain_delta() if window.due() else None
+            if due is not None:
                 # 时间边界：模型可能长时间没有新块，到界即落库（停顿期间也必须可推送）。
-                yield _delta_event(merged)
+                yield due
                 continue
             try:
                 item = await asyncio.wait_for(queue.get(), timeout=self._queue_wait(window))
@@ -469,10 +514,10 @@ class AgentRunnerExecutor:
         except Exception as exc:  # noqa: BLE001 —— 失败同样先 flush 已产生正文，再上抛原异常
             failure = exc
             result = None
-        merged = window.drain()
+        merged = emitter.drain_delta()
         if merged is not None:
             # 终态前 flush：已产生的正文必须先落库，终态行（含失败终态）才排在它之后。
-            yield _delta_event(merged)
+            yield merged
         if failure is not None:
             raise failure
         if (
@@ -482,7 +527,7 @@ class AgentRunnerExecutor:
             and result.status == AgentRunStatus.COMPLETED
         ):
             # 非流式 provider：把最终回答作为单个 delta，保证渠道侧拼接可用
-            yield _delta_event(result.final_text)
+            yield _delta_event(result.final_text, reply_generation=emitter.generation)
         if result is not None:
             yield ExecutorEvent(
                 type="runner.outcome",
@@ -628,39 +673,14 @@ class AuditedModelProvider:
         on_delta: Callable[[str], Awaitable[None]] | None,
     ) -> ModelResponse:
         started = time.monotonic()
+        emitted = _Emitted()
         try:
-            if on_delta is not None and hasattr(self._inner, "stream"):
-                streamer = cast(StreamingModelProvider, self._inner)
-                response = await streamer.stream(request, on_delta)
-            else:
-                response = await self._inner.complete(request)
-        except ModelRateLimitedError as exc:
-            await self._record(
-                started,
-                status="RETRY",
-                retry_reason="RATE_LIMITED",
-                error_code=str(ErrorCode.MODEL_UNAVAILABLE),
-                message=str(exc),
-            )
+            response = await self._call_inner(request, on_delta, emitted)
+        except Exception as exc:
+            await self._record_failure_for(started, emitted, exc)
             raise
-        except ModelUnavailableError as exc:
-            await self._record(
-                started,
-                status="RETRY",
-                retry_reason="UNAVAILABLE",
-                error_code=str(ErrorCode.MODEL_UNAVAILABLE),
-                message=str(exc),
-            )
-            raise
-        except Exception:
-            await self._record(
-                started,
-                status="ERROR",
-                retry_reason=None,
-                error_code=str(ErrorCode.COMMON_INTERNAL_ERROR),
-                message="model invocation failed",
-            )
-            raise
+        finally:
+            emitted.closed = True
         await self._record(
             started,
             status="OK",
@@ -672,6 +692,74 @@ class AuditedModelProvider:
         )
         self._attempt = 0
         return response
+
+    async def _record_failure_for(
+        self, started: float, emitted: _Emitted, exc: Exception
+    ) -> None:
+        """按异常分档留痕：429/5xx 记 RETRY，其余记 ERROR（与既有审计词表一致）。"""
+        if isinstance(exc, ModelRateLimitedError):
+            status, retry_reason, message = "RETRY", "RATE_LIMITED", str(exc)
+        elif isinstance(exc, ModelUnavailableError):
+            status, retry_reason, message = "RETRY", "UNAVAILABLE", str(exc)
+        else:
+            status, retry_reason, message = "ERROR", None, "model invocation failed"
+        code = (
+            str(ErrorCode.MODEL_UNAVAILABLE)
+            if status == "RETRY"
+            else str(ErrorCode.COMMON_INTERNAL_ERROR)
+        )
+        await self._record_failure(
+            started,
+            emitted,
+            status=status,
+            retry_reason=retry_reason,
+            error_code=code,
+            message=message,
+        )
+
+    async def _call_inner(
+        self,
+        request: ModelRequest,
+        on_delta: Callable[[str], Awaitable[None]] | None,
+        emitted: _Emitted,
+    ) -> ModelResponse:
+        """一次尝试的上游调用：正文经**尝试围栏**外发（尝试结束后到达的迟到输出被丢）。"""
+        if on_delta is None or not hasattr(self._inner, "stream"):
+            return await self._inner.complete(request)
+        streamer = cast(StreamingModelProvider, self._inner)
+
+        async def tracked(text: str) -> None:
+            if emitted.closed:
+                return  # 该尝试已结束：迟到输出不得并入正文（design §3.6）
+            emitted.value = True
+            await on_delta(text)
+
+        return await streamer.stream(request, tracked)
+
+    async def _record_failure(
+        self,
+        started: float,
+        emitted: _Emitted,
+        *,
+        status: str,
+        retry_reason: str | None,
+        error_code: str,
+        message: str,
+    ) -> None:
+        """失败留痕；**已产生正文**的事实同时记入分代账本（design §3.6）。"""
+        self._note_partial_output(emitted)
+        await self._record(
+            started,
+            status=status,
+            retry_reason=retry_reason,
+            error_code=error_code,
+            message=message,
+        )
+
+    def _note_partial_output(self, emitted: _Emitted) -> None:
+        """已产生正文后的失败：账本据此在下一次 `begin` 显式分代（design §3.6）。"""
+        if emitted.value and self._model_trace is not None:
+            self._model_trace.note_failure_after_output()
 
     async def _record(
         self,
@@ -732,9 +820,10 @@ class PoolCallScope:
 
 @dataclass(slots=True)
 class _Emitted:
-    """本回合是否已经把正文外发（决定失败是"可重试"还是"必须终止"）。"""
+    """本回合是否已经把正文外发；`closed` 标记该尝试已结束——此后的迟到输出被 fence。"""
 
     value: bool = False
+    closed: bool = False
 
 
 class _RotationRace(Exception):
@@ -875,17 +964,6 @@ def _remote_proof_for(exc: BaseException, *, provider_name: str) -> RemoteComple
     )
 
 
-def _terminal_or_retryable(exc: BaseException, *, emitted: bool) -> BaseException:
-    """已输出正文后的失败一律按"终止"处理（design §3.6）：另一 attempt 的回答不能拼到旧正文上。
-
-    增量已经外发给用户了，重试会把同一段话再吐一遍；未输出正文时维持原异常，交给
-    `AgentRunner` 的重试预算（429 遵守 Retry-After、5xx 有界重试）处理。
-    """
-    if not emitted or not isinstance(exc, (ModelRateLimitedError, ModelUnavailableError)):
-        return exc
-    return ModelRequestError("model call failed after partial output")
-
-
 async def _aclose_provider(provider: ModelProvider) -> None:
     """关闭一次尝试的上游 provider（每次尝试独立建连接池，谁造谁收）。"""
     closer = getattr(provider, "aclose", None)
@@ -906,7 +984,9 @@ class PooledModelProvider:
     4. 发上游期间按心跳续租；失约立即停手（取消本地调用），不把停手伪装成远端已结束；
     5. 结算按证据分档：成功按**实际 usage** 释放多余预占；远端已应答的失败释放槽位但保留
        token 预占（失败不假定供方未计费）；传输层失败/断流一律 UNKNOWN 保留占用；
-    6. 已输出正文后的失败按"终止"处理，另一 attempt 的回答不得拼到旧正文上；型号与上下文
+    6. 已输出正文后的失败**保留可重试语义**（重试预算由 `AgentRunner` 决定）：失败事实记入
+       分代账本，下一次 `begin` 显式开启新 `reply_generation` 并以持久 snapshot 整组替换旧代
+       ——另一 attempt 的回答绝不拼到旧正文上；被放弃尝试的迟到输出被 fence；型号与上下文
        始终取自同一条冻结模型定义，不跨型号暗换。
     """
 
@@ -971,11 +1051,12 @@ class PooledModelProvider:
         try:
             attempt = await self._select_and_reserve(reserved_tokens)
             return await self._send(attempt, request, on_delta, emitted)
-        except Exception as exc:
-            mapped = _terminal_or_retryable(exc, emitted=emitted.value)
-            if mapped is exc:
-                raise
-            raise mapped from exc
+        except Exception:
+            # 已产生正文后的失败：账本据此在下次 begin 显式分代（design §3.6）。
+            # 重试与否由 `AgentRunner` 的重试预算裁决（可重试错误才重试；其余上抛即终态）。
+            if emitted.value:
+                self._note_partial_output()
+            raise
 
     @property
     def _dispatch_policy(self) -> ModelDispatchPolicy:
@@ -1234,12 +1315,18 @@ class PooledModelProvider:
             raise
         finally:
             stop.set()
+            emitted.closed = True  # 本尝试结束：此后的迟到输出不得并入正文
             renewer.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await renewer
             await _aclose_provider(inner)
         await self._settle_response(attempt.allocation, response)
         return response
+
+    def _note_partial_output(self) -> None:
+        """已产生正文后的失败：账本据此在下一次 `begin` 显式分代（design §3.6）。"""
+        if self._trace is not None:
+            self._trace.note_failure_after_output()
 
     async def _call_until_lost(
         self,
@@ -1259,6 +1346,7 @@ class PooledModelProvider:
                 await lost_wait
             return await call
         call.cancel()
+        emitted.closed = True  # 停手即围栏：被放弃尝试的迟到输出不得并入正文
         with contextlib.suppress(asyncio.CancelledError):
             await call
         # 被取消的调用不会走审计包装的错误分支：停手本身必须留一条 attempt 审计
@@ -1281,6 +1369,8 @@ class PooledModelProvider:
             return await provider.complete(request)
 
         async def tracked(text: str) -> None:
+            if emitted.closed:
+                return  # 尝试已结束/被放弃：迟到输出被 fence（design §3.6）
             emitted.value = True
             await on_delta(text)
 
@@ -1809,7 +1899,8 @@ async def default_executor_factory(
     frozen = request.execution.agent_policy if request.execution is not None else AgentPolicy()
     budget = ModelBudget(deadline_ms=frozen.deadline_ms, max_model_retries=frozen.max_model_retries)
     audit_writer = _audit_writer_for(request)
-    model_trace = ModelCallTrace() if audit_writer is not None else None
+    # 账本总是存在（分代是流正确性设施）；审计关联只在真实审计行会产生时才出现在事件里。
+    model_trace = ModelCallTrace(audit_enabled=audit_writer is not None)
     # 逐 attempt 审计序号账本按**本次 Run 片段**共享：主调用与摘要调用（两条模型定义、两个
     # provider 实例）的尝试序号因此不重复，审计可按序号逐条追溯。
     ledger = ModelAttemptLedger()

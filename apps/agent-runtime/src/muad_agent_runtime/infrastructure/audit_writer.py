@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 from typing import Any
+
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..application.memory_observability import memory_audit_preview
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory
@@ -13,6 +17,8 @@ from ..infrastructure.models.runtime import (
     ModelInvocationAudit,
     ToolCallAudit,
 )
+
+logger = logging.getLogger(__name__)
 
 SENSITIVE_KEY_MARKERS = (
     "password",
@@ -87,12 +93,55 @@ class RuntimeAuditWriter:
         error_code: str | None = None,
         artifact_id: uuid.UUID | None = None,
     ) -> None:
+        """写一条工具审计；同一 Run 内同一 `tool_call_id` 只保留**首次**行（幂等重放）。
+
+        模型在已产生正文后重试时可能重复自己（重发同一个工具调用，design §3.6）：操作层按
+        `(run_id, source_tool_call_id)` 返回原操作、业务键不更换；审计层同样按
+        `(run_id, tool_call_id)` 幂等——`ON CONFLICT DO NOTHING` 保留原行，重放不替换审计事实、
+        不把唯一约束冲突升级成 Run 失败。
+        """
         if tool_name == "remember":
             args_preview_json = memory_audit_preview(args_preview_json, args_hash=prepared_args_hash,
                 status=status, canaries=self._credential_canaries)
+        inserted = await self._insert_tool_call(
+            tool_call_id=tool_call_id,
+            tool_name=tool_name,
+            tool_kind=tool_kind,
+            prepared_args_hash=prepared_args_hash,
+            args_preview_json=args_preview_json,
+            status=status,
+            start_time=start_time,
+            end_time=end_time,
+            latency_ms=latency_ms,
+            error_code=error_code,
+            artifact_id=artifact_id,
+        )
+        if inserted is None:
+            logger.info(
+                "tool_call_audit_replay_skipped",
+                extra={"run_id": str(self._run_id), "tool_call_id": tool_call_id},
+            )
+
+    async def _insert_tool_call(
+        self,
+        *,
+        tool_call_id: str,
+        tool_name: str,
+        tool_kind: str,
+        prepared_args_hash: str,
+        args_preview_json: dict[str, Any],
+        status: str,
+        start_time: datetime,
+        end_time: datetime | None,
+        latency_ms: int | None,
+        error_code: str | None,
+        artifact_id: uuid.UUID | None,
+    ) -> uuid.UUID | None:
+        """幂等插入：命中原行（重放）返回 None，新行返回其 id。"""
         async with self._session_factory()() as session:
-            session.add(
-                ToolCallAudit(
+            inserted = await session.scalar(
+                pg_insert(ToolCallAudit)
+                .values(
                     tenant_id=self._tenant_id,
                     run_id=self._run_id,
                     task_id=self._task_id,
@@ -109,8 +158,14 @@ class RuntimeAuditWriter:
                     error_code=error_code,
                     artifact_id=artifact_id,
                 )
+                .on_conflict_do_nothing(
+                    index_elements=["run_id", "tool_call_id"],
+                    index_where=sa.text("run_id IS NOT NULL AND is_deleted = false"),
+                )
+                .returning(ToolCallAudit.id)
             )
             await session.commit()
+        return inserted
 
     async def record_egress(
         self,
