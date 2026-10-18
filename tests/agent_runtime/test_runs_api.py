@@ -211,12 +211,18 @@ async def test_create_run_streams_events_and_persists_records(
         assert business[0].payload_json["text"] == "hello runtime"
         assert [row.stream_type for row in streamed] == [
             "run.created",
+            "run.stage",
+            "run.stage",
             "message.delta",
             "message.delta",
             "message.delta",
             "run.completed",
         ]
-        assert all(row.submission_id is not None for row in rows)
+        # 阶段事件是 Run 级事实（不属于某次提交），其余事件都带提交链接
+        assert all(
+            row.submission_id is not None for row in rows if row.stream_type != "run.stage"
+        )
+        assert all(row.submission_id is None for row in rows if row.stream_type == "run.stage")
 
         conversation = await session.get(Conversation, conversation_id)
         assert conversation is not None

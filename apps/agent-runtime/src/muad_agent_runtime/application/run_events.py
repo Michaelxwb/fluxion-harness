@@ -9,9 +9,14 @@ import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import canonical_json
+from muad_contracts.webchat import WebchatExecutionStatus
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.runtime import CanonicalEvent, Conversation
+
+#: 公开阶段事件：`payload_json` 就是 `WebchatExecutionStatus` 的线格式（无内部字段）。
+RUN_STAGE_EVENT = "RUN_STAGE"
+RUN_STAGE_STREAM_TYPE = "run.stage"
 
 
 class EventWriter:
@@ -120,3 +125,25 @@ class EventWriter:
             sa.select(CanonicalEvent).where(*conditions).order_by(CanonicalEvent.seq).limit(limit)
         )
         return list(rows.scalars().all())
+
+    async def append_run_stage(
+        self,
+        *,
+        tenant_id: str,
+        conversation_id: uuid.UUID,
+        run_id: uuid.UUID,
+        status: WebchatExecutionStatus,
+    ) -> int:
+        """阶段投影行：Console 与 Gateway 两个入口读同一行、同一词表（design §3.2）。
+
+        载荷由契约 DTO 直接序列化（`extra=forbid`），工具参数/密钥/原始推理/正文都不经此路；
+        与产生它的 Run 行状态在**同一事务**提交（调用方的事务边界）。
+        """
+        return await self.append(
+            tenant_id=tenant_id,
+            conversation_id=conversation_id,
+            run_id=run_id,
+            event_type=RUN_STAGE_EVENT,
+            stream_type=RUN_STAGE_STREAM_TYPE,
+            payload=status.model_dump(mode="json"),
+        )

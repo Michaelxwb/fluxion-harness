@@ -375,7 +375,7 @@
 | B-233 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-033 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_slots.py"] | . | 300 |  |
 | B-234 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-034 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_retry_safety.py"] | . | 300 |  |
 | B-235 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-035 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_clock_lease.py"] | . | 300 |  |
-| B-236 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-036 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_queue_projection.py"] | . | 300 |  |
+| B-236 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-036 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_queue_projection.py"] | . | 300 |  |
 | B-237 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-037 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"] | . | 300 |  |
 | B-238 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-038 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_service.py"] | . | 300 |  |
 | B-239 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-039 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_admin_api.py"] | . | 300 |  |
@@ -2443,13 +2443,13 @@ Run/Task/模型租约与窗口使用PG时间；完整分支及可观测结果见
 
 ## TASK-036: 持久排队阶段与两入口状态投影
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-006, TASK-025, TASK-032
 - **Source**: agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计
 - **Spec-Refs**:
 - **Acceptance-Refs**: B-236
-- **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/execution_status.py`, `apps/agent-runtime/src/muad_agent_runtime/application/run_events.py`, `tests/agent_runtime/test_capacity_webchat_queue_projection.py`
+- **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/execution_status.py`, `apps/agent-runtime/src/muad_agent_runtime/application/run_events.py`, `tests/agent_runtime/test_capacity_webchat_queue_projection.py`（另按真实落点修改 `run_service.py`/`async_tools/continuation_service.py`/`executor.py`：阶段事件的三个真实产生点）
 - **Estimate**: 45分钟
 
 ### Description
@@ -2458,25 +2458,41 @@ WAITING_RUNTIME/WAITING_MODEL/工具阶段与时间原因先持久化；完整�
 
 ### Checklist
 
-- [ ] [B-236][integration] 先在`tests/agent_runtime/test_capacity_webchat_queue_projection.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：WAITING_RUNTIME/WAITING_MODEL/工具阶段与时间原因先持久化。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-236] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-236] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_queue_projection.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-236][integration] 先在`tests/agent_runtime/test_capacity_webchat_queue_projection.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：WAITING_RUNTIME/WAITING_MODEL/工具阶段与时间原因先持久化。→ RED：首建验收文件后 `uv run pytest -q tests/agent_runtime/test_capacity_webchat_queue_projection.py` → **1 error in 0.18s**（exit=1，收集失败 `ModuleNotFoundError: No module named 'muad_agent_runtime.application.execution_status'`——实现尚不存在）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 见下方实施范围；改动函数均 ≤50 行（`_allocate` 32、`_project_model_wait` 26、`_project_model_running` 17、`persist_model_wait` 40、`persist_model_running` 24、`project_execution_status` 10、`normalized_queue_reason` 9、`_append_run_stage` 8）
+- [x] [B-236] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 6 个用例逐条对应（见 Acceptance Evidence 的断言位置列）
+- [x] [B-236] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_queue_projection.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **6 passed in 3.02s**（exit=0）；finish 前复跑 **6 passed in 2.93s** / **6 passed in 2.85s**
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-236 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | WAITING_RUNTIME/WAITING_MODEL/工具阶段与时间原因先持久化；恢复后状态真实，状态文案不变助手正文/下一轮历史，不显示假预计时间或名次 | tests/agent_runtime/test_capacity_webchat_queue_projection.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_queue_projection.py"] | planned |
+| B-236 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | WAITING_RUNTIME/WAITING_MODEL/工具阶段与时间原因先持久化；恢复后状态真实，状态文案不变助手正文/下一轮历史，不显示假预计时间或名次 | tests/agent_runtime/test_capacity_webchat_queue_projection.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_queue_projection.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-236 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_queue_projection.py` → exit=1，**1 error in 0.18s（收集失败，0 passed / 0 failed）**：`ModuleNotFoundError: No module named 'muad_agent_runtime.application.execution_status'`——验收文件先落地、实现尚不存在 | 同命令 → **6 passed in 3.02s**（exit=0）；复跑 **6 passed in 2.93s** / **6 passed in 2.85s** | ①受理同事务：`test_b236_creation_persists_waiting_runtime_stage_with_its_event_atomically` L541-648（冻结排队投影 `queue_deadline=min(受理+60s, 绝对期限 1ms)=deadline_at` L578-583；行投影=事件载荷=契约 DTO L585-600；`WebchatActiveRun` Console 形状 L602-606；Run 行 `update_time` 与阶段事件 `create_time` 同一 `now()` L608-609；计数行锁被占期间 Run/事件/会话都不可见 L626-643、放行后一起出现 L644-650；准入拒绝整事务回滚不留半建 Run/阶段事件 L652-676）；②领取结束排队：`test_b236_claim_ends_the_queue_and_projects_running_in_one_transaction` L651-731（槽饱和停在 CREATED/WAITING_RUNTIME L676-683；Run 行锁阻塞期间仍 CREATED 且阶段事件只有 WAITING_RUNTIME L700-713、放行后行 RUNNING+`RUNNING` 事件一起出现 L714-731）；③投影栅栏/规范化：`test_b236_stage_persist_fences_foreign_leases_and_normalizes_reasons` L734-855（他人租约 CAS 落败不改行不发事件 L745-762；非码原因规范化丢弃 L764-782；同状态重放幂等 L783-797；恢复清投影 L798-810；终态 Run 两个写入都拒绝 L812-855）；④WAITING_MODEL：`test_b236_model_wait_projects_reason_and_bounded_deadline_then_resumes` L1060-1154（等待期间行=WAITING_MODEL+`reason=NO_CAPACITY`+真实期限 L1087-1096；等待中零上游请求 L1097；两入口一致 L1098-1103；载荷恰为契约字段（无预计时间/名次）L1104-1107；行 `update_time`=事件 `create_time` L1108-1109；放额度后阶段序列 `[WAITING_RUNTIME, RUNNING, WAITING_MODEL, RUNNING]`+真实上游 1 次请求+COMPLETED L1115-1127；真实模型输入与真实上下文重建均无阶段文案 L1129-1147；终态事件同词表 L1148-1152）；⑤工具阶段：`test_b236_tool_wait_stage_is_persisted_and_recovered_from_persisted_facts` L1238-1306（真实 `try_wait` 后行 WAITING_TOOL/租约清空 L1290-1292；事件序 `[RUN_STAGE(RUNNING), run.waiting_tool, RUN_STAGE(WAITING_TOOL)]` L1293-1304；等待事件与阶段事件同一 `now()` L1305-1306；新连接恢复读回同一投影 L1312-1314）；⑥终态收敛：`test_b236_projection_converges_after_cancel_and_queue_timeout` L1309-1381（取消后行 CANCELLED/排队投影清空/释放 L1338-1344；行投影=终态事件词表 L1345-1353；排队起点事实保留在历史 L1354-1359；排队过期 FAILED/`RUN_QUEUE_TIMEOUT`+投影收敛 L1361-1378） | 隔离租户的真实 PG（`run_record`/`canonical_event`/`runtime_snapshot`/`run_submission`/`conversation`/`run_admission_*`/`tool_operation`/`model_capacity` 与 `control.model_*`，只增删本租户行）；真实 `RunService` 受理/取消、`claim_continuation` 领取、`try_wait` 工具等待、`PooledModelProvider`/`ModelAllocator` 模型等待、`expire_queued_runs` 排队过期；真实 Console 应用（uvicorn + 真实 socket + 真实服务身份门控）提供 API-09 冻结引用解析；真实模型 HTTP 探针（uvicorn + 真实 socket，逐请求记录型号/鉴权/正文）；并发用第二条真实 PG 连接的 `FOR UPDATE` 阻塞 + `pg_stat_activity` Lock 等待观测（不 sleep 假装竞态）；无 mock 存储或租约 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件：`execution_status.py`（新增：阶段词表 + `project_execution_status` 两入口唯一投影 + `persist_model_wait`/`persist_model_running` 行与事件同事务写入 + `normalized_queue_reason` 原因规范化）、`run_events.py`（`append_run_stage`：`run.stage` 事件的唯一写入口径，载荷就是 `WebchatExecutionStatus` 线格式）、`run_service.py`（受理事务内写 WAITING_RUNTIME 阶段事件）、`async_tools/continuation_service.py`（领取成功写 RUNNING、`try_wait` 写 WAITING_TOOL，均与行状态同事务）、`executor.py`（`PooledModelProvider._allocate` 在额度受限时先落 WAITING_MODEL（原因取自 `MODEL_CAPACITY_UNAVAILABLE.data.reason`）、恢复后回 RUNNING；投影写入失败只留 `run_stage_projection_failed` 警告，不打断模型执行）。
+- 语义事实：①`run.stage` 是 Run 级公开事件（不带 submission_id，不属于某次提交；`test_runs_api` 的不变量按此收窄并显式断言）；②排队阶段（WAITING_RUNTIME/WAITING_MODEL）带冻结的 `queued_at`/`queue_deadline_at`，其余阶段带 `start_time`；③模型等待期限 = `min(等待起点 + 冻结 model_wait_timeout_sec, Run 绝对期限)`，不输出预计时间/名次（契约 `extra=forbid` + 载荷键集合断言）；④终态收敛走 `run.terminal`（`run.completed`/`run.failed`）与行投影同一词表，队列投影清空后行投影=终态；`RUN_STAGE` 不在 `HISTORY_EVENT_TYPES`，阶段文案不进助手正文/下一轮历史。
+- 配置盘点：新增 11 个模块级常量行（`execution_status.py`）+ 2 个事件词表常量行（`run_events.py`，`RUN_STAGE_EVENT`/`RUN_STAGE_STREAM_TYPE`）；`executor.py`（+1 import 行）与 `continuation_service.py`（+1 import 行）的行号平移已同步 → `uv run pytest -q tests/test_configuration_inventory.py` **4 passed**（CRLF 保持：1427 个 CRLF、0 个裸 LF）。
+- 静态校验：`uv run ruff check`（5 个改动文件 + 测试）干净；`uv run mypy apps packages` → **Success: no issues found in 413 source files**。
+- 聚焦回归：`uv run pytest -q tests/agent_runtime` → **886 passed, 2 failed**（777.92s）；2 个失败为 `test_memory_redesign_snapshot.py::test_b12_...`（`memory_jobs.claim` → "source snapshot unavailable"），已用 `git stash` 暂存本次全部生产改动后复跑**同样 2 failed** ⇒ 基线已存在、与本任务无关（不修实现迁就）。其余：`tests/contracts` **1281 passed**（3.10s）、`tests/agent_worker/test_runtime_operation_races.py`+`tests/architecture` **54 passed**（39.27s）、`tests/test_configuration_inventory.py` **4 passed**；受影响既有用例同步更新：`test_runs_api.py`（streamed 事件序 + 阶段事件提交链接口径）、`test_tool_wait_state_machine.py`（事件序 +RUN_STAGE）。
+- 未跑全量验收/浏览器验收/任何迁移 DDL（共享 dev 库约束；`expire_queued_runs` 为生产同源扫描，仅在隔离租户行上生效）。
+- 延后项（诚实记录）：API-07/API-15 的 HTTP 路由与公开白名单投影属 TASK-051/052/046（本任务提供两入口共用的投影函数与 `run.stage` 事件行）；模型增量合并属 TASK-059；队列/阶段指标目录属 TASK-098（本任务只留 `run_stage_projection_failed` 结构化警告）；1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责。
+- B-236: verified — automated command passed; run_id=c1745a516ee2439285126657d69fa041 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-236 RED→GREEN：先建 6 个行为用例 → **1 error in 0.18s**（`execution_status` 模块不存在）；实现阶段词表/两入口投影/`run.stage` 事件与 WAITING_MODEL 持久化后 **6 passed in 3.02s**；聚焦回归 tests/agent_runtime **886 passed, 2 failed（基线已存在，stash 复现）**、tests/contracts **1281 passed**、worker/architecture **54 passed**、配置盘点 **4 passed**；ruff/mypy（413 文件）干净
+- [2026-10-18] completed (done)
 
 ---
 

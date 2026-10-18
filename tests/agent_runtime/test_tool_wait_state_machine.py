@@ -124,7 +124,11 @@ async def test_b04_single_claim_generation_epoch_and_expired_owner(async_tool_da
         assert saved.lease_until is None and cp.wait_generation == 1
         assert cp.turns == 2 and cp.output_tokens is None
         history = list(await session.scalars(select(CanonicalEvent).order_by(CanonicalEvent.seq)))
-        assert [item.event_type for item in history] == ["ASSISTANT_MESSAGE", "RUN_WAITING_TOOL"]
+        assert [item.event_type for item in history] == [
+            "ASSISTANT_MESSAGE",
+            "RUN_WAITING_TOOL",
+            "RUN_STAGE",
+        ]
     assert await claim_continuation(factory, instance_id="idle", lease_sec=30) is None
     await receipt(factory, run, op, {"actual": "done"})
     assert await claim_continuation(factory, instance_id="stale", lease_sec=30, wait_generation=0) is None
