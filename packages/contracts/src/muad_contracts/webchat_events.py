@@ -222,3 +222,44 @@ class WebchatNotificationPage(WebchatPage[WebchatNotification]):
                 raise ValueError("notification seq must increase within next_seq")
             previous = item.seq
         return self
+
+
+class WebchatTaskResultRegistration(WebchatContract):
+    """受信 Task 结果入箱请求（Runtime Owner 端口；TASK-064/TASK-068）。
+
+    只携带 Worker 真实持有的身份事实（task/run/actor user 与产出的 artifact）：会话、入口与
+    Agent 由 Runtime 从真实行导出，调用方自报入口/Agent 没有位置；每个 artifact 必须属于该
+    Task（`artifact.task_id`），否则拒绝——安全投影里的附件引用不认调用方声明。
+    """
+
+    task_id: UUID
+    run_id: UUID
+    user_id: UUID
+    artifact_ids: list[UUID] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _distinct_artifacts(self) -> Self:
+        if len(set(self.artifact_ids)) != len(self.artifact_ids):
+            raise ValueError("artifact_ids must be distinct")
+        return self
+
+
+class WebchatTaskResultReceipt(WebchatContract):
+    """持久入箱回执：`persisted=True` 只在收件箱行已提交后返回；重投 `duplicate=True` 命中
+    原回执（不新占 seq、不新增未读）。"""
+
+    task_id: UUID
+    notification_id: UUID
+    seq: ChatPositiveCount
+    persisted: StrictBool
+    duplicate: StrictBool
+
+
+class WebchatNotificationReadReceipt(WebchatContract):
+    """API-11 显式已读回执（TASK-064）：只回明确读过的通知身份与持久 `read_at`。
+
+    已读以持久回执为准（不按重放帧累加、不夹带客户端自报内容）；重复标记返回原 `read_at`。
+    """
+
+    id: UUID
+    read_at: AwareDatetime
