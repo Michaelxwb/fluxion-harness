@@ -35,25 +35,46 @@ class ExpiredArtifact:
 #: 租户谓词是**可选**的（`--tenant`）：不带就是全库扫描（默认的运维口径），带上就只碰一个租户。
 #: 两句 SQL 而不是一句带 `(:tenant IS NULL OR ...)` 的：后者会让优化器放弃 `create_time` 上的
 #: 索引有序扫描，而这个表的量级正是要靠那条索引撑住的。
+#:
+#: **活跃引用保护**（TASK-069，RISK-15）：保留期过了不等于没人还在用它——被**非终态 Run** 或
+#: **未结束 Task** 引用的制品仍在执行链路上（恢复、重放、工具读附件、结果投递），删掉就是拿
+#: "已受理结果"换"磁盘空间"。两个 `NOT EXISTS` 都走被引用方的主键/唯一索引，候选又被 `LIMIT`
+#: 卡住上界，所以单轮成本仍有界；保护的是引用方**当前**的状态，不是行上的历史标记。
+_PROTECTED_CLAUSE = """
+       AND NOT EXISTS (
+             SELECT 1
+               FROM runtime.run_record r
+              WHERE r.id = a.run_id
+                AND r.is_deleted = false
+                AND r.status IN ('CREATED', 'RUNNING', 'WAITING_TOOL', 'WAITING_INPUT')
+           )
+       AND NOT EXISTS (
+             SELECT 1
+               FROM task.task_execution t
+              WHERE t.id = a.task_id
+                AND t.is_deleted = false
+                AND t.status IN ('QUEUED', 'RUNNING', 'WAITING')
+           )"""
+
 _SELECT_EXPIRED = text(
-    """
-    SELECT id AS artifact_id, tenant_id, storage_key, size, create_time
-      FROM runtime.artifact
-     WHERE is_deleted = false
-       AND create_time < :cutoff
-     ORDER BY create_time
+    f"""
+    SELECT a.id AS artifact_id, a.tenant_id, a.storage_key, a.size, a.create_time
+      FROM runtime.artifact a
+     WHERE a.is_deleted = false
+       AND a.create_time < :cutoff{_PROTECTED_CLAUSE}
+     ORDER BY a.create_time
      LIMIT :limit
     """
 )
 
 _SELECT_EXPIRED_IN_TENANT = text(
-    """
-    SELECT id AS artifact_id, tenant_id, storage_key, size, create_time
-      FROM runtime.artifact
-     WHERE is_deleted = false
-       AND tenant_id = :tenant_id
-       AND create_time < :cutoff
-     ORDER BY create_time
+    f"""
+    SELECT a.id AS artifact_id, a.tenant_id, a.storage_key, a.size, a.create_time
+      FROM runtime.artifact a
+     WHERE a.is_deleted = false
+       AND a.tenant_id = :tenant_id
+       AND a.create_time < :cutoff{_PROTECTED_CLAUSE}
+     ORDER BY a.create_time
      LIMIT :limit
     """
 )

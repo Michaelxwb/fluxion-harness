@@ -306,7 +306,7 @@
 | B-04 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 实际 Conversation/CanonicalEvent 查询与索引 | TASK-050 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | . | 300 |  |
 | B-05 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 实际准入计数、Run 事务、取消/领取竞态和 PG 行锁 | TASK-031 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_release.py"] | . | 300 |  |
 | B-06 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 实际公开事件 DTO/水位和恢复服务 | TASK-060 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_shared_tail.py"] | . | 300 |  |
-| B-07 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实保留/清理查询、活跃 Run/job 与共享文件系统 | TASK-069 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | . | 300 |  |
+| B-07 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实保留/清理查询、活跃 Run/job 与共享文件系统 | TASK-069 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | . | 300 |  |
 | B-08 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实 PG Token/会话约束、有效期裁决与用户锁 | TASK-040 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | . | 300 |  |
 | B-09 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | contracts配置解析、真实PG配置/快照、全局准入版本和启动settings | TASK-094 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_wiring.py"] | . | 300 |  |
 | S-101 | agent-capacity-webchat.frontend.design.md#2.4 验收条件 | E2E | ADMIN 为已有用户生成 Token，用户直接打开 /chat 输入后进入聊天；有效 Cookie 刷新恢复，仅见获授权入口；无需注册/密码/管理账号，访问管理 URL 被拒 | TASK-112 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
@@ -408,7 +408,7 @@
 | B-266 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-066 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_pump.py"] | . | 300 |  |
 | B-267 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-067 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_delivery.py"] | . | 300 |  |
 | B-268 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-068 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"] | . | 300 |  |
-| B-269 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-069 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | . | 300 |  |
+| B-269 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-069 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | . | 300 |  |
 | B-270 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-070 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_notification_api.py"] | . | 300 |  |
 | B-271 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-071 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_transport.py"] | . | 300 |  |
 | B-272 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-072 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_sse_parser.py"] | . | 300 |  |
@@ -4362,7 +4362,7 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 ## TASK-069: 历史、流增量、通知和制品清理保护
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-053, TASK-061, TASK-064, TASK-068
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -4376,28 +4376,62 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 保留期按清理边界取设置；完整分支及可观测结果见下面验收契约。
 
 ### Checklist
-
-- [ ] [B-269][integration] 先在`tests/agent_runtime/test_capacity_webchat_retention.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：保留期按清理边界取设置。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-269] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-269] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] [B-07][integration] 将原B-07落入`tests/agent_runtime/test_capacity_webchat_retention.py`，先RED后GREEN；真实保留/清理查询、活跃 Run/job 与共享文件系统；断言：清理不删模型唯一摘要、尚被 Run/job 引用的事件/上传或已受理制品；无安全快照的活动流不能先淘汰重放数据；保留边界在 API 中明确可观测。
+- [x] [B-269][integration] 先在`tests/agent_runtime/test_capacity_webchat_retention.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：保留期按清理边界取设置。RED：`uv run pytest -q tests/agent_runtime/test_capacity_webchat_retention.py` exit≠0，`1 error during collection`（`ModuleNotFoundError: No module named 'muad_agent_runtime.application.channel_retention'`）——验收先于实现落地。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① 新增 `channel_retention.py`（535 行）——`RetentionPolicy`+`retention_policy_from_settings`（保留期在**每次清理边界**取设置，坏值经 contracts 显式失败、不回落默认）、四类有界软删清理（`cleanup_stream_replay`/`cleanup_visible_history`/`cleanup_notifications`/`cleanup_staging_uploads`）、`run_retention_sweep` 汇总（独立循环调用点，装配属 TASK-096）与可对账 `StagingCleanupAction`/`RetentionReport`；保护三类不同事实：活跃引用（非终态 Run、在飞提炼 job 的 `through_seq` 输入边界、`artifact.metadata_json.upload_id`）、唯一上下文来源（`CONTEXT_SUMMARY` 永不候选；只有被最新摘要覆盖的旧消息可回收）、孤儿宽限（暂存文件 mtime）；全部行锁 + `SKIP LOCKED` + 软删（seq/delivery_key 唯一性与水位不回退）；新增 `tenant_id` 谓词（共享库上破坏性清理必须能只碰一个租户，与 Console `cleanup-artifacts --tenant` 同因）。② `artifact_cleanup_service.py` 文档补齐"活跃引用是第四类、不进候选"的口径；候选 SQL 的 `NOT EXISTS` 保护落在 `artifact_retention_repository.py`（候选查询归它所有）。
+- [x] [B-269] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置表）。
+- [x] [B-269] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，8 passed（0.81s）。
+- [x] [B-07][integration] 将原B-07落入`tests/agent_runtime/test_capacity_webchat_retention.py`，先RED后GREEN；真实保留/清理查询、活跃 Run/job 与共享文件系统；断言：清理不删模型唯一摘要、尚被 Run/job 引用的事件/上传或已受理制品；无安全快照的活动流不能先淘汰重放数据；保留边界在 API 中明确可观测。RED 与首条同源（同一验收文件一次落地）；GREEN 8 passed，B-07 断言位置见 Acceptance Evidence。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-269 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 保留期按清理边界取设置；不删唯一摘要/活跃Run-job引用/仍待投递回执，暂存与Run字节独立；游标过期明确、feed水位不重置，Token过期不删对话 | tests/agent_runtime/test_capacity_webchat_retention.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | planned |
-| B-07 | integration | 真实保留/清理查询、活跃 Run/job 与共享文件系统 | 清理不删模型唯一摘要、尚被 Run/job 引用的事件/上传或已受理制品；无安全快照的活动流不能先淘汰重放数据；保留边界在 API 中明确可观测 | tests/agent_runtime/test_capacity_webchat_retention.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | planned |
+| B-269 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 保留期按清理边界取设置；不删唯一摘要/活跃Run-job引用/仍待投递回执，暂存与Run字节独立；游标过期明确、feed水位不重置，Token过期不删对话 | tests/agent_runtime/test_capacity_webchat_retention.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | verified |
+| B-07 | integration | 真实保留/清理查询、活跃 Run/job 与共享文件系统 | 清理不删模型唯一摘要、尚被 Run/job 引用的事件/上传或已受理制品；无安全快照的活动流不能先淘汰重放数据；保留边界在 API 中明确可观测 | tests/agent_runtime/test_capacity_webchat_retention.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | verified |
 
 ### Acceptance Evidence
+**命令与结果**
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 项 | 命令 | 结果 |
+|---|---|---|
+| RED（实现前） | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_retention.py` | exit≠0：`1 error during collection`（缺 `muad_agent_runtime.application.channel_retention`） |
+| GREEN | 同命令 | exit=0：`8 passed in 0.81s` |
+| 同域回归 | `uv run pytest -q tests/agent_runtime` | `1041 passed, 1 failed`（唯一失败是共享库环境残留，见下） |
+| 该失败单跑复验 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_upload_staging.py` | `12 passed`（`cleanup_expired_staging` 无租户谓词，整跑时读到其他租户 3 条过期暂存行 ⇒ `assert 5 == 2`；非本任务实现缺陷——本任务新增清理一律带租户谓词） |
+| 同域回归 | `uv run pytest -q tests/console_platform` | `385 passed` |
+| 同域回归 | `uv run pytest -q tests/contracts` | `1281 passed` |
+| 盘点 | `uv run pytest -q tests/test_configuration_inventory.py` | `4 passed`（新增 9 条 `channel_retention.py` 常量行 + 刷新 3 文件行号；CRLF 保持、只动自己的行） |
+| 静态 | `uv run ruff check <4 改动文件>` / `uv run mypy apps packages` | `All checks passed` / `Success: no issues found in 439 source files` |
+| 门禁校验 | `.venv/bin/python -m py_compile <4 文件>` / `.venv/bin/python -m mypy <3 源文件>` | OK / `Success: no issues found in 3 source files` |
+
+**关键断言位置**（`tests/agent_runtime/test_capacity_webchat_retention.py`）
+
+| 契约项 | 位置 | 真实边界 |
+|---|---|---|
+| 保留期按清理边界取设置（48h 不动、下一轮 1h 回收；`history_retention_days=0` 不删） | `:453`（:504 / :515 两个边界结论） | contracts typed 设置 + 隔离租户真实 canonical 行（真实 `EventWriter` 分配 seq） |
+| 不删活跃 Run 重放数据 / 在飞 job 输入边界事件 / 唯一摘要 | `:530`（:600–:608） | 真实 `run_record` 状态 + 真实 `memory_consolidation_job` + 真实 `CONTEXT_SUMMARY` 行 |
+| 可见历史只回收摘要覆盖的旧消息（无摘要会话一条不删） | `:612`（:735–:748） | 真实摘要 `covers_up_to_seq` 覆盖关系 + 活跃 Run/job 引用 |
+| 游标过期明确 + 保留边界在 API 可观测 + checkpoint 不回退 | `:751`（:783 HTTP 410 + `earliest_seq`；:800 checkpoint） | 真实 `GET /v1/runs/{id}/events`（真实 RunService/EventTailHub） |
+| 仍待投递/待核实回执与 feed 水位 | `:839`（:874 计数；:897 `last_seq`；:906 收件箱读取；:915 同键 reserve 命中回执） | 真实 `ChannelDeliveryService` reserve/ack（`DELIVERED`/`UNKNOWN`）+ 真实 feed 行 |
+| 暂存活跃引用/宽限保护 + 暂存与 Run 字节独立 | `:955`（:1000 动作分类；:1016 Run 制品字节仍可读；:1027 宽限归零后回收） | 真实暂存字节 + 真实 `os.link` 发布的 Run 键 + 真实文件 mtime |
+| Token 过期不删对话（完整扫描后会话/水位/可见历史不动） | `:1045`（:1100 sweep 计数；:1112 会话与 `last_seq`） | 真实 `control.chat_access_token`/`chat_session` 过期行 + 真实会话/事件 |
+| 制品清理不删活跃 Run/job 引用的已受理制品；已清理字节读取一律 404 | `:1167`（:1230 动作分类；:1252 真实解析路由 404/200） | 真实 `runtime.run_record` + `task.task_execution` 行 + 真实共享文件 + 真实内部产物解析路由 |
+
+**实现与设计事实**：保留期来自 contracts schema（唯一来源），清理每次边界取一次；`tenant_id` 谓词让破坏性清理可在共享库上只碰一个租户；软删保留 `(conversation_id, seq)` 与 `(tenant_id, delivery_key)` 完整唯一，水位与回执不回退。
+
+**遗留（deferred，非本任务可闭合）**：① 装配根把 `run_retention_sweep` 挂进独立维护循环属 TASK-096（本任务只交付清理本体与报告，不占请求路径）；② 清理/保留指标目录属 TASK-098（当前只有 `webchat_retention_sweep` info 日志与可对账报告）；③ Console 产物清理的候选 SQL 改动落在任务 Files 未列出的 `artifact_retention_repository.py`——候选查询归它所有，服务层只补口径说明；④ `history_retention_days>0` 的实际回收以"最新摘要覆盖"为前提（压缩后才可回收旧原文），无摘要会话永久保留——这是 §3.6"不能删掉唯一上下文来源"的显式保护；⑤ 全量 pytest 验收/单测两条 heavy 校验按 validation.yml 口径延后到 verify-e2e/归档。
+- B-07: verified — automated command passed; run_id=1faeffdae9554f809907d0952eb91452 (confirmed_by: runner)
+- B-269: verified — automated command passed; run_id=1faeffdae9554f809907d0952eb91452 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+
+- [2026-10-18] RED 记录：验收文件先落地（collection error，缺 `channel_retention`）
+- [2026-10-18] 实现四类保留清理（活跃引用/唯一摘要/孤儿宽限保护）+ Console 制品候选的活跃引用保护；GREEN 8 passed
+- [2026-10-18] completed (done)
 
 ---
 
