@@ -406,7 +406,7 @@
 | B-264 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-064 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_activity_read.py"] | . | 300 |  |
 | B-265 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-065 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_reservation.py"] | . | 300 |  |
 | B-266 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-066 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_pump.py"] | . | 300 |  |
-| B-267 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-067 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_delivery.py"] | . | 300 |  |
+| B-267 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-067 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_delivery.py"] | . | 300 |  |
 | B-268 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-068 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"] | . | 300 |  |
 | B-269 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-069 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | . | 300 |  |
 | B-270 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-070 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_notification_api.py"] | . | 300 |  |
@@ -4238,7 +4238,7 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 ## TASK-067: 机器人收尾与主动兜底统一去重
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-048, TASK-066
 - **Source**: agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约
@@ -4253,25 +4253,48 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 ### Checklist
 
-- [ ] [B-267][integration] 先在`tests/gateway/test_capacity_webchat_gateway_delivery.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：活跃ReplySession和主动交付使用同delivery_key预留/确认。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-267] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-267] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_delivery.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-267][integration] 先在`tests/gateway/test_capacity_webchat_gateway_delivery.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：活跃ReplySession和主动交付使用同delivery_key预留/确认。RED：`uv run pytest -q tests/gateway/test_capacity_webchat_gateway_delivery.py` exit=2，**1 error during collection（0 passed / 0 failed, 0.26s）**：`ModuleNotFoundError: No module named 'muad_im_gateway.application.channel_delivery'`——验收文件先落地，同键协调模块尚不存在（日志 `$TMPDIR` 外 `/tmp/b267-red.log`）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① 新增 `application/channel_delivery.py`——`terminal_delivery_key`（稳定键 `run:{run_id}:terminal`，与 Runtime 持久通知/投递泵同一个键）、`ChannelDeliveryProtocol`（API-18 reserve/ack 端口）、`DeliveryPermissionPort` + `ConsoleDeliveryPermission`（按**原入口**复核接收者/Agent 未变且仍被授权）、`TerminalDeliveryPort`（`deliver`/`confirm`）、`ActiveChannelDelivery`（`deliver`：reserve→主动发送→**实际发送成功才 ack**；`confirm`：活跃会话收尾的同键认领+确认；已送达回执重放⇒去重、别人持有效租约⇒不抢发、`UNKNOWN`⇒不自动重发、无持久出站意图/协调端口不可用⇒按原语义直接发送，**不因此丢消息**）；ACK 丢失⇒留痕 + 行留 DELIVERING（至少一次）。② `application/runtime_client.py`——受信 API-18 客户端（`reserve_delivery`/`ack_delivery`，服务身份 + 部署租户 + 真实契约解析）。③ `application/inbound.py`——终态交付统一走同键协调：活跃回复会话收尾 `confirm`、会话失联兜底 `deliver`，失败不静默（`im_final_delivery_total` + 日志）；`state.agent_id` 用于交付时权限复核。④ `main.py` 装配根注入协调器（网关仍不持库，只做 HTTP 调用）。⑤ 删除 `application/final_delivery.py`（旧 `run:{run_id}:final` 键 + 网关自持 Redis 去重），不留双路径/兼容层。
+- [x] [B-267] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-267] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_delivery.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**5 passed in 9.83s**。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-267 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | 活跃ReplySession和主动交付使用同delivery_key预留/确认；路由保持原entry/Agent/user并重核接收权限，ACK丢失保留可追溯至少一次语义 | tests/gateway/test_capacity_webchat_gateway_delivery.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_delivery.py"] | planned |
+| B-267 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | 活跃ReplySession和主动交付使用同delivery_key预留/确认；路由保持原entry/Agent/user并重核接收权限，ACK丢失保留可追溯至少一次语义 | tests/gateway/test_capacity_webchat_gateway_delivery.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_delivery.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+> RED/GREEN 与断言位置如下。真实边界：**真实 Gateway 交付管线与适配器**（`InboundPipeline` + 真实 `WeComAdapter`，官方 SDK 端口是进程内探针）+ **真实 HTTP/SSE 协议探针**（真实 TCP 上的真实 API-18 路由 `POST /internal/channel-notifications/reserve|ack`，真实 `require_internal_service` 门控与真实 PG 状态机；真实 `text/event-stream` 应答；Console 是真实 HTTP 桩）+ **隔离 PostgreSQL**（`async_tool_datastore`：每用例一个空库 + `alembic upgrade head`，跑完 drop，不触碰共享 dev 库）+ **真实 Runtime 投递泵**（`ChannelDeliveryPump` + `TenantChannelDelivery` 的 reserve/ack 状态转换）。**网关不持库**：测试不向 Gateway 注入任何数据库对象（只注入 HTTP 客户端），DB 只经 Owner 的 API-18 接口访问，测试自己用独立连接读行事实作证据。E2E 保持 planned，最终 verify-e2e 记录完整证据。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-267 | `uv run pytest -q tests/gateway/test_capacity_webchat_gateway_delivery.py` exit=2，**1 error during collection（0 passed / 0 failed, 0.26s）**：`ModuleNotFoundError: No module named 'muad_im_gateway.application.channel_delivery'` | 同命令 exit=0，**5 passed in 9.83s** | ① `test_b267_lost_reply_session_delivers_on_the_shared_key_and_the_pump_skips_it` L589-631：**同一稳定键**（L607-609：`terminal_delivery_key == run_terminal_delivery_key`、== 通知行 `delivery_key`、匹配契约 `TERMINAL_DELIVERY_KEY`）；**实际发送成功才 ack**（L612 原入口主动发送恰一次 `(chat, 完整答案)`；L614-617 真实 API-18 端口记录 reserve/ack 都落在 `run:{run_id}:terminal`、outcome=`DELIVERED`、epoch=1）；行事实（L619-625：`DELIVERED`、attempt=1/lease_epoch=1、租约清空、冻结回执、`read_at IS NULL`）；**兜底泵同键不重发**（L628-631：`claim_due` 空、`run_once()==0`、记录式发送器零意图）。② `test_b267_active_finalization_confirms_the_shared_key_without_resending` L634-672：**活跃 ReplySession 收尾**（L650 真实入站→真实 SDK 回调→会话流收尾）按同键 reserve+ack（L658-660）而**不重复主动发送**（L657 `sent_texts == []`）、行 `DELIVERED` 且租约清空（L663-667）、兜底泵同键不重发（L670-672）。③ `test_b267_proactive_delivery_first_is_replayed_by_the_active_finalization` L680-724：兜底先送达（L692-699：一次投递、**路由=原入口** bot/用户/会话、正文=已持久终态文本）；活跃收尾命中**冻结回执**（L717-719：不再投递、不再 ack）；行不被改写（L721-724：attempt/epoch 不变、`delivery_result` 逐字段相同、`read_at IS NULL`）。④ `test_b267_delivery_rechecks_permission_and_keeps_the_original_route` L732-763：**路由保持原 entry/Agent/user**（L748-755：受理与交付两次解析都带原入口四元组且逐字段相同）；**重核接收权限**（受理后被撤权 ⇒ L757-759 不发送、不 reserve、不 ack；L761-763 行仍 `PENDING`/attempt=0/无租约/无回执）。⑤ `test_b267_lost_ack_stays_traceable_and_the_same_key_retries_at_least_once` L771-810：**ACK 丢失**（L790 确认响应丢失、无回执；L791-795 行留 `DELIVERING`、attempt=1/epoch=1、租约在、`delivery_result` 仍为空、未读）；租约到期后同键重来被接管（L799-800 再次真实发送；L803-810 `DELIVERED`、attempt=2/epoch=2、两次 reserve 同一键、第二次确认 epoch=2）⇒ **可追溯的至少一次**。 | **真实 Gateway 路由/适配器**：真实 `InboundPipeline.handle`（受理→SSE→终态交付）与真实 `WeComAdapter`（真实 `open_reply`/`send_active`/SDK 端口探针，`wecom_bot_state_changed` 连接状态真实流转）；**真实 HTTP/SSE**：uvicorn 真实 TCP 端口上的真实 API-18 路由（真实 `require_internal_service` 403 面 + 真实响应封套）与真实 `text/event-stream` 应答，`RuntimeClient`/`ConsoleClient` 都是真实 HTTP 客户端；**数据库经 Owner 接口访问**：网关侧零 DB 对象，API-18 端口用服务线程自己的事件循环 engine（`_LoopSessions`），测试用独立连接读 `runtime.channel_notification` 行；**隔离 PostgreSQL**：真实 `(tenant,delivery_key)` 唯一约束、真实 `channel_notification` 行（由 TASK-063 的 `write_run_notification(delivery_state=PENDING)` 写入）、真实 PG 服务端时钟（租约/接管/退避裁决）；**真实投递泵**：`ChannelDeliveryPump` + `TenantChannelDelivery`（发送边界用记录式 sender 观察，Runtime→Gateway HTTP 出站面已由 TASK-066 的真实网关探针覆盖）。 | verified |
+
+实现要点：**同一稳定键**——`run:{run_id}:terminal`（与 TASK-063 的持久通知、TASK-066 的投递泵同一个键），网关侧不再有第二个键（旧 `run:{run_id}:final` 与网关自持 Redis 去重随 `final_delivery.py` 一并删除，不留双路径）。**实际发送成功才 ack**——reserve 授出租约后先发送：发送失败 ack `NOT_SENT`（回 PENDING 重投），发送成功 ack `DELIVERED`（冻结首次结果）；**已送达回执重放** ⇒ 不重发也不重写回执；**别人持有效租约**（Runtime 泵在发）⇒ 不抢发；`UNKNOWN` ⇒ 不自动重发、不标送达。**活跃收尾与兜底共用一条协调**——活跃 ReplySession 收尾（终态内容已写进会话流）走 `confirm`：同键认领 + 确认，阻止兜底重发；会话失联才走 `deliver` 主动发送。**接收权限复核**——交付前按**原入口**再解析一次（同一 Console 面），未授权或接收者/Agent 已变即不发送、不占投递资格；**路由保持原 entry/Agent/user**（企微按原入口指针，不重新猜来源）。**ACK 丢失可追溯**——确认丢失不改变"已发出"的事实（不静默），行留在 `DELIVERING`（attempt/租约可审计、`delivery_result` 仍为空），租约到期后同键重来被接管（epoch 前进）再次投递 ⇒ 至少一次；**降级不丢消息**——无持久出站意图（无入口归属/网页持久入箱）或协调端口不可用 ⇒ 按原语义直接发送（at-least-once，与 `RULE-13` 同口径），日志留痕。
+
+静态检查：`uv run ruff check`（本任务 4 个改动源文件 + 1 个新增模块 + 2 个测试文件 + conftest）干净；`uv run mypy apps packages` → Success: no issues found in 437 source files；AST 逐函数核对：本任务新增/修改的生产函数全部 ≤50 行（最长 `deliver` 24、`confirm` 11、`_reserve` 30、`_send_and_ack` 19、`_ack` 31、`may_deliver` 20、`_deliver_final_text` 31）。`docs/configuration-inventory.csv` 保持 CRLF（1519 行、0 裸 LF），删除 `final_delivery.py` 4 行、新增 `channel_delivery.py` 4 行与 `runtime_client.py` 2 行并平移受影响行号，`uv run pytest -q tests/test_configuration_inventory.py` exit=0，4 passed。
+
+诚实记录（测试强度自检，三次变异都被现有断言抓住，均已还原）：① 把稳定键改回旧形态 `run:{run_id}:final` ⇒ 4 failed / 1 passed（同键协调落空）；② 跳过交付时权限复核 ⇒ 权限用例失败；③ 活跃会话收尾不参与同键协调（退化成兜底发送）⇒ 活跃收尾用例失败（L657 `sent_texts == []` 与 L658 reserve 证据）。
+
+计划外文件披露（计划 Files 之外的必需联动）：① `apps/im-gateway/src/muad_im_gateway/application/inbound.py`（终态交付的唯一调用点：活跃收尾/兜底分流与 `state.agent_id`）；② `apps/im-gateway/src/muad_im_gateway/application/runtime_client.py`（受信 API-18 客户端；网关 HTTP 客户端唯一实现处）；③ `apps/im-gateway/src/muad_im_gateway/main.py`（装配根注入协调器，否则装配后仍无协调端口）；④ `apps/im-gateway/src/muad_im_gateway/application/final_delivery.py`（**删除**：旧键与网关自持 Redis 去重被本任务的同键协调取代）；⑤ `tests/gateway/test_waiting_resume.py`（TASK-006 的终态交付用例改按新契约断言：API-18 端口进程内替身 + 同键 reserve/ack）；⑥ `tests/gateway/conftest.py`（暴露 `async_tool_datastore` 隔离库夹具）；⑦ `docs/configuration-inventory.csv`（项目硬约束）。**`apps/im-gateway/src/muad_im_gateway/api/delivery.py` 未改动**：泵/Worker 出站到 `/internal/deliveries` 的入站方向行为一字未变——协调发生在**交付前**（API-18 租约），已持租约的调用方本来就该直发，网关侧再加一层同键判断只会重复 Owner 的裁决。未新增迁移/DDL。
+
+遗留（deferred，非本任务可闭合）：① **机器人路由的 `PENDING` 出站意图由 Runtime 终态写入路径选择**（TASK-063 遗留①：现网终态通知写 `NOT_REQUIRED`，`PENDING` 的按通道选择属装配接线）——本任务实现并验证了同键协调本身（验收用例用真实 `write_run_notification(delivery_state=PENDING)` 接缝构造意图，并用真实泵证明同键去重与接管）；按通道写 `PENDING` 的接线归 TASK-094/096 的装配面，不改本任务的契约。② **过期租约的自动回收**：投递泵的领取谓词只认 `PENDING`（TASK-066 已验证的语义），`DELIVERING`+过期租约只能被**同键 reserve** 接管（本任务用例⑤证明了接管语义与至少一次）——自动回收路径（如独立租约回收循环）属 TASK-069/094。③ 交付/通知指标目录属 TASK-098（本任务只沿用既有 `im_final_delivery_total` 的标签词表并新增 `deduplicated` 取值）。④ 待确认通知的机器人文案本地化仍属 TASK-067/096 的渲染边界（本任务不新增 i18n 渲染）。⑤ E-19/S-03/S-07 的端到端（Gateway 重启、真实企微探针、多实例）由 TASK-111 的 verify-e2e 记录。
+- B-267: verified — automated command passed; run_id=b637f160bfb94a74a878f1ad128d686d (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-267 RED：`tests/gateway/test_capacity_webchat_gateway_delivery.py` → exit=2，1 error during collection（`muad_im_gateway.application.channel_delivery` 尚不存在）
+- [2026-10-18] 实现：新增 `application/channel_delivery.py`（稳定键 `run:{run_id}:terminal` + API-18 reserve/ack 协调 + 交付时权限复核 + ACK 丢失可追溯）；`runtime_client.py` 受信 API-18 客户端；`inbound.py` 活跃收尾/兜底统一走同键；`main.py` 装配注入；删除 `final_delivery.py`（旧键 + 网关自持去重）；同步 `docs/configuration-inventory.csv`（CRLF 保持）
+- [2026-10-18] B-267 GREEN：同命令 exit=0，5 passed in 9.83s；断言位置与真实边界证据见 Acceptance Evidence
+- [2026-10-18] 测试强度自检（变异三次，均已还原）：旧键 `:final` ⇒ 4 failed / 1 passed；跳过权限复核 ⇒ 权限用例失败；活跃收尾不参与协调 ⇒ 活跃收尾用例失败
+- [2026-10-18] 域回归（最终代码；无本机 dev 残留进程）：`uv run pytest -q tests/gateway tests/contracts tests/architecture tests/test_configuration_inventory.py` exit=0，**1745 passed in 126.85s**。诚实记录：同一命令的首轮为 **1743 passed / 1 failed**——失败是 `tests/gateway/test_delivery_api.py::test_e05_worker_http_to_gateway_redis_probe_end_to_end`（Worker→Gateway 投递 + Redis 去重，与本任务改动无交集）：单跑 1 passed、`tests/gateway` 整跑 426 passed、同组合复跑 1745 passed；基线（`git stash` 后同命令）1740 passed。按既有口径记为共享 dev 库的偶发污染，未改任何实现去迎合它
+- [2026-10-18] 静态检查：`ruff` 干净；`mypy apps packages` 437 files 无问题；新增/修改生产函数全部 ≤50 行；配置盘点 4 passed
+- [2026-10-18] completed (done)
 
 ---
 

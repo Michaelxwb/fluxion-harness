@@ -14,6 +14,12 @@ from muad_api.error_codes import ErrorCode
 from muad_api.security import INTERNAL_SERVICE_HEADER
 from muad_common import SharedSettings
 from muad_contracts import RunRequest
+from muad_contracts.channel_delivery import (
+    DeliveryAck,
+    DeliveryAckReceipt,
+    DeliveryLeaseGrant,
+    DeliveryReservationRequest,
+)
 from muad_contracts.webchat import WebchatUploadRegistration
 
 from .envelope import (
@@ -46,6 +52,9 @@ INTERNAL_UPLOADS_PATH = "/internal/webchat/uploads"
 #: 受信附件解析端口（TASK-055）：`artifact_id` → 本主体名下会话的归属 + 渠道中立引用。
 INTERNAL_ARTIFACT_PATH = "/internal/webchat/artifacts/{artifact_id}"
 CANCEL_ACTIVE_PATH = "/v1/runs/cancel-active"
+#: 受信 API-18 协调端口（TASK-067）：Run 终态交付按稳定 delivery_key 的 reserve/ack。
+CHANNEL_DELIVERY_RESERVE_PATH = "/internal/channel-notifications/reserve"
+CHANNEL_DELIVERY_ACK_PATH = "/internal/channel-notifications/{notification_id}/ack"
 REQUEST_TIMEOUT_SEC = 10.0
 STREAM_TIMEOUT_SEC = 300.0
 CALLER_SERVICE = "muad-im-gateway"
@@ -434,6 +443,29 @@ class RuntimeClient:
             tenant_id,
             {"user_id": str(user_id)},
         )
+
+    async def reserve_delivery(
+        self, request: DeliveryReservationRequest, *, tenant_id: str
+    ) -> DeliveryLeaseGrant:
+        """API-18 预占（TASK-067）：按稳定 `delivery_key` 取租约；已送达重放冻结的首次结果。
+
+        网关不持库：Run 终态交付的同键协调只经这条受信 HTTP 端口（服务身份 + 部署租户）。
+        """
+        data = await self._post_internal_json(
+            CHANNEL_DELIVERY_RESERVE_PATH, request.model_dump(mode="json"), tenant_id
+        )
+        return DeliveryLeaseGrant.model_validate(data)
+
+    async def ack_delivery(
+        self, notification_id: UUID, body: DeliveryAck, *, tenant_id: str
+    ) -> DeliveryAckReceipt:
+        """API-18 确认：实际发送成功才写 `DELIVERED`；失约/响应丢失显式失败（可追溯重试）。"""
+        data = await self._post_internal_json(
+            CHANNEL_DELIVERY_ACK_PATH.format(notification_id=notification_id),
+            body.model_dump(mode="json"),
+            tenant_id,
+        )
+        return DeliveryAckReceipt.model_validate(data)
 
     async def _admit_stream(
         self,

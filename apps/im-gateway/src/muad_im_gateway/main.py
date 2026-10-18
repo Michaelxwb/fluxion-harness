@@ -19,6 +19,7 @@ from muad_logging import configure_logging
 from .api.delivery import router as delivery_router
 from .api.health import readiness_checks, readiness_detail
 from .application.bot_snapshot import BotSnapshotCache
+from .application.channel_delivery import ActiveChannelDelivery, ConsoleDeliveryPermission
 from .application.console_client import ConsoleClient
 from .application.inbound import InboundPipeline
 from .application.inbound_attachments import InboundAttachmentStore
@@ -102,6 +103,11 @@ async def _build_resources(
         attachment_store=InboundAttachmentStore(NfsArtifactStore(settings.artifact_root)),
         tenant_id=settings.default_tenant_id,
         settings_client=settings_client,
+        # Run 终态交付的同键协调（设计 §3.6）：活跃会话收尾与兜底主动交付共用
+        # `run:{run_id}:terminal`，经 Runtime 的受信 API-18 端口 reserve/ack（网关不持库）。
+        channel_delivery=ActiveChannelDelivery(
+            runtime, permission=ConsoleDeliveryPermission(console)
+        ),
     )
     # 产物交付前按 `artifact_id` 解析归属（跨租户拿不到东西）：解析口径在 Runtime 那一处，
     # 网关只做调用方 —— 详见 `infrastructure/artifact_resolver.py` 的头注。
