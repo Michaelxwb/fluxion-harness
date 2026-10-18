@@ -35,19 +35,27 @@ class ArtifactResolveClient:
         service_token: str | None = None,
         timeout_sec: float = RESOLVE_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._service_token = service_token
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_sec, transport=transport)
+        # 请求用绝对 URL 组装：注入的共享池客户端没有 base_url（一个池服务多个目标）。
+        self._base_url = base_url.rstrip("/")
+        # 装配根注入的业务池由**装配根拥有并关闭**（本实例只借用）；未注入时自建自关。
+        self._owns_client = client is None
+        self._client = client or httpx.AsyncClient(timeout=timeout_sec, transport=transport)
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        if self._owns_client:
+            await self._client.aclose()
 
     async def resolve(self, artifact_id: uuid.UUID, *, tenant_id: str) -> AttachmentRef:
         headers = {"X-Tenant-Id": tenant_id}
         if self._service_token:
             headers["X-Internal-Service"] = self._service_token
         try:
-            response = await self._client.get(f"{RESOLVE_PATH}/{artifact_id}", headers=headers)
+            response = await self._client.get(
+                f"{self._base_url}{RESOLVE_PATH}/{artifact_id}", headers=headers
+            )
         except httpx.HTTPError as exc:
             raise ArtifactResolveError(type(exc).__name__) from exc
         if response.status_code == 404:

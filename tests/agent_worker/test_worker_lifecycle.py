@@ -228,10 +228,13 @@ async def test_sweep_deadlines_marks_failed(tenant: TenantContext) -> None:
 
 class _FakeLoop:
     instances: list[_FakeLoop] = []
+    maintenance_instances: list[_FakeLoop] = []
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         self.started = asyncio.Event()
         self.stopped = False
+        self.maintenance_started = asyncio.Event()
+        self.maintenance_stopped = False
         self._forever = asyncio.Event()
         _FakeLoop.instances.append(self)
 
@@ -241,6 +244,16 @@ class _FakeLoop:
             await self._forever.wait()
         except asyncio.CancelledError:
             self.stopped = True
+            raise
+
+    async def run_maintenance_forever(self) -> None:
+        """独立维护循环（TASK-095）：与领取循环分开的一条后台任务，退出同样要停。"""
+        _FakeLoop.maintenance_instances.append(self)
+        self.maintenance_started.set()
+        try:
+            await self._forever.wait()
+        except asyncio.CancelledError:
+            self.maintenance_stopped = True
             raise
 
 
@@ -256,10 +269,11 @@ class _FakeNotifier:
 
 
 async def test_b122_lifespan_runs_and_stops_all_background_loops(monkeypatch: pytest.MonkeyPatch) -> None:
-    """真实 lifespan 启动三条后台循环；退出时全部取消并等待，无悬挂任务。"""
+    """真实 lifespan 启动各后台循环（含独立维护循环）；退出时全部取消并等待，无悬挂任务。"""
     import muad_agent_worker.main as main_module
 
     _FakeLoop.instances = []
+    _FakeLoop.maintenance_instances = []
     notifier = _FakeNotifier()
     monkeypatch.setattr(main_module, "WorkerLoop", _FakeLoop)
     monkeypatch.setattr(main_module, "SchedulerLoop", _FakeLoop)
@@ -274,10 +288,17 @@ async def test_b122_lifespan_runs_and_stops_all_background_loops(monkeypatch: py
     async with main_module.app.router.lifespan_context(main_module.app):
         await asyncio.gather(*(loop.started.wait() for loop in _FakeLoop.instances))
         assert len(_FakeLoop.instances) == 3, "Worker/Scheduler/Delivery 各自独立循环"
+        worker_fake = _FakeLoop.instances[0]
+        await asyncio.wait_for(worker_fake.maintenance_started.wait(), timeout=5)
+        assert _FakeLoop.maintenance_instances == [worker_fake], (
+            "Worker 的回收维护循环是独立后台任务（TASK-095）"
+        )
         assert all(not loop.stopped for loop in _FakeLoop.instances)
+        assert not worker_fake.maintenance_stopped
         assert main_module.app.state.wakeup_notifier is notifier
 
     assert all(loop.stopped for loop in _FakeLoop.instances), "退出必须取消并等待后台任务"
+    assert worker_fake.maintenance_stopped, "维护循环同样随退出停止"
     assert notifier.closed is True
     leftover = [task for task in asyncio.all_tasks() - before if not task.done()]
     assert leftover == [], f"存在悬挂后台任务: {leftover}"
