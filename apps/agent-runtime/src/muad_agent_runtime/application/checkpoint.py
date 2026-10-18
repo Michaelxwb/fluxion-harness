@@ -18,6 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ..infrastructure.db import SessionFactory, SessionFactoryProvider, get_session_factory
 from ..infrastructure.models.runtime import RunInterrupt, RunRecord
 from .async_tools.continuation_service import ExecutionIdentity, _write_checkpoint
+from .channel_notifications import (
+    KIND_RUN_WAITING_INPUT,
+    run_waiting_delivery_key,
+    write_run_notification,
+)
 from .memory_proposals import (
     confirmation_source,
     ensure_no_memory_confirmation,
@@ -57,6 +62,7 @@ async def suspend_memory_confirmation(
                 expires_at=proposal.expires_at,
             )
         )
+        confirmation_event_id = uuid.uuid4()
         saved.context_upto_seq = await EventWriter(session).append(
             tenant_id=run.tenant_id,
             conversation_id=run.conversation_id,
@@ -70,8 +76,34 @@ async def suspend_memory_confirmation(
                 "expires_at": proposal.expires_at.isoformat(),
                 "proposal_hash": memory_hash(proposal.model_dump(mode="json")),
             },
+            event_id=confirmation_event_id,
         )
         run.status, run.lease_owner, run.lease_until, run.update_time = STATUS_WAITING_INPUT, None, None, now
+        await _notify_waiting_confirmation(
+            session,
+            run=run,
+            interrupt_id=request.interrupt_id,
+            event_id=confirmation_event_id,
+        )
+
+
+async def _notify_waiting_confirmation(
+    session: AsyncSession,
+    *,
+    run: RunRecord,
+    interrupt_id: uuid.UUID,
+    event_id: uuid.UUID,
+) -> None:
+    """待确认与用户通知**同一事务**（design §3.6）：feed 锁在 Conversation/Run 锁之后；
+    通知写不进去就整体回滚，绝不留下"等确认但没有可发现通知"的会话。
+    """
+    await write_run_notification(
+        session,
+        run=run,
+        kind=KIND_RUN_WAITING_INPUT,
+        delivery_key=run_waiting_delivery_key(run.id, interrupt_id),
+        event_id=event_id,
+    )
 
 
 async def _validate_memory_proposal(

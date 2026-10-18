@@ -42,7 +42,10 @@ SCHEMA = "runtime"
 from tests.async_tool_datastores import async_tool_database, async_tool_datastore  # noqa: F401, E402
 
 RUNTIME_TABLES = ("conversation", "run_record", "runtime_snapshot", "canonical_event", "run_interrupt")
+#: 清理顺序：通知行先于 feed 与 run_record/conversation（同 Owner 物理 FK）；终端 Run 会留通知行。
 CLEANUP_ORDER = (
+    "channel_notification",
+    "channel_notification_feed",
     "memory_consolidation_job",
     "memory_command_receipt",
     "user_memory_history",
