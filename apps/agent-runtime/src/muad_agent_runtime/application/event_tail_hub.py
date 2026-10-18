@@ -44,6 +44,11 @@ from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.models.runtime import CanonicalEvent, Conversation
+from ..metrics import (
+    EVENT_STREAM_HINT_METRIC,
+    record_outcome,
+    record_tail_outcome,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -141,10 +146,12 @@ class RedisWakeupHint:
         if self.degraded and now < self._retry_at:
             return None
         client = self._client_factory(self._redis_url, self._max_connections)
+        was_degraded = self.degraded
         try:
             await client.ping()
         except RedisError:
             self.degraded = True
+            record_outcome(EVENT_STREAM_HINT_METRIC, "degraded")
             self._retry_at = now + HINT_RETRY_SEC
             logger.warning("event_tail_hint_unavailable", extra={"retry_in_sec": HINT_RETRY_SEC})
             with suppress(Exception):
@@ -152,6 +159,9 @@ class RedisWakeupHint:
             return None
         self.degraded = False
         self._client = client
+        if was_degraded:
+            # 降级恢复必须可见：Redis 只影响唤醒时延，恢复后不该继续背着"降级中"。
+            record_outcome(EVENT_STREAM_HINT_METRIC, "ok")
         return client
 
     async def publish(self, payload: str) -> None:
@@ -186,6 +196,7 @@ class RedisWakeupHint:
 
     def _mark_degraded(self, event: str) -> None:
         self.degraded = True
+        record_outcome(EVENT_STREAM_HINT_METRIC, "degraded")
         self._retry_at = time.monotonic() + HINT_RETRY_SEC
         logger.warning(event, extra={"retry_in_sec": HINT_RETRY_SEC})
         client, self._client = self._client, None
@@ -363,12 +374,14 @@ class EventTailHub:
             await self._hint.publish(_hint_payload(tenant_id, conversation_id))
         except Exception:  # noqa: BLE001 —— hint 只影响唤醒时延，不影响事实与结果
             self._stats.hint_failures += 1
+            record_tail_outcome("hint_failure")
             logger.warning(
                 "event_tail_hint_publish_failed", extra={"conversation_id": str(conversation_id)}
             )
 
     def _wake(self, channel: _Channel) -> None:
         self._stats.wakeups += 1
+        record_tail_outcome("wakeup")
         for subscriber in channel.subscribers:
             subscriber.waiter.set()
 
@@ -470,6 +483,7 @@ class EventTailHub:
     async def _rebuild(self, channel: _Channel, subscriber: _Subscriber) -> AsyncIterator[TailBatch]:
         """慢消费者：共享窗口已淘汰其游标之前的行，按持久水位分页补查重建（计数可见）。"""
         self._stats.lagged_rebuilds += 1
+        record_tail_outcome("lagged_rebuild")
         logger.warning(
             "event_tail_lagged_rebuild",
             extra={
@@ -501,6 +515,7 @@ class EventTailHub:
             await asyncio.wait_for(subscriber.waiter.wait(), timeout=self._fallback_poll_sec)
         except TimeoutError:
             self._stats.fallback_polls += 1
+            record_tail_outcome("fallback_poll")
 
     def _channel(self, tenant_id: str, conversation_id: uuid.UUID) -> _Channel:
         key = (tenant_id, conversation_id)
@@ -540,6 +555,7 @@ class EventTailHub:
         through = await self.watermark(tenant_id=tenant_id, conversation_id=conversation_id)
         if after_seq > through:
             self._stats.cursor_ahead += 1
+            record_tail_outcome("cursor_ahead")
             raise AppError(
                 ErrorCode.CURSOR_AHEAD, data={"after_seq": after_seq, "through_seq": through}
             )
@@ -548,6 +564,7 @@ class EventTailHub:
         )
         if floor is not None and after_seq + 1 < floor:
             self._stats.cursor_expired += 1
+            record_tail_outcome("cursor_expired")
             raise AppError(
                 ErrorCode.CURSOR_EXPIRED, data={"after_seq": after_seq, "earliest_seq": floor}
             )

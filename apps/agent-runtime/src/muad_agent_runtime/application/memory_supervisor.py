@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import JsonValue
 
+from ..metrics import RUNTIME_MAINTENANCE_METRIC, record_outcome
 from .memory_confirmation_expiry import expire_confirmations
 from .memory_consolidation_effects import ConsolidationWorker
 from .memory_expiry import expire_memories
@@ -69,8 +70,11 @@ class MemorySupervisor:
                 await expire_memories(self._worker.factory)
                 await expire_confirmations(self._worker.factory)
             except Exception as exc:
+                record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "memory"})
                 logger.warning("memory_background_pump_failed", extra={"error_type": type(exc).__name__})
                 observe("memory_consolidation_total", labels={"outcome": "ERROR"})
+            else:
+                record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "memory"})
             await asyncio.sleep(self._poll)
 
     async def close(self) -> None:

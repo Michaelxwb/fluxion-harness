@@ -74,6 +74,7 @@ from ..infrastructure.models.runtime import (
 from ..metrics import (
     AGENT_RUNS_METRIC,
     CONTEXT_SUMMARY_METRIC,
+    RUN_QUEUE_TIMEOUT_METRIC,
     RUN_RECLAIM_METRIC,
     record_counter,
     record_outcome,
@@ -747,6 +748,7 @@ async def _expire_queued_one(
             return 0
         await release_admission_in(session, run=run)
         await _close_queued_run(session, run)
+    record_counter(RUN_QUEUE_TIMEOUT_METRIC)
     logger.warning("run_queue_timeout", extra={"run_id": str(run_id), "tenant_id": tenant_id})
     return 1
 

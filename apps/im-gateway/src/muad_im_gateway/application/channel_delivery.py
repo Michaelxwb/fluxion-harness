@@ -117,6 +117,18 @@ class _Claim:
     attempt_id: UUID
 
 
+def _record_outcome(status: TerminalDeliveryStatus) -> TerminalDeliveryStatus:
+    """交付结局记一次（词表与 `TerminalDeliveryStatus` 同源）；返回原值便于直接 return。
+
+    目录模块 import 了 `application.inbound` → 本模块，模块级导入会形成环：按需导入，
+    真实打点与静态类型不受影响。
+    """
+    from ..metrics import CHANNEL_DELIVERY_METRIC, record_outcome
+
+    record_outcome(CHANNEL_DELIVERY_METRIC, status)
+    return status
+
+
 class ConsoleDeliveryPermission:
     """按**原入口**复核接收者与 Agent：解析不到、未授权或身份已变一律不放行。"""
 
@@ -199,12 +211,14 @@ class ActiveChannelDelivery:
         """兜底主动交付：reserve → 主动发送 → 实际发送成功才 ack。"""
         content = text.strip()
         if not content:
+            _record_outcome("failed")
             logger.warning(
                 "channel_delivery_empty_text run_id=%s channel=%s", run_id, route.channel
             )
             return FAILED
         if not isinstance(adapter, ActiveTextDelivery):
             # 渠道没有主动投递能力：**显式失败**。退化成"最新回调"会把答案挂到别人头上。
+            _record_outcome("failed")
             logger.error(
                 "channel_delivery_capability_missing run_id=%s channel=%s", run_id, route.channel
             )
@@ -213,6 +227,7 @@ class ActiveChannelDelivery:
             route, tenant_id=tenant_id, agent_id=agent_id, platform_user_id=platform_user_id
         )
         if not permitted:
+            _record_outcome("failed")
             return FAILED
         claim = await self._reserve(tenant_id=tenant_id, run_id=run_id)
         if claim is None:
@@ -231,6 +246,7 @@ class ActiveChannelDelivery:
         acknowledged = await self._ack(
             claim, outcome="DELIVERED", result=None, run_id=run_id, stage="confirm"
         )
+        _record_outcome("delivered" if acknowledged else "failed")
         return DELIVERED if acknowledged else FAILED
 
     async def _permitted(
@@ -283,11 +299,14 @@ class ActiveChannelDelivery:
         """未授租约：已送达回执 ⇒ 去重；别人在发 ⇒ 不抢发；核实保留 ⇒ 不自动重发。"""
         receipt = grant.receipt
         if receipt is not None and receipt.outcome == "DELIVERED":
+            _record_outcome("deduplicated")
             logger.info("channel_delivery_deduplicated run_id=%s", run_id)
             return DEDUPLICATED
         if grant.state == "DELIVERING":
+            _record_outcome("deduplicated")
             logger.info("channel_delivery_lease_held run_id=%s", run_id)
             return DEDUPLICATED
+        _record_outcome("failed")
         logger.warning(
             "channel_delivery_not_granted run_id=%s state=%s channel=%s",
             run_id,
@@ -306,7 +325,9 @@ class ActiveChannelDelivery:
     ) -> TerminalDeliveryStatus:
         """没有可协调的对象：直接发送（at-least-once）。没送达就是失败，不宣称成功。"""
         if not await self._send(adapter, route, run_id=run_id, text=text):
+            _record_outcome("failed")
             return FAILED
+        _record_outcome("delivered")
         return DELIVERED
 
     async def _send_and_ack(
@@ -321,6 +342,7 @@ class ActiveChannelDelivery:
         """持有租约的发送：失败 ack `NOT_SENT`（回 PENDING 重投），成功 ack `DELIVERED`。"""
         if not await self._send(adapter, route, run_id=run_id, text=text):
             await self._ack(claim, outcome="NOT_SENT", result=None, run_id=run_id, stage="send")
+            _record_outcome("failed")
             return FAILED
         await self._ack(
             claim,
@@ -329,6 +351,7 @@ class ActiveChannelDelivery:
             run_id=run_id,
             stage="send",
         )
+        _record_outcome("delivered")
         return DELIVERED
 
     async def _send(

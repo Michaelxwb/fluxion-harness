@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ...infrastructure.models.async_tools import ToolControlOutbox, ToolOperation
 from ...infrastructure.models.runtime import RunRecord
-from ...metrics import record_outcome
+from ...metrics import RUNTIME_MAINTENANCE_METRIC, record_outcome
 from ..run_events import EventWriter
 from ..tool_result_receipts import OP_TERMINAL, RUN_TERMINAL, lock_run_source
 from .operations import add_cancel_command
@@ -70,8 +70,11 @@ class ControlDispatcher:
             try:
                 await self.run_once()
             except Exception:
+                record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "control"})
                 logger.exception("tool_control_dispatch_tick_failed")
                 record_outcome(METRIC, "SCAN_FAILED")
+            else:
+                record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "control"})
             await asyncio.sleep(self._policy.poll_sec)
 
     async def claim(self, now: datetime, operation_id: UUID | None = None) -> list[ToolControlOutbox]:

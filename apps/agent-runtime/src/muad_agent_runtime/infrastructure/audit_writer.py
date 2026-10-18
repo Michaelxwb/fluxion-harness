@@ -17,6 +17,7 @@ from ..infrastructure.models.runtime import (
     ModelInvocationAudit,
     ToolCallAudit,
 )
+from ..metrics import TOOL_AUDIT_METRIC, record_outcome
 
 logger = logging.getLogger(__name__)
 
@@ -117,10 +118,13 @@ class RuntimeAuditWriter:
             artifact_id=artifact_id,
         )
         if inserted is None:
+            record_outcome(TOOL_AUDIT_METRIC, "replay_skipped")
             logger.info(
                 "tool_call_audit_replay_skipped",
                 extra={"run_id": str(self._run_id), "tool_call_id": tool_call_id},
             )
+            return
+        record_outcome(TOOL_AUDIT_METRIC, "inserted")
 
     async def _insert_tool_call(
         self,

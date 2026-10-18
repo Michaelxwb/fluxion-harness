@@ -44,6 +44,14 @@ from ..infrastructure.model_capacity_store import (
     LeaseWrite,
     ModelCapacityStore,
 )
+from ..metrics import (
+    MODEL_CAPACITY_METRIC,
+    MODEL_LEASE_LOST_METRIC,
+    MODEL_SETTLEMENT_METRIC,
+    MODEL_SWEEP_METRIC,
+    record_counter,
+    record_outcome,
+)
 
 #: 额度窗口固定 60 秒（design §3.7：不提供任意算法切换）
 QUOTA_WINDOW_SECONDS = 60
@@ -344,6 +352,18 @@ def _finished_release(lease: LeaseSnapshot, released: bool) -> CapacityRelease:
     )
 
 
+def _settlement_status(state: str) -> str:
+    """结算结局的**封闭词表**：只有 `SETTLED` 与 `UNKNOWN`（UNKNOWN 保留占用）两种终态。
+
+    词表外的状态说明租约表被写坏：显式失败（`ValueError`），不把未知状态当标签发出去。
+    """
+    if state == "SETTLED":
+        return "SETTLED"
+    if state == "UNKNOWN":
+        return "UNKNOWN"
+    raise ValueError(f"unexpected model lease state {state!r}")
+
+
 def _parked_release(lease: LeaseSnapshot, plan: _CapacityPlan) -> CapacityRelease | None:
     """已终态/UNKNOWN 租约的幂等分支：`None` = 本次要真的推进容量与状态。
 
@@ -386,7 +406,12 @@ async def _advance_transition(
     lease = await store.lock_attempt(tenant_id=tenant_id, call_attempt_id=call_attempt_id)
     if lease is None:  # pragma: no cover - 无锁读与行锁之间不可能删除
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
-    _require_lease_holder(lease, epoch=epoch, lease_owner=lease_owner)
+    try:
+        _require_lease_holder(lease, epoch=epoch, lease_owner=lease_owner)
+    except AppError:
+        # 失约停手必须留痕：执行方不能靠一次状态推进把失效的执行权续到未来。
+        record_outcome(MODEL_LEASE_LOST_METRIC, "transition")
+        raise
     parked = _parked_release(lease, plan)
     if parked is not None:
         return parked
@@ -424,7 +449,25 @@ class ModelCapacityService:
     async def reserve(
         self, *, tenant_id: str, lease_owner: str, request: ModelCapacityReservationRequest
     ) -> CapacityReservation:
-        """原子预占：池锁→组行→Key 行→attempt，锁内只判定与计数，不发网络请求。"""
+        """原子预占：按 workload 记裁决结局（拒绝按目录错误码，不静默降级）。"""
+        try:
+            reservation = await self._reserve_in(
+                tenant_id=tenant_id, lease_owner=lease_owner, request=request
+            )
+        except AppError as exc:
+            record_outcome(MODEL_CAPACITY_METRIC, exc.code, {"workload": request.workload})
+            raise
+        record_outcome(
+            MODEL_CAPACITY_METRIC,
+            "REUSED" if reservation.reused else "RESERVED",
+            {"workload": request.workload},
+        )
+        return reservation
+
+    async def _reserve_in(
+        self, *, tenant_id: str, lease_owner: str, request: ModelCapacityReservationRequest
+    ) -> CapacityReservation:
+        """预占本体：池锁→组行→Key 行→attempt，锁内只判定与计数，不发网络请求。"""
         async with self._session_factory_provider()() as session, session.begin():
             store = self._store_factory(session)
             key_limits, group_limits = await _require_limits(store, tenant_id=tenant_id, request=request)
@@ -512,9 +555,13 @@ class ModelCapacityService:
             lease = await store.lock_attempt(tenant_id=tenant_id, call_attempt_id=call_attempt_id)
             if lease is None:
                 raise AppError(ErrorCode.COMMON_NOT_FOUND)
-            _require_lease_holder(lease, epoch=epoch, lease_owner=lease_owner)
-            if lease.state != "ACTIVE" or lease.lease_until <= now:
-                raise AppError(ErrorCode.MODEL_CALL_LEASE_LOST)
+            try:
+                _require_lease_holder(lease, epoch=epoch, lease_owner=lease_owner)
+                if lease.state != "ACTIVE" or lease.lease_until <= now:
+                    raise AppError(ErrorCode.MODEL_CALL_LEASE_LOST)
+            except AppError:
+                record_outcome(MODEL_LEASE_LOST_METRIC, "renew")
+                raise
             extended = max(lease.lease_until, _lease_until(now, deadline_at, self._lease_seconds))
             updated = await store.write_lease_until(
                 tenant_id=tenant_id,
@@ -579,6 +626,9 @@ class ModelCapacityService:
                     now=now,
                 )
                 swept.append(_finished_release(updated, False))
+            if swept:
+                # 批量记在 amount：条数进 label 会裂出无界时间序列（同 artifact 字节口径）。
+                record_counter(MODEL_SWEEP_METRIC, len(swept))
             return swept
 
     async def ensure_lease_held(
@@ -590,8 +640,10 @@ class ModelCapacityService:
             lease = await store.read_lease(tenant_id=tenant_id, call_attempt_id=call_attempt_id)
             now = await store.database_clock()
         if lease is None or lease.epoch != epoch or lease.lease_owner != lease_owner:
+            record_outcome(MODEL_LEASE_LOST_METRIC, "execute")
             raise AppError(ErrorCode.MODEL_CALL_LEASE_LOST)
         if lease.state != "ACTIVE" or lease.lease_until <= now:
+            record_outcome(MODEL_LEASE_LOST_METRIC, "execute")
             raise AppError(ErrorCode.MODEL_CALL_LEASE_LOST)
 
     async def _advance(
@@ -604,7 +656,7 @@ class ModelCapacityService:
         plan: _CapacityPlan,
     ) -> CapacityRelease:
         async with self._session_factory_provider()() as session, session.begin():
-            return await _advance_transition(
+            release = await _advance_transition(
                 self._store_factory(session),
                 tenant_id=tenant_id,
                 call_attempt_id=call_attempt_id,
@@ -612,3 +664,6 @@ class ModelCapacityService:
                 lease_owner=lease_owner,
                 plan=plan,
             )
+        # 结算结局按**结果状态**计数：UNKNOWN（保留占用）与 SETTLED 是不同样本。
+        record_outcome(MODEL_SETTLEMENT_METRIC, _settlement_status(release.state))
+        return release

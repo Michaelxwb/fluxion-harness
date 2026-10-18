@@ -7,6 +7,7 @@ from uuid import UUID
 
 from ...infrastructure.db import SessionFactory
 from ...infrastructure.models.runtime import RunRecord
+from ...metrics import RUNTIME_MAINTENANCE_METRIC, record_outcome
 from .continuation_service import claim_continuation
 from .supervisor import ExecutionSupervisor
 
@@ -53,5 +54,8 @@ class ContinuationPump:
             try:
                 await self.run_once()
             except Exception:
+                record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "resume"})
                 logger.exception("continuation_pump_failed")
+            else:
+                record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "resume"})
             await asyncio.sleep(self._poll)
