@@ -1892,10 +1892,13 @@ async def default_executor_factory(
     task_client: WorkerTaskClient | None = None,
     delivery_client: GatewayDeliveryClient | None = None,
     model_transport: httpx.AsyncBaseTransport | None = None,
+    model_client: httpx.AsyncClient | None = None,
+    mcp_client: httpx.AsyncClient | None = None,
 ) -> RunExecutor:
     # 单次模型请求 I/O 超时由预算层级派生（单次请求预算被夹到剩余总预算），不再独立取默认。
     # 基值取冻结的 platform agent 策略（与 `AgentPolicy` 的 deadline 同源）；I/O 超时是**单次请求
     # 上限**，不含 Agent 的 runtime_config 覆盖（覆盖由 `AgentRunner` 在重试/截止判定里生效）。
+    # `model_client` 是装配根注入的模型池（进程级连接上限）；未注入时各 provider 自建自关。
     frozen = request.execution.agent_policy if request.execution is not None else AgentPolicy()
     budget = ModelBudget(deadline_ms=frozen.deadline_ms, max_model_retries=frozen.max_model_retries)
     audit_writer = _audit_writer_for(request)
@@ -1914,11 +1917,15 @@ async def default_executor_factory(
             model_trace=model_trace,
             timeout_sec=budget.request_timeout_sec(),
             transport=model_transport,
+            client=model_client,
             ledger=ledger,
         )
     else:
         provider = await _model_provider(
-            request.model, timeout_sec=budget.request_timeout_sec(), transport=model_transport
+            request.model,
+            timeout_sec=budget.request_timeout_sec(),
+            transport=model_transport,
+            client=model_client,
         )
         if audit_writer is not None:
             provider = AuditedModelProvider(
@@ -1936,9 +1943,10 @@ async def default_executor_factory(
         audit_writer=audit_writer,
         timeout_sec=budget.request_timeout_sec(),
         transport=model_transport,
+        client=model_client,
         ledger=ledger,
     )
-    mcp_adapter = McpRuntimeAdapter(audit_writer=audit_writer)
+    mcp_adapter = McpRuntimeAdapter(audit_writer=audit_writer, client=mcp_client)
     settings = SharedSettings()
     # 交付客户端：**只有本次 Run 有交付路由时才建**（没路由的 Run 谈不上交付）。
     # 与 task_client 同一条 owned/close 规矩：谁造谁收，避免每次 Run 漏一个 httpx 连接池。
@@ -2116,6 +2124,7 @@ async def _summary_provider_for(
     timeout_sec: float,
     transport: httpx.AsyncBaseTransport | None,
     ledger: ModelAttemptLedger,
+    client: httpx.AsyncClient | None = None,
 ) -> tuple[ModelProvider | None, ModelProvider | None]:
     """摘要 provider 与它的 owned 句柄（池化时没有 owned：每次尝试的上游连接自己收）。
 
@@ -2139,6 +2148,7 @@ async def _summary_provider_for(
                     api_key=credential.api_key.get_secret_value(),
                     timeout_sec=timeout_sec,
                     transport=transport,
+                    client=client,
                 ),
                 model=request.summary_model.model_id,
                 audit_writer=audit_writer,
@@ -2146,7 +2156,9 @@ async def _summary_provider_for(
             ),
             None,
         )
-    owned = await _model_provider(request.summary_model, timeout_sec=timeout_sec, transport=transport)
+    owned = await _model_provider(
+        request.summary_model, timeout_sec=timeout_sec, transport=transport, client=client
+    )
     provider: ModelProvider = owned
     if audit_writer is not None:
         provider = AuditedModelProvider(
@@ -2160,6 +2172,7 @@ async def _model_provider(
     *,
     timeout_sec: float,
     transport: httpx.AsyncBaseTransport | None = None,
+    client: httpx.AsyncClient | None = None,
 ) -> ModelProvider:
     """按**一条模型定义**建 provider：endpoint / 模型名 / 凭据全部取自它自己那一份。"""
     return OpenAICompatibleProvider(
@@ -2168,6 +2181,7 @@ async def _model_provider(
         api_key=await resolve_model_api_key(model),
         timeout_sec=timeout_sec,
         transport=transport,
+        client=client,
     )
 
 
@@ -2215,6 +2229,7 @@ def _pooled_provider_for(
     model_trace: ModelCallTrace | None,
     timeout_sec: float,
     transport: httpx.AsyncBaseTransport | None = None,
+    client: httpx.AsyncClient | None = None,
     ledger: ModelAttemptLedger | None = None,
 ) -> PooledModelProvider:
     """Run 主调用的池化 provider（真实装配口径见 `build_pooled_provider`）。"""
@@ -2229,6 +2244,7 @@ def _pooled_provider_for(
             api_key=credential.api_key.get_secret_value(),
             timeout_sec=timeout_sec,
             transport=transport,
+            client=client,
         ),
         model=request.model.model_id,
         audit_writer=audit_writer,

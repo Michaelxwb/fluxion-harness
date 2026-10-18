@@ -81,9 +81,17 @@ class WorkerTaskClient:
         service_token: str | None = None,
         timeout_sec: float = DEFAULT_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._service_token = service_token
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_sec, transport=transport)
+        # 请求用绝对 URL 组装：注入的共享池客户端没有 base_url（一个池服务多个目标）。
+        self._base_url = base_url.rstrip("/")
+        # 装配根注入的业务池由**装配根拥有并关闭**（本实例只借用）；未注入时自建自关。
+        self._owns_client = client is None
+        # 自建时按单一目标配 base_url（请求仍用绝对 URL，注入共享池时同样成立）。
+        self._client = client or httpx.AsyncClient(
+            base_url=base_url, timeout=timeout_sec, transport=transport
+        )
 
     async def submit_task(
         self,
@@ -273,7 +281,8 @@ class WorkerTaskClient:
         )
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        if self._owns_client:
+            await self._client.aclose()
 
     async def _request(
         self,
@@ -300,7 +309,7 @@ class WorkerTaskClient:
         try:
             response = await self._client.request(
                 method,
-                path,
+                f"{self._base_url}{path}",
                 params={key: value for key, value in (params or {}).items() if value is not None},
                 json=json_body,
                 headers=headers,

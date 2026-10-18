@@ -34,10 +34,18 @@ class ConsolePlatformSettingsClient:
         caller: str = RUNTIME_CALLER,
         timeout_sec: float = PLATFORM_SETTINGS_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._caller = caller
         self._service_token = service_token
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_sec, transport=transport)
+        # 请求用绝对 URL 组装：注入的共享池客户端没有 base_url（一个池服务多个目标）。
+        self._base_url = base_url.rstrip("/")
+        # 装配根注入的控制池由**装配根拥有并关闭**（本实例只借用）；未注入时自建自关。
+        self._owns_client = client is None
+        # 自建时按单一目标配 base_url（请求仍用绝对 URL，注入共享池时同样成立）。
+        self._client = client or httpx.AsyncClient(
+            base_url=base_url, timeout=timeout_sec, transport=transport
+        )
 
     async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "") -> PlatformSettingsSnapshot:
         headers = {"X-Tenant-Id": tenant_id, "X-Caller-Service": self._caller}
@@ -46,7 +54,9 @@ class ConsolePlatformSettingsClient:
         if trace_id:
             headers["X-Trace-Id"] = trace_id
         try:
-            response = await self._client.get(PLATFORM_SETTINGS_PATH, headers=headers)
+            response = await self._client.get(
+                f"{self._base_url}{PLATFORM_SETTINGS_PATH}", headers=headers
+            )
         except httpx.HTTPError as exc:
             self._record_failed()
             raise AppError(str(ErrorCode.COMMON_INTERNAL_ERROR)) from exc
@@ -75,4 +85,5 @@ class ConsolePlatformSettingsClient:
             return None
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        if self._owns_client:
+            await self._client.aclose()

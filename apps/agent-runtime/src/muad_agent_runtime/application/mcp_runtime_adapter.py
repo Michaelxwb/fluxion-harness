@@ -77,13 +77,18 @@ class _McpSession:
         server: McpServerDefinition,
         timeout_sec: float,
         transport: httpx.AsyncBaseTransport | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         headers = {"Accept": MCP_ACCEPT}
         if server.auth_secret:
             headers["Authorization"] = f"Bearer {server.auth_secret}"
-        self._client = httpx.AsyncClient(
+        # 装配根注入的 MCP 池由**装配根拥有并关闭**（本会话只借用）；未注入时自建自关。
+        self._owns_client = client is None
+        self._client = client or httpx.AsyncClient(
             headers=headers, timeout=httpx.Timeout(timeout_sec), transport=transport
         )
+        # 每个请求都显式带上 Accept/Authorization：借用的共享池客户端没有本会话的默认头。
+        self._auth_headers = headers
         self._endpoint = server.endpoint
         self._session_id: str | None = None
         self._initialized = False
@@ -94,10 +99,12 @@ class _McpSession:
         return self._initialized
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        if self._owns_client:
+            await self._client.aclose()
 
     def _headers(self) -> dict[str, str]:
-        headers = {"MCP-Protocol-Version": MCP_PROTOCOL_VERSION}
+        headers = dict(self._auth_headers)
+        headers["MCP-Protocol-Version"] = MCP_PROTOCOL_VERSION
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
         return headers
@@ -219,10 +226,12 @@ class McpRuntimeAdapter:
         audit_writer: RuntimeAuditWriter | None,
         timeout_sec: float = MCP_CALL_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._audit_writer = audit_writer
         self._timeout_sec = timeout_sec
         self._transport = transport
+        self._client = client
         self._sessions: dict[str, _McpSession] = {}
         # 每 server 一把初始化 singleflight 锁：并发调用只初始化一次；失败释放锁并允许重试。
         self._session_locks: dict[str, asyncio.Lock] = {}
@@ -320,7 +329,7 @@ class McpRuntimeAdapter:
             session = self._sessions.get(server.key)
             if session is not None:
                 return session
-            session = _McpSession(server, self._timeout_sec, self._transport)
+            session = _McpSession(server, self._timeout_sec, self._transport, self._client)
             try:
                 await session.initialize()
             except BaseException:

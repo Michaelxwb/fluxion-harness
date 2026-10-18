@@ -277,6 +277,8 @@ apps/agent-runtime/src/muad_agent_runtime/infrastructure/audit_writer.py,23,SENS
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/cancel_hint.py,11,CANCEL_HINT_KEY_PREFIX,'run:cancel:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/cancel_hint.py,12,CANCEL_HINT_TTL_SEC,1800,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/cancel_hint.py,13,CANCEL_HINT_VALUE,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/http_clients.py,27,RUNTIME_HTTP_POOLS,"('control', 'model', 'mcp', 'egress')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/http_clients.py,32,_INTERNAL_POOLS,"('control', 'egress')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,15,RESOLVE_DEFINITION_PATH,'/internal/runtime/resolve-definition',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,16,RESOLVE_MODEL_PATH,'/internal/runtime/resolve-model',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,17,RESOLVE_CREDENTIALS_PATH,'/internal/runtime/resolve-credentials',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -301,8 +303,16 @@ apps/agent-runtime/src/muad_agent_runtime/infrastructure/platform_settings_clien
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/platform_settings_client.py,25,RUNTIME_CALLER,'runtime',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/run_admission_store.py,22,SCOPE_USER,'USER',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/run_admission_store.py,23,SCOPE_TENANT,'TENANT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,55,SERVICE_NAME,'muad-agent-runtime',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,105,POD_NAME,<unset>,environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+apps/agent-runtime/src/muad_agent_runtime/main.py,61,CONTINUATION_LOOP_NAME,'runtime.continuation',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,62,MEMORY_LOOP_NAME,'runtime.memory',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,63,DEADLINE_LOOP_NAME,'runtime.deadline',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,64,CONTROL_LOOP_NAME,'runtime.control',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,65,REAPER_LOOP_NAME,'runtime.reaper',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,66,EXECUTION_SLOT_LOOP_NAME,'runtime.execution_slots',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,67,DELIVERY_LOOP_NAME,'runtime.delivery',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,68,RETENTION_LOOP_NAME,'runtime.retention',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,58,SERVICE_NAME,'muad-agent-runtime',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,259,POD_NAME,<unset>,environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
 apps/agent-runtime/src/muad_agent_runtime/metrics.py,17,AGENT_RUNS_METRIC,'agent_runs_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/metrics.py,18,MODEL_INVOCATIONS_METRIC,'model_invocations_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/metrics.py,19,TOOL_CALLS_METRIC,'tool_calls_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
