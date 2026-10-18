@@ -253,3 +253,81 @@ export async function listAgentsForPicker(): Promise<Page<AgentSummary>> {
     })
   );
 }
+
+/**
+ * 用户 Webchat Token（API-03）service：ADMIN 维护面的 HTTP 出口。
+ *
+ * - **读取只元信息**：`GET` 恰好六字段（`configured/status/token_id/revision/issued_at/expires_at`），
+ *   未知/外租户用户读作 `NOT_CONFIGURED`；本模块没有任何"读回原文"的路径；
+ * - **原文全响应恰一次**：`PUT` 的响应是本模块唯一可能携带 `token` 的地方（后端 `no-store`），
+ *   调用方只允许把它交给本次结果框，不写持久缓存/URL/日志；
+ * - **版本 CAS**：签发/重置体是 `{expected_revision}`（`0`=首签、`N`=按最新签发行重置），
+ *   撤销是 `DELETE ?expected_revision=N`（只作用于该版本，旧版本迟到重放不误伤后续新 Token）；
+ * - **失败如实上抛**：service 不重发、不自动轮换；冲突/未知由调用方映射文案并重读元信息。
+ */
+
+/** 元信息四态（与后端 `WebchatTokenMetadata.status` 的字面量集合一致）。 */
+export type WebchatTokenStatus = 'NOT_CONFIGURED' | 'ACTIVE' | 'EXPIRED' | 'REVOKED';
+
+/** API-03 读取投影：只有状态/版本/时间，永不携带原文或摘要。 */
+export interface WebchatTokenMetadata {
+  configured: boolean;
+  status: WebchatTokenStatus;
+  token_id: string | null;
+  revision: number;
+  issued_at: string | null;
+  expires_at: string | null;
+}
+
+/** 签发/重置响应 = 元信息 + 一次性原文（只在本次响应可见，后续读取没有它）。 */
+export interface WebchatTokenIssued extends WebchatTokenMetadata {
+  token: string;
+}
+
+/**
+ * 变更请求的 CAS 版本：未配置（含未知/外租户用户读到的 `NOT_CONFIGURED`）用 `0` 首签；
+ * 已配置用最新签发行版本——撤销不删行，重置后版本继续递增，过期/撤销版本同样能作为基准。
+ */
+export function webchatTokenExpectedRevision(metadata: WebchatTokenMetadata): number {
+  return metadata.configured ? metadata.revision : 0;
+}
+
+/** 冲突/失败码 → 本地化文案键；未登记的失败一律回落通用保存失败。 */
+const TOKEN_ERROR_KEYS: Record<string, string> = {
+  REVISION_CONFLICT: 'user.webchatToken.error.revisionConflict',
+  COMMON_NOT_FOUND: 'user.webchatToken.error.notFound',
+  FORBIDDEN: 'user.webchatToken.error.forbidden'
+};
+
+export function webchatTokenErrorKey(error: unknown): string {
+  const body = apiErrorBody(error);
+  return (body !== null && TOKEN_ERROR_KEYS[body.code]) || 'common.saveFailed';
+}
+
+export async function getWebchatToken(id: string): Promise<WebchatTokenMetadata> {
+  return unwrap(await api.get<ApiResponse<WebchatTokenMetadata>>(`/users/${id}/webchat-token`));
+}
+
+/** 首签/重置：`expected_revision` 由调用方从元信息派生（见 `webchatTokenExpectedRevision`）。 */
+export async function issueWebchatToken(
+  id: string,
+  expectedRevision: number
+): Promise<WebchatTokenIssued> {
+  return unwrap(
+    await api.put<ApiResponse<WebchatTokenIssued>>(`/users/${id}/webchat-token`, {
+      expected_revision: expectedRevision
+    })
+  );
+}
+
+/** 版本撤销：只作用于 `expected_revision` 指定的那一版及其关联会话。 */
+export async function revokeWebchatToken(
+  id: string,
+  expectedRevision: number
+): Promise<WebchatTokenMetadata> {
+  return unwrap(
+    await api.delete<ApiResponse<WebchatTokenMetadata>>(`/users/${id}/webchat-token`, {
+      params: { expected_revision: expectedRevision }
+    })
+  );
+}
