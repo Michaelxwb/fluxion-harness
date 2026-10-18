@@ -39,6 +39,7 @@ import {
 import {
   AGENT_PICKER_PAGE_SIZE,
   createBindCode,
+  getWebchatToken,
   grantAgent,
   listAgentGrants,
   listAgentsForPicker,
@@ -50,9 +51,11 @@ import {
   type BindCode,
   type Identity,
   type Page,
-  type UserDetail
+  type UserDetail,
+  type WebchatTokenMetadata
 } from './services/users';
 import { MemoryTab } from './MemoryTab';
+import { UserChatTokenCard } from './UserChatTokenCard';
 
 export interface UserDetailTabsProps {
   user: UserDetail;
@@ -323,6 +326,62 @@ function credentialTagKey(status?: string): { color: 'green' | 'red' | 'grey'; k
   return { color: 'grey', key: 'user.credentials.notConfigured' };
 }
 
+/**
+ * 凭据区域的 Webchat Token 单例（API-03）：元信息由这里读取（带请求竞态守卫，
+ * 切换用户时迟到响应不写状态），卡片只负责展示与写入；每次写入后都重读元信息，
+ * 版本与状态一律以读取结果为准。
+ */
+function WebchatTokenSection(props: { userId: string }) {
+  const { t } = useTranslation();
+  const [metadata, setMetadata] = useState<WebchatTokenMetadata | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const requestSeq = useRef(0);
+
+  const load = useCallback(async (): Promise<void> => {
+    const seq = ++requestSeq.current;
+    setLoading(true);
+    setFailed(false);
+    try {
+      const next = await getWebchatToken(props.userId);
+      if (seq !== requestSeq.current) {
+        return;
+      }
+      setMetadata(next);
+    } catch {
+      if (seq !== requestSeq.current) {
+        return;
+      }
+      setFailed(true);
+    } finally {
+      if (seq === requestSeq.current) {
+        setLoading(false);
+      }
+    }
+  }, [props.userId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <div>
+      <div className="detail-section-title">{t('user.webchatToken.title')}</div>
+      {loading ? (
+        <Spin style={{ display: 'block', margin: '24px auto' }} />
+      ) : failed ? (
+        <ErrorState onRetry={() => void load()} />
+      ) : metadata ? (
+        <UserChatTokenCard
+          userId={props.userId}
+          metadata={metadata}
+          onChanged={() => void load()}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function CredentialsTab(props: { userId: string }) {
   const { t } = useTranslation();
   const list = useAsyncList<PlatformItem>(
@@ -377,6 +436,7 @@ function CredentialsTab(props: { userId: string }) {
 
   return (
     <div>
+      <WebchatTokenSection userId={props.userId} />
       <div className="detail-section-title">{t('user.tabs.credentials')}</div>
       <TabState
         loading={loading}
