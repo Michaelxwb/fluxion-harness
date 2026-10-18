@@ -4,7 +4,7 @@ import hashlib
 import uuid
 from typing import Any
 
-from muad_contracts import DeliveryRouteInput, canonical_json
+from muad_contracts import ChannelName, DeliveryRouteInput, canonical_json
 from sqlalchemy import false, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.models.task import DeliveryRoute
 
 ROUTE_HASH_PREFIX = "sha256:"
+#: WEBCHAT 稳定入口的通道名（TASK-068）：worker 侧唯一的通道判别来源——网页"送达"是进
+#: Runtime 的持久用户收件箱，企微仍走 Gateway 出站（design §3.5 可靠性、§3.6 后台会话活动）。
+WEBCHAT_CHANNEL: ChannelName = "WEBCHAT"
 
 
 def canonical_route_tuple(

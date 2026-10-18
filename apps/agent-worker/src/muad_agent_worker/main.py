@@ -25,7 +25,7 @@ from .api.schedules import router as schedules_router
 from .api.tasks import router as tasks_router
 from .application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .delivery.artifact_client import ArtifactResolveClient
-from .delivery.client import HttpDeliveryClient
+from .delivery.client import HttpDeliveryClient, HttpWebchatInboxClient
 from .delivery.service import DeliveryLoop
 from .infrastructure.cancel_hint import CancelHintStore, create_cancel_hint_store
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
@@ -136,6 +136,12 @@ def _start_background(
         # 产物引用解析：worker 只有不透明的 artifact_id，解析口径在 runtime 一处
         ArtifactResolveClient(settings.agent_runtime_url, service_token=settings.internal_service_token),
         settings_client=settings_client,
+        # 网页投递的受信入箱端口：网页"送达"以 Runtime 持久用户收件箱提交为准（TASK-068）。
+        webchat_inbox=HttpWebchatInboxClient(
+            settings.agent_runtime_url,
+            http_client,
+            service_token=settings.internal_service_token,
+        ),
     )
     return [
         asyncio.create_task(worker.run_forever()),
