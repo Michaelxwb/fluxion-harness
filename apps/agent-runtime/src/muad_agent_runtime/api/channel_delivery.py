@@ -28,10 +28,9 @@ from muad_contracts.channel_delivery import (
 )
 
 from ..application.channel_delivery import (
-    ChannelDeliveryService,
     DeliveryLease,
     DeliveryReceipt,
-    delivery_policy_from_settings,
+    TenantChannelDelivery,
 )
 from ..application.ports import PlatformSettingsClient
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory
@@ -50,15 +49,13 @@ class ChannelDeliveryPort:
     def __init__(
         self, session_factory_provider: SessionFactoryProvider, settings_client: PlatformSettingsClient
     ) -> None:
-        self._sessions = session_factory_provider
-        self._settings = settings_client
+        self._delivery = TenantChannelDelivery(session_factory_provider, settings_client)
 
     async def reserve(
         self, *, tenant_id: str, body: DeliveryReservationRequest
     ) -> DeliveryLeaseGrant:
         """预占：按稳定 delivery_key 取行；已送达重放首次结果，UNKNOWN 保留核实。"""
-        service = await self._service(tenant_id)
-        lease = await service.reserve(
+        lease = await self._delivery.reserve(
             tenant_id=tenant_id,
             delivery_key=body.delivery_key,
             attempt_id=body.attempt_id,
@@ -70,8 +67,7 @@ class ChannelDeliveryPort:
         self, *, tenant_id: str, notification_id: uuid.UUID, body: DeliveryLeaseRenewal
     ) -> DeliveryLeaseGrant:
         """续租：核 attempt+epoch 且租约仍有效；失约即停手（`DELIVERY_LEASE_LOST`）。"""
-        service = await self._service(tenant_id)
-        lease = await service.renew(
+        lease = await self._delivery.renew(
             tenant_id=tenant_id,
             notification_id=notification_id,
             delivery_key=body.delivery_key,
@@ -85,8 +81,7 @@ class ChannelDeliveryPort:
         self, *, tenant_id: str, notification_id: uuid.UUID, body: DeliveryAck
     ) -> DeliveryAckReceipt:
         """确认：只有实际发送成功才写 DELIVERED；重复 ack 回放首次结果。"""
-        service = await self._service(tenant_id)
-        confirmation = await service.ack(
+        confirmation = await self._delivery.ack(
             tenant_id=tenant_id,
             notification_id=notification_id,
             delivery_key=body.delivery_key,
@@ -102,13 +97,6 @@ class ChannelDeliveryPort:
             attempt=confirmation.attempt,
             reused=confirmation.reused,
             receipt=_receipt(confirmation.receipt),
-        )
-
-    async def _service(self, tenant_id: str) -> ChannelDeliveryService:
-        """每次操作取一次设置快照（HTTP 在事务外）再构造服务：坏源显式失败，不回落默认。"""
-        snapshot = await self._settings.fetch_snapshot(tenant_id=tenant_id)
-        return ChannelDeliveryService(
-            self._sessions, delivery_policy_from_settings(snapshot.settings)
         )
 
 

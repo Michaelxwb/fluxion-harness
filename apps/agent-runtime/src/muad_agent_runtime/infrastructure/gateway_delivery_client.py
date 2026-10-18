@@ -7,6 +7,11 @@ runtime 只有 `/runs`、`/resume`、`/cancel`、`GET /runs/{id}`，**没有回�
 **超时按失败（未知）处理，绝不拆成成功**：超时只说明**没拿到结论**，不说明没发出去。
 重试的安全由 `(tenant_id, artifact_id, route_key)` 唯一键兜底（同一产物对同一路由只交付一次）。
 
+**"没拿到结论"与"确定没发出去"分开**（2026-10-18，TASK-066）：连接从未建立或网关显式拒绝时
+抛 `DeliveryNotSentError`（确定没送达 ⇒ 可安全重试）；连接之后的超时/传输错误抛
+`DeliveryUnavailableError`（可能已经发出去 ⇒ 只能保留核实）。投递泵按这个区分决定
+`NOT_SENT`（退避重投）还是 `UNKNOWN`（保留核实），不再把两者混成一个"失败"。
+
 **一条交付契约两个调用方**：本客户端与既有 worker 投递打同一个 `/internal/deliveries`，
 差别只在 `delivery_key` 的形态（`run:{run_id}:{artifact_id}` vs `task:{task_id}:final`）。
 
@@ -36,6 +41,19 @@ class DeliveryUnavailableError(RuntimeError):
     """
 
 
+class DeliveryNotSentError(DeliveryUnavailableError):
+    """**确定没发出去**：连接没建立（拒绝/DNS/池超时）或网关明确拒绝（非 200）。
+
+    与"没拿到结论"分开是**投递事实**的要求（design §3.3/§3.6）：确定没发出去的可以安全重试
+    （`NOT_SENT` 退避重投），而"可能已经发出去"的只能保留核实（`UNKNOWN`，不自动重发）。
+    子类关系保证既有调用方（按 `DeliveryUnavailableError` 处理"失败可重试"）行为不变。
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 class GatewayDeliveryClient:
     def __init__(
         self,
@@ -46,7 +64,12 @@ class GatewayDeliveryClient:
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._service_token = service_token
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_sec, transport=transport)
+        # 内部服务调用**不**走环境代理：`trust_env` 会把 `HTTP_PROXY` 一类的部署环境变量
+        # 变成内部投递的隐形路由（实测：本机代理把 127.0.0.1 的交付变成读超时），
+        # 与 `main.py` 的控制面客户端同一口径。
+        self._client = httpx.AsyncClient(
+            base_url=base_url, timeout=timeout_sec, transport=transport, trust_env=False
+        )
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -60,8 +83,11 @@ class GatewayDeliveryClient:
             response = await self._client.post(
                 DELIVERIES_PATH, json=request.model_dump(mode="json"), headers=headers
             )
+        except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as exc:
+            # 连接从未建立（拒绝/DNS/池超时）：请求没有发出去 ⇒ 确定没送达，可安全重试。
+            raise DeliveryNotSentError(type(exc).__name__) from exc
         except httpx.HTTPError as exc:
-            # 超时与传输错误同路：都没拿到结论 ⇒ 未知 ⇒ 失败可重试
+            # 连接之后的超时/传输错误：都没拿到结论 ⇒ 未知 ⇒ 失败可重试（但不得声称未发送）。
             raise DeliveryUnavailableError(type(exc).__name__) from exc
         if response.status_code != 200:
             # 网关显式拒绝（如 BOT_NOT_FOUND / ARTIFACT_DELIVERY_FAILED）：这是**确定的失败**
@@ -73,7 +99,7 @@ class GatewayDeliveryClient:
         return DeliveryResponse.model_validate(data)
 
 
-def _error_from(response: httpx.Response) -> DeliveryUnavailableError:
+def _error_from(response: httpx.Response) -> DeliveryNotSentError:
     """把网关的封套错误映射成调用方能用的原因码（**不带正文**，正文可能含渠道细节）。
 
     **唯一例外是入参校验错误**：422 的 `data.errors` 里只有**我们自己契约的字段名**（没有渠道
@@ -97,5 +123,5 @@ def _error_from(response: httpx.Response) -> DeliveryUnavailableError:
             if isinstance(item, dict)
         ]
         if fields:
-            return DeliveryUnavailableError(f"{code}({', '.join(sorted(set(fields)))})")
-    return DeliveryUnavailableError(code)
+            return DeliveryNotSentError(f"{code}({', '.join(sorted(set(fields)))})")
+    return DeliveryNotSentError(code)

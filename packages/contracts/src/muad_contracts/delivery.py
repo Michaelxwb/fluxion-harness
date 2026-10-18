@@ -13,6 +13,10 @@ from .tasks import ContractModel, DeliveryRouteInput
 TASK_DELIVERY_KEY = re.compile(r"^task:[0-9a-fA-F-]{36}:final$")
 #: 会话内交付键：`run:{run_id}:{artifact_id}`（TASK-006 新增，设计 §3.4 API-01）
 RUN_DELIVERY_KEY = re.compile(r"^run:[0-9a-fA-F-]{36}:[0-9a-fA-F-]{36}$")
+#: Run 终态兜底交付键：与 `runtime.channel_notification.delivery_key` **同一个稳定键**
+#: （TASK-063 的 `run:{run_id}:terminal`；设计 §3.6「活跃回复会话的收尾与兜底主动交付使用
+#: 同一稳定 delivery_key」）。TASK-066 的 Runtime 投递泵按它经 `/internal/deliveries` 主动交付。
+TERMINAL_DELIVERY_KEY = re.compile(r"^run:[0-9a-fA-F-]{36}:terminal$")
 
 
 class DeliveryMessage(ContractModel):
@@ -59,27 +63,37 @@ class DeliveryRequest(ContractModel):
 
     @property
     def run_id(self) -> str | None:
-        """会话内交付的 Run id；后台任务交付（`task:...`）为 `None`。
+        """会话内/终态兜底交付的 Run id；后台任务交付（`task:...`）为 `None`。
 
         由交付键导出，不新增字段：键和 Run 是**同一条事实**，多一个字段就会有两种说法。
         适配器按它把产物回到起这个 Run 的那条消息（同路由可能有多条入站消息）。
         """
-        return self.delivery_key.split(":")[1] if RUN_DELIVERY_KEY.match(self.delivery_key) else None
+        for pattern in (RUN_DELIVERY_KEY, TERMINAL_DELIVERY_KEY):
+            if pattern.match(self.delivery_key):
+                return self.delivery_key.split(":")[1]
+        return None
 
     @model_validator(mode="after")
     def _delivery_key_matches_scope(self) -> Self:
-        """两种形态**互斥**：键的形态必须与 `task_id` 的有无一致。
+        """键的形态必须与 `task_id` 的有无一致，且必须是三种**已知**形态之一。
 
         不做成一个宽松的正则是因为"有 task_id 却给了 run: 键"是个**真错误**（调用方搞错了
-        自己在哪条路径上），放过它会让幂等键指向另一个事实。
+        自己在哪条路径上），放过它会让幂等键指向另一个事实。无 `task_id` 的两种合法形态：
+        会话内产物交付（`run:{run_id}:{artifact_id}`）与 Run 终态兜底文本交付
+        （`run:{run_id}:terminal`，与持久通知的稳定键同形）。
         """
         if self.task_id is not None:
             if self.delivery_key != f"task:{self.task_id}:final":
                 raise ValueError(
                     "有 task_id 时 delivery_key 必须为 task:{task_id}:final 且与它一致"
                 )
-        elif not RUN_DELIVERY_KEY.match(self.delivery_key):
-            raise ValueError("无 task_id 时 delivery_key 必须为 run:{run_id}:{artifact_id}")
+        elif not (
+            RUN_DELIVERY_KEY.match(self.delivery_key)
+            or TERMINAL_DELIVERY_KEY.match(self.delivery_key)
+        ):
+            raise ValueError(
+                "无 task_id 时 delivery_key 必须为 run:{run_id}:{artifact_id} 或 run:{run_id}:terminal"
+            )
         return self
 
 
