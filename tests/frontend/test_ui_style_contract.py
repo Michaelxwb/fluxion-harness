@@ -92,9 +92,11 @@ def test_semi_components_are_the_only_ui_library() -> None:
 # 非列表的模块页（仪表盘等）：规则文案只约束**列表页**（「左上操作 + 右上搜索筛选 + 列表 +
 # 右下分页」），仪表盘没有工具栏/表格/分页，故不受 RemoteTable 约束。例外必须**显式声明**，
 # 且下方会反查它确实不含任何列表构件——不能靠"不写 RemoteTable"混过去。
+# ChatPage 是独立 CHAT 入口的会话工作区（历史侧栏 + 单会话，不是管理列表），同属非列表页。
 NON_LIST_MODULE_PAGES = (
     "apps/console-platform/frontend/src/modules/overview-dashboard/pages/OverviewPage.tsx",
     "apps/console-platform/frontend/src/modules/settings/pages/SettingsPage.tsx",
+    "apps/console-platform/frontend/src/modules/webchat/ChatPage.tsx",
 )
 
 
