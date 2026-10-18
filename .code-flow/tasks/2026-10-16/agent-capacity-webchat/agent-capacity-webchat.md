@@ -423,7 +423,7 @@
 | B-281 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-081 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_composer_uploads.py"] | . | 300 |  |
 | B-282 | agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-082 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_reply_stream_state.py"] | . | 300 |  |
 | B-283 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-083 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_run_actions_ui.py"] | . | 300 |  |
-| B-284 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-084 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 300 |  |
+| B-284 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-084 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 300 |  |
 | B-285 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-085 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_user_token_ui.py"] | . | 300 |  |
 | B-286 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-086 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_credential_ui.py"] | . | 300 |  |
 | B-287 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-087 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_deployment_ui.py"] | . | 300 |  |
@@ -453,6 +453,70 @@
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
 
 ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5242,7 +5306,7 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 ## TASK-084: 后台会话活动、未读与安全附件预览
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-055, TASK-070, TASK-082
 - **Source**: agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流
@@ -5257,25 +5321,40 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 ### Checklist
 
-- [ ] [B-284][integration] 先在`tests/frontend/test_capacity_webchat_activity_ui.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：带抖动增量轮询、隐藏页暂停/前台同步，未读以服务端为准且只显式标读。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-284] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-284] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_activity_ui.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-284][integration] 先在`tests/frontend/test_capacity_webchat_activity_ui.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：带抖动增量轮询、隐藏页暂停/前台同步，未读以服务端为准且只显式标读。RED：`uv run pytest -q tests/frontend/test_capacity_webchat_activity_ui.py` exit=1，**4 failed + 9 errors（0.22s）**（13 条用例）——9 条真实 node/SSR 用例在 fixture 阶段 error（esbuild 入口 `export * from 'hooks/useNotifications.ts'`/`components/NotificationPanel.tsx` 不存在 → `Could not resolve`），4 条源码/词条/编译契约失败（hook 与面板文件缺失、esbuild 编译不到面板、zh/en 各缺 13 条 `chat.notifications.*` 词条）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `hooks/useNotifications.ts`（783 行；控制器 + React 绑定同一文件，函数最长 40 行）——`notificationPollDelayMs`（固定比例抖动 ±20%，`pollSec` 只来自 API-19 投影，非法显式 `POLL_INTERVAL_INVALID`）、`unreadBadgeCount`（服务端权威计数，缺省/非法→0）、`mergeNotificationItems`（按 id 去重 + 服务端事实覆盖 + 按 seq 升序 + 有界只丢最旧已读）、`unreadByConversation`（只聚合 `read_at===null`）、`notificationDisplayOrder`（seq 倒序）、`canPreviewAttachment`（可用 ∧ IMAGE ∧ 栅格白名单，与 TASK-055 `inline` 同口径）、`createNotificationController`（有界增量轮询/隐藏页暂停+前台同步/显式标读后权威重读/授权下载预览 + Blob URL 生命周期/身份边界清场/认证失效停轮询）、`useNotifications`（`useSyncExternalStore` + 身份清场 + 卸载释放 + 就绪后启动 + 即发即忘动作）。② `components/NotificationPanel.tsx`（301 行，函数最长 42 行）——未读徽标只吃服务端计数（0 不显示）、kind 逐项本地化、时间复用 `DateTimeText`、显式「定位会话/标记已读」、附件只展示名称且只对白名单图片给预览入口（失效附件显式标注、其它类型不给）、预览面只渲染授权下载面的 Blob URL 并提供关闭动作、失败保留已有结果并就地重试（`notificationPanelState`）。③ `src/locales/{zh-CN,en-US}.json` 各**只追加** 13 条 `chat.notifications.*` 词条（两侧齐平，附件种类/失效标注/重试沿用既有 `chat.thread.*`、`common.*`）。
+- [x] [B-284] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-284] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_activity_ui.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**13 passed（0.85–0.90s）**；真实边界证据（真实 `WebchatClient`/共享 axios 拦截器观测 + 真实 `createClientConfigService` 投影 + 真实认证状态机身份边界 + 真实 `renderToStaticMarkup`）见 Acceptance Evidence 的真实边界证据列。
+- [x] 断言强度自检（mutation，跑完即还原并 md5 逐字节校验）：① `tick` 忽略隐藏 → 隐藏页用例失败；② `onVisibilityChange` 删掉暂停分支 → 隐藏页用例失败（回前台次数 2≠1）；③ 未读改按条目数自算 → 未读用例失败；④ 预览白名单忽略 `available` → 失效附件用例失败；⑤ `closePreview` 不撤销 Blob URL → 预览释放用例失败；⑥ 标读后不做权威重读 → 未读用例失败；⑦ 面板徽标改按条目数 → 面板用例 + 源码契约失败；⑧ 面板预览入口不限白名单 → 预览用例 + 源码契约失败。八处全部被对应断言捕获，还原后复跑 13 passed。
+- [x] 静态检查：`npx tsc --noEmit`（apps/console-platform/frontend）干净；`.venv/bin/python scripts/check_frontend_i18n.py`「i18n keys OK: 1468」；`.venv/bin/python scripts/check_frontend_api_usage.py`「frontend api usage check OK」；`uv run pytest -q tests/frontend` exit=0，**553 passed**（本任务新增 13 条后全量绿；含 TASK-079 `test_capacity_webchat_history_sidebar.py` 25 passed、TASK-080 `test_capacity_webchat_message_history_ui.py`、TASK-082 `test_capacity_webchat_reply_stream_state.py` 15 passed）。`tests/acceptance/**`、`make acceptance*`、Playwright 未执行（共享环境约束 + E2E 属 TASK-114/112 的 verify-e2e）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-284 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 带抖动增量轮询、隐藏页暂停/前台同步，未读以服务端为准且只显式标读；点击定位原会话，附件经带认证上下文的service取Blob并及时释放 | tests/frontend/test_capacity_webchat_activity_ui.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_activity_ui.py"] | planned |
+| B-284 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 带抖动增量轮询、隐藏页暂停/前台同步，未读以服务端为准且只显式标读；点击定位原会话，附件经带认证上下文的service取Blob并及时释放 | tests/frontend/test_capacity_webchat_activity_ui.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_activity_ui.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-284 | `uv run pytest -q tests/frontend/test_capacity_webchat_activity_ui.py` exit=1，**4 failed + 9 errors（0.22s）**：9 条 node/SSR 用例 fixture 阶段 error（esbuild `Could not resolve` 缺失的 `hooks/useNotifications.ts`/`components/NotificationPanel.tsx`），4 条契约失败（hook/面板缺失、面板编译失败、zh/en 各缺 13 条词条） | 同命令 exit=0，**13 passed（0.85–0.90s）** | ① `test_b284_polling_is_jittered_incremental_and_gated_by_the_projection` L1013-1048：未就绪零请求 + `NOTIFICATIONS_NOT_READY`（L1018）；三条增量请求 `after_seq=0/2/5` + `page=1` 且不带 `page_size`（L1026-1031）；共享传输头/CHAT 上下文/身份信号齐备（L1032-1035）；抖动下界 2000/上界 3000（L1036-1037）；未追平立即续拉 `[0,2000]`（L1038）；游标推进到 `next_seq=5`、loadState `loading→ready`（L1042-1047）。② `test_b284_hidden_page_pauses_and_foreground_syncs_notifications_and_sessions` L1050-1071：隐藏零请求/暂停态/清定时器（L1055-1058）；回前台立即一次请求 + 会话状态端口一次（L1059-1062）；定时器到点而页面隐藏的轮询守卫（L1064-1066）；再次回前台仍同步（L1067-1068）；dispose 注销订阅（L1069）。③ `test_b284_unread_is_server_authoritative_and_read_is_explicit_only` L1075-1117：未读=服务端 `unread_count`（L1080）；按会话聚合只算 `read_at===null`（L1081-1084）且可直接喂 TASK-079 侧栏接缝（L1084）；重放不累加（L1085）；同步零写请求（L1088）；标读 = 一次 POST（无 body）+ 一次权威重读（L1090-1098）；回执落 `read_at`（L1098-1101）；已读/未知零请求且显式失败（L1102-1104）；失败不改本地已读事实（L1106-1117）；徽标矩阵（L1117）。④ `test_b284_preview_uses_the_authorized_download_and_releases_blob_urls` L1118-1142：下载 URL + `responseType=blob` + CHAT 上下文/CSRF/身份信号（L1121-1127）；真实字节流到 Blob URL 端口（L1128-1130）；替换/关闭及时撤销且恰好一次（L1135-1142）。⑤ `test_b284_unavailable_and_non_image_attachments_are_never_previewed` L1143-1161：失效/文档/SVG 全部 `ATTACHMENT_NOT_PREVIEWABLE` 且零请求（L1148-1153）；白名单与服务端同口径（L1154-1156）；资格矩阵（L1157-1159）；失败经失败端口上报（L1160-1161）。⑥ `test_b284_identity_boundary_stops_polling_revokes_urls_and_clears_private_state` L1168-1194：401 停轮询/零自动重试/无残留定时器（L1174-1178）；真实登出边界撤销 Blob URL 并清空条目/未读/游标/预览/可见性订阅（L1182-1187）；重开从游标 0（L1189-1194）。⑦ `test_b284_merge_bound_order_and_aggregation_are_explicit` L1195-1216：同 id 服务端事实覆盖（L1200-1204）；有界丢最旧已读（L1205）；展示倒序（L1208）；聚合/空集（L1209-1210）；间隔非法显式失败（L1211-1213）。⑧ `test_b284_panel_renders_server_unread_and_explicit_actions` L1219-1251：徽标 `>3<`、条目/定位/标读计数、`data-unread`、kind 本地化、`DateTimeText`（L1222-1232）；英文页面不渲染中文词条（L1234-1237）；零未读不显示徽标 + 空态（L1242-1244）；首屏失败重试（L1245-1247）；刷新失败保留结果 + 重试提示（L1249-1251）。⑨ `test_b284_panel_previews_only_whitelisted_images_via_blob_url` L1253-1271：只有可用栅格图片有预览入口（L1258）；失效附件显式标注（L1259-1261）；附件名只展示（L1262）；**面板/预览无任何 href**（L1264、L1270）；预览只渲染 Blob URL + 关闭动作（L1267-1269）。⑩ `test_b284_hook_keeps_the_transport_identity_and_timer_boundaries` L1276-1305：控制器/`useSyncExternalStore`/身份接缝/编译期端口自检（L1281-1290）；间隔只从投影取且不回落默认（L1291-1294）；无裸 HTTP/传输头/持久存储/日志/文案/松散类型（L1296-1303）。⑪ `test_b284_panel_only_consumes_typed_props_and_localized_copy` L1306-1334：徽标只吃服务端计数、预览只经白名单、展示顺序纯函数（L1313-1315）；无 `createObjectURL`/裸 HTTP/落盘/`href`/制品路径/松散类型/硬编码中文（L1319-1331）；13 条词条全部使用（L1333-1334）。⑫ `test_b284_panel_compiles_to_a_real_typescript_artifact` L1336-1361。⑬ `test_b284_notification_keys_are_localized` L1364-1384。 | 真实 esbuild（`node_modules/.bin/esbuild --bundle --platform=node`）+ 真实 node 执行真实编译产物：真实 `services/webchatApi.ts` 的 `notifications`/`read`/`download`（HTTP 经真实 axios 实例与拦截器由 adapter 观测：方法/URL/`page`+`after_seq`/`responseType`/X-Locale/X-Request-Id/X-CSRF-Token/X-Chat-Context/身份信号都是真实事实）、真实 `clientConfig.ts` 的 `createClientConfigService` 投影（`notification_poll_sec=2.5` 驱动抖动）、真实 `authenticationState.ts`（exchange 落地 CHAT 上下文、`registerIdentityCleanup`/`trackObjectUrl`/`identitySignal`、真实 logout 身份边界）、真实 `ConversationSidebar.conversationUnread` 侧栏接缝；定时器/可见性/Blob URL 端口注入以便确定性驱动（真实浏览器行为留 E2E）。真实组件 `NotificationPanel.tsx` 经真实 React `renderToStaticMarkup`（真实 Semi + 真实 zh/en 词条）静态渲染成真实编译产物。 | verified |
+
+实现要点：**轮询只有一处事实**——`createNotificationController` 持有 `after_seq`（服务端 `next_seq`）与 `through_seq` 的比较结果：未追平立即续拉（0ms）、追平后按 API-19 投影的 `notification_poll_sec` 排下一轮并加固定比例抖动（±20%），每次只带 `page=1`+`after_seq`（页大小由服务端派生，前端不复制默认）；单飞在途请求 + 单一可取消定时器端口，结构上不存在并发轮询与泄漏定时器。**暂停/同步是两条路径**——`visibilitychange` 到达时隐藏即清定时器并停在暂停态，回前台立即同步通知并经 `activity.foreground()` 让页面刷新会话索引（端口失败只上报，不影响通知同步）；`tick` 另有隐藏守卫，定时器到点而页面已隐藏也不会发请求。**未读只吃服务端**——总数只取 `unread_count`（`unreadBadgeCount` 归一），按会话未读只由服务端行的 `read_at===null` 聚合（可直接喂 TASK-079 的 `unreadCounts` 接缝），重放帧既不累加也不自减；`read` 只在显式 `markRead()` 里出现一次，回执落 `read_at` 后立即做一次权威重读拿新未读总数，已读/未知通知零请求且显式失败，认证失效（CHAT 401）只留稳定码并停轮询（零自动重试）。**预览只经授权下载面**——`download(artifact_id)` 取 Blob（`responseType: 'blob'`、身份信号）后创建 Blob URL 并 `trackObjectUrl` 登记；只对白名单栅格图片（`available ∧ IMAGE ∧ image/png|jpeg|gif|webp`）开放，失效附件与文档/SVG 零请求且显式失败；Blob URL 在替换/关闭时立即撤销、身份边界统一撤销，`previewEpoch` fence 保证关闭/切身份后迟到的下载结果不写状态（就地撤销新 URL）。**面板只消费服务端事实**——徽标/条目/摘要原样投影，kind 逐项本地化、时间复用 `DateTimeText`；定位只发 `onLocate`（不自动标读）、标读只对未读条目显式提供、附件名只展示不拼路径、预览只渲染 Blob URL，面板自身不建 URL、不发 HTTP、不生成任何 `href`；失败保留已有结果并就地重试。
+
+回归：`uv run pytest -q tests/frontend` exit=0，**553 passed（5.41s）**（本任务新增 13 条用例后全量绿）；`npx tsc --noEmit`（apps/console-platform/frontend）干净；`.venv/bin/python scripts/check_frontend_i18n.py`「i18n keys OK: 1468」（1455 + 新增 13）；`.venv/bin/python scripts/check_frontend_api_usage.py`「frontend api usage check OK」。`tests/acceptance/**`、`make acceptance*`、Playwright 浏览器验收未执行（共享环境约束 + E2E 属 TASK-114/112 的 verify-e2e）。逐函数核对：两文件全部函数 ≤50 行（hook 最长 `useNotificationService` 40、面板最长 `NotificationItem` 42）；强类型无 `any`、无裸 axios/fetch、无自拼传输头、无持久存储、无日志、无硬编码文案。
+
+遗留（deferred，非本任务可闭合）：① **页面级装配**——把 `useNotifications` 接进 `ChatPage`/`WebchatShell`（`unreadCounts={notifications.snapshot.unreadByConversation}`、面板 `onLocate` 绑到会话选择 + 重读权威状态、`onMarkRead`/`onPreview`/`onClosePreview` 绑到控制器动作、`activity.foreground` 绑到 TASK-078 的 `refresh()`）属 TASK-093；本任务只交付控制器/组件与真实接缝，未改 `ChatPage.tsx`（其现有 `ChatWorkspace` 占位保持原样）。② **DOM 交互**（真实点击定位/标记已读/关闭预览、滚动与焦点、窄屏与主题）按契约留真实浏览器 E2E（S-F05/S-F13，TASK-114/112）；本任务以真实 SSR 渲染产物 + 真实 node 执行 + `tsc --noEmit` 登记。③ **消息线程附件内联预览**：本任务交付的预览资格/Blob URL 生命周期语义（白名单/撤销/fence）在通知面板落地；`MessageThread.tsx` 的内联图片预览（TASK-080 遗留④）若要复用同一语义，需把 `useNotifications` 的预览端口提为共享接缝（本任务 Files 之外，未改 `MessageThread.tsx`，其既有 12 条 href/下载断言保持通过）。④ **计划外文件披露（计划 Files 之外的必需联动）**：`apps/console-platform/frontend/src/modules/webchat/hooks/useClientConfig.ts`（`ClientConfigController` 透出 `limits()`——轮询间隔必须从 API-19 投影消费，控制器此前未透出该接缝；TASK-076 的 12 条用例保持通过）。⑤ **通知清理/保留与「游标最早可用水位」**属 TASK-069（本任务只消费 `CURSOR_AHEAD` 的显式失败路径，不引入保留下界）；**通知/投递指标目录**属 TASK-098。⑥ 词条最终收敛由 TASK-090 统一（本任务只追加自己的 13 条键，未改动其它键）。⑦ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「后台活动轮询只消费 API-19 投影并加固定比例抖动，隐藏页清定时器、回前台立即同步；未读只吃服务端权威计数且 `read` 只在显式动作出现；附件预览只经授权下载面创建 Blob URL 并在替换/关闭/身份边界撤销，白名单与失效语义同服务端 `inline`/`available`」；本任务不改 spec 文件以免 active context 漂移。
+- B-284: verified — automated command passed; run_id=f48a5acf749a4c6bb0c2df8d2410bec8 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] TDD：先建 B-284 行为验收并记录 RED（4 failed + 9 errors）→ 实现 `hooks/useNotifications.ts`（有界增量轮询 + 抖动/隐藏页暂停/前台同步/未读权威/显式标读/授权下载预览 + Blob URL 生命周期/身份边界/认证失效停轮询）+ `components/NotificationPanel.tsx`（徽标/显式动作/安全预览/就地重试）+ 13 条 zh/en 词条（计划外联动：`useClientConfig` 透出 `limits()`）→ GREEN（13 passed）；回归 tests/frontend 553 passed、tsc 干净、i18n 1468、api usage OK；8 项变异校验全部被捕获并逐字节还原。
+- [2026-10-19] 复核（≤50 行核对）：hook 拆出 `createRuntime`/`startPolling`/`closePreviewRuntime`/`disposeRuntime`/`useNotificationIdentityCleanup`/`useNotificationDispose`/`useNotificationPolling`，面板拆出 `NotificationItemActions`/`NotificationPanelBody`/`NotificationPanelHeader`，全部函数 ≤50 行（最长 42）；复跑验收 13 passed、tests/frontend 553 passed、tsc 干净。
+- [2026-10-19] completed (done)
 
 ---
 

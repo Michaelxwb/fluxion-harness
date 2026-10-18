@@ -21,7 +21,7 @@ import {
   type ClientConfigClient,
   type ClientConfigSnapshot
 } from '../clientConfig';
-import type { WebchatClientConfig, WebchatRequestOptions } from '../types';
+import type { WebchatClientConfig, WebchatClientLimits, WebchatRequestOptions } from '../types';
 import type { ChatAuthController } from './useChatAuth';
 
 /** 页面持有的配置控制器：状态只读，动作只经 service（不暴露写能力）。 */
@@ -34,6 +34,8 @@ export interface ClientConfigController {
   reload(options?: WebchatRequestOptions): Promise<ClientConfigSnapshot>;
   /** 新连接冻结的有效投影（绑定 `transport_revision` 与传输参数；活跃连接不受影响）。 */
   newConnectionConfig(): WebchatClientConfig;
+  /** 浏览器可见上限（分页/文本/附件/轮询）的唯一消费接缝；未就绪时显式失败，不回落默认。 */
+  limits(): WebchatClientLimits;
 }
 
 /**
@@ -78,6 +80,7 @@ export function useClientConfig(
     ready: snapshot.loadState === 'ready',
     retry,
     reload,
-    newConnectionConfig: service.newConnectionConfig
+    newConnectionConfig: service.newConnectionConfig,
+    limits: service.limits
   };
 }
