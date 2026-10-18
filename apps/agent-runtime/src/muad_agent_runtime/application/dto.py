@@ -9,6 +9,7 @@ from muad_contracts import RunStatus, WaitReason
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from ..infrastructure.models.runtime import Conversation, RunRecord, RuntimeSnapshot
+from .execution_status import project_execution_status
 from .memory_confirmation_resume import ConfirmationBinding
 
 
@@ -92,6 +93,11 @@ class CreateConversationRequest(BaseModel):
 
     agent_id: uuid.UUID
     platform_user_id: uuid.UUID
+    #: 入口账号（网页稳定入口的 `bot_account_id`）：可归属入口随会话冻结入口归属并登记当前指针；
+    #: 缺省 = 不可归属入口（与 `RunRequest.channel.bot_id` 的非 UUID 口径同一语义，不编造入口）。
+    entry_id: uuid.UUID | None = None
+    #: 外线线程：无显式会话的入口按 (入口, 线程) 维护当前指针；网页不依赖该指针（RULE-10）。
+    external_thread_id: str = ""
 
 
 def display_run_status(status: str, cancel_requested: bool) -> str:
@@ -109,6 +115,12 @@ def conversation_view(conversation: Conversation) -> dict[str, Any]:
         "conversation_id": str(conversation.id),
         "agent_id": str(conversation.agent_id),
         "user_id": str(conversation.user_id),
+        # 入口归属是会话的公开事实（API-08 201 的 `entry_id` 投影）：不可归属入口为 None。
+        "entry_id": (
+            str(conversation.channel_account_id)
+            if conversation.channel_account_id is not None
+            else None
+        ),
         "title": conversation.title,
         "status": conversation.status,
         "last_seq": conversation.last_seq,
@@ -153,6 +165,8 @@ def run_view(run: RunRecord, snapshot: RuntimeSnapshot | None, wait: RunWaitSumm
         "agent_id": str(run.agent_id),
         "user_id": str(run.user_id),
         "status": display_run_status(run.status, run.cancel_requested),
+        # 持久阶段投影（TASK-036 的唯一投影函数）：网页 202/恢复回执与 SSE/详情同源，不推算。
+        "execution_status": project_execution_status(run).model_dump(mode="json"),
         "trace_id": run.trace_id,
         "cancel_requested": run.cancel_requested,
         "error_code": run.error_code,

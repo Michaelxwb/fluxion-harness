@@ -323,6 +323,11 @@ def _messages_path(conversation_id: uuid.UUID) -> str:
     return f"/internal/webchat/conversations/{conversation_id}/messages"
 
 
+def _scope_path(conversation_id: uuid.UUID) -> str:
+    """公共路径的归属解析（TASK-052 接线；入口/Agent 由 Owner 从行导出）。"""
+    return f"/internal/webchat/conversations/{conversation_id}/scope"
+
+
 async def _get(client: AsyncClient, path: str, tenant: TenantContext, **params: Any) -> Any:
     return await client.get(path, headers=_headers(tenant), params=params)
 
@@ -726,6 +731,51 @@ async def test_b250_waiting_input_detail_reports_the_real_run_state(
     assert detail.active_run is not None
     assert detail.active_run.id == run_id and detail.active_run.status == "WAITING_INPUT"
     assert detail.active_run.execution_status.stage == "WAITING_INPUT"
+
+
+# --------------------------------------------------------------------------------------
+# TASK-052：公共路径的归属解析（API-09/15 的入口解析接线）
+# --------------------------------------------------------------------------------------
+
+
+async def test_task052_scope_resolution_derives_entry_and_agent_for_the_owner_only(
+    client: AsyncClient, history_tenant: TenantContext
+) -> None:
+    """`.../scope` 只按 (tenant, user) 核属：入口/Agent 从行导出，他主体/不可归属一律 404。"""
+    tenant = history_tenant
+    conversation_id = await _seed_conversation(tenant, title="归属解析")
+    response = await _get(
+        client, _scope_path(conversation_id), tenant, user_id=str(tenant.platform_user_id)
+    )
+    assert response.status_code == 200, response.text
+    assert json.loads(response.text)["data"] == {
+        "conversation_id": str(conversation_id),
+        "entry_id": str(ENTRY),
+        "agent_id": str(tenant.agent_id),
+    }
+
+    # 他主体：真实行存在也读不到（不泄露存在性）。
+    denied = await _get(client, _scope_path(conversation_id), tenant, user_id=str(uuid.uuid4()))
+    assert denied.status_code == 404 and denied.json()["code"] == "COMMON_NOT_FOUND"
+
+    # 不可归属入口的会话不是网页历史：同样 404。
+    unattributed = await _seed_conversation(tenant, entry_id=None)
+    denied = await _get(
+        client, _scope_path(unattributed), tenant, user_id=str(tenant.platform_user_id)
+    )
+    assert denied.status_code == 404
+
+    # 受信主体缺失在入口显式拒绝（与详情/消息同一口径）。
+    missing = await _get(client, _scope_path(conversation_id), tenant)
+    assert missing.status_code == 422
+
+    # 服务身份门控：无内部身份一律 403（真实应用）。
+    without_identity = await client.get(
+        _scope_path(conversation_id),
+        headers={"X-Tenant-Id": tenant.tenant_id},
+        params={"user_id": str(tenant.platform_user_id)},
+    )
+    assert without_identity.status_code == 403
 
 
 # --------------------------------------------------------------------------------------

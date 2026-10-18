@@ -309,6 +309,42 @@ class WebchatMessageAccepted(WebchatContract):
     execution_status: WebchatExecutionStatus
 
 
+#: 取消回执的显示状态：`CANCELLING` 是取消请求已受理但尚未落地（Runtime `display_run_status`）。
+RunDisplayStatus = Literal[
+    "CREATED", "RUNNING", "WAITING_TOOL", "WAITING_INPUT",
+    "COMPLETED", "FAILED", "CANCELLED", "CANCELLING",
+]
+
+
+class WebchatRunCancelResult(WebchatContract):
+    """API-08 取消回执：原 Run 的真实显示状态 + 取消请求标记（Runtime `run_cancel_view` 投影）。"""
+
+    run_id: UUID
+    status: RunDisplayStatus
+    cancel_requested: StrictBool
+
+
+class WebchatResumeReceipt(WebchatContract):
+    """API-08 恢复回执：原 Run 继续执行后的真实阶段（不伪造进度）。"""
+
+    run_id: UUID
+    submission_id: UUID
+    status: RunStatus
+    execution_status: WebchatExecutionStatus
+
+
+class WebchatConversationScope(WebchatContract):
+    """内部归属解析（API-09/15 的入口解析接线；design §3.4 公共路径不带入口）。
+
+    只描述 Owner 对**本主体名下会话**的归属结论：网关据此走入口显式的读取端点，
+    浏览器不参与这一解析、也不自报入口/Agent。
+    """
+
+    conversation_id: UUID
+    entry_id: UUID
+    agent_id: UUID
+
+
 class WebchatConversationCreate(WebchatContract):
     """The entry is in the route; identity and the initial title are server-owned."""
 

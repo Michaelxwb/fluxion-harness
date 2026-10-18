@@ -525,6 +525,9 @@ async def test_b248_http_redelivery_reuses_message_identity_and_explicit_convers
             "type": "text",
             "text": TEXT_A,
             "attachments": [],
+            # TASK-053 起 `MessageInput` 的暂存上传引用是契约字段（管道路径恒为空列表）；
+            # 重投沿用同一身份时它也必须逐字节一致。
+            "upload_ids": [],
         }
         assert first["conversation_id"] == second["conversation_id"] == str(CONVERSATION_A)
         assert first["channel"] == second["channel"]
