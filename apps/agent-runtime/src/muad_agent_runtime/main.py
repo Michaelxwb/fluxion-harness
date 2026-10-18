@@ -32,6 +32,12 @@ from .application.async_tools.control_dispatcher import ControlDispatcher, Contr
 from .application.async_tools.runtime import set_control_dispatcher
 from .application.async_tools.supervisor import ExecutionSupervisor, reclaim_stale_executions
 from .application.attachments.tool_results import ArtifactResultWriter
+from .application.channel_delivery import TenantChannelDelivery
+from .application.channel_delivery_pump import (
+    ChannelDeliveryPump,
+    DeliveryPumpPolicy,
+    GatewayDeliverySender,
+)
 from .application.continuation_execution import continuation_executor
 from .application.executor import default_executor_factory
 from .application.memory_consolidation import ConsolidationInvoker
@@ -42,6 +48,7 @@ from .application.run_service import expire_queued_runs, reap_abandoned_runs
 from .infrastructure.cancel_hint import create_cancel_hint_store
 from .infrastructure.console_client import ConsoleCredentialsClient, ConsoleResolveClient
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
+from .infrastructure.gateway_delivery_client import GatewayDeliveryClient
 from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
 from .metrics import install_runtime_metrics
 
@@ -94,6 +101,28 @@ async def _execution_slot_loop(
             continue
         if reclaimed:
             logger.warning("execution_slots_reclaimed", extra={"reclaimed": reclaimed})
+
+
+def _mount_delivery_pump(
+    settings: SharedSettings, platform_settings_client: ConsolePlatformSettingsClient
+) -> tuple[ChannelDeliveryPump, GatewayDeliveryClient]:
+    """出站投递泵的装配：独立于请求/执行路径（不占执行槽），交付经既有 Gateway 适配器。
+
+    只重试**已持久**结果（TASK-063 的 PENDING 意图），不重新执行任何外部写任务；泵与交付
+    客户端都由 lifespan 收尾（先停循环再关在飞投递与客户端）。
+    """
+    client = GatewayDeliveryClient(
+        settings.im_gateway_url,
+        service_token=settings.internal_service_token,
+        timeout_sec=settings.channel_delivery_timeout_sec,
+    )
+    pump = ChannelDeliveryPump(
+        get_session_factory,
+        TenantChannelDelivery(get_session_factory, platform_settings_client),
+        GatewayDeliverySender(client),
+        DeliveryPumpPolicy.from_settings(settings),
+    )
+    return pump, client
 
 
 @asynccontextmanager
@@ -178,6 +207,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.run_reaper_interval_sec, app.state.execution_supervisor, app.state.instance_id
         )
     )
+    # 出站投递泵：独立于请求/执行路径（不占执行槽、不受请求并发影响），只重试已持久结果；
+    # 交付仍经既有 Gateway `/internal/deliveries`（不新增部署单元）。
+    app.state.delivery_pump, delivery_client = _mount_delivery_pump(
+        settings, platform_settings_client
+    )
+    app.state.delivery_pump_task = asyncio.create_task(app.state.delivery_pump.run_forever())
     try:
         yield
     finally:
@@ -191,6 +226,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.execution_slot_task.cancel()
         with suppress(asyncio.CancelledError):
             await app.state.execution_slot_task
+        app.state.delivery_pump_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await app.state.delivery_pump_task
+        await app.state.delivery_pump.close()
+        await delivery_client.aclose()
         await app.state.execution_supervisor.close()
         deadline_task.cancel()
         with suppress(asyncio.CancelledError):

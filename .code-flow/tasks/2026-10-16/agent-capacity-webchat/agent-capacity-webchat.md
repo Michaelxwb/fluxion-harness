@@ -405,7 +405,7 @@
 | B-263 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-063 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_activity_write.py"] | . | 300 |  |
 | B-264 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-064 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_activity_read.py"] | . | 300 |  |
 | B-265 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-065 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_reservation.py"] | . | 300 |  |
-| B-266 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-066 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_pump.py"] | . | 300 |  |
+| B-266 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-066 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_pump.py"] | . | 300 |  |
 | B-267 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-067 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_delivery.py"] | . | 300 |  |
 | B-268 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-068 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"] | . | 300 |  |
 | B-269 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-069 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | . | 300 |  |
@@ -4146,7 +4146,7 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 ## TASK-066: Runtime独立可靠交付泵
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-032, TASK-065
 - **Source**: agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量
@@ -4161,25 +4161,56 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 ### Checklist
 
-- [ ] [B-266][integration] 先在`tests/agent_runtime/test_capacity_webchat_delivery_pump.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：原入口PENDING意图按租约有界领取/续租/退避。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-266] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-266] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_pump.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-266][integration] 先在`tests/agent_runtime/test_capacity_webchat_delivery_pump.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：原入口PENDING意图按租约有界领取/续租/退避。→ RED：`uv run pytest -q tests/agent_runtime/test_capacity_webchat_delivery_pump.py` exit=2，**1 error during collection（0 passed / 0 failed, 0.17s）**：`ImportError: cannot import name 'TenantChannelDelivery' from 'muad_agent_runtime.application.channel_delivery'`——13 个行为用例先落地，投递泵模块与按租户协议门面尚不存在（日志 `$TMPDIR/muad-task066/task066-red.log`）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① 新增 `application/channel_delivery_pump.py`——`DeliveryPumpPolicy`（`SharedSettings.channel_delivery_*` 的 typed 投影：并发/timeout/租约/poll/batch/retry base·cap/max_attempts，边界在 `__post_init__` 显式校验，租期必须是整秒且落在线协议 5–3600s 内）、`DeliveryIntent`（领取时的行事实 + Run 持久化入站路由 + 已持久正文）、`DeliverySendOutcome`/`DeliveryIntentSender`/`DeliveryProtocolPort`/`DeliveryTransportPort` 四个协议、`due_intents_statement`（与 `ix_channel_notification_due` 同形的到期谓词，隐藏行不排除）、`ChannelDeliveryPump`（`claim_due`/`run_once`/`run_forever`/`drain`/`close` + 单条独立回收回调 + `_deliver` 有界重试 + `_deliver_once` 的 reserve→发送∥续租→ack + `_send_within_budget` + `_keep_lease`）、`GatewayDeliverySender`（经既有 Gateway `/internal/deliveries` 主动交付，按真实结论分类 DELIVERED/NOT_SENT/UNKNOWN）；② `application/channel_delivery.py` 抽出 `TenantChannelDelivery`（按租户取一次设置快照再委托一次状态转换），API-18 端口与投递泵共用同一门面（退避基数/保留期只有一处来源）；③ `infrastructure/gateway_delivery_client.py` 新增 `DeliveryNotSentError`（连接未建立/网关显式拒绝 = 确定没发出去，与"没拿到结论"分开；子类保证既有调用方行为不变）并让内部投递**不走环境代理**（`trust_env=False`）；④ `packages/contracts` 的 `DeliveryRequest` 接受第三种键形态 `run:{run_id}:terminal`（与持久通知同一个稳定 delivery_key，`run_id` 投影同步）；⑤ `main.py` 装配根挂载（`_mount_delivery_pump` + lifespan 起独立循环、收尾先停循环再关在飞投递与客户端）。错误显式：租约失约/行消失/非 PENDING 一律停手不 ack，设置源不可读等瞬时故障按 base→cap 有界重试（同一 attempt_id 重复 reserve 命中同一租约、不虚增 attempt），`run_forever` 单轮异常记日志后继续；日志只有 notification_id/错误码/类型名，正文与凭据不进日志。
+- [x] [B-266] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-266] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_pump.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**13 passed in 25.53s**（日志 `$TMPDIR/muad-task066/task066-green.log`）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-266 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 原入口PENDING意图按租约有界领取/续租/退避；Gateway重启或回复窗口过期后恢复交付，执行槽耗尽也可投递，不增加第五部署单元 | tests/agent_runtime/test_capacity_webchat_delivery_pump.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_pump.py"] | planned |
+| B-266 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 原入口PENDING意图按租约有界领取/续租/退避；Gateway重启或回复窗口过期后恢复交付，执行槽耗尽也可投递，不增加第五部署单元 | tests/agent_runtime/test_capacity_webchat_delivery_pump.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_pump.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-266 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_delivery_pump.py` exit=2，**1 error during collection（0 passed / 0 failed, 0.17s）**：`ImportError: cannot import name 'TenantChannelDelivery' from 'muad_agent_runtime.application.channel_delivery'`（验收文件先落地、投递泵模块尚不存在） | 同命令 exit=0，**13 passed in 25.53s** | ① `test_b266_due_claim_uses_the_pending_index_and_bounds_attempts` L521-556：只领到期 PENDING（L537-538）；路由=Run 持久化的原入口（WECOM/bot/外线用户/线程 L539-547）、正文=终态事件 `final_text` L548；未到期/超预算/`NOT_REQUIRED` 逐行不动 L549-553；真实执行计划（`enable_seqscan=off` + `EXPLAIN (FORMAT JSON)`）用 **`ix_channel_notification_due`** L554。② `test_b266_pending_intent_is_delivered_to_the_original_entry_over_real_http` L558-593：真实 HTTP 请求体（稳定键/租户/路由/文本形态 L572-585）、内部服务头 L586、行 `DELIVERED`+租约清空+首次回执 L587-590、**送达不代替已读** L591。③ `test_b266_no_free_delivery_slot_means_no_claim` L596-629：槽满 `free_slots==0`/`inflight==1` L609-610，`run_once()==0` 且第二次意图逐行不动（仍 PENDING/attempt 0）L611-616；放行后交付 L619。④ `test_b266_not_sent_returns_to_pending_with_backoff_then_recovers` L632-668：网关 404 ⇒ `NOT_SENT` 回 PENDING、清租约、回执 outcome=NOT_SENT L645-648，退避 ≈ 平台设置 5s（4–8s 带）L649-650，退避期内不再领取（探针仍 1 次）L652-653；拨到期后同键恢复 ⇒ DELIVERED/attempt 2 L655-666。⑤ `test_b266_unknown_outcome_is_retained_and_never_resent` L671-696：读超时 ⇒ `UNKNOWN` + 回执 + 清租约 L682-684，`claim_due` 为空、不再发送（探针仍 1 次）L686-688。⑥ `test_b266_lease_is_renewed_while_a_slow_delivery_is_in_flight` L699-736：慢发送期间行确为 DELIVERING 且有期限 L711-713，`lease_until` **真实前进**（续租）L715-721，收尾 DELIVERED+清租约 L725-726。⑦ `test_b266_lease_loss_stops_the_local_delivery_without_writing_any_result` L739-778：过期租约被另一 attempt 接管（epoch 2/attempt 2）L753-757，泵本地停手 L758；行仍归新租约、`delivery_result` 仍 NULL L762-765（迟到结果没有位置）。⑧ `test_b266_attempt_budget_bounds_the_claim_set` L781-807：预算 2 ⇒ 两轮后 attempt==2、仍 PENDING L793-795，`claim_due` 为空且不再发送（探针仍 2 次）L797-799。⑨ `test_b266_recovers_after_gateway_restart_with_execution_slots_exhausted` L810-848：网关下线（连接拒绝）⇒ **NOT_SENT**（确定没发出去，不是 UNKNOWN）L824-828，执行槽仍全忙且计数不变 L829；网关重启+拨到期 ⇒ DELIVERED、槽计数仍 1 L831-836。⑩ `test_b266_lifespan_mounts_the_pump_with_startup_budgets` L851-873：真实 lifespan 注入 `CHANNEL_DELIVERY_*` 启动预算（并发/超时/租约/poll L864-867）、独立循环任务存活 L868-869、退出即停 L871。⑪ 边界 `test_b266_pump_policy_rejects_invalid_budgets` L876-888（0 预算/超时≥租约/租约越界/base>cap 全部 ValueError）与 `test_b266_pump_policy_derives_from_the_startup_settings` L891-901（默认 4/32/30/5.0/1.0/30.0/20/1.0）。⑫ `test_b266_intent_written_by_the_notification_path_is_delivered` L904-935：TASK-063 `write_run_notification(delivery_state=PENDING)` 的真实意图被同一稳定键领取并交付 L927-935。 | **真实 Runtime 业务服务**：`ChannelDeliveryPump`/`TenantChannelDelivery`/`ChannelDeliveryService`（TASK-065 的同一 PG 状态转换）与 TASK-063 的 `write_run_notification` 全走生产代码；装配用真实 `main.lifespan`（真实 PG/Redis 隔离号位）。**隔离 PostgreSQL**：每用例一个空库 + `alembic upgrade head`、跑完 drop（`async_tool_datastore`，不触碰共享 dev 库）；真实 `runtime.channel_notification`/feed/`run_record`/`canonical_event` 行、真实 `(tenant,delivery_key)` 唯一约束、真实 partial 索引（EXPLAIN 证据）与真实 PG 服务端时钟（到期/租约/退避裁决）。**真实 HTTP 交付边界**：uvicorn + 真实 socket 扮演既有 Gateway `/internal/deliveries`（真实请求体/响应封套/404 拒绝/读超时/连接拒绝/慢发送），"网关重启"就是真实停服+同端口重启。**真实执行槽**：`ExecutionSupervisor` 槽全忙时交付照常推进且不占槽。未 mock 存储或租约，无共享 dev 库行。 | verified |
+
+**实现要点**
+
+- **领取**：`due_intents_statement` 的谓词与 `ix_channel_notification_due`（partial：`delivery_state='PENDING'`）同形——`PENDING` + `next_attempt_at <= PG now` + `attempt < max_attempts`，按 `(tenant_id, next_attempt_at, id)` 有序；领取本身**不加锁**，状态转换由 TASK-065 的 `reserve` 行锁内完成（多副本竞争由 epoch 栅栏裁决，`run_once` 还用 `notification_id` 去重本地在飞任务）。隐藏（软删）行**不排除**：投递回执与重试资格不因隐藏消失（§3.6）。
+- **有界槽**：`run_once` 的领取量 = `min(CHANNEL_DELIVERY_BATCH_SIZE, 空闲投递槽)`，无空闲槽直接返回 0 且不触碰 PG（§3.7「领取数量≤空闲投递槽，无槽不领取」）；每条投递是独立 asyncio 任务 + 独立完成回调（单条异常/取消只释放自己），`run_forever` 单轮异常只记日志并继续。
+- **协议与续租**：`reserve`（租期 `CHANNEL_DELIVERY_LEASE_SEC`，与 timeout 校验 timeout<lease）→ 发送与**独立续租任务**并发（周期 lease/3）；`renew` 拿不到租约即抛 `DELIVERY_LEASE_LOST`，此时取消本地发送且**不 ack**（失约即停手；迟到结果改不动行）。慢发送（4s）在 5s 租约下真实触发续租（用例⑥）。
+- **诚实结局**：`DELIVERED` 只在 Gateway 确认 `delivered=true` 后写；**确定没发出去**（连接未建立/网关非 200/网关只占位）⇒ `NOT_SENT` → PENDING + 平台设置退避基数重投；**没拿到结论**（读超时/发送预算耗尽）⇒ `UNKNOWN` → 保留核实、不再自动重发。路由/正文缺失同样按 NOT_SENT（没发出去≠发成功）。
+- **重试预算**：`CHANNEL_DELIVERY_RETRY_BASE_SEC/CAP_SEC/MAX_ATTEMPTS` 是**进程级**的瞬时故障重试（设置源不可达、DB 抖动、发送器异常）：同一 `attempt_id` 重跑整条 `reserve→发送→ack`，重复 reserve 命中同一租约（TASK-065 幂等语义）⇒ 不虚增 `attempt`；`max_attempts` 同时是**持久领取**的尝试上限（跨副本、跨重启都记在行上），预算耗尽后意图保留 PENDING 供核实，不再领取。退避节奏的**唯一来源**仍是平台设置 `task.delivery_backoff_base_sec`（TASK-065 的 `DeliveryPolicy`），本任务不另建同义配置。
+- **装配**：`_mount_delivery_pump` 在 Runtime 进程内挂起泵（不新增第五部署单元），交付经既有 Gateway `/internal/deliveries`；收尾顺序=取消循环 → `pump.close()`（取消在飞投递）→ 关闭交付客户端。
+- **契约对齐**：`DeliveryRequest` 接受 `run:{run_id}:terminal`（与持久通知同一个稳定 delivery_key；§3.6「活跃回复会话的收尾与兜底主动交付使用同一稳定 delivery_key」），`run_id` 投影同步覆盖该形态——TASK-067 的 Gateway 侧协调（API-18 reserve/ack）因此能落在同一个键上。
+- **投递事实分离**：`DeliveryNotSentError`（连接未建立/网关显式拒绝）与 `DeliveryUnavailableError`（连接之后的超时/传输错误）分开，泵据此写 `NOT_SENT` 或 `UNKNOWN`；内部服务调用 `trust_env=False`，不让部署环境的 `HTTP_PROXY` 变成内部交付的隐形路由（实测：本机代理把 127.0.0.1 交付变成读超时）。
+- **计划外文件披露**（计划 Files 之外的必需联动）：① `apps/agent-runtime/src/muad_agent_runtime/application/channel_delivery.py`（抽出 `TenantChannelDelivery`：按租户设置快照→服务的唯一实现处，泵与 API-18 端口共用，消除重复）；② `apps/agent-runtime/src/muad_agent_runtime/api/channel_delivery.py`（改为委托同一门面，行为不变，TASK-065 的 16 条验收复跑通过）；③ `apps/agent-runtime/src/muad_agent_runtime/infrastructure/gateway_delivery_client.py`（`DeliveryNotSentError` + `trust_env=False`）；④ `packages/contracts/src/muad_contracts/delivery.py`（`TERMINAL_DELIVERY_KEY` 第三形态）；⑤ `docs/configuration-inventory.csv`（新增 2 个常量行、本任务改动文件的常量行号平移，保持 CRLF、0 裸 LF）。
+- 未新增迁移/DDL（0026 已提供 due partial 索引与投递列；本任务只用既有列）。
+
+**回归证据（最终代码）**：`uv run pytest -q tests/agent_runtime` exit=0，**1028 passed in 690.24s**（同域全量；隔离空库 + `alembic upgrade head`，含本任务 13 条与 TASK-065/TASK-032 既有套件）；`uv run pytest -q tests/agent_runtime/test_capacity_webchat_delivery_pump.py tests/contracts tests/test_configuration_inventory.py` exit=0，**1298 passed in 22.22s**（契约面 1281 条含新键形态、配置盘点 4 条含新增 2 行）；`uv run pytest -q tests/gateway/test_delivery_api.py tests/gateway/test_runtime_client.py tests/architecture tests/agent_runtime/test_capacity_webchat_delivery_reservation.py tests/agent_runtime/test_attachment_tools.py` exit=0，**117 passed in 35.82s**（Gateway 交付面、架构规则、TASK-065 的 16 条协议验收、产物交付客户端既有消费者）。静态检查：`uv run ruff check`（本任务 7 个改动文件）干净；`uv run mypy apps packages` → Success: no issues found in 436 source files；新增/修改函数全部 ≤50 行（`lifespan` 为既有装配根，本任务净增 7 行，见遗留⑦）。
+
+**遗留（deferred，非本任务可闭合）**
+
+1. **Gateway 活跃回复会话与兜底交付的同键协调**（API-18 reserve/ack、ACK 丢失的至少一次语义）属 **TASK-067**：本任务把泵的交付请求打到既有 `/internal/deliveries`（网关侧 Redis 去重 + 稳定键），但不代它实现"活跃 ReplySession 收尾"的预留/确认。
+2. **Task 结果的产物形态交付**属 **TASK-068/094**：本发送器只交付文本形态（终态正文/待确认提示词），带 `artifact_ids` 的意图不会伪造产物已送达。
+3. **交付/通知指标目录**属 **TASK-098**：本任务只留结构化日志（`channel_delivery_pump_failed`/`channel_delivery_attempt_failed`/`channel_delivery_crashed`），不新增指标常量。
+4. **交付路径的分池 HTTP 预算与生产装配**属 **TASK-094**（`infrastructure/http_clients.py`）：本任务用独立 `GatewayDeliveryClient`（timeout 来自 `CHANNEL_DELIVERY_TIMEOUT_SEC`），池大小/总预算仍在装配任务统一注入。
+5. **待确认通知的机器人文案本地化**：泵按已持久事件载荷的 `prompt` 原文交付（不新增 i18n 渲染），若产品要求机器人侧本地化文案，属 TASK-067/096 的渲染边界。
+6. **E2E（S-07/S-15/E-19 等）保持 planned**，由 verify-e2e 记录完整证据；本任务只登记 integration 级证据。
+7. 诚实记录：`lifespan` 仍超过 50 行（既有装配根，本任务净增 7 行：`_mount_delivery_pump` + 两行挂载/收尾；其余新增函数全部 ≤50 行）。
+- B-266: verified — automated command passed; run_id=02f97477615e4873a2b63f9f88123c76 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-266 RED→GREEN：先建 13 个行为用例 → **1 error during collection（0 passed / 0 failed, 0.17s）**（`ImportError: TenantChannelDelivery`/投递泵模块尚不存在）；实现投递泵（到期领取走 due partial 索引 + 有界投递槽 + reserve/续租/ack + NOT_SENT 退避/UNKNOWN 保留 + 限次 + 独立循环）与装配根挂载后 **13 passed in 25.53s**；回归 `tests/agent_runtime` **1028 passed**（690.24s）、契约+盘点 **1298 passed**（22.22s）、Gateway/架构/相邻套件 **117 passed**（35.82s）；ruff 干净、mypy 436 文件无问题
+- [2026-10-18] completed (done)
 
 ---
 

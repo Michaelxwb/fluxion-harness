@@ -51,6 +51,7 @@ from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import ChannelNotification
 from .channel_notifications import DELIVERY_NOT_REQUIRED, DELIVERY_PENDING, DELIVERY_STATES
+from .ports import PlatformSettingsClient
 
 #: `delivery_state` 词表的其余取值（与 0026 的 CHECK 同词表；一致性由验收断言）。
 DELIVERY_DELIVERING = "DELIVERING"
@@ -165,6 +166,86 @@ class DeliveryConfirmation:
     attempt: int
     reused: bool
     receipt: DeliveryReceipt | None = None
+
+
+class TenantChannelDelivery:
+    """按租户的投递协议门面：每次操作取一次设置快照（HTTP 在**事务外**）再执行一次状态转换。
+
+    Runtime 内的两个调用方共用它——API-18 端口（外部发送方：Gateway/Worker）与投递泵
+    （本进程的兜底交付）：退避基数与回执保留期只有**一处来源**（平台设置），坏源显式失败，
+    不回落默认值（design §3.7）。每个方法都只做"取快照 + 委托一次状态转换"。
+    """
+
+    def __init__(
+        self, session_factory_provider: SessionFactoryProvider, settings_client: PlatformSettingsClient
+    ) -> None:
+        self._sessions = session_factory_provider
+        self._settings = settings_client
+
+    async def reserve(
+        self,
+        *,
+        tenant_id: str,
+        delivery_key: str,
+        attempt_id: uuid.UUID,
+        lease_sec: int | None = None,
+    ) -> DeliveryLease:
+        service = await self._service(tenant_id)
+        return await service.reserve(
+            tenant_id=tenant_id,
+            delivery_key=delivery_key,
+            attempt_id=attempt_id,
+            lease_sec=lease_sec,
+        )
+
+    async def renew(
+        self,
+        *,
+        tenant_id: str,
+        notification_id: uuid.UUID,
+        delivery_key: str,
+        attempt_id: uuid.UUID,
+        epoch: int,
+        lease_sec: int | None = None,
+    ) -> DeliveryLease:
+        service = await self._service(tenant_id)
+        return await service.renew(
+            tenant_id=tenant_id,
+            notification_id=notification_id,
+            delivery_key=delivery_key,
+            attempt_id=attempt_id,
+            epoch=epoch,
+            lease_sec=lease_sec,
+        )
+
+    async def ack(
+        self,
+        *,
+        tenant_id: str,
+        notification_id: uuid.UUID,
+        delivery_key: str,
+        attempt_id: uuid.UUID,
+        epoch: int,
+        outcome: DeliveryAckOutcome,
+        result: Mapping[str, JsonValue] | None = None,
+    ) -> DeliveryConfirmation:
+        service = await self._service(tenant_id)
+        return await service.ack(
+            tenant_id=tenant_id,
+            notification_id=notification_id,
+            delivery_key=delivery_key,
+            attempt_id=attempt_id,
+            epoch=epoch,
+            outcome=outcome,
+            result=result,
+        )
+
+    async def _service(self, tenant_id: str) -> ChannelDeliveryService:
+        """每次操作取一次设置快照（HTTP 在事务外）再构造服务：坏源显式失败，不回落默认。"""
+        snapshot = await self._settings.fetch_snapshot(tenant_id=tenant_id)
+        return ChannelDeliveryService(
+            self._sessions, delivery_policy_from_settings(snapshot.settings)
+        )
 
 
 class ChannelDeliveryService:
