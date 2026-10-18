@@ -21,6 +21,7 @@ from muad_logging import configure_logging
 
 from .api.admin_runs import router as admin_runs_router
 from .api.artifacts import router as artifacts_router
+from .api.channel_delivery import router as channel_delivery_router
 from .api.memory import router as memory_router
 from .api.model_capacity import router as model_capacity_router
 from .api.runs import router as runs_router
@@ -226,3 +227,4 @@ app.include_router(memory_router)
 app.include_router(tool_results_router)
 app.include_router(model_capacity_router)
 app.include_router(webchat_history_router)
+app.include_router(channel_delivery_router)
