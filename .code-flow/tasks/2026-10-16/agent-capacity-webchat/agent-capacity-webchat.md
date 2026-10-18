@@ -445,7 +445,7 @@
 | B-303 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-103 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_hpa_budget.py"] | . | 300 |  |
 | B-304 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.2 发布与迁移, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-104 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_deployment_preflight.py"] | . | 300 |  |
 | B-305 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | unit | 真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收 | TASK-105 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_profile.py"] | . | 300 |  |
-| B-306 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-106 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_http_probes.py"] | . | 300 |  |
+| B-306 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-106 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_http_probes.py"] | . | 300 |  |
 | B-307 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-107 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_isolated_stack.py"] | . | 300 |  |
 | B-308 | agent-capacity-webchat.frontend.design.md#2.4 验收条件, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-108 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_harness.py"] | . | 300 |  |
 | B-309 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-109 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_driver.py"] | . | 300 |  |
@@ -5494,7 +5494,7 @@ users/负载分布/资源/SLO/模型模式typed校验，正式验收缺必填拒
 
 ## TASK-106: 真实模型、企微与故障协议探针
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-006, TASK-105
 - **Source**: agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告
@@ -5509,25 +5509,40 @@ HTTP模型可设置延迟/增量/usage/429/断流/应答丢失，企微走实际
 
 ### Checklist
 
-- [ ] [B-306][integration] 先在`tests/capacity/test_capacity_webchat_http_probes.py`建立行为验收并记录RED；真实边界：实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测；关键断言：HTTP模型可设置延迟/增量/usage/429/断流/应答丢失，企微走实际SDK协议探针。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-306] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-306] 执行`["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_http_probes.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-306][integration] 先在`tests/capacity/test_capacity_webchat_http_probes.py`建立行为验收并记录RED；真实边界：实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测；关键断言：HTTP模型可设置延迟/增量/usage/429/断流/应答丢失，企微走实际SDK协议探针。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-306] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-306] 执行`["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_http_probes.py"]`并记录GREEN、关键断言位置和实际组件证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-306 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | HTTP模型可设置延迟/增量/usage/429/断流/应答丢失，企微走实际SDK协议探针；所有错误注入可观测，不直接mock服务方法或PG | tests/capacity/test_capacity_webchat_http_probes.py | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_http_probes.py"] | planned |
+| B-306 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | HTTP模型可设置延迟/增量/usage/429/断流/应答丢失，企微走实际SDK协议探针；所有错误注入可观测，不直接mock服务方法或PG | tests/capacity/test_capacity_webchat_http_probes.py | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_http_probes.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-306 | `uv run pytest -q tests/capacity/test_capacity_webchat_http_probes.py` exit=2：**1 error, 0 passed**（0.34s，collection ERROR：`ModuleNotFoundError: No module named 'tests.acceptance.capacity.probes'`）；日志 `/tmp/agent-capacity-webchat-plan/task106-red.log` | 同命令 exit=0：**14 passed**（7.4s）；聚焦回归 `uv run pytest -q tests/capacity tests/test_configuration_inventory.py` exit=0：**116 passed**（8.1s）；`uv run ruff check tests/acceptance/capacity/ tests/capacity/test_capacity_webchat_http_probes.py` 干净；全部函数 ≤50 行；无残留进程 | 模型线级/生产解析：L185-200（增量顺序/`[DONE]`/finish_reason/usage/model 回显/调用与 Key 计数观测）、L211-215（latency_ms≥250ms、chunk 节拍 2×120ms）、L222-232（429+`Retry-After: 7` → 生产 `ModelRateLimitedError.retry_after==7.0`）、L236-247（503 → `ModelUnavailableError`，逐调用 fault 序列）、L260-270（断流只 2 块、无 `[DONE]`、生产 `finish_reason==""`）、L278-287（应答丢失：httpx `RemoteProtocolError`、请求仍被记录、生产 `ModelUnavailableError`）、L292-305（按 Key 计数/超限 429/别的 Key 不受影响/观测只回指纹）、L321-357（子进程 + 真实控制面：behavior/key-limits/state/reset、未知字段 400）、L364-385（严格校验：自相矛盾行为/非法类型/DELAY 无延迟显式拒绝）；企微：L428-457（官方 SDK 认证帧 body/心跳/回调推送/`aibot_respond_msg` 流式体/`aibot_send_msg`/回执计数）、L471-486（认证拒绝 40101 与断线后 SDK 连接不可用）、L501-527（发送失败 50001、限流 45009、ACK 丢失 TimeoutError 且无回执记录）；故障代理：L568-598（直通/延迟 250ms/在飞连接被切断/新连接被丢弃/拒绝连接 ECONNREFUSED/恢复/计数与在飞归零）、L652-655（上游不可达显式计数） | ① 模型探针是真实 HTTP 服务（真实 socket、真实 SSE 分帧）：线级断言用 `httpx`，解析与错误映射走**生产** `muad_agent_core.model.OpenAICompatibleProvider`（`stream()`/`_parse_stream`），并真实跑 `python -m tests.acceptance.capacity.probes` 子进程 + 真实 HTTP 控制面；② 企微探针是真实 TLS/WSS 服务（自签证书），由**官方 SDK** `wecom-aibot-python-sdk`（`aibot.WSClient`）按真实协议驱动，探针帧/回执/连接全部来自真实 socket；③ 故障代理是真实 TCP 转发器，真实 HTTP 流量经代理进出，注入为真实网络行为（延迟/切断/ECONNREFUSED）；④ 全程未连 PG/Redis、未 mock 任何服务方法 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件与计划 Files 完全一致：`tests/acceptance/capacity/probes.py`（模型 HTTP 探针 + 企微 SDK 协议探针 + 故障代理，含子进程模式与 HTTP 控制面）、`tests/acceptance/capacity/conftest.py`（`model_probe`/`wecom_probe`/`fault_proxy_factory` fixture）、`tests/capacity/test_capacity_webchat_http_probes.py`（14 个用例）。未改动 apps/packages/migrations，故不涉及 mypy 与 `docs/configuration-inventory.csv`（盘点测试 4 passed 复验；其扫描范围仅 apps/packages）。
+- 供后续任务（TASK-107/109/110/116/117）使用的稳定接口：`ModelProbeServer`（`set_behavior`/`set_key_limit`/`reset`/`calls`/`faults`/`key_calls`/`max_concurrency`/`broken_pipes`/`state()`；`ModelProbeBehavior` 覆盖 latency/chunk 节拍/增量/usage/429+Retry-After/5xx/断流/应答丢失；`ModelProbeFault` 逐调用可观测）、`WeComProbeServer`（继承既有帧级探针：认证/心跳/回调/回复/主动发送/上传三步/认证拒绝/断线/发送失败，新增限流 `errcode=45009`、ACK 丢失、回执时刻与 `stats()`）、`FaultProxy`（任意 TCP 上游的延迟/中断/拒绝连接注入与连接/字节/丢弃计数）、`key_fingerprint`；子进程模式 `python -m tests.acceptance.capacity.probes --port N` 打印 `{"url":...}`。
+- 诚实记录（实测发现，供下游栈直接受益）：① 本机若配置系统代理，httpx 默认 `trust_env=True` 会**经代理**访问探针，断流/应答丢失被代理改写为 502（本轮实测）；用例已统一 `trust_env=False`，下游容量栈调用探针必须同样处理，否则测的不是探针；② 企微 SDK 不保证服务端断线回调（与生产 Adapter "存活探测兜底"一致），故断线用例断言的是"SDK 连接不再可用"这一真实可观测事实；③ 故障代理的延迟/丢弃发生在**连接**粒度（真实 TCP 语义），非连接复用场景需新连接。
+- 延后项：真实模型（REAL）额度实测与正式四单元栈、负载驱动、容量报告分别由 TASK-107/109/110/116/117/118 落地；本任务只保证探针本身的协议精确性与故障可观测性，不冒充真实企业微信实网或真实模型吞吐。
+- B-306: verified — automated command passed; run_id=1d1e156b0a3144c9b670235afd020d81 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-306 RED：`tests/capacity/test_capacity_webchat_http_probes.py` 先行建立 → **1 error, 0 passed**（exit=2，collection ERROR：`ModuleNotFoundError: No module named 'tests.acceptance.capacity.probes'`）
+- [2026-10-18] 实现：`tests/acceptance/capacity/probes.py`（模型 HTTP 探针：延迟/SSE 增量/usage/429+Retry-After/5xx/断流/应答丢失 + 按 Key 计数限流 + 观测快照与子进程控制面；企微真实 SDK 协议探针：认证/心跳/回调/回复/主动发送/上传 + 限流与 ACK 丢失注入 + 帧/回执观测；故障代理：真实 TCP 转发的延迟/中断/拒绝连接注入与计数）+ `tests/acceptance/capacity/conftest.py`（三个真实探针 fixture）
+- [2026-10-18] B-306 GREEN：14 passed（7.4s）；聚焦回归 `tests/capacity` + `tests/test_configuration_inventory.py` → 116 passed；ruff 逐文件干净；函数 ≤50 行；无残留进程
+- [2026-10-18] completed (done)
 
 ---
 
