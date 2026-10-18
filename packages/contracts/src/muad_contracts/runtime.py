@@ -23,6 +23,9 @@ class MessageInput(ContractModel):
     type: Literal["text", "attachment"] = "text"
     text: str = ""
     attachments: list[AttachmentRef] = Field(default_factory=list)
+    #: 网页入口的暂存上传引用（API-06 `upload_ids[]`）：只带不透明 upload_id，
+    #: 权威元信息与存储键在 Runtime 侧按登记核属（design §3.3：不通过客户端 storage_key 取件）。
+    upload_ids: list[UUID] = Field(default_factory=list)
 
 
 class RunRequest(ContractModel):

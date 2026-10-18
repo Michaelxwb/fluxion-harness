@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequenc
 from contextlib import suppress
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, cast
 
 import sqlalchemy as sa
@@ -63,6 +64,7 @@ from ..infrastructure.models.async_tools import RunContinuation, ToolOperation
 from ..infrastructure.models.runtime import (
     Artifact,
     CanonicalEvent,
+    ChannelUpload,
     Conversation,
     RunInterrupt,
     RunRecord,
@@ -85,6 +87,7 @@ from .async_tools.continuation_service import (
     renew_execution,
 )
 from .async_tools.supervisor import ExecutionSupervisor
+from .attachments.immutable_store import discard_written
 from .attachments.inbound import (
     INBOUND_DOCUMENT,
     INBOUND_IMAGE,
@@ -93,6 +96,7 @@ from .attachments.inbound import (
     attachment_payload,
     build_current_content,
     persist_inbound_attachments,
+    persist_staged_inbound_attachments,
 )
 from .channel_conversations import (
     ConversationScope,
@@ -104,6 +108,10 @@ from .channel_conversations import (
     resolve_pointer_conversation,
     scope_of,
     title_locale_of,
+)
+from .channel_uploads import (
+    resolve_message_uploads,
+    upload_limits_from_settings,
 )
 from .context_builder import BudgetPolicy, DbBackedContextBuilder
 from .context_settings import (
@@ -754,6 +762,9 @@ def _creation_fingerprint(request: RunRequest, tenant_id: str) -> str:
                 [ref.storage_key, ref.checksum, str(ref.kind), ref.media_type, ref.size]
                 for ref in request.message.attachments
             ),
+            # 暂存上传引用（upload_id 是不透明 UUID）：同 key 换上传就是另一个请求；
+            # 指纹只含 upload_id，不含权威元信息——那些在受理时从登记行读取。
+            "upload_ids": sorted(str(upload_id) for upload_id in request.message.upload_ids),
             "route": {
                 "bot_id": request.channel.bot_id,
                 "external_user_id": request.channel.external_user_id,
@@ -785,6 +796,7 @@ class RunService:
         *,
         supervisor: ExecutionSupervisor,
         admission: AdmissionPolicyService | None = None,
+        artifact_root: str | None = None,
     ) -> None:
         self._session = session
         self._supervisor = supervisor
@@ -808,6 +820,10 @@ class RunService:
             budget=BudgetPolicy(max_messages=default_compaction_settings().history_budget_messages),
         )
         self._settings = SharedSettings()
+        # 共享 artifact store 根：Run 独立不可变制品（暂存上传受理）与内联图片读取共用；
+        # 显式注入用于测试隔离，生产装配回落 `SharedSettings.artifact_root`。
+        fallback_root = Path(self._settings.artifact_root)
+        self._artifact_root = Path(artifact_root) if artifact_root is not None else fallback_root
 
     async def start(
         self,
@@ -880,6 +896,10 @@ class RunService:
         self, active: RunRecord, request: RunRequest, key: str, fingerprint: str
     ) -> RunStart:
         """会话已有活跃 Run：暂停中走 resume，其余明确 `RUN_BUSY`（不建第二个 Run）。"""
+        if request.message.upload_ids:
+            # resume 显式绑定原 Run/submission/source（API-08），不承载新的暂存上传：
+            # 与其静默丢弃，不如显式校验失败。
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         if active.status != RunStatus.WAITING_INPUT:
             raise AppError(ErrorCode.RUN_BUSY)
         return await self._resume_run(
@@ -1234,6 +1254,28 @@ class RunService:
             return await load_explicit_conversation(self._session, scope, request.conversation_id)
         return await resolve_pointer_conversation(self._session, scope)
 
+    async def _resolve_message_uploads(
+        self, request: RunRequest, tenant_id: str, settings: Mapping[str, Any]
+    ) -> tuple[ChannelUpload, ...]:
+        """暂存上传核属（B-253）：upload_ids 只作不透明引用，权威元信息从登记行读取。
+
+        不可归属入口（入口键不是 UUID 形状）不能承载暂存上传——显式校验失败，不静默丢。
+        """
+        if not request.message.upload_ids:
+            return ()
+        entry_id = scope_of(request, tenant_id).entry_id
+        if entry_id is None:
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+        return await resolve_message_uploads(
+            self._session,
+            tenant_id=tenant_id,
+            user_id=request.platform_user_id,
+            entry_id=entry_id,
+            text=request.message.text,
+            upload_ids=list(request.message.upload_ids),
+            limits=upload_limits_from_settings(settings),
+        )
+
     async def _active_run(self, conversation_id: uuid.UUID) -> RunRecord | None:
         run: RunRecord | None = await self._session.scalar(
             sa.select(RunRecord)
@@ -1276,6 +1318,12 @@ class RunService:
         # 执行期平台默认（`agent`/`memory`/`artifact.max_archive_files`/`locale.default_timezone`）
         # 同样在此冻结一次（ADR-07 等）：既是本次装配的基值，也冻进 policy_json 供 resume 读回。
         execution = execution_defaults_from_platform(snapshot_settings.settings)
+        # 暂存上传核属（B-253）：只在新受理路径调用（重放已在 `_admit` 返回）；归属/数量/TTL
+        # 在**昂贵解析与模型调用之前**判定，失败不留任何半建状态。权威元信息只从登记行读，
+        # 客户端给的 upload_id 不携带存储键。
+        staged_uploads = await self._resolve_message_uploads(
+            request, tenant_id, snapshot_settings.settings
+        )
         # 模型池路由（`model_pool` 五叶 + 规范 policy_hash）与模型等待预算（`capacity`）走**同一份**
         # 设置快照冻结：池策略变更只影响后续新 Run，旧 Run 的调度分布按自己那份 policy_hash 解释。
         pool = resolve_pool_execution_policy(snapshot_settings.settings)
@@ -1336,6 +1384,7 @@ class RunService:
             channel_json=request.channel.model_dump(mode="json"),
         )
         self._session.add(run)
+        staged_written: list[str] = []
         try:
             await self._session.flush()
             snapshot = self._build_snapshot(
@@ -1364,6 +1413,19 @@ class RunService:
                 conversation_id=conversation.id,
                 refs=request.message.attachments,
             )
+            # 暂存上传（B-253）：受理为**本 Run 自己的**不可变制品（发布≠暂存键），与
+            # Run/Snapshot/事件同事务；`staged_written` 供本事务失败时回滚盘上文件。
+            staged_persisted = await persist_staged_inbound_attachments(
+                self._session,
+                tenant_id=tenant_id,
+                run_id=run.id,
+                conversation_id=conversation.id,
+                uploads=staged_uploads,
+                artifact_root=self._artifact_root,
+                source=str(request.channel.type),
+                written=staged_written,
+            )
+            persisted = persisted + staged_persisted
             seq = await MemoryResumeService().append_inbound(
                 self._session, run, text=request.message.text, settings=execution.memory_policy,
                 payload={
@@ -1397,6 +1459,7 @@ class RunService:
         except IntegrityError as exc:
             # 并发同 key 幂等记录落败：读取首次提交结果（设计 API-01）
             await self._session.rollback()
+            discard_written(self._artifact_root, staged_written)
             replay = await self._submissions.find_replay_in(
                 self._session,
                 tenant_id=tenant_id,
@@ -1410,6 +1473,11 @@ class RunService:
         except AppError:
             # 准入拒绝等显式失败：整事务回滚，绝不留下半建 Run/会话/提交/计数。
             await self._session.rollback()
+            discard_written(self._artifact_root, staged_written)
+            raise
+        except BaseException:
+            # 提交前任何其他失败：事务不会带上盘上的 Run 制品，文件先回滚再让异常继续上抛。
+            discard_written(self._artifact_root, staged_written)
             raise
         history = await self._load_history(
             conversation.id,
@@ -1881,7 +1949,7 @@ class RunService:
         return tuple(_persisted_from_row(row) for row in rows)
 
     def _read_artifact_bytes(self, storage_key: str) -> bytes:
-        return NfsArtifactStore(self._settings.artifact_root).resolve(storage_key).read_bytes()
+        return NfsArtifactStore(self._artifact_root).resolve(storage_key).read_bytes()
 
     async def _renew_lease_loop(self, run: RunRecord) -> None:
         """续租心跳：**失去租约才退出**，瞬时故障不退出。
