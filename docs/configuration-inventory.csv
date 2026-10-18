@@ -83,12 +83,13 @@ apps/agent-runtime/src/muad_agent_runtime/application/channel_conversations.py,4
 apps/agent-runtime/src/muad_agent_runtime/application/channel_conversations.py,48,CONVERSATION_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/channel_conversations.py,50,_WHITESPACE_RUN,re.compile('\\s+'),python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/channel_conversations.py,52,_POINTER_KEY_COLUMNS,"('tenant_id', 'user_id', 'agent_id', 'channel_account_id', 'external_thread_id')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,50,CHANNEL_UPLOAD_KINDS,"frozenset({'IMAGE', 'DOCUMENT', 'OTHER'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,52,STAGING_KEY_MAX_LENGTH,512,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,54,RUN_ARTIFACT_KEY_PREFIX,'runs',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,56,CLEANUP_BATCH_SIZE,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,58,_CHECKSUM_PATTERN,re.compile('^sha256:[0-9a-f]{64}$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,59,_MEDIA_TYPE_PATTERN,re.compile('^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,53,CHANNEL_UPLOAD_KINDS,"frozenset({'IMAGE', 'DOCUMENT', 'OTHER'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,55,STAGING_KEY_MAX_LENGTH,512,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,57,RUN_ARTIFACT_KEY_PREFIX,'runs',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,59,CLEANUP_BATCH_SIZE,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,61,_CHECKSUM_PATTERN,re.compile('^sha256:[0-9a-f]{64}$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,62,_MEDIA_TYPE_PATTERN,re.compile('^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,67,_ENTRY_BINDING_SQL,"sa.text('SELECT agent_id, enabled FROM control.bot_account WHERE id = :entry_id AND tenant_id = :tenant_id AND is_deleted = false')",python-constant,code,入口/Agent 核属只读 Console 当前事实的 SQL
 apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py,28,STATUS_WAITING_INPUT,RunStatus.WAITING_INPUT,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py,29,STATUS_RUNNING,RunStatus.RUNNING,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py,30,INTERRUPT_WAITING,'WAITING',python-constant,code,协议标识、枚举、schema、文本或实现常量
