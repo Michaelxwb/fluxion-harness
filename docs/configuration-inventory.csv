@@ -1,6 +1,7 @@
 path,line,symbol,default,kind,category,reason
 apps/agent-runtime/src/muad_agent_runtime/api/admin_runs.py,23,MAX_PAGE_SIZE,100,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/api/admin_runs.py,24,DEFAULT_PAGE_SIZE,20,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/api/model_capacity.py,46,PROBE_LEASE_OWNER,'console-probe',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/admin_run_service.py,21,_SNAPSHOT_FIELDS,"('snapshot_id', 'schema_version', 'agent_revision', 'model_revision', 'prompt_template_version', 'content_hash')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/async_tools/continuation_service.py,27,CONSUMABLE_TYPES,"('TOOL_TASK_ACCEPTED', 'BACKGROUND_RESULT', 'TOOL_SUBMISSION_FAILED')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/async_tools/continuation_service.py,28,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -237,11 +238,12 @@ apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py,117,_
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/gateway_delivery_client.py,24,DELIVERIES_PATH,'/internal/deliveries',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/gateway_delivery_client.py,27,DELIVERY_TIMEOUT_SEC,30.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/gateway_delivery_client.py,45,__init__.timeout_sec,DELIVERY_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
-apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,24,RESOURCE_KEY,'KEY',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,25,RESOURCE_QUOTA_GROUP,'QUOTA_GROUP',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,26,POOL_LOCK_NAMESPACE,'muad:model-capacity-pool',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,28,_CREDENTIAL_LIMITS_SQL,"sa.text('SELECT max_inflight, enabled FROM control.model_credential WHERE tenant_id = :tenant_id AND id = :credential_id AND is_deleted = false')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,32,_QUOTA_GROUP_LIMITS_SQL,"sa.text('SELECT max_inflight, rpm, tpm FROM control.model_quota_group WHERE tenant_id = :tenant_id AND id = :quota_group_id AND is_deleted = false')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,25,RESOURCE_KEY,'KEY',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,26,RESOURCE_QUOTA_GROUP,'QUOTA_GROUP',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,27,POOL_LOCK_NAMESPACE,'muad:model-capacity-pool',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,29,_CREDENTIAL_LIMITS_SQL,"sa.text('SELECT max_inflight, enabled FROM control.model_credential WHERE tenant_id = :tenant_id AND id = :credential_id AND is_deleted = false')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,33,_QUOTA_GROUP_LIMITS_SQL,"sa.text('SELECT max_inflight, rpm, tpm FROM control.model_quota_group WHERE tenant_id = :tenant_id AND id = :quota_group_id AND is_deleted = false')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py,37,_PROBE_TARGET_SQL,"sa.text('SELECT d.id AS deployment_id, c.revision AS credential_revision, c.provider_key, c.api_key_digest, c.quota_group_id FROM control.model_deployment d JOIN control.model_credential c ON c.tenant_id = d.tenant_id AND c.id = d.credential_id WHERE d.tenant_id = :tenant_id AND d.model_id = :model_id AND d.credential_id = :credential_id AND d.is_deleted = false AND c.is_deleted = false')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_dispatch_store.py,30,_LIVE_MEMBERS_SQL,"sa.text('SELECT id, credential_id, enabled FROM control.model_deployment WHERE tenant_id = :tenant_id AND model_id = :model_id AND is_deleted = false')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_dispatch_store.py,34,_MEMBER_REFS_SQL,"sa.text('SELECT id, credential_id, weight FROM control.model_deployment WHERE tenant_id = :tenant_id AND model_id = :model_id AND is_deleted = false ORDER BY key, id')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_dispatch_store.py,39,_FROZEN_CANDIDATE_SQL,"sa.text('SELECT d.id AS deployment_id, d.credential_id, d.weight, c.revision, c.provider_key, c.quota_group_id, c.api_key_digest FROM control.model_deployment d JOIN control.model_credential c ON c.tenant_id = d.tenant_id AND c.id = d.credential_id WHERE d.tenant_id = :tenant_id AND d.model_id = :model_id AND d.is_deleted = false AND c.is_deleted = false AND d.id = ANY(:deployment_ids)')",python-constant,code,按冻结成员引用读非密钥候选元信息的 SQL
@@ -251,7 +253,7 @@ apps/agent-runtime/src/muad_agent_runtime/infrastructure/platform_settings_clien
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/platform_settings_client.py,25,RUNTIME_CALLER,'runtime',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/run_admission_store.py,22,SCOPE_USER,'USER',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/run_admission_store.py,23,SCOPE_TENANT,'TENANT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,45,SERVICE_NAME,'muad-agent-runtime',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,46,SERVICE_NAME,'muad-agent-runtime',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/main.py,104,POD_NAME,<unset>,environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
 apps/agent-runtime/src/muad_agent_runtime/metrics.py,17,AGENT_RUNS_METRIC,'agent_runs_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/metrics.py,18,MODEL_INVOCATIONS_METRIC,'model_invocations_total',python-constant,code,协议标识、枚举、schema、文本或实现常量

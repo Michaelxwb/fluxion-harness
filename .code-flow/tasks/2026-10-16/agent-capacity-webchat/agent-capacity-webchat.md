@@ -366,7 +366,7 @@
 | B-224 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-024 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_pool_snapshot.py"] | . | 300 |  |
 | B-225 | agent-capacity-webchat.backend.design.md#3.1 方案选型与决策, agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-025 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
 | B-226 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-026 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_background_pool.py"] | . | 300 |  |
-| B-227 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-027 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"] | . | 300 |  |
+| B-227 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-027 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"] | . | 300 |  |
 | B-228 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-028 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_probe.py"] | . | 300 |  |
 | B-229 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-029 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_policy.py"] | . | 300 |  |
 | B-230 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-030 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_create.py"] | . | 300 |  |
@@ -1957,7 +1957,7 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 
 ## TASK-027: Console探针的受信容量端口
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-022
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案
@@ -1972,25 +1972,41 @@ API-17只接受受信probe身份、正确attempt/epoch与期限；完整分支�
 
 ### Checklist
 
-- [ ] [B-227][integration] 先在`tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：API-17只接受受信probe身份、正确attempt/epoch与期限。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-227] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-227] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-227][integration] 先在`tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：API-17只接受受信probe身份、正确attempt/epoch与期限。→ RED：`uv run pytest -q tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py` → **7 failed in 1.83s**（exit=1；全部 404 `COMMON_NOT_FOUND`——`/internal/model-capacity/*` 路由与端口模块尚不存在）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 新增 `api/model_capacity.py`（受信端口 + `ProbeCapacityPort`，最长函数 34 行）+ `infrastructure/model_capacity_store.py`（`read_probe_target`/`read_lease_by_reservation`）+ `packages/contracts/src/muad_contracts/model_pool.py`（探针线协议）+ `main.py` 挂载；响应只有 `reservation_id/epoch/lease_until`（或 `state/released`），无密钥与内部计量身份；ruff 无违规、`mypy apps packages` 409 files 无问题
+- [x] [B-227] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 8 个用例逐条对应契约 5 条断言（见 Acceptance Evidence）
+- [x] [B-227] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **8 passed in 2.67s**（exit=0）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-227 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | API-17只接受受信probe身份、正确attempt/epoch与期限；reserve/renew/settle幂等，探针与Run/job共占实际Key及账号额度 | tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"] | planned |
+| B-227 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | API-17只接受受信probe身份、正确attempt/epoch与期限；reserve/renew/settle幂等，探针与Run/job共占实际Key及账号额度 | tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-227 | 首建 `tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py`（7 个行为用例）→ `uv run pytest -q tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py` → **7 failed in 1.83s**（exit=1；全部 404 `COMMON_NOT_FOUND`：`/internal/model-capacity/*` 路由与端口模块均不存在；服务身份用例此时也拿不到 403） | 同命令 → **7 passed in 2.24s**（exit=0）；补线协议精确性用例（第 8 个）后单文件 **8 passed in 2.67s**；finish 前复跑全绿 | 受信身份 `test_b227_rejects_missing_or_wrong_service_identity_before_any_write` L600-633（缺失/错误/空身份一律 403 `FORBIDDEN` L612/L625，renew/settle 在解析 reservation 之前同门控 L615-626，且零租约/零容量行 L627-628，正确身份放行对照 L632-633）；预占与合并计量 `test_b227_reserve_grants_trusted_probe_and_shares_physical_key_with_run_capacity` L489-566（响应恰为 `{reservation_id,epoch,lease_until}` L502、密钥/内部身份不入响应 L506-508、真实租约 PROBE 归属/稳定计量身份/成员/版本 L512-528、KEY 与组行 (1,1,64) L531-534、主调用在同组额度被回压 `MODEL_CAPACITY_UNAVAILABLE` L536-541、NOT_SENT 结算后主调用可占 L543-563）；attempt 幂等与身份栅栏 `test_b227_reserve_replay_is_idempotent_and_attempt_identity_is_fenced` L567-599（重放同 grant 且不重复占位 L573-578、同 attempt 换凭据 409 `MODEL_CALL_LEASE_LOST` L582-589、新 attempt 另一成员独立行 L592-598）；未知目标/期限/停用 `test_b227_reserve_rejects_unknown_member_and_invalid_deadline` L634-677（未绑定成员/未知模型 404 L644-656、已过期限 504 `MODEL_WAIT_TIMEOUT` L658-660、停用凭据 409 `MODEL_DISABLED` L662-665、全程零占位 L667-670）；续租 `test_b227_renew_verifies_epoch_and_frozen_deadline` L678-754（期限前进且不越冻结期限、容量不动 L692-703、epoch 不符 409 L711-717、期限已过 504 L725-730、结算后拒续租 409 L742-747）；结算 `test_b227_settle_releases_only_with_evidence_and_is_idempotent` L755-861（无证据 FAILED→UNKNOWN 保留占用 L775-782、UNKNOWN 声称未发送 409 `MODEL_CALL_OUTCOME_UNKNOWN` L785-788、硬超时证据→SETTLED 释放在飞且无 usage 保守保留 L790-806、重复结算幂等 released=false L808-830、成功按实际 usage 替换预占 L832-861）；线协议精确 `test_b227_wire_shape_is_exact_and_settlement_evidence_is_checked` L862-899（缺字段/0 预占/无时区期限/混入 run_id 一律 422 且零占位 L871-882、UNKNOWN+完成证据 422 L884-898）；端口隔离与审计 `test_b227_probe_port_never_acts_on_run_leases_and_writes_no_billing_audit` L900-953（Run 租约 renew/settle 404 且行不变 L922-935、未知 reservation 404 L940-943、探针全链路 0 计费审计 L945-953） | 真实 `muad_agent_runtime.main.app` 经真实 uvicorn 127.0.0.1（真实 socket、真实服务身份门控与响应封套）；真实 PostgreSQL 共享 dev 库按唯一租户增删（`control.model_definition/model_credential/model_deployment` 解析目标身份，`runtime.model_capacity/model_call_lease` 承载预占；无 DDL）；主调用侧用真实 `ModelCapacityService`（TASK-025 池化执行链的同一预占路径）在相同 KEY/组行上竞争；探针 HTTP 归 Console（TASK-028），本端口不调模型且 `runtime.model_invocation_audit` 为 0 | verified |
+
+**实施范围与风险说明**
+
+- 实现文件：`apps/agent-runtime/src/muad_agent_runtime/api/model_capacity.py`（新建，受信端口 + `ProbeCapacityPort`）、`.../infrastructure/model_capacity_store.py`（+60 行：`_PROBE_TARGET_SQL`/`ProbeTarget`/`read_probe_target`/`read_lease_by_reservation`）、`.../main.py`（挂载路由）、`packages/contracts/src/muad_contracts/model_pool.py`（+61 行：`ProbeLeaseRenewal`/`ProbeCallSettlement`/`ProbeCapacityGrant`/`ProbeCapacityRelease`，结算形状校验抽成 `_require_settlement_shape` 与主链共用）、`tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py`（953 行）；未新增表/列/索引与迁移，无 DDL。
+- 计划外披露：`packages/contracts/.../model_pool.py` 与 `docs/configuration-inventory.csv`（新增 `PROBE_LEASE_OWNER`、`_PROBE_TARGET_SQL` 两行并同步被改动行的行号；CRLF 保持、只动本任务行）。
+- 口径裁定（诚实记录）：① 探针目标身份由 Runtime 从 `control.model_*` **只读**解析（与容量上限读取同源），`key_resource_id` 走唯一派生函数 `derive_model_key_resource_id`——线协议只带 model_id/credential_id，不接受调用方自报计量身份，探针与 Run/摘要/提炼因此合并同一物理 Key 与账号额度；② 探针租约执行方身份固定为 `PROBE_LEASE_OWNER="console-probe"`（API-17 只有一个受信调用方），线协议续租/结算只核 epoch（design §3.4 原文），非 PROBE 租约一律 404——本端口不触碰 Run/job 调用；③ 冻结的绝对期限不在租约行（0022 无该列且本任务禁止 DDL，与 TASK-022 裁定一致）：续租由 Console 传入同一 deadline，服务只前进不倒退且不越该期限；④ renew/settle 先按路径 reservation_id 无锁读并守卫 PROBE 归属，再进服务行锁事务；并发 renew/settle 由 attempt 行锁串行，幂等/失约语义沿用 TASK-022。
+- 延后项：Console 侧探测 HTTP 与并发≤4/单次≤5s、"先占额再探测"编排属 TASK-028；探针真实供方额度与 1000 并发容量结论属 TASK-110/116。本任务只交付受信容量端口及其真实 PG/HTTP 证据。
+- B-227: verified — automated command passed; run_id=413f887d090c4e47a19eb30310ad4128 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-227 RED：首建 `tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py`（7 个行为用例）→ **7 failed in 1.83s**（exit=1，全部 404 `COMMON_NOT_FOUND`；路由与端口模块尚不存在）
+- [2026-10-18] 实现：`api/model_capacity.py`（受信端口 `POST /internal/model-capacity/reservations` + `.../{id}/renew|settle`、`ProbeCapacityPort` 解析目标身份并守卫 PROBE 归属）+ `model_capacity_store.py`（`_PROBE_TARGET_SQL`/`ProbeTarget`/`read_probe_target`/`read_lease_by_reservation`）+ contracts 探针线协议（grant/renewal/settlement/release，结算形状与主链共用校验）+ main 挂载；未新增表/列/索引与迁移
+- [2026-10-18] B-227 GREEN：**8 passed in 2.67s**（exit=0；先 7 passed 2.24s，补线协议精确性用例后 8 passed）
+- [2026-10-18] 回归：`uv run pytest -q`（本任务验收文件 + 6 个 capacity webchat 套件 + `tests/contracts` + `tests/architecture`）→ **1388 passed in 40.90s**（exit=0）；`tests/test_configuration_inventory.py` **4 passed**（新增 2 常量已登记并同步行号）；`uv run ruff check` 逐文件干净；`uv run mypy apps packages` 409 files 无问题
+- [2026-10-18] completed (done)
 
 ---
 

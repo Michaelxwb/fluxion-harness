@@ -239,19 +239,29 @@ class RemoteCompletionProof(ModelPoolContract):
     completed_at: AwareDatetime
 
 
+SettlementOutcome = Literal["SUCCEEDED", "FAILED", "NOT_SENT", "UNKNOWN"]
+
+
+def _require_settlement_shape(
+    outcome: str, usage: ModelTokenUsage | None, remote_completion: RemoteCompletionProof | None
+) -> None:
+    """结算形状不变量：探针端口与主链结算共用同一口径（只有归属身份不同）。"""
+    if outcome == "UNKNOWN" and remote_completion is not None:
+        raise ValueError("UNKNOWN must not claim confirmed remote completion")
+    if outcome == "NOT_SENT" and (usage is not None or remote_completion is not None):
+        raise ValueError("NOT_SENT must not report remote usage or completion")
+    if outcome == "SUCCEEDED" and remote_completion is None:
+        raise ValueError("SUCCEEDED requires confirmed remote completion")
+
+
 class ModelCallSettlement(ModelLeaseFence):
-    outcome: Literal["SUCCEEDED", "FAILED", "NOT_SENT", "UNKNOWN"]
+    outcome: SettlementOutcome
     usage: ModelTokenUsage | None = None
     remote_completion: RemoteCompletionProof | None = None
 
     @model_validator(mode="after")
     def _completion_shape(self) -> Self:
-        if self.outcome == "UNKNOWN" and self.remote_completion is not None:
-            raise ValueError("UNKNOWN must not claim confirmed remote completion")
-        if self.outcome == "NOT_SENT" and (self.usage is not None or self.remote_completion is not None):
-            raise ValueError("NOT_SENT must not report remote usage or completion")
-        if self.outcome == "SUCCEEDED" and self.remote_completion is None:
-            raise ValueError("SUCCEEDED requires confirmed remote completion")
+        _require_settlement_shape(self.outcome, self.usage, self.remote_completion)
         return self
 
     @property
@@ -267,3 +277,40 @@ class ProbeCapacityRequest(ModelPoolContract):
     attempt_id: UUID
     deadline_at: AwareDatetime
     reserved_tokens: PositiveCount
+
+
+class ProbeLeaseRenewal(ModelPoolContract):
+    """API-17 续租请求：核 epoch，并以调用方冻结的绝对期限为上限（期限不在租约行）。"""
+
+    epoch: PositiveCount
+    deadline_at: AwareDatetime
+
+
+class ProbeCallSettlement(ModelPoolContract):
+    """API-17 结算请求：结算口径与主链一致；owner 由受信端口固定，线协议只带 epoch 栅栏。"""
+
+    epoch: PositiveCount
+    outcome: SettlementOutcome
+    usage: ModelTokenUsage | None = None
+    remote_completion: RemoteCompletionProof | None = None
+
+    @model_validator(mode="after")
+    def _completion_shape(self) -> Self:
+        _require_settlement_shape(self.outcome, self.usage, self.remote_completion)
+        return self
+
+
+class ProbeCapacityGrant(ModelPoolContract):
+    """API-17 预占/续租响应：只给探针必需的栅栏事实，不含 Key 或内部计量身份。"""
+
+    reservation_id: UUID
+    epoch: PositiveCount
+    lease_until: AwareDatetime
+
+
+class ProbeCapacityRelease(ModelPoolContract):
+    """API-17 结算响应：本次是否真的释放了占用（SETTLED 幂等回放为 False）。"""
+
+    reservation_id: UUID
+    state: Literal["ACTIVE", "UNKNOWN", "SETTLED"]
+    released: bool
