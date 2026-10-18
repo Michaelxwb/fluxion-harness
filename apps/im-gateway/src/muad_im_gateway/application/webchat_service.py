@@ -1,4 +1,4 @@
-"""Webchat 公开资源服务（design §3.4 API-05/06/08/09/14/15；TASK-052）。
+"""Webchat 公开资源服务（design §3.4 API-05/06/08/09/11/14/15；TASK-052/070）。
 
 职责与边界：
 
@@ -46,6 +46,10 @@ from muad_contracts.webchat import (
     WebchatResumeReceipt,
     WebchatResumeRequest,
     WebchatRunCancelResult,
+)
+from muad_contracts.webchat_events import (
+    WebchatNotificationPage,
+    WebchatNotificationReadReceipt,
 )
 from pydantic import BaseModel, ValidationError
 
@@ -128,6 +132,20 @@ class WebchatOwnerPort(Protocol):
 
     async def resolve_conversation_scope(
         self, conversation_id: UUID, *, tenant_id: str, user_id: UUID
+    ) -> dict[str, Any]: ...
+
+    async def list_notifications(
+        self,
+        user_id: UUID,
+        *,
+        tenant_id: str,
+        after_seq: int,
+        page: int,
+        page_size: int | None,
+    ) -> dict[str, Any]: ...
+
+    async def mark_notification_read(
+        self, notification_id: UUID, *, tenant_id: str, user_id: UUID
     ) -> dict[str, Any]: ...
 
 
@@ -355,6 +373,44 @@ class WebchatResourceService:
             through_seq=through_seq,
         )
         return _project(WebchatMessagePage, data)
+
+    # --- API-11 ---------------------------------------------------------------------
+    async def list_notifications(
+        self,
+        identity: ChatIdentity,
+        *,
+        after_seq: int,
+        page: int,
+        page_size: int | None,
+    ) -> WebchatNotificationPage:
+        """API-11：按用户 feed seq 增量分页（主体就是本次 Console 核验的用户）。
+
+        通知是**用户级**事实（跨会话/入口），所以没有入口/Agent 维度：受信调用只携带已验证
+        `platform_user_id`，浏览器自报字段没有位置；游标（含 `CURSOR_AHEAD` 的真实水位）由
+        Owner 裁决、原样投影，网关不在内存里建第二份通知权威。
+        """
+        data = await self._runtime.list_notifications(
+            identity.principal.platform_user_id,
+            tenant_id=self._tenant_id,
+            after_seq=after_seq,
+            page=page,
+            page_size=page_size,
+        )
+        return _project(WebchatNotificationPage, data)
+
+    async def mark_notification_read(
+        self, identity: ChatIdentity, notification_id: UUID
+    ) -> WebchatNotificationReadReceipt:
+        """API-11：显式已读（幂等；只标记明确读过且属于本主体的行，他主体 404 不泄露存在性）。
+
+        已读与送达是两条独立事实：本服务不触碰投递状态，回执只有身份与持久 `read_at`。
+        """
+        data = await self._runtime.mark_notification_read(
+            notification_id,
+            tenant_id=self._tenant_id,
+            user_id=identity.principal.platform_user_id,
+        )
+        return _project(WebchatNotificationReadReceipt, data)
 
     # --- 内部：授权与归属 -------------------------------------------------------------
     def _resolve_entry(self, identity: ChatIdentity, entry_id: UUID) -> ResolvedEntry:

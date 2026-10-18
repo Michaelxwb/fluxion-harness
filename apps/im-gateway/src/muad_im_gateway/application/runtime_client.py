@@ -51,6 +51,9 @@ INTERNAL_SCOPE_PATH = "/internal/webchat/conversations/{conversation_id}/scope"
 INTERNAL_UPLOADS_PATH = "/internal/webchat/uploads"
 #: 受信附件解析端口（TASK-055）：`artifact_id` → 本主体名下会话的归属 + 渠道中立引用。
 INTERNAL_ARTIFACT_PATH = "/internal/webchat/artifacts/{artifact_id}"
+#: 受信活动收件箱端口（TASK-064/070）：按用户 feed seq 增量读取 + 显式已读。
+INTERNAL_NOTIFICATIONS_PATH = "/internal/webchat/notifications"
+INTERNAL_NOTIFICATION_READ_PATH = "/internal/webchat/notifications/{notification_id}/read"
 CANCEL_ACTIVE_PATH = "/v1/runs/cancel-active"
 #: 受信 API-18 协调端口（TASK-067）：Run 终态交付按稳定 delivery_key 的 reserve/ack。
 CHANNEL_DELIVERY_RESERVE_PATH = "/internal/channel-notifications/reserve"
@@ -461,6 +464,42 @@ class RuntimeClient:
             {"user_id": str(user_id)},
         )
 
+    async def list_notifications(
+        self,
+        user_id: UUID,
+        *,
+        tenant_id: str,
+        after_seq: int,
+        page: int,
+        page_size: int | None,
+    ) -> dict[str, Any]:
+        """API-11 增量读取（TASK-070）：主体由已验证 CHAT 身份显式携带，游标原样交 Owner 裁决。
+
+        `CURSOR_AHEAD` 连同 Owner 的真实 feed 水位原样上抛（不静默夹取成空页）；页大小缺省时
+        由 Owner 从平台设置派生，网关不硬编码第二份默认。
+        """
+        params = {
+            "user_id": str(user_id),
+            "after_seq": str(after_seq),
+            "page": str(page),
+        }
+        if page_size is not None:
+            params["page_size"] = str(page_size)
+        return await self._get_internal_json(
+            INTERNAL_NOTIFICATIONS_PATH, tenant_id, params, with_error_data=True
+        )
+
+    async def mark_notification_read(
+        self, notification_id: UUID, *, tenant_id: str, user_id: UUID
+    ) -> dict[str, Any]:
+        """API-11 显式已读（TASK-070）：幂等；只标记明确读过且属于受信主体的行（他主体 404）。"""
+        return await self._post_internal_json(
+            INTERNAL_NOTIFICATION_READ_PATH.format(notification_id=notification_id),
+            {},
+            tenant_id,
+            params={"user_id": str(user_id)},
+        )
+
     async def reserve_delivery(
         self, request: DeliveryReservationRequest, *, tenant_id: str
     ) -> DeliveryLeaseGrant:
@@ -526,9 +565,18 @@ class RuntimeClient:
         return require_data_dict(body)
 
     async def _get_internal_json(
-        self, path: str, tenant_id: str, params: dict[str, str]
+        self,
+        path: str,
+        tenant_id: str,
+        params: dict[str, str],
+        *,
+        with_error_data: bool = False,
     ) -> dict[str, Any]:
-        """受信内部面：服务身份 + 部署租户（与 Console 内部端点同一门控口径）。"""
+        """受信内部面：服务身份 + 部署租户（与 Console 内部端点同一门控口径）。
+
+        `with_error_data`：游标类错误（`CURSOR_AHEAD` 等）必须携带 Owner 的真实窗口/水位数据
+        原样上抛（公开面据此显式返回，不补造、不夹取）；普通读取错误不带数据。
+        """
         headers = build_headers(tenant_id, "")
         if self._service_token:
             headers[INTERNAL_SERVICE_HEADER] = self._service_token
@@ -540,7 +588,8 @@ class RuntimeClient:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
         body = decode_json(response)
         if response.status_code >= 400:
-            raise AppError(error_code_from_payload(body))
+            data = error_data_from_payload(body) if with_error_data else None
+            raise AppError(error_code_from_payload(body), data=data)
         return require_data_dict(body)
 
     async def _post_internal_json(
@@ -550,6 +599,7 @@ class RuntimeClient:
         tenant_id: str,
         *,
         client: httpx.AsyncClient | None = None,
+        params: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """受信内部面写调用：与读取面同一门控（服务身份 + 部署租户）。"""
         headers = build_headers(tenant_id, "")
@@ -557,7 +607,7 @@ class RuntimeClient:
             headers[INTERNAL_SERVICE_HEADER] = self._service_token
         try:
             response = await (client or self._client).post(
-                self._url(path), json=payload, headers=headers
+                self._url(path), json=payload, params=params, headers=headers
             )
         except httpx.HTTPError as exc:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc

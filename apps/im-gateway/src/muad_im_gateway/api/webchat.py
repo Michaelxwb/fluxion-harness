@@ -1,10 +1,12 @@
-"""Webchat 公开资源路由（design §3.4 API-05/06/07/08/09/10/14/15/19；TASK-052/054/057/061）。
+"""Webchat 公开资源路由（design §3.4 API-05/06/07/08/09/10/11/14/15/19；TASK-052/054/057/061/070）。
 
 - **主体门控**：读写面统一经 `ChatIdentityDep`（TASK-044）收口——CHAT Cookie + `X-Chat-Context`
   只经 Console 核验，跨部署租户/上下文不符/撤销在这里就被拒；本层不做第二套认证。
-- **完整转 Owner**：入口/会话/消息/取消/恢复全部经 `WebchatResourceService` 走 Console/Runtime
+- **完整转 Owner**：入口/会话/消息/取消/恢复/通知全部经 `WebchatResourceService` 走 Console/Runtime
   的受信接口；API-19 的有效设置经 Console 受信接口取快照后投影白名单。网关不持库（架构守卫
   机检零数据库依赖）。
+- **活动收件箱**（API-11）：用户级事实（无入口维度），受信调用只携带已验证主体；增量游标由
+  Owner 裁决（`CURSOR_AHEAD` 连同真实水位显式上抛），已读回执只有 `{id, read_at}`。
 - **公开 SSE**（API-07）：持久事件流经 `WebchatStreamService` 打开（归属/当前授权先核），
   游标分型由 Owner 裁决、公开投影/分片/心跳/缓冲回压由流层收口（`application/webchat_streams.py`）；
   长流经 `ChatStreamGuard` 定时复核会话与来源 Token。
@@ -69,6 +71,7 @@ PageNumber = Annotated[int, Query(ge=1)]
 PageSize = Annotated[int | None, Query(ge=1, le=MAX_PAGE_SIZE)]
 ThroughSeq = Annotated[int | None, Query(ge=0)]
 AfterSeq = Annotated[int | None, Query(ge=0)]
+NotificationAfterSeq = Annotated[int, Query(ge=0)]
 LastEventId = Annotated[str | None, Header(alias="Last-Event-ID")]
 
 
@@ -325,6 +328,41 @@ async def list_messages(
         through_seq=through_seq,
     )
     return ok(request.app.state.message_catalog, view.model_dump(mode="json"))
+
+
+@router.get("/notifications")
+async def list_notifications(
+    request: Request,
+    chat: ChatIdentityDep,
+    service: WebchatServiceDep,
+    after_seq: NotificationAfterSeq = 0,
+    page: PageNumber = 1,
+    page_size: PageSize = None,
+) -> ApiResponse[Any]:
+    """API-11：用户活动收件箱增量读取（CHAT 主体门控；游标由 Owner 裁决原样返回）。
+
+    通知是用户级事实：受信调用只携带本次 Console 核验的 `platform_user_id`；`CURSOR_AHEAD`
+    连同真实 feed 水位显式上抛（不静默夹取成空页）；页大小缺省由 Owner 从平台设置派生。
+    """
+    page_view = await service.list_notifications(
+        chat, after_seq=after_seq, page=page, page_size=page_size
+    )
+    return ok(request.app.state.message_catalog, page_view.model_dump(mode="json"))
+
+
+@router.post("/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: uuid.UUID,
+    request: Request,
+    chat: ChatIdentityDep,
+    service: WebchatServiceDep,
+) -> ApiResponse[Any]:
+    """API-11：显式已读（幂等；回执只有通知身份与持久 `read_at`，与送达状态独立）。
+
+    只标记明确读过且属于本主体的行：他主体/未知通知由 Owner 判 404（不泄露存在性）。
+    """
+    receipt = await service.mark_notification_read(chat, notification_id)
+    return ok(request.app.state.message_catalog, receipt.model_dump(mode="json"))
 
 
 @router.post("/runs/{run_id}/cancel")

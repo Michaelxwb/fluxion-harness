@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-10-16/agent-capacity-webchat/（前后端v0.6设计合并）
 - **Created**: 2026-10-16
-- **Updated**: 2026-10-18
+- **Updated**: 2026-10-19
 - **Plan-State**: 用户已确认正式任务清单并授权执行；实际进度以各TASK状态与验收证据为准
 
 ## Proposal
@@ -409,7 +409,7 @@
 | B-267 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-067 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_delivery.py"] | . | 300 |  |
 | B-268 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-068 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"] | . | 300 |  |
 | B-269 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-069 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | . | 300 |  |
-| B-270 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-070 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_notification_api.py"] | . | 300 |  |
+| B-270 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-070 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_notification_api.py"] | . | 300 |  |
 | B-271 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-071 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_transport.py"] | . | 300 |  |
 | B-272 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-072 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_sse_parser.py"] | . | 300 |  |
 | B-273 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-073 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_services.py"] | . | 300 |  |
@@ -4437,13 +4437,13 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 ## TASK-070: Gateway通知查询与显式已读接口
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-044, TASK-052, TASK-061, TASK-064
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约
 - **Spec-Refs**:
 - **Acceptance-Refs**: B-270
-- **Files**: `apps/im-gateway/src/muad_im_gateway/api/webchat.py`, `apps/im-gateway/src/muad_im_gateway/application/webchat_service.py`, `tests/gateway/test_capacity_webchat_gateway_notification_api.py`
+- **Files**: `apps/im-gateway/src/muad_im_gateway/api/webchat.py`, `apps/im-gateway/src/muad_im_gateway/application/webchat_service.py`, `apps/im-gateway/src/muad_im_gateway/application/runtime_client.py`, `tests/gateway/test_capacity_webchat_gateway_notification_api.py`
 - **Estimate**: 45分钟
 
 ### Description
@@ -4452,25 +4452,39 @@ API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权；完�
 
 ### Checklist
 
-- [ ] [B-270][integration] 先在`tests/gateway/test_capacity_webchat_gateway_notification_api.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-270] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-270] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_notification_api.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-270][integration] 先在`tests/gateway/test_capacity_webchat_gateway_notification_api.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权。RED：`uv run pytest -q tests/gateway/test_capacity_webchat_gateway_notification_api.py` exit=1，**7 failed + 1 passed in 3.27s**——7 条行为用例失败于公开路由尚不存在（真实 FastAPI 404 封套 `data=None`，如 L858 `TypeError: 'NoneType' object is not subscriptable`），1 条静态不持库用例平凡通过。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `api/webchat.py`——`GET /api/v1/webchat/notifications`（`ChatIdentityDep` 门控；`after_seq`≥0/`page`≥1/`page_size`≤100）与 `POST .../notifications/{id}/read`，响应 data 就是 contracts 投影；② `application/webchat_service.py`——`WebchatOwnerPort` 增加 `list_notifications`/`mark_notification_read`，`WebchatResourceService` 两个方法只携带**本次 Console 核验的** `platform_user_id`（浏览器自报字段没有位置），`_project` 走 `WebchatNotificationPage`/`WebchatNotificationReadReceipt`（`extra="forbid"`：投递/租约/存储内部字段混入即显式 `COMMON_INTERNAL_ERROR`，不转发）；③ `application/runtime_client.py`——新增受信端口 `INTERNAL_NOTIFICATIONS_PATH`/`INTERNAL_NOTIFICATION_READ_PATH` 与两个客户端方法；`_get_internal_json(with_error_data=True)` 让 `CURSOR_AHEAD` 连同 Owner 真实 feed 水位原样上抛（不夹取），`_post_internal_json(params=...)` 支持受信主体查询参数；游标/页参数原样透传（`page_size` 缺省不硬编码，由 Owner 从平台设置派生）。已读与送达独立：网关不触碰投递状态、不留已读副本。
+- [x] [B-270] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-270] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_notification_api.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**8 passed in 3.15s**。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-270 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权；安全摘要/稳定游标/明确read回执，不在Gateway内存中创建另一份通知权威 | tests/gateway/test_capacity_webchat_gateway_notification_api.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_notification_api.py"] | planned |
+| B-270 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权；安全摘要/稳定游标/明确read回执，不在Gateway内存中创建另一份通知权威 | tests/gateway/test_capacity_webchat_gateway_notification_api.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_notification_api.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-270 | `uv run pytest -q tests/gateway/test_capacity_webchat_gateway_notification_api.py` exit=1，**7 failed + 1 passed in 3.27s**（7 条行为用例在真实应用上打不到通知路由：404 封套 `data=None`，如 L858 对 `first.json()["data"]["total"]` 的 `TypeError`；1 条静态不持库用例平凡通过） | 同命令 exit=0，**8 passed in 3.15s** | ① `test_b270_chat_gate_precedes_every_notification_owner_call` L535-578：缺 Cookie⇒401 `UNAUTHORIZED`（L548/L554）、缺/坏 `X-Chat-Context`⇒422 `COMMON_VALIDATION_ERROR`、会话撤销⇒401 `CHAT_SESSION_REVOKED`（L561，Console 只判一次 L563）、上下文不符⇒409 `AUTH_CONTEXT_CHANGED`（L569）、跨部署租户⇒403 `FORBIDDEN`（L576），**全部门控失败 Runtime 零触达**（L554/562/570/577）；② `test_b270_notification_page_projects_the_owner_public_projection` L584-657：响应 data 逐字段等于 Owner 公开投影（items 13 字段集 L639、`through_seq=3/next_seq=2/unread_count=3` L599-638）、`no-store`（L596）、投递/租约/存储字段零键位与 canary 零出现（L640-643）、受信调用形状 `user_id/after_seq/page/page_size` + `X-Internal-Service`/`X-Tenant-Id`、不带 Cookie/X-Chat-Context（L648-656）、CHAT 原文与内部令牌不回显（L657）；③ `test_b270_verified_subject_is_the_only_notification_identity` L663-684：客户端自报 `user_id` 不进入受信调用（L684），他用户 feed canary 不出现（L683）；④ `test_b270_incremental_cursor_and_offset_page_follow_the_owner` L690-729：增量只回水位之后（L714）、offset 页与 `next_seq` 语义（L719-721）、超前游标 400 `CURSOR_AHEAD` 且 `data` 是真实水位 `{after_seq:99, through_seq:3}`、不夹取成空页（L723-726）、坏游标 422 且不触达 Owner（L728-729 查询序列 `["2","0","99"]`）；⑤ `test_b270_explicit_read_receipt_is_idempotent_and_delivery_independent` L737-779：回执恰 `{id, read_at}`（L754-755）、重复标记返回原时间且两次都经 Owner（L758-760）、他主体/未知⇒404 `COMMON_NOT_FOUND` 不泄露（L767-771）、只标记明确读过的行（`unread_count` 3→2，L775-776）、已读不改投递事实（L778-779）；⑥ `test_b270_internal_fields_or_broken_envelopes_fail_explicitly` L785-829：内部字段混入/`next_seq` 越界/缺 data 一律 500 `COMMON_INTERNAL_ERROR` 且 data 为空、失败不回显内部词干（L812-829）；⑦ `test_b270_gateway_keeps_no_second_notification_authority` L835-853：Owner 侧新增通知后网关响应立刻跟上（3→4 条、unread 3→4），每次读取都触达 Owner（L850-853）；⑧ `test_b270_notification_modules_hold_no_database` L859-874：三个模块零 sqlalchemy | 真实 `muad_im_gateway.main.app` + 生产 `api/webchat.py` 路由（真实路由表/封套/错误目录/`api/deps.py` CHAT 门控）；真实 Console HTTP（`StubConsole` uvicorn 线程 + 真实 socket，`ConsoleClient` 按 API-12 核验主体）；真实 Runtime HTTP（uvicorn 线程探针，真实封套 + 真实 `X-Internal-Service` 门控，通知权威只在 Owner 侧）；本文件零数据库访问，网关不持库由静态断言钉住 | verified |
+
+实现要点：**唯一权威在 Owner**——通知列表/已读全部经 Runtime 受信内部端口（TASK-064 的 `/internal/webchat/notifications`），网关只做主体门控、请求组装与公开投影校验，不缓存、不留影子副本（每次读取都触达 Owner，用例⑦）；**身份来源**——受信调用只带本次 Console 核验的 `platform_user_id`（通知是用户级事实，没有入口维度），客户端自报 `user_id` 被忽略（用例③）；**游标裁决在 Owner**——`after_seq` 原样透传，`CURSOR_AHEAD` 连同真实 feed 水位原样上抛（`with_error_data=True`），不静默夹取；坏游标在网关侧 422（不触达 Owner）；**投影安全**——`WebchatNotificationPage`/`WebchatNotificationReadReceipt` 是 `extra="forbid"` 契约，投递/租约/存储内部字段混入即 500，绝不转发（用例⑥）；**已读与送达独立**——回执只有 `{id, read_at}`（与前端 TASK-073 已锁形状一致），幂等由 Owner 行事实保证，网关不触碰投递状态。
+
+静态检查：`uv run ruff check`（本任务 4 个改动文件）「All checks passed!」；`uv run mypy apps packages` → Success: no issues found in 440 source files；新增/修改函数全部 ≤50 行；`docs/configuration-inventory.csv` 保持 CRLF（1540 行、0 裸 LF），新增 2 个常量行（`INTERNAL_NOTIFICATIONS_PATH`/`INTERNAL_NOTIFICATION_READ_PATH`）并平移本任务改动文件（`runtime_client.py` 54→57 起、`webchat_service.py` 58/60→62/64、`api/webchat.py` 56→58）的行号。
+
+回归：`uv run pytest -q tests/gateway tests/contracts tests/architecture` exit=0，**1775 passed in 138.65s**（同域全量：Gateway 全部套件含 TASK-052/054/055/057/061/067 既有验收、契约面、架构守卫）；`uv run pytest -q tests/test_configuration_inventory.py` exit=0，**4 passed**。跑前已查无 `pytest/uvicorn/vite` 残留进程；未跑 `tests/acceptance/**`、未跑浏览器验收（共享 dev 库约束）。
+
+遗留（deferred，非本任务可闭合）：① 前端增量轮询/未读徽标/隐藏页暂停与安全预览消费 API-11 属 TASK-084（本任务只提供公开面）；② 通知清理/保留与"用户活动游标最早可用水位"（`CURSOR_EXPIRED`）属 TASK-069（本任务只透传 Owner 裁决，不引入保留下界）；③ 通知/投递指标目录属 TASK-098；④ E2E（S-06/S-13/S-105 等）保持 planned，由 verify-e2e 记录完整证据；⑤ 计划外文件披露（计划 Files 之外的必需联动）：`apps/im-gateway/src/muad_im_gateway/application/runtime_client.py`（受信端口客户端方法，与 TASK-052 同类接线）、`docs/configuration-inventory.csv`（常量盘点）。
+- B-270: verified — automated command passed; run_id=46f35e111acd4986b2582bc09a56aa4d (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
+- [2026-10-19] completed (done)
 
 ---
 
