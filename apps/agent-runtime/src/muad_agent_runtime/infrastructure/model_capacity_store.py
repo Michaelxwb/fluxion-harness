@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import sqlalchemy as sa
+from muad_contracts.model_pool import derive_model_key_resource_id
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +33,14 @@ _CREDENTIAL_LIMITS_SQL = sa.text(
 _QUOTA_GROUP_LIMITS_SQL = sa.text(
     "SELECT max_inflight, rpm, tpm FROM control.model_quota_group"
     " WHERE tenant_id = :tenant_id AND id = :quota_group_id AND is_deleted = false"
+)
+_PROBE_TARGET_SQL = sa.text(
+    "SELECT d.id AS deployment_id, c.revision AS credential_revision, c.provider_key,"
+    " c.api_key_digest, c.quota_group_id"
+    " FROM control.model_deployment d"
+    " JOIN control.model_credential c ON c.tenant_id = d.tenant_id AND c.id = d.credential_id"
+    " WHERE d.tenant_id = :tenant_id AND d.model_id = :model_id"
+    " AND d.credential_id = :credential_id AND d.is_deleted = false AND c.is_deleted = false"
 )
 
 
@@ -106,6 +115,17 @@ class LeaseWrite:
     run_id: uuid.UUID | None = None
     memory_job_id: uuid.UUID | None = None
     probe_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ProbeTarget:
+    """探针预占的冻结身份：成员 + 凭据当前版本 + 稳定计量身份 + 共享额度组（无密钥）。"""
+
+    deployment_id: uuid.UUID
+    credential_id: uuid.UUID
+    credential_revision: int
+    key_resource_id: uuid.UUID
+    quota_group_id: uuid.UUID | None
 
 
 def pool_lock_key(tenant_id: str, model_id: uuid.UUID) -> int:
@@ -191,6 +211,34 @@ class ModelCapacityStore:
             quota_group=quota_group,
         )
 
+    async def read_probe_target(
+        self, *, tenant_id: str, model_id: uuid.UUID, credential_id: uuid.UUID
+    ) -> ProbeTarget | None:
+        """解析探针目标（成员 + 凭据当前版本 + 稳定计量身份）；未绑定的对不存在。
+
+        `key_resource_id` 由 provider_key/摘要经**唯一派生函数**得到：探针与主调用/摘要/提炼
+        因此在同一物理 Key 行上合并计量，而不是各记一份。
+        """
+        row = (
+            await self._session.execute(
+                _PROBE_TARGET_SQL,
+                {"tenant_id": tenant_id, "model_id": model_id, "credential_id": credential_id},
+            )
+        ).mappings().one_or_none()
+        if row is None:
+            return None
+        return ProbeTarget(
+            deployment_id=uuid.UUID(str(row["deployment_id"])),
+            credential_id=credential_id,
+            credential_revision=int(row["credential_revision"]),
+            key_resource_id=derive_model_key_resource_id(
+                tenant_id, str(row["provider_key"]), str(row["api_key_digest"])
+            ),
+            quota_group_id=None
+            if row["quota_group_id"] is None
+            else uuid.UUID(str(row["quota_group_id"])),
+        )
+
     async def lock_pool(self, *, tenant_id: str, model_id: uuid.UUID) -> None:
         """池调度 advisory 事务锁：必须先于任何容量/租约行锁。"""
         await self._session.execute(
@@ -260,6 +308,18 @@ class ModelCapacityStore:
             sa.select(ModelCallLease).where(
                 ModelCallLease.tenant_id == tenant_id,
                 ModelCallLease.call_attempt_id == call_attempt_id,
+            )
+        )
+        return None if row is None else _lease_snapshot(row)
+
+    async def read_lease_by_reservation(
+        self, *, tenant_id: str, reservation_id: uuid.UUID
+    ) -> LeaseSnapshot | None:
+        """按租约主键（reservation_id）无锁读：受信端口用路径 id 定位并守卫 PROBE 归属。"""
+        row = await self._session.scalar(
+            sa.select(ModelCallLease).where(
+                ModelCallLease.tenant_id == tenant_id,
+                ModelCallLease.id == reservation_id,
             )
         )
         return None if row is None else _lease_snapshot(row)
