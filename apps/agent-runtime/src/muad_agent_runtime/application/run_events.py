@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import math
+import time
 import uuid
-from typing import Any
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 import sqlalchemy as sa
 from muad_api import AppError
@@ -14,9 +18,89 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.runtime import CanonicalEvent, Conversation
 
+if TYPE_CHECKING:
+    from muad_common import SharedSettings
+
 #: 公开阶段事件：`payload_json` 就是 `WebchatExecutionStatus` 的线格式（无内部字段）。
 RUN_STAGE_EVENT = "RUN_STAGE"
 RUN_STAGE_STREAM_TYPE = "run.stage"
+#: 首次生成的回复代号（design §3.6「reply generation」）：多代替换由 TASK-062 由此递增；
+#: 增量行因此**总是显式携带**生成代号，不靠投影侧的缺省兜底。
+FIRST_REPLY_GENERATION = 0
+
+
+def delta_payload(text: str, *, reply_generation: int = FIRST_REPLY_GENERATION) -> dict[str, Any]:
+    """`message.delta` 的 canonical 载荷：合并后的正文 + 生成代号（公开投影按契约读取）。"""
+    return {"delta": text, "reply_generation": reply_generation}
+
+
+@dataclass(slots=True)
+class DeltaWindow:
+    """模型增量的**有界**合并窗口：时间或字节到任一边界即应 flush（design §3.6/§3.7）。
+
+    窗口从"缓冲里的第一段增量"起算：到界即返回合并文本，由调用方**先提交再推送**；
+    `flush_bytes` 同时是单行增量的上界（单个模型块自身超界时按块落库，**不切分**正文）。
+    时钟可注入（生产用 `monotonic`，测试用假时钟）：窗口自身不碰 IO，也不持有事务。
+    """
+
+    flush_interval_sec: float
+    flush_bytes: int
+    clock: Callable[[], float] = time.monotonic
+    _parts: list[str] = field(default_factory=list)
+    _bytes: int = 0
+    _opened_at: float | None = None
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.flush_interval_sec) or self.flush_interval_sec <= 0:
+            raise ValueError("flush interval must be a finite positive number")
+        if self.flush_bytes < 1:
+            raise ValueError("flush bytes must be positive")
+
+    def add(self, text: str) -> str | None:
+        """追加一段增量；到任一边界返回合并文本（调用方须先提交再推送），否则返回 None。"""
+        if not text:
+            return None
+        if not self._parts:
+            self._opened_at = self.clock()
+        self._parts.append(text)
+        self._bytes += len(text.encode("utf-8"))
+        if self._bytes >= self.flush_bytes or self.due():
+            return self.drain()
+        return None
+
+    def due(self) -> bool:
+        """时间边界是否到界（字节边界由 `add` 直接判定；空窗口永不"到界"）。"""
+        if self._opened_at is None:
+            return False
+        return self.clock() - self._opened_at >= self.flush_interval_sec
+
+    def drain(self) -> str | None:
+        """取走全部缓冲（到界 flush 与终态前 flush 共用）；空窗口返回 None，不产出空事件。"""
+        if not self._parts:
+            return None
+        merged = "".join(self._parts)
+        self._parts.clear()
+        self._bytes = 0
+        self._opened_at = None
+        return merged
+
+    @property
+    def pending_bytes(self) -> int:
+        return self._bytes
+
+    def remaining_seconds(self) -> float | None:
+        """距时间边界的剩余秒数；空窗口返回 None（调用方按自己的轮询节拍等待）。"""
+        if self._opened_at is None:
+            return None
+        return max(0.0, self.flush_interval_sec - (self.clock() - self._opened_at))
+
+
+def delta_window_from_settings(settings: SharedSettings) -> DeltaWindow:
+    """装配根注入：窗口参数只来自启动设置（design §3.7 的唯一来源，调用点不另立默认）。"""
+    return DeltaWindow(
+        flush_interval_sec=settings.stream_delta_flush_interval_ms / 1000.0,
+        flush_bytes=settings.stream_delta_flush_bytes,
+    )
 
 
 class EventWriter:

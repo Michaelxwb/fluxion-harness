@@ -398,7 +398,7 @@
 | B-256 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-056 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_run_controls.py"] | . | 300 |  |
 | B-257 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-057 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_client_config_api.py"] | . | 300 |  |
 | B-258 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-058 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py"] | . | 300 |  |
-| B-259 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-059 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_durable_deltas.py"] | . | 300 |  |
+| B-259 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-059 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_durable_deltas.py"] | . | 300 |  |
 | B-260 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-060 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_shared_tail.py"] | . | 300 |  |
 | B-261 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-061 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_sse.py"] | . | 300 |  |
 | B-262 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-062 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_reply_generations.py"] | . | 300 |  |
@@ -453,6 +453,10 @@
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
 
 ---
+
+
+
+
 
 
 
@@ -3717,7 +3721,7 @@ Gateway共享字节写入后仅经服务门控登记upload_id；完整分支及�
 
 ## TASK-059: 模型增量有界合并与终态前flush
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-025, TASK-036, TASK-051
 - **Source**: agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -3732,25 +3736,43 @@ Gateway共享字节写入后仅经服务门控登记upload_id；完整分支及�
 
 ### Checklist
 
-- [ ] [B-259][integration] 先在`tests/agent_runtime/test_capacity_webchat_durable_deltas.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：时间或字节窗口到任一边界先提交再推送，终态前flush全部已确认正文。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-259] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-259] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_durable_deltas.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-259][integration] 先在`tests/agent_runtime/test_capacity_webchat_durable_deltas.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：时间或字节窗口到任一边界先提交再推送，终态前flush全部已确认正文。RED：`uv run pytest -q tests/agent_runtime/test_capacity_webchat_durable_deltas.py` exit=2，**1 error during collection（0 passed / 0 failed, 0.18s）**：`ImportError: cannot import name 'DeltaWindow' from 'muad_agent_runtime.application.run_events'`——验收文件先落地、实现尚不存在（边界语义与集成场景同批落地，逐项见 Acceptance Evidence）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `application/run_events.py`——`DeltaWindow`（时间/字节双边界的有界合并窗口：`add` 到任一边界返回合并文本、`due`/`remaining_seconds` 供时间边界唤醒、`drain` 供到界/结构边界/终态共用、空窗口不产出空事件；时钟可注入、不碰 IO、不持有事务）、`delta_payload`（`message.delta` 的 canonical 载荷形状：合并正文 + `reply_generation`）、`FIRST_REPLY_GENERATION=0`（TASK-051 遗留③：生成代号显式落库，多代替换由 TASK-062 由此递增）、`delta_window_from_settings`（窗口参数唯一来源 = `SharedSettings.stream_delta_flush_interval_ms/bytes`，design §3.7）。② `application/executor.py`——`_ExecutorEventEmitter`（runner 回调 → 执行器事件：`on_delta` 只入窗口、字节到界在回调内 `push`（等 `queue.join()`，canonical 写入先于继续）、非增量事件先 `flush_deltas` 再入队、工具结果预览与 assistant 回合落库原样保留）；`AgentRunnerExecutor.run`（队列/取消轮询/emitter/片段任务/收尾清理，≤50 行）+ `_consume_queue`（读取循环：时间到界 `yield` 合并文本，等待时长 `min(QUEUE_POLL_SEC, 窗口剩余)`；片段结束后先 `drain` 再产出 `runner.outcome`，失败同样先 flush 再上抛原异常）+ `_queue_wait`；`delta_window` 由装配根 `default_executor_factory` 显式注入，直构调用点按同一启动设置取值；`QUEUE_POLL_SEC` 具名常量取代内联轮询字面量。③ 载荷：`{delta, reply_generation}`，日志/事件只出现安全字段（正文与生成代号），凭据/内部请求永不进入事件。
+- [x] [B-259] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-259] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_durable_deltas.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**7 passed in 11.93s**（重构后）/ **7 passed in 12.82s**（最终冻结代码复跑）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-259 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 时间或字节窗口到任一边界先提交再推送，终态前flush全部已确认正文；小增量不逐token事务，崩溃不丢已对用户确认的字节 | tests/agent_runtime/test_capacity_webchat_durable_deltas.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_durable_deltas.py"] | planned |
+| B-259 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 时间或字节窗口到任一边界先提交再推送，终态前flush全部已确认正文；小增量不逐token事务，崩溃不丢已对用户确认的字节 | tests/agent_runtime/test_capacity_webchat_durable_deltas.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_durable_deltas.py"] | verified |
+
+
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-259 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_durable_deltas.py` exit=2，**1 error during collection（0 passed / 0 failed, 0.18s）**：`ImportError: cannot import name 'DeltaWindow' from 'muad_agent_runtime.application.run_events'`（验收文件先落地、实现尚不存在） | 同命令 exit=0，**7 passed in 11.93s**（最终冻结代码） | ① `test_b259_window_flushes_on_either_boundary_and_never_emits_empty` L114-125（未到界不 flush L114-117、**字节边界到界即合并返回** L118、已 flush 的窗口不再产出/空窗口不产出空事件 L119-120/L125、**时间边界在没有新字节时同样到界** L121-124）；② `test_b259_window_drain_is_lossless_in_order` L141（add/drain 任意交错拼接与顺序不变）；③ `test_b259_byte_window_batches_small_deltas_into_bounded_rows` L442-453（无损拼接=模型完整正文 L443、**行数上界 ≤⌈总字节/flush_bytes⌉+1** L444-446、**240 块远非逐 token** L447、单行增量受窗口上界约束 L448、字节边界确实触发落库 L449、**每行显式携带生成代号 0** L450-453）；④ `test_b259_time_window_commits_before_push_while_model_pauses` L474-490（探针仍停在第二块之前 L474、**时间边界在模型停顿期间落库** L475、**tail（SSE 接缝）推送同一 canonical seq 的已提交事实** L478-481、停顿前后顺序与无损 L488-490）；⑤ `test_b259_terminal_flush_orders_all_confirmed_text_before_terminal` L515-530（**终态行 seq 大于全部增量行** L521、终态之后无增量/无第二终态 L522-524、公开投影逐行仍是 `message.delta` L526-529、终态 `final_text` 与增量拼接同一事实 L530）；⑥ `test_b259_truncated_stream_flushes_produced_text_before_failed_terminal` L553-557（断流 → `run.failed`/`MODEL_UNAVAILABLE` L553-555、**窗口里的块也先落库** L556、**失败终态同样排在已产生正文之后** L557）；⑦ `test_b259_confirmed_bytes_survive_process_kill` L650-668（SIGKILL 不可捕获 L650、**已提交行 seq 与内容逐行原样保留** L661-664、仍是完整正文前缀 L665、**仍在内存窗口里的第三块随崩溃消失** L666、**崩溃不做收尾：无终态行** L667-668） | 真实 Runtime 业务服务：真实 `RunService.start`（受理/冻结快照/领取）+ 真实 `AgentRunnerExecutor`/`AgentRunner`/`OpenAICompatibleProvider` 调用链；**真实 HTTP 模型探针**：进程内 uvicorn `text/event-stream` 端点按脚本逐块下发正文，块间节拍与"发完第 N 块等放行"的闸门都在真实 socket 上（不是 provider 替身）；**隔离 PostgreSQL**（每用例空库 + `alembic upgrade head`，跑完 drop）与隔离 Redis 号位：会话/快照/Run/canonical 事件/租约都是真实行，`seq` 由真实 `EventWriter` 在会话行锁内分配，增量行从**独立连接**读回（只有真正提交过的字节可见）；**崩溃**：把真实 RunService 放进子进程，用不可捕获的 SIGKILL 在模型仍在产出时杀死（无收尾/无 flush/无终态）；不 mock 存储或租约 | verified |
+
+实现要点：**有界窗口**（`run_events.DeltaWindow`）——窗口从"缓冲里第一段增量"起算，字节到界（`>= flush_bytes`）或时间到界（`>= flush_interval_sec`）即返回合并文本；`drain()` 供到界/结构边界/终态三处共用，空窗口返回 `None`（不产出空事件）；窗口不碰 IO、不持有事务，时钟可注入（生产 `monotonic`，测试假时钟）。**唯一参数来源**——窗口参数只从 `SharedSettings.stream_delta_flush_interval_ms/bytes`（design §3.7）派生，装配根 `default_executor_factory` 显式注入、直构调用点同源取值，不在调用点另立第二份默认。**执行器**（`executor.AgentRunnerExecutor`）——`on_delta` 只入窗口；字节到界在回调内即刻入队（`push` 等 `queue.join()`，canonical 写入先于继续，语义与改动前一致）；时间到界由读取循环 `yield`（等待时长 `min(QUEUE_POLL_SEC, 窗口剩余)`，到界提前醒来，模型长时间无新块也必须可推送）；**结构边界**（`model.started/completed`、工具事件、`assistant.turn` 等非增量事件）先 flush 再入队，正文与结构事件的 canonical 顺序不破；`runner.outcome`（终态）之前先 `drain()`，**失败路径同样先 flush 再上抛原异常**（与 Gateway `StreamRenderer._on_failed → finalize` 同口径），因此任何终态（完成/失败）都排在已产生正文之后；取消（`CancelledError`）不吞、不补 flush——未确认的内存缓冲允许丢失，与崩溃口径一致（真实 SIGKILL 用例证明已提交字节不受影响）。**载荷**——`delta_payload()` 统一写 `{delta, reply_generation}`，首次生成代号显式落库（TASK-051 遗留③ 的多代替换由 TASK-062 由此递增，投影不再依赖缺省兜底）。**有界性**——单行增量 ≤ `flush_bytes + 单个模型块`（不切分正文；公开 snapshot 分片属 TASK-061），内存缓冲 ≤ 窗口边界；窗口大小/节拍/等待粒度都不随模型块数增长。
+回归（最终代码，本机无 dev 残留进程，单跑不并发）：`uv run pytest -q tests/agent_runtime` exit=0，**956 passed in 799.82s**（含本任务 7 条；随后单文件复跑 `uv run pytest -q tests/agent_runtime/test_capacity_webchat_durable_deltas.py` exit=0，**7 passed in 12.82s**）；`uv run pytest -q tests/contracts tests/test_configuration_inventory.py` exit=0，**1285 passed in 4.38s**；同域聚焦首轮 `test_runner_executor.py`/`test_runs_api.py`/`test_sse.py`/`test_run_service.py`/`test_cancellation.py`/`test_execution_defaults_settings.py`/`test_tool_wait_state_machine.py`/`test_context_events.py`/`test_capacity_webchat_provider_pool.py` exit=0，88 passed in 45.15s。诚实记录：期间有一次误并发的第二次全量运行与首次运行同时打共享 dev 库（本项目已知的"单跑绿、串跑红"成因），两者都作废后以**单跑**重取上述 956 passed；断言强度另用三次变异验证（去掉合并 → 3 例红、去掉时间边界 flush → 2 例红、去掉失败路径 flush → 由结构边界 flush 兜住，说明终态前 flush 有三重保障：窗口到界 / 结构边界 / 终态 drain）。
+
+静态检查：`uv run ruff check`（本任务 2 个改动源文件 + 1 个新增测试文件）干净；`uv run mypy apps packages` → Success: no issues found in 423 source files；AST 逐函数核对：本任务新增/修改函数全部 ≤50 行（`AgentRunnerExecutor.run` 21、`_consume_queue` 50、`_execute` 18、`_queue_wait` 6、`_ExecutorEventEmitter` 各回调 3-23；`build_registry` 76 与 `default_executor_factory` 131 为改动前既有 >50 函数，后者仅把构造调用换成多行传参）；`docs/configuration-inventory.csv` 保持 CRLF（1459 行 CRLF、0 裸 LF），只动本任务两个文件的行（`executor.py` 新增 `QUEUE_POLL_SEC`、平移 13 行常量行、删除被具名常量取代的 `asyncio.wait_for.timeout` 内联行、`__init__.provider` 537→582；`run_events.py` 平移 2 行 + 新增 `FIRST_REPLY_GENERATION`、`list_events.limit` 113→197），`uv run pytest -q tests/test_configuration_inventory.py` exit=0，4 passed。
+遗留（deferred，非本任务可闭合）：① `message.snapshot` 分片、公开 SSE 单帧上限与订阅回压属 TASK-061；`reply_generation` 的多代替换（部分正文失败后新代）属 TASK-062（本任务只保证载荷总是显式携带生成代号，且旧代正文不被拼接）；② 共享追尾、提交后唤醒与 PG 有界补查属 TASK-060；③ 事件写入量/WAL/连接占用/首字额外延迟等压测观测与 1000 用户容量结论属 TASK-110/116；④ 崩溃后租约回收（Reaper 把 RUNNING 行转 FAILED）沿用 TASK-031 既有路径，本任务只证明"崩溃不丢已确认字节、崩溃不写终态"。
+- B-259: verified — automated command passed; run_id=79f19483cab54628a993c05bcc413cf8 (confirmed_by: runner)
+- B-259: verified — automated command passed; run_id=b5f1fd657821449cb7360f270ceaf955 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-259 RED：首建 `tests/agent_runtime/test_capacity_webchat_durable_deltas.py` → **1 error during collection**（ImportError: DeltaWindow；0 passed/0 failed，0.18s）
+- [2026-10-18] 实现：`run_events.DeltaWindow`（时间/字节双边界有界合并、`drain` 三处共用、空窗口不产出空事件、时钟可注入）+ `delta_payload`/`FIRST_REPLY_GENERATION` + 窗口参数唯一来源 `SharedSettings.stream_delta_flush_*`；`executor._ExecutorEventEmitter`/读取循环（字节到界即入队、时间到界 yield、结构边界先 flush、终态与失败前先 drain、取消不补 flush）
+- [2026-10-18] B-259 GREEN：**7 passed in 11.93s**（最终冻结代码）
+- [2026-10-18] 子 agent 中断接管：域回归由孤儿进程完成（输出 `/tmp/b259-agent-runtime-clean.log`）→ `tests/agent_runtime` **956 passed in 799.82s**；补本 Log 后 finish 并按裁决提交
+- [2026-10-18] completed (done)
 
 ---
 
