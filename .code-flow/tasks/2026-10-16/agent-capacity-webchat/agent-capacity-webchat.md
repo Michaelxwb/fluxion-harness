@@ -383,7 +383,7 @@
 | B-241 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.1 技术选型 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-041 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_cookie_security.py"] | . | 300 |  |
 | B-242 | agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-042 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_auth_api.py"] | . | 300 |  |
 | B-243 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-043 | verified | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_chat_internal_principal.py"] | . | 300 |  |
-| B-244 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-044 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_chat_auth.py"] | . | 300 |  |
+| B-244 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-044 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_chat_auth.py"] | . | 300 |  |
 | B-245 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-045 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_redaction.py"] | . | 300 |  |
 | B-246 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-046 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"] | . | 300 |  |
 | B-247 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-047 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"] | . | 300 |  |
@@ -2854,7 +2854,7 @@ CHAT Cookie名称与管理会话隔离，HttpOnly/Secure/SameSite及Max-Age同�
 
 ## TASK-044: Gateway CHAT主体及长流复核
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-043
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -2869,25 +2869,42 @@ Gateway只经Console核验，拒绝跨部署tenant；完整分支及可观测结
 
 ### Checklist
 
-- [ ] [B-244][integration] 先在`tests/gateway/test_capacity_webchat_gateway_chat_auth.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：Gateway只经Console核验，拒绝跨部署tenant。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-244] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-244] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_chat_auth.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-244][integration] 先在`tests/gateway/test_capacity_webchat_gateway_chat_auth.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：Gateway只经Console核验，拒绝跨部署tenant。RED：`uv run pytest -q tests/gateway/test_capacity_webchat_gateway_chat_auth.py` exit=2，1 error during collection（`ImportError: cannot import name 'ChatIdentityDep' from 'muad_im_gateway.api.deps'`）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：`application/chat_principal.py`（`ChatSessionCredentials`/`ChatIdentity`/`ChatPrincipalGate`/`ChatStreamGuard`）、`api/deps.py`（CHAT 主体依赖五件套）、`application/console_client.py`（API-12 调用）、`main.py`（装配根发布 `chat_auth_recheck_sec`）。
+- [x] [B-244] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-244] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_chat_auth.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，12 passed。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-244 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | Gateway只经Console核验，拒绝跨部署tenant；所有读写/SSE/下载比较X-Chat-Context，空闲流也定时复核且到expires即停止，不每token查控制面 | tests/gateway/test_capacity_webchat_gateway_chat_auth.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_chat_auth.py"] | planned |
+| B-244 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | Gateway只经Console核验，拒绝跨部署tenant；所有读写/SSE/下载比较X-Chat-Context，空闲流也定时复核且到expires即停止，不每token查控制面 | tests/gateway/test_capacity_webchat_gateway_chat_auth.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_chat_auth.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-244 | `uv run pytest -q tests/gateway/test_capacity_webchat_gateway_chat_auth.py` → exit=2，**1 error during collection（0 passed）in 0.21s**：`ImportError: cannot import name 'ChatIdentityDep' from 'muad_im_gateway.api.deps'`（对真实 Gateway 应用运行；验收文件先落地、`chat_principal.py` 与 deps 的 CHAT 主体依赖尚不存在） | 同命令 → **12 passed**（exit=0，5.37–5.87s；连续复跑 4 次稳定） | `test_b244_missing_credentials_are_rejected_before_touching_console` L282-319（缺 CHAT Cookie→401 `UNAUTHORIZED`、缺/非法 `X-Chat-Context`→422 `COMMON_VALIDATION_ERROR`、只有 Console 管理会话 Cookie 或 Bearer→401、SSE 同样先过门控 L290-296、**六条全部零触达 Console**（`call_count == 0`）L308、响应零凭据 L319）；`test_b244_gateway_only_verifies_through_console_and_projects_the_principal` L322-356（一次请求只核验一次 L344、转发 `X-Tenant-Id`/`X-Internal-Service`/`X-Chat-Context` L346-348、请求体恰 `{"session_token": …}` L349、**不转发 Authorization/Cookie**（CHAT 凭据≠Console 凭据）L351-352、主体恰四字段 L334、授权条目恰 `agent_id/key/name` L342、响应无凭据 L354、无角色字段 L355-356）；`test_b244_foreign_deployment_tenant_principal_is_rejected_by_the_gateway` L359-372（Console 返回他租户主体→网关自拒 403 `FORBIDDEN`，不回显主体/凭据 L369-372）；`test_b244_context_mismatch_is_rejected_even_if_console_accepts` L375-388（`principal.session_id` 与上下文不一致→网关自拒 409 `AUTH_CONTEXT_CHANGED` L385-388）；`test_b244_console_rejection_and_outage_are_explicit_and_credential_free` L391-418（撤销/过期→401 原码、Console 500 与不可达→500 `COMMON_INTERNAL_ERROR`，四条响应零凭据零主体 L414-418）；`test_b244_chat_identity_carries_no_console_permissions` L421-432（principal 恰四字段、`ChatIdentity` 恰 `principal/expires_at/agents`、无 Console 角色字段 L429-432）；`test_b244_chat_cookie_name_is_the_console_wire_contract` L435-439（Cookie 名与 Console `chat_security.CHAT_SESSION_COOKIE` 同一枚）；`test_b244_idle_stream_rechecks_on_the_timer_and_stops_at_expiry` L445-465（**空闲流**：初始核验 1 次 + 空闲窗口内 ≥2 次定时复核 L462、到 `expires_at` 终止码 `CHAT_SESSION_EXPIRED` L461、停在到期时刻附近而非首次复核 L464）；`test_b244_revoked_session_stops_an_idle_stream_within_the_recheck_bound` L468-486（撤销在复核边界内生效：恰 2 次控制面调用、终止码 `CHAT_SESSION_REVOKED`、elapsed<0.5s L483-485）；`test_b244_event_burst_does_not_query_the_control_plane_per_token` L489-503（40 个事件全量转发且控制面查询恰 1 次 L500-503）；`test_b244_stream_stops_at_expiry_by_raising_not_by_silence` L506-521（终止是显式抛 `AppError`，不静默收流 L520）；`test_b244_session_token_never_reaches_logs_or_responses` L527-550（成功/失败响应零明文 L545-546、DEBUG 日志零明文 L547、`repr` 零明文而原文只在 `SecretStr` 内可取 L549-550） | 真实 Gateway 应用：`muad_im_gateway.main.app`（真实路由表、真实 api-kit 封套/错误目录、真实 `api/deps.py` 依赖图与真实 `StreamingResponse`；生产 webchat 资源路由由 TASK-052 挂载，本文件在**同一真实应用**上挂 `_probe` 读写与 SSE 路由，装配根状态按生产同形注入）；真实 Console Owner 接口：`ConsoleClient` 打真实本地 uvicorn 服务（真实 socket），按 API-12 `POST /internal/channel/chat-principal` 封套契约应答并记录每次调用的真实头/体/时刻，网关不持库（`tests/architecture/test_im_gateway_boundaries.py` 机检零 sqlalchemy）；真实 HTTP/SSE：真实 ASGI/HTTP 请求 + 真实 `text/event-stream` 长流，空闲复核与到点停止用真实计时（recheck 0.05s / 到期 0.35s）观测 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件：`apps/im-gateway/src/muad_im_gateway/application/chat_principal.py`（新增：`ChatSessionCredentials`/`ChatIdentity`/`ChatPrincipalGate.resolve`/`ChatStreamGuard.rechecked` + `CHAT_SESSION_COOKIE`）、`apps/im-gateway/src/muad_im_gateway/api/deps.py`（新增 `get_chat_principal_gate`/`get_chat_auth_recheck_sec`/`get_chat_credentials`/`get_chat_identity`/`get_chat_stream_guard` 与 `ChatPrincipalGateDep`/`ChatAuthRecheckDep`/`ChatCredentialsDep`/`ChatIdentityDep`/`ChatStreamGuardDep`）、`apps/im-gateway/src/muad_im_gateway/application/console_client.py`（`ConsoleClientPort.chat_principal` + `ConsoleClient.chat_principal` + `CHAT_PRINCIPAL_PATH`/`CHAT_CONTEXT_HEADER`）、`apps/im-gateway/src/muad_im_gateway/main.py`（装配根发布 `chat_auth_recheck_sec`）。
+- 关键设计落点：①**只经 Console 核验**——网关不持库、不解析凭据，会话原文以 `SecretStr` 原样转发 API-12，主体/授权集合/权威到期时刻只从响应导出（缺凭据在触达 Console 之前就被拒）；②**本层再拒一次**——响应主体租户≠本部署租户→403，`principal.session_id`≠`X-Chat-Context`→409（Console 已判过，两层都不放行）；③**长流复核**——等待时长取 `min(chat_auth_recheck_sec, 到 expires_at 剩余)`，空闲（无事件）也复核、撤销/来源 Token 失效/用户停用在复核边界内终止、到 `expires_at` 抛 `CHAT_SESSION_EXPIRED`；事件转发不触发控制面查询（不每 token 查）；④**终止显式**——一律抛 `AppError`（错误码沿用 Console 口径），不静默收流，前端据 401/409 关闭流回到 Token 输入（前端设计 E-101）；⑤**CHAT 身份不授予 Console 权限**——主体只有统一 principal 四字段 + 授权入口集合，无角色/权限/账号字段，CHAT 凭据不当 Console 凭据转发（无 Authorization/Cookie 头）；⑥**凭据卫生**——原文只进发往 Console 的请求体，响应/日志/repr 零明文；⑦**错误码零新增**——复用 `UNAUTHORIZED`(401)/`FORBIDDEN`(403)/`AUTH_CONTEXT_CHANGED`(409)/`CHAT_SESSION_EXPIRED`(401)/`CHAT_SESSION_REVOKED`(401)/`COMMON_VALIDATION_ERROR`(422)/`COMMON_INTERNAL_ERROR`(500)（三处登记由 TASK-007 完成，本任务未触碰目录）。
+- 配置盘点：新增 3 个模块级大写常量（`chat_principal.py` 的 `CHAT_SESSION_COOKIE`、`console_client.py` 的 `CHAT_PRINCIPAL_PATH`/`CHAT_CONTEXT_HEADER`）已登记 `docs/configuration-inventory.csv`（保持 CRLF、只动本任务相关行；同步 console_client.py 既有行的行号平移）；`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**。
+- 静态校验：`uv run ruff check`（本任务改动的 5 个文件）干净；`uv run mypy apps packages` → **Success: no issues found in 411 source files**；`uv run python scripts/check_error_message_hardcode.py` → backend error-message hardcode check OK；全部新增/改动函数 ≤50 行（AST 机检）。
+- 聚焦回归：`uv run pytest -q tests/gateway` → **371 passed**（88.41s，含本任务 12 例）；`uv run pytest -q tests/architecture tests/contracts tests/test_configuration_inventory.py tests/test_error_catalog.py tests/test_api_i18n.py` → **1333 passed**（5.23s）；`uv run pytest -q tests/test_logging_redaction.py tests/test_secret_ref_residue.py` → **13 passed**。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）。
+- 交接：TASK-052 的资源路由用 `ChatIdentityDep`（读写/下载）与 `ChatStreamGuardDep`（SSE）收口主体；`chat_auth_recheck_sec` 已由 `main.py` 装配根发布（TASK-096 只需挂路由）；TASK-045 全链路脱敏在本层复核（响应/日志/审计零凭据字段）。
+- B-244: verified — automated command passed; run_id=d8a5f90eb6cf48549de833d4d9db0b6a (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-244 RED：`uv run pytest -q tests/gateway/test_capacity_webchat_gateway_chat_auth.py` → exit=2，1 error during collection（`ImportError: cannot import name 'ChatIdentityDep'`，实现尚不存在）
+- [2026-10-18] 实现 `chat_principal.py`（主体门控 + 长流复核）、deps CHAT 依赖、`ConsoleClient.chat_principal`（API-12）、main 发布 `chat_auth_recheck_sec`
+- [2026-10-18] B-244 GREEN：12 passed；`tests/gateway` 371 passed；architecture/contracts/盘点/错误目录/i18n 1333 passed；ruff/mypy 干净；3 个新常量入盘点
+- [2026-10-18] completed (done)
 
 ---
 

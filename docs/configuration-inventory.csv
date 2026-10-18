@@ -717,15 +717,18 @@ apps/im-gateway/src/muad_im_gateway/application/bot_snapshot.py,15,BOT_SNAPSHOT_
 apps/im-gateway/src/muad_im_gateway/application/bot_snapshot.py,16,BOT_SNAPSHOT_PAGE_SIZE,DEFAULT_PAGE_SIZE,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/bot_snapshot.py,18,BOT_SNAPSHOT_MAX_PAGES,100,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/application/bot_snapshot.py,29,__init__.interval_sec,BOT_SNAPSHOT_POLL_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
-apps/im-gateway/src/muad_im_gateway/application/console_client.py,32,RESOLVE_PATH,'/internal/channel/resolve',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/console_client.py,33,BIND_PATH,'/internal/channel/bind',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/console_client.py,34,BOTS_PATH,'/internal/channel/bots',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/console_client.py,35,CHANNEL_SKILLS_PATH,'/internal/channel/skills',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/console_client.py,37,AUDIT_PATH,'/internal/channel/audit',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/console_client.py,39,DELIVERY_AUDIT_PATH,'/internal/channel/artifact-delivery',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/console_client.py,41,FETCH_LINK_PATH,'/internal/artifacts/{artifact_id}/fetch-link',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/console_client.py,42,REQUEST_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/console_client.py,98,__init__.timeout_sec,REQUEST_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
+apps/im-gateway/src/muad_im_gateway/application/chat_principal.py,40,CHAT_SESSION_COOKIE,'muad_chat_session',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,33,RESOLVE_PATH,'/internal/channel/resolve',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,34,BIND_PATH,'/internal/channel/bind',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,35,BOTS_PATH,'/internal/channel/bots',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,36,CHANNEL_SKILLS_PATH,'/internal/channel/skills',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,38,AUDIT_PATH,'/internal/channel/audit',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,40,DELIVERY_AUDIT_PATH,'/internal/channel/artifact-delivery',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,43,CHAT_PRINCIPAL_PATH,'/internal/channel/chat-principal',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,45,CHAT_CONTEXT_HEADER,'X-Chat-Context',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,47,FETCH_LINK_PATH,'/internal/artifacts/{artifact_id}/fetch-link',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,48,REQUEST_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/console_client.py,118,__init__.timeout_sec,REQUEST_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/application/final_delivery.py,30,FINAL_DELIVERY_ENDPOINT,'/internal/deliveries',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/final_delivery.py,31,FINAL_DELIVERY_DEDUPE_PREFIX,'delivery:dedupe',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/final_delivery.py,32,FINAL_DELIVERY_TTL_SEC,604800,python-constant,code,协议标识、枚举、schema、文本或实现常量
