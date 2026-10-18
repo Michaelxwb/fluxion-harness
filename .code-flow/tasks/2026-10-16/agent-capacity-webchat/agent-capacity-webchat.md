@@ -386,7 +386,7 @@
 | B-244 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-044 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_chat_auth.py"] | . | 300 |  |
 | B-245 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-045 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_redaction.py"] | . | 300 |  |
 | B-246 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-046 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"] | . | 300 |  |
-| B-247 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-047 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"] | . | 300 |  |
+| B-247 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-047 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"] | . | 300 |  |
 | B-248 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-048 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"] | . | 300 |  |
 | B-249 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-049 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_conversation_scope.py"] | . | 300 |  |
 | B-250 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-050 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | . | 300 |  |
@@ -3036,7 +3036,7 @@ WEBCHAT稳定入口无需企微secret且创建后不原地改Agent；完整分�
 
 ## TASK-047: Gateway注册WEBCHAT标准通道适配器
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-044, TASK-046
 - **Source**: agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计
@@ -3051,25 +3051,38 @@ HTTP输入被规范化为统一事件并经唯一iter_events入口消费；完�
 
 ### Checklist
 
-- [ ] [B-247][integration] 先在`tests/gateway/test_capacity_webchat_webchat_adapter.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：HTTP输入被规范化为统一事件并经唯一iter_events入口消费。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-247] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-247] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-247][integration] 先在`tests/gateway/test_capacity_webchat_webchat_adapter.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：HTTP输入被规范化为统一事件并经唯一iter_events入口消费。RED：`uv run pytest -q tests/gateway/test_capacity_webchat_webchat_adapter.py` exit=2，1 error during collection（`ModuleNotFoundError: No module named 'muad_im_gateway.channels.registry'`——适配器与装配分发尚不存在）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：`channels/webchat.py`（`WebchatChannelAdapter`：`name=WEBCHAT`；`submit` 把 HTTP 形状 `WebchatInboundMessage` 规范化为统一 `ChannelEnvelope` 进**有界**队列，队满抛 `WebchatInboundOverloaded`、未启动抛 `ChannelAdapterUnavailable`；`iter_events` 是入站**唯一**消费入口；出站经注入的 `WebchatDeliverySink`，未装配显式失败；`apply_snapshot` 只收本通道条目）；`channels/registry.py`（`build_channel_registry` 装配 WECOM 探针/真机 + WEBCHAT；`dispatch_snapshot` 按 `BotSnapshotItem.channel` 分发，未注册通道 WARNING 跳过、应用失败上抛让快照 revision 不被认定生效）；`channels/base.py`（`ChannelAdapter.name` 改只读属性 + `SnapshotAware` 能力）；`channels/wecom/adapter.py`（`apply_snapshot` 按实际 channel 过滤）；`main.py`（装配根改为注册表构建 + 快照分发，移除单适配器字段）；`api/health.py`（就绪要求**每个已注册适配器**都已启动，保住"企微全部无凭据即不就绪"的既有语义）。日志/响应不含 secret 或消息原文。
+- [x] [B-247] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-247] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，5 passed（0.96s）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-247 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | HTTP输入被规范化为统一事件并经唯一iter_events入口消费；通道特有数据留Gateway，不能触发企微长连接/secret路径，缓存有界 | tests/gateway/test_capacity_webchat_webchat_adapter.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"] | planned |
+| B-247 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | HTTP输入被规范化为统一事件并经唯一iter_events入口消费；通道特有数据留Gateway，不能触发企微长连接/secret路径，缓存有界 | tests/gateway/test_capacity_webchat_webchat_adapter.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-247 | `uv run pytest -q tests/gateway/test_capacity_webchat_webchat_adapter.py` exit=2，1 error during collection：`ImportError: cannot import name 'build_channel_registry' ... No module named 'muad_im_gateway.channels.registry'` | 同命令 exit=0，5 passed（0.96s） | `tests/gateway/test_capacity_webchat_webchat_adapter.py`：`test_b247_http_input_is_normalized_and_consumed_via_iter_events`（HTTP 200 后规范化事件字段逐项 == channel/bot_id/external_user_id/external_conversation_id/message_id/text/attachments/unsupported_media；Runtime 收到 `channel.type=WEBCHAT` 且 `Idempotency-Key=message_id`；消费后 `adapter.pending==0`；终态文本经 sink 映射 `route.channel=WEBCHAT`；Console resolve 请求体同封套）、`test_b247_inbound_buffer_is_bounded_and_overload_is_explicit`（`max_pending=2` 时第 3 条抛 `WebchatInboundOverloaded` 且 `pending==2`；已接受 2 条经 `iter_events` 原样可取；未启动/停用后 `submit`/`iter_events` 均显式失败）、`test_b247_snapshot_dispatch_by_channel_never_touches_wecom_secret_path`（真实 `BotSnapshotCache`+`dispatch_snapshot`：`enabled_entries==(WEBCHAT 条目,)` 且 secret 为 None；企微 SDK 只为 `wecom-bot-b247` 建客户端；整份快照直接给企微适配器也不为 WEBCHAT 条目建客户端且连接集合清空）、`test_b247_registry_registers_webchat_standard_adapter_without_secret`（`build_channel_registry` → `names()==("WECOM","WEBCHAT")`；无 bot/无 secret 也能 `start()`+`submit`，规范化结果 == `ChannelEnvelope(channel="WEBCHAT", ...)`）、`test_b247_outbound_maps_channel_neutral_payload_and_fails_explicitly_when_unwired`（未装配 sink：`send`/`stream` 抛 `ChannelAdapterUnavailable`；装配后 sink 收到渠道中立 route/message 与分片） | 真实 Gateway 应用（`muad_im_gateway.main.app` 真实路由表 + `RegistryDep`）经真实 ASGI/HTTP 封套；真实 `InboundPipeline.consume(adapter)` 按 `iter_events()` 唯一入口消费；真实 Console HTTP（uvicorn 桩按 Owner 接口封套应答 resolve/skills/audit/bots）与真实 Runtime HTTP 接收端（真实 `text/event-stream`）；真实 `build_channel_registry`/`dispatch_snapshot`/`BotSnapshotCache`/`WeComAdapter`（`FakeWeComSdkFactory` 记录是否建客户端/读 secret）；本文件不触任何数据库（网关不持库） | verified |
+
+共享接口面：`channels/base.py` 的 `ChannelAdapter.name` 由可写字段改为**只读属性**（适配器可把 `name` 收窄为 `ChannelName`，`ChannelEnvelope(channel=self.name)` 免二次窄化）；新增 `SnapshotAware` 能力协议。回归连带修正（同域）：`tests/gateway/test_readyz.py` 的真实 lifespan 用例把适配器集合更新为 `{"WECOM": True, "WEBCHAT": True}`；`api/health.py` 的 `adapters_ready` 改为"每个已注册适配器都已启动"（否则 WEBCHAT 起来就会把"企微 bot 全部无凭据"盖过去，B-107 的既有语义会静默失效）。
+
+回归：`uv run pytest -q tests/gateway` exit=0，376 passed（85s）；`uv run pytest -q tests/console_channel tests/contracts tests/architecture tests/test_attachment_contract.py tests/test_configuration_inventory.py` exit=0，1375 passed（12s）。required verifier 本任务 Spec-Refs 为空（B-247 functional 由 manifest runner 执行）。
+
+静态检查：`uv run ruff check`（本任务改动的 6 个生产/测试文件）干净；`uv run mypy apps packages` → Success: no issues found in 414 source files；函数均 ≤50 行；`docs/configuration-inventory.csv` 保持 CRLF、只追加/更新本任务相关行（新增 `WEBCHAT_INBOUND_QUEUE_MAX`，`base.py` 常量行号 +8、`main.py` `SERVICE_NAME` 34→33），`tests/test_configuration_inventory.py` 4 passed。
+
+遗留（非本任务范围）：`harness-im.md` 的 Conventions 仍写着"`channel` 白名单仅 `WECOM`"（TASK-046 起已不成立，本任务又把 WEBCHAT 适配器落成事实），建议由 spec 责任面（cf-learn / TASK-046 review 面）改写为"白名单含 WEBCHAT，适配器按 name 注册、快照按 channel 分发"。
+- B-247: verified — automated command passed; run_id=4157a3a728cd4fbd9384334020e7e02e (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 

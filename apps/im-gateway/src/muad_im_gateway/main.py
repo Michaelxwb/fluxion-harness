@@ -24,8 +24,7 @@ from .application.inbound import InboundPipeline
 from .application.inbound_attachments import InboundAttachmentStore
 from .application.runtime_client import RuntimeClient
 from .channels.base import ChannelRegistry
-from .channels.probe import HttpProbeChannelAdapter
-from .channels.wecom.adapter import WeComAdapter
+from .channels.registry import build_channel_registry, dispatch_snapshot
 from .infrastructure.artifact_resolver import HttpArtifactResolver
 from .infrastructure.dedupe import DedupeStore, build_dedupe_store
 from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
@@ -34,21 +33,6 @@ from .metrics import install_gateway_metrics
 SERVICE_NAME = "muad-im-gateway"
 
 configure_logging(SERVICE_NAME)
-
-
-def _build_adapter(
-    settings: SharedSettings, console: ConsoleClient
-) -> WeComAdapter | HttpProbeChannelAdapter:
-    if settings.channel_probe_url:
-        # 本地真实 HTTP 探针：验收/联调环境替代第三方实网渠道。
-        return HttpProbeChannelAdapter(settings.channel_probe_url)
-    # 出站交付要按 storage_key 直读共享 store（字节不经核心域搬运，设计 §3.5）；
-    # 不能直发时还要一条取件直链 —— 令牌的权威在 Console 进程里，只能经 `console` 要。
-    return WeComAdapter(
-        artifact_store=NfsArtifactStore(settings.artifact_root),
-        fetch_links=console,
-        status_updates_per_second=settings.im_progress_updates_per_second,
-    )
 
 
 @dataclass
@@ -62,7 +46,6 @@ class _GatewayResources:
     runtime: RuntimeClient
     snapshot: BotSnapshotCache
     inbound: InboundPipeline
-    adapter: WeComAdapter | HttpProbeChannelAdapter
     artifacts: HttpArtifactResolver
     tenant_id: str
     #: CHAT 长流复核周期（启动资源预算）：SSE 路由的复核定时器消费（TASK-044）。
@@ -76,7 +59,6 @@ class _GatewayResources:
         app.state.runtime_client = self.runtime
         app.state.bot_snapshot = self.snapshot
         app.state.inbound_pipeline = self.inbound
-        app.state.wecom_adapter = self.adapter
         app.state.artifact_resolver = self.artifacts
         app.state.tenant_id = self.tenant_id
         app.state.chat_auth_recheck_sec = self.chat_auth_recheck_sec
@@ -94,20 +76,21 @@ async def _build_resources(
     settings: SharedSettings, catalog: MessageCatalog
 ) -> _GatewayResources:
     console = ConsoleClient(settings.console_platform_url)
-    # 适配器先建，但它要用 console 当取件直链的签发口 ⇒ console 必须先于它存在。
-    adapter = _build_adapter(settings, console)
-    registry = ChannelRegistry()
-    registry.register(adapter)
+    # 标准适配器在注册表里装配（WECOM 探针/真机 + WEBCHAT 稳定入口）：装配根只调用这里，
+    # 不按通道分支；适配器先建，但它要用 console 当取件直链的签发口 ⇒ console 必须先存在。
+    registry = build_channel_registry(settings, console)
     dedupe = await build_dedupe_store(settings.redis_url)
     runtime = RuntimeClient(settings.agent_runtime_url)
     # 平台设置快照的唯一读取缝：每条入站消息的回复生命周期开始时取一次（ADR-04）。
     settings_client = ConsolePlatformSettingsClient(
         settings.console_platform_url, service_token=settings.internal_service_token
     )
+    # 快照按 `BotSnapshotItem.channel` 分发到各适配器（设计 §3.3）：WEBCHAT 条目不会进企微
+    # 的长连接/secret 路径。
     snapshot = BotSnapshotCache(
         console,
         tenant_id=settings.default_tenant_id,
-        on_snapshot_changed=adapter.apply_snapshot,
+        on_snapshot_changed=dispatch_snapshot(registry),
     )
     # 附件字节落共享 artifact store（RWX PVC，Runtime 同挂）：部署侧必须挂载 `artifact_root`，
     # 只注入环境变量而不挂卷会让网关写进容器临时盘并"成功"，Runtime 却什么都读不到。
@@ -133,7 +116,6 @@ async def _build_resources(
         runtime=runtime,
         snapshot=snapshot,
         inbound=inbound,
-        adapter=adapter,
         artifacts=artifacts,
         tenant_id=settings.default_tenant_id,
         chat_auth_recheck_sec=settings.chat_auth_recheck_sec,
