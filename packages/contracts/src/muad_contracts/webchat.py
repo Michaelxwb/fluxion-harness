@@ -106,6 +106,38 @@ class ChatPrincipal(WebchatContract):
     auth_method: ChatAuthMethod
 
 
+class ChatPrincipalRequest(WebchatContract):
+    """Internal identity gate input (design API-12): the presented CHAT session secret.
+
+    The Gateway forwards the HttpOnly CHAT session value it received; the principal is
+    derived from the PG session/token/user rows, so self-reported user_id/tenant are not
+    part of the shape (extra fields are rejected before any lookup).
+    """
+
+    session_token: ChatToken = Field(exclude=True, repr=False)
+
+
+class ChatAuthorizedAgent(WebchatContract):
+    """An Agent the verified user may currently use; no instructions, model or grant leaks."""
+
+    agent_id: UUID
+    key: ChatText
+    name: ChatText
+
+
+class ChatPrincipalResponse(WebchatContract):
+    """Verified principal + authoritative session deadline + currently authorized Agents.
+
+    `principal.session_id` is the `auth_context_id` compared against `X-Chat-Context`
+    (a mismatched context is rejected before this shape is produced), and `expires_at`
+    lets a long-lived consumer stop at the session deadline instead of sliding it.
+    """
+
+    principal: ChatPrincipal
+    expires_at: AwareDatetime
+    agents: list[ChatAuthorizedAgent]
+
+
 class WebchatSessionInfo(WebchatContract):
     tenant_id: ChatText
     user_id: UUID

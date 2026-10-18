@@ -47,6 +47,27 @@ class AgentAccessGrantRepository:
         )
         return grant
 
+    async def list_authorized_agents(
+        self, tenant_id: str, user_id: uuid.UUID
+    ) -> list[tuple[uuid.UUID, str, str]]:
+        """当前可访问的 Agent `(agent_id, key, name)`——与 `has_active_grant` 同一组谓词。
+
+        未授权/禁用/软删 Agent 不返回（不泄露存在性）；模型状态不在此层，由定义解析单独判定。
+        """
+        rows = await self._session.execute(
+            select(AgentDefinition.id, AgentDefinition.key, AgentDefinition.name)
+            .join(AgentAccessGrant, AgentAccessGrant.agent_id == AgentDefinition.id)
+            .where(
+                AgentAccessGrant.user_id == user_id,
+                AgentAccessGrant.is_deleted.is_(False),
+                AgentDefinition.tenant_id == tenant_id,
+                AgentDefinition.is_deleted.is_(False),
+                AgentDefinition.enabled.is_(True),
+            )
+            .order_by(AgentAccessGrant.granted_at, AgentDefinition.key)
+        )
+        return [(row.id, row.key, row.name) for row in rows]
+
     async def find_any(
         self,
         user_id: uuid.UUID,

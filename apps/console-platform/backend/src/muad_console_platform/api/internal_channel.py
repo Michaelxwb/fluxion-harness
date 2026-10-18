@@ -10,9 +10,11 @@ from muad_contracts import (
     ChannelResolveRequest,
     InboundAuditRequest,
 )
+from muad_contracts.webchat import ChatPrincipalRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.artifact_delivery_audit_service import ArtifactDeliveryAuditService
+from ..application.channel_identity_service import ChannelIdentityService
 from ..application.channel_service import ChannelService
 from ..application.channel_skills_service import ChannelSkillsService
 from ..application.inbound_audit_service import InboundAuditService
@@ -117,3 +119,25 @@ async def artifact_delivery(
     """
     audit_id = await ArtifactDeliveryAuditService(session).record(tenant_id, payload)
     return ok(request.app.state.message_catalog, {"id": str(audit_id)})
+
+
+@router.post("/chat-principal")
+async def chat_principal(
+    payload: ChatPrincipalRequest,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    internal_service: InternalServiceDep,
+    chat_context: Annotated[uuid.UUID, Header(alias="X-Chat-Context")],
+) -> ApiResponse[Any]:
+    """API-12 受信聊天身份核验与授权解析（设计 §3.4）。
+
+    服务身份与部署租户先过门控；CHAT 会话原文只作输入凭据，主体与授权集合只从 PG
+    会话/来源 Token/用户/授权行导出（浏览器自报 user_id/tenant 在契约层无处可放）。
+    `X-Chat-Context` 必须等于会话自身的 `auth_context_id`，否则 409（防 Cookie 切用户误用）。
+    CHAT 身份不授予 Console 权限，凭据原文不进响应、日志与审计。
+    """
+    resolved = await ChannelIdentityService(session).resolve_chat_principal(
+        tenant_id, payload, chat_context=chat_context
+    )
+    return ok(request.app.state.message_catalog, resolved.model_dump(mode="json"))

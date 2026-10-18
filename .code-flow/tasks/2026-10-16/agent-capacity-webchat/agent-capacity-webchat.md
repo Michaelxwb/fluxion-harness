@@ -382,7 +382,7 @@
 | B-240 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-040 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_session_service.py"] | . | 300 |  |
 | B-241 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.1 技术选型 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-041 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_cookie_security.py"] | . | 300 |  |
 | B-242 | agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-042 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_auth_api.py"] | . | 300 |  |
-| B-243 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-043 | planned | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_chat_internal_principal.py"] | . | 300 |  |
+| B-243 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-043 | verified | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_chat_internal_principal.py"] | . | 300 |  |
 | B-244 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-044 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_chat_auth.py"] | . | 300 |  |
 | B-245 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-045 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_redaction.py"] | . | 300 |  |
 | B-246 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-046 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"] | . | 300 |  |
@@ -2758,7 +2758,7 @@ CHAT Cookie名称与管理会话隔离，HttpOnly/Secure/SameSite及Max-Age同�
 
 ## TASK-043: 受信聊天身份核验与授权解析
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-042
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案
@@ -2773,27 +2773,47 @@ CHAT Cookie名称与管理会话隔离，HttpOnly/Secure/SameSite及Max-Age同�
 
 ### Checklist
 
-- [ ] [B-243][integration] 先在`tests/console_internal/test_capacity_webchat_chat_internal_principal.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：内部门控验证CHAT/来源Token/用户/部署租户，主体从PG记录导出。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-243] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-243] 执行`["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_chat_internal_principal.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-auth#RULE-auth-001`（stage: review；timeout=600秒）：`["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-243][integration] 先在`tests/console_internal/test_capacity_webchat_chat_internal_principal.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：内部门控验证CHAT/来源Token/用户/部署租户，主体从PG记录导出。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
+- [x] [B-243] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
+- [x] [B-243] 执行`["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_chat_internal_principal.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] verifier `harness-auth#RULE-auth-001`（stage: review；timeout=600秒）：`["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-243 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 内部门控验证CHAT/来源Token/用户/部署租户，主体从PG记录导出；User→Agent和Skill/MCP叠加授权不变，伪造头或user-id不能认证 | tests/console_internal/test_capacity_webchat_chat_internal_principal.py | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_chat_internal_principal.py"] | planned |
-| harness-auth#RULE-auth-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED 资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false` 与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill Catalog。 | 沿用原Spec verifier，不重写成更弱测试 | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | planned |
+| B-243 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 内部门控验证CHAT/来源Token/用户/部署租户，主体从PG记录导出；User→Agent和Skill/MCP叠加授权不变，伪造头或user-id不能认证 | tests/console_internal/test_capacity_webchat_chat_internal_principal.py | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_chat_internal_principal.py"] | verified |
+| harness-auth#RULE-auth-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED 资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false` 与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill Catalog。 | 沿用原Spec verifier，不重写成更弱测试 | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-243 | `uv run pytest -q tests/console_internal/test_capacity_webchat_chat_internal_principal.py` → exit=1，**5 failed（0 passed）in 0.89s**：内部端点未挂载时真实应用上 `POST /internal/channel/chat-principal` 全 404 `COMMON_NOT_FOUND`（对真实应用运行、非收集失败；前置的真实签发+exchange 已 200，证明夹具链路本身可用）——验收文件先落地、实现尚不存在 | 同命令 → **5 passed**（exit=0，1.14–1.23s；连续复跑稳定） | `test_b243_gate_derives_principal_and_authorized_agents_from_pg` L261-308（200 且 data 恰 `principal/expires_at/agents` 三字段 L266-268、principal 恰四字段且与真实行一致（tenant/platform_user_id/session_id/USER_TOKEN）L269-277、`expires_at` 与库内会话行同源 L278-280、**授权集合=真实 grant+未软删+Agent enabled/未软删**（granted/deleted-model/disabled-model 三个在、disabled/deleted/ungranted/revoked-grant 四个不在）L283-296、agent 投影恰 `agent_id/key/name` L294-296、**会话原文与 sha256 摘要都不进响应体** L299-300、CHAT 凭据冒充 Console Bearer → `/api/v1/auth/me` 401 且不回显 L302-308）；`test_b243_forged_headers_and_self_reported_identity_cannot_authenticate` L311-341（自报 `user_id/platform_user_id/tenant_id/agent_id/context` 全 422 `COMMON_VALIDATION_ERROR` 且零落库/不回显 L311-319、**伪造 `X-User-Id`/`X-Platform-User-Id` 头不改变主体**（仍导出 PG 用户）L321-332、服务身份缺失与错误两条分支都 403 `FORBIDDEN` 且不返回主体 L334-341）；`test_b243_chat_session_source_token_and_user_must_be_live` L350-380（未知会话原文 401 `UNAUTHORIZED` 且不回显 L357-360、来源 Token 撤销→`CHAT_SESSION_REVOKED`、用户停用→`CHAT_SESSION_REVOKED`、来源 Token 过期→`CHAT_TOKEN_EXPIRED`、会话过期→`CHAT_SESSION_EXPIRED`，每步恢复后同凭据再次 200 L362-380）；`test_b243_deployment_tenant_and_chat_context_are_enforced` L383-420（**X-Chat-Context 不匹配→409 `AUTH_CONTEXT_CHANGED`**、缺失/非 UUID→422 L389-400、**跨部署租户会话→403 `FORBIDDEN` 且不回显**、本栈会话报他租户→403 L404-411、各自租户内仍 200（403 来自租户不匹配）L413-420）；`test_b243_authorization_chain_keeps_the_three_layer_capability_model` L553-595（门控主体进入既有 `resolve-definition`：**Skill/MCP 有效集恰为 SELECTED+用户级 grant 与 ALL 范围**（selected-ungranted / disabled / 软删绑定全排除）L558-575、**撤销 SkillUserGrant 后同一主体立即失去该 SELECTED 技能**（按用户实时叠加）L577-595） | 真实 Console 应用服务：`muad_console_platform.main.app`（`tests/console_internal/conftest.py` 的 `client`，ASGITransport 真实 ASGI/真实路由表/真实 api-kit 封套与错误目录）；真实服务身份门控（`X-Internal-Service` 与 apps 注入同源）；真实 PostgreSQL（共享 dev 库，仅 DML、无 DDL）：CHAT 会话经真实 `ChatTokenService.issue_token` + 真实公开 `POST /api/v1/webchat/auth/exchange` 建立，主体/到期/授权全部回读 `control.chat_session`/`platform_user`/`agent_access_grant`/`agent_definition`/`skill*`/`mcp_*` 真实行；失效边界用真实 SQL 压 PG 时间，无时钟替身；无外部模型调用（本路径不适用模型探针边界） | verified |
+| harness-auth#RULE-auth-001 | 见 B-243（同一文件先落地时 5 failed） | `bash -lc "uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"` → **2 passed, 1 deselected**（0.70s）+ **47 passed, 5036 deselected**（32.67s），exit=0 | 原Spec verifier 未改写；本任务补充链路断言：`test_b243_authorization_chain_keeps_the_three_layer_capability_model` L553-595（三层关系逐项：User→Agent=门控导出的授权集合 L558-561；Agent→Skill/MCP 绑定+SELECTED 叠加=既有 `resolve-definition` 有效集 L562-575；`is_deleted=false` 与 `enabled` 过滤=L568-575 的排除项；未授权资源不进入 Skill/MCP 结果 L570-575） | 真实 PG 行（skill/skill_artifact/agent_skill_binding/skill_user_grant/mcp_server/agent_mcp_binding/mcp_user_grant）+ 真实 Console 解析服务；原Spec verifier 命令原样执行 | verified |
+
+**实施范围与证据说明**
+
+- 实现文件：`apps/console-platform/backend/src/muad_console_platform/application/channel_identity_service.py`（新增：`ChannelIdentityService.resolve_chat_principal`）、`apps/console-platform/backend/src/muad_console_platform/api/internal_channel.py`（新增 `POST /internal/channel/chat-principal`：`InternalServiceDep` + `HeaderTenantId` + 必填 `X-Chat-Context` 头）、`apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/agent_access_grant_repository.py`（新增 `list_authorized_agents`，与 `has_active_grant` 同一组谓词）、`packages/contracts/src/muad_contracts/webchat.py`（新增 `ChatPrincipalRequest`/`ChatAuthorizedAgent`/`ChatPrincipalResponse`，复用既有 `ChatPrincipal`）。
+- 关键设计落点：①**门控三层**——服务身份（`X-Internal-Service`，缺失/错误一律 403，不依赖"未配置即放行"）→ 部署租户（`X-Tenant-Id` 必须等于会话行租户，跨部署租户 403）→ CHAT 凭据（`ChatSessionService.resolve` 实时复核会话/来源 Token/用户）；②**X-Chat-Context 比对**——必填头必须等于 `info.auth_context_id`，不匹配 409 `AUTH_CONTEXT_CHANGED`（防 Cookie 切用户后旧页面误用身份），判定先于任何主体/授权返回；③**主体从 PG 导出**——响应 principal 恰 `{tenant_id,platform_user_id,session_id,auth_method}`，请求契约只有 `session_token`（`SecretStr`，`exclude=True`），自报 user_id/tenant/agent_id 与伪造头都无处可放；④**授权解析同口径**——`agent_access_grant.is_deleted=false` + Agent `is_deleted=false` + `enabled=true` + 同租户，与 Console 侧 `has_active_grant` 完全一致；模型状态不在此层（定义解析单独判定 `MODEL_DISABLED`）；⑤**三层能力授权不重写**——本层只做 User→Agent；Skill/MCP 叠加授权仍由既有 `resolve-definition`/`AgentMcpService` 单处公式承担（B-243 用真实行验证其不变）；⑥**CHAT 不授予 Console 权限**——响应无任何角色/权限/账号字段，CHAT 凭据冒充 Console Bearer 仍 401；⑦**错误码零新增**——复用 `UNAUTHORIZED`(401)/`CHAT_SESSION_REVOKED`(401)/`CHAT_SESSION_EXPIRED`(401)/`CHAT_TOKEN_EXPIRED`(401)/`FORBIDDEN`(403)/`AUTH_CONTEXT_CHANGED`(409)/`COMMON_VALIDATION_ERROR`(422)（三处登记由 TASK-007 完成，本任务未触碰目录）；⑧**明文卫生**——会话原文只作输入（`SecretStr`），不进响应体/日志/审计，响应仅回 `expires_at` 与授权集合。
+- 配置盘点：本任务未新增/移动模块级大写常量（`X-Chat-Context` 为路由内的头别名，非模块常量），`docs/configuration-inventory.csv` 无需变更；`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**（含在下方 contracts 合计内）。
+- 静态校验：`uv run ruff check`（`internal_channel.py`/`channel_identity_service.py`/`agent_access_grant_repository.py`/`webchat.py`/验收文件）干净；`uv run mypy apps packages` → **Success: no issues found in 409 source files**；`uv run python scripts/check_error_message_hardcode.py` → backend error-message hardcode check OK。
+- 聚焦回归：`uv run pytest -q tests/console_internal` → **54 passed**（6.99s，含本任务 5 例）；`uv run pytest -q tests/contracts tests/test_configuration_inventory.py` → **1285 passed**（4.56s）；`uv run pytest -q tests/console_platform` → **363 passed**（60.61s，`agent_access_grant_repository` 改动面）；`uv run pytest -q tests/console_auth` → **83 passed**（12.09s）；`uv run pytest -q tests/console_channel tests/test_api_i18n.py tests/test_error_catalog.py` → **69 passed**（8.56s，`internal_channel.py` 挂载面）；`uv run pytest -q tests/console_platform/test_user_side_relations.py` → **3 passed**。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）；测试自带按 `tenant_id` 的清理（chat_session→chat_access_token→审计/设置），跑后核查 `test-%` 租户 CHAT/用户行均为 0。
+- 交接：TASK-044 Gateway 侧直接消费本端点——请求头带 `X-Tenant-Id`/`X-Internal-Service`/`X-Chat-Context`，体为 `{"session_token": <CHAT Cookie 原文>}`；响应 `principal.session_id` 即 `auth_context_id`，`expires_at` 用于长流到点停止，`agents` 用于入口授权与 `/api/v1/webchat/entries`（API-05）。TASK-045 全链路脱敏在本层复核：响应无凭据、日志/审计零凭据字段。
+- B-243: verified — automated command passed; run_id=f9909183dd234d739f1f514f328ca090 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-243 RED：`uv run pytest -q tests/console_internal/test_capacity_webchat_chat_internal_principal.py` → exit=1，5 failed（真实应用上 `/internal/channel/chat-principal` 未挂载全 404）
+- [2026-10-18] 实现 `ChannelIdentityService` + `POST /internal/channel/chat-principal`（服务身份/部署租户/X-Chat-Context 门控 + 授权集合解析），契约新增三个 webchat 类型，授权查询落在 `AgentAccessGrantRepository.list_authorized_agents`
+- [2026-10-18] B-243 GREEN：5 passed；`tests/console_internal` 54 passed；`tests/contracts`+盘点 1285 passed；`tests/console_platform` 363 passed；`tests/console_auth` 83 passed；`tests/console_channel` 等 69 passed；ruff/mypy 干净；零新增错误码/配置常量
+- [2026-10-18] harness-auth#RULE-auth-001 verifier：`test_user_side_relations.py -k s04` 2 passed + `tests -k schema_parity` 47 passed
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 
