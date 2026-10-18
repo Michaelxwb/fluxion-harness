@@ -11,10 +11,11 @@
 - **消息**：**固定水位分页** —— 首屏冻结 `through_seq=conversation.last_seq`，后页沿用同一水位；
   分页期间新消息不移动已固定水位；`through_seq` 超过会话持久水位显式 `CURSOR_AHEAD`；
   page 1 是最新窗口、页内正序、向前加载旧页；总量不被 200 条截断。
-- **安全公开投影**（查询侧，TASK-051 会与 SSE 侧合并为唯一实现）：只投影 `USER_MESSAGE` /
-  `ASSISTANT_MESSAGE` 两类可见消息与安全附件引用；工具参数/结果、SYSTEM、原始推理、未知事件、
-  存储键与 `TRANSCRIPT` 一律不公开；`through_seq` 是**会话持久水位**（含活跃 Run 已落库的
-  增量事件），不是"已渲染正文"的证明 —— 活跃 Run 的恢复必须走该 Run 自己的游标/安全快照。
+- **安全公开投影**（与 SSE 侧**唯一实现**，见 `application/public_events.py`）：只投影
+  `USER_MESSAGE` / `ASSISTANT_MESSAGE` 两类可见消息与安全附件引用；工具参数/结果、SYSTEM、
+  原始推理、未知事件、存储键与 `TRANSCRIPT` 一律不公开；`through_seq` 是**会话持久水位**
+  （含活跃 Run 已落库的增量事件），不是"已渲染正文"的证明 —— 活跃 Run 的恢复必须走该 Run
+  自己的游标/安全快照。
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 import sqlalchemy as sa
 from muad_api import AppError
@@ -32,7 +33,6 @@ from muad_contracts.webchat import (
     ActiveRunStatus,
     ConversationStatus,
     WebchatActiveRun,
-    WebchatAttachment,
     WebchatConversationDetail,
     WebchatConversationItem,
     WebchatConversationPage,
@@ -42,18 +42,10 @@ from muad_contracts.webchat import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.runtime import Artifact, CanonicalEvent, Conversation, RunRecord
-from .attachments.reference import attachment_ref
 from .channel_conversations import ConversationScope, display_title, load_explicit_conversation
 from .execution_status import project_execution_status
+from .public_events import PUBLIC_MESSAGE_EVENT_TYPES, project_public_fact, visible_attachment_ids
 
-#: 可见历史消息的事件类型白名单（canonical 协议标识，不是配置；写入方见
-#: `channel_conversations.record_user_message` 与 `run_service._finalize_run`）。
-HISTORY_MESSAGE_EVENT_TYPES = ("USER_MESSAGE", "ASSISTANT_MESSAGE")
-#: 事件类型 → 公开角色（只此两种可见角色；其余事件默认不公开）。
-HISTORY_ROLE_BY_EVENT_TYPE: dict[str, Literal["USER", "ASSISTANT"]] = {
-    "USER_MESSAGE": "USER",
-    "ASSISTANT_MESSAGE": "ASSISTANT",
-}
 #: 活跃 Run 状态（与 `uq_run_record_active_conversation` partial unique 谓词同源）。
 ACTIVE_RUN_STATUSES: tuple[RunStatus, ...] = (
     RunStatus.CREATED,
@@ -114,7 +106,7 @@ def _message_conditions(
     return [
         CanonicalEvent.tenant_id == scope.tenant_id,
         CanonicalEvent.conversation_id == conversation_id,
-        CanonicalEvent.event_type.in_(HISTORY_MESSAGE_EVENT_TYPES),
+        CanonicalEvent.event_type.in_(PUBLIC_MESSAGE_EVENT_TYPES),
         # 无 Run 归属的历史事件无法证实来源，不冒认成网页历史（与「无法证实归属保留审计」同口径）。
         CanonicalEvent.run_id.is_not(None),
         CanonicalEvent.seq <= watermark,
@@ -170,86 +162,12 @@ def _conversation_item(row: Any, active_status: ActiveRunStatus | None) -> Webch
     )
 
 
-def _artifact_id_of(entry: object) -> uuid.UUID | None:
-    """载荷里的附件引用 id；坏引用不猜测（不冒认别的产物），直接跳过。"""
-    if not isinstance(entry, dict):
-        return None
-    try:
-        return uuid.UUID(str(entry.get("artifact_id")))
-    except (TypeError, ValueError):
-        return None
-
-
-def _attachment_artifact_ids(rows: Sequence[Any]) -> list[uuid.UUID]:
-    """可见用户消息载荷里的附件 id（去重保序）—— 附件元信息按页批量取，不逐条回查。"""
-    ids: list[uuid.UUID] = []
-    for row in rows:
-        if HISTORY_ROLE_BY_EVENT_TYPE.get(row.event_type) != "USER":
-            continue
-        payload = row.payload_json if isinstance(row.payload_json, dict) else {}
-        raw = payload.get("attachments")
-        if not isinstance(raw, list):
-            continue
-        for entry in raw:
-            artifact_id = _artifact_id_of(entry)
-            if artifact_id is not None and artifact_id not in ids:
-                ids.append(artifact_id)
-    return ids
-
-
-def _project_attachments(
-    raw: object, artifacts: Mapping[uuid.UUID, Artifact]
-) -> list[WebchatAttachment]:
-    """附件安全投影：只出引用与元信息；失效附件明确 `available=false`，不伪造不可用字节。
-
-    无权威行或尺寸不可投影的引用**不伪造**（不猜 checksum）——直接不出现在公开投影里。
-    字节是否可取（清理/预览授权）属下载端点（TASK-055），这里只投影登记事实。
-    """
-    if not isinstance(raw, list):
-        return []
-    projected: list[WebchatAttachment] = []
-    for entry in raw:
-        artifact_id = _artifact_id_of(entry)
-        if artifact_id is None:
-            continue
-        artifact = artifacts.get(artifact_id)
-        if artifact is None or artifact.size < 1:
-            continue
-        ref = attachment_ref(artifact)
-        projected.append(
-            WebchatAttachment(
-                artifact_id=artifact_id,
-                kind=ref.kind,
-                media_type=ref.media_type,
-                size=ref.size,
-                filename=ref.filename,
-                checksum=ref.checksum,
-                available=not artifact.is_deleted,
-            )
-        )
-    return projected
-
-
-def _history_message(
+def _visible_message(
     row: Any, artifacts: Mapping[uuid.UUID, Artifact]
-) -> WebchatHistoryMessage:
-    """canonical 行 → 公开消息：白名单字段 + 空正文兜底（坏载荷不泄露、不整页失败）。"""
-    payload = row.payload_json if isinstance(row.payload_json, dict) else {}
-    text = payload.get("text")
-    role = HISTORY_ROLE_BY_EVENT_TYPE.get(row.event_type)
-    if role is None:
-        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
-    attachments = (
-        _project_attachments(payload.get("attachments"), artifacts) if role == "USER" else []
-    )
-    return WebchatHistoryMessage(
-        event_id=row.id,
-        seq=row.seq,
-        run_id=row.run_id,
-        role=role,
-        text=text if isinstance(text, str) else "",
-        attachments=attachments,
-    )
+) -> WebchatHistoryMessage | None:
+    """canonical 行 → 可见消息（共用投影的唯一入口；非消息/不可证实归属返回 None）。"""
+    fact = project_public_fact(row, artifacts)
+    return fact if isinstance(fact, WebchatHistoryMessage) else None
 
 
 class WebchatHistoryService:
@@ -318,7 +236,11 @@ class WebchatHistoryService:
             scope, conversation.id, watermark, page=page, page_size=page_size
         )
         artifacts = await self._artifacts_for(scope, rows)
-        items = [_history_message(row, artifacts) for row in reversed(rows)]
+        items = [
+            item
+            for row in reversed(rows)
+            if (item := _visible_message(row, artifacts)) is not None
+        ]
         return WebchatMessagePage(
             items=items, page=page, page_size=page_size, total=total, through_seq=watermark
         )
@@ -395,10 +317,14 @@ class WebchatHistoryService:
         page_stmt = (
             sa.select(
                 CanonicalEvent.id,
+                CanonicalEvent.conversation_id,
                 CanonicalEvent.seq,
                 CanonicalEvent.run_id,
                 CanonicalEvent.event_type,
+                CanonicalEvent.stream_type,
                 CanonicalEvent.payload_json,
+                CanonicalEvent.artifact_id,
+                CanonicalEvent.create_time,
             )
             .where(*conditions)
             .order_by(CanonicalEvent.seq.desc())
@@ -414,7 +340,7 @@ class WebchatHistoryService:
         self, scope: HistoryScope, rows: Sequence[Any]
     ) -> dict[uuid.UUID, Artifact]:
         """按页批量取附件权威行（含软删 tombstone：失效附件要投影 `available=false`）。"""
-        artifact_ids = _attachment_artifact_ids(rows)
+        artifact_ids = visible_attachment_ids(rows)
         if not artifact_ids:
             return {}
         artifacts = await self._session.scalars(
