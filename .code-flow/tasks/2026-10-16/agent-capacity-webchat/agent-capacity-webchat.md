@@ -425,7 +425,7 @@
 | B-283 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-083 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_run_actions_ui.py"] | . | 300 |  |
 | B-284 | agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-084 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 300 |  |
 | B-285 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-085 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_user_token_ui.py"] | . | 300 |  |
-| B-286 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-086 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_credential_ui.py"] | . | 300 |  |
+| B-286 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-086 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_credential_ui.py"] | . | 300 |  |
 | B-287 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-087 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_deployment_ui.py"] | . | 300 |  |
 | B-288 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-088 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_quota_ui.py"] | . | 300 |  |
 | B-289 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-089 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_settings_ui.py"] | . | 300 |  |
@@ -4705,7 +4705,7 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 ## TASK-086: 模型物理Key管理与检测界面
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-016, TASK-028, TASK-071
 - **Source**: agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.7 样式方案
@@ -4720,25 +4720,43 @@ ADMIN凭据维护、容量/额度组及真实Key检测结果；完整分支及�
 
 ### Checklist
 
-- [ ] [B-286][integration] 先在`tests/frontend/test_capacity_webchat_credential_ui.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：ADMIN凭据维护、容量/额度组及真实Key检测结果。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-286] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-286] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_credential_ui.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-286][integration] 先在`tests/frontend/test_capacity_webchat_credential_ui.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：ADMIN凭据维护、容量/额度组及真实Key检测结果。RED：`uv run pytest -q tests/frontend/test_capacity_webchat_credential_ui.py` exit=1，**5 failed + 5 errors**（10 条用例）——5 条源码/词条/编译契约失败（`ModelCredentialPanel.tsx` 与 57 条词条尚不存在、esbuild 编译不到面板）；5 条真实 node 执行用例在 fixture 阶段 error（esbuild 解析不到缺失的 `services/modelCredentials.ts`）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① 新增 `services/modelCredentials.ts`（模块 HTTP 出口，API-16）——`ModelCredentialItem` 投影只有 `configured`（无 `api_key` 字段）、创建/整份替换/删除/额度组选项读取/检测六个端点；纯函数 `buildCredentialCreateInput`（密钥必填、`max_inflight` 必须正整数，非法显式抛 `ModelCredentialInputError(reason)`）、`buildCredentialUpdateInput`（**留空连 `api_key` 键都不发** = 保留原值，非空才显式替换；`key` 取自行记录、编辑不变更）、`credentialSaveErrorKey`（`apiErrorBody` → 去重/排空/被引用/版本冲突四种本地化键，未登记回落 `common.saveFailed`）；创建支持调用方持有的 `Idempotency-Key`（RULE-api-002）。② 新增 `ModelCredentialPanel.tsx`——`ModelCredentialForm`（连接/Key/全局容量/额度组，密钥输入从空值开始且编辑时提示「留空保留原值」「不回显」）、`CredentialProbeModal`（检测：先按 API-17 占额再由服务端探测，结果逐项展示并明示只覆盖被点名成员）、`CredentialTable` + `useCredentialList`（竞态守卫 + 分页）、`ModelCredentialPanel`（**仅 ADMIN**，非 ADMIN 直接不渲染；删除冲突保留面板内定位）。③ `statusOptions.ts` 新增 `probeStatusOptions`（AVAILABLE/FAILED/NOT_EXECUTED 的唯一枚举映射，与逻辑模型 `last_test_status` 刻意分开）。④ `src/locales/{zh-CN,en-US}.json` 各追加 57 条 `model.credential.*` 词条（只追加、两侧齐平）。
+- [x] [B-286] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-286] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_credential_ui.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**10 passed**（0.14–0.18s）。
+- [x] 断言强度自检（mutation，跑完即还原）：把 `buildCredentialUpdateInput` 改成「留空也发送 `api_key`」→ `test_real_service_keeps_the_key_write_only` 失败（`assert 'api_key' not in {'api_key': '', ...}`）；删掉面板的 `if (!isAdmin) { return null; }` → `test_panel_is_admin_gated_and_never_renders_key_material` 失败。两处均还原后复跑 10 passed，证明「留空保留」与「非 ADMIN 不渲染」两条断言不是空转。
+- [x] 同域 verifier 命令（harness-frontend RULE-front-001，stage: code，timeout=600秒）：`["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]` 实际执行 exit=0——4 passed / 「frontend api usage check OK」/「i18n keys OK: 1265」/ typecheck 无输出（tsc --noEmit 干净）。
+- [x] 同域 verifier 命令（harness-ui RULE-ui-001、harness-ui-detail RULE-ui-detail-001 的 pytest 部分）：`uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py` exit=0，21 passed；`npm --prefix apps/console-platform/frontend run build` exit=0（`✓ built in 5.24s`，build 内含 `tsc --noEmit`）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-286 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | ADMIN凭据维护、容量/额度组及真实Key检测结果；读取只configured，空白Key保留、替换显式提交，单成员测试不显示整池健康 | tests/frontend/test_capacity_webchat_credential_ui.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_credential_ui.py"] | planned |
+| B-286 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | ADMIN凭据维护、容量/额度组及真实Key检测结果；读取只configured，空白Key保留、替换显式提交，单成员测试不显示整池健康 | tests/frontend/test_capacity_webchat_credential_ui.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_credential_ui.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-286 | `uv run pytest -q tests/frontend/test_capacity_webchat_credential_ui.py` exit=1，5 failed + 5 errors：`test_panel_is_admin_gated_and_never_renders_key_material`/`test_panel_probe_shows_single_member_results_only`/`test_panel_uses_shared_components_guards_and_i18n`（面板文件不存在）、`test_panel_compiles_to_a_real_typescript_artifact`（esbuild 找不到 TSX）、`test_credential_keys_are_localized`（zh/en 各缺 57 键）；5 条 node 用例 error（esbuild 解析不到缺失的 service） | 同命令 exit=0，10 passed（0.14–0.18s） | ① `test_real_service_maps_the_admin_credential_routes`：`GET /model-credentials?page=1&page_size=20`（读取体为空）、`POST /model-credentials` 携带 `Idempotency-Key: idem-286` 与 `X-Request-Id`、创建体**恰为** `{key,provider_key,base_url,api_key,quota_group_id,max_inflight,enabled}`（无 `revision`、无旧逻辑模型的连接/密钥字段）、`PUT /model-credentials/{id}` 带 `expected_revision=3` 且 `key` 不变、`DELETE /model-credentials/{id}`、`GET /model-quota-groups`（额度组归属选项）。② `test_real_service_keeps_the_key_write_only`：明文只出现在创建体与显式替换体；`canaryInUrl==[]`、`canaryInBody==['POST /model-credentials','PUT /model-credentials/{id}']`；留空更新体 `'api_key' not in body`；读取投影 `configured=True`。③ `test_real_service_probes_only_the_named_member`：`POST /model-credentials/test` 体恰为 `{"targets":[{"model_id":…,"credential_id":…}]}`（不遍历模型×Key、不自报计量身份）；`NOT_EXECUTED` 与 `error_code=MODEL_UNAVAILABLE`/`latency_ms` 原样保留。④ `test_real_service_validates_the_credential_input`：空密钥 → `API_KEY_REQUIRED`；`max_inflight` 为 0/2.5 → `MAX_INFLIGHT_INVALID`。⑤ `test_real_service_maps_conflicts_to_explicit_copy`：去重/排空/被引用/版本冲突/未知 → 四个 `model.credential.error.*` + `common.saveFailed`。⑥ `test_panel_is_admin_gated_and_never_renders_key_material`：`useAuth` + `account?.role === 'ADMIN'` + `if(!isAdmin){returnnull;}`；无 `credential.api_key`/`api_key_configured` 读取；`apiKeyOptions(t)`+`credential.configured`；编辑密钥输入从 `api_key: ''` 开始并有「留空保留/不回显」说明。⑦ `test_panel_probe_shows_single_member_results_only`：`probeCredentials([{ model_id: modelId, credential_id: credential.id }])` 单目标；`memberOnly` 与 `pickerTruncated` 提示；无 `batchTestModels`/`last_test_status`/`api_key_configured`；`probeStatusOptions(t)`。⑧ `test_panel_uses_shared_components_guards_and_i18n`：DataTable/FormModal/ModuleToolbar/ConfirmAction/ErrorState/PaginationFooter/StatusTag/DateTimeText 复用、`requestSeq` 竞态守卫、`credentialSaveErrorKey` 而非手搓 `error.response`、无硬编码中文文案。⑨ `test_panel_compiles_to_a_real_typescript_artifact`：真实 TSX（含模块内 service/共享组件依赖图）经 esbuild 编成 ESM，产物含 `credential-panel` 且不含 canary。⑩ `test_credential_keys_are_localized`：57 条 `model.credential.*` 两侧齐平，三个检测状态词条非裸枚举码 | 真实 esbuild（frontend/node_modules/.bin/esbuild）把真实 `services/modelCredentials.ts` + 真实 `src/api/client.ts`（真实 axios 实例与请求拦截器）打成 ESM 编译产物，由真实 node v24 执行；断言观测的是真实 axios adapter 实际收到的 URL/params/请求头/请求体与真实返回值，`@douyinfe/semi-ui` 只被别名成可观测 Toast 记录器（展示依赖，非被测边界）。面板侧以真实 TSX 的 esbuild 编译产物为「TypeScript 编译产物」边界；本用例不触 HTTP/DB/浏览器，DOM 交互（点击新增/编辑/删除/检测、SideSheet 挂接）按契约留给真实浏览器 E2E（S-106，TASK-115） | verified |
+
+实现要点：**ADMIN 维护面**——`ModelCredentialPanel` 用 `useAuth` 判角色，非 ADMIN 直接 `return null`（「前端隐藏 + 后端 403 兜底」的前端一半），列表加载也带请求竞态守卫与分页。**读取只 configured**——DTO 里根本没有密钥字段（`ModelCredentialItem` 只有 `configured`），列表/详情列渲染 `apiKeyOptions` 的「已配置/未配置」标签；明文只作为写入体从表单发出，绝不进 URL、查询参数、检测请求或渲染。**留空保留 / 替换显式提交**——编辑表单密钥框从空值开始，提交时 `buildCredentialUpdateInput` 在留空时**不写 `api_key` 键**（后端契约：缺省 = 保留原值，空串是 422）；非空才显式带上并轮换计量身份。**同物理 Key 去重 / 降额排空**——`credentialSaveErrorKey` 把 `MODEL_CREDENTIAL_EXISTS`、`MODEL_CAPACITY_DRAIN_REQUIRED`、`MODEL_CREDENTIAL_IN_USE`、`REVISION_CONFLICT` 映射到面板内 Banner 文案（共享传输同时按后端目录提示一次），未知失败回落 `common.saveFailed`。**单成员检测**——面板的检测入口先选模型，再只发 `(model_id, credential_id)` 一组目标：占额走 API-17、探测 HTTP 与结算在服务端（TASK-028），面板只展示逐项结果并在结果区明示「只覆盖本次点名的成员、不代表整池健康、不改逻辑模型测试状态」；模型候选只取第一页 100 条（API 上限）并在截断时显式提示。
+
+回归：`uv run pytest -q tests/frontend` exit=0，**365 passed**（本任务新增 10 条用例后全量绿，含 `test_capacity_webchat_chat_transport.py` 10 passed、`test_api_client_contract.py` 4 passed、`test_console_auth_contract.py` 11 passed）。`uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py` exit=0，21 passed。`tests/acceptance/**`、`make acceptance*`、Playwright 浏览器验收未执行（共享环境约束 + E2E 属 TASK-115 终验）。
+
+静态检查：`npx tsc --noEmit`（apps/console-platform/frontend）干净；`npm run build` exit=0；`scripts/check_frontend_i18n.py`「i18n keys OK: 1265」；`scripts/check_frontend_api_usage.py`「frontend api usage check OK」；`uv run pytest -q tests/frontend/test_capacity_webchat_credential_ui.py` 里另有一条真实编译产物检查。新增/改动均为强类型（无 `any`）、无裸 axios/fetch、无自拼传输头；密钥不写日志/URL/响应渲染；词条只追加不删改。
+
+遗留（非本任务范围）：① 浏览器 E2E S-106（TASK-115）保留新增/编辑/删除/检测的点击路径、SideSheet 关闭不破坏列表、BUILDER 不显示入口；本任务只登记不执行。② 面板**挂载点**属 TASK-092（`ModelPage.tsx`/`ModelDetailSideSheet.tsx`：主列表进入物理 Key/额度管理、详情挂成员关系），本任务不新增挂载点，避免「未挂载孤立组件」被 B-292 判红。③ 额度组 CRUD、RPM/TPM/null 单位与共享关系展示属 TASK-088；本任务只提供凭据表单归属选择需要的 `listQuotaGroups()` 选项投影。④ **事实同步缺口**：`ModelFormModal.tsx` 与 `services/models.ts` 仍按 TASK-019/020 之前的字段（`base_url`/`api_key`/`api_key_configured`）渲染，与后端 `extra="forbid"` 的新契约（`provider_key` + `params.max_tokens` 必填）不一致；该两文件不在本任务 Files 内，属 TASK-092「原模型编辑/版本/测试保持最终新语义」的范围。⑤ 检测的模型候选只取第一页 100 条（后端上限），跨页选择需 TASK-092/后续按需补搜索；当前以显式截断提示兜底。
+- B-286: verified — automated command passed; run_id=476a9841bb79457793a30123c0b89ae7 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] RED 记录：`uv run pytest -q tests/frontend/test_capacity_webchat_credential_ui.py` exit=1，5 failed + 5 errors
+- [2026-10-18] GREEN 记录：同命令 exit=0，10 passed；mutation 自检两处（留空发送密钥 / 删掉非 ADMIN 不渲染）均如实失败后还原
+- [2026-10-18] completed (done)
 
 ---
 
