@@ -303,7 +303,7 @@
 | B-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 并发预占/释放、实际租约存储 | TASK-021 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_reserve.py"] | . | 300 |  |
 | B-02 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实凭据/会话/附件归属存储 | TASK-053 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | . | 300 |  |
 | B-03 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 跨页读取和提交顺序、PG | TASK-064 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_activity_read.py"] | . | 300 |  |
-| B-04 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 实际 Conversation/CanonicalEvent 查询与索引 | TASK-050 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | . | 300 |  |
+| B-04 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 实际 Conversation/CanonicalEvent 查询与索引 | TASK-050 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | . | 300 |  |
 | B-05 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 实际准入计数、Run 事务、取消/领取竞态和 PG 行锁 | TASK-031 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_admission_release.py"] | . | 300 |  |
 | B-06 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 实际公开事件 DTO/水位和恢复服务 | TASK-060 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_shared_tail.py"] | . | 300 |  |
 | B-07 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实保留/清理查询、活跃 Run/job 与共享文件系统 | TASK-069 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | . | 300 |  |
@@ -389,7 +389,7 @@
 | B-247 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-047 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"] | . | 300 |  |
 | B-248 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-048 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"] | . | 300 |  |
 | B-249 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-049 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_conversation_scope.py"] | . | 300 |  |
-| B-250 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-050 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | . | 300 |  |
+| B-250 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-050 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | . | 300 |  |
 | B-251 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-051 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_public_projection.py"] | . | 300 |  |
 | B-252 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-052 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_resource_api.py"] | . | 300 |  |
 | B-253 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-053 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | . | 300 |  |
@@ -3273,7 +3273,7 @@ handler槽仅覆盖受理，长流不占handler；完整分支及可观测结果
 
 ## TASK-050: 历史列表、详情与固定水位分页
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-049
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计
@@ -3288,27 +3288,42 @@ handler槽仅覆盖受理，长流不占handler；完整分支及可观测结果
 
 ### Checklist
 
-- [ ] [B-250][integration] 先在`tests/agent_runtime/test_capacity_webchat_history_queries.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：列表按last_message_at/id且list/count同谓词同快照，批量活跃Run无N+1。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-250] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-250] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] [B-04][integration] 将原B-04落入`tests/agent_runtime/test_capacity_webchat_history_queries.py`，先RED后GREEN；实际 Conversation/CanonicalEvent 查询与索引；断言：多页会话和超过200条消息按确定顺序读取；消息水位固定时无跳过/重复；列表 list/count 同条件、同快照，无逐会话 N+1；后台续租不改变会话最近活动排序。
+- [x] [B-250][integration] 先在`tests/agent_runtime/test_capacity_webchat_history_queries.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：列表按last_message_at/id且list/count同谓词同快照，批量活跃Run无N+1。RED：`uv run pytest -q tests/agent_runtime/test_capacity_webchat_history_queries.py` exit=1，**10 failed in 0.86s**（三条历史 Owner 路由与内部门控尚不存在：`{"code":"COMMON_NOT_FOUND",...}`、`assert 404 == 200`；身份门控用例同样 404）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：`application/webchat_history.py`（① `HistoryScope` + `_conversation_scope`：核属维度复用 TASK-049 的 `load_explicit_conversation`（tenant/user/agent/入口 同时成立，一律 `COMMON_NOT_FOUND` 不泄露存在性），不重写归属校验；② 列表：`last_message_at DESC NULLS LAST, id DESC`，list/count **同一语句同一快照**（同 WHERE 的 total 子查询 × 分页子查询 LEFT JOIN，越界页 total 仍正确），活跃 Run 状态按页一次批量关联（`RunRecord.status.in_(ACTIVE_RUN_STATUSES)`）；③ 消息：固定水位——首屏冻结 `through_seq=conversation.last_seq`、后页沿用（page>1 缺水位显式 422）、超过会话持久水位显式 `CURSOR_AHEAD`、page 1 为最新窗口、页内正序、向前加载旧页、总量不被 200 截断；④ 安全公开投影：只投影 `USER_MESSAGE`/`ASSISTANT_MESSAGE`（`run_id` 为空的不可证实历史不冒认）、附件引用按页批量取权威行（含软删 tombstone 投影 `available=false`），工具参数/结果、SYSTEM、原始推理、未知事件、存储键与 TRANSCRIPT 一律不出现；坏载荷空正文兜底、不泄露不整页失败）。`api/webchat_history.py`（API-09/14/15 Owner 端点：`/internal/webchat/...`，路由器级 `require_internal_service` 门控；入口与 Agent 显式传入后复核；页大小默认值从 Console 平台设置 `webchat.history_page_size` 解析，不在端点硬编码）。`main.py` 仅新增路由器装配两行（计划外文件，披露）。
+- [x] [B-250] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-250] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**10 passed in 0.96s**。
+- [x] [B-04][integration] 将原B-04落入`tests/agent_runtime/test_capacity_webchat_history_queries.py`，先RED后GREEN；实际 Conversation/CanonicalEvent 查询与索引；断言：多页会话和超过200条消息按确定顺序读取；消息水位固定时无跳过/重复；列表 list/count 同条件、同快照，无逐会话 N+1；后台续租不改变会话最近活动排序。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-250 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 列表按last_message_at/id且list/count同谓词同快照，批量活跃Run无N+1；消息页through_seq固定、默认50上限100可超200总量；activeRun恢复不跳过正文 | tests/agent_runtime/test_capacity_webchat_history_queries.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | planned |
-| B-04 | integration | 实际 Conversation/CanonicalEvent 查询与索引 | 多页会话和超过200条消息按确定顺序读取；消息水位固定时无跳过/重复；列表 list/count 同条件、同快照，无逐会话 N+1；后台续租不改变会话最近活动排序 | tests/agent_runtime/test_capacity_webchat_history_queries.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | planned |
+| B-250 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 列表按last_message_at/id且list/count同谓词同快照，批量活跃Run无N+1；消息页through_seq固定、默认50上限100可超200总量；activeRun恢复不跳过正文 | tests/agent_runtime/test_capacity_webchat_history_queries.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | verified |
+| B-04 | integration | 实际 Conversation/CanonicalEvent 查询与索引 | 多页会话和超过200条消息按确定顺序读取；消息水位固定时无跳过/重复；列表 list/count 同条件、同快照，无逐会话 N+1；后台续租不改变会话最近活动排序 | tests/agent_runtime/test_capacity_webchat_history_queries.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-250 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_history_queries.py` exit=1，**10 failed in 0.86s**（三条历史路由与内部门控均不存在，首个失败即 `{"code":"COMMON_NOT_FOUND",...}` / `assert 404 == 200`） | 同命令 exit=0，**10 passed in 0.96s**（复跑 1.08s 同绿） | ① `test_b250_list_is_entry_scoped_ordered_and_batches_active_runs` L380-391（顺序 `[newer, busy, older, legacy]`、`total=4`、空标题→「新会话」、NULL 最近活动回落 `create_time`、活跃状态 `RUNNING`/None、`last_run_id` 真实；其他用户/其他 Agent/其他入口/未归属/软删/跨租户行全部不在列表）；② `test_b04_list_pages_are_deterministic_single_snapshot_and_not_n_plus_one` L431-447（三页并集=全集、无重复；每页 total 恒 5——含只剩 1 条的越界页；每页恰 1 条 `runtime.conversation` 语句且含 `count(*)`（list/count 同谓词**同快照**）、恰 1 条 `runtime.run_record` 批量查询（**无 N+1**））；③ `test_b04_background_renewal_does_not_change_recency_order` L469-475（后台续租 + 后台 `MEMORY_CONSOLIDATED` 后顺序不变、`last_message_at` 未被刷新）；④ `test_b250_message_pages_freeze_the_watermark_and_reject_ahead_cursors` L497-545（首屏 `through_seq=5`、页内正序 `[3,4,5]`；冻结水位后新消息（seq 6）不移动水位、旧页 `[1,2]` 不丢；新首屏水位推进到 6；`through_seq=7` → 400 `CURSOR_AHEAD`；page=2 缺水位 → 422 `COMMON_VALIDATION_ERROR`）；⑤ `test_b250_history_supports_more_than_two_hundred_messages` L573-601（250 条三页覆盖无跳过/重复、`total=250` 不被 200 截断；默认页大小 30 来自平台设置而非硬编码；page_size=101 → 422）；⑥ `test_b250_active_run_keeps_visible_body_and_recovery_identity` L627-648（持久水位 5 覆盖 2 条已落库 `MESSAGE_DELTA`；可见正文 `[1,2,3]` 一条不丢；详情 `active_run.id/status/execution_status` 与 `last_seq` 真实可观测）；⑦ `test_b250_detail_is_attributed_and_exposes_no_internal_snapshot` L670-711（响应字段集合恰为契约 8 键；跨用户/跨 Agent/错入口 404 `COMMON_NOT_FOUND`；未归属会话与跨租户 404）；⑧ `test_b250_waiting_input_detail_reports_the_real_run_state` L726-728（WAITING_INPUT 活跃 Run 真实投影）；⑨ `test_b250_internal_history_endpoints_require_service_identity`（缺/错服务身份 403；缺主体字段 422） | 真实 Runtime ASGI 应用（真实路由 + `X-Internal-Service` 门控 + `X-Tenant-Id` 租户上下文）；真实 `WebchatHistoryService` 真实 SQL（`before_cursor_execute` 逐语句捕获证明单语句 list/count 与批量活跃 Run）；隔离租户的真实 PostgreSQL：`runtime.conversation`/`canonical_event`（`seq` 由真实 `EventWriter` 在会话行锁内分配）/`run_record`/`artifact` 全部真实行；不 mock 存储，无模型调用 | verified |
+| B-04 | 同 B-250 的 RED（同一文件同一次运行） | 同 B-250 的 GREEN（10 passed in 0.96s） | ②③⑤⑦ + `test_b04_projection_only_exposes_visible_messages_and_safe_attachments` L802-812（消息 list/count 单语句、附件按页恰 1 次批量查询；只出 USER/ASSISTANT 两条可见消息；工具参数/原始推理/SYSTEM/未知事件/记忆收尾 canary 与 `storage_key` 均不在响应文本中；失效附件 `available=false` 不伪造可用；响应键集合为白名单 `{event_id,seq,run_id,role,text,attachments}`） | 同上（同一真实边界）；查询侧安全公开投影与 TASK-051 的 SSE 侧投影后续合并为唯一实现 | verified |
+
+实现要点：**列表**——入口显式（路由/参数）+ Agent 显式，核属复用 TASK-049；`last_message_at DESC NULLS LAST, id DESC`；list/count 用同一条语句（total 子查询 × 分页子查询 LEFT JOIN）实现"同谓词同快照"，越界页 total 仍与同谓词一致；活跃 Run 状态按页一次批量取（同会话至多一个活跃 Run 由 partial unique 保证）。**详情**——`active_run` 的 `execution_status` 复用 TASK-036 的 `project_execution_status`（两入口同一投影函数）；活跃 Run 与 `last_run_id` 不一致时显式内部错误（不静默丢弃恢复身份）。**消息**——`through_seq` 是**会话持久水位**（`conversation.last_seq`，含活跃 Run 已落库的增量事件），首屏冻结、后页沿用；它不是"已渲染正文"的证明：活跃 Run 的恢复必须走该 Run 自己的游标/安全快照（design §3.4/§3.6），本任务保证恢复身份（active_run id/status/execution_status）与水位都可观测、可见正文不丢。**投影**——查询侧白名单；无 Run 归属的事件不冒认；坏载荷空正文兜底；附件元信息按页批量取权威行（含软删 tombstone）。
+
+回归：`uv run pytest -q tests/agent_runtime` exit=0，**918 passed**（840.05s；收尾复跑 775.01s 同绿；基线 908 + 本任务 10 条）；`uv run pytest -q tests/contracts tests/architecture` exit=0，1314 passed（3.90s）；`uv run pytest -q tests/test_configuration_inventory.py` exit=0，4 passed（0.87s）。
+
+静态检查：`uv run ruff check`（本任务 4 个改动文件）干净；`uv run mypy apps packages` → Success: no issues found in 421 source files；新增模块全部函数 ≤50 行（AST 逐函数核对）；`docs/configuration-inventory.csv` 保持 CRLF（1449 行 CRLF、0 裸 LF），只追加本任务 5 个常量行并更新本任务改动文件的行号（`main.py` `SERVICE_NAME` 46→47、`POD_NAME` 104→105）。
+
+遗留（deferred，非本任务可闭合）：① `active_run.confirmation` 的**完整候选与选项文案**由 TASK-056 的 resume 语义投影（记忆确认的选项在仓库内没有已定型的线上词表，本任务不合成、不编造，`confirmation=None` 是显式选择）；② 消息页的 `CURSOR_EXPIRED` 需要保留/清理边界（`webchat.history_retention_days` 的落地属 TASK-069），当前只有"超前"分型；③ 内部详情/消息端点要求 `entry_id`+`agent_id` 显式传入（TASK-052 从 `/chat/:entryId` 路由参数与入口快照解析后调用；公共 API-15/09 的入口解析属 TASK-052 接线）；④ 助手消息的产物附件（工具结果类 artifact）不在本任务投影范围，随 TASK-055/059 的附件语义收口；⑤ 页大小默认值解析每次未显式传参时读一次平台设置（TASK-057 的配置缓存落地后可共用同一投影）。
+- B-04: verified — automated command passed; run_id=09861432860342169c63c1065e1b9a0b (confirmed_by: runner)
+- B-250: verified — automated command passed; run_id=09861432860342169c63c1065e1b9a0b (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 
