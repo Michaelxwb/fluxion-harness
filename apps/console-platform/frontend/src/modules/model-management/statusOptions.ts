@@ -27,3 +27,18 @@ export function apiKeyOptions(t: Translate): Record<string, StatusTagOption> {
     false: { color: 'grey', label: t('model.apiKeyMissing') }
   };
 }
+
+/**
+ * 物理 Key 检测结果 → StatusTag 选项。
+ *
+ * 与 `testStatusOptions`（逻辑模型的 `last_test_status`）刻意分开：检测结果多一个
+ * `NOT_EXECUTED`（未申请到容量 = 明确未执行），且**不**回写逻辑模型状态，两套口径混用会
+ * 把「这一次没探」显示成「模型不可用」。
+ */
+export function probeStatusOptions(t: Translate): Record<string, StatusTagOption> {
+  return {
+    AVAILABLE: { color: 'green', label: t('model.credential.probe.status.AVAILABLE') },
+    FAILED: { color: 'red', label: t('model.credential.probe.status.FAILED') },
+    NOT_EXECUTED: { color: 'amber', label: t('model.credential.probe.status.NOT_EXECUTED') }
+  };
+}
