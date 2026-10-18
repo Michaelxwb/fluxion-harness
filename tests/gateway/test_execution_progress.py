@@ -344,7 +344,14 @@ class IdleRuntime(FakeRuntimeClient):
         super().__init__(events)
         self._release = release
 
-    async def create_run(self, request, *, tenant_id: str, trace_id: str = ""):  # type: ignore[no-untyped-def]
+    async def create_run(
+        self,
+        request,  # type: ignore[no-untyped-def]
+        *,
+        tenant_id: str,
+        trace_id: str = "",
+        idempotency_key: str | None = None,
+    ):
         self.run_requests.append(request)
         for event in self.events:
             yield event

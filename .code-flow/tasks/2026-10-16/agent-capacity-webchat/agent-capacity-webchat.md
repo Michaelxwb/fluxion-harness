@@ -387,7 +387,7 @@
 | B-245 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-045 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_redaction.py"] | . | 300 |  |
 | B-246 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-046 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"] | . | 300 |  |
 | B-247 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-047 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"] | . | 300 |  |
-| B-248 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-048 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"] | . | 300 |  |
+| B-248 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-048 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"] | . | 300 |  |
 | B-249 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-049 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_conversation_scope.py"] | . | 300 |  |
 | B-250 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-050 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | . | 300 |  |
 | B-251 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-051 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_public_projection.py"] | . | 300 |  |
@@ -3130,7 +3130,7 @@ HTTP输入被规范化为统一事件并经唯一iter_events入口消费；完�
 
 ## TASK-048: Gateway受理与订阅解耦及精确来源路由
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-030, TASK-036, TASK-047
 - **Source**: agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计
@@ -3145,27 +3145,42 @@ handler槽仅覆盖受理，长流不占handler；完整分支及可观测结果
 
 ### Checklist
 
-- [ ] [B-248][integration] 先在`tests/gateway/test_capacity_webchat_gateway_admission.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：handler槽仅覆盖受理，长流不占handler。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-248] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-248] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-im#RULE-im-002`（stage: review；timeout=300秒）：`["uv","run","pytest","-q","tests/architecture/test_channel_neutrality.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-248][integration] 先在`tests/gateway/test_capacity_webchat_gateway_admission.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：handler槽仅覆盖受理，长流不占handler。RED：`uv run pytest -q tests/gateway/test_capacity_webchat_gateway_admission.py` exit=1，4 failed（首个 0.83s 即失败：`TypeError: InboundPipeline.__init__() got an unexpected keyword argument 'max_concurrent_handlers'`；其余三条同因）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：`application/inbound.py`（① `_AdmissionSlot` 受理名额：受理裁决即归还、`release` 幂等，`max_concurrent_handlers` 构造参数封顶在飞受理；② `_await_admission` 定义**受理裁决点**——Runtime 首帧到达 / 流已结束 = 已受理，`AppError` = 未受理，首帧原样交回订阅循环；③ `_route_key` 升为**精确来源**四元组（渠道+入口+用户+**会话**，`RouteKey`），路由锁与每路由排队上限同步精确；④ `_explicit_conversation` + `RunRequest.conversation_id`：带显式会话能力的入口显式指定会话，未实现该能力的通道（企微）为 None 走原入口指针）；`application/runtime_client.py`（`RuntimeClientPort.create_run` 显式声明 `idempotency_key`；管线提交时显式传 `request.message.id`，重投沿用同一身份）；`channels/base.py`（新增 `ExplicitConversationSource` 能力协议，与 `AttachmentSource` 同一条接缝）；`channels/webchat.py`（`explicit_conversation_id`：缺失/坏值**显式失败**，绝不退回隐式"最新会话"指针）。日志/响应不含凭据或消息原文；坏会话的异常只带稳定文案、不回显原值。
+- [x] [B-248] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-248] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，5 passed（2.73s）。
+- [x] verifier `harness-im#RULE-im-002`（stage: review；timeout=300秒）：`["uv","run","pytest","-q","tests/architecture/test_channel_neutrality.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。实际执行：exit=0，3 passed（0.76s）——`im-gateway` 新增的 `ExplicitConversationSource`（`channels/base.py`）与 `explicit_conversation_id`（`channels/webchat.py`）都落在适配器层，应用层只问"哪条会话"，`inbound.py` 不出现任何渠道专有字样/取件形状；取件、下载、解密、媒体 URL/密钥仍未出适配器。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-248 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | handler槽仅覆盖受理，长流不占handler；HTTP重投沿用message/幂等身份，企微按原入口指针、Webchat显式会话，new/stop/确认不串Run | tests/gateway/test_capacity_webchat_gateway_admission.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"] | planned |
-| harness-im#RULE-im-002 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | **渠道差异只活在适配器层**：核心域（`agent-runtime` / `agent-worker`）零渠道专有字样与取件形状；`im-gateway` 除 `channels/` 与装配根 `main.py` 外同样为零。取件、下载、解密、媒体 URL/密钥**一律不出适配器**——上层只看到「已解密字节 + 元信息」。机检见 `tests/architecture/test_channel_neutrality.py`（三条：核心域全文零字样 / 核心域不得给 `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/architecture/test_channel_neutrality.py"] | planned |
+| B-248 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | handler槽仅覆盖受理，长流不占handler；HTTP重投沿用message/幂等身份，企微按原入口指针、Webchat显式会话，new/stop/确认不串Run | tests/gateway/test_capacity_webchat_gateway_admission.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"] | verified |
+| harness-im#RULE-im-002 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | **渠道差异只活在适配器层**：核心域（`agent-runtime` / `agent-worker`）零渠道专有字样与取件形状；`im-gateway` 除 `channels/` 与装配根 `main.py` 外同样为零。取件、下载、解密、媒体 URL/密钥**一律不出适配器**——上层只看到「已解密字节 + 元信息」。机检见 `tests/architecture/test_channel_neutrality.py`（三条：核心域全文零字样 / 核心域不得给 `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/architecture/test_channel_neutrality.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-248 | `uv run pytest -q tests/gateway/test_capacity_webchat_gateway_admission.py` exit=1，4 failed（`TypeError: InboundPipeline.__init__() got an unexpected keyword argument 'max_concurrent_handlers'`） | 同命令 exit=0，5 passed（2.73s） | ① `test_b248_admission_slot_covers_admission_only_and_sources_route_precisely`：长流仍挂着时 `pipeline._handlers._value == 1`（上限=1，名额已归还）且 `runtime_probe.finished == []`；同用户**另一会话**在 A 未结束时被受理（`texts()==[TEXT_A,TEXT_B]`）；`requests[0/1]["channel"]` 各带自己的来源、`conversation_id` 各为 CONVERSATION_A/B、`Idempotency-Key` 各为原 message_id；放行后 `sink.streamed` 按 route 逐条对齐（A 的回复只回 A、B 只回 B）。② `test_b248_http_redelivery_reuses_message_identity_and_explicit_conversation`：两次 POST 的 `message`/`conversation_id`/`channel` 逐字段相等且 `Idempotency-Key == MESSAGE_A`（重投不新造身份）。③ `test_b248_accepted_redelivery_is_deduped_by_the_same_message_identity`：`store.reservations == [(im:dedupe:WEBCHAT:<msg>, owner), (同键, None)]`、Runtime 只收到一次 Run、键终值为 `DEDUPE_VALUE`。④ `test_b248_malformed_explicit_conversation_fails_loudly_without_falling_back`：坏会话抛 `ChannelAdapterUnavailable`、零 Run 提交、零出站、占位被释放（`get_value == None`）。⑤ `test_b248_wecom_entry_pointer_and_commands_stay_on_their_own_source`：企微 Run 的 `channel` 带入口账号+会话指针且 `conversation_id is None`（原入口指针）；同用户网页消息带显式会话并同时被受理；`/stop` 的 `cancel_calls == [{agent_id, platform_user_id}]` 且回执落在 `/stop` 自己那条消息的 req_id 上；`/new` 的 `conversations` 记录 + 回执落在自己的消息上；放行后企微回复回原入口回调、网页回复只落自己的会话 | 真实 Gateway 应用（`muad_im_gateway.main.app` 真实路由表 + `RegistryDep`）经真实 ASGI/HTTP 封套；真实 `WebchatChannelAdapter`（TASK-047）与真实 `WeComAdapter`（官方 SDK 端口为进程内探针）同注册表、**一个适配器一条** `InboundPipeline.consume` 循环（与装配根同形）；Runtime 侧是真实本地 HTTP 服务（真实 `text/event-stream`、按文本放行长流、记录 Run 请求/链路头/cancel-active/conversations），Console 侧是真实 HTTP 桩（Owner 接口封套）；真实 `InboundPipeline`/`RuntimeClient`/`ConsoleClient`。本文件不触任何数据库（网关不持库，DB 只经 Owner 接口访问） | verified |
+
+实现要点：**受理与订阅解耦**——受理名额只覆盖到受理裁决（`_await_admission`：首帧/流结束/明确拒绝），此后的长流（SSE 订阅、状态、正文渲染）不再占名额（设计 §3.2「SSE 订阅独立存在」、§1.3「持流期间占处理槽」的整改点）；**精确来源路由**——路由锁与每路由排队上限按 `(channel, entry, user, conversation)`，同来源仍串行不交叉、不同来源互不阻塞互不串台；**Webchat 显式会话 / 企微原入口指针**——`RunRequest.conversation_id` 由适配器能力（`ExplicitConversationSource`）决定，坏值显式失败；**HTTP 重投沿用 message/幂等身份**——`RuntimeClientPort.create_run` 显式声明 `idempotency_key`，管线传原 `message.id`。
+
+行为说明（有意变更）：受理裁决之前（等 Runtime 首帧的窗口，最长受 Runtime 心跳约束）不再发计时节拍帧；入站那一刻的「已收到/准备中」状态仍在提交前发送（`_update_progress(force=True)`）。同域连带（测试替身签名）：`tests/gateway/fakes.py`（`FakeRuntimeClient` 补 `idempotency_key` 并记录 `run_keys`）、`tests/gateway/test_inbound.py`/`test_execution_progress.py`/`test_waiting_resume.py` 的 `create_run` 替身补同名形参——只加默认形参，断言强度不变。
+
+回归：`uv run pytest -q tests/gateway` exit=0，381 passed（91.6s；改造前基线 376 + 本任务 5 条）；`uv run pytest -q tests/contracts` exit=0，1281 passed（3.8s）；`uv run pytest -q tests/architecture` exit=0，33 passed（1.0s）；`uv run pytest -q tests/test_configuration_inventory.py` exit=0，4 passed（0.9s）；`uv run pytest -q tests/agent_runtime/test_memory_redesign_confirmation.py` exit=0，37 passed（122s，隔离库；该文件用真实 Runtime HTTP + PG 驱动 `InboundPipeline.handle`，验证提交身份形参不破坏真实链路）。首轮全量 `tests/gateway` 曾出现 1 条环境性失败（`test_delivery_api.py::test_e05_worker_http_to_gateway_redis_probe_end_to_end`，Redis 探针），单跑与整跑复跑均通过（380→381 passed），按环境残留处理、未改实现。
+
+静态检查：`uv run ruff check apps/im-gateway/src tests/gateway/` 干净；`uv run mypy apps packages` → Success: no issues found in 415 source files；函数均 ≤50 行；`docs/configuration-inventory.csv` 保持 CRLF（1428 行 CRLF）、只更新本任务改动文件的行号（`application/inbound.py` 常量整体 +1~+2、`channels/webchat.py` `WEBCHAT_INBOUND_QUEUE_MAX` 34→35，共 49 行；`channels/base.py` 新增协议在常量之后、`runtime_client.py` 常量行未动）。
+
+遗留（非本任务范围）：① 启动设置 `gateway_max_concurrent_handlers`（TASK-003 已入 `SharedSettings`）仍未接线，装配根（TASK-096）应把它传进 `InboundPipeline(max_concurrent_handlers=...)`，本轮保持模块常量默认 8；② Runtime 的 `cancel-active` 仍按 (agent,user) 维度，来源级精确取消/待确认由 TASK-056 落；③ Runtime 侧「无显式会话的入口按 `channel_conversation` 指针选会话」由 TASK-049 落（当前 `_resolve_conversation` 仍按用户+Agent 最新会话）。
+- B-248: verified — automated command passed; run_id=a635533d6a6743fcb24e28c296190522 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 

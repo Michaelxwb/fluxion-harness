@@ -35,7 +35,14 @@ class RuntimeClientPort(Protocol):
         *,
         tenant_id: str,
         trace_id: str = "",
-    ) -> AsyncIterator[SseEvent]: ...
+        idempotency_key: str | None = None,
+    ) -> AsyncIterator[SseEvent]:
+        """提交 Run 并订阅它的 SSE。
+
+        **幂等身份**：`idempotency_key` 缺省就是 `request.message.id`——Gateway 的重投沿用**同一条
+        消息的身份**（不另造键），Runtime 才能按幂等键回放原 Run（RULE-02）。
+        """
+        ...
 
     def open_events(
         self,
@@ -107,7 +114,8 @@ class RuntimeClient:
         trace_id: str = "",
         idempotency_key: str | None = None,
     ) -> AsyncIterator[SseEvent]:
-        # 稳定幂等键：默认使用原 channel message id（可重试提交不重复建 Run）
+        # 稳定幂等键：默认使用原 channel message id（可重试提交不重复建 Run）；
+        # 调用方显式传键时以它为准（`RuntimeClientPort.create_run`）。
         headers = build_headers(
             tenant_id, trace_id, idempotency_key=idempotency_key or request.message.id
         )
