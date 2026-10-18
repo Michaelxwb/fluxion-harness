@@ -2,8 +2,9 @@
 
 - 只对受信服务身份开放（`X-Internal-Service`，与 `/internal/admin/runs` 同门控）；租户从部署
   中间件导出，主体（`user_id`）与入口/Agent 由受信调用方显式携带 —— 浏览器自报字段没有位置。
-- **入口显式**：列表走路由；详情/消息也要求 `entry_id`+`agent_id`（TASK-052 从 `/chat/:entryId`
-  路由参数与入口快照解析），核属复用 TASK-049（tenant/user/agent/入口 同时成立，404 不泄露存在性）。
+- **入口显式**：列表走路由；详情/消息也要求 `entry_id`+`agent_id`（TASK-052 的公共路径不带
+  入口，先经 `.../scope` 按 (tenant,user) 解析归属再调用），核属复用 TASK-049
+  （tenant/user/agent/入口 同时成立，404 不泄露存在性）。
 - 响应只含 `WebchatHistoryService` 的安全公开投影；不暴露快照、存储键或内部事件。
 - 页大小默认值来自 Console 平台设置（`webchat.history_page_size`），不在端点里硬编码。
 """
@@ -92,6 +93,24 @@ async def get_conversation(
         _scope(tenant_id, user_id=user_id, agent_id=agent_id, entry_id=entry_id), conversation_id
     )
     return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
+
+
+@router.get("/conversations/{conversation_id}/scope")
+async def get_conversation_scope(
+    conversation_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantDep,
+    session: SessionDep,
+    user_id: UserId,
+) -> ApiResponse[dict[str, Any]]:
+    """API-09/15 的入口解析（TASK-052）：公共路径不带入口 ⇒ 网关先解析归属再走入口显式读取。
+
+    只要求受信主体 `user_id`；入口/Agent 从会话行导出，调用方不能自报（也不泄露他主体存在性）。
+    """
+    scope = await WebchatHistoryService(session).resolve_conversation_scope(
+        tenant_id=tenant_id, user_id=user_id, conversation_id=conversation_id
+    )
+    return ok(request.app.state.message_catalog, scope.model_dump(mode="json"))
 
 
 @router.get("/conversations/{conversation_id}/messages")

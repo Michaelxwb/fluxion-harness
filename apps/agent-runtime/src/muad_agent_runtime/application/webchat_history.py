@@ -38,6 +38,7 @@ from muad_contracts.webchat import (
     WebchatConversationDetail,
     WebchatConversationItem,
     WebchatConversationPage,
+    WebchatConversationScope,
     WebchatHistoryMessage,
     WebchatMessagePage,
 )
@@ -225,6 +226,31 @@ class WebchatHistoryService:
             last_seq=conversation.last_seq,
             last_run_id=conversation.last_run_id,
             active_run=await self._active_run_view(conversation),
+        )
+
+    async def resolve_conversation_scope(
+        self, *, tenant_id: str, user_id: uuid.UUID, conversation_id: uuid.UUID
+    ) -> WebchatConversationScope:
+        """API-09/15 的入口解析接线（TASK-052）：本主体名下的会话 → (entry_id, agent_id)。
+
+        公共路径（`GET /webchat/conversations/{id}[...]`）不带入口，网关据此解析后再走**入口
+        显式**的读取端点。只按 (tenant, user) 核属：不存在/他主体/不可归属一律
+        `COMMON_NOT_FOUND`（不泄露存在性），入口与 Agent 都从会话行导出、不由调用方声明。
+        """
+        conversation = await self._session.scalar(
+            sa.select(Conversation).where(
+                Conversation.id == conversation_id,
+                Conversation.tenant_id == tenant_id,
+                Conversation.user_id == user_id,
+                Conversation.is_deleted.is_(False),
+            )
+        )
+        if conversation is None or conversation.channel_account_id is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        return WebchatConversationScope(
+            conversation_id=conversation.id,
+            entry_id=conversation.channel_account_id,
+            agent_id=conversation.agent_id,
         )
 
     async def list_messages(

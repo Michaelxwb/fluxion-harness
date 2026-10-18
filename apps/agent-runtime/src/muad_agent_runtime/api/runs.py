@@ -134,5 +134,7 @@ async def create_conversation(
         payload.platform_user_id,
         tenant_id,
         idempotency_key=idempotency_key,
+        entry_id=payload.entry_id,
+        external_thread_id=payload.external_thread_id,
     )
     return ok(request.app.state.message_catalog, conversation_view(conversation))
