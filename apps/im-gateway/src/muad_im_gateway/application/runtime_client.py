@@ -174,13 +174,27 @@ class RuntimeClient:
         timeout_sec: float = REQUEST_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
         service_token: str | None = None,
+        client: httpx.AsyncClient | None = None,
+        stream_client: httpx.AsyncClient | None = None,
+        upload_client: httpx.AsyncClient | None = None,
     ) -> None:
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_sec, transport=transport)
+        # 请求用绝对 URL 组装：注入的共享池客户端没有 base_url（一个池服务多个目标）。
+        self._base_url = base_url.rstrip("/")
+        # 装配根注入的分池由**装配根拥有并关闭**（本实例只借用）：业务出站（历史/资源/交付/
+        # 产物解析）走 egress；SSE 长流独立池，不挤占控制/业务请求；上传登记走上传池。
+        # 未注入时三类调用共用本实例自建自关的一个客户端（直构调用点语义不变）。
+        self._owns_client = client is None
+        self._client = client or httpx.AsyncClient(timeout=timeout_sec, transport=transport)
+        self._stream_client = stream_client or self._client
+        self._upload_client = upload_client or self._client
         # 内部服务身份：受信内部历史面（`/internal/webchat/...`）要求携带；缺省取启动设置
         # （与 `ConsoleClient` 同一口径），调用方也可显式注入。
         self._service_token = (
             service_token if service_token is not None else SharedSettings().internal_service_token
         )
+
+    def _url(self, path: str) -> str:
+        return f"{self._base_url}{path}"
 
     async def create_run(
         self,
@@ -197,9 +211,9 @@ class RuntimeClient:
         )
         headers["Accept"] = "text/event-stream"
         try:
-            async with self._client.stream(
+            async with self._stream_client.stream(
                 "POST",
-                RUNS_PATH,
+                self._url(RUNS_PATH),
                 json=request.model_dump(mode="json"),
                 headers=headers,
                 timeout=httpx.Timeout(STREAM_TIMEOUT_SEC, connect=REQUEST_TIMEOUT_SEC),
@@ -225,9 +239,9 @@ class RuntimeClient:
         headers = build_headers(tenant_id, trace_id)
         headers["Accept"] = "text/event-stream"
         try:
-            async with self._client.stream(
+            async with self._stream_client.stream(
                 "GET",
-                RUN_EVENTS_PATH.format(run_id=run_id),
+                self._url(RUN_EVENTS_PATH.format(run_id=run_id)),
                 params={"after_seq": str(max(0, after_seq))},
                 headers=headers,
                 timeout=httpx.Timeout(STREAM_TIMEOUT_SEC, connect=REQUEST_TIMEOUT_SEC),
@@ -258,9 +272,9 @@ class RuntimeClient:
         headers = build_headers(tenant_id, trace_id)
         headers["Accept"] = "text/event-stream"
         try:
-            async with self._client.stream(
+            async with self._stream_client.stream(
                 "GET",
-                RUN_EVENTS_PATH.format(run_id=run_id),
+                self._url(RUN_EVENTS_PATH.format(run_id=run_id)),
                 params={"after_seq": str(max(0, after_seq))},
                 headers=headers,
                 timeout=httpx.Timeout(STREAM_TIMEOUT_SEC, connect=REQUEST_TIMEOUT_SEC),
@@ -428,7 +442,10 @@ class RuntimeClient:
         响应只回 `upload_id` 与权威元信息（无存储键、无预造制品引用）。
         """
         return await self._post_internal_json(
-            INTERNAL_UPLOADS_PATH, registration.model_dump(mode="json"), tenant_id
+            INTERNAL_UPLOADS_PATH,
+            registration.model_dump(mode="json"),
+            tenant_id,
+            client=self._upload_client,
         )
 
     async def resolve_webchat_artifact(
@@ -480,9 +497,9 @@ class RuntimeClient:
         headers = build_headers(tenant_id, "", idempotency_key=idempotency_key)
         headers["Accept"] = "text/event-stream"
         try:
-            async with self._client.stream(
+            async with self._stream_client.stream(
                 method,
-                path,
+                self._url(path),
                 json=payload,
                 headers=headers,
                 timeout=httpx.Timeout(STREAM_TIMEOUT_SEC, connect=REQUEST_TIMEOUT_SEC),
@@ -500,7 +517,7 @@ class RuntimeClient:
     async def _get_json(self, path: str, tenant_id: str) -> dict[str, Any]:
         headers = build_headers(tenant_id, "")
         try:
-            response = await self._client.get(path, headers=headers)
+            response = await self._client.get(self._url(path), headers=headers)
         except httpx.HTTPError as exc:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
         body = decode_json(response)
@@ -516,7 +533,9 @@ class RuntimeClient:
         if self._service_token:
             headers[INTERNAL_SERVICE_HEADER] = self._service_token
         try:
-            response = await self._client.get(path, params=params, headers=headers)
+            response = await self._client.get(
+                self._url(path), params=params, headers=headers
+            )
         except httpx.HTTPError as exc:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
         body = decode_json(response)
@@ -525,14 +544,21 @@ class RuntimeClient:
         return require_data_dict(body)
 
     async def _post_internal_json(
-        self, path: str, payload: dict[str, Any], tenant_id: str
+        self,
+        path: str,
+        payload: dict[str, Any],
+        tenant_id: str,
+        *,
+        client: httpx.AsyncClient | None = None,
     ) -> dict[str, Any]:
         """受信内部面写调用：与读取面同一门控（服务身份 + 部署租户）。"""
         headers = build_headers(tenant_id, "")
         if self._service_token:
             headers[INTERNAL_SERVICE_HEADER] = self._service_token
         try:
-            response = await self._client.post(path, json=payload, headers=headers)
+            response = await (client or self._client).post(
+                self._url(path), json=payload, headers=headers
+            )
         except httpx.HTTPError as exc:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
         body = decode_json(response)
@@ -562,7 +588,7 @@ class RuntimeClient:
     ) -> dict[str, Any]:
         headers = build_headers(tenant_id, trace_id, idempotency_key=idempotency_key)
         try:
-            response = await self._client.post(path, json=payload, headers=headers)
+            response = await self._client.post(self._url(path), json=payload, headers=headers)
         except httpx.HTTPError as exc:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
         body = decode_json(response)
@@ -571,4 +597,5 @@ class RuntimeClient:
         return require_data_dict(body)
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        if self._owns_client:
+            await self._client.aclose()

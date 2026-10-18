@@ -118,8 +118,13 @@ class ConsoleClient:
         timeout_sec: float = REQUEST_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
         service_token: str | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_sec, transport=transport)
+        # 请求用绝对 URL 组装：注入的共享池客户端没有 base_url（一个池服务多个目标）。
+        self._base_url = base_url.rstrip("/")
+        # 装配根注入的控制池由**装配根拥有并关闭**（本实例只借用）；未注入时自建自关。
+        self._owns_client = client is None
+        self._client = client or httpx.AsyncClient(timeout=timeout_sec, transport=transport)
         # 内部服务身份：Console 的凭据类内部端点（bot 快照）要求携带
         self._service_token = (
             service_token if service_token is not None else SharedSettings().internal_service_token
@@ -220,7 +225,7 @@ class ConsoleClient:
         try:
             response = await self._client.request(
                 "POST",
-                AUDIT_PATH,
+                f"{self._base_url}{AUDIT_PATH}",
                 json=request.model_dump(mode="json"),
                 headers=_headers(tenant_id, self._service_token),
             )
@@ -241,7 +246,7 @@ class ConsoleClient:
         try:
             response = await self._client.request(
                 "POST",
-                DELIVERY_AUDIT_PATH,
+                f"{self._base_url}{DELIVERY_AUDIT_PATH}",
                 json=request.model_dump(mode="json"),
                 headers=_headers(tenant_id, self._service_token),
             )
@@ -260,7 +265,7 @@ class ConsoleClient:
         try:
             response = await self._client.request(
                 "POST",
-                FETCH_LINK_PATH.format(artifact_id=artifact_id),
+                f"{self._base_url}{FETCH_LINK_PATH.format(artifact_id=artifact_id)}",
                 headers=_headers(tenant_id, self._service_token),
             )
         except httpx.HTTPError:
@@ -280,7 +285,8 @@ class ConsoleClient:
         return url
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        if self._owns_client:
+            await self._client.aclose()
 
     async def _request_model(
         self,
@@ -300,7 +306,7 @@ class ConsoleClient:
         try:
             response = await self._client.request(
                 method,
-                path,
+                f"{self._base_url}{path}",
                 json=json_body,
                 params=params,
                 headers=request_headers,
