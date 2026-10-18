@@ -390,7 +390,7 @@
 | B-248 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-048 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"] | . | 300 |  |
 | B-249 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-049 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_conversation_scope.py"] | . | 300 |  |
 | B-250 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-050 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | . | 300 |  |
-| B-251 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-051 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_public_projection.py"] | . | 300 |  |
+| B-251 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-051 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_public_projection.py"] | . | 300 |  |
 | B-252 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-052 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_resource_api.py"] | . | 300 |  |
 | B-253 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-053 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | . | 300 |  |
 | B-254 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-054 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_upload_gateway.py"] | . | 300 |  |
@@ -3329,7 +3329,7 @@ handler槽仅覆盖受理，长流不占handler；完整分支及可观测结果
 
 ## TASK-051: 历史和SSE共用安全公开投影
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-006, TASK-050
 - **Source**: agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约
@@ -3344,25 +3344,38 @@ USER/ASSISTANT/安全附件/确认白名单，工具参数/结果/SYSTEM/推理/
 
 ### Checklist
 
-- [ ] [B-251][integration] 先在`tests/agent_runtime/test_capacity_webchat_public_projection.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：USER/ASSISTANT/安全附件/确认白名单，工具参数/结果/SYSTEM/推理/未知事件默认不公开。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-251] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-251] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_public_projection.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-251][integration] 先在`tests/agent_runtime/test_capacity_webchat_public_projection.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：USER/ASSISTANT/安全附件/确认白名单，工具参数/结果/SYSTEM/推理/未知事件默认不公开。RED：`uv run pytest -q tests/agent_runtime/test_capacity_webchat_public_projection.py` exit=2，**1 error during collection**（`ImportError: cannot import name 'public_events' from 'muad_agent_runtime.application'`——共用投影模块尚不存在）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `application/public_events.py`（新增）——把 TASK-050 查询侧安全公开投影抽成**唯一实现**：`project_public_fact`（canonical 行 → `WebchatHistoryMessage`（可见消息）/TASK-006 `PublicWebchatEvent`（公开流事件）/None 单一入口）、`project_public_stream_event`（SSE 接缝，只出公开流事件）、`visible_attachment_ids`（按页批量取附件的唯一口径）；唯一词表 `PUBLIC_MESSAGE_EVENT_TYPES`/`PUBLIC_ROLE_BY_EVENT_TYPE`（USER/ASSISTANT）与 `PUBLIC_STREAM_EVENT_TYPES`（delta/stage/terminal/error/artifact/confirmation 白名单）；唯一附件安全规则（失效 `available=false`、无权威行/尺寸不可投影不伪造、`TRANSCRIPT` 留档不投影、`storage_key` 永不出现）；已知公开事件坏载荷显式 `COMMON_INTERNAL_ERROR`（只带 event_id/seq/stream_type），未知/内部 stream_type 默认不公开。② `application/webchat_history.py`（重构，计划外披露）——删除本地投影实现，SQL 白名单与投影消费 `public_events`；消息分页 select 补 `conversation_id/stream_type/artifact_id/create_time`（仍是单语句 list/count + 按页一次附件批量）。③ `docs/configuration-inventory.csv`——2 个常量随唯一消费方迁入 `public_events.py`、新增 1 行白名单常量、同步 `webchat_history.py` 行号（CRLF 保持）。
+- [x] [B-251] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-251] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_public_projection.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**6 passed in 0.37s**。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-251 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | USER/ASSISTANT/安全附件/确认白名单，工具参数/结果/SYSTEM/推理/未知事件默认不公开；canonical seq合法跳号，不提供TRANSCRIPT下载或内部存储键 | tests/agent_runtime/test_capacity_webchat_public_projection.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_public_projection.py"] | planned |
+| B-251 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | USER/ASSISTANT/安全附件/确认白名单，工具参数/结果/SYSTEM/推理/未知事件默认不公开；canonical seq合法跳号，不提供TRANSCRIPT下载或内部存储键 | tests/agent_runtime/test_capacity_webchat_public_projection.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_public_projection.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-251 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_public_projection.py` exit=2，**1 error during collection**（`ImportError: cannot import name 'public_events'`；全部用例已收集执行前即缺模块） | 同命令 exit=0，**6 passed in 0.37s** | ① `test_b251_history_and_stream_share_one_projection_over_the_same_rows` L388-428（单一实现：`webchat_history.project_public_fact is public_events.project_public_fact`；同一批真实行 → 历史只出 seq `[1,5]` 的 USER/ASSISTANT 与失效附件 `available=false`；SSE 接缝只出 `[2,4,8]` 的 delta/stage/terminal——1/3/5/6/7 合法跳号不补号；真实 HTTP 历史端点输出与同一函数逐字段一致；工具/SYSTEM/未知/终态正文 canary 与 `storage_key` 不在任何投影输出）② `test_b251_history_projection_is_not_n_plus_one_and_matches_shared_facts` L501-508（历史分页输出=共用函数事实；附件按页恰 1 次批量查询、无 N+1）③ `test_b251_stream_seam_exposes_only_whitelisted_events` L579-596（artifact.created 只出安全元信息、失效附件 `available=false`、`TRANSCRIPT` 留档不投影、run.failed → 稳定错误码/保守 retryable）④ `test_b251_stream_seam_filters_unknown_and_internal_events_by_default` L630（工具参数/结果、模型请求、推理、SYSTEM、记忆、未知、run.created 与消息行在流上全为 None）⑤ `test_b251_stream_seam_projects_the_complete_safe_confirmation_only` L682-691（完整安全确认 DTO 才公开；内部 proposal 载荷过滤、`proposal_hash` 不外泄）⑥ `test_b251_known_public_events_fail_explicitly_on_malformed_payloads` L725-728（已知公开事件坏载荷显式 `COMMON_INTERNAL_ERROR`，不回显原文） | 真实 Runtime 应用（真实路由 + `X-Internal-Service` 门控）、真实 `WebchatHistoryService` 与 `public_events` 投影、隔离租户的真实 PostgreSQL：conversation/run_record/canonical_event/artifact 真实行，`seq` 由真实 `EventWriter` 在会话行锁内分配；`before_cursor_execute` 逐语句捕获证明附件批量查询；未 mock 存储或租约 | verified |
+
+实现要点：**唯一入口**——`public_events.project_public_fact` 是「canonical 行 → 公开事实」的唯一投影；历史分页与 SSE 接缝都从它取事实（历史路径只保留 `WebchatHistoryMessage`，流路径只保留 `PublicWebchatEvent`），不各自维护第二份白名单/附件规则。**词表**——消息白名单 `USER_MESSAGE`/`ASSISTANT_MESSAGE` 与流白名单 `PUBLIC_STREAM_EVENT_TYPES` 是唯一来源（SQL 谓词也消费同一常量）；`reply_generation` 缺省 0=首次生成（多代属 TASK-062），terminal 只出状态、error 只出稳定码+保守 retryable（未知=False，与 retry_safety 同保守方向）。**附件**——只按权威 `artifact` 行投影（失效 `available=false`；无权威行/尺寸不可投影不伪造；`TRANSCRIPT` 不进入公开面）；历史页附件仍一次批量取。**错误**——已知公开事件的坏载荷显式失败（过滤与坏帧可区分）；未知/内部事件默认不公开（过滤跳号合法）。
+
+回归：`uv run pytest -q tests/agent_runtime` exit=0，**936 passed**（671.18s；含本任务 6 条，日志 `/tmp/task051-regression-agent-runtime.log`）；`uv run pytest -q tests/contracts tests/architecture` exit=0，1314 passed（4.28s）；`uv run pytest -q tests/test_configuration_inventory.py` exit=0，4 passed（0.79s）；`uv run pytest -q tests/test_attachment_contract.py tests/test_error_catalog.py tests/test_api_i18n.py` exit=0，18 passed（0.31s）。
+
+静态检查：`uv run ruff check`（本任务 3 个改动文件）干净；`uv run mypy apps packages` → Success: no issues found in 423 source files；新增/改动函数全部 ≤50 行（AST 逐函数核对）；`docs/configuration-inventory.csv` 保持 CRLF（1456 行 CRLF、0 裸 LF），只动本任务相关行：`public_events.py` 新增 3 行、`webchat_history.py` 迁出 2 行并更新 3 行行号。
+
+遗留（deferred，非本任务可闭合）：① **确认的完整候选投影**（`submission_id/source_event_id/options` 的写入侧）属 TASK-056——本任务只认「载荷本身已是完整安全 DTO」，记忆确认现有内部载荷（`proposal_id/proposal_hash/…`）不公开、不合成选项；② **流端点/游标/分片/回压**属 TASK-060/061（本任务只提供 `project_public_stream_event` 接缝与合法跳号语义，未接线任何路由）；③ `message.delta` 的 `reply_generation` 多代与 `message.snapshot` 分片属 TASK-062/061（当前缺省 0=首次生成）；④ `TRANSCRIPT` 清理/下载授权属 TASK-055/069（本任务只保证不进入公开投影与不提供内部存储键）。
+- B-251: verified — automated command passed; run_id=6200b71f67594c7b9b2bda67829e7b21 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 
