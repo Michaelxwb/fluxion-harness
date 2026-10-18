@@ -139,12 +139,15 @@ WebchatConfigServiceDep = Annotated[
 def get_webchat_sse_ledger(request: Request) -> SseBufferLedger:
     """进程级公开流缓冲账本：装配根发布共享实例；未发布时按同一预算就地建立。
 
-    单订阅与进程总缓冲必须**全进程同一本账**（否则总预算会被每个请求各算一份），所以这里
-    优先用装配根发布的对象，并在首次使用时固定下来（预算字段不再各读一遍）。
+    单订阅、进程总缓冲与订阅者数量上限必须**全进程同一本账**（否则每个请求各算一份），
+    所以这里优先用装配根发布的对象，并在首次使用时固定下来（预算字段不再各读一遍）。
     """
     ledger = getattr(request.app.state, "webchat_sse_ledger", None)
     if ledger is None:
-        ledger = SseBufferLedger(total_bytes=request.app.state.sse_total_buffer_bytes)
+        ledger = SseBufferLedger(
+            total_bytes=request.app.state.sse_total_buffer_bytes,
+            max_subscribers=request.app.state.gateway_max_sse_subscribers,
+        )
         request.app.state.webchat_sse_ledger = ledger
     return ledger
 

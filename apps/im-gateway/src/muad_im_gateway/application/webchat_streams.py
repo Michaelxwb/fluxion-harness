@@ -89,6 +89,10 @@ class WebchatFrameError(RuntimeError):
     """公开帧无法安全下发：显式关闭订阅，绝不截断、绝不伪装成过滤。"""
 
 
+class SseSubscriberLimitExceeded(RuntimeError):
+    """进程订阅者数量上限（`GATEWAY_MAX_SSE_SUBSCRIBERS`）：显式拒绝，不排队也不静默丢。"""
+
+
 class MalformedPublicEvent(WebchatFrameError):
     """已知公开事件的坏载荷（canonical 生产者坏了，不静默当过滤）。"""
 
@@ -441,7 +445,7 @@ class WebchatPublicScanner:
 
 @dataclass(slots=True)
 class SseLedgerStats:
-    """公开流的可观测快照：下发/过滤/分片/关闭都留痕（不静默）。"""
+    """公开流的可观测快照：下发/过滤/分片/关闭/拒绝都留痕（不静默）。"""
 
     active_subscribers: int = 0
     total_pending_bytes: int = 0
@@ -456,21 +460,35 @@ class SseLedgerStats:
     total_buffer_closed: int = 0
     malformed_closed: int = 0
     oversized_closed: int = 0
+    rejected_subscribers: int = 0
 
 
 class SseBufferLedger:
-    """进程级公开流缓冲账本：进程总缓冲显式有界（单订阅份额由流层按同一预算裁决）。"""
+    """进程级公开流缓冲账本：进程总缓冲与订阅者数量都显式有界（单订阅份额由流层裁决）。"""
 
-    def __init__(self, *, total_bytes: int) -> None:
+    def __init__(self, *, total_bytes: int, max_subscribers: int) -> None:
         if total_bytes < 1:
             raise ValueError("total buffer must be positive")
+        if max_subscribers < 1:
+            raise ValueError("subscriber limit must be positive")
         self._total_bytes = total_bytes
+        self._max_subscribers = max_subscribers
         self._pending = 0
         self._active = 0
         self._stats = SseLedgerStats()
 
     def lease(self) -> SseBufferLease:
-        """登记一个订阅者：缓冲占用计入进程总预算，退出时释放。"""
+        """登记一个订阅者：到进程订阅上限即**显式拒绝**（不静默丢、不排队）。"""
+        if self._active >= self._max_subscribers:
+            self._stats.rejected_subscribers += 1
+            logger.warning(
+                "webchat_sse_subscriber_limit_rejected active=%s limit=%s",
+                self._active,
+                self._max_subscribers,
+            )
+            raise SseSubscriberLimitExceeded(
+                f"active subscribers {self._active} reached limit {self._max_subscribers}"
+            )
         self._active += 1
         return SseBufferLease(self)
 
@@ -553,11 +571,12 @@ class WebchatPublicStream:
         owner_close: AsyncExitStack,
         budget: WebchatStreamBudget,
         ledger: SseBufferLedger,
+        lease: SseBufferLease,
     ) -> None:
         self._run_id = run_id
         self._budget = budget
         self._ledger = ledger
-        self._lease = ledger.lease()
+        self._lease = lease
         self._scanner = WebchatPublicScanner(run_id=run_id, conversation_id=conversation_id)
         self._owner_events = owner_events
         self._owner_close = owner_close
@@ -693,14 +712,17 @@ class WebchatStreamService:
         self._ledger = ledger
 
     async def open(self, identity: ChatIdentity, run_id: UUID, *, after_seq: int) -> WebchatPublicStream:
-        """门控后的完整转 Owner：核 Run 归属 → 核会话 Agent 当前授权 → 打开持久事件流。
+        """门控后的完整转 Owner：核 Run 归属 → 核会话 Agent 当前授权 → 开订阅。
 
+        订阅者数量上限在**打开 Owner 流之前**裁决：到界显式拒绝（429），不占上游连接、
+        不排队等待；打开失败时释放刚取得的租约，不留半开连接。
         游标越界/过期由 Owner 的 `check_cursor` 显式失败（`CURSOR_AHEAD`/`CURSOR_EXPIRED`），
-        网关不夹取、不猜测；打开失败时不留半开连接。
+        网关不夹取、不猜测。
         """
         state = owned_run_state(identity, await self._runtime.get_run(run_id, tenant_id=self._tenant_id))
         conversation_id = required_uuid(state, "conversation_id")
         await self._assert_authorized(identity, conversation_id)
+        lease = self._acquire_lease()
         stack = AsyncExitStack()
         try:
             events = await stack.enter_async_context(
@@ -709,6 +731,7 @@ class WebchatStreamService:
                 )
             )
         except BaseException:
+            lease.close()
             await stack.aclose()
             raise
         return WebchatPublicStream(
@@ -718,7 +741,15 @@ class WebchatStreamService:
             owner_close=stack,
             budget=self._budget,
             ledger=self._ledger,
+            lease=lease,
         )
+
+    def _acquire_lease(self) -> SseBufferLease:
+        """订阅者数量上限：到界显式拒绝（429），绝不静默丢或让请求悬挂。"""
+        try:
+            return self._ledger.lease()
+        except SseSubscriberLimitExceeded as exc:
+            raise AppError(ErrorCode.RUN_CAPACITY_EXCEEDED) from exc
 
     async def _assert_authorized(self, identity: ChatIdentity, conversation_id: UUID) -> None:
         """会话的 Agent 必须在**当前**授权集合内（撤销影响后续 SSE 访问，与读取面同口径）。"""

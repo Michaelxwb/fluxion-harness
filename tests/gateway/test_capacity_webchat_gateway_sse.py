@@ -477,7 +477,7 @@ async def _gateway_env(
     previous: dict[str, Any] = {name: getattr(app.state, name, None) for name in _STATE_NAMES}
     console = ConsoleClient(stub_console.url)
     runtime = RuntimeClient(runtime_probe.url)
-    ledger = SseBufferLedger(total_bytes=total_buffer_bytes)
+    ledger = SseBufferLedger(total_bytes=total_buffer_bytes, max_subscribers=1100)
     app.state.console_client = console
     app.state.runtime_client = runtime
     app.state.tenant_id = GATEWAY_TENANT

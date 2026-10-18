@@ -834,8 +834,8 @@ apps/im-gateway/src/muad_im_gateway/application/inbound.py,156,NEW_CONVERSATION_
 apps/im-gateway/src/muad_im_gateway/application/inbound.py,157,STOP_ACCEPTED_TEXT,'正在停止当前任务…',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/inbound.py,158,STOP_CANCELLED_TEXT,'当前任务已停止',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/inbound.py,161,COMMAND_PREFIXES,"('/bind', '/new', '/stop', '/skills', '/memory')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,420,_FEEDBACK_PRIORITY,"(ATTACHMENT_TOO_LARGE, ATTACHMENT_TYPE_NOT_ALLOWED, ATTACHMENT_COUNT_EXCEEDED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,428,__init__.delta_flush_interval_sec,DELTA_FLUSH_INTERVAL_SEC,function-default,code,IM 展示节拍实现常量（非平台设置 im.progress_interval_sec）；运行期不可改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,431,_FEEDBACK_PRIORITY,"(ATTACHMENT_TOO_LARGE, ATTACHMENT_TYPE_NOT_ALLOWED, ATTACHMENT_COUNT_EXCEEDED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,449,__init__.delta_flush_interval_sec,DELTA_FLUSH_INTERVAL_SEC,function-default,code,IM 展示节拍实现常量（非平台设置 im.progress_interval_sec）；运行期不可改
 apps/im-gateway/src/muad_im_gateway/application/progress.py,19,PREPARING,'PREPARING',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/application/progress.py,20,THINKING,'THINKING',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/application/progress.py,21,EXECUTING,'EXECUTING',python-constant,code,状态或错误码，不是时间参数
@@ -946,10 +946,13 @@ apps/im-gateway/src/muad_im_gateway/infrastructure/dedupe.py,30,DELIVERED_PREFIX
 apps/im-gateway/src/muad_im_gateway/infrastructure/dedupe.py,33,_RELEASE_SCRIPT,"""\nif redis.call('GET', KEYS[1]) == ARGV[1] then\n  return redis.call('DEL', KEYS[1])\nend\nreturn 0\n""",python-constant,code,占位释放的所有权 CAS 脚本（比较值再删）
 apps/im-gateway/src/muad_im_gateway/infrastructure/dedupe.py,40,_MARK_SCRIPT,"""\nif redis.call('GET', KEYS[1]) == ARGV[1] then\n  redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])\n  return 1\nend\nreturn 0\n""",python-constant,code,占位升级为终值的所有权 CAS 脚本
 apps/im-gateway/src/muad_im_gateway/infrastructure/dedupe.py,48,_RENEW_SCRIPT,"""\nif redis.call('GET', KEYS[1]) == ARGV[1] then\n  return redis.call('EXPIRE', KEYS[1], ARGV[2])\nend\nreturn 0\n""",python-constant,code,占位续租的所有权 CAS 脚本
+apps/im-gateway/src/muad_im_gateway/infrastructure/http_clients.py,25,GATEWAY_HTTP_POOLS,"('control', 'stream', 'upload', 'egress')",python-constant,code,本进程真实调用的出站池词表（design §3.7「实例只创建实际需要的池」；TASK-096）
 apps/im-gateway/src/muad_im_gateway/infrastructure/platform_settings_client.py,21,PLATFORM_SETTINGS_PATH,'/internal/v1/platform-settings',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/infrastructure/platform_settings_client.py,22,PLATFORM_SETTINGS_TIMEOUT_SEC,5.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/infrastructure/platform_settings_client.py,23,GATEWAY_CALLER,'gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/main.py,34,SERVICE_NAME,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/main.py,37,SERVICE_NAME,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/main.py,40,SNAPSHOT_LOOP_NAME,'gateway.snapshot',python-constant,code,生命周期后台任务的装配根命名（快照刷新循环；TASK-096）
+apps/im-gateway/src/muad_im_gateway/main.py,41,INBOUND_LOOP_NAME_PREFIX,'gateway.inbound.',python-constant,code,生命周期后台任务的装配根命名前缀（每适配器入站消费循环；TASK-096）
 apps/im-gateway/src/muad_im_gateway/metrics.py,29,COUNTER,'counter',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/metrics.py,30,GAUGE,'gauge',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/metrics.py,32,PLATFORM_SETTINGS_FETCH_METRIC,'platform_settings_fetch_total',python-constant,code,协议标识、枚举、schema、文本或实现常量

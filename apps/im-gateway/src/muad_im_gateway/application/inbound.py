@@ -262,24 +262,35 @@ class _AdmissionSlot:
             semaphore.release()
 
 
+@dataclass(frozen=True, slots=True)
+class _BacklogLimits:
+    """排队上限（启动预算，§3.7 `GATEWAY_MAX_PENDING_*`）：装配根注入；模块常量只是直构默认。"""
+
+    max_pending: int = MAX_PENDING_HANDLERS
+    max_per_route: int = MAX_PENDING_PER_ROUTE
+    max_commands: int = MAX_PENDING_COMMANDS
+
+
 @dataclass(slots=True)
 class _Backlog:
     """排队计数：读循环靠它做**有界但不阻塞**的准入判断。
 
     读循环不能被队列拖住（那正是 /stop 饥饿的成因），所以它只做计数与转交，计数由任务自己
     在收尾时归还。两级上限同时生效：全局一级防内存无界，每路由一级防单个用户挤掉别人。
+    上限由装配根按启动预算注入（§3.7 `GATEWAY_MAX_PENDING_*`），模块常量只是直构默认。
     """
 
+    limits: _BacklogLimits = _BacklogLimits()
     pending: int = 0
     commands: int = 0
     by_route: dict[RouteKey, int] = field(default_factory=dict)
 
     def admits(self, key: RouteKey, *, command: bool) -> bool:
         if command:
-            return self.commands < MAX_PENDING_COMMANDS
+            return self.commands < self.limits.max_commands
         return (
-            self.pending < MAX_PENDING_HANDLERS
-            and self.by_route.get(key, 0) < MAX_PENDING_PER_ROUTE
+            self.pending < self.limits.max_pending
+            and self.by_route.get(key, 0) < self.limits.max_per_route
         )
 
     def take(self, key: RouteKey, *, command: bool) -> None:
@@ -440,9 +451,19 @@ class InboundPipeline:
         runtime_reconnect_attempts: int = 5,
         runtime_reconnect_delay_sec: float = 0.5,
         max_concurrent_handlers: int = MAX_CONCURRENT_HANDLERS,
+        max_pending_handlers: int = MAX_PENDING_HANDLERS,
+        max_pending_per_route: int = MAX_PENDING_PER_ROUTE,
+        max_pending_commands: int = MAX_PENDING_COMMANDS,
     ) -> None:
         if max_concurrent_handlers < 1:
             raise ValueError("handler concurrency must be at least one")
+        for name, value in (
+            ("max_pending_handlers", max_pending_handlers),
+            ("max_pending_per_route", max_pending_per_route),
+            ("max_pending_commands", max_pending_commands),
+        ):
+            if value < 1:
+                raise ValueError(f"{name} must be at least one")
         self._activity_catalogs: dict[str, ActivityMessages] = {}
         self._delta_flush_interval_sec = delta_flush_interval_sec
         self._dedupe = dedupe
@@ -458,6 +479,12 @@ class InboundPipeline:
         #: **在飞受理**的并发闸（排队等锁的不算）：封顶同时进行的入站处理。**只覆盖受理**——
         #: 长流（SSE 订阅/正文渲染）在受理裁决处归还名额，不占它（设计 §3.2 / §1.3）。
         self._handlers = asyncio.Semaphore(max_concurrent_handlers)
+        #: 排队上限（全局/每路由/命令三条）：启动预算由装配根注入（§3.7 GATEWAY_MAX_PENDING_*）。
+        self._backlog_limits = _BacklogLimits(
+            max_pending=max_pending_handlers,
+            max_per_route=max_pending_per_route,
+            max_commands=max_pending_commands,
+        )
         #: Run 终态交付：活跃会话收尾与兜底主动交付共用同一稳定键（设计 §3.6；TASK-067）。
         #: 默认**没有 API-18 协调端口**（直构调用点/单测）：终态文本按原语义直接发送，不因此丢消息。
         self._channel_delivery: TerminalDeliveryPort = (
@@ -502,7 +529,7 @@ class InboundPipeline:
         - Runtime 决定 RUN_BUSY/resume：Gateway 不缓存活跃 Run 事实。
         """
         events = await adapter.iter_events()
-        backlog = _Backlog()
+        backlog = _Backlog(self._backlog_limits)
         active: set[asyncio.Task[None]] = set()
         try:
             async for envelope in events:
