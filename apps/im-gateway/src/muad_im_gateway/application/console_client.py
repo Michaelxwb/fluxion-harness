@@ -20,7 +20,8 @@ from muad_contracts import (
     ChannelSkillsResponse,
     InboundAuditRequest,
 )
-from pydantic import BaseModel
+from muad_contracts.webchat import ChatPrincipalResponse
+from pydantic import BaseModel, SecretStr
 
 from .envelope import decode_json, error_code_from_payload, require_data_model
 from .runtime_client import CALLER_SERVICE
@@ -37,6 +38,11 @@ CHANNEL_SKILLS_PATH = "/internal/channel/skills"
 AUDIT_PATH = "/internal/channel/audit"
 #: 交付审计写入（TASK-007 建的权威落点，同一条"网关不持库"的理由）
 DELIVERY_AUDIT_PATH = "/internal/channel/artifact-delivery"
+#: CHAT 身份核验（设计 API-12；TASK-043 建）：网关唯一的 CHAT 核验出口——不持库、不解析凭据，
+#: 主体与授权集合只从 Console 的响应导出（TASK-044 消费）。
+CHAT_PRINCIPAL_PATH = "/internal/channel/chat-principal"
+#: CHAT 上下文头：浏览器请求必须携带的比对值，网关原样转发给 Console（两层都比对）。
+CHAT_CONTEXT_HEADER = "X-Chat-Context"
 #: 取件直链签发（TASK-008 建）。降级链要用：适配器拿不到 Console 进程里的令牌，只能问它要。
 FETCH_LINK_PATH = "/internal/artifacts/{artifact_id}/fetch-link"
 REQUEST_TIMEOUT_SEC = 5.0
@@ -74,6 +80,20 @@ class ConsoleClientPort(Protocol):
         page: int = 1,
         page_size: int = DEFAULT_PAGE_SIZE,
     ) -> ChannelSkillsResponse: ...
+
+    async def chat_principal(
+        self,
+        session_token: SecretStr,
+        *,
+        tenant_id: str,
+        chat_context: UUID,
+    ) -> ChatPrincipalResponse:
+        """核验 CHAT 会话并取回受信主体（设计 API-12；网关只经 Console 核验）。
+
+        会话原文只作**输入凭据**（`SecretStr`，本层不打印）；上下文头随请求转发，Console 侧与
+        `principal.session_id` 比对。401/403/409 等错误码按封套原样上抛，调用方据此终止请求/长流。
+        """
+        ...
 
     async def audit(self, request: InboundAuditRequest, tenant_id: str) -> None: ...
 
@@ -167,6 +187,28 @@ class ConsoleClient:
             ChannelSkillsResponse,
             tenant_id,
             params=params,
+        )
+
+    async def chat_principal(
+        self,
+        session_token: SecretStr,
+        *,
+        tenant_id: str,
+        chat_context: UUID,
+    ) -> ChatPrincipalResponse:
+        """核验 CHAT 会话并取回受信主体（设计 API-12）——**网关唯一的 CHAT 核验出口**。
+
+        会话原文只进请求体（`SecretStr` 在网关侧不进日志/异常文本），`X-Chat-Context` 随请求
+        转发供 Console 比对；错误码（401 会话/Token 失效、403 跨部署租户、409 上下文变化）
+        按封套原样上抛，调用方据此终止请求与长流。
+        """
+        return await self._request_model(
+            "POST",
+            CHAT_PRINCIPAL_PATH,
+            ChatPrincipalResponse,
+            tenant_id,
+            json_body={"session_token": session_token.get_secret_value()},
+            headers={CHAT_CONTEXT_HEADER: str(chat_context)},
         )
 
     async def audit(self, request: InboundAuditRequest, tenant_id: str) -> None:

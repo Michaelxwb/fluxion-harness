@@ -65,6 +65,8 @@ class _GatewayResources:
     adapter: WeComAdapter | HttpProbeChannelAdapter
     artifacts: HttpArtifactResolver
     tenant_id: str
+    #: CHAT 长流复核周期（启动资源预算）：SSE 路由的复核定时器消费（TASK-044）。
+    chat_auth_recheck_sec: float
 
     def publish(self, app: FastAPI) -> None:
         """初始化成功后才公开运行时状态：探针与投递 API 都从这里读依赖。"""
@@ -77,6 +79,7 @@ class _GatewayResources:
         app.state.wecom_adapter = self.adapter
         app.state.artifact_resolver = self.artifacts
         app.state.tenant_id = self.tenant_id
+        app.state.chat_auth_recheck_sec = self.chat_auth_recheck_sec
 
     async def aclose(self) -> None:
         await self.registry.stop_all()
@@ -133,6 +136,7 @@ async def _build_resources(
         adapter=adapter,
         artifacts=artifacts,
         tenant_id=settings.default_tenant_id,
+        chat_auth_recheck_sec=settings.chat_auth_recheck_sec,
     )
 
 
