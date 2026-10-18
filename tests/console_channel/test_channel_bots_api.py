@@ -6,11 +6,11 @@ from httpx import AsyncClient
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.channel import BotAccount
 
-from console_channel.conftest import ChannelContext
+from console_channel.conftest import CHANNEL, ChannelContext
 
 BOTS_URL = "/internal/channel/bots"
 REVISION_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
-ITEM_KEYS = {"bot_account_id", "bot_id", "secret", "agent_id", "enabled"}
+ITEM_KEYS = {"bot_account_id", "bot_id", "secret", "agent_id", "enabled", "channel"}
 
 
 def _headers(channel: ChannelContext, tenant_id: str | None = None) -> dict[str, str]:
@@ -45,6 +45,7 @@ async def test_lists_only_enabled_bots(client: AsyncClient, channel: ChannelCont
     assert account is not None
     assert item["bot_account_id"] == str(account.id)
     assert item["bot_id"] == channel.bot_id
+    assert item["channel"] == CHANNEL, "快照条目必须携带实际通道（Console 按行输出）"
     assert item["secret"] == channel.secret
     assert item["agent_id"] == str(channel.agent_id)
     assert item["enabled"] is True

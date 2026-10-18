@@ -4,7 +4,7 @@ from typing import Literal
 # 通道枚举的**唯一**定义处：新增通道只改这一行，其余位置一律引用本别名。
 # 放在 leaves 模块（仅依赖标准库），避免 channel ↔ tasks 的循环导入。
 # 机检：tests/test_attachment_contract.py::test_b07_channel_enum_is_defined_in_exactly_one_place
-ChannelName = Literal["WECOM"]
+ChannelName = Literal["WECOM", "WEBCHAT"]  # WECOM=企微机器人；WEBCHAT=通用网页稳定入口
 
 
 class RunStatus(StrEnum):
@@ -142,3 +142,8 @@ class InterruptStatus(StrEnum):
 class ArtifactValidationStatus(StrEnum):
     READY = "READY"
     REJECTED = "REJECTED"
+
+
+#: 通道缺省值：与 `control.bot_account.channel` 的历史默认（server_default 'WECOM'）同源。
+#: 共享形状（如 `BotSnapshotItem`）用它兜底；生产者（Console）仍必须按实际通道输出。
+DEFAULT_CHANNEL: ChannelName = "WECOM"

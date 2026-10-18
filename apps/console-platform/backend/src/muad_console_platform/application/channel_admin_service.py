@@ -17,6 +17,30 @@ from ..infrastructure.models.control import AgentDefinition
 from .audit_service import AuditActor, AuditService
 
 AUDIT_RESOURCE_TYPE = "AGENT"
+#: 缺省通道：与 `control.bot_account.channel` 的历史默认（server_default 'WECOM'）同源。
+WECOM_CHANNEL = "WECOM"
+#: 通用网页稳定入口：配置显示名/Agent/允许来源，不携带企微 secret。
+WEBCHAT_CHANNEL = "WEBCHAT"
+#: 没有企微凭据的稳定入口通道：创建与更新都不接受 secret（显式拒绝，不静默存一份没人消费的凭据）。
+SECRETLESS_CHANNELS = frozenset({WEBCHAT_CHANNEL})
+
+
+def entry_secret(channel_name: str, secret: str | None) -> str | None:
+    """按通道裁决企微凭据：企微入口必须携带；稳定入口（WEBCHAT）不得携带。"""
+    provided = secret or None
+    if channel_name in SECRETLESS_CHANNELS:
+        if provided is not None:
+            raise AppError(
+                ErrorCode.COMMON_VALIDATION_ERROR,
+                data={"field": "secret", "channel": channel_name},
+            )
+        return None
+    if provided is None:
+        raise AppError(
+            ErrorCode.COMMON_VALIDATION_ERROR,
+            data={"field": "secret", "channel": channel_name},
+        )
+    return provided
 
 
 def channel_snapshot(channel: BotAccount) -> dict[str, Any]:
@@ -96,15 +120,13 @@ class ChannelAdminService:
         bot_id = payload.get("bot_id")
         if not name or not bot_id:
             raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
-        secret = payload.get("secret")
-        if not secret:
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        channel_name = payload.get("channel") or WECOM_CHANNEL
         channel = BotAccount(
             tenant_id=tenant_id,
-            channel=payload.get("channel") or "WECOM",
+            channel=channel_name,
             name=name,
             bot_id=bot_id,
-            secret=secret,
+            secret=entry_secret(channel_name, payload.get("secret")),
             agent_id=agent.id,
             enabled=payload.get("enabled", True),
             config_json=payload.get("config") or {},
@@ -150,8 +172,9 @@ class ChannelAdminService:
             channel.name = payload["name"]
         if payload.get("bot_id") is not None:
             channel.bot_id = payload["bot_id"]
-        if payload.get("secret"):
-            channel.secret = payload["secret"]  # 传入即轮换（明文覆盖）
+        if payload.get("secret") is not None:
+            # 传入即轮换（明文覆盖）；稳定入口传企微凭据在此显式拒绝。
+            channel.secret = entry_secret(channel.channel, payload["secret"])
         if payload.get("enabled") is not None:
             channel.enabled = payload["enabled"]
         if payload.get("config") is not None:

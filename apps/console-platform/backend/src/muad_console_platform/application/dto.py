@@ -659,7 +659,8 @@ class ChannelCreateRequest(BaseModel):
     channel: ChannelName = "WECOM"
     name: str = Field(min_length=1, max_length=128)
     bot_id: str = Field(min_length=1, max_length=256)
-    secret: str = Field(min_length=1)
+    #: 企微入口必填；WEBCHAT 稳定入口不携带企微凭据（按通道裁决在服务层）。
+    secret: str | None = Field(default=None, min_length=1)
     enabled: bool = True
     config: dict[str, Any] = Field(default_factory=dict)
 

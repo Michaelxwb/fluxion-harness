@@ -456,15 +456,18 @@ apps/console-platform/backend/src/muad_console_platform/application/auth_service
 apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,277,ACCOUNT_IDEMPOTENCY_ENDPOINT,'/api/v1/accounts',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/auth_service.py,278,FINGERPRINT_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/channel_admin_service.py,19,AUDIT_RESOURCE_TYPE,'AGENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,39,HASH_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,40,PLATFORM_USER_STATUS_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,41,BIND_CODE_TTL,timedelta(minutes=10),python-constant,code,实现常量（TTL / 限额）；不属平台设置或环境项，运行期不可改
-apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,42,BIND_CODE_ALPHABET,string.ascii_uppercase + string.digits,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,43,BIND_CODE_LENGTH,12,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,44,IDEMPOTENCY_ENDPOINT,'/internal/channel/bind',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,45,FINGERPRINT_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,46,AUDIT_RESOURCE_TYPE_BIND_CODE,'BIND_CODE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,47,AUDIT_RESOURCE_TYPE_IDENTITY,'CHANNEL_IDENTITY',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/channel_admin_service.py,21,WECOM_CHANNEL,'WECOM',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/channel_admin_service.py,23,WEBCHAT_CHANNEL,'WEBCHAT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/channel_admin_service.py,25,SECRETLESS_CHANNELS,frozenset({WEBCHAT_CHANNEL}),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,40,HASH_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,41,PLATFORM_USER_STATUS_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,42,BIND_CODE_TTL,timedelta(minutes=10),python-constant,code,实现常量（TTL / 限额）；不属平台设置或环境项，运行期不可改
+apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,43,BIND_CODE_ALPHABET,string.ascii_uppercase + string.digits,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,44,BIND_CODE_LENGTH,12,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,45,IDEMPOTENCY_ENDPOINT,'/internal/channel/bind',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,46,FINGERPRINT_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,47,AUDIT_RESOURCE_TYPE_BIND_CODE,'BIND_CODE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/channel_service.py,48,AUDIT_RESOURCE_TYPE_IDENTITY,'CHANNEL_IDENTITY',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/chat_auth_service.py,50,PLATFORM_USER_STATUS_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/chat_auth_service.py,53,AUTH_METHOD_USER_TOKEN,'USER_TOKEN',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/chat_token_service.py,45,AUDIT_RESOURCE_TYPE,'CHAT_ACCESS_TOKEN',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1251,6 +1254,7 @@ packages/contracts/src/muad_contracts/enums.py,138,RESOLVED,'RESOLVED',python-co
 packages/contracts/src/muad_contracts/enums.py,139,CANCELLED,'CANCELLED',python-constant,code,状态或错误码，不是时间参数
 packages/contracts/src/muad_contracts/enums.py,143,READY,'READY',python-constant,code,状态或错误码，不是时间参数
 packages/contracts/src/muad_contracts/enums.py,144,REJECTED,'REJECTED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,149,DEFAULT_CHANNEL,'WECOM',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/memory.py,15,MEMORY_MAX_RECORDS,1000,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/memory.py,16,MEMORY_MAX_BYTES,1024 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/memory.py,17,MEMORY_VALUE_MAX_CHARS,512,python-constant,code,协议标识、枚举、schema、文本或实现常量
