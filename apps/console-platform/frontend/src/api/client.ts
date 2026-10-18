@@ -62,9 +62,9 @@ function readCookie(name: string): string | null {
  * 每个认证域只读自己的 CSRF Cookie：Console 不读 `muad_chat_csrf`，CHAT 不读 `muad_csrf`。
  *
  * 头名两域复用 `X-CSRF-Token`，取源独立（design §3.1/§3.5）；写错来源会把另一域的凭据
- * 发到当前域，后端双提交校验必然拒绝。
+ * 发到当前域，后端双提交校验必然拒绝。共享流层（`stream.ts` 的 fetch SSE）复用同一取源。
  */
-function csrfTokenForScope(scope: AuthScope): string | null {
+export function csrfTokenForScope(scope: AuthScope): string | null {
   if (scope === CHAT_AUTH_SCOPE) {
     return readCookie(CHAT_CSRF_COOKIE);
   }
