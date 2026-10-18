@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from .enums import ChannelName
+from .enums import DEFAULT_CHANNEL, ChannelName
 from .tasks import ContractModel
 
 # 与 api-kit `muad_api.response` 的分页边界保持一致（contracts 为独立包，不反向依赖 api-kit）
@@ -169,6 +169,9 @@ class ChannelSkillsResponse(PageMeta):
 class BotSnapshotItem(ContractModel):
     bot_account_id: UUID
     bot_id: str
+    # 实际通道（Console 按 `control.bot_account.channel` 输出，装配根按类型分发）。
+    # 缺省值 = 该列的历史默认（见 `enums.DEFAULT_CHANNEL`）：字段出现前落库的行只可能是企微。
+    channel: ChannelName = DEFAULT_CHANNEL
     # 仅内存/受保护内部快照使用：不从 repr/异常详情回显
     secret: str | None = Field(default=None, repr=False)
     agent_id: UUID

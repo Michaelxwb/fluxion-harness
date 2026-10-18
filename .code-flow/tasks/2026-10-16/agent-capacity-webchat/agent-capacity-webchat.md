@@ -385,7 +385,7 @@
 | B-243 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-043 | verified | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_chat_internal_principal.py"] | . | 300 |  |
 | B-244 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-044 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_chat_auth.py"] | . | 300 |  |
 | B-245 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-045 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_redaction.py"] | . | 300 |  |
-| B-246 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-046 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"] | . | 300 |  |
+| B-246 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-046 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"] | . | 300 |  |
 | B-247 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-047 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"] | . | 300 |  |
 | B-248 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-048 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"] | . | 300 |  |
 | B-249 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-049 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_conversation_scope.py"] | . | 300 |  |
@@ -2897,7 +2897,7 @@ Gateway只经Console核验，拒绝跨部署tenant；完整分支及可观测结
 
 ## TASK-046: WEBCHAT入口控制面与快照类型
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-013
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计
@@ -2912,27 +2912,38 @@ WEBCHAT稳定入口无需企微secret且创建后不原地改Agent；完整分�
 
 ### Checklist
 
-- [ ] [B-246][integration] 先在`tests/console_platform/test_capacity_webchat_webchat_entry.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：WEBCHAT稳定入口无需企微secret且创建后不原地改Agent。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-246] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-246] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-im#RULE-im-001`（stage: review；timeout=600秒）：`["uv","run","pytest","-q","tests/console_channel","tests/gateway"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-246][integration] 先在`tests/console_platform/test_capacity_webchat_webchat_entry.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：WEBCHAT稳定入口无需企微secret且创建后不原地改Agent。RED：`uv run pytest -q tests/console_platform/test_capacity_webchat_webchat_entry.py` exit=1，6 failed/0 passed（`body.channel` literal_error：WEBCHAT 不在 `ChannelName` 白名单；`body.secret` missing：WEBCHAT 入口被强制要求企微 secret）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：`ChannelName` 白名单加 `WEBCHAT`（唯一字面量处 `enums.py`）；`BotSnapshotItem` 增 `channel`（默认 `enums.DEFAULT_CHANNEL`）；`ChannelCreateRequest.secret` 改可选、按通道裁决（`channel_admin_service.entry_secret`：企微必须携带、WEBCHAT 传入即 422 拒绝）；`ChannelService.bots` 按 `control.bot_account.channel` 输出实际通道。secret 仍只落 Owner 表，响应/审计不含明文。
+- [x] [B-246] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-246] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，6 passed。
+- [x] verifier `harness-im#RULE-im-001`（stage: review；timeout=600秒）：`["uv","run","pytest","-q","tests/console_channel","tests/gateway"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。证据：exit=0，413 passed（86s）；入口键 `bot_id` 跨通道/跨租户唯一、租户隔离与 `BOT_NOT_FOUND`/`AGENT_NOT_FOUND` 不泄露跨租户存在性均在本任务用例内逐项断言。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-246 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | WEBCHAT稳定入口无需企微secret且创建后不原地改Agent；停用保留历史来源，Agent已有0..N账号能力保留，本轮企微按单机器人基线验收 | tests/console_platform/test_capacity_webchat_webchat_entry.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"] | planned |
+| B-246 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | WEBCHAT稳定入口无需企微secret且创建后不原地改Agent；停用保留历史来源，Agent已有0..N账号能力保留，本轮企微按单机器人基线验收 | tests/console_platform/test_capacity_webchat_webchat_entry.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"] | verified |
 | harness-im#RULE-im-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 一个逻辑 Agent 可绑定 0..N 个 IM 通道账号；每个 `bot_id` 只路由到一个 Agent；Bot 与 Runtime/Worker Pod 无任何绑定；Gateway 不保存 `agent_id→Pod` 映射。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/console_channel","tests/gateway"] | planned |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-246 | `uv run pytest -q tests/console_platform/test_capacity_webchat_webchat_entry.py` exit=1，6 failed/0 passed：`body.channel` literal_error（WEBCHAT 不在 `ChannelName` 白名单）+ `body.secret` missing（WEBCHAT 入口被强制要求企微 secret） | 同命令 exit=0，6 passed；manifest runner 实际执行并记 verified | `tests/console_platform/test_capacity_webchat_webchat_entry.py`：`test_b246_webchat_entry_needs_no_wecom_secret`（无 secret 创建成功、企微凭据 422 拒绝、未知通道 422、库内 secret 为 NULL）、`test_b246_webchat_entry_agent_is_not_rebindable_in_place`（PUT `agent_id`/`channel` → 422 且归属不漂移；改绑=在目标 Agent 新建入口 ID）、`test_b246_disable_keeps_entry_and_historical_attribution`（停用保留行/入口 ID/agent_id，仅退出启用快照，再启用恢复）、`test_b246_agent_keeps_zero_to_n_accounts_and_wecom_requires_secret`（0..N 账号；企微缺 secret 422 且不落库）、`test_b246_entry_key_unique_and_cross_tenant_invisible`（`bot_id` 跨通道/跨租户唯一 409 `BOT_ID_EXISTS`；跨租户 Agent 404 `AGENT_NOT_FOUND`；快照租户隔离）、`test_b246_snapshot_item_carries_actual_channel`（快照条目键集合含 `channel`；WECOM/WEBCHAT 各按实际值输出；`BotSnapshotResponse.model_validate` 契约回环） | 真实 Console ASGI（真实登录会话/CSRF/路由与依赖）+ 真实 PostgreSQL：`control.bot_account` 经真实事务写入并回读；`uq_bot_account_bot_id` 全局唯一、停用/软删与租户谓词由数据库与真实查询裁决；跨租户对照行直接落库（真实 PG）证明"不可见"来自谓词而非数据不存在；无模型/外部网络调用 | verified |
+
+共享契约面：`ChannelName` 唯一字面量加 `WEBCHAT`（`enums.py`），`BotSnapshotItem` 增 `channel`（默认 `enums.DEFAULT_CHANNEL`，与 `control.bot_account.channel` 历史默认同源）；同步更新 `tests/test_attachment_contract.py`（B-07 值集合与"只此一处"机检）与 `tests/console_channel/test_channel_bots_api.py`（快照键集合含 `channel`）；通道中立性守卫 `tests/architecture/test_channel_neutrality.py` 3 passed（渠道字样只出现在 `ALLOWED_SURFACES`）。
+
+回归：`uv run pytest -q tests/console_platform tests/console_channel tests/contracts tests/gateway tests/architecture tests/test_attachment_contract.py tests/test_configuration_inventory.py tests/test_contracts.py` exit=0，2117 passed（159s）。required verifier `harness-im#RULE-im-001`：`uv run pytest -q tests/console_channel tests/gateway` exit=0，413 passed（86s）。
+
+静态检查：`uv run ruff check`（本任务改动的 8 个文件）全部通过；`uv run mypy apps packages` → Success: no issues found in 408 source files；`docs/configuration-inventory.csv` 保持 CRLF、只更新本任务相关行（`channel_service.py` 行号 +1、`channel_admin_service.py` 3 个新常量、`enums.py` `DEFAULT_CHANNEL`），`tests/test_configuration_inventory.py` 4 passed。函数均 ≤50 行；未新增错误码（复用 `COMMON_VALIDATION_ERROR`/`BOT_ID_EXISTS`/`AGENT_NOT_FOUND`/`BOT_NOT_FOUND`）。
+- B-246: verified — automated command passed; run_id=34a8ece1d0ff46c39150669a66a3028d (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 

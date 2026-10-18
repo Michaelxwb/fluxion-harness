@@ -101,12 +101,17 @@ def test_b05_zero_attachment_serialization_stays_backward_compatible() -> None:
 
 
 def test_b07_channel_enum_is_defined_in_exactly_one_place() -> None:
-    """B-07：`Literal["WECOM"]` 字面量只允许出现在 ChannelName 定义处。"""
+    """B-07：通道枚举字面量只允许出现在 ChannelName 定义处，其余位置引用别名。"""
     scanned = sorted(CONTRACT_DIR.glob("*.py")) + [CONSOLE_DTO]
     assert scanned, "未扫描到任何契约源码：路径规则可能已与目录结构脱节"
 
+    values = get_args(ChannelName)
+    assert values == ("WECOM", "WEBCHAT"), (
+        "ChannelName 的取值集合必须与 enums.py 的唯一字面量一致（新增通道只改那一行）"
+    )
+    literal_text = "Literal[" + ", ".join(f'"{value}"' for value in values) + "]"
     hits = {
-        path.name: path.read_text(encoding="utf-8").count('Literal["WECOM"]')
+        path.name: path.read_text(encoding="utf-8").count(literal_text)
         for path in scanned
     }
     offenders = {name: count for name, count in hits.items() if count}
@@ -114,8 +119,6 @@ def test_b07_channel_enum_is_defined_in_exactly_one_place() -> None:
         "通道枚举必须只在一处定义（ChannelName），其余位置引用别名；"
         f"实际字面量分布：{offenders}"
     )
-
-    assert get_args(ChannelName) == ("WECOM",), "ChannelName 的取值集合必须是 ('WECOM',)"
 
     # 别名必须被真正用起来，而不是只定义不引用
     for name in ("channel.py", "runtime.py", "tasks.py", "resolve.py"):
