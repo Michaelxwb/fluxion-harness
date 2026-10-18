@@ -6,7 +6,7 @@
 - api-kit 进程内注册表 → 真实 HTTP `GET /metrics`（Prometheus 文本，供 OTel/监控抓取）。
 
 指标不进入业务 Console，也不作为业务审计事实源（权威数据在 PostgreSQL）。
-label 只含任务类型/状态、技能键与投递状态；不得包含 Secret、凭据、消息正文或资源 ID（UUID）。
+label 只含任务类型/状态、技能键、投递状态与维护节拍结局；不得包含 Secret、凭据、消息正文或资源 ID（UUID）。
 """
 
 from __future__ import annotations
@@ -27,9 +27,16 @@ TASKS_METRIC: Final = "tasks_total"
 TASK_QUEUE_DEPTH_METRIC: Final = "task_queue_depth"
 TASK_RECLAIM_METRIC: Final = "task_reclaim_total"
 TASK_LEASE_EXPIRED_METRIC: Final = "task_lease_expired_total"
+#: 维护（回收）节拍结局：`ok` / `failed`——单次失败不静默，也不杀死独立维护循环（TASK-095）。
+MAINTENANCE_METRIC: Final = "worker_maintenance_total"
 SCHEDULED_FIRE_METRIC: Final = "scheduled_fire_total"
 SCHEDULED_MISFIRE_METRIC: Final = "scheduled_misfire_total"
 DELIVERY_METRIC: Final = "delivery_total"
+#: 投递细粒度计数归口到本目录（此前散在 `delivery/service.py`，目录里看不到，无流量不暴露）。
+DELIVERY_ATTEMPT_METRIC: Final = "delivery_attempt_total"
+DELIVERY_FAILED_METRIC: Final = "delivery_failed_total"
+#: 产物引用解析不到（404）：退文本形态的计数——**看得见**才不会被当成"本来就没产物"。
+DELIVERY_ARTIFACT_GONE_METRIC: Final = "delivery_artifact_gone_total"
 #: 取平台设置快照的失败计数在**调用方**侧（Console 端点不可达时 Console 收不到请求）。
 PLATFORM_SETTINGS_FETCH_METRIC: Final = "platform_settings_fetch_total"
 
@@ -47,6 +54,15 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     (SCHEDULED_FIRE_METRIC, COUNTER, ("status",), "Schedule fires by outcome"),
     (SCHEDULED_MISFIRE_METRIC, COUNTER, (), "Schedules skipped for missing their fire time"),
     (DELIVERY_METRIC, COUNTER, ("status",), "Deliveries by resulting delivery status"),
+    (DELIVERY_ATTEMPT_METRIC, COUNTER, (), "Delivery attempts started (reserve plus send)"),
+    (DELIVERY_FAILED_METRIC, COUNTER, (), "Deliveries failed terminally or abandoned"),
+    (
+        DELIVERY_ARTIFACT_GONE_METRIC,
+        COUNTER,
+        (),
+        "Deliveries downgraded because the artifact reference is gone",
+    ),
+    (MAINTENANCE_METRIC, COUNTER, ("status",), "Worker maintenance (reclaim) ticks by outcome (ok/failed)"),
     (
         PLATFORM_SETTINGS_FETCH_METRIC,
         COUNTER,

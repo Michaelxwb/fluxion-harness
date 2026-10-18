@@ -386,13 +386,10 @@ apps/agent-worker/src/muad_agent_worker/delivery/messages.py,24,SUMMARY_KEYS,"('
 apps/agent-worker/src/muad_agent_worker/delivery/messages.py,25,BATCH_KEYS,"('total', 'succeeded', 'failed', 'cancelled')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/delivery/messages.py,26,DEADLINE_CODE,'TASK_DEADLINE_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/delivery/messages.py,28,TEMPLATES,"{'zh-CN': {'completed': '后台任务已完成：{intent}', 'batch': '共 {total} 项：成功 {succeeded}，失败 {failed}，取消 {cancelled}', 'artifact': '完整结果见附件：{artifact_id}', 'failed': '后台任务失败：{intent}\n原因：{code} {message}', 'deadline': '后台任务超过截止时间未完成：{intent}', 'cancelled': '后台任务已取消：{intent}'}, 'en-US': {'completed': 'Background task completed: {intent}', 'batch': '{total} items: {succeeded} succeeded, {failed} failed, {cancelled} cancelled', 'artifact': 'Full result attached: {artifact_id}', 'failed': 'Background task failed: {intent}\nReason: {code} {message}', 'deadline': 'Background task missed its deadline: {intent}', 'cancelled': 'Background task cancelled: {intent}'}}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/service.py,50,TERMINAL_STATUSES,"(str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/service.py,56,DELIVERABLE_STATUSES,"(str(DeliveryStatus.PENDING),)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/service.py,58,MAX_TENANTS_PER_TICK,8,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/service.py,59,DELIVERY_ATTEMPT_TOTAL,'delivery_attempt_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/service.py,60,DELIVERY_FAILED_TOTAL,'delivery_failed_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/service.py,62,ARTIFACT_GONE_TOTAL,'delivery_artifact_gone_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/service.py,65,DELIVERY_RESERVATION_LEASE_SEC,300,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,57,TERMINAL_STATUSES,"(str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,63,DELIVERABLE_STATUSES,"(str(DeliveryStatus.PENDING),)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,65,MAX_TENANTS_PER_TICK,8,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,68,DELIVERY_RESERVATION_LEASE_SEC,300,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
 apps/agent-worker/src/muad_agent_worker/infrastructure/cancel_hint.py,19,TASK_CANCEL_KEY_PREFIX,'task:cancel:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/infrastructure/cancel_hint.py,20,TASK_CANCEL_TTL_SEC,1800,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-worker/src/muad_agent_worker/infrastructure/cancel_hint.py,21,TASK_CANCEL_VALUE,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -409,13 +406,17 @@ apps/agent-worker/src/muad_agent_worker/metrics.py,26,TASKS_METRIC,'tasks_total'
 apps/agent-worker/src/muad_agent_worker/metrics.py,27,TASK_QUEUE_DEPTH_METRIC,'task_queue_depth',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/metrics.py,28,TASK_RECLAIM_METRIC,'task_reclaim_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/metrics.py,29,TASK_LEASE_EXPIRED_METRIC,'task_lease_expired_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/metrics.py,30,SCHEDULED_FIRE_METRIC,'scheduled_fire_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/metrics.py,31,SCHEDULED_MISFIRE_METRIC,'scheduled_misfire_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/metrics.py,32,DELIVERY_METRIC,'delivery_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/metrics.py,34,PLATFORM_SETTINGS_FETCH_METRIC,'platform_settings_fetch_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/metrics.py,36,COUNTER,'counter',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/metrics.py,37,GAUGE,'gauge',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/metrics.py,40,CATALOG,"(('runtime_result_dispatch_total', COUNTER, ('status',), 'Durable result dispatch outcomes'), ('task_hint_degraded_total', COUNTER, ('status',), 'Redis task hint degradations'), (TASKS_METRIC, COUNTER, ('type', 'status'), 'Task executions by task type and terminal status'), (TASK_QUEUE_DEPTH_METRIC, GAUGE, (), 'Claimable tasks observed at the last claim poll'), (TASK_RECLAIM_METRIC, COUNTER, (), 'Tasks requeued after their lease expired'), (TASK_LEASE_EXPIRED_METRIC, COUNTER, (), 'Expired leases observed by the reclaimer'), (SCHEDULED_FIRE_METRIC, COUNTER, ('status',), 'Schedule fires by outcome'), (SCHEDULED_MISFIRE_METRIC, COUNTER, (), 'Schedules skipped for missing their fire time'), (DELIVERY_METRIC, COUNTER, ('status',), 'Deliveries by resulting delivery status'), (PLATFORM_SETTINGS_FETCH_METRIC, COUNTER, ('caller', 'result'), 'Platform settings snapshot fetches by caller and result (ok/failed)'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/metrics.py,31,MAINTENANCE_METRIC,'worker_maintenance_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/metrics.py,32,SCHEDULED_FIRE_METRIC,'scheduled_fire_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/metrics.py,33,SCHEDULED_MISFIRE_METRIC,'scheduled_misfire_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/metrics.py,34,DELIVERY_METRIC,'delivery_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/metrics.py,36,DELIVERY_ATTEMPT_METRIC,'delivery_attempt_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/metrics.py,37,DELIVERY_FAILED_METRIC,'delivery_failed_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/metrics.py,39,DELIVERY_ARTIFACT_GONE_METRIC,'delivery_artifact_gone_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/metrics.py,41,PLATFORM_SETTINGS_FETCH_METRIC,'platform_settings_fetch_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/metrics.py,43,COUNTER,'counter',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/metrics.py,44,GAUGE,'gauge',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/metrics.py,47,CATALOG,"(('runtime_result_dispatch_total', COUNTER, ('status',), 'Durable result dispatch outcomes'), ('task_hint_degraded_total', COUNTER, ('status',), 'Redis task hint degradations'), (TASKS_METRIC, COUNTER, ('type', 'status'), 'Task executions by task type and terminal status'), (TASK_QUEUE_DEPTH_METRIC, GAUGE, (), 'Claimable tasks observed at the last claim poll'), (TASK_RECLAIM_METRIC, COUNTER, (), 'Tasks requeued after their lease expired'), (TASK_LEASE_EXPIRED_METRIC, COUNTER, (), 'Expired leases observed by the reclaimer'), (SCHEDULED_FIRE_METRIC, COUNTER, ('status',), 'Schedule fires by outcome'), (SCHEDULED_MISFIRE_METRIC, COUNTER, (), 'Schedules skipped for missing their fire time'), (DELIVERY_METRIC, COUNTER, ('status',), 'Deliveries by resulting delivery status'), (DELIVERY_ATTEMPT_METRIC, COUNTER, (), 'Delivery attempts started (reserve plus send)'), (DELIVERY_FAILED_METRIC, COUNTER, (), 'Deliveries failed terminally or abandoned'), (DELIVERY_ARTIFACT_GONE_METRIC, COUNTER, (), 'Deliveries downgraded because the artifact reference is gone'), (MAINTENANCE_METRIC, COUNTER, ('status',), 'Worker maintenance (reclaim) ticks by outcome (ok/failed)'), (PLATFORM_SETTINGS_FETCH_METRIC, COUNTER, ('caller', 'result'), 'Platform settings snapshot fetches by caller and result (ok/failed)'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/results/dispatcher.py,20,RESULT_DISPATCH_METRIC,'runtime_result_dispatch_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/scheduler/client.py,9,RESOLVE_DEFINITION_PATH,'/internal/runtime/resolve-definition',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/scheduler/client.py,10,RESOLVE_UNAVAILABLE,'RESOLVE_UNAVAILABLE',python-constant,code,状态或错误码，不是时间参数
@@ -452,11 +453,11 @@ apps/agent-worker/src/muad_agent_worker/worker/executor.py,46,ENV_TASK_ID,'MUAD_
 apps/agent-worker/src/muad_agent_worker/worker/executor.py,47,ENV_TASK_IDEMPOTENCY_KEY,'MUAD_TASK_IDEMPOTENCY_KEY',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/executor.py,48,ENV_TASK_ATTEMPT,'MUAD_TASK_ATTEMPT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/executor.py,49,ENV_TASK_EXTERNAL_REF,'MUAD_TASK_EXTERNAL_REF',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/service.py,56,RETRY_BACKOFF_BASE_SEC,5,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
-apps/agent-worker/src/muad_agent_worker/worker/service.py,58,TASK_ATTEMPTS_EXHAUSTED,'TASK_ATTEMPTS_EXHAUSTED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/service.py,60,HEARTBEAT_LOST_CODE,'WORKER_HEARTBEAT_LOST',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/service.py,62,HEARTBEAT_RENEW_ATTEMPTS,3,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
-apps/agent-worker/src/muad_agent_worker/worker/service.py,63,HEARTBEAT_RENEW_RETRY_SEC,1.0,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/worker/service.py,58,RETRY_BACKOFF_BASE_SEC,5,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/worker/service.py,60,TASK_ATTEMPTS_EXHAUSTED,'TASK_ATTEMPTS_EXHAUSTED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/service.py,62,HEARTBEAT_LOST_CODE,'WORKER_HEARTBEAT_LOST',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/service.py,64,HEARTBEAT_RENEW_ATTEMPTS,3,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/worker/service.py,65,HEARTBEAT_RENEW_RETRY_SEC,1.0,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
 apps/console-platform/backend/src/muad_console_platform/api/chat_security.py,41,CHAT_SESSION_COOKIE,'muad_chat_session',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/api/chat_security.py,43,CHAT_CSRF_COOKIE,'muad_chat_csrf',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/api/chat_security.py,45,NO_STORE_CACHE_CONTROL,'no-store',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -550,16 +551,16 @@ apps/console-platform/backend/src/muad_console_platform/application/model_creden
 apps/console-platform/backend/src/muad_console_platform/application/model_credential_service.py,42,DUPLICATE_CONSTRAINTS,"frozenset({'uq_model_credential_tenant_key', 'uq_model_credential_tenant_provider_digest'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/model_deployment_service.py,29,AUDIT_RESOURCE_TYPE,'MODEL_DEPLOYMENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/model_deployment_service.py,31,DUPLICATE_CONSTRAINTS,"frozenset({'uq_model_deployment_tenant_model_key', 'uq_model_deployment_tenant_model_credential'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,58,PROBE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,59,PROBE_CONCURRENCY,4,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,60,PROBE_MAX_OUTPUT_TOKENS,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,62,PROBE_RESERVED_TOKENS,145,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,63,MODELS_PATH,'/models',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,64,CHAT_PROBE_PATH,'/chat/completions',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,65,RESERVATIONS_PATH,'/internal/model-capacity/reservations',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,66,CAPACITY_REQUEST_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,67,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,68,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,66,PROBE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,67,PROBE_CONCURRENCY,4,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,68,PROBE_MAX_OUTPUT_TOKENS,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,70,PROBE_RESERVED_TOKENS,145,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,71,MODELS_PATH,'/models',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,72,CHAT_PROBE_PATH,'/chat/completions',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,73,RESERVATIONS_PATH,'/internal/model-capacity/reservations',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,74,CAPACITY_REQUEST_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,75,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,76,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/model_quota_service.py,31,AUDIT_RESOURCE_TYPE,'MODEL_QUOTA_GROUP',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/model_quota_service.py,33,CREATE_ENDPOINT,'model-quota-group-create',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/model_quota_service.py,35,DUPLICATE_CONSTRAINTS,frozenset({'uq_model_quota_group_tenant_key'}),python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -683,19 +684,24 @@ apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_cl
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,25,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,49,__init__.timeout_sec,DEFAULT_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/console-platform/backend/src/muad_console_platform/main.py,36,SERVICE_NAME,'muad-console-platform',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/main.py,125,MUAD_EXTRA_PLATFORM_ADAPTERS,'',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
-apps/console-platform/backend/src/muad_console_platform/main.py,137,STATIC_DIR,'/app/static',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
-apps/console-platform/backend/src/muad_console_platform/metrics.py,18,API_REQUESTS_METRIC,'console_api_requests_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/metrics.py,19,SKILL_IMPORT_METRIC,'skill_import_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/metrics.py,20,RESOLVE_DEFINITION_METRIC,'runtime_definition_resolve_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/metrics.py,21,BIND_METRIC,'bind_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/metrics.py,23,PLATFORM_SETTINGS_SAVE_METRIC,'platform_settings_save_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/metrics.py,24,PLATFORM_SETTINGS_FETCH_METRIC,'platform_settings_fetch_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/metrics.py,26,SUCCESS_STATUS,'SUCCESS',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/metrics.py,27,FAILED_STATUS,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/metrics.py,28,COUNTER,'counter',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/metrics.py,30,UNMATCHED_PATH,'unmatched',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/metrics.py,33,CATALOG,"((PLATFORM_SETTINGS_SAVE_METRIC, COUNTER, ('result',), 'Platform settings saves by result (ok/validation_failed/conflict)'), (PLATFORM_SETTINGS_FETCH_METRIC, COUNTER, ('caller', 'result'), 'Platform settings snapshot fetches by caller and result'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/main.py,143,STATIC_DIR,'/app/static',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+apps/console-platform/backend/src/muad_console_platform/main.py,131,MUAD_EXTRA_PLATFORM_ADAPTERS,'',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+apps/console-platform/backend/src/muad_console_platform/metrics.py,25,API_REQUESTS_METRIC,'console_api_requests_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,26,SKILL_IMPORT_METRIC,'skill_import_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,27,RESOLVE_DEFINITION_METRIC,'runtime_definition_resolve_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,28,BIND_METRIC,'bind_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,30,PLATFORM_SETTINGS_SAVE_METRIC,'platform_settings_save_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,31,PLATFORM_SETTINGS_FETCH_METRIC,'platform_settings_fetch_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,33,CHAT_AUTH_METRIC,'chat_auth_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,35,MODEL_PROBE_METRIC,'model_probe_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,36,MODEL_PROBE_FAILURE_METRIC,'model_probe_failure_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,38,HTTP_POOL_WAIT_METRIC,'console_http_pool_wait_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,40,CONFIG_FAILURE_METRIC,'console_config_failure_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,45,SUCCESS_STATUS,'SUCCESS',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,46,FAILED_STATUS,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,47,COUNTER,'counter',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,49,UNMATCHED_PATH,'unmatched',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/metrics.py,52,CATALOG,"((PLATFORM_SETTINGS_SAVE_METRIC, COUNTER, ('result',), 'Platform settings saves by result (ok/validation_failed/conflict)'), (PLATFORM_SETTINGS_FETCH_METRIC, COUNTER, ('caller', 'result'), 'Platform settings snapshot fetches by caller and result'), (CHAT_AUTH_METRIC, COUNTER, ('operation', 'status'), 'CHAT auth outcomes by operation and result (SUCCESS or catalog error code)'), (MODEL_PROBE_METRIC, COUNTER, ('status',), 'Model probe results by status'), (MODEL_PROBE_FAILURE_METRIC, COUNTER, ('reason',), 'Model probe failures by bounded reason (pool wait separated from model failures)'), (HTTP_POOL_WAIT_METRIC, COUNTER, ('pool',), 'Outbound HTTP pool wait timeouts by pool (control/model/batch)'), (CONFIG_FAILURE_METRIC, COUNTER, ('component', 'reason'), 'Console outbound config failures by component and bounded reason'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/spa.py,23,ASSETS_DIR_NAME,'assets',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/spa.py,25,ASSETS_CACHE_CONTROL,"'public, max-age=31536000, immutable'",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/spa.py,26,INDEX_CACHE_CONTROL,'no-cache',python-constant,code,协议标识、枚举、schema、文本或实现常量

@@ -438,7 +438,7 @@
 | B-296 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-096 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_wiring.py"] | . | 300 |  |
 | B-297 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-097 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_wiring.py"] | . | 300 |  |
 | B-298 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-098 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_gateway_metrics.py"] | . | 300 |  |
-| B-299 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-099 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_worker_console_metrics.py"] | . | 300 |  |
+| B-299 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-099 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_worker_console_metrics.py"] | . | 300 |  |
 | B-300 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-100 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_console_gateway_deploy.py"] | . | 300 |  |
 | B-301 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-101 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_worker_deploy.py"] | . | 300 |  |
 | B-302 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-102 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_configmap_ingress.py"] | . | 300 |  |
@@ -5747,7 +5747,7 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ## TASK-099: Worker与Console资源和认证观测
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-095, TASK-097
 - **Source**: agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量
@@ -5762,25 +5762,43 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ### Checklist
 
-- [ ] [B-299][integration] 先在`tests/architecture/test_capacity_webchat_worker_console_metrics.py`建立行为验收并记录RED；真实边界：真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据；关键断言：任务回收/投递归属正确，认证/探针/池等待与配置失败可区分，标准日志有tenant/trace关联但不含Token/Key，四单元catalog可独立读取。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-299] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-299] 执行`["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_worker_console_metrics.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-299][integration] 先在`tests/architecture/test_capacity_webchat_worker_console_metrics.py`建立行为验收并记录RED；真实边界：真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据；关键断言：任务回收/投递归属正确，认证/探针/池等待与配置失败可区分，标准日志有tenant/trace关联但不含Token/Key，四单元catalog可独立读取。→ RED：首建 19 个用例（4 单元独立渲染 ×4 + 15 个行为/接线用例）→ `uv run pytest -q tests/architecture/test_capacity_webchat_worker_console_metrics.py` → **exit=1，13 failed, 6 passed in 13.95s**：新目录常量尚不存在（`CHAT_AUTH_METRIC` 等 AttributeError、`DELIVERY_ATTEMPT_METRIC`/`MAINTENANCE_METRIC` 缺失）、`probe_model_endpoint(pool=...)` 未支持（TypeError）、维护失败无计数、池等待/配置失败无样本；6 个既有事实的回归守卫（label 白名单、四单元独立渲染、指标模块互不 import）先行通过，证明 RED 只来自本任务要落地的观测面。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 计划 Files 2 个 metrics 模块 + 验收文件；**必需的范围扩张**（披露）：`worker/service.py`（维护节拍计数）、`delivery/service.py`（投递计数归口）、`api/webchat_auth.py`（三条认证路由 `count_outcome`）、`application/model_probe_service.py`（探针结论/池等待/配置失败打点 + `ProbeReason` 封闭词表 + `pool` 参数）、`application/model_test_service.py`（批量测试声明 `batch` 池）、`api/deps.py` 与 `main.py`（缺服务身份的配置失败计数）、`infrastructure/http_clients.py`（预算冲突的配置失败计数）。改动函数行数：`run_maintenance_forever` 13、`probe_model_endpoint` 25、`_perform_probe` 33、`_classify_probe_response` 10、`_record_probe_outcome` 5、`record_reason` 3、`record_pool_wait` 3，均 ≤50；错误显式：池等待按真实池计数后仍按 B-228 既有映射上抛（`COMMON_INTERNAL_ERROR` / `MODEL_UNAVAILABLE`+UNKNOWN），预算冲突先计数再 `ValueError`，缺服务身份指名日志 + `AppError`；凭据/Token 不进 label、指标文本与日志（真实 canary 断言）。
+- [x] [B-299] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 19 个用例逐条对应契约四条关键断言（见 Acceptance Evidence 断言位置列）；三处变异先复现失败再还原（维护失败计数、模型池池等待计数、exchange 认证计数），证明断言不空转。
+- [x] [B-299] 执行`["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_worker_console_metrics.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **19 passed in 3.29–3.43s**（exit=0，连续三次复跑稳定；日志 `/tmp/agent-capacity-webchat-plan/task099-green.log`）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-299 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | 任务回收/投递归属正确，认证/探针/池等待与配置失败可区分，标准日志有tenant/trace关联但不含Token/Key，四单元catalog可独立读取 | tests/architecture/test_capacity_webchat_worker_console_metrics.py | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_worker_console_metrics.py"] | planned |
+| B-299 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | 任务回收/投递归属正确，认证/探针/池等待与配置失败可区分，标准日志有tenant/trace关联但不含Token/Key，四单元catalog可独立读取 | tests/architecture/test_capacity_webchat_worker_console_metrics.py | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_worker_console_metrics.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-299 | `uv run pytest -q tests/architecture/test_capacity_webchat_worker_console_metrics.py` → **exit=1，13 failed, 6 passed in 13.95s**（目录常量/装配打点尚不存在；6 个回归守卫先行通过） | 同命令 → **19 passed in 3.29–3.43s**（exit=0；复跑稳定，日志 `/tmp/agent-capacity-webchat-plan/task099-green.log`） | ① 回收/投递归属：目录覆盖 reclaim/lease/delivery/maintenance `test_b299_worker_catalog_covers_reclaim_delivery_and_maintenance` L448-457；维护循环驱动回收且成功/失败都计数 L524-537（`_recorded_statuses == {"ok","failed"}` L529）；`reclaim_expired` 只计 `TASK_RECLAIM_METRIC`/`TASK_LEASE_EXPIRED_METRIC` L536-537；投递计数从 `metrics` 导入、调用方不再散落名字 L539-556。② 认证/探针/池等待/配置失败可分：Console 目录四家族 L460-469；三条认证路由 operation 分桶 L558-564；探针/池等待/配置失败各自接线（`_record_probe_outcome`、`record_pool_wait("control")`、`record_reason("budget_conflict"/"missing_service_identity")`）L567-606；reason 封闭词表 L608-630。③ 真实打点：真实 HTTP 200/401/500/拒连 → `model_probe_total`/`model_probe_failure_total` 样本 L632-674；真实池等待（连接被挂起请求占满）→ `console_http_pool_wait_total{pool="model"}` 且**不触碰**配置失败家族 L676-711；容量端口真实池等待 → `{pool="control"}` 且错误语义不变 L713-742；维护循环连真实拒连端口 → `worker_maintenance_total{status="failed"}` 且循环未死 L748-785。④ 日志：真实 logging-kit 出口带 `trace_id`/`tenant_id`、指名缺项、canary Token 不出现 L787-838；预算冲突配置失败计数 L844-866；认证结局分桶（`CHAT_TOKEN_INVALID` vs `PLATFORM_SETTINGS_UNAVAILABLE` vs `SUCCESS`）L868-896。⑤ 四单元独立：每单元独立子进程真实 ASGI 渲染完整目录、不泄漏他单元指标 L486-493；四个 metrics 模块互不 import L496-521 | ① 四单元在**独立子进程**真实安装 + `GET /metrics`（ASGI，无流量）逐单元断言目录完整与不泄漏；② 真实本机 socket HTTP 探针（200/401/500/拒连/挂起/慢滴，`trust_env=False` 直连），驱动真实 `probe_model_endpoint`/`ProbeCapacityClient`；③ 真实拒连端口（`127.0.0.1:1`）驱动真实 `WorkerLoop.run_maintenance_forever`，断言失败计数 + 循环未结束 + `logger.exception` 日志；④ 真实 logging-kit 文件出口（tmp 目录）解析 JSON 行断言 tenant/trace 关联与无凭据；⑤ 真实源码 AST（import/调用/关键字字面量）钉住归属与接线；不访问共享 dev 数据、无 DDL | verified |
+
+**实施范围与风险说明**
+
+- 观测面口径（design §3.5「label 仅固定 workload/outcome/reason 等低基数枚举」）：Worker 侧新增 `worker_maintenance_total{status}`（维护节拍 ok/failed，承接 TASK-095 延后项）并把 `delivery_attempt_total`/`delivery_failed_total`/`delivery_artifact_gone_total` 归口到 `metrics.CATALOG`（此前散在 `delivery/service.py`，无流量时不暴露、目录看不到）；Console 侧新增四个可区分家族——`chat_auth_total{operation,status}`（认证，`PLATFORM_SETTINGS_UNAVAILABLE` 与 `CHAT_TOKEN_*` 是不同样本）、`model_probe_total{status}` + `model_probe_failure_total{reason}`（探针，reason 为 11 值封闭词表）、`console_http_pool_wait_total{pool}`（池等待，`control`/`model`/`batch` 三值）、`console_config_failure_total{component,reason}`（配置失败：缺服务身份/预算冲突）。四类互不混报（池等待测试同时断言配置失败计数零增量）。
+- 池归属（诚实记录）：`probe_model_endpoint` 新增必填 `pool` 参数，装配根探针传 `model`、既有批量测试传 `batch`（它仍用自己的默认客户端建池，TASK-097 已披露未统一）；池等待超时按真实池计数，不把批量测试的等待冒充 `model` 池。既有 B-228 用户可见映射（401→CREDENTIAL_MISSING、超时/池等待→MODEL_UNAVAILABLE+UNKNOWN 保守保留、拒连→NOT_SENT）**未改变**，新增 `reason` 只用于观测。
+- 判别性验证（三处变异均先复现失败再还原，随后复跑全绿）：① `run_maintenance_forever` 去掉失败计数 → 2 failed（源码接线 + 真实失败用例）；② `_perform_probe` 去掉 `record_pool_wait(pool)` → 2 failed（接线 + 真实池等待用例）；③ `exchange_chat_token` 去掉 `count_outcome` → 1 failed（认证路由接线用例）。
+- 配置盘点：`docs/configuration-inventory.csv` 只更新本任务触及的 10 个文件行号与新增 8 个 `python-constant`（worker/console metrics 各 4/5 个），CRLF 保持（1527 CRLF / 0 裸 LF）、`git -c core.whitespace=cr-at-eol diff --check` 通过；`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**。
+- 静态校验：`uv run ruff check`（10 个实现/接线文件 + 验收文件）干净；`uv run mypy apps packages` → **Success: no issues found in 438 source files**。
+- 聚焦回归：`tests/architecture tests/contracts tests/test_audit_observability_config.py tests/test_configuration_inventory.py` → **1342 passed in 9.07s**（exit=0，含 B-203 既有 Console 指标/日志契约）；`tests/agent_worker` → **327 passed in 102.46s**（exit=0）；`tests/console_platform tests/console_auth` → **474 passed in 71.13s**（exit=0，含 B-228/B-297 探针与装配回归）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL（共享 dev 库约束）；运行前确认无 dev 服务残留。
+- 延后项（诚实记录）：Runtime/Gateway 目录属 TASK-098（B-298，含 harness-log#RULE-log-001 verifier）；探针端到端容量链路（先占额、并发 ≤4、结算证据）属 B-228（TASK-028）；部署清单里的分池预算显式声明与总连接预算校验属 TASK-101/103；1000 用户容量结论属 TASK-110/116；本任务不新增运维旋钮、不改写既有错误映射。
+- B-299: verified — automated command passed; run_id=272c628a448846c6a09a89b1c6a69626 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-299 RED：`uv run pytest -q tests/architecture/test_capacity_webchat_worker_console_metrics.py` → exit=1，13 failed / 6 passed（新目录常量与装配打点尚不存在）
+- [2026-10-18] 实现：worker/console 指标目录补齐（维护节拍、投递归口、认证/探针/池等待/配置失败四家族 + 封闭 reason 词表）；三条 CHAT 认证路由 `count_outcome`；探针按真实池记录池等待并区分传输原因；缺服务身份/预算冲突记为配置失败；投递计数归口 `metrics.CATALOG`
+- [2026-10-18] B-299 GREEN：**19 passed in 3.29–3.43s**；三处变异验证断言判别性后还原；`tests/architecture+contracts+audit_observability+inventory` 1342 passed、`tests/agent_worker` 327 passed、`tests/console_platform+console_auth` 474 passed；ruff 干净、mypy 438 文件无问题、配置盘点 4 passed
+- [2026-10-18] completed (done)
 
 ---
 

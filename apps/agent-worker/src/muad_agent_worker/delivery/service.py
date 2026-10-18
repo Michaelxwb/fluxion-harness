@@ -30,7 +30,14 @@ from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClie
 from ..application.task_events import TaskEventSeed, TaskEventType, append_event, append_events
 from ..infrastructure.models.runtime_operations import RuntimeResultOutbox
 from ..infrastructure.models.task import DeliveryRoute, TaskExecution
-from ..metrics import DELIVERY_METRIC, increment, record_outcome
+from ..metrics import (
+    DELIVERY_ARTIFACT_GONE_METRIC,
+    DELIVERY_ATTEMPT_METRIC,
+    DELIVERY_FAILED_METRIC,
+    DELIVERY_METRIC,
+    increment,
+    record_outcome,
+)
 from .artifact_client import (
     ArtifactGoneError,
     ArtifactResolveClient,
@@ -56,10 +63,6 @@ TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(Task
 DELIVERABLE_STATUSES = (str(DeliveryStatus.PENDING),)
 #: 一轮内最多为多少个「有待投递记录」的租户取快照（投递队列跨租户、设置按租户）。
 MAX_TENANTS_PER_TICK = 8
-DELIVERY_ATTEMPT_TOTAL = "delivery_attempt_total"
-DELIVERY_FAILED_TOTAL = "delivery_failed_total"
-#: 产物引用解析不到（404）：退文本形态的计数——**看得见**才不会被当成"本来就没产物"
-ARTIFACT_GONE_TOTAL = "delivery_artifact_gone_total"
 #: 预留之后多久没回执就认定「那次尝试随进程一起没了」（评审 #12）。取值远大于一次
 #: HTTP 投递的超时，避免把**正在发送**的记录误判成滞留。
 DELIVERY_RESERVATION_LEASE_SEC = 300
@@ -145,7 +148,7 @@ class DeliveryLoop:
         try:
             return await self._resolver.resolve(task.result_artifact_id, tenant_id=task.tenant_id)
         except ArtifactGoneError:
-            increment(ARTIFACT_GONE_TOTAL)
+            increment(DELIVERY_ARTIFACT_GONE_METRIC)
             logger.warning("delivery_artifact_gone task_id=%s", task.id)
             return None
         except ArtifactResolveError as exc:
@@ -216,7 +219,7 @@ class DeliveryLoop:
         now: datetime,
     ) -> DeliveryOutcome:
         max_attempts = platform.task.delivery_max_attempts
-        increment(DELIVERY_ATTEMPT_TOTAL)
+        increment(DELIVERY_ATTEMPT_METRIC)
         if route is None:
             error = "delivery route missing"
             await self._record_terminal_failure(task, error=error, now=now, max_attempts=max_attempts)
@@ -468,7 +471,7 @@ class DeliveryLoop:
                         for task_id, row_tenant in settled
                     ],
                 )
-        increment(DELIVERY_FAILED_TOTAL, len(settled))
+        increment(DELIVERY_FAILED_METRIC, len(settled))
         record_outcome(DELIVERY_METRIC, str(DeliveryStatus.FAILED))
         logger.warning(
             "delivery_reservation_abandoned tenant_id=%s count=%d", tenant_id, len(settled)
@@ -580,7 +583,7 @@ class DeliveryLoop:
         now: datetime,
         max_attempts: int,
     ) -> None:
-        increment(DELIVERY_FAILED_TOTAL)
+        increment(DELIVERY_FAILED_METRIC)
         record_outcome(DELIVERY_METRIC, str(DeliveryStatus.FAILED))
         await self._apply(
             task,
@@ -604,7 +607,7 @@ class DeliveryLoop:
         attempts = task.delivery_attempts
         exhausted = attempts >= max_attempts
         if exhausted:
-            increment(DELIVERY_FAILED_TOTAL)
+            increment(DELIVERY_FAILED_METRIC)
         record_outcome(
             DELIVERY_METRIC,
             str(DeliveryStatus.FAILED if exhausted else DeliveryStatus.PENDING),
