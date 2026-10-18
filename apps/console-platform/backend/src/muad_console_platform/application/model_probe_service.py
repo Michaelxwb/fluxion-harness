@@ -2,7 +2,8 @@
 
 - **检测保持 Console 侧 HTTP**：本模块用 httpx 直连成员凭据的模型端点，不引入平台侧 SDK 或
   直连实现；探测原语（`/models`，404/405 回退 `/chat/completions`）只有这一份，既有批量测试
-  与本次检测共用，401/超时/传输错误映射不会两处漂移。
+  与本次检测共用，401/超时/传输错误映射不会两处漂移。模型 HTTP 客户端与执行预算（单次 5 秒、
+  并发 4 的 `ProbeBudget`）由装配根注入（design §3.7），执行器不各自建池、不重抄默认值。
 - **先占额再探测**：每个目标先经受信容量端口（API-17，TASK-027）预占，成功后才发探测 HTTP；
   预占失败即 `NOT_EXECUTED`（明确未执行：不发请求、不写任何容量行）。结算按证据分档：
   收到远端 HTTP 响应（任意状态码）= 完成证据；连接未建立 = 确定未发送；超时/传输中断 =
@@ -69,6 +70,24 @@ TRACE_HEADER = "X-Trace-Id"
 _ResponseT = TypeVar("_ResponseT", bound=BaseModel)
 
 
+@dataclass(frozen=True, slots=True)
+class ProbeBudget:
+    """探针执行预算（design §3.7）：单次 5 秒、并发 4 是**契约常量**，不另建运营旋钮。
+
+    装配根（`infrastructure/http_clients.py`）以本类型注入执行器，执行器不直接读模块常量：
+    预算只有一个来源，改它等于改契约，而不是改一处部署参数。
+    """
+
+    timeout_sec: float = PROBE_TIMEOUT_SEC
+    concurrency: int = PROBE_CONCURRENCY
+
+    def __post_init__(self) -> None:
+        if self.timeout_sec <= 0:
+            raise ValueError("probe timeout budget must be a positive number of seconds")
+        if self.concurrency < 1:
+            raise ValueError("probe concurrency budget must be at least 1")
+
+
 def _error_code(payload: Any) -> str:
     if isinstance(payload, dict):
         code = payload.get("code")
@@ -88,6 +107,7 @@ class ProbeCapacityClient:
     """API-17 受信容量端口的 Console 客户端：预占 + 结算（不做无界重试）。
 
     - 服务身份、租户与（有则）trace 显式透传；
+    - 池预算（连接/keepalive）由装配根注入（design §3.7）：探测不借用其它出站客户端的池；
     - 上游业务码原样上抛；transport/封套/线协议形状异常统一 `COMMON_INTERNAL_ERROR`，
       且不把上游响应正文写入异常或日志（密钥与内部身份都可能出现在正文里）。
     """
@@ -98,11 +118,19 @@ class ProbeCapacityClient:
         *,
         service_token: str | None = None,
         timeout_sec: float = CAPACITY_REQUEST_TIMEOUT_SEC,
+        limits: httpx.Limits | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         headers = {INTERNAL_SERVICE_HEADER: service_token} if service_token else {}
+        # `httpx.AsyncClient(limits=...)` 的默认值是模块常量而非 `None`：只有显式给定时才传，
+        # 否则 httpcore 池会直接解引用一个 `None` 上限（httpx 0.28 的构造路径）。
+        optional: dict[str, Any] = {"limits": limits} if limits is not None else {}
         self._client = httpx.AsyncClient(
-            base_url=base_url, timeout=timeout_sec, transport=transport, headers=headers
+            base_url=base_url,
+            timeout=timeout_sec,
+            transport=transport,
+            headers=headers,
+            **optional,
         )
 
     async def aclose(self) -> None:
@@ -268,10 +296,23 @@ class _RefusedTarget:
 
 
 class ModelProbeService:
-    """物理 Key 检测编排：解析 → 预占 → Console 侧 HTTP 探测 → 按证据结算。"""
+    """物理 Key 检测编排：解析 → 预占 → Console 侧 HTTP 探测 → 按证据结算。
 
-    def __init__(self, session: AsyncSession, capacity: ProbeCapacityClient) -> None:
+    模型 HTTP 客户端与执行预算都由**装配根注入**（design §3.7）：探测走独立的 model 池，
+    不借用其它出站客户端的连接，也不在请求路径重抄 5 秒/4 并发这两个契约常量。
+    """
+
+    def __init__(
+        self,
+        session: AsyncSession,
+        capacity: ProbeCapacityClient,
+        *,
+        http_client: httpx.AsyncClient,
+        budget: ProbeBudget,
+    ) -> None:
         self._capacity = capacity
+        self._http_client = http_client
+        self._budget = budget
         self._models = ModelRepository(session)
         self._credentials = ModelCredentialRepository(session)
         self._deployments = ModelDeploymentRepository(session)
@@ -281,14 +322,13 @@ class ModelProbeService:
         plans = await self._resolve(tenant_id, targets)
         probe_id = uuid.uuid4()
         trace_id = current_trace_id()
-        semaphore = asyncio.Semaphore(PROBE_CONCURRENCY)
-        async with httpx.AsyncClient(timeout=PROBE_TIMEOUT_SEC) as client:
+        semaphore = asyncio.Semaphore(self._budget.concurrency)
 
-            async def run(plan: _ReadyTarget | _RefusedTarget) -> ProbeResult:
-                async with semaphore:
-                    return await self._run_one(tenant_id, probe_id, trace_id, plan, client)
+        async def run(plan: _ReadyTarget | _RefusedTarget) -> ProbeResult:
+            async with semaphore:
+                return await self._run_one(tenant_id, probe_id, trace_id, plan)
 
-            return list(await asyncio.gather(*(run(plan) for plan in plans)))
+        return list(await asyncio.gather(*(run(plan) for plan in plans)))
 
     async def _resolve(
         self, tenant_id: str, targets: Sequence[ModelProbeTarget]
@@ -331,7 +371,6 @@ class ModelProbeService:
         probe_id: uuid.UUID,
         trace_id: str,
         plan: _ReadyTarget | _RefusedTarget,
-        client: httpx.AsyncClient,
     ) -> ProbeResult:
         started = time.monotonic()
         if isinstance(plan, _RefusedTarget):
@@ -345,7 +384,7 @@ class ModelProbeService:
                     model_id=plan.model_id,
                     credential_id=plan.credential_id,
                     attempt_id=uuid.uuid4(),
-                    deadline_at=datetime.now(UTC) + timedelta(seconds=PROBE_TIMEOUT_SEC),
+                    deadline_at=datetime.now(UTC) + timedelta(seconds=self._budget.timeout_sec),
                     reserved_tokens=PROBE_RESERVED_TOKENS,
                 ),
             )
@@ -355,7 +394,7 @@ class ModelProbeService:
                 plan.model_id, plan.credential_id, "NOT_EXECUTED", str(exc.code), started
             )
         probe = await probe_model_endpoint(
-            client, model_id=plan.provider_model, credential=plan.credential
+            self._http_client, model_id=plan.provider_model, credential=plan.credential
         )
         await self._settle(tenant_id, trace_id, grant, probe)
         return self._result(

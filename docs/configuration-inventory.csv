@@ -499,16 +499,16 @@ apps/console-platform/backend/src/muad_console_platform/application/model_creden
 apps/console-platform/backend/src/muad_console_platform/application/model_credential_service.py,42,DUPLICATE_CONSTRAINTS,"frozenset({'uq_model_credential_tenant_key', 'uq_model_credential_tenant_provider_digest'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/model_deployment_service.py,29,AUDIT_RESOURCE_TYPE,'MODEL_DEPLOYMENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/model_deployment_service.py,31,DUPLICATE_CONSTRAINTS,"frozenset({'uq_model_deployment_tenant_model_key', 'uq_model_deployment_tenant_model_credential'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,57,PROBE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,58,PROBE_CONCURRENCY,4,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,59,PROBE_MAX_OUTPUT_TOKENS,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,61,PROBE_RESERVED_TOKENS,145,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,62,MODELS_PATH,'/models',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,63,CHAT_PROBE_PATH,'/chat/completions',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,64,RESERVATIONS_PATH,'/internal/model-capacity/reservations',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,65,CAPACITY_REQUEST_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,66,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,67,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,58,PROBE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,59,PROBE_CONCURRENCY,4,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,60,PROBE_MAX_OUTPUT_TOKENS,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,62,PROBE_RESERVED_TOKENS,145,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,63,MODELS_PATH,'/models',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,64,CHAT_PROBE_PATH,'/chat/completions',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,65,RESERVATIONS_PATH,'/internal/model-capacity/reservations',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,66,CAPACITY_REQUEST_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,67,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py,68,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/model_quota_service.py,31,AUDIT_RESOURCE_TYPE,'MODEL_QUOTA_GROUP',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/model_quota_service.py,33,CREATE_ENDPOINT,'model-quota-group-create',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/model_quota_service.py,35,DUPLICATE_CONSTRAINTS,frozenset({'uq_model_quota_group_tenant_key'}),python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -630,9 +630,9 @@ apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_cl
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,24,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,25,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,49,__init__.timeout_sec,DEFAULT_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
-apps/console-platform/backend/src/muad_console_platform/main.py,29,SERVICE_NAME,'muad-console-platform',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/main.py,80,MUAD_EXTRA_PLATFORM_ADAPTERS,'',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
-apps/console-platform/backend/src/muad_console_platform/main.py,92,STATIC_DIR,'/app/static',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+apps/console-platform/backend/src/muad_console_platform/main.py,36,SERVICE_NAME,'muad-console-platform',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/main.py,125,MUAD_EXTRA_PLATFORM_ADAPTERS,'',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
+apps/console-platform/backend/src/muad_console_platform/main.py,137,STATIC_DIR,'/app/static',environment-reference,environment,已有环境入口；需统一从启动时 settings 读取
 apps/console-platform/backend/src/muad_console_platform/metrics.py,18,API_REQUESTS_METRIC,'console_api_requests_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/metrics.py,19,SKILL_IMPORT_METRIC,'skill_import_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/metrics.py,20,RESOLVE_DEFINITION_METRIC,'runtime_definition_resolve_total',python-constant,code,协议标识、枚举、schema、文本或实现常量

@@ -1,6 +1,7 @@
 import logging
 from typing import Annotated, Any, cast
 
+import httpx
 import redis.asyncio as redis
 from fastapi import Depends, Request
 from muad_api import AppError, require_roles, require_session
@@ -14,10 +15,16 @@ from ..application.artifact_fetch_service import ArtifactFetchService, ArtifactR
 from ..application.artifact_fetch_tokens import ArtifactFetchTokens, configured_ttl_sec
 from ..application.auth_service import AuthService, ResolvedConsoleSession
 from ..application.mcp_ports import McpCatalogCache, NullMcpCatalogCache
-from ..application.model_probe_service import ProbeCapacityClient
+from ..application.model_probe_service import ProbeBudget, ProbeCapacityClient
 from ..application.platform_adapter_service import build_default_registry
 from ..application.platform_ports import NullPlatformSessionInvalidator, PlatformSessionInvalidator
 from ..infrastructure.db import get_session_factory
+from ..infrastructure.http_clients import (
+    ProbeCapacityUnconfigured,
+    build_probe_capacity_client,
+    build_probe_http_client,
+    probe_budget,
+)
 from ..infrastructure.mcp_catalog_cache import RedisMcpCatalogCache
 from ..infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
 from ..infrastructure.runtime_memory_client import RuntimeMemoryClient
@@ -148,32 +155,49 @@ RuntimeMemoryClientDep = Annotated[RuntimeMemoryClient, Depends(get_runtime_memo
 def get_probe_capacity_client(request: Request) -> ProbeCapacityClient:
     """Console → Runtime 受信容量端口（API-17）的共享客户端（按进程缓存，测试可覆盖）。
 
-    探测必须先占额再发 HTTP；配置不齐时在这里**明确报错**并留下指名日志，不放行一个必然被
-    403 拒绝的裸请求——那看起来像权限问题，实际是部署缺配置。
+    探测必须先占额再发 HTTP；装配根（`main.lifespan`）按 typed 设置建池并注入，未注入时用
+    同一工厂现建（未跑 lifespan 的 ASGI 测试）；配置不齐时在这里**明确报错**并留下指名日志，
+    不放行一个必然被 403 拒绝的裸请求——那看起来像权限问题，实际是部署缺配置。
     """
     client: ProbeCapacityClient | None = getattr(request.app.state, "probe_capacity_client", None)
     if client is None:
-        settings = SharedSettings()
-        missing = [
-            name
-            for name, value in (
-                ("AGENT_RUNTIME_URL", settings.agent_runtime_url),
-                ("INTERNAL_SERVICE_TOKEN", settings.internal_service_token),
-            )
-            if not value
-        ]
-        if missing:
-            logger.warning("probe_capacity_client_unconfigured missing=%s", ",".join(missing))
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
-        client = ProbeCapacityClient(
-            settings.agent_runtime_url,
-            service_token=settings.internal_service_token,
-        )
+        try:
+            client = build_probe_capacity_client(SharedSettings())
+        except ProbeCapacityUnconfigured as exc:
+            logger.warning("probe_capacity_client_unconfigured missing=%s", ",".join(exc.missing))
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
         request.app.state.probe_capacity_client = client
     return client
 
 
 ProbeCapacityClientDep = Annotated[ProbeCapacityClient, Depends(get_probe_capacity_client)]
+
+
+def get_probe_http_client(request: Request) -> httpx.AsyncClient:
+    """探针的模型池客户端（按进程缓存）：装配根注入的实例优先，未注入时用同一工厂现建。
+
+    模型探测与容量端口**各建各的池**（design §3.7）：探测突发不挤占短控制请求。
+    """
+    client: httpx.AsyncClient | None = getattr(request.app.state, "probe_http_client", None)
+    if client is None:
+        client = build_probe_http_client(SharedSettings())
+        request.app.state.probe_http_client = client
+    return client
+
+
+ProbeHttpClientDep = Annotated[httpx.AsyncClient, Depends(get_probe_http_client)]
+
+
+def get_probe_budget(request: Request) -> ProbeBudget:
+    """探针执行预算（按进程缓存）：装配根注入的契约常量，请求路径不重抄默认值。"""
+    budget: ProbeBudget | None = getattr(request.app.state, "probe_budget", None)
+    if budget is None:
+        budget = probe_budget(SharedSettings())
+        request.app.state.probe_budget = budget
+    return budget
+
+
+ProbeBudgetDep = Annotated[ProbeBudget, Depends(get_probe_budget)]
 
 
 def get_adapter_registry(request: Request) -> "PlatformAdapterRegistry":

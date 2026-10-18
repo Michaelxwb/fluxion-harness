@@ -436,7 +436,7 @@
 | B-294 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-094 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_wiring.py"] | . | 300 |  |
 | B-295 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-095 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_wiring.py"] | . | 300 |  |
 | B-296 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-096 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_wiring.py"] | . | 300 |  |
-| B-297 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-097 | planned | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_wiring.py"] | . | 300 |  |
+| B-297 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-097 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_wiring.py"] | . | 300 |  |
 | B-298 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-098 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_gateway_metrics.py"] | . | 300 |  |
 | B-299 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-099 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_worker_console_metrics.py"] | . | 300 |  |
 | B-300 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-100 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_console_gateway_deploy.py"] | . | 300 |  |
@@ -5160,7 +5160,7 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ## TASK-097: Console装配CHAT路由及探针资源预算
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-028, TASK-042, TASK-045
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量
@@ -5175,25 +5175,48 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ### Checklist
 
-- [ ] [B-297][integration] 先在`tests/console_platform/test_capacity_webchat_console_wiring.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：认证端点不被Console管理会话守卫吞并、admin资源路由保持ADMIN。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-297] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-297] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_wiring.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-297][integration] 先在`tests/console_platform/test_capacity_webchat_console_wiring.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：认证端点不被Console管理会话守卫吞并、admin资源路由保持ADMIN。→ RED：`uv run pytest -q tests/console_platform/test_capacity_webchat_console_wiring.py` → **exit=2，1 error in 0.07s**（collection `ImportError: cannot import name 'get_probe_budget' from 'muad_console_platform.api.deps'`；装配根注入/工厂尚不存在，测试对真实应用运行）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 新增 `infrastructure/http_clients.py`（探针预算 + 两个独立池 + 契约/部署预算冲突显式失败）+ `main.create_app` 装配根与 `_install_probe_clients`/`_close_probe_clients`（lifespan 用传入实例、启动失败也收尾）；`ProbeBudget` 类型 + `ModelProbeService` 接收注入的客户端/预算；`deps` 消费注入实例（同一工厂兜底）；最长函数 30 行、全量类型注解、ruff/mypy 干净
+- [x] [B-297] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 8 个用例逐条对应契约 5 条断言（见 Acceptance Evidence 断言位置列）
+- [x] [B-297] 执行`["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_wiring.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **8 passed in 0.85–0.90s**（exit=0，连续复跑稳定）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-297 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 认证端点不被Console管理会话守卫吞并、admin资源路由保持ADMIN；探针独立容量/HTTP客户端，设置损坏不锁死已认证CHAT，SPA不把API错误回退HTML | tests/console_platform/test_capacity_webchat_console_wiring.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_wiring.py"] | planned |
+| B-297 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 认证端点不被Console管理会话守卫吞并、admin资源路由保持ADMIN；探针独立容量/HTTP客户端，设置损坏不锁死已认证CHAT，SPA不把API错误回退HTML | tests/console_platform/test_capacity_webchat_console_wiring.py | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_wiring.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-297 | `uv run pytest -q tests/console_platform/test_capacity_webchat_console_wiring.py` → **exit=2，1 error in 0.07s**（collection `ImportError: cannot import name 'get_probe_budget' from 'muad_console_platform.api.deps'`：装配根注入与 `http_clients` 工厂尚不存在；测试对真实应用运行，不是收集以外的替身失败） | 同命令 → **8 passed in 0.85–0.90s**（exit=0；连续两次复跑 0.90s / 0.85s） | ①公开 CHAT 路由不被管理守卫吞并 `test_b297_chat_public_routes_stay_outside_the_console_login_guard` L222-247（起点零管理会话 L229；无 Cookie 的 `/me` 401 `UNAUTHORIZED` 而非 404 L232-233；**无 Console 会话完成交换 200**、不下发管理会话 Cookie、下发独立 CHAT Cookie L236-238；`/me` 200 且主体来自库行 L241-242；CHAT Cookie 打 `/api/v1/auth/me`、`/api/v1/users`、`/api/v1/model-credentials` 全 401 L246-247）；②admin 资源路由保持 ADMIN `test_b297_admin_resource_routes_keep_the_admin_role` L250-270（无会话 401 L258；BUILDER 403 `FORBIDDEN` L263-264；同一路径 ADMIN 200 L269-270）；③探针预算/独立池由装配根注入 `test_b297_probe_budget_and_pools_are_injected_from_startup_settings` L276-331（真实 lifespan；预算恰为 `ProbeBudget(PROBE_TIMEOUT_SEC, PROBE_CONCURRENCY)` L291；容量端口与模型探测是两个实例 L292-294；**有效池随启动设置变化** (6,3)/(9,4) L297-298 且等于 `control_pool_limits`/`model_pool_limits(SharedSettings())` L300-307；超时 5 秒 L310-313；请求路径消费**同一实例** L317-319；探针路由依赖图含三支注入依赖 L320-324；lifespan 内未关闭、退出后关闭 L326-328）；④坏配置显式失败 `test_b297_probe_budget_conflicts_fail_startup_explicitly` L342-349（`MODEL_HTTP_READ_TIMEOUT_SEC=3` / `CONTROL_HTTP_READ_TIMEOUT_SEC=3` → 启动 `ValueError` 指名预算，不静默取较小值）+ `test_b297_probe_budget_type_rejects_non_positive_values` L352-357；⑤设置损坏不锁死已认证 CHAT `test_b297_corrupt_platform_settings_do_not_lock_out_authenticated_chat` L363-383（交换 200 且恰 1 条会话 L371-372；植入未知分组设置版本后 `/me` 仍 200 L377-378；新交换 503 `PLATFORM_SETTINGS_UNAVAILABLE` L381-382；失败交换不留半写出会话 L383）；⑥SPA 不把 API 错误回退 HTML `test_b297_spa_fallback_never_turns_api_errors_into_html` L389-407（`create_app(static_dir=临时目录)` 真实装配；`/chat/entry-1` 回落 index.html L397-399；管理/CHAT/未知 API 全部 `application/json` L401-403；未知 API 404 `COMMON_NOT_FOUND` L406-407） | 真实 Console 应用服务：`muad_console_platform.main.app`（ASGITransport 真实 ASGI、真实路由表、真实 api-kit 封套与错误目录）；探针装配断言跑**真实 lifespan**（`main.lifespan(main.app)`，含 `validate_startup` 迁移到 head 与启动自检）；SPA 断言用同一段装配代码的 `main.create_app(static_dir=...)`。真实 PostgreSQL（共享 dev 库，仅 DML、无 DDL）：`control.platform_user`/`chat_access_token`/`chat_session`/`platform_setting`/`console_account`/`console_session` 真实行与真实事务，每用例唯一租户、收尾按 tenant_id 清行；设置损坏用真实 SQL 植入现行 schema 不认识的版本（未知分组）。真实 HTTP 头：CHAT 与管理 Cookie、CSRF、Origin 走真实请求头。池有效值取自 httpx 真实 transport 的 httpcore 池（`max_connections`/`max_keepalive_connections`），不是只比较自己的 helper。本文件不发起外部模型调用：模型侧真实 HTTP 协议探针由 B-228 覆盖（该文件回归 **8 passed**），探针端到端行为（先占额、并发 ≤4、单次 ≤5 秒）仍由 B-228 验证 | verified |
+
+**实施范围与风险说明**
+
+- 实现文件：`infrastructure/http_clients.py`（**新增**：探针执行预算与两个独立池的装配、契约预算 vs 部署池读预算的冲突显式失败、缺服务身份指名失败）、`application/model_probe_service.py`（`ProbeBudget` 类型 + `ProbeCapacityClient` 池预算入参 + `ModelProbeService` 接收注入的客户端与预算）、`api/deps.py`（`get_probe_capacity_client` 改为消费装配根注入的实例、新增 `get_probe_http_client`/`get_probe_budget`）、`api/model_resources.py`（探针端点声明三支注入依赖）、`main.py`（`create_app` 装配根 + `_install_probe_clients`/`_close_probe_clients`；lifespan 改用传入实例并在启动失败时也收尾）。测试：`tests/console_platform/test_capacity_webchat_console_wiring.py`（新增，8 用例）。
+- CHAT 路由装配事实：公开认证面由 `api/router.py` 在 `authenticated`/`admin` 组之外 `include_router`（TASK-042 已挂载），`create_app` 挂载整个 router——本任务用真实应用证明「不被管理守卫吞并 + 管理资源路由仍 ADMIN」，未移动路由分组（保持既有 public/authenticated/admin/internal 结构）。
+- 探针资源预算：执行预算（单次 5 秒、并发 4、单批 ≤50）仍是**契约常量**（design §3.7「这些上限无需另建运营旋钮」），以 `ProbeBudget` 注入执行器；池大小/超时来自 `SharedSettings` typed 字段（`CONTROL_HTTP_*`/`MODEL_HTTP_*`/`HTTP_*`），装配根不复制默认值。
+- 冲突显式失败（design §3.7「资源硬预算约束业务上限，但不静默取较小值掩盖错误」）：探针单次预算 > `MODEL_HTTP_READ_TIMEOUT_SEC`，或容量端口请求预算 > `CONTROL_HTTP_READ_TIMEOUT_SEC` 时启动即 `ValueError`；模型探测客户端用统一 5 秒预算（连接/读/写/池），与「单次 ≤5 秒」契约同口径。
+- 缺服务身份（`INTERNAL_SERVICE_TOKEN`/`AGENT_RUNTIME_URL`）不建「必然被 403 拒绝」的裸客户端：装配根留指名日志，请求路径显式 `COMMON_INTERNAL_ERROR`（与 TASK-028 既有语义一致）。
+- 生命周期：两个探针池由装配根建、装配根关（`finally`，启动失败也收尾，已用真实失败启动复现验证）；`api/deps.py` 的同名工厂只服务未跑 lifespan 的 ASGI 测试（与 deps.py 既有懒建模式一致），规则来源仍是同一工厂。
+- 判别性验证（防止断言空转；四处变异均先复现失败再还原）：①`build_probe_http_client` 去掉 model 池预算 → 装配用例失败（L297-298）；②冲突校验改为恒不触发 → 两条冲突用例失败；③`_install_probe_clients` 不注入 `probe_http_client` → 装配用例失败；④探针端点去掉 `ProbeBudgetDep` 声明并自建预算 → 路由依赖图断言失败（L320-324）。
+- 配置盘点：`application/model_probe_service.py` 常量行号 +1、`main.py` 的 `SERVICE_NAME`/`MUAD_EXTRA_PLATFORM_ADAPTERS`/`STATIC_DIR` 行号更新（只更新自己的行、CRLF 保持：1438 CRLF / 0 裸 LF）；`infrastructure/http_clients.py` 无模块级大写常量（无需新增行）；`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**。
+- 静态校验：`uv run ruff check`（5 个实现文件 + 验收文件）干净；`uv run mypy apps packages` → **Success: no issues found in 418 source files**。
+- 聚焦回归：`tests/console_platform` → **384 passed**（75.35s，含本任务 8 例与 B-228 8 例）；`tests/contracts tests/test_configuration_inventory.py` → **1285 passed**（3.77s）；`tests/console_auth tests/console_internal` → **143 passed**（20.28s）；`tests/console_skill tests/console_mcp tests/console_tasks tests/architecture` → **162 passed**（31.85s）。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）。
+- 延后项（诚实记录）：探针的端到端真实链路（先占额、并发 ≤4、单次 ≤5 秒、结算证据）由 B-228（TASK-028）承担，本任务只证明装配与注入事实；探针装配的指标/观测属 TASK-099；既有「批量测试」路径（`application/model_test_service.py` + `/api/v1/models/batch-test`，前端 ModelPage 仍在用）仍按自身客户端建池（默认 httpx 池），不在本任务 Files/契约范围，未改动（如要统一到 model 池预算，宜另立任务）。
+- B-297: verified — automated command passed; run_id=b8b6c650752c4585978e4b86b9f73bb2 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] B-297 RED：`uv run pytest -q tests/console_platform/test_capacity_webchat_console_wiring.py` → exit=2，1 collection error（`get_probe_budget`/装配根工厂尚不存在）
+- [2026-10-18] 实现：新增 `infrastructure/http_clients.py`（探针预算 + control/model 两个独立池 + 冲突显式失败）、`ProbeBudget` 与 `ModelProbeService` 注入式构造、`deps` 三支注入依赖、`main.create_app` 装配根与探针池建/关
+- [2026-10-18] B-297 GREEN：**8 passed in 0.85–0.90s**；四处变异验证断言判别性后还原（池预算、冲突校验、注入缺失、端点依赖声明）
+- [2026-10-18] 回归：`tests/console_platform` 384 passed、`tests/contracts tests/test_configuration_inventory.py` 1285 passed、`tests/console_auth tests/console_internal` 143 passed、`tests/console_skill tests/console_mcp tests/console_tasks tests/architecture` 162 passed；ruff 干净、`mypy apps packages` 418 源文件无问题
+- [2026-10-18] completed (done)
 
 ---
 
