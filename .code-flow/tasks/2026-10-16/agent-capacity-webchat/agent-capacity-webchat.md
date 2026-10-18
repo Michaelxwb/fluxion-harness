@@ -396,7 +396,7 @@
 | B-254 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-054 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_upload_gateway.py"] | . | 300 |  |
 | B-255 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-055 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_artifact_download.py"] | . | 300 |  |
 | B-256 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-056 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_run_controls.py"] | . | 300 |  |
-| B-257 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-057 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_client_config_api.py"] | . | 300 |  |
+| B-257 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-057 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_client_config_api.py"] | . | 300 |  |
 | B-258 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-058 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py"] | . | 300 |  |
 | B-259 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-059 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_durable_deltas.py"] | . | 300 |  |
 | B-260 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-060 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_shared_tail.py"] | . | 300 |  |
@@ -3657,7 +3657,7 @@ cancel/resume绑定原Run/submission/source并在锁内复核WAITING_INPUT/deadl
 
 ## TASK-057: 聊天客户端非敏感配置白名单投影
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-008, TASK-052, TASK-055
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流
@@ -3672,25 +3672,38 @@ API-19只返回当前CHAT可用的settings/transport revision及分页/输入/�
 
 ### Checklist
 
-- [ ] [B-257][integration] 先在`tests/gateway/test_capacity_webchat_client_config_api.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：API-19只返回当前CHAT可用的settings/transport revision及分页/输入/上传/轮询/重连/帧限制。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-257] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-257] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_client_config_api.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-257][integration] 先在`tests/gateway/test_capacity_webchat_client_config_api.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：API-19只返回当前CHAT可用的settings/transport revision及分页/输入/上传/轮询/重连/帧限制。RED：`uv run pytest -q tests/gateway/test_capacity_webchat_client_config_api.py` exit=1，**7 failed**（7 条用例全部执行：`GET /api/v1/webchat/client-config` 在实现前不存在 ⇒ 请求拿 404 `COMMON_NOT_FOUND`（缺凭据用例期望 401、坏源用例期望 500），静态边界用例 `FileNotFoundError: .../application/webchat_config.py`——端口与配置模块均不存在）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `application/webchat_config.py`（新建）——`WebchatTransportBudget`（启动传输预算值对象：`sse_event_max_bytes`/`sse_heartbeat_sec`，构造即校验正数）、`transport_revision()`（传输投影的**确定性** SHA-256 十六进制指纹：同值稳定、任一项变化即变、纯十六进制不透明 ⇒ 不可能内嵌内部地址/DSN/密钥）、`project_client_config()`（快照 → `resolve_platform_settings`（同一 contracts schema，含 `chat_message_hard_max_bytes`/`chat_upload_hard_max_bytes` 上界）→ `WebchatClientConfig.from_settings` 白名单投影）、`WebchatClientConfigService.load()`（每次页面初始化取一次设置快照）。② `api/webchat.py`（同文件扩展）——新增 `get_webchat_config_service` 依赖（`app.state.{settings_client,tenant_id,sse_event_max_bytes,run_event_heartbeat_sec,chat_message_hard_max_bytes,chat_upload_hard_max_bytes}`，装配根发布；与 TASK-052/054 同一模式）与 `GET /client-config`（`ChatIdentityDep` 门控 → 投影 → 标准封套；路由器级 `no-store` 覆盖）。③ `docs/configuration-inventory.csv` 同步（新增 `TRANSPORT_FINGERPRINT_HEX_LENGTH` 行 + `api/webchat.py` 的 `NO_STORE_CACHE_CONTROL` 行号漂移，CRLF 保持 1495/0）。
+- [x] [B-257] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-257] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_client_config_api.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**7 passed in 4.37s**（冻结代码复跑）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-257 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | API-19只返回当前CHAT可用的settings/transport revision及分页/输入/上传/轮询/重连/帧限制；默认唯一、无池大小/内部URL/额度/secret，配置源坏时明确失败 | tests/gateway/test_capacity_webchat_client_config_api.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_client_config_api.py"] | planned |
+| B-257 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | API-19只返回当前CHAT可用的settings/transport revision及分页/输入/上传/轮询/重连/帧限制；默认唯一、无池大小/内部URL/额度/secret，配置源坏时明确失败 | tests/gateway/test_capacity_webchat_client_config_api.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_client_config_api.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-257 | `uv run pytest -q tests/gateway/test_capacity_webchat_client_config_api.py` exit=1，**7 failed**（1.86s；端口/模块实现前全部用例已收集执行：`GET /api/v1/webchat/client-config` 404 `COMMON_NOT_FOUND`、静态边界用例 `FileNotFoundError: application/webchat_config.py`） | 同命令 exit=0，**7 passed in 4.37s**（冻结代码） | ① `test_b257_chat_session_and_context_are_required_before_any_settings_read` L317-347：缺 Cookie 401 `UNAUTHORIZED`、缺/坏 `X-Chat-Context` 422（L326-331）、门控未过**设置源零读取**（L332-333）、会话撤销 401 `CHAT_SESSION_REVOKED`（L336-338）、跨部署租户 403 `FORBIDDEN`（L343-346）。② `test_b257_client_config_projects_the_effective_whitelist_and_revisions` L353-399：200 + `no-store`（L361-363）、传输版本纯十六进制不透明指纹（L365-367）、**data 与有效设置逐字段相等**（L369-388：settings_revision=12、分页 75/输入 8192/上传 123456/数量 7/轮询 2.5、帧 131072/心跳 15/重连 1000/60000/20）、**逐层键集精确等于白名单**（L389-391）、设置源恰一次且只带服务身份/租户、不带 CHAT 凭据（L394-399）。③ `test_b257_client_config_defaults_come_only_from_the_shared_schema` L405-437：无设置版本（revision 0 + 空文档）⇒ 恰等于 contracts schema 默认（L425-437），且进程环境变量（`WEBCHAT_*` canary）不是第二个默认来源（L437）。④ `test_b257_transport_revision_binds_exactly_the_transport_projection` L443-482：同参数确定性稳定（L448-451）、启动预算变化即变（L453-456）、**非传输设置变化不变**（L465-469）、传输设置（重连）变化即重绑（L478-482）。⑤ `test_b257_client_config_never_carries_internal_or_sensitive_fields` L488-506：敏感分组/保留期键位零出现（L501-502）、敏感取值与启动硬上限不出现在投影任何值（L503）、响应正文无 `internal/secret/pool/quota/dsn/url/canary/retention/hard_max` 等词干（L504-506）、CHAT 会话与内部服务身份不回显（L507-508）。⑥ `test_b257_client_config_fails_explicitly_when_the_settings_source_is_broken` L512-553：文档越界/未知分组/版本形状坏/源返回 503/源不可达 ⇒ 分别 500/500/500/503 `PLATFORM_SETTINGS_UNAVAILABLE`/500（L540-547）、`data` 一律为 None（不回退默认，L548-549）、原始细节（`history_page_size`/`model_pool_secret`/canary）不回显（L550-553）。⑦ `test_b257_client_config_modules_hold_no_database_and_no_second_source` L569-590：接口/配置模块零 sqlalchemy（L575-583）、配置模块不 import `muad_common`/`os`、不读 `os.environ`/`getenv`（L585-590） | 真实 Gateway 应用：`muad_im_gateway.main.app` 直连（真实路由表/api-kit 封套/错误目录/HTTP 状态），挂载**生产** `api/webchat.py` 路由；装配根状态按生产同形注入。**真实 Console HTTP（Owner，真实 socket）**：`ConsoleClient` 经 API-12 `POST /internal/channel/chat-principal` 核验 CHAT 主体；`ConsolePlatformSettingsClient` 经 `GET /internal/v1/platform-settings`（真实 `X-Internal-Service`/`X-Caller-Service`/`X-Tenant-Id` 头）取 `revision`+整份设置文档 —— 网关不读 PG、本文件零数据库。**启动参数与设置文档相互独立**：传输上限/心跳来自注入的 `app.state` 启动预算，指纹用例分别驱动两者。断言强度经三次变异验证：指纹丢掉重连参数 ⇒ 用例④红；投影解析失败回退 `WebchatSettings()` 默认 ⇒ 用例⑥红；响应注入 `webchat.access_ttl_days` ⇒ 用例⑤红 | verified |
+
+实现要点：**唯一来源**——业务上限/重连只来自 Console 权威设置快照（`resolve_platform_settings`，同一 contracts schema 解析默认与范围），传输上限/心跳只来自 Gateway 启动参数（装配根注入），本模块不读环境、不复制默认、不持库；**白名单投影**——只经 `WebchatClientConfig.from_settings` 组装 5+5 个字段，敏感字段没有字段位置（契约拒绝未知键）；**失败即失败**——设置源不可达/文档非法/超启动硬预算 ⇒ 明确错误，绝不回退默认（RULE-06）；**transport_revision**——传输投影的确定性十六进制指纹，活跃连接据此绑定原参数、新连接重新读取有效版本。
+
+回归（本机无 dev 残留进程，单跑不并发）：`uv run pytest -q tests/gateway` exit=0，**412 passed in 101.56s**（含本任务 7 条）；`uv run pytest -q tests/contracts tests/architecture/test_im_gateway_boundaries.py tests/test_configuration_inventory.py` exit=0，**1291 passed in 3.35s**。
+
+静态检查：`uv run ruff check`（本任务 3 个改动文件）干净；`uv run mypy apps packages` → Success: no issues found in 431 source files；新增函数均 ≤50 行（最长 25 行）；`docs/configuration-inventory.csv` 保持 CRLF（1495 CRLF、0 裸 LF），只更新自己的行（新增 `TRANSPORT_FINGERPRINT_HEX_LENGTH` + `NO_STORE_CACHE_CONTROL` 行号漂移）。
+
+遗留（deferred，非本任务可闭合）：① **装配根接线**——路由依赖读取 `app.state.{settings_client,sse_event_max_bytes,run_event_heartbeat_sec,chat_message_hard_max_bytes,chat_upload_hard_max_bytes}`，生产装配由 TASK-096 发布这些状态值（TASK-052/054 同一模式：本任务只交付路由与依赖图，`main.py` 不改）。② 公开 SSE 游标/分片与缓冲回压属 TASK-061（本任务只交付浏览器可见的帧/心跳/重连**投影**；活跃连接绑定 `transport_revision` 的消费语义由 TASK-072/076/082 落地）。③ 前端 clientConfig 加载与版本化消费属 TASK-076（本任务保证投影值与默认唯一来源；组件不复制默认值在前端侧验收）。④ `settings_revision` 当前直接取 Console 快照的整份文档版本；按字段的生效边界（new_run/restart_required 等）不在 API-19 投影内。
+- B-257: verified — automated command passed; run_id=55d636a4331a4e878a1a2789ae538f56 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 

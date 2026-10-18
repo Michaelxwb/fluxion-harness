@@ -1,9 +1,10 @@
-"""Webchat 公开资源路由（design §3.4 API-05/06/08/09/10/14/15；TASK-052/TASK-054）。
+"""Webchat 公开资源路由（design §3.4 API-05/06/08/09/10/14/15/19；TASK-052/054/057）。
 
 - **主体门控**：读写面统一经 `ChatIdentityDep`（TASK-044）收口——CHAT Cookie + `X-Chat-Context`
   只经 Console 核验，跨部署租户/上下文不符/撤销在这里就被拒；本层不做第二套认证。
 - **完整转 Owner**：入口/会话/消息/取消/恢复全部经 `WebchatResourceService` 走 Console/Runtime
-  的受信接口；网关不持库（架构守卫机检零数据库依赖）。
+  的受信接口；API-19 的有效设置经 Console 受信接口取快照后投影白名单。网关不持库（架构守卫
+  机检零数据库依赖）。
 - **契约形状**：请求体/查询参数用 `muad_contracts.webchat` 的公开契约解析（多余字段显式拒绝），
   响应 data 就是契约的 JSON 投影；202/201 是**受理事实**的真实状态码。
 """
@@ -32,6 +33,10 @@ from ..application.webchat_artifacts import (
     ArtifactDownload,
     WebchatArtifactService,
     content_disposition_header,
+)
+from ..application.webchat_config import (
+    WebchatClientConfigService,
+    WebchatTransportBudget,
 )
 from ..application.webchat_service import WebchatResourceService
 from ..application.webchat_uploads import WebchatUploadService
@@ -100,6 +105,25 @@ WebchatArtifactServiceDep = Annotated[
 ]
 
 
+def get_webchat_config_service(request: Request) -> WebchatClientConfigService:
+    """客户端配置服务：设置源 + 启动传输预算 + 部署硬上限（装配根发布的状态值，网关不持库）。"""
+    return WebchatClientConfigService(
+        settings=request.app.state.settings_client,
+        tenant_id=request.app.state.tenant_id,
+        transport=WebchatTransportBudget(
+            sse_event_max_bytes=request.app.state.sse_event_max_bytes,
+            sse_heartbeat_sec=request.app.state.run_event_heartbeat_sec,
+        ),
+        chat_message_hard_max_bytes=request.app.state.chat_message_hard_max_bytes,
+        chat_upload_hard_max_bytes=request.app.state.chat_upload_hard_max_bytes,
+    )
+
+
+WebchatConfigServiceDep = Annotated[
+    WebchatClientConfigService, Depends(get_webchat_config_service)
+]
+
+
 def _download_response(download: ArtifactDownload) -> FileResponse:
     """取件响应：`no-store`/`nosniff` + 服务端裁决的 `Content-Disposition`。
 
@@ -118,6 +142,19 @@ def _download_response(download: ArtifactDownload) -> FileResponse:
             ),
         },
     )
+
+
+@router.get("/client-config")
+async def get_client_config(
+    request: Request, chat: ChatIdentityDep, service: WebchatConfigServiceDep
+) -> ApiResponse[Any]:
+    """API-19：CHAT 认证后的非敏感白名单投影（页面初始化保存 settings/transport revision）。
+
+    只回浏览器需要的输入/分页/轮询/重连/帧上限；内部地址、连接池、模型额度、密钥与启动硬预算
+    没有字段位置。设置源坏/文档非法/超硬预算明确失败，不回退默认（`chat` 即主体门控）。
+    """
+    config = await service.load()
+    return ok(request.app.state.message_catalog, config.model_dump(mode="json"))
 
 
 @router.get("/entries")
