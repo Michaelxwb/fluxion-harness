@@ -19,6 +19,7 @@ from agent_worker.helpers import (
     fetch_events,
     fetch_task,
     persist_task,
+    retry_safe_snapshot,
 )
 
 INSTANCE_ID = "test-worker:1"
@@ -99,7 +100,9 @@ async def test_claim_respects_not_before_and_cancel_requested(tenant: TenantCont
 
 async def test_failure_retries_with_exponential_backoff_then_fails(tenant: TenantContext) -> None:
     now = datetime.now(UTC)
-    task = await persist_task(tenant, max_attempts=3, not_before=now)
+    task = await persist_task(
+        tenant, max_attempts=3, not_before=now, execution_snapshot_json=retry_safe_snapshot()
+    )
     executor = RecordingExecutor(error=TaskExecutionError("BOOM", "kaboom"))
     loop = WorkerLoop(
         tenant.session_factory,
@@ -168,6 +171,7 @@ async def test_reclaim_expired_lease(tenant: TenantContext) -> None:
         lease_owner="dead:1",
         lease_until=now - timedelta(seconds=5),
         started_at=now - timedelta(minutes=1),
+        execution_snapshot_json=retry_safe_snapshot(),
     )
     abandoned = await persist_task(
         tenant,

@@ -11,12 +11,13 @@ from typing import Any, cast
 
 import sqlalchemy as sa
 from muad_common import SharedSettings
-from muad_contracts import TaskStatus, TerminalStatus
+from muad_contracts import TaskStatus, TerminalStatus, ToolRetrySafety, task_retry_safety
 from pydantic import JsonValue
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.batch_fanin import settle_child
+from ..application.batch_fanout import TASK_TYPE_BATCH
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from ..application.task_cancel import cancel_children
 from ..application.task_events import TaskEventSeed, TaskEventType, append_event, append_events
@@ -31,7 +32,15 @@ from ..metrics import (
 )
 from ..scheduler.service import TASK_DEADLINE_EXCEEDED
 from .claimer import TaskClaimer
-from .execution_outcomes import DEFAULT_WAIT_SEC, OutcomeKind, TaskOutcome, interpret_execution
+from .execution_outcomes import (
+    DEFAULT_WAIT_SEC,
+    TASK_RESULT_UNVERIFIED,
+    FailureDisposition,
+    OutcomeKind,
+    TaskOutcome,
+    classify_failure,
+    interpret_execution,
+)
 from .executor import SkillTaskExecutor, TaskExecutionError, TaskExecutorProtocol
 
 logger = logging.getLogger(__name__)
@@ -65,6 +74,36 @@ def _reclaim_backoff() -> Any:
     return sa.func.make_interval(
         0, 0, 0, 0, 0, 0, RETRY_BACKOFF_BASE_SEC * sa.func.power(2, TaskExecution.attempt - 1)
     )
+
+
+def _reclaim_terminal_change(task: TaskExecution) -> TerminalChange | None:
+    """崩溃回收的终态裁决；`None` 表示可按退避重排（TASK-033 的回收语义）。
+
+    取消请求与重试预算耗尽维持原语义；批量父任务的执行是 `_batch_envelope` 的幂等停放
+    （扇出按 `(parent_id, item_key)` 唯一键去重，重排不重跑 Skill、不承载外部副作用）；
+    其余按**冻结** retry_safety 分流：非重试安全（含未声明/未知，见 `task_retry_safety`）
+    的崩溃尝试无法确认外部副作用是否发生，落 `TASK_RESULT_UNVERIFIED` 待核实——回收不得把
+    「待核实」重排成自动重做。
+    """
+    if task.cancel_requested:
+        return TerminalChange(status=TerminalStatus.CANCELLED, cancel_requested=True)
+    if task.attempt >= task.max_attempts:
+        return TerminalChange(
+            status=TerminalStatus.FAILED,
+            error_code=TASK_ATTEMPTS_EXHAUSTED,
+            error_message="attempts exhausted by crash reclaim",
+        )
+    if task.task_type == TASK_TYPE_BATCH:
+        return None
+    if task_retry_safety(task.execution_snapshot_json) is ToolRetrySafety.NON_RETRYABLE:
+        return TerminalChange(
+            status=TerminalStatus.FAILED,
+            error_code=TASK_RESULT_UNVERIFIED,
+            error_message=(
+                "crash recovery cannot confirm the external effect; result requires verification"
+            ),
+        )
+    return None
 
 
 class TaskSlotSupervisor:
@@ -456,16 +495,8 @@ class WorkerLoop:
         if locked is None:
             return 0, 0
         conditions = (TaskExecution.status == str(TaskStatus.RUNNING), TaskExecution.lease_until < moment)
-        if locked.cancel_requested or locked.attempt >= locked.max_attempts:
-            change = (
-                TerminalChange(status=TerminalStatus.CANCELLED, cancel_requested=True)
-                if locked.cancel_requested
-                else TerminalChange(
-                    status=TerminalStatus.FAILED,
-                    error_code=TASK_ATTEMPTS_EXHAUSTED,
-                    error_message="attempts exhausted by crash reclaim",
-                )
-            )
+        change = _reclaim_terminal_change(locked)
+        if change is not None:
             if await write_terminal(session, locked, change, moment, conditions=conditions):
                 if locked.cancel_requested:
                     await cancel_children(session, locked, moment)
@@ -513,15 +544,31 @@ class WorkerLoop:
         *,
         now: datetime | None,
     ) -> None:
+        """失败的收尾裁决：确定性错误直接终态；可重试形状按**冻结** retry_safety 分流。
+
+        冻结值来自 Task 的 execution snapshot（`budget.retry_safety`，未声明/未知一律
+        NON_RETRYABLE）：非幂等效果在响应丢失后不得自动重做，落 `TASK_RESULT_UNVERIFIED`
+        待核实，保留现场等待人工/业务确认（design §3.6「重试与外部副作用」）。
+        """
         moment = now or datetime.now(UTC)
         error_code, error_message, retryable = _describe_error(exc)
+        outcome = classify_failure(
+            retry_safety=task_retry_safety(task.execution_snapshot_json),
+            error_code=error_code,
+            error_message=error_message,
+            retryable=retryable,
+        )
         async with self._session_factory() as session:
             async with session.begin():
                 await self._lock_parent(session, task)
-                if retryable and task.attempt < task.max_attempts:
-                    if await self._schedule_retry(session, task, error_code, error_message, moment):
+                if outcome.disposition is FailureDisposition.RETRY and task.attempt < task.max_attempts:
+                    if await self._schedule_retry(
+                        session, task, outcome.error_code, outcome.error_message, moment
+                    ):
                         return
-                elif await self._mark_failed(session, task, error_code, error_message, moment):
+                elif await self._mark_failed(
+                    session, task, outcome.error_code, outcome.error_message, moment
+                ):
                     return
                 await self._mark_cancelled(session, task, moment)
 

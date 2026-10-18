@@ -46,6 +46,8 @@ from muad_common import SharedSettings
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from agent_worker.helpers import retry_safe_snapshot
+
 pytestmark = pytest.mark.integration
 
 INSTANCE = "worker-slots-b233"
@@ -407,6 +409,7 @@ async def test_b233_stuck_slot_does_not_block_other_slots_or_reclaim(
             attempt=1,
             lease_owner="dead-worker",
             lease_until=now - timedelta(minutes=1),
+            execution_snapshot_json=retry_safe_snapshot(),
         )
         assert await worker.reclaim_expired(now=now) == 1
         assert (await _state(factory, dead.id)).status == "QUEUED"
@@ -435,7 +438,9 @@ async def test_b233_failure_and_cancel_paths_release_their_slots(
 ) -> None:
     factory = isolated_worker
     settings = _settings(worker_execution_concurrency=2)
-    failing = await _seed_task(factory, priority=1)
+    failing = await _seed_task(
+        factory, priority=1, execution_snapshot_json=retry_safe_snapshot()
+    )
     cancelled = await _seed_task(factory, priority=2)
     executor = _RoutingExecutor()
     executor.errors[failing.id] = TaskExecutionError("BOOM", "kaboom")
@@ -501,6 +506,7 @@ async def test_b233_lost_lease_stops_skill_process_group_and_releases_slot(
         skill_artifact_id=artifact_id,
         execution_snapshot_json={
             "schema_version": 1,
+            "budget": {"retry_safety": "IDEMPOTENT"},
             "skills": [
                 {
                     "artifact_id": str(artifact_id),
@@ -574,6 +580,7 @@ async def test_b233_reclaim_keeps_parent_child_lock_order_while_slots_busy(
         attempt=1,
         lease_owner="dead-worker",
         lease_until=now - timedelta(minutes=1),
+        execution_snapshot_json=retry_safe_snapshot(),
     )
     child = await _seed_task(
         factory,
@@ -585,6 +592,7 @@ async def test_b233_reclaim_keeps_parent_child_lock_order_while_slots_busy(
         item_key="child-a",
         lease_owner="dead-worker",
         lease_until=now - timedelta(minutes=1),
+        execution_snapshot_json=retry_safe_snapshot(),
     )
     executor = _RoutingExecutor()
     worker = WorkerLoop(factory, settings, executor=executor, instance_id=INSTANCE)

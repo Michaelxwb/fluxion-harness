@@ -22,7 +22,7 @@ from muad_agent_worker.worker.executor import TaskExecutionError
 from muad_agent_worker.worker.service import WorkerLoop
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import fetch_task, persist_task
+from agent_worker.helpers import fetch_task, persist_task, retry_safe_snapshot
 
 
 def _now() -> datetime:
@@ -165,7 +165,7 @@ class _WaitThenFailExecutor:
 
 async def test_repeated_waits_keep_retry_budget_for_real_failures(tenant: TenantContext) -> None:
     """多轮外部轮询不消耗 attempt：等待 4 轮后的第一次失败仍应重试，而不是直接 FAILED。"""
-    task = await persist_task(tenant, max_attempts=2)
+    task = await persist_task(tenant, max_attempts=2, execution_snapshot_json=retry_safe_snapshot())
     executor = _WaitThenFailExecutor(waits=4)
     worker = WorkerLoop(tenant.session_factory, tenant.settings, executor=executor, instance_id="w1")
     moment = _now()
@@ -203,7 +203,7 @@ class _RaisingExecutor:
 
 async def test_retry_budget_is_exhausted_exactly_once(tenant: TenantContext) -> None:
     """重试到上限即 FAILED，不会多跑一次。"""
-    task = await persist_task(tenant, max_attempts=2)
+    task = await persist_task(tenant, max_attempts=2, execution_snapshot_json=retry_safe_snapshot())
     executor = _ScriptedExecutor({"status": "FAILED", "result": None, "stderr": "boom"})
     worker = WorkerLoop(tenant.session_factory, tenant.settings, executor=executor, instance_id="w1")
 

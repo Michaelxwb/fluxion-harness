@@ -19,7 +19,7 @@ from muad_agent_worker.worker.service import TASK_ATTEMPTS_EXHAUSTED, WorkerLoop
 from muad_common import SharedSettings
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import fetch_events, persist_task
+from agent_worker.helpers import fetch_events, persist_task, retry_safe_snapshot
 
 
 def _now() -> datetime:
@@ -102,6 +102,7 @@ async def test_reclaim_preserves_attempt_and_clears_lease(tenant: TenantContext)
         attempt=2,
         lease_owner="dead-worker",
         lease_until=_now() - timedelta(minutes=1),
+        execution_snapshot_json=retry_safe_snapshot(),
     )
     worker = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="worker-a")
 
@@ -127,6 +128,7 @@ async def test_reclaimed_task_rejects_previous_owner(tenant: TenantContext) -> N
         status="RUNNING",
         lease_owner="worker-a",
         lease_until=_now() - timedelta(minutes=1),
+        execution_snapshot_json=retry_safe_snapshot(),
     )
     worker_a = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="worker-a")
     await worker_a.reclaim_expired()
@@ -183,7 +185,7 @@ async def test_expired_lease_owner_cannot_write_terminal_state(
 
 async def test_e01_crash_recovery_across_instances(tenant: TenantContext) -> None:
     """E-01：Worker crash 失约后由另一实例接管，attempt 保留且旧持有者不能覆写。"""
-    task = await persist_task(tenant)
+    task = await persist_task(tenant, execution_snapshot_json=retry_safe_snapshot())
     crashed = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="worker-a")
     claimed = await crashed._claimer.claim_one("worker-a")
     assert claimed is not None and claimed.id == task.id
@@ -289,6 +291,7 @@ async def test_reclaim_backs_off_before_the_row_is_claimable_again(
         attempt=2,
         lease_owner="dead-worker",
         lease_until=_now() - timedelta(minutes=1),
+        execution_snapshot_json=retry_safe_snapshot(),
     )
     worker = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="worker-b")
     assert await worker.reclaim_expired() == 1
@@ -328,7 +331,7 @@ async def test_heartbeat_failure_stops_the_local_execution(
     拦不住已经发生的事。
     """
     monkeypatch.setattr(worker_service, "HEARTBEAT_RENEW_RETRY_SEC", 0.01)
-    task = await persist_task(tenant)
+    task = await persist_task(tenant, execution_snapshot_json=retry_safe_snapshot())
     executor = _BlockingExecutor()
     settings = SharedSettings(
         task_heartbeat_sec=1, task_cancel_check_sec=1, worker_poll_interval_sec=1
