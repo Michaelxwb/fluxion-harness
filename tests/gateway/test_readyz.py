@@ -324,7 +324,7 @@ async def test_b107_liveness_only_and_missing_console_is_not_ready(
             data = readyz.json()["data"]
             assert readyz.status_code == 503
             assert data["failed"] == ["console"]  # 只有整体必需条件缺失才 503
-            assert data["adapters"] == {"WECOM": True}  # 连接管理器已初始化
+            assert data["adapters"] == {"WECOM": True, "WEBCHAT": True}  # 通道管理器已初始化
             assert data["bots_revision"] is None
     finally:
         await probe.stop()
@@ -361,7 +361,7 @@ async def test_b107_ready_with_degraded_bots_and_stale_snapshot(
         async with running_gateway() as client:
             data = await _wait_readyz_degraded(client, {B107_REJECTED_BOT, B107_SECRETLESS_BOT})
             assert data["status"] == "ready"
-            assert data["adapters"] == {"WECOM": True}
+            assert data["adapters"] == {"WECOM": True, "WEBCHAT": True}
             assert data["bots_revision"] == "rev-b107"
             # 好 bot 经真实 socket 完成认证：没有被其他 bot 的故障停掉
             await _wait_until(
@@ -375,10 +375,10 @@ async def test_b107_ready_with_degraded_bots_and_stale_snapshot(
             console.stop()
             outage = await client.get("/readyz")
             assert outage.status_code == 200
-            assert app.state.registry.adapter_states == {"WECOM": True}
+            assert app.state.registry.adapter_states == {"WECOM": True, "WEBCHAT": True}
 
         # 关闭语义：连接管理器停止、真实连接关闭、无遗留任务
-        assert app.state.registry.adapter_states == {"WECOM": False}
+        assert app.state.registry.adapter_states == {"WECOM": False, "WEBCHAT": False}
         await _wait_until(
             lambda: all(socket_.close_code is not None for socket_ in probe.connections),
             what="关闭后真实 WS 连接未释放",

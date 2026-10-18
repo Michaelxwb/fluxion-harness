@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 from uuid import UUID
 
 from muad_contracts import (
     AttachmentRef,
+    BotSnapshotItem,
     ChannelEnvelope,
     DeliveryAuditOutcome,
     DeliveryMessage,
@@ -42,7 +43,14 @@ class UnknownChannelAdapterError(ChannelRegistryError):
 
 
 class ChannelAdapter(Protocol):
-    name: str
+    @property
+    def name(self) -> str:
+        """通道标识（`ChannelName` 的取值之一）：注册表按它路由、适配器按它过滤快照。
+
+        声明为只读属性（而不是可写字段）：适配器可以把 `name` 收窄成 `ChannelName` 字面量，
+        这样 `ChannelEnvelope(channel=...)` 这类构造不必再做一次窄化；身份本来也不该被改写。
+        """
+        ...
 
     async def start(self) -> None: ...
     async def stop(self) -> None: ...
@@ -250,6 +258,18 @@ class AdapterDegradation(Protocol):
 @runtime_checkable
 class StreamFinalizer(Protocol):
     async def finish_stream(self, route: DeliveryRouteInput) -> None: ...
+
+
+@runtime_checkable
+class SnapshotAware(Protocol):
+    """可选能力：适配器接受**自己通道**的 bot 快照（设计 §3.3「装配根按类型分发」）。
+
+    分发器按 `BotSnapshotItem.channel` 把条目交给对应适配器；适配器自己再按实际通道过滤
+    一次（防御"整份快照被直接递过来"）——WEBCHAT 入口没有企微 secret，混进企微连接管理器
+    就会去开一条根本不该存在的长连接。
+    """
+
+    async def apply_snapshot(self, items: Sequence[BotSnapshotItem]) -> None: ...
 
 
 def adapter_degraded(adapter: ChannelAdapter) -> Mapping[str, str]:

@@ -785,6 +785,9 @@ class WeComAdapter:
         self._run_reply_refs.clear()
 
     async def apply_snapshot(self, items: Sequence[BotSnapshotItem]) -> None:
+        # 只认**本通道**的条目：WEBCHAT 稳定入口没有企微 secret，混进来就会去开一条根本
+        # 不该存在的长连接（B-247）。分发器已经按 channel 分过一遍，这里是适配器自己的防线。
+        items = tuple(item for item in items if item.channel == self.name)
         desired = {item.bot_id: item for item in items if item.enabled}
         self._bots = tuple(items)
         for bot_id in tuple(self._connections):

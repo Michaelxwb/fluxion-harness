@@ -810,13 +810,14 @@ apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,31,STREAM_KIN
 apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,32,TEXT_KIND,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,33,FINALIZE_KIND,'finalize',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,50,__init__.flush_interval_sec,DELTA_FLUSH_INTERVAL_SEC,function-default,code,IM 展示节拍实现常量（非平台设置 im.progress_interval_sec）；运行期不可改
-apps/im-gateway/src/muad_im_gateway/channels/base.py,91,ATTACHMENT_TOO_LARGE,'ATTACHMENT_TOO_LARGE',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/channels/base.py,92,ATTACHMENT_FETCH_TIMEOUT,'ATTACHMENT_FETCH_TIMEOUT',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/channels/base.py,93,ATTACHMENT_FETCH_FAILED,'ATTACHMENT_FETCH_FAILED',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/channels/base.py,94,ATTACHMENT_DECRYPT_FAILED,'ATTACHMENT_DECRYPT_FAILED',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/channels/base.py,141,ARTIFACT_DELIVERED,'DELIVERED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/channels/base.py,142,ARTIFACT_DEGRADED,'DEGRADED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/channels/base.py,144,ARTIFACT_DELIVERY_FAILED,'ARTIFACT_DELIVERY_FAILED',python-constant,code,状态或错误码，不是时间参数
+apps/im-gateway/src/muad_im_gateway/channels/base.py,99,ATTACHMENT_TOO_LARGE,'ATTACHMENT_TOO_LARGE',python-constant,code,状态或错误码，不是时间参数
+apps/im-gateway/src/muad_im_gateway/channels/base.py,100,ATTACHMENT_FETCH_TIMEOUT,'ATTACHMENT_FETCH_TIMEOUT',python-constant,code,状态或错误码，不是时间参数
+apps/im-gateway/src/muad_im_gateway/channels/base.py,101,ATTACHMENT_FETCH_FAILED,'ATTACHMENT_FETCH_FAILED',python-constant,code,状态或错误码，不是时间参数
+apps/im-gateway/src/muad_im_gateway/channels/base.py,102,ATTACHMENT_DECRYPT_FAILED,'ATTACHMENT_DECRYPT_FAILED',python-constant,code,状态或错误码，不是时间参数
+apps/im-gateway/src/muad_im_gateway/channels/base.py,149,ARTIFACT_DELIVERED,'DELIVERED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/channels/base.py,150,ARTIFACT_DEGRADED,'DEGRADED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/channels/base.py,152,ARTIFACT_DELIVERY_FAILED,'ARTIFACT_DELIVERY_FAILED',python-constant,code,状态或错误码，不是时间参数
+apps/im-gateway/src/muad_im_gateway/channels/webchat.py,34,WEBCHAT_INBOUND_QUEUE_MAX,256,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入（本常量为代码默认，装配可覆盖）
 apps/im-gateway/src/muad_im_gateway/channels/probe.py,25,__init__.timeout_sec,10.0,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,74,DEFAULT_BACKOFF_BASE_SEC,1.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/channels/wecom/adapter.py,75,DEFAULT_BACKOFF_MAX_SEC,30.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
@@ -878,7 +879,7 @@ apps/im-gateway/src/muad_im_gateway/infrastructure/dedupe.py,48,_RENEW_SCRIPT,""
 apps/im-gateway/src/muad_im_gateway/infrastructure/platform_settings_client.py,21,PLATFORM_SETTINGS_PATH,'/internal/v1/platform-settings',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/infrastructure/platform_settings_client.py,22,PLATFORM_SETTINGS_TIMEOUT_SEC,5.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/infrastructure/platform_settings_client.py,23,GATEWAY_CALLER,'gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/main.py,34,SERVICE_NAME,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/main.py,33,SERVICE_NAME,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/metrics.py,29,COUNTER,'counter',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/metrics.py,30,GAUGE,'gauge',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/metrics.py,32,PLATFORM_SETTINGS_FETCH_METRIC,'platform_settings_fetch_total',python-constant,code,协议标识、枚举、schema、文本或实现常量

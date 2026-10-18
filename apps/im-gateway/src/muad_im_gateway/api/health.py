@@ -29,12 +29,17 @@ def dedupe_mode(store: DedupeStore) -> str:
 
 def readiness_checks(app: FastAPI) -> Mapping[str, ReadinessCheck]:
     def adapters_ready() -> bool:
-        """必要 Bot connection manager 已初始化即就绪（设计 §4.1）。
+        """**每个已注册的**通道适配器都已启动才算就绪（设计 §4.1）。
 
+        注册表就是本部署声明的通道面：某个通道整体起不来（例如企微 bot 全部无可用凭据）
+        等于那个通道整体必需条件缺失——不能让另一个通道起来了就把它盖过去。
         不要求全部 bot CONNECTED：单 bot 故障只体现在 detail 的 `degraded_bots`。
         """
         registry = getattr(app.state, "registry", None)
-        return bool(registry is not None and registry.started_adapters)
+        if registry is None:
+            return False
+        states = registry.adapter_states
+        return bool(states) and all(states.values())
 
     def console_ready() -> bool:
         snapshot = getattr(app.state, "bot_snapshot", None)
