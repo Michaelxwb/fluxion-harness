@@ -404,7 +404,7 @@
 | B-262 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-062 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_reply_generations.py"] | . | 300 |  |
 | B-263 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-063 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_activity_write.py"] | . | 300 |  |
 | B-264 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-064 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_activity_read.py"] | . | 300 |  |
-| B-265 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-065 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_reservation.py"] | . | 300 |  |
+| B-265 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-065 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_reservation.py"] | . | 300 |  |
 | B-266 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-066 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_pump.py"] | . | 300 |  |
 | B-267 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-067 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_delivery.py"] | . | 300 |  |
 | B-268 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-068 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"] | . | 300 |  |
@@ -453,6 +453,14 @@
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
 
 ---
+
+
+
+
+
+
+
+
 
 
 
@@ -4075,7 +4083,7 @@ CURSOR_EXPIRED/AHEAD分型，合法跳号不补拉循环；完整分支及可观
 
 ## TASK-065: 交付reserve/renew/ack持久协议
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-063
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约
@@ -4090,25 +4098,34 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 ### Checklist
 
-- [ ] [B-265][integration] 先在`tests/agent_runtime/test_capacity_webchat_delivery_reservation.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：API-18按稳定delivery_key/attempt/epoch预留。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-265] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-265] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_reservation.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-265][integration] 先在`tests/agent_runtime/test_capacity_webchat_delivery_reservation.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：API-18按稳定delivery_key/attempt/epoch预留。RED（实现模块未建时的树状态，实现文件临时移出后复现）：`uv run pytest -q tests/agent_runtime/test_capacity_webchat_delivery_reservation.py` exit=1，**16 条用例全部无法收集**（`ImportError while loading conftest` → `ModuleNotFoundError: No module named 'muad_agent_runtime.api.channel_delivery'`；同源 `application/channel_delivery.py`、`muad_contracts.channel_delivery` 亦不存在）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：`packages/contracts/src/muad_contracts/channel_delivery.py`（API-18 线契约：稳定 `delivery_key`+`attempt_id`+`epoch` 栅栏、租期边界 5–3600s/默认 60s、ack 结局 `DELIVERED/NOT_SENT/UNKNOWN`、首次结果 JSON 严格序列化且 ≤4096B）；`application/channel_delivery.py`（持久状态机：PENDING→DELIVERING（行锁内发号：`lease_owner`=attempt、`lease_epoch`+1、`lease_until`=PG now+租期、`attempt`+1）→ ack 后 DELIVERED（冻结首次结果、清租约）/PENDING（NOT_SENT，退避 `base·2^(attempt-1)` 有界）/UNKNOWN（保留核实）；同 attempt 有效租约重放不重复投递、不同 attempt 只能接管过期租约（epoch 防重）、renew/ack 失约即停手 `DELIVERY_LEASE_LOST`、ack 幂等回放首次结果、DELIVERED 重放超保留期 `DELIVERY_RECEIPT_EXPIRED`、NOT_REQUIRED 显式冲突、时间全用 PG 服务端时钟、事务内不联网）；`api/channel_delivery.py`（API-18 端口：`POST /internal/channel-notifications/reserve`（按稳定键）与 `.../{id}/renew|ack`（键复核身份），路由器级 `require_internal_service`，设置快照在事务外按次取一次、坏源显式失败）。`main.py` 仅装配两行（计划外文件，披露）。
+- [x] [B-265] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-265] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_reservation.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**16 passed in 29.15s**（补上"网络在事务外"的 `FOR UPDATE NOWAIT` 探测后的收尾复跑；此前 23.42s 同绿）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-265 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | API-18按稳定delivery_key/attempt/epoch预留；只有实际交付成功ack，已送达重放首次结果，存在占位不等于成功；网络在事务外 | tests/agent_runtime/test_capacity_webchat_delivery_reservation.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_reservation.py"] | planned |
+| B-265 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | API-18按稳定delivery_key/attempt/epoch预留；只有实际交付成功ack，已送达重放首次结果，存在占位不等于成功；网络在事务外 | tests/agent_runtime/test_capacity_webchat_delivery_reservation.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_delivery_reservation.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-265 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_delivery_reservation.py` exit=1，**16 条用例全部无法收集**（`ImportError while loading conftest`：`ModuleNotFoundError: No module named 'muad_agent_runtime.api.channel_delivery'`——以移除实现模块的树状态复现"实现尚不存在"） | 同命令 exit=0，**16 passed in 29.15s**（实现就位后首跑 26.17s、收尾 23.42s 同绿） | ① `test_b265_delivery_state_vocabulary_matches_the_persisted_check` L433-453（服务/线协议词表 == 0026 `ck_channel_notification_delivery_state` 的真实 CHECK 定义）；② `test_b265_reserve_grants_a_bounded_lease_and_a_placeholder_is_not_success` L460-482（PENDING→DELIVERING、`lease_owner`=attempt、`lease_epoch`=1、`attempt`=1、`lease_until`≈PG now+30s（27–33s 带）、**占位无回执** L482 `delivery_result IS NULL`）；③ `test_b265_repeated_reserve_is_idempotent_and_other_attempts_are_fenced` L485-506（同 attempt 重放 epoch/期限/计数逐字段不变；不同 attempt 对有效租约 ⇒ `DELIVERY_LEASE_LOST` 且行逐字段不变）；④ `test_b265_concurrent_reserves_grant_exactly_one_lease` L508-529（`len(grants) == 1` L522 + 恰一个 `DELIVERY_LEASE_LOST`；真实行 `lease_owner`=胜者）；⑤ `test_b265_reserve_waits_on_the_notification_row_lock` L531-547（旁路连接持行锁 0.4s 后 `task.done() is False` L540，放锁后才发号）；⑥ `test_b265_expired_lease_is_reclaimed_with_a_new_epoch_and_the_old_attempt_stops` L550-609（过期租约回收 epoch=2/attempt=2 L593；旧 attempt 的 renew/ack 与接管后迟到 ack 一律 `DELIVERY_LEASE_LOST` 且 `delivery_result` 仍为 NULL）；⑦ `test_b265_renew_requires_the_live_lease_and_only_moves_forward` L612-642（错 attempt/epoch ⇒ 停手；60s 续租前进、5s 请求不回退；过期后停手）；⑧ `test_b265_ack_delivered_freezes_the_first_result_and_replays_it` L645-712（只有 DELIVERED 写回执、清租约；重放 `reused=True`+首次结果 L672；重复 ack 换结果也不覆盖；无租约的别人 ack ⇒ 停手）；⑨ `test_b265_ack_not_sent_returns_to_pending_with_bounded_backoff` L715-752（NOT_SENT 回 PENDING、清租约、退避≈base 5s（4–8s 带）L739，第二次退避更大）；⑩ `test_b265_unknown_is_retained_for_verification_and_never_resent` L755-795（UNKNOWN 保留回执、不再授租约、`attempt`/`lease_owner` 不变 L783、renew 停手）；⑪ `test_b265_not_required_is_not_an_outbound_intent` L798-820（reserve ⇒ `COMMON_CONFLICT` L805 且行不变；ack ⇒ 停手）；⑫ `test_b265_receipt_replay_expires_beyond_the_retention_window` L823-846（真实行把 `acked_at` 移到 31 天前 ⇒ `DELIVERY_RECEIPT_EXPIRED` L843，仍 DELIVERED、不新发号）；⑬ `test_b265_delivery_identity_and_tenant_are_enforced` L849-896（未知键/错 id/错键/跨租户一律 `COMMON_NOT_FOUND`）；⑭ `test_b265_reserves_the_pending_intent_written_by_the_notification_path` L899-927（TASK-063 `write_run_notification(delivery_state=PENDING)` 写下的 `run:{run_id}:terminal` 意图被本协议按同一键领取）；⑮ `test_b265_api18_requires_service_identity_and_walks_the_protocol` L930-995（缺/错服务身份 403 L943 且行不变；真实封套 reserve/renew/ack/重放/404/422 全链路）；⑯ `test_b265_settings_source_is_read_per_call_and_failures_do_not_advance_state` L998-1063（设置快照按次在事务外取用；源不可读 ⇒ `PLATFORM_SETTINGS_UNAVAILABLE` L1050 且行逐字段不变；`LockProbingSettings` 用另一条连接对同一行 `FOR UPDATE NOWAIT` 探测成功 L1063 ⇒ **网络在事务外**） | 真实 `main.app` ASGI 装配（真实路由 + `require_internal_service` + 真实响应封套）与真实 `ChannelDeliveryService`/`ChannelDeliveryPort`；隔离 PostgreSQL（`async_tool_datastore`：空库 + `alembic upgrade head`，跑完 drop）上的真实 `runtime.channel_notification` 行、真实 `(tenant_id,delivery_key)` 唯一约束、真实 `SELECT … FOR UPDATE` 行锁与真实 PG 服务端时钟（租约/退避/回执时刻全部由它裁决）；真实并发（两独立事务同时 reserve 恰一个发号）与真实锁阻塞（旁路连接持锁期间 reserve 确实排队）；TASK-063 的真实写入路径作为上游；不 mock 存储或租约，无模型调用 | verified |
+
+实现要点：**发号**——`reserve` 按稳定 `delivery_key` 取行 `FOR UPDATE`，锁后取 `statement_timestamp()`，PENDING 或已过期 DELIVERING 才发新租约（`lease_epoch+1`/`attempt+1`/`lease_until=now+租期`）；同一 attempt 在租约有效期内重放原租约（不重复投递），别人持有的有效租约 ⇒ `DELIVERY_LEASE_LOST`。**确认**——`ack` 先按冻结回执的 (attempt, epoch) 判幂等重放（丢失响应后的重试不重写），否则要求**仍有效**的租约（非 DELIVERING/epoch 或 attempt 不符/已过期一律停手）；`DELIVERED` 才写送达，`NOT_SENT` 回 PENDING 并按 `task.delivery_backoff_base_sec·2^(attempt-1)`（上限 3600s）退避，`UNKNOWN` 保留核实且不再自动发号。**重放**——DELIVERED 行再次 reserve 回放冻结的首次结果（`lease_epoch=0`/`lease_until=null` 表示未授租约）；超过 `webchat.notification_retention_days` 显式 `DELIVERY_RECEIPT_EXPIRED`。**NOT_REQUIRED** 不是出站意图（`COMMON_CONFLICT`）。**边界**——所有操作按租户谓词取行、`delivery_key` 复核 id 身份（不符一律 `COMMON_NOT_FOUND`）；事务内零网络（设置快照由端口在事务外按次取一次，坏源显式失败不回落默认）。**端点**——`POST /internal/channel-notifications/reserve`（按稳定键，响应回 `notification_id`）与 `.../{id}/renew|ack`（设计 §3.4 的 `{id}` 路径 + 请求体键复核）。
+
+静态检查：`uv run ruff check`（本任务 4 个改动文件 + 测试）干净；`uv run mypy apps packages` → Success: no issues found in 433 source files；新增模块函数均 ≤50 行；`docs/configuration-inventory.csv` 保持 CRLF（1505 行、0 裸 LF），只追加本任务 11 个常量行并更新本任务改动文件的行号（`main.py` `SERVICE_NAME` 47→48）。
+- B-265: verified — automated command passed; run_id=17fd2c07a4fe4badb6387bd300dd0b32 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 
