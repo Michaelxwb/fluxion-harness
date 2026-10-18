@@ -53,6 +53,15 @@ from muad_contracts.webchat_events import (
 )
 from pydantic import ValidationError
 
+from ..metrics import (
+    SseCloseReason,
+    SseSubscriptionStatus,
+    record_sse_close,
+    record_sse_frame,
+    record_sse_rejection,
+    record_subscription,
+    set_ledger_gauge,
+)
 from .chat_principal import ChatIdentity
 from .sse import SseEvent
 from .webchat_service import owned_run_state, required_uuid
@@ -157,6 +166,15 @@ PublicProjection = PublicWebchatEvent | WebchatSnapshotGroup
 def public_event_id(run_id: UUID, seq: int) -> UUID:
     """公开事件身份：`(run_id, canonical seq)` 的确定性派生（重连/重放得到同一 id）。"""
     return uuid.uuid5(PUBLIC_IDENTITY_NAMESPACE, f"muad:webchat:public:{run_id}:{seq}")
+
+
+def _cursor_status(code: str) -> SseSubscriptionStatus:
+    """打开 Owner 流失败的订阅结局：只把游标分型当独立样本，其余一律 `failed`（不猜测）。"""
+    if code == ErrorCode.CURSOR_EXPIRED:
+        return "CURSOR_EXPIRED"
+    if code == ErrorCode.CURSOR_AHEAD:
+        return "CURSOR_AHEAD"
+    return "failed"
 
 
 def _aware_timestamp(raw: str | None) -> datetime:
@@ -460,6 +478,7 @@ class SseLedgerStats:
     total_buffer_closed: int = 0
     malformed_closed: int = 0
     oversized_closed: int = 0
+    owner_stream_failed_closed: int = 0
     rejected_subscribers: int = 0
 
 
@@ -481,6 +500,8 @@ class SseBufferLedger:
         """登记一个订阅者：到进程订阅上限即**显式拒绝**（不静默丢、不排队）。"""
         if self._active >= self._max_subscribers:
             self._stats.rejected_subscribers += 1
+            record_subscription("rejected")
+            record_sse_rejection()
             logger.warning(
                 "webchat_sse_subscriber_limit_rejected active=%s limit=%s",
                 self._active,
@@ -490,6 +511,7 @@ class SseBufferLedger:
                 f"active subscribers {self._active} reached limit {self._max_subscribers}"
             )
         self._active += 1
+        self._publish_watermarks()
         return SseBufferLease(self)
 
     def charge(self, size: int) -> bool:
@@ -500,13 +522,21 @@ class SseBufferLedger:
         self._stats.max_total_pending_bytes = max(
             self._stats.max_total_pending_bytes, self._pending
         )
+        self._publish_watermarks()
         return True
 
     def release(self, size: int) -> None:
         self._pending = max(0, self._pending - size)
+        self._publish_watermarks()
 
     def retire(self) -> None:
         self._active = max(0, self._active - 1)
+        self._publish_watermarks()
+
+    def _publish_watermarks(self) -> None:
+        """发布进程级水位：活跃订阅数与未下发字节（连接与缓冲都从真实账本读出）。"""
+        set_ledger_gauge("active_subscribers", self._active)
+        set_ledger_gauge("pending_bytes", self._pending)
 
     def note_pending(self, pending: int) -> None:
         self._stats.max_pending_bytes = max(self._stats.max_pending_bytes, pending)
@@ -515,24 +545,40 @@ class SseBufferLedger:
         self._stats.frames_sent += 1
         if frame.event_type == "checkpoint":
             self._stats.checkpoints += 1
+            record_sse_frame("checkpoint")
         elif frame.event_type == "message.snapshot":
             self._stats.snapshot_parts += 1
+            record_sse_frame("snapshot_part")
+        else:
+            record_sse_frame("event")
 
     def note_filtered(self) -> None:
         self._stats.filtered_events += 1
+        record_sse_frame("filtered")
 
     def note_heartbeat(self) -> None:
         self._stats.heartbeats += 1
+        record_sse_frame("heartbeat")
 
-    def note_closed(self, reason: str) -> None:
-        """显式关闭：每条路径都留痕（slow_subscriber/total_buffer/malformed/oversized）。"""
-        field = {
-            "slow_subscriber": "slow_subscriber_closed",
-            "total_buffer": "total_buffer_closed",
-            "malformed": "malformed_closed",
-            "oversized": "oversized_closed",
-        }[reason]
-        setattr(self._stats, field, getattr(self._stats, field) + 1)
+    def note_closed(self, reason: SseCloseReason) -> None:
+        """显式关闭：每条路径都留痕（词表外的原因显式失败，不静默吞）。"""
+        if reason == "slow_subscriber":
+            self._stats.slow_subscriber_closed += 1
+            record_sse_close("slow_subscriber")
+        elif reason == "total_buffer":
+            self._stats.total_buffer_closed += 1
+            record_sse_close("total_buffer")
+        elif reason == "malformed":
+            self._stats.malformed_closed += 1
+            record_sse_close("malformed")
+        elif reason == "oversized":
+            self._stats.oversized_closed += 1
+            record_sse_close("oversized")
+        elif reason == "owner_stream_failed":
+            self._stats.owner_stream_failed_closed += 1
+            record_sse_close("owner_stream_failed")
+        else:
+            raise ValueError(f"unknown public SSE close reason {reason!r}")
 
     def stats(self) -> SseLedgerStats:
         return replace(
@@ -621,12 +667,15 @@ class WebchatPublicStream:
             if pending is not None:
                 await self._emit(pending)
         except WebchatFrameError as exc:
-            reason = "malformed" if isinstance(exc, MalformedPublicEvent) else "oversized"
-            self._ledger.note_closed(reason)
-            logger.warning("webchat_sse_frame_rejected reason=%s detail=%s", reason, exc)
+            if isinstance(exc, MalformedPublicEvent):
+                self._ledger.note_closed("malformed")
+            else:
+                self._ledger.note_closed("oversized")
+            logger.warning("webchat_sse_frame_rejected reason=%s detail=%s", type(exc).__name__, exc)
         except asyncio.CancelledError:
             raise
         except Exception:  # noqa: BLE001 —— 上游流中断：显式关闭订阅，客户端按游标重连
+            self._ledger.note_closed("owner_stream_failed")
             logger.warning("webchat_sse_owner_stream_failed", exc_info=True)
         finally:
             self._queue.put_nowait(None)
@@ -730,10 +779,22 @@ class WebchatStreamService:
                     run_id, tenant_id=self._tenant_id, after_seq=max(0, after_seq)
                 )
             )
-        except BaseException:
+        except AppError as exc:
+            # Owner 的游标分型原样留痕（`CURSOR_EXPIRED`/`CURSOR_AHEAD` 不冒充普通失败）。
+            record_subscription(_cursor_status(exc.code))
             lease.close()
             await stack.aclose()
             raise
+        except BaseException:
+            record_subscription("failed")
+            lease.close()
+            await stack.aclose()
+            raise
+        # 断线重连（`after_seq`/`Last-Event-ID` > 0）与新开是不同样本：恢复能力可观测。
+        if after_seq > 0:
+            record_subscription("resumed")
+        else:
+            record_subscription("opened")
         return WebchatPublicStream(
             run_id=run_id,
             conversation_id=conversation_id,

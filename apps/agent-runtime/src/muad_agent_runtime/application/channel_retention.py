@@ -63,6 +63,12 @@ from ..infrastructure.models.runtime import (
     MemoryConsolidationJob,
     RunRecord,
 )
+from ..metrics import (
+    WEBCHAT_RETENTION_METRIC,
+    WEBCHAT_RETENTION_REMOVED_METRIC,
+    record_counter,
+    record_outcome,
+)
 from .context_events import CONTEXT_SUMMARY_EVENT
 
 logger = logging.getLogger(__name__)
@@ -531,5 +537,11 @@ async def run_retention_sweep(
         notifications_removed=notifications_removed,
         staging=staging,
     )
+    # 四类回收量各自记在 **amount**（条数进 label 会裂出无界时间序列）；节拍结局记 ok。
+    record_counter(WEBCHAT_RETENTION_REMOVED_METRIC, stream_replay_removed, {"kind": "stream_replay"})
+    record_counter(WEBCHAT_RETENTION_REMOVED_METRIC, history_removed, {"kind": "history"})
+    record_counter(WEBCHAT_RETENTION_REMOVED_METRIC, notifications_removed, {"kind": "notifications"})
+    record_counter(WEBCHAT_RETENTION_REMOVED_METRIC, staging.removed, {"kind": "staging_upload"})
+    record_outcome(WEBCHAT_RETENTION_METRIC, "ok")
     logger.info("webchat_retention_sweep", extra={"summary": report.summary()})
     return report

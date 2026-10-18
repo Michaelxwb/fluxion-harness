@@ -4,7 +4,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID
 
 import httpx
@@ -33,6 +33,9 @@ from .envelope import (
 # SSE 类型的规范归属是 `.sse`；此处显式再导出，既有消费者（inbound/测试）导入路径不变
 from .sse import SseEvent as SseEvent
 from .sse import iter_sse_events as iter_sse_events
+
+if TYPE_CHECKING:  # 目录模块 import 了本模块：只在类型检查期导入，运行时按需导入（见 _transport_failure）
+    from ..metrics import GatewayPool
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +76,19 @@ class RunAdmission:
     run_id: UUID
     conversation_id: UUID | None
     resumed: bool
+
+
+def _transport_failure(exc: httpx.HTTPError, pool: GatewayPool) -> AppError:
+    """传输失败的统一分类：等池超时单独计数（连接预算压力可见），错误语义不变。
+
+    `record_pool_wait` 在函数内导入：目录模块 import 了 `api.delivery` → `api.deps` →
+    本模块，模块级导入会形成环（真实运行路径与静态类型不受影响）。
+    """
+    if isinstance(exc, httpx.PoolTimeout):
+        from ..metrics import record_pool_wait
+
+        record_pool_wait(pool)
+    return AppError(ErrorCode.COMMON_INTERNAL_ERROR)
 
 
 class RuntimeClientPort(Protocol):
@@ -228,7 +244,7 @@ class RuntimeClient:
                 async for event in iter_sse_events(response.aiter_text()):
                     yield event
         except httpx.HTTPError as exc:
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+            raise _transport_failure(exc, "egress") from exc
 
     async def open_events(
         self,
@@ -255,7 +271,7 @@ class RuntimeClient:
                 async for event in iter_sse_events(response.aiter_text()):
                     yield event
         except httpx.HTTPError as exc:
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+            raise _transport_failure(exc, "egress") from exc
 
     @asynccontextmanager
     async def open_event_stream(
@@ -289,7 +305,7 @@ class RuntimeClient:
                     )
                 yield iter_sse_events(response.aiter_text())
         except httpx.HTTPError as exc:
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+            raise _transport_failure(exc, "egress") from exc
 
     async def create_conversation(
         self,
@@ -549,7 +565,7 @@ class RuntimeClient:
                 async for event in iter_sse_events(response.aiter_text()):
                     return _admission_of(event)
         except httpx.HTTPError as exc:
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+            raise _transport_failure(exc, "stream") from exc
         # 流已结束却没有受理帧：没有可证实的受理事实，显式失败（不编造 run_id）。
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
 
@@ -558,7 +574,7 @@ class RuntimeClient:
         try:
             response = await self._client.get(self._url(path), headers=headers)
         except httpx.HTTPError as exc:
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+            raise _transport_failure(exc, "egress") from exc
         body = decode_json(response)
         if response.status_code >= 400:
             raise AppError(error_code_from_payload(body))
@@ -585,7 +601,7 @@ class RuntimeClient:
                 self._url(path), params=params, headers=headers
             )
         except httpx.HTTPError as exc:
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+            raise _transport_failure(exc, "egress") from exc
         body = decode_json(response)
         if response.status_code >= 400:
             data = error_data_from_payload(body) if with_error_data else None
@@ -610,7 +626,7 @@ class RuntimeClient:
                 self._url(path), json=payload, params=params, headers=headers
             )
         except httpx.HTTPError as exc:
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+            raise _transport_failure(exc, "egress") from exc
         body = decode_json(response)
         if response.status_code >= 400:
             raise AppError(error_code_from_payload(body))
@@ -640,7 +656,7 @@ class RuntimeClient:
         try:
             response = await self._client.post(self._url(path), json=payload, headers=headers)
         except httpx.HTTPError as exc:
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+            raise _transport_failure(exc, "egress") from exc
         body = decode_json(response)
         if response.status_code >= 400:
             raise AppError(error_code_from_payload(body))

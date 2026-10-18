@@ -34,6 +34,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import RunRecord
 from ..infrastructure.run_admission_store import SCOPE_TENANT, SCOPE_USER, RunAdmissionStore
+from ..metrics import (
+    RUN_ADMISSION_FLOOR_METRIC,
+    RUN_ADMISSION_METRIC,
+    record_counter,
+    record_outcome,
+)
 from .ports import PlatformSettingsClient, PlatformSettingsSnapshot
 
 CAPACITY_SECTION = "capacity"
@@ -150,6 +156,7 @@ async def release_admission_in(session: AsyncSession, *, run: RunRecord) -> bool
             tenant_id=run.tenant_id, scope_type=scope_type, scope_key=scope_key
         )
         if held == 0:
+            record_counter(RUN_ADMISSION_FLOOR_METRIC)
             logger.warning(
                 "admission_counter_floor tenant=%s scope=%s scope_key=%s run=%s",
                 run.tenant_id,
@@ -207,6 +214,7 @@ class AdmissionPolicyService:
                     continue
                 await session.commit()
                 return policy
+        record_outcome(RUN_ADMISSION_METRIC, ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE)
         raise AppError(ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE)
 
     async def lock_and_apply_in(
@@ -262,11 +270,13 @@ class AdmissionPolicyService:
             tenant_id=tenant_id, scope_type=SCOPE_USER, scope_key=str(user_id)
         )
         if user_count >= policy.limits.max_open_runs_per_user:
+            record_outcome(RUN_ADMISSION_METRIC, ErrorCode.RUN_CAPACITY_EXCEEDED)
             raise AppError(ErrorCode.RUN_CAPACITY_EXCEEDED)
         tenant_count = await store.lock_counter(
             tenant_id=tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant_id
         )
         if tenant_count >= policy.limits.max_open_runs_per_tenant:
+            record_outcome(RUN_ADMISSION_METRIC, ErrorCode.RUN_CAPACITY_EXCEEDED)
             raise AppError(ErrorCode.RUN_CAPACITY_EXCEEDED)
 
     async def reserve_counts_in(
@@ -286,3 +296,4 @@ class AdmissionPolicyService:
         await store.increment_counter(
             tenant_id=tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant_id
         )
+        record_outcome(RUN_ADMISSION_METRIC, "ACCEPTED")

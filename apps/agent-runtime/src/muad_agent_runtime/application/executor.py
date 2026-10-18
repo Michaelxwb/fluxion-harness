@@ -90,6 +90,8 @@ from ..infrastructure.model_dispatch_store import MemberRef, ModelDispatchStore
 from ..metrics import (
     CONTEXT_SUMMARY_METRIC,
     MODEL_INVOCATIONS_METRIC,
+    REPLY_DELTA_METRIC,
+    RUN_STAGE_PROJECTION_METRIC,
     SKILL_CATALOG_TRUNCATED_METRIC,
     TOOL_CALLS_METRIC,
     record_counter,
@@ -361,6 +363,7 @@ class _ExecutorEventEmitter:
     async def on_delta(self, text: str) -> None:
         if not self._model_trace.accepts_output():
             # 旧尝试迟到输出：回合已结束/被取代 —— fence，不并入任何一代正文（design §3.6）。
+            record_outcome(REPLY_DELTA_METRIC, "fenced")
             logger.warning(
                 "reply_delta_fenced",
                 extra={
@@ -375,6 +378,7 @@ class _ExecutorEventEmitter:
         self.delta_emitted = True
         merged = self._window.add(text)
         if merged is not None:
+            record_outcome(REPLY_DELTA_METRIC, "emitted")
             await self.push(_delta_event(merged, reply_generation=self._generation))
 
     async def on_model_started(self) -> None:
@@ -1160,6 +1164,7 @@ class PooledModelProvider:
                 deadline_at=wait_until,
             )
         except (SQLAlchemyError, ValueError) as failure:
+            record_outcome(RUN_STAGE_PROJECTION_METRIC, "failed", {"stage": "WAITING_MODEL"})
             logger.warning(
                 "run_stage_projection_failed",
                 extra={
@@ -1168,6 +1173,8 @@ class PooledModelProvider:
                     "error": type(failure).__name__,
                 },
             )
+        else:
+            record_outcome(RUN_STAGE_PROJECTION_METRIC, "ok", {"stage": "WAITING_MODEL"})
         self._model_wait_stage, self._model_wait_reason = True, reason
 
     async def _project_model_running(self) -> None:
@@ -1187,6 +1194,7 @@ class PooledModelProvider:
                 lease_owner=self._scope.lease_owner,
             )
         except SQLAlchemyError as failure:
+            record_outcome(RUN_STAGE_PROJECTION_METRIC, "failed", {"stage": "RUNNING"})
             logger.warning(
                 "run_stage_projection_failed",
                 extra={
@@ -1195,6 +1203,8 @@ class PooledModelProvider:
                     "error": type(failure).__name__,
                 },
             )
+        else:
+            record_outcome(RUN_STAGE_PROJECTION_METRIC, "ok", {"stage": "RUNNING"})
 
     async def _resolve_selected(self, allocation: ModelAllocation) -> SelectedModelCredential:
         """按冻结引用解析所选成员的当前密钥，并校验身份与预占一致（design §3.3 调用链）。"""

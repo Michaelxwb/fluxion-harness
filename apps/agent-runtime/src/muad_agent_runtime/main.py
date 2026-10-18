@@ -53,7 +53,15 @@ from .infrastructure.db import dispose_engine, get_engine, get_session_factory
 from .infrastructure.gateway_delivery_client import GatewayDeliveryClient
 from .infrastructure.http_clients import RuntimeHttpPools, build_runtime_http_pools
 from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
-from .metrics import install_runtime_metrics
+from .metrics import (
+    EXECUTION_SLOT_RECLAIM_METRIC,
+    EXECUTION_SLOTS_METRIC,
+    RUNTIME_MAINTENANCE_METRIC,
+    install_runtime_metrics,
+    record_counter,
+    record_gauge,
+    record_outcome,
+)
 
 SERVICE_NAME = "muad-agent-runtime"
 
@@ -78,7 +86,10 @@ async def _reaper_loop(interval_sec: float) -> None:
         try:
             await reap_abandoned_runs(get_session_factory())
         except Exception:
+            record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "reaper"})
             logger.exception("run_reaper_failed")
+        else:
+            record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "reaper"})
 
 
 async def _deadline_loop(interval_sec: float) -> None:
@@ -86,12 +97,16 @@ async def _deadline_loop(interval_sec: float) -> None:
         try:
             await expire_runs(get_session_factory())
         except Exception:
+            record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "deadline"})
             logger.exception("run_deadline_sweep_failed")
         try:
             # 初始排队期限到期：与「领取」竞争同一状态 CAS，超时后不再调用模型（§3.2）。
             await expire_queued_runs(get_session_factory())
         except Exception:
+            record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "deadline"})
             logger.exception("run_queue_deadline_sweep_failed")
+        else:
+            record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "deadline"})
         await asyncio.sleep(interval_sec)
 
 
@@ -110,9 +125,12 @@ async def _execution_slot_loop(
                 get_session_factory(), supervisor, instance_id=instance_id
             )
         except Exception:
+            record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "execution_slot"})
             logger.exception("execution_slot_supervision_failed")
             continue
+        record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "execution_slot"})
         if reclaimed:
+            record_counter(EXECUTION_SLOT_RECLAIM_METRIC, reclaimed)
             logger.warning("execution_slots_reclaimed", extra={"reclaimed": reclaimed})
 
 
@@ -135,6 +153,7 @@ async def _retention_loop(
             snapshot = await settings_client.fetch_snapshot(tenant_id=tenant_id)
             policy = retention_policy_from_settings(snapshot.settings)
         except Exception:
+            record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "retention"})
             logger.exception("webchat_retention_settings_failed")
             continue
         try:
@@ -143,8 +162,10 @@ async def _retention_loop(
                     session, policy=policy, artifact_root=artifact_root, tenant_id=tenant_id
                 )
         except Exception:
+            record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "retention"})
             logger.exception("webchat_retention_sweep_failed")
             continue
+        record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "retention"})
         logger.info("webchat_retention_loop_tick", extra={"summary": report.summary()})
 
 
@@ -260,6 +281,7 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
     app.state.execution_supervisor = ExecutionSupervisor(
         max_concurrency=settings.runtime_execution_concurrency
     )
+    record_gauge(EXECUTION_SLOTS_METRIC, settings.runtime_execution_concurrency)
     logger.info(
         "execution_slots_configured", extra={"slots": settings.runtime_execution_concurrency}
     )

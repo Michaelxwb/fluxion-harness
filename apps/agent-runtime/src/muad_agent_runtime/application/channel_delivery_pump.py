@@ -57,6 +57,13 @@ from ..infrastructure.gateway_delivery_client import (
     DeliveryUnavailableError,
 )
 from ..infrastructure.models.runtime import CanonicalEvent, ChannelNotification, RunRecord
+from ..metrics import (
+    CHANNEL_DELIVERY_FAILURE_METRIC,
+    CHANNEL_DELIVERY_METRIC,
+    RUNTIME_MAINTENANCE_METRIC,
+    record_outcome,
+    record_reason,
+)
 from .channel_delivery import DeliveryConfirmation, DeliveryLease
 from .channel_notifications import DELIVERY_PENDING
 from .run_service import delivery_route_of
@@ -315,7 +322,11 @@ class ChannelDeliveryPump:
             try:
                 await self.run_once()
             except Exception:
+                record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "delivery"})
+                record_reason(CHANNEL_DELIVERY_FAILURE_METRIC, "pump_failed")
                 logger.exception("channel_delivery_pump_failed")
+            else:
+                record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "delivery"})
             await asyncio.sleep(self._policy.poll_sec)
 
     async def drain(self) -> None:
@@ -339,6 +350,7 @@ class ChannelDeliveryPump:
             return
         error = task.exception()
         if error is not None:
+            record_reason(CHANNEL_DELIVERY_FAILURE_METRIC, "crashed")
             logger.error(
                 "channel_delivery_crashed",
                 extra={"notification_id": str(key), "error_type": type(error).__name__},
@@ -358,11 +370,13 @@ class ChannelDeliveryPump:
                     ErrorCode.COMMON_CONFLICT,
                 ):
                     return
+                record_reason(CHANNEL_DELIVERY_FAILURE_METRIC, "attempt_failed")
                 logger.warning(
                     "channel_delivery_attempt_failed",
                     extra={"notification_id": str(intent.notification_id), "code": str(exc.code)},
                 )
             except Exception:
+                record_reason(CHANNEL_DELIVERY_FAILURE_METRIC, "attempt_failed")
                 logger.exception(
                     "channel_delivery_attempt_failed",
                     extra={"notification_id": str(intent.notification_id)},
@@ -381,7 +395,9 @@ class ChannelDeliveryPump:
             lease_sec=self._policy.lease_sec,
         )
         if lease.lease_until is None:
-            return  # 已送达重放 / UNKNOWN 保留：本次没有授出租约，不发送、不 ack
+            # 已送达重放 / UNKNOWN 保留：本次没有授出租约，不发送、不 ack（也不是"已送达"）。
+            record_outcome(CHANNEL_DELIVERY_METRIC, "SKIPPED")
+            return
         send = asyncio.create_task(self._send_within_budget(intent))
         keep = asyncio.create_task(self._keep_lease(intent, attempt_id, lease.lease_epoch))
         try:
@@ -402,6 +418,8 @@ class ChannelDeliveryPump:
             outcome=outcome.outcome,
             result=outcome.result,
         )
+        # 诚实结局：DELIVERED/NOT_SENT/UNKNOWN 按**实际发送结果**计数，不互相冒充。
+        record_outcome(CHANNEL_DELIVERY_METRIC, _delivery_status(outcome.outcome))
 
     async def _send_within_budget(self, intent: DeliveryIntent) -> DeliverySendOutcome:
         """发送预算（`channel_delivery_timeout_sec`）：超时只说明没拿到结论，不说明没发出去。"""
@@ -464,6 +482,20 @@ class GatewayDeliverySender:
             outcome="DELIVERED",
             result={"delivered": True, "deduplicated": response.deduplicated},
         )
+
+
+def _delivery_status(outcome: str) -> str:
+    """交付结局 → 目录 label 的**封闭词表**：只有 DELIVERED/NOT_SENT/UNKNOWN 三种诚实结局。
+
+    词表外的取值说明协议坏了：显式失败，不把未知结局当标签发出去（更不冒充"已送达"）。
+    """
+    if outcome == "DELIVERED":
+        return "DELIVERED"
+    if outcome == "NOT_SENT":
+        return "NOT_SENT"
+    if outcome == "UNKNOWN":
+        return "UNKNOWN"
+    raise ValueError(f"unexpected delivery outcome {outcome!r}")
 
 
 async def _cancel(task: asyncio.Task[Any]) -> None:
