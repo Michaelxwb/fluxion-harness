@@ -388,7 +388,7 @@
 | B-246 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-046 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"] | . | 300 |  |
 | B-247 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-047 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"] | . | 300 |  |
 | B-248 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-048 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"] | . | 300 |  |
-| B-249 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-049 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_conversation_scope.py"] | . | 300 |  |
+| B-249 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-049 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_conversation_scope.py"] | . | 300 |  |
 | B-250 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-050 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_history_queries.py"] | . | 300 |  |
 | B-251 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-051 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_public_projection.py"] | . | 300 |  |
 | B-252 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-052 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_resource_api.py"] | . | 300 |  |
@@ -3219,7 +3219,7 @@ handler槽仅覆盖受理，长流不占handler；完整分支及可观测结果
 
 ## TASK-049: 显式会话创建、入口核属与标题
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-013, TASK-030, TASK-035, TASK-046
 - **Source**: agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约
@@ -3234,27 +3234,40 @@ handler槽仅覆盖受理，长流不占handler；完整分支及可观测结果
 
 ### Checklist
 
-- [ ] [B-249][integration] 先在`tests/agent_runtime/test_capacity_webchat_conversation_scope.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：复用原Conversation/Canonical/DB上下文。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-249] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-249] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_conversation_scope.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-memory#RULE-memory-004`（stage: review；timeout=600秒）：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_confirmation.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-249][integration] 先在`tests/agent_runtime/test_capacity_webchat_conversation_scope.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：复用原Conversation/Canonical/DB上下文。RED：`uv run pytest -q tests/agent_runtime/test_capacity_webchat_conversation_scope.py` exit=2，1 error during collection（`ModuleNotFoundError: No module named 'muad_agent_runtime.application.channel_conversations'`——入口会话模块与入口核属/指针/标题语义均不存在）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：`application/channel_conversations.py`（① `ConversationScope` + `scope_of`：入口键 `channel.bot_id` 是 UUID 形状时即入口账号 UUID，非 UUID 形状**不编造**（`entry_id_of` 返回 None）；② `load_explicit_conversation`/`assert_entry_attribution`：tenant/user/agent 必配 + 入口**双向严格**核属（可归属入口必须命中同一 `channel_account_id`；不可归属入口不得借用已归属会话），违者 `COMMON_NOT_FOUND`；③ 入口指针：`lock_pointer`（五元组 `SELECT ... FOR UPDATE`）、`register_pointer`（已有行原地切换；缺失时 `ON CONFLICT DO NOTHING` 插入、并发落败者回读并锁）、`resolve_pointer_conversation`（指针缺失/指向已软删会话时按同五元组取最近会话改指，无候选才与消息同事务新建；不可归属入口退回 (tenant,user,agent) 口径且只认未归属会话）；④ 标题：`derive_title`（首条文本空白折叠后截取 80 字符；纯附件按 `locale.default_locale` 用本地化占位；空消息无标题）+ `display_title`（空会话显示「新会话」），**不调用模型**；⑤ `conversation_recency_key`（用户最近发言口径，原 `run_service._conversation_recency_key` 原样迁入唯一口径））。`application/run_service.py`（`_resolve_conversation` 改为「显式核属 / 指针」两条路径；`_create_run` 在可见用户消息事务内 `record_user_message`（`last_message_at` + 首条标题，locale 取同一份设置快照）；`_persist_human_resume` 同事务刷新 `last_message_at`；`_finalize_run` 仅在 COMPLETED（写可见 assistant 正文）时刷新；`create_conversation` 增可选 `entry_id`/`external_thread_id`（幂等指纹含入口/线程、重放先核入口归属、可归属入口建会话后原地切换指针）；新建路径不触碰任何既有会话/ Run）。日志/响应不含凭据或消息原文；核属失败只回稳定错误码。
+- [x] [B-249] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-249] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_conversation_scope.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，7 passed（9.44s）。
+- [x] verifier `harness-memory#RULE-memory-004`（stage: review；timeout=600秒）：`["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_confirmation.py"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。实际执行：exit=0，59 passed（148.05s）——本任务不改记忆写入/删除/退休路径：会话核属只读写 `runtime.conversation`/`channel_conversation`，`memory_scope` 仍以 (tenant,user) 为唯一身份（本任务用例 ⑥ 用真实 `MemoryService.lock_scope` 证明跨入口/会话命中同一 scope 行，删除 tombstone/forget_epoch/revision 语义未触碰）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-249 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 复用原Conversation/Canonical/DB上下文；tenant/user/agent/entry同时核属，新建不取消旧Run，首条文本80字符标题无需模型；长期记忆继续tenant/user共享 | tests/agent_runtime/test_capacity_webchat_conversation_scope.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_conversation_scope.py"] | planned |
-| harness-memory#RULE-memory-004 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled 或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision 证明，不以 job 开始时间冒充新依据。自动批量提交核对原 scope revision，过期输入为 STALE；同任务 lineage 续接原稳定 key，完成后清除未决状态。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_confirmation.py"] | planned |
+| B-249 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | 复用原Conversation/Canonical/DB上下文；tenant/user/agent/entry同时核属，新建不取消旧Run，首条文本80字符标题无需模型；长期记忆继续tenant/user共享 | tests/agent_runtime/test_capacity_webchat_conversation_scope.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_conversation_scope.py"] | verified |
+| harness-memory#RULE-memory-004 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled 或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision 证明，不以 job 开始时间冒充新依据。自动批量提交核对原 scope revision，过期输入为 STALE；同任务 lineage 续接原稳定 key，完成后清除未决状态。 | 沿用原Spec verifier，不重写成更弱测试 | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_redesign_job_effects.py","tests/agent_runtime/test_memory_redesign_confirmation.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-249 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_conversation_scope.py` exit=2，1 error during collection（`ModuleNotFoundError: No module named 'muad_agent_runtime.application.channel_conversations'`；入口核属/指针/标题语义在实现前均不存在） | 同命令 exit=0，7 passed（9.44s） | ① `test_b249_explicit_conversation_is_scoped_to_tenant_user_agent_entry` L403-494：显式续聊落原会话（L425 `start.conversation_id == 会话`、L426 无新会话行、L427 同一条 canonical `USER_MESSAGE` seq `[1,2]`、L430-432 入口归属/`last_run_id`/`last_message_at`）；拒绝矩阵（L438-464）借其他入口/不可归属入口借用已归属会话/越权用户/越权 Agent 均 `COMMON_NOT_FOUND`，且 L465-473 无新会话、无新 Run；L475-494 跨租户会话不可见。② `test_b249_entry_pointer_switches_current_conversation_in_lock` L502-641：首次无显式会话新建并登记五元组指针（L527-531）；**指针压过「用户最近发言」旧口径**（L544-547：同用户/Agent 更新的会话不得改变解析）；不同线程/入口互不串台（L559、L569-578）；`/new` 语义指针**原地切换**（L596-598 同一指针行 id、L601-602 新会话 `title=None/last_seq=0/last_run_id=None/last_message_at` 非空、L611 后续消息落新会话）；指针指向已软删会话时原地改指可用会话（L636-640）。③ `test_b249_new_conversation_never_cancels_the_old_run` L648-698：新建后旧 Run 仍 `RUNNING` 且 `cancel_requested is False`（L677-678）、旧会话 `last_run_id` 不变（L681）、新会话无 Run（L683）、后续消息落新会话且旧 Run 不受影响（L693-696）。④ `test_b249_first_message_title_is_normalized_and_needs_no_model` L707-773：长文本归一化截取 80 字符（L726-727）、`resolve` 调用恰 1 次且 `model_calls == []`（L728-729，标题不调模型）、第二条消息不改标题（L741）、纯附件占位 `[附件]`（L759）、空消息无标题且读取层显示「新会话」（L771-773）。⑤ `test_b249_attachment_placeholder_follows_tenant_locale` L776-800：en-US 设置下占位 `[Attachment]`。⑥ `test_b249_memory_scope_stays_shared_across_entries_and_conversations` L808-875：两个入口/会话驱动真实受理后，真实 `MemoryService.lock_scope` 命中同一 (tenant,user) scope 行（L868）、另一用户不同行（L869）、`MemoryScope` 列集合无会话/入口维度（L870-874）。⑦ `test_b249_entry_key_parsing_never_fabricates_an_entry_identity` L881-885：UUID 形状解析、非 UUID/空串返回 None（不编造入口身份）。 | 真实 `RunService` 受理路径（会话解析/核属、准入、Run/快照/提交/事件、指针锁内切换全部走真实代码；模型调用是进程内替身，标题「不调模型」由 `FakeResolveClient.calls/model_calls` 真实记录直接证明）；隔离租户的真实 PostgreSQL：`runtime.conversation`/`channel_conversation`/`canonical_event`/`run_record`/`memory_scope`（只增删本租户的行，`_purge_tenant` 含指针/制品先行顺序）；设置源是真实 `PlatformSettingsClient` 形状的进程内实现（capacity 组显式、locale 组可切换）；未 mock 存储或租约 | verified |
+
+实现要点：**入口身份**——`RunRequest.channel.bot_id` 是入口键，UUID 形状即入口账号逻辑 UUID（`conversation.channel_account_id`/`channel_conversation.channel_account_id`），非 UUID 形状**不编造**（企微字符串键的归属缺口见遗留①）；**显式会话核属**——tenant/user/agent 必配 + 入口双向严格（可归属入口必须命中同一入口账号；不可归属入口不得借用已归属会话），一律 `COMMON_NOT_FOUND` 不泄露存在性；**入口指针**——无显式会话的入口按 (tenant,user,agent,入口,外线线程) 五元组 `SELECT ... FOR UPDATE` 锁内切换：已有指针直接命中、缺失/指向已软删会话时按同五元组取最近会话（用户最近发言口径）改指、无候选才与消息同事务新建；**标题**——首条真实用户文本空白折叠后截取 80 字符，纯附件按租户 `locale.default_locale` 用本地化占位，空会话由读取层显示「新会话」，不为标题调用模型；**会话活动**——`last_message_at` 在可见用户消息（创建/续聊）与 COMPLETED 终态正文事务内刷新，失败/取消/续租/订阅不刷新；**新建不取消旧 Run**——`create_conversation` 只建新会话并把该入口线程指针原地切到新会话，不触碰任何既有会话/Run。
+
+回归：`uv run pytest -q tests/agent_runtime` exit=0，**908 passed**（765.27s；含本任务 7 条与既有 TASK-003 `_resolve_conversation` 口径用例、TASK-031 准入/释放、TASK-035 时钟租约等）；`uv run pytest -q tests/contracts` exit=0，1281 passed（2.97s）；`uv run pytest -q tests/architecture` exit=0，33 passed（0.97s，含 `test_channel_neutrality.py`：新模块零渠道专有字样）；`uv run pytest -q tests/test_configuration_inventory.py` exit=0，4 passed（0.73s）。
+
+静态检查：`uv run ruff check`（本任务 3 个改动文件）干净；`uv run mypy apps packages` → Success: no issues found in 419 source files；新增 `channel_conversations.py` 全部函数 ≤50 行（`run_service` 既有长函数维持原状，未新增超限函数）；`docs/configuration-inventory.csv` 保持 CRLF（1444 行 CRLF、0 裸 LF），只更新本任务相关行：`channel_conversations.py` 新增 7 行、`run_service.py` 行号整体上移（+10/±），`USER_MESSAGE_EVENT`/`CONVERSATION_ACTIVE` 随唯一消费方迁入新模块（原行删除、新行登记）。
+
+遗留（deferred，非本任务可闭合）：① **企微等非 UUID 形状入口键的指针缺口**——`channel.bot_id` 是字符串（如 `aibln...`），Runtime 无法据它得到入口账号 UUID，故指针仅对 UUID 形状入口生效；非 UUID 入口退回 (tenant,user,agent) 口径且**只认未归属会话**（防止借用已归属会话，跨入口混写风险已显式拒绝但不能做入口级指针）。收口路径：由装配/契约侧把入口账号 UUID 带进 RunRequest（例如适配器/装配根按 `BotSnapshotItem.bot_account_id` 映射，或扩展 `ChannelContext`），届时企微也走同一指针；在此之前保持诚实退化、不编造入口身份。② `RunService.create_conversation` 的入口参数（`entry_id`/`external_thread_id`）与幂等指纹已就绪，但 Runtime HTTP DTO（`POST /v1/conversations`）尚未暴露这两个字段——由 TASK-052 的 Gateway API-08 接线时补齐（含 201 响应 `entry_id` 投影）。③ `last_message_at` 的口径（用户消息 + COMPLETED 正文）由本任务定义；TASK-050 的列表排序若需要其它事件刷新，请在其口径内显式决定，不静默扩大刷新面。
+- B-249: verified — automated command passed; run_id=1b853ecab9264b4190285d109ca96ad5 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 

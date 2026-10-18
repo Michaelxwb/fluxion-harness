@@ -54,7 +54,6 @@ from muad_contracts.platform_settings import (
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from sqlalchemy.sql.elements import ColumnElement
 
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.db import get_session_factory
@@ -94,6 +93,17 @@ from .attachments.inbound import (
     attachment_payload,
     build_current_content,
     persist_inbound_attachments,
+)
+from .channel_conversations import (
+    ConversationScope,
+    assert_entry_attribution,
+    create_entry_conversation,
+    load_explicit_conversation,
+    record_user_message,
+    register_pointer,
+    resolve_pointer_conversation,
+    scope_of,
+    title_locale_of,
 )
 from .context_builder import BudgetPolicy, DbBackedContextBuilder
 from .context_settings import (
@@ -389,7 +399,6 @@ DEFAULT_POLICY: dict[str, Any] = snapshot_policy()
 RUN_ABANDONED = "RUN_ABANDONED"
 #: 初始排队期限到期（与领取竞争同一状态 CAS）：超时后不得再调用模型。
 RUN_QUEUE_TIMEOUT = "RUN_QUEUE_TIMEOUT"
-USER_MESSAGE_EVENT = "USER_MESSAGE"
 ASSISTANT_MESSAGE_EVENT = "ASSISTANT_MESSAGE"
 CANCEL_EVENT = "CANCEL"
 RUN_CREATED_EVENT = "run.created"
@@ -400,7 +409,6 @@ INTERRUPT_RESOLVED = "RESOLVED"
 INTERRUPT_CANCELLED = "CANCELLED"
 TERMINAL_STREAM_TYPES = (RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)
 REPLAY_POLL_SEC = 0.5
-CONVERSATION_ACTIVE = "ACTIVE"
 
 STREAM_BUSINESS_TYPES: dict[str, str] = {
     RUN_CREATED_EVENT: "RUN_CREATED",
@@ -762,27 +770,6 @@ def _credential_canaries(
     return tuple(value for value in values if value)
 
 
-def _conversation_recency_key() -> ColumnElement[datetime]:
-    """「当前会话」排序键：**用户最近发言**时间；从未发言回落 `create_time`。
-
-    **不用 `conversation.update_time`**：`EventWriter._next_seq` 对任何事件（含后台收尾写向
-    旧会话的 `MEMORY_CONSOLIDATED`）都会 bump 它，按它取最新会把 `/new` 刚建出的新会话顶掉，
-    下一条入站（WS 不带会话指针）落回旧会话。用户发言以 `USER_MESSAGE` 事件为准；新会话在
-    用户下次发言前以 `create_time` 保持当前。
-    """
-    last_user_message_at = (
-        sa.select(sa.func.max(CanonicalEvent.create_time))
-        .where(
-            CanonicalEvent.conversation_id == Conversation.id,
-            CanonicalEvent.event_type == USER_MESSAGE_EVENT,
-            CanonicalEvent.is_deleted.is_(False),
-        )
-        .correlate(Conversation)
-        .scalar_subquery()
-    )
-    return sa.func.coalesce(last_user_message_at, Conversation.create_time)
-
-
 class RunService:
     def __init__(
         self,
@@ -1088,46 +1075,40 @@ class RunService:
         platform_user_id: uuid.UUID,
         tenant_id: str,
         idempotency_key: str | None = None,
+        *,
+        entry_id: uuid.UUID | None = None,
+        external_thread_id: str = "",
     ) -> Conversation:
-        """新建会话；带 Idempotency-Key 时按设计 §3.4.2 持久重放，不创建第二会话。"""
+        """新建会话；带 Idempotency-Key 时按设计 §3.4.2 持久重放，不创建第二会话。
+
+        入口可归属时（`entry_id` 非空）会话同时归因入口与外线线程，并把该入口线程的
+        **当前指针原地切换**到新会话（design §3.3）；新建**不取消**任何既有会话的 Run。
+        """
+        scope = ConversationScope(
+            tenant_id=tenant_id,
+            user_id=platform_user_id,
+            agent_id=agent_id,
+            entry_id=entry_id,
+            external_thread_id=external_thread_id,
+        )
         fingerprint = submission_fingerprint(
             endpoint=ENDPOINT_CREATE_CONVERSATION,
-            # `tenant_id` 与 `endpoint` 是 RULE-api-002 要求的两个判别键
+            # `tenant_id` 与 `endpoint` 是 RULE-api-002 要求的两个判别键；入口/线程同属幂等身份
             key_payload={
                 "tenant_id": tenant_id,
                 "agent_id": str(agent_id),
                 "platform_user_id": str(platform_user_id),
+                "entry_id": str(entry_id) if entry_id is not None else None,
+                "external_thread_id": external_thread_id,
             },
         )
         if idempotency_key:
-            replay = await self._submissions.find_replay_in(
-                self._session,
-                tenant_id=tenant_id,
-                idempotency_key=idempotency_key,
-                endpoint=ENDPOINT_CREATE_CONVERSATION,
-                fingerprint=fingerprint,
+            replay = await self._find_conversation_replay(
+                tenant_id, idempotency_key, fingerprint, scope
             )
-            if replay is not None and replay.conversation_id is not None:
-                return await self._load_conversation(replay.conversation_id, tenant_id)
-        await self._resolve_client.resolve(
-            ResolveDefinitionRequest(
-                agent_id=agent_id,
-                actor_user_id=platform_user_id,
-                # 建会话**不经渠道**（调用方只有 agent/用户，请求体里也没有通道）⇒ 显式省略，
-                # **不编一个通道名**：编造的值一旦被消费方读走就是错的（B-09）。
-            ),
-            tenant_id=tenant_id,
-            trace_id=current_trace_id(),
-        )
-        conversation = Conversation(
-            tenant_id=tenant_id,
-            user_id=platform_user_id,
-            agent_id=agent_id,
-            status=CONVERSATION_ACTIVE,
-            last_seq=0,
-        )
-        self._session.add(conversation)
-        await self._session.flush()
+            if replay is not None:
+                return replay
+        conversation = await self._open_entry_conversation(scope)
         if not idempotency_key:
             await self._session.commit()
             return conversation
@@ -1146,16 +1127,52 @@ class RunService:
         except IntegrityError as exc:
             # 并发同 key 幂等记录落败：读取首次提交结果（与 create-run 同口径）
             await self._session.rollback()
-            replay = await self._submissions.find_replay_in(
-                self._session,
-                tenant_id=tenant_id,
-                idempotency_key=idempotency_key,
-                endpoint=ENDPOINT_CREATE_CONVERSATION,
-                fingerprint=fingerprint,
+            replay = await self._find_conversation_replay(
+                tenant_id, idempotency_key, fingerprint, scope
             )
-            if replay is not None and replay.conversation_id is not None:
-                return await self._load_conversation(replay.conversation_id, tenant_id)
+            if replay is not None:
+                return replay
             raise AppError(ErrorCode.COMMON_CONFLICT) from exc
+        return conversation
+
+    async def _open_entry_conversation(self, scope: ConversationScope) -> Conversation:
+        """解析定义 → 建入口会话 → 可归属入口**原地切换**该入口线程的当前指针（design §3.3）。"""
+        await self._resolve_client.resolve(
+            ResolveDefinitionRequest(
+                agent_id=scope.agent_id,
+                actor_user_id=scope.user_id,
+                # 建会话**不经渠道**（调用方只有 agent/用户，请求体里也没有通道）⇒ 显式省略，
+                # **不编一个通道名**：编造的值一旦被消费方读走就是错的（B-09）。
+            ),
+            tenant_id=scope.tenant_id,
+            trace_id=current_trace_id(),
+        )
+        conversation = await create_entry_conversation(
+            self._session, scope, last_message_at=await database_now(self._session)
+        )
+        if scope.entry_id is not None:
+            await register_pointer(self._session, scope, conversation.id)
+        return conversation
+
+    async def _find_conversation_replay(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        fingerprint: str,
+        scope: ConversationScope,
+    ) -> Conversation | None:
+        """幂等重放：先核当前身份的入口归属，再返回既有会话（不借缓存读回别的入口结果）。"""
+        replay = await self._submissions.find_replay_in(
+            self._session,
+            tenant_id=tenant_id,
+            idempotency_key=idempotency_key,
+            endpoint=ENDPOINT_CREATE_CONVERSATION,
+            fingerprint=fingerprint,
+        )
+        if replay is None or replay.conversation_id is None:
+            return None
+        conversation = await self._load_conversation(replay.conversation_id, tenant_id)
+        assert_entry_attribution(conversation, scope)
         return conversation
 
     async def _load_conversation(self, conversation_id: uuid.UUID, tenant_id: str) -> Conversation:
@@ -1207,42 +1224,15 @@ class RunService:
         return snapshot
 
     async def _resolve_conversation(self, request: RunRequest, tenant_id: str) -> Conversation:
+        """会话解析（design §3.4 API-06 / ADR-07）：
+
+        - 显式 `conversation_id`：核 tenant/user/agent/**entry** 同时归属，缺失即显式拒绝；
+        - 无显式会话的入口：按 (tenant,user,agent,入口,外线线程) 锁内切换当前指针。
+        """
+        scope = scope_of(request, tenant_id)
         if request.conversation_id is not None:
-            existing = await self._session.scalar(
-                sa.select(Conversation).where(
-                    Conversation.id == request.conversation_id,
-                    Conversation.tenant_id == tenant_id,
-                    Conversation.user_id == request.platform_user_id,
-                    Conversation.agent_id == request.agent_id,
-                    Conversation.is_deleted.is_(False),
-                )
-            )
-            if existing is None:
-                raise AppError(ErrorCode.COMMON_NOT_FOUND)
-            return existing
-        latest = await self._session.scalar(
-            sa.select(Conversation)
-            .where(
-                Conversation.tenant_id == tenant_id,
-                Conversation.user_id == request.platform_user_id,
-                Conversation.agent_id == request.agent_id,
-                Conversation.is_deleted.is_(False),
-            )
-            .order_by(_conversation_recency_key().desc(), Conversation.create_time.desc())
-            .limit(1)
-        )
-        if latest is not None:
-            return latest
-        created = Conversation(
-            tenant_id=tenant_id,
-            user_id=request.platform_user_id,
-            agent_id=request.agent_id,
-            status=CONVERSATION_ACTIVE,
-            last_seq=0,
-        )
-        self._session.add(created)
-        await self._session.flush()
-        return created
+            return await load_explicit_conversation(self._session, scope, request.conversation_id)
+        return await resolve_pointer_conversation(self._session, scope)
 
     async def _active_run(self, conversation_id: uuid.UUID) -> RunRecord | None:
         run: RunRecord | None = await self._session.scalar(
@@ -1388,6 +1378,16 @@ class RunService:
             await self._append_run_stage(run)
             conversation.last_run_id = run.id
             conversation.update_time = now
+            # 真实可见用户消息事务内更新会话活动与首条标题（design §3.3）：标题不调模型，
+            # locale 与执行默认同源（同一份设置快照；坏文档在 `execution_defaults_from_platform`
+            # 处已显式失败）。
+            record_user_message(
+                conversation,
+                text=request.message.text,
+                has_attachments=bool(request.message.attachments),
+                locale=title_locale_of(snapshot_settings.settings),
+                at=now,
+            )
             # 计数自增与 Run 行同事务（B-230）：达阈值即拒，整个事务回滚——不留半建 Run，
             # 也不留下只增不减的占位。
             await self._admission.reserve_counts_in(
@@ -1528,6 +1528,13 @@ class RunService:
         else:
             await resolve_generic_interrupts(self._session, interrupts, input_text)
         await transition_human_resume(self._session, run)
+        # 续聊也是真实可见用户消息：会话活动时间在同一事务内更新（design §3.3）；
+        # 首条标题不在这里改写（首条消息在创建路径已定稿，空标题由读取层显示占位）。
+        await self._session.execute(
+            sa.update(Conversation)
+            .where(Conversation.id == run.conversation_id)
+            .values(last_message_at=sa.func.now())
+        )
         return submission, tuple(persisted), False
 
     async def _launch_execution(self, run: RunRecord, stream: AsyncIterator[ExecutorEvent]) -> None:
@@ -2188,6 +2195,13 @@ class RunService:
                 terminal_result_json={"status": str(target)},
             )
             if target == RunStatus.COMPLETED:
+                # 终态 assistant 正文是真实可见消息：会话活动时间与它同事务更新（design §3.3）；
+                # 取消/失败不写可见 assistant 正文，不刷新（heartbeat/订阅同样不刷新）。
+                await session.execute(
+                    sa.update(Conversation)
+                    .where(Conversation.id == row.conversation_id)
+                    .values(last_message_at=sa.func.now())
+                )
                 from .memory_job_enqueue import enqueue_completed
 
                 await enqueue_completed(session, row, through_seq=int(seq))
