@@ -8,8 +8,8 @@ from muad_contracts import RunStatus
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import Conversation, RunInterrupt, RunRecord
-from .memory_proposals import _database_now
 
 
 def ensure_human_resume(run: RunRecord, now: datetime) -> None:
@@ -51,7 +51,7 @@ async def lock_human_resume(session: AsyncSession, run: RunRecord) -> list[RunIn
     )
     if locked is None:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
-    ensure_human_resume(locked, await _database_now(session))
+    ensure_human_resume(locked, await database_now(session))
     return list(
         await session.scalars(
             select(RunInterrupt)
@@ -68,7 +68,7 @@ async def lock_human_resume(session: AsyncSession, run: RunRecord) -> list[RunIn
 
 
 async def transition_human_resume(session: AsyncSession, run: RunRecord) -> None:
-    now = await _database_now(session)
+    now = await database_now(session)
     ensure_human_resume(run, now)
     changed = await session.scalar(
         update(RunRecord)
@@ -88,7 +88,7 @@ async def transition_human_resume(session: AsyncSession, run: RunRecord) -> None
 
 
 async def resolve_generic_interrupts(session: AsyncSession, rows: list[RunInterrupt], text: str) -> None:
-    now = await _database_now(session)
+    now = await database_now(session)
     for row in rows:
         if row.status != "WAITING":
             continue

@@ -8,11 +8,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactory
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.async_tools import RunContinuation
 from ..infrastructure.models.runtime import Conversation, RunInterrupt, RunRecord
 from .memory_commands import MemoryWriteContext
 from .memory_observability import after_commit, observe
-from .memory_proposals import _database_now
 from .memory_service import MemoryService
 from .run_events import EventWriter
 
@@ -66,7 +66,7 @@ async def _expire(
             tenant_id=tenant, user_id=run.user_id, actor_type="SYSTEM", actor_id="memory-confirmation-expiry"
         ),
     )
-    now = await _database_now(session)
+    now = await database_now(session)
     if interrupt.expires_at is None or interrupt.expires_at > now:
         return False
     text = "记忆提议已过期，未保存；可以继续对话或重新提出记忆请求。"

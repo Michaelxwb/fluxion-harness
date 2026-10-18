@@ -43,6 +43,7 @@ from ..application.task_service import (
     validate_execution_snapshot,
 )
 from ..application.terminal_tasks import TerminalChange, write_terminal
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution, TaskSchedule
 from ..metrics import (
     SCHEDULED_FIRE_METRIC,
@@ -86,13 +87,14 @@ class DeadlineSweeper:
         self._settings = settings or SharedSettings()
 
     async def sweep(self, *, now: datetime | None = None) -> int:
-        moment = now or datetime.now(UTC)
-        conditions = (
-            TaskExecution.status.in_(NON_TERMINAL_TASK_STATUSES),
-            TaskExecution.deadline_at < moment,
-            TaskExecution.is_deleted.is_(False),
-        )
+        """按绝对期限收尾过期 Task：候选与 CAS 都用 PG 时钟（`now` 仅测试注入）。"""
         async with self._session_factory() as session:
+            moment = now if now is not None else await database_now(session)
+            conditions = (
+                TaskExecution.status.in_(NON_TERMINAL_TASK_STATUSES),
+                TaskExecution.deadline_at < moment,
+                TaskExecution.is_deleted.is_(False),
+            )
             tasks = list(
                 await session.scalars(
                     select(TaskExecution)
@@ -447,9 +449,18 @@ class SchedulerLoop:
                 logger.exception("deadline_sweep_tick_failed")
             await asyncio.sleep(self._settings.scheduler_poll_interval_sec)
 
+    async def _pg_clock(self) -> datetime:
+        """PG 服务端时钟：Schedule 触发、misfire 宽限与 Task 期限冻结的裁决时钟（B-235）。"""
+        async with self._session_factory() as session:
+            return await database_now(session)
+
     async def sweep_deadlines_if_due(self, *, now: datetime | None = None) -> int:
-        """按独立节拍执行 sweep：与 Skill 串行执行解耦，被阻塞的 Skill 不拖住它。"""
-        moment = now or datetime.now(UTC)
+        """按独立节拍执行 sweep：与 Skill 串行执行解耦，被阻塞的 Skill 不拖住它。
+
+        节拍与 sweep 时刻都取 PG 时钟（`now` 仅测试注入）：sweep 的期限判定不能被本机
+        墙钟偏差提前或推迟。
+        """
+        moment = now if now is not None else await self._pg_clock()
         interval = timedelta(seconds=self._settings.task_deadline_sweep_interval_sec)
         if self._last_sweep_at is not None and moment - self._last_sweep_at < interval:
             return 0
@@ -470,7 +481,7 @@ class SchedulerLoop:
         被误判为错过；这里在一轮内逐条处理，且 misfire 统一以本轮起点判定——排队等待
         的时间不算错过。单条失败只记日志，不影响同轮其它 Schedule。
         """
-        moment = now or datetime.now(UTC)
+        moment = now if now is not None else await self._pg_clock()
         seen: set[uuid.UUID] = set()
         for _ in range(self._settings.scheduler_batch_size):
             schedule = await self._claim_due_schedule(moment, exclude=seen)
@@ -484,7 +495,7 @@ class SchedulerLoop:
         return len(seen)
 
     async def run_once(self, *, now: datetime | None = None) -> uuid.UUID | None:
-        moment = now or datetime.now(UTC)
+        moment = now if now is not None else await self._pg_clock()
         schedule = await self._claim_due_schedule(moment)
         if schedule is None:
             return None
@@ -534,7 +545,7 @@ class SchedulerLoop:
         *,
         now: datetime | None = None,
     ) -> uuid.UUID | None:
-        moment = now or datetime.now(UTC)
+        moment = now if now is not None else await self._pg_clock()
         skill = next((item for item in resolved.skills if item.skill_id == schedule.skill_id), None)
         async with self._session_factory() as session:
             async with session.begin():

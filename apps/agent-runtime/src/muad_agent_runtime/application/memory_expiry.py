@@ -8,10 +8,10 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..infrastructure.db import SessionFactory
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import UserMemory
 from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
 from .memory_observability import observe
-from .memory_proposals import _database_now
 from .memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ async def expire_memories(factory: SessionFactory, *, scope_limit: int = 16) -> 
 async def _expire_scope(factory: SessionFactory, context: MemoryWriteContext) -> int:
     async with factory.begin() as session:
         await MemoryService.lock_scope(session, context)
-        now = await _database_now(session)
+        now = await database_now(session)
         rows = list(
             await session.scalars(
                 select(UserMemory)

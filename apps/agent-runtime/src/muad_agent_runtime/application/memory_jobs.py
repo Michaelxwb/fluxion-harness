@@ -14,12 +14,12 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import ColumnElement
 
 from ..infrastructure.db import SessionFactory
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import Conversation, MemoryConsolidationJob, RunRecord, RuntimeSnapshot
 from .memory_commands import MemoryWriteContext
 from .memory_consolidation_input import ConsolidationInput, ConsolidationStale, build_input
 from .memory_job_enqueue import enqueue_completed as enqueue_completed
 from .memory_observability import after_commit
-from .memory_proposals import _database_now
 from .memory_service import MemoryService
 from .run_service import execution_defaults_of
 
@@ -92,7 +92,7 @@ async def lock_claim(session: AsyncSession, claim: JobClaim) -> MemoryConsolidat
         return None
     if conversation.user_id != job.user_id or run.user_id != job.user_id:
         return None
-    return job if owns(job, claim, await _database_now(session)) else None
+    return job if owns(job, claim, await database_now(session)) else None
 
 
 def owns(job: MemoryConsolidationJob, claim: JobClaim, now: datetime) -> bool:
@@ -114,7 +114,7 @@ class MemoryJobs:
         if not owner or len(owner) > 128:
             raise ValueError("invalid job lease owner")
         async with self.factory.begin() as session:
-            now = await _database_now(session)
+            now = await database_now(session)
             job = await session.scalar(
                 select(MemoryConsolidationJob)
                 .where(_eligible(now), MemoryConsolidationJob.id.not_in(exclude))
@@ -133,7 +133,7 @@ class MemoryJobs:
             if not exhausted:
                 job.attempt += 1
             job.status, job.lease_owner = "RUNNING", owner
-            job.lease_until = await _database_now(session) + timedelta(seconds=policy.consolidation_lease_sec)
+            job.lease_until = await database_now(session) + timedelta(seconds=policy.consolidation_lease_sec)
             after_commit(session, "memory_consolidation_total", labels={"outcome": "CLAIMED"})
             return JobClaim(
                 job.id, job.tenant_id, job.run_id, job.conversation_id, owner, job.claim_epoch, exhausted
@@ -156,7 +156,7 @@ class MemoryJobs:
                     tenant_id=job.tenant_id, user_id=job.user_id, actor_type="SYSTEM", actor_id=claim.owner
                 ),
             )
-            if not owns(job, claim, await _database_now(session)):
+            if not owns(job, claim, await database_now(session)):
                 return None
             expected = job.input_scope_revision if job.input_json is not None else job.enqueued_scope_revision
             if scope.revision != expected:
@@ -172,7 +172,7 @@ class MemoryJobs:
                 credential_canaries=credential_canaries,
                 max_input_bytes=policy.consolidation_max_input_bytes,
             )
-            if not owns(job, claim, await _database_now(session)):
+            if not owns(job, claim, await database_now(session)):
                 return None
             job.input_json = payload.model_dump(mode="json")
             job.input_hash, job.input_scope_revision = (

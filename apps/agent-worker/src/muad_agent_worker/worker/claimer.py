@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from muad_common import SharedSettings
@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.task_events import TaskEventType, append_event
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution
 from ..metrics import TASK_QUEUE_DEPTH_METRIC, increment, record_gauge
 
@@ -51,9 +52,10 @@ class TaskClaimer:
         self._settings = settings or SharedSettings()
 
     async def claim_one(self, instance_id: str, *, now: datetime | None = None) -> TaskExecution | None:
-        claimed_at = now or datetime.now(UTC)
+        """领取一条可执行 Task：期限/可领取窗口按 PG 时钟判定（`now` 仅测试注入）。"""
         async with self._session_factory() as session:
             async with session.begin():
+                claimed_at = now if now is not None else await database_now(session)
                 record_gauge(TASK_QUEUE_DEPTH_METRIC, float(await _claimable_depth(session, claimed_at)))
                 task = (
                     await session.execute(

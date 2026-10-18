@@ -12,13 +12,14 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID
 
 from muad_contracts import RunStatus
 from sqlalchemy import select
 
 from ...infrastructure.db import SessionFactory
+from ...infrastructure.db_clock import database_now
 from ...infrastructure.models.runtime import RunRecord
 
 logger = logging.getLogger(__name__)
@@ -131,15 +132,16 @@ async def reclaim_stale_executions(
 ) -> int:
     """独立监督回收：取消已不再由本实例持有的本地片段，释放它们的槽。
 
-    归属判据只用 **PG 行事实**（`RUNNING` + `lease_owner` 为本实例 + 租约未过期）。租约时间
-    由本进程自己的心跳写入，同钟比较安全；这里**不**用本机时钟判定业务绝对期限——那由
-    `expire_runs` 的 PG 时钟扫描负责，超时行会先变成终态，再在这里被回收。
+    归属判据只用 **PG 行事实**（`RUNNING` + `lease_owner` 为本实例 + 租约未过期），租约
+    比较取 **PG 服务端时钟**（B-235；`now` 仅测试注入）：本机墙钟偏差既不能把有效租约判成
+    失约、也不能把失约判成有效。这里**不**用任何时钟判定业务绝对期限——那由 `expire_runs`
+    的 PG 时钟扫描负责，超时行会先变成终态，再在这里被回收。
     """
     active = supervisor.active_runs()
     if not active:
         return 0
-    instant = now or datetime.now(UTC)
     async with factory() as session:
+        instant = now if now is not None else await database_now(session)
         owned = set(
             await session.scalars(
                 select(RunRecord.id).where(

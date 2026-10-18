@@ -17,6 +17,7 @@ from pydantic import JsonValue
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import (
     CanonicalEvent,
     MemoryConsolidationJob,
@@ -31,7 +32,6 @@ from .memory_job_enqueue import _reference
 from .memory_jobs import JobClaim, lock_claim, owns
 from .memory_mutations import memory_state
 from .memory_observability import after_commit
-from .memory_proposals import _database_now
 from .memory_service import MemoryService
 from .memory_tools import memory_write_enabled
 from .memory_write import decide_automatic_update
@@ -111,7 +111,7 @@ async def apply_batch(
         raise ValueError("source snapshot unavailable")
     ctx = await _context(session, job, snapshot, credential_canaries)
     scope = await MemoryService.lock_scope(session, ctx)
-    if not owns(job, claim, await _database_now(session)):
+    if not owns(job, claim, await database_now(session)):
         return None
     if not ctx.settings.write_enabled:
         return await finish_job(session, job, status="SKIPPED", reason="DISABLED")
@@ -282,7 +282,7 @@ async def _write(
         item.status in {"CREATED", "UPDATED", "RESTORED", "RETIRED"} for item in outcome.response.items
     )
     skipped = sum(item.status == "SKIPPED" for item in outcome.response.items)
-    if not owns(job, claim, await _database_now(session)):
+    if not owns(job, claim, await database_now(session)):
         raise ConsolidationFenced()
     return await finish_job(
         session,
@@ -304,7 +304,7 @@ async def fail_locked(
     policy = execution_defaults_of(snapshot.policy_json).memory_policy
     if reason == "FAILED" and job.attempt < policy.consolidation_max_attempts:
         job.status, job.error_code, job.lease_owner, job.lease_until = "RETRY", reason, None, None
-        job.next_attempt_at = await _database_now(session) + timedelta(
+        job.next_attempt_at = await database_now(session) + timedelta(
             seconds=policy.consolidation_retry_delay_sec
         )
         after_commit(session, "memory_consolidation_total", labels={"outcome": "RETRY"})

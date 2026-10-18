@@ -22,10 +22,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactory
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import CanonicalEvent, RunRecord, UserMemory
 from .async_tools.continuation_service import ExecutionIdentity, ensure_execution
 from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
-from .memory_proposals import _database_now
 from .memory_service import MemoryService
 
 
@@ -69,7 +69,7 @@ async def save_user_command(
 ) -> MemorySavedReceipt:
     ctx = _command_context(run, event, settings, canaries)
     await MemoryService.lock_scope(session, ctx)
-    ensure_execution(run, identity, await _database_now(session))
+    ensure_execution(run, identity, await database_now(session))
     mutation = MemoryMutation(
         action="UPSERT",
         candidate=MemoryCandidate(
@@ -84,7 +84,7 @@ async def save_user_command(
         mutations=[mutation],
     )
     result = await MemoryService(factory).execute_in_session(session, ctx, command)
-    ensure_execution(run, identity, await _database_now(session))
+    ensure_execution(run, identity, await database_now(session))
     row = await session.scalar(
         select(UserMemory).where(
             UserMemory.tenant_id == run.tenant_id,
