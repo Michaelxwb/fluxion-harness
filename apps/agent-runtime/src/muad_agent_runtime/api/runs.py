@@ -63,6 +63,7 @@ async def resume_run(
         platform_user_id=payload.platform_user_id,
         idempotency_key=idempotency_key,
         input_id=payload.input.id,
+        confirmation=payload.confirmation_binding(),
     )
     return _sse_response(service, run, request)
 
@@ -74,7 +75,10 @@ async def cancel_active_run(
     tenant_id: TenantDep,
     service: RunServiceDep,
 ) -> ApiResponse[Any]:
-    run = await service.cancel_active(payload.agent_id, payload.platform_user_id, tenant_id)
+    """停止命令：`source` 给出会话或入口+外线线程时只取消该来源的活跃 Run（RISK-F03）。"""
+    run = await service.cancel_active(
+        payload.agent_id, payload.platform_user_id, tenant_id, source=payload.source
+    )
     return ok(request.app.state.message_catalog, run_cancel_view(run))
 
 
@@ -85,6 +89,7 @@ async def cancel_run(
     tenant_id: TenantDep,
     service: RunServiceDep,
 ) -> ApiResponse[Any]:
+    """API-08：取消**这一个** Run（网页停止按原 Run 定位）；可重放，终态重放不再产生副作用。"""
     run = await service.cancel_run(run_id, tenant_id)
     return ok(
         request.app.state.message_catalog,

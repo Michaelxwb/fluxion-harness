@@ -33,6 +33,8 @@ from muad_contracts.webchat import (
     ActiveRunStatus,
     ConversationStatus,
     WebchatActiveRun,
+    WebchatConfirmation,
+    WebchatConfirmationOption,
     WebchatConversationDetail,
     WebchatConversationItem,
     WebchatConversationPage,
@@ -41,9 +43,21 @@ from muad_contracts.webchat import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.models.runtime import Artifact, CanonicalEvent, Conversation, RunRecord
+from ..infrastructure.models.runtime import (
+    Artifact,
+    CanonicalEvent,
+    Conversation,
+    RunInterrupt,
+    RunRecord,
+)
 from .channel_conversations import ConversationScope, display_title, load_explicit_conversation
 from .execution_status import project_execution_status
+from .memory_confirmation_resume import (
+    CONFIRM_VERB,
+    REJECT_VERB,
+    confirmation_selection,
+    validated_proposal,
+)
 from .public_events import PUBLIC_MESSAGE_EVENT_TYPES, project_public_fact, visible_attachment_ids
 
 #: 活跃 Run 状态（与 `uq_run_record_active_conversation` partial unique 谓词同源）。
@@ -191,8 +205,9 @@ class WebchatHistoryService:
     ) -> WebchatConversationDetail:
         """API-15：核属后的会话详情（活跃 Run 供打开历史后的恢复，不暴露内部快照）。
 
-        `active_run.confirmation` 的完整候选与选项文案由 TASK-056 的 resume 语义投影
-        （记忆确认的选项在本任务没有已定型的线上词表）——这里不合成选项文案，不编造。
+        `active_run.confirmation` 是**待确认恢复**（TASK-056）：完整候选（prompt 含键/类别/
+        内容/来源原话/有效期）加 resume 语义的选项值 —— 客户端回传的 `selection` 就是这里的
+        `value`，绑定用的 `submission_id`/`source_event_id` 也是这里的字段。
         """
         conversation = await load_explicit_conversation(
             self._session, _conversation_scope(scope), conversation_id
@@ -302,6 +317,47 @@ class WebchatHistoryService:
             id=run.id,
             status=_active_run_status(run.status),
             execution_status=project_execution_status(run),
+            confirmation=await self._confirmation_view(run),
+        )
+
+    async def _confirmation_view(self, run: RunRecord) -> WebchatConfirmation | None:
+        """待确认恢复：WAITING_INPUT 的**完整候选**投影（`WebchatActiveRun.confirmation`）。
+
+        只有 `MEMORY_CONFIRMATION` 的 WAITING 中断是可确认的（别的等待态不是记忆确认）；
+        候选必须与它展示过的 canonical 证据一致（`validated_proposal` 与消费路径同一份校验）——
+        投影一份确认不了、或确认了别的来源的候选，比显式失败更糟。选项值取自 resume 语义
+        （`confirmation_selection`），不在这里另拼一份文本。
+        """
+        if run.status != RunStatus.WAITING_INPUT:
+            return None
+        interrupt = await self._session.scalar(
+            sa.select(RunInterrupt).where(
+                RunInterrupt.tenant_id == run.tenant_id,
+                RunInterrupt.run_id == run.id,
+                RunInterrupt.conversation_id == run.conversation_id,
+                RunInterrupt.interrupt_type == "MEMORY_CONFIRMATION",
+                RunInterrupt.status == "WAITING",
+                RunInterrupt.is_deleted.is_(False),
+            )
+        )
+        if interrupt is None:
+            return None
+        proposal = await validated_proposal(self._session, run, interrupt)
+        if proposal is None or interrupt.expires_at is None:
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        return WebchatConfirmation(
+            submission_id=proposal.submission_id,
+            source_event_id=proposal.evidence.source_event_id,
+            prompt=interrupt.prompt_text,
+            options=[
+                WebchatConfirmationOption(
+                    value=confirmation_selection("CONFIRM", interrupt.id), label=CONFIRM_VERB
+                ),
+                WebchatConfirmationOption(
+                    value=confirmation_selection("REJECT", interrupt.id), label=REJECT_VERB
+                ),
+            ],
+            expires_at=interrupt.expires_at,
         )
 
     async def _message_page(
