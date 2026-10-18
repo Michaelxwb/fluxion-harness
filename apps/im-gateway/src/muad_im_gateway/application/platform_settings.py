@@ -29,10 +29,19 @@ class ReplySettings:
 
 
 def resolve_platform_settings(
-    snapshot: PlatformSettingsSnapshot, *, batch_platform_limit: int | None = None
+    snapshot: PlatformSettingsSnapshot,
+    *,
+    batch_platform_limit: int | None = None,
+    chat_message_hard_max_bytes: int | None = None,
+    chat_upload_hard_max_bytes: int | None = None,
 ) -> PlatformSettings:
     try:
-        return parse_platform_settings(snapshot.settings, batch_platform_limit=batch_platform_limit)
+        return parse_platform_settings(
+            snapshot.settings,
+            batch_platform_limit=batch_platform_limit,
+            chat_message_hard_max_bytes=chat_message_hard_max_bytes,
+            chat_upload_hard_max_bytes=chat_upload_hard_max_bytes,
+        )
     except PlatformSettingsError as exc:
         raise AppError(str(ErrorCode.COMMON_INTERNAL_ERROR)) from exc
 

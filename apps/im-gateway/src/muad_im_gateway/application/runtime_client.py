@@ -13,6 +13,7 @@ from muad_api.error_codes import ErrorCode
 from muad_api.security import INTERNAL_SERVICE_HEADER
 from muad_common import SharedSettings
 from muad_contracts import RunRequest
+from muad_contracts.webchat import WebchatUploadRegistration
 
 from .envelope import decode_error_payload, decode_json, error_code_from_payload, require_data_dict
 
@@ -33,6 +34,8 @@ INTERNAL_CONVERSATIONS_PATH = "/internal/webchat/entries/{entry_id}/conversation
 INTERNAL_CONVERSATION_PATH = "/internal/webchat/conversations/{conversation_id}"
 INTERNAL_MESSAGES_PATH = "/internal/webchat/conversations/{conversation_id}/messages"
 INTERNAL_SCOPE_PATH = "/internal/webchat/conversations/{conversation_id}/scope"
+#: 受信暂存上传登记端口（TASK-058）：共享字节已写好，只登记权威元信息。
+INTERNAL_UPLOADS_PATH = "/internal/webchat/uploads"
 CANCEL_ACTIVE_PATH = "/v1/runs/cancel-active"
 REQUEST_TIMEOUT_SEC = 10.0
 STREAM_TIMEOUT_SEC = 300.0
@@ -364,6 +367,18 @@ class RuntimeClient:
             {"user_id": str(user_id)},
         )
 
+    async def register_upload(
+        self, registration: WebchatUploadRegistration, *, tenant_id: str
+    ) -> dict[str, Any]:
+        """API-10/API-12 暂存上传登记：共享字节已写好，受信端口只登记权威元信息。
+
+        身份三件套（user/agent/entry）由受验证主体与入口解析填入，浏览器自报字段没有位置；
+        响应只回 `upload_id` 与权威元信息（无存储键、无预造制品引用）。
+        """
+        return await self._post_internal_json(
+            INTERNAL_UPLOADS_PATH, registration.model_dump(mode="json"), tenant_id
+        )
+
     async def _admit_stream(
         self,
         method: str,
@@ -414,6 +429,22 @@ class RuntimeClient:
             headers[INTERNAL_SERVICE_HEADER] = self._service_token
         try:
             response = await self._client.get(path, params=params, headers=headers)
+        except httpx.HTTPError as exc:
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+        body = decode_json(response)
+        if response.status_code >= 400:
+            raise AppError(error_code_from_payload(body))
+        return require_data_dict(body)
+
+    async def _post_internal_json(
+        self, path: str, payload: dict[str, Any], tenant_id: str
+    ) -> dict[str, Any]:
+        """受信内部面写调用：与读取面同一门控（服务身份 + 部署租户）。"""
+        headers = build_headers(tenant_id, "")
+        if self._service_token:
+            headers[INTERNAL_SERVICE_HEADER] = self._service_token
+        try:
+            response = await self._client.post(path, json=payload, headers=headers)
         except httpx.HTTPError as exc:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
         body = decode_json(response)

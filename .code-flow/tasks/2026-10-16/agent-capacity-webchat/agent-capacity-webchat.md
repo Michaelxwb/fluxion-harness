@@ -393,7 +393,7 @@
 | B-251 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-051 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_public_projection.py"] | . | 300 |  |
 | B-252 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-052 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_resource_api.py"] | . | 300 |  |
 | B-253 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-053 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | . | 300 |  |
-| B-254 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-054 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_upload_gateway.py"] | . | 300 |  |
+| B-254 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-054 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_upload_gateway.py"] | . | 300 |  |
 | B-255 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-055 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_artifact_download.py"] | . | 300 |  |
 | B-256 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-056 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_run_controls.py"] | . | 300 |  |
 | B-257 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-057 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_client_config_api.py"] | . | 300 |  |
@@ -3496,7 +3496,7 @@ API-05/06/08/09/14/15完整转Owner；完整分支及可观测结果见下面验
 
 ## TASK-054: Webchat流式上传与动态限额
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-052, TASK-058
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -3511,25 +3511,38 @@ API-05/06/08/09/14/15完整转Owner；完整分支及可观测结果见下面验
 
 ### Checklist
 
-- [ ] [B-254][integration] 先在`tests/gateway/test_capacity_webchat_upload_gateway.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：流式写共享字节后经Runtime登记元信息。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-254] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-254] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_upload_gateway.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-254][integration] 先在`tests/gateway/test_capacity_webchat_upload_gateway.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：流式写共享字节后经Runtime登记元信息。RED：`uv run pytest -q tests/gateway/test_capacity_webchat_upload_gateway.py` exit=1，**8 failed in 3.37s**（实现前：生产路由 `POST /api/v1/webchat/entries/{entry}/attachments` 尚不存在 ⇒ 7 条 HTTP 用例 404 `COMMON_NOT_FOUND`；`application/webchat_uploads.py` 尚不存在 ⇒ 零 sqlalchemy 静态断言 `FileNotFoundError`）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `application/webchat_uploads.py`（新增）——`_MultipartReader`（multipart **流式**解析：部件头/前言 ≤8KiB 有界、缓冲上界=单个入站块+分隔符、分隔符与头块跨块正确、闭合分隔符缺失显式 422）；`_StagingSink`（临时文件 + `os.link` 原子发布到 `webchat/staging/<uuid>`、**写入途中**判上限、失败路径 `discard` 同时清临时与已发布字节）；`WebchatUploadService.upload`（入口授权→平台设置动态限额→流式落共享字节→经受信端口登记，`except BaseException: discard` 后重抛）；`resolve_upload_limits`（`webchat.upload_max_bytes`/`upload_max_per_message` 唯一来源=平台设置，启动硬预算 `chat_upload_hard_max_bytes` 作解析上界，超预算显式失败不静默取小）；MIME 白名单复用 `attachment_gate.ALLOWED_MEDIA_TYPES`（`ATTACHMENT_TYPE_NOT_ALLOWED`），数量/大小用既有 `ATTACHMENT_COUNT_EXCEEDED`/`ATTACHMENT_TOO_LARGE`；文件名只作元信息（空→None，超长/CR/LF/NUL 显式 422，绝不参与路径）；空文件在登记前就拒。② `application/webchat_service.py`——抽出 `resolve_authorized_entry`/`ResolvedEntry`：入口授权唯一裁决（404 不泄露存在性/403 越权），读写面与上传面共用不复制第二份。③ `application/runtime_client.py`——`register_upload` + `_post_internal_json`（`X-Internal-Service` + `X-Tenant-Id` 门控，与读取面同一口径）。④ `application/platform_settings.py`——解析缝注入 chat 硬预算上界（同一处 schema 解析）。⑤ `api/webchat.py`——`POST /entries/{entry_id}/attachments`（201）+ 上传服务依赖（装配根发布的状态值）。日志只记 `error_type`，无上传内容/存储键/文件名原文。
+- [x] [B-254] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-254] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_upload_gateway.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**8 passed in 3.43s**。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-254 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | 流式写共享字节后经Runtime登记元信息；MIME/字节/数量/软硬上限一致，返回upload_id而非伪artifact_id，超额在昂贵处理前拒绝 | tests/gateway/test_capacity_webchat_upload_gateway.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_upload_gateway.py"] | planned |
+| B-254 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | 流式写共享字节后经Runtime登记元信息；MIME/字节/数量/软硬上限一致，返回upload_id而非伪artifact_id，超额在昂贵处理前拒绝 | tests/gateway/test_capacity_webchat_upload_gateway.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_upload_gateway.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-254 | `uv run pytest -q tests/gateway/test_capacity_webchat_upload_gateway.py` exit=1，**8 failed in 3.37s**（生产路由与上传面模块均不存在：7 条 HTTP 用例 404 `COMMON_NOT_FOUND`；静态断言 `FileNotFoundError`） | 同命令 exit=0，**8 passed in 3.43s** | ① `test_b254_upload_streams_shared_bytes_then_registers_authoritative_metadata`（L419-474）：响应恰为 `upload_id/kind/media_type/size/filename/checksum/expires_at` 七字段（L438）、no-store（L445）、无 `storage_key`/`artifact_id`（L446）、checksum=真实字节 sha256（L442）、登记上送身份三件套+元信息（L457-462）、暂存键系统生成且**磁盘字节逐字节相同**（L463-469）、CHAT 主体只经 Console 核验一次（L471-474）。② `test_b254_upload_gates_chat_identity_and_entry_authorization_before_any_io`（L477-530）：401/401(CHAT_SESSION_REVOKED)/409/403/404/404（L494-524），**门控先于任何 IO**：零设置读取、零登记、零字节（L525-528）。③ `test_b254_upload_rejects_oversize_mid_stream_and_cleans_partial_bytes`（L533-556）：`ATTACHMENT_TOO_LARGE` 400（L549-550）、**读完之前中止**（实测 consumed=4/9 块，L551-553）、半成品与临时文件清理（L554）、不触达登记（L555）、限额来自设置快照（L556）。④ `test_b254_upload_enforces_mime_count_and_soft_hard_limits`（L559-617）：白名单外 MIME `ATTACHMENT_TYPE_NOT_ALLOWED`（L576-577）、数量 `ATTACHMENT_COUNT_EXCEEDED`（L589-591）、恰等于上限放行（L594-600）、设置超启动硬预算 `COMMON_INTERNAL_ERROR` 显式失败且不登记（L603-617）。⑤ `test_b254_upload_rejects_broken_multipart_shapes_before_registering`（L620-651）：非 multipart/无文件部件/空文件/缺闭合分隔符 5 例均 422 且零字节零登记。⑥ `test_b254_registration_failure_surfaces_owner_code_and_cleans_staged_bytes`（L653-675）：Owner 403 原码上抛、已写字节不留孤儿。⑦ `test_b254_chunk_boundaries_do_not_change_the_stored_bytes`（L677-704）：分块 1/2/3/7/64/4096 字节落盘与校验和逐字节一致、每次上传独立键。⑧ `test_b254_upload_modules_hold_no_database`（L707-721）：上传面模块零 sqlalchemy（AST+文本）。 | 真实 Gateway 应用与生产路由（`main.app` + `api/webchat.py`，真实 api-kit 封套/错误目录/主体门控依赖图）；真实 Console HTTP（uvicorn 真实 socket：CHAT 主体核验 + bot 快照 + `GET /internal/v1/platform-settings` 快照）；真实 Runtime HTTP（uvicorn 真实 socket：`POST /internal/webchat/uploads` 用**真实契约** `WebchatUploadRegistration` 校验请求体后才回权威元信息）；真实共享文件系统（隔离 artifact root 上真实 `NfsArtifactStore` 字节，登记上送的键就是磁盘上那份字节）；真实请求体流（multipart 体按块产出并计数，超限中止由真实消费块数裁决）；网关零数据库（本文件不碰 DB + 静态断言）。 | verified |
+
+实现要点：**流式**（multipart 部件体按入站块写入共享存储，内存上界=单块+分隔符，不整包驻留）→ **门控先于昂贵处理**（主体/入口授权 → 设置快照 → MIME/数量/大小，超限在写入途中即中止并清理）→ **原子不可变落盘**（临时文件 + `os.link`，目标存在即冲突）→ **转 Owner 登记**（字节写好后才经受信端口登记权威元信息；失败路径删除无行引用的暂存字节）→ **限额唯一来源**（平台设置 + 启动硬预算上界，前后端与 Runtime 同值：`upload_max_bytes`/`upload_max_per_message`）。
+
+回归：`uv run pytest -q tests/gateway` exit=0，**398 passed**（93.88s；含 TASK-052/044 等既有 390 条 + 本任务 8 条）；`uv run pytest -q tests/architecture tests/contracts tests/test_configuration_inventory.py tests/console_channel` exit=0，**1372 passed**（10.13s，含通道中立性/网关不持库/契约 parity/配置盘点）；同域 `harness-im#RULE-im-001`（`tests/console_channel` + `tests/gateway`）与 `RULE-im-002`（`tests/architecture/test_channel_neutrality.py`）均在本轮真实执行通过。
+
+静态检查：`uv run ruff check`（本任务 6 个改动文件）干净；`uv run mypy apps packages` → Success: no issues found in 426 source files；新增/修改函数均 ≤50 行（最长 42 行 `_stage_single_part`）；`docs/configuration-inventory.csv` 保持 CRLF（1477 行全 CRLF、无裸 LF），只更新自己的行（`runtime_client.py` 行号漂移 + 新增 `INTERNAL_UPLOADS_PATH`、`api/webchat.py` 行号、`RuntimeClient.__init__.timeout_sec` 行号）并追加 `webchat_uploads.py` 6 行常量。
+
+遗留（deferred，非本任务可闭合）：① **装配根接线**——路由依赖读取 `app.state.{settings_client,artifact_store,chat_upload_hard_max_bytes}`，生产装配由 TASK-096 发布这三个状态值（TASK-052 同一模式：本任务只交付路由与依赖图，`main.py` 不改）。② **下载/预览授权**属 TASK-055（本任务只登记暂存与返回 `upload_id`）。③ **暂存清理的活跃引用/孤儿宽限**属 TASK-069（本任务失败即清理，不留孤儿）。④ **前端 client-config 同值投影**属 TASK-057（`upload_max_bytes`/`upload_max_per_message` 由同一 schema 派生）。⑤ 一次请求只登记一个文件部件（响应契约是单个 `WebchatUpload`；多文件由前端逐个上传），单请求文件部件数仍受 `upload_max_per_message` 上界约束。
+- B-254: verified — automated command passed; run_id=22d385216ddd4322a587a7f0a0a589cc (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 

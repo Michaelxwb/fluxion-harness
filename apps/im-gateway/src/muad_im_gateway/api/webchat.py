@@ -1,4 +1,4 @@
-"""Webchat 公开资源路由（design §3.4 API-05/06/08/09/14/15；TASK-052）。
+"""Webchat 公开资源路由（design §3.4 API-05/06/08/09/10/14/15；TASK-052/TASK-054）。
 
 - **主体门控**：读写面统一经 `ChatIdentityDep`（TASK-044）收口——CHAT Cookie + `X-Chat-Context`
   只经 Console 核验，跨部署租户/上下文不符/撤销在这里就被拒；本层不做第二套认证。
@@ -27,6 +27,7 @@ from pydantic import ValidationError
 from ..application.bot_snapshot import BotSnapshotCache
 from ..application.runtime_client import RuntimeClient
 from ..application.webchat_service import WebchatResourceService
+from ..application.webchat_uploads import WebchatUploadService
 from .deps import ChatIdentityDep
 
 #: 聊天资源是私有数据（design §3.4）：显式 no-store，不依赖任何默认缓存头。
@@ -56,6 +57,23 @@ def get_webchat_service(request: Request) -> WebchatResourceService:
 
 
 WebchatServiceDep = Annotated[WebchatResourceService, Depends(get_webchat_service)]
+
+
+def get_webchat_upload_service(request: Request) -> WebchatUploadService:
+    """上传服务：Owner 客户端 + 入口快照 + 设置源 + 共享存储 + 启动硬预算（装配根发布的状态值）。"""
+    runtime: RuntimeClient = request.app.state.runtime_client
+    entries: BotSnapshotCache = request.app.state.bot_snapshot
+    return WebchatUploadService(
+        runtime=runtime,
+        entries=entries,
+        settings=request.app.state.settings_client,
+        store=request.app.state.artifact_store,
+        tenant_id=request.app.state.tenant_id,
+        hard_max_bytes=request.app.state.chat_upload_hard_max_bytes,
+    )
+
+
+WebchatUploadServiceDep = Annotated[WebchatUploadService, Depends(get_webchat_upload_service)]
 
 
 @router.get("/entries")
@@ -94,6 +112,24 @@ async def create_conversation(
     """API-08：新建会话（201）；身份与标题由服务端持有，幂等键由调用方沿用。"""
     created = await service.create_conversation(chat, entry_id, idempotency_key=idempotency_key)
     return ok(request.app.state.message_catalog, created.model_dump(mode="json"))
+
+
+@router.post("/entries/{entry_id}/attachments", status_code=201)
+async def upload_attachment(
+    entry_id: uuid.UUID,
+    request: Request,
+    chat: ChatIdentityDep,
+    service: WebchatUploadServiceDep,
+) -> ApiResponse[Any]:
+    """API-10：流式接收上传字节写共享存储后转 Runtime 登记（201 = 真实创建事实）。
+
+    限额/MIME/数量门控来自平台设置与既有附件词表（不硬编码）；超限在写完之前中止并清理；
+    响应只含 `upload_id` 与权威元信息，不伪造提前存在的 artifact_id。
+    """
+    upload = await service.upload(
+        chat, entry_id, stream=request.stream(), content_type=request.headers.get("content-type")
+    )
+    return ok(request.app.state.message_catalog, upload.model_dump(mode="json"))
 
 
 @router.get("/entries/{entry_id}/conversations")
