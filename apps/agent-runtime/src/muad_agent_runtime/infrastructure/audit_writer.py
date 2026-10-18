@@ -22,6 +22,10 @@ SENSITIVE_KEY_MARKERS = (
     "credential",
     "authorization",
     "cookie",
+    # CHAT 两枚独立 Cookie 的**名字**（TASK-041）：`Cookie: muad_chat_session=…; muad_chat_csrf=…`
+    # 的 `cookie` 前缀键只吃掉第一对，第二对必须按名字丢键（2026-10-18 TASK-045 canary 反查）。
+    "muad_chat_session",
+    "muad_chat_csrf",
 )
 
 

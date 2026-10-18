@@ -384,7 +384,7 @@
 | B-242 | agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-042 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_chat_auth_api.py"] | . | 300 |  |
 | B-243 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-043 | verified | ["uv","run","pytest","-q","tests/console_internal/test_capacity_webchat_chat_internal_principal.py"] | . | 300 |  |
 | B-244 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-044 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_chat_auth.py"] | . | 300 |  |
-| B-245 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-045 | planned | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_redaction.py"] | . | 300 |  |
+| B-245 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-045 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_redaction.py"] | . | 300 |  |
 | B-246 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-046 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_webchat_entry.py"] | . | 300 |  |
 | B-247 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.3 数据设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-047 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_adapter.py"] | . | 300 |  |
 | B-248 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-048 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_admission.py"] | . | 300 |  |
@@ -2987,7 +2987,7 @@ Gateway只经Console核验，拒绝跨部署tenant；完整分支及可观测结
 
 ## TASK-045: Token签发与交换全链路脱敏
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-020, TASK-042
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案
@@ -3002,25 +3002,39 @@ Gateway只经Console核验，拒绝跨部署tenant；完整分支及可观测结
 
 ### Checklist
 
-- [ ] [B-245][integration] 先在`tests/console_auth/test_capacity_webchat_token_redaction.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：既有token敏感键覆盖签发/交换请求和响应。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-245] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-245] 执行`["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_redaction.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-245][integration] 先在`tests/console_auth/test_capacity_webchat_token_redaction.py`建立行为验收并记录RED；真实边界：真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针；关键断言：既有token敏感键覆盖签发/交换请求和响应。RED：`uv run pytest -q tests/console_auth/test_capacity_webchat_token_redaction.py` exit=1，4 failed/1 passed（`redact_text` 只遮蔽 `Cookie:` 第一对，`muad_chat_csrf=<canary>` 原文照落；`sanitize_audit_payload` 保留 `{'muad_chat_session': <canary>}` 与嵌套 `muad_chat_csrf`；真实日志文件出现 `"muad_chat_session":"<canary>"`；canary 反查在 `control.config_audit_log.before_json` 抓到会话原文）。真实签发/交换路径用例（响应/库/审计/日志）在 RED 阶段即通过——非空断言证明其余链路已由 TASK-038/040/041/042 收口。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：`packages/logging-kit/.../redaction.py` 的 `_SENSITIVE_KEY` 增 `muad[_-]?chat[_-]?session|muad[_-]?chat[_-]?csrf`（`Cookie:` 前缀键只吃掉第一对，第二对必须按名字入清单）；`packages/api-kit/.../audit.py` 的 `SENSITIVE_KEY_MARKERS` 同步增两枚名字（审计丢键）；按 design §3.5「若引入新凭据键须同步api-kit、logging-kit和Runtime审计三处清单」与 `harness-secret` 约定，同步 `apps/agent-runtime/.../infrastructure/audit_writer.py` 的 `SENSITIVE_KEY_MARKERS`（Runtime 审计遮蔽，旧 7 键会原样保留两枚 Cookie 名）；`harness-secret` spec 的三处清单描述按事实改写（7 键→9 键）。未放松任何既有规则（旧键全保留），未新增错误码。
+- [x] [B-245] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-245] 执行`["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_redaction.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，6 passed（实现期补第 6 条「三处清单同改」用例：旧 7 键清单下 `redact_sensitive({'muad_chat_session': …})` 原样保留，现清单 `<redacted>`）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-245 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 既有token敏感键覆盖签发/交换请求和响应；审计丢键/日志替换语义分别验证，canary反查Canonical/审计/快照/代理回执均无原文 | tests/console_auth/test_capacity_webchat_token_redaction.py | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_redaction.py"] | planned |
+| B-245 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | 既有token敏感键覆盖签发/交换请求和响应；审计丢键/日志替换语义分别验证，canary反查Canonical/审计/快照/代理回执均无原文 | tests/console_auth/test_capacity_webchat_token_redaction.py | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_redaction.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-245 | `uv run pytest -q tests/console_auth/test_capacity_webchat_token_redaction.py` exit=1，4 failed/1 passed：①`redact_text('Cookie: muad_chat_session=…; muad_chat_csrf=…')` 返回 `Cookie: ***; muad_chat_csrf=<canary>`；②`sanitize_audit_payload` 返回 `{'muad_chat_session': <canary>, 'name': 'keep-me', 'nested': {'muad_chat_csrf': <canary>, 'revision': 2}}`；③落盘日志含 `"muad_chat_session":"<canary>","user":"keep-me"`；④canary 反查命中 `control.config_audit_log`（`before_json` 的 `muad_chat_session` 会话原文） | 同命令 exit=0，6 passed；manifest runner 实际执行并记 verified | `tests/console_auth/test_capacity_webchat_token_redaction.py`：`test_b245_sensitive_key_list_covers_chat_cookie_and_token_forms`（Cookie 头两对/Set-Cookie/裸键值对/交换体 dict/`Authorization: Bearer`/`X-CSRF-Token` 全遮蔽，`Path=/`、`HttpOnly`、非敏感字段存活）、`test_b245_audit_projection_drops_keys_while_log_redaction_replaces_values`（审计丢键 `== {'name': 'keep-me', 'nested': {'revision': 2}}` vs 日志替换 `***`；`RedactionFilter` 对 `extra` 属性按键名替换）、`test_b245_three_sensitive_key_lists_agree_on_the_chat_cookie_names`（api-kit 丢键 / logging-kit `***` / runtime `<redacted>` 三处同改）、`test_b245_issue_and_exchange_leave_no_plaintext_in_response_audit_or_logs`（签发响应 `count(token)==1` 非空断言；交换响应体/非 Cookie 头/GET 元信息/409 重放/Token 行/会话行/审计行/应用日志逐处零命中；审计连 SHA-256 摘要都不写）、`test_b245_logging_exit_replaces_chat_credentials_in_the_log_file`（真实落盘文件零 canary、`***` 与 `keep-me` 并存）、`test_b245_canary_reverse_lookup_finds_no_plaintext_in_console_storage`（`control` 31 张真实表 `to_jsonb(row)::text` 反查三枚 canary 零命中；审计 `before/after` 丢键后 `== {'revision': 1}` / `== {'revision': 2}`） | 真实 Console ASGI（ADMIN 登录会话/CSRF、API-03 签发、API-04 交换、api-kit 封套/错误目录）+ 真实 PostgreSQL：`chat_access_token`/`chat_session` 只存 SHA-256 摘要并回读比对、`config_audit_log` 真实事务写入与 jsonb 回读、canary 反查覆盖 `control` 全库（含幂等回执表）；真实日志出口（`configure_logging` 落盘 + `RedactionFilter`）；无模型/外部网络调用 | verified |
+
+回归（同域聚焦）：`uv run pytest -q tests/console_auth tests/test_logging_redaction.py tests/test_audit_redaction.py tests/test_secret_ref_residue.py tests/contracts tests/test_logging.py tests/test_configuration_inventory.py` exit=0，1393 passed；`tests/agent_runtime/test_runtime_audit_write.py tests/agent_runtime/test_execution_audit.py tests/agent_runtime/test_memory_redesign_secrets.py` exit=0，40 passed；`tests/console_platform/test_platform_settings_service.py tests/console_skill/test_skill_audit.py tests/agent_worker/test_task_queries.py` exit=0，18 passed。
+
+静态检查：`uv run ruff check`（本任务改动/新增的 4 个文件）全部通过；`uv run mypy apps packages` → Success: no issues found in 417 source files；`docs/configuration-inventory.csv` 保持 CRLF、只更新本任务改动文件的行（audit.py 3 行、redaction.py 5 行、audit_writer.py 1 行），`tests/test_configuration_inventory.py` 4 passed。
+
+规范同步：`harness-secret` 的「敏感键清单三处独立维护」条目按代码事实改写（7 键→9 键，含两枚 CHAT Cookie 名与 TASK-045 实例），未新增 H3。
+
+边界登记（不声称已覆盖）：本文件 canary 反查范围恰为 Console Owner 库 `control` 全库 + Console 应用日志 + HTTP 响应；Gateway/Runtime 侧凭据复核由 TASK-044 的 `chat_principal` 与 TASK-045 交接条目负责，不在本用例断言内；`tests/acceptance/test_secret_consumers.py` 的既有范围不含 `control.config_audit_log`（其条目已如实登记），本次新增的库级反查正是补这一块。
+- B-245: verified — automated command passed; run_id=49b4675656b0480bbcefc280367bd630 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] done（B-245：RED 4 failed/1 passed → GREEN 6 passed；两处清单同步 + runtime 第三处同步；回归 1393+40+18 passed；ruff/mypy 干净；inventory CRLF 行更新 9 行；harness-secret 按事实改写）
+- [2026-10-18] completed (done)
 
 ---
 

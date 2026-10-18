@@ -12,7 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .context import current_trace_id
 
 # 设计 §3.5 最低识别字段清单：Authorization / Cookie / Set-Cookie / api_key /
-# access_token / refresh_token / secret / password（与 runtime 写入边界的口径一致）。
+# access_token / refresh_token / secret / password（与 runtime 写入边界的口径一致），
+# 加上 CHAT 两枚独立 Cookie 的**名字**（`muad_chat_session`/`muad_chat_csrf`，TASK-041）：
+# `Cookie: muad_chat_session=…; muad_chat_csrf=…` 的 `cookie` 前缀键只吃掉第一对，
+# 第二对必须按名字丢键，否则审计快照会留下会话原文（2026-10-18 TASK-045 canary 反查）。
 SENSITIVE_KEY_MARKERS = (
     "password",
     "secret",
@@ -21,6 +24,8 @@ SENSITIVE_KEY_MARKERS = (
     "credential",
     "authorization",
     "cookie",
+    "muad_chat_session",
+    "muad_chat_csrf",
 )
 
 _AUDIT_INSERT = text(

@@ -11,9 +11,14 @@ REDACTED = "***"
 #: 敏感键名。**末尾那个裸 `token` 是有意加的**（2026-10-03）：签名取件直链把令牌放在 URL 的
 #: `?token=…` 里（TASK-008 的产物取件），而访问日志/代理/浏览器历史都会原样带上整个 URL。
 #: 只覆盖 `access_token`/`refresh_token`/`id_token` 这类**限定名**等于给"换个参数名就漏"留门。
+#:
+#: CHAT 两枚独立 Cookie（`muad_chat_session`/`muad_chat_csrf`，TASK-041）按**名字**入清单：
+#: `Cookie: muad_chat_session=…; muad_chat_csrf=…` 里 `cookie` 这个前缀键只吃掉第一对，第二对
+#: 不在任何前缀键之下（2026-10-18 TASK-045 canary 反查：第二对曾原文照落日志）。
 _SENSITIVE_KEY = (
     r"authorization|cookie|set-cookie|api[_-]?key|access[_-]?token|refresh[_-]?token"
     r"|id[_-]?token|secret|password|passwd|credential|private[_-]?key|token"
+    r"|muad[_-]?chat[_-]?session|muad[_-]?chat[_-]?csrf"
 )
 _SENSITIVE_KEY_PATTERN = re.compile(_SENSITIVE_KEY, re.IGNORECASE)
 _KEY_VALUE_PATTERN = re.compile(
