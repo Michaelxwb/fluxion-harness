@@ -4,9 +4,9 @@
   历史分页（`WebchatHistoryService`）与 SSE 接缝（`project_public_stream_event`，TASK-061 的流
   端点消费）都从这里取事实，不各自维护第二份白名单与附件规则。
 - **白名单**：`USER_MESSAGE`/`ASSISTANT_MESSAGE` → 公开消息（角色 USER/ASSISTANT，仅此两种）；
-  公开流事件词表见 `PUBLIC_STREAM_EVENT_TYPES`（正文 delta、业务阶段、终态、安全错误、附件引用、
-  真实用户确认）。工具参数/结果、模型请求、SYSTEM、原始推理、记忆/未知内部事件默认不公开——
-  过滤后 canonical seq 可以不连续，不补号、不重排。
+  公开流事件词表见 `PUBLIC_STREAM_EVENT_TYPES`（正文 delta、正文 snapshot 替换边界、业务阶段、
+  终态、安全错误、附件引用、真实用户确认）。工具参数/结果、模型请求、SYSTEM、原始推理、
+  记忆/未知内部事件默认不公开——过滤后 canonical seq 可以不连续，不补号、不重排。
 - **附件安全**：只投影权威 `artifact` 行的元信息；失效（软删）附件显式 `available=false`；
   无权威行/尺寸不可投影/内部留档（`TRANSCRIPT`）的引用不伪造、不出现在公开投影里；
   `storage_key` 与内部载荷字段永不进入公开事实。
@@ -37,7 +37,9 @@ from muad_contracts.webchat_events import (
     WebchatDeltaEvent,
     WebchatErrorEvent,
     WebchatReplyDelta,
+    WebchatReplySnapshot,
     WebchatSafeError,
+    WebchatSnapshotEvent,
     WebchatStageEvent,
     WebchatTerminal,
     WebchatTerminalEvent,
@@ -59,6 +61,7 @@ PUBLIC_ROLE_BY_EVENT_TYPE: dict[str, Literal["USER", "ASSISTANT"]] = {
 #: canonical `stream_type` → 公开事件类型（TASK-006 判别联合的公开词表）；未知/内部默认不公开。
 PUBLIC_STREAM_EVENT_TYPES: dict[str, str] = {
     "message.delta": "message.delta",
+    "message.snapshot": "message.snapshot",
     "run.stage": "run.stage",
     "run.completed": "run.terminal",
     "run.failed": "run.error",
@@ -219,6 +222,8 @@ def _project_stream_event(
     public_type = PUBLIC_STREAM_EVENT_TYPES.get(row.stream_type or "")
     if public_type == "message.delta":
         return _delta_event(row, run_id)
+    if public_type == "message.snapshot":
+        return _snapshot_event(row, run_id)
     if public_type == "run.stage":
         return _stage_event(row, run_id)
     if public_type == "run.terminal":
@@ -252,7 +257,7 @@ def _malformed(row: CanonicalRow) -> AppError:
 
 
 def _delta_event(row: CanonicalRow, run_id: uuid.UUID) -> WebchatDeltaEvent:
-    """正文增量：只出文本与生成号；缺省生成号 0 = 首次生成（TASK-062 引入多代后由载荷携带）。"""
+    """正文增量：只出文本与生成号；缺省生成号 0 = 首次生成（多代由载荷显式携带）。"""
     payload = _payload(row)
     try:
         data = WebchatReplyDelta.model_validate(
@@ -261,6 +266,26 @@ def _delta_event(row: CanonicalRow, run_id: uuid.UUID) -> WebchatDeltaEvent:
     except ValidationError as exc:
         raise _malformed(row) from exc
     return WebchatDeltaEvent(type="message.delta", data=data, **_identity(row, run_id))
+
+
+def _snapshot_event(row: CanonicalRow, run_id: uuid.UUID) -> WebchatSnapshotEvent:
+    """新代替换边界（TASK-062）：整组替换旧代正文；分片坐标在公开边拆分（本行即整组）。
+
+    坏载荷显式失败：它是正文替换事实，不能静默当过滤（否则旧代正文会与新代 delta 拼接）。
+    """
+    payload = _payload(row)
+    try:
+        data = WebchatReplySnapshot.model_validate(
+            {
+                "reply_generation": payload.get("reply_generation", 0),
+                "text": payload.get("text"),
+                "part_index": 0,
+                "part_count": 1,
+            }
+        )
+    except ValidationError as exc:
+        raise _malformed(row) from exc
+    return WebchatSnapshotEvent(type="message.snapshot", data=data, **_identity(row, run_id))
 
 
 def _stage_event(row: CanonicalRow, run_id: uuid.UUID) -> WebchatStageEvent:

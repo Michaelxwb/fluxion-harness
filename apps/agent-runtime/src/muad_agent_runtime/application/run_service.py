@@ -430,7 +430,10 @@ TERMINAL_STREAM_TYPES = (RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)
 
 STREAM_BUSINESS_TYPES: dict[str, str] = {
     RUN_CREATED_EVENT: "RUN_CREATED",
+    # 正文流事件的**业务名**按 Console 词表归类（内容流不进运行轮廓，与 token 级增量同类）；
+    # 行的精确身份仍是 `stream_type`（`message.delta`/`message.snapshot`），公开投影按它分派。
     "message.delta": "ASSISTANT_DELTA",
+    "message.snapshot": "ASSISTANT_DELTA",
     "model.started": "MODEL_CALL_STARTED",
     "model.completed": "MODEL_CALL_COMPLETED",
     "tool.started": "TOOL_CALL_STARTED",
