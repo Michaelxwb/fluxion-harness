@@ -13,6 +13,9 @@ spec:
       labels:
         app: muad-agent-worker
     spec:
+      # 排空预算（design §4.1）：readiness 先停新领取，再有界等待在飞 Task 收尾；
+      # 已受理状态留在 PG，由租约接管。终止宽限起始 60 秒（§3.7）。
+      terminationGracePeriodSeconds: 60
       # 非 root 运行：与镜像内 UID/GID 10001 对齐；fsGroup 让 artifacts PVC 对该组可写
       securityContext:
         runAsNonRoot: true
@@ -45,6 +48,31 @@ spec:
                 secretKeyRef:
                   name: muad-external
                   key: INTERNAL_SERVICE_TOKEN
+            # —— 启动预算（design §3.7「启动/部署配置（每进程）」）——
+            # 只声明本进程**真实消费**的键（消费点见 infrastructure/http_clients.py 与
+            # worker/service.py）；别的单元才建的池（stream/upload 属 Gateway、MCP 属 Runtime）不写。
+            # 任务执行槽：只限制本进程并发，领取/续租/回收/维护各自独立循环。
+            - name: WORKER_EXECUTION_CONCURRENCY
+              value: "4"
+            # 分池 HTTP 连接预算（每进程；池名与 WORKER_HTTP_POOLS 一致）。
+            # 总连接 = 进程数 × 最大副本数 求和，正式部署须由容量 profile 声明并校验（§4.1）。
+            - name: CONTROL_HTTP_MAX_CONNECTIONS
+              value: "32"
+            - name: CONTROL_HTTP_MAX_KEEPALIVE
+              value: "16"
+            - name: EGRESS_HTTP_MAX_CONNECTIONS
+              value: "16"
+            - name: EGRESS_HTTP_MAX_KEEPALIVE
+              value: "8"
+          # 资源声明与容量 profile 的 resources.hardware.agent-worker 一致
+          # （tests/capacity/profiles/agent-capacity-webchat.example.yml）。
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi
           # readiness 接 /readyz（api-kit 的依赖就绪口径，依赖缺失回 503）；
           # liveness 仍接 /healthz（存活，不因依赖抖动重启 Pod）。
           readinessProbe:
@@ -56,10 +84,14 @@ spec:
               path: /healthz
               port: 8002
           volumeMounts:
+            # 共享 RWX 制品卷：跨 Runtime/Worker/Gateway 按 storage_key 互读（写入不可变）
             - name: artifacts
               mountPath: /mnt/muad-artifacts
+            # 每进程独立本地 Skill cache：不共享，不从共享盘直接执行（RULE-skill-001）
             - name: skill-cache
               mountPath: /var/cache/muad/skills
+      # 共享存储约束（design §4.1）：只有制品卷是共享 RWX PVC（100Gi 与容量 profile 的
+      # artifact 预算一致）；skill-cache 是每进程独立 emptyDir，不得改成共享卷。
       volumes:
         - name: artifacts
           persistentVolumeClaim:

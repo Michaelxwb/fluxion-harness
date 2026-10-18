@@ -440,7 +440,7 @@
 | B-298 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-098 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_gateway_metrics.py"] | . | 300 |  |
 | B-299 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-099 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_worker_console_metrics.py"] | . | 300 |  |
 | B-300 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-100 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_console_gateway_deploy.py"] | . | 300 |  |
-| B-301 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-101 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_worker_deploy.py"] | . | 300 |  |
+| B-301 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-101 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_worker_deploy.py"] | . | 300 |  |
 | B-302 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-102 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_configmap_ingress.py"] | . | 300 |  |
 | B-303 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-103 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_hpa_budget.py"] | . | 300 |  |
 | B-304 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.2 发布与迁移, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-104 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_deployment_preflight.py"] | . | 300 |  |
@@ -5936,7 +5936,7 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 
 ## TASK-101: Runtime/Worker资源与共享存储约束
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-094, TASK-095
 - **Source**: agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.2 发布与迁移
@@ -5951,25 +5951,46 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 
 ### Checklist
 
-- [ ] [B-301][integration] 先在`tests/architecture/test_capacity_webchat_runtime_worker_deploy.py`建立行为验收并记录RED；真实边界：真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据；关键断言：资源requests/limits、进程/执行槽、共享RWX及独立本地cache明确。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-301] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-301] 执行`["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_worker_deploy.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-301][integration] 先在`tests/architecture/test_capacity_webchat_runtime_worker_deploy.py`建立行为验收并记录RED；真实边界：真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据；关键断言：资源requests/limits、进程/执行槽、共享RWX及独立本地cache明确。→ RED：新建 10 个行为用例（17 例含参数化）后 `uv run pytest -q tests/architecture/test_capacity_webchat_runtime_worker_deploy.py` → **12 failed, 5 passed in 1.65s**（失败=清单尚无 resources/terminationGracePeriodSeconds/执行槽/分池预算；已绿 5 例是**回归保护**的既有事实：RWX PVC 与挂载/容量、无 bot/user 绑定、PG 总预算，断言未削弱）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 实现落在计划 Files 的 3 个文件：`deploy/k8s/base/agent-runtime.yaml`、`deploy/k8s/base/agent-worker.yaml`（各加 `terminationGracePeriodSeconds: 60`、容器 `resources.requests/limits`、`POD_NAME`（仅 Runtime，源码读它作 instance_id 前缀）、执行槽、分池 HTTP 预算；共享卷/本地 cache 注释明确）、`tests/architecture/test_capacity_webchat_runtime_worker_deploy.py`（417 行，10 个用例/17 例含参数化；辅助函数最长 19 行、用例最长 31 行，均 ≤50；强类型 `DeployUnit` dataclass + `Any` 仅用于 YAML 文档边界；`_scaled_int`/`_cpu_millicores` 对无法解析的数量**显式报错**不静默取默认；断言只读清单/源码/typed profile，无凭据、无原始内部内容）
+- [x] [B-301] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 10 个用例逐条对应契约 5 组断言（见 Acceptance Evidence 断言位置列）；另做 5 处变异验证断言判别性（先复现失败再还原）
+- [x] [B-301] 执行`["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_worker_deploy.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **17 passed in 0.61s**（exit=0，最终冻结版本；还原变异后复跑 0.55s 全绿）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-301 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | 资源requests/limits、进程/执行槽、共享RWX及独立本地cache明确；不按bot/user绑定Pod，最大副本下PG/HTTP/FD预算可计算 | tests/architecture/test_capacity_webchat_runtime_worker_deploy.py | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_worker_deploy.py"] | planned |
+| B-301 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | 资源requests/limits、进程/执行槽、共享RWX及独立本地cache明确；不按bot/user绑定Pod，最大副本下PG/HTTP/FD预算可计算 | tests/architecture/test_capacity_webchat_runtime_worker_deploy.py | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_worker_deploy.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-301 | 首建 `tests/architecture/test_capacity_webchat_runtime_worker_deploy.py`（10 用例/17 例含参数化）→ `uv run pytest -q tests/architecture/test_capacity_webchat_runtime_worker_deploy.py` → **12 failed, 5 passed in 1.65s**（缺 resources/终止宽限/执行槽/分池预算；5 例为既有事实的回归保护：RWX 共享卷与容量、无 bot/user 绑定、PG 总预算） | 同命令（两份清单补齐资源/终止宽限/启动预算后）→ **17 passed in 0.61s**（exit=0）；变异还原后复跑 **17 passed in 0.55s** | ①资源 requests/limits 与 profile 一致 `test_requests_and_limits_match_the_capacity_profile` L250-262（runtime `cpu 1/4、mem 2Gi/8Gi` L255-258，worker 同值；profile `resources.hardware` 逐字段比对）；②执行槽显式且等于 typed 默认 `test_execution_slots_are_declared_and_match_typed_defaults` L264-271（`RUNTIME_EXECUTION_CONCURRENCY=8`/`WORKER_EXECUTION_CONCURRENCY=4` 对 `settings.runtime/worker_execution_concurrency` L268-270）；③分池预算与真实池一致 `test_http_pool_budgets_cover_exactly_the_pools_the_process_creates` L273-296（键集合 == `RUNTIME_HTTP_POOLS=(control,model,mcp,egress)`/`WORKER_HTTP_POOLS=(control,egress)` 派生的 8/4 键 L279-290；每池 connections/keepalive 等于 typed 字段且 keepalive≤connections L291-296）；④键是 typed 字段且有本单元消费点 `test_declared_budget_keys_are_typed_settings_consumed_by_this_unit` L298-316（键集合 == 期望集合 L302-305；`SharedSettings.model_fields` L309；AST 收集的 `settings.<field>` 消费点 L310-314；`POD_NAME` 只在源码真的 `os.getenv` 它的单元声明 L315-316）；⑤共享 RWX + 独立本地 cache `test_shared_artifact_volume_is_rwx_and_skill_cache_is_per_process` L318-348（唯一共享卷=artifacts PVC `muad-artifacts-rwx` 且挂载点==ConfigMap `ARTIFACT_ROOT` L325-333；PVC `accessModes:[ReadWriteMany]` + `100Gi`==profile `storage_budget.artifact_bytes=107374182400` L335-339；skill-cache 为 emptyDir、挂载点==`SKILL_CACHE_ROOT`、不在制品路径下 L341-345；其余卷必须每进程独立 L347-348）；⑥不按 bot/user/具体 Pod 绑定 `test_deployments_are_not_bound_to_bots_users_or_specific_pods` L350-370（kind==Deployment/replicas 为 int L354-355；无 nodeName/hostname/subdomain/nodeSelector/affinity L356-361；env/卷/标签名无 bot|user 词元 L363-369）；⑦终止宽限==60 `test_termination_grace_period_covers_the_drain_budget` L372-378；⑧最大副本 PG 预算 `test_pg_connection_total_at_max_replicas_fits_profile_budget` L380-394（真实 engine 工厂的 `pool.size()+max_overflow`=5+10 L237-248；`Σ process_counts×max_replica_counts×每进程` = console 15 + runtime 60 + worker 120 = **195 ≤ profile 200** L386-393；Gateway 不持库不参与 L391）；⑨每进程 HTTP+PG+Redis+订阅 FD 预算 `test_per_process_http_pg_and_fd_budget_fits_the_nofile_budget` L396-417（runtime 128+15+50+1100=**1293 ≤ 4096**；worker 48+15+50=**113 ≤ 4096** L403-412；runtime 内存上限 8192MiB ≥ 进程级 SSE 总缓冲 `sse_total_buffer_bytes`=64MiB L413-417） | 真实边界（不 Mock、不访问共享 dev 数据）：**真实清单**（`yaml.safe_load_all` 解析 `deploy/k8s/base/{agent-runtime,agent-worker,pvc-artifacts,configmap}.yaml`）；**真实源码依赖图**（`RUNTIME_HTTP_POOLS`/`WORKER_HTTP_POOLS` 直接 import 自 `infrastructure/http_clients.py`；消费点用 AST 收集 `settings.<field>`；`POD_NAME` 用 AST 收集 `os.getenv` 常量）；**真实 engine 工厂**（`muad_agent_runtime/worker/console_platform.infrastructure.db.get_engine()` 惰性建池、不连库，`DATABASE_URL` 由 fixture 注入假值，用后清 lru_cache）；**真实 typed 配置**（`SharedSettings` 默认/校验、`tests/capacity/profile.py` 的严格 typed profile 解析示例） | verified |
+
+**实施范围与风险说明**
+
+- 范围：只动计划 Files 的 3 个文件；无 DDL/迁移、无应用代码改动、未跑 `tests/acceptance/**`、`make acceptance*` 或浏览器验收（共享环境约束）；跑前已确认无 dev/pytest 残留进程。
+- 清单与代码事实一致（不写不生效的键）：清单只声明**本单元源码真实消费**的预算键（`RUNTIME_EXECUTION_CONCURRENCY`、`CHANNEL_DELIVERY_CONCURRENCY`、control/model/mcp/egress 池；worker 为 `WORKER_EXECUTION_CONCURRENCY` + control/egress 池），并由 ④ 用例机检「每个键都是 `SharedSettings` 字段且本单元有 `settings.<field>` 消费点」——多写/少写都会红。**未声明** `DB_POOL_SIZE`/`DB_MAX_OVERFLOW`/`DB_POOL_TIMEOUT_SEC`、`REDIS_MAX_CONNECTIONS`、`RUNTIME_MAX_SSE_SUBSCRIBERS`：前三个未被 engine 工厂消费（`create_async_engine(url, pool_pre_ping=True)` 用 SQLAlchemy 默认 5+10），后两个是「已声明未消费」的启动预算（TASK-094 延后项④）；写进清单会让"有效值"变成假象。PG/FD 总预算因此按**真实**来源核算：PG 取 engine 工厂实际 pool，Redis/订阅上限取 typed 有效值（默认）。
+- 资源数值来源（不是臆造）：`cpu 1/4`、`memory 2Gi/8Gi` 与容量 profile `resources.hardware.agent-runtime/agent-worker`（`cpu_request_millicores: 1000`、`cpu_limit_millicores: 4000`、`memory_request_mb: 2048`、`memory_limit_mb: 8192`）逐字段一致，由 ① 用例机检；改 profile 必须同步清单（反之亦然）。正式测量前按实测调整是 TASK-117 报告的输出，本任务只保证声明一致。
+- 共享存储：制品卷是唯一共享卷（RWX PVC `muad-artifacts-rwx`，`100Gi`==profile `artifact_bytes`），skill-cache 是每进程 `emptyDir`（harness-skill RULE-skill-001：不落共享盘、不直接从共享盘执行）；挂载点与 ConfigMap 的 `ARTIFACT_ROOT`/`SKILL_CACHE_ROOT` 对齐（⑤ 机检）。
+- 无 Pod/bot/user 绑定：无 `nodeName`/`hostname`/`subdomain`/`nodeSelector`/`affinity`，env/卷/标签命名无 bot|user 词元，`kind: Deployment`（非 StatefulSet）；`POD_NAME` 只作日志/指标 instance_id 前缀（源码 `os.getenv('POD_NAME') or socket.gethostname()`），不改变"任意 Pod 可接管同一会话"（RULE-arch-001）。基线 `replicas: 1`，Runtime/Worker 的副本上界与 HPA 属 TASK-103。
+- 排空/发布（§4.2 的部署侧）：两份清单显式 `terminationGracePeriodSeconds: 60`（起始值），readiness `/readyz`、liveness `/healthz` 口径不变（既有 `test_k8s_deploy_manifests.py` 仍绿）；维护窗口的备份/排空/单次迁移流程属 TASK-104 的预检与 README，不在本任务 Files。
+- 判别性验证（防止断言空转；5 处变异均先复现失败再还原，随后复跑确认 17 passed）：①runtime 去掉 `MODEL_HTTP_MAX_KEEPALIVE` → ③用例 **1 failed**（`缺 ['MODEL_HTTP_MAX_KEEPALIVE']`）；②runtime 声明未接线的 `DB_POOL_SIZE` → ④用例 **1 failed**（`没有 settings.db_pool_size 消费点`）；③worker 内存上限改 1Gi → ①用例 **1 failed**（`2048 == 1024`）；④runtime 加 `user-data` 卷 → ⑥用例 **1 failed**（`不得按 bot/user 绑定 Pod：['user-data']`）；⑤worker 删 `terminationGracePeriodSeconds` → ⑦用例 **1 failed**。
+- 静态检查与盘点：`uv run ruff check tests/architecture/test_capacity_webchat_runtime_worker_deploy.py` → **All checks passed**；`uv run mypy apps packages` → **Success: no issues found in 441 source files**；未在 `apps`/`packages` 新增/移动模块级大写常量，`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**（`docs/configuration-inventory.csv` 无需改动）；两份清单 `yaml.safe_load_all` 解析为 Deployment+Service 两文档（既有架构清单用例一并绿）。
+- 聚焦回归：`uv run pytest -q tests/architecture` → **69 passed in 4.90s**（exit=0，含既有 `test_k8s_deploy_manifests.py` 的探针/镜像/非 root/迁移 Job 机检与 `harness-arch#RULE-arch-001` 的 verifier 套件）。
+- 延后项（诚实记录）：① `DB_POOL_SIZE`/`DB_MAX_OVERFLOW`/`DB_POOL_TIMEOUT_SEC` 的 engine 工厂接线（§3.7 声明预算落地）不在本任务 Files，属持库单元基础设施的域内变更；接线后 PG 每进程上限会从 15 下降，本用例会按新事实自动重算（不写死数字）。② `REDIS_MAX_CONNECTIONS`/`RUNTIME_MAX_SSE_SUBSCRIBERS` 做成进程级账本/信号量（TASK-094 延后项④）后应在清单显式声明；本任务按 typed 有效值核算 FD 预算。③ 总连接/FD/内存缓冲的渲染前预检与发布阻断属 TASK-103/104；HPA 上界与 `maxReplicas` 属 TASK-103。④ Console/Gateway 的资源/终止宽限与分池预算显式声明属 TASK-100（本任务只覆盖 Runtime/Worker 与共享卷）。⑤ 1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责；本任务不声称生产容量已达标。
+- B-301: verified — automated command passed; run_id=a56ddf43a3184d608fc7e0cf33efa35c (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] B-301 RED：新建 `tests/architecture/test_capacity_webchat_runtime_worker_deploy.py`（10 用例/17 例）→ `uv run pytest -q tests/architecture/test_capacity_webchat_runtime_worker_deploy.py` → **12 failed, 5 passed in 1.65s**（清单尚无 resources/终止宽限/执行槽/分池预算；5 例为既有事实的回归保护）
+- [2026-10-19] 实现：`agent-runtime.yaml`/`agent-worker.yaml` 加 `terminationGracePeriodSeconds: 60`、容器 `resources.requests/limits`（与容量 profile hardware 逐字段一致）、`POD_NAME`（仅 Runtime）、执行槽/投递并发、按真实池声明的 HTTP connections+keepalive；共享 RWX 制品卷与每进程 emptyDir skill-cache 注释明确；未声明未接线的 DB/Redis/SSE 键（不写不生效的键）
+- [2026-10-19] B-301 GREEN：**17 passed in 0.61s**（变异还原后复跑 0.55s）；5 处变异验证断言判别性后还原；`tests/architecture` **69 passed**（4.90s）；ruff 干净、mypy 441 文件无问题、配置盘点 4 passed；PG 总预算 195≤200、FD 预算 runtime 1293/worker 113 ≤4096（engine 工厂真实 pool 5+10 核算）
+- [2026-10-19] completed (done)
 
 ---
 
