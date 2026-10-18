@@ -410,7 +410,7 @@
 | B-268 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-068 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_notifications.py"] | . | 300 |  |
 | B-269 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-069 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retention.py"] | . | 300 |  |
 | B-270 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-070 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_gateway_notification_api.py"] | . | 300 |  |
-| B-271 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-071 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_transport.py"] | . | 300 |  |
+| B-271 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-071 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_transport.py"] | . | 300 |  |
 | B-272 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-072 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_sse_parser.py"] | . | 300 |  |
 | B-273 | agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-073 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_services.py"] | . | 300 |  |
 | B-274 | agent-capacity-webchat.frontend.design.md#3.4 组件接口契约, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-074 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_auth_state.py"] | . | 300 |  |
@@ -4076,7 +4076,7 @@ API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权；完�
 
 ## TASK-071: 共享传输区分CONSOLE/CHAT认证上下文
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-007
 - **Source**: agent-capacity-webchat.frontend.design.md#3.1 技术选型, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.backend.design.md#3.4 接口设计
@@ -4091,27 +4091,40 @@ API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权；完�
 
 ### Checklist
 
-- [ ] [B-271][integration] 先在`tests/frontend/test_capacity_webchat_chat_transport.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：共享层统一追踪/语言/CSRF/X-Chat-Context。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-271] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-271] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_transport.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-frontend#RULE-front-001`（stage: review；timeout=600秒）：`["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-271][integration] 先在`tests/frontend/test_capacity_webchat_chat_transport.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：共享层统一追踪/语言/CSRF/X-Chat-Context。RED：`uv run pytest -q tests/frontend/test_capacity_webchat_chat_transport.py` exit=1，4 failed + 6 errors（4 条源码契约断言失败：`client.ts` 未接线 authScope、401 分支未分域、`authScope.ts` 缺失、敏感头扫描；6 条真实 node 执行用例在 fixture 阶段 error——esbuild 解析不到缺失的 `src/api/authScope.ts`）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① 新增 `src/api/authScope.ts`（零依赖）——`AuthScope='CONSOLE'|'CHAT'`、`resolveAuthScope(pathname)`（`/chat` 整段前缀，`/chats`/`/chat-preview` 不误判）、`currentAuthScope()`、`CHAT_CSRF_COOKIE='muad_chat_csrf'`、`CHAT_CONTEXT_HEADER='X-Chat-Context'`、`setChatContextId`（bootstrap 后写入，空值归一为 null）、`chatContextForScope(scope)`（Console 域一律返回 null，不外泄残留上下文）、`onChatUnauthorized`/`notifyChatUnauthorized`（CHAT 401 的统一出口，供认证状态机与 SSE 复用）；② `src/api/client.ts`——请求拦截器按当前域取 CSRF（`csrfTokenForScope`：CONSOLE 读 `muad_csrf`、CHAT 读 `muad_chat_csrf`，头名仍 `X-CSRF-Token`），CHAT 域且有验证上下文时注入 `X-Chat-Context`（无上下文不写空头）；响应拦截器 401 先分域：CHAT 通知认证层并 reject（不跳管理登录、不叠加全局 Toast），CONSOLE 保留 `/login?returnUrl=` 跳转与 `/login` 守卫，`/me` 探测免 Toast 例外保留。凭据只从 Cookie 读取后进请求头，不打印、不入 URL/存储。
+- [x] [B-271] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-271] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_transport.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，10 passed（0.12–0.17s）。
+- [x] verifier `harness-frontend#RULE-front-001`（stage: review；timeout=600秒）：`["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。实际执行：exit=0——`test_api_client_contract.py` 4 passed、`check_frontend_api_usage.py`「frontend api usage check OK」、`check_frontend_i18n.py`「i18n keys OK: 1207」、`npm ... run typecheck` 无输出（tsc --noEmit 干净）；旧拦截器契约（三头注入/兜底/封套 Toast/401 守卫）全部保留，`tests/frontend/test_console_auth_contract.py` 的 11 条契约在同目录回归中通过。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-271 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 共享层统一追踪/语言/CSRF/X-Chat-Context；CHAT 401回Token输入且/me探测不弹启动Toast，管理登录行为保留，组件/hooks不裸fetch或覆盖头 | tests/frontend/test_capacity_webchat_chat_transport.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_transport.py"] | planned |
-| harness-frontend#RULE-front-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的 service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿 `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId` 是无副作用的纯工具，组件可直接 import（现网 7 处，均为纯函数引用）。所有文案只使用 i18n key（zh-CN/en-US）——`scripts/check_frontend_i18n.py` 校验两侧词条的键集齐平与空值，并校验源码中 `t('字面量键')` 引用的键**必须已定义**（增删词条后务必跑它）；模板串动态键变体的齐备性由各模块的 `tests/frontend/*_i18n*.py` 契约钉死。列表/详情遵循 RULE-ui-001 与 RULE-ui-detail-001。 | 沿用原Spec verifier，不重写成更弱测试 | ["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"] | planned |
+| B-271 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 共享层统一追踪/语言/CSRF/X-Chat-Context；CHAT 401回Token输入且/me探测不弹启动Toast，管理登录行为保留，组件/hooks不裸fetch或覆盖头 | tests/frontend/test_capacity_webchat_chat_transport.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_chat_transport.py"] | verified |
+| harness-frontend#RULE-front-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的 service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿 `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId` 是无副作用的纯工具，组件可直接 import（现网 7 处，均为纯函数引用）。所有文案只使用 i18n key（zh-CN/en-US）——`scripts/check_frontend_i18n.py` 校验两侧词条的键集齐平与空值，并校验源码中 `t('字面量键')` 引用的键**必须已定义**（增删词条后务必跑它）；模板串动态键变体的齐备性由各模块的 `tests/frontend/*_i18n*.py` 契约钉死。列表/详情遵循 RULE-ui-001 与 RULE-ui-detail-001。 | 沿用原Spec verifier，不重写成更弱测试 | ["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-271 | `uv run pytest -q tests/frontend/test_capacity_webchat_chat_transport.py` exit=1，4 failed + 6 errors（4 条源码契约失败：`client.ts` 未接线 authScope / 401 未分域 / `authScope.ts` 缺失 / 敏感头扫描；6 条真实 node 用例 error：esbuild 无法解析缺失的 `src/api/authScope.ts`） | 同命令 exit=0，10 passed（0.12–0.17s） | ① `test_real_transport_keeps_each_scope_on_its_own_credentials`：CONSOLE 请求 `X-CSRF-Token=console-csrf-value` 且无 `X-Chat-Context`；CHAT（bootstrap 前）`X-CSRF-Token=chat-csrf-value`（≠ Console 值）且无上下文头；bootstrap 后 `X-Chat-Context=auth-context-1`；Console 页面带残留上下文时不外发；两次请求 `X-Request-Id` 不同且为 UUIDv4、`X-Locale=zh-CN`。② `test_real_transport_chat_401_returns_to_token_access_without_console_redirect`：CHAT 401 → `redirects==[]`、认证层收到通知、无 Toast、reject 401。③ `test_real_transport_console_401_keeps_the_management_login_behaviour`：CONSOLE 401 → `redirects==['/login?returnUrl=%2Fagents%3Fpage%3D2']`、零 CHAT 通知；`/login` 自身 401 不跳转且仍 Toast「用户名或密码错误」。④ `test_real_transport_session_probe_failures_do_not_toast`：`/auth/me` 与 `/webchat/auth/me` 失败均零 Toast（前者仍跳登录、后者只通知认证层）。⑤ `test_real_auth_scope_resolution_covers_chat_route_only`：8 条路径解析（`/chat*`→CHAT，`/chats`/`/chat-preview`→CONSOLE）。⑥ `test_real_transport_request_id_survives_non_secure_context`：抽掉 `crypto.randomUUID` 后仍产出合法 UUIDv4。⑦ `test_client_wires_the_scope_aware_transport`/`test_client_401_branch_splits_console_and_chat`：`client.ts` 接线逐条钉死（含旧契约的 `readCookie(CSRF_COOKIE)`、`/login` 守卫、`/auth/me` 例外）。⑧ `test_auth_scope_module_is_dependency_free_and_defines_the_chat_domain`：authScope 零 import 与全部导出签名。⑨ `test_components_and_hooks_do_not_bare_fetch_or_override_transport_headers`：`src/` 内除 `src/api/` 外无 `X-CSRF-Token`/`X-Chat-Context`，组件/hooks 无裸 axios/fetch 或传输头覆盖 | 真实 esbuild 0.21.5 把真实 `src/api/client.ts` + `src/api/authScope.ts`（及真实 axios/i18next/React 依赖链）打成 ESM 编译产物（453KB），由真实 node v24 执行；断言观测的是真实 axios 实例经 adapter 实际发出的请求头与真实 `window.location.assign`/Toast 调用。`@douyinfe/semi-ui` 只被别名成可观测 Toast 记录器（展示依赖，非被测共享传输）；本用例不触 HTTP/DB/浏览器，DOM 交互按契约留给 E2E | verified |
+
+实现要点：**域隔离**——同一 axios 实例按当前页面解析认证域（`/chat` 整段前缀），CSRF 取源与 CHAT 上下文都按域选择：CHAT 只读 `muad_chat_csrf`、CONSOLE 只读 `muad_csrf`，两个方向都不发对方的头/值；`X-Chat-Context` 只由验证后的 bootstrap 写入（`setChatContextId`），Console 页面即使残留该状态也不外发。**401 分域**——CHAT 走 `notifyChatUnauthorized()`（认证状态机据此关闭流、清私有状态并回到 TokenAccess；SSE 与 service 复用同一出口），不跳管理登录、不叠加全局 Toast；CONSOLE 原行为逐条保留（`/login?returnUrl=`、`/login` 防循环、`/me` 探测免 Toast）。**可测试性**——域解析、上下文持有与 401 出口都放在零依赖的 `authScope.ts`，共享 axios 传输只接线，行为经真实编译产物在 node 下可执行。
+
+回归：`uv run pytest -q tests/frontend` exit=1，**1 failed / 354 passed**——唯一失败 `test_audit_gap_contract.py::test_b214_resource_type_options_cover_backend_domain`（`CHAT_ACCESS_TOKEN` 未进 `AuditFilterBar.RESOURCE_TYPES`）与本任务零交集：该用例只读 `modules/audit-observability/components/AuditFilterBar.tsx` 与后端 `chat_token_service.AUDIT_RESOURCE_TYPE`（TASK-038 引入），`git diff --stat HEAD -- apps/console-platform/frontend/src/modules apps/console-platform/backend packages` 为空，属既有缺口（见遗留项）。同域相关：`tests/frontend/test_api_client_contract.py` 4 passed、`tests/frontend/test_console_auth_contract.py` 11 passed。`tests/console_auth` 未跑：本任务零 Python 后端改动，该目录为 PG 集成用例（共享环境约束下不启动）。
+
+静态检查：`uv run ruff check tests/frontend/test_capacity_webchat_chat_transport.py` 干净；`npx tsc --noEmit`（frontend）干净；`scripts/check_frontend_api_usage.py`、`scripts/check_frontend_i18n.py` 干净；新增/改动函数均 ≤50 行、无 `any`；未新增日志/存储写入，凭据不进日志/URL。
+
+遗留（非本任务范围）：① `X-Chat-Context` 的**响应上下文核对**（`/me` 返回的 `auth_context_id` 与已发送上下文比对、`AUTH_CONTEXT_CHANGED` 停自动重试）由 TASK-074 认证状态机落，本任务提供 `setChatContextId`/`onChatUnauthorized` 接缝；② 浏览器 SSE（TASK-072）与模块 service（TASK-073）必须从 `src/api/authScope.ts` 取 `chatContextForScope`/`notifyChatUnauthorized`，不得自行拼装传输头（本任务用例 ⑨ 会拦）；③ 既有失败 `test_audit_gap_contract.py::test_b214...`（审计筛选枚举缺 `CHAT_ACCESS_TOKEN`）需 audit-observability 侧补枚举或补词条，与 TASK-071 无交集；④ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 的「请求头固定三件」需补 CHAT 域取源与 `X-Chat-Context`；本任务不改 spec 文件以免 active context 漂移。
+- B-271: verified — automated command passed; run_id=a9a2f64fe2b44470bfa7af6771de8e10 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 
