@@ -1,3 +1,10 @@
+"""Worker 循环：有界任务池、独立回收与 PG 时钟裁决的租约/期限。
+
+**时钟口径（design §3.5 时间，B-235）**：Task 租约、绝对期限与回收判定一律取 PG 服务端时钟
+（`database_now`）；进程墙钟只用于计时、退避与展示。各方法的 `now` 参数是显式的测试注入点，
+生产调用（`run_forever`）一律不传 ⇒ 默认走 PG 时钟。
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,7 +13,7 @@ import os
 import socket
 import uuid
 from collections.abc import Awaitable, Callable, Coroutine
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any, cast
 
 import sqlalchemy as sa
@@ -23,6 +30,7 @@ from ..application.task_cancel import cancel_children
 from ..application.task_events import TaskEventSeed, TaskEventType, append_event, append_events
 from ..application.terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.wakeup_hint import NullWakeupListener, WakeupListener
 from ..metrics import (
@@ -240,6 +248,11 @@ class WorkerLoop:
     def execution_count(self) -> int:
         return self._slots.execution_count
 
+    async def _pg_clock(self) -> datetime:
+        """PG 服务端时钟：期限/租约裁决的唯一时间权威（进程钟只用于计时与展示）。"""
+        async with self._session_factory() as session:
+            return await database_now(session)
+
     async def run_forever(self) -> None:
         """有界任务池：本地有槽才领取；执行独立监督，回收不排在执行队尾。
 
@@ -294,7 +307,7 @@ class WorkerLoop:
 
     async def _supervise_task(self, task: TaskExecution, *, now: datetime | None) -> None:
         """单个槽的完整生命周期：执行与心跳共同监督，收尾只写本任务的结论。"""
-        moment = now or datetime.now(UTC)
+        moment = now if now is not None else await self._pg_clock()
         cancelled = asyncio.Event()
         execution = asyncio.create_task(self._resolve_executor().execute(task))
         heartbeat = asyncio.create_task(self._heartbeat(task.id, execution, cancelled))
@@ -334,7 +347,8 @@ class WorkerLoop:
             return
         await self._stop_heartbeat(heartbeat)
         # 截止判定用**执行真正结束的时刻**，不是本轮 tick 的起点——Skill 可能跑了五分钟。
-        finished_at = datetime.now(UTC)
+        # 该时刻取 PG 服务端时钟（B-235）：进程钟偏差不得让超期结果写成 COMPLETED。
+        finished_at = now if now is not None else await self._pg_clock()
         if finished_at >= task.deadline_at:
             # 结果产出时已过 deadline：不写 COMPLETED（评审 #8）。已有的副作用收不回，
             # 但「成功」这个结论不能落库。
@@ -388,7 +402,7 @@ class WorkerLoop:
             await self._wait(task, outcome, now=now)
             return
         if outcome.kind is OutcomeKind.CANCELLED:
-            moment = now or datetime.now(UTC)
+            moment = now if now is not None else await self._pg_clock()
             async with self._session_factory() as session:
                 async with session.begin():
                     await self._mark_cancelled(session, task, moment)
@@ -407,10 +421,10 @@ class WorkerLoop:
         now: datetime | None,
     ) -> None:
         """外部等待：记录 external_ref/not_before 并释放 lease，由 Scheduler 到期再 claim。"""
-        moment = now or datetime.now(UTC)
-        not_before = outcome.not_before or moment + timedelta(seconds=DEFAULT_WAIT_SEC)
         async with self._session_factory() as session:
             async with session.begin():
+                moment = now if now is not None else await database_now(session)
+                not_before = outcome.not_before or moment + timedelta(seconds=DEFAULT_WAIT_SEC)
                 await self._lock_parent(session, task)
                 rowcount = await self._cas(
                     session,
@@ -448,8 +462,8 @@ class WorkerLoop:
 
     async def reclaim_expired(self, *, now: datetime | None = None) -> int:
         """Bounded PG scan; each root tree is settled in its own ordered transaction."""
-        moment = now or datetime.now(UTC)
         async with self._session_factory() as session:
+            moment = now if now is not None else await database_now(session)
             tasks = list(
                 await session.scalars(
                     select(TaskExecution)
@@ -527,13 +541,13 @@ class WorkerLoop:
         now: datetime | None,
         result_artifact_id: uuid.UUID | None = None,
     ) -> None:
-        moment = now or datetime.now(UTC)
         change = TerminalChange(
             status=TerminalStatus.COMPLETED,
             result=cast(dict[str, JsonValue], result),
             result_artifact_id=result_artifact_id,
         )
         async with self._session_factory() as session, session.begin():
+            moment = now if now is not None else await database_now(session)
             if not await self._terminal(session, task, change, moment, require_not_cancelled=True):
                 await self._mark_cancelled(session, task, moment)
 
@@ -550,7 +564,6 @@ class WorkerLoop:
         NON_RETRYABLE）：非幂等效果在响应丢失后不得自动重做，落 `TASK_RESULT_UNVERIFIED`
         待核实，保留现场等待人工/业务确认（design §3.6「重试与外部副作用」）。
         """
-        moment = now or datetime.now(UTC)
         error_code, error_message, retryable = _describe_error(exc)
         outcome = classify_failure(
             retry_safety=task_retry_safety(task.execution_snapshot_json),
@@ -560,6 +573,7 @@ class WorkerLoop:
         )
         async with self._session_factory() as session:
             async with session.begin():
+                moment = now if now is not None else await database_now(session)
                 await self._lock_parent(session, task)
                 if outcome.disposition is FailureDisposition.RETRY and task.attempt < task.max_attempts:
                     if await self._schedule_retry(
@@ -573,13 +587,13 @@ class WorkerLoop:
                 await self._mark_cancelled(session, task, moment)
 
     async def _mark_deadline_exceeded(self, task: TaskExecution, *, now: datetime | None) -> None:
-        moment = now or datetime.now(UTC)
         change = TerminalChange(
             status=TerminalStatus.FAILED,
             error_code=TASK_DEADLINE_EXCEEDED,
             error_message="task deadline exceeded",
         )
         async with self._session_factory() as session, session.begin():
+            moment = now if now is not None else await database_now(session)
             await self._terminal(
                 session,
                 task,
@@ -712,9 +726,9 @@ class WorkerLoop:
         return int(cast(CursorResult[Any], result).rowcount)
 
     async def _mark_cancelled_outcome(self, task: TaskExecution, *, now: datetime | None) -> None:
-        moment = now or datetime.now(UTC)
         async with self._session_factory() as session:
             async with session.begin():
+                moment = now if now is not None else await database_now(session)
                 await self._mark_cancelled(session, task, moment)
 
     async def _heartbeat(
@@ -782,9 +796,9 @@ class WorkerLoop:
         #2 实测：旧实例续租成功、陈旧结果随后通过终态 CAS 写成 COMPLETED）。失约的实例
         只能停手，重新 claim 才能拿回执行权。
         """
-        moment = datetime.now(UTC)
         async with self._session_factory() as session:
             async with session.begin():
+                moment = await database_now(session)
                 heartbeat_result = await session.execute(
                     update(TaskExecution)
                     .where(

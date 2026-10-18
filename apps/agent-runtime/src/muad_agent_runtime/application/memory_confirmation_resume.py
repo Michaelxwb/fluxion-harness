@@ -26,10 +26,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import CanonicalEvent, RunInterrupt, RunRecord, UserMemory
 from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
 from .memory_observability import after_commit, observe
-from .memory_proposals import _database_now, confirmation_source
+from .memory_proposals import confirmation_source
 from .memory_service import MemoryService
 from .run_events import EventWriter
 
@@ -127,7 +128,7 @@ async def _consume_confirmation(
                 session, run, proposal, interrupt, submission_id, settings, credential_canaries
             )
         )
-    now = await _database_now(session)
+    now = await database_now(session)
     _ensure_deadline(run, now)
     payload = result.model_dump(mode="json")
     text = _result_text(result)
@@ -215,7 +216,7 @@ async def _confirm(
         expected_forget_epoch=proposal.forget_epoch,
     )
     scope = await MemoryService.lock_scope(session, ctx)
-    now = await _database_now(session)
+    now = await database_now(session)
     _ensure_deadline(run, now)
     row = await session.scalar(
         select(UserMemory)

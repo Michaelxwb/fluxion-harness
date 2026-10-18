@@ -14,9 +14,10 @@ from muad_contracts.memory import (
     RememberMemoryInput,
     memory_hash,
 )
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.async_tools import RunContinuation
 from ..infrastructure.models.runtime import (
     CanonicalEvent,
@@ -33,18 +34,11 @@ async def locked_confirmation_execution(
     session: AsyncSession,
     identity: ExecutionIdentity,
 ) -> tuple[RunRecord, RunContinuation | None, datetime]:
-    run, saved = await lock_execution(session, identity, await _database_now(session))
+    run, saved = await lock_execution(session, identity, await database_now(session))
     # Row-lock acquisition may outlive the lease/deadline; fence with the post-lock clock.
-    now = await _database_now(session)
+    now = await database_now(session)
     ensure_execution(run, identity, now)
     return run, saved, now
-
-
-async def _database_now(session: AsyncSession) -> datetime:
-    now = await session.scalar(select(func.statement_timestamp()))
-    if not isinstance(now, datetime):
-        raise RuntimeError("database clock missing")
-    return now
 
 
 async def ensure_no_memory_confirmation(session: AsyncSession, identity: ExecutionIdentity) -> None:

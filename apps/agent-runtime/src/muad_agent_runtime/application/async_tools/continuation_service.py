@@ -1,7 +1,12 @@
-"""Conversation-first transactions for complete-round checkpoints and waiting claims."""
+"""Conversation-first transactions for complete-round checkpoints and waiting claims.
+
+**时钟口径（design §3.5 时间，B-235）**：租约/排队期限/绝对期限的判定一律取 PG 服务端时钟
+（`database_now`，行锁之后取值）；进程墙钟只用于计时、退避与展示。函数上的 `now` 参数是
+显式的测试注入点，生产调用一律不传 ⇒ 默认走 PG 时钟。
+"""
 
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from muad_agent_core.agent.continuation import RunnerCheckpoint, WaitDecision
@@ -13,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from ...infrastructure.db import SessionFactory
+from ...infrastructure.db_clock import database_now
 from ...infrastructure.models.async_tools import RunContinuation, ToolOperation, ToolResultInbox
 from ...infrastructure.models.runtime import (
     CanonicalEvent,
@@ -194,8 +200,9 @@ async def checkpoint_execution(
     *,
     now: datetime | None = None,
 ) -> None:
-    instant = now or datetime.now(UTC)
+    """持久检查点：期限/租约按 PG 时钟判定（`now` 仅测试注入）。"""
     async with factory() as session, session.begin():
+        instant = now if now is not None else await database_now(session)
         run, saved = await lock_execution(session, identity, instant)
         await _write_checkpoint(session, run, saved, progress, instant)
 
@@ -256,8 +263,9 @@ async def try_wait(
     assistant_text: str = "",
     now: datetime | None = None,
 ) -> WaitDecision:
-    instant = now or datetime.now(UTC)
+    """进入/恢复等待片段：期限/租约按 PG 时钟判定（`now` 仅测试注入）。"""
     async with factory() as session, session.begin():
+        instant = now if now is not None else await database_now(session)
         run, saved = await lock_execution(session, identity, instant)
         saved = await _write_checkpoint(session, run, saved, progress, instant)
         pending = await _has_dependency(session, run)
@@ -308,8 +316,9 @@ async def try_wait(
 async def renew_execution(
     factory: SessionFactory, identity: ExecutionIdentity, *, lease_sec: int, now: datetime | None = None
 ) -> bool:
-    instant = now or datetime.now(UTC)
+    """续租：租约与绝对期限按 PG 时钟判定（`now` 仅测试注入），失约显式返回 False。"""
     async with factory() as session, session.begin():
+        instant = now if now is not None else await database_now(session)
         changed = await session.scalar(
             update(RunRecord)
             .where(
@@ -340,7 +349,11 @@ async def claim_continuation(
     exclude_runs: frozenset[UUID] = frozenset(),
     run_id: UUID | None = None,
 ) -> RunRecord | None:
-    instant = now or datetime.now(UTC)
+    """领取一条可执行 Run：候选预筛与逐行 fence 都按 PG 时钟（`now` 仅测试注入）。
+
+    候选预筛用 PG `now()` 比较绝对期限；逐行判定在行锁之后取一次 PG 时间做 fence ——
+    本机墙钟偏差既不能放弃一个 PG 尚未过期的 Run，也不能放行一个 PG 已过期的 Run。
+    """
     async with factory() as session:
         candidates = list(
             await session.scalars(
@@ -351,7 +364,7 @@ async def claim_continuation(
                     RunRecord.cancel_requested.is_(False),
                     RunRecord.is_deleted.is_(False),
                     RunRecord.id.not_in(exclude_runs),
-                    (RunRecord.deadline_at.is_(None) | (RunRecord.deadline_at > instant)),
+                    (RunRecord.deadline_at.is_(None) | (RunRecord.deadline_at > func.now())),
                     RunRecord.id == run_id if run_id is not None else true(),
                 )
                 .order_by(RunRecord.update_time, RunRecord.id)
@@ -359,7 +372,7 @@ async def claim_continuation(
             )
         )
     for candidate in candidates:
-        claimed = await _claim_one(factory, candidate, instance_id, lease_sec, wait_generation, instant)
+        claimed = await _claim_one(factory, candidate, instance_id, lease_sec, wait_generation, now)
         if claimed is not None:
             return claimed
     return None
@@ -420,8 +433,9 @@ async def _claim_one(
     owner: str,
     lease_sec: int,
     generation: int | None,
-    now: datetime,
+    now: datetime | None,
 ) -> RunRecord | None:
+    """单行领取：行锁之后取 PG 时钟做 fence（租约期限也按 PG 写；`now` 仅测试注入）。"""
     async with factory() as session, session.begin():
         conversation = await session.scalar(
             select(Conversation.id)
@@ -435,23 +449,24 @@ async def _claim_one(
         if conversation is None:
             return None
         run, saved = await lock_run_source(session, candidate.tenant_id, candidate)
+        instant = now if now is not None else await database_now(session)
         starting = run.status == RunStatus.CREATED
         if run.cancel_requested or (not starting and (saved is None or run.status != RunStatus.WAITING_TOOL)):
             return None
-        if (run.deadline_at is not None and run.deadline_at <= now) or (
+        if (run.deadline_at is not None and run.deadline_at <= instant) or (
             generation is not None and (saved is None or saved.wait_generation != generation)
         ):
             return None
         # 初始排队期限只约束**首次领取**前的等待：仍带排队投影（queue_stage 非空）、未被领取过
         # （epoch=0）且已过期的行不得被领取（超时后不得再调用模型）；终态由 `expire_queued_runs`
         # 的同一状态 CAS 裁决。续跑/人工恢复（epoch ≥ 1）不受初始排队期限约束。
-        if starting and _initial_queue_deadline_passed(run, now):
+        if starting and _initial_queue_deadline_passed(run, instant):
             return None
         if not starting and (saved is None or not await has_ready(session, run, saved.consumed_event_seq)):
             return None
         run.status, run.execution_epoch = RunStatus.RUNNING, run.execution_epoch + 1
-        run.lease_owner, run.lease_until = owner, now + timedelta(seconds=lease_sec)
-        run.heartbeat_at, run.update_time = now, now
+        run.lease_owner, run.lease_until = owner, instant + timedelta(seconds=lease_sec)
+        run.heartbeat_at, run.update_time = instant, instant
         # 领取成功即离开排队：清空排队投影，旧排队期限不再影响本 Run 的后续续跑。
         run.queue_stage, run.queue_reason = None, None
         if saved is not None:

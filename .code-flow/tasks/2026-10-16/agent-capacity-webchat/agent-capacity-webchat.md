@@ -374,7 +374,7 @@
 | B-232 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-032 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_slots.py"] | . | 300 |  |
 | B-233 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-033 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_slots.py"] | . | 300 |  |
 | B-234 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-034 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_retry_safety.py"] | . | 300 |  |
-| B-235 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-035 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_clock_lease.py"] | . | 300 |  |
+| B-235 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-035 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_clock_lease.py"] | . | 300 |  |
 | B-236 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-036 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_queue_projection.py"] | . | 300 |  |
 | B-237 | agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-037 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"] | . | 300 |  |
 | B-238 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-038 | verified | ["uv","run","pytest","-q","tests/console_auth/test_capacity_webchat_token_service.py"] | . | 300 |  |
@@ -453,6 +453,8 @@
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
 
 ---
+
+
 
 
 ## TASK-001: 容量与模型调度设置的typed schema
@@ -2423,7 +2425,7 @@ READ_ONLY/IDEMPOTENT/NON_RETRYABLE由可信配置冻结；完整分支及可观�
 
 ## TASK-035: PG时钟、租约及绝对期限校验
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-022, TASK-031, TASK-033
 - **Source**: agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界
@@ -2438,27 +2440,46 @@ Run/Task/模型租约与窗口使用PG时间；完整分支及可观测结果见
 
 ### Checklist
 
-- [ ] [B-235][integration] 先在`tests/agent_runtime/test_capacity_webchat_clock_lease.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：Run/Task/模型租约与窗口使用PG时间。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-235] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-235] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_clock_lease.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-time#RULE-time-001`（stage: review；timeout=300秒）：`["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-235][integration] 先在`tests/agent_runtime/test_capacity_webchat_clock_lease.py`建立行为验收并记录RED；真实边界：真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约；关键断言：Run/Task/模型租约与窗口使用PG时间。→ RED：首建验收文件（9 个用例）后 `uv run pytest -q tests/agent_runtime/test_capacity_webchat_clock_lease.py` → **8 failed, 1 passed in 14.80s**（exit=1；唯一通过的是 TASK-022 已实现 PG 时钟的模型租约证据用例）；新增第 10 个用例（Schedule 冻结 Task 期限）后单独记录 RED：`-k task_deadline_freeze` → **1 failed, 9 deselected in 2.02s**（`schedule_misfire_skipped`：进程钟拨快 6h 被当成 misfire）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 见下方实施范围；新增/改动函数均 ≤50 行（`database_now` 8、`_pg_clock` 4、`_claim_one` 46、`expire_runs` 18、`_expire_one` 27、`claim_continuation` 31、`_create_run` 未增行、`_is_cancel_requested` 19）；失约/超期一律显式（`ExecutionLeaseLost`/`MODEL_CALL_LEASE_LOST`/`(False, _)`/`RUN_DEADLINE_EXCEEDED`/`TASK_DEADLINE_EXCEEDED`），无静默回落；无凭据/原始内容进入响应或日志
+- [x] [B-235] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 10 个用例逐条对应（见 Acceptance Evidence 的断言位置列）
+- [x] [B-235] 执行`["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_clock_lease.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **10 passed in 15.43s**（exit=0）；finish 前复跑 **10 passed in 15.77s** / **10 passed in 13.88s** / **10 passed in 13.42s**
+- [x] verifier `harness-time#RULE-time-001`（stage: review；timeout=300秒）：`["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。→ **2 passed in 0.03s** + **47 passed, 5111 deselected, 1 warning in 25.93s**（exit=0；`timestamptz` 列、Console 时间格式与 IANA 时区口径未被本任务破坏）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-235 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | Run/Task/模型租约与窗口使用PG时间；本机时钟偏差不延长执行权，heartbeat与lease联动拒错，页面时间仍用IANA/DateTimeText口径 | tests/agent_runtime/test_capacity_webchat_clock_lease.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_clock_lease.py"] | planned |
-| harness-time#RULE-time-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 数据库统一 `timestamptz` 存储；Console 展示统一 `YYYY-MM-DD HH:mm:ss`；调度时区使用 IANA 时区（如 `Asia/Shanghai`）。 | 沿用原Spec verifier，不重写成更弱测试 | ["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"] | planned |
+| B-235 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | Run/Task/模型租约与窗口使用PG时间；本机时钟偏差不延长执行权，heartbeat与lease联动拒错，页面时间仍用IANA/DateTimeText口径 | tests/agent_runtime/test_capacity_webchat_clock_lease.py | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_clock_lease.py"] | verified |
+| harness-time#RULE-time-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | 数据库统一 `timestamptz` 存储；Console 展示统一 `YYYY-MM-DD HH:mm:ss`；调度时区使用 IANA 时区（如 `Asia/Shanghai`）。 | 沿用原Spec verifier，不重写成更弱测试 | ["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-235 | `uv run pytest -q tests/agent_runtime/test_capacity_webchat_clock_lease.py` → exit=1，**8 failed, 1 passed in 14.80s**：①受理冻结 L312 `timedelta(3600s) <= 60s` 失败（进程钟拨慢 1h 后期限跟着走）；②领取守卫 L342 `None is not None`（进程钟拨快 6h 时放弃了 PG 未过期的排队 Run）；③心跳续租 L390 `False is True`；④绝对期限扫描 L436 `1 == 0`（进程钟拨快误杀）；⑤Reaper L474 `0 == 1`（进程钟拨慢放过过期租约）；⑥Worker 续租 L703 `False is True`；⑦Task 领取 L778 `None is not None`；⑧Task deadline sweep L804 `1 == 0`。模型租约用例（L536）在实现前即通过（TASK-022 已用 PG 时钟，本任务登记为收口证据）。新增第 10 个用例后单独 RED：`-k task_deadline_freeze` → **1 failed, 9 deselected in 2.02s**（`schedule_misfire_skipped`） | 同命令 → **10 passed in 15.43s**（exit=0）；复跑 **10 passed in 15.77s** / **13.88s** / **13.42s** | ①受理冻结（L293-334）：`deadline_at - queued_at == deadline_ms` L322、`queue_deadline_at == deadline_at` L323、`start_time == queued_at` L324、`abs(queued_at - pg_now) <= 60s` L326-327（进程钟拨慢 1h 不生效）、CREATED 未被领取 L329；②领取守卫（L337-385）：PG 未过期 + 进程钟拨快 6h → 领取成功且 `lease_until <= pg+30s+tol`、`< pg+6h` L356-360、`queue_stage/queue_reason` 清空 L355；PG 已过期 + 进程钟拨慢 1h → `None` L374 且行仍 CREATED/无租约 L377-378；③心跳续租（L388-436）：PG 有效 + 拨快 → `True` 且新期限 `<= pg+60s+tol` 且 `< pg+6h` L411-414；PG 失约 + 拨慢 → `False` L424 且租约期限未被改写 L426；绝对期限已过 → `False` L435；④绝对期限扫描（L439-467）：拨快不误杀 `expire_runs() == 0` L452 且仍 RUNNING L453；拨慢也收尾 `== 1` L459、FAILED/RUN_DEADLINE_EXCEEDED + 租约清空 L461-463、`end_time ≈ pg` L464；⑤Reaper（L470-498）：拨快不碰有效租约 L484；拨慢照常回收 `== 1` L492、FAILED/RUN_ABANDONED L494-496、`end_time ≈ pg` L498；⑥模型租约/窗口（L536-594）：真实 `reserve` 期限 `0 < lease_until - pg <= 30s+tol` L562、拨快续租成功且 `<= pg+600s` 且 `< pg+6h` L571-572、PG 过期 + 拨慢 → `MODEL_CALL_LEASE_LOST` L587；⑦Worker 续租/期限判定（L698-777）：PG 有效 + 拨快 → `(True, False)` L714 且新期限 `<= pg+30s+tol` L717-718；PG 失约 + 拨慢 → `False` L728；PG 未过期 + 拨快 → COMPLETED L755；PG 已过期 + 拨慢 → FAILED/TASK_DEADLINE_EXCEEDED L774 且 `finished_at ≈ pg` L775；⑧Task 领取（L780-804）：拨快照常领取 L790 且 `lease_until <= pg+30s+tol`、`< pg+6h` L792-793；拨慢拒绝 L800 且仍 QUEUED L801；⑨Task deadline sweep（L807-827）：拨快不误杀 `== 0` L818 且仍 QUEUED L819；拨慢收尾 `== 1` L823、FAILED/TASK_DEADLINE_EXCEEDED L825、`finished_at ≈ pg` L826；⑩Schedule 冻结 Task 期限（L856-897）：`deadline_at - not_before == 24h` L891、`abs(not_before - pg) <= 60s` L892（进程钟拨快 6h 不生效） | ①运行侧 `run_service.py`/`continuation_service.py`/`run_deadline.py`/`supervisor.py` 走真实业务路径；`async_tool_database` 隔离库（空库 + `alembic upgrade head`，跑完 drop）；②受理冻结用例走真实 `RunService.start` + 真实 PG 行（共享 dev 库内只增删本租户行）；③模型租约走真实 `ModelCapacityService.reserve/renew` + 真实 `control.model_credential`/`runtime.model_capacity`/`model_call_lease` 行；④Worker 侧把 `DATABASE_URL` 指向同一隔离库，真实 `WorkerLoop`/`TaskClaimer`/`DeadlineSweeper`/`SchedulerLoop` + 真实 Task 行与租约；⑤进程钟偏差用 `_freeze_process_clock`（模块级 `datetime` 冻结到 ±小时级时刻），PG 时钟不动的对照 | verified |
+
+**实施范围与证据说明**
+
+- 新增时钟模块（PG 服务端时钟的唯一入口，避免 application→application 循环依赖）：`apps/agent-runtime/src/muad_agent_runtime/infrastructure/db_clock.py` 与 `apps/agent-worker/src/muad_agent_worker/infrastructure/db_clock.py` 的 `database_now(session)`（`statement_timestamp()`；取不到即 `RuntimeError`，绝不回落到本机墙钟）。原 `memory_proposals._database_now` 的定义搬到此模块，8 个导入点同步改名（`memory_jobs.py`/`run_service.py`/`memory_explicit_command.py`/`memory_confirmation_resume.py`/`memory_job_effects.py`/`memory_expiry.py`/`run_resume.py`/`memory_confirmation_expiry.py`）。
+- 运行侧：`continuation_service.py`（`checkpoint_execution`/`try_wait`/`renew_execution` 在事务内取 PG 时钟；`claim_continuation` 候选预筛用 PG `now()`、`_claim_one` 行锁后取 PG 时钟做期限/排队期限 fence，租约期限也由 PG 写）、`run_deadline.py`（候选与逐行收尾都按 PG，`end_time`/`update_time` 用 PG）、`supervisor.py`（`reclaim_stale_executions` 归属判据按 PG）、`run_service.py`（`_create_run` 冻结的 `deadline_at`/`queued_at`/`queue_deadline_at` 取自 PG；`_reap_one` CAS、`_cancel`、`_is_cancel_requested`、`_persist_event`/`_finalize_run`/`_finalize_failed` 的租约 fence 全部改为 PG；删除从未被调用的进程钟辅助 `_lease_deadline`）。
+- Worker 侧：`worker/service.py`（`_supervise_task` 的结果期限判定与 `moment`、`_renew_lease`、`_wait`/`_handle_success`/`_handle_failure`/`_mark_deadline_exceeded`/`_mark_cancelled_outcome`/`_handle_outcome`/`reclaim_expired` 都取 PG 时钟）、`worker/claimer.py`（`claim_one` 的 `not_before`/`deadline_at` 判定与租约期限取 PG）、`scheduler/service.py`（`DeadlineSweeper.sweep` 与 `SchedulerLoop.sweep_deadlines_if_due`/`run_due`/`run_once`/`fire` 取 PG 时钟——Schedule 触发的 Task `not_before`/`deadline_at` 与 misfire 宽限都在 PG 时钟域）。
+- 显式边界（诚实记录）：`now` 参数保留为**测试注入点**（worker 侧既有用例大量使用；生产调用一律不传 ⇒ 默认 PG 时钟）；`ScheduleService.create_schedule/update/pause/resume` 仍用进程钟计算 `next_fire_at`（属于调度定义 CRUD 的时区投影，不是租约/绝对期限判定，留给后续任务）；运行侧 `_utcnow()` 只服务 SSE 事件时间戳（展示字段）。
+- 配置盘点：新增 2 个模块（无模块级大写常量，0 行新增）；改动文件的常量行号平移已同步 → `uv run pytest -q tests/test_configuration_inventory.py` **4 passed**（CRLF 保持：1428 个 CRLF、0 个裸 LF；20 行行号更新）。
+- 回归（本任务同域聚焦）：`uv run pytest -q tests/agent_runtime` → **895 passed, 2 failed**（2 个失败为既有环境问题，见下）；`uv run pytest -q tests/agent_worker` → **308 passed**；`uv run pytest -q tests/architecture tests/contracts` → **1314 passed**；`uv run ruff check <改动文件>` 干净（唯一剩余 I001 在未改动的 `memory_consolidation_effects.py`，属既有问题）；`uv run mypy apps packages` → **Success: no issues found in 417 source files**。
+- 既有失败（非本任务引入，已用 `git stash` 基线复核）：`tests/agent_runtime/test_memory_redesign_snapshot.py::test_b12_*` 两个参数化用例在**未含本任务改动**的基线上同样失败（`memory_jobs.py:129 source snapshot unavailable`）；根因是共享 dev 库残留 1 条孤儿 PENDING 记忆作业（`dbg-7a23ea7b202d`，其 `runtime_snapshot` 已被其他套件清理）而 `MemoryJobs.claim` 不带租户谓词（既有已知机制）；按纪律不删共享 dev 数据。
+- B-235: verified — automated command passed; run_id=22ec0b35b0af4ff9bca30e1becb30854 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] RED：验收文件先落地（9 用例）→ 8 failed / 1 passed；实现后 GREEN 10 passed（新增第 10 个 Schedule 冻结用例，单独 RED 1 failed）
+- [2026-10-18] 实施：新增两处 `infrastructure/db_clock.py`（`database_now`）；运行侧 `run_service`/`continuation_service`/`run_deadline`/`supervisor` 与 Worker 侧 `worker/service`/`worker/claimer`/`scheduler/service` 的租约、排队/执行/绝对期限判定统一改取 PG 服务端时钟；`memory_proposals._database_now` 定义搬到基础设施层（8 个导入点同步）；删除未被调用的进程钟 `_lease_deadline`
+- [2026-10-18] 边界裁定（诚实记录）：`now=` 保留为测试注入点（生产不传 ⇒ PG 时钟）；`ScheduleService` 的 `next_fire_at` 计算仍用进程钟（调度定义 CRUD，不属租约/期限判定）；模型租约/窗口（TASK-022）已是 PG 时钟，本任务以真实 `reserve/renew` 用例登记为收口证据
+- [2026-10-18] 配置盘点同步（20 行行号更新、CRLF 保持）+ 同域回归（agent_runtime 895 passed/2 既有失败、agent_worker 308 passed、architecture+contracts 1314 passed）+ harness-time verifier 2 passed / 47 passed
+- [2026-10-18] completed (done)
 
 ---
 

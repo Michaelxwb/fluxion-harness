@@ -58,6 +58,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.db import get_session_factory
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.model_dispatch_store import MemberRef, ModelDispatchStore
 from ..infrastructure.models.async_tools import RunContinuation, ToolOperation
 from ..infrastructure.models.runtime import (
@@ -115,7 +116,6 @@ from .executor import (
     default_executor_factory,
 )
 from .memory_confirmation_resume import consume_confirmation, prepare_confirmation
-from .memory_proposals import _database_now
 from .memory_resume import MemoryResumeService, resume_decision
 from .ports import (
     CredentialsClient,
@@ -448,11 +448,8 @@ class SegmentResult:
 
 
 def _utcnow() -> datetime:
+    """进程墙钟：只用于事件时间戳等展示字段；业务期限一律取 PG 时钟（`database_now`）。"""
     return datetime.now(UTC)
-
-
-def _lease_deadline(seconds: int) -> datetime:
-    return _utcnow() + timedelta(seconds=seconds)
 
 
 def _event_artifact_id(data: Mapping[str, Any]) -> uuid.UUID | None:
@@ -585,7 +582,7 @@ async def _reap_one(factory: async_sessionmaker[AsyncSession], candidate: RunRec
 
     async with factory() as session, session.begin():
         run, _ = await lock_run_source(session, candidate.tenant_id, candidate)
-        now = _utcnow()
+        now = await database_now(session)
         if run.status != RunStatus.RUNNING or run.lease_until is None or run.lease_until >= now:
             return 0
         await cancel_operations(session, run)
@@ -1268,7 +1265,10 @@ class RunService:
         submission_key: str,
         submission_fingerprint_value: str,
     ) -> RunStart:
-        now = _utcnow()
+        # 受理时刻与绝对期限取自 **PG 服务端时钟**（B-235）：这份 `now` 同时冻结
+        # `deadline_at`/`queued_at`/`queue_deadline_at`，之后由 PG 时钟的领取/扫描裁决——
+        # 本机墙钟偏差既不能缩短也不能延长这个窗口。
+        now = await database_now(self._session)
         run_id = uuid.uuid4()
         # 平台设置在此边界取**一次**：这份快照既冻结本 Run 的执行策略，也给出本次受理的
         # capacity 阈值（准入投影与冻结策略同源，不二次取配置）。源不可读即明确失败
@@ -1447,7 +1447,7 @@ class RunService:
         self, run: RunRecord, input_text: str, *, attachments: Sequence[AttachmentRef] = (),
         submission_key: str, request_fingerprint: str, endpoint: str, message_id: str | None,
     ) -> RunStart:
-        ensure_human_resume(run, await _database_now(self._session))
+        ensure_human_resume(run, await database_now(self._session))
         snapshot = await self._load_snapshot(run)
         agent = ResolvedAgent.model_validate(snapshot.agent_json)
         model = ResolvedModel.model_validate(snapshot.model_json)
@@ -1694,7 +1694,7 @@ class RunService:
         if run.status in TERMINAL_RUN_STATUSES:
             return run
         await cancel_operations(self._session, run)
-        now = _utcnow()
+        now = await database_now(self._session)
         # 未开始执行（CREATED 排队 / WAITING_*）：直接 CAS 终态并释放份额；执行中才走协作取消。
         cooperative = run.status not in (
             RunStatus.CREATED,
@@ -1851,12 +1851,12 @@ class RunService:
                     RunRecord.is_deleted.is_(False),
                 )
             )
-        if row is None or row.cancel_requested:
-            return True
-        try:
-            ensure_execution(row, ExecutionIdentity.of(run), _utcnow())
-        except ExecutionLeaseLost:
-            return True
+            if row is None or row.cancel_requested:
+                return True
+            try:
+                ensure_execution(row, ExecutionIdentity.of(run), await database_now(session))
+            except ExecutionLeaseLost:
+                return True
         return False
 
     async def _load_inbound_attachments(self, run: RunRecord) -> tuple[PersistedAttachment, ...]:
@@ -2102,7 +2102,7 @@ class RunService:
         data: dict[str, Any],
     ) -> ExecutorEvent:
         async with get_session_factory()() as session:
-            await lock_execution(session, ExecutionIdentity.of(run), _utcnow())
+            await lock_execution(session, ExecutionIdentity.of(run), await database_now(session))
             seq = await EventWriter(session).append(
                 tenant_id=run.tenant_id,
                 conversation_id=run.conversation_id,
@@ -2129,7 +2129,7 @@ class RunService:
             from .tool_result_receipts import lock_run_source
 
             row, _ = await lock_run_source(session, run.tenant_id, row)
-            ensure_execution(row, ExecutionIdentity.of(run), _utcnow())
+            ensure_execution(row, ExecutionIdentity.of(run), await database_now(session))
             cancelled = row.cancel_requested
             if cancelled:
                 await cancel_operations(session, row)
@@ -2211,7 +2211,7 @@ class RunService:
             current, _ = await lock_run_source(session, run.tenant_id, run)
             if current.status in TERMINAL_RUN_STATUSES:
                 return await self._terminal_event(session, current)
-            ensure_execution(current, ExecutionIdentity.of(run), _utcnow())
+            ensure_execution(current, ExecutionIdentity.of(run), await database_now(session))
             await cancel_operations(session, current)
             updated = await session.execute(
                 sa.update(RunRecord)
