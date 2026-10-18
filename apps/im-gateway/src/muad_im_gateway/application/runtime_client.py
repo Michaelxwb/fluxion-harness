@@ -36,6 +36,8 @@ INTERNAL_MESSAGES_PATH = "/internal/webchat/conversations/{conversation_id}/mess
 INTERNAL_SCOPE_PATH = "/internal/webchat/conversations/{conversation_id}/scope"
 #: 受信暂存上传登记端口（TASK-058）：共享字节已写好，只登记权威元信息。
 INTERNAL_UPLOADS_PATH = "/internal/webchat/uploads"
+#: 受信附件解析端口（TASK-055）：`artifact_id` → 本主体名下会话的归属 + 渠道中立引用。
+INTERNAL_ARTIFACT_PATH = "/internal/webchat/artifacts/{artifact_id}"
 CANCEL_ACTIVE_PATH = "/v1/runs/cancel-active"
 REQUEST_TIMEOUT_SEC = 10.0
 STREAM_TIMEOUT_SEC = 300.0
@@ -377,6 +379,19 @@ class RuntimeClient:
         """
         return await self._post_internal_json(
             INTERNAL_UPLOADS_PATH, registration.model_dump(mode="json"), tenant_id
+        )
+
+    async def resolve_webchat_artifact(
+        self, artifact_id: UUID, *, tenant_id: str, user_id: UUID
+    ) -> dict[str, Any]:
+        """API-10 下载/预览的归属解析（TASK-055）：只带受信主体，入口/Agent 由 Owner 从会话行导出。
+
+        响应含渠道中立引用（存储键只在受信面传递）；跨租户/他主体/已失效由 Owner 判为 404。
+        """
+        return await self._get_internal_json(
+            INTERNAL_ARTIFACT_PATH.format(artifact_id=artifact_id),
+            tenant_id,
+            {"user_id": str(user_id)},
         )
 
     async def _admit_stream(

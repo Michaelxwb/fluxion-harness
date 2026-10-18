@@ -394,7 +394,7 @@
 | B-252 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.frontend.design.md#3.4 组件接口契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-052 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_webchat_resource_api.py"] | . | 300 |  |
 | B-253 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-053 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_staging.py"] | . | 300 |  |
 | B-254 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-054 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_upload_gateway.py"] | . | 300 |  |
-| B-255 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-055 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_artifact_download.py"] | . | 300 |  |
+| B-255 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-055 | verified | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_artifact_download.py"] | . | 300 |  |
 | B-256 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-056 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_run_controls.py"] | . | 300 |  |
 | B-257 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | TASK-057 | planned | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_client_config_api.py"] | . | 300 |  |
 | B-258 | agent-capacity-webchat.backend.design.md#3.3 数据设计, agent-capacity-webchat.backend.design.md#3.4 接口设计 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-058 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py"] | . | 300 |  |
@@ -3548,7 +3548,7 @@ API-05/06/08/09/14/15完整转Owner；完整分支及可观测结果见下面验
 
 ## TASK-055: 附件下载授权与安全预览
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-044, TASK-054
 - **Source**: agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.6 综合复核补充契约
@@ -3563,25 +3563,39 @@ API-05/06/08/09/14/15完整转Owner；完整分支及可观测结果见下面验
 
 ### Checklist
 
-- [ ] [B-255][integration] 先在`tests/gateway/test_capacity_webchat_artifact_download.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：下载和图片预览复核会话/来源/当前授权，no-store/nosniff。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-255] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-255] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_artifact_download.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-255][integration] 先在`tests/gateway/test_capacity_webchat_artifact_download.py`建立行为验收并记录RED；真实边界：真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库；关键断言：下载和图片预览复核会话/来源/当前授权，no-store/nosniff。RED：`uv run pytest -q tests/gateway/test_capacity_webchat_artifact_download.py` exit=1，**7 failed in 2.50s**（实现基线：`git stash` 复原 3 个改动生产文件 + 移走 2 个新增生产模块后跑，跑完 `git stash pop` 复原并 md5 逐字节校验 5/5 一致；代表性失败 `assert 404 == 200`——路由与下载面尚不存在，静态用例 `FileNotFoundError`）。Owner 侧归属语义同时建了 `tests/agent_runtime/test_capacity_webchat_artifact_resolve.py`（同一基线 exit=1，**3 failed in 0.28s**，同为 `assert 404 == 200`）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现（含超出计划 Files 的披露）：① `apps/im-gateway/.../application/webchat_artifacts.py`（新增，计划内）——`WebchatArtifactService.open_download`：Owner 归属解析 → **当前**入口/Agent 授权（复用 `resolve_authorized_entry`）→ 共享存储取件；`safe_media_type`/`disposition_for`/`content_disposition_header`（显式白名单栅格图片 `inline`，其余含 HTML/SVG 一律 `attachment`；坏媒体类型降级 `application/octet-stream`；文件名只作元信息、控制字符百分号编码）；`_open` 对键越界/字节缺失/`size` 与实际长度不符显式 404（绝不按错误长度声明 `Content-Length`）。② `apps/im-gateway/.../api/webchat.py`（计划内）——`GET /artifacts/{artifact_id}/content` + `_download_response`（`no-store`/`nosniff`/服务端裁决的 `Content-Disposition`；`FileResponse` 流式输出）。③ `apps/im-gateway/.../application/runtime_client.py`——`resolve_webchat_artifact`（受信面只带 `user_id`；`X-Internal-Service` + `X-Tenant-Id`）。④ `apps/agent-runtime/.../application/webchat_artifacts.py`（新增，**计划外但必需**：归属事实只有 Owner 能权威裁决，否则跨用户下载无法拒绝）——`resolve_webchat_artifact`：artifact(tenant, 活跃) → 会话 `(tenant, user, 活跃)` 核属 → `(entry, agent)` 从会话行导出 + `attachment_ref` 单点映射；跨租户/他主体/软删/`TRANSCRIPT` 内部留档/无会话归属/入口不可归属一律 `COMMON_NOT_FOUND`。⑤ `apps/agent-runtime/.../api/webchat_history.py`（**计划外但必需**）——`GET /internal/webchat/artifacts/{artifact_id}`（受信身份门控；响应 = `WebchatConversationScope` + `AttachmentRef`，存储键只在受信面）。⑥ `docs/configuration-inventory.csv`——本任务常量行同步（新模块 6 行 + `runtime_client.py` 新增 1 行/行号平移 + `api/webchat.py` 行号）。日志只记稳定事件名/`error_type`，无存储键、字节原文或主体字段。
+- [x] [B-255] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-255] 执行`["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_artifact_download.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**7 passed in 2.63s**（经 `code-flow acceptance run --owner TASK-055 --write-evidence` 写入机器证据，run_id=7a004f6a9745455fb3dcf75f7ea2a4f4）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-255 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | 下载和图片预览复核会话/来源/当前授权，no-store/nosniff；HTML/SVG按附件处理不执行，释放DB事务后流式输出，不凭客户端storage_key取件 | tests/gateway/test_capacity_webchat_artifact_download.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_artifact_download.py"] | planned |
+| B-255 | integration | 真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库 | 下载和图片预览复核会话/来源/当前授权，no-store/nosniff；HTML/SVG按附件处理不执行，释放DB事务后流式输出，不凭客户端storage_key取件 | tests/gateway/test_capacity_webchat_artifact_download.py | ["uv","run","pytest","-q","tests/gateway/test_capacity_webchat_artifact_download.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-255 | `uv run pytest -q tests/gateway/test_capacity_webchat_artifact_download.py` exit=1，**7 failed in 2.50s**（实现基线：`git stash` 复原 3 个改动生产文件 + 移走 2 个新增生产模块后跑，随后 `git stash pop` 复原并 md5 校验 5/5 逐字节一致；代表性失败 `assert 404 == 200`，静态用例 `FileNotFoundError`）；Owner 侧 `uv run pytest -q tests/agent_runtime/test_capacity_webchat_artifact_resolve.py` 同基线 exit=1，**3 failed in 0.28s**（`assert 404 == 200`） | 同命令 exit=0，**7 passed in 2.63s**；Owner 侧同命令 exit=0，**3 passed in 0.33s** | ① `test_b255_download_serves_authorized_bytes_without_leaking_storage_key` L444-493：字节逐字节相等（L466）、`application/pdf`（L468）、`no-store`（L469）、`nosniff`（L470）、`Content-Length`=真实长度（L471）、`attachment; filename*=utf-8''…`（L472-474）、响应/日志无存储键（L475-481）、解析请求只带当前主体+租户+服务身份（L482-487）、取件键只来自 Owner 解析（L488）、主体字段不进响应（L493）。② `test_b255_image_preview_is_inline_while_executable_content_downloads` L496-584：PNG `inline` + `nosniff` + `no-store`（L561-564）、HTML/SVG `attachment`（L571-576）、坏媒体类型降级 `application/octet-stream` 且无注入头（L580-584）。③ `test_b255_cross_user_cross_tenant_and_deleted_artifacts_are_refused` L587-639：跨用户/软删/内部留档/未知 id 全 404（L625-626）、四种失败不可分辨（L627-631）、不读一个字节（L633）、解析主体恒为当前用户（L637-638）。④ `test_b255_revoked_agent_and_disabled_entry_refuse_before_reading_bytes` L642-711：Agent 撤销 403（L664-665）、入口停用 404（L681-682）、入口换绑 Agent 404（L702-703）、CHAT 会话撤销 401（L710-711）——四例 `store.resolved_keys == []`（L665/682/703/711）。⑤ `test_b255_client_supplied_storage_key_is_ignored_and_bad_bytes_are_refused` L714-790：客户端 `?storage_key=` 被忽略且点名的键从未被读取（L782-784）、长度不符/键越界/字节缺失全 404（L785-787）、解析过的键恰为 Owner 给出的四把（L789）。⑥ `test_b255_owner_resolution_completes_before_shared_bytes_are_read` L793-820：`resolve_finished_at <= store.resolved_at[0]`（L817-819）、一次下载只解析一次（L820）。⑦ `test_b255_download_modules_hold_no_database` L826-840：下载面模块零 sqlalchemy（AST+文本）。 | 真实 Gateway 应用与生产路由（`muad_im_gateway.main.app` + `api/webchat.py`，真实 api-kit 封套/错误目录/`ChatIdentityDep` 主体门控依赖图）；真实 Console HTTP（uvicorn 真实 socket：`POST /internal/channel/chat-principal` 每次下载都核验主体与授权集合 + `/internal/channel/bots` 入口快照）；真实 Runtime HTTP（uvicorn 真实 socket：`GET /internal/webchat/artifacts/{id}` 按**真实契约** `WebchatConversationScope` + `AttachmentRef` 应答，记录网关实际发出的 `user_id`/`X-Tenant-Id`/`X-Internal-Service`，并按归属主体裁决 404）；真实共享文件系统（隔离 artifact root 上真实 `NfsArtifactStore` 字节 + `resolve()` 读取留痕：被拒请求零读取、长度不符与键越界真实触发）；Owner 侧另有隔离租户**真实 PostgreSQL**（`runtime.conversation`/`runtime.artifact` 真实行：软删产物/软删会话/无会话归属/入口不可归属/`TRANSCRIPT`/跨租户/他主体七类真实拒绝，见 `tests/agent_runtime/test_capacity_webchat_artifact_resolve.py`）。 | verified |
+
+实现要点：**逐请求授权链**（CHAT 主体只经 Console 核验 → Owner 的会话主体核属 → 当前入口/Agent 授权）在**读取任何字节之前**完成；**取件键只由 Owner 解析**（客户端 `storage_key`/`path` 在类型与路由上都没有位置）；**安全预览**按显式白名单（`image/png|jpeg|gif|webp`）`inline`，HTML/SVG 等可执行内容一律 `attachment` + `nosniff`，坏媒体类型降级二进制流；**字节完整性**用行内 `size` 与真实 `st_size` 对齐后才声明 `Content-Length`；**DB 事务释放后流式**——Owner 短事务（真实 PG 行查询）响应完整结束之后才 `NfsArtifactStore.resolve` + `FileResponse` 流式输出，网关零数据库依赖。
+
+回归（最终代码，本机无 dev 残留进程）：`uv run pytest -q tests/gateway` exit=0，**405 passed in 98.56s**（含本任务 7 条）；`uv run pytest -q tests/contracts tests/architecture` exit=0，**1314 passed in 3.50s**（契约 parity + 通道中立性 + 网关不持库架构守卫）；同域聚焦 `tests/agent_runtime/test_capacity_webchat_history_queries.py`（TASK-050 的入口显式读取，与本次新增的受信解析面同模块）+ `test_capacity_webchat_upload_staging.py`（TASK-053 的登记/核属）+ 本任务 Owner 侧 3 条 + `tests/test_configuration_inventory.py` exit=0，**30 passed in 2.96s**。
+
+静态检查：`uv run ruff check`（本任务 7 个改动/新增文件）干净；`uv run mypy apps packages` → Success: no issues found in 429 source files；AST 逐函数核对：本任务新增/修改函数全部 ≤50 行（最长 31 行，既有函数行数未变）；`docs/configuration-inventory.csv` 保持 CRLF（1486 行全 CRLF、0 裸 LF），只更新/追加自己的行（`api/webchat.py` 行号平移 1 行、`runtime_client.py` 新增 `INTERNAL_ARTIFACT_PATH` 与 4 行行号平移、新增模块 6 行常量），`uv run pytest -q tests/test_configuration_inventory.py` exit=0，4 passed。
+
+遗留（deferred，非本任务可闭合）：① **装配根接线**——下载路由依赖读取 `app.state.{runtime_client,bot_snapshot,artifact_store,tenant_id}`，生产装配由 TASK-096 发布这些状态值（TASK-052/054 同一模式：本任务只交付路由与依赖图，`main.py` 不改）。② **前端预览渲染与错误文案**属 TASK-080/084（本任务只交付服务端处置语义：`inline`/`attachment`、`no-store`/`nosniff`；前端已按 `responseType: 'blob'` 取件，见 TASK-073）。③ **清理与保留边界**属 TASK-069（本任务对"字节已清理"的取件一律 404，不做清理本身；活跃引用/孤儿宽限不在本层）。④ **助手/工具产物附件的公开投影**（`WebchatHistoryMessage.attachments` 目前只投影 USER 消息）属 TASK-051/059 的收口——本任务的服务端取件语义对已授权会话的任意可见产物都成立，不依赖该投影是否已扩到助手侧。⑤ `TRANSCRIPT` 不提供公开下载入口（TASK-051 已不投影）；本任务在 Owner 解析面再次显式拒绝（404），两层同口径。
+- B-255: verified — automated command passed; run_id=7a004f6a9745455fb3dcf75f7ea2a4f4 (confirmed_by: runner)
+- B-255: verified — automated command passed; run_id=22db8256d5b749328ee92bb9719ab791 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-18] started
+- [2026-10-18] completed (done)
 
 ---
 

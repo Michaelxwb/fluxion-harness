@@ -8,6 +8,8 @@
 - **暂存上传登记**（`POST /internal/webchat/uploads`，TASK-058）：Gateway 把字节写进共享存储后
   只在这里登记权威元信息；入口/Agent 核属（`assert_entry_agent_binding`）与元信息边界由登记原语
   统一裁决，响应只回 `upload_id` 与权威元信息（无存储键、无预造制品引用）。
+- **下载/预览解析**（`GET /internal/webchat/artifacts/{id}`，TASK-055）：`artifact_id` → 本主体
+  名下会话的归属 + 渠道中立引用（含存储键，只在受信面传递）；跨租户/他主体/已失效一律 404。
 - 响应只含 `WebchatHistoryService` 的安全公开投影；不暴露快照、存储键或内部事件。
 - 页大小默认值来自 Console 平台设置（`webchat.history_page_size`），不在端点里硬编码。
 """
@@ -30,6 +32,7 @@ from ..application.channel_uploads import (
     upload_limits_from_settings,
 )
 from ..application.ports import PlatformSettingsClient
+from ..application.webchat_artifacts import resolve_webchat_artifact
 from ..application.webchat_history import HistoryScope, WebchatHistoryService
 from ..infrastructure.models.runtime import ChannelUpload
 from .deps import PlatformSettingsClientDep, SessionDep, TenantDep
@@ -78,6 +81,32 @@ def _upload_view(row: ChannelUpload) -> WebchatUpload:
             "checksum": row.checksum,
             "expires_at": row.expires_at,
         }
+    )
+
+
+@router.get("/artifacts/{artifact_id}")
+async def resolve_artifact(
+    artifact_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantDep,
+    session: SessionDep,
+    user_id: UserId,
+) -> ApiResponse[Any]:
+    """API-10 的 Owner 侧解析（TASK-055）：本主体名下会话的附件 → 会话归属 + 渠道中立引用。
+
+    只接受受信主体 `user_id`（浏览器自报字段没有位置）：入口/Agent 从会话行导出，Gateway 据此
+    复核**当前**入口/Agent 授权。跨租户/他主体/已失效/内部留档一律 `COMMON_NOT_FOUND`（不泄露
+    存在性）；存储键只在本受信面返回，由 Gateway 取字节、绝不进公开响应。
+    """
+    download = await resolve_webchat_artifact(
+        session, tenant_id=tenant_id, user_id=user_id, artifact_id=artifact_id
+    )
+    return ok(
+        request.app.state.message_catalog,
+        {
+            "scope": download.scope.model_dump(mode="json"),
+            "reference": download.reference.model_dump(mode="json"),
+        },
     )
 
 
