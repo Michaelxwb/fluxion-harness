@@ -822,13 +822,13 @@ apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,34,INTERNAL_CO
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,35,INTERNAL_MESSAGES_PATH,'/internal/webchat/conversations/{conversation_id}/messages',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,36,INTERNAL_SCOPE_PATH,'/internal/webchat/conversations/{conversation_id}/scope',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,38,INTERNAL_UPLOADS_PATH,'/internal/webchat/uploads',python-constant,code,受信暂存上传登记端口路径（TASK-058）
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,39,CANCEL_ACTIVE_PATH,'/v1/runs/cancel-active',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,40,REQUEST_TIMEOUT_SEC,10.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,41,STREAM_TIMEOUT_SEC,300.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,42,CALLER_SERVICE,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,41,CANCEL_ACTIVE_PATH,'/v1/runs/cancel-active',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,42,REQUEST_TIMEOUT_SEC,10.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,43,STREAM_TIMEOUT_SEC,300.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,44,CALLER_SERVICE,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/webchat_service.py,58,WEBCHAT_CHANNEL,'WEBCHAT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/webchat_service.py,60,MAX_ENTRIES,100,python-constant,code,入口列表上界（当前授权入口的完整集合，不静默截断）
-apps/im-gateway/src/muad_im_gateway/api/webchat.py,34,NO_STORE_CACHE_CONTROL,'no-store',python-constant,code,私有聊天资源响应的缓存指令（design §3.4 no-store）
+apps/im-gateway/src/muad_im_gateway/api/webchat.py,41,NO_STORE_CACHE_CONTROL,'no-store',python-constant,code,私有聊天资源响应的缓存指令（design §3.4 no-store）
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,156,__init__.timeout_sec,REQUEST_TIMEOUT_SEC,function-default,environment,服务资源或 I/O 参数默认；由环境 settings 注入
 apps/im-gateway/src/muad_im_gateway/application/sse.py,23,KNOWN_EVENT_TYPES,"frozenset({'run.created', 'model.started', 'model.completed', 'message.delta', 'skill.loaded', 'tool.started', 'tool.completed', 'tool.submission_pending', 'tool.submitted', 'tool.submission.failed', 'tool.result.received', 'tool.result', 'tool.result.late', 'run.waiting_tool', 'run.resumed', 'task.accepted', 'artifact.created', 'interrupt.required', 'memory.confirmation_required', 'run.completed', 'run.failed'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/sse.py,52,ENVELOPE_KEYS,"('seq', 'timestamp', 'run_id')",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1410,7 +1410,7 @@ packages/contracts/src/muad_contracts/snapshot.py,20,SNAPSHOT_HASH_PREFIX,'sha25
 packages/contracts/src/muad_contracts/snapshot.py,21,REQUIRED_SNAPSHOT_KEYS,"('schema_version', 'agent', 'model', 'skills', 'mcp', 'prompt_template_version', 'budget')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/tool_runtime.py,13,MAX_TOOL_RESULT_BYTES,256 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/tool_runtime.py,14,SNAPSHOT_HASH_PATTERN,'^sha256:[0-9a-f]{64}$',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/tool_runtime.py,16,RETRY_SAFETY_POLICY_KEY,"'retry_safety'",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/tool_runtime.py,16,RETRY_SAFETY_POLICY_KEY,'retry_safety',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/tool_runtime.py,18,UNTRUSTED_RETRY_HINT_KEYS,"('readOnlyHint', 'read_only_hint', 'destructiveHint', 'destructive_hint')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/tool_runtime.py,29,READ_ONLY,'READ_ONLY',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/tool_runtime.py,30,IDEMPOTENT,'IDEMPOTENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1478,3 +1478,10 @@ apps/im-gateway/src/muad_im_gateway/application/webchat_uploads.py,56,MAX_HEADER
 apps/im-gateway/src/muad_im_gateway/application/webchat_uploads.py,58,MAX_BOUNDARY_LENGTH,200,python-constant,code,multipart boundary 长度上限（RFC 7578 ≤70 的应用边界）
 apps/im-gateway/src/muad_im_gateway/application/webchat_uploads.py,60,MAX_FILENAME_LENGTH,255,python-constant,code,上传文件名长度上限（与 Runtime 登记校验同值）
 apps/im-gateway/src/muad_im_gateway/application/webchat_uploads.py,62,_HEADER_LINE_PATTERN,re.compile('^([A-Za-z0-9-]+):[ \\t]*(.*)$'),python-constant,code,multipart 头行形状（实现常量）
+apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,40,INTERNAL_ARTIFACT_PATH,'/internal/webchat/artifacts/{artifact_id}',python-constant,code,受信附件解析端口路径（TASK-055）
+apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,45,SAFE_PREVIEW_MEDIA_TYPES,"frozenset({'image/png', 'image/jpeg', 'image/gif', 'image/webp'})",python-constant,code,可内联预览的媒体类型白名单（栅格图片；其余按附件下载）
+apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,47,FALLBACK_MEDIA_TYPE,'application/octet-stream',python-constant,code,媒体类型形状不合法时的降级值（绝不当可执行内容内联）
+apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,48,ATTACHMENT_DISPOSITION,'attachment',python-constant,code,可执行/未知内容一律按附件下载的处置值
+apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,49,INLINE_DISPOSITION,'inline',python-constant,code,白名单栅格图片的预览处置值
+apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,51,NOSNIFF_HEADER,'nosniff',python-constant,code,禁止 MIME 嗅探的响应头值（下载/预览统一）
+apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,54,_MEDIA_TYPE_PATTERN,re.compile('^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$'),python-constant,code,媒体类型严格形状（坏值不进响应头）

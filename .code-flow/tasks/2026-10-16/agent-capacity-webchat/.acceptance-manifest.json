@@ -5020,7 +5020,7 @@
       "kind": "functional",
       "boundary": "真实Gateway路由/适配器与HTTP/SSE协议探针；数据库经Owner接口访问，禁止Gateway持库",
       "owner": "TASK-055",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -5030,7 +5030,67 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-255",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "22db8256d5b749328ee92bb9719ab791",
+        "executed_at": "2026-10-18T10:32:05.154619+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/gateway/test_capacity_webchat_artifact_download.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "5ff4e1d35d733273dcbe10244935bf5617090f730ee39daa16d4e6df839e7113"
+      },
+      "runs": [
+        {
+          "id": "B-255",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7a004f6a9745455fb3dcf75f7ea2a4f4",
+          "executed_at": "2026-10-18T10:29:38.940546+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/gateway/test_capacity_webchat_artifact_download.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "3fb7daab43360749d4bff31a08c874dca716febfdec3e9da985c37e9d122df15"
+        },
+        {
+          "id": "B-255",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "22db8256d5b749328ee92bb9719ab791",
+          "executed_at": "2026-10-18T10:32:05.154619+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/gateway/test_capacity_webchat_artifact_download.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "5ff4e1d35d733273dcbe10244935bf5617090f730ee39daa16d4e6df839e7113"
+        }
+      ]
     },
     {
       "id": "B-256",

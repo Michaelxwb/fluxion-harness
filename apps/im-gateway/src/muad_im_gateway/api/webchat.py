@@ -14,6 +14,7 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from fastapi.responses import FileResponse
 from muad_api import ApiResponse, AppError, ok
 from muad_api.error_codes import ErrorCode
 from muad_contracts import MAX_PAGE_SIZE
@@ -26,6 +27,12 @@ from pydantic import ValidationError
 
 from ..application.bot_snapshot import BotSnapshotCache
 from ..application.runtime_client import RuntimeClient
+from ..application.webchat_artifacts import (
+    NOSNIFF_HEADER,
+    ArtifactDownload,
+    WebchatArtifactService,
+    content_disposition_header,
+)
 from ..application.webchat_service import WebchatResourceService
 from ..application.webchat_uploads import WebchatUploadService
 from .deps import ChatIdentityDep
@@ -74,6 +81,43 @@ def get_webchat_upload_service(request: Request) -> WebchatUploadService:
 
 
 WebchatUploadServiceDep = Annotated[WebchatUploadService, Depends(get_webchat_upload_service)]
+
+
+def get_webchat_artifact_service(request: Request) -> WebchatArtifactService:
+    """下载/预览服务：Owner 客户端 + 入口快照 + 共享存储 + 部署租户（网关不持库）。"""
+    runtime: RuntimeClient = request.app.state.runtime_client
+    entries: BotSnapshotCache = request.app.state.bot_snapshot
+    return WebchatArtifactService(
+        runtime=runtime,
+        entries=entries,
+        store=request.app.state.artifact_store,
+        tenant_id=request.app.state.tenant_id,
+    )
+
+
+WebchatArtifactServiceDep = Annotated[
+    WebchatArtifactService, Depends(get_webchat_artifact_service)
+]
+
+
+def _download_response(download: ArtifactDownload) -> FileResponse:
+    """取件响应：`no-store`/`nosniff` + 服务端裁决的 `Content-Disposition`。
+
+    存储路径与 `storage_key` 一步都不出现在响应里；HTML/SVG 等可执行内容按附件下载
+    （禁止同源脚本执行），只有白名单栅格图片 `inline` 预览。
+    """
+    return FileResponse(
+        path=download.path,
+        media_type=download.media_type,
+        stat_result=download.stat,
+        headers={
+            "Cache-Control": NO_STORE_CACHE_CONTROL,
+            "X-Content-Type-Options": NOSNIFF_HEADER,
+            "Content-Disposition": content_disposition_header(
+                media_type=download.media_type, filename=download.filename
+            ),
+        },
+    )
 
 
 @router.get("/entries")
@@ -206,3 +250,18 @@ async def resume_run(
     """API-08：显式绑定 WAITING_INPUT 的原 Run/submission/source 恢复。"""
     receipt = await service.resume_run(chat, run_id, payload)
     return ok(request.app.state.message_catalog, receipt.model_dump(mode="json"))
+
+
+@router.get("/artifacts/{artifact_id}/content")
+async def download_artifact(
+    artifact_id: uuid.UUID,
+    chat: ChatIdentityDep,
+    service: WebchatArtifactServiceDep,
+) -> FileResponse:
+    """API-10：附件下载/图片预览（逐请求复核会话归属与当前入口/Agent 授权）。
+
+    客户端只给 `artifact_id`：存储键由 Owner 解析、由网关从共享存储读取（不凭客户端取件键取件）；
+    未授权/他主体/已失效一律 404、授权撤销 403，都不泄露存在性。
+    """
+    download = await service.open_download(chat, artifact_id)
+    return _download_response(download)
