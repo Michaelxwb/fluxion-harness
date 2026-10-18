@@ -1,8 +1,9 @@
 """TASK-006（functional）：Gateway 等待态、SSE 断流重连与终态主动投递。
 
 真实边界：生产 `InboundPipeline` + 生产 `ExecutionProgress`/`StreamRenderer`/SSE 解析 +
-生产 `ActiveFinalDelivery`（真实占位→发送→送达标记）；Runtime 以带 canonical seq 的事件源
-替身模拟"等待 → 断流 → 按 `after_seq` 重连"，断言不重复 POST、不重置预算、终态只出一次。
+生产 `ActiveChannelDelivery`（真实 reserve→发送→ack 状态转换，API-18 端口是进程内替身）；
+Runtime 以带 canonical seq 的事件源替身模拟"等待 → 断流 → 按 `after_seq` 重连"，
+断言不重复 POST、不重置预算、终态只出一次。
 """
 
 from __future__ import annotations
@@ -10,12 +11,22 @@ from __future__ import annotations
 import asyncio
 import json
 from contextlib import suppress
+from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import UUID, uuid4
 
 from fakes import FakeConsoleClient, FakeRuntimeClient, make_envelope, resolved_response
+from muad_api import AppError
 from muad_api.catalog import MessageCatalog
 from muad_contracts import DeliveryMessage, DeliveryRouteInput
-from muad_im_gateway.application.final_delivery import ActiveFinalDelivery
+from muad_contracts.channel_delivery import (
+    DeliveryAck,
+    DeliveryAckReceipt,
+    DeliveryLeaseGrant,
+    DeliveryReceiptPayload,
+    DeliveryReservationRequest,
+)
+from muad_im_gateway.application.channel_delivery import ActiveChannelDelivery, terminal_delivery_key
 from muad_im_gateway.application.inbound import InboundPipeline, route_from_envelope
 from muad_im_gateway.application.progress import ExecutionProgress, ProgressPhase
 from muad_im_gateway.application.sse import SseEvent, iter_sse_events
@@ -111,12 +122,78 @@ class FailingActiveAdapter(FakeChannelAdapter):
         raise ChannelAdapterUnavailable("active channel down")
 
 
+class FakeChannelDeliveryProtocol:
+    """API-18 协调端口的进程内替身（真实验收边界见 B-267 的 HTTP/PG 证据）。
+
+    只实现本文件断言所需的状态转换：首次 reserve 授租约；`DELIVERED` 冻结首次回执并在重放时
+    原样返回；`NOT_SENT` 释放投递资格（可重试）；失约 ack 显式失败（停手）。
+    """
+
+    def __init__(self) -> None:
+        self.reserves: list[DeliveryReservationRequest] = []
+        self.acks: list[DeliveryAck] = []
+        self._ids: dict[str, UUID] = {}
+        self._epochs: dict[str, int] = {}
+        self._owners: dict[str, UUID | None] = {}
+        self._receipts: dict[str, DeliveryReceiptPayload] = {}
+
+    async def reserve_delivery(
+        self, request: DeliveryReservationRequest, *, tenant_id: str
+    ) -> DeliveryLeaseGrant:
+        self.reserves.append(request)
+        key = request.delivery_key
+        if key in self._receipts:
+            return self._grant(key, lease=False)
+        self._epochs[key] = self._epochs.get(key, 0) + 1
+        self._owners[key] = request.attempt_id
+        return self._grant(key, lease=True)
+
+    async def ack_delivery(
+        self, notification_id: UUID, body: DeliveryAck, *, tenant_id: str
+    ) -> DeliveryAckReceipt:
+        self.acks.append(body)
+        key = body.delivery_key
+        if self._owners.get(key) != body.attempt_id or self._epochs.get(key) != body.epoch:
+            raise AppError("DELIVERY_LEASE_LOST")
+        if body.outcome == "DELIVERED":
+            self._receipts[key] = DeliveryReceiptPayload(
+                outcome="DELIVERED",
+                attempt=body.epoch,
+                attempt_id=body.attempt_id,
+                lease_epoch=body.epoch,
+                acked_at=datetime.now(UTC),
+                result=body.result,
+            )
+        self._owners[key] = None
+        return DeliveryAckReceipt(
+            notification_id=notification_id,
+            delivery_key=key,
+            state="DELIVERED" if body.outcome == "DELIVERED" else "PENDING",
+            attempt=body.epoch,
+            reused=False,
+            receipt=self._receipts.get(key),
+        )
+
+    def _grant(self, key: str, *, lease: bool) -> DeliveryLeaseGrant:
+        receipt = self._receipts.get(key)
+        return DeliveryLeaseGrant(
+            notification_id=self._ids.setdefault(key, uuid4()),
+            delivery_key=key,
+            state="DELIVERING" if lease else ("DELIVERED" if receipt else "PENDING"),
+            lease_epoch=self._epochs.get(key, 0) if lease else 0,
+            lease_until=datetime.now(UTC) + timedelta(seconds=30) if lease else None,
+            attempt=self._epochs.get(key, 0),
+            reused=receipt is not None,
+            receipt=receipt,
+        )
+
+
 def _pipeline(
     catalog: MessageCatalog,
     runtime: FakeRuntimeClient,
     *,
     dedupe: InMemoryDedupeStore | None = None,
-    final_delivery: ActiveFinalDelivery | None = None,
+    channel_delivery: ActiveChannelDelivery | None = None,
     attempts: int = 0,
 ) -> InboundPipeline:
     console = FakeConsoleClient()
@@ -128,7 +205,7 @@ def _pipeline(
         catalog=catalog,
         tenant_id="tenant-waiting",
         delta_flush_interval_sec=0.0,
-        final_delivery=final_delivery,
+        channel_delivery=channel_delivery,
         runtime_reconnect_attempts=attempts,
         runtime_reconnect_delay_sec=0.0,
     )
@@ -319,19 +396,26 @@ async def test_lost_reply_session_delivers_final_text_once_with_stable_key(
     )
     session = RecordingSession(fail_stream=True)
     adapter = SessionAdapter(session)
-    dedupe = InMemoryDedupeStore()
-    delivery = ActiveFinalDelivery(dedupe)
-    pipeline = _pipeline(catalog, runtime, dedupe=dedupe, final_delivery=delivery)
+    protocol = FakeChannelDeliveryProtocol()
+    delivery = ActiveChannelDelivery(protocol)
+    pipeline = _pipeline(catalog, runtime, channel_delivery=delivery)
 
     assert await pipeline.handle(adapter, make_envelope("兜底")) is True
     assert [message.text for _route, message in adapter.sent_active] == ["完整答案"]
     assert adapter.streamed == () and adapter.sent == (), "失败会话不得再落路由级回调"
-    value = await dedupe.get_value("delivery:dedupe:run:run-final:final")
-    assert value is not None and value.startswith("delivered:")
-    # 同投递键重放：不再真发，但如实回报“已送达（去重）”。
+    # 同稳定键预留/确认：与 Runtime 持久通知/投递泵**同一个** delivery_key
+    assert [request.delivery_key for request in protocol.reserves] == [
+        terminal_delivery_key("run-final")
+    ]
+    assert [ack.delivery_key for ack in protocol.acks] == [terminal_delivery_key("run-final")]
+    assert [ack.outcome for ack in protocol.acks] == ["DELIVERED"], "实际发送成功才 ack"
+    # 同投递键重放：不再真发，但如实回报"已送达（去重）"。
     route = route_from_envelope(make_envelope("兜底"))
-    assert await delivery.deliver(
-        adapter, route, tenant_id="tenant-waiting", run_id="run-final", text="完整答案"
+    assert (
+        await delivery.deliver(
+            adapter, route, tenant_id="tenant-waiting", run_id="run-final", text="完整答案"
+        )
+        == "deduplicated"
     )
     assert len(adapter.sent_active) == 1
 
@@ -358,30 +442,46 @@ async def test_expired_reply_session_falls_back_to_active_delivery(
 
 async def test_missing_active_capability_is_an_explicit_failure() -> None:
     adapter = NoActiveAdapter()
-    dedupe = InMemoryDedupeStore()
-    delivery = ActiveFinalDelivery(dedupe)
+    protocol = FakeChannelDeliveryProtocol()
+    delivery = ActiveChannelDelivery(protocol)
     route = DeliveryRouteInput(
         channel="WECOM", bot_id="bot-1", external_user_id="ext-1", external_conversation_id="c"
     )
-    assert await delivery.deliver(
-        adapter, route, tenant_id="tenant-1", run_id="run-no-cap", text="答案"
-    ) is False
-    assert adapter.sent == [] and await dedupe.get_value("delivery:dedupe:run:run-no-cap:final") is None
+    assert (
+        await delivery.deliver(
+            adapter, route, tenant_id="tenant-1", run_id="run-no-cap", text="答案"
+        )
+        == "failed"
+    )
+    assert adapter.sent == []
+    assert protocol.reserves == [], "没有发送能力就不该占投递资格"
 
 
-async def test_active_send_failure_releases_placeholder_and_reports_failure() -> None:
-    adapter = FailingActiveAdapter()
-    dedupe = InMemoryDedupeStore()
-    delivery = ActiveFinalDelivery(dedupe)
+async def test_active_send_failure_releases_the_claim_and_reports_failure() -> None:
     route = DeliveryRouteInput(
         channel="WECOM", bot_id="bot-1", external_user_id="ext-1", external_conversation_id="c"
     )
+    protocol = FakeChannelDeliveryProtocol()
+    delivery = ActiveChannelDelivery(protocol)
+    failing = FailingActiveAdapter()
+    assert (
+        await delivery.deliver(
+            failing, route, tenant_id="tenant-1", run_id="run-fail", text="答案"
+        )
+        == "failed"
+    )
+    # 没送达 ⇒ ack NOT_SENT（回到可重试状态），不宣称成功、也不留成功回执
+    assert [ack.outcome for ack in protocol.acks] == ["NOT_SENT"]
     assert await delivery.deliver(
-        adapter, route, tenant_id="tenant-1", run_id="run-fail", text="答案"
-    ) is False
-    key = "delivery:dedupe:run:run-fail:final"
-    assert await dedupe.get_value(key) is None, "未送达必须释放占位（允许重试）"
-    # 释放后的重试仍可再次真实尝试（能力恢复时能补发）。
-    assert await delivery.deliver(
-        adapter, route, tenant_id="tenant-1", run_id="run-fail", text="答案"
-    ) is False
+        failing, route, tenant_id="tenant-1", run_id="run-fail", text="答案"
+    ) == "failed"
+    # 能力恢复时仍可真实补发：重试拿到新租约、发送成功后冻结回执
+    recovered = FakeChannelAdapter()
+    assert (
+        await delivery.deliver(
+            recovered, route, tenant_id="tenant-1", run_id="run-fail", text="答案"
+        )
+        == "delivered"
+    )
+    assert [message.text for _route, message in recovered.sent_active] == ["答案"]
+    assert [ack.outcome for ack in protocol.acks][-1] == "DELIVERED"

@@ -57,8 +57,12 @@ from .attachment_gate import (
     evaluate_gate,
     evaluate_precheck,
 )
+from .channel_delivery import (
+    ActiveChannelDelivery,
+    ConsoleDeliveryPermission,
+    TerminalDeliveryPort,
+)
 from .console_client import ConsoleClientPort
-from .final_delivery import ActiveFinalDelivery, FinalDeliveryPort
 from .inbound_attachments import AttachmentConflictError, InboundAttachmentStore
 from .platform_settings import ReplySettings, resolve_reply_settings
 from .ports import NullPlatformSettingsClient, PlatformSettingsClient
@@ -393,8 +397,10 @@ class _RunStreamState:
         self.first_chunk_at: float | None = None
         #: 已确认的 canonical seq：断流重连从它之后回放，不重复也不跳事件。
         self.last_seq: int = 0
+        #: 本次 Run 的 Agent 身份（交付时的接收权限复核要用它与受理时比对）。
+        self.agent_id: UUID | None = None
         #: 声明了回复会话能力却**打不开/写不进**（回调过期）：正文不落路由级最新回调，
-        #: 终态文本改走渠道中立主动投递（`run:{run_id}:final`）。
+        #: 终态文本改走渠道中立主动投递（与活跃会话收尾同一个稳定键 `run:{run_id}:terminal`）。
         self.reply_lost = False
         #: `run.completed` 带回的最终文本（会话失联时的兜底投递内容）。
         self.final_text = ""
@@ -430,7 +436,7 @@ class InboundPipeline:
         tenant_id: str,
         settings_client: PlatformSettingsClient | None = None,
         delta_flush_interval_sec: float = DELTA_FLUSH_INTERVAL_SEC,
-        final_delivery: FinalDeliveryPort | None = None,
+        channel_delivery: TerminalDeliveryPort | None = None,
         runtime_reconnect_attempts: int = 5,
         runtime_reconnect_delay_sec: float = 0.5,
         max_concurrent_handlers: int = MAX_CONCURRENT_HANDLERS,
@@ -452,9 +458,12 @@ class InboundPipeline:
         #: **在飞受理**的并发闸（排队等锁的不算）：封顶同时进行的入站处理。**只覆盖受理**——
         #: 长流（SSE 订阅/正文渲染）在受理裁决处归还名额，不占它（设计 §3.2 / §1.3）。
         self._handlers = asyncio.Semaphore(max_concurrent_handlers)
-        #: ReplySession 失效时的主动投递端口（默认复用网关自己的去重存储）。
-        self._final_delivery: FinalDeliveryPort = (
-            final_delivery if final_delivery is not None else ActiveFinalDelivery(dedupe)
+        #: Run 终态交付：活跃会话收尾与兜底主动交付共用同一稳定键（设计 §3.6；TASK-067）。
+        #: 默认**没有 API-18 协调端口**（直构调用点/单测）：终态文本按原语义直接发送，不因此丢消息。
+        self._channel_delivery: TerminalDeliveryPort = (
+            channel_delivery
+            if channel_delivery is not None
+            else ActiveChannelDelivery(None, permission=ConsoleDeliveryPermission(console))
         )
         #: 断流重连：有界尝试；重试窗口由 delay × attempts 决定（读超时保活由 heartbeat 兜底）。
         self._reconnect_attempts = max(0, runtime_reconnect_attempts)
@@ -1179,6 +1188,8 @@ class InboundPipeline:
         # 会话由 `handle` 在入站那一刻固定（`_REPLY_SESSION`）：本条消息的所有回复——回执、错误、
         # 状态、正文——都回到**它自己的**回调上，不受同会话后续消息影响。
         state.reply = _REPLY_SESSION.get()
+        #: 交付时的接收权限复核要与受理时的 Agent 身份比对（设计 §3.6）。
+        state.agent_id = request.agent_id
         # 渠道声明了回复会话能力却打不开（回调过期）：这条回复已经失联，终态文本改走主动投递。
         state.reply_lost = state.reply is None and isinstance(adapter, ReplySessionFactory)
         if state.reply is not None:
@@ -1439,7 +1450,7 @@ class InboundPipeline:
         changed = state.progress.apply(event)
         if changed:
             await self._update_progress(route, state, force=True)
-        del platform_user_id  # resume 由 Runtime 决定（Gateway 无状态）
+        # resume 由 Runtime 决定（Gateway 无状态）；platform_user_id 只用于终态交付的权限复核。
         if state.first_event_at is None:
             state.first_event_at = time.monotonic()
             metrics.set_gauge(
@@ -1463,37 +1474,47 @@ class InboundPipeline:
             # run.waiting_tool / run.resumed 是**非终态**事实：不在这里收尾、不发完成帧。
             state.terminal = True
         if state.terminal:
-            await self._deliver_final_text(adapter, route, state)
+            await self._deliver_final_text(adapter, route, state, platform_user_id)
 
     async def _deliver_final_text(
         self,
         adapter: ChannelAdapter,
         route: DeliveryRouteInput,
         state: _RunStreamState,
+        platform_user_id: UUID,
     ) -> None:
-        """ReplySession 失联时的兜底：终态文本按稳定投递键主动投递（每条 Run 只尝试一次）。
+        """终态交付的同键协调（设计 §3.6）：活跃会话收尾与兜底主动交付共用稳定键。
 
-        渠道没有主动投递能力或发送失败：**显式失败**（ERROR 日志 + 指标），不把"已尝试"
-        当成"已送达"——用户没收到就是没收到。
+        - **活跃回复会话的收尾**：终态内容已经写进会话流 ⇒ 按同一键认领并确认送达，阻止兜底重发；
+        - **会话失联的兜底**：按同一键 reserve → 主动发送 → 实际发送成功才 ack。
+
+        两条路都**不静默**：结局进 `im_final_delivery_total`，失败留日志——用户没收到就是没收到。
         """
-        if not state.reply_lost or state.final_delivery_done:
+        if state.final_delivery_done:
             return
         if state.run_id is None:
             logger.error("final_delivery_missing_run_id channel=%s", route.channel)
             return
         state.final_delivery_done = True
-        delivered = await self._final_delivery.deliver(
-            adapter,
-            route,
-            tenant_id=self._tenant_id,
-            run_id=state.run_id,
-            text=state.final_text,
-        )
+        if state.reply is not None and not state.reply_lost:
+            status = await self._channel_delivery.confirm(
+                tenant_id=self._tenant_id, run_id=state.run_id
+            )
+        else:
+            status = await self._channel_delivery.deliver(
+                adapter,
+                route,
+                tenant_id=self._tenant_id,
+                run_id=state.run_id,
+                text=state.final_text,
+                agent_id=state.agent_id,
+                platform_user_id=platform_user_id,
+            )
         metrics.inc_counter(
             FINAL_DELIVERY_METRIC,
             1,
-            {"status": "delivered" if delivered else "failed"},
-            help="Run final text active deliveries",
+            {"status": status},
+            help="Run final text deliveries",
         )
 
     async def _run_actions(
@@ -1513,7 +1534,7 @@ class InboundPipeline:
                 await self._drain_status(state)
         elif state.reply_lost:
             # 会话失联：正文不落"本路由最新回调"（那可能是同会话**另一条**消息的回调）；
-            # 终态文本由 `_deliver_final_text` 按 `run:{run_id}:final` 主动投递。
+            # 终态文本由 `_deliver_final_text` 按稳定键 `run:{run_id}:terminal` 主动投递。
             actions = tuple(
                 action
                 for action in actions
