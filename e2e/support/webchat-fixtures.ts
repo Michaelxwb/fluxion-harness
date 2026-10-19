@@ -22,7 +22,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
-import { test as base, expect } from '@playwright/test';
+import { request as playwrightRequest, test as base, expect } from '@playwright/test';
 
 /** 仓库根：`uv run` 与 PG 脚本都在这里执行（与其它域 spec 的 `execFileSync` 同口径）。 */
 const REPO = fileURLToPath(new URL('../..', import.meta.url));
@@ -430,6 +430,9 @@ export class ConsoleAdminClient {
       data: credentialPayload({
         key: uniquePurpose(offset, 'credential'),
         providerKey: 'openai',
+        // provider 只往 base_url 后拼 `/chat/completions`，探针服务在 `/v1/chat/completions`：
+        // base_url 必须带 `/v1`（与 `tests/acceptance/capacity/execution_support.py` 同口径），
+        // 否则真实 Run 在探针上撞 404 ⇒ MODEL_UNAVAILABLE。
         baseURL: apiBaseURL,
         apiKey,
         maxInflight: 8
@@ -588,6 +591,42 @@ export class ModelFaultControl {
 
 // --------------------------------------------------------------------------- 固定夹具
 
+/**
+ * 等入口进入网关快照（真实收敛，不伪造可见性）。
+ *
+ * 网关的入口快照按 `BOT_SNAPSHOT_POLL_SEC` 节拍从 Console 拉取（本域配置注入 1s），夹具在栈
+ * 起来之后才建入口 ⇒ 立刻用浏览器打开会命中"该聊天入口不存在或未获授权"。这里用**真实
+ * `GET /webchat/entries`**（用户自己的 CHAT 会话）轮询到可见为止；超时显式失败，不静默放过。
+ */
+async function waitForEntryVisible(
+  stack: WebchatStack,
+  entryId: string,
+  token: string,
+  timeoutMs = 20_000
+): Promise<void> {
+  const context = await playwrightRequest.newContext({ baseURL: stack.baseURL });
+  try {
+    const session = (await exchangeChatToken(context, stack, token)) as {
+      auth_context_id: string;
+    };
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const response = await context.get(`${stack.baseURL}/api/v1/webchat/entries`, {
+        headers: { Accept: 'application/json', 'X-Chat-Context': session.auth_context_id }
+      });
+      const body = (await response.json().catch(() => null)) as ApiEnvelope | null;
+      const items = (body?.data as { items?: { entry_id?: string }[] } | undefined)?.items ?? [];
+      if (items.some((item) => item.entry_id === entryId)) return;
+      if (Date.now() > deadline) {
+        throw new Error(`入口未在 ${timeoutMs}ms 内进入网关快照：${entryId}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  } finally {
+    await context.dispose();
+  }
+}
+
 /** 多用户/多入口种子：A/B 各自“用户 + Agent + WEBCHAT 入口 + 授权 + 随机 Token”。 */
 export async function seedMultiUserEntries(
   admin: ConsoleAdminClient,
@@ -613,7 +652,8 @@ export async function seedMultiUserEntries(
     );
     await admin.grantAgent(account.id, agent.agentId);
     const chatToken = await admin.issueChatToken(account.id);
-    await awaitEntryVisible(playwright, stack, chatToken.token, entry.entryId);
+    // 入口可见性收敛在夹具边界完成：用例拿到的一定是网关快照里真实可见的入口。
+    await waitForEntryVisible(stack, entry.entryId, chatToken.token);
     return { account, agent, entry, chatToken };
   };
   return { a: await build('a'), b: await build('b') };

@@ -692,6 +692,10 @@ class _ProxyHandler(BaseHTTPRequestHandler):
             key: value for key, value in self.headers.items() if key.lower() not in _HOP_BY_HOP
         }
         headers["Connection"] = "close"  # 上游收尾即 EOF，响应体以连接关闭界定（SSE 同口径）
+        # 反向代理不持 Cookie 状态：共享 httpx.Client 默认带 cookie jar，会把上一个客户端
+        # 登录响应里的 Set-Cookie 悄悄回放到下一个客户端（观测：浏览器无 Cookie 也能拿到
+        # 别人的 `/webchat/auth/me` 200）。真实代理只转发**本次请求**携带的 Cookie。
+        server.client.cookies.clear()
         try:
             body = self._read_body()
             with server.client.stream(
@@ -711,8 +715,9 @@ class _ProxyHandler(BaseHTTPRequestHandler):
 
     def _relay(self, upstream: httpx.Response, *, head_only: bool) -> None:
         self.send_response(upstream.status_code)
-        # 逐条转发：`headers.items()` 会把重复头（尤其 `Set-Cookie`）合并成逗号串，
-        # 浏览器与 API 客户端都只会解析第一条 ⇒ 独立 CHAT/CSRF 双 Cookie 静默丢失。
+        # 逐条转发：`headers.items()` 会把重复响应头（尤其 `Set-Cookie`）合并成逗号串
+        # （如两次 set-cookie 并成 `a=1, b=2`），客户端 Cookie 罐只认第一条 ⇒ 独立
+        # CHAT/CSRF 双 Cookie 静默丢失。用 `multi_items()` 逐值转发，保持真实 HTTP 语义。
         for key, value in upstream.headers.multi_items():
             if key.lower() in _HOP_BY_HOP or key.lower() == "content-length":
                 continue
