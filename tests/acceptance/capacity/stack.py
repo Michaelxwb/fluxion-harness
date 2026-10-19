@@ -37,6 +37,7 @@ import time
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from http.cookiejar import CookieJar
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -579,6 +580,18 @@ def _route_matches(route_path: str, request_path: str) -> bool:
     return request_path == route_path or request_path.startswith(route_path + "/")
 
 
+class _StatelessCookieJar(CookieJar):
+    """反向代理的 Cookie 语义：**无状态**。
+
+    `httpx.Client` 自带 Cookie jar：上游的 `Set-Cookie` 会被记住，并在**后续任意请求**上回放
+    （实测：ADMIN 登录一次后，另一个浏览器上下文不带任何 Cookie 的请求也被当成已登录）。
+    真实反向代理不做这件事 —— 凭据只属于请求方，代理既不落盘也不跨请求重放。
+    """
+
+    def extract_cookies(self, response: Any, request: Any) -> None:  # noqa: N802 - CookieJar 接口
+        return None
+
+
 class _ProxyServer(ThreadingHTTPServer):
     """真实反向代理：转发字节流（含 SSE 分片），控制面只暴露路由与计数。"""
 
@@ -591,7 +604,7 @@ class _ProxyServer(ThreadingHTTPServer):
         super().__init__(address, _ProxyHandler)
         self.backends = dict(backends)
         self.routes = tuple(routes)
-        self.client = httpx.Client(timeout=None, trust_env=False)
+        self.client = httpx.Client(timeout=None, trust_env=False, cookies=_StatelessCookieJar())
         self._lock = threading.Lock()
         self._requests: dict[str, int] = {unit: 0 for unit in self.backends}
         self._failures: dict[str, int] = {unit: 0 for unit in self.backends}
@@ -698,7 +711,9 @@ class _ProxyHandler(BaseHTTPRequestHandler):
 
     def _relay(self, upstream: httpx.Response, *, head_only: bool) -> None:
         self.send_response(upstream.status_code)
-        for key, value in upstream.headers.items():
+        # 逐条转发：`headers.items()` 会把重复头（尤其 `Set-Cookie`）合并成逗号串，
+        # 浏览器与 API 客户端都只会解析第一条 ⇒ 独立 CHAT/CSRF 双 Cookie 静默丢失。
+        for key, value in upstream.headers.multi_items():
             if key.lower() in _HOP_BY_HOP or key.lower() == "content-length":
                 continue
             self.send_header(key, value)

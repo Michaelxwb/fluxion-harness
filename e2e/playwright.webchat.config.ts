@@ -69,6 +69,17 @@ process.env[WEBCHAT_ENV.tenant] = TENANT;
 process.env[WEBCHAT_ENV.adminUser] = ADMIN_USER;
 process.env[WEBCHAT_ENV.adminPassword] = ADMIN_PASSWORD;
 
+// 栈进程环境：显式声明 127.0.0.1 直连（不把栈内调用交给宿主机的 HTTP 代理）。Runtime 的**模型
+// 出网**客户端按设计 `trust_env=True`（生产 egress 可能经代理），宿主机若设了 `http_proxy`/
+// `ALL_PROXY`，到本地模型探针的调用就取决于代理是否转发回环地址（本机实测转发，换一台严格代理
+// 就会变成连接失败）。栈内单元只与 127.0.0.1 通信，这里显式覆盖 `NO_PROXY`（httpx 经
+// `urllib.getproxies()` 读它），让真实模型调用不依赖宿主机代理行为。
+const STACK_ENV: NodeJS.ProcessEnv = {
+  ...process.env,
+  NO_PROXY: '127.0.0.1,localhost',
+  no_proxy: '127.0.0.1,localhost'
+};
+
 // 浏览器只经**入口代理**（单站点同源）：代理分流表直接读 `deploy/k8s/base/ingress.yaml`
 // （TASK-107 的真实反向代理子进程），因此
 //   `/chat/*`、`/assets/*`、站点兜底与普通 `/api` → 前端构建产物（vite preview，E2E 口径不跑 dev
@@ -81,7 +92,9 @@ process.env[WEBCHAT_ENV.adminPassword] = ADMIN_PASSWORD;
 export default defineConfig({
   globalTeardown: ISOLATED_DATASTORES_TEARDOWN,
   testDir: './tests/webchat',
-  timeout: 120_000,
+  // 单用例预算：真实链路里有 30s 入口快照传播、15s SSE 复核与多段慢模型调用，
+  // 120s 会把「慢」误判成「失败」；这里给的是时间预算，不是放宽断言。
+  timeout: 210_000,
   retries: 0,
   // 全部场景共用同一份租户级夹具（同一隔离库 + 同一探针栈 + 同一份故障控制）：并行会互相污染。
   workers: 1,
@@ -103,7 +116,7 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
-        ...process.env,
+        ...STACK_ENV,
         DEFAULT_TENANT_ID: TENANT,
         AGENT_RUNTIME_URL: RUNTIME_URL,
         AGENT_WORKER_URL: WORKER_URL,
@@ -118,7 +131,7 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
-        ...process.env,
+        ...STACK_ENV,
         DEFAULT_TENANT_ID: TENANT,
         CONSOLE_PLATFORM_URL: CONSOLE_URL,
         IM_GATEWAY_URL: GATEWAY_URL,
@@ -135,7 +148,7 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
-        ...process.env,
+        ...STACK_ENV,
         DEFAULT_TENANT_ID: TENANT,
         CONSOLE_PLATFORM_URL: CONSOLE_URL,
         AGENT_RUNTIME_URL: RUNTIME_URL,
@@ -153,7 +166,7 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
-        ...process.env,
+        ...STACK_ENV,
         DEFAULT_TENANT_ID: TENANT,
         CONSOLE_PLATFORM_URL: CONSOLE_URL,
         AGENT_RUNTIME_URL: RUNTIME_URL,
@@ -168,7 +181,7 @@ export default defineConfig({
       url: `${MODEL_PROBE_URL}/healthz`,
       reuseExistingServer: false,
       timeout: 60_000,
-      env: { ...process.env }
+      env: { ...STACK_ENV }
     },
     {
       // 真实入口代理（TASK-107）：分流表读 `deploy/k8s/base/ingress.yaml`（最长前缀优先）；
@@ -180,7 +193,7 @@ export default defineConfig({
       url: `${PROXY_URL}/__proxy__/state`,
       reuseExistingServer: false,
       timeout: 60_000,
-      env: { ...process.env }
+      env: { ...STACK_ENV }
     },
     {
       // 真实构建产物（vite preview，非 dev server）：套件须先 `npm --prefix apps/console-platform/frontend run build`；
@@ -192,7 +205,7 @@ export default defineConfig({
       url: PREVIEW_URL,
       reuseExistingServer: false,
       timeout: 180_000,
-      env: { ...process.env }
+      env: { ...STACK_ENV }
     }
   ]
 });
