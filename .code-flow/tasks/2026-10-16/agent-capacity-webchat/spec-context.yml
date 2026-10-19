@@ -1,7 +1,7 @@
 version: 1
 task: Agent 并发容量与通用 Webchat
 enforcement: required
-updated_at: '2026-10-19T14:58:00.672889+00:00'
+updated_at: '2026-10-19T15:26:25.836441+00:00'
 sources:
 - type: cli
   ref: bind
@@ -1892,7 +1892,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-030
           item_id: TASK-030
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-030
           item_id: TASK-030
@@ -3948,7 +3948,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-007
           item_id: TASK-007
@@ -5428,7 +5428,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-104
           item_id: TASK-104
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-104
           item_id: TASK-104
@@ -6817,7 +6817,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-043
           item_id: TASK-043
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-043
           item_id: TASK-043
@@ -8207,7 +8207,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-009
           item_id: TASK-009
@@ -9598,7 +9598,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-071
           item_id: TASK-071
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-071
           item_id: TASK-071
@@ -11297,7 +11297,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-090
           item_id: TASK-090
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-090
           item_id: TASK-090
@@ -12684,7 +12684,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-046
           item_id: TASK-046
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-046
           item_id: TASK-046
@@ -14329,7 +14329,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-048
           item_id: TASK-048
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-048
           item_id: TASK-048
@@ -15746,7 +15746,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-098
           item_id: TASK-098
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-098
           item_id: TASK-098
@@ -17145,7 +17145,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-037
           item_id: TASK-037
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-037
           item_id: TASK-037
@@ -17202,7 +17202,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-056
           item_id: TASK-056
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-056
           item_id: TASK-056
@@ -17243,7 +17243,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-056
           item_id: TASK-056
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-056
           item_id: TASK-056
@@ -17285,7 +17285,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-025
           item_id: TASK-025
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-025
           item_id: TASK-025
@@ -17326,7 +17326,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-049
           item_id: TASK-049
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-049
           item_id: TASK-049
@@ -17368,7 +17368,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-026
           item_id: TASK-026
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-026
           item_id: TASK-026
@@ -17409,7 +17409,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-024
           item_id: TASK-024
@@ -18796,7 +18796,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-019
           item_id: TASK-019
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-019
           item_id: TASK-019
@@ -20206,7 +20206,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-017
           item_id: TASK-017
@@ -21698,7 +21698,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-020
           item_id: TASK-020
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-020
           item_id: TASK-020
@@ -23102,7 +23102,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-053
           item_id: TASK-053
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-053
           item_id: TASK-053
@@ -24491,7 +24491,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-024
           item_id: TASK-024
@@ -25878,7 +25878,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-118
           item_id: TASK-118
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-118
           item_id: TASK-118
@@ -27409,7 +27409,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-035
           item_id: TASK-035
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-035
           item_id: TASK-035
@@ -28796,7 +28796,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-091
           item_id: TASK-091
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-091
           item_id: TASK-091
@@ -30183,7 +30183,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-085
           item_id: TASK-085
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-085
           item_id: TASK-085
@@ -31573,7 +31573,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-033
           item_id: TASK-033
-          artifact_sha256: cb5f658853d730d28096bb3093d098329cf22b700a46d247c372d2c48cd21d88
+          artifact_sha256: c232708ebecbc275e801f4a7da9637a17b1c05d6ca07bd135956a99f4d288568
         - artifact: agent-capacity-webchat.md
           section_id: TASK-033
           item_id: TASK-033
