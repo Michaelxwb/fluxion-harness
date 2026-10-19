@@ -448,11 +448,267 @@
 | B-306 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-106 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_http_probes.py"] | . | 300 |  |
 | B-307 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-107 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_isolated_stack.py"] | . | 300 |  |
 | B-308 | agent-capacity-webchat.frontend.design.md#2.4 验收条件, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-108 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_harness.py"] | . | 300 |  |
-| B-309 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-109 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_driver.py"] | . | 300 |  |
+| B-309 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-109 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_driver.py"] | . | 300 |  |
 | B-317 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-117 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_capacity_report.py"] | . | 300 |  |
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
 
 ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6898,7 +7154,7 @@ B-308（integration，机检 harness；本任务不启浏览器、不建库、�
 
 ## TASK-109: 1000用户受理和满载控制负载驱动
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-105, TASK-107
 - **Source**: agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告
@@ -6913,25 +7169,58 @@ B-308（integration，机检 harness；本任务不启浏览器、不建库、�
 
 ### Checklist
 
-- [ ] [B-309][integration] 先在`tests/capacity/test_capacity_webchat_load_driver.py`建立行为验收并记录RED；真实边界：实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测；关键断言：按锁定profile产生真实HTTP/SSE消息负载，记录持久受理/等待/推理并发及P95/P99、WAL/连接/锁/磁盘。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-309] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-309] 执行`["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_driver.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-309][integration] 先在`tests/capacity/test_capacity_webchat_load_driver.py`建立行为验收并记录RED；真实边界：实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测；关键断言：按锁定profile产生真实HTTP/SSE消息负载，记录持久受理/等待/推理并发及P95/P99、WAL/连接/锁/磁盘。 → RED：`uv run pytest -q tests/capacity/test_capacity_webchat_load_driver.py` ⇒ `ERROR collecting … ModuleNotFoundError: No module named 'tests.capacity.driver'`，`1 error in 0.59s`，exit=2（驱动/指标模块尚不存在）。真实边界：`CapacityStack`（TASK-107 四单元独立栈 + TASK-106 模型探针子进程）+ 锁定 profile `profiles/agent-capacity-webchat.example.yml`（`profile_hash` 进报告）；负载经真实入口代理→Gateway API-06（202）→Runtime→PG→探针，SSE 读真实 `message.delta`/`run.terminal` 帧。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。 → `tests/capacity/driver.py`（确定性 `plan_users`/`sample_distribution`、逐轮 `TurnResult`+`FailureKind` 分类、三类控制探测、并发采样、探针/单元指标快照）+ `tests/capacity/metrics.py`（严格 Prometheus 解析、最近秩分位数、真实 PG 连接/锁/WAL/库大小/Run 状态）。`uv run ruff check tests/capacity` 全绿；AST 逐函数核对最长 ≤50 行；CHAT Cookie 只经 `httpx` 客户端内存传递，错误消息/报告不回带凭据原文（失败细节取封套错误码）。
+- [x] [B-309] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。 → 成功/边界/失败三类断言位置见下表（测试文件行号 + 真实组件证据）。
+- [x] [B-309] 执行`["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_driver.py"]`并记录GREEN、关键断言位置和实际组件证据。 → `6 passed in 12.90s`，exit=0；聚焦回归 `uv run pytest -q tests/capacity` ⇒ `127 passed in 30.13s`；跑后 `ps` 无 uvicorn/pytest 残留、`muad_acc_*` 无残留库。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-309 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | 按锁定profile产生真实HTTP/SSE消息负载，记录持久受理/等待/推理并发及P95/P99、WAL/连接/锁/磁盘；取消/确认/续租独立探测，错误分类无选择性排除 | tests/capacity/test_capacity_webchat_load_driver.py | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_driver.py"] | planned |
+| B-309 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | 按锁定profile产生真实HTTP/SSE消息负载，记录持久受理/等待/推理并发及P95/P99、WAL/连接/锁/磁盘；取消/确认/续租独立探测，错误分类无选择性排除 | tests/capacity/test_capacity_webchat_load_driver.py | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_driver.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 项 | 结果 |
+|---|---|
+| RED | `uv run pytest -q tests/capacity/test_capacity_webchat_load_driver.py` ⇒ `ERROR collecting tests/capacity/test_capacity_webchat_load_driver.py … ModuleNotFoundError: No module named 'tests.capacity.driver'`；`1 error in 0.59s`；exit=2（先写用例、后写实现） |
+| GREEN（functional，本任务范围） | `uv run pytest -q tests/capacity/test_capacity_webchat_load_driver.py` ⇒ `6 passed in 12.90s`；exit=0（manifest 同 argv/cwd/timeout=300s） |
+| 聚焦回归 | `uv run pytest -q tests/capacity` ⇒ `127 passed in 30.13s`（含 TASK-105/106/107 既有 121 条 + 本任务 6 条） |
+| 静态检查 | `uv run ruff check tests/capacity` ⇒ `All checks passed!`；`driver.py`/`metrics.py` 逐函数 ≤50 行（AST 核对） |
+| 环境收尾 | 跑后 `ps -eo pid,etime,command \| grep -E "[u]vicorn muad_\|[p]ytest"` 无残留；`acceptance_databases()` 无 `muad_acc_*` 残留；未触碰共享 dev 库 |
+
+**真实边界与关键断言位置（B-309）**
+
+| 断言 | 位置 | 实测证据 |
+|---|---|---|
+| 锁定 profile 展开 1000 用户、计划确定性（无 RNG）、按分布取样 | `test_capacity_webchat_load_driver.py:155-173` | `plan_users(workload)` == 1000 项且两次逐项相同；ramp 偏移单调、思考时间/正文大小跨分位取值 |
+| 受限规模必须显式登记（不冒充 1000 用户结论）；全量验收不得夹带 scale | `:193-210` | `RunKind.ACCEPTANCE`+scale ⇒ `DriverError`；`VERIFICATION` 无 scale ⇒ `DriverError`；报告带 `scale` 与 `profile_hash` |
+| 真实 HTTP/SSE 负载：12 轮全部 202 受理、全部终态、首字含真实模型延迟 | `:473-489` | 实测：`attempts=12, admitted=12, completed=12`；admission `p95=204.7ms`、first-delta `p95=596.1ms`（探针真实 `latency_ms=250`）；ramp 首末启动 0.33s→2.00s，wall 5.37s |
+| 持久受理/执行并发与 P95/P99 采样（真实 PG + 在飞订阅） | `:527-530` | 10 个采样点，`max admitted=3 / max running=3 / max active_streams=3`（`runtime.run_record` 租户谓词查询） |
+| WAL/连接/锁/磁盘真实采集 | `:523-526` | `wal_growth_bytes=704744`；连接 22→25；`locks_granted=1`；`database_bytes=13057383` |
+| 模型探针真实调用与推理并发（不是伪造回执） | `:507-510` | `calls 0→26`、`max_concurrency=4`、`faults={}` |
+| 四单元 `/metrics` 真实增量 | `:514-520` | Gateway `gateway_sse_frames_total{kind="event"}=48`；Runtime `run_admission_total{status="ACCEPTED"}=16`；四单元快照均非空 |
+| 持久事实落库（终态 + 正文事件） | `:497-503` | `runtime.run_record` COMPLETED=12；`runtime.canonical_event` > 0 |
+| 失败分类无选择性排除（故意非法会话提交） | `:534-536` | 边界探测真实 404 `COMMON_NOT_FOUND` ⇒ `ADMISSION_REJECTED`，与 12 轮成功一并进账（`failure_counts()=={'ADMISSION_REJECTED':1}`） |
+| 取消独立探测并在 PG 行取证 | `:550-567` | `CANCEL OK`（2 轮），`run_state=RunState(status='CANCELLED', cancel_requested=True)`，延迟 751.6ms/619.4ms |
+| 确认独立探测显式分类 | `:570-573` | `CONFIRM REJECTED` + 稳定错误码 `REVISION_CONFLICT`（非等待态 Run 的真实裁决；不是超时/静默） |
+| 续租独立探测（预占→续租→结算）核 epoch 且不缩短租约 | `:576-581` | `RENEW OK`（2 轮）：`lease_until` 前后相等（以冻结绝对期限为上限）、`settled_state=SETTLED` |
+| 控制探测与长流并行（负载窗口内独立客户端） | `:584-586` | 全部探测 `started_at` 落在 `[first_start_sec, finished_at]`；延迟 53.7–751.6ms |
+
+> 说明（诚实边界）：本任务的 functional 运行是**受限规模 VERIFICATION**（6 用户×2 轮、思考时间 ×0.05，报告显式登记 `scale`）；全量 1000 用户/8 轮的容量结论由 TASK-116 用同一驱动执行，本任务不声称已完成 1000 用户容量结论。E2E 场景（S-01/S-14/S-15）保持 planned，由 TASK-116 收口。
+- B-309: verified — automated command passed; run_id=2aeab735bf1d4796bcbab4578522fe93 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] RED：先写 `tests/capacity/test_capacity_webchat_load_driver.py`，`uv run pytest -q …` ⇒ `ModuleNotFoundError: No module named 'tests.capacity.driver'`，exit=2（驱动/指标模块未实现）。
+- [2026-10-19] 实现 `tests/capacity/driver.py`（确定性计划/真实 HTTP+SSE 轮次/失败分类/取消·确认·续租独立探测/并发采样/探针与单元指标快照）与 `tests/capacity/metrics.py`（严格 Prometheus 解析、最近秩分位数、真实 PG 连接/锁/WAL/库大小/Run 状态）；`ruff` 全绿、函数 ≤50 行。
+- [2026-10-19] GREEN：`uv run pytest -q tests/capacity/test_capacity_webchat_load_driver.py` ⇒ `6 passed in 12.90s`，exit=0；聚焦回归 `tests/capacity` ⇒ `127 passed in 30.13s`；跑后无孤儿进程/无残留临时库。
+- [2026-10-19] 实现期实测发现并修正的真实约束：①入口快照在 Gateway 启动时拉取（30s 轮询）⇒ 种子必须先于 `stack.start()` 落库、凭据地址在探针起来后回填；②每用户受理上限（默认 2）⇒ 负载必须每虚拟用户一份主体（同用户并发多 Run 会得到 429，那是负载形状错误不是容量结论）。
+- [2026-10-19] completed (done)
 
 ---
 
