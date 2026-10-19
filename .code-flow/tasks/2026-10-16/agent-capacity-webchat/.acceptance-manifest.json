@@ -8067,7 +8067,7 @@
       "kind": "functional",
       "boundary": "真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据",
       "owner": "TASK-100",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -8077,7 +8077,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-300",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "c3a73dbf71224f8aa96b1f05df591ba7",
+        "executed_at": "2026-10-19T02:35:21.087270+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/architecture/test_capacity_webchat_console_gateway_deploy.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "623d4c18215498c2416b2ed512a868241248119497eac72f04f77ad08e40116a"
+      },
+      "runs": [
+        {
+          "id": "B-300",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "c3a73dbf71224f8aa96b1f05df591ba7",
+          "executed_at": "2026-10-19T02:35:21.087270+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_capacity_webchat_console_gateway_deploy.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "623d4c18215498c2416b2ed512a868241248119497eac72f04f77ad08e40116a"
+        }
+      ]
     },
     {
       "id": "B-301",

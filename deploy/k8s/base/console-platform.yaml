@@ -13,6 +13,10 @@ spec:
       labels:
         app: muad-console-platform
     spec:
+      # 排空预算（design §4.1/§4.2）：readiness 先停新受理，再有界等待并关闭订阅；
+      # 已受理状态留在 PG。终止宽限起始 60 秒（§3.7）。Console 与 Gateway 各一个 Pod 是
+      # 部署约束，不提供这两单元的高可用承诺——更新/故障期间页面/认证短暂受影响。
+      terminationGracePeriodSeconds: 60
       # 非 root 运行：与镜像内 UID/GID 10001 对齐；fsGroup 让 artifacts PVC 对该组可写
       securityContext:
         runAsNonRoot: true
@@ -23,6 +27,8 @@ spec:
         - name: app
           # 必须带 ghcr 前缀：裸名会被当 Docker Hub 的 docker.io/library/… 去拉，
           # 而 `:latest` 默认 imagePullPolicy=Always ⇒ ImagePullBackOff。
+          # 前端构建产物在同一镜像内（Dockerfile 的 Node 构建阶段 → /app/static），
+          # 由本进程提供 `/chat` 等页面：不新增前端镜像/Pod/Service（frontend §3.2）。
           image: ghcr.io/michaelxwb/muad-console-platform:latest
           ports:
             - containerPort: 8000
@@ -45,6 +51,26 @@ spec:
                 secretKeyRef:
                   name: muad-external
                   key: INTERNAL_SERVICE_TOKEN
+            # —— 分池 HTTP 连接预算（每进程；池名与 infrastructure/http_clients.py 的
+            # httpx.Limits 构造点一致）——只声明本进程真实消费的池：control（续租/认证/
+            # 内部短控制、容量端口）与 model（物理 Key 外部探测）。别的单元才建的池不写。
+            - name: CONTROL_HTTP_MAX_CONNECTIONS
+              value: "32"
+            - name: CONTROL_HTTP_MAX_KEEPALIVE
+              value: "16"
+            - name: MODEL_HTTP_MAX_CONNECTIONS
+              value: "64"
+            - name: MODEL_HTTP_MAX_KEEPALIVE
+              value: "32"
+          # 资源声明与容量 profile 的 resources.hardware.console-platform 一致
+          # （tests/capacity/profiles/agent-capacity-webchat.example.yml）。
+          resources:
+            requests:
+              cpu: "500m"
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
           # readiness 接 /readyz（api-kit 的依赖就绪口径，依赖缺失回 503）；
           # liveness 仍接 /healthz（存活，不因依赖抖动重启 Pod）。
           readinessProbe:

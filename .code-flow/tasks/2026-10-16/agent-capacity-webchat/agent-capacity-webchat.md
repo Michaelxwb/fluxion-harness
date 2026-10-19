@@ -439,7 +439,7 @@
 | B-297 | agent-capacity-webchat.backend.design.md#3.4 接口设计, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Console应用服务/HTTP依赖、独立PostgreSQL与事务；外部模型使用真实HTTP协议探针 | TASK-097 | verified | ["uv","run","pytest","-q","tests/console_platform/test_capacity_webchat_console_wiring.py"] | . | 300 |  |
 | B-298 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-098 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_gateway_metrics.py"] | . | 300 |  |
 | B-299 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-099 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_worker_console_metrics.py"] | . | 300 |  |
-| B-300 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-100 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_console_gateway_deploy.py"] | . | 300 |  |
+| B-300 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-100 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_console_gateway_deploy.py"] | . | 300 |  |
 | B-301 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-101 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_worker_deploy.py"] | . | 300 |  |
 | B-302 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-102 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_configmap_ingress.py"] | . | 300 |  |
 | B-303 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-103 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_hpa_budget.py"] | . | 300 |  |
@@ -6349,7 +6349,7 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ## TASK-100: Console/Gateway单Pod及静态页面部署
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-093, TASK-096, TASK-097
 - **Source**: agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由
@@ -6364,25 +6364,45 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 
 ### Checklist
 
-- [ ] [B-300][integration] 先在`tests/architecture/test_capacity_webchat_console_gateway_deploy.py`建立行为验收并记录RED；真实边界：真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据；关键断言：Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像内静态资源提供/chat。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-300] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-300] 执行`["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_console_gateway_deploy.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-300][integration] 先在`tests/architecture/test_capacity_webchat_console_gateway_deploy.py`建立行为验收并记录RED；真实边界：真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据；关键断言：Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像内静态资源提供/chat。→ RED：新建 435 行、9 个用例/14 例含参数化；把两份清单临时还原到 HEAD 基线后 `uv run pytest -q tests/architecture/test_capacity_webchat_console_gateway_deploy.py` → **8 failed, 6 passed in 0.49s**（失败=清单尚无终止宽限/资源/分池预算与 FD 预算键；已绿 6 例是**回归保护**的既有事实：基线各 1 Pod、`/chat` 静态链路、不新增前端工作负载、运行时不启动 Node，断言未削弱）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 实现落在计划 Files 的 3 个文件：`deploy/k8s/base/console-platform.yaml`、`deploy/k8s/base/im-gateway.yaml`（各加 `terminationGracePeriodSeconds: 60`、容器 `resources.requests/limits` 与容量 profile hardware 逐字段一致、按本进程**真实创建的池**显式声明分池预算：Console=control/model，Gateway=control/stream/upload/egress；Console 镜像注释点明前端产物同镜像提供 `/chat`）、`tests/architecture/test_capacity_webchat_console_gateway_deploy.py`（435 行，9 用例/14 例；辅助函数最长 24 行、用例最长 36 行，均 ≤50；强类型 `DeployUnit` dataclass + `Any` 仅用于 YAML 文档边界；`_env_value`/`_dockerfile_stages` 对缺失项**显式报错**不静默取默认；断言只读清单/源码/typed 配置，无凭据、无原始内部内容）
+- [x] [B-300] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 9 个用例逐条对应契约关键断言（见 Acceptance Evidence 断言位置列）；另做 6 处变异验证断言判别性（先复现失败再还原）
+- [x] [B-300] 执行`["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_console_gateway_deploy.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **14 passed in 0.50s**（exit=0，最终冻结版本；变异还原后复跑 0.50s 全绿）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-300 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像内静态资源提供/chat；不新增前端镜像/Pod/Service或运行Node | tests/architecture/test_capacity_webchat_console_gateway_deploy.py | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_console_gateway_deploy.py"] | planned |
+| B-300 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像内静态资源提供/chat；不新增前端镜像/Pod/Service或运行Node | tests/architecture/test_capacity_webchat_console_gateway_deploy.py | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_console_gateway_deploy.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-300 | 首建 `tests/architecture/test_capacity_webchat_console_gateway_deploy.py`（9 用例/14 例含参数化），把两份清单临时还原到 HEAD 基线 → `uv run pytest -q tests/architecture/test_capacity_webchat_console_gateway_deploy.py` → **8 failed, 6 passed in 0.49s**（缺终止宽限/资源/分池预算/FD 预算键；6 例为既有事实的回归保护：各 1 Pod、`/chat` 静态链路、不新增前端工作负载、不启动 Node） | 同命令（两份清单补齐终止宽限/资源/分池预算后）→ **14 passed in 0.50s**（exit=0）；变异还原后复跑 **14 passed in 0.50s** | ①各 1 Pod `test_single_pod_units_stay_at_one_replica` L225-236（`replicas==1` L228；profile `replica_counts`/`max_replica_counts` 均==1 L230-233；无 HPA L234-236）；②探针与终止宽限 `test_probes_and_termination_grace_are_wired_for_drain` L240-253（readiness `/readyz` L245、liveness `/healthz` L246、探针端口==容器端口 L247-249、`terminationGracePeriodSeconds==60` L251-253）；③资源与 profile 一致 `test_requests_and_limits_match_the_capacity_profile` L257-268（`resources.hardware.{console-platform,im-gateway}` 逐字段比对 L263-266）；④分池预算与真实池一致 `test_http_pool_budgets_cover_exactly_the_pools_the_process_creates` L272-292（AST 从 `httpx.Limits(max_*=settings.*)` 构造点推导池 L280-281；清单键集合==期望集合 L283-286；每键==typed 默认且 keepalive≤connections L287-292）；⑤每进程 FD 预算 `test_per_process_http_pg_redis_budget_fits_the_nofile_budget` L296-314（HTTP 池连接合计 L303-305；Console PG 取真实 engine pool L306-307；Gateway 不持库 L308-310；合计≤profile `fd_budget` L311-314）；⑥镜像静态资源提供 `/chat` `test_console_image_builds_the_frontend_and_serves_it_from_the_same_image` L317-351（唯一 Node 构建阶段跑 `npm run build` L320-324；运行阶段非 node 基础镜像并把 `dist` 复制到 `/app/static` L326-331；装配根默认 `STATIC_DIR`==镜像路径 L333-336；真实路由先于 SPA 兜底 L337-340；`chat` 不在 `RESERVED_SEGMENTS`、`api` 在 L342-345；`App.tsx` 懒加载注册 `chat/:entryId?` L347-351）；⑦真实 ASGI `/chat` 回退 `test_console_app_serves_chat_url_with_spa_fallback_without_shadowing_api` L354-379（`/chat` 与 `/chat/<uuid>` 均 200 `text/html` 且含 index L371-375；未知 API 仍 404 `COMMON_NOT_FOUND` 封套、不返回 HTML L376-379）；⑧不新增前端工作负载 `test_no_separate_frontend_workload_or_image_is_introduced` L382-416（Deployment/Service 集合==固定四单元 L384-389；命名/镜像无 frontend|webchat|node L391-402；kustomize 收集四单元且无前端条目 L404-409；`apps/**` 无前端 Dockerfile L411-416）；⑨运行时不启动 Node `test_console_runtime_does_not_start_node` L419-435（运行阶段非 node 镜像 L421-423；无 npm/npx/pnpm/yarn/node 命令 L424-431；入口是 uvicorn L432-435） | ①清单：`deploy/k8s/base/{console-platform,im-gateway}.yaml` 真实 YAML 文档（Deployment+Service），kustomization 收集；②源码依赖图：Console/Gateway `infrastructure/http_clients.py` 的 `httpx.Limits` 构造点（Console control/model；Gateway control/stream/upload/egress），Console 静态服务用真实 `spa.install_spa` + api-kit 封套经真实 ASGI 请求验证（不跑 lifespan），装配顺序按 `main.py` 源码机检；③typed 配置：`SharedSettings` 池预算默认（control 32/16、model 64/32、stream 1100/64、upload 8/4、egress 16/8）与容量 profile `resources`（console/gateway hardware 500m/2000m、1024/4096Mi；`max_replica_counts` 各 1；`fd_budget` 4096）；④不访问共享 dev 数据：不连 PG/Redis，engine 工厂按 `DATABASE_URL=…@127.0.0.1:1` 惰性建池只读 pool 上限；⑤不跑 Node：只读 Dockerfile/App.tsx 文本与前端产物路径 | verified |
+
+**实施范围与风险说明**
+
+- 范围：只动计划 Files 的 3 个文件；无 DDL/迁移、无应用代码改动、未跑 `tests/acceptance/**`、`make acceptance*` 或浏览器验收（共享环境约束）；跑前已确认无本仓 dev/pytest 残留进程（另见下方回归口径）。
+- 各 1 Pod 与探针口径：两份清单 `replicas: 1` 保持基线；容量 profile 的 `max_replica_counts` 对 console-platform/im-gateway 强制为 1（`tests/capacity/profile.py` 的 `_validate_single_pod_units`），用例①机检两者一致且清单内无 HPA —— 单 Pod 约束不能被自动扩缩绕过。readiness `/readyz`、liveness `/healthz` 口径不变（既有 `test_k8s_deploy_manifests.py` 仍绿）；终止宽限起始 60 秒（§3.7），排空语义为 readiness 先停新受理、再有界等待（§4.1/§4.2）。
+- 资源与分池预算（承接 TASK-101 延后项④）：两份清单显式声明 requests/limits（与 profile hardware 逐字段一致）与分池预算；预算键只声明**本单元源码真实消费**的池（AST 从 `httpx.Limits(max_*=settings.*)` 推导，多写/少写都红），值必须等于 `SharedSettings` typed 默认（改默认要同步清单，不让 Pod 静默用默认）。Gateway 不写 model/mcp 池（本进程不建该池）；Console 不写 stream/upload/egress 池。
+- 静态页面链路（frontend §3.2）：前端构建产物由 Console 镜像内 Node 构建阶段产出并复制到 `/app/static`，由 Console Python 后端 `spa.py` 提供 `/chat` 的 SPA 回退；`chat` 不在 `RESERVED_SEGMENTS`（`api` 等保留段不被兜底吞掉）。不新增前端镜像/Pod/Service/端口，运行时不启动 Node —— 用例⑥⑧⑨机检，用例⑦用真实 ASGI 请求验证 `/chat` 与未知 API 的行为边界。
+- 用例隔离修正（诚实记录）：初版用例⑦直接实例化 `create_app`，其模块级 `app` 会把 Console 指标注册进全局注册表，导致同目录 TASK-098 的 `test_b298_sse_buffer_backpressure_and_ledger_are_really_recorded` 在整跑时因白名单外 `path` label 失败（单跑通过）；最终改为真实 `install_spa` + api-kit 封套的 ASGI 装配（装配顺序仍按 `main.py` 源码机检），整跑恢复 101 passed。该失败是**测试相互污染**而非实现缺陷，未改任何实现代码。
+- 判别性验证（防止断言空转；6 处变异均先复现失败再还原，随后复跑确认 14 passed）：①console 去掉 `terminationGracePeriodSeconds` → ②用例 **1 failed**；②gateway 去掉 `STREAM_HTTP_MAX_KEEPALIVE` → ④用例 **1 failed**（缺 `['STREAM_HTTP_MAX_KEEPALIVE']`）；③console 内存上限 4Gi→3Gi → ③用例 **1 failed**（`4096 == 3072`）；④新增 `webchat-frontend` Deployment/Service → ⑧用例 **1 failed**；⑤`spa.py` 把 `chat` 加入 `RESERVED_SEGMENTS` → ⑥⑦用例 **2 failed**；⑥Dockerfile 去掉 `COPY --from=frontend /web/dist /app/static` → ⑥用例 **1 failed**。
+- 静态检查与盘点：`uv run ruff check tests/architecture/test_capacity_webchat_console_gateway_deploy.py` → **All checks passed**；未在 `apps`/`packages` 新增/移动模块级大写常量，`docs/configuration-inventory.csv` 无需改动（`uv run pytest -q tests/test_configuration_inventory.py` 4 passed）。
+- 聚焦回归：`uv run pytest -q tests/architecture` → **101 passed in 5.33s**（exit=0，含既有 `test_k8s_deploy_manifests.py` 的探针/镜像/非 root/迁移 Job 机检与 `harness-arch#RULE-arch-001` verifier 套件）；`uv run pytest -q tests/console_platform/test_spa_static.py tests/console_platform/test_capacity_webchat_console_wiring.py tests/gateway/test_capacity_webchat_gateway_wiring.py tests/test_configuration_inventory.py` → **28 passed in 14.09s**（exit=0）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL。
+- 延后项（诚实记录）：① HPA 上界/`maxReplicas` 与总连接/内存的渲染前预检、发布阻断属 TASK-103/104；② `DB_POOL_SIZE`/`DB_MAX_OVERFLOW`/`DB_POOL_TIMEOUT_SEC` 的 engine 工厂接线仍属 TASK-101 延后项①，本用例 FD 预算按 engine 工厂**真实** pool（5+10）核算，不写死数字；③ 1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责；④ 入口代理的路径分流（`/chat/*` 与 `/api/v1/webchat/auth/*` → Console）属 TASK-102（ingress），本任务只保证 Console 镜像内的页面链路。
+- B-300: verified — automated command passed; run_id=c3a73dbf71224f8aa96b1f05df591ba7 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] B-300 RED：新建 `tests/architecture/test_capacity_webchat_console_gateway_deploy.py`（9 用例/14 例；清单临时还原到 HEAD 基线）→ `uv run pytest -q tests/architecture/test_capacity_webchat_console_gateway_deploy.py` → **8 failed, 6 passed in 0.49s**（缺终止宽限/资源/分池预算/FD 预算键；6 例为既有事实的回归保护）
+- [2026-10-19] 实现：`console-platform.yaml`/`im-gateway.yaml` 加 `terminationGracePeriodSeconds: 60`、与容量 profile 一致的 requests/limits、按真实池声明的分池预算（Console=control/model；Gateway=control/stream/upload/egress）；Console 镜像注释点明前端产物同镜像提供 `/chat`；未新增前端镜像/Pod/Service，运行时不启动 Node
+- [2026-10-19] B-300 GREEN：**14 passed in 0.50s**（变异还原后复跑 0.50s）；6 处变异验证断言判别性后还原；`tests/architecture` **101 passed**（5.33s）；spa/console wiring/gateway wiring/inventory 合计 **28 passed**（14.09s）；ruff 干净、配置盘点 4 passed；用例隔离修正后 TASK-098 指标用例整跑恢复绿
+- [2026-10-19] completed (done)
 
 ---
 

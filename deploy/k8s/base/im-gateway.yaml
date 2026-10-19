@@ -13,6 +13,10 @@ spec:
       labels:
         app: muad-im-gateway
     spec:
+      # 排空预算（design §4.1/§4.2）：readiness 先停新受理/领取，再有界等待并关闭订阅；
+      # 已受理状态留在 PG。终止宽限起始 60 秒（§3.7）。Console 与 Gateway 各一个 Pod 是
+      # 部署约束，不提供这两单元的高可用承诺——更新/故障期间通道连接短暂受影响。
+      terminationGracePeriodSeconds: 60
       # 非 root 运行：与镜像内 UID/GID 10001 对齐；fsGroup 让 artifacts PVC 对该组可写
       securityContext:
         runAsNonRoot: true
@@ -45,6 +49,36 @@ spec:
                 secretKeyRef:
                   name: muad-external
                   key: INTERNAL_SERVICE_TOKEN
+            # —— 分池 HTTP 连接预算（每进程；池名与 GATEWAY_HTTP_POOLS 一致）——
+            # 只声明本进程真实创建的池：control（Console 短控制/认证/设置）、
+            # stream（Runtime 持久事件流）、upload（webchat 受信登记）、
+            # egress（Runtime 历史/资源/交付/产物解析）。Gateway 不调用模型与 MCP，
+            # 不写 model/mcp 池（写了就是「不生效的键」）。
+            - name: CONTROL_HTTP_MAX_CONNECTIONS
+              value: "32"
+            - name: CONTROL_HTTP_MAX_KEEPALIVE
+              value: "16"
+            - name: STREAM_HTTP_MAX_CONNECTIONS
+              value: "1100"
+            - name: STREAM_HTTP_MAX_KEEPALIVE
+              value: "64"
+            - name: UPLOAD_HTTP_MAX_CONNECTIONS
+              value: "8"
+            - name: UPLOAD_HTTP_MAX_KEEPALIVE
+              value: "4"
+            - name: EGRESS_HTTP_MAX_CONNECTIONS
+              value: "16"
+            - name: EGRESS_HTTP_MAX_KEEPALIVE
+              value: "8"
+          # 资源声明与容量 profile 的 resources.hardware.im-gateway 一致
+          # （tests/capacity/profiles/agent-capacity-webchat.example.yml）。
+          resources:
+            requests:
+              cpu: "500m"
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
           # 附件字节要落进共享 artifact store，Runtime 才能按 storage_key 读到（AD-1-B）。
           # 只注入 ARTIFACT_ROOT 环境变量是不够的——路径没挂载时网关会写进容器临时盘并"成功"。
           volumeMounts:
