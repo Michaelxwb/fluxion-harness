@@ -1,0 +1,116 @@
+# Runtime/Worker 的 HPA 副本上界（design §3.7「启动/部署配置（每进程）」+ §4.1 部署与容量）。
+#
+# 口径（与 `tests/architecture/test_capacity_webchat_hpa_budget.py` 的 B-303 断言一致）：
+# - Console/Gateway 各 1 Pod 是部署约束（§4.1）：**不**为它们声明 HPA，typed
+#   max_replica_counts 也是 1 —— 单 Pod 约束不能被自动扩缩绕过。
+# - Runtime/Worker 无状态、可横向扩展（harness-arch#RULE-arch-001）：`minReplicas` 保持
+#   各单元清单的基线（各 1 Pod，HPA 只提供上界），`maxReplicas` == 容量 profile 的 typed
+#   `max_replica_counts`（agent-runtime 4 / agent-worker 8）。PG 总连接与下游并发预算按该
+#   上界核算：§4.1「PG 总量按全部进程×最大副本数求和，给心跳/回收/维护留预算并约束 HPA 上界」。
+# - 扩缩指标（§4.1「HPA 观察在飞槽、队列时长、最老任务年龄及 CPU/内存，不能只看 CPU」）：
+#   CPU+内存是显式 Resource 目标；agent-worker 另按**真实队列深度** `task_queue_depth`
+#   （`apps/agent-worker/src/muad_agent_worker/worker/claimer.py` 每次领取后经 `record_gauge`
+#   发布）排队扩容，目标 = 2 × `WORKER_EXECUTION_CONCURRENCY`（每 Pod 排到两轮槽位就再扩）。
+#   注：Runtime 的随负载在飞槽/队列 gauge 尚未发布（当前只有启动配置值
+#   `runtime_execution_slots`，不是随负载变化的使用量），在应用侧发布真实在飞/队列指标前
+#   Runtime 只按 CPU/内存扩缩 —— 不写不生效的指标名。
+# - 缩容受排空预算约束：终止宽限 60 秒（§3.7「终止宽限起始 60 秒」），一次最多缩 1 个 Pod
+#   且间隔不小于宽限，避免把在飞 Run/Task 一次清掉（readiness 先停新受理/领取再有界排空）；
+#   扩容不做稳定化延迟（队列/资源压力要立即响应）。
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: muad-agent-runtime
+  namespace: muad
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: muad-agent-runtime
+  minReplicas: 1
+  # == tests/capacity/profiles/agent-capacity-webchat.example.yml 的
+  # resources.max_replica_counts.agent-runtime；PG 连接预算按该上界核算。
+  maxReplicas: 4
+  behavior:
+    scaleUp:
+      # 队列/CPU/内存压力必须立即响应：不做稳定化延迟，一次最多加 2 个 Pod。
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      # 缩容先看满排空预算：稳定化窗口 ≥ 终止宽限（60 秒），一次最多缩 1 个 Pod，
+      # 间隔不小于终止宽限，避免在飞 Run 被一次清掉（状态留 PG，由租约接管）。
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          # 利用率按 requests 计（runtime requests.cpu=1）；留余量，不贴着上限才动手。
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          # 内存上限覆盖进程级 SSE 总缓冲预算（§3.7 跨字段约束），提前扩缩。
+          type: Utilization
+          averageUtilization: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: muad-agent-worker
+  namespace: muad
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: muad-agent-worker
+  minReplicas: 1
+  # == resources.max_replica_counts.agent-worker；PG 连接预算按该上界核算。
+  maxReplicas: 8
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+    # 排队信号：claim 轮询观测到的可领取任务数（真实 gauge，`worker/claimer.py` 发布）。
+    # 目标 8 = 2 × WORKER_EXECUTION_CONCURRENCY（4 个执行槽）：每个 Pod 平均排到两轮槽位
+    # 就再扩一个 Pod；任务按租约领取，扩出来的 Pod 立刻参与同一队列（无 Pod 绑定）。
+    # 该自定义指标经 Prometheus Adapter 暴露为 Pods 指标（集群侧前置条件与 metrics-server
+    # 同类；本仓库只声明真实存在的指标名与目标口径）。
+    - type: Pods
+      pods:
+        metric:
+          name: task_queue_depth
+        target:
+          type: AverageValue
+          averageValue: "8"

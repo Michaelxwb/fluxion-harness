@@ -11,3 +11,9 @@ resources:
   - agent-runtime.yaml
   - agent-worker.yaml
   - im-gateway.yaml
+  # 同源入口代理（TASK-102）：认证面→Console、其余聊天 API→Gateway、/chat 与静态→Console。
+  # 没被收集 = `kubectl apply -k deploy/k8s/base` 不会创建入口（TASK-102 延后项）。
+  - ingress.yaml
+  # Runtime/Worker 的 HPA 副本上界（TASK-103）：Console/Gateway 固定各 1 Pod，不在此声明；
+  # maxReplicas 与容量 profile 的 typed max_replica_counts 一致（PG/下游预算按上界核算）。
+  - capacity-autoscaling.yaml

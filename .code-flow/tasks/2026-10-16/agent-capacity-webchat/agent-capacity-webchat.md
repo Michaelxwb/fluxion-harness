@@ -442,7 +442,7 @@
 | B-300 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-100 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_console_gateway_deploy.py"] | . | 300 |  |
 | B-301 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-101 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_worker_deploy.py"] | . | 300 |  |
 | B-302 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-102 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_configmap_ingress.py"] | . | 300 |  |
-| B-303 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-103 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_hpa_budget.py"] | . | 300 |  |
+| B-303 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-103 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_hpa_budget.py"] | . | 300 |  |
 | B-304 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.2 发布与迁移, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-104 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_deployment_preflight.py"] | . | 300 |  |
 | B-305 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | unit | 真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收 | TASK-105 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_profile.py"] | . | 300 |  |
 | B-306 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-106 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_http_probes.py"] | . | 300 |  |
@@ -6525,7 +6525,7 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 
 ## TASK-103: HPA上界与部署清单预算校验
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-102
 - **Source**: agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量
@@ -6540,25 +6540,43 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 
 ### Checklist
 
-- [ ] [B-303][integration] 先在`tests/architecture/test_capacity_webchat_hpa_budget.py`建立行为验收并记录RED；真实边界：真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据；关键断言：注册入口/HPA资源。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-303] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-303] 执行`["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_hpa_budget.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-303][integration] 先在`tests/architecture/test_capacity_webchat_hpa_budget.py`建立行为验收并记录RED；真实边界：真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据；关键断言：注册入口/HPA资源。→ RED：首建 483 行、9 个行为用例（含参数化共 13 例）；`uv run pytest -q tests/architecture/test_capacity_webchat_hpa_budget.py` → **12 failed, 1 passed in 2.16s**（失败=base 尚未注册 TASK-102 的 `ingress.yaml`、`capacity-autoscaling.yaml` 与两个 HPA 都不存在；已绿 1 例是**回归保护**的既有事实：Console/Gateway 各 1 Pod 且无 HPA，断言未削弱）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 实现落在计划 Files 的 3 个文件（无应用代码改动）：新建 `deploy/k8s/base/capacity-autoscaling.yaml`（2 个 `autoscaling/v2` HPA：agent-runtime `maxReplicas: 4` / agent-worker `maxReplicas: 8`，==容量 profile 的 typed `max_replica_counts`；`minReplicas: 1` == 各 Deployment 清单基线，HPA 只提供上界；CPU 70%/内存 80% 显式 Resource 目标；Worker 另按真实队列深度 `task_queue_depth` 排队扩容，目标 8 = 2×`WORKER_EXECUTION_CONCURRENCY`；缩容稳定化 300s ≥ 终止宽限 60s、一次 1 个 Pod/60s，扩容不做稳定化延迟）；`deploy/k8s/base/kustomization.yaml` 注册 TASK-102 的 `ingress.yaml` 与本文件。测试文件 483 行、9 用例（13 例含参数化），辅助函数最长 21 行（`_published_gauges`）、用例最长 29 行（`test_hpa_custom_metrics_are_real_published_gauges`），均 ≤50；强类型（`ResourceProfile`/`Sequence[dict[str, Any]]`，`Any` 仅用于 YAML 边界）；`_docs`/`_named`/`_target_name`/`_resource_target`/`_average_value`/`_pg_connections_per_process` 对缺失或非法项**显式报错**不静默取默认；断言只读清单/源码/typed 配置，无凭据、无原始内部内容
+- [x] [B-303] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 9 个用例逐条对应契约 5 组断言（见 Acceptance Evidence 断言位置列）；另做 **10 处变异验证**断言判别性（先复现失败再还原，见下方风险说明）
+- [x] [B-303] 执行`["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_hpa_budget.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **13 passed in 0.54s**（exit=0，最终冻结版本；变异还原后复跑 13 passed in 0.47s）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-303 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | 注册入口/HPA资源；Console/Gateway固定1，Runtime/Worker最大副本显式，按在飞/排队/CPU内存指标扩缩，不能超PG保留预算或下游总并发 | tests/architecture/test_capacity_webchat_hpa_budget.py | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_hpa_budget.py"] | planned |
+| B-303 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | 注册入口/HPA资源；Console/Gateway固定1，Runtime/Worker最大副本显式，按在飞/排队/CPU内存指标扩缩，不能超PG保留预算或下游总并发 | tests/architecture/test_capacity_webchat_hpa_budget.py | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_hpa_budget.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-303 | 首建 `tests/architecture/test_capacity_webchat_hpa_budget.py`（483 行、9 用例/13 例含参数化）→ `uv run pytest -q tests/architecture/test_capacity_webchat_hpa_budget.py` → **12 failed, 1 passed in 2.16s**（失败=base 未注册 TASK-102 的 `ingress.yaml`、`capacity-autoscaling.yaml` 与 HPA 均不存在；1 例为既有事实的回归保护：Console/Gateway 各 1 Pod 且无 HPA） | 同命令（新建 `capacity-autoscaling.yaml` + kustomization 注册入口/HPA 后）→ **13 passed in 0.54s**（exit=0）；变异还原后复跑 **13 passed in 0.47s** | ①注册清单完整 `test_kustomize_registers_every_base_manifest_including_ingress_and_autoscaling` L303-313（收集清单无重复/无悬空 L306-308；目录里每个 `*.yaml`（除 `secret.example.yaml`/`kustomization.yaml`）都必须被收集，缺一个即红 L309-311；`ingress.yaml` 与 `capacity-autoscaling.yaml` 必须在收集清单里 L312-313）；②渲染集合含入口与 HPA `test_rendered_base_carries_ingress_and_autoscaling_resources` L316-332（渲染集合必须有 Ingress L319-321；仍是固定四 Deployment/四 Service L322-326；autoscaling 文件只允许含 HPA L327-328；HPA 目标恰为 `muad-agent-runtime`/`muad-agent-worker` L329-332）；③Console/Gateway 固定 1 `test_single_pod_units_stay_fixed_without_hpa` L335-351（清单基线 `replicas==1` L340-342；typed `max_replica_counts==1` L343-345；任何指向它们的 HPA 即红 L346-351）；④上界==typed 配置 `test_autoscaled_units_declare_the_typed_upper_bound` L354-375（`maxReplicas==max_replica_counts`（runtime 4/worker 8）L361-364；`minReplicas==清单基线 1` L365-368；`min≤max` L369；压测副本 `replica_counts`（2）必须在可达范围 L370-372；HPA 与 Deployment 同命名空间 L373-375）；⑤CPU+内存且留余量 `test_hpa_scales_on_cpu_and_memory_not_only_cpu` L378-387（cpu L382、memory L383 两个 Utilization 目标；目标 ≤90 留余量 L384-387）；⑥自定义指标必须真实发布 `test_hpa_custom_metrics_are_real_published_gauges` L390-419（目录外的指标名即红 L405；必须是 gauge L406；源码里必须有真实发布点 L407；Worker 必须按 `task_queue_depth` 排队扩缩且作为 Pods/Object 消费 L410-414；目标 == 2×typed 执行槽（8=2×4）L415-419）；⑦缩容受排空预算约束 `test_scale_down_is_bounded_by_the_drain_budget` L422-444（稳定化窗口 ≥ 终止宽限 60s L430-432；缩容步长必须是一次 1 个 Pod L433-438；缩容间隔 ≥ 终止宽限 L439-441；扩容不做稳定化延迟 L442-444）；⑧PG 预算 `test_pg_connection_budget_at_the_hpa_upper_bound_keeps_maintenance_headroom` L447-462（真实 engine pool `size()+max_overflow` L454-457；合计 ≤ profile 预算 L459；必须留维护/迁移余量 L460-462）；⑨下游总并发闭合 `test_gateway_stream_concurrency_is_covered_by_the_runtime_upper_bound` L465-483（Gateway 流池 == typed `stream_http_max_connections` L472-475；Runtime 上界订阅容量 ≥ Gateway 订阅上限 L476-480；≥ Gateway 流池 L481-483） | ①真实清单：`kustomization.yaml` 的收集清单 + `deploy/k8s/base/*.yaml` 真实文件；渲染集合只由收集清单决定（未注册=集群里不会创建）；旁证 `kubectl kustomize deploy/k8s/base` exit=0，渲染出 Namespace/ConfigMap/4 Service/PVC/4 Deployment/**2 HPA**/Job/**2 Ingress**（用例本身不依赖二进制）；②真实源码依赖图：直接 import `muad_agent_runtime.metrics.CATALOG`/`muad_agent_worker.metrics.CATALOG`（真实指标目录），`_published_gauges` 用 AST 解析真实 `record_gauge/set_gauge` 发布点——Runtime `main.py:284` 的 `runtime_execution_slots`、Worker `worker/claimer.py:59` 的 `task_queue_depth`（改名/删发布点即红）；③真实 typed 配置：`SharedSettings`（`worker_execution_concurrency=4`、`stream_http_max_connections=1100`、`runtime_max_sse_subscribers=1100`、`gateway_max_sse_subscribers=1100`）与容量 profile `resources`（`max_replica_counts` runtime 4/worker 8、`replica_counts` 各 2、`process_counts` 各 1、`pg_connection_budget=200`）；④真实 engine 工厂：console/runtime/worker `get_engine()` 惰性建池（`DATABASE_URL=…@127.0.0.1:1` 假值，不连库），每进程上限 `pool.size()+max_overflow=15`；HPA 上界下 PG 合计 = 1×1×15 + 1×4×15 + 1×8×15 = **195 ≤ 200**（余量 5，给维护/迁移）；⑤不访问共享 dev 数据、无 DDL、无网络、不跑 Node | verified |
+
+**实施范围与风险说明**
+
+- 范围：只动计划 Files 的 3 个文件（新建 `capacity-autoscaling.yaml`、新建测试、更新 `kustomization.yaml`）；无应用代码改动、无 DDL/迁移、未跑 `tests/acceptance/**`、`make acceptance*` 或浏览器验收（共享环境约束）；未启动 dev 服务；未访问共享 dev 数据。
+- HPA 指标口径（design §4.1「HPA 观察在飞槽、队列时长、最老任务年龄及 CPU/内存，不能只看 CPU」）：CPU+内存是显式 Resource 目标（留余量）；Worker 按**真实**队列深度 gauge `task_queue_depth`（`apps/agent-worker/src/muad_agent_worker/worker/claimer.py` 每次领取后发布）排队扩容，目标 8 = 2×`WORKER_EXECUTION_CONCURRENCY`（typed 4）。**诚实边界**：Runtime 的随负载在飞槽/队列 gauge 目前**不存在**（`runtime_execution_slots` 只是启动时的配置值，不随负载变化；docs/09 §6.2 的 `agent_active_runs` 也未实现；队列时长/最老任务年龄是 PG 派生信号）——因此 Runtime 只按 CPU/内存扩缩，不写不生效的指标名；应用侧发布在飞/队列 gauge（或接 PG 导出器）后应在 `capacity-autoscaling.yaml` 给 Runtime 补排队指标。
+- 自定义指标依赖集群侧 Prometheus Adapter（与 Resource 指标依赖 metrics-server 同类）：仓库只声明**真实存在**的指标名与目标口径，适配器属部署前置条件。
+- 基线语义：`minReplicas` 保持各 Deployment 的 `spec.replicas: 1`（HPA 只提供上界，不改变单 Pod 基线）；Console/Gateway 不声明 HPA，typed `max_replica_counts` 也是 1（`tests/capacity/profile.py` 的 `_validate_single_pod_units` 兜底）。
+- 判别性验证（防止断言空转；10 处变异均先复现失败再还原，随后复跑确认 13 passed）：①未注册 `ingress.yaml` → **2 failed**；②未注册 `capacity-autoscaling.yaml` → **12 failed**；③runtime `maxReplicas` 4→5 → **3 failed**（上界、PG 预算、下游闭合）；④删掉 memory 指标 → **1 failed**；⑤队列指标改名成不存在的 `task_queue_backlog` → **1 failed**；⑥队列目标 8→4 → **1 failed**；⑦缩容稳定化 300→30（小于终止宽限）→ **1 failed**；⑧给 Console 加 HPA → **4 failed**；⑨cpu 目标 70→100（不留余量）→ **1 failed**；⑩删除 `worker/claimer.py` 的真实 `record_gauge(TASK_QUEUE_DEPTH_METRIC, …)` 发布点 → **1 failed**（证明「真实发布点」断言不是空转）。
+- 静态检查与聚焦回归：`uv run ruff check tests/architecture/test_capacity_webchat_hpa_budget.py` → **All checks passed**；`uv run pytest -q tests/architecture` → **123 passed in 6.65s**（exit=0，含 TASK-102 的 9 例与既有 `test_k8s_deploy_manifests.py`）；`uv run pytest -q tests/architecture tests/test_configuration_inventory.py` → **127 passed in 6.78s**（exit=0）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL。
+- 交互与延后项（诚实记录）：① HPA 进入 base 后，`deploy/k8s/verify-multipod` 的 `patch-replicas.yaml`（runtime/worker 各 2 副本）会被 HPA 接管——空闲时 HPA 会把副本收回 `minReplicas=1`，多 Pod 冒烟需在冒烟期间暂停 HPA 或经 HPA 自身扩到 2；该 overlay 不在本任务 Files，留给 TASK-104（预检）/TASK-107（四单元独立验收栈）处理。② Runtime 的在飞/队列指标（见上）与 `RUNTIME_MAX_SSE_SUBSCRIBERS`/`*_MAX_INFLIGHT`/`DB_POOL_*` 的接线属应用侧（TASK-101 延后项），接线后本文件与 HPA 指标应同步。③ 渲染前预检与发布阻断（总连接/FD/内存缓冲与资源声明）属 TASK-104（B-304）；本任务只保证 HPA 上界与 typed 配置一致、PG 预算有余量、下游并发闭合。④ 1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责；本任务不声称生产容量已达标。
+- B-303: verified — automated command passed; run_id=8e29ffb7af6f4ead84eb8efd01bca27b (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] B-303 RED：新建 `tests/architecture/test_capacity_webchat_hpa_budget.py`（483 行/9 用例、13 例含参数化）→ `uv run pytest -q tests/architecture/test_capacity_webchat_hpa_budget.py` → **12 failed, 1 passed in 2.16s**（base 未注册 `ingress.yaml`、`capacity-autoscaling.yaml` 与 HPA 均不存在；1 例为既有事实的回归保护：Console/Gateway 各 1 Pod 且无 HPA）
+- [2026-10-19] 实现：新建 `deploy/k8s/base/capacity-autoscaling.yaml`（autoscaling/v2：agent-runtime min 1/max 4、agent-worker min 1/max 8 == typed `max_replica_counts`；CPU 70%/内存 80% 显式 Resource 目标；Worker 按真实队列深度 `task_queue_depth` 排队扩容，目标 8=2×执行槽；缩容稳定化 300s≥终止宽限 60s、一次 1 个 Pod/60s，扩容无稳定化延迟）；`kustomization.yaml` 注册 TASK-102 的 `ingress.yaml` 与本文件（未注册=集群里不会创建）；无应用代码改动
+- [2026-10-19] B-303 GREEN：**13 passed in 0.54s**（变异还原后复跑 0.47s）；10 处变异验证断言判别性后还原（未注册 ingress/autoscaling、maxReplicas 4→5、删 memory、队列指标改名、队列目标 8→4、缩容窗口 300→30、给 Console 加 HPA、cpu 70→100、删 worker 真实发布点，全部检出）；`tests/architecture` **123 passed**（6.65s）；`tests/architecture + tests/test_configuration_inventory.py` **127 passed**（6.78s）；ruff 干净；`kubectl kustomize deploy/k8s/base` exit=0（旁证：渲染出 2 HPA + 2 Ingress）
+- [2026-10-19] completed (done)
 
 ---
 

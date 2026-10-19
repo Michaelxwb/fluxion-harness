@@ -8247,7 +8247,7 @@
       "kind": "functional",
       "boundary": "真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据",
       "owner": "TASK-103",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -8257,7 +8257,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-303",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "8e29ffb7af6f4ead84eb8efd01bca27b",
+        "executed_at": "2026-10-19T03:16:51.301347+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/architecture/test_capacity_webchat_hpa_budget.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ce1d4e263d919bdcc22c50f51740f3f54b32244603a85a9b53f007759f83f5c1"
+      },
+      "runs": [
+        {
+          "id": "B-303",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "8e29ffb7af6f4ead84eb8efd01bca27b",
+          "executed_at": "2026-10-19T03:16:51.301347+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_capacity_webchat_hpa_budget.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ce1d4e263d919bdcc22c50f51740f3f54b32244603a85a9b53f007759f83f5c1"
+        }
+      ]
     },
     {
       "id": "B-304",
