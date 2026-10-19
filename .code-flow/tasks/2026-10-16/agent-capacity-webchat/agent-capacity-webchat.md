@@ -447,7 +447,7 @@
 | B-305 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | unit | 真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收 | TASK-105 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_profile.py"] | . | 300 |  |
 | B-306 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-106 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_http_probes.py"] | . | 300 |  |
 | B-307 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-107 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_isolated_stack.py"] | . | 300 |  |
-| B-308 | agent-capacity-webchat.frontend.design.md#2.4 验收条件, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-108 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_harness.py"] | . | 300 |  |
+| B-308 | agent-capacity-webchat.frontend.design.md#2.4 验收条件, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-108 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_harness.py"] | . | 300 |  |
 | B-309 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-109 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_driver.py"] | . | 300 |  |
 | B-317 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-117 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_capacity_report.py"] | . | 300 |  |
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
@@ -6822,7 +6822,7 @@ B-307（functional/integration）—— 命令与计数：
 
 ## TASK-108: Webchat浏览器验收配置与可信测试身份
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-093, TASK-107
 - **Source**: agent-capacity-webchat.frontend.design.md#2.4 验收条件, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告
@@ -6837,25 +6837,62 @@ B-307（functional/integration）—— 命令与计数：
 
 ### Checklist
 
-- [ ] [B-308][integration] 先在`tests/frontend/test_capacity_webchat_browser_harness.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：真实构建产物+浏览器+入口代理+四服务，ADMIN经API为已有用户生成随机Token，提供多用户/多入口/故障控制fixture。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-308] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-308] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_harness.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-308][integration] 先在`tests/frontend/test_capacity_webchat_browser_harness.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：真实构建产物+浏览器+入口代理+四服务，ADMIN经API为已有用户生成随机Token，提供多用户/多入口/故障控制fixture。 → RED：先建 16 用例（1 文件，757 行）后 `uv run pytest -q tests/frontend/test_capacity_webchat_browser_harness.py` → **3 failed + 12 errors（exit=1，0.16s）**：harness 两文件不存在（`缺少文件：…/e2e/support/webchat-fixtures.ts`），12 条经 esbuild 真实打包的用例在 module fixture 收集期显式失败（`Could not resolve`）；日志 `$TMPDIR/agent-capacity-webchat-plan/task108-red.log`。真实边界逐项见下方 Acceptance Evidence（真实 esbuild 编译 + 真实 node 执行 + 真实支持模块 `isolated-datastores` 建库调用 + 后端源码真实路由表/ingress 清单/探针常量交叉核对）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。 → 实现：① `e2e/playwright.webchat.config.ts`（198 行）——真实构建产物（`vite preview --strictPort` + `MUAD_API_TARGET` 钉到本域 Console）+ 四服务真实 uvicorn（Console/Runtime/Worker/Gateway，模块路径在仓内真实存在）+ 真实模型协议探针（TASK-106）+ 真实入口代理（TASK-107，分流表读 `deploy/k8s/base/ingress.yaml`）+ 隔离空库/Redis/产物根（复用 `support/isolated-datastores.ts`，含预置 ADMIN）+ 端口 `基址+OFFSET`（10000–10600，避开发默认端口与其它域端口段）一次求值冻结进 env；服务身份令牌随机生成（不硬编码凭据）。② `e2e/support/webchat-fixtures.ts`（584 行）——`WEBCHAT_ENV` 冻结契约 + `webchatStackFromEnv`（缺任一变量显式点名失败，不静默回落默认值）+ `WEBCHAT_ROUTES` 真实路由表 + `ConsoleAdminClient`（真实 Console API + `X-CSRF-Token` 双提交 + 非 2xx/`code!=='0'` 显式抛错）+ 多用户/多入口 `seedMultiUserEntries`（ADMIN 经 API 建用户/Agent/WEBCHAT 入口/授权并签发**随机** Token，原文只在内存传递）+ `ModelFaultControl`（探针真实控制面：延迟/429/5xx/断流/应答丢失/Key 限额）+ Playwright fixtures（`webchatStack`/`webchatAdmin`/`webchatFaults`（用例前后各复位）/`webchatUsers`）；全部函数 ≤50 行、强类型（无 `any`）、错误显式；资源 key 带 `e2e-webchat-<offset>-` 前缀且带随机后缀；Token 不进日志/URL/持久存储。
+- [x] [B-308] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。 → 16 用例覆盖：①真实模块/服务/探针/代理命令与模块存在性 ②webServer ↔ env 双向闭合（无死配置）③端口同幅平移 + 与开发默认/其它域不冲突 ④入口代理单元 == ingress 清单、聊天走真实 Gateway、认证面经构建产物回真实 Console ⑤四服务共享隔离库/Redis/产物根且租户 == 预置管理员租户 ⑥夹具路由逐条命中后端真实注册路由 ⑦故障控制面 == 探针真实常量 ⑧typed 请求体符合真实契约（模型不带连接/密钥、WEBCHAT 入口不带 secret、`params.max_tokens` 真实发送、凭据指向探针补全端点）⑨env 缺一即显式失败 ⑩testDir 覆盖 TASK-112～116 声明的 spec 文件且命令引用本配置 ⑪无伪造成功通道。位置（行号）见下方 Evidence 表；成功/边界/失败分支（缺 env、缺文件、路由漂移）都有可独立失败的用例。
+- [x] [B-308] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_harness.py"]`并记录GREEN、关键断言位置和实际组件证据。 → **16 passed（exit=0，0.18s）**；聚焦回归 `uv run pytest -q tests/frontend` = **633 passed（exit=0，8.47s）**；`npx tsc --noEmit`（apps/console-platform/frontend）exit=0；`uv run ruff check` 新测试文件 All checks passed；变异检验 11 处扰动 11 处如实变红（+1 组对照），还原后复绿。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-308 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 真实构建产物+浏览器+入口代理+四服务，ADMIN经API为已有用户生成随机Token，提供多用户/多入口/故障控制fixture；成功路径禁止route.fulfill造结果 | tests/frontend/test_capacity_webchat_browser_harness.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_harness.py"] | planned |
+| B-308 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 真实构建产物+浏览器+入口代理+四服务，ADMIN经API为已有用户生成随机Token，提供多用户/多入口/故障控制fixture；成功路径禁止route.fulfill造结果 | tests/frontend/test_capacity_webchat_browser_harness.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_harness.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+B-308（integration，机检 harness；本任务不启浏览器、不建库、不跑验收）—— 命令与计数：
+
+| 项 | 命令 | 结果 |
+|---|---|---|
+| RED（先建用例后建 harness） | `uv run pytest -q tests/frontend/test_capacity_webchat_browser_harness.py` | **3 failed + 12 errors（exit=1，0.16s）**；harness 两文件不存在（`缺少文件：…/e2e/support/webchat-fixtures.ts`），12 条真实 esbuild 打包用例在收集期显式失败；日志 `$TMPDIR/agent-capacity-webchat-plan/task108-red.log`（2026-10-19） |
+| GREEN（functional） | 同命令 | **16 passed（exit=0，0.18s）**；日志 `$TMPDIR/agent-capacity-webchat-plan/task108-green.log` |
+| 聚焦回归 | `uv run pytest -q tests/frontend` | **633 passed（exit=0，8.47s）**（基线 617 + 本任务 16；未跑 `tests/acceptance/**`、未起 dev 服务、未动迁移） |
+| 前端类型检查 | `npx tsc --noEmit`（apps/console-platform/frontend） | exit=0 干净（`e2e/**` 无 tsconfig、不在 tsc 范围；harness 的解析与执行由真实 esbuild+node 承载） |
+| 静态检查 | `uv run ruff check tests/frontend/test_capacity_webchat_browser_harness.py` | All checks passed |
+| 变异检验（鉴别力） | `uv run python $TMPDIR/agent-capacity-webchat-plan/mutations.py`、`…/mutations2.py` | 11 处扰动（testDir 漂移、路由路径漂移、少冻结 env、端口越界、控制面路径漂移、不接隔离数据存储、认证面不回 Console、聊天 API 不走 Gateway、预算键写错、死路由引用、webServer 未暴露）**11 处如实变红**，逐字节还原后复跑全绿；1 组对照（有默认值但仍在缺失清单）按预期仍绿——缺失清单先于默认值生效 |
+
+关键断言位置（`tests/frontend/test_capacity_webchat_browser_harness.py`）：
+
+| 断言 | 位置 | 实测组件证据 |
+|---|---|---|
+| ① 真实构建产物/四服务/探针/代理 + 模块真实存在 | L451-469：7 项 webServer（L453）、四服务模块（L456-461）与 `apps/**/<pkg>/main.py` 真实存在（L459-461）、探针/代理/`preview --strictPort`/`--backend`（L463-468） | 真实 esbuild 打包域配置、真实 node 执行：`webServer` 7 项（Console/Runtime/Worker/Gateway/探针/代理/preview），命令含真实模块路径 |
+| ② webServer ↔ env 双向闭合（无死配置） | L471-487：origin 集合相等（L479-482）、`baseURL == proxyURL`（L483） | 域配置执行后 `use.baseURL` 与冻结 env 完全一致；7 个 webServer origin == 8 个 env URL（baseURL=proxyURL） |
+| ③ 端口偏移与不冲突 | L491-513：两次 OFFSET 全部端口同幅平移（L496-498）、端口区间（L500-501）、OFFSET 冻结（L502-503）、避开发默认端口（L505-507）、与其它 13 份域配置端口字面量不重叠（L509-513） | OFFSET=7/8 两次真实求值：10007/10008…10607/10608 同幅平移；`DEV_DEFAULT_PORTS` 从 `stack.py` 解析（8000–8003）；其它域端口字面量 max<10000 |
+| ④ 入口代理分流 == ingress 清单 | L532-559：后端单元集合 == 清单（L540-543）、聊天 API 直连 Gateway（L544）、页面/认证面 == preview（L545-547）、`MUAD_API_TARGET` 钉 Console（L550-552）、代理就绪探测用真实控制面（L554-556） | 真实 `deploy/k8s/base/ingress.yaml`（2 文档 7 条路径）+ `stack.py` 的 `INGRESS_SERVICE_UNITS`/`PROXY_STATE_PATH`；单元 `console-platform`/`im-gateway` |
+| ⑤ 四服务共享隔离库/Redis/产物根与同一租户 | L589-611：隔离库/Redis 落地（L594-597）、四服务 env 共享（L599-605）、预置 ADMIN 的租户 == 浏览器默认租户（L607-611） | 真实 `support/isolated-datastores.ts` 被执行（`node:child_process` 打桩返回隔离句柄）：`DATABASE_URL/REDIS_URL/ARTIFACT_ROOT` 冻结进 env 并注入四服务；建库 argv 含 `--seed-console-admin --admin-username admin --admin-tenant default` |
+| ⑥ 夹具路由 == 后端真实注册路由 | L391-420：路由表哨兵（L400-414）、逐条比对（L417-420） | 后端源码抽取的方法+路径表（Console `auth/users/agents/models/model_resources/webchat_auth` + Gateway `webchat`，共 5 个 prefix + 全部装饰器）；12 条夹具路由全部命中 |
+| ⑦ 故障控制面 == 探针真实常量 | L663-676：路径逐项相等（L666-672）、控制面全被引用（L674-676） | `tests/acceptance/capacity/probes.py` 的 `CONTROL_*_PATH` 常量；4 个控制面（behavior/key-limits/reset/state） |
+| ⑧ typed 请求体 == 真实契约 | L692-724：模型不带连接/密钥（L701-704）、凭据 base_url 拼出探针补全端点（L706-713）、WEBCHAT 入口不带 secret（L715-718）、预算键（L697-700）、资源 key 前缀（L719-723） | `dto.py#require_sent_output_budget`、`channel_admin_service.py#WEBCHAT_CHANNEL`、`probes.py#CHAT_COMPLETIONS_PATH`（`/v1/chat/completions`）、`ModelCreateRequest` 不接收 `api_key/base_url` |
+| ⑨ env 缺一即显式失败 | L644-660：缺任一变量都必须抛错并点名（L653-656）、空 env 显式失败（L657-658）、冻结值与读取值一致（L649-652） | driver 逐项删除 12 个 env 名调用真实夹具：12/12 抛错且消息点名；`webchatStackFromEnv({})` 抛错 |
+| ⑩ testDir 覆盖依赖任务 spec 文件 | L750-756：目录唯一（L753）、`testDir` 一致（L754）、命令引用本配置（L755） | 需求任务文档 TASK-112～116 五节声明的 9 个 `e2e/tests/webchat/*.spec.ts` 与命令 `--config playwright.webchat.config.ts` |
+| ⑪ 无伪造成功通道 / 多用户多入口能力 | L348-357（禁 `page.route`/`route.fulfill`/msw/nock）、L432-449（ADMIN/故障方法集、`e2e-webchat-` 前缀、OFFSET 入 key）、L678-690（真实 Cookie/CSRF 名与同源 `Origin`） | 夹具类方法集实测（`ConsoleAdminClient` 9 方法 + `ModelFaultControl` 4 方法）；`security.py` 的 `muad_session`/`muad_csrf`/`X-CSRF-Token`；`webchat_auth.py` 的 `require_chat_origin` |
+
+真实边界说明（按任务范围）：harness 由**真实 esbuild**（前端 `node_modules`）打成 ESM 产物、由**真实 node** 执行域配置与夹具——域配置的 `useIsolatedDatastores()` 走**真实** `e2e/support/isolated-datastores.ts`（仅 `node:child_process` 打桩返回隔离句柄，不建库、不起服务、不启浏览器），所有地址/端口/环境注入都是真实求值结果；夹具的路由/控制面/请求体与后端源码、ingress 清单、探针常量、`stack.py` 常量逐项交叉核对。**浏览器交互（DOM 点击/键盘/SSE 重连/跨用户切换）与真实四服务启动由 TASK-112～116 的 spec 承担**，本任务不声称 E2E 场景已通过；`testDir`（`./tests/webchat`）与 env 契约已按依赖任务的命令与文件清单对齐。未跑 `tests/acceptance/**`、未建任何数据库、未启任何服务端口、未执行迁移/DDL、未 `git push`。
+
+- B-308: verified — automated command passed（机检 16 passed；E2E 场景保持 deferred，由 TASK-112～116 与 verify-e2e 收口）
+- B-308: verified — automated command passed; run_id=d4b664a32ad943bdb04b34e531564e1f (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] B-308 RED：先建 `tests/frontend/test_capacity_webchat_browser_harness.py`（16 用例）→ **3 failed + 12 errors（exit=1，0.16s）**，harness 两文件不存在 + 12 条 esbuild 打包用例收集期显式失败
+- [2026-10-19] 实现：`e2e/playwright.webchat.config.ts`（真实构建产物 + 四服务 + 真实探针 + 真实入口代理 + 隔离库/Redis/产物根 + 端口偏移冻结 + env 契约）与 `e2e/support/webchat-fixtures.ts`（`WEBCHAT_ENV`/`webchatStackFromEnv`/`WEBCHAT_ROUTES`/`ConsoleAdminClient`/`ModelFaultControl`/`seedMultiUserEntries`/Playwright fixtures）
+- [2026-10-19] B-308 GREEN：**16 passed（0.18s）**；聚焦回归 `tests/frontend` **633 passed（8.47s）**；`tsc --noEmit` 干净；ruff 干净
+- [2026-10-19] 变异检验：11 处扰动 11 处如实变红（+1 组对照按预期绿），逐字节还原后复绿
+- [2026-10-19] 范围与遗留：不启浏览器/不建库/不跑验收；E2E 场景（S-*/E-*/B-101～105 等）由 TASK-112～116 承担并保持 planned，最终 verify-e2e 记录完整证据
+- [2026-10-19] completed (done)
 
 ---
 
