@@ -431,7 +431,7 @@
 | B-289 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-089 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_settings_ui.py"] | . | 300 |  |
 | B-290 | agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-090 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_i18n.py"] | . | 300 |  |
 | B-291 | agent-capacity-webchat.frontend.design.md#3.7 样式方案, agent-capacity-webchat.frontend.design.md#3.8 可访问性 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-091 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_layout.py"] | . | 300 |  |
-| B-292 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-092 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_model_admin_wiring.py"] | . | 300 |  |
+| B-292 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-092 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_model_admin_wiring.py"] | . | 300 |  |
 | B-293 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-093 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_frontend_wiring.py"] | . | 300 |  |
 | B-294 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-094 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_wiring.py"] | . | 300 |  |
 | B-295 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Worker监督/claim、隔离PostgreSQL、实际子进程或外部HTTP协议探针 | TASK-095 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_capacity_webchat_worker_wiring.py"] | . | 300 |  |
@@ -453,6 +453,134 @@
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
 
 ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5741,7 +5869,7 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ## TASK-092: 模型管理实际页面挂接Key池与额度操作
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-086, TASK-087, TASK-088, TASK-090
 - **Source**: agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.7 样式方案
@@ -5756,25 +5884,36 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ### Checklist
 
-- [ ] [B-292][integration] 先在`tests/frontend/test_capacity_webchat_model_admin_wiring.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：主列表可进入物理Key/额度管理，模型详情挂接成员关系。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-292] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-292] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_model_admin_wiring.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-292][integration] 先在`tests/frontend/test_capacity_webchat_model_admin_wiring.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：主列表可进入物理Key/额度管理，模型详情挂接成员关系。→ 子 agent 中断接管时的现场（同文件）：**2 failed + 5 errors + 5 passed**（RED 根因：① harness 的 esbuild 别名目标 `semi-stub.mjs` 未生成 ⇒ 5 errors；② 编译用例的 testid 断言写成 JSX 字面形式（esbuild 产物是 `"data-testid": "<值>"` 键值对）⇒ 编译用例失败；③ 15 条新词条未补 ⇒ 本地化用例失败）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 实现（子 agent 完成主体 + 主 agent 收尾）：`ModelPage.tsx`（ADMIN 资源池入口 `open-model-resources` + 凭据/额度面板挂接 + 单次 `onChanged` 通知）、`ModelDetailSideSheet.tsx`（成员面板挂接 + `readModelProviderKey`/`readOutputBudget`）、`ModelFormModal.tsx`（最终字段面：`provider_key` + `params.max_tokens` 正整数校验、旧行缺预算显式留空、无任何连接/密钥字段）、`services/models.ts`（typed DTO/写体构造器 + 冲突码映射）、`ModelStatusIcons.tsx`（状态图标改读 `provider_key`）；zh/en 各 +15 词条；`tests/frontend/test_model_form_contract.py` 按新事实重定向（正整数预算校验/密钥面退出模型表单/新 hint 键，断言未弱化）。
+- [x] [B-292] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 12 个用例逐条对应契约（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-292] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_model_admin_wiring.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **12 passed**（exit=0）；回归 `tests/frontend` **592 passed**；`npx tsc --noEmit` 干净；`check_frontend_i18n.py` OK（1514 键）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-292 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 主列表可进入物理Key/额度管理，模型详情挂接成员关系；真实页面可达且仅ADMIN维护，原模型编辑/版本/测试保持最终新语义，不遗留未挂载孤立组件 | tests/frontend/test_capacity_webchat_model_admin_wiring.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_model_admin_wiring.py"] | planned |
+| B-292 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 主列表可进入物理Key/额度管理，模型详情挂接成员关系；真实页面可达且仅ADMIN维护，原模型编辑/版本/测试保持最终新语义，不遗留未挂载孤立组件 | tests/frontend/test_capacity_webchat_model_admin_wiring.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_model_admin_wiring.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-292 | 子 agent 中断接管现场（同命令）：**2 failed + 5 errors + 5 passed**（harness 缺 semi-stub ⇒ 5 errors；testid 断言形式与 esbuild 产物不符 ⇒ 编译用例失败；15 条词条缺失 ⇒ 本地化用例失败）；另 `tests/frontend` 3 failed（旧字段契约 `test_model_form_contract.py`） | 同命令 → **12 passed**（exit=0）；`uv run pytest -q tests/frontend` → **592 passed**；`npx tsc --noEmit` 干净；`check_frontend_i18n.py` OK | `test_real_service_keeps_the_final_model_field_surface` L354（写体恰 `provider_key`+`params.max_tokens`，无旧字段/无夹带）；`test_real_service_validates_the_output_budget_and_identity` L405；`test_real_service_never_accepts_connection_or_key_material` L423（canary 不进任何请求）；`test_real_service_toggles_enabled_as_a_single_field_version_update` L440；`test_real_service_maps_conflicts_to_explicit_copy` L451；`test_main_list_mounts_the_admin_panels_and_notifies_once` L460（`open-model-resources` 入口 + 面板挂接 + 单次通知）；`test_main_list_reads_only_the_final_model_facts` L485（旧 `api_key_configured` 彻底退出）；`test_model_detail_mounts_members_and_passes_changes_back` L500；`test_model_form_modal_matches_the_final_field_surface` L514（`buildModelCreateInput`/`buildModelUpdateInput`/`readOutputBudget`/`ModelInputError`/FormModal 720/协议只读）；`test_model_status_icons_read_the_provider_fact` L534；`test_page_and_form_compile_to_real_typescript_artifacts` L543（真实 esbuild 产物：页面/表单/侧板三个模块图含挂接标记、无旧字段与 canary）；`test_wiring_keys_are_localized` L575（15 键 zh/en 齐平且非裸枚举） | 真实模块 service/typed DTO + 共享传输（真实 axios 拦截器观测请求/头/体）；真实 esbuild 编译产物 + 真实 node 执行；`tests/frontend/test_model_form_contract.py` 按新事实重定向后保持绿；DOM 交互留真实浏览器 E2E（TASK-115） | verified |
+- B-292: verified — automated command passed; run_id=9d13b14cbfd1472ea4f3f5d4260ac7e3 (confirmed_by: runner)
+
+### Log
+
+- [2026-10-19] 子 agent 因模型用量限制中断（Go usage limit）：现场 = 实现已改 4 文件 + 新测试文件 + 词条未补 + 任务文件未收尾；主 agent 接管。
+- [2026-10-19] 接管修复：① `_run_service_harness` 补写 esbuild 别名目标 `semi-stub.mjs`（原缺失导致 5 errors）；② 编译用例 testid 断言改为 esbuild 产物实际形式（`"<值>"` 键值对）；③ zh/en 各补 15 条词条（排序插入、JSON 校验）；④ `test_model_form_contract.py` 3 个旧字段用例按新事实重定向（正整数预算校验/密钥面退出模型表单/新 hint 键）。
+- [2026-10-19] B-292 GREEN：12 passed；回归 `tests/frontend` 592 passed；tsc/i18n 干净。
+- [2026-10-19] completed (done)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
 
 ---
 

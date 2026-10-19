@@ -1,10 +1,59 @@
-import { Form } from '@douyinfe/semi-ui';
+import { Banner, Form } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FormModal } from '../../components/common/FormModal';
-import { createModel, updateModel, type ModelItem, type ModelSaveInput } from './services/models';
+import { readOutputBudget } from './services/modelDeployments';
+import {
+  ModelInputError,
+  buildModelCreateInput,
+  buildModelUpdateInput,
+  createModel,
+  modelSaveErrorKey,
+  updateModel,
+  type ModelFormValues,
+  type ModelInputReason,
+  type ModelItem
+} from './services/models';
+
+/**
+ * 逻辑模型新增/编辑（design frontend §3.2/§3.7；backend API-13）。
+ *
+ * - **只声明协议/型号/供方/参数**：连接与密钥不在本表单（唯一权威是物理凭据，TASK-086）；
+ * - **输出预算必填**：`params.max_tokens` 是真正发送的上限，缺失/非法显式落到字段文案；
+ * - **编辑回显只认真正发送的键**：旧行缺 `max_tokens` 时显式留空要求补填，不伪造默认预算；
+ * - 保存失败（标识重复/版本冲突/输入边界）在表单内显式提示，保留表单供重试。
+ */
+
+const INPUT_ERROR_KEYS: Record<ModelInputReason, string> = {
+  KEY_REQUIRED: 'model.form.key',
+  NAME_REQUIRED: 'model.form.name',
+  MODEL_ID_REQUIRED: 'model.form.modelId',
+  MAX_TOKENS_INVALID: 'model.form.maxTokensInvalid'
+};
+
+interface FormValues {
+  key: string;
+  name: string;
+  protocol: string;
+  model_id: string;
+  provider_key: string;
+  max_tokens?: number;
+  enabled?: boolean;
+}
+
+function toFormValues(values: FormValues): ModelFormValues {
+  return {
+    key: values.key ?? '',
+    name: values.name ?? '',
+    protocol: 'OPENAI',
+    model_id: values.model_id ?? '',
+    provider_key: values.provider_key ?? '',
+    max_tokens: values.max_tokens as number,
+    enabled: values.enabled ?? true
+  };
+}
 
 export interface ModelFormModalProps {
   visible: boolean;
@@ -13,35 +62,33 @@ export interface ModelFormModalProps {
   onSaved(model: ModelItem): void;
 }
 
-interface FormValues {
-  key: string;
-  name: string;
-  protocol: string;
-  base_url: string;
-  model_id: string;
-  api_key?: string;
-  enabled?: boolean;
-}
-
 export function ModelFormModal(props: ModelFormModalProps) {
   const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
   const formApi = useRef<FormApi | null>(null);
 
   useEffect(() => {
     if (!props.visible) {
       return;
     }
+    setErrorKey(null);
     formApi.current?.reset();
-    formApi.current?.setValues({ protocol: 'OPENAI', enabled: true });
+    formApi.current?.setValues({
+      protocol: 'OPENAI',
+      provider_key: '',
+      enabled: true,
+      max_tokens: undefined
+    });
     if (props.model) {
       formApi.current?.setValues({
         key: props.model.key,
         name: props.model.name,
         protocol: 'OPENAI',
-        base_url: props.model.base_url,
         model_id: props.model.model_id,
-        api_key: '',
+        provider_key: props.model.provider_key,
+        // 旧行缺 params.max_tokens 时留空：由用户显式补填，不伪造默认预算
+        max_tokens: readOutputBudget(props.model.params) ?? undefined,
         enabled: props.model.enabled
       });
     }
@@ -49,25 +96,20 @@ export function ModelFormModal(props: ModelFormModalProps) {
 
   const submit = async (values: FormValues): Promise<void> => {
     setSaving(true);
-    const payload: ModelSaveInput = {
-      name: values.name,
-      base_url: values.base_url,
-      model_id: values.model_id,
-      enabled: values.enabled ?? true
-    };
-    if (values.api_key) {
-      payload.api_key = values.api_key;
-    }
-    if (!props.model) {
-      payload.key = values.key;
-    }
+    setErrorKey(null);
+    const formValues = toFormValues(values);
     try {
       const saved = props.model
-        ? await updateModel(props.model.id, { ...payload, expected_revision: props.model.revision })
-        : await createModel(payload);
+        ? await updateModel(props.model.id, buildModelUpdateInput(props.model, formValues))
+        : await createModel(buildModelCreateInput(formValues));
       props.onSaved(saved);
-    } catch {
-      // 统一由 ApiClient 展示本地化错误；REVISION_CONFLICT 时保留表单供重试
+    } catch (error) {
+      // 输入边界与冲突码都落到表单内提示；表单保持打开供用户修正后重试
+      setErrorKey(
+        error instanceof ModelInputError
+          ? INPUT_ERROR_KEYS[error.reason]
+          : modelSaveErrorKey(error)
+      );
     } finally {
       setSaving(false);
     }
@@ -116,35 +158,25 @@ export function ModelFormModal(props: ModelFormModalProps) {
         />
         <div className="form-field-full">
           <Form.Input
-            field="base_url"
-            label={t('model.form.baseUrl')}
-            extraText={t('model.form.baseUrlHint')}
-            rules={[
-              { required: true, message: t('model.form.baseUrl') },
-              {
-                pattern: /^https?:\/\/.+/,
-                message: t('model.form.baseUrlInvalid')
-              }
-            ]}
+            field="provider_key"
+            label={t('model.form.provider')}
+            extraText={t('model.form.providerHint')}
           />
         </div>
         <div className="form-field-full">
-          <Form.Input
-            field="api_key"
-            label={t('model.form.apiKey')}
-            extraText={
-              <>
-                {props.model
-                  ? `${t('model.form.apiKeyHint')} ${t('model.form.apiKeyKeep')}`
-                  : t('model.form.apiKeyHint')}
-                <br />
-                {t('model.form.apiKeyNotice')}
-              </>
-            }
+          <Form.InputNumber
+            field="max_tokens"
+            label={t('model.form.maxTokens')}
+            min={1}
+            precision={0}
+            style={{ width: '100%' }}
+            extraText={t('model.form.maxTokensHint')}
+            rules={[{ required: true, message: t('model.form.maxTokensInvalid') }]}
           />
         </div>
         <Form.Switch field="enabled" label={t('model.form.enabled')} initValue />
       </div>
+      {errorKey === null ? null : <Banner type="danger" closeIcon={null} description={t(errorKey)} />}
     </FormModal>
   );
 }
