@@ -14,6 +14,9 @@ Runtime 与 Worker **无状态、可横向扩展**（`docs/01 §4.2`：runtime 2
 ## 部署顺序
 
 ```bash
+# 0) 发布前预检（失败即阻断发布；见「发布前预检」一节）
+uv run python scripts/check_agent_capacity_deployment.py
+
 # 1) 命名空间与共享依赖（PG/Redis/NFS 按 docs/01 §4.3 作为外部依赖另行部署）
 kubectl apply -f deploy/k8s/base/namespace.yaml
 
@@ -26,7 +29,8 @@ kubectl -n muad create secret generic muad-external \
 # 3) 配置（服务间地址 + 默认租户）与共享产物卷
 kubectl apply -f deploy/k8s/base/configmap.yaml -f deploy/k8s/base/pvc-artifacts.yaml
 
-# 4) **先迁移再起服务**：Job 用 console-platform 镜像做载体（见 migrate-job.yaml 的注释）
+# 4) **先迁移再起服务**：维护窗口的备份/排空/单次迁移见下一节；
+#    Job 用 console-platform 镜像做载体（见 migrate-job.yaml 的注释）
 kubectl -n muad delete job muad-migrate --ignore-not-found
 kubectl apply -f deploy/k8s/base/migrate-job.yaml
 kubectl -n muad wait --for=condition=complete job/muad-migrate --timeout=300s
@@ -35,6 +39,59 @@ kubectl -n muad wait --for=condition=complete job/muad-migrate --timeout=300s
 kubectl apply -k deploy/k8s/base        # 或逐个 apply 四个 *.yaml
 kubectl -n muad rollout status deploy/muad-console-platform --timeout=180s
 ```
+
+## 发布前预检（渲染清单 → typed 容量配置，失败阻断发布）
+
+渲染正式清单，把**将要 apply 的那份**与 typed 容量配置逐项对齐（design §3.7 配置契约与
+生效边界 / §4.2 发布与迁移）：对不上就不要发布。
+
+```bash
+# 默认渲染 deploy/k8s/base、校验 tests/capacity/profiles/agent-capacity-webchat.example.yml；
+# 正式测量请换成锁定过的那份 profile（profile hash 记进容量报告）：
+uv run python scripts/check_agent_capacity_deployment.py --profile tests/capacity/profiles/<锁定的>.yml
+```
+
+| 检查项 | 口径 |
+|---|---|
+| 渲染 | `kubectl kustomize deploy/k8s/base`（与 `kubectl apply -k` 同一条渲染路径）；没被 kustomization 收集的清单不生效、也不参与判定 |
+| 资源声明 | 四个单元的 requests/limits 必须等于 profile 的 `resources.hardware` |
+| 总连接 | PG 总连接 = Σ 进程数 × 最大副本数 × (pool+overflow)（取自真实 engine 工厂），须留维护余量并 ≤ `pg_connection_budget` |
+| FD | 每进程 FD = 出站池连接 + PG 上限 + Redis + 入站订阅，须 ≤ `fd_budget`（nofile） |
+| 内存缓冲 | 进程级 SSE 总缓冲 ≤ 内存上限的 50%（`sse_total_buffer_bytes` 受进程内存预算约束） |
+| 下游扇入 | Gateway 流池上界 ≤ Runtime 上界订阅容量（`runtime_max_sse_subscribers` × 最大副本） |
+| 排空 | `terminationGracePeriodSeconds` ≥ 60 秒；HPA 缩容稳定化窗口覆盖终止宽限 |
+| 探针 | readiness 接 `/readyz`、liveness 接 `/healthz`（依赖抖动不得重启全部 Pod） |
+| 迁移 | `muad-migrate` Job 在渲染集合里，且真的调用 `migrations/db_migrate.py` |
+
+**退出码**：`0` 通过；`1` 存在阻断发布的违规（逐项打印单元与预算明细）；`2` 渲染/配置读取
+失败（预检无法给出结论，同样阻断）。预检不连库、不读 Secret 值，输出只有预算数字与单元名。
+
+## 维护窗口：备份、排空、单次迁移（§4.2 发布与迁移）
+
+先记录基线、再排空、再迁移，最后才发布四单元；迁移只走 Job（集群里唯一的 schema 变更入口）。
+
+```bash
+# 1) 记录生产版本/head，做备份（回退按备份恢复；不能假设回滚旧镜像即可降级 schema）
+kubectl -n muad get deploy -o wide > release-$(date +%Y%m%d%H%M).txt
+kubectl -n muad exec deploy/muad-console-platform -- sh -c \
+  'printf "[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n" "$DATABASE_URL" > /tmp/alembic.window.ini && python migrations/db_migrate.py -c /tmp/alembic.window.ini current'
+pg_dump --format=custom --file=muad-pre-release.dump "$DATABASE_URL"   # 在 PG 主机/备份系统上执行
+
+# 2) 停新受理并排空：把容量设置降到最小（新受理暂停），等 Run/Task/提炼 job 全部到终态；
+#    已有 Run 不因降额被回收，readiness 先停新受理/领取、终止宽限 60 秒后有界排空。
+#    模型池迁移的排空门禁与迁移清单见 docs/model-pool-control-migration.md。
+
+# 3) 单次迁移到完整 head（先 delete 再 apply：Job 规格不可变）
+kubectl -n muad delete job muad-migrate --ignore-not-found
+kubectl apply -f deploy/k8s/base/migrate-job.yaml
+kubectl -n muad wait --for=condition=complete job/muad-migrate --timeout=300s
+
+# 4) 结构 parity 与受控探针通过后，发布四单元（先跑「发布前预检」）
+kubectl apply -k deploy/k8s/base
+```
+
+历史快照只读审计：迁移不双写、不做旧快照运行兼容层，历史 Run/快照只读查看，新执行只按新
+结构；数据库变更回退需确认新写入数据的保留策略（见 `docs/model-pool-control-migration.md`）。
 
 ## 三条容易踩的坑（都是实测踩出来的）
 
