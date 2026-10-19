@@ -430,7 +430,7 @@
 | B-288 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-088 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_quota_ui.py"] | . | 300 |  |
 | B-289 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.6 UI 状态 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-089 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_settings_ui.py"] | . | 300 |  |
 | B-290 | agent-capacity-webchat.frontend.design.md#3.5 状态与数据流, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-090 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_i18n.py"] | . | 300 |  |
-| B-291 | agent-capacity-webchat.frontend.design.md#3.7 样式方案, agent-capacity-webchat.frontend.design.md#3.8 可访问性 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-091 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_layout.py"] | . | 300 |  |
+| B-291 | agent-capacity-webchat.frontend.design.md#3.7 样式方案, agent-capacity-webchat.frontend.design.md#3.8 可访问性 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-091 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_layout.py"] | . | 300 |  |
 | B-292 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.7 样式方案 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-092 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_model_admin_wiring.py"] | . | 300 |  |
 | B-293 | agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.frontend.design.md#3.3 组件设计, agent-capacity-webchat.frontend.design.md#3.5 状态与数据流 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-093 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_frontend_wiring.py"] | . | 300 |  |
 | B-294 | agent-capacity-webchat.backend.design.md#3.2 架构与执行边界, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实Runtime业务服务、隔离PostgreSQL/快照/事件与必要HTTP模型探针；不mock存储或租约 | TASK-094 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_runtime_wiring.py"] | . | 300 |  |
@@ -5691,7 +5691,7 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ## TASK-091: 主题、窄屏和可访问性布局
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-079, TASK-081, TASK-083, TASK-090
 - **Source**: agent-capacity-webchat.frontend.design.md#3.7 样式方案, agent-capacity-webchat.frontend.design.md#3.8 可访问性
@@ -5706,27 +5706,36 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 ### Checklist
 
-- [ ] [B-291][integration] 先在`tests/frontend/test_capacity_webchat_webchat_layout.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：沿用Semi主题token，侧栏/输入/停止/确认窄屏可见。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-291] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-291] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_layout.py"]`并记录GREEN、关键断言位置和实际组件证据。
-- [ ] verifier `harness-ui#RULE-ui-001`（stage: review；timeout=900秒）：`["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。
+- [x] [B-291][integration] 先在`tests/frontend/test_capacity_webchat_webchat_layout.py`建立行为验收并记录RED；真实边界：真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E；关键断言：沿用Semi主题token，侧栏/输入/停止/确认窄屏可见。→ 子 agent 因模型用量限制中断，接管现场（同命令）：**2 failed + 1 passed + 13 errors**（RED 根因：① `webchat.css` 不存在 ⇒ 13 errors 主因；② `styles/app.css` 未接线；③ 渲染 harness `controllerFor()` 返回原始 service（`snapshot` 为方法）与 `WebchatShellConversationsPort`（`snapshot` 为属性）不符 ⇒ SSR 崩溃；④ `SCENARIOS` 以 `zh/en` 为键而用例按 `zh-CN/en-US` 取键 ⇒ KeyError；⑤ icon 用例正则命中组件文档注释里的 `<input>` 字面量 ⇒ 假阳性；⑥ 渲染断言把选中项写成 `class="chat-sidebar-item-selected"`，与组件实际组合类名不符）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 实现：新增 `modules/webchat/webchat.css`（763 行：全部稳定 `chat-/webchat-/notification-` 类名规则 + 9 个主题 token（bg-0/bg-1/border/text-0/1/2/primary/primary-light-default/app-radius）+ 窄屏 1024px 抽屉（fixed/translateX/drawer-open 变体/开关显示）+ composer/run-actions sticky + 4+ `focus-visible` 主色描边 + `prefers-reduced-motion` + `overflow-anchor: none`/`scroll-padding`；无写死颜色、无 `--semi-color-*` 声明、无 `outline: none`、无管理 Shell 选择器、无全局选择器）；`styles/app.css` 置顶 `@import './../modules/webchat/webchat.css';`（唯一入口，真实 esbuild 产物保留聊天规则）。组件侧 a11y（图标按钮 aria-label/文件输入标签/侧栏原生按钮与完整标题/唯一 `role="log"`）为 TASK-079/081/083 既有事实，本任务以真实 SSR 产物核验，无需改 TSX。
+- [x] [B-291] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 16 个用例逐条对应契约（见 Acceptance Evidence 的断言位置列）。
+- [x] [B-291] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_layout.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **16 passed**（exit=0）；回归 `tests/frontend` **596 passed**；`npx tsc --noEmit` 干净；`check_frontend_i18n.py` OK（1514 键）。
+- [x] verifier `harness-ui#RULE-ui-001`（stage: review；timeout=900秒）：`["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`；必须验证本条约束并填写真实证据，不因全量延后而免除责任。→ 本任务按共享环境约束（非 acceptance、无 DDL/迁移）**已实跑整条命令**：`uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py` → **9 passed**；`npm --prefix apps/console-platform/frontend run build` → **✓ built in 4.08s**；stage 仍属 review，由需求级 verify-e2e 收口复核。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-291 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 沿用Semi主题token，侧栏/输入/停止/确认窄屏可见；按钮标签/键盘焦点/aria-live频率/滚动锚点规范，管理菜单仍十一项 | tests/frontend/test_capacity_webchat_webchat_layout.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_layout.py"] | planned |
-| harness-ui#RULE-ui-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表 + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十一项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/系统设置。 | 沿用原Spec verifier，不重写成更弱测试 | ["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | planned |
+| B-291 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | 沿用Semi主题token，侧栏/输入/停止/确认窄屏可见；按钮标签/键盘焦点/aria-live频率/滚动锚点规范，管理菜单仍十一项 | tests/frontend/test_capacity_webchat_webchat_layout.py | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_layout.py"] | verified |
+| harness-ui#RULE-ui-001 | integration / E2E（review保留原verifier） | 对应Spec声明的真实API/PG/运行时/构建或浏览器；不能用替身覆盖完整verifier | Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表 + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十一项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/系统设置。 | 沿用原Spec verifier，不重写成更弱测试 | ["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | review-deferred（本任务已实跑整条命令通过：9 passed + build ✓ built in 4.08s） |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-291 | 子 agent 中断接管现场（同命令）：**2 failed + 1 passed + 13 errors**（`webchat.css` 不存在 ⇒ 13 errors；app.css 未接线；SSR harness 端口形状/键名缺陷 ⇒ 渲染用例崩溃；icon 用例注释假阳性；选中项类名断言与组件组合类名不符） | 同命令 → **16 passed**（exit=0）；`uv run pytest -q tests/frontend` → **596 passed**；`npx tsc --noEmit` 干净；`check_frontend_i18n.py` OK | `test_b291_module_stylesheet_uses_only_existing_theme_tokens` L873（无写死颜色/无主题值声明/无 theme-mode，9 个 token 齐备）；`..._is_wired_from_the_console_entry` L897（`styles/app.css` 唯一入口且 `@import` 在首条规则前）；`..._compiled_artifact_keeps_chat_layout_rules` L910（真实 esbuild 产物保留 `webchat-shell`/`chat-message-item-user`/`chat-panel-composer` 规则）；`..._shell_is_sidebar_plus_scrollable_workspace` L921（grid + min-height:0；侧栏 overflow+border；消息区 overflow-y+min-height:0+padding-bottom；输入区 border+bg-1+flex）；`..._message_bubbles_align_by_role_with_tokens` L938（max-width/radius；user=flex-end+primary-light-default；assistant=flex-start+bg-1；代码块 overflow）；`..._sidebar_truncates_titles_and_highlights_selection` L954（title 三件套 ellipsis/nowrap/overflow；selected=primary-light-default）；`..._every_stable_chat_class_has_a_stylesheet_rule` L966（源码类名 + 动态类名全覆盖）；`..._narrow_screen_collapses_sidebar_into_drawer` L980（≤1024px：fixed/translateX(-100%)/drawer-open 变体/开关显示）；`..._narrow_screen_keeps_composer_and_run_actions_visible` L998（sticky，且五个受保护选择器无 display:none）；`..._focus_visible_outlines_cover_chat_interactions` L1026（≥4 条 2px 主色描边 + 4 个必需选择器 + prefers-reduced-motion，无 outline:none）；`..._icon_only_controls_declare_accessible_labels` L1042（自闭合图标按钮 aria-label；隐藏文件输入 aria-label；开关 aria-expanded/aria-controls；条目原生按钮+完整标题）；`..._live_region_frequency_is_bounded_to_the_thread` L1066（唯一 role="log"+aria-label，无其他 live region）；`..._scroll_anchor_rules_keep_js_compensation_authoritative` L1082（overflow-anchor:none + scroll-padding，无 scroll-behavior:smooth）；`..._chat_styles_stay_scoped_away_from_the_admin_shell` L1093（无管理 Shell 选择器/无全局选择器/无 semi-table）；`..._rendered_shell_markup_matches_layout_and_a11y_contract` L1127（真实 SSR：drawer 属性/aria 指向真实 id/本地化标签/aria-current/组合选中类名/产物类名有样式）；`..._rendered_message_and_run_surfaces_keep_labels_without_live_noise` L1151（真实 SSR：线程/输入/停止/确认标签齐全且无 live 噪声） | 真实 esbuild 打包 `styles/app.css` 入口 → 真实 CSS 编译产物；真实组件 + 真实 Semi + 真实 i18n 资源 + 真实会话控制器快照经真实 node 静态渲染；真实模块 service/typed DTO + 共享传输；DOM 交互（真实浏览器）留 TASK-115 E2E；verifier 整条实跑 9 passed + build ✓ | verified |
+- B-291: verified — automated command passed; run_id=a25d5f3dd12a41d089831c769c8405ba (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] 子 agent 因模型用量限制中断（Go usage limit）：现场 = RED 测试文件已写（16 用例）+ 任务文件未收尾；主 agent 接管。
+- [2026-10-19] 接管实现：新增 `modules/webchat/webchat.css`（763 行：全部稳定类名 + 9 个主题 token + 窄屏 1024 抽屉 + sticky + focus-visible + reduced-motion + overflow-anchor/scroll-padding）；`styles/app.css` 置顶唯一入口 `@import`。
+- [2026-10-19] 接管修复测试自身缺陷（不弱化断言）：① harness `controllerFor()` 改返回 `WebchatShellConversationsPort` 形状（`snapshot` 属性 + 4 动作）；② `SCENARIOS` 键改 locale（与用例取键一致）；③ icon 用例先 `_strip_comments` 再匹配文件输入（避免文档注释假阳性）；④ 选中项断言改为组件实际组合类名 `chat-sidebar-item-button chat-sidebar-item-selected`。
+- [2026-10-19] B-291 GREEN：16 passed；回归 `tests/frontend` 596 passed；tsc/i18n 干净；verifier `harness-ui#RULE-ui-001` 整条实跑 9 passed + build ✓（stage 仍属 review，由需求级 verify-e2e 收口）。
+- [2026-10-19] completed (done)
 
 ---
 
