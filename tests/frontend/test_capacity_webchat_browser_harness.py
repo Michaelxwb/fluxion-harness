@@ -213,6 +213,8 @@ const payloads = {
   model: fixturesModule.modelPayload({
     key: 'e2e-webchat-7-model', name: 'Webchat E2E Model', modelId: 'gpt-4o-mini', providerKey: 'openai'
   }),
+  // 与 `ConsoleAdminClient.createWebchatModel` 同口径：端点根含探针的 `/v1`（provider 只再拼
+  // `/chat/completions`；缺 `/v1` 会落到探针未知路径、整条执行链 MODEL_UNAVAILABLE）。
   credential: fixturesModule.credentialPayload({
     key: 'e2e-webchat-7-credential', providerKey: 'openai',
     baseURL: `${stack.modelProbeURL}/v1`, apiKey: 'e2e-webchat-7-key', maxInflight: 8
@@ -721,6 +723,7 @@ def test_fixture_payloads_follow_real_backend_contracts(harness: dict[str, Any])
     assert completions == "/v1/chat/completions", f"探针补全路径异常：{completions}"
     assert credential["base_url"] + "/chat/completions" == (
         f"{run['stack']['modelProbeURL']}{completions}"
+
     ), "凭据 base_url 必须拼出探针的真实补全端点（凭据 → 探针链路可达）"
     assert credential["max_inflight"] >= 1
 

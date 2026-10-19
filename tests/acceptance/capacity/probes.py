@@ -237,7 +237,10 @@ class ModelProbeServer:
         self._host = host
         self._requested_port = port
         self._lock = threading.Lock()
-        self._default_behavior = behavior or ModelProbeBehavior()
+        # 构造时的默认行为是**复位基准**：`reset()` 必须还原它，否则一次 `set_behavior` 会把延迟/
+        # 故障泄漏到后续用例（夹具的「用例前后各复位一次」就是靠这个幂等全量复位成立的）。
+        self._initial_behavior = behavior or ModelProbeBehavior()
+        self._default_behavior = self._initial_behavior
         self._key_behaviors: dict[str, ModelProbeBehavior] = {}
         self._key_limits: dict[str, int] = {}
         self._calls: list[ModelProbeCall] = []
@@ -334,12 +337,14 @@ class ModelProbeServer:
             self._key_limits[api_key] = limit
 
     def reset(self) -> None:
+        """幂等**全量**复位：计数、故障、Key 限额/行为，以及**默认行为**（回到构造基准）。"""
         with self._lock:
             self._calls.clear()
             self._faults.clear()
             self._key_calls.clear()
             self._key_limits.clear()
             self._key_behaviors.clear()
+            self._default_behavior = self._initial_behavior
             self._max_concurrency = 0
             self._broken_pipes = 0
 

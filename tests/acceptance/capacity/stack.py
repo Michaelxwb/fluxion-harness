@@ -592,6 +592,7 @@ class _StatelessCookieJar(CookieJar):
         return None
 
 
+
 class _ProxyServer(ThreadingHTTPServer):
     """真实反向代理：转发字节流（含 SSE 分片），控制面只暴露路由与计数。"""
 
@@ -605,6 +606,7 @@ class _ProxyServer(ThreadingHTTPServer):
         self.backends = dict(backends)
         self.routes = tuple(routes)
         self.client = httpx.Client(timeout=None, trust_env=False, cookies=_StatelessCookieJar())
+
         self._lock = threading.Lock()
         self._requests: dict[str, int] = {unit: 0 for unit in self.backends}
         self._failures: dict[str, int] = {unit: 0 for unit in self.backends}
@@ -715,9 +717,11 @@ class _ProxyHandler(BaseHTTPRequestHandler):
 
     def _relay(self, upstream: httpx.Response, *, head_only: bool) -> None:
         self.send_response(upstream.status_code)
-        # 逐条转发：`headers.items()` 会把重复响应头（尤其 `Set-Cookie`）合并成逗号串
-        # （如两次 set-cookie 并成 `a=1, b=2`），客户端 Cookie 罐只认第一条 ⇒ 独立
-        # CHAT/CSRF 双 Cookie 静默丢失。用 `multi_items()` 逐值转发，保持真实 HTTP 语义。
+        # `multi_items()`：重复头必须逐条透传。`items()` 会把同名头合并成一条逗号连接的值，
+        # 对 `Set-Cookie` 直接违反 RFC 6265（Cookie 头不允许合并）——登录响应同时下发
+        # `muad_session`/`muad_csrf`，合并后浏览器只能存下第一个，CSRF 双提交面全断
+        # （nginx 等真实入口按多条透传，本代理必须同口径）。
+
         for key, value in upstream.headers.multi_items():
             if key.lower() in _HOP_BY_HOP or key.lower() == "content-length":
                 continue
