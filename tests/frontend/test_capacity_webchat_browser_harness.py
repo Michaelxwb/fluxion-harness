@@ -118,6 +118,13 @@ UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 PW_STUB = """export const defineConfig = (config) => config;
 export const test = { extend: () => ({}) };
 export const expect = () => undefined;
+// 夹具用 `request.newContext()` 建独立 Cookie 罐的 API 上下文（入口可见性收敛）：机检只打包
+// 与执行模块顶层，不发起真实请求，故这里给一个显式失败的最小替身。
+export const request = {
+  newContext: async () => {
+    throw new Error('harness 机检不发起真实请求（request.newContext 替身）');
+  }
+};
 """
 
 CHILD_PROCESS_STUB = """export function execFileSync(command, args = []) {
@@ -208,7 +215,7 @@ const payloads = {
   }),
   credential: fixturesModule.credentialPayload({
     key: 'e2e-webchat-7-credential', providerKey: 'openai',
-    baseURL: stack.modelProbeURL, apiKey: 'e2e-webchat-7-key', maxInflight: 8
+    baseURL: `${stack.modelProbeURL}/v1`, apiKey: 'e2e-webchat-7-key', maxInflight: 8
   }),
   agent: fixturesModule.agentPayload({
     key: 'e2e-webchat-7-agent', name: 'Webchat E2E Agent', modelId: DUMMY_A,
@@ -704,12 +711,17 @@ def test_fixture_payloads_follow_real_backend_contracts(harness: dict[str, Any])
 
     credential = payloads["credential"]
     assert credential["api_key"], "物理凭据必须携带 Key"
-    assert credential["base_url"] == run["stack"]["modelProbeURL"], "凭据 base_url 必须指向真实模型探针"
+    # provider 只往 `base_url` 后拼 `/chat/completions`（`openai_provider.CHAT_COMPLETIONS_PATH`），
+    # 探针服务在 `/v1/chat/completions` ⇒ 凭据 base_url 必须带 `/v1`（与 execution_support 同一口径：
+    # `base_url=f"{probe_url}/v1"`）。少了它，真实 Run 会在探针上撞 404（MODEL_UNAVAILABLE）。
+    assert credential["base_url"] == f"{run['stack']['modelProbeURL']}/v1", (
+        "凭据 base_url 必须指向真实模型探针的 provider 根（含 /v1）"
+    )
     completions = _python_constant(PROBES_PY, "CHAT_COMPLETIONS_PATH")
     assert completions == "/v1/chat/completions", f"探针补全路径异常：{completions}"
-    assert credential["base_url"] + completions == f"{run['stack']['modelProbeURL']}{completions}", (
-        "凭据 base_url 必须拼出探针的真实补全端点（凭据 → 探针链路可达）"
-    )
+    assert credential["base_url"] + "/chat/completions" == (
+        f"{run['stack']['modelProbeURL']}{completions}"
+    ), "凭据 base_url 必须拼出探针的真实补全端点（凭据 → 探针链路可达）"
     assert credential["max_inflight"] >= 1
 
     entry = payloads["entry"]

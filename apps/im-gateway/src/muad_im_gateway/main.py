@@ -165,10 +165,12 @@ def _build_snapshot(
     """入口快照：按 `BotSnapshotItem.channel` 分发到各适配器（设计 §3.3）。
 
     WEBCHAT 条目不会进企微的长连接/secret 路径；快照发布失败由缓存保留旧 revision 重试。
+    节拍来自 typed 启动设置（`bot_snapshot_poll_sec`，默认 30s；验收栈注入小值）。
     """
     return BotSnapshotCache(
         console,
         tenant_id=settings.default_tenant_id,
+        interval_sec=settings.bot_snapshot_poll_sec,
         on_snapshot_changed=dispatch_snapshot(registry),
     )
 

@@ -1308,6 +1308,7 @@ packages/common/src/muad_common/settings.py,120,async_tool_dispatch_batch_size,"
 packages/common/src/muad_common/settings.py,121,async_tool_dispatch_retry_base_sec,"Field(default=1, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
 packages/common/src/muad_common/settings.py,122,async_tool_dispatch_retry_cap_sec,"Field(default=30, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
 packages/common/src/muad_common/settings.py,123,async_tool_dispatch_max_attempts,"Field(default=20, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,126,bot_snapshot_poll_sec,"Field(default=30.0, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
 packages/contracts/src/muad_contracts/channel.py,12,DEFAULT_PAGE_SIZE,20,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/contracts/src/muad_contracts/channel.py,13,MAX_PAGE_SIZE,100,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/contracts/src/muad_contracts/delivery.py,13,TASK_DELIVERY_KEY,re.compile('^task:[0-9a-fA-F-]{36}:final$'),python-constant,code,协议标识、枚举、schema、文本或实现常量

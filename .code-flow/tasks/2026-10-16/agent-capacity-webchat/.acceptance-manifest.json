@@ -212,7 +212,7 @@
       "kind": "e2e",
       "boundary": "canonical、共享卷、Gateway、真实浏览器",
       "owner": "TASK-114",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -220,7 +220,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-06",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+        "executed_at": "2026-10-19T09:00:05.813943+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b0aec7f24a17436ca2166fdc3340ec89",
+          "executed_at": "2026-10-19T08:53:35.957206+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+          "executed_at": "2026-10-19T09:00:05.813943+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-07",
@@ -448,7 +496,7 @@
       "kind": "e2e",
       "boundary": "浏览器、PG、真实 Run/Worker 投递与提交后故障注入",
       "owner": "TASK-114",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -456,7 +504,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-13",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+        "executed_at": "2026-10-19T09:00:05.813943+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-13",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b0aec7f24a17436ca2166fdc3340ec89",
+          "executed_at": "2026-10-19T08:53:35.957206+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "S-13",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+          "executed_at": "2026-10-19T09:00:05.813943+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-14",
@@ -1072,7 +1168,7 @@
       "kind": "e2e",
       "boundary": "Runtime 实际持久事件、Gateway 公开投影和浏览器",
       "owner": "TASK-114",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -1080,7 +1176,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-13",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+        "executed_at": "2026-10-19T09:00:05.813943+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-13",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b0aec7f24a17436ca2166fdc3340ec89",
+          "executed_at": "2026-10-19T08:53:35.957206+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "E-13",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+          "executed_at": "2026-10-19T09:00:05.813943+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-14",
@@ -1089,7 +1233,7 @@
       "kind": "e2e",
       "boundary": "浏览器上传、真实共享文件系统、PG、清理与幂等受理",
       "owner": "TASK-114",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -1097,7 +1241,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-14",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+        "executed_at": "2026-10-19T09:00:05.813943+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-14",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b0aec7f24a17436ca2166fdc3340ec89",
+          "executed_at": "2026-10-19T08:53:35.957206+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "E-14",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+          "executed_at": "2026-10-19T09:00:05.813943+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-15",
@@ -1274,7 +1466,7 @@
       "kind": "e2e",
       "boundary": "实际代理/应用解析、浏览器、PG 与模型计数服务",
       "owner": "TASK-114",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -1282,7 +1474,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-18",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+        "executed_at": "2026-10-19T09:00:05.813943+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-18",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b0aec7f24a17436ca2166fdc3340ec89",
+          "executed_at": "2026-10-19T08:53:35.957206+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "E-18",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+          "executed_at": "2026-10-19T09:00:05.813943+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-19",
@@ -2007,7 +2247,7 @@
       "kind": "e2e",
       "boundary": "发文字和附件，用户气泡先显示待受理，202 后绑定真实 Run；模型增量显示，终态只结算一次",
       "owner": "TASK-114",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2015,7 +2255,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-102",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+        "executed_at": "2026-10-19T09:00:05.813943+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-102",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b0aec7f24a17436ca2166fdc3340ec89",
+          "executed_at": "2026-10-19T08:53:35.957206+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "S-102",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+          "executed_at": "2026-10-19T09:00:05.813943+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-103",
@@ -2058,7 +2346,7 @@
       "kind": "e2e",
       "boundary": "离线 Task 完成，重开拉取持久通知，定位结果、下载附件并标记已读",
       "owner": "TASK-114",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2066,7 +2354,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-105",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+        "executed_at": "2026-10-19T09:00:05.813943+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-105",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b0aec7f24a17436ca2166fdc3340ec89",
+          "executed_at": "2026-10-19T08:53:35.957206+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "S-105",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+          "executed_at": "2026-10-19T09:00:05.813943+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-106",
@@ -2193,7 +2529,7 @@
       "kind": "e2e",
       "boundary": "确认过期、附件拒绝/失效和下载越权有本地化反馈，其余有效内容可继续",
       "owner": "TASK-114",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2201,7 +2537,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-104",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+        "executed_at": "2026-10-19T09:00:05.813943+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-104",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b0aec7f24a17436ca2166fdc3340ec89",
+          "executed_at": "2026-10-19T08:53:35.957206+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "E-104",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+          "executed_at": "2026-10-19T09:00:05.813943+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "B-101",
@@ -2641,7 +3025,7 @@
       "kind": "e2e",
       "boundary": "查看 B 时 A 完成或待确认，服务端活动通知可见且能定位 A；隐藏页暂停轮询，回前台同步；重放不重复累计未读，打开 A 不清 B 的未读",
       "owner": "TASK-114",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2649,7 +3033,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-113",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+        "executed_at": "2026-10-19T09:00:05.813943+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-113",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b0aec7f24a17436ca2166fdc3340ec89",
+          "executed_at": "2026-10-19T08:53:35.957206+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "S-113",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+          "executed_at": "2026-10-19T09:00:05.813943+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-107",
@@ -2658,7 +3090,7 @@
       "kind": "e2e",
       "boundary": "公开流合法跳号不重连；显式游标过期才恢复详情/消息/安全快照，内部工具/推理内容不显示；原消息不重提，恢复正文不重复",
       "owner": "TASK-114",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2666,7 +3098,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-107",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+        "executed_at": "2026-10-19T09:00:05.813943+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-107",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b0aec7f24a17436ca2166fdc3340ec89",
+          "executed_at": "2026-10-19T08:53:35.957206+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "E-107",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+          "executed_at": "2026-10-19T09:00:05.813943+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-108",
@@ -2675,7 +3155,7 @@
       "kind": "e2e",
       "boundary": "已受理消息响应丢失且上传暂存后来过期，原身份重试仍恢复原 Run 与附件；未知受理不新建消息号，不因切换会话改投",
       "owner": "TASK-114",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2683,7 +3163,55 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-108",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+        "executed_at": "2026-10-19T09:00:05.813943+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-108",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "b0aec7f24a17436ca2166fdc3340ec89",
+          "executed_at": "2026-10-19T08:53:35.957206+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "E-108",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "529156f696274f7c920e3bb3f8fcccb3",
+          "executed_at": "2026-10-19T09:00:05.813943+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-109",

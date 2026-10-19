@@ -147,3 +147,9 @@ class ArtifactValidationStatus(StrEnum):
 #: 通道缺省值：与 `control.bot_account.channel` 的历史默认（server_default 'WECOM'）同源。
 #: 共享形状（如 `BotSnapshotItem`）用它兜底；生产者（Console）仍必须按实际通道输出。
 DEFAULT_CHANNEL: ChannelName = "WECOM"
+
+#: 具备**主动出站投递**能力的通道（渠道词表属类型定义处，见
+#: `tests/architecture/test_channel_neutrality.py` 的 `ALLOWED_SURFACES`）：Run 终态/待确认在这类
+#: 通道写 `PENDING` 出站意图，其余（站内入口）写 `NOT_REQUIRED`。Runtime 只消费本常量，不在
+#: 核心域按通道分支。
+OUTBOUND_DELIVERY_CHANNELS: frozenset[ChannelName] = frozenset({"WECOM"})

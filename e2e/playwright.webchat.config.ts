@@ -170,7 +170,10 @@ export default defineConfig({
         DEFAULT_TENANT_ID: TENANT,
         CONSOLE_PLATFORM_URL: CONSOLE_URL,
         AGENT_RUNTIME_URL: RUNTIME_URL,
-        INTERNAL_SERVICE_TOKEN: INTERNAL_TOKEN
+        INTERNAL_SERVICE_TOKEN: INTERNAL_TOKEN,
+        // 入口快照节拍：夹具在栈起来之后建 WEBCHAT 入口，生产默认 30s 会让用例长时间看不到
+        // 入口（表现为「该聊天入口不存在或未获授权」）；验收注入小值，语义不变（harness-test 口径）。
+        BOT_SNAPSHOT_POLL_SEC: '1'
       }
     },
     {

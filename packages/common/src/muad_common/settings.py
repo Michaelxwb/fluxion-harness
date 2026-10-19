@@ -121,6 +121,9 @@ class SharedSettings(BaseSettings):
     async_tool_dispatch_retry_base_sec: float = Field(default=1, gt=0)
     async_tool_dispatch_retry_cap_sec: float = Field(default=30, gt=0)
     async_tool_dispatch_max_attempts: int = Field(default=20, ge=1)
+    # 入口快照节拍（`BotSnapshotCache` 的拉取间隔）：默认与模块常量 `BOT_SNAPSHOT_POLL_SEC` 同值，
+    # 验收栈注入小值，让刚建的 WEBCHAT 入口在可接受等待内进入网关快照（生产行为不变）。
+    bot_snapshot_poll_sec: float = Field(default=30.0, gt=0)
 
     @field_validator("*", mode="before")
     @classmethod
