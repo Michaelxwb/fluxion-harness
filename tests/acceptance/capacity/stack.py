@@ -1003,6 +1003,34 @@ class CapacityStack:
         current.stop()
         return self.start_instance(unit, index=index)
 
+    def restart_instance(
+        self, unit: str, index: int = 0, *, timeout_sec: float = STOP_TIMEOUT_SEC
+    ) -> ServiceInstance:
+        """原地重启（同端口/同地址的新进程）：单 Pod 重启口径。
+
+        与 `replace_instance` 的区别是**地址不变**：其余单元与入口代理在启动时就把该单元的
+        地址写进了自己的 env/后端表（`_unit_urls`、`start_proxy`），换端口会让它们指向死地址。
+        单 Pod 重启（Service 地址稳定、Pod 进程换新）必须保持同一地址；替换实例（新端口）只用于
+        不被其它单元引用的槽位。停机用整进程组（SIGTERM→SIGKILL），启动仍走真实 uvicorn 子进程。
+        """
+        current = self.instance(unit, index)
+        port = current.port
+        log_path = current.log_path
+        skill_cache_root = current.skill_cache_root
+        current.stop(timeout_sec=timeout_sec)
+        instance = ServiceInstance(
+            unit=unit,
+            index=index,
+            module=UNIT_MODULES[unit],
+            port=port,
+            env=self._service_env_for(unit, index, port),
+            log_path=log_path,
+            skill_cache_root=skill_cache_root,
+        )
+        instance.start(ready_timeout_sec=self._ready_timeout_sec)
+        self._instances[unit][index] = instance
+        return instance
+
     def start_proxy(self) -> EntryProxy:
         """起（或重启）入口代理：分流表读真实 ingress 清单，后端地址取当前实例。"""
         if self._proxy is not None and self._proxy.alive:
