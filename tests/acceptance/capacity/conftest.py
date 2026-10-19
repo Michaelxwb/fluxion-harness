@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from tests.acceptance.capacity.execution_support import EXECUTION_CADENCE_ENV
 from tests.acceptance.capacity.probes import (
     FaultProxy,
     ModelProbeServer,
@@ -54,6 +55,29 @@ def capacity_stack(
     stack = CapacityStack(
         root=tmp_path_factory.mktemp("capacity-stack"),
         profile=load_profile(capacity_profile_path),
+    )
+    stack.start()
+    try:
+        yield stack
+    finally:
+        stack.teardown()
+
+
+@pytest.fixture(scope="session")
+def capacity_execution_stack(
+    tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
+) -> Iterator[CapacityStack]:
+    """带加速执行节拍的独立栈（TASK-110 的模型池/准入/回收用例）。
+
+    与 `capacity_stack` 是**同一套真实组件**，只把租约/轮询节拍压小（`EXECUTION_CADENCE_ENV`）：
+    模型等待、Worker 领取与租约回收的断言是「最终发生」，不依赖节拍的绝对长度；不压节拍
+    就要为每次回收真等 60 秒租约 + 30 秒回收周期。启动校验（`lease >= 3 * heartbeat`）仍由
+    服务自己执行，不绕过。收尾同样只清本轮。
+    """
+    stack = CapacityStack(
+        root=tmp_path_factory.mktemp("capacity-execution-stack"),
+        profile=load_profile(capacity_profile_path),
+        service_env=EXECUTION_CADENCE_ENV,
     )
     stack.start()
     try:
