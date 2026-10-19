@@ -244,13 +244,14 @@ apps/agent-runtime/src/muad_agent_runtime/application/channel_delivery.py,61,INI
 apps/agent-runtime/src/muad_agent_runtime/application/channel_delivery.py,63,DELIVERY_BACKOFF_CAP_SEC,3600,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/channel_delivery.py,65,DELIVERY_ATTEMPT_MAX,32767,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/channel_delivery.py,67,_STATE_AFTER_ACK,"{'DELIVERED': DELIVERY_DELIVERED, 'NOT_SENT': DELIVERY_PENDING, 'UNKNOWN': DELIVERY_UNKNOWN}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,44,KIND_RUN_COMPLETED,'RUN_COMPLETED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,45,KIND_RUN_WAITING_INPUT,'RUN_WAITING_INPUT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,46,KIND_TASK_RESULT,'TASK_RESULT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,47,NOTIFICATION_KINDS,"(KIND_RUN_COMPLETED, KIND_RUN_WAITING_INPUT, KIND_TASK_RESULT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,53,DELIVERY_NOT_REQUIRED,'NOT_REQUIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,55,DELIVERY_PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,57,DELIVERY_STATES,"(DELIVERY_PENDING, 'DELIVERING', 'DELIVERED', 'UNKNOWN', DELIVERY_NOT_REQUIRED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,49,KIND_RUN_COMPLETED,'RUN_COMPLETED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,50,KIND_RUN_WAITING_INPUT,'RUN_WAITING_INPUT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,51,KIND_TASK_RESULT,'TASK_RESULT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,52,NOTIFICATION_KINDS,"(KIND_RUN_COMPLETED, KIND_RUN_WAITING_INPUT, KIND_TASK_RESULT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,58,DELIVERY_NOT_REQUIRED,'NOT_REQUIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,60,DELIVERY_PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,62,DELIVERY_STATES,"(DELIVERY_PENDING, 'DELIVERING', 'DELIVERED', 'UNKNOWN', DELIVERY_NOT_REQUIRED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py,64,OUTBOUND_CHANNELS,frozenset({'WECOM'}),python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/channel_notification_queries.py,61,KIND_SUMMARIES,"{KIND_RUN_COMPLETED: '会话有新结果', KIND_RUN_WAITING_INPUT: '有新的待确认', KIND_TASK_RESULT: '后台任务已完成'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,53,CHANNEL_UPLOAD_KINDS,"frozenset({'IMAGE', 'DOCUMENT', 'OTHER'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py,55,STAGING_KEY_MAX_LENGTH,512,python-constant,code,协议标识、枚举、schema、文本或实现常量
