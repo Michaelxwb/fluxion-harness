@@ -9,6 +9,8 @@
  * 1. **唯一来源**：工作区只消费 TASK-078 的会话状态快照（`index`/`selection`）——标题取服务端
  *    详情或新建回执（空白标题回落「新对话」），运行状态取 `active_run.status`（终态 Run 不在详情
  *    里），不做本地猜测；组件不自建传输或状态（由页面编排注入控制器）。
+ * 1b. **通知面板接缝**：TASK-084 的通知面板由页面注入（`notificationPanel`），挂在左栏活动位置；
+ *    未注入不渲染任何通知区域，未读徽标仍只吃服务端权威计数。
  * 2. **事件只切视图**：侧栏四个事件经 `createConversationSidebarBindings` 绑到控制器——点击历史
  *    只读详情/消息并切视图，不取消旧 Run、不发消息；本地缺参失败经 `onActionFailure` 显式上报。
  * 3. **窄屏抽屉**：桌面为常显侧栏 + 居中工作区，窄屏收成抽屉（断点与视觉由样式层承担）；抽屉状态
@@ -93,6 +95,8 @@ export interface WebchatShellProps {
   composer?: ReactNode;
   /** 按会话未读计数（TASK-084 接缝）：缺省不显示任何未读徽标。 */
   unreadCounts?: Readonly<Record<string, number>> | null;
+  /** 通知面板渲染接缝（TASK-084，TASK-093 装配）：挂在左栏活动位置；缺省不渲染通知区域。 */
+  notificationPanel?: ReactNode;
   /** 分组参考时刻（页面时区）：缺省取当前时间。 */
   now?: Date;
   /** 本地动作失败端口（如控制器尚未绑定入口）：显式上报，绝不静默。 */
@@ -165,6 +169,7 @@ interface WebchatSidebarPaneProps {
   index: ConversationIndexSnapshot;
   selection: ConversationSelectionSnapshot;
   unreadCounts: Readonly<Record<string, number>> | null;
+  notificationPanel?: ReactNode;
   now?: Date;
   drawerOpen: boolean;
   bindings: ConversationSidebarBindings;
@@ -172,7 +177,7 @@ interface WebchatSidebarPaneProps {
   onSelect(conversationId: string): void;
 }
 
-/** 左侧栏位：抽屉开关（aria 指向侧栏真实 id）+ 历史侧栏；入口绑定由这里核验。 */
+/** 左侧栏位：抽屉开关（aria 指向侧栏真实 id）+ 历史侧栏 + 可选通知面板；入口绑定由这里核验。 */
 function WebchatSidebarPane(props: WebchatSidebarPaneProps) {
   const { t } = useTranslation();
   return (
@@ -203,6 +208,9 @@ function WebchatSidebarPane(props: WebchatSidebarPaneProps) {
         onLoadMore={props.bindings.onLoadMore}
         onRetry={props.bindings.onRetry}
       />
+      {props.notificationPanel === undefined ? null : (
+        <div data-testid="webchat-shell-notifications">{props.notificationPanel}</div>
+      )}
     </div>
   );
 }
@@ -237,6 +245,7 @@ export function WebchatShell(props: WebchatShellProps) {
         index={index}
         selection={selection}
         unreadCounts={props.unreadCounts ?? null}
+        notificationPanel={props.notificationPanel}
         now={props.now}
         drawerOpen={drawer.open}
         bindings={bindings}
