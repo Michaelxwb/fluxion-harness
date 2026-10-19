@@ -44,7 +44,7 @@
       "kind": "e2e",
       "boundary": "两个 Runtime 实例、PG、真实 SSE、故障进程",
       "owner": "TASK-111",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -55,7 +55,46 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "2f36c28443664e0cb8a506c0d07ddc93",
+        "executed_at": "2026-10-19T06:25:53.441474+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_stream_delivery.py",
+          "tests/acceptance/capacity/test_worker_delivery.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "2f36c28443664e0cb8a506c0d07ddc93",
+          "executed_at": "2026-10-19T06:25:53.441474+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_stream_delivery.py",
+            "tests/acceptance/capacity/test_worker_delivery.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -157,7 +196,7 @@
       "kind": "e2e",
       "boundary": "Worker 多实例、实际 Skill 子进程组、PG、投递链路",
       "owner": "TASK-111",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -168,7 +207,46 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-07",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "2f36c28443664e0cb8a506c0d07ddc93",
+        "executed_at": "2026-10-19T06:25:53.441474+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_stream_delivery.py",
+          "tests/acceptance/capacity/test_worker_delivery.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "2f36c28443664e0cb8a506c0d07ddc93",
+          "executed_at": "2026-10-19T06:25:53.441474+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_stream_delivery.py",
+            "tests/acceptance/capacity/test_worker_delivery.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-08",
@@ -448,7 +526,7 @@
       "kind": "e2e",
       "boundary": "PG/Redis 故障代理、真实执行/连接",
       "owner": "TASK-111",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -459,7 +537,46 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "2f36c28443664e0cb8a506c0d07ddc93",
+        "executed_at": "2026-10-19T06:25:53.441474+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_stream_delivery.py",
+          "tests/acceptance/capacity/test_worker_delivery.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "2f36c28443664e0cb8a506c0d07ddc93",
+          "executed_at": "2026-10-19T06:25:53.441474+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_stream_delivery.py",
+            "tests/acceptance/capacity/test_worker_delivery.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -910,7 +1027,7 @@
       "kind": "e2e",
       "boundary": "单 Gateway 重启、真实 Run 终态/PG投递意图、企微协议探针",
       "owner": "TASK-111",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -921,7 +1038,46 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-19",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "2f36c28443664e0cb8a506c0d07ddc93",
+        "executed_at": "2026-10-19T06:25:53.441474+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_stream_delivery.py",
+          "tests/acceptance/capacity/test_worker_delivery.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-19",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "2f36c28443664e0cb8a506c0d07ddc93",
+          "executed_at": "2026-10-19T06:25:53.441474+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_stream_delivery.py",
+            "tests/acceptance/capacity/test_worker_delivery.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-20",

@@ -264,11 +264,11 @@
 |---|---|---|---|---|---|---|---|---|---|
 | S-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针 | TASK-116 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
 | S-02 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 真实企微协议探针、浏览器、Gateway、Runtime、Worker、PG/Redis | TASK-113 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
-| S-03 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两个 Runtime 实例、PG、真实 SSE、故障进程 | TASK-111 | planned | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | . | 1800 |  |
+| S-03 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两个 Runtime 实例、PG、真实 SSE、故障进程 | TASK-111 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | . | 1800 |  |
 | S-04 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 多 Runtime、同模型多 Key HTTP 探针、实际额度存储和审计 | TASK-110 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_model_execution.py","tests/acceptance/capacity/test_admission_recovery.py"] | . | 1800 |  |
 | S-05 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 管理员/普通用户真实浏览器、Console Token 签发/交换、PG、Gateway | TASK-112 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
 | S-06 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | canonical、共享卷、Gateway、真实浏览器 | TASK-114 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"] | . | 1800 |  |
-| S-07 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | Worker 多实例、实际 Skill 子进程组、PG、投递链路 | TASK-111 | planned | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | . | 1800 |  |
+| S-07 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | Worker 多实例、实际 Skill 子进程组、PG、投递链路 | TASK-111 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | . | 1800 |  |
 | S-08 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | Console 管理界面、PG、Runtime 实际模型请求 | TASK-115 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"] | . | 1800 |  |
 | S-09 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 企微协议探针、真实浏览器/SSE、PG、受控模型与 Worker | TASK-113 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
 | S-10 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 真实浏览器、Gateway、Runtime、PG 与捕获模型 HTTP 输入的探针 | TASK-112 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
@@ -280,7 +280,7 @@
 | S-16 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | Console 策略/签发、浏览器 Cookie、真实 PG 时间与历史续聊接口 | TASK-112 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
 | S-17 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | Console系统设置/资源配置、两个Runtime、真实PG准入、Gateway启动配置与浏览器 | TASK-115 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"] | . | 1800 |  |
 | E-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两并发请求、PG、模型探针计数 | TASK-110 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_model_execution.py","tests/acceptance/capacity/test_admission_recovery.py"] | . | 1800 |  |
-| E-02 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | PG/Redis 故障代理、真实执行/连接 | TASK-111 | planned | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | . | 1800 |  |
+| E-02 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | PG/Redis 故障代理、真实执行/连接 | TASK-111 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | . | 1800 |  |
 | E-03 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两入口、真实 Run/待确认状态 | TASK-113 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
 | E-04 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 真实故障模型 HTTP 服务和调度存储 | TASK-025 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_provider_pool.py"] | . | 300 |  |
 | E-05 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两租户、真实认证/归属查询/下载与 SSE | TASK-112 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
@@ -297,7 +297,7 @@
 | E-16 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 模型服务端处理中断、真实 Key/账户计数和租约存储 | TASK-110 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_model_execution.py","tests/acceptance/capacity/test_admission_recovery.py"] | . | 1800 |  |
 | E-17 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 单租户 Gateway、其他租户有效 CHAT 会话、稳定入口/Run 来源 | TASK-112 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
 | E-18 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 实际代理/应用解析、浏览器、PG 与模型计数服务 | TASK-114 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"] | . | 1800 |  |
-| E-19 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 单 Gateway 重启、真实 Run 终态/PG投递意图、企微协议探针 | TASK-111 | planned | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | . | 1800 |  |
+| E-19 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 单 Gateway 重启、真实 Run 终态/PG投递意图、企微协议探针 | TASK-111 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | . | 1800 |  |
 | E-20 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | ADMIN 重置/撤销、两个浏览器 CHAT 会话、真实 PG 事务与长流复核 | TASK-112 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
 | E-21 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 设置保存API、真实PG版本行、进程启动与正式部署清单/容量harness | TASK-115 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"] | . | 1800 |  |
 | B-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | integration | 并发预占/释放、实际租约存储 | TASK-021 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_capacity_webchat_capacity_reserve.py"] | . | 300 |  |
@@ -453,6 +453,518 @@
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
 
 ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7304,7 +7816,7 @@ deferred（留给 verify-e2e）：浏览器/1000 用户级完整 E2E 与容量�
 
 ## TASK-111: 事件恢复、投递和持久回执E2E
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-067, TASK-068, TASK-069, TASK-107
 - **Source**: agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告
@@ -7319,28 +7831,76 @@ deferred（留给 verify-e2e）：浏览器/1000 用户级完整 E2E 与容量�
 
 ### Checklist
 
-- [ ] [S-03][E2E] 在`tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py`编写原S-03真实验收；不得Mock边界：两个 Runtime 实例、PG、真实 SSE、故障进程；关键断言：断开重连并替换订阅实例，游标无缺口/重复渲染，不重建 Run/工具；编码期不运行，留给verify-e2e。
-- [ ] [S-07][E2E] 在`tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py`编写原S-07真实验收；不得Mock边界：Worker 多实例、实际 Skill 子进程组、PG、投递链路；关键断言：并发任务分别续租；编码期不运行，留给verify-e2e。
-- [ ] [E-02][E2E] 在`tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py`编写原E-02真实验收；不得Mock边界：PG/Redis 故障代理、真实执行/连接；关键断言：通知丢失可补拉；编码期不运行，留给verify-e2e。
-- [ ] [E-19][E2E] 在`tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py`编写原E-19真实验收；不得Mock边界：单 Gateway 重启、真实 Run 终态/PG投递意图、企微协议探针；关键断言：Gateway 下线期间 Run 完成或回复窗口失效，恢复后持久意图触发原入口主动交付；编码期不运行，留给verify-e2e。
+- [x] [S-03][E2E] 在`tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py`编写原S-03真实验收；不得Mock边界：两个 Runtime 实例、PG、真实 SSE、故障进程；关键断言：断开重连并替换订阅实例，游标无缺口/重复渲染，不重建 Run/工具；编码期不运行，留给verify-e2e。 → `test_stream_delivery.py::test_s03_sse_disconnect_and_subscription_instance_replacement_keep_cursor_continuity`：Run 由 Gateway 指向的 0 号 Runtime 真实执行，订阅打在 1 号实例上；SIGKILL 1 号**整进程组**后在飞 SSE 真实断开（`disconnected=True` 且无终态帧），`replace_instance` 起新进程/新端口（同库/Redis/卷，OS 读 env 取证），按最后已应用 seq 重连后帧 seq 严格递增、两次订阅拼出的正文与探针逐字符相等、`message.delta` 持久行数 == 两次订阅收到的 delta 帧数、conversation 只有 1 个 Run、`execution_epoch=1`、模型探针调用数恰好 +1。RED/GREEN 见下表。
+- [x] [S-07][E2E] 在`tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py`编写原S-07真实验收；不得Mock边界：Worker 多实例、实际 Skill 子进程组、PG、投递链路；关键断言：并发任务分别续租；编码期不运行，留给verify-e2e。 → `test_worker_delivery.py` 四条：①两个真实 Worker 各领一个任务并**各自续租**（两次采样 `lease_until` 都前进、`attempt` 不变、持有者不易主）；②取消后 Skill **整组**被杀（脚本自己 spawn 的孙进程在取消后必须消失，`CANCELLED` 终态、无 COMPLETED）；③SIGSTOP 冻结持有者 ⇒ 租约过期 ⇒ 另一实例接管（`attempt` 前进、结果来自接管重跑）⇒ SIGCONT 后旧租约**不能**覆盖结果/写事件；④离线（不订阅 SSE）跑完的真实终态持久入箱，重开（新 CHAT 会话）经 API-11 读回、重读不重复、API-09 能重读正文、显式已读只改 `read_at`。
+- [x] [E-02][E2E] 在`tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py`编写原E-02真实验收；不得Mock边界：PG/Redis 故障代理、真实执行/连接；关键断言：通知丢失可补拉；编码期不运行，留给verify-e2e。 → `test_stream_delivery.py` 两条 + `test_worker_delivery.py` 一条：①Runtime 的 `REDIS_URL` 在启动时指向真实 TCP 代理，`DROP` 后在飞连接被切断、后续连接被丢弃，公开 SSE 仍补齐全文与终态（PG 补查），`/readyz` 保持 200（提示不是硬依赖），`event_stream_hint_total{status="degraded"}` 真实增长、恢复直通后 `{status="ok"}` 增长；②`DATABASE_URL` 指向真实 TCP 代理，`REFUSE` 后受理显式失败（非 202 + 稳定错误码）、PG 不落新 Run、内部模型预占端点非 200 且探针零新调用（不超发）、`/healthz` 200 与 `/readyz` 503 分离、`runtime_maintenance_total{loop="delivery",status="failed"}` 增长，恢复后新 Run 真实执行；③冻结失约接管后旧租约不能再写事件/终态。
+- [x] [E-19][E2E] 在`tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py`编写原E-19真实验收；不得Mock边界：单 Gateway 重启、真实 Run 终态/PG投递意图、企微协议探针；关键断言：Gateway 下线期间 Run 完成或回复窗口失效，恢复后持久意图触发原入口主动交付；编码期不运行，留给verify-e2e。 → `test_stream_delivery.py::test_e19_gateway_restart_persistent_intent_delivers_proactively`：真实 WSS/TLS 企微探针 + 官方 SDK；Run 执行中 SIGKILL Gateway 整组且停掉稳定入口（等价 Service 无端点）⇒ Run 仍到终态、终态与 `PENDING` 出站意图同事务落 PG（稳定键 `run:{id}:terminal`）、下线期间尝试确定未送达（`outcome=NOT_SENT`、不标送达）；替换 Runtime 副本 + 起新 Gateway（新端口、无内存订阅/回调记忆）+ 稳定入口重指 ⇒ 持久意图触发 `aibot_send_msg` 主动交付到探针、行落 `DELIVERED` 且首次结果 `DELIVERED`、同键只真实送达一次；注入渠道发送失败 ⇒ 行回 `PENDING`、attempt 增长、无送达结果，清除注入后重投成功。**发现并最小修复产品缺口①**（终态不写机器人出站意图），遗留②（企微入口账号 UUID 未随 RunRequest 传递，TASK-049 遗留）见证据段。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-03 | E2E | 两个 Runtime 实例、PG、真实 SSE、故障进程 | 断开重连并替换订阅实例，游标无缺口/重复渲染，不重建 Run/工具 | tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | planned |
-| S-07 | E2E | Worker 多实例、实际 Skill 子进程组、PG、投递链路 | 并发任务分别续租；取消杀整组；崩溃任务按租约接管；离线结果持久入箱后可重开读取 | tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | planned |
-| E-02 | E2E | PG/Redis 故障代理、真实执行/连接 | 通知丢失可补拉；全局模型额度不可确认时不超发；旧租约不能写事件/终态；失败有指标 | tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | planned |
-| E-19 | E2E | 单 Gateway 重启、真实 Run 终态/PG投递意图、企微协议探针 | Gateway 下线期间 Run 完成或回复窗口失效，恢复后持久意图触发原入口主动交付；发送失败/ACK丢失保持可追溯重试，不把占位标送达，不依赖内存订阅复活 | tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | planned |
+| S-03 | E2E | 两个 Runtime 实例、PG、真实 SSE、故障进程 | 断开重连并替换订阅实例，游标无缺口/重复渲染，不重建 Run/工具（`test_stream_delivery.py::test_s03_sse_disconnect_and_subscription_instance_replacement_keep_cursor_continuity`） | tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | e2e_deferred |
+| S-07 | E2E | Worker 多实例、实际 Skill 子进程组、PG、投递链路 | 并发任务分别续租；取消杀整组；崩溃任务按租约接管；离线结果持久入箱后可重开读取（`test_worker_delivery.py` 四条：续租/取消杀整组/冻结失约接管/离线入箱重开） | tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | e2e_deferred |
+| E-02 | E2E | PG/Redis 故障代理、真实执行/连接 | 通知丢失可补拉；全局模型额度不可确认时不超发；旧租约不能写事件/终态；失败有指标（`test_stream_delivery.py` 两条 + `test_worker_delivery.py::test_s07_frozen_worker_task_is_taken_over_and_stale_lease_cannot_write`） | tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | e2e_deferred |
+| E-19 | E2E | 单 Gateway 重启、真实 Run 终态/PG投递意图、企微协议探针 | Gateway 下线期间 Run 完成或回复窗口失效，恢复后持久意图触发原入口主动交付；发送失败/ACK丢失保持可追溯重试，不把占位标送达，不依赖内存订阅复活（`test_stream_delivery.py::test_e19_gateway_restart_persistent_intent_delivers_proactively`） | tests/acceptance/capacity/test_stream_delivery.py, tests/acceptance/capacity/test_worker_delivery.py | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | e2e_deferred |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 项 | 结果 |
+|---|---|
+| RED（functional，本任务 argv） | `uv run pytest -q tests/acceptance/capacity/test_stream_delivery.py tests/acceptance/capacity/test_worker_delivery.py` ⇒ `1 failed, 7 passed in 119.61s`（先把产品改动还原后跑出的同 argv RED）；唯一失败 = E-19：`AssertionError: Run 终态未写持久投递意图（30s 内未满足）`，回读行为 `delivery_state='NOT_REQUIRED'`、`attempt=0`（产品缺口①：机器人入口的 Run 终态从不写 `PENDING` 出站意图）。另：编码期首轮还有 3 条**用例自身**缺陷（任务 `attempt` 从 1 起、`result_json`/`delivery_result` 经 asyncpg 回文本、历史消息 role 为大写），已按真实事实修正后重跑。 |
+| GREEN（functional，同一 argv） | `uv run pytest -q tests/acceptance/capacity/test_stream_delivery.py tests/acceptance/capacity/test_worker_delivery.py` ⇒ `8 passed in 146.40s`；exit=0 |
+| 聚焦回归（本任务依赖面） | `uv run pytest -q tests/capacity` ⇒ `127 passed, 2 warnings in 30.38s`（与 TASK-109 基线一致） |
+| 生产改动的聚焦回归 | `uv run pytest -q tests/agent_runtime -k "activity or delivery or notification or pump or wiring"` ⇒ `78 passed, 972 deselected`；`uv run pytest -q tests/gateway -k "delivery or waiting"` ⇒ `64 passed, 378 deselected` |
+| 静态检查 | `uv run ruff check tests/acceptance/capacity apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py` ⇒ `All checks passed!` |
+| 环境收尾 | 跑后 `ps -eo pid,etime,command \| grep -E "[u]vicorn muad_\|[p]ytest"` 无残留；`SELECT datname FROM pg_database WHERE datname LIKE 'muad_acc%'` 为空；Redis 10–15 号位占号键为空；未触碰共享 dev 库 |
+
+**产品缺口①（已最小修复，记在代码里）**：`channel_notifications.write_run_notification` 的 `delivery_state` 此前恒由调用方给 `NOT_REQUIRED`（TASK-063/066/067/096 的 deferred 项），机器人入口的终态**永远没有** `PENDING` 出站意图 ⇒ Gateway 重启后没有任何机制补发。修复（`apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py`，+42/−6）：新增 `terminal_delivery_state(run)` —— 只从 Run 自己持久化的 `channel_json` 判通道（`WECOM` 且有接收方 ⇒ `PENDING`；网页/无接收方/坏载荷 ⇒ `NOT_REQUIRED`）；`write_run_notification(delivery_state=None)` 按 **kind + 通道** 选择（`RUN_COMPLETED`/`RUN_WAITING_INPUT` 走通道判定，`TASK_RESULT` 恒 `NOT_REQUIRED`，因为任务结果的机器人出站归 Worker 投递链）；显式传值仍以调用方为准（TASK-063 的接缝语义不变）。
+
+**遗留②（未闭合，诚实记录）**：企微入站的 `RunRequest.channel.bot_id` 是**字符串** bot_id，而 `entry_id_of` 要求 UUID 形状 ⇒ `conversation.channel_account_id` 为 NULL ⇒ `write_run_notification` 返回 None（无入口归属就不写通知行）。这是 TASK-049 的遗留（「把入口账号 UUID 带进 RunRequest 由后续装配任务收口」），改动面在 contracts/Gateway 适配器/inbound（不在本任务 Files 内）。E-19 用例在 Run 进入执行后**显式补上这条归属事实**（一条 UPDATE，注释写明来源）；终态意图、投递泵、网关适配器、真实 WSS 协议探针全部真实，无替身。建议独立小任务闭合。
+
+**稳定入口说明**：E-19 里 Runtime 的 `IM_GATEWAY_URL` 指向一个真实 TCP 转发器（等价 k8s Service），Gateway 重启换端口后重指；网关下线期间**停掉该入口**，让投递泵拿到「连接未建立 ⇒ 确定未送达（NOT_SENT）」而不是「没结论（UNKNOWN）」，与生产「Service 无端点」同形。
+
+**关键断言位置与实测证据**
+
+| 场景 | 断言 | 位置 | 实测证据 |
+|---|---|---|---|
+| S-03 | 被杀时 Run 仍在执行；订阅真实断开且无终态帧 | `test_stream_delivery.py:332-349` | `run_row.status='RUNNING'`；`first.disconnected=True`、`first.terminal is None`；`os.killpg(pgid,0)` ⇒ `ProcessLookupError` |
+| S-03 | 替换实例是新进程/新端口、同库/Redis/卷 | `:351-356` | `pid/port` 与旧实例不同；OS 读 env：`DATABASE_URL`/`REDIS_URL`/`ARTIFACT_ROOT` 全同 |
+| S-03 | 按游标重连：seq 严格递增、无缺口/重复、终态 `COMPLETED` | `:359-373` | 重连帧全部 `seq > cursor` 且 `seqs == sorted(set(seqs))`；末帧 `run.completed` |
+| S-03 | 两次订阅拼出的正文 == 探针正文；delta 帧数 == 持久行数 | `:376-383` | 拼出 `容量交付恢复游标连续`（逐字符相等）；`message.delta` 持久行数 == 两次订阅 delta 帧数 |
+| S-03 | 不重建 Run/工具 | `:385-393` | `execution_epoch=1`；conversation 只有 1 个 Run；探针 `call_count` 恰好 +1 |
+| E-02 | Redis 提示丢失仍补齐正文与终态 | `test_stream_delivery.py:536-537` | 公开流 `run.terminal=COMPLETED`、正文 `提示丢失补拉` 完整 |
+| E-02 | 降级/恢复可观测、Redis 不是硬依赖 | `:540-556` | `event_stream_hint_total{status="degraded"}` ≥1；`/readyz` 200；代理 `dropped_connections` ≥1；恢复后 `{status="ok"}` 增长 |
+| E-02 | PG 不可用时 fail closed、不假受理、不超发 | `:612-641` | 提交非 202 + 稳定错误码；PG 无新 Run 行；内部预占端点非 200；探针零新调用 |
+| E-02 | 存活/就绪分离与失败指标 | `:644-661` | `/healthz` 200；`/readyz` 503 且 `failed` 含 `database`；`runtime_maintenance_total{loop="delivery",status="failed"}` 增长 |
+| E-02 | 旧租约不能写事件/终态 | `test_worker_delivery.py:430-447` | 接管后 `attempt>=2`、结果来自接管重跑；SIGCONT 后 `result_json`/`attempt`/事件序列逐项不变 |
+| S-07 | 并发任务分别续租 | `test_worker_delivery.py:295-313` | 两个不同 Worker 实例持有；两次采样 `lease_until` 均前进、`attempt=1` 不变；终态释放租约、各 1 条 COMPLETED 事件 |
+| S-07 | 取消杀整组 | `:360-386` | 取消前孙进程存活（真实进程树）；取消后孙进程消失、终态 `CANCELLED`、无 COMPLETED 事件 |
+| S-07 | 离线结果持久入箱、可重开读取 | `:536-582` | 通知行引用终态事件、`read_at IS NULL`、`delivery_state='NOT_REQUIRED'`；新 CHAT 会话经 API-11 读回且重读不重复；API-09 读到离线正文；显式已读只改 `read_at` |
+| E-19 | 终态与 `PENDING` 意图同事务、稳定键 | `test_stream_delivery.py:884-890` | `delivery_key='run:{id}:terminal'`；`delivery_state ∈ {PENDING,DELIVERING,DELIVERED}` |
+| E-19 | 下线期间确定未送达、不标送达 | `:893-896` | `delivery_state!='DELIVERED'`；冻结回执 `outcome=NOT_SENT`；探针零 `aibot_send_msg` |
+| E-19 | 恢复后持久意图触发主动交付、同键只送一次 | `:918-939` | 新 Gateway 新端口 + 替换 Runtime 副本；探针收到 `aibot_send_msg`（正文 = 终态正文）且计数为 1；行 `DELIVERED` 且首次结果 `DELIVERED` |
+| E-19 | 发送失败可追溯重试、不标送达 | `:962-975` | 注入发送失败：`delivery_state!='DELIVERED'`、回执 `outcome!=DELIVERED`、attempt 增长；清除后重投成功 |
+
+> 诚实边界：本任务 functional（pytest E2E）已按要求先 RED 后 GREEN 并记录在上表；全局 Acceptance Coverage 表里 S-03/S-07/E-02/E-19 的 E2E 行仍按 verify-e2e 的收口口径登记（本任务不代替最终 E2E 汇总）。用例未 mock 任何服务：两个 Runtime/两个 Worker/Console/Gateway 都是真实 uvicorn 子进程，PG/Redis/共享卷/入口代理/模型探针/企微 WSS 探针/故障 TCP 代理都是真实组件；E-19 的企微入口归属一条 UPDATE 的来源已在上文写明。
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=2f36c28443664e0cb8a506c0d07ddc93 (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=2f36c28443664e0cb8a506c0d07ddc93 (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=2f36c28443664e0cb8a506c0d07ddc93 (confirmed_by: runner)
+- E-19: e2e_deferred — automated command e2e_deferred; run_id=2f36c28443664e0cb8a506c0d07ddc93 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] 编码：新建 `tests/acceptance/capacity/delivery_harness.py`（真实控制面种子/Skill 包/CHAT 交换/PG 读写/探针与 `/metrics` 观测原语；每个栈一份独立库+独立 Redis 号位，避免 Worker claim 与投递选取的跨栈串扰）与两个功能文件 `test_stream_delivery.py`（S-03/E-02/E-19，4 条）、`test_worker_delivery.py`（S-07/E-02，4 条）。
+- [2026-10-19] RED：同 argv `1 failed, 7 passed`；唯一失败 = E-19「Run 终态未写持久投递意图」，回读 `delivery_state='NOT_REQUIRED'`（产品缺口①：机器人入口终态从不写 `PENDING` 出站意图）。
+- [2026-10-19] 最小修复产品缺口①：`channel_notifications.py` 新增 `terminal_delivery_state(run)`（只读 Run 自己的 `channel_json`：WECOM 且有接收方 ⇒ `PENDING`，网页/坏载荷 ⇒ `NOT_REQUIRED`），`write_run_notification` 在 `delivery_state=None` 时按 kind+通道选择（`TASK_RESULT` 恒 `NOT_REQUIRED`）；显式传值语义不变。聚焦回归 `tests/agent_runtime -k "activity or delivery or notification or pump or wiring"` 78 passed、`tests/gateway -k "delivery or waiting"` 64 passed。
+- [2026-10-19] GREEN：同 argv `8 passed in 146.40s`；聚焦回归 `tests/capacity` 127 passed；ruff 全绿；跑后无 uvicorn/pytest 残留、无 `muad_acc_*` 残留库、Redis 号位已释放。
+- [2026-10-19] 遗留②（未闭合，诚实记录）：企微入站 RunRequest 只带字符串 bot_id ⇒ `conversation.channel_account_id` 为 NULL ⇒ 通知行不写；这是 TASK-049 遗留（入口账号 UUID 随请求传递），改动面在 contracts/Gateway，不在本任务 Files 内。E-19 用例显式补上该归属事实（一条 UPDATE，注释写明来源），其余链路全部真实。
+- [2026-10-19] completed (done)
 
 ---
 
