@@ -47,6 +47,7 @@ from muad_agent_runtime.application.channel_notifications import (
 from muad_agent_runtime.application.checkpoint import suspend_memory_confirmation
 from muad_agent_runtime.application.memory_confirmation import MemoryConfirmationService
 from muad_agent_runtime.application.run_events import EventWriter
+from muad_agent_runtime.infrastructure.models.async_tools import ToolOperation, ToolResultInbox
 from muad_agent_runtime.infrastructure.models.runtime import (
     CanonicalEvent,
     ChannelUpload,
@@ -332,8 +333,10 @@ async def _seed_snapshot(
 
     待确认挂起（`_write_checkpoint`）要求 Run 有冻结快照；这里按 control 侧真实定义拼出
     `agent_json`/`model_json`（模型根地址带 `/v1`，与 provider 的 `/chat/completions` 拼接口径一致），
-    但该 Run 不会执行——快照只作为"挂起需要冻结事实"的真实行。
+    `policy_json` 用产品自己的 `snapshot_policy()`（完整冻结口径：resume/续跑读回时要求
+    memory 分组每个 schema 叶齐全），但该 Run 不会执行——快照只作为"挂起需要冻结事实"的真实行。
     """
+    from muad_agent_runtime.application.run_service import snapshot_policy
     from muad_agent_runtime.infrastructure.models.runtime import RuntimeSnapshot
     from muad_console_platform.infrastructure.models.control import (
         AgentDefinition,
@@ -386,7 +389,7 @@ async def _seed_snapshot(
         model_json=model_json,
         skill_catalog_json=[],
         mcp_catalog_json=[],
-        policy_json={},
+        policy_json=snapshot_policy(),
         prompt_template_version="1",
         content_hash=hashlib.sha256(
             json.dumps({"agent": agent_json, "model": model_json}, sort_keys=True).encode("utf-8")
@@ -603,6 +606,147 @@ async def renotify(args: argparse.Namespace) -> dict[str, Any]:
         await engine.dispose()
 
 
+async def seed_task_result(args: argparse.Namespace) -> dict[str, Any]:
+    """外部任务结果入箱（E-109）：真实 Task/操作/受理结果行 + **真实产品服务**写 TASK_RESULT 通知。
+
+    Task 结果在页面上的可见形态就是收件箱通知（kind=TASK_RESULT，`summary` 由读取层投影）；
+    「待核实」是 Task 行的终态事实（`status=FAILED` + `error_code=TASK_RESULT_UNVERIFIED` +
+    `attempt=1`），本原语把两件事都写成真实行/真实服务回执：通知经
+    `ChannelNotificationQueryService.register_task_result`（与 Worker 投递同一入口）核验
+    operation/受理结果/Run/入口归属后落库，不是手拼通知行。
+    """
+    from muad_agent_runtime.application.channel_notification_queries import (
+        ChannelNotificationQueryService,
+    )
+    from muad_agent_worker.infrastructure.models.task import TaskExecution
+    from muad_contracts.webchat_events import WebchatTaskResultRegistration
+
+    engine = create_async_engine(_database_url())
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    task_id = uuid.uuid4()
+    try:
+        async with factory.begin() as session:
+            conversation = await _new_conversation(
+                session,
+                tenant_id=args.tenant,
+                user_id=uuid.UUID(args.user),
+                agent_id=uuid.UUID(args.agent),
+                entry_id=uuid.UUID(args.entry),
+                title=args.title,
+            )
+            run_id = uuid.uuid4()
+            now = datetime.now(UTC)
+            session.add(
+                RunRecord(
+                    id=run_id,
+                    tenant_id=args.tenant,
+                    conversation_id=conversation.id,
+                    user_id=uuid.UUID(args.user),
+                    agent_id=uuid.UUID(args.agent),
+                    status="COMPLETED",
+                    input_text="外部任务结果验收",
+                    trace_id=uuid.uuid4().hex,
+                    start_time=now,
+                    end_time=now,
+                    deadline_at=now + timedelta(minutes=30),
+                    execution_epoch=1,
+                )
+            )
+            await session.flush()
+            conversation.last_run_id = run_id
+            receipt_event_id = uuid.uuid4()
+            receipt_seq = await EventWriter(session).append(
+                tenant_id=args.tenant,
+                conversation_id=conversation.id,
+                run_id=run_id,
+                event_type="TOOL_RESULT_RECEIVED",
+                payload={"task_id": str(task_id), "status": "UNVERIFIED"},
+                event_id=receipt_event_id,
+            )
+            operation_id = uuid.uuid4()
+            session.add(
+                ToolOperation(
+                    id=operation_id,
+                    tenant_id=args.tenant,
+                    run_id=run_id,
+                    actor_user_id=uuid.UUID(args.user),
+                    source_tool_call_id=f"seed-task-call-{task_id.hex[:8]}",
+                    completion_mode="DETACH",
+                    status="RESULT_RECEIVED",
+                    task_id=task_id,
+                    task_snapshot_hash=uuid.uuid4().hex,
+                    submission_json={"skill_key": "seed-external-write"},
+                    input_hash=uuid.uuid4().hex,
+                )
+            )
+            await session.flush()
+            session.add(
+                ToolResultInbox(
+                    tenant_id=args.tenant,
+                    event_id=uuid.uuid4(),
+                    run_id=run_id,
+                    operation_id=operation_id,
+                    task_id=task_id,
+                    task_event_seq=1,
+                    payload_hash=uuid.uuid4().hex,
+                    payload_json={"status": "UNVERIFIED", "error_code": "TASK_RESULT_UNVERIFIED"},
+                    late=True,
+                    receipt_event_id=receipt_event_id,
+                    receipt_seq=receipt_seq,
+                )
+            )
+            session.add(
+                TaskExecution(
+                    id=task_id,
+                    tenant_id=args.tenant,
+                    source_run_id=run_id,
+                    source_operation_id=operation_id,
+                    source_tool_call_id=f"seed-task-call-{task_id.hex[:8]}",
+                    completion_mode="DETACH",
+                    agent_id=uuid.UUID(args.agent),
+                    actor_user_id=uuid.UUID(args.user),
+                    intent_key=f"seed-task-{task_id.hex[:8]}",
+                    skill_id=uuid.uuid4(),
+                    skill_artifact_id=uuid.uuid4(),
+                    trigger_type="TOOL",
+                    execution_mode="ASYNC",
+                    task_type="SKILL",
+                    status="FAILED",
+                    input_json={"payload": {}},
+                    result_json={"status": "UNVERIFIED", "error_code": "TASK_RESULT_UNVERIFIED"},
+                    error_code="TASK_RESULT_UNVERIFIED",
+                    error_message="外部写结果待核实：响应丢失，不自动重做",
+                    execution_snapshot_json={"schema_version": 1},
+                    snapshot_hash=uuid.uuid4().hex,
+                    idempotency_key=f"seed-task-{task_id.hex[:8]}",
+                    attempt=1,
+                    delivery_key=f"task:{task_id}:final",
+                    started_at=now,
+                    finished_at=now,
+                )
+            )
+            await session.flush()
+        async with factory() as session, session.begin():
+            receipt = await ChannelNotificationQueryService(session).register_task_result(
+                tenant_id=args.tenant,
+                registration=WebchatTaskResultRegistration(
+                    task_id=task_id,
+                    run_id=run_id,
+                    user_id=uuid.UUID(args.user),
+                    artifact_ids=[],
+                ),
+            )
+        return {
+            "conversation_id": str(conversation.id),
+            "run_id": str(run_id),
+            "task_id": str(task_id),
+            "notification_id": str(receipt.notification_id),
+            "seq": int(receipt.seq),
+        }
+    finally:
+        await engine.dispose()
+
+
 async def append_oversized_delta(args: argparse.Namespace) -> dict[str, Any]:
     """追加一条超过单帧预算的公开增量（E-18 的「超大事件」：网关必须显式关闭订阅）。"""
     engine = create_async_engine(_database_url())
@@ -670,6 +814,9 @@ def _parser() -> argparse.ArgumentParser:
     oversized = sub.add_parser("append-oversized-delta")
     oversized.add_argument("--run", required=True)
     oversized.add_argument("--bytes", type=int, required=True)
+
+    task_result = sub.add_parser("task-result")
+    common(task_result)
     return parser
 
 
@@ -683,6 +830,7 @@ _HANDLERS = {
     "delete-artifact": delete_artifact,
     "renotify": renotify,
     "append-oversized-delta": append_oversized_delta,
+    "task-result": seed_task_result,
 }
 
 
