@@ -8307,7 +8307,7 @@
       "kind": "functional",
       "boundary": "真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据",
       "owner": "TASK-104",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -8317,7 +8317,67 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-304",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "c4f194cc346c4ecca4b20fd630752662",
+        "executed_at": "2026-10-19T03:38:18.187970+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/architecture/test_capacity_webchat_deployment_preflight.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "991ea491202c9b66dc40d2862959d5e990b15aaad5831024819102e0bcf2b721"
+      },
+      "runs": [
+        {
+          "id": "B-304",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "416d4334e5ad40c2bc9265a8786e9d93",
+          "executed_at": "2026-10-19T03:36:12.961273+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_capacity_webchat_deployment_preflight.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ea317fd18f3034ca8b56f181a8a89fc90a729c32bb138cc23655d72c70fd2efd"
+        },
+        {
+          "id": "B-304",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "c4f194cc346c4ecca4b20fd630752662",
+          "executed_at": "2026-10-19T03:38:18.187970+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_capacity_webchat_deployment_preflight.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "991ea491202c9b66dc40d2862959d5e990b15aaad5831024819102e0bcf2b721"
+        }
+      ]
     },
     {
       "id": "B-305",
