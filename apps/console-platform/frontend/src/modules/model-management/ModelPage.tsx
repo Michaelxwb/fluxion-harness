@@ -1,11 +1,13 @@
 import { actionColumn } from '../../components/common/tableLayout';
-import { Button, Input, Select, Toast } from '@douyinfe/semi-ui';
+import { Button, Input, Select, Tabs, Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '../../auth/AuthContext';
 import { ListActionButton } from '../../components/common/ListActionButton';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
+import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { EmptyState } from '../../components/common/EmptyState';
 import { EntityLink } from '../../components/common/EntityLink';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -13,8 +15,10 @@ import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { TableText } from '../../components/common/TableText';
+import { ModelCredentialPanel } from './ModelCredentialPanel';
 import { ModelDetailSideSheet, ModelTestResultModal } from './ModelDetailSideSheet';
 import { ModelFormModal } from './ModelFormModal';
+import { ModelQuotaPanel } from './ModelQuotaPanel';
 import { testStatusOptions } from './statusOptions';
 import { ModelStatusIcons } from './ModelStatusIcons';
 import {
@@ -32,6 +36,8 @@ const EMPTY_FILTERS = { keyword: '', enabled: 'ALL', last_test_status: '' };
 
 export function ModelPage() {
   const { t } = useTranslation();
+  const { account } = useAuth();
+  const isAdmin = account?.role === 'ADMIN';
   const [params, setParams] = useState(DEFAULT_PARAMS);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [items, setItems] = useState<ModelItem[]>([]);
@@ -45,6 +51,8 @@ export function ModelPage() {
   const [formModel, setFormModel] = useState<ModelItem | null>(null);
   const [testResults, setTestResults] = useState<ModelTestResult[]>([]);
   const [testVisible, setTestVisible] = useState(false);
+  const [resourcesVisible, setResourcesVisible] = useState(false);
+  const [resourcesTab, setResourcesTab] = useState('credentials');
   const requestSeq = useRef(0);
 
   const reload = useCallback(async () => {
@@ -127,16 +135,16 @@ export function ModelPage() {
     }
   };
 
+  /** 资源池/成员变更后的唯一回流点：按服务端事实重读列表，不就地猜状态。 */
+  const afterModelChanged = useCallback((): void => {
+    void reload();
+  }, [reload]);
+
   const toggleEnabled = async (model: ModelItem): Promise<void> => {
     setSavingId(model.id);
     try {
-      await updateModel(model.id, {
-        name: model.name,
-        base_url: model.base_url,
-        model_id: model.model_id,
-        expected_revision: model.revision,
-        enabled: !model.enabled
-      });
+      // 单字段版本更新：只翻转 enabled（CAS），不重发连接/密钥等本面不持有的字段
+      await updateModel(model.id, { expected_revision: model.revision, enabled: !model.enabled });
       await refreshDetail(model.id);
       await reload();
     } catch {
@@ -180,6 +188,17 @@ export function ModelPage() {
               >
                 {t('model.add')}
               </Button>
+              {isAdmin ? (
+                <Button
+                  data-testid="open-model-resources"
+                  onClick={() => {
+                    setResourcesTab('credentials');
+                    setResourcesVisible(true);
+                  }}
+                >
+                  {t('model.resources.manage')}
+                </Button>
+              ) : null}
               <Button
                 data-testid="batch-test"
                 disabled={selected.length === 0}
@@ -251,7 +270,14 @@ export function ModelPage() {
               { title: t('model.columns.name'), dataIndex: 'name', width: 'auto', ellipsis: true },
               { title: t('model.columns.modelId'), dataIndex: 'model_id', width: 'auto', ellipsis: true },
               { title: t('model.columns.protocol'), dataIndex: 'protocol', width: 88 },
-              { title: t('model.columns.baseUrl'), dataIndex: 'base_url', width: 'auto', ellipsis: true },
+              {
+                title: t('model.columns.provider'),
+                dataIndex: 'provider_key',
+                width: 'auto',
+                ellipsis: true,
+                render: (value: string) =>
+                  value === '' ? t('model.provider.missing') : value
+              },
               {
                 title: t('model.columns.statusSummary'),
                 width: 108,
@@ -317,8 +343,26 @@ export function ModelPage() {
       />
       <ModelDetailSideSheet
         model={detail}
+        onChanged={afterModelChanged}
         onCancel={() => setDetail(null)}
       />
+      {isAdmin && resourcesVisible ? (
+        <DetailSideSheet
+          visible
+          title={t('model.resources.title')}
+          subtitle={t('model.resources.subtitle')}
+          activeTab={resourcesTab}
+          onTabChange={(key) => setResourcesTab(String(key))}
+          onCancel={() => setResourcesVisible(false)}
+        >
+          <Tabs.TabPane itemKey="credentials" tab={t('model.resources.credentialsTab')}>
+            <ModelCredentialPanel onChanged={afterModelChanged} />
+          </Tabs.TabPane>
+          <Tabs.TabPane itemKey="quotas" tab={t('model.resources.quotasTab')}>
+            <ModelQuotaPanel onChanged={afterModelChanged} />
+          </Tabs.TabPane>
+        </DetailSideSheet>
+      ) : null}
       <ModelTestResultModal
         visible={testVisible}
         results={testResults}
