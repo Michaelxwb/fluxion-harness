@@ -1,7 +1,7 @@
 version: 1
 task: Agent 并发容量与通用 Webchat
 enforcement: required
-updated_at: '2026-10-19T03:18:03.387439+00:00'
+updated_at: '2026-10-19T03:39:35.214601+00:00'
 sources:
 - type: cli
   ref: bind
@@ -1749,7 +1749,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-030
           item_id: TASK-030
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -3658,7 +3658,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -4991,7 +4991,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-104
           item_id: TASK-104
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -6233,7 +6233,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-043
           item_id: TASK-043
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -7476,7 +7476,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -8720,7 +8720,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-071
           item_id: TASK-071
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -10272,7 +10272,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-090
           item_id: TASK-090
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -11512,7 +11512,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-046
           item_id: TASK-046
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -12906,7 +12906,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-048
           item_id: TASK-048
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -14176,7 +14176,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-098
           item_id: TASK-098
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -15428,7 +15428,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-037
           item_id: TASK-037
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -15481,7 +15481,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-056
           item_id: TASK-056
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -15518,7 +15518,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-056
           item_id: TASK-056
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -15556,7 +15556,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-025
           item_id: TASK-025
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -15593,7 +15593,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-049
           item_id: TASK-049
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -15631,7 +15631,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-026
           item_id: TASK-026
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -15668,7 +15668,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -16908,7 +16908,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-019
           item_id: TASK-019
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -18171,7 +18171,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-017
           item_id: TASK-017
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -19516,7 +19516,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-020
           item_id: TASK-020
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -20773,7 +20773,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-053
           item_id: TASK-053
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -22015,7 +22015,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -23255,7 +23255,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-118
           item_id: TASK-118
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -24639,7 +24639,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-035
           item_id: TASK-035
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -25879,7 +25879,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-091
           item_id: TASK-091
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -27119,7 +27119,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-085
           item_id: TASK-085
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
@@ -28362,7 +28362,7 @@ bindings:
         - artifact: agent-capacity-webchat.md
           section_id: TASK-033
           item_id: TASK-033
-          artifact_sha256: d1a37211ed2d5e489590f96304e3587a5bf91cf92036c059d060ea76f65ce966
+          artifact_sha256: d66af5dfbf00a63d4e603ea133a1867701feab7bce4b2952bd22b27fa453de82
         decision: null
         evidence: []
       review:
