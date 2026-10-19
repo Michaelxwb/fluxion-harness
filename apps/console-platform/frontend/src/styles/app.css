@@ -1,3 +1,5 @@
+@import './../modules/webchat/webchat.css';
+
 :root {
   --semi-color-primary: #2f6bff;
   --semi-color-primary-hover: #4d82ff;
