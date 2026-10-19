@@ -10,8 +10,11 @@
 - **seq**：feed 行锁内 `last_seq + 1`；`(tenant_id,user_id,seq)` 与 `(tenant_id,delivery_key)`
   是数据库完整唯一事实。`delivery_key` 稳定 ⇒ 重投（崩溃重放/主动补投）返回**原行**：不新占
   seq、不新增未读；隐藏（软删）通知同样保留唯一回执，不因隐藏而重新投递。
-- **投递状态**由调用方显式选择：网页持久入箱是 `NOT_REQUIRED`（无出站投递）；出站意图
-  （`PENDING`）由机器人交付路径在同一接缝上给出。
+- **投递状态按入口通道选择**（design §3.6「机器人终态交付」）：机器人入口
+  （`WECOM`，有真实主动投递适配器）的终态/待确认写 `PENDING` 出站意图——它由 Runtime 独立
+  投递泵按租约经既有 Gateway 适配器交付，**不依赖 Gateway 内存里的订阅/回复会话**；网页持久
+  入箱是 `NOT_REQUIRED`（站内通知没有出站目标）。`TASK_RESULT` 恒为 `NOT_REQUIRED`：任务结果
+  的机器人出站由 Worker 投递链按自己的投递路由负责，不在这里重复表达。
 - **Task 结果入箱**（TASK-064）：`kind=TASK_RESULT` 必须带真实 `task_id` 与属于该 Task 的
   `artifact_ids`；核验真实来源在读取层（`channel_notification_queries`），本模块只保证行内事实
   与词表一致。
@@ -29,6 +32,8 @@ from typing import Literal
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts import ChannelContext
+from pydantic import ValidationError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,6 +60,25 @@ DELIVERY_NOT_REQUIRED = "NOT_REQUIRED"
 DELIVERY_PENDING = "PENDING"
 #: `channel_notification.delivery_state` 取值（与 0026 的 CHECK 同词表）。
 DELIVERY_STATES = (DELIVERY_PENDING, "DELIVERING", "DELIVERED", "UNKNOWN", DELIVERY_NOT_REQUIRED)
+#: 有真实主动投递能力的机器人通道（终态写 PENDING 出站意图，由投递泵经网关适配器交付）。
+OUTBOUND_CHANNELS = frozenset({"WECOM"})
+
+
+def terminal_delivery_state(run: RunRecord) -> str:
+    """Run 终态通知的投递状态：机器人入口写 `PENDING` 出站意图，其余（网页入箱）`NOT_REQUIRED`。
+
+    路由只从 Run 自己持久化的 `channel_json` 读：缺接收方/坏载荷一律按网页入箱处理
+    （没有可交付的目标就不该占投递泵的重试预算），不猜来源。
+    """
+    if not run.channel_json:
+        return DELIVERY_NOT_REQUIRED
+    try:
+        channel = ChannelContext.model_validate(run.channel_json)
+    except ValidationError:
+        return DELIVERY_NOT_REQUIRED
+    if not channel.external_user_id or channel.type not in OUTBOUND_CHANNELS:
+        return DELIVERY_NOT_REQUIRED
+    return DELIVERY_PENDING
 
 
 def run_terminal_delivery_key(run_id: uuid.UUID) -> str:
@@ -88,15 +112,26 @@ async def write_run_notification(
     kind: str,
     delivery_key: str,
     event_id: uuid.UUID | None = None,
-    delivery_state: str = DELIVERY_NOT_REQUIRED,
+    delivery_state: str | None = None,
     task_id: uuid.UUID | None = None,
     artifact_ids: Sequence[uuid.UUID] = (),
 ) -> RunNotificationReceipt | None:
     """事务内写一条 Run 用户通知（调用方负责提交；失败即与终态一起整体回滚）。
 
     返回 `None` 表示该会话没有入口归属（不进网页收件箱）。
+
+    `delivery_state=None` 时按**通知类别 + 入口通道**选择（design §3.6）：Run 终态/待确认在
+    机器人入口写 `PENDING` 出站意图，其余写网页持久入箱 `NOT_REQUIRED`。显式传值时以调用方
+    选择为准（本模块不覆盖调用方的判断）。
     """
-    _validate(kind=kind, delivery_state=delivery_state, task_id=task_id)
+    state = delivery_state
+    if state is None:
+        state = (
+            terminal_delivery_state(run)
+            if kind in (KIND_RUN_COMPLETED, KIND_RUN_WAITING_INPUT)
+            else DELIVERY_NOT_REQUIRED
+        )
+    _validate(kind=kind, delivery_state=state, task_id=task_id)
     entry_id = await _entry_id_of(session, run)
     if entry_id is None:
         return None
@@ -118,7 +153,7 @@ async def write_run_notification(
         event_id=event_id,
         task_id=task_id,
         artifact_ids=list(artifact_ids),
-        delivery_state=delivery_state,
+        delivery_state=state,
     )
     session.add(row)
     await session.flush()
