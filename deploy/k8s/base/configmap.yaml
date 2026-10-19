@@ -18,3 +18,21 @@ data:
   AGENT_RUNTIME_URL: http://muad-agent-runtime:8001
   AGENT_WORKER_URL: http://muad-agent-worker:8002
   IM_GATEWAY_URL: http://muad-im-gateway:8003
+  # —— Webchat/SSE 入口预算（design §3.7 启动配置；非敏感，走 ConfigMap 而不是 Secret）——
+  # 生产清单列出有效值：值必须与 `SharedSettings` 的 typed 默认一致（改默认要同步本文件），
+  # 且每个键都有真实消费点（用例机检）。分池 connections/slots 在各 Deployment（TASK-100/101）。
+  # SSE 心跳：Gateway/Runtime 的事件心跳与入口代理的空闲超时都按它算（≥3× 心跳）。
+  RUN_EVENT_HEARTBEAT_SEC: "15"
+  # Gateway 公开流订阅上限（进程级缓冲账本按它拒绝超额订阅；受 FD/内存总预算约束）。
+  GATEWAY_MAX_SSE_SUBSCRIBERS: "1100"
+  # SSE 单帧/单订阅/进程总缓冲：超限显式关闭慢订阅，客户端按持久游标恢复，不丢正文。
+  SSE_EVENT_MAX_BYTES: "262144"
+  SSE_SUBSCRIBER_BUFFER_BYTES: "1048576"
+  SSE_TOTAL_BUFFER_BYTES: "67108864"
+  # 聊天文本/上传硬上限：Console/Gateway/Runtime 与入口代理共用同一组上限（前端预检同值）。
+  CHAT_MESSAGE_HARD_MAX_BYTES: "1048576"
+  CHAT_UPLOAD_HARD_MAX_BYTES: "52428800"
+  # CHAT 长流身份复核周期：空闲长流也必须复核（不晚于会话 expires_at）。
+  CHAT_AUTH_RECHECK_SEC: "15"
+  # Gateway→Runtime 流读超时：流空闲超时 ≥3× 心跳（SharedSettings 启动校验）。
+  STREAM_HTTP_READ_TIMEOUT_SEC: "45"
