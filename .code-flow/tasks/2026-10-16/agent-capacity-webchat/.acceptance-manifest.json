@@ -10,7 +10,7 @@
       "kind": "e2e",
       "boundary": "真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针",
       "owner": "TASK-116",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -18,7 +18,40 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "08c2e5593e104c87be0fc620ca78dcbc",
+        "executed_at": "2026-10-19T14:55:28.974033+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "08c2e5593e104c87be0fc620ca78dcbc",
+          "executed_at": "2026-10-19T14:55:28.974033+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -708,7 +741,7 @@
       "kind": "e2e",
       "boundary": "容量栈真实 PG/HTTP/SSE、可配置增量模型探针",
       "owner": "TASK-116",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -716,7 +749,40 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-14",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "08c2e5593e104c87be0fc620ca78dcbc",
+        "executed_at": "2026-10-19T14:55:28.974033+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-14",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "08c2e5593e104c87be0fc620ca78dcbc",
+          "executed_at": "2026-10-19T14:55:28.974033+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-15",
@@ -725,7 +791,7 @@
       "kind": "e2e",
       "boundary": "正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换",
       "owner": "TASK-116",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -733,7 +799,40 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-15",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "08c2e5593e104c87be0fc620ca78dcbc",
+        "executed_at": "2026-10-19T14:55:28.974033+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-15",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "08c2e5593e104c87be0fc620ca78dcbc",
+          "executed_at": "2026-10-19T14:55:28.974033+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-16",

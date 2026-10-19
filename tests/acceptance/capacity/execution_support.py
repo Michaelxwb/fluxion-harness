@@ -29,6 +29,7 @@ from muad_contracts.model_pool import derive_model_key_resource_id
 
 __all__ = [
     "EXECUTION_CADENCE_ENV",
+    "ChatUserSeed",
     "CredentialSpec",
     "ModelPoolSeed",
     "ProbeCapacity",
@@ -53,6 +54,7 @@ __all__ = [
     "run_row",
     "runtime_headers",
     "seed_model_pool",
+    "seed_chat_users",
     "seed_tenant",
     "service_headers",
     "submit_task",
@@ -429,6 +431,81 @@ def seed_model_pool(
         key_resource_ids=key_resources,
         quota_group_id=next(iter(groups.values()), None),
         model_name=model_name,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ChatUserSeed:
+    """一名真实 CHAT 主体：用户行 + Agent 授权 + 随机 Token（原文只在本次种子内存里）。"""
+
+    index: int
+    user_id: uuid.UUID
+    token: str
+
+
+def seed_chat_users(
+    database_url: str,
+    *,
+    tenant_id: str,
+    agent_id: uuid.UUID,
+    count: int,
+    user_prefix: str = "capacity-load-user",
+) -> tuple[ChatUserSeed, ...]:
+    """批量真实用户现场：每用户一份 `PlatformUser` + `AgentAccessGrant` + `ChatAccessToken`。
+
+    容量负载的形状是「N 个不同用户各一个活跃 Run」（同用户并发多 Run 会撞
+    `capacity.max_open_runs_per_user`，那是配置边界而不是用户容量），所以 1000 用户必须有
+    1000 份独立主体。Token 只存摘要（与产品同口径），原文只在返回值里，不落日志/审计。
+    """
+    if count < 1:
+        raise ValueError(f"count 必须 ≥ 1，收到 {count}")
+    from datetime import UTC, datetime, timedelta
+
+    from muad_console_platform.application.chat_token_service import (
+        generate_chat_token,
+        hash_chat_token,
+    )
+    from muad_console_platform.infrastructure.models.auth import ChatAccessToken
+    from muad_console_platform.infrastructure.models.control import (
+        AgentAccessGrant,
+        PlatformUser,
+    )
+
+    tokens = tuple(generate_chat_token() for _ in range(count))
+    issued_at = datetime.now(UTC)
+    expires_at = issued_at + timedelta(days=30)
+
+    async def work(session: Any) -> tuple[uuid.UUID, ...]:
+        user_ids: list[uuid.UUID] = []
+        for index, token in enumerate(tokens):
+            user = PlatformUser(
+                tenant_id=tenant_id,
+                user_code=f"{user_prefix}-{index}-{uuid.uuid4().hex[:8]}",
+                display_name=f"Capacity Load User {index}",
+                status="ACTIVE",
+            )
+            session.add(user)
+            await session.flush()
+            session.add(AgentAccessGrant(user_id=user.id, agent_id=agent_id, granted_by=user.id))
+            session.add(
+                ChatAccessToken(
+                    tenant_id=tenant_id,
+                    platform_user_id=user.id,
+                    token_hash=hash_chat_token(token),
+                    revision=1,
+                    issued_at=issued_at,
+                    expires_at=expires_at,
+                )
+            )
+            user_ids.append(user.id)
+        return tuple(user_ids)
+
+    user_ids = _seed_async(database_url, work)
+    if len(user_ids) != count:
+        raise AssertionError(f"种子用户数与请求不一致：{len(user_ids)} != {count}")
+    return tuple(
+        ChatUserSeed(index=index, user_id=user_id, token=tokens[index])
+        for index, user_id in enumerate(user_ids)
     )
 
 

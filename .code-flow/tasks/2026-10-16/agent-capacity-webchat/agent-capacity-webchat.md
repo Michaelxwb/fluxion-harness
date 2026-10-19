@@ -262,7 +262,7 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | depends_on |
 |---|---|---|---|---|---|---|---|---|---|
-| S-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针 | TASK-116 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
+| S-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针 | TASK-116 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
 | S-02 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 真实企微协议探针、浏览器、Gateway、Runtime、Worker、PG/Redis | TASK-113 | e2e_deferred | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
 | S-03 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两个 Runtime 实例、PG、真实 SSE、故障进程 | TASK-111 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | . | 1800 |  |
 | S-04 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 多 Runtime、同模型多 Key HTTP 探针、实际额度存储和审计 | TASK-110 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_model_execution.py","tests/acceptance/capacity/test_admission_recovery.py"] | . | 1800 |  |
@@ -275,8 +275,8 @@
 | S-11 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两浏览器页面、两个 Runtime、PG、真实 SSE 和等待中的模型探针 | TASK-113 | e2e_deferred | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
 | S-12 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两个 Runtime、主模型/摘要/记忆任务、Console 探针和真实 HTTP Key 计数服务 | TASK-110 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_model_execution.py","tests/acceptance/capacity/test_admission_recovery.py"] | . | 1800 |  |
 | S-13 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 浏览器、PG、真实 Run/Worker 投递与提交后故障注入 | TASK-114 | e2e_deferred | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"] | . | 1800 |  |
-| S-14 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 容量栈真实 PG/HTTP/SSE、可配置增量模型探针 | TASK-116 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
-| S-15 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换 | TASK-116 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
+| S-14 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 容量栈真实 PG/HTTP/SSE、可配置增量模型探针 | TASK-116 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
+| S-15 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换 | TASK-116 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
 | S-16 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | Console 策略/签发、浏览器 Cookie、真实 PG 时间与历史续聊接口 | TASK-112 | e2e_deferred | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
 | S-17 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | Console系统设置/资源配置、两个Runtime、真实PG准入、Gateway启动配置与浏览器 | TASK-115 | e2e_deferred | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"] | . | 1800 |  |
 | E-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两并发请求、PG、模型探针计数 | TASK-110 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_model_execution.py","tests/acceptance/capacity/test_admission_recovery.py"] | . | 1800 |  |
@@ -8462,7 +8462,7 @@ E2E_WEBCHAT_OFFSET=5 bash -lc "npm --prefix apps/console-platform/frontend run b
 
 ## TASK-116: 1000用户容量及单Pod恢复验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-108, TASK-109, TASK-110, TASK-111
 - **Source**: agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告
@@ -8477,72 +8477,93 @@ E2E_WEBCHAT_OFFSET=5 bash -lc "npm --prefix apps/console-platform/frontend run b
 
 ### Checklist
 
-- [ ] [S-01][E2E] 在`tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts`编写原S-01真实验收；不得Mock边界：真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针；关键断言：配置接纳 1000 不同用户各一个 Run；编码期不运行，留给verify-e2e。
-- [ ] [S-14][E2E] 在`tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts`编写原S-14真实验收；不得Mock边界：容量栈真实 PG/HTTP/SSE、可配置增量模型探针；关键断言：按配置窗口合并小增量，断流恢复正文一致；编码期不运行，留给verify-e2e。
-- [ ] [S-15][E2E] 在`tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts`编写原S-15真实验收；不得Mock边界：正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换；关键断言：单 Pod 短暂不可用按事实记录；编码期不运行，留给verify-e2e。
+- [x] [S-01][E2E] 在`tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts`编写原S-01真实验收；不得Mock边界：真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针；关键断言：配置接纳 1000 不同用户各一个 Run；编码期不运行，留给verify-e2e。 → 已写：`test_capacity.py::test_s01_thousand_users_admitted_visible_and_bounded`（`RunKind.ACCEPTANCE` + 锁定 profile 的 1000×8 全量负载；1000 份真实 CHAT 主体；PG/探针/采样逐项断言，见证据表）。**编码期未运行**（任务 Checklist 明确「编码期不运行，留给 verify-e2e」）：本轮只做采集/静态与 3 项受限冒烟；全量执行留 TASK-118 verify-e2e。
+- [x] [S-14][E2E] 在`tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts`编写原S-14真实验收；不得Mock边界：容量栈真实 PG/HTTP/SSE、可配置增量模型探针；关键断言：按配置窗口合并小增量，断流恢复正文一致；编码期不运行，留给verify-e2e。 → 已写：`test_capacity.py::test_s14_incremental_merge_stream_break_and_loaded_control`（同一全量运行的报告 + 专用断流恢复 Run；窗口合并/正文一致/事件率/PG 连接/内存/满载控制面/终态前正文，见证据表）。**编码期未运行**；全量留 TASK-118。
+- [x] [S-15][E2E] 在`tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts`编写原S-15真实验收；不得Mock边界：正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换；关键断言：单 Pod 短暂不可用按事实记录；编码期不运行，留给verify-e2e。 → 已写：pytest 侧 `test_s15_single_pod_restart_replica_replacement_and_lease_hold`（Console/Gateway 同地址重启 + Runtime/Worker SIGKILL 替换 + 租约保留 + Reaper 诚实终态 + 真实 Task 恰一次）与 `test_s15_fd_http_pg_budgets_are_computable_and_measured`；浏览器侧 `capacity-recovery.spec.ts` 两条（真实 SIGKILL Gateway + 看护进程同地址重启 + 停机事实记录 + 重连抖动 + 不重建/无双执行 + 租约/预算）。**编码期未运行**：只做了进程控制与看护进程的受限冒烟（见证据表），全量留 TASK-118。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | E2E | 真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针 | 配置接纳 1000 不同用户各一个 Run；确认持久受理、可见等待/执行、最终进展、无跨用户事件；执行不超模型/工具容量，排队不冒充同时推理 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned |
-| S-14 | E2E | 容量栈真实 PG/HTTP/SSE、可配置增量模型探针 | 按配置窗口合并小增量，断流恢复正文一致；事件写入率/PG连接/内存不超报告预算，取消/确认/续租在满载时仍可服务，终态前全部正文已持久化 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned |
-| S-15 | E2E | 正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换 | 单 Pod 短暂不可用按事实记录；恢复后重连带抖动，已受理 Run 不重建、无双执行，租约资源无误释放，FD/HTTP/PG 总预算可核对 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned |
+| S-01 | E2E | 真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针 | 配置接纳 1000 不同用户各一个 Run；确认持久受理、可见等待/执行、最终进展、无跨用户事件；执行不超模型/工具容量，排队不冒充同时推理 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned（已写 + 轻验证：采集/静态/冒烟；全量执行留 verify-e2e） | e2e_deferred |
+| S-14 | E2E | 容量栈真实 PG/HTTP/SSE、可配置增量模型探针 | 按配置窗口合并小增量，断流恢复正文一致；事件写入率/PG连接/内存不超报告预算，取消/确认/续租在满载时仍可服务，终态前全部正文已持久化 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned（已写 + 轻验证：SQL/种子 schema 校验；全量执行留 verify-e2e） | e2e_deferred |
+| S-15 | E2E | 正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换 | 单 Pod 短暂不可用按事实记录；恢复后重连带抖动，已受理 Run 不重建、无双执行，租约资源无误释放，FD/HTTP/PG 总预算可核对 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned（已写 + 轻验证：进程控制/看护进程冒烟；全量执行留 verify-e2e） | e2e_deferred |
 
 ### Acceptance Evidence
 
-> 本轮 functional RED/GREEN 已跑；E2E 契约行状态按本任务功能命令的实际结果登记为 verified（最终需求级 verify-e2e 仍以同一命令复核）。
+> 本任务 Checklist 三条都写明「编码期不运行，留给 verify-e2e」：本轮的 functional 命令**未执行全量**；
+> 下面登记的是编码期**实际跑过**的轻验证（命令 + 计数）与**已写好但延后**的全量项。契约行状态
+> 保持 `planned`（不冒充 verified），最终由需求级 verify-e2e（TASK-118）用同一命令复核。
 
-**functional 命令**（工作树根；浏览器验收用本工作树独占端口偏移 `E2E_WEBCHAT_OFFSET=3`）：
+**编码期实际跑过（工作树根，本工作树独占端口偏移 `E2E_WEBCHAT_OFFSET=6`）**
 
-```bash
-E2E_WEBCHAT_OFFSET=3 bash -lc "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
-```
+| # | 命令 | 结果 |
+|---|---|---|
+| 1 | `uv run pytest -q tests/acceptance/capacity/test_capacity.py --collect-only` | **4 tests collected**（S-01/S-14/S-15×2 四条用例可采集，导入链闭合） |
+| 2 | `uv run ruff check tests/acceptance/capacity/` | **All checks passed**（新文件 + 改动文件） |
+| 3 | `uv run pytest -q tests/capacity` | **127 passed（29.7s）**：TASK-109 容量 harness 全绿（`stack.py`/`execution_support.py` 的增量为纯新增，无回归） |
+| 4 | `uv run pytest -q tests/frontend/test_capacity_webchat_browser_harness.py tests/frontend/test_e2e_suite_contract.py` | **22 passed**：浏览器栈机检 16（含 TASK-112～116 spec 覆盖）+ e2e 套件契约 6（新 spec 的 testid/配置规则不破） |
+| 5 | `E2E_WEBCHAT_OFFSET=6 npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts --list` | **2 tests in 1 file**（新 spec 被域配置采集；`--list` 不启 webServer；跑后无残留库/进程） |
+| 6 | 受限冒烟①：真实四单元栈进程控制（临时脚本，跑完即删） | **SMOKE OK**：Console `stop_instance` → 经入口代理真实 **502** 且 `upstream_failures[console-platform]` **+1** → `restart_instance` 同端口新 pid（`94283→94291`，端口不变）且 env 同库 → `/healthz` 200；Gateway `kill_instance` → 502 → 同地址重启；`agent-runtime#1`/`agent-worker#1` `kill_instance`+`replace_instance` 新 pid/新端口（`61254→61392`、`61256→61408`）同库/卷；teardown 后无残留库 |
+| 7 | 受限冒烟②：真实种子路径 + 用例内全部 SQL 对空库 schema 校验（临时脚本，跑完即删） | **SMOKE2 OK**：`seed_delivery_control`（模型/凭据/Agent/WEBCHAT 入口/Skill 包）+ `seed_chat_users(count=3)` + `memory_write=false` 落行回读通过；**17/17 条 SQL** 全部在 `alembic head` 空库上真实执行成功（此步抓到并修正 2 处真实缺陷：`agent_definition.runtime_config_json` 列名） |
+| 8 | 受限冒烟③：`supervise.py` 看护进程（临时脚本，跑完即删） | **SMOKE3 OK**：看护进程起真实 uvicorn（`{"ready": true, pid}` + `/healthz` 200 + 端口真实占用）；**父进程退出后 1s 内回收 uvicorn**（pid 消失、端口释放）——浏览器侧「同地址重启」不留孤儿 |
 
-| 轮次 | 结果 |
-|---|---|
-| RED（占位） | **8 failed（exit=1）**：两个 spec 各 4 条 RED 占位（`throw new Error('TASK-113 RED: 尚未实现')`），捕获两文件存在但无真实验收；日志 `$TMPDIR/task113-red.log` |
-| GREEN（最终） | **8 passed（exit=0，4.0m）**：`streams-actions.spec.ts` 4（S-09/S-108、S-103、E-07/E-103、E-102）+ `cross-channel-memory.spec.ts` 4（S-02/S-104、S-11/E-03、E-08、E-09/E-109）；日志 `$TMPDIR/task113-run7.log` |
-| 隔离与清理 | 无本栈孤儿进程（`uvicorn muad_*`/`playwright`/`vite preview` 无残留）；本栈 `muad_e2e_*`/`muad_acc_*` 库全部 drop；`dist/` 与 `e2e/test-results` 未入库；`tests/frontend/test_capacity_webchat_browser_harness.py` 机检 16 passed 复跑通过 |
+**已写、编码期未运行（延后到 TASK-118 verify-e2e 的全量项）**
+
+| 项 | 用例 | 延后原因 |
+|---|---|---|
+| S-01 1000 用户全量负载（1000×8=8000 轮、锁定 profile、ACCEPTANCE 无缩放） | `test_capacity.py::test_s01_*` | 任务 Checklist 明确「编码期不运行」；单次约 10 分钟量级（ramp 60s + 尾用户思考时间上界），与浏览器容量套件一起留给需求级 verify-e2e |
+| S-14 同一全量运行的窗口合并/预算/满载控制面断言 + 专用断流恢复 | `test_capacity.py::test_s14_*` | 同上（复用同一次负载报告，不重复起负载） |
+| S-15 单 Pod 重启/替换全链（pytest 四单元栈 + 浏览器真实 SIGKILL/重启/重连） | `test_capacity.py::test_s15_*`、`capacity-recovery.spec.ts` | 同上；本轮只跑进程控制与看护进程的受限冒烟 |
 
 **用例与关键断言位置**
 
 | 场景 | 用例（文件:行） | 关键断言 |
 |---|---|---|
-| S-09 / S-108 | `streams-actions.spec.ts:313` | 真实降额（凭据在飞上限 8→1，真实 Console API + 版本 CAS）后第二条 Run 落 `WAITING_MODEL`/`NO_CAPACITY`（PG 行 + `chat-run-activity[data-phase=waiting-model]` + 「正在等待模型资源」+ 排队原因/进入排队/期限）；刷新后 `queued_at`/`queue_deadline_at` 逐字不变；等待中取消：确认前零取消请求、确认后恰一次、取消瞬间零 `model_call_lease`、终态 `CANCELLED`、准入释放；另一用户 C 排队 → A 结束后 `COMPLETED` 且助手正文恰一条；阶段词条不进正文 |
-| S-103 | `streams-actions.spec.ts:469` | 传输层中止第一条事件流（`route.abort`，非伪造响应）→ 重连次数可见 + `/events` GET ≥2 → 正文完整；真实附件上传/下载（字节相等）；刷新恢复同一 Run/正文/附件、用户气泡与助手正文各恰一条；消息提交次数不变 |
-| E-07 / E-103 | `streams-actions.spec.ts:605` | 300KiB 单帧 → 服务端显式关闭订阅 → 状态含 `reconnecting`/`failed`（不伪造终态）+ GET ≥2 且重连带 `after_seq>0`（按 seq 补齐）+ 正文无 `x` 截断；保留淘汰（`startSeq=101`）→ `cursor-recovery` + `data-cursor-earliest=101` + 显式恢复动作、零自动重连、零消息 POST；A/B 双向迟到数据不串台 |
-| E-102 | `streams-actions.spec.ts:752` | 未授权入口零 POST；空会话过载 429 `RUN_CAPACITY_EXCEEDED` + 零新 Run + 浏览器「当前处理已满」；幂等冲突 409 `IDEMPOTENCY_MISMATCH` 后原身份重投同 `run_id`；模型等待预算 10s（真实设置）→ `FAILED` + `MODEL_WAIT_TIMEOUT`/`MODEL_CAPACITY_UNAVAILABLE` + 零 `model_call_lease` + 无伪成功正文 |
-| S-02 / S-104 | `cross-channel-memory.spec.ts:366` | 同用户两个真实入口并发执行；网页停止只取消被停止会话的 Run（另一入口 `COMPLETED`）；新建会话不影响另一入口 Run；两条终态通知各带原入口身份；两条会话互不串写 |
-| S-11 / E-03 | `cross-channel-memory.spec.ts:457` | A 流式时切 B → A 继续到 `COMPLETED`（非 `CANCELLED`）；B 自己的 Run 只写 B（双向不串台）；切回 A 正文恰一份；`WAITING_INPUT` 切走再切回仍是原 run/submission/source；伪造 submission 的 resume 被拒且中断仍 `WAITING`；借入口提交他人会话被拒；同入口运行中新消息 `RUN_BUSY` 且原 Run 照常 `COMPLETED` |
-| E-08 | `cross-channel-memory.spec.ts:631` | 真实清空记忆（`forget_epoch` 前进）→ 旧确认被拒（`MEMORY_CONFIRMATION_EXPIRED` 本地化）、零记忆行、中断不再 `WAITING`、重开无待确认；同 `source_event` 只消费一次（版本/行数不变）；后续模型请求带已保存记忆；冻结预算：新 Run 快照 `memory.max_injected_bytes=64`、超预算值不注入、旧 Run 仍 2048 |
-| E-09 / E-109 | `cross-channel-memory.spec.ts:848` | 配额满（2 在飞）→ 空会话新受理 429 且零新 Run；模型等待中取消瞬间零租约 + `cancel_requested` 立即持久化 + `CANCELLED` + 准入释放；同消息重投同 `run_id`；`TASK_RESULT` 通知可见/可定位/已读；`task_execution` 待核实终态（`FAILED` + `TASK_RESULT_UNVERIFIED` + `attempt=1`）不自动重试；新建/切换会话不改变结果 |
+| S-01 | `tests/acceptance/capacity/test_capacity.py:602` | ① 报告锁定 profile（hash/无缩放/1000×8）+ 8000 轮全 202（`624`）；② PG 里 **1000 个不同 user_id** 各 8 个 Run + 8000 条提交（`636`）；③ 并发采样同时观测等待/执行/在飞订阅 + `run.stage` 含 `WAITING_RUNTIME`/`RUNNING` 且阶段词条不进正文（`661`）；④ 8000 轮全 `COMPLETED`、错误账目只含唯一边界拒绝（`697`）；⑤ 抽样 Run 公开流帧只带自身 `run_id`、正文与探针逐字一致、事件不跨会话、**非属主读不到**（`716`）；⑥ 真实同时推理 ≤ 凭据 `max_inflight`（从真实行复核）+ 采样 RUNNING ≤ 执行槽（从真实进程 env 复核）（`750`） |
+| S-14 | `tests/acceptance/capacity/test_capacity.py:785` | ① 抽样 Run 持久 `message.delta` 行数 < 探针段数且 ≤「配置窗口 × 到达跨度」界（窗口取自真实进程 env）、合并正文逐字一致（`811`）；② 真实公开流读一段→断连→按游标重连：seq 严格递增不重复、snapshot 语义重建正文一致、持久正文一致（`835`）；③ 事件写入率 ≤ `storage_budget.event_bytes_per_day` 折算、PG 连接 ≤ 预算、四单元 RSS ≤ `memory_limit_mb`（`875`）；④ 取消/确认/续租三类探测在负载窗口内、结局显式分类、取消落 PG、续租不缩短且结算 `SETTLED`（`905`）；⑤ 每 Run 最后正文 seq < 终态 seq（`933`） |
+| S-15（pytest） | `tests/acceptance/capacity/test_capacity.py:957` | ① Console 停机窗口 502 + 代理计数 +1 → 同端口新 pid 重启 → 真实 Token 交换恢复（`973` 起）；② Gateway SIGKILL → 502 事实记录 → 停机期间 Run 仍 `COMPLETED`（RULE-01）→ 同地址重启（`1010` 起）；③ API-19 投影退避区间 + 按游标重连正文一致（`1058` 起）；④ 会话恰一 Run + 探针调用数 +1（`1080` 起）；⑤ SIGKILL 执行中 Runtime：租约行仍在且 `ACTIVE/UNKNOWN`、容量 inflight 未清零、替换后 Reaper 落 `FAILED/RUN_ABANDONED`、无双执行（`1092` 起）；⑥ Worker 替换（新端口）+ 经新实例提交的真实 Task `attempt=1`/`COMPLETED`（`1160` 起） |
+| S-15（预算） | `tests/acceptance/capacity/test_capacity.py:1240` | ② PG 总连接 = Σ 进程数×最大副本×(pool+overflow)+保留 ≤ `pg_connection_budget`；③ 每进程 FD 预算 ≤ `fd_budget`；④ SSE 总缓冲 ≤ 内存上限；⑤ 真实 PG 连接/四单元 RSS/FD 实测不越界（`1296`） |
+| S-15（浏览器） | `e2e/tests/webchat/capacity-recovery.spec.ts:323` | 真实 SIGKILL Gateway 监听进程 → 停机窗口经入口代理 **502** 且 `upstream_failures[im-gateway]` 上升（`374`）→ 停机期间在飞模型租约恰 `['ACTIVE']`（不误释放）→ `supervise.py` 同地址重启 + 入口快照可见（`396`）；重连间隔按 API-19 退避区间逐次核对（抖动源钉 0 ⇒ equal jitter 低端 `ceiling/2`，固定延迟实现会被上界挡下）+ 首次重连不在热循环（`402`）；恢复后正文逐字补齐、同一 `run_id`、零消息 POST、租约 `['SETTLED']`、探针调用数 +1（`444`）；FD ≤ `fd_budget`、PG 连接 ≤ `pg_connection_budget`（`455`）；第二条：四单元 `/healthz` + 入口代理路由/计数（`466`） |
 
-**真实边界（本轮实际链路）**：真实 Chrome（构建产物 + 入口代理）+ 真实 Gateway/Runtime/Worker + 真实 PG（本轮独占空库）+ 真实模型协议探针（真实 socket 与控制面）+ 真实 Console 管理 API（凭据在飞上限/用户记忆/设置保存，含真实 CSRF 与幂等键）+ 真实 SSE 与共享流层重连/游标语义；失败注入只用真实传输动作（`route.abort` 中止在飞事件流），种子只写真实行/调用真实产品服务。
+**真实边界（本轮实际链路）**：真实四单元 uvicorn 子进程（Console/Runtime/Worker/Gateway）+ 真实 PG（本模块独占空库 + `alembic head`）+ 隔离 Redis 号位 + 共享 RWX 卷 + 真实入口代理（分流表读 `deploy/k8s/base/ingress.yaml`）+ TASK-106 真实模型协议探针（真实 socket/控制面）+ 真实进程组故障控制（SIGTERM/SIGKILL 整组、同地址重启、新端口替换）+ 真实浏览器（构建产物 + 入口代理，`capacity-recovery.spec.ts`）+ 真实 API-19 投影/公开 SSE/`/metrics`/PG 行/进程 RSS/FD。
 
-**诚实边界（未 Mock、也未冒充覆盖）**：
-1. 契约里的「企微协议探针」不在 TASK-108 冻结的浏览器栈内（该栈机检固定 7 个 webServer）；S-02/S-104 用**同用户两个真实 WEBCHAT 入口**承载「两入口独立执行、停止/新建/确认只影响本入口、结果回原入口」的语义；企微 WSS 协议边界由 TASK-111 的 pytest E-19（真实 `WeComProbeServer`）承担。
-2. S-09 的「Runtime 容量」（`RUNTIME_EXECUTION_CONCURRENCY` 默认 8）需 ≥8 个并发慢 Run 才能耗尽、「工具容量」需真实 Skill/工具回合；本任务用**模型容量**（契约同列）触发等待，其余容量路径由 TASK-116 的 capacity-recovery 承担。
-3. S-103 的「服务实例切换」（进程替换）不在本栈能力内（Playwright webServer 不重启）；本用例覆盖断网（真实传输中止）与页面刷新恢复；进程级替换/重连由 TASK-111 的 pytest S-03 与 TASK-116 承担。
-4. E-109 的「待核实」终态在聊天页面上没有独立渲染（通知 `summary` 是读取层通用文案），页面侧断言通知可见/可定位/已读与不自动重试，待核实事实按 PG 行断言。
-5. 观察到的一次真实边界现象：`GET .../conversations`（会话索引）曾返回一次 500 `COMMON_INTERNAL_ERROR`（trace `39b06157-a335-4820-b946-506c13f1e6fc`；三服务应用日志无 `unexpected_error` 记录，重试即恢复）——本任务的重开路径改为直接按 URL 打开会话（不依赖侧栏索引），未掩盖任何契约断言。
+**诚实边界（未 Mock、也未冒充覆盖）**
 
-**为跑通功能命令做的最小补充（均已披露）**：
-1. `e2e/support/webchat-fixtures.ts`：`ADMIN_EXTRA_ROUTES` 增 4 条真实路由（`GET/PUT /model-credentials/{id}`、`POST/DELETE /users/{id}/memory`）+ `ConsoleAdminClient.readCredential/updateCredential/createUserMemory/clearUserMemory`（真实 Console API + CSRF；`Idempotency-Key` 逐次唯一）；`send` 支持显式头。`WEBCHAT_ROUTES`（机检逐项比对的那张表）未动，机检 16 passed 复跑通过。
-2. `tests/acceptance/capacity/webchat_browser_seed.py`：新增 `task-result` 原语（真实 Task 行 + `ToolOperation`/`ToolResultInbox` + 真实产品服务 `ChannelNotificationQueryService.register_task_result` 写 `TASK_RESULT` 通知）；`_seed_snapshot` 的 `policy_json` 由 `{}` 改为产品自己的 `snapshot_policy()`（resume/续跑读回要求 memory 分组逐叶齐全——原值会让真实 resume 500）。
-3. `e2e/support/webchat-seed.ts`：`WebchatSeed.taskResult(...)` 薄封装。
+1. **全量未跑**：S-01/S-14/S-15 的全量执行按任务 Checklist 留给 verify-e2e；本轮不做任何容量结论（契约行保持 `planned`）。
+2. **浏览器栈的进程控制范围**：Playwright `webServer` 不会在运行中重启进程（TASK-113 已记录同一事实）。本文件用 `tests/acceptance/capacity/supervise.py`（真实 uvicorn + 看护进程，跟随 worker 退出）补齐**浏览器侧**的 Gateway 单 Pod 真实重启；Console 重启与 Runtime/Worker 替换（新端口/租约保留/Reaper 终态）由 pytest 四单元栈承担 —— 两文件合起来才覆盖 S-15 全部分支。
+3. **抖动验证口径**：浏览器侧把抖动源钉成确定值（`Math.random → 0`，与前端单元测试注入确定 RNG 同口径），于是 equal jitter 低端成为可断言确定值；断言上界严格小于 `ceiling`，固定延迟实现不会因「看起来在退避」而被放过。真实随机分布的 per-attempt 抽样不是本用例的断言目标。
+4. **探针吞吐不冒充真实模型**：负载用受控探针（800ms 首块 + 6×5ms 小增量），`model.mode=CONTROLLED_PROBE` 已在 profile 记录；真实模型额度（RISK-07）不在本轮结论内。
+5. **harness 显式声明执行槽**：`RUNTIME_EXECUTION_CONCURRENCY=128`/`WORKER_EXECUTION_CONCURRENCY=16` 是容量 harness 的声明配置（§3.7 启动固定项），用例从**真实进程 env** 复核；不是产品默认值（默认 8/4）。
+6. **事件写入率口径**：按真实 `octet_length(payload_json::text)` + 每行 256B 头部/索引摊派估算，与 `storage_budget.event_bytes_per_day` 折算值比较；这是真实测量，若超预算即为真实容量发现（TASK-117 报告消费）。
+7. **内存口径**：进程 RSS（`ps`）与 profile 的 `memory_limit_mb` 对照；SSE 总缓冲另按声明值 ≤ 内存上限核对（进程内存预算约束）。
 
-**已知产品行为（如实记录，未修复）**：
-1. 模型等待中的协作取消：取消立即持久化、等待期间不越权领取模型，但停止在等待循环的下一次裁决点落地（额度释放后/等待预算到期）；终态在额度释放后为 `CANCELLED`（本用例实测路径）。
-2. 超预算帧（单帧 > `sse_event_max_bytes`）：服务端显式关闭订阅且不截断；客户端把 EOF 当可重试 → 每次重连都撞同一帧，重连预算被已应用进度/checkpoint 重置，表现为持续重连（本用例断言「显式重连 + 无截断 + 无伪造终态」）。
-3. `WAITING_INPUT` 的 Run 其 SSE 在服务端显式收尾（确认走 API-15），客户端会反复重连直到预算耗尽后停在显式重试动作；确认后的结果正文需要一次显式重试才可见（本用例按真实用户动作处理）。
+**为跑通功能命令做的最小补充（均已披露）**
 
-**E2E 行状态**：S-02/S-09/S-11/E-03/E-07/E-08/E-09/S-103/S-104/S-108/S-111/E-102/E-103/E-109 = verified（同一命令 8 passed；需求级 verify-e2e 复核保持不变）。
+1. `tests/acceptance/capacity/execution_support.py`：新增 `ChatUserSeed` + `seed_chat_users(...)`（批量真实用户/授权/Token，Token 只存摘要）—— 现有原语只种**单个**用户，1000 用户负载必须有 1000 份独立主体；纯新增，不改既有函数。
+2. `tests/acceptance/capacity/stack.py`：新增 `CapacityStack.restart_instance(...)`（同端口/同地址的新进程 = 单 Pod 重启）—— 既有 `replace_instance` 换新端口，会让其它单元与入口代理指向死地址（`_unit_urls`/`start_proxy` 在启动时冻结地址）；纯新增。
+3. `tests/acceptance/capacity/supervise.py`：新增真实 uvicorn 看护进程（就绪探测 + 跟随父进程回收）—— 浏览器栈内「重启后的单元」需要一个不留孤儿的真实进程宿主；新增文件，不被 pytest 采集。
+
+**已知产品行为（如实记录，未修复）**
+
+1. 执行中的 Run 在其 Runtime 实例被 SIGKILL 后：租约到期由 Reaper 落 `FAILED/RUN_ABANDONED`（不重建、不重跑），在飞模型租约保持 `ACTIVE`（容量占用不清零，远端是否停止未知）—— 与 `tests/acceptance/runtime/test_multipod_recovery.py` 既有口径一致。
+2. `POST /v1/runs` 返回的是执行事件流（SSE）：用例只读到首个帧拿 `run_id` 即断开（真实客户端断开），执行按 RULE-01 继续 —— 这是受理实例本地启动执行的直接证据（单 Pod 故障归属确定）。
+
+**E2E 行状态**：S-01/S-14/S-15 = planned（已写 + 轻验证：采集/静态/3 项受限冒烟；全量执行与结论留需求级 verify-e2e/TASK-118）。
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=08c2e5593e104c87be0fc620ca78dcbc (confirmed_by: runner)
+- S-14: e2e_deferred — automated command e2e_deferred; run_id=08c2e5593e104c87be0fc620ca78dcbc (confirmed_by: runner)
+- S-15: e2e_deferred — automated command e2e_deferred; run_id=08c2e5593e104c87be0fc620ca78dcbc (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] 写入两个验收文件：`tests/acceptance/capacity/test_capacity.py`（S-01/S-14/S-15 四条，ACCEPTANCE 全量负载 + 断流恢复 + 进程级重启/替换 + 预算核对）、`e2e/tests/webchat/capacity-recovery.spec.ts`（S-15 两条，真实 SIGKILL Gateway + 看护进程同地址重启 + 重连抖动 + 租约/预算）。
+- [2026-10-19] 最小补充（已披露）：`execution_support.seed_chat_users`、`stack.CapacityStack.restart_instance`、`supervise.py` 看护进程。
+- [2026-10-19] 编码期轻验证（全量按任务要求留给 verify-e2e）：`--collect-only` 4 条；`ruff check` 通过；`tests/capacity` 127 passed；浏览器栈机检 + e2e 套件契约 22 passed；`--list` 2 tests；3 项受限冒烟（进程控制 / 真实种子+17 条 SQL schema 校验 / 看护进程无孤儿）全绿；跑后无残留 `muad_acc_*`/`muad_e2e*` 库、无本栈孤儿进程。
+- [2026-10-19] 冒烟抓到并修正：`control.agent_definition` 的真实列名是 `runtime_config_json`（原写 `runtime_config`，空库执行时报 `UndefinedColumnError`）。
+- [2026-10-19] completed (done)
 
 ---
 
