@@ -1556,7 +1556,7 @@
       "kind": "functional",
       "boundary": "请求序号和 AbortSignal 屏蔽迟到响应；空列表、空 children 和字段边界完整显示",
       "owner": "TASK-093",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1566,7 +1566,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-102",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "29c594b344ba4c738cb1ffe7d46ee671",
+        "executed_at": "2026-10-19T02:19:30.714744+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_capacity_webchat_frontend_wiring.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "9805a9c68ee61b59b64c8510fc20b31382411eb98b2716f1186408a9c389adec"
+      },
+      "runs": [
+        {
+          "id": "B-102",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "29c594b344ba4c738cb1ffe7d46ee671",
+          "executed_at": "2026-10-19T02:19:30.714744+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_capacity_webchat_frontend_wiring.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "9805a9c68ee61b59b64c8510fc20b31382411eb98b2716f1186408a9c389adec"
+        }
+      ]
     },
     {
       "id": "S-108",
@@ -7606,7 +7647,7 @@
       "kind": "functional",
       "boundary": "真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E",
       "owner": "TASK-093",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -7616,7 +7657,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-293",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "29c594b344ba4c738cb1ffe7d46ee671",
+        "executed_at": "2026-10-19T02:19:30.714744+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_capacity_webchat_frontend_wiring.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "9805a9c68ee61b59b64c8510fc20b31382411eb98b2716f1186408a9c389adec"
+      },
+      "runs": [
+        {
+          "id": "B-293",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "29c594b344ba4c738cb1ffe7d46ee671",
+          "executed_at": "2026-10-19T02:19:30.714744+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_capacity_webchat_frontend_wiring.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "9805a9c68ee61b59b64c8510fc20b31382411eb98b2716f1186408a9c389adec"
+        }
+      ]
     },
     {
       "id": "B-294",
