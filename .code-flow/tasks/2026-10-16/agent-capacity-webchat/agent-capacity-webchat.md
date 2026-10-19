@@ -446,7 +446,7 @@
 | B-304 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.2 发布与迁移, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-104 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_deployment_preflight.py"] | . | 300 |  |
 | B-305 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | unit | 真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收 | TASK-105 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_profile.py"] | . | 300 |  |
 | B-306 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-106 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_http_probes.py"] | . | 300 |  |
-| B-307 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-107 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_isolated_stack.py"] | . | 300 |  |
+| B-307 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-107 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_isolated_stack.py"] | . | 300 |  |
 | B-308 | agent-capacity-webchat.frontend.design.md#2.4 验收条件, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-108 | planned | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_harness.py"] | . | 300 |  |
 | B-309 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-109 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_driver.py"] | . | 300 |  |
 | B-317 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-117 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_capacity_report.py"] | . | 300 |  |
@@ -6750,7 +6750,7 @@ HTTP模型可设置延迟/增量/usage/429/断流/应答丢失，企微走实际
 
 ## TASK-107: 四单元独立验收栈与故障进程控制
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-104, TASK-106
 - **Source**: agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告
@@ -6765,25 +6765,58 @@ HTTP模型可设置延迟/增量/usage/429/断流/应答丢失，企微走实际
 
 ### Checklist
 
-- [ ] [B-307][integration] 先在`tests/capacity/test_capacity_webchat_isolated_stack.py`建立行为验收并记录RED；真实边界：实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测；关键断言：复用验收自动空库+alembic与隔离Redis编号，真实服务进程/共享卷/代理可起停及替换实例。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-307] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-307] 执行`["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_isolated_stack.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-307][integration] 先在`tests/capacity/test_capacity_webchat_isolated_stack.py`建立行为验收并记录RED；真实边界：实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测；关键断言：复用验收自动空库+alembic与隔离Redis编号，真实服务进程/共享卷/代理可起停及替换实例。 → RED：`uv run pytest -q tests/capacity/test_capacity_webchat_isolated_stack.py` = **1 error, 0 passed（exit=2）**，collection ERROR `ModuleNotFoundError: No module named 'tests.acceptance.capacity.stack'`；实现后 GREEN 9 passed。真实边界逐项见下方 Acceptance Evidence（真实 PG/Redis、真实 uvicorn 子进程、真实共享卷文件探测、真实反向代理、真实 SSE 探针子进程）。
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。 → `tests/acceptance/capacity/stack.py`（四单元栈）+ `tests/acceptance/capacity/conftest.py`（`capacity_profile_path`/`capacity_stack` session fixture）；AST 检查三个文件全部函数 ≤50 行；ruff（E/F/I/B/UP）干净；失败分支显式报错（启动未就绪带回日志尾部、超 `max_replica_counts` 拒绝、SIGKILL 后不退出报错、收尾 drop 失败不吞）；栈内 env 只放栈内随机 token（`capacity-internal-<uuid>`），代理控制面/探针控制面只回路由与计数，不含凭据原文。
+- [x] [B-307] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。 → 8 个用例覆盖 ①空库+alembic head+10–15 号占号 ①b 复用会话库 ②真实子进程/端口/进程组/OS env ③共享卷（含删目录→503 边界）④代理分流（含停机→连接失败、重启恢复）⑤探针真实 SSE ⑥SIGKILL 整组/替换实例/优雅停机 ⑦profile 副本数与超上限拒绝 ⑧收尾只清本轮（含 dev 残留核对）；位置（行号）见下方 Evidence 表。
+- [x] [B-307] 执行`["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_isolated_stack.py"]`并记录GREEN、关键断言位置和实际组件证据。 → **9 passed（exit=0，8.7–9.5s）**；聚焦回归 `uv run pytest -q tests/capacity` = **121 passed（exit=0，16.1s）**；跑完 `ps` 无 uvicorn/pytest/探针残留，`pg_database` 无 `muad_acc_*` 残留。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-307 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | 复用验收自动空库+alembic与隔离Redis编号，真实服务进程/共享卷/代理可起停及替换实例；检查dev残留，结束只清本轮数据/进程，不动共享dev库 | tests/capacity/test_capacity_webchat_isolated_stack.py | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_isolated_stack.py"] | planned |
+| B-307 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | 复用验收自动空库+alembic与隔离Redis编号，真实服务进程/共享卷/代理可起停及替换实例；检查dev残留，结束只清本轮数据/进程，不动共享dev库 | tests/capacity/test_capacity_webchat_isolated_stack.py | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_isolated_stack.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+B-307（functional/integration）—— 命令与计数：
+
+| 项 | 命令 | 结果 |
+|---|---|---|
+| RED（先建用例后实现） | `uv run pytest -q tests/capacity/test_capacity_webchat_isolated_stack.py` | **1 error, 0 passed（exit=2）**；collection ERROR：`ModuleNotFoundError: No module named 'tests.acceptance.capacity.stack'`（2026-10-19） |
+| GREEN（functional） | `uv run pytest -q tests/capacity/test_capacity_webchat_isolated_stack.py` | **9 passed（exit=0，8.72s）** |
+| 聚焦回归 | `uv run pytest -q tests/capacity` | **121 passed（exit=0，16.12s）** |
+| 静态检查 | `uv run ruff check tests/acceptance/capacity/ tests/capacity/test_capacity_webchat_isolated_stack.py` | All checks passed（E/F/I/B/UP，line-length 110）；AST 复核三文件全部函数 ≤50 行 |
+| 残留检查 | `ps -eo pid,etime,command \| grep -E "uvicorn muad_\|tests\.acceptance\.capacity\|pytest"`；`pg_database WHERE datname LIKE 'muad_acc_%'` | 无进程残留、无临时库残留；共享 dev 库（`muad`）与 0 号 Redis 未被写入 |
+
+关键断言位置（`tests/capacity/test_capacity_webchat_isolated_stack.py`）：
+
+| 断言 | 位置 | 实测组件证据 |
+|---|---|---|
+| ① 空库+alembic head+隔离 Redis 号位 | L139-163：`muad_acc_` 前缀 L144、`alembic_version == migration_head(migrations/versions)` L150、`to_regclass('runtime.run_record')` L153、号位在 10–15 L159、占号值=库名 L160、dev 0 号无占号键 L163 | 真实 PG 查表（`tests/acceptance/datastores.create_datastore` 建库 + `alembic upgrade head`）；真实 Redis 占号键 `muad:acceptance:db-claim` |
+| ①b 复用会话已建独立库（不裂脑） | L166-189：`owns=False` L180、库/号位一致 L181-183、复用句柄收尾不 drop L186-189 | 真实再建一份临时库后由 `acquire_datastore()` 复用；收尾 `pg_database` 仍见该库、号位仍被持有 |
+| ② 四单元真实子进程/端口/进程组/OS env | L199-228：独立 pid L214、`pgid == pid` L215、真实命令行 `uvicorn <module>:app` L216、`ps eww` env（`DATABASE_URL/REDIS_URL/ARTIFACT_ROOT/SKILL_CACHE_ROOT` + 栈标识）L219-226、真实 `/healthz` L227 | profile `replica_counts` 决定 6 个 uvicorn 子进程（console 1/runtime 2/worker 2/gateway 1），端口互异且避开 dev 8000–8003 |
+| ③ 共享卷 | L231-263：Worker `/readyz` 自报 `artifact_root` L241、Runtime `artifact_storage` L246、四单元同挂 L250-253、删目录→503 L256-257、恢复→200 L259、真实文件读写 L262-263 | 真实目录（RWX 口径）；就绪检查是真实文件系统探测（删目录立刻 503），不是缓存回执 |
+| ④ 入口代理按 ingress 清单分流、可起停 | L266-306：分流表逐条 == `deploy/k8s/base/ingress.yaml` L271、认证面→Console L289/L295、聊天 API→Gateway L292/L296、站点兜底 L297、停机→`TransportError` L302-303、重启恢复 L305-306 | 真实反向代理子进程；代理计数与直连后端状态码对照（404/422 差异可辨） |
+| ⑤ HTTP 协议探针子进程真实 SSE | L309-325：独立 pid L312、`data:` 增量帧与 `[DONE]` L322-323、控制面计数 L325 | `python -m tests.acceptance.capacity.probes` 真实子进程（TASK-106 探针） |
+| ⑥ 故障进程控制（SIGKILL 整组/替换实例/优雅停机） | L328-353：整组消失 L332-335、兄弟副本不受影响 L339-340、替换实例新 pid/端口且同库/卷/号位 L342-348、SIGTERM 整组 L353 | `os.killpg(pgid, 0)` → `ProcessLookupError`；端口可重新 bind；替换实例 `ps eww` env 与栈一致 |
+| ⑦ profile 副本数驱动 + 超上限拒绝 | L356-374：实例数 == `replica_counts` L363-364、超 `max_replica_counts` → `ValueError` L373-374 | 真实锁定 profile（`tests/capacity/profiles/agent-capacity-webchat.example.yml`）；失败分支在启动前显式拒绝 |
+| ⑧ 收尾只清本轮、dev 不受影响 | L377-401：进程/组消失 L387-389、代理与探针停 L390、共享卷移除 L391、本轮库 drop L393、无 `muad_acc_*` 残留 L394-396、dev 库仍在 L397-399、号位释放 L400-401 | 真实 `pg_database`/占号键只读核对；共享 dev 库与 0 号 Redis 全程未被写入 |
+
+鉴别力复核（变异检验，2026-10-19）：把 `_ProxyServer.route_for` 临时改成恒回 `console-platform`，用例 ④ 立即失败（`404 == 422`），还原后复绿 —— 分流断言不是恒真。
+
+真实边界说明（按任务范围）：本任务验证的是**栈基座**（库/Redis/进程/共享卷/代理/故障控制），四单元为真实 uvicorn 子进程 + 真实 PG/Redis；容量负载与业务链路（S-01/S-14/S-15 的 1000 用户与业务断言）仍由 TASK-110/116 的 E2E 承担，本任务不声称业务容量已达标。`capacity_stack` fixture 已按 session 粒度接好，供 TASK-108/109/110/111/116 复用（验收会话内复用同一独立库，避免 seed 与服务裂脑）。
+- B-307: verified — automated command passed; run_id=9aa20e651f124d47a6b094877333702e (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] B-307 RED：先建 `tests/capacity/test_capacity_webchat_isolated_stack.py` → **1 error, 0 passed（exit=2）**，collection ERROR `ModuleNotFoundError: No module named 'tests.acceptance.capacity.stack'`
+- [2026-10-19] 实现：`tests/acceptance/capacity/stack.py`（复用验收空库+alembic 与 10–15 号 Redis 占号、真实 uvicorn 子进程与独立进程组、共享 `ARTIFACT_ROOT`、按 `deploy/k8s/base/ingress.yaml` 分流的真实反向代理子进程、TASK-106 探针子进程、SIGKILL/SIGTERM 整组与替换实例、幂等收尾只清本轮）+ `tests/acceptance/capacity/conftest.py`（`capacity_profile_path`/`capacity_stack` session fixture）
+- [2026-10-19] B-307 GREEN：9 passed（8.72s）；聚焦回归 `tests/capacity` → 121 passed；ruff 干净、函数 ≤50 行；无残留进程/临时库
+- [2026-10-19] 变异检验：代理恒回 Console → 用例 ④ 红（`404 == 422`），还原后绿（断言有鉴别力）
+- [2026-10-19] completed (done)
 
 ---
 
