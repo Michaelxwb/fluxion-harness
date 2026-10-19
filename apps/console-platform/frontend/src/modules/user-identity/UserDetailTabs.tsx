@@ -330,6 +330,9 @@ function credentialTagKey(status?: string): { color: 'green' | 'red' | 'grey'; k
  * 凭据区域的 Webchat Token 单例（API-03）：元信息由这里读取（带请求竞态守卫，
  * 切换用户时迟到响应不写状态），卡片只负责展示与写入；每次写入后都重读元信息，
  * 版本与状态一律以读取结果为准。
+ *
+ * 重读是**后台刷新**：只有首次读取（还没有元信息）才用骨架替换内容——否则刷新会把卡片卸载，
+ * 本次签发的原文结果框随之消失（S-114 要求原文只在本次结果框显示、关闭才清除）。
  */
 function WebchatTokenSection(props: { userId: string }) {
   const { t } = useTranslation();
@@ -367,7 +370,7 @@ function WebchatTokenSection(props: { userId: string }) {
   return (
     <div>
       <div className="detail-section-title">{t('user.webchatToken.title')}</div>
-      {loading ? (
+      {loading && metadata === null ? (
         <Spin style={{ display: 'block', margin: '24px auto' }} />
       ) : failed ? (
         <ErrorState onRetry={() => void load()} />

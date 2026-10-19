@@ -27,6 +27,9 @@ import { request as playwrightRequest, test as base, expect } from '@playwright/
 /** 仓库根：`uv run` 与 PG 脚本都在这里执行（与其它域 spec 的 `execFileSync` 同口径）。 */
 const REPO = fileURLToPath(new URL('../..', import.meta.url));
 
+/** playwright fixture 的最小结构类型（本版本 @playwright/test 不导出 Playwright 别名）。 */
+export type PlaywrightRequester = { readonly request: typeof import('playwright-core').request };
+
 // --------------------------------------------------------------------------- 栈地址（env 契约）
 
 /** 域配置冻结的 stack env 名：夹具只按这些名字读取，缺一个都显式失败。 */
@@ -592,46 +595,56 @@ export class ModelFaultControl {
 // --------------------------------------------------------------------------- 固定夹具
 
 /**
- * 等入口进入网关快照（真实收敛，不伪造可见性）。
- *
- * 网关的入口快照按 `BOT_SNAPSHOT_POLL_SEC` 节拍从 Console 拉取（本域配置注入 1s），夹具在栈
- * 起来之后才建入口 ⇒ 立刻用浏览器打开会命中"该聊天入口不存在或未获授权"。这里用**真实
- * `GET /webchat/entries`**（用户自己的 CHAT 会话）轮询到可见为止；超时显式失败，不静默放过。
+ * Gateway 的入口事实来自 30 秒周期的 `BotSnapshotCache`（`BOT_SNAPSHOT_POLL_SEC`）：刚建的入口
+ * 要等一次刷新才出现在 `/api/v1/webchat/entries` 与入口解析里。夹具按**真实 HTTP 轮询**等它出现
+ * （有界、显式失败），不 sleep 猜时间、也不跳过入口校验。
  */
+export const ENTRY_SNAPSHOT_WAIT_MS = 45_000;
+export const ENTRY_SNAPSHOT_POLL_MS = 1_000;
+
 async function waitForEntryVisible(
+  playwright: PlaywrightRequester,
   stack: WebchatStack,
-  entryId: string,
-  token: string,
-  timeoutMs = 20_000
+  session: WebchatUserSession
 ): Promise<void> {
-  const context = await playwrightRequest.newContext({ baseURL: stack.baseURL });
+  const context = await playwright.request.newContext({
+    baseURL: stack.baseURL,
+    extraHTTPHeaders: { Origin: stack.baseURL }
+  });
   try {
-    const session = (await exchangeChatToken(context, stack, token)) as {
-      auth_context_id: string;
-    };
-    const deadline = Date.now() + timeoutMs;
+    const exchanged = await exchangeChatToken(context, stack, session.chatToken.token);
+    const authContextId = String(exchanged.auth_context_id ?? '');
+    const deadline = Date.now() + ENTRY_SNAPSHOT_WAIT_MS;
     for (;;) {
-      const response = await context.get(`${stack.baseURL}/api/v1/webchat/entries`, {
-        headers: { Accept: 'application/json', 'X-Chat-Context': session.auth_context_id }
+      const response = await context.get('/api/v1/webchat/entries', {
+        headers: { 'X-Chat-Context': authContextId }
       });
-      const body = (await response.json().catch(() => null)) as ApiEnvelope | null;
-      const items = (body?.data as { items?: { entry_id?: string }[] } | undefined)?.items ?? [];
-      if (items.some((item) => item.entry_id === entryId)) return;
-      if (Date.now() > deadline) {
-        throw new Error(`入口未在 ${timeoutMs}ms 内进入网关快照：${entryId}`);
+      if (response.ok()) {
+        const body = (await response.json()) as { data?: { items?: { entry_id?: string }[] } };
+        if ((body.data?.items ?? []).some((item) => item.entry_id === session.entry.entryId)) {
+          return;
+        }
       }
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      if (Date.now() > deadline) {
+        throw new Error(
+          `入口 ${session.entry.entryId} 在 ${String(ENTRY_SNAPSHOT_WAIT_MS)}ms 内未出现在 Gateway 入口快照中`
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, ENTRY_SNAPSHOT_POLL_MS));
     }
   } finally {
     await context.dispose();
   }
 }
 
-/** 多用户/多入口种子：A/B 各自“用户 + Agent + WEBCHAT 入口 + 授权 + 随机 Token”。 */
+/**
+ * 多用户/多入口种子：A/B 各自“用户 + Agent + WEBCHAT 入口 + 授权 + 随机 Token”，并等到两个入口
+ * 都出现在 Gateway 的入口快照里（否则后续聊天请求会以 404/未授权失败）。
+ */
 export async function seedMultiUserEntries(
   admin: ConsoleAdminClient,
   stack: WebchatStack,
-  playwright: Playwright
+  playwright: PlaywrightRequester
 ): Promise<WebchatUserPair> {
   const model = await admin.ensureWebchatModel();
   const build = async (label: string): Promise<WebchatUserSession> => {
@@ -653,10 +666,16 @@ export async function seedMultiUserEntries(
     await admin.grantAgent(account.id, agent.agentId);
     const chatToken = await admin.issueChatToken(account.id);
     // 入口可见性收敛在夹具边界完成：用例拿到的一定是网关快照里真实可见的入口。
-    await waitForEntryVisible(stack, entry.entryId, chatToken.token);
-    return { account, agent, entry, chatToken };
+    const session: WebchatUserSession = { account, agent, entry, chatToken };
+    await waitForEntryVisible(playwright, stack, session);
+    return session;
   };
-  return { a: await build('a'), b: await build('b') };
+  const pair = { a: await build('a'), b: await build('b') };
+  await Promise.all([
+    waitForEntryVisible(playwright, stack, pair.a),
+    waitForEntryVisible(playwright, stack, pair.b)
+  ]);
+  return pair;
 }
 
 /**
@@ -711,7 +730,7 @@ export type WebchatTestFixtures = {
  * - `webchatStack`：本域栈地址/租户/OFFSET（缺 env 显式失败）；
  * - `webchatAdmin`：已登录 ADMIN（真实 Console API + 真实 CSRF 双提交）；
  * - `webchatFaults`：模型探针故障控制（用例前后各复位一次）；
- * - `webchatUsers`：多用户/多入口 A/B（含随机 Token）。
+ * - `webchatUsers`：多用户/多入口 A/B（含随机 Token），并等入口进入 Gateway 快照。
  */
 export const test = base.extend<WebchatTestFixtures>({
   webchatStack: async ({}, use) => {

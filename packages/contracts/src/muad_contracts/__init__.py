@@ -21,6 +21,7 @@ from .channel import (
 )
 from .delivery import DeliveryMessage, DeliveryRequest, DeliveryResponse
 from .enums import (
+    OUTBOUND_CHANNELS,
     ArtifactValidationStatus,
     ChannelName,
     CompletionMode,
@@ -104,6 +105,7 @@ __all__ = [
     "InboxMaterializationState",
     "MAX_TOOL_RESULT_BYTES",
     "OperationErrorPhase",
+    "OUTBOUND_CHANNELS",
     "OperationStatus",
     "RETRY_SAFETY_POLICY_KEY",
     "RuntimeOperationInput",

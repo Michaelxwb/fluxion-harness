@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
   // `require_chat_origin`（`is_same_origin` 用请求自身 scheme://host 比对 Origin），
   // 改写成后端自身 Host 会让浏览器/代理链上的交换一律异源 403。
   const apiProxy = {
+
     '/api': { target: apiTarget, changeOrigin: false },
     '/healthz': { target: apiTarget, changeOrigin: false }
   };

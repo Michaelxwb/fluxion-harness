@@ -25,7 +25,7 @@ import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from muad_api import AppError
@@ -115,14 +115,17 @@ class ChatStreamGuard:
         self._now = now
 
     async def rechecked[ItemT](self, events: AsyncIterator[ItemT]) -> AsyncIterator[ItemT]:
-        """事件流 + 定时复核：事件原样转发，复核只按定时器发生（事件洪峰不触发控制面查询）。"""
+        """事件流 + 定时复核：事件原样转发，复核按**周期**发生（事件到达不推迟复核、洪峰也不
+        触发按 token 的控制面查询）。"""
         iterator = events.__aiter__()
         pending: asyncio.Task[ItemT] = asyncio.ensure_future(anext(iterator))
+        next_recheck_at = self._now() + timedelta(seconds=self._recheck_sec)
         try:
             while True:
-                done, _ = await asyncio.wait({pending}, timeout=self._next_wait_sec())
+                done, _ = await asyncio.wait({pending}, timeout=self._wait_sec(next_recheck_at))
                 if not done:
                     await self._recheck()
+                    next_recheck_at = self._now() + timedelta(seconds=self._recheck_sec)
                     continue
                 try:
                     event = pending.result()
@@ -136,14 +139,22 @@ class ChatStreamGuard:
             with suppress(asyncio.CancelledError, StopAsyncIteration):
                 await pending
 
-    def _next_wait_sec(self) -> float:
-        """下一次复核的等待时长：复核周期与到 `expires_at` 的剩余时间取小（不为负）。
+    def _wait_sec(self, next_recheck_at: datetime) -> float:
+        """下一次等待时长：**周期复核截止**与到 `expires_at` 的剩余时间取小（不为负）。
 
-        `expires_at` 是 Console 给出的权威到期时刻（TASK-043 交接），本地钟只用于**排程**这个
-        停止点；到点即停，不越过会话期限继续等。
+        复核截止一旦排定就只由到点推进：事件（心跳/增量）到达不会把它推后——否则事件比复核周期
+        密时复核永远轮不上，撤销/到期只能等流自然结束（设计 §3.4：空闲也复核、不得只在收到模型
+        增量时检查）。`expires_at` 是 Console 给出的权威到期时刻（TASK-043 交接），本地钟只用于
+        **排程**这个停止点；到点即停，不越过会话期限继续等。
         """
-        remaining = (self._identity.expires_at - self._now()).total_seconds()
-        return max(0.0, min(self._recheck_sec, remaining))
+        now = self._now()
+        return max(
+            0.0,
+            min(
+                (next_recheck_at - now).total_seconds(),
+                (self._identity.expires_at - now).total_seconds(),
+            ),
+        )
 
     async def _recheck(self) -> None:
         """到点复核：到期即停；否则经 Console 重放凭据（撤销/失效在此抛错终止流）。"""

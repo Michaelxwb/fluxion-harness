@@ -11,8 +11,7 @@
   是数据库完整唯一事实。`delivery_key` 稳定 ⇒ 重投（崩溃重放/主动补投）返回**原行**：不新占
   seq、不新增未读；隐藏（软删）通知同样保留唯一回执，不因隐藏而重新投递。
 - **投递状态按入口通道选择**（design §3.6「机器人终态交付」）：机器人入口
-  （见 `muad_contracts.enums.OUTBOUND_DELIVERY_CHANNELS`：有真实主动投递适配器的通道）的
-  终态/待确认写 `PENDING` 出站意图——它由 Runtime 独立
+  （见 `muad_contracts.OUTBOUND_CHANNELS`：有真实主动投递适配器的通道）的
   投递泵按租约经既有 Gateway 适配器交付，**不依赖 Gateway 内存里的订阅/回复会话**；网页持久
   入箱是 `NOT_REQUIRED`（站内通知没有出站目标）。`TASK_RESULT` 恒为 `NOT_REQUIRED`：任务结果
   的机器人出站由 Worker 投递链按自己的投递路由负责，不在这里重复表达。
@@ -33,8 +32,7 @@ from typing import Literal
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import ChannelContext
-from muad_contracts.enums import OUTBOUND_DELIVERY_CHANNELS
+from muad_contracts import OUTBOUND_CHANNELS, ChannelContext
 from pydantic import ValidationError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,8 +60,7 @@ DELIVERY_NOT_REQUIRED = "NOT_REQUIRED"
 DELIVERY_PENDING = "PENDING"
 #: `channel_notification.delivery_state` 取值（与 0026 的 CHECK 同词表）。
 DELIVERY_STATES = (DELIVERY_PENDING, "DELIVERING", "DELIVERED", "UNKNOWN", DELIVERY_NOT_REQUIRED)
-#: 有真实主动投递能力的机器人通道：词表在类型定义处（核心域不出现通道字样）。
-OUTBOUND_CHANNELS = OUTBOUND_DELIVERY_CHANNELS
+#: 有真实主动投递能力的机器人通道见 `muad_contracts.OUTBOUND_CHANNELS`（词表定义处只此一处）。
 
 
 def terminal_delivery_state(run: RunRecord) -> str:
