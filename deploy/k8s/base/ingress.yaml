@@ -1,0 +1,103 @@
+# 同源入口代理：浏览器（页面 + 聊天 API + SSE）只走一个站点，按路径分流到 Console/Gateway
+# （design 后端 §4.1 部署与容量、前端 §3.2 页面与路由）。
+#
+# 分流口径（`pathType: Prefix` 的最长前缀优先，与 ingress-nginx 一致；更具体的规则在前）：
+#   1) `/api/v1/webchat/auth` → Console：Token 交换/恢复/登出（CHAT 公开认证面）；
+#   2) `/api/v1/webchat`（其余聊天消息/事件/附件/通知 API）→ Gateway；
+#   3) `/api`（普通 Console API）保持原路由 → Console，不被更长的聊天前缀吞掉；
+#   4) `/chat`、`/assets` 与站点兜底 `/` → Console：前端产物在同一镜像内由 SPA 回退提供，
+#      直接刷新 `/chat/{entryId}` 返回页面；不新增前端 Pod/Service（frontend §3.2）。
+#
+# - 入口代理按 ingress-nginx 部署（校验类 `nginx`，注解按它的口径生效）。
+# - 站点域名不在这里编造：规则不写 `host`，部署方按实际站点域名用 overlay 指定。
+# - 内部端点（`/internal/*`）仍要求 `X-Internal-Service`，不在这里单独放行。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: muad-webchat
+  namespace: muad
+  annotations:
+    # 请求体上限与应用硬上限共用同一组值（ConfigMap 的 CHAT_*_HARD_MAX_BYTES）：
+    # ingress-nginx 默认 1m 会在代理处把上传（50MiB）截断成 413，与应用上限不一致。
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          # 1) 认证路径（更具体，列在聊天 API 之前）：/api/v1/webchat/auth/* → Console。
+          - path: /api/v1/webchat/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: muad-console-platform
+                port:
+                  number: 8000
+          # 2) 其余聊天 API → Gateway（SSE 实时链路由 Gateway 承担，见 muad-webchat-sse）。
+          - path: /api/v1/webchat
+            pathType: Prefix
+            backend:
+              service:
+                name: muad-im-gateway
+                port:
+                  number: 8003
+          # 3) 普通 Console API 保持原路由 → Console。
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: muad-console-platform
+                port:
+                  number: 8000
+          # 4) 聊天页面与静态资源 → Console（构建产物与 SPA 回退在同一镜像内）。
+          - path: /chat
+            pathType: Prefix
+            backend:
+              service:
+                name: muad-console-platform
+                port:
+                  number: 8000
+          - path: /assets
+            pathType: Prefix
+            backend:
+              service:
+                name: muad-console-platform
+                port:
+                  number: 8000
+          # 5) 站点兜底（/、index.html、其它 Console 页面）→ Console 的 SPA 回退。
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: muad-console-platform
+                port:
+                  number: 8000
+---
+# SSE 实时链路（GET /api/v1/webchat/runs/{run_id}/events）单独一条：
+# 关闭响应缓冲，且空闲超时覆盖心跳——`proxy-read-timeout`/`proxy-send-timeout` 取
+# 3× RUN_EVENT_HEARTBEAT_SEC（ConfigMap 15s ⇒ 45s），与 SharedSettings 的
+# STREAM_HTTP_READ_TIMEOUT_SEC 同口径（≥3× 心跳，容忍一次丢帧）；应用侧同时下发
+# `X-Accel-Buffering: no`（webchat_streams.py 的 SSE_STREAM_HEADERS），两层都不缓冲。
+# 该前缀比主入口的 /api/v1/webchat 更具体 ⇒ 最长前缀优先命中这里，不影响控制类 API。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: muad-webchat-sse
+  namespace: muad
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "45"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "45"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/v1/webchat/runs
+            pathType: Prefix
+            backend:
+              service:
+                name: muad-im-gateway
+                port:
+                  number: 8003

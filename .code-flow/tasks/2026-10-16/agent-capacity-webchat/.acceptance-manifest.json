@@ -8187,7 +8187,7 @@
       "kind": "functional",
       "boundary": "真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据",
       "owner": "TASK-102",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -8197,7 +8197,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-302",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "082c1750da61491eb0a7e06981e7f694",
+        "executed_at": "2026-10-19T02:56:27.823142+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/architecture/test_capacity_webchat_configmap_ingress.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "37928c2024fee27f4dd9a5f2495c4295de82e6fb7990bbb6934dcdd22c0fa283"
+      },
+      "runs": [
+        {
+          "id": "B-302",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "082c1750da61491eb0a7e06981e7f694",
+          "executed_at": "2026-10-19T02:56:27.823142+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_capacity_webchat_configmap_ingress.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "37928c2024fee27f4dd9a5f2495c4295de82e6fb7990bbb6934dcdd22c0fa283"
+        }
+      ]
     },
     {
       "id": "B-303",

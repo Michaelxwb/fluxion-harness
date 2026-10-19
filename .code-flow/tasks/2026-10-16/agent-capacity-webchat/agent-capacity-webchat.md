@@ -441,7 +441,7 @@
 | B-299 | agent-capacity-webchat.backend.design.md#3.5 质量实现方案, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-099 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_worker_console_metrics.py"] | . | 300 |  |
 | B-300 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-100 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_console_gateway_deploy.py"] | . | 300 |  |
 | B-301 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.2 发布与迁移 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-101 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_runtime_worker_deploy.py"] | . | 300 |  |
-| B-302 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-102 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_configmap_ingress.py"] | . | 300 |  |
+| B-302 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-102 | verified | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_configmap_ingress.py"] | . | 300 |  |
 | B-303 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-103 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_hpa_budget.py"] | . | 300 |  |
 | B-304 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.2 发布与迁移, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | TASK-104 | planned | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_deployment_preflight.py"] | . | 300 |  |
 | B-305 | agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | unit | 真实typed schema/协议函数与完整输入边界；无网络和数据库替身来冒充跨服务验收 | TASK-105 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_profile.py"] | . | 300 |  |
@@ -6468,7 +6468,7 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 
 ## TASK-102: 启动配置和同源HTTP/SSE路径分流
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-100, TASK-101
 - **Source**: agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.frontend.design.md#3.2 页面与路由
@@ -6483,25 +6483,43 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 
 ### Checklist
 
-- [ ] [B-302][integration] 先在`tests/architecture/test_capacity_webchat_configmap_ingress.py`建立行为验收并记录RED；真实边界：真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据；关键断言：服务URL/租户/非敏感预算显式配置，认证路径优先转Console、其余聊天API转Gateway、/chat与静态到Console。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-302] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-302] 执行`["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_configmap_ingress.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-302][integration] 先在`tests/architecture/test_capacity_webchat_configmap_ingress.py`建立行为验收并记录RED；真实边界：真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据；关键断言：服务URL/租户/非敏感预算显式配置，认证路径优先转Console、其余聊天API转Gateway、/chat与静态到Console。→ RED：首建 479 行、9 个行为用例（无参数化）；`uv run pytest -q tests/architecture/test_capacity_webchat_configmap_ingress.py` → **6 failed, 3 passed in 0.44s**（失败=ConfigMap 尚无 webchat/SSE 入口预算键、`ingress.yaml` 尚不存在；已绿 3 例是**回归保护**的既有事实：ConfigMap 经 envFrom 注入四单元、四个 URL 指向真实 Service、既有键都有真实消费点且无凭据，断言未削弱）
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 实现落在计划 Files 的 2 个文件（无应用代码改动）：`deploy/k8s/base/configmap.yaml` 显式列出 webchat/SSE 入口预算（心跳/订阅上限/SSE 帧与缓冲/聊天硬上限/长流复核/流读超时，9 键，值等于 `SharedSettings` typed 默认）；`deploy/k8s/base/ingress.yaml`（新建，2 个 Ingress：主入口按最长前缀分流 + SSE 专用入口关缓冲/超时）；测试文件 479 行、9 用例，辅助函数最长 27 行、用例最长 24 行，均 ≤50；强类型 `IngressRoute` dataclass + `Any` 仅用于 YAML 边界；`_docs`/`_router_prefix`/`_url_target`/`_manifest_number`/`_size_bytes`/`_seconds_annotation` 对缺失或非法项**显式报错**不静默取默认；断言只读清单/源码/typed 配置，无凭据、无原始内部内容
+- [x] [B-302] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 9 个用例逐条对应契约 5 组断言（见 Acceptance Evidence 断言位置列）；另做 7 处变异验证断言判别性（先复现失败再还原）
+- [x] [B-302] 执行`["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_configmap_ingress.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **9 passed in 0.47s**（exit=0，最终冻结版本；变异还原后复跑 0.41s 全绿）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-302 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | 服务URL/租户/非敏感预算显式配置，认证路径优先转Console、其余聊天API转Gateway、/chat与静态到Console；SSE禁缓冲且代理超时覆盖心跳 | tests/architecture/test_capacity_webchat_configmap_ingress.py | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_configmap_ingress.py"] | planned |
+| B-302 | integration | 真实源码依赖图、渲染后的部署清单及实际typed配置；不访问共享dev数据 | 服务URL/租户/非敏感预算显式配置，认证路径优先转Console、其余聊天API转Gateway、/chat与静态到Console；SSE禁缓冲且代理超时覆盖心跳 | tests/architecture/test_capacity_webchat_configmap_ingress.py | ["uv","run","pytest","-q","tests/architecture/test_capacity_webchat_configmap_ingress.py"] | verified |
 
 ### Acceptance Evidence
 
-> 尚未编码或运行。本任务开始后记录functional的RED/GREEN、命令/退出码、断言位置和真实边界；E2E保持planned，最终verify-e2e记录完整证据。required verifier由本任务负责，review前不得声称已通过。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-302 | 首建 `tests/architecture/test_capacity_webchat_configmap_ingress.py`（479 行、9 用例）→ `uv run pytest -q tests/architecture/test_capacity_webchat_configmap_ingress.py` → **6 failed, 3 passed in 0.44s**（失败=ConfigMap 尚无 webchat/SSE 入口预算键、`ingress.yaml` 尚不存在；3 例为既有事实的回归保护：ConfigMap 经 envFrom 注入四单元、四个 URL 指向真实 Service、既有键都有真实消费点且无凭据） | 同命令（ConfigMap 补齐入口预算 + 新建 ingress.yaml 后）→ **9 passed in 0.47s**（exit=0）；变异还原后复跑 **9 passed in 0.41s** | ①ConfigMap 注入/URL/租户 `test_configmap_reaches_all_units_and_service_urls_point_at_real_services` L325-346（四单元 envFrom `muad-common` L332；URL 存在 L336；host==`muad-<unit>` L338；host 是真实 Service L339；端口在真实端口集合内 L340；租户非空 L344、非占位符 L345）；②入口预算显式且等于 typed 默认 `test_configmap_declares_entry_budgets_equal_to_typed_defaults` L350-361（9 个必需键缺失即红 L354；每个键都是 `SharedSettings` 字段 L357；数值键==typed 默认 L359-361）；③不写不生效的键 `test_declared_configmap_keys_have_real_consumption_points` L365-370（每个键都要有 `settings.<field>` 或 `os.getenv` 消费点 L369）；④非敏感才进 ConfigMap `test_configmap_carries_no_credentials` L374-381（键无 token/secret/password/credential L377；值非占位符/密钥材料 L380）；⑤认证优先转 Console、其余聊天 API 转 Gateway `test_ingress_routes_auth_to_console_and_other_chat_apis_to_gateway` L385-405（认证面 ⊂ 聊天面 L389；`/api/v1/webchat/auth/exchange`→Console L395；`/api/v1/webchat/entries/{id}/messages`→Gateway L399；同一 Ingress 内认证规则列在聊天规则之前 L403-404）；⑥`/chat` 与静态资源到 Console `test_ingress_routes_chat_page_and_static_assets_to_console` L409-425（`/chat`、`/chat/{id}`、`/assets/index-*.js`、`/`、`/index.html` 全部解析到 Console L422；chat/assets 必须是显式规则而非 `/` 兜底 L424）；⑦普通 Console API 保持原路由 `test_ingress_routes_regular_console_apis_to_console` L429-435（真实 `accounts.py` 前缀 `/api/v1/accounts`→Console L434）；⑧SSE 禁缓冲且超时覆盖心跳 `test_sse_route_disables_buffering_and_proxy_timeouts_cover_heartbeat` L439-460（真实 `GET /api/v1/webchat/runs/{run_id}/events` 解析到 Gateway L445；`proxy-buffering=off` L448；`proxy-http-version=1.1` L451；`proxy-read/send-timeout ≥3×心跳`（45≥3×15）L456；真实 SSE 响应头 `X-Accel-Buffering: no` L459）；⑨入口体上限与部署硬上限一致 `test_ingress_body_size_matches_the_deployment_hard_cap` L464-479（上传路径解析出的 Ingress 必须显式给出 `proxy-body-size` L472；50m==52428800==`CHAT_UPLOAD_HARD_MAX_BYTES` L476；同时 ≥ 文本硬上限 L479） | ①真实清单：`configmap.yaml` 的 4 个 URL 与 `{console-platform,agent-runtime,agent-worker,im-gateway}.yaml` 的真实 Service 名/端口逐一对齐（8000/8001/8002/8003），四个 Deployment 都经 `envFrom.configMapRef=muad-common` 注入；②真实 typed 配置：9 个入口预算键全部是 `SharedSettings` 字段且值等于 typed 默认（心跳 15、订阅上限 1100、SSE 帧 262144/单订阅 1048576/总缓冲 67108864、聊天硬上限 1048576/52428800、复核 15、流读超时 45），每个键都在真实源码里有消费点（Gateway `main.py`/`api/webchat.py`/`infrastructure/http_clients.py`、Console `platform_settings_service.py`、Runtime `api/runs.py`）；`LOG_DIR` 按 `os.getenv` 消费点核对；③真实源码依赖图：认证前缀取 `webchat_auth.py` 的 `public_router`、聊天前缀取 Gateway `webchat.py` 的 `router`、SSE 端点取 `@router.get("/runs/{run_id}/events")`、静态目录取 `spa.py` 的 `ASSETS_DIR_NAME=assets`、聊天页取 `App.tsx` 的 `chat/:entryId?`；④入口分流按 `pathType: Prefix` 逐段最长前缀解析（ingress-nginx 口径），等长前缀指向不同后端即显式失败；nginx 注解只在 `ingressClassName=nginx` 下生效由用例机检；⑤不访问共享 dev 数据、无 DDL、无网络、不跑 Node；⑥kustomize 注册（入口/HPA）属 TASK-103，本任务不声明"已注册" | verified |
+
+**实施范围与风险说明**
+
+- 范围：只动计划 Files 的 3 个文件（`configmap.yaml`、新建 `ingress.yaml`、新建测试）；无应用代码改动（9 个预算键都是既有 `SharedSettings` 字段）、无 DDL/迁移、未跑 `tests/acceptance/**`、`make acceptance*` 或浏览器验收（共享环境约束）；未启动 dev 服务。
+- 入口预算选择口径（承接 §3.7"生产清单需列出有效值"）：ConfigMap 只列**有真实消费点**的 webchat/SSE 入口预算；分池 connections/slots 已在各 Deployment（TASK-100/101）声明，这里不重复；未消费的键（`CHAT_EXCHANGE_*`、`RUNTIME_MAX_SSE_SUBSCRIBERS`、`MCP/EGRESS_MAX_INFLIGHT`、`DB_POOL_*`）**不写**——写进清单会让"有效值"变成假象（TASK-101 同口径）。`GATEWAY_MAX_SSE_SUBSCRIBERS`/`STREAM_HTTP_READ_TIMEOUT_SEC` 由 Gateway 装配根消费，放共享 ConfigMap 是为了让 SSE 容量/超时与心跳在同一处可核对。
+- 分流设计（frontend §3.2）：主入口 `muad-webchat` 按最长前缀分流——`/api/v1/webchat/auth`→Console（更具体且列在前）、`/api/v1/webchat`→Gateway、`/api`（普通 Console API）→Console、`/chat` 与 `/assets`→Console 显式规则、`/`→Console SPA 兜底；SSE 专用入口 `muad-webchat-sse` 覆盖更具体的 `/api/v1/webchat/runs`，关闭响应缓冲（`proxy-buffering: off` + HTTP/1.1）且读写超时 45s=3×心跳；应用侧同时下发 `X-Accel-Buffering: no`。请求体上限 `proxy-body-size: 50m` 与部署硬上限一致（ingress-nginx 默认 1m 会在代理处截断上传）。规则不写 `host`：站点域名由部署方按实际域名用 overlay 指定，不编造域名。
+- 判别性验证（防止断言空转；7 处变异均先复现失败再还原，随后复跑确认 9 passed）：①ConfigMap 去掉 `CHAT_UPLOAD_HARD_MAX_BYTES` → ②⑨用例 **2 failed**；②`RUN_EVENT_HEARTBEAT_SEC` 15→20（与 typed 默认不一致）→ ②⑧用例 **2 failed**；③认证路径后端改 Gateway → ⑤用例 **1 failed**；④SSE 去掉 `proxy-buffering: off` → ⑧用例 **1 failed**；⑤SSE `proxy-read-timeout` 45→10（不覆盖心跳）→ ⑧用例 **1 failed**；⑥删除显式 `/chat` 规则 → ⑥用例 **1 failed**；⑦`proxy-body-size` 50m→1m → ⑨用例 **1 failed**。
+- 静态检查与盘点：`uv run ruff check tests/architecture/test_capacity_webchat_configmap_ingress.py` → **All checks passed**；未在 `apps`/`packages` 新增/移动模块级大写常量，`uv run pytest -q tests/test_configuration_inventory.py` 绿（配置盘点无需改动）；两份 YAML 经 `yaml.safe_load_all` 解析为 ConfigMap / Ingress×2。
+- 聚焦回归：`uv run pytest -q tests/architecture` → **110 passed in 8.12s**（exit=0，含既有 `test_k8s_deploy_manifests.py` 与 `harness-arch#RULE-arch-001` verifier 套件）；`uv run pytest -q tests/console_platform/test_spa_static.py tests/console_platform/test_capacity_webchat_console_wiring.py tests/gateway/test_capacity_webchat_gateway_wiring.py tests/test_configuration_inventory.py` → **28 passed in 11.70s**（exit=0）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL。
+- 延后项（诚实记录）：① `ingress.yaml` 的 kustomize 注册属 TASK-103（"注册入口/HPA资源"，其 Files 含 `kustomization.yaml`），本任务不越界改它——注册前 `kubectl apply -k deploy/k8s/base` 不会创建入口；② 其余启动预算族（各池 connect/pool/read 超时、租约/投递节拍、`GATEWAY_MAX_*_HANDLERS` 等）不在 B-302 关键断言内，仍按 typed 有效值生效，未在清单显式列出；③ 真实入口代理的端到端（直接打开/刷新 `/chat/{entryId}`、Token 交换、SSE 订阅、无前端新增 Pod/Service）属 S-F09/S-109（TASK-108/115 的浏览器验收）；④ 1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责；⑤ 未消费的 `RUNTIME_MAX_SSE_SUBSCRIBERS`/`*_MAX_INFLIGHT`/`DB_POOL_*` 仍是"已声明未消费"的启动预算，接线后应在本文件显式声明。
+- B-302: verified — automated command passed; run_id=082c1750da61491eb0a7e06981e7f694 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] B-302 RED：新建 `tests/architecture/test_capacity_webchat_configmap_ingress.py`（479 行/9 用例）→ `uv run pytest -q tests/architecture/test_capacity_webchat_configmap_ingress.py` → **6 failed, 3 passed in 0.44s**（ConfigMap 尚无 webchat/SSE 入口预算键、ingress.yaml 不存在；3 例为既有事实的回归保护）
+- [2026-10-19] 实现：`configmap.yaml` 显式列出 9 个 webchat/SSE 入口预算（心跳/订阅上限/SSE 帧与缓冲/聊天硬上限/长流复核/流读超时，值==typed 默认且全部有真实消费点）；新建 `ingress.yaml`（主入口最长前缀分流：auth→Console、其余聊天 API→Gateway、/api→Console、/chat+/assets→Console、/→Console SPA 兜底；SSE 专用入口关缓冲+HTTP/1.1+45s 读写超时；proxy-body-size 50m 与部署硬上限一致）；无应用代码改动
+- [2026-10-19] B-302 GREEN：**9 passed in 0.47s**（变异还原后复跑 0.41s）；7 处变异验证断言判别性后还原；`tests/architecture` **110 passed**（8.12s）；spa/console wiring/gateway wiring/inventory 合计 **28 passed**（11.70s）；ruff 干净、配置盘点无需改动
+- [2026-10-19] completed (done)
 
 ---
 
