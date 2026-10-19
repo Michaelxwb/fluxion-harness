@@ -17,10 +17,15 @@
  * 不替用例断言，也不提供任何 mock 业务响应的通道（无 `page.route`/`route.fulfill`）。
  */
 
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 import { test as base, expect } from '@playwright/test';
+
+/** 仓库根：`uv run` 与 PG 脚本都在这里执行（与其它域 spec 的 `execFileSync` 同口径）。 */
+const REPO = fileURLToPath(new URL('../..', import.meta.url));
 
 // --------------------------------------------------------------------------- 栈地址（env 契约）
 
@@ -124,6 +129,22 @@ export const WEBCHAT_ROUTES = {
   exchangeChatToken: { method: 'POST', path: () => '/api/v1/webchat/auth/exchange' }
 } satisfies Record<string, WebchatRoute>;
 
+/**
+ * 追加的 ADMIN 写路由（TASK-112 的停用/撤销/越权场景）：与 `WEBCHAT_ROUTES` 分开成表，
+ * 保持 TASK-108 冻结的夹具路由清单（机检逐项比对）不变；每条仍是后端真实注册路由。
+ */
+export const ADMIN_EXTRA_ROUTES = {
+  updateUser: { method: 'PUT', path: (userId) => `/api/v1/users/${userId}` },
+  revokeAgentGrant: {
+    method: 'DELETE',
+    path: (userId, agentId) => `/api/v1/users/${userId}/agents/${agentId}`
+  },
+  updateChannel: {
+    method: 'PUT',
+    path: (agentId, entryId) => `/api/v1/agents/${agentId}/channels/${entryId}`
+  }
+} satisfies Record<string, WebchatRoute>;
+
 /** 真实模型协议探针（`tests/acceptance/capacity/probes.py`）的控制面路径。 */
 export const MODEL_PROBE_CONTROL = {
   behavior: '/__probe__/behavior',
@@ -131,6 +152,12 @@ export const MODEL_PROBE_CONTROL = {
   reset: '/__probe__/reset',
   state: '/__probe__/state'
 } as const;
+
+/**
+ * 逐次调用请求体控制面（`probes.CONTROL_CALLS_PATH`）：S-10 核对「模型请求含 A 的 DB 历史」。
+ * 独立常量：`MODEL_PROBE_CONTROL` 的四条路径已被机检逐项比对（TASK-108），不在其上加键。
+ */
+export const MODEL_PROBE_CALLS_PATH = '/__probe__/calls';
 
 /** Console 会话/CSRF 的真实 Cookie 与头名（`muad_console_platform/api/security.py`）。 */
 const SESSION_COOKIE_NAME = 'muad_session';
@@ -244,19 +271,20 @@ export function credentialPayload(input: {
   };
 }
 
-/** Agent 创建体（`AgentCreateRequest`）。 */
+/** Agent 创建体（`AgentCreateRequest`）；`runtimeConfig` 缺省为空对象（本域夹具默认冻结值）。 */
 export function agentPayload(input: {
   key: string;
   name: string;
   modelId: string;
   instructions: string;
+  runtimeConfig?: Record<string, unknown>;
 }): Record<string, unknown> {
   return {
     key: input.key,
     name: input.name,
     instructions: input.instructions,
     model_id: input.modelId,
-    runtime_config: {},
+    runtime_config: input.runtimeConfig ?? {},
     enabled: true
   };
 }
@@ -331,6 +359,7 @@ export class ConsoleAdminClient {
     name: string;
     modelId: string;
     instructions: string;
+    runtimeConfig?: Record<string, unknown>;
   }): Promise<WebchatAgentRef> {
     const data = await this.send(WEBCHAT_ROUTES.createAgent, { data: agentPayload(input) });
     const created = data as { id: string; key: string };
@@ -373,14 +402,35 @@ export class ConsoleAdminClient {
     });
   }
 
+  /** 更新用户（停用/启用是实时门控，不是撤销）：真实 Console API。 */
+  async updateUser(userId: string, patch: Record<string, unknown>): Promise<void> {
+    await this.send(ADMIN_EXTRA_ROUTES.updateUser, { args: [userId], data: patch });
+  }
+
+  /** 撤销用户的 Agent 授权（真实 DELETE）：之后该 Agent 的入口不再属于该用户。 */
+  async revokeAgentGrant(userId: string, agentId: string): Promise<void> {
+    await this.send(ADMIN_EXTRA_ROUTES.revokeAgentGrant, { args: [userId, agentId] });
+  }
+
+  /** 更新入口（停用/改名/换 bot_id）：真实 Console API。 */
+  async updateChannel(agentId: string, entryId: string, patch: Record<string, unknown>): Promise<void> {
+    await this.send(ADMIN_EXTRA_ROUTES.updateChannel, { args: [agentId, entryId], data: patch });
+  }
+
   private async createWebchatModel(): Promise<WebchatModelRef> {
     const { offset, modelProbeURL } = this.stack;
-    const apiKey = `e2e-webchat-${offset}-key`;
+    // Key 每次真实创建都取新随机值：物理凭据的 Key 指纹在库内有唯一性，复用同一 Key 会被
+    // 真实约束拒绝（`MODEL_CREDENTIAL_EXISTS`），且不同场景的调用会互相污染。
+    const apiKey = uniquePurpose(offset, 'key');
+    // `base_url` 是 OpenAI 兼容客户端的**API 前缀**：provider 追加 `/chat/completions`
+    // （`muad_agent_core.model.openai_provider.CHAT_COMPLETIONS_PATH`），探针的补全端点是
+    // `/v1/chat/completions` ⇒ 凭据必须带 `/v1`（与容量验收栈同一口径 `{probe_url}/v1`）。
+    const apiBaseURL = `${modelProbeURL}/v1`;
     const credential = (await this.send(WEBCHAT_ROUTES.createCredential, {
       data: credentialPayload({
         key: uniquePurpose(offset, 'credential'),
         providerKey: 'openai',
-        baseURL: modelProbeURL,
+        baseURL: apiBaseURL,
         apiKey,
         maxInflight: 8
       })
@@ -470,6 +520,17 @@ export interface ModelProbeBehaviorInput {
   readonly drop_response?: boolean;
 }
 
+/** 探针逐次调用记录（`probes.py#calls_state` 的稳定子集；Key 只有指纹）。 */
+export interface ProbeCallRecord {
+  readonly index: number;
+  readonly path: string;
+  readonly key: string | null;
+  readonly stream: boolean;
+  readonly model: unknown;
+  readonly at: number;
+  readonly body: Record<string, unknown>;
+}
+
 /**
  * 真实模型探针的故障控制面（TASK-106）：延迟 / 429 / 5xx / 断流 / 应答丢失 / 按 Key 限额。
  *
@@ -501,6 +562,16 @@ export class ModelFaultControl {
     return (await response.json()) as Record<string, unknown>;
   }
 
+  /** 逐次调用请求体（真实 socket 收包内容）：只回 Key 指纹与请求体，不含凭据原文。 */
+  async calls(): Promise<ProbeCallRecord[]> {
+    const response = await this.request.fetch(`${this.probeURL}${MODEL_PROBE_CALLS_PATH}`);
+    if (!response.ok()) {
+      throw new Error(`模型探针调用面不可用：HTTP ${response.status()}`);
+    }
+    const body = (await response.json()) as { calls: ProbeCallRecord[] };
+    return body.calls;
+  }
+
   private async post(path: string, body: Record<string, unknown>): Promise<unknown> {
     const response = await this.request.fetch(`${this.probeURL}${path}`, {
       method: 'POST',
@@ -520,7 +591,8 @@ export class ModelFaultControl {
 /** 多用户/多入口种子：A/B 各自“用户 + Agent + WEBCHAT 入口 + 授权 + 随机 Token”。 */
 export async function seedMultiUserEntries(
   admin: ConsoleAdminClient,
-  stack: WebchatStack
+  stack: WebchatStack,
+  playwright: Playwright
 ): Promise<WebchatUserPair> {
   const model = await admin.ensureWebchatModel();
   const build = async (label: string): Promise<WebchatUserSession> => {
@@ -541,9 +613,49 @@ export async function seedMultiUserEntries(
     );
     await admin.grantAgent(account.id, agent.agentId);
     const chatToken = await admin.issueChatToken(account.id);
+    await awaitEntryVisible(playwright, stack, chatToken.token, entry.entryId);
     return { account, agent, entry, chatToken };
   };
   return { a: await build('a'), b: await build('b') };
+}
+
+/**
+ * 等入口进入 Gateway 的**入口快照**（真实 30s 轮询，`BotSnapshotCache`）：快照是 Gateway 的
+ * 真实运行事实，新建入口在下一拍才可见。用真实 API 轮询（不是测试钩子），并保留显式超时失败。
+ */
+export async function awaitEntryVisible(
+  playwright: Playwright,
+  stack: WebchatStack,
+  token: string,
+  entryId: string,
+  timeoutMs = 60_000
+): Promise<void> {
+  const context = await playwright.request.newContext({ baseURL: stack.baseURL });
+  try {
+    const exchange = await context.post('/api/v1/webchat/auth/exchange', {
+      data: { token },
+      headers: { Origin: stack.baseURL }
+    });
+    if (exchange.status() !== 200) {
+      throw new Error(`入口可见性轮询无法建立 CHAT 会话：HTTP ${exchange.status()}`);
+    }
+    const session = (await exchange.json()).data as { auth_context_id: string };
+    await expect
+      .poll(
+        async () => {
+          const entries = await context.get('/api/v1/webchat/entries', {
+            headers: { 'X-Chat-Context': session.auth_context_id }
+          });
+          if (entries.status() !== 200) return false;
+          const body = (await entries.json()) as { data: { items: { entry_id: string }[] } };
+          return body.data.items.some((item) => item.entry_id === entryId);
+        },
+        { timeout: timeoutMs, intervals: [2_000] }
+      )
+      .toBe(true);
+  } finally {
+    await context.dispose();
+  }
 }
 
 export type WebchatTestFixtures = {
@@ -572,13 +684,169 @@ export const test = base.extend<WebchatTestFixtures>({
   },
   webchatFaults: async ({ request, webchatStack }, use) => {
     const faults = new ModelFaultControl(request, webchatStack.modelProbeURL);
+    // `reset` 清故障与计数，但**不还原默认行为**（探针的默认行为是进程级状态）：
+    // 显式写回 schema 默认，保证每个用例从已知的模型行为开始（否则上一个用例的 deltas/延迟
+    // 会泄漏到下一个用例，表现为「回复内容/时长莫名不同」）。
     await faults.reset();
+    await faults.setBehavior({});
     await use(faults);
     await faults.reset();
+    await faults.setBehavior({});
   },
-  webchatUsers: async ({ webchatAdmin, webchatStack }, use) => {
-    await use(await seedMultiUserEntries(webchatAdmin, webchatStack));
+  webchatUsers: async ({ playwright, webchatAdmin, webchatStack }, use) => {
+    await use(await seedMultiUserEntries(webchatAdmin, webchatStack, playwright));
   }
 });
 
 export { expect };
+
+// --------------------------------------------------------------------------- 浏览器交互助手
+
+/** 未认证视图（Token 输入）与工作区（真实装配）的稳定锚点。 */
+export const TOKEN_ACCESS = 'chat-token-access';
+export const TOKEN_INPUT = 'chat-token-access-input';
+export const TOKEN_SUBMIT = 'chat-token-access-submit';
+export const TOKEN_NOTICE = 'chat-token-access-notice';
+export const CHAT_SHELL = 'webchat-shell';
+export const COMPOSER_INPUT = 'chat-composer-input';
+export const COMPOSER_SEND = 'chat-composer-send';
+
+/** 一条已渲染的历史消息（DOM 事实：角色 + 正文）。 */
+export interface RenderedChatMessage {
+  readonly role: string;
+  readonly text: string;
+}
+
+/** 打开 `/chat`（可选入口/会话查询参数）；不自动认证。 */
+export async function gotoChat(page: Page, query = ''): Promise<void> {
+  await page.goto(`/chat${query}`);
+  await expect(page.getByTestId('chat-page')).toBeVisible();
+}
+
+/** 未认证视图：单个 Token 输入 + 进入聊天（无注册/密码/管理账号）。 */
+export async function expectTokenAccess(page: Page): Promise<void> {
+  await expect(page.getByTestId(TOKEN_ACCESS)).toBeVisible();
+  await expect(page.getByTestId(TOKEN_INPUT)).toBeVisible();
+}
+
+/** 输入管理员交付的 Token 并提交（真实交换：Console 签发独立 CHAT Cookie）。 */
+export async function submitChatToken(page: Page, token: string): Promise<void> {
+  await expectTokenAccess(page);
+  await page.getByTestId(TOKEN_INPUT).fill(token);
+  await page.getByTestId(TOKEN_SUBMIT).click();
+}
+
+/** 打开 `/chat` → 输入 Token → 等待工作区落地（认证/配置/入口三级门控都通过）。 */
+export async function openChatWithToken(page: Page, token: string): Promise<void> {
+  await gotoChat(page);
+  await submitChatToken(page, token);
+  await waitForChatReady(page);
+}
+
+/**
+ * 工作区就绪：入口已绑定且会话索引已落地（骨架消失）。
+ *
+ * 真实竞态：入口绑定（`open(entryId)`）仍在飞时发送消息，视图信号换代会把在飞的「新建会话」
+ * 请求中止（`net::ERR_ABORTED`），消息停在待受理。等待是真实用户的操作节奏，不是放宽断言。
+ */
+export async function waitForChatReady(page: Page, timeout = 30_000): Promise<void> {
+  await expect(page.getByTestId(CHAT_SHELL)).toBeVisible({ timeout });
+  await expect(page.getByTestId('chat-sidebar-loading')).toHaveCount(0, { timeout });
+}
+
+/** 打开某个已核属的会话（URL 是选择的唯一来源）并等**选择真正落地**。 */
+export async function openChatConversation(
+  page: Page,
+  entryId: string,
+  conversationId: string
+): Promise<void> {
+  await page.goto(`/chat/${entryId}?conversation=${conversationId}`);
+  await waitForChatReady(page);
+  await expect(page.getByTestId('chat-message-thread')).toBeVisible({ timeout: 30_000 });
+  // 选择落地的权威信号：侧栏条目被标成当前（`selection.conversationId` 已应用）。
+  // 只等线程可见不够：选择仍在飞时发送会被视图信号中止（消息停在待受理）。
+  await expect(
+    page.locator(`[data-testid="chat-sidebar-item"][data-conversation-id="${conversationId}"]`)
+  ).toHaveAttribute('aria-current', 'true', { timeout: 30_000 });
+}
+
+/**
+ * 一次回复的终态证据：助手正文已渲染 + 发送阶段已收敛。
+ *
+ * 正文可能在**历史消息**（重读后）或**流式正文块**（终态后仍在可见 Run 上）里——两者都是真实
+ * 已应用的增量；比「运行面消失」可靠：快 Run 可能从未渲染运行面，仅凭它判断会读到半成品。
+ */
+export async function waitForAssistantReply(page: Page, timeout = 90_000): Promise<void> {
+  await expect(
+    page
+      .locator(
+        '[data-testid="chat-message-item"][data-role="ASSISTANT"], [data-testid="chat-streaming-reply"]'
+      )
+      .last()
+  ).toBeVisible({ timeout });
+  await expect(page.getByTestId('chat-composer')).toHaveAttribute('data-phase', 'IDLE', {
+    timeout: 30_000
+  });
+}
+
+/** 发送一条消息（真实 202 受理 + SSE 订阅；不等终态）。 */
+export async function sendChatMessage(page: Page, text: string): Promise<void> {
+  await page.getByTestId(COMPOSER_INPUT).fill(text);
+  await page.getByTestId(COMPOSER_SEND).click();
+}
+
+/** 已渲染消息（顺序即页面顺序；流式正文不算历史消息）。 */
+export async function renderedChatMessages(page: Page): Promise<RenderedChatMessage[]> {
+  return page.locator('[data-testid="chat-message-item"]').evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      role: (node as HTMLElement).dataset.role ?? '',
+      text: node.querySelector('.chat-message-content')?.textContent ?? ''
+    }))
+  );
+}
+
+/** 在页面上按真实 API 调用（浏览器上下文：Cookie/CSRF 与页面同源同罐）。 */
+export async function chatApi(
+  page: Page,
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  options: { data?: unknown; headers?: Record<string, string> } = {}
+): Promise<{ status: number; body: Record<string, unknown> | null; text: string }> {
+  const response = await page.request.fetch(path, {
+    method,
+    headers: { Accept: 'application/json', ...(options.headers ?? {}) },
+    data: options.data
+  });
+  const text = await response.text();
+  let body: Record<string, unknown> | null = null;
+  try {
+    body = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    body = null;
+  }
+  return { status: response.status(), body, text };
+}
+
+// --------------------------------------------------------------------------- 隔离库观测/播种
+
+/**
+ * 在隔离库上执行一段 Python（`uv run python -c`，继承本域冻结的 `DATABASE_URL`）。
+ *
+ * 用途仅限**测试准备与观测**（播种保留历史、把某行置为过期、回读真实行事实）：不替代任何
+ * 浏览器/API 断言，也不写共享 dev 库（`DATABASE_URL` 指向本域空库）。
+ */
+export function runPython(source: string): string {
+  return execFileSync('uv', ['run', 'python', '-c', source], {
+    cwd: REPO,
+    env: process.env,
+    stdio: ['ignore', 'pipe', 'inherit']
+  }).toString();
+}
+
+/** 同 `runPython`，但要求脚本最后一行打印一个 JSON 值并解析返回。 */
+export function runPythonJson<T>(source: string): T {
+  const stdout = runPython(source);
+  const line = stdout.trim().split('\n').pop() ?? '';
+  return JSON.parse(line) as T;
+}
+
