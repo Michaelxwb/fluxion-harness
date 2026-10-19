@@ -11101,7 +11101,7 @@
       "kind": "functional",
       "boundary": "实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测",
       "owner": "TASK-117",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -11111,7 +11111,48 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-317",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "1b7eacb3a8d3475ab867ebd5d53852e0",
+        "executed_at": "2026-10-19T15:25:26.840084+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/capacity/test_capacity_webchat_capacity_report.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "45f8fc235fab2cbd336a3aee488cd1e8b5fd2878a0da18fb680f4b7a147bd717"
+      },
+      "runs": [
+        {
+          "id": "B-317",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1b7eacb3a8d3475ab867ebd5d53852e0",
+          "executed_at": "2026-10-19T15:25:26.840084+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/capacity/test_capacity_webchat_capacity_report.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "45f8fc235fab2cbd336a3aee488cd1e8b5fd2878a0da18fb680f4b7a147bd717"
+        }
+      ]
     },
     {
       "id": "B-318",
