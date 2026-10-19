@@ -449,7 +449,7 @@
 | B-307 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-107 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_isolated_stack.py"] | . | 300 |  |
 | B-308 | agent-capacity-webchat.frontend.design.md#2.4 验收条件, agent-capacity-webchat.frontend.design.md#3.2 页面与路由, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 真实模块service/typed DTO、共享传输与TypeScript编译产物；纯解析/状态经Node执行，DOM交互留真实浏览器E2E | TASK-108 | verified | ["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_browser_harness.py"] | . | 300 |  |
 | B-309 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-109 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_driver.py"] | . | 300 |  |
-| B-317 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-117 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_capacity_report.py"] | . | 300 |  |
+| B-317 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-117 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_capacity_report.py"] | . | 300 |  |
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | planned | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
 
 ---
@@ -8569,7 +8569,7 @@ E2E_WEBCHAT_OFFSET=5 bash -lc "npm --prefix apps/console-platform/frontend run b
 
 ## TASK-117: 容量报告与Runtime/Worker副本建议计算
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-104, TASK-109, TASK-116
 - **Source**: agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告
@@ -8584,71 +8584,78 @@ E2E_WEBCHAT_OFFSET=5 bash -lc "npm --prefix apps/console-platform/frontend run b
 
 ### Checklist
 
-- [ ] [B-317][integration] 先在`tests/capacity/test_capacity_webchat_capacity_report.py`建立行为验收并记录RED；真实边界：实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测；关键断言：只用实际运行证据生成P95/P99/瓶颈/资源/配置hash与副本公式。
-- [ ] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。
-- [ ] [B-317] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。
-- [ ] [B-317] 执行`["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_capacity_report.py"]`并记录GREEN、关键断言位置和实际组件证据。
+- [x] [B-317][integration] 先在`tests/capacity/test_capacity_webchat_capacity_report.py`建立行为验收并记录RED；真实边界：实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测；关键断言：只用实际运行证据生成P95/P99/瓶颈/资源/配置hash与副本公式。→ RED：先建 `tests/capacity/test_capacity_webchat_capacity_report.py`（8 用例：7 条证据/报告纯逻辑 + 1 条真实栈负载），实现模块尚未存在 → `uv run pytest -q tests/capacity/test_capacity_webchat_capacity_report.py` → **1 error during collection（exit=2）**：`ModuleNotFoundError: No module named 'tests.capacity.report'`（测试文件 L76 导入实现模块）；日志 `$TMPDIR/task117-red.log`。真实边界在用例里就是真实组件：四单元独立栈（真实 uvicorn 子进程 + 本轮独占空库 + 入口代理 + TASK-106 真实模型协议探针）+ TASK-109 驱动真实 HTTP/SSE 负载 + 真实进程 env/engine 工厂/渲染清单采集证据包
+- [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ 实现落在计划 Files：新建 `tests/capacity/report.py`（typed 证据包 + 严格 JSON 往返 + 报告生成：分位数/错误账目/SLO/瓶颈/资源预算/配置 hash/副本公式 + CLI + Markdown 渲染，全部函数 ≤50 行、无 `Any` 边界）、新建 `docs/operations/agent-capacity-webchat-capacity.md`（怎么跑负载/证据包/报告/配置 hash/副本公式/诚实边界）；错误显式：缺样本/缺执行事实/缺目标参数/证据被篡改一律 `EvidenceError`，缺 SLO/资源声明或受限规模只给 `DIAGNOSTIC`；凭据只允许 `env:` 引用（`parse_evidence` 拒绝内嵌密钥原文），错误消息不回带密钥/DSN/地址
+- [x] [B-317] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 8 条用例逐项对应契约（断言位置见 Acceptance Evidence 表）；成功分支=真实受限负载 → 证据包 → 报告全链；边界/失败分支=缺键/未知键/空样本/非有限数/密钥原文/篡改 hash/无执行事实/非法副本参数/缺 SLO/缺资源/受限规模/SLO 违约/PG 越界，均先复现失败再实现
+- [x] [B-317] 执行`["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_capacity_report.py"]`并记录GREEN、关键断言位置和实际组件证据。→ **8 passed in 14.02s（exit=0）**（同命令复跑 `$TMPDIR/task117-green.log` 亦 8 passed in 14.44s）；聚焦回归 `tests/capacity` **135 passed in 45.54s**、`tests/architecture` **148 passed in 10.03s**；`ruff check` 干净；真实组件证据与真实发现见 Acceptance Evidence 表
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-317 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | 只用实际运行证据生成P95/P99/瓶颈/资源/配置hash与副本公式；区分协议探针和真实模型/机器人边界，输入缺失不得输出生产达标或虚构Pod数 | tests/capacity/test_capacity_webchat_capacity_report.py | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_capacity_report.py"] | planned |
+| B-317 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | 只用实际运行证据生成P95/P99/瓶颈/资源/配置hash与副本公式；区分协议探针和真实模型/机器人边界，输入缺失不得输出生产达标或虚构Pod数 | tests/capacity/test_capacity_webchat_capacity_report.py | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_capacity_report.py"] | verified |
 
 ### Acceptance Evidence
 
-> 本轮 functional RED/GREEN 已跑；E2E 契约行状态按本任务功能命令的实际结果登记为 verified（最终需求级 verify-e2e 仍以同一命令复核）。
-
-**functional 命令**（工作树根；浏览器验收用本工作树独占端口偏移 `E2E_WEBCHAT_OFFSET=3`）：
+**functional 命令**（工作树根；不需要额外环境变量，套件自建独立空库并在收尾 drop）：
 
 ```bash
-E2E_WEBCHAT_OFFSET=3 bash -lc "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"
+uv run pytest -q tests/capacity/test_capacity_webchat_capacity_report.py
 ```
 
 | 轮次 | 结果 |
 |---|---|
-| RED（占位） | **8 failed（exit=1）**：两个 spec 各 4 条 RED 占位（`throw new Error('TASK-113 RED: 尚未实现')`），捕获两文件存在但无真实验收；日志 `$TMPDIR/task113-red.log` |
-| GREEN（最终） | **8 passed（exit=0，4.0m）**：`streams-actions.spec.ts` 4（S-09/S-108、S-103、E-07/E-103、E-102）+ `cross-channel-memory.spec.ts` 4（S-02/S-104、S-11/E-03、E-08、E-09/E-109）；日志 `$TMPDIR/task113-run7.log` |
-| 隔离与清理 | 无本栈孤儿进程（`uvicorn muad_*`/`playwright`/`vite preview` 无残留）；本栈 `muad_e2e_*`/`muad_acc_*` 库全部 drop；`dist/` 与 `e2e/test-results` 未入库；`tests/frontend/test_capacity_webchat_browser_harness.py` 机检 16 passed 复跑通过 |
+| RED（占位） | **1 error during collection（exit=2）**：`ModuleNotFoundError: No module named 'tests.capacity.report'`（测试文件 L76 导入实现模块；实现尚未写）；日志 `$TMPDIR/task117-red.log` |
+| GREEN（最终） | **8 passed in 14.02s（exit=0）**；同命令复跑 **8 passed in 14.44s**；日志 `$TMPDIR/task117-green.log` |
+| 隔离与清理 | 无本栈孤儿进程（`uvicorn muad_*`/`pytest`/探针子进程无残留，`ps` 机检）；本轮 `muad_acc_*` 库全部 drop（`pg_database` 机检为空）；共享 dev 库零写入；未启动 dev 服务、未跑 `make acceptance*`/浏览器验收 |
 
 **用例与关键断言位置**
 
-| 场景 | 用例（文件:行） | 关键断言 |
-|---|---|---|
-| S-09 / S-108 | `streams-actions.spec.ts:313` | 真实降额（凭据在飞上限 8→1，真实 Console API + 版本 CAS）后第二条 Run 落 `WAITING_MODEL`/`NO_CAPACITY`（PG 行 + `chat-run-activity[data-phase=waiting-model]` + 「正在等待模型资源」+ 排队原因/进入排队/期限）；刷新后 `queued_at`/`queue_deadline_at` 逐字不变；等待中取消：确认前零取消请求、确认后恰一次、取消瞬间零 `model_call_lease`、终态 `CANCELLED`、准入释放；另一用户 C 排队 → A 结束后 `COMPLETED` 且助手正文恰一条；阶段词条不进正文 |
-| S-103 | `streams-actions.spec.ts:469` | 传输层中止第一条事件流（`route.abort`，非伪造响应）→ 重连次数可见 + `/events` GET ≥2 → 正文完整；真实附件上传/下载（字节相等）；刷新恢复同一 Run/正文/附件、用户气泡与助手正文各恰一条；消息提交次数不变 |
-| E-07 / E-103 | `streams-actions.spec.ts:605` | 300KiB 单帧 → 服务端显式关闭订阅 → 状态含 `reconnecting`/`failed`（不伪造终态）+ GET ≥2 且重连带 `after_seq>0`（按 seq 补齐）+ 正文无 `x` 截断；保留淘汰（`startSeq=101`）→ `cursor-recovery` + `data-cursor-earliest=101` + 显式恢复动作、零自动重连、零消息 POST；A/B 双向迟到数据不串台 |
-| E-102 | `streams-actions.spec.ts:752` | 未授权入口零 POST；空会话过载 429 `RUN_CAPACITY_EXCEEDED` + 零新 Run + 浏览器「当前处理已满」；幂等冲突 409 `IDEMPOTENCY_MISMATCH` 后原身份重投同 `run_id`；模型等待预算 10s（真实设置）→ `FAILED` + `MODEL_WAIT_TIMEOUT`/`MODEL_CAPACITY_UNAVAILABLE` + 零 `model_call_lease` + 无伪成功正文 |
-| S-02 / S-104 | `cross-channel-memory.spec.ts:366` | 同用户两个真实入口并发执行；网页停止只取消被停止会话的 Run（另一入口 `COMPLETED`）；新建会话不影响另一入口 Run；两条终态通知各带原入口身份；两条会话互不串写 |
-| S-11 / E-03 | `cross-channel-memory.spec.ts:457` | A 流式时切 B → A 继续到 `COMPLETED`（非 `CANCELLED`）；B 自己的 Run 只写 B（双向不串台）；切回 A 正文恰一份；`WAITING_INPUT` 切走再切回仍是原 run/submission/source；伪造 submission 的 resume 被拒且中断仍 `WAITING`；借入口提交他人会话被拒；同入口运行中新消息 `RUN_BUSY` 且原 Run 照常 `COMPLETED` |
-| E-08 | `cross-channel-memory.spec.ts:631` | 真实清空记忆（`forget_epoch` 前进）→ 旧确认被拒（`MEMORY_CONFIRMATION_EXPIRED` 本地化）、零记忆行、中断不再 `WAITING`、重开无待确认；同 `source_event` 只消费一次（版本/行数不变）；后续模型请求带已保存记忆；冻结预算：新 Run 快照 `memory.max_injected_bytes=64`、超预算值不注入、旧 Run 仍 2048 |
-| E-09 / E-109 | `cross-channel-memory.spec.ts:848` | 配额满（2 在飞）→ 空会话新受理 429 且零新 Run；模型等待中取消瞬间零租约 + `cancel_requested` 立即持久化 + `CANCELLED` + 准入释放；同消息重投同 `run_id`；`TASK_RESULT` 通知可见/可定位/已读；`task_execution` 待核实终态（`FAILED` + `TASK_RESULT_UNVERIFIED` + `attempt=1`）不自动重试；新建/切换会话不改变结果 |
+| 用例（文件:行） | 关键断言 |
+|---|---|
+| `test_b317_evidence_bundle_round_trips_and_rejects_missing_or_illegal_facts` L287-313 | 证据包 JSON 往返逐字段相等（L291）；缺块（L293-295）、未知键（L296-298）、空样本（L299-301）、非有限数（L302-304）、内嵌密钥原文（L305-308）、非对象（L309-310）一律 `EvidenceError` |
+| `test_b317_report_numbers_come_only_from_recorded_samples_and_failure_counts` L316-346 | P50/P95/P99 与证据包逐条样本的独立复算一致（L326-338；`percentile(…,0.95)==95.0` L332）；系统错误 3 / 明确过载 5 / 总 8 分开计数、错误率 3/800（L342-346）；样本换成 1..199 → P95=190（不是常量）；空样本 → `EvidenceError` |
+| `test_b317_replica_formula_is_reproducible_from_recorded_inputs` L349-421 | 单 Pod 容量=真实执行槽×进程数（L353）；`ceil(16/8/0.8)+1=4` 且 `formula` 逐字可复算（L354-357）；Worker `ceil(8/4/0.8)+1=4`、容量口径 `DECLARED`（L359-360）；利用率换 0.5 → 5（L371）；目标 1000 → 158 > HPA 上界 4（真实发现，L384）；非法目标（非扩展单元/0 并发/利用率 0 或 1.5/负冗余）→ `EvidenceError`（L386-421）；缺 Worker 执行槽、无真实执行 → 拒绝给 Pod 数；无业务参数 → `replicas == ()`（L421） |
+| `test_b317_bottlenecks_are_emitted_only_when_a_real_limit_is_touched` L424-479 | 没触到上限 → 空瓶颈（L432）；执行槽 16 ≥ 8×1×2、模型并发 4 ≥ 额度 4、排队峰值 4（L445-453）；未触额度 → 不产出模型瓶颈（L468-471）；连接峰值 200 + 保留 1 > 预算 200 → PG 瓶颈 observed=201/ceiling=200 且结论 `REJECTED`（L477-479） |
+| `test_b317_missing_slo_or_resources_never_yields_a_production_pass` L482-522 | 全量 + SLO 过 + 预算内 → `ACCEPTED` 且无阻塞（L485-486）；缺 SLO → `DIAGNOSTIC`+阻塞项含「SLO」（L489-491）；缺资源声明 → `DIAGNOSTIC`+阻塞项含「资源」（L497-499）；受限规模 → `DIAGNOSTIC`+「受限」（L508-509）；受理 P95 违约 → `REJECTED`（L515-516）；篡改 `config_hash` → `EvidenceError`（L517-521） |
+| `test_b317_config_hash_covers_the_real_profile_and_deployment_facts` L525-577 | 配置 hash = 真实 profile 内容 hash + 真实渲染清单摘要（L532-535）；清单 HPA 上界 runtime 4/console 1、执行槽 8、资源 4000m/8192Mi（L538）；四单元清单资源与 profile 逐字段一致（L542-561）；副本上界改动 → hash 变（L564-565）；报告 hash 等于同一真实值（L571） |
+| `test_b317_report_marks_probe_and_real_model_boundaries_separately` L580-600 | `CONTROLLED_PROBE` 边界：`real_supplier_capacity is False` + 备注显式声明探针（L586-588）；`REAL` 边界：`real_supplier_capacity is True` 且引用只有 `env:`（无 `sk-` 原文，L594-596） |
+| `test_b317_real_bounded_load_yields_evidence_backed_report` L906-1007 | 真实负载证据：有效用户 6、scale 登记 6、attempts==真实轮次、`config_hash`==真实 profile+清单、profile hash==驱动锁定值（L913-918）；分位数由真实 `LoadReport` 样本独立复算（L930-941）；结论 `REJECTED`+阻塞项「受限」+真实不达标项恰为 `framework_first_delta_p95_ms`（L945-954）；探针边界声明（L956-957）；`MODEL_INFLIGHT` 瓶颈 observed==探针观测、ceiling==PG 行 max_inflight=4、压满（L965-971）；PG 总量按真实 engine 上限×进程×最大副本、全部预算内（L974-985）；副本公式可复算且 ≤ 上界（L988-999）；Markdown 含配置 hash 与算式（L1005-1007） |
 
-**真实边界（本轮实际链路）**：真实 Chrome（构建产物 + 入口代理）+ 真实 Gateway/Runtime/Worker + 真实 PG（本轮独占空库）+ 真实模型协议探针（真实 socket 与控制面）+ 真实 Console 管理 API（凭据在飞上限/用户记忆/设置保存，含真实 CSRF 与幂等键）+ 真实 SSE 与共享流层重连/游标语义；失败注入只用真实传输动作（`route.abort` 中止在飞事件流），种子只写真实行/调用真实产品服务。
+**真实边界（本轮实际链路，非 Mock）**
 
-**诚实边界（未 Mock、也未冒充覆盖）**：
-1. 契约里的「企微协议探针」不在 TASK-108 冻结的浏览器栈内（该栈机检固定 7 个 webServer）；S-02/S-104 用**同用户两个真实 WEBCHAT 入口**承载「两入口独立执行、停止/新建/确认只影响本入口、结果回原入口」的语义；企微 WSS 协议边界由 TASK-111 的 pytest E-19（真实 `WeComProbeServer`）承担。
-2. S-09 的「Runtime 容量」（`RUNTIME_EXECUTION_CONCURRENCY` 默认 8）需 ≥8 个并发慢 Run 才能耗尽、「工具容量」需真实 Skill/工具回合；本任务用**模型容量**（契约同列）触发等待，其余容量路径由 TASK-116 的 capacity-recovery 承担。
-3. S-103 的「服务实例切换」（进程替换）不在本栈能力内（Playwright webServer 不重启）；本用例覆盖断网（真实传输中止）与页面刷新恢复；进程级替换/重连由 TASK-111 的 pytest S-03 与 TASK-116 承担。
-4. E-109 的「待核实」终态在聊天页面上没有独立渲染（通知 `summary` 是读取层通用文案），页面侧断言通知可见/可定位/已读与不自动重试，待核实事实按 PG 行断言。
-5. 观察到的一次真实边界现象：`GET .../conversations`（会话索引）曾返回一次 500 `COMMON_INTERNAL_ERROR`（trace `39b06157-a335-4820-b946-506c13f1e6fc`；三服务应用日志无 `unexpected_error` 记录，重试即恢复）——本任务的重开路径改为直接按 URL 打开会话（不依赖侧栏索引），未掩盖任何契约断言。
+- **实际容量 harness/profile**：`CapacityStack` 四单元真实 uvicorn 子进程（Console/Runtime/Worker/Gateway）+ 真实入口代理（按 `deploy/k8s/base/ingress.yaml` 分流）+ TASK-106 真实模型协议探针子进程；本轮独占空库（`muad_acc_<uuid>` + `alembic upgrade head`）与 10–15 号 Redis 位，收尾 drop；种子是真实 PG 行（模型/凭据 `max_inflight=4`/Agent/网页入口/7 份用户 Token）。
+- **真实负载**：TASK-109 驱动 6 用户 × 1 轮 `VERIFICATION`（显式登记 scale=6，不冒充 1000 用户），真实 202 受理、真实 SSE 终态、真实并发采样 14 次、控制面探测在负载窗口内独立执行。
+- **真实配置事实**：执行槽从**真实进程 env** 读回（`RUNTIME_EXECUTION_CONCURRENCY=8`/`WORKER_EXECUTION_CONCURRENCY=4`）；每进程 PG 上限来自**真实 engine 工厂**（`pool 5 + max_overflow 10 = 15`，console/runtime/worker）；部署事实来自 TASK-104 同一渲染路径（HPA `maxReplicas` runtime 4/worker 8、requests/limits 1000m/4000m/2Gi/8Gi、终止宽限 60s、出站池字面量）。
+- **报告真实输出（本次运行）**：受理 P95 203.31ms / 首字 P95 1735.97ms（6 样本最近秩）；瓶颈 `MODEL_INFLIGHT` observed 4 ≥ ceiling 4（边界模式 `CONTROLLED_PROBE`）与 `ADMISSION_QUEUE` 峰值等待 3；资源 PG 总连接 195 + 保留 1 ≤ 200、每进程 FD ≤ 4096；副本建议 runtime `ceil(16 / 8 / 0.8) + 1 = 4`（≤4，口径 `DECLARED`）、worker `ceil(8 / 4 / 0.8) + 1 = 4`（≤8）；结论 **REJECTED**（首字 P95 1736ms > 锁定 1200ms）+ 阻塞项「受限规模 6/1000」。
+- **真实发现（如实记录，非测试缺陷）**：本受限运行故意把物理 Key 在飞上限设为 4（真实 PG 行），6 用户并发下模型容量被真实压满 ⇒ 框架首字 P95 超锁定 SLO，报告按规则判 `REJECTED`（不伪造通过）；这也正是 §4.3「报告等待中的 Run 与实际推理并发、输出瓶颈」要暴露的容量边界。
 
-**为跑通功能命令做的最小补充（均已披露）**：
-1. `e2e/support/webchat-fixtures.ts`：`ADMIN_EXTRA_ROUTES` 增 4 条真实路由（`GET/PUT /model-credentials/{id}`、`POST/DELETE /users/{id}/memory`）+ `ConsoleAdminClient.readCredential/updateCredential/createUserMemory/clearUserMemory`（真实 Console API + CSRF；`Idempotency-Key` 逐次唯一）；`send` 支持显式头。`WEBCHAT_ROUTES`（机检逐项比对的那张表）未动，机检 16 passed 复跑通过。
-2. `tests/acceptance/capacity/webchat_browser_seed.py`：新增 `task-result` 原语（真实 Task 行 + `ToolOperation`/`ToolResultInbox` + 真实产品服务 `ChannelNotificationQueryService.register_task_result` 写 `TASK_RESULT` 通知）；`_seed_snapshot` 的 `policy_json` 由 `{}` 改为产品自己的 `snapshot_policy()`（resume/续跑读回要求 memory 分组逐叶齐全——原值会让真实 resume 500）。
-3. `e2e/support/webchat-seed.ts`：`WebchatSeed.taskResult(...)` 薄封装。
+**诚实边界（未 Mock、也未冒充覆盖）**
 
-**已知产品行为（如实记录，未修复）**：
-1. 模型等待中的协作取消：取消立即持久化、等待期间不越权领取模型，但停止在等待循环的下一次裁决点落地（额度释放后/等待预算到期）；终态在额度释放后为 `CANCELLED`（本用例实测路径）。
-2. 超预算帧（单帧 > `sse_event_max_bytes`）：服务端显式关闭订阅且不截断；客户端把 EOF 当可重试 → 每次重连都撞同一帧，重连预算被已应用进度/checkpoint 重置，表现为持续重连（本用例断言「显式重连 + 无截断 + 无伪造终态」）。
-3. `WAITING_INPUT` 的 Run 其 SSE 在服务端显式收尾（确认走 API-15），客户端会反复重连直到预算耗尽后停在显式重试动作；确认后的结果正文需要一次显式重试才可见（本用例按真实用户动作处理）。
+1. 证据源是**受限规模真实运行**（6 用户），不是 1000 用户全量：报告结论为 `REJECTED`/`DIAGNOSTIC`，全量证据包与最终容量结论由需求级 verify-e2e（TASK-118）以 `ACCEPTANCE` 运行复核；本任务不声称生产容量已达标。
+2. 模型侧是真实 HTTP 协议探针（`CONTROLLED_PROBE`）：报告显式声明「探针吞吐不冒充真实模型吞吐、真实供方额度未验证」；`REAL` 模式的额度证据只允许 `env:` 引用，本轮未验证真实供方额度。
+3. 单 Pod 容量在受限运行中**未被压满**（观测峰值 < 槽位×副本），副本建议口径标为 `DECLARED`（按真实声明配置计），不冒充"实测压满"；`MEASURED` 口径由全量运行给出。
+4. 副本建议参数（目标并发/利用率/冗余）是业务确认项，报告不提供默认值：缺参数就不产出 Pod 数；`within_max_replicas` 越界是真实发现并进阻塞项。
+5. `pg_connection_budget` 余量口径：最大副本静态总连接 195，按 TASK-104 最低保留 1 通过（196 ≤ 200）；若业务要求 10 条维护保留（205 > 200），报告会在显式传入 `--pg-maintenance-reserve 10` 时判不达标——保留量是入参，不在报告模块里写死。
 
-**E2E 行状态**：S-02/S-09/S-11/E-03/E-07/E-08/E-09/S-103/S-104/S-108/S-111/E-102/E-103/E-109 = verified（同一命令 8 passed；需求级 verify-e2e 复核保持不变）。
+**实施范围与风险说明**
+
+- 范围：只动计划 Files 的 3 个文件（新建 `tests/capacity/report.py`、新建 `docs/operations/agent-capacity-webchat-capacity.md`、新建 `tests/capacity/test_capacity_webchat_capacity_report.py`）；无应用代码/清单/profile 改动；无 DDL/迁移；未跑 `tests/acceptance/**`、`make acceptance*` 或浏览器验收；未启动 dev 服务、未写共享 dev 库。
+- 静态检查：`uv run ruff check tests/capacity/report.py tests/capacity/test_capacity_webchat_capacity_report.py` → **All checks passed**；`report.py` 全部函数 ≤50 行（AST 机检）、无 `Any` 边界。
+- 聚焦回归：`uv run pytest -q tests/capacity` → **135 passed in 45.54s**（127 既有 + 8 新增）；`uv run pytest -q tests/architecture` → **148 passed in 10.03s**（含 TASK-104 预检与 HPA 预算机检）。
+- 延后项（诚实记录）：① 全量 1000 用户证据包/报告与最终结论由 verify-e2e（TASK-118）复核；② `REAL` 模式真实供方额度、企微机器人外部容量边界未验证（§4.3 第 3 条，报告如实标注未验证）；③ 报告 CLI 未接入发布流水线（当前由容量套件/人工显式调用）。
+- B-317: verified — automated command passed; run_id=1b7eacb3a8d3475ab867ebd5d53852e0 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-16] created（review-draft；尚未启动）
 - [2026-10-17] 用户确认写入（draft；尚未启动）
+- [2026-10-19] started
+- [2026-10-19] B-317 RED：先建 `tests/capacity/test_capacity_webchat_capacity_report.py`（8 用例：7 条证据/报告纯逻辑 + 1 条真实栈负载）→ `uv run pytest -q tests/capacity/test_capacity_webchat_capacity_report.py` → **1 error during collection（exit=2）**：`ModuleNotFoundError: No module named 'tests.capacity.report'`；日志 `$TMPDIR/task117-red.log`
+- [2026-10-19] 实现：新建 `tests/capacity/report.py`（typed 证据包 + 严格 JSON 往返 + 分位数/错误账目/SLO/瓶颈/资源预算/配置 hash/副本公式 + CLI + Markdown 渲染；缺证据 `EvidenceError`，缺 SLO/资源或受限规模只给 `DIAGNOSTIC`）与 `docs/operations/agent-capacity-webchat-capacity.md`（怎么跑负载/证据包/报告/配置 hash/副本公式/诚实边界）；证据采集只用真实 `LoadReport` + 真实进程 env + 真实 engine 工厂 + 真实渲染清单（TASK-104 同一路径）
+- [2026-10-19] B-317 GREEN：**8 passed in 14.02s（exit=0）**，复跑 14.44s；真实受限负载（6 用户 × 1 轮 `VERIFICATION`，真实四单元栈 + 入口代理 + 模型协议探针 + 独占空库）→ 证据包落盘读回逐字段相等 → 报告：受理 P95 203.31ms / 首字 P95 1735.97ms；瓶颈 `MODEL_INFLIGHT` observed 4 ≥ ceiling 4（真实 PG 行 `max_inflight=4`）与 `ADMISSION_QUEUE` 峰值等待 3；PG 总连接 195 + 保留 1 ≤ 200、FD ≤ 4096；副本建议 runtime `ceil(16 / 8 / 0.8) + 1 = 4`（≤4，口径 `DECLARED`）、worker `4`（≤8）；结论 **REJECTED**（首字 P95 超锁定 1200ms，真实容量边界）+ 阻塞项「受限规模 6/1000」
+- [2026-10-19] 聚焦回归：`uv run pytest -q tests/capacity` → **135 passed in 45.54s**（127 既有 + 8 新增）；`uv run pytest -q tests/architecture` → **148 passed in 10.03s**；`uv run ruff check` 干净；`report.py` 全部函数 ≤50 行（AST 机检）；跑后无孤儿进程、`muad_acc_*` 库全清（`pg_database` 机检为空）、共享 dev 库零写入
+- [2026-10-19] completed (done)
 
 ---
 
