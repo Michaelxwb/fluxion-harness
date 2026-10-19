@@ -133,8 +133,9 @@ export const WEBCHAT_ROUTES = {
 } satisfies Record<string, WebchatRoute>;
 
 /**
- * 追加的 ADMIN 写路由（TASK-112 的停用/撤销/越权场景）：与 `WEBCHAT_ROUTES` 分开成表，
- * 保持 TASK-108 冻结的夹具路由清单（机检逐项比对）不变；每条仍是后端真实注册路由。
+ * 追加的 ADMIN 写路由（TASK-112 的停用/撤销/越权场景；TASK-113 的凭据容量与用户记忆）：
+ * 与 `WEBCHAT_ROUTES` 分开成表，保持 TASK-108 冻结的夹具路由清单（机检逐项比对）不变；
+ * 每条仍是后端真实注册路由。
  */
 export const ADMIN_EXTRA_ROUTES = {
   updateUser: { method: 'PUT', path: (userId) => `/api/v1/users/${userId}` },
@@ -145,7 +146,17 @@ export const ADMIN_EXTRA_ROUTES = {
   updateChannel: {
     method: 'PUT',
     path: (agentId, entryId) => `/api/v1/agents/${agentId}/channels/${entryId}`
-  }
+  },
+  readCredential: {
+    method: 'GET',
+    path: (credentialId) => `/api/v1/model-credentials/${credentialId}`
+  },
+  updateCredential: {
+    method: 'PUT',
+    path: (credentialId) => `/api/v1/model-credentials/${credentialId}`
+  },
+  createUserMemory: { method: 'POST', path: (userId) => `/api/v1/users/${userId}/memory` },
+  clearUserMemory: { method: 'DELETE', path: (userId) => `/api/v1/users/${userId}/memory` }
 } satisfies Record<string, WebchatRoute>;
 
 /** 真实模型协议探针（`tests/acceptance/capacity/probes.py`）的控制面路径。 */
@@ -309,6 +320,7 @@ interface SendOptions {
   readonly data?: unknown;
   readonly args?: readonly string[];
   readonly query?: string;
+  readonly headers?: Record<string, string>;
 }
 
 /**
@@ -420,6 +432,55 @@ export class ConsoleAdminClient {
     await this.send(ADMIN_EXTRA_ROUTES.updateChannel, { args: [agentId, entryId], data: patch });
   }
 
+  /** 读物理凭据可编辑字段 + 版本（真实 GET；密钥原文不在此投影里）。 */
+  async readCredential(credentialId: string): Promise<Record<string, unknown>> {
+    const data = await this.send(ADMIN_EXTRA_ROUTES.readCredential, { args: [credentialId] });
+    return data as Record<string, unknown>;
+  }
+
+  /**
+   * 编辑物理凭据（真实 PUT 整份替换 + `expected_revision` CAS）：先读当前字段与版本，
+   * 再把 `patch` 合入可编辑字段提交。容量场景用它把 `max_inflight` 调到目标值。
+   */
+  async updateCredential(
+    credentialId: string,
+    patch: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    const current = await this.readCredential(credentialId);
+    const editable = ['key', 'provider_key', 'base_url', 'quota_group_id', 'max_inflight', 'enabled'];
+    const fields: Record<string, unknown> = {};
+    for (const name of editable) {
+      if (current[name] !== undefined) fields[name] = current[name];
+    }
+    const data = await this.send(ADMIN_EXTRA_ROUTES.updateCredential, {
+      args: [credentialId],
+      data: { ...fields, ...patch, expected_revision: Number(current.revision) }
+    });
+    return data as Record<string, unknown>;
+  }
+
+  /** 管理员人工新增用户记忆（真实 Console → Runtime 显式 UPSERT；幂等键逐次唯一）。 */
+  async createUserMemory(
+    userId: string,
+    input: { memoryKey: string; category: 'PREFERENCE' | 'WORK_STYLE' | 'EXPLICIT'; value: string }
+  ): Promise<Record<string, unknown>> {
+    const data = await this.send(ADMIN_EXTRA_ROUTES.createUserMemory, {
+      args: [userId],
+      headers: { 'Idempotency-Key': randomUUID() },
+      data: { memory_key: input.memoryKey, category: input.category, value: input.value }
+    });
+    return data as Record<string, unknown>;
+  }
+
+  /** 原子清空用户记忆（真实 Console → Runtime `forget_epoch` 前进）：撤销未消费提议。 */
+  async clearUserMemory(userId: string): Promise<Record<string, unknown>> {
+    const data = await this.send(ADMIN_EXTRA_ROUTES.clearUserMemory, {
+      args: [userId],
+      headers: { 'Idempotency-Key': randomUUID() }
+    });
+    return data as Record<string, unknown>;
+  }
+
   private async createWebchatModel(): Promise<WebchatModelRef> {
     const { offset, modelProbeURL } = this.stack;
     // Key 每次真实创建都取新随机值：物理凭据的 Key 指纹在库内有唯一性，复用同一 Key 会被
@@ -459,7 +520,7 @@ export class ConsoleAdminClient {
   private async send(route: WebchatRoute, options: SendOptions = {}): Promise<unknown> {
     const query = options.query ? `?${options.query}` : '';
     const url = `${this.stack.baseURL}${route.path(...(options.args ?? []))}${query}`;
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = { Accept: 'application/json', ...(options.headers ?? {}) };
     if (this.csrfToken && route.method !== 'GET') {
       headers[CSRF_HEADER_NAME] = this.csrfToken;
     }

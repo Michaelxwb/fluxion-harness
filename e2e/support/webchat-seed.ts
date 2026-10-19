@@ -50,6 +50,14 @@ export interface NotificationReceipt {
   seq: number | null;
 }
 
+export interface SeededTaskResult {
+  conversation_id: string;
+  run_id: string;
+  task_id: string;
+  notification_id: string;
+  seq: number;
+}
+
 /** 真实种子 CLI 的薄封装：同步执行（Playwright 用例里作为纯设置步骤使用）。 */
 export class WebchatSeed {
   constructor(private readonly tenant: string) {}
@@ -141,6 +149,23 @@ export class WebchatSeed {
 
   appendOversizedDelta(runId: string, bytes: number): Record<string, unknown> {
     return this.run(['append-oversized-delta', '--run', runId, '--bytes', String(bytes)]);
+  }
+
+  /** 外部任务结果入箱（E-109）：真实 Task 行 + 受理结果 + 真实产品服务写 TASK_RESULT 通知。 */
+  taskResult(input: Omit<SeedHistoryInput, 'tenant' | 'messages' | 'canaries'>): SeededTaskResult {
+    const args = [
+      'task-result',
+      '--tenant',
+      this.tenant,
+      '--user',
+      input.user,
+      '--agent',
+      input.agent,
+      '--entry',
+      input.entry
+    ];
+    if (input.title) args.push('--title', input.title);
+    return this.run(args) as SeededTaskResult;
   }
 
   private run(args: readonly string[]): Record<string, unknown> {
