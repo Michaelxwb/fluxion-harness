@@ -65,6 +65,9 @@ CONTROL_BEHAVIOR_PATH = "/__probe__/behavior"
 CONTROL_KEY_LIMITS_PATH = "/__probe__/key-limits"
 CONTROL_RESET_PATH = "/__probe__/reset"
 CONTROL_STATE_PATH = "/__probe__/state"
+#: 逐次调用的**请求体**观测面（容量验收要核对「同会话换 Key 不换模型/上下文」）：只回 Key
+#: 指纹与请求体，请求体本身不含凭据（凭据在 Authorization 头，本端点只回它的指纹）。
+CONTROL_CALLS_PATH = "/__probe__/calls"
 DEFAULT_MODEL = "gpt-4o-mini"
 KEY_QUOTA_RETRY_AFTER_SEC = 1
 CONNECT_TIMEOUT_SEC = 5.0
@@ -404,6 +407,25 @@ class ModelProbeServer:
                 "broken_pipes": self._broken_pipes,
             }
 
+    def calls_state(self) -> dict[str, Any]:
+        """逐次调用的请求体快照：Key 只回指纹，请求体不含凭据（凭据在 Authorization 头）。"""
+        with self._lock:
+            return {
+                "calls": [
+                    {
+                        "index": call.index,
+                        "path": call.path,
+                        "key": key_fingerprint(call.api_key) if call.api_key else None,
+                        "stream": call.stream,
+                        "model": call.body.get("model"),
+                        "fault": call.fault.value if call.fault else None,
+                        "at": call.at,
+                        "body": dict(call.body),
+                    }
+                    for call in self._calls
+                ]
+            }
+
     # ---- HTTP 路由 --------------------------------------------------------
 
     def _handle_get(self, handler: BaseHTTPRequestHandler) -> None:
@@ -415,6 +437,9 @@ class ModelProbeServer:
             return
         if handler.path == CONTROL_STATE_PATH:
             self._write_json(handler, 200, self.state())
+            return
+        if handler.path == CONTROL_CALLS_PATH:
+            self._write_json(handler, 200, self.calls_state())
             return
         self._write_json(handler, 404, {"error": "not found"})
 

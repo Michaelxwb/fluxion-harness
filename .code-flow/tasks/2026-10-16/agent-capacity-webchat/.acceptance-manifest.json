@@ -64,7 +64,7 @@
       "kind": "e2e",
       "boundary": "多 Runtime、同模型多 Key HTTP 探针、实际额度存储和审计",
       "owner": "TASK-110",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -75,7 +75,46 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "aaa3683222cf4e05b29f82e1e9966b84",
+        "executed_at": "2026-10-19T05:37:36.150730+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_model_execution.py",
+          "tests/acceptance/capacity/test_admission_recovery.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "aaa3683222cf4e05b29f82e1e9966b84",
+          "executed_at": "2026-10-19T05:37:36.150730+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_model_execution.py",
+            "tests/acceptance/capacity/test_admission_recovery.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -206,7 +245,7 @@
       "kind": "e2e",
       "boundary": "两个 Runtime、主模型/摘要/记忆任务、Console 探针和真实 HTTP Key 计数服务",
       "owner": "TASK-110",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -217,7 +256,46 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-12",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "aaa3683222cf4e05b29f82e1e9966b84",
+        "executed_at": "2026-10-19T05:37:36.150730+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_model_execution.py",
+          "tests/acceptance/capacity/test_admission_recovery.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "S-12",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "aaa3683222cf4e05b29f82e1e9966b84",
+          "executed_at": "2026-10-19T05:37:36.150730+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_model_execution.py",
+            "tests/acceptance/capacity/test_admission_recovery.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "S-13",
@@ -311,7 +389,7 @@
       "kind": "e2e",
       "boundary": "两并发请求、PG、模型探针计数",
       "owner": "TASK-110",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -322,7 +400,46 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "aaa3683222cf4e05b29f82e1e9966b84",
+        "executed_at": "2026-10-19T05:37:36.150730+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_model_execution.py",
+          "tests/acceptance/capacity/test_admission_recovery.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "aaa3683222cf4e05b29f82e1e9966b84",
+          "executed_at": "2026-10-19T05:37:36.150730+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_model_execution.py",
+            "tests/acceptance/capacity/test_admission_recovery.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -641,7 +758,7 @@
       "kind": "e2e",
       "boundary": "真实 Worker 子进程、PG claim/reclaim、受控外部写 HTTP 服务",
       "owner": "TASK-110",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -652,7 +769,46 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-15",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "aaa3683222cf4e05b29f82e1e9966b84",
+        "executed_at": "2026-10-19T05:37:36.150730+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_model_execution.py",
+          "tests/acceptance/capacity/test_admission_recovery.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-15",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "aaa3683222cf4e05b29f82e1e9966b84",
+          "executed_at": "2026-10-19T05:37:36.150730+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_model_execution.py",
+            "tests/acceptance/capacity/test_admission_recovery.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-16",
@@ -661,7 +817,7 @@
       "kind": "e2e",
       "boundary": "模型服务端处理中断、真实 Key/账户计数和租约存储",
       "owner": "TASK-110",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -672,7 +828,46 @@
       ],
       "cwd": ".",
       "timeout": 1800.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-16",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "aaa3683222cf4e05b29f82e1e9966b84",
+        "executed_at": "2026-10-19T05:37:36.150730+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_model_execution.py",
+          "tests/acceptance/capacity/test_admission_recovery.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0
+      },
+      "runs": [
+        {
+          "id": "E-16",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "aaa3683222cf4e05b29f82e1e9966b84",
+          "executed_at": "2026-10-19T05:37:36.150730+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_model_execution.py",
+            "tests/acceptance/capacity/test_admission_recovery.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        }
+      ]
     },
     {
       "id": "E-17",

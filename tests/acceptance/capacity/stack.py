@@ -937,7 +937,9 @@ class CapacityStack:
         existing = self._instances[unit][index] if index < len(self._instances[unit]) else None
         if existing is not None and existing.alive:
             raise StackError(f"{unit}#{index} 仍在运行：先 stop_instance/kill_instance 再替换")
-        port = free_port()
+        # 初始实例用**启动前规划的端口**：其它单元在它启动之前就把该端口写进了自己的 env
+        # （`_unit_urls`），换端口会让"先起的单元指向不存在的地址"；替换实例另取空闲端口。
+        port = free_port() if existing is not None else self._planned_port(unit, index)
         instance = ServiceInstance(
             unit=unit,
             index=index,
@@ -948,11 +950,22 @@ class CapacityStack:
             skill_cache_root=self.skill_cache_root(unit, index),
         )
         instance.start(ready_timeout_sec=self._ready_timeout_sec)
+        if index < len(self._ports[unit]):
+            self._ports[unit][index] = port
+        else:
+            self._ports[unit].append(port)
         if existing is None:
             self._instances[unit].append(instance)
         else:
             self._instances[unit][index] = instance
         return instance
+
+    def _planned_port(self, unit: str, index: int) -> int:
+        """启动前为该槽位规划的端口（`start()` 已分配；独立起实例时按需补一个）。"""
+        planned = self._ports[unit]
+        while len(planned) <= index:
+            planned.append(free_port())
+        return planned[index]
 
     def stop_instance(self, instance: ServiceInstance, *, timeout_sec: float = STOP_TIMEOUT_SEC) -> None:
         instance.stop(timeout_sec=timeout_sec)
