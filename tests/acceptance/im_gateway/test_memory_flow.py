@@ -222,6 +222,8 @@ async def _cleanup_memory(gateway_stack: GatewayStack) -> AsyncIterator[None]:
     try:
         async with engine.begin() as connection:
             for statement in (
+                # 0029 模型池：租约引用记忆 job（NO ACTION），引用方先删。
+                "DELETE FROM runtime.model_call_lease WHERE tenant_id = :t",
                 "DELETE FROM runtime.memory_consolidation_job WHERE tenant_id = :t",
                 "DELETE FROM runtime.memory_command_receipt WHERE tenant_id = :t",
                 "DELETE FROM runtime.memory_scope WHERE tenant_id = :t",

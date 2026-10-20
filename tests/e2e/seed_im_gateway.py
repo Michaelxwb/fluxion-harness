@@ -67,6 +67,9 @@ async def _seed(session_factory: Any, llm_url: str) -> dict[str, Any]:
             name="IM E2E Model",
             model_id="gpt-4o-mini",
             provider_key="openai",
+            # 模型池启用后输出预算必须显式：预占 = 输入估算 + 实际发送的 max_tokens
+            # （`executor.reserved_tokens_for`），缺省即 COMMON_VALIDATION_ERROR。
+            params_json={"temperature": 0.0, "max_tokens": 1024},
         )
         session.add(model)
         await session.flush()

@@ -237,6 +237,8 @@ def _cleanup(database_url: str, ids: dict[str, object], artifact_root: Path) -> 
             # 后续栈被 claim（claim 不带租户谓词，且 snapshot 已删）→ 后台泵持续
             # `ValueError: source snapshot unavailable`，整个记忆管线停摆（2026-10-15 实测）。
             for table in (
+                # 0029 模型池：`model_call_lease.memory_job_id` 引用 job（NO ACTION），引用方先删。
+                "model_call_lease",
                 "memory_consolidation_job",
                 "memory_command_receipt",
                 "memory_scope",

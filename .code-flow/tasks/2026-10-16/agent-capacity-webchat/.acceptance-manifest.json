@@ -11161,7 +11161,7 @@
       "kind": "functional",
       "boundary": "实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测",
       "owner": "TASK-118",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -11171,7 +11171,65 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-318",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "d04c52f56ef2466587cf6afb7967e1b5",
+        "executed_at": "2026-10-20T08:51:41.146582+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/capacity/test_capacity_webchat_acceptance_audit.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "9314633f0f8f2d3317006f36be564c2a2ad01cacf6ba89c5606e416af6b7c1b2"
+      },
+      "runs": [
+        {
+          "id": "B-318",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "0f37df56f3ff4dc3b9c1ab20575298bf",
+          "executed_at": "2026-10-19T22:56:26.724508+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/capacity/test_capacity_webchat_acceptance_audit.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "B-318",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "d04c52f56ef2466587cf6afb7967e1b5",
+          "executed_at": "2026-10-20T08:51:41.146582+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/capacity/test_capacity_webchat_acceptance_audit.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "9314633f0f8f2d3317006f36be564c2a2ad01cacf6ba89c5606e416af6b7c1b2"
+        }
+      ]
     }
   ]
 }
