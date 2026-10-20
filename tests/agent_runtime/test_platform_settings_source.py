@@ -119,7 +119,7 @@ async def _console_server() -> AsyncIterator[str]:
 
 
 def _settings_client(console_url: str) -> ConsolePlatformSettingsClient:
-    return ConsolePlatformSettingsClient(console_url, service_token=INTERNAL_TOKEN)
+    return ConsolePlatformSettingsClient(console_url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
 
 
 # ---- 种子数据 / 清理 ----
@@ -315,7 +315,7 @@ async def test_e03_source_unavailable_fails_run_creation_with_failed_metric(
     失败发生在任何落库之前，因此不会留下 `runtime_snapshot` 行。
     """
     async with _dead_endpoint() as dead_url:
-        cut_client = ConsolePlatformSettingsClient(dead_url, service_token=INTERNAL_TOKEN, timeout_sec=0.5)
+        cut_client = ConsolePlatformSettingsClient(dead_url, service_token=INTERNAL_TOKEN, timeout_sec=0.5, cache_ttl_sec=0)
         runtime_app.dependency_overrides[get_resolve_client] = lambda: fake_resolve
         runtime_app.dependency_overrides[get_executor_factory] = lambda: executor_factory
         runtime_app.dependency_overrides[get_credentials_client] = lambda: None
@@ -445,7 +445,7 @@ class _CountingSettingsClient:
     def __init__(self) -> None:
         self.calls: list[str] = []
 
-    async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "") -> Any:
+    async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "", force: bool = False) -> Any:
         from muad_agent_runtime.application.ports import PlatformSettingsSnapshot
 
         self.calls.append(tenant_id)

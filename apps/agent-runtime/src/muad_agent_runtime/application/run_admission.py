@@ -183,9 +183,16 @@ class AdmissionPolicyService:
         self._stale_refresh_attempts = max(stale_refresh_attempts, 0)
         self._logger = logging.getLogger(__name__)
 
-    async def fetch_capacity(self, *, tenant_id: str, trace_id: str = "") -> CapacitySnapshot:
-        """事务外取一次配置（真实 Console 内部 HTTP）；源失败/坏文档都不回落默认值。"""
-        snapshot = await self._settings_client.fetch_snapshot(tenant_id=tenant_id, trace_id=trace_id)
+    async def fetch_capacity(
+        self, *, tenant_id: str, trace_id: str = "", force: bool = False
+    ) -> CapacitySnapshot:
+        """事务外取一次配置（真实 Console 内部 HTTP，进程内短 TTL 缓存）。
+
+        源失败/坏文档都不回落默认值；`force=True` 绕过缓存（策略行版本更高时立即刷新）。
+        """
+        snapshot = await self._settings_client.fetch_snapshot(
+            tenant_id=tenant_id, trace_id=trace_id, force=force
+        )
         return parse_capacity(snapshot)
 
     @property
@@ -195,15 +202,19 @@ class AdmissionPolicyService:
 
     async def resolve(self, *, tenant_id: str, trace_id: str = "") -> AdmissionPolicy:
         """投影流程：事务外取配置 → 锁内应用更高版本 → 低版本退出事务后重取一次。"""
+        force = False
         for _ in range(self._stale_refresh_attempts + 1):
-            capacity = await self.fetch_capacity(tenant_id=tenant_id, trace_id=trace_id)
+            capacity = await self.fetch_capacity(
+                tenant_id=tenant_id, trace_id=trace_id, force=force
+            )
             async with self._session_factory_provider()() as session:
                 try:
                     policy = await self.apply_policy_in(
                         session, tenant_id=tenant_id, capacity=capacity
                     )
                 except AdmissionPolicyStaleError as stale:
-                    # 先退出事务（连同策略行锁）再刷新：锁内不联网，重取仍在事务外。
+                    # 先退出事务再刷新：重取仍在事务外；下一轮必须**绕过缓存**拿新版本。
+                    force = True
                     await session.rollback()
                     self._logger.warning(
                         "admission_policy_stale tenant=%s fetched=%s policy=%s",

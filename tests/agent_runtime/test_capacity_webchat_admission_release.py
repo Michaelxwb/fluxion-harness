@@ -543,7 +543,7 @@ async def test_b231_terminal_release_commits_in_one_transaction_with_terminal_st
     tenant = admission_tenant
     engine: AsyncEngine = create_async_engine(SharedSettings().require_database_url())
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -599,7 +599,7 @@ async def test_b231_rolled_back_finalize_keeps_run_and_share(
     tenant = admission_tenant
     engine: AsyncEngine = create_async_engine(SharedSettings().require_database_url())
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -648,7 +648,7 @@ async def test_b231_cancel_vs_completion_race_releases_exactly_once(
     tenant = admission_tenant
     engine: AsyncEngine = create_async_engine(SharedSettings().require_database_url())
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -702,7 +702,7 @@ async def test_b231_queue_deadline_freezes_at_admission(
     """[B-231] queue_deadline=min(受理+配置, 原 Run 绝对 deadline)；领取后 stage 清空、期限保留。"""
     tenant = admission_tenant
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -751,7 +751,7 @@ async def test_b231_queue_expiry_fails_run_and_releases_once(
     """[B-231] 排队过期：RUN_QUEUE_TIMEOUT 与释放同事务；重复过期/绝对期限过期都不再释放。"""
     tenant = admission_tenant
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -809,7 +809,7 @@ async def test_b05_claim_and_queue_expiry_have_exactly_one_outcome(
     tenant = admission_tenant
     engine: AsyncEngine = create_async_engine(SharedSettings().require_database_url())
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -886,7 +886,7 @@ async def test_b05_claimed_run_is_not_killed_by_old_queue_deadline(
     """[B-05] 已开跑的 Run（queue_stage 清空）即使旧排队期限已过也不被过期扫描误杀。"""
     tenant = admission_tenant
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -931,7 +931,7 @@ async def test_b05_resumed_run_is_not_governed_by_initial_queue_deadline(
 
     tenant = admission_tenant
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -979,7 +979,7 @@ async def test_b05_queue_expiry_vs_cancel_race_has_one_terminal_outcome(
     tenant = admission_tenant
     engine: AsyncEngine = create_async_engine(SharedSettings().require_database_url())
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -1030,7 +1030,7 @@ async def test_b05_share_is_shared_across_entries_and_released_on_terminal(
     """[B-05] 每用户跨入口受同一上限：一个入口终态释放后，另一个入口立刻可用该份额。"""
     tenant = admission_tenant
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -1094,7 +1094,7 @@ async def test_b05_repeated_terminal_and_takeover_do_not_double_release(
     """[B-05] 双终态/接管/回收幂等：重复收尾与重复回收都不再释放，计数不为负。"""
     tenant = admission_tenant
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
         try:
             await _seed_setting(
                 tenant.tenant_id,

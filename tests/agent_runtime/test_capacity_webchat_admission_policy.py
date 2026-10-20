@@ -188,7 +188,7 @@ async def _probe_source() -> AsyncIterator[tuple[ScriptedSettingsSource, str]]:
 @contextlib.asynccontextmanager
 async def _service(url: str) -> AsyncIterator[AdmissionPolicyService]:
     """每个实例独立构造（无进程内缓存）：多实例语义用两个实例证明。"""
-    client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
+    client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
     try:
         yield AdmissionPolicyService(get_session_factory, client)
     finally:

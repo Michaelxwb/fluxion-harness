@@ -290,7 +290,7 @@ class _UploadSettings:
         self._webchat = webchat
 
     async def fetch_snapshot(
-        self, *, tenant_id: str, trace_id: str = ""
+        self, *, tenant_id: str, trace_id: str = "", force: bool = False
     ) -> PlatformSettingsSnapshot:
         settings: dict[str, Any] = {
             "capacity": {

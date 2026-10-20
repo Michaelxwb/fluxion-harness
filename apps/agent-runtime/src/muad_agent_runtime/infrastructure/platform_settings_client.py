@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import httpx
@@ -22,6 +23,10 @@ from .console_client import error_code_from_payload
 
 PLATFORM_SETTINGS_PATH = "/internal/v1/platform-settings"
 PLATFORM_SETTINGS_TIMEOUT_SEC = 5.0
+#: 设置快照的进程内缓存时长：Run 创建是热路径，每单同步 HTTP 取一次会把准入锁在
+#: ~30ms 往返上（2026-10-20 实测 ~34 次/秒）。设置变更在 TTL 内对**新 Run** 生效；
+#: 检测到策略行版本更高时调用方用 `force=True` 绕过缓存立即刷新。
+PLATFORM_SETTINGS_CACHE_TTL_SEC = 1.0
 RUNTIME_CALLER = "runtime"
 
 
@@ -33,10 +38,13 @@ class ConsolePlatformSettingsClient:
         service_token: str | None = None,
         caller: str = RUNTIME_CALLER,
         timeout_sec: float = PLATFORM_SETTINGS_TIMEOUT_SEC,
+        cache_ttl_sec: float = PLATFORM_SETTINGS_CACHE_TTL_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._caller = caller
+        self._cache_ttl_sec = max(cache_ttl_sec, 0.0)
+        self._cache: dict[str, tuple[float, PlatformSettingsSnapshot]] = {}
         self._service_token = service_token
         # 请求用绝对 URL 组装：注入的共享池客户端没有 base_url（一个池服务多个目标）。
         self._base_url = base_url.rstrip("/")
@@ -47,7 +55,14 @@ class ConsolePlatformSettingsClient:
             base_url=base_url, timeout=timeout_sec, transport=transport
         )
 
-    async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "") -> PlatformSettingsSnapshot:
+    async def fetch_snapshot(
+        self, *, tenant_id: str, trace_id: str = "", force: bool = False
+    ) -> PlatformSettingsSnapshot:
+        now = time.monotonic()
+        if not force and self._cache_ttl_sec > 0:
+            hit = self._cache.get(tenant_id)
+            if hit is not None and hit[0] > now:
+                return hit[1]
         headers = {"X-Tenant-Id": tenant_id, "X-Caller-Service": self._caller}
         if self._service_token:
             headers["X-Internal-Service"] = self._service_token
@@ -72,7 +87,10 @@ class ConsolePlatformSettingsClient:
         if isinstance(revision, bool) or not isinstance(revision, int):
             self._record_failed()
             raise AppError(str(ErrorCode.COMMON_INTERNAL_ERROR))
-        return PlatformSettingsSnapshot(revision=revision, settings=data["settings"])
+        snapshot = PlatformSettingsSnapshot(revision=revision, settings=data["settings"])
+        if self._cache_ttl_sec > 0:
+            self._cache[tenant_id] = (now + self._cache_ttl_sec, snapshot)
+        return snapshot
 
     def _record_failed(self) -> None:
         inc_counter(PLATFORM_SETTINGS_FETCH_METRIC, 1, {"caller": self._caller, "result": "failed"})

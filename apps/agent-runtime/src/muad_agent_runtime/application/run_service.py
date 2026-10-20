@@ -925,7 +925,10 @@ class RunService:
         fingerprint = _creation_fingerprint(request, tenant_id)
         for attempt in range(self._admission.stale_refresh_attempts + 1):
             try:
-                return await self._admit(request, tenant_id, key, fingerprint)
+                # 重试必须绕过设置快照缓存：上一轮已证明取到的是更低版本，读缓存只会重复失败。
+                return await self._admit(
+                    request, tenant_id, key, fingerprint, force_settings=attempt > 0
+                )
             except AdmissionPolicyStaleError:
                 # 先退出事务（连同 policy 行锁与未提交的 Run/会话）再重取，锁内不联网。
                 await self._session.rollback()
@@ -937,7 +940,13 @@ class RunService:
         raise AppError(ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE)
 
     async def _admit(
-        self, request: RunRequest, tenant_id: str, key: str, fingerprint: str
+        self,
+        request: RunRequest,
+        tenant_id: str,
+        key: str,
+        fingerprint: str,
+        *,
+        force_settings: bool = False,
     ) -> RunStart:
         """一次受理尝试：重放检查 → 同键串行化 → 会话/活跃 Run 判定 → 建 Run（含准入）。"""
         replay = await self._submissions.find_replay_in(
@@ -975,7 +984,10 @@ class RunService:
             tenant_id=tenant_id,
             trace_id=current_trace_id(),
         )
-        return await self._create_run(request, tenant_id, conversation, resolved, key, fingerprint)
+        return await self._create_run(
+                request, tenant_id, conversation, resolved, key, fingerprint,
+                force_settings=force_settings,
+            )
 
     async def _resume_active(
         self, active: RunRecord, request: RunRequest, key: str, fingerprint: str
@@ -1422,6 +1434,8 @@ class RunService:
         resolved: ResolveDefinitionResponse,
         submission_key: str,
         submission_fingerprint_value: str,
+        *,
+        force_settings: bool = False,
     ) -> RunStart:
         # 受理时刻与绝对期限取自 **PG 服务端时钟**（B-235）：这份 `now` 同时冻结
         # `deadline_at`/`queued_at`/`queue_deadline_at`，之后由 PG 时钟的领取/扫描裁决——
@@ -1432,7 +1446,7 @@ class RunService:
         # capacity 阈值（准入投影与冻结策略同源，不二次取配置）。源不可读即明确失败
         # （RULE-06）——绝不回退到任何过期默认值，失败计数由 client 在调用方侧记。
         snapshot_settings = await self._settings_client.fetch_snapshot(
-            tenant_id=tenant_id, trace_id=current_trace_id() or ""
+            tenant_id=tenant_id, trace_id=current_trace_id() or "", force=force_settings
         )
         capacity = parse_capacity(snapshot_settings)
         # 压缩配置在此解析一次：既冻进这一行的 snapshot，也供本次历史装配用同一个值——

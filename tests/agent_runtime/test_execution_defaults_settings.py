@@ -107,7 +107,7 @@ class _PgSettingsClient:
     路径已由 TASK-005 的 `test_platform_settings_source.py` 覆盖，本用例只省掉那层 HTTP。
     """
 
-    async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "") -> PlatformSettingsSnapshot:
+    async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "", force: bool = False) -> PlatformSettingsSnapshot:
         async with get_session_factory()() as session:
             snapshot = await PlatformSettingsService(session).read_current(tenant_id)
             return PlatformSettingsSnapshot(revision=snapshot.revision, settings=asdict(snapshot.settings))
