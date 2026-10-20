@@ -100,6 +100,8 @@ RUNTIME_CLEANUP = (
     # 留下**快照已删的 job**，下一个栈的 Runtime 后台泵 claim 到它即抛
     # `ValueError: source snapshot unavailable`（每秒一条 `memory_background_pump_failed`），
     # 整个记忆后台管线（含 consolidation 与过期清扫）停摆——表现为「本栈的 job 永远不被 claim」。
+    # 0029 模型池：租约 `model_call_lease.memory_job_id` 引用 job（NO ACTION），引用方先删。
+    "DELETE FROM runtime.model_call_lease WHERE tenant_id = :t",
     "DELETE FROM runtime.memory_consolidation_job WHERE tenant_id = :t",
     "DELETE FROM runtime.memory_command_receipt WHERE tenant_id = :t",
     "DELETE FROM runtime.memory_scope WHERE tenant_id = :t",
@@ -300,7 +302,8 @@ def seed_control(
                 name="E2E Model",
                 model_id="gpt-4o-mini",
                 provider_key="openai",
-                params_json={"temperature": 0.0},
+                # 模型池启用后输出预算必须显式（预占按实际发送的 max_tokens 计算）。
+                params_json={"temperature": 0.0, "max_tokens": 1024},
             )
             session.add(model)
             await session.flush()

@@ -205,6 +205,8 @@ async def _delete_memory_residue(factory: async_sessionmaker[AsyncSession]) -> N
 
     async with factory() as session, session.begin():
         for table in (
+            # 0029 模型池：`model_call_lease.memory_job_id` 引用 job（NO ACTION），引用方先删。
+            "model_call_lease",
             "memory_consolidation_job",
             "memory_command_receipt",
             "memory_scope",
