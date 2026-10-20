@@ -734,6 +734,10 @@ def _require_mapping(container: Mapping[str, Any], key: str) -> dict[str, Any]:
     """Owner 封套里的必需对象：缺失/类型不对是内部契约破坏，显式失败而不是猜。"""
     value = container.get(key)
     if not isinstance(value, dict):
+        logger.warning(
+            "webchat_sse_scope_invalid",
+            extra={"key": key, "keys": sorted(container)},
+        )
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
     return value
 
@@ -776,11 +780,15 @@ class WebchatStreamService:
         游标越界/过期由 Owner 的 `check_cursor` 显式失败（`CURSOR_AHEAD`/`CURSOR_EXPIRED`），
         网关不夹取、不猜测。
         """
-        scope = await self._runtime.get_run_scope(
-            run_id,
-            tenant_id=self._tenant_id,
-            user_id=identity.principal.platform_user_id,
-        )
+        try:
+            scope = await self._runtime.get_run_scope(
+                run_id,
+                tenant_id=self._tenant_id,
+                user_id=identity.principal.platform_user_id,
+            )
+        except AppError as exc:
+            logger.warning("webchat_sse_scope_rejected", extra={"code": exc.code})
+            raise
         state = owned_run_state(identity, _require_mapping(scope, "run"))
         conversation_id = required_uuid(state, "conversation_id")
         agent_id = required_uuid(_require_mapping(scope, "conversation"), "agent_id")
@@ -795,6 +803,7 @@ class WebchatStreamService:
             )
         except AppError as exc:
             # Owner 的游标分型原样留痕（`CURSOR_EXPIRED`/`CURSOR_AHEAD` 不冒充普通失败）。
+            logger.warning("webchat_sse_open_rejected", extra={"code": exc.code})
             record_subscription(_cursor_status(exc.code))
             lease.close()
             await stack.aclose()

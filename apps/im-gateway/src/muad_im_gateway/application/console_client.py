@@ -312,9 +312,18 @@ class ConsoleClient:
                 headers=request_headers,
             )
         except httpx.HTTPError as exc:
+            logger.warning(
+                "gateway_console_transport_failure",
+                extra={"path": path, "error": type(exc).__name__},
+            )
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
         if response.status_code >= 400:
-            raise AppError(error_code_from_payload(decode_json(response)))
+            code = error_code_from_payload(decode_json(response))
+            logger.warning(
+                "gateway_console_http_error",
+                extra={"path": path, "status": response.status_code, "code": code},
+            )
+            raise AppError(code)
         return require_data_model(response, model)
 
 

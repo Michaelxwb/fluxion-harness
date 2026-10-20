@@ -651,7 +651,8 @@ class LoadDriver:
             admission.run_id,
             started,
             outcome.failure,
-            admission.http_status,
+            # 失败时优先记**真正失败的那一跳**的状态码（SSE 拒绝/流错误），否则受理状态。
+            outcome.http_status if outcome.http_status is not None else admission.http_status,
             admission_ms=admission.admission_ms,
             first_delta_ms=outcome.first_delta_ms,
             stream_ms=(time.monotonic() - submitted) * 1000,

@@ -90,6 +90,11 @@ def _transport_failure(exc: httpx.HTTPError, pool: GatewayPool) -> AppError:
         from ..metrics import record_pool_wait
 
         record_pool_wait(pool)
+    # 传输失败只计数不记日志会让 5xx 无法归因（等池超时之外还有读超时/连接失败）。
+    logger.warning(
+        "gateway_transport_failure",
+        extra={"pool": pool, "error": type(exc).__name__},
+    )
     return AppError(ErrorCode.COMMON_INTERNAL_ERROR)
 
 
@@ -608,7 +613,12 @@ class RuntimeClient:
             raise _transport_failure(exc, pool) from exc
         body = decode_json(response)
         if response.status_code >= 400:
-            raise AppError(error_code_from_payload(body))
+            code = error_code_from_payload(body)
+            logger.warning(
+                "gateway_owner_http_error",
+                extra={"path": path, "status": response.status_code, "code": code},
+            )
+            raise AppError(code)
         return require_data_dict(body)
 
     async def _get_internal_json(

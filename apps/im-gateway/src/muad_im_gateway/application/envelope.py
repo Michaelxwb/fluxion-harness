@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import httpx
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from pydantic import BaseModel, ValidationError
+
+logger = logging.getLogger(__name__)
 
 
 def error_code_from_payload(payload: Any) -> str:
@@ -55,10 +58,12 @@ def require_data_model[ContractT: BaseModel](
     body = decode_json(response)
     data = body.get("data") if isinstance(body, dict) else None
     if not isinstance(data, dict):
+        logger.warning("gateway_contract_violation", extra={"contract": model.__name__, "reason": "data"})
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
     try:
         return model.model_validate(data)
     except ValidationError as exc:
+        logger.warning("gateway_contract_violation", extra={"contract": model.__name__, "reason": "fields"})
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
 
 
