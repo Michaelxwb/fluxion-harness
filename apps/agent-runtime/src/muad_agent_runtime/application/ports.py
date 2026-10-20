@@ -27,7 +27,7 @@ class PlatformSettingsClient(Protocol):
     """
 
     async def fetch_snapshot(
-        self, *, tenant_id: str, trace_id: str = "", force: bool = False
+        self, *, tenant_id: str, trace_id: str = ""
     ) -> PlatformSettingsSnapshot: ...
 
 
@@ -39,9 +39,8 @@ class NullPlatformSettingsClient:
     """
 
     async def fetch_snapshot(
-        self, *, tenant_id: str, trace_id: str = "", force: bool = False
+        self, *, tenant_id: str, trace_id: str = ""
     ) -> PlatformSettingsSnapshot:
-        del force
         return PlatformSettingsSnapshot(revision=0)
 
 

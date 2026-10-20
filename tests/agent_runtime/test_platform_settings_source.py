@@ -119,7 +119,7 @@ async def _console_server() -> AsyncIterator[str]:
 
 
 def _settings_client(console_url: str) -> ConsolePlatformSettingsClient:
-    return ConsolePlatformSettingsClient(console_url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+    return ConsolePlatformSettingsClient(console_url, service_token=INTERNAL_TOKEN)
 
 
 # ---- 种子数据 / 清理 ----
@@ -315,7 +315,7 @@ async def test_e03_source_unavailable_fails_run_creation_with_failed_metric(
     失败发生在任何落库之前，因此不会留下 `runtime_snapshot` 行。
     """
     async with _dead_endpoint() as dead_url:
-        cut_client = ConsolePlatformSettingsClient(dead_url, service_token=INTERNAL_TOKEN, timeout_sec=0.5, cache_ttl_sec=0)
+        cut_client = ConsolePlatformSettingsClient(dead_url, service_token=INTERNAL_TOKEN, timeout_sec=0.5)
         runtime_app.dependency_overrides[get_resolve_client] = lambda: fake_resolve
         runtime_app.dependency_overrides[get_executor_factory] = lambda: executor_factory
         runtime_app.dependency_overrides[get_credentials_client] = lambda: None
@@ -445,7 +445,7 @@ class _CountingSettingsClient:
     def __init__(self) -> None:
         self.calls: list[str] = []
 
-    async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "", force: bool = False) -> Any:
+    async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "") -> Any:
         from muad_agent_runtime.application.ports import PlatformSettingsSnapshot
 
         self.calls.append(tenant_id)
@@ -488,3 +488,26 @@ async def test_settings_client_uses_internal_contract(tenant: TenantContext, con
     assert snapshot.revision == 0  # 该租户无记录 ⇒ schema 默认
     assert PLATFORM_SETTINGS_PATH == "/internal/v1/platform-settings"
     assert "compaction" in snapshot.settings, "内部端点返回整份设置文档（含 compaction 分组）"
+
+
+async def test_settings_client_does_not_cache_snapshots_between_calls(
+    tenant: TenantContext, control_cleanup: None
+) -> None:
+    """[ADR-03/E-08] 同一个 client 的每次调用都取当前版本：进程内不保留设置缓存。
+
+    判别点：若客户端重新引入 TTL 缓存，第二次调用会命中旧值（revision 0），本用例失败。
+    """
+    async with _console_server() as console_url:
+        client = _settings_client(console_url)
+        try:
+            first = await client.fetch_snapshot(tenant_id=tenant.tenant_id)
+            assert first.revision == 0
+            await _seed_platform_setting(
+                tenant.tenant_id,
+                revision=1,
+                document={"compaction": {"snip": {"max_groups": 41}}},
+            )
+            second = await client.fetch_snapshot(tenant_id=tenant.tenant_id)
+        finally:
+            await client.aclose()
+    assert second.revision == 1, "同一 client 的每次调用都读当前版本（无进程内设置缓存）"

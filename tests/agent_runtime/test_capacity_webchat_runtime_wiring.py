@@ -22,7 +22,7 @@
    （artifact storage）失败即 503 并指名失败项。
 
 B-09 契约（同一文件的配置面）：contracts 配置解析与真实 PG 快照/准入版本、启动 settings 唯一
-来源、派生值唯一；坏设置显式失败且不回落默认；配置网络读取在行锁短事务外（结构断言 + 真实
+来源、派生值唯一；坏设置显式失败且不回落默认；配置网络读取在受理事务之外（结构断言 + 真实
 行为：低版本不覆盖全局容量）。本文件的池预算/保留期都是**用例参数**，不代表生产实测容量。
 """
 
@@ -860,7 +860,7 @@ async def test_b09_startup_and_platform_budgets_have_one_source_and_unused_pools
 async def test_b09_global_admission_keeps_the_higher_revision_and_reads_settings_outside_the_lock(
     wiring_env: _WiringEnv,
 ) -> None:
-    """[B-09] 低版本不覆盖全局容量；配置网络读取在行锁短事务外（行为 + 结构）。"""
+    """[B-09] 低版本不覆盖全局容量；配置网络读取在事务之外（行为 + 结构）。"""
     from muad_agent_runtime import main
 
     wiring_env.console.revision = 7
@@ -887,15 +887,15 @@ async def test_b09_global_admission_keeps_the_higher_revision_and_reads_settings
             row.max_open_runs_per_user,
         ) == (7, 500, 4), "低版本不得覆盖全局容量"
 
-    # 结构断言：取配置不碰会话/事务，锁内不联网（配置网络读取在行锁短事务外）
+    # 结构断言：取配置不碰会话/事务；受理事务内不联网（版本应用只读写投影行）
     admission_source = (
         REPO_ROOT / "apps/agent-runtime/src/muad_agent_runtime/application/run_admission.py"
     ).read_text(encoding="utf-8")
     fetch_capacity = _function_node(admission_source, "fetch_capacity")
     assert "fetch_snapshot" in _called_names(fetch_capacity)
     assert "_session_factory_provider" not in ast.dump(fetch_capacity), "取配置必须在事务之外"
-    lock_and_apply = _function_node(admission_source, "lock_and_apply_in")
-    assert "fetch_snapshot" not in _called_names(lock_and_apply), "锁内不得联网读配置"
+    apply_policy = _function_node(admission_source, "apply_policy_in")
+    assert "fetch_snapshot" not in _called_names(apply_policy), "受理事务内不得联网读配置"
 
     main_source = (REPO_ROOT / "apps/agent-runtime/src/muad_agent_runtime/main.py").read_text(
         encoding="utf-8"

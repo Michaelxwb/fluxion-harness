@@ -188,7 +188,7 @@ async def _probe_source() -> AsyncIterator[tuple[ScriptedSettingsSource, str]]:
 @contextlib.asynccontextmanager
 async def _service(url: str) -> AsyncIterator[AdmissionPolicyService]:
     """每个实例独立构造（无进程内缓存）：多实例语义用两个实例证明。"""
-    client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+    client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
     try:
         yield AdmissionPolicyService(get_session_factory, client)
     finally:
@@ -396,9 +396,9 @@ async def _admit_then_lock_session(
     capacity: CapacitySnapshot,
     marker: str,
 ) -> Any:
-    """受理事务的锁定段：policy 行锁先行（本任务），随后会话行锁（§3.2 锁序续段）。"""
+    """受理事务的锁定段：先应用策略版本（同类版本不写行），再取会话行锁等另一连接放行。"""
     async with get_session_factory()() as session:
-        policy = await service.lock_and_apply_in(
+        policy = await service.apply_policy_in(
             session, tenant_id=tenant.tenant_id, capacity=capacity
         )
         await session.execute(
@@ -436,7 +436,7 @@ async def test_b229_policy_revision_only_increases(admission_tenant: TenantConte
         # 事务内原语同样拒绝低版本（调用方回滚），策略行保持不变
         async with get_session_factory()() as session:
             with pytest.raises(AdmissionPolicyStaleError):
-                await service.lock_and_apply_in(
+                await service.apply_policy_in(
                     session, tenant_id=tenant_id, capacity=_capacity(3, tenant_limit=100, user_limit=50)
                 )
             await session.rollback()
@@ -458,12 +458,102 @@ async def test_b229_policy_revision_only_increases(admission_tenant: TenantConte
 
 
 # --------------------------------------------------------------------------------------
-# B-229 断言 2：policy 行锁先于会话行锁
+# B-229 断言 1b：并发应用更高版本不回归（原子 upsert，无策略行锁）
 # --------------------------------------------------------------------------------------
 
 
-async def test_b229_policy_row_lock_precedes_session_lock(admission_tenant: TenantContext) -> None:
-    """[B-229] 受理事务先持有 policy 行锁，再请求会话行锁（真实 pg_locks + NOWAIT 探测）。"""
+async def _apply_in_new_session(
+    service: AdmissionPolicyService, tenant_id: str, capacity: CapacitySnapshot
+) -> Any:
+    async with get_session_factory()() as session:
+        try:
+            return await service.apply_policy_in(
+                session, tenant_id=tenant_id, capacity=capacity
+            )
+        finally:
+            await session.rollback()
+
+
+async def _wait_for_blocked_policy_writer(engine: AsyncEngine) -> None:
+    """等到某个事务的策略版本写入真实阻塞在行锁上（upsert 撞上未提交的更高版本）。"""
+    deadline = time.monotonic() + WAIT_TIMEOUT_SEC
+    while time.monotonic() < deadline:
+        async with engine.connect() as connection:
+            blocked = await connection.scalar(
+                sa.text(
+                    "SELECT pid FROM pg_stat_activity"
+                    " WHERE datname = current_database()"
+                    " AND state = 'active' AND wait_event_type = 'Lock'"
+                    " AND query LIKE '%run_admission_policy%' LIMIT 1"
+                )
+            )
+        if blocked is not None:
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError("超时未观察到策略版本写入被行锁阻塞")
+
+
+async def test_b229_concurrent_lower_revision_never_overwrites_the_higher_one(
+    admission_tenant: TenantContext,
+) -> None:
+    """[B-229] 并发应用：后到者拿着较低版本，必须 no-op 并显式 stale，绝不覆盖更高版本。
+
+    判别点：去掉 upsert 的 `WHERE source_settings_revision < 新版本` 后，被阻塞的较低版本
+    会覆盖更高版本（版本回退），本用例即失败。
+    """
+    tenant_id = admission_tenant.tenant_id
+    engine = create_async_engine(SharedSettings().require_database_url())
+    try:
+        async with _probe_source() as (source, url), _service(url) as service:
+            source.script(tenant_id, _document(5, tenant_limit=10, user_limit=5))
+            await service.resolve(tenant_id=tenant_id)
+
+            async with get_session_factory()() as session_a:
+                applied = await service.apply_policy_in(
+                    session_a,
+                    tenant_id=tenant_id,
+                    capacity=_capacity(7, tenant_limit=2, user_limit=2),
+                )
+                assert applied.source_settings_revision == 7
+                lower = asyncio.create_task(
+                    _apply_in_new_session(
+                        service, tenant_id, _capacity(6, tenant_limit=100, user_limit=50)
+                    )
+                )
+                try:
+                    # 后到者读到的仍是未提交的 5，因 6 > 5 尝试写入并按行锁排队
+                    await _wait_for_blocked_policy_writer(engine)
+                    await session_a.commit()
+                    with pytest.raises(AdmissionPolicyStaleError):
+                        await asyncio.wait_for(lower, timeout=WAIT_TIMEOUT_SEC)
+                finally:
+                    if not lower.done():
+                        lower.cancel()
+                    with contextlib.suppress(BaseException):
+                        await lower
+            assert await _read_policy(tenant_id) == {
+                "source_settings_revision": 7,
+                "max_open_runs_per_tenant": 2,
+                "max_open_runs_per_user": 2,
+            }, "较低版本不得覆盖并发写入的更高版本"
+    finally:
+        await engine.dispose()
+
+
+# --------------------------------------------------------------------------------------
+# B-229 断言 2：受理热路径不持有策略行锁
+# --------------------------------------------------------------------------------------
+
+
+async def test_b229_admission_does_not_hold_the_policy_row_lock(
+    admission_tenant: TenantContext,
+) -> None:
+    """[B-229] 受理事务在等会话行锁期间，策略行仍可被另一事务 `FOR UPDATE NOWAIT` 取得。
+
+    2026-10-20 起策略行不再于受理事务内加锁（原 `FOR UPDATE` 持有整个受理事务，把互不
+    相关的用户串成一条队列）；更高版本改由单条原子 upsert 应用。本用例同时是反回归：
+    重新在 `read_policy` 上加 `FOR UPDATE` 即失败。
+    """
     tenant = admission_tenant
     marker = f"b229-accept-waiter-{uuid.uuid4().hex[:12]}"
     conversation_id = await _seed_conversation(
@@ -487,7 +577,7 @@ async def test_b229_policy_row_lock_precedes_session_lock(admission_tenant: Tena
                     " WHERE tenant_id = :tenant_id AND id = :id FOR UPDATE"
                 ).bindparams(tenant_id=tenant.tenant_id, id=conversation_id)
             )
-            # 受理事务：先取 policy 行锁（同一版本，不触发 UPDATE），再等会话行锁
+            # 受理事务：应用同一版本（不触发 upsert），再等会话行锁
             waiter = asyncio.create_task(
                 _admit_then_lock_session(
                     service,
@@ -499,8 +589,8 @@ async def test_b229_policy_row_lock_precedes_session_lock(admission_tenant: Tena
             )
             pid = await _wait_for_waiter(observer_engine, marker)
             assert pid > 0
-            assert await _try_lock_policy_nowait(observer_engine, tenant.tenant_id) == "LOCKED", (
-                "受理事务在等会话行锁时必须已持有 policy 行锁（policy 锁在先）"
+            assert await _try_lock_policy_nowait(observer_engine, tenant.tenant_id) == "FREE", (
+                "受理事务在等会话行锁时不得持有策略行锁（热路径无策略行锁）"
             )
 
             await transaction.rollback()
@@ -560,7 +650,7 @@ async def test_b229_old_instance_cannot_over_admit_with_old_thresholds(
 
         async with get_session_factory()() as session:
             with pytest.raises(AdmissionPolicyStaleError):
-                await old_instance.lock_and_apply_in(
+                await old_instance.apply_policy_in(
                     session,
                     tenant_id=tenant_id,
                     capacity=_capacity(5, tenant_limit=10, user_limit=5),

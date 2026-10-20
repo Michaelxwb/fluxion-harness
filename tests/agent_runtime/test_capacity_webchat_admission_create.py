@@ -416,7 +416,7 @@ async def test_b230_create_run_commits_run_and_counts_in_one_transaction(
     tenant = admission_tenant
     request = _request(tenant, text="persisted before return")
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -467,7 +467,7 @@ async def test_b230_single_settings_snapshot_serves_admission_and_freeze(
         source.script(
             tenant.tenant_id, _document(11, tenant_limit=4, user_limit=2, max_turns=11)
         )
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
             started = await _start(
                 tenant, client, fake_resolve, gated_executor, execution_supervisor_boundary,
@@ -554,7 +554,7 @@ async def test_b230_run_and_counts_commit_together_under_counter_lock(
     pending: asyncio.Task[RunStart] | None = None
     try:
         async with _console_source() as url:
-            client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+            client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
             try:
                 blocker = await engine.connect()
                 transaction = await blocker.begin()
@@ -644,7 +644,7 @@ async def test_b230_capacity_exceeded_rolls_back_without_fake_run(
     """[B-230] 用户份额满：`RUN_CAPACITY_EXCEEDED` 且整事务回滚（不留半建 Run/会话/提交）。"""
     tenant = admission_tenant
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -725,7 +725,7 @@ async def test_b230_tenant_share_is_shared_across_users(
     user_b = uuid.uuid4()
     user_c = uuid.uuid4()
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -775,7 +775,7 @@ async def test_b230_non_terminal_runs_occupy_the_shared_share(
     """[B-230] 全部非终态 Run 占份额：RUNNING/WAITING_INPUT/WAITING_TOOL 都不释放。"""
     tenant = admission_tenant
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -840,7 +840,7 @@ async def test_b230_idempotent_replay_does_not_double_count(
     tenant = admission_tenant
     request = _request(tenant, text="replay me")
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -911,7 +911,7 @@ async def test_b230_fingerprint_covers_tenant_user_entry_and_conversation(
     )
     base = _request(tenant, text="fingerprint base")
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -975,7 +975,7 @@ async def test_b230_stale_settings_revision_refetches_and_never_admits_on_old_th
     await _seed_counter(tenant.tenant_id, scope_type=SCOPE_USER, scope_key=user_key, count=2)
     await _seed_counter(tenant.tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant.tenant_id, count=2)
     async with _scripted_source() as (source, url):
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
             # 首次取到更宽的旧版本（rev 5），投影行已是 rev 9：必须重取，不按 rev 5 放行
             source.script(
@@ -1023,7 +1023,7 @@ async def test_b230_stale_settings_revision_refreshes_and_admits_under_new_thres
     tenant = admission_tenant
     await _seed_policy(tenant.tenant_id, revision=9, tenant_limit=4, user_limit=2)
     async with _scripted_source() as (source, url):
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
             source.script(
                 tenant.tenant_id,
@@ -1065,7 +1065,7 @@ async def test_b230_concurrent_same_key_admits_exactly_one_run(
     tenant = admission_tenant
     request = _request(tenant, text="concurrent same key")
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
             await _seed_setting(
                 tenant.tenant_id,
@@ -1106,7 +1106,7 @@ async def test_b230_concurrent_distinct_keys_converge_exactly_to_threshold(
     """[B-230] 并发新受理恰好收敛到阈值：限额 3 时 6 并发恰好 3 成 3 拒。"""
     tenant = admission_tenant
     async with _console_source() as url:
-        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN, cache_ttl_sec=0)
+        client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
             await _seed_setting(
                 tenant.tenant_id,

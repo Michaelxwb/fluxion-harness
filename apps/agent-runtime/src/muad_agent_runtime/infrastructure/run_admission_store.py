@@ -1,13 +1,14 @@
 """PG 侧准入投影行与计数行的读写（设计 §3.2/§3.3）。
 
-**热路径只有用户级行锁**：`run_admission_counter(USER)` 严格保证「每用户 ≤ N」；租户上限
-用 `run_record` 的实时在飞行数做**无锁软校验**（`admission_released_at IS NULL`），
-不再有租户计数行锁、也不再有策略行 `FOR UPDATE`——两者曾把 1000 个互不相关的用户串成
-一条全局队列（2026-10-20 真 Pod 实测准入吞吐固定在 ~30/s）。
+**热路径不锁策略行**：`run_admission_policy` 只在更高 `source_settings_revision` 时用一条
+`INSERT … ON CONFLICT DO UPDATE … WHERE revision < 新版本` 原子应用（并发同版本写幂等 no-op），
+不再有 `FOR UPDATE`——它曾持有整个受理事务，把 1000 个互不相关的用户串成一条全局队列
+（2026-10-20 真 Pod 实测准入吞吐固定在 ~30/s）。调用方读回当前行判定低版本（stale）或同版本
+阈值冲突。
 
-策略行仍以 `source_settings_revision` 为唯一版本：只在更高版本时用一条
-`INSERT … ON CONFLICT DO UPDATE … WHERE revision < 新版本` 原子应用；并发同版本写是幂等的
-no-op，调用方读回当前行判定低版本（stale）或同版本阈值冲突。
+计数仍是严格语义：`run_admission_counter` 的 USER 与 TENANT 两行在受理事务末尾加锁判定并自增
+（USER → TENANT 锁序），持有到提交只有毫秒级；达阈值即整事务回滚，不留半建 Run，也不留只增
+不减的占位。
 
 为什么投影在 Runtime 自己的 PG：全局接纳上限的权威来源是 Console capacity 设置，Runtime 在
 受理事务内应用**更高**版本；所有实例按同一事实判定，不按每 Pod 本地缓存独立判定（§3.7）。
@@ -22,7 +23,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models.runtime import RunAdmissionCounter, RunAdmissionPolicy, RunRecord
+from .models.runtime import RunAdmissionCounter, RunAdmissionPolicy
 
 SCOPE_USER = "USER"
 SCOPE_TENANT = "TENANT"
@@ -95,48 +96,6 @@ class RunAdmissionStore:
         if row is None:  # pragma: no cover - upsert 后必然存在
             raise RuntimeError("admission policy row missing after upsert")
         return _policy_row(row)
-
-    async def write_policy(
-        self,
-        *,
-        tenant_id: str,
-        revision: int,
-        max_open_runs_per_tenant: int,
-        max_open_runs_per_user: int,
-        now: datetime,
-    ) -> PolicyRow:
-        """把更高版本与阈值写回策略行（调用方已持有该行锁）。"""
-        row = await self._session.scalar(
-            sa.update(RunAdmissionPolicy)
-            .where(RunAdmissionPolicy.tenant_id == tenant_id)
-            .values(
-                source_settings_revision=revision,
-                max_open_runs_per_tenant=max_open_runs_per_tenant,
-                max_open_runs_per_user=max_open_runs_per_user,
-                update_time=now,
-            )
-            .returning(RunAdmissionPolicy)
-        )
-        if row is None:  # pragma: no cover - 行锁内已确认存在
-            raise RuntimeError("admission policy row missing while writing")
-        return _policy_row(row)
-
-    async def count_open_runs(
-        self, *, tenant_id: str, exclude_run_id: object | None = None
-    ) -> int:
-        """租户在飞 Run 的实时候选数（无锁 MVCC 读）：排除正在受理的这一行。
-
-        `exclude_run_id`：调用方已插入本 Run 行，计数只算「其它」在飞 Run；
-        `>= max_open_runs_per_tenant` 时拒绝本次，实际总量最多超发到并发窗口内的少量行
-        （软上限，租户护栏值远高于真实用量）。
-        """
-        query = sa.select(sa.func.count()).select_from(RunRecord).where(
-            RunRecord.tenant_id == tenant_id,
-            RunRecord.admission_released_at.is_(None),
-        )
-        if exclude_run_id is not None:
-            query = query.where(RunRecord.id != exclude_run_id)
-        return int(await self._session.scalar(query) or 0)
 
     async def lock_counter(self, *, tenant_id: str, scope_type: str, scope_key: str) -> int:
         """计数行锁（缺失按 0 建立）：返回当前计数。

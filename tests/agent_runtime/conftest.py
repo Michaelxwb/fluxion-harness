@@ -254,7 +254,7 @@ class _SuitePlatformSettings:
     （冻结策略与「无设置」逐键一致）。真实取值路径与失败路径见 `test_platform_settings_source.py`。
     """
 
-    async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "", force: bool = False) -> PlatformSettingsSnapshot:
+    async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "") -> PlatformSettingsSnapshot:
         return PlatformSettingsSnapshot(
             revision=0,
             settings={

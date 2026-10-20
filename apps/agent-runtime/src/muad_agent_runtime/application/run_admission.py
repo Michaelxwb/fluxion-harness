@@ -1,11 +1,12 @@
 """全局准入阈值的单调版本应用（设计 §3.2 架构与执行边界 / §3.7 配置契约与生效边界）。
 
 Console capacity 设置是唯一来源；`runtime.run_admission_policy` 是 Runtime 侧的 PG 阈值投影。
-受理事务的锁序固定为：策略行锁 → Conversation → Run → USER 计数 → TENANT 计数；本模块负责
-第一段（策略行锁 + 单调应用）与计数校验：
+受理事务的锁序为：Conversation → Run → USER 计数 → TENANT 计数；策略行不在热路径加锁，
+本模块负责单调版本应用（单条原子 upsert）与计数校验：
 
-- 配置元信息（设置快照）在短事务**外**取得，锁内只把更高 `source_settings_revision` 应用到
-  policy 行；所有实例按同一 PG 行计数，不按每 Pod 本地缓存独立判定（§3.7）；
+- 配置元信息（设置快照）在短事务**外**取得，事务内只把更高 `source_settings_revision` 用原子
+  upsert 应用到 policy 行并读回判定；所有实例按同一 PG 行计数，不按每 Pod 本地缓存独立判定
+  （§3.7）；
 - 读到较低版本：退出事务后才重新获取一次有效配置；仍低即显式失败，绝不覆盖更高版本、
   绝不按旧阈值放行；坏文档/源失败同样显式失败，不回落 schema 默认值；
 - 降额只影响新受理：已有 Run 与计数行不被改动，新请求要等计数低于有效阈值才可受理；
@@ -183,16 +184,9 @@ class AdmissionPolicyService:
         self._stale_refresh_attempts = max(stale_refresh_attempts, 0)
         self._logger = logging.getLogger(__name__)
 
-    async def fetch_capacity(
-        self, *, tenant_id: str, trace_id: str = "", force: bool = False
-    ) -> CapacitySnapshot:
-        """事务外取一次配置（真实 Console 内部 HTTP，进程内短 TTL 缓存）。
-
-        源失败/坏文档都不回落默认值；`force=True` 绕过缓存（策略行版本更高时立即刷新）。
-        """
-        snapshot = await self._settings_client.fetch_snapshot(
-            tenant_id=tenant_id, trace_id=trace_id, force=force
-        )
+    async def fetch_capacity(self, *, tenant_id: str, trace_id: str = "") -> CapacitySnapshot:
+        """事务外取一次配置（真实 Console 内部 HTTP）；源失败/坏文档都不回落默认值。"""
+        snapshot = await self._settings_client.fetch_snapshot(tenant_id=tenant_id, trace_id=trace_id)
         return parse_capacity(snapshot)
 
     @property
@@ -202,19 +196,15 @@ class AdmissionPolicyService:
 
     async def resolve(self, *, tenant_id: str, trace_id: str = "") -> AdmissionPolicy:
         """投影流程：事务外取配置 → 锁内应用更高版本 → 低版本退出事务后重取一次。"""
-        force = False
         for _ in range(self._stale_refresh_attempts + 1):
-            capacity = await self.fetch_capacity(
-                tenant_id=tenant_id, trace_id=trace_id, force=force
-            )
+            capacity = await self.fetch_capacity(tenant_id=tenant_id, trace_id=trace_id)
             async with self._session_factory_provider()() as session:
                 try:
                     policy = await self.apply_policy_in(
                         session, tenant_id=tenant_id, capacity=capacity
                     )
                 except AdmissionPolicyStaleError as stale:
-                    # 先退出事务再刷新：重取仍在事务外；下一轮必须**绕过缓存**拿新版本。
-                    force = True
+                    # 先退出事务再刷新：重取仍在事务外，事务内不联网。
                     await session.rollback()
                     self._logger.warning(
                         "admission_policy_stale tenant=%s fetched=%s policy=%s",

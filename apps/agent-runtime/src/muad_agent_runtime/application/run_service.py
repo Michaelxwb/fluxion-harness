@@ -890,7 +890,7 @@ class RunService:
         # 新建调用点忘记注入真 client 会静默按空设置跑；取消/回收/直构的调用点若要
         # 「无设置源」语义，显式传 `NullPlatformSettingsClient()`。
         self._settings_client: PlatformSettingsClient = settings_client
-        # 全局准入（TASK-029/030）：策略行锁与 USER→TENANT 计数都在 Run 创建事务内完成，
+        # 全局准入（TASK-029/030）：策略版本应用与 USER→TENANT 计数都在 Run 创建事务内完成，
         # 与设置源同一份快照；显式注入用于测试或替换装配。
         self._admission = admission or AdmissionPolicyService(
             get_session_factory, settings_client
@@ -925,12 +925,9 @@ class RunService:
         fingerprint = _creation_fingerprint(request, tenant_id)
         for attempt in range(self._admission.stale_refresh_attempts + 1):
             try:
-                # 重试必须绕过设置快照缓存：上一轮已证明取到的是更低版本，读缓存只会重复失败。
-                return await self._admit(
-                    request, tenant_id, key, fingerprint, force_settings=attempt > 0
-                )
+                return await self._admit(request, tenant_id, key, fingerprint)
             except AdmissionPolicyStaleError:
-                # 先退出事务（连同 policy 行锁与未提交的 Run/会话）再重取，锁内不联网。
+                # 先退出事务（连同未提交的 Run/会话）再重取，事务内不联网。
                 await self._session.rollback()
                 logger.warning(
                     "admission_policy_stale_on_create",
@@ -940,13 +937,7 @@ class RunService:
         raise AppError(ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE)
 
     async def _admit(
-        self,
-        request: RunRequest,
-        tenant_id: str,
-        key: str,
-        fingerprint: str,
-        *,
-        force_settings: bool = False,
+        self, request: RunRequest, tenant_id: str, key: str, fingerprint: str
     ) -> RunStart:
         """一次受理尝试：重放检查 → 同键串行化 → 会话/活跃 Run 判定 → 建 Run（含准入）。"""
         replay = await self._submissions.find_replay_in(
@@ -959,8 +950,8 @@ class RunService:
         if replay is not None:
             self._assert_replay_owner(replay, request.platform_user_id, request.conversation_id)
             return self._replay_start(replay)
-        # 同键请求先经事务 advisory 锁串行化（RULE-api-002）：锁先于 policy 行锁，同键事务
-        # 只在 advisory 锁上排队；锁内复查首次提交 ⇒ 落败者直接重放，不建第二个 Run。
+        # 同键请求先经事务 advisory 锁串行化（RULE-api-002）：同键事务只在 advisory 锁上
+        # 排队；锁内复查首次提交 ⇒ 落败者直接重放，不建第二个 Run。
         replay = await self._submissions.claim_in(
             self._session,
             tenant_id=tenant_id,
@@ -984,10 +975,7 @@ class RunService:
             tenant_id=tenant_id,
             trace_id=current_trace_id(),
         )
-        return await self._create_run(
-                request, tenant_id, conversation, resolved, key, fingerprint,
-                force_settings=force_settings,
-            )
+        return await self._create_run(request, tenant_id, conversation, resolved, key, fingerprint)
 
     async def _resume_active(
         self, active: RunRecord, request: RunRequest, key: str, fingerprint: str
@@ -1434,8 +1422,6 @@ class RunService:
         resolved: ResolveDefinitionResponse,
         submission_key: str,
         submission_fingerprint_value: str,
-        *,
-        force_settings: bool = False,
     ) -> RunStart:
         # 受理时刻与绝对期限取自 **PG 服务端时钟**（B-235）：这份 `now` 同时冻结
         # `deadline_at`/`queued_at`/`queue_deadline_at`，之后由 PG 时钟的领取/扫描裁决——
@@ -1446,7 +1432,7 @@ class RunService:
         # capacity 阈值（准入投影与冻结策略同源，不二次取配置）。源不可读即明确失败
         # （RULE-06）——绝不回退到任何过期默认值，失败计数由 client 在调用方侧记。
         snapshot_settings = await self._settings_client.fetch_snapshot(
-            tenant_id=tenant_id, trace_id=current_trace_id() or "", force=force_settings
+            tenant_id=tenant_id, trace_id=current_trace_id() or ""
         )
         capacity = parse_capacity(snapshot_settings)
         # 压缩配置在此解析一次：既冻进这一行的 snapshot，也供本次历史装配用同一个值——
@@ -1493,8 +1479,9 @@ class RunService:
             resolved.mcp_servers,
             summary_model=summary_model,
         )
-        # 准入段（锁内不联网）：策略行锁是首个共享行锁，随后 Run → USER → TENANT（§3.2 锁序）。
-        # 更低设置版本在此抛 `AdmissionPolicyStaleError`，由 `start` 退出事务后重取一次。
+        # 准入段（事务内不联网）：策略版本用原子 upsert 应用（不锁策略行），随后 Run →
+        # USER → TENANT 计数行锁。更低设置版本在此抛 `AdmissionPolicyStaleError`，由
+        # `start` 退出事务后重取一次。
         policy = await self._admission.apply_policy_in(
             self._session, tenant_id=tenant_id, capacity=capacity
         )
