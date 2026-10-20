@@ -21,7 +21,17 @@ def _json_response(body: ApiResponse[Any], status_code: int) -> JSONResponse:
 
 def install_exception_handlers(app: FastAPI, catalog: MessageCatalog) -> None:
     @app.exception_handler(AppError)
-    async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
+    async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+        # 5xx 必须可归因：带抛出点的堆栈记一条 warning（2026-10-20 容量压测中 140+ 个
+        # 500 无任何日志，排查被迫反复加中间件）。
+        if catalog.spec(exc.code).http_status >= 500:
+            logger.warning(
+                "app_error code=%s method=%s path=%s",
+                exc.code,
+                request.method,
+                request.url.path,
+                exc_info=exc,
+            )
         spec = catalog.spec(exc.code)
         body = build_response(
             catalog,

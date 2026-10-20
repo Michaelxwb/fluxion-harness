@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ from muad_api.catalog import MessageCatalog
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_logging import configure_logging
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .api.delivery import router as delivery_router
 from .api.health import readiness_checks, readiness_detail
@@ -33,6 +35,8 @@ from .infrastructure.dedupe import DedupeStore, build_dedupe_store
 from .infrastructure.http_clients import GatewayHttpPools, build_gateway_http_pools
 from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
 from .metrics import install_gateway_metrics
+
+logger = logging.getLogger(__name__)
 
 SERVICE_NAME = "muad-im-gateway"
 
@@ -276,6 +280,33 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="MUAD IM Gateway", version="0.1.0", lifespan=lifespan)
+
+
+class _ServerErrorLogMiddleware:
+    """纯 ASGI 5xx 观测：只记录路径与状态，不缓冲响应（SSE 长流不受影响）。
+
+    AppError 由 api-kit 的处理器变成封套后不会再留日志；没有这一层，未知路径的 5xx
+    在日志里完全不可见（2026-10-20 容量压测排查花了一整轮）。
+    """
+
+    def __init__(self, asgi_app: ASGIApp) -> None:
+        self._app = asgi_app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+
+        async def send_wrapper(message: Message) -> None:
+            if message["type"] == "http.response.start" and message["status"] >= 500:
+                logger.warning(
+                    "gateway_5xx", extra={"path": scope["path"], "status": message["status"]}
+                )
+            await send(message)
+
+        await self._app(scope, receive, send_wrapper)
+
+
 install_api_foundation(app)
 install_health_probes(
     app,
@@ -286,3 +317,5 @@ app.include_router(delivery_router)
 # Webchat 公开面（TASK-052/054/055/057/061）：HTTP 聊天/上传/下载与公开 SSE 的实际注册点。
 app.include_router(webchat_router)
 install_gateway_metrics(app)
+# 最后注册 = 最外层：必须包在 api-kit 的异常/封套中间件之外，才能看到最终的 5xx 状态。
+app.add_middleware(_ServerErrorLogMiddleware)

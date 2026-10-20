@@ -306,10 +306,19 @@ class RuntimeClient:
                 timeout=httpx.Timeout(STREAM_TIMEOUT_SEC, connect=REQUEST_TIMEOUT_SEC),
             ) as response:
                 if response.status_code >= 400:
+                    raw = await response.aread()
                     payload = await decode_error_payload(response)
-                    raise AppError(
-                        error_code_from_payload(payload), data=error_data_from_payload(payload)
+                    code = error_code_from_payload(payload)
+                    logger.warning(
+                        "gateway_owner_events_error",
+                        extra={
+                            "status": response.status_code,
+                            "content_type": response.headers.get("content-type", ""),
+                            "code": code,
+                            "body": raw[:200].decode("utf-8", "replace"),
+                        },
                     )
+                    raise AppError(code, data=error_data_from_payload(payload))
                 yield iter_sse_events(response.aiter_text())
         except httpx.HTTPError as exc:
             raise _transport_failure(exc, "egress") from exc

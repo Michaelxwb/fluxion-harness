@@ -781,6 +781,16 @@ class WebchatStreamService:
         网关不夹取、不猜测。
         """
         try:
+            return await self._open(identity, run_id, after_seq=after_seq)
+        except AppError as exc:
+            logger.warning("webchat_sse_open_error", extra={"code": exc.code})
+            raise
+        except Exception as exc:  # noqa: BLE001 —— 观测兜底：未处理异常必须留痕后原样上抛
+            logger.warning("webchat_sse_open_unexpected", extra={"error": type(exc).__name__})
+            raise
+
+    async def _open(self, identity: ChatIdentity, run_id: UUID, *, after_seq: int) -> WebchatPublicStream:
+        try:
             scope = await self._runtime.get_run_scope(
                 run_id,
                 tenant_id=self._tenant_id,
