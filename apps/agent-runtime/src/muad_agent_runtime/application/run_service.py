@@ -1481,7 +1481,7 @@ class RunService:
         )
         # 准入段（锁内不联网）：策略行锁是首个共享行锁，随后 Run → USER → TENANT（§3.2 锁序）。
         # 更低设置版本在此抛 `AdmissionPolicyStaleError`，由 `start` 退出事务后重取一次。
-        policy = await self._admission.lock_and_apply_in(
+        policy = await self._admission.apply_policy_in(
             self._session, tenant_id=tenant_id, capacity=capacity
         )
         # 初始排队投影在此冻结（与绝对期限同一份 `now`）：`queue_deadline = min(受理+配置,
@@ -1579,7 +1579,10 @@ class RunService:
             # 计数自增与 Run 行同事务（B-230）：达阈值即拒，整个事务回滚——不留半建 Run，
             # 也不留下只增不减的占位。
             await self._admission.reserve_counts_in(
-                self._session, tenant_id=tenant_id, user_id=request.platform_user_id, policy=policy
+                self._session,
+                tenant_id=tenant_id,
+                user_id=request.platform_user_id,
+                policy=policy,
             )
             await self._session.commit()
         except IntegrityError as exc:

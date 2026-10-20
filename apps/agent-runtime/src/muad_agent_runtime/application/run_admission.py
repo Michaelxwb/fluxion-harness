@@ -199,7 +199,7 @@ class AdmissionPolicyService:
             capacity = await self.fetch_capacity(tenant_id=tenant_id, trace_id=trace_id)
             async with self._session_factory_provider()() as session:
                 try:
-                    policy = await self.lock_and_apply_in(
+                    policy = await self.apply_policy_in(
                         session, tenant_id=tenant_id, capacity=capacity
                     )
                 except AdmissionPolicyStaleError as stale:
@@ -217,36 +217,32 @@ class AdmissionPolicyService:
         record_outcome(RUN_ADMISSION_METRIC, ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE)
         raise AppError(ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE)
 
-    async def lock_and_apply_in(
+    async def apply_policy_in(
         self, session: AsyncSession, *, tenant_id: str, capacity: CapacitySnapshot
     ) -> AdmissionPolicy:
-        """准入事务第一条语句：策略行锁先行，锁内只应用更高设置版本。
+        """无锁应用策略版本：读 → 更高版本时原子 upsert → 读回判定。
 
-        更低版本抛 `AdmissionPolicyStaleError`（调用方回滚后重取）；同一版本给出不同阈值
-        说明投影已损坏，同样显式失败——两种情况下都不放行。
+        热路径不持有策略行锁（原 `SELECT … FOR UPDATE` 把每个受理事务串行化）；并发应用同一
+        更高版本由单条 upsert 幂等收敛。更低版本抛 `AdmissionPolicyStaleError`（调用方回滚
+        后重取）；同版本给出不同阈值说明投影损坏，显式失败——两种情况下都不放行。
         """
         store = RunAdmissionStore(session)
-        row = await store.lock_policy(
-            tenant_id=tenant_id,
-            revision=capacity.revision,
-            max_open_runs_per_tenant=capacity.limits.max_open_runs_per_tenant,
-            max_open_runs_per_user=capacity.limits.max_open_runs_per_user,
-        )
-        if capacity.revision < row.source_settings_revision:
-            raise AdmissionPolicyStaleError(
-                tenant_id=tenant_id,
-                fetched_revision=capacity.revision,
-                policy_revision=row.source_settings_revision,
-            )
-        if capacity.revision > row.source_settings_revision:
-            row = await store.write_policy(
+        row = await store.read_policy(tenant_id=tenant_id)
+        if row is None or capacity.revision > row.source_settings_revision:
+            row = await store.upsert_policy(
                 tenant_id=tenant_id,
                 revision=capacity.revision,
                 max_open_runs_per_tenant=capacity.limits.max_open_runs_per_tenant,
                 max_open_runs_per_user=capacity.limits.max_open_runs_per_user,
                 now=datetime.now(UTC),
             )
-        elif (row.max_open_runs_per_tenant, row.max_open_runs_per_user) != (
+        if capacity.revision < row.source_settings_revision:
+            raise AdmissionPolicyStaleError(
+                tenant_id=tenant_id,
+                fetched_revision=capacity.revision,
+                policy_revision=row.source_settings_revision,
+            )
+        if (row.max_open_runs_per_tenant, row.max_open_runs_per_user) != (
             capacity.limits.max_open_runs_per_tenant,
             capacity.limits.max_open_runs_per_user,
         ):
@@ -264,7 +260,11 @@ class AdmissionPolicyService:
     async def check_counts_in(
         self, session: AsyncSession, *, tenant_id: str, user_id: uuid.UUID, policy: AdmissionPolicy
     ) -> None:
-        """计数校验（USER → TENANT，与 §3.2 锁序一致）：达到有效阈值即拒，不新增占位。"""
+        """计数校验（USER → TENANT，§3.2 锁序）：达到有效阈值即拒，不新增占位。
+
+        两把计数行锁都在受理事务的**末尾**获取（Run/快照/提交行已写完），持有到提交只有
+        毫秒级；长持有的策略行锁已移除（见 `apply_policy_in`），这是本次吞吐修复的关键。
+        """
         store = RunAdmissionStore(session)
         user_count = await store.lock_counter(
             tenant_id=tenant_id, scope_type=SCOPE_USER, scope_key=str(user_id)
@@ -284,9 +284,9 @@ class AdmissionPolicyService:
     ) -> None:
         """受理占位（USER → TENANT）：达有效阈值即拒，通过则原地自增，与 Run 行**同事务**。
 
-        调用方在同一事务内先插入 Run 行再调用本方法（§3.2 锁序 Conversation → Run → USER →
-        TENANT）；任一 scope 达阈值即 `RUN_CAPACITY_EXCEEDED`，调用方回滚整个事务——Run、会话、
-        提交、事件与计数一起消失，不留半建 Run，也不留下只增不减的占位。
+        调用方在同一事务内先插入 Run 行再调用本方法；任一 scope 达阈值即
+        `RUN_CAPACITY_EXCEEDED`，调用方回滚整个事务——Run、会话、提交、事件与计数一起消失，
+        不留半建 Run，也不留下只增不减的占位。严格阈值语义保持（B-230 的精确收敛契约）。
         """
         await self.check_counts_in(session, tenant_id=tenant_id, user_id=user_id, policy=policy)
         store = RunAdmissionStore(session)
