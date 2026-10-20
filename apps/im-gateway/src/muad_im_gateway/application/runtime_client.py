@@ -44,6 +44,8 @@ RUN_PATH = "/v1/runs/{run_id}"
 RUN_CANCEL_PATH = "/v1/runs/{run_id}/cancel"
 RUN_RESUME_PATH = "/v1/runs/{run_id}/resume"
 RUN_EVENTS_PATH = "/v1/runs/{run_id}/events"
+#: 打开公开流的一次归属解析（Run + 会话入口/Agent）：与 `RUN_PATH` + `INTERNAL_SCOPE_PATH` 同义。
+RUN_SCOPE_PATH = "/v1/runs/{run_id}/scope"
 CONVERSATIONS_PATH = "/v1/conversations"
 #: 受信内部历史面（TASK-050）：入口显式的列表/详情/消息 + 公共路径的归属解析（TASK-052）。
 INTERNAL_CONVERSATIONS_PATH = "/internal/webchat/entries/{entry_id}/conversations"
@@ -376,6 +378,22 @@ class RuntimeClient:
         """Run 详情（状态 + 持久阶段投影 + 归属）：取消/恢复的归属核验与受理回执共用。"""
         return await self._get_json(RUN_PATH.format(run_id=run_id), tenant_id)
 
+    async def get_run_scope(
+        self, run_id: UUID, *, tenant_id: str, user_id: UUID
+    ) -> dict[str, Any]:
+        """打开公开流的一次归属解析：Run + 会话入口/Agent（**流生命周期**，走 stream 池）。
+
+        `user_id` 必须与 Run 的归属主体一致；会话入口/Agent 由 Owner 从 Run 行的会话导出，
+        网关不能拿任意 `conversation_id` 做入口解析。
+        """
+        return await self._get_json(
+            RUN_SCOPE_PATH.format(run_id=run_id),
+            tenant_id,
+            params={"user_id": str(user_id)},
+            client=self._stream_client,
+            internal=True,
+        )
+
     async def cancel_run(self, run_id: UUID, *, tenant_id: str) -> dict[str, Any]:
         """API-08 精确取消：按原 Run 定位（可重放），不猜"最新 Run"。"""
         return await self._post_json(
@@ -569,12 +587,25 @@ class RuntimeClient:
         # 流已结束却没有受理帧：没有可证实的受理事实，显式失败（不编造 run_id）。
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
 
-    async def _get_json(self, path: str, tenant_id: str) -> dict[str, Any]:
+    async def _get_json(
+        self,
+        path: str,
+        tenant_id: str,
+        *,
+        params: dict[str, str] | None = None,
+        client: httpx.AsyncClient | None = None,
+        internal: bool = False,
+    ) -> dict[str, Any]:
         headers = build_headers(tenant_id, "")
+        if internal and self._service_token:
+            headers[INTERNAL_SERVICE_HEADER] = self._service_token
+        pool: GatewayPool = "stream" if client is self._stream_client else "egress"
         try:
-            response = await self._client.get(self._url(path), headers=headers)
+            response = await (client or self._client).get(
+                self._url(path), params=params, headers=headers
+            )
         except httpx.HTTPError as exc:
-            raise _transport_failure(exc, "egress") from exc
+            raise _transport_failure(exc, pool) from exc
         body = decode_json(response)
         if response.status_code >= 400:
             raise AppError(error_code_from_payload(body))

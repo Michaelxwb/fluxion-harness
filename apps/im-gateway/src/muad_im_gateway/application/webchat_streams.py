@@ -25,7 +25,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import AbstractAsyncContextManager, AsyncExitStack, suppress
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -730,14 +730,22 @@ class WebchatPublicStream:
         await self._owner_close.aclose()
 
 
+def _require_mapping(container: Mapping[str, Any], key: str) -> dict[str, Any]:
+    """Owner 封套里的必需对象：缺失/类型不对是内部契约破坏，显式失败而不是猜。"""
+    value = container.get(key)
+    if not isinstance(value, dict):
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+    return value
+
+
 class WebchatStreamOwnerPort(Protocol):
     """公开流要的 Owner 能力（Runtime 是唯一实现；结构替身只需实现同一动词面）。"""
 
-    async def get_run(self, run_id: UUID, *, tenant_id: str) -> dict[str, Any]: ...
-
-    async def resolve_conversation_scope(
-        self, conversation_id: UUID, *, tenant_id: str, user_id: UUID
-    ) -> dict[str, Any]: ...
+    async def get_run_scope(
+        self, run_id: UUID, *, tenant_id: str, user_id: UUID
+    ) -> dict[str, Any]:
+        """一次解析 Run 归属 + 会话入口/Agent（会话由 Run 行导出）。"""
+        ...
 
     def open_event_stream(
         self, run_id: UUID, *, tenant_id: str, after_seq: int = 0, trace_id: str = ""
@@ -761,16 +769,22 @@ class WebchatStreamService:
         self._ledger = ledger
 
     async def open(self, identity: ChatIdentity, run_id: UUID, *, after_seq: int) -> WebchatPublicStream:
-        """门控后的完整转 Owner：核 Run 归属 → 核会话 Agent 当前授权 → 开订阅。
+        """门控后的完整转 Owner：一次核 Run 归属 + 会话 Agent 当前授权 → 开订阅。
 
         订阅者数量上限在**打开 Owner 流之前**裁决：到界显式拒绝（429），不占上游连接、
         不排队等待；打开失败时释放刚取得的租约，不留半开连接。
         游标越界/过期由 Owner 的 `check_cursor` 显式失败（`CURSOR_AHEAD`/`CURSOR_EXPIRED`），
         网关不夹取、不猜测。
         """
-        state = owned_run_state(identity, await self._runtime.get_run(run_id, tenant_id=self._tenant_id))
+        scope = await self._runtime.get_run_scope(
+            run_id,
+            tenant_id=self._tenant_id,
+            user_id=identity.principal.platform_user_id,
+        )
+        state = owned_run_state(identity, _require_mapping(scope, "run"))
         conversation_id = required_uuid(state, "conversation_id")
-        await self._assert_authorized(identity, conversation_id)
+        agent_id = required_uuid(_require_mapping(scope, "conversation"), "agent_id")
+        self._assert_agent_authorized(identity, agent_id)
         lease = self._acquire_lease()
         stack = AsyncExitStack()
         try:
@@ -812,11 +826,7 @@ class WebchatStreamService:
         except SseSubscriberLimitExceeded as exc:
             raise AppError(ErrorCode.RUN_CAPACITY_EXCEEDED) from exc
 
-    async def _assert_authorized(self, identity: ChatIdentity, conversation_id: UUID) -> None:
+    def _assert_agent_authorized(self, identity: ChatIdentity, agent_id: UUID) -> None:
         """会话的 Agent 必须在**当前**授权集合内（撤销影响后续 SSE 访问，与读取面同口径）。"""
-        data = await self._runtime.resolve_conversation_scope(
-            conversation_id, tenant_id=self._tenant_id, user_id=identity.principal.platform_user_id
-        )
-        agent_id = required_uuid(data, "agent_id")
         if agent_id not in {agent.agent_id for agent in identity.agents}:
             raise AppError(ErrorCode.FORBIDDEN)

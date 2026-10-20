@@ -328,6 +328,11 @@ def _scope_path(conversation_id: uuid.UUID) -> str:
     return f"/internal/webchat/conversations/{conversation_id}/scope"
 
 
+def _run_scope_path(run_id: uuid.UUID) -> str:
+    """打开公开流的一次归属解析：Run + 会话入口/Agent（会话由 Run 行导出）。"""
+    return f"/v1/runs/{run_id}/scope"
+
+
 async def _get(client: AsyncClient, path: str, tenant: TenantContext, **params: Any) -> Any:
     return await client.get(path, headers=_headers(tenant), params=params)
 
@@ -772,6 +777,41 @@ async def test_task052_scope_resolution_derives_entry_and_agent_for_the_owner_on
     # 服务身份门控：无内部身份一律 403（真实应用）。
     without_identity = await client.get(
         _scope_path(conversation_id),
+        headers={"X-Tenant-Id": tenant.tenant_id},
+        params={"user_id": str(tenant.platform_user_id)},
+    )
+    assert without_identity.status_code == 403
+
+
+async def test_task052_run_scope_returns_run_and_conversation_in_one_call(
+    client: AsyncClient, history_tenant: TenantContext
+) -> None:
+    """打开公开流只需一次往返：Run 归属 + **该 Run 的会话**入口/Agent，调用方不能自选会话。"""
+    tenant = history_tenant
+    conversation_id = await _seed_conversation(tenant, title="流归属解析")
+    run_id = await _seed_active_run(tenant, conversation_id)
+
+    response = await _get(
+        client, _run_scope_path(run_id), tenant, user_id=str(tenant.platform_user_id)
+    )
+    assert response.status_code == 200, response.text
+    data = json.loads(response.text)["data"]
+    assert data["run"]["run_id"] == str(run_id)
+    assert data["run"]["conversation_id"] == str(conversation_id)
+    assert data["run"]["user_id"] == str(tenant.platform_user_id)
+    assert data["conversation"] == {
+        "conversation_id": str(conversation_id),
+        "entry_id": str(ENTRY),
+        "agent_id": str(tenant.agent_id),
+    }
+
+    # 他主体：不泄露存在性（与资源面/SSE 同口径）。
+    denied = await _get(client, _run_scope_path(run_id), tenant, user_id=str(uuid.uuid4()))
+    assert denied.status_code == 404 and denied.json()["code"] == "COMMON_NOT_FOUND"
+
+    # 服务身份门控：无内部身份一律 403。
+    without_identity = await client.get(
+        _run_scope_path(run_id),
         headers={"X-Tenant-Id": tenant.tenant_id},
         params={"user_id": str(tenant.platform_user_id)},
     )

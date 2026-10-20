@@ -307,6 +307,28 @@ class _RuntimeProbe:
                 }
             )
 
+        @runtime_app.get("/v1/runs/{run_id}/scope")
+        async def _run_scope(run_id: str, request: Request) -> Response:
+            self._record(f"/v1/runs/{run_id}/scope", request)
+            return _json(
+                {
+                    "run": {
+                        "run_id": run_id,
+                        "conversation_id": str(CONVERSATION_ID),
+                        "agent_id": str(AGENT_ID),
+                        "user_id": str(self.run_owner),
+                        "status": self.run_status,
+                        "execution_status": {"stage": "RUNNING"},
+                        "cancel_requested": False,
+                    },
+                    "conversation": {
+                        "conversation_id": str(CONVERSATION_ID),
+                        "entry_id": str(ENTRY_ID),
+                        "agent_id": str(self.scope_agent_id),
+                    },
+                }
+            )
+
         @runtime_app.get("/internal/webchat/conversations/{conversation_id}/scope")
         async def _scope(conversation_id: str, request: Request) -> Response:
             self._record(f"/internal/webchat/conversations/{conversation_id}/scope", request)
@@ -571,9 +593,7 @@ async def test_b261_chat_gate_run_ownership_and_current_authorization_precede_th
             forbidden = await client.get(EVENTS_URL, headers=_chat_headers())
     assert forbidden.status_code == 403 and forbidden.json()["code"] == "FORBIDDEN"
     assert runtime_probe.event_calls() == []
-    scope_calls = runtime_probe.calls[
-        f"/internal/webchat/conversations/{CONVERSATION_ID}/scope"
-    ]
+    scope_calls = runtime_probe.calls[f"/v1/runs/{RUN_ID}/scope"]
     assert scope_calls and scope_calls[-1].headers["x-internal-service"] == INTERNAL_TOKEN
     assert SESSION_TOKEN not in (
         no_cookie.text + mismatch.text + revoked.text + foreign.text + forbidden.text

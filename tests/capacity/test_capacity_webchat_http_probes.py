@@ -200,6 +200,51 @@ async def test_b306_model_probe_streams_deltas_usage_and_records_real_calls() ->
         assert probe.faults == {}, "未注入故障时故障计数为空"
 
 
+async def test_b306_model_probe_emits_a_tool_call_only_before_any_tool_result() -> None:
+    """工具回合注入：有工具结果前的调用返回 tool_calls，续跑（已带 tool 消息）返回正文。"""
+    behavior = ModelProbeBehavior(
+        deltas=("done",),
+        tool_call={"name": "execute_skill", "arguments": {"skill_key": "s", "input": {}}},
+    )
+
+    async def stream(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        lines: list[str] = []
+        async with httpx.AsyncClient(timeout=10.0, trust_env=False) as client:
+            async with client.stream(
+                "POST",
+                f"{probe.url}{CHAT_PATH}",
+                json={"model": "probe-model", "messages": messages, "stream": True},
+                headers=_auth(KEY_A),
+            ) as response:
+                assert response.status_code == 200
+                async for line in response.aiter_lines():
+                    if line.startswith("data:"):
+                        lines.append(line)
+        return _payloads_of(lines)
+
+    with ModelProbeServer(behavior=behavior) as probe:
+        first = await stream([{"role": "user", "content": "go"}])
+        tool_calls = [
+            call
+            for payload in first
+            for choice in payload["choices"]
+            for call in choice["delta"].get("tool_calls") or []
+        ]
+        assert [call["function"]["name"] for call in tool_calls] == ["execute_skill"]
+        assert first[-1]["choices"][0]["finish_reason"] == "tool_calls"
+
+        second = await stream(
+            [
+                {"role": "user", "content": "go"},
+                {"role": "tool", "tool_call_id": "call_capacity_probe", "content": "{}"},
+            ]
+        )
+        assert _deltas_of(
+            [f"data: {json.dumps(payload, ensure_ascii=False)}" for payload in second]
+        ) == ["done"]
+        assert second[-1]["choices"][0]["finish_reason"] == "stop"
+
+
 async def test_b306_model_probe_latency_and_chunk_pacing_are_real() -> None:
     behavior = ModelProbeBehavior(deltas=("a", "b", "c"), latency_ms=250, chunk_interval_ms=120)
     with ModelProbeServer(behavior=behavior) as probe:

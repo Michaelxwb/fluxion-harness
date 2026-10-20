@@ -129,7 +129,7 @@ from .context_settings import (
     resolve_compaction_settings,
     resolve_pool_execution_policy,
 )
-from .dto import CancelSource, RunWaitSummary
+from .dto import CancelSource, RunWaitSummary, run_view
 from .event_tail_hub import CanonicalEventView, EventTailHub, TailBatch, get_event_tail_hub
 from .executor import (
     ExecutionDefaults,
@@ -150,6 +150,7 @@ from .memory_resume import MemoryResumeService, resume_decision
 from .ports import (
     CredentialsClient,
     PlatformSettingsClient,
+    PlatformSettingsSnapshot,
     ResolveClient,
 )
 from .run_admission import (
@@ -177,6 +178,7 @@ from .run_submission import (
     submission_fingerprint,
 )
 from .tool_result_receipts import OP_TERMINAL
+from .webchat_history import WebchatHistoryService
 
 logger = logging.getLogger(__name__)
 
@@ -428,6 +430,22 @@ INTERRUPT_WAITING = "WAITING"
 INTERRUPT_RESOLVED = "RESOLVED"
 INTERRUPT_CANCELLED = "CANCELLED"
 TERMINAL_STREAM_TYPES = (RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)
+
+
+@dataclass(frozen=True, slots=True)
+class _AdmissionMaterials:
+    """受理边界（写事务外）取齐的 Console 材料：定义、设置快照、摘要模型与凭据。
+
+    写事务内只允许纯计算与 DB 读写；网络材料一律在这里一次取齐。凭据只进内存、不落快照。
+    """
+
+    run_id: uuid.UUID
+    resolved: ResolveDefinitionResponse
+    settings: PlatformSettingsSnapshot
+    compaction: CompactionSettings
+    model: ResolvedModel
+    summary_model: ResolvedModel | None
+    mcp_secrets: dict[str, str]
 
 STREAM_BUSINESS_TYPES: dict[str, str] = {
     RUN_CREATED_EVENT: "RUN_CREATED",
@@ -939,7 +957,12 @@ class RunService:
     async def _admit(
         self, request: RunRequest, tenant_id: str, key: str, fingerprint: str
     ) -> RunStart:
-        """一次受理尝试：重放检查 → 同键串行化 → 会话/活跃 Run 判定 → 建 Run（含准入）。"""
+        """一次受理尝试：重放预检 →（事务外）定义/设置/凭据 → 短事务：同键串行化 + 建 Run。
+
+        网络调用全部在写事务**之外**：预检后先 `rollback` 把连接还给池，再取 Console 材料；
+        进入写事务后只剩 DB 语句。这样每进程的 DB 池按"并发 × 毫秒级持有"排队，而不是按
+        3 次 Console 往返排队。
+        """
         replay = await self._submissions.find_replay_in(
             self._session,
             tenant_id=tenant_id,
@@ -950,6 +973,13 @@ class RunService:
         if replay is not None:
             self._assert_replay_owner(replay, request.platform_user_id, request.conversation_id)
             return self._replay_start(replay)
+        # 只读预检：已有活跃 Run 的请求走 resume / RUN_BUSY，**不得**重新 resolve 定义与设置
+        # （快照续跑的铁律）。指针会话的解析即使发生切换也会随下面的 rollback 回滚，由写事务重做。
+        conversation = await self._resolve_conversation(request, tenant_id)
+        has_active = await self._active_run(conversation.id) is not None
+        # 预检到此结束：后面的 Console 读取不得占用 DB 连接（池按并发而非 RTT 排队）。
+        await self._session.rollback()
+        materials = None if has_active else await self._admission_materials(request, tenant_id)
         # 同键请求先经事务 advisory 锁串行化（RULE-api-002）：同键事务只在 advisory 锁上
         # 排队；锁内复查首次提交 ⇒ 落败者直接重放，不建第二个 Run。
         replay = await self._submissions.claim_in(
@@ -966,6 +996,18 @@ class RunService:
         active = await self._active_run(conversation.id)
         if active is not None:
             return await self._resume_active(active, request, key, fingerprint)
+        if materials is None:  # 预检与写事务之间出现了活跃 Run 又被清理：补取材料
+            materials = await self._admission_materials(request, tenant_id)
+        return await self._create_run(request, tenant_id, conversation, materials, key, fingerprint)
+
+    async def _admission_materials(
+        self, request: RunRequest, tenant_id: str
+    ) -> _AdmissionMaterials:
+        """受理边界取齐的全部**非 DB**材料：定义 → 设置 → 摘要模型 → 凭据。
+
+        调用方必须已结束当前事务（`_admit` 的预检后 `rollback`）：这里只发网络请求，不持有
+        任何数据库连接。这是"设置/凭据在业务操作边界取一次"的同一边界，不引入进程内缓存。
+        """
         resolved = await self._resolve_client.resolve(
             ResolveDefinitionRequest(
                 agent_id=request.agent_id,
@@ -975,7 +1017,34 @@ class RunService:
             tenant_id=tenant_id,
             trace_id=current_trace_id(),
         )
-        return await self._create_run(request, tenant_id, conversation, resolved, key, fingerprint)
+        settings = await self._settings_client.fetch_snapshot(
+            tenant_id=tenant_id, trace_id=current_trace_id() or ""
+        )
+        compaction = resolve_compaction_settings(
+            resolved.agent.runtime_config,
+            platform_overrides=settings.settings.get("compaction"),
+        )
+        run_id = uuid.uuid4()
+        summary_model = await self._resolve_summary_model(
+            tenant_id, compaction, run_id=run_id, actor_user_id=request.platform_user_id
+        )
+        model, summary_model, mcp_secrets = await self._runtime_credentials(
+            run_id,
+            tenant_id,
+            request.platform_user_id,
+            resolved.model,
+            resolved.mcp_servers,
+            summary_model=summary_model,
+        )
+        return _AdmissionMaterials(
+            run_id=run_id,
+            resolved=resolved,
+            settings=settings,
+            compaction=compaction,
+            model=model,
+            summary_model=summary_model,
+            mcp_secrets=mcp_secrets,
+        )
 
     async def _resume_active(
         self, active: RunRecord, request: RunRequest, key: str, fingerprint: str
@@ -1149,6 +1218,25 @@ class RunService:
                 sa.select(RuntimeSnapshot).where(RuntimeSnapshot.id == run.snapshot_id)
             )
         return run, snapshot, await self._wait_summary(run)
+
+    async def get_run_scope(
+        self, run_id: uuid.UUID, tenant_id: str, *, user_id: uuid.UUID
+    ) -> dict[str, Any]:
+        """API-07 打开流的一步归属解析：Run 必须属于该主体，入口/Agent 只从 **Run 行的会话** 导出。
+
+        与「`get_run` + `resolve_conversation_scope`」两次往返同义：会话由已核属的 Run 本身确定，
+        调用方不能拿任意 `conversation_id` 去做入口解析。
+        """
+        run, snapshot, wait = await self.get_run(run_id, tenant_id)
+        if run.user_id != user_id:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        scope = await WebchatHistoryService(self._session).resolve_conversation_scope(
+            tenant_id=tenant_id, user_id=user_id, conversation_id=run.conversation_id
+        )
+        return {
+            "run": run_view(run, snapshot, wait),
+            "conversation": scope.model_dump(mode="json"),
+        }
 
     async def _wait_summary(self, run: RunRecord) -> RunWaitSummary:
         """API-05：等待起点/原因与异步操作计数；只读，一次聚合 + 一次检查点读取。"""
@@ -1419,7 +1507,7 @@ class RunService:
         request: RunRequest,
         tenant_id: str,
         conversation: Conversation,
-        resolved: ResolveDefinitionResponse,
+        materials: _AdmissionMaterials,
         submission_key: str,
         submission_fingerprint_value: str,
     ) -> RunStart:
@@ -1427,20 +1515,12 @@ class RunService:
         # `deadline_at`/`queued_at`/`queue_deadline_at`，之后由 PG 时钟的领取/扫描裁决——
         # 本机墙钟偏差既不能缩短也不能延长这个窗口。
         now = await database_now(self._session)
-        run_id = uuid.uuid4()
-        # 平台设置在此边界取**一次**：这份快照既冻结本 Run 的执行策略，也给出本次受理的
-        # capacity 阈值（准入投影与冻结策略同源，不二次取配置）。源不可读即明确失败
-        # （RULE-06）——绝不回退到任何过期默认值，失败计数由 client 在调用方侧记。
-        snapshot_settings = await self._settings_client.fetch_snapshot(
-            tenant_id=tenant_id, trace_id=current_trace_id() or ""
-        )
+        resolved = materials.resolved
+        # 平台设置与凭据在**写事务之外**已取齐（`_admission_materials`）：事务内不再访问网络，
+        # 连接持有只剩 DB 语句。这里只做纯计算与 DB 读写。
+        snapshot_settings = materials.settings
         capacity = parse_capacity(snapshot_settings)
-        # 压缩配置在此解析一次：既冻进这一行的 snapshot，也供本次历史装配用同一个值——
-        # 二者若各解析一次，配置恰好在两次之间变更就会让"冻结值"与"实际用的值"分叉。
-        compaction = resolve_compaction_settings(
-            resolved.agent.runtime_config,
-            platform_overrides=snapshot_settings.settings.get("compaction"),
-        )
+        compaction = materials.compaction
         # 执行期平台默认（`agent`/`memory`/`artifact.max_archive_files`/`locale.default_timezone`）
         # 同样在此冻结一次（ADR-07 等）：既是本次装配的基值，也冻进 policy_json 供 resume 读回。
         execution = execution_defaults_from_platform(snapshot_settings.settings)
@@ -1458,12 +1538,9 @@ class RunService:
         members = await ModelDispatchStore(self._session).read_member_refs(
             tenant_id=tenant_id, model_id=resolved.model.id
         )
-        # 摘要模型（`compaction.summary.model_ref`）同样在这个边界解析一次：它是一条普通的模型
-        # 定义，endpoint / 凭据都与主模型不同，必须随快照冻结（ADR-06）。它的成员引用也在此冻结
-        # （与主模型同一口径）：摘要调用与主调用共享物理资源上限，冻结的是非密钥关系与权重。
-        summary_model = await self._resolve_summary_model(
-            tenant_id, compaction, run_id=run_id, actor_user_id=request.platform_user_id
-        )
+        # 摘要模型（`compaction.summary.model_ref`）已在受理边界解析（ADR-06）；它的成员引用
+        # 在此冻结（与主模型同一口径）：摘要调用与主调用共享物理资源上限。
+        summary_model = materials.summary_model
         summary_members = (
             None
             if summary_model is None
@@ -1471,14 +1548,8 @@ class RunService:
                 tenant_id=tenant_id, model_id=summary_model.id
             )
         )
-        model, summary_model, mcp_secrets = await self._runtime_credentials(
-            run_id,
-            tenant_id,
-            request.platform_user_id,
-            resolved.model,
-            resolved.mcp_servers,
-            summary_model=summary_model,
-        )
+        model, mcp_secrets = materials.model, materials.mcp_secrets
+        run_id = materials.run_id
         # 准入段（事务内不联网）：策略版本用原子 upsert 应用（不锁策略行），随后 Run →
         # USER → TENANT 计数行锁。更低设置版本在此抛 `AdmissionPolicyStaleError`，由
         # `start` 退出事务后重取一次。

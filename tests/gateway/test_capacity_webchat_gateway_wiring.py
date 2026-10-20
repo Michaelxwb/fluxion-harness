@@ -396,6 +396,28 @@ class _RuntimeProbe:
                 }
             )
 
+        @runtime_app.get("/v1/runs/{run_id}/scope")
+        async def _run_scope(run_id: str, request: Request) -> Response:
+            self.scope_calls += 1
+            return _json(
+                {
+                    "run": {
+                        "run_id": run_id,
+                        "conversation_id": str(CONVERSATION_ID),
+                        "agent_id": str(AGENT_ID),
+                        "user_id": str(PLATFORM_USER_ID),
+                        "status": "RUNNING",
+                        "execution_status": {"stage": "RUNNING"},
+                        "cancel_requested": False,
+                    },
+                    "conversation": {
+                        "conversation_id": str(CONVERSATION_ID),
+                        "entry_id": str(ENTRY_ID),
+                        "agent_id": str(AGENT_ID),
+                    },
+                }
+            )
+
         @runtime_app.get("/internal/webchat/conversations/{conversation_id}/scope")
         async def _scope(conversation_id: str, request: Request) -> Response:
             self.scope_calls += 1
@@ -1001,7 +1023,7 @@ async def test_b296_shutdown_drains_subscription_and_restart_never_rebuilds_the_
     assert "event: message.delta" not in replayed, "游标之后无新帧：重放不重投已应用事件"
     assert len(runtime_probe.run_posts) == 1, "重连重放不得重建 Run（受理 POST 恰一次）"
     assert [call["after_seq"] for call in runtime_probe.event_calls][-1] == 1
-    assert runtime_probe.get_run_calls >= 2  # 两次打开都核了归属（第一次订阅 + 重启重连）
+    assert runtime_probe.scope_calls >= 2  # 两次打开都核了归属（第一次订阅 + 重启重连）
 
 
 class _GatewayServer:

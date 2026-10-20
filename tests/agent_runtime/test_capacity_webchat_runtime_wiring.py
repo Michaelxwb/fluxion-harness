@@ -139,6 +139,7 @@ HTTP_TIMEOUT_SEC = 10.0
 CHANNEL_SURFACE: dict[str, set[str]] = {
     "/v1/runs": {"POST"},
     "/v1/runs/{run_id}": {"GET"},
+    "/v1/runs/{run_id}/scope": {"GET"},
     "/v1/runs/{run_id}/events": {"GET"},
     "/v1/runs/{run_id}/cancel": {"POST"},
     "/v1/runs/{run_id}/resume": {"POST"},

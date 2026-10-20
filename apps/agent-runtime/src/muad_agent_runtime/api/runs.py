@@ -3,9 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import StreamingResponse
 from muad_api import ApiResponse, ok
+from muad_api.security import require_internal_service
 from muad_common import SharedSettings
 from muad_contracts import RunRequest
 
@@ -119,6 +120,21 @@ async def get_run(
 ) -> ApiResponse[Any]:
     run, snapshot, wait = await service.get_run(run_id, tenant_id)
     return ok(request.app.state.message_catalog, run_view(run, snapshot, wait))
+
+
+@router.get(
+    "/runs/{run_id}/scope", dependencies=[Depends(require_internal_service)]
+)
+async def get_run_scope(
+    run_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantDep,
+    service: RunServiceDep,
+    user_id: Annotated[uuid.UUID, Query()],
+) -> ApiResponse[Any]:
+    """API-07 打开流的单次归属解析：Run 必须属于该主体，会话入口/Agent 由 Run 行导出。"""
+    data = await service.get_run_scope(run_id, tenant_id, user_id=user_id)
+    return ok(request.app.state.message_catalog, data)
 
 
 @router.post("/conversations")

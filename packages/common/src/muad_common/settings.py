@@ -168,6 +168,12 @@ class SharedSettings(BaseSettings):
             maximum: int = getattr(self, f"{prefix}_http_max_connections")
             if getattr(self, f"{prefix}_http_max_keepalive") > maximum:
                 raise ValueError(f"{prefix}_http_max_keepalive must not exceed {prefix}_http_max_connections")
+        # 模型池必须覆盖单进程执行并发：每个在飞执行至多占一条模型连接。池小于并发时，多出来的
+        # 调用只能排队，池等待（`http_pool_timeout_sec`，默认 2s）会把正常并发误判成模型不可用。
+        if self.model_http_max_connections < self.runtime_execution_concurrency:
+            raise ValueError(
+                "model_http_max_connections must cover runtime_execution_concurrency"
+            )
 
     def _validate_stream_budgets(self) -> None:
         if self.stream_http_read_timeout_sec < 3 * self.run_event_heartbeat_sec:

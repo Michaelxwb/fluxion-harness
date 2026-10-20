@@ -503,7 +503,8 @@ class LoadDriver:
         probe_credential = target.control_session or target.sessions[0]
         async with self._user_client(probe_credential) as control_client:
             self._control_client = control_client
-            self._probe_conversation_id = await self._create_conversation(control_client)
+            probe_conversation_id, _, _ = await self._create_conversation(control_client)
+            self._probe_conversation_id = probe_conversation_id
             sampler = asyncio.create_task(self._sample_loop())
             controls = asyncio.create_task(self._control_loop())
             try:
@@ -597,11 +598,15 @@ class LoadDriver:
         await self._sleep_until(plan.start_offset_sec)
         credential = self._target.sessions[plan.index]
         async with self._user_client(credential) as client:
-            conversation_id = await self._create_conversation(client)
+            conversation_id, status, detail = await self._create_conversation(client)
             if conversation_id is None:
                 return (
                     self._failure_turn(
-                        plan, 0, FailureKind.CONVERSATION_REJECTED, "会话创建未成功"
+                        plan,
+                        0,
+                        FailureKind.CONVERSATION_REJECTED,
+                        detail or "会话创建未成功",
+                        http_status=status,
                     ),
                 )
             results: list[TurnResult] = []
@@ -727,7 +732,13 @@ class LoadDriver:
         )
 
     def _failure_turn(
-        self, plan: UserPlan, turn: int, failure: FailureKind, detail: str
+        self,
+        plan: UserPlan,
+        turn: int,
+        failure: FailureKind,
+        detail: str,
+        *,
+        http_status: int | None = None,
     ) -> TurnResult:
         return TurnResult(
             user_index=plan.index,
@@ -741,7 +752,7 @@ class LoadDriver:
             stream_ms=None,
             terminal_status=None,
             delta_frames=0,
-            http_status=None,
+            http_status=http_status,
             failure=failure,
             detail=detail,
         )
@@ -798,6 +809,17 @@ class LoadDriver:
                             failure=FailureKind.SSE_ERROR, detail="run.terminal 载荷不可解析"
                         )
                     break
+                if event_type == "run.error":
+                    # FAILED Run 的公开终态就是 `run.error`（`run.failed` 的公开投影），
+                    # 不是断流：必须按终态失败入账，否则会伪装成 TERMINAL_MISSING。
+                    code = _run_error_code(line)
+                    return _StreamOutcome(
+                        first_delta_ms=first_delta_ms,
+                        deltas=deltas,
+                        terminal="FAILED",
+                        failure=FailureKind.RUN_FAILED,
+                        detail=f"终态 FAILED（{code}）",
+                    )
         if terminal is None:
             return _StreamOutcome(
                 first_delta_ms=first_delta_ms,
@@ -815,16 +837,19 @@ class LoadDriver:
             )
         return _StreamOutcome(first_delta_ms=first_delta_ms, deltas=deltas, terminal=terminal)
 
-    async def _create_conversation(self, client: httpx.AsyncClient) -> str | None:
+    async def _create_conversation(
+        self, client: httpx.AsyncClient
+    ) -> tuple[str | None, int | None, str]:
+        """会话创建：成功返回 id；失败带回真实状态码与响应体（失败账目必须可归因）。"""
         url = self._url(f"{WEBCHAT_ENTRY_PREFIX}/{self._target.entry_id}/conversations")
         key = f"conv-{uuid.uuid4().hex}"
         try:
             response = await client.post(url, headers={"Idempotency-Key": key})
-        except httpx.HTTPError:
-            return None
+        except httpx.HTTPError as exc:
+            return None, None, type(exc).__name__
         if response.status_code != 201:
-            return None
-        return str(response.json()["data"]["conversation_id"])
+            return None, response.status_code, _body_detail(response)
+        return str(response.json()["data"]["conversation_id"]), 201, ""
 
     async def _sleep_until(self, offset_sec: float) -> None:
         delay = offset_sec - (time.monotonic() - self._t0)
@@ -1220,6 +1245,17 @@ def _probe_delta(before: _ProbeState | None, after: _ProbeState | None) -> Probe
 def _terminal_status(line: str) -> str:
     payload = json.loads(line.split(":", 1)[1].strip())
     return str(payload["data"]["status"])
+
+
+def _run_error_code(line: str) -> str:
+    """`run.error` 帧的稳定错误码（载荷坏时退化为 UNKNOWN，不掩盖终态失败这一事实）。"""
+    try:
+        payload = json.loads(line.split(":", 1)[1].strip())
+        data = payload.get("data") if isinstance(payload, dict) else None
+        code = data.get("code") if isinstance(data, dict) else None
+    except (ValueError, IndexError):
+        return "UNKNOWN"
+    return str(code) if code else "UNKNOWN"
 
 
 def _isoformat(epoch_sec: float) -> str:

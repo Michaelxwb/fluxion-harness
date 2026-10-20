@@ -82,6 +82,7 @@ _BEHAVIOR_FIELDS = (
     "usage_completion_tokens",
     "cutoff_after_deltas",
     "drop_response",
+    "tool_call",
 )
 
 
@@ -126,6 +127,9 @@ class ModelProbeBehavior:
     usage_completion_tokens: int = 3
     cutoff_after_deltas: int | None = None
     drop_response: bool = False
+    #: 让模型返回一次工具调用（`{name, arguments}`）：只在请求里**还没有 tool 结果**时生效，
+    #: 即每条对话的第一次模型调用；工具结果回传后的续跑调用照常返回 `deltas` 正文。
+    tool_call: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         for name in (
@@ -158,6 +162,15 @@ class ModelProbeBehavior:
             raise ValueError("drop_response and cutoff_after_deltas are mutually exclusive")
         if self.drop_response and self.status_code != 200:
             raise ValueError("drop_response requires status_code 200")
+        if self.tool_call is not None:
+            if not isinstance(self.tool_call, Mapping):
+                raise ValueError("tool_call must be an object")
+            name = self.tool_call.get("name")
+            arguments = self.tool_call.get("arguments", {})
+            if not isinstance(name, str) or not name:
+                raise ValueError("tool_call.name must be a non-empty string")
+            if not isinstance(arguments, Mapping):
+                raise ValueError("tool_call.arguments must be an object")
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,13 +195,53 @@ def _delta_payload(model: str, text: str) -> dict[str, Any]:
     }
 
 
-def _final_payload(model: str, behavior: ModelProbeBehavior) -> dict[str, Any]:
+def _final_payload(
+    model: str, behavior: ModelProbeBehavior, finish_reason: str = "stop"
+) -> dict[str, Any]:
     return {
         "id": "chatcmpl-capacity-probe",
         "object": "chat.completion.chunk",
         "model": model,
-        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+        "choices": [{"index": 0, "delta": {}, "finish_reason": finish_reason}],
         "usage": _usage_payload(behavior),
+    }
+
+
+def _should_emit_tool_call(body: Mapping[str, Any]) -> bool:
+    """只在本次请求**还没有工具结果**时返回工具调用（每条对话的第一次模型调用）。
+
+    工具结果回传后的续跑请求里存在 `role=tool` 消息 ⇒ 返回正文，让 Run 正常收尾。
+    """
+    messages = body.get("messages")
+    if not isinstance(messages, list):
+        return True
+    return not any(
+        isinstance(message, Mapping) and message.get("role") == "tool" for message in messages
+    )
+
+
+def _tool_call_payload(model: str, tool_call: Mapping[str, Any]) -> dict[str, Any]:
+    arguments = json.dumps(dict(tool_call.get("arguments") or {}), ensure_ascii=False)
+    return {
+        "id": "chatcmpl-capacity-probe",
+        "object": "chat.completion.chunk",
+        "model": model,
+        "choices": [
+            {
+                "index": 0,
+                "delta": {
+                    "tool_calls": [
+                        {
+                            "index": 0,
+                            "id": "call_capacity_probe",
+                            "type": "function",
+                            "function": {"name": str(tool_call["name"]), "arguments": arguments},
+                        }
+                    ]
+                },
+                "finish_reason": None,
+            }
+        ],
     }
 
 
@@ -200,17 +253,36 @@ def _usage_payload(behavior: ModelProbeBehavior) -> dict[str, int]:
     }
 
 
-def _completion_payload(model: str, behavior: ModelProbeBehavior) -> dict[str, Any]:
+def _completion_payload(
+    model: str, behavior: ModelProbeBehavior, tool_call: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    if tool_call is not None:
+        message: dict[str, Any] = {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_capacity_probe",
+                    "type": "function",
+                    "function": {
+                        "name": str(tool_call["name"]),
+                        "arguments": json.dumps(
+                            dict(tool_call.get("arguments") or {}), ensure_ascii=False
+                        ),
+                    },
+                }
+            ],
+        }
+        finish_reason = "tool_calls"
+    else:
+        message = {"role": "assistant", "content": "".join(behavior.deltas)}
+        finish_reason = "stop"
     return {
         "id": "chatcmpl-capacity-probe",
         "object": "chat.completion",
         "model": model,
         "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": "".join(behavior.deltas)},
-                "finish_reason": "stop",
-            }
+            {"index": 0, "message": message, "finish_reason": finish_reason}
         ],
         "usage": _usage_payload(behavior),
     }
@@ -273,6 +345,9 @@ class ModelProbeServer:
                 endpoint._handle_post(self)
 
         server = ThreadingHTTPServer((self._host, self._requested_port), Handler)
+        # 默认 listen backlog 只有 5：容量负载下几十上百个并发建连会触发 SYN 重传/连接失败，
+        # 把"探针自己的接入能力"误测成被测系统的失败。探针是测量面，必须比被测面更宽。
+        server.request_queue_size = 512
         server.daemon_threads = True
         self._server = server
 
@@ -580,16 +655,22 @@ class ModelProbeServer:
             return
         if behavior.latency_ms:
             time.sleep(behavior.latency_ms / 1000)
+        tool_call = (
+            behavior.tool_call
+            if behavior.tool_call is not None and _should_emit_tool_call(body)
+            else None
+        )
         if body.get("stream") is True:
-            self._write_stream(handler, behavior, model)
+            self._write_stream(handler, behavior, model, tool_call)
             return
-        self._write_json(handler, 200, _completion_payload(model, behavior))
+        self._write_json(handler, 200, _completion_payload(model, behavior, tool_call))
 
     def _write_stream(
         self,
         handler: BaseHTTPRequestHandler,
         behavior: ModelProbeBehavior,
         model: str,
+        tool_call: Mapping[str, Any] | None = None,
     ) -> None:
         handler.send_response(200)
         handler.send_header("Content-Type", "text/event-stream")
@@ -597,6 +678,14 @@ class ModelProbeServer:
         handler.send_header("Connection", "close")
         handler.end_headers()
         handler.close_connection = True
+        if tool_call is not None:
+            # 工具回合：一个 tool_calls 增量 + `finish_reason=tool_calls` 终止块（无正文）。
+            if not self._write_sse(handler, _tool_call_payload(model, tool_call)):
+                return
+            if not self._write_sse(handler, _final_payload(model, behavior, "tool_calls")):
+                return
+            self._write_sse(handler, "[DONE]")
+            return
         for index, delta in enumerate(behavior.deltas):
             if not self._write_sse(handler, _delta_payload(model, delta)):
                 return

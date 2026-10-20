@@ -962,6 +962,40 @@ async def test_b230_fingerprint_covers_tenant_user_entry_and_conversation(
             await _purge_tenant(other_tenant.tenant_id)
 
 
+async def test_b230_settings_snapshot_is_fetched_outside_the_db_transaction(
+    admission_tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+    gated_executor: _GatedExecutorFactory,
+    execution_supervisor_boundary: ExecutionSupervisor,
+) -> None:
+    """[B-230] 受理的 Console 材料在**写事务之外**取：取设置时本进程没有已检出的 DB 连接。"""
+    from muad_agent_runtime.infrastructure.db import get_engine
+
+    checked_out: list[int] = []
+
+    class _PoolProbeSettings(ConsolePlatformSettingsClient):
+        async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "") -> Any:
+            checked_out.append(get_engine().pool.checkedout())
+            return await super().fetch_snapshot(tenant_id=tenant_id, trace_id=trace_id)
+
+    tenant = admission_tenant
+    async with _scripted_source() as (source, url):
+        source.script(
+            tenant.tenant_id, _document(11, tenant_limit=4, user_limit=2, max_turns=11)
+        )
+        client = _PoolProbeSettings(url, service_token=INTERNAL_TOKEN)
+        try:
+            started = await _start(
+                tenant, client, fake_resolve, gated_executor, execution_supervisor_boundary,
+                key="b230-outside-transaction",
+            )
+            assert checked_out == [0], "设置快照必须在写事务之外取（此时不应检出任何连接）"
+            gated_executor.release()
+            await _drain(started)
+        finally:
+            await client.aclose()
+
+
 async def test_b230_stale_settings_revision_refetches_and_never_admits_on_old_thresholds(
     admission_tenant: TenantContext,
     fake_resolve: FakeResolveClient,

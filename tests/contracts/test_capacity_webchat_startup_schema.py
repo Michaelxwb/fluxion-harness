@@ -156,6 +156,7 @@ def test_b203_leases_cover_three_heartbeats(prefix: str) -> None:
         ({"channel_delivery_retry_base_sec": 31}, "channel_delivery_retry_base_sec"),
         ({"async_tool_dispatch_timeout_sec": 30}, "async_tool_dispatch_timeout_sec"),
         ({"async_tool_dispatch_retry_base_sec": 31}, "async_tool_dispatch_retry_base_sec"),
+        ({"runtime_execution_concurrency": 256}, "model_http_max_connections"),
     ],
 )
 def test_b203_invalid_ranges_and_cross_field_combinations(changes: dict[str, object], field: str) -> None:
@@ -166,6 +167,7 @@ def test_b203_invalid_ranges_and_cross_field_combinations(changes: dict[str, obj
 def test_b203_resource_boundaries_and_fractional_timeouts_are_supported() -> None:
     settings = SharedSettings(
         _env_file=None, runtime_execution_concurrency=256, worker_execution_concurrency=64,
+        model_http_max_connections=256,
         gateway_max_sse_subscribers=100000, runtime_max_sse_subscribers=100000,
         db_max_overflow=0, http_connect_timeout_sec=0.5, chat_auth_recheck_sec=60,
         stream_delta_flush_interval_ms=10, stream_delta_flush_bytes=1024,
