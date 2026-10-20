@@ -424,9 +424,14 @@ def _error_code(response: httpx.Response) -> str | None:
     return None
 
 
-def _body_detail(response: httpx.Response, limit: int = 200) -> str:
-    text = response.text.strip().replace("\n", " ")
-    return text[:limit]
+def _body_detail(response: httpx.Response | bytes, limit: int = 200) -> str:
+    # SSE 失败分支传的是 `await stream.aread()` 的 bytes（不是 Response）：按 UTF-8 容错解码，
+    # 否则诊断路径自身抛 AttributeError 掩盖真实失败。
+    if isinstance(response, (bytes, bytearray)):
+        text = bytes(response).decode("utf-8", errors="replace")
+    else:
+        text = response.text
+    return text.strip().replace("\n", " ")[:limit]
 
 
 class LoadDriver:

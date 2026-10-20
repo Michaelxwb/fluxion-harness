@@ -7,7 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 @lru_cache(maxsize=1)
 def get_engine() -> AsyncEngine:
-    return create_async_engine(SharedSettings().require_database_url(), pool_pre_ping=True)
+    settings = SharedSettings()
+    return create_async_engine(
+        settings.require_database_url(),
+        pool_pre_ping=True,
+        # 池参数按 typed 设置显式接线：池耗尽时按 `db_pool_timeout_sec` 快速失败（默认 5s），
+        # 不再落到 SQLAlchemy 的 30s 默认把请求挂死（2026-10-20 50 用户容量复现：
+        # `ADMISSION_TIMEOUT`/控制探测恰好 30s 与 `pool_timeout` 默认值一致）。
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_timeout=settings.db_pool_timeout_sec,
+    )
 
 
 @lru_cache(maxsize=1)

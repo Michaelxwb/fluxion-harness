@@ -1458,6 +1458,7 @@ version = "0.1.0"
 source = { editable = "packages/agent-core" }
 dependencies = [
     { name = "httpx" },
+    { name = "jsonschema" },
     { name = "langgraph" },
     { name = "muad-artifact-store" },
     { name = "muad-contracts" },
@@ -1468,6 +1469,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "jsonschema", specifier = ">=4,<5" },
     { name = "langgraph", specifier = ">=1,<2" },
     { name = "muad-artifact-store", editable = "packages/artifact-store" },
     { name = "muad-contracts", editable = "packages/contracts" },

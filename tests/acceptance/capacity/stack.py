@@ -605,7 +605,14 @@ class _ProxyServer(ThreadingHTTPServer):
         super().__init__(address, _ProxyHandler)
         self.backends = dict(backends)
         self.routes = tuple(routes)
-        self.client = httpx.Client(timeout=None, trust_env=False, cookies=_StatelessCookieJar())
+        # 连接上限决定入口代理能同时承载多少条长活 SSE + API：httpx 默认 100 条，
+        # 50 用户档就贴顶（50 SSE + 并发 API → 请求在池里无限等）。显式放大并保留 keepalive。
+        self.client = httpx.Client(
+            timeout=None,
+            trust_env=False,
+            cookies=_StatelessCookieJar(),
+            limits=httpx.Limits(max_connections=500, max_keepalive_connections=200),
+        )
 
         self._lock = threading.Lock()
         self._requests: dict[str, int] = {unit: 0 for unit in self.backends}
