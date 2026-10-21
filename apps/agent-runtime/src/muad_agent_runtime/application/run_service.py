@@ -2000,6 +2000,8 @@ class RunService:
     async def _launch_execution(self, run: RunRecord, stream: AsyncIterator[ExecutorEvent]) -> None:
         from muad_api.context import TRACE_CORRELATION_FIELDS, context_scope
 
+        launched_at = time.monotonic()
+
         async def consume() -> None:
             fields = {name: "" for name in TRACE_CORRELATION_FIELDS}
             fields.update(
@@ -2025,7 +2027,18 @@ class RunService:
             run.lease_owner, run.lease_until = claimed.lease_owner, claimed.lease_until
             return run.id, consume
 
-        await self._supervisor.claim_and_submit(claim)
+        admitted = await self._supervisor.claim_and_submit(claim)
+        elapsed_ms = int((time.monotonic() - launched_at) * 1000)
+        if elapsed_ms > 5000:
+            logger.warning(
+                "run_launch_slow",
+                extra={
+                    "tenant_id": run.tenant_id,
+                    "run_id": str(run.id),
+                    "elapsed_ms": elapsed_ms,
+                    "claimed": admitted,
+                },
+            )
 
     async def _append_submission_start(self, session: AsyncSession, run: RunRecord,
                                        submission_id: uuid.UUID, *, resumed: bool) -> int:
@@ -2554,12 +2567,39 @@ class RunService:
         self, run: RunRecord, submission_id: uuid.UUID, executor: RunExecutor
     ) -> SegmentResult:
         text, outcome = "", AgentRunStatus.COMPLETED
+        consume_started = time.monotonic()
+        first_event = True
+        first_delta_ms: int | None = None
         async for event in executor.run():
+            if first_event:
+                first_event = False
+                first_ms = int((time.monotonic() - consume_started) * 1000)
+                if first_ms > 5000:
+                    logger.warning(
+                        "run_first_event_slow",
+                        extra={
+                            "tenant_id": run.tenant_id,
+                            "run_id": str(run.id),
+                            "event_type": event.type,
+                            "elapsed_ms": first_ms,
+                        },
+                    )
             if event.type == "runner.outcome":
                 outcome = AgentRunStatus(event.data["status"])
                 text = str(event.data.get("final_text", text))
                 continue
             if event.type == "message.delta":
+                if first_delta_ms is None:
+                    first_delta_ms = int((time.monotonic() - consume_started) * 1000)
+                    if first_delta_ms > 5000:
+                        logger.warning(
+                            "run_first_delta_slow",
+                            extra={
+                                "tenant_id": run.tenant_id,
+                                "run_id": str(run.id),
+                                "elapsed_ms": first_delta_ms,
+                            },
+                        )
                 text += str(event.data.get("delta", ""))
             if event.seq is None:
                 await self._persist_event(run, submission_id, event.type, event.data)

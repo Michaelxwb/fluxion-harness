@@ -41,6 +41,8 @@ class ExecutionSupervisor:
         self._lock = asyncio.Lock()
         self._closing = False
         self._tasks: dict[UUID, asyncio.Task[object]] = {}
+        #: 已占槽但仍在锁外做 claim 的数量：槽预算 = 运行中 + 在领，防止并发领取超发
+        self._pending = 0
         self._timeout = close_timeout_sec
 
     @property
@@ -60,7 +62,7 @@ class ExecutionSupervisor:
         return frozenset(self._tasks)
 
     def _has_free_slot(self) -> bool:
-        return not self._closing and len(self._tasks) < self._limit
+        return not self._closing and len(self._tasks) + self._pending < self._limit
 
     async def submit(self, run_id: UUID, execution: Callable[[], Awaitable[object]]) -> bool:
         async with self._lock:
@@ -70,16 +72,29 @@ class ExecutionSupervisor:
             return True
 
     async def claim_and_submit(self, claim: Claim) -> bool:
-        """本地有槽才 claim：没有空闲槽时不触碰 PG（`claim` 不会被调用）。"""
+        """本地有槽才 claim：没有空闲槽时不触碰 PG（`claim` 不会被调用）。
+
+        **claim 在锁外执行**：DB 往返（扫描 + 行锁 + 提交）在 800 用户下可达数十毫秒，
+        持锁做它会把同 Pod 的所有领取与续跑泵串成一条队列（实测单次领取 P50 ~13s）。
+        锁内只占一个"在领"坑位，claim 完成后回到锁内登记任务或释放坑位。
+        """
         async with self._lock:
             if not self._has_free_slot():
                 return False
+            self._pending += 1
+        admitted: tuple[UUID, Callable[[], Awaitable[object]]] | None = None
+        try:
             admitted = await claim(frozenset(self._tasks))
-            if admitted is None:
-                return False
-            run_id, execution = admitted
-            self._start(run_id, execution)
-            return True
+        finally:
+            async with self._lock:
+                self._pending -= 1
+                if admitted is None or self._closing:
+                    return False
+                run_id, execution = admitted
+                if run_id in self._tasks:
+                    return False
+                self._start(run_id, execution)
+        return True
 
     def reclaim(self, run_id: UUID) -> bool:
         """回收单个槽：取消该 Run 的本地片段，完成后由完成回调释放槽。"""
