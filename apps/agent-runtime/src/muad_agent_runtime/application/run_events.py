@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -103,11 +103,95 @@ def delta_window_from_settings(settings: SharedSettings) -> DeltaWindow:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class EventAppend:
+    """批量追加的一条事件（与 `EventWriter.append` 同参；同一事务、同一会话）。"""
+
+    tenant_id: str
+    conversation_id: uuid.UUID
+    run_id: uuid.UUID
+    event_type: str
+    payload: dict[str, Any]
+    submission_id: uuid.UUID | None = None
+    stream_type: str | None = None
+    artifact_id: uuid.UUID | None = None
+    source_event_id: uuid.UUID | None = None
+    event_id: uuid.UUID | None = None
+
+
 class EventWriter:
     """事务内使用；随事务提交/回滚，回滚不留事件、不推 seq。"""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def append_many(self, entries: Sequence[EventAppend]) -> tuple[int, ...]:
+        """批量追加同一会话的事件：一次 `last_seq` 分配 + 每事件一行 INSERT。
+
+        调用方保证全部条目属于同一租户/会话/事务（受理在一个事务内追加多条系统事件）。
+        `source_event_id` 的去重与冲突判定与 `append` 完全一致。
+        """
+        if not entries:
+            return ()
+        seqs: list[int | None] = [None] * len(entries)
+        missing: list[int] = []
+        for index, entry in enumerate(entries):
+            if entry.source_event_id is None:
+                missing.append(index)
+                continue
+            existing = await self._source_event(
+                entry.tenant_id, entry.conversation_id, entry.source_event_id
+            )
+            if existing is None:
+                missing.append(index)
+                continue
+            if (
+                existing.run_id != entry.run_id
+                or existing.event_type != entry.event_type
+                or canonical_json(existing.payload_json) != canonical_json(entry.payload)
+            ):
+                raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
+            seqs[index] = int(existing.seq)
+        if missing:
+            allocated = await self._next_seq_range(
+                entries[0].tenant_id, entries[0].conversation_id, len(missing)
+            )
+            for index, seq in zip(missing, allocated, strict=True):
+                entry = entries[index]
+                self._session.add(
+                    CanonicalEvent(
+                        id=entry.event_id or uuid.uuid4(),
+                        tenant_id=entry.tenant_id,
+                        conversation_id=entry.conversation_id,
+                        run_id=entry.run_id,
+                        seq=seq,
+                        submission_id=entry.submission_id,
+                        stream_type=entry.stream_type,
+                        event_type=entry.event_type,
+                        payload_json=entry.payload,
+                        artifact_id=entry.artifact_id,
+                        source_event_id=entry.source_event_id,
+                    )
+                )
+                seqs[index] = seq
+        return tuple(int(seq) for seq in seqs if seq is not None)
+
+    async def _next_seq_range(
+        self, tenant_id: str, conversation_id: uuid.UUID, count: int
+    ) -> tuple[int, ...]:
+        last = await self._session.scalar(
+            sa.update(Conversation)
+            .where(
+                Conversation.id == conversation_id,
+                Conversation.tenant_id == tenant_id,
+                Conversation.is_deleted.is_(False),
+            )
+            .values(last_seq=Conversation.last_seq + count, update_time=sa.func.now())
+            .returning(Conversation.last_seq)
+        )
+        if last is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        return tuple(range(int(last) - count + 1, int(last) + 1))
 
     async def append(
         self,

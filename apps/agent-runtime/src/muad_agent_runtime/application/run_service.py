@@ -163,7 +163,7 @@ from .run_admission import (
     queue_deadline,
     release_admission_in,
 )
-from .run_events import EventWriter
+from .run_events import RUN_STAGE_EVENT, RUN_STAGE_STREAM_TYPE, EventAppend, EventWriter
 from .run_resume import (
     ensure_human_resume,
     lock_human_resume,
@@ -1125,36 +1125,46 @@ class RunService:
         任何数据库连接。这是"设置/凭据在业务操作边界取一次"的同一边界，不引入进程内缓存。
         """
         t0 = time.monotonic()
-        resolved = await self._resolve_client.resolve(
-            ResolveDefinitionRequest(
-                agent_id=request.agent_id,
-                actor_user_id=request.platform_user_id,
-                channel=request.channel.type,
+        # 定义与设置互不依赖：并发取（两次 Console 往返从串行变并行）。
+        resolved, settings = await asyncio.gather(
+            self._resolve_client.resolve(
+                ResolveDefinitionRequest(
+                    agent_id=request.agent_id,
+                    actor_user_id=request.platform_user_id,
+                    channel=request.channel.type,
+                ),
+                tenant_id=tenant_id,
+                trace_id=current_trace_id(),
             ),
-            tenant_id=tenant_id,
-            trace_id=current_trace_id(),
+            self._settings_client.fetch_snapshot(
+                tenant_id=tenant_id, trace_id=current_trace_id() or ""
+            ),
         )
         t1 = time.monotonic()
-        settings = await self._settings_client.fetch_snapshot(
-            tenant_id=tenant_id, trace_id=current_trace_id() or ""
-        )
         t2 = time.monotonic()
         compaction = resolve_compaction_settings(
             resolved.agent.runtime_config,
             platform_overrides=settings.settings.get("compaction"),
         )
         run_id = uuid.uuid4()
-        summary_model = await self._resolve_summary_model(
+        summary_task = self._resolve_summary_model(
             tenant_id, compaction, run_id=run_id, actor_user_id=request.platform_user_id
         )
-        model, summary_model, mcp_secrets = await self._runtime_credentials(
-            run_id,
-            tenant_id,
-            request.platform_user_id,
-            resolved.model,
-            resolved.mcp_servers,
-            summary_model=summary_model,
+        # 摘要模型解析与主模型凭据互不依赖：并发取；摘要凭据最后单独取（依赖摘要模型）。
+        summary_model, (model, _, mcp_secrets) = await asyncio.gather(
+            summary_task,
+            self._runtime_credentials(
+                run_id,
+                tenant_id,
+                request.platform_user_id,
+                resolved.model,
+                resolved.mcp_servers,
+            ),
         )
+        if summary_model is not None:
+            summary_model = await self._summary_model_with_credentials(
+                run_id, tenant_id, request.platform_user_id, summary_model
+            )
         t3 = time.monotonic()
         if t3 - t0 > 1.0:
             logger.warning(
@@ -1775,9 +1785,37 @@ class RunService:
                 submission_id=submission.id,
             )
             submission.first_seq = seq
-            await self._append_submission_start(self._session, run, submission.id, resumed=False)
-            # 排队阶段随受理事务一起持久化（行 + `run.stage` 事件同一份 now()；B-236）
-            await self._append_run_stage(run)
+            from .execution_status import project_execution_status
+
+            # RUN_CREATED 与排队阶段投影一次分配 seq、一次追加（少一次 last_seq 往返）。
+            await self._event_writer().append_many(
+                (
+                    EventAppend(
+                        tenant_id=run.tenant_id,
+                        conversation_id=run.conversation_id,
+                        run_id=run.id,
+                        event_type=RUN_CREATED_EVENT,
+                        stream_type=RUN_CREATED_EVENT,
+                        submission_id=submission.id,
+                        source_event_id=uuid.uuid5(
+                            uuid.NAMESPACE_URL, f"muad:run-start:{submission.id}"
+                        ),
+                        payload={
+                            "conversation_id": str(run.conversation_id),
+                            "resumed": False,
+                            "trace_id": run.trace_id,
+                        },
+                    ),
+                    EventAppend(
+                        tenant_id=run.tenant_id,
+                        conversation_id=run.conversation_id,
+                        run_id=run.id,
+                        event_type=RUN_STAGE_EVENT,
+                        stream_type=RUN_STAGE_STREAM_TYPE,
+                        payload=project_execution_status(run).model_dump(mode="json"),
+                    ),
+                )
+            )
             conversation.last_run_id = run.id
             conversation.update_time = now
             # 真实可见用户消息事务内更新会话活动与首条标题（design §3.3）：标题不调模型，

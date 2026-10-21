@@ -163,3 +163,61 @@ async def test_b102_seq_continues_across_submissions(conversation) -> None:
             )
         ).all()
         assert {row.submission_id for row in events} == {submission_one}
+
+
+async def test_b102_append_many_allocates_contiguous_seqs_in_one_update(conversation) -> None:
+    """批量追加：一次 last_seq 分配给出连续 seq；同 source_event_id 重放不新增行。"""
+    from muad_agent_runtime.application.run_events import EventAppend, EventWriter
+
+    tenant, conv_id = conversation["tenant_id"], conversation["conversation_id"]
+    run_id = uuid.uuid4()
+    source_id = uuid.uuid5(uuid.NAMESPACE_URL, f"muad:run-start:{uuid.uuid4()}")
+    entries = (
+        EventAppend(
+            tenant_id=tenant,
+            conversation_id=conv_id,
+            run_id=run_id,
+            event_type="RUN_CREATED",
+            stream_type="run.created",
+            source_event_id=source_id,
+            payload={"resumed": False},
+        ),
+        EventAppend(
+            tenant_id=tenant,
+            conversation_id=conv_id,
+            run_id=run_id,
+            event_type="RUN_STAGE",
+            stream_type="run.stage",
+            payload={"status": "RUN_CREATED"},
+        ),
+    )
+    async with get_session_factory()() as session:
+        seqs = await EventWriter(session).append_many(entries)
+        await session.commit()
+    assert seqs == (1, 2)
+    async with get_session_factory()() as session:
+        assert await session.scalar(
+            sa.select(Conversation.last_seq).where(Conversation.id == conv_id)
+        ) == 2
+        rows = (
+            await session.execute(
+                sa.select(CanonicalEvent.seq, CanonicalEvent.event_type).where(
+                    CanonicalEvent.conversation_id == conv_id
+                ).order_by(CanonicalEvent.seq)
+            )
+        ).all()
+    assert [(int(seq), event_type) for seq, event_type in rows] == [
+        (1, "RUN_CREATED"),
+        (2, "RUN_STAGE"),
+    ]
+    # 同 source_event_id 重放：返回既有 seq，不新增行
+    async with get_session_factory()() as session:
+        replay = await EventWriter(session).append_many(entries[:1])
+        await session.commit()
+    assert replay == (1,)
+    async with get_session_factory()() as session:
+        assert await session.scalar(
+            sa.select(sa.func.count()).select_from(CanonicalEvent).where(
+                CanonicalEvent.conversation_id == conv_id
+            )
+        ) == 2
