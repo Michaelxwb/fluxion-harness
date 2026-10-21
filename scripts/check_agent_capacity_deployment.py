@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -44,10 +45,10 @@ if str(ROOT) not in sys.path:
 # ruff: noqa: E402 —— 下面的导入必须在上面的 sys.path 前置之后（其余规则照常生效）。
 try:
     # 三个应用包未提供 py.typed（与 aibot/openpyxl 同一口径：显式忽略未类型化依赖）。
-    from muad_agent_runtime.infrastructure import db as runtime_db  # type: ignore[import-untyped]
-    from muad_agent_worker.infrastructure import db as worker_db  # type: ignore[import-untyped]
+    import muad_agent_runtime.infrastructure.db as runtime_db  # type: ignore[import-untyped, unused-ignore]
+    import muad_agent_worker.infrastructure.db as worker_db  # type: ignore[import-untyped, unused-ignore]
+    import muad_console_platform.infrastructure.db as console_db  # type: ignore[import-untyped, unused-ignore]
     from muad_common import SharedSettings
-    from muad_console_platform.infrastructure import db as console_db  # type: ignore[import-untyped]
     from sqlalchemy.ext.asyncio import AsyncEngine
     from sqlalchemy.pool import QueuePool
 
@@ -603,6 +604,29 @@ def check_memory_buffers(
     return violations
 
 
+def check_outbound_concurrency(
+    units: Sequence[DeploymentView], profile: CapacityProfile
+) -> list[Violation]:
+    """单 Pod 的 Gateway 业务出站池必须覆盖目标并发。
+
+    每个用户建会话与提交消息各占一条 Gateway→Runtime 连接；池小于并发时多出的请求只能在池里
+    排队（实测 800 用户、64 连接：874 次 `PoolTimeout` → 500 → 会话/受理被拒）。
+    """
+    gateway = next(unit for unit in units if unit.name == "im-gateway")
+    bound = int(gateway.env_value("EGRESS_HTTP_MAX_CONNECTIONS")) * gateway.max_replicas
+    target = profile.workload.users * profile.workload.active_runs_per_user
+    if bound >= target:
+        return []
+    return [
+        Violation(
+            "outbound-concurrency",
+            f"im-gateway egress 池上界 {bound}（EGRESS_HTTP_MAX_CONNECTIONS×max_replicas）"
+            f" < 目标并发 {target}（workload.users×active_runs_per_user）—— 提高出站池"
+            "或核对 workload 目标：池等待超时会把正常突发误报成 500",
+        )
+    ]
+
+
 def _fan_in(units: Sequence[DeploymentView], settings: SharedSettings) -> tuple[int, int]:
     """Gateway 流池上界（扇入）与 Runtime 上界订阅容量。"""
     gateway = next(unit for unit in units if unit.name == "im-gateway")
@@ -664,10 +688,26 @@ def check_drain(
     return violations
 
 
+def _probe_budget_violations(unit: DeploymentView, probe_name: str) -> list[Violation]:
+    """探针预算显式声明：避免突发下 1s 默认超时误杀仍在执行的进程。"""
+    probe = unit.container.get(probe_name, {})
+    violations: list[Violation] = []
+    for field, minimum in (("timeoutSeconds", 5), ("periodSeconds", 10), ("failureThreshold", 3)):
+        value = probe.get(field)
+        if type(value) is not int or value < minimum:
+            violations.append(Violation(
+                "probes",
+                f"{unit.name}: {probe_name}.{field} 必须显式为 ≥ {minimum} 的整数，实际 {value!r}",
+            ))
+    return violations
+
+
 def check_probes(units: Sequence[DeploymentView]) -> list[Violation]:
     """readiness 接依赖就绪口径、liveness 接存活：依赖抖动不得重启全部 Pod。"""
     violations: list[Violation] = []
     for unit in units:
+        for probe_name in ("readinessProbe", "livenessProbe"):
+            violations.extend(_probe_budget_violations(unit, probe_name))
         container = unit.container
         readiness = container.get("readinessProbe", {}).get("httpGet", {}).get("path")
         liveness = container.get("livenessProbe", {}).get("httpGet", {}).get("path")
@@ -753,6 +793,7 @@ def _summary(
     resources: ResourceProfile,
     settings: SharedSettings,
     pg_per_process: Mapping[str, int],
+    profile: CapacityProfile,
 ) -> tuple[str, ...]:
     """可核对的预算数字（证据行）：预检通过时把它们打出来，便于报告引用。"""
     total = _pg_total(units, resources, pg_per_process)
@@ -766,12 +807,16 @@ def _summary(
         if unit.name in SSE_BUFFER_UNITS
     )
     bound, capacity = _fan_in(units, settings)
+    gateway = next(unit for unit in units if unit.name == "im-gateway")
+    egress = int(gateway.env_value("EGRESS_HTTP_MAX_CONNECTIONS")) * gateway.max_replicas
     return (
         f"PG 总连接（进程×最大副本）：{total} ≤ pg_connection_budget={budget}"
         f"（维护余量 {budget - total} ≥ {PG_MAINTENANCE_RESERVE}）",
         f"FD 每进程上限（出站池+PG+Redis+入站订阅）：{fd_rendered} ≤ fd_budget={resources.fd_budget}",
         f"SSE 总缓冲 {buffer_bytes} 字节 ≤ 内存上限的 {SSE_BUFFER_MEMORY_SHARE_MAX:.0%}（{limits}）",
         f"下游扇入：im-gateway 流池上界 {bound} ≤ agent-runtime 订阅容量 {capacity}",
+        f"业务出站并发：im-gateway egress 上界 {egress} ≥ 目标并发 "
+        f"{profile.workload.users * profile.workload.active_runs_per_user}",
         f"排空/迁移：终止宽限 ≥ {TERMINATION_GRACE_SEC} 秒；迁移 Job 在渲染集合里",
     )
 
@@ -803,6 +848,7 @@ def run_preflight(
         *check_fd_budget(units, resolved.resources, resolved_settings, limits),
         *check_memory_buffers(units, resolved.resources, resolved_settings),
         *check_downstream_fan_in(units, resolved_settings),
+        *check_outbound_concurrency(units, resolved),
         *check_drain(units, documents),
         *check_probes(units),
         *check_migration(documents),
@@ -812,8 +858,58 @@ def run_preflight(
         documents=tuple(documents),
         units=units,
         violations=tuple(violations),
-        summary=_summary(units, resolved.resources, resolved_settings, limits),
+        summary=_summary(units, resolved.resources, resolved_settings, limits, resolved),
     )
+
+
+def check_live_single_pods(documents: Sequence[Mapping[str, Any]]) -> list[Violation]:
+    """核对真实 Deployment/Pod/HPA；压测必须等 Console/Gateway 单 Pod 就绪且缩容结束。"""
+    violations: list[Violation] = []
+    for unit in SINGLE_POD_UNITS:
+        name = f"muad-{unit}"
+        deployments = [d for d in documents if d.get("kind") == "Deployment"
+                       and d.get("metadata", {}).get("name") == name]
+        if len(deployments) != 1:
+            violations.append(Violation("live-topology", f"{unit}: 必须存在唯一 Deployment"))
+            continue
+        deployment = deployments[0]
+        counts = [deployment.get("spec", {}).get("replicas"),
+                  deployment.get("status", {}).get("replicas"),
+                  deployment.get("status", {}).get("readyReplicas")]
+        if any(type(count) is not int or count != 1 for count in counts):
+            violations.append(Violation("live-topology", f"{unit}: 期望/实际/就绪副本必须均为 1"))
+        pods = [d for d in documents if d.get("kind") == "Pod"
+                and d.get("metadata", {}).get("labels", {}).get("app") == name
+                and d.get("status", {}).get("phase") not in ("Succeeded", "Failed")]
+        ready = len(pods) == 1 and not pods[0].get("metadata", {}).get("deletionTimestamp")
+        if ready:
+            ready = any(c.get("type") == "Ready" and c.get("status") == "True"
+                        for c in pods[0].get("status", {}).get("conditions", []))
+        if not ready:
+            violations.append(Violation("live-topology", f"{unit}: 必须恰好 1 个就绪 Pod，且无终止中副本"))
+        if any(d.get("kind") == "HorizontalPodAutoscaler"
+               and d.get("spec", {}).get("scaleTargetRef", {}).get("name") == name
+               for d in documents):
+            violations.append(Violation("live-topology", f"{unit}: 单 Pod 部署不得由 HPA 扩容"))
+    return violations
+
+
+def _read_live_resources(namespace: str) -> list[dict[str, Any]]:
+    try:
+        result = subprocess.run(
+            ["kubectl", "--namespace", namespace, "get", "deployments,pods,hpa", "-o", "json"],
+            capture_output=True, text=True, timeout=30, check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise PreflightError("kubectl 实时拓扑读取失败，不能给出压测拓扑通过结论") from None
+    try:
+        payload = json.loads(result.stdout)
+    except ValueError:
+        raise PreflightError("kubectl 实时拓扑返回非法 JSON") from None
+    items = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+        raise PreflightError("kubectl 实时拓扑缺少资源列表")
+    return items
 
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
@@ -822,6 +918,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     )
     parser.add_argument("--base", type=Path, default=DEFAULT_BASE, help="kustomize base 目录")
     parser.add_argument("--profile", type=Path, default=DEFAULT_PROFILE, help="typed 容量 profile")
+    parser.add_argument("--live-namespace", help="额外核对实际集群的 Console/Gateway 单 Pod 约束")
     return parser.parse_args(argv)
 
 
@@ -830,6 +927,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     try:
         report = run_preflight(args.base, args.profile)
+        violations = list(report.violations)
+        if args.live_namespace:
+            violations.extend(check_live_single_pods(_read_live_resources(args.live_namespace)))
     except PreflightError as exc:
         print(f"预检无法给出结论（阻断发布）：{exc}", file=sys.stderr)
         return 2
@@ -837,11 +937,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"渲染：{report.renderer}（{len(report.documents)} 个文档）")
     for line in report.summary:
         print(f"  {line}")
-    if report.violations:
-        print(f"预检失败：{len(report.violations)} 项阻断发布", file=sys.stderr)
-        for violation in report.violations:
+    if violations:
+        print(f"预检失败：{len(violations)} 项阻断发布", file=sys.stderr)
+        for violation in violations:
             print(f"  [{violation.check}] {violation.message}", file=sys.stderr)
         return 1
+    if args.live_namespace:
+        print(f"实时拓扑通过（{args.live_namespace}）：Console=1 Pod，Gateway=1 Pod，无终止中副本/HPA")
     print("预检通过：可以发布")
     return 0
 

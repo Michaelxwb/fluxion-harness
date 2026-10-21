@@ -74,10 +74,16 @@ spec:
           # readiness 接 /readyz（api-kit 的依赖就绪口径，依赖缺失回 503）；
           # liveness 仍接 /healthz（存活，不因依赖抖动重启 Pod）。
           readinessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
             httpGet:
               path: /readyz
               port: 8000
           livenessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
             httpGet:
               path: /healthz
               port: 8000

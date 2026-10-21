@@ -749,6 +749,77 @@ async def test_b232_supervisor_never_double_books_a_run_slot() -> None:
         await supervisor.close()
 
 
+async def test_supervisor_propagates_claim_failure_and_releases_pending_slot() -> None:
+    supervisor = ExecutionSupervisor(max_concurrency=1)
+    failure = RuntimeError("claim failed")
+
+    async def claim(_excluded: frozenset[uuid.UUID]) -> None:
+        raise failure
+
+    try:
+        with pytest.raises(RuntimeError) as raised:
+            await supervisor.claim_and_submit(claim)
+        assert raised.value is failure
+        assert supervisor.free_slots == 1
+        assert await supervisor.submit(uuid.uuid4(), asyncio.Event().wait)
+    finally:
+        await supervisor.close()
+
+
+async def test_supervisor_propagates_cancel_during_claim_and_releases_pending_slot() -> None:
+    supervisor = ExecutionSupervisor(max_concurrency=1)
+    entered = asyncio.Event()
+
+    async def claim(_excluded: frozenset[uuid.UUID]) -> None:
+        entered.set()
+        await asyncio.Event().wait()
+
+    task = asyncio.create_task(supervisor.claim_and_submit(claim))
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert supervisor.free_slots == 1
+        assert await supervisor.submit(uuid.uuid4(), asyncio.Event().wait)
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await supervisor.close()
+
+
+async def test_supervisor_counts_pending_claims_without_serializing_their_io() -> None:
+    supervisor = ExecutionSupervisor(max_concurrency=2)
+    entered = [asyncio.Event(), asyncio.Event()]
+    release = asyncio.Event()
+    calls = 0
+
+    async def claim(_excluded: frozenset[uuid.UUID]) -> None:
+        nonlocal calls
+        index = calls
+        calls += 1
+        entered[index].set()
+        await release.wait()
+
+    tasks: list[asyncio.Task[bool]] = []
+    try:
+        for event in entered:
+            tasks.append(asyncio.create_task(supervisor.claim_and_submit(claim)))
+            await asyncio.wait_for(event.wait(), timeout=1)
+        assert supervisor.free_slots == 0
+        assert supervisor.execution_count == 0
+        assert await supervisor.claim_and_submit(claim) is False
+        assert await supervisor.submit(uuid.uuid4(), asyncio.Event().wait) is False
+        assert calls == 2
+        release.set()
+        assert await asyncio.gather(*tasks) == [False, False]
+        assert supervisor.free_slots == 2
+    finally:
+        release.set()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await supervisor.close()
+
+
 # --------------------------------------------------------------------------- #
 # 真实 HTTP 模型探针（供需要真实模型回合的边界使用）
 # --------------------------------------------------------------------------- #

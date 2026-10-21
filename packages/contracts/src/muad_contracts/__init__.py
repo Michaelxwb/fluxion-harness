@@ -46,6 +46,7 @@ from .enums import (
     WaitReason,
 )
 from .resolve import (
+    AdmissionMaterialsRequest,
     ResolveCredentialsRequest,
     ResolvedAgent,
     ResolveDefinitionRequest,
@@ -95,6 +96,7 @@ from .tool_runtime import (
 )
 
 __all__ = [
+    "AdmissionMaterialsRequest",
     "AsyncToolPolicy",
     "CancelOperationRequest",
     "CancelOperationResponse",

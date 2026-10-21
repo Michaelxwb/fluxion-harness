@@ -69,6 +69,15 @@ def get_header_tenant_id() -> str:
     return current_tenant_id() or SharedSettings().default_tenant_id
 
 
+def service_token(request: Request) -> str | None:
+    """内部服务身份的期望值：装配根在 lifespan 建一次 settings，请求路径复用。
+
+    未跑 lifespan 的 ASGI 测试应用现场构造——与旧实现逐请求读取同一来源，语义不变。
+    """
+    settings: SharedSettings | None = getattr(request.app.state, "settings", None)
+    return (settings or SharedSettings()).internal_service_token
+
+
 def get_source_ip(request: Request) -> str | None:
     client = request.client
     return client.host if client is not None else None

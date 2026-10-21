@@ -322,6 +322,38 @@ def test_preflight_blocks_release_when_liveness_follows_dependency_readiness(
     assert "probes" in output and "liveness" in output, output
 
 
+@pytest.mark.parametrize("probe_name", ("readinessProbe", "livenessProbe"))
+def test_preflight_blocks_release_when_probe_uses_one_second_default(
+    base_copy: Path, probe_name: str,
+) -> None:
+    def mutate(doc: dict[str, Any]) -> None:
+        probe = doc["spec"]["template"]["spec"]["containers"][0][probe_name]
+        probe.pop("timeoutSeconds", None)
+
+    _mutate_doc(base_copy / "agent-runtime.yaml", "Deployment", "muad-agent-runtime", mutate)
+    result = _run_cli("--base", str(base_copy))
+    output = _output(result)
+    assert result.returncode == 1, output
+    assert "probes" in output and probe_name in output and "timeoutSeconds" in output
+
+
+@pytest.mark.parametrize("probe_name", ("readinessProbe", "livenessProbe"))
+@pytest.mark.parametrize("field,value", (
+    ("timeoutSeconds", 1), ("timeoutSeconds", True), ("timeoutSeconds", "5"),
+    ("periodSeconds", 0), ("failureThreshold", 0),
+))
+def test_probe_preflight_rejects_invalid_budgets(
+    probe_name: str, field: str, value: object,
+) -> None:
+    unit = preflight.run_preflight(BASE, PROFILE_PATH).units[0]
+    container = dict(unit.container)
+    container[probe_name] = {**container[probe_name], field: value}
+    violations = preflight.check_probes([dataclasses.replace(unit, container=container)])
+    assert violations
+    assert all(v.check == "probes" for v in violations)
+    assert any(f"{probe_name}.{field}" in v.message for v in violations)
+
+
 def test_preflight_blocks_release_when_the_migration_job_is_not_collected(base_copy: Path) -> None:
     """schema 变更入口必须在渲染集合里：迁移 Job 未被收集 = 集群里没有升级入口。"""
 
@@ -447,6 +479,26 @@ def test_downstream_fan_in_check_flags_runtime_capacity_below_gateway_stream_poo
     violations = preflight.check_downstream_fan_in(units, squeezed)
     assert [violation.check for violation in violations] == ["downstream-fan-in"]
     assert "im-gateway" in violations[0].message
+
+
+def test_outbound_concurrency_check_flags_gateway_egress_pool_below_target_users() -> None:
+    """注入小于目标并发的 egress 池 → 出站并发检查必须报违规。
+
+    单 Pod Gateway 下每个用户建会话/提交消息各占一条连接；池不够时多出的请求在池里排队，
+    池等待超时把正常突发变成 500（实测 800 用户、64 连接：874 次 PoolTimeout）。
+    """
+    units = _units()
+    profile = _profile()
+    assert preflight.check_outbound_concurrency(units, profile) == []
+    gateway = next(unit for unit in units if unit.name == "im-gateway")
+    squeezed_env = [
+        {**item, "value": "64"} if item["name"] == "EGRESS_HTTP_MAX_CONNECTIONS" else item
+        for item in gateway.container["env"]
+    ]
+    squeezed = dataclasses.replace(gateway, container={**gateway.container, "env": squeezed_env})
+    violations = preflight.check_outbound_concurrency([squeezed], profile)
+    assert [violation.check for violation in violations] == ["outbound-concurrency"]
+    assert "im-gateway" in violations[0].message and "64" in violations[0].message
 
 
 # --------------------------------------------------------------------------------------

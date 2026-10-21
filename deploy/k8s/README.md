@@ -42,6 +42,16 @@ kubectl -n muad rollout status deploy/muad-console-platform --timeout=180s
 
 ## 发布前预检（渲染清单 → typed 容量配置，失败阻断发布）
 
+压测拓扑固定为 **Console 1 Pod、IM Gateway 1 Pod，Runtime/Worker 可多副本**。
+清单预检不会自动核对集群中的手动扩容；每轮施压前额外执行实际拓扑检查：
+
+```bash
+uv run python scripts/check_agent_capacity_deployment.py --live-namespace muad-cap
+```
+
+该检查读取实际 Deployment、Pod、HPA；Console/Gateway 期望/实际/就绪副本不为 1、存在额外
+或终止中 Pod、未就绪或被 HPA 扩容时均非零退出，不能继续该轮压测。
+
 渲染正式清单，把**将要 apply 的那份**与 typed 容量配置逐项对齐（design §3.7 配置契约与
 生效边界 / §4.2 发布与迁移）：对不上就不要发布。
 
@@ -59,8 +69,9 @@ uv run python scripts/check_agent_capacity_deployment.py --profile tests/capacit
 | FD | 每进程 FD = 出站池连接 + PG 上限 + Redis + 入站订阅，须 ≤ `fd_budget`（nofile） |
 | 内存缓冲 | 进程级 SSE 总缓冲 ≤ 内存上限的 50%（`sse_total_buffer_bytes` 受进程内存预算约束） |
 | 下游扇入 | Gateway 流池上界 ≤ Runtime 上界订阅容量（`runtime_max_sse_subscribers` × 最大副本） |
+| 业务出站并发 | Gateway 的 egress 池上界（`EGRESS_HTTP_MAX_CONNECTIONS` × 最大副本）≥ `workload.users` × `active_runs_per_user`：单 Pod 下每个用户建会话/提交消息各占一条连接，池不够会在池里排队到超时变 500 |
 | 排空 | `terminationGracePeriodSeconds` ≥ 60 秒；HPA 缩容稳定化窗口覆盖终止宽限 |
-| 探针 | readiness 接 `/readyz`、liveness 接 `/healthz`（依赖抖动不得重启全部 Pod） |
+| 探针 | readiness 接 `/readyz`、liveness 接 `/healthz`；显式超时 ≥5s、周期 ≥10s、连续失败次数 ≥3，避免突发调度延迟触发重启 |
 | 迁移 | `muad-migrate` Job 在渲染集合里，且真的调用 `migrations/db_migrate.py` |
 
 **退出码**：`0` 通过；`1` 存在阻断发布的违规（逐项打印单元与预算明细）；`2` 渲染/配置读取
@@ -107,7 +118,10 @@ kubectl apply -k deploy/k8s/base
 ## 探针口径
 
 `readinessProbe` 接 `/readyz`（依赖缺失回 503，**不该往这种 Pod 转发流量**），
-`livenessProbe` 接 `/healthz`（存活，不因依赖抖动重启 Pod）。四个清单都按这个接。
+`livenessProbe` 接 `/healthz`（存活，不因依赖抖动重启 Pod）。四个清单都按这个接，且均显式给出
+5s 超时、10s 周期、连续 3 次失败的预算。800 并发实测中，省略超时会沿用 Kubernetes 默认的
+1s：一个仍在执行任务的 Runtime 被存活探针重启，同秒网关出现 77 次传输错误。
+发布预检同时检查路径和预算，防止只核对探针路径而放过这个回归。
 
 ## 多 Pod（横向扩展）验收
 

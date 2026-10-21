@@ -32,11 +32,12 @@ from ..infrastructure.repositories.model_deployment_repository import ModelDeplo
 from .model_credential_service import derive_key_resource_id
 
 
-def require_service_identity(token: str | None) -> None:
-    """内部服务身份校验：缺失或不匹配即 FORBIDDEN。"""
-    from muad_common import SharedSettings
+def require_service_identity(token: str | None, expected: str | None) -> None:
+    """内部服务身份校验：缺失或不匹配即 FORBIDDEN。
 
-    expected = SharedSettings().internal_service_token
+    期望值由调用方（`api/deps.service_token`）从装配根的启动设置取：请求路径不再逐次重建
+    `SharedSettings()`（每次构造要读环境与 `.env`，单进程并发下直接变成吞吐上限）。
+    """
     if not expected or token != expected:
         raise AppError(ErrorCode.FORBIDDEN)
 

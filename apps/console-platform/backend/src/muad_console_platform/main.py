@@ -93,6 +93,9 @@ async def _close_probe_clients(fastapi_app: FastAPI) -> None:
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     settings = SharedSettings()
+    # 启动预算是每进程一份、重启生效：请求路径复用这一份，不再逐请求重建（构造一次要读
+    # 环境与 .env，实测 ~1.5ms；单 Console 进程在 800 并发下它直接吃掉可观的事件循环时间）。
+    fastapi_app.state.settings = settings
     try:
         _install_probe_clients(fastapi_app, settings)
         await validate_startup(

@@ -1,3 +1,4 @@
+import json
 import uuid
 
 import httpx
@@ -205,3 +206,113 @@ def test_b103_resolve_response_validates_mcp_catalog_fields() -> None:
     )
     assert server.catalog_revision == 3
     assert server.definitions == []
+
+
+async def test_fetch_admission_materials_is_one_request_and_parses_credentials() -> None:
+    """受理合并取数：一次 POST 取回定义 + 设置快照 + 凭据（含 MCP 可选鉴权）。"""
+    captured: list[httpx.Request] = []
+    mcp_id = uuid.uuid4()
+    definition = _resolve_data()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "code": "0",
+                "msg": "成功",
+                "data": {
+                    "definition": definition,
+                    "settings_revision": 3,
+                    "settings": {"agent": {"max_turns": 9}},
+                    "credentials": {
+                        "model": {"model_id": definition["model"]["id"], "api_key": "sk-live"},
+                        "mcp_servers": [
+                            {"mcp_server_id": str(mcp_id), "auth_secret": "mcp-secret"},
+                            {"mcp_server_id": str(uuid.uuid4()), "auth_secret": None},
+                        ],
+                    },
+                },
+            },
+        )
+
+    client = ConsoleResolveClient(
+        "http://console", service_token="svc", transport=httpx.MockTransport(handler)
+    )
+    agent_id, actor_id, execution_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    materials = await client.fetch_admission_materials(
+        tenant_id="tenant-1",
+        agent_id=agent_id,
+        actor_user_id=actor_id,
+        execution_id=execution_id,
+        channel="WEBCHAT",
+        trace_id="trace-1",
+    )
+    await client.aclose()
+
+    assert len(captured) == 1, "合并取数必须是一次往返"
+    request = captured[0]
+    assert request.url.path == "/internal/runtime/admission-materials"
+    assert request.headers["X-Internal-Service"] == "svc"
+    assert request.headers["X-Tenant-Id"] == "tenant-1"
+    assert request.headers["X-Trace-Id"] == "trace-1"
+    body = json.loads(request.content)
+    assert body == {
+        "agent_id": str(agent_id),
+        "actor_user_id": str(actor_id),
+        "execution_id": str(execution_id),
+        "channel": "WEBCHAT",
+    }
+    assert materials.definition.agent.key == "agent-key"
+    assert materials.settings.revision == 3
+    assert materials.settings.settings == {"agent": {"max_turns": 9}}
+    assert materials.model.api_key == "sk-live"
+    assert materials.mcp_secrets == {str(mcp_id): "mcp-secret"}
+
+
+async def test_fetch_admission_materials_requires_api_key() -> None:
+    """没有当前认证值即 `CREDENTIAL_MISSING`：不拿定义里的旧密钥兜底。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "code": "0",
+                "msg": "成功",
+                "data": {
+                    "definition": _resolve_data(),
+                    "settings_revision": 0,
+                    "settings": {},
+                    "credentials": {"model": {"api_key": None}, "mcp_servers": []},
+                },
+            },
+        )
+
+    client = ConsoleResolveClient("http://console", transport=httpx.MockTransport(handler))
+    with pytest.raises(AppError) as raised:
+        await client.fetch_admission_materials(
+            tenant_id="t",
+            agent_id=uuid.uuid4(),
+            actor_user_id=uuid.uuid4(),
+            execution_id=uuid.uuid4(),
+        )
+    await client.aclose()
+    assert raised.value.code == "CREDENTIAL_MISSING"
+
+
+async def test_fetch_admission_materials_maps_error_envelope() -> None:
+    """Console 侧拒绝（如服务身份不符）按信封错误码上抛，不吞成 500 语义。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, json={"code": "FORBIDDEN", "msg": "denied", "data": None})
+
+    client = ConsoleResolveClient("http://console", transport=httpx.MockTransport(handler))
+    with pytest.raises(AppError) as raised:
+        await client.fetch_admission_materials(
+            tenant_id="t",
+            agent_id=uuid.uuid4(),
+            actor_user_id=uuid.uuid4(),
+            execution_id=uuid.uuid4(),
+        )
+    await client.aclose()
+    assert raised.value.code == "FORBIDDEN"

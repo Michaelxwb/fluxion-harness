@@ -1,10 +1,18 @@
+from dataclasses import asdict
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Request
-from muad_api import ApiResponse, ok
-from muad_contracts import ResolveCredentialsRequest, ResolveDefinitionRequest, ResolveModelRequest
+from muad_api import ApiResponse, inc_counter, ok
+from muad_contracts import (
+    AdmissionMaterialsRequest,
+    ResolveCredentialsRequest,
+    ResolveDefinitionRequest,
+    ResolveModelRequest,
+    RuntimeExecutionRef,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.platform_settings_service import PlatformSettingsService
 from ..application.resolve_egress_service import resolve_egress_access
 from ..application.resolve_service import ResolveService
 from ..application.runtime_credentials import (
@@ -12,8 +20,12 @@ from ..application.runtime_credentials import (
     resolve_runtime_credentials,
 )
 from ..infrastructure.db import get_session
-from ..metrics import RESOLVE_DEFINITION_METRIC, count_outcome
-from .deps import HeaderTenantId
+from ..metrics import (
+    PLATFORM_SETTINGS_FETCH_METRIC,
+    RESOLVE_DEFINITION_METRIC,
+    count_outcome,
+)
+from .deps import HeaderTenantId, service_token
 
 # 内部端点无用户会话，租户由调用方（Runtime/Worker，已有服务身份门控）显式声明。
 TenantId = HeaderTenantId
@@ -31,10 +43,59 @@ async def resolve_definition(
     x_internal_service: Annotated[str | None, Header()] = None,
 ) -> ApiResponse[Any]:
     """仅受信 Runtime/Worker 可调用：响应含模型明文 `api_key`，故与 API-08/09 同门控。"""
-    require_service_identity(x_internal_service)
+    require_service_identity(x_internal_service, service_token(request))
     with count_outcome(RESOLVE_DEFINITION_METRIC):
         resolved = await ResolveService(session).resolve_definition(tenant_id, payload)
     return ok(request.app.state.message_catalog, resolved.model_dump(mode="json"))
+
+
+@router.post("/admission-materials")
+async def admission_materials(
+    payload: AdmissionMaterialsRequest,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    x_internal_service: Annotated[str | None, Header()] = None,
+) -> ApiResponse[Any]:
+    """受理边界一次取齐：定义 + 平台设置快照 + 当前认证值（API-06/API-09 合并）。
+
+    与三个单点端点**同一实现**，只是合成一次请求：单 Console 进程时每个内部请求的固定
+    开销（DB 会话、路由与响应校验）会按次数线性叠加到受理延迟上（800 并发实测每请求
+    ~3.8ms）。响应含模型明文 `api_key`，与 API-08/09 同门控。
+    """
+    require_service_identity(x_internal_service, service_token(request))
+    with count_outcome(RESOLVE_DEFINITION_METRIC):
+        resolved = await ResolveService(session).resolve_definition(
+            tenant_id,
+            ResolveDefinitionRequest(
+                agent_id=payload.agent_id,
+                actor_user_id=payload.actor_user_id,
+                channel=payload.channel,
+            ),
+        )
+    try:
+        snapshot = await PlatformSettingsService(session).read_current(tenant_id)
+    except Exception:
+        inc_counter(PLATFORM_SETTINGS_FETCH_METRIC, 1, {"caller": "runtime", "result": "failed"})
+        raise
+    inc_counter(PLATFORM_SETTINGS_FETCH_METRIC, 1, {"caller": "runtime", "result": "ok"})
+    credentials = await resolve_runtime_credentials(
+        session,
+        tenant_id,
+        ResolveCredentialsRequest(
+            execution_ref=RuntimeExecutionRef(id=payload.execution_id),
+            actor_user_id=payload.actor_user_id,
+            model_id=resolved.model.id,
+            mcp_server_ids=[server.mcp_server_id for server in resolved.mcp_servers],
+        ),
+    )
+    data = {
+        "definition": resolved.model_dump(mode="json"),
+        "settings_revision": snapshot.revision,
+        "settings": asdict(snapshot.settings),
+        "credentials": credentials,
+    }
+    return ok(request.app.state.message_catalog, data)
 
 
 @router.post("/resolve-model")
@@ -50,7 +111,7 @@ async def resolve_model(
     响应含模型明文 `api_key`，故与 `resolve-definition` / API-09 同门控。摘要模型是 Run 快照
     的一部分（ADR-06），因此必须由 Runtime 在 Run 创建边界取一次、冻进去。
     """
-    require_service_identity(x_internal_service)
+    require_service_identity(x_internal_service, service_token(request))
     resolved = await ResolveService(session).resolve_model(tenant_id, payload)
     return ok(request.app.state.message_catalog, resolved.model_dump(mode="json"))
 
@@ -64,7 +125,7 @@ async def resolve_credentials(
     x_internal_service: Annotated[str | None, Header()] = None,
 ) -> ApiResponse[Any]:
     """API-09：仅受信 Runtime 可调用；按冻结的成员/凭据引用读取当前认证值。"""
-    require_service_identity(x_internal_service)
+    require_service_identity(x_internal_service, service_token(request))
     data = await resolve_runtime_credentials(session, tenant_id, payload)
     return ok(request.app.state.message_catalog, data)
 
@@ -78,6 +139,6 @@ async def resolve_egress(
     x_internal_service: Annotated[str | None, Header()] = None,
 ) -> ApiResponse[Any]:
     """API-08：Egress Boundary 的平台解析、凭据选择与策略判定。"""
-    require_service_identity(x_internal_service)
+    require_service_identity(x_internal_service, service_token(request))
     data = await resolve_egress_access(session, tenant_id, payload)
     return ok(request.app.state.message_catalog, data)

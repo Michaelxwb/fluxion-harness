@@ -55,7 +55,7 @@ class ExecutionSupervisor:
 
     @property
     def free_slots(self) -> int:
-        return max(self._limit - len(self._tasks), 0)
+        return max(self._limit - len(self._tasks) - self._pending, 0)
 
     def active_runs(self) -> frozenset[UUID]:
         """当前占槽的 Run 只读快照（独立监督回收据此核验 PG 归属）。"""
@@ -83,18 +83,18 @@ class ExecutionSupervisor:
                 return False
             self._pending += 1
         admitted: tuple[UUID, Callable[[], Awaitable[object]]] | None = None
+        submitted = False
         try:
             admitted = await claim(frozenset(self._tasks))
         finally:
             async with self._lock:
                 self._pending -= 1
-                if admitted is None or self._closing:
-                    return False
-                run_id, execution = admitted
-                if run_id in self._tasks:
-                    return False
-                self._start(run_id, execution)
-        return True
+                if admitted is not None and not self._closing:
+                    run_id, execution = admitted
+                    if run_id not in self._tasks:
+                        self._start(run_id, execution)
+                        submitted = True
+        return submitted
 
     def reclaim(self, run_id: UUID) -> bool:
         """回收单个槽：取消该 Run 的本地片段，完成后由完成回调释放槽。"""

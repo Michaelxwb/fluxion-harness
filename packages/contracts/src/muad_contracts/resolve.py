@@ -67,6 +67,20 @@ class ResolveDefinitionResponse(ContractModel):
     mcp_servers: list[ResolvedMcpServer] = Field(default_factory=list)
 
 
+class AdmissionMaterialsRequest(ContractModel):
+    """受理边界一次取齐：定义 + 平台设置快照 + 当前认证值。
+
+    单 Console 进程时三次内部往返（定义/设置并发、再取凭据）各自付一份固定开销（DB 会话、
+    路由与响应校验，实测每请求 ~3.8ms）；合并成一次请求后受理侧只付一份。
+    """
+
+    agent_id: UUID
+    actor_user_id: UUID
+    #: 本 Run 的 id：只作审计关联（与 API-09 的 `execution_ref` 同义），不承担容量归属。
+    execution_id: UUID
+    channel: ChannelName | None = None
+
+
 class ResolveModelRequest(ContractModel):
     """按**既有模型定义的主键**解析单个模型（ADR-06：`compaction.summary.model_ref`）。
 

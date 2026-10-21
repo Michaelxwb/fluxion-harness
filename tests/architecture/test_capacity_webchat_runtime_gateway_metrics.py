@@ -26,15 +26,14 @@ import re
 import subprocess
 import sys
 import uuid
-from collections.abc import AsyncIterator, Iterator
-from contextlib import AsyncExitStack, suppress
+from collections.abc import AsyncIterator
+from contextlib import AsyncExitStack
 from importlib.util import resolve_name
 from pathlib import Path
 from typing import Any, get_args
 
 import pytest
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
+from muad_agent_runtime import metrics as runtime_metrics
 from muad_api import render_metrics
 from muad_common import SharedSettings
 from muad_im_gateway import metrics as gateway_metrics
@@ -46,7 +45,6 @@ from muad_im_gateway.application.webchat_streams import (
     WebchatPublicStream,
     WebchatStreamBudget,
 )
-from muad_agent_runtime import metrics as runtime_metrics
 
 pytestmark = pytest.mark.integration
 
@@ -696,7 +694,9 @@ def test_b298_gateway_sse_stream_records_subscription_buffer_and_close_reasons()
     tree = _parse_source(GATEWAY_STREAMS_SOURCE)
     assert "muad_im_gateway.metrics" in _imports(GATEWAY_STREAMS_SOURCE)
     service_open = _class_method(tree, "WebchatStreamService", "open")
-    statuses = _helper_literals(service_open, "record_subscription")
+    assert _calls(service_open, "_open"), "公开入口必须调用含订阅打点的实现"
+    service_impl = _class_method(tree, "WebchatStreamService", "_open")
+    statuses = _helper_literals(service_impl, "record_subscription")
     assert {"opened", "resumed"} <= statuses, "新开与断线重连必须可区分"
     lease = _class_method(tree, "SseBufferLedger", "lease")
     assert "rejected" in _helper_literals(lease, "record_subscription"), (
@@ -720,7 +720,9 @@ def test_b298_gateway_sse_stream_records_subscription_buffer_and_close_reasons()
     assert _metric_references(
         _function(_parse_source(GATEWAY_METRICS_SOURCE), "set_ledger_gauge"), "SSE_LEDGER_METRIC"
     ) >= 1, "连接数与缓冲水位必须落在账本家族上"
-    watermarks = _helper_literals(_class_method(tree, "SseBufferLedger", "_publish_watermarks"), "set_ledger_gauge")
+    watermarks = _helper_literals(
+        _class_method(tree, "SseBufferLedger", "_publish_watermarks"), "set_ledger_gauge",
+    )
     assert watermarks == {"active_subscribers", "pending_bytes"}, (
         f"账本必须发布连接数与缓冲水位：{sorted(watermarks)}"
     )

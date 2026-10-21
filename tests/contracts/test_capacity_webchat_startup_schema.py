@@ -19,7 +19,7 @@ DEFAULTS: dict[str, int | float] = {
     "stream_http_max_connections": 1100, "stream_http_max_keepalive": 64,
     "model_http_max_connections": 64, "model_http_max_keepalive": 32,
     "mcp_http_max_connections": 16, "mcp_http_max_keepalive": 8, "mcp_max_inflight": 8,
-    "egress_http_max_connections": 16, "egress_http_max_keepalive": 8, "egress_max_inflight": 8,
+    "egress_http_max_connections": 1024, "egress_http_max_keepalive": 256, "egress_max_inflight": 8,
     "upload_http_max_connections": 8, "upload_http_max_keepalive": 4,
     "http_connect_timeout_sec": 5.0, "http_pool_timeout_sec": 2.0,
     "control_http_read_timeout_sec": 10.0, "stream_http_read_timeout_sec": 45.0,

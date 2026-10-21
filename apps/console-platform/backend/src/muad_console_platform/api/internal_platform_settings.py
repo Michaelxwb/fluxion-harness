@@ -21,7 +21,7 @@ from ..application.platform_settings_service import PlatformSettingsService
 from ..application.runtime_credentials import require_service_identity
 from ..infrastructure.db import get_session
 from ..metrics import PLATFORM_SETTINGS_FETCH_METRIC
-from .deps import HeaderTenantId
+from .deps import HeaderTenantId, service_token
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ async def internal_platform_settings(
     x_internal_service: Annotated[str | None, Header()] = None,
     x_caller_service: Annotated[str | None, Header()] = None,
 ) -> ApiResponse[Any]:
-    require_service_identity(x_internal_service)
+    require_service_identity(x_internal_service, service_token(request))
     caller = _caller(x_caller_service)
     try:
         snapshot = await PlatformSettingsService(session).read_current(tenant_id)

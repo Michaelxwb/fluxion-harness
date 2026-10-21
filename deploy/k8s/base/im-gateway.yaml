@@ -66,10 +66,12 @@ spec:
               value: "8"
             - name: UPLOAD_HTTP_MAX_KEEPALIVE
               value: "4"
+            # 业务出站池按目标并发定容：单 Pod 承载 1000 用户时，每个用户建会话/提交消息
+            # 各占一条 Gateway→Runtime 连接（池小于用户数 = 排队 5s 后 500）。
             - name: EGRESS_HTTP_MAX_CONNECTIONS
-              value: "16"
+              value: "1024"
             - name: EGRESS_HTTP_MAX_KEEPALIVE
-              value: "8"
+              value: "256"
           # 资源声明与容量 profile 的 resources.hardware.im-gateway 一致
           # （tests/capacity/profiles/agent-capacity-webchat.example.yml）。
           resources:
@@ -87,10 +89,16 @@ spec:
           # readiness 接 /readyz（api-kit 的依赖就绪口径，依赖缺失回 503）；
           # liveness 仍接 /healthz（存活，不因依赖抖动重启 Pod）。
           readinessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
             httpGet:
               path: /readyz
               port: 8003
           livenessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
             httpGet:
               path: /healthz
               port: 8003

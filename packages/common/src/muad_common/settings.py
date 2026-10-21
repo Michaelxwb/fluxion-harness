@@ -60,8 +60,10 @@ class SharedSettings(BaseSettings):
     mcp_http_max_connections: int = Field(default=16, ge=1)
     mcp_http_max_keepalive: int = Field(default=8, ge=0)
     mcp_max_inflight: int = Field(default=8, ge=1)
-    egress_http_max_connections: int = Field(default=16, ge=1)
-    egress_http_max_keepalive: int = Field(default=8, ge=0)
+    # 业务出站池按目标并发定容：单 Pod 的 Gateway 每承载一个用户就要一条到 Runtime 的连接
+    # （建会话/提交消息），池小于并发时多出的请求只能排队，池等待超时会让正常突发变成 500。
+    egress_http_max_connections: int = Field(default=1024, ge=1)
+    egress_http_max_keepalive: int = Field(default=256, ge=0)
     egress_max_inflight: int = Field(default=8, ge=1)
     upload_http_max_connections: int = Field(default=8, ge=1)
     upload_http_max_keepalive: int = Field(default=4, ge=0)

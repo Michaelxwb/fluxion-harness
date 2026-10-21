@@ -61,9 +61,9 @@ spec:
             - name: CONTROL_HTTP_MAX_KEEPALIVE
               value: "16"
             - name: EGRESS_HTTP_MAX_CONNECTIONS
-              value: "16"
+              value: "1024"
             - name: EGRESS_HTTP_MAX_KEEPALIVE
-              value: "8"
+              value: "256"
           # 资源声明与容量 profile 的 resources.hardware.agent-worker 一致
           # （tests/capacity/profiles/agent-capacity-webchat.example.yml）。
           resources:
@@ -76,10 +76,16 @@ spec:
           # readiness 接 /readyz（api-kit 的依赖就绪口径，依赖缺失回 503）；
           # liveness 仍接 /healthz（存活，不因依赖抖动重启 Pod）。
           readinessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
             httpGet:
               path: /readyz
               port: 8002
           livenessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
             httpGet:
               path: /healthz
               port: 8002

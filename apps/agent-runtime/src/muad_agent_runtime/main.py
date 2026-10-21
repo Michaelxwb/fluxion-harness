@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from functools import partial
+from typing import cast
 
 from fastapi import FastAPI
 from muad_api import (
@@ -18,6 +19,7 @@ from muad_api import (
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import SharedSettings
 from muad_logging import configure_logging
+from sqlalchemy.pool import AsyncAdaptedQueuePool
 
 from .api.admin_runs import router as admin_runs_router
 from .api.artifacts import router as artifacts_router
@@ -355,7 +357,8 @@ async def _sample_db_pool() -> None:
     """每 2s 发布连接池占用：池耗尽+阻塞式取连接会同时拖死准入与执行，必须可观测。"""
     while True:
         await asyncio.sleep(2.0)
-        pool = get_engine().pool
+        # AsyncEngine.pool 的静态类型是基类 Pool，运行时是 QueuePool 适配器（取数只在后者上有）。
+        pool = cast(AsyncAdaptedQueuePool, get_engine().pool)
         record_gauge("db_pool_checked_out", pool.checkedout())
         record_gauge("db_pool_size", pool.size())
 

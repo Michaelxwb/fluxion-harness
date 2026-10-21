@@ -29,6 +29,9 @@ verifiers:
 
 ## Conventions
 
+- **容量压测固定 Console/Gateway 各 1 Pod，仅 Runtime/Worker 可多副本**：约束同时覆盖部署清单和实际集群。✅ 每轮压测前执行 `check_agent_capacity_deployment.py --live-namespace <namespace>`，核对期望/实际/就绪副本、实际 Pod 与 HPA，等缩容结束后再施压；❌ 清单写 1 却沿用集群里的 4 个 Console/Gateway，并把所得完成率或执行槽结论当成目标架构容量。
+  - **单 Pod 的出站并发同样按目标并发定容**（2026-10-21，纠正拓扑后实测）：Gateway 的 `EGRESS_HTTP_MAX_CONNECTIONS × max_replicas` 必须 ≥ `workload.users × active_runs_per_user` —— 每个用户建会话/提交消息各占一条 Gateway→Runtime 连接，池不够时多出的请求在池里排队到 `PoolTimeout`，正常突发变成 500（实测 800 用户、池 64：874 次 `PoolTimeout`，400 档 344/400 受理、800 档 255/800）。发布预检机检 `outbound-concurrency`（`check_agent_capacity_deployment.py`）。
+
 本 Spec 的 verifier 跑 `tests/architecture`，该套件实际强制的规则族比 RULE-arch-001 更宽，以下三条同为硬约束：
 
 - **依赖方向单向**：`packages/*` 不得 import 四个 app 模块；runtime/worker 不得 import `muad_console_platform`（跨部署单元一律走 HTTP 契约，参考 `infrastructure/console_client.py`）；`skill-sdk` 不依赖 runtime/console/worker（`tests/architecture/test_import_direction.py`）。
@@ -36,6 +39,8 @@ verifiers:
 - **指标暴露与 label 卫生**：每个服务声明自己的 metric catalog 并通过 api-kit 暴露真实 `GET /metrics`（无流量时 catalog 亦可见）；label 不得含高基数或敏感维度（禁止资源 UUID/Secret/消息体/用户可控路径，路由 label 取模板而非具体路径）；带 label 的计数器只进 `/metrics`，不写结构化 metric 日志；`run_reclaim_total` 属 Runtime（Worker 无 Run 回收路径，对应 `task_reclaim_total`）。四个单元**都**声明 catalog 后再 `install_metrics`：Runtime/Worker 见各自 `metrics.py` 的 `CATALOG`；IM Gateway 见 `apps/im-gateway/src/muad_im_gateway/metrics.py`（2026-10-04 补齐，此前它是「只有 `install_metrics(app)`、目录为空」的现状差异）——机检 `tests/gateway/test_gateway_metrics.py`（无流量也暴露目录 + label 卫生）。
 
 - **探针口径**：`/healthz` 是存活、`/readyz` 是就绪（依赖缺失返回 503，api-kit `install_health_probes`）。部署侧让 `readinessProbe` 接 `/readyz`、`livenessProbe` 接 `/healthz` —— 四个 k8s 清单**已按此接**（2026-10-04 改；此前两个探针都指 `/healthz`，api-kit 的 `/readyz` 从未被部署消费）。**服务间接线同理**：`CONSOLE_PLATFORM_URL`/`AGENT_RUNTIME_URL`/`AGENT_WORKER_URL`/`IM_GATEWAY_URL`/`DEFAULT_TENANT_ID` 必须由 ConfigMap 显式给（缺了应用会回落到 `127.0.0.1` 本机默认值，集群内必然连不上对端），`INTERNAL_SERVICE_TOKEN` 必须四个单元一致；迁移要有集群内入口（Job 用 Console 镜像做载体，`alembic` 因此进了该包依赖）。以上同由 `tests/architecture/test_k8s_deploy_manifests.py` 机检。
+
+- **探针预算显式声明并容纳突发调度延迟**（2026-10-21，800 并发）：四个部署单元的 readiness/liveness 均声明 `timeoutSeconds: 5`、`periodSeconds: 10`、`failureThreshold: 3`。发布预检拒绝缺省或低于这三项预算的配置；探针路径仍区分存活与依赖就绪。✅ 允许短时负载下健康请求延迟、持续不健康仍摘流量或重启；❌ 省略超时沿用 Kubernetes 的 1s 默认值——实测活跃 Runtime 被探针重启，同秒网关出现 77 次断连。机检：`test_k8s_deploy_manifests.py` 与 `test_capacity_webchat_deployment_preflight.py`。
 
 - **后端内部分层固定为 `api/ → application/ → infrastructure/`**（`domain/` 为纯领域）：路由只做协议适配与依赖注入，业务编排在 `application/*_service.py`，数据访问在 `infrastructure/repositories/*_repository.py`（**该收口仅 console 后端成立**：全仓只有 `apps/console-platform/backend/.../infrastructure/repositories/` 与 `.../domain/`；runtime/worker/gateway 无这两个包，其数据访问落在 `infrastructure/*.py` 与 `application/*_service.py`）。**不存在 `modules/<模块>/` 子包**——那是前端的约定（`apps/**/frontend/src/modules/`）；设计模板若按前端形态写后端目录，实现按本分层落地并在任务文档登记「设计待更正」。
 
@@ -69,6 +74,7 @@ verifiers:
   - ❌ 拿"能跑"当借口把缺能力的那份兜底喂给模型 —— 静默换 Agent 比直接失败危险得多
 
 - **Runtime 执行归属只由 PG claim 产生，HTTP 只订阅持久事件**（async-tool-runtime，2026-10-09）：`POST /v1/runs` 的创建事务只落 `RunRecord` + `RUN_CREATED` canonical；执行由 `ExecutionSupervisor.claim_and_submit`（关闭锁内 claim、排除本实例在跑 run）领取 `CREATED`，`WAITING_TOOL` 由 `ContinuationPump` 经 `claim_continuation`（conversation 行 `FOR UPDATE SKIP LOCKED` + Run 锁内 epoch CAS）领取；心跳、事件与终态写入统一校验 owner/epoch/lease。
+  - ✅ 锁内预留本地槽、锁外 await claim；`free_slots` 扣除正在领取的槽；`finally` 释放预留且异常/取消原样传播。❌ 在 `finally` 中 `return False` 吞掉领取异常或 `CancelledError`，使启动失败不可见、关闭取消失效。
   - ✅ 断流不等于取消：SSE 断开后 Run 继续执行，重连按最后确认 seq 回放；claim 失败不改业务状态，只有 Run/continuation/lease 同事务切到新 owner+epoch 才算抢占成功
   - ❌ 把 Runner 生命周期绑在 HTTP 请求/SSE generator 上（连接断开=业务取消），或在请求内同步跑完整 Run（`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`、`async_tools/continuation_service.py`；机检：`tests/agent_runtime/test_tool_wait_state_machine.py`）
 - **工具并发是显式声明，默认串行**（async-tool-runtime，2026-10-09）：`ToolDefinition.concurrency`（`SERIAL` 默认 / `PARALLEL_READ`）+ `resource_key` 不可由模型设置；规划器按原调用序切**连续**批，资源冲突/未知依赖拆串行，`WRITE`/`EXTERNAL` 是前后屏障，批大小 ≤ `parallel_limit`（1–16，bool/小数/越界显式拒绝）。第一版只登记已证明只读的工具（`search_skills`/`read_skill_resource`/隔离 `get_task`/`list_tasks`）；`load_skill`、memory 与全部 MCP 默认 SERIAL。

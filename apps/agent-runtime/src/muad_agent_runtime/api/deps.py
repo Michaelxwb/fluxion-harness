@@ -10,7 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..application.async_tools.supervisor import ExecutionSupervisor
 from ..application.attachments.tool_results import ArtifactResultWriter
 from ..application.executor import ExecutorFactory, default_executor_factory
-from ..application.ports import CredentialsClient, PlatformSettingsClient, ResolveClient
+from ..application.ports import (
+    AdmissionMaterialsClient,
+    CredentialsClient,
+    PlatformSettingsClient,
+    ResolveClient,
+)
 from ..application.run_service import RunService
 from ..application.skill_tools import build_default_skill_cache
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
@@ -134,6 +139,13 @@ def get_run_service(
         executor_factory=executor_factory,
         cancel_hints=cancel_hints,
         credentials_client=credentials_client,
+        # 合并取数与解析共用同一个 Console 客户端：DI 覆盖 `get_resolve_client` 时（测试或替换
+        # 装配）拿到的是同一个覆盖实例，不再从 app.state 另取一份绕过覆盖。
+        materials_client=(
+            cast(AdmissionMaterialsClient, resolve_client)
+            if isinstance(resolve_client, AdmissionMaterialsClient)
+            else None
+        ),
         settings_client=settings_client,
         supervisor=supervisor,
     )

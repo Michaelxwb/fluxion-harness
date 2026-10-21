@@ -46,6 +46,16 @@ def test_probes_use_readyz_for_readiness_and_healthz_for_liveness(name: str) -> 
 
 
 @pytest.mark.parametrize("name", DEPLOYMENTS)
+@pytest.mark.parametrize("probe_name", ("readinessProbe", "livenessProbe"))
+def test_probe_budgets_tolerate_measured_burst_latency(name: str, probe_name: str) -> None:
+    """800 并发时默认 1s 探针误杀活跃 Runtime，断开全部在飞流。"""
+    probe = _container(name)[probe_name]
+    assert probe.get("timeoutSeconds", 1) >= 5, f"{name}: {probe_name} 超时至少 5s"
+    assert probe.get("periodSeconds") == 10, f"{name}: 探针周期显式保持 10s"
+    assert probe.get("failureThreshold") == 3, f"{name}: 连续 3 次失败才判不健康"
+
+
+@pytest.mark.parametrize("name", DEPLOYMENTS)
 def test_image_is_fully_qualified(name: str) -> None:
     image = _container(name)["image"]
     assert "/" in image, f"{name}: 镜像 {image!r} 是裸名，会被解析到 docker.io/library"

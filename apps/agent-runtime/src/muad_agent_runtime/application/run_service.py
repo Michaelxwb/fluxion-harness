@@ -150,6 +150,8 @@ from .memory_confirmation_resume import (
 )
 from .memory_resume import MemoryResumeService, resume_decision
 from .ports import (
+    AdmissionMaterialsClient,
+    ComposedAdmissionMaterialsClient,
     CredentialsClient,
     PlatformSettingsClient,
     PlatformSettingsSnapshot,
@@ -962,6 +964,7 @@ class RunService:
         executor_factory: ExecutorFactory = default_executor_factory,
         cancel_hints: CancelHintStore | None = None,
         credentials_client: CredentialsClient | None = None,
+        materials_client: AdmissionMaterialsClient | None = None,
         submissions: RunSubmissionService | None = None,
         context_builder: DbBackedContextBuilder | None = None,
         *,
@@ -978,6 +981,15 @@ class RunService:
         self._cancel_hints = cancel_hints or NullCancelHintStore()
         self._launch_tasks: set[asyncio.Task[None]] = set()
         self._credentials_client = credentials_client
+        # 受理边界的一次取数（定义 + 设置快照 + 当前认证值）：生产注入合并端点客户端；未注入
+        # 时按同一语义组合既有三个端口（同一结果，只是多两次往返——仅用于无 HTTP 的装配与测试）。
+        self._materials_client: AdmissionMaterialsClient = (
+            materials_client
+            if materials_client is not None
+            else ComposedAdmissionMaterialsClient(
+                resolve_client, settings_client, credentials_client
+            )
+        )
         # 平台设置源是**必填**：新 Run 在创建边界取一次快照并冻结。不留隐式 Null 默认——
         # 新建调用点忘记注入真 client 会静默按空设置跑；取消/回收/直构的调用点若要
         # 「无设置源」语义，显式传 `NullPlatformSettingsClient()`。
@@ -1119,71 +1131,52 @@ class RunService:
     async def _admission_materials(
         self, request: RunRequest, tenant_id: str
     ) -> _AdmissionMaterials:
-        """受理边界取齐的全部**非 DB**材料：定义 → 设置 → 摘要模型 → 凭据。
+        """受理边界取齐的全部**非 DB**材料：一次 Console 请求取回定义、设置快照与认证值。
 
         调用方必须已结束当前事务（`_admit` 的预检后 `rollback`）：这里只发网络请求，不持有
         任何数据库连接。这是"设置/凭据在业务操作边界取一次"的同一边界，不引入进程内缓存。
         """
         t0 = time.monotonic()
-        # 定义与设置互不依赖：并发取（两次 Console 往返从串行变并行）。
-        resolved, settings = await asyncio.gather(
-            self._resolve_client.resolve(
-                ResolveDefinitionRequest(
-                    agent_id=request.agent_id,
-                    actor_user_id=request.platform_user_id,
-                    channel=request.channel.type,
-                ),
-                tenant_id=tenant_id,
-                trace_id=current_trace_id(),
-            ),
-            self._settings_client.fetch_snapshot(
-                tenant_id=tenant_id, trace_id=current_trace_id() or ""
-            ),
+        run_id = uuid.uuid4()
+        materials = await self._materials_client.fetch_admission_materials(
+            tenant_id=tenant_id,
+            agent_id=request.agent_id,
+            actor_user_id=request.platform_user_id,
+            execution_id=run_id,
+            channel=request.channel.type,
+            trace_id=current_trace_id() or "",
         )
         t1 = time.monotonic()
-        t2 = time.monotonic()
+        resolved = materials.definition
         compaction = resolve_compaction_settings(
             resolved.agent.runtime_config,
-            platform_overrides=settings.settings.get("compaction"),
+            platform_overrides=materials.settings.settings.get("compaction"),
         )
-        run_id = uuid.uuid4()
-        summary_task = self._resolve_summary_model(
+        summary_model = await self._resolve_summary_model(
             tenant_id, compaction, run_id=run_id, actor_user_id=request.platform_user_id
-        )
-        # 摘要模型解析与主模型凭据互不依赖：并发取；摘要凭据最后单独取（依赖摘要模型）。
-        summary_model, (model, _, mcp_secrets) = await asyncio.gather(
-            summary_task,
-            self._runtime_credentials(
-                run_id,
-                tenant_id,
-                request.platform_user_id,
-                resolved.model,
-                resolved.mcp_servers,
-            ),
         )
         if summary_model is not None:
             summary_model = await self._summary_model_with_credentials(
                 run_id, tenant_id, request.platform_user_id, summary_model
             )
-        t3 = time.monotonic()
-        if t3 - t0 > 1.0:
+        t2 = time.monotonic()
+        if t2 - t0 > 1.0:
             logger.warning(
                 "admission_materials_slow",
                 extra={
                     "tenant_id": tenant_id,
-                    "resolve_ms": int((t1 - t0) * 1000),
-                    "settings_ms": int((t2 - t1) * 1000),
-                    "credentials_ms": int((t3 - t2) * 1000),
+                    "fetch_ms": int((t1 - t0) * 1000),
+                    "summary_ms": int((t2 - t1) * 1000),
                 },
             )
         return _AdmissionMaterials(
             run_id=run_id,
             resolved=resolved,
-            settings=settings,
+            settings=materials.settings,
             compaction=compaction,
-            model=model,
+            model=materials.model,
             summary_model=summary_model,
-            mcp_secrets=mcp_secrets,
+            mcp_secrets=dict(materials.mcp_secrets),
         )
 
     async def _resume_active(
@@ -1794,7 +1787,9 @@ class RunService:
                         tenant_id=run.tenant_id,
                         conversation_id=run.conversation_id,
                         run_id=run.id,
-                        event_type=RUN_CREATED_EVENT,
+                        # 业务事件类型取映射表（`RUN_CREATED`），不是 SSE 流类型：
+                        # 执行段按业务类型判重，写错会再落一条 `run.created`。
+                        event_type=STREAM_BUSINESS_TYPES[RUN_CREATED_EVENT],
                         stream_type=RUN_CREATED_EVENT,
                         submission_id=submission.id,
                         source_event_id=uuid.uuid5(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import httpx
 from muad_api import AppError
@@ -12,7 +13,10 @@ from muad_contracts import (
     ResolveModelResponse,
 )
 
+from ..application.ports import AdmissionMaterials, PlatformSettingsSnapshot
+
 RESOLVE_DEFINITION_PATH = "/internal/runtime/resolve-definition"
+ADMISSION_MATERIALS_PATH = "/internal/runtime/admission-materials"
 RESOLVE_MODEL_PATH = "/internal/runtime/resolve-model"
 RESOLVE_CREDENTIALS_PATH = "/internal/runtime/resolve-credentials"
 RESOLVE_TIMEOUT_SEC = 5.0
@@ -109,6 +113,62 @@ class ConsoleResolveClient:
         if not isinstance(data, dict):
             raise AppError(str(ErrorCode.COMMON_INTERNAL_ERROR))
         return ResolveModelResponse.model_validate(data)
+
+    async def fetch_admission_materials(
+        self,
+        *,
+        tenant_id: str,
+        agent_id: UUID,
+        actor_user_id: UUID,
+        execution_id: UUID,
+        channel: str | None = None,
+        trace_id: str = "",
+    ) -> AdmissionMaterials:
+        """受理边界一次取齐定义、设置快照与当前认证值（API-06/API-09 合并）。
+
+        响应含模型明文 `api_key`，与单点解析端点同门控；凭据只进内存。
+        """
+        headers = {"X-Tenant-Id": tenant_id}
+        if self._service_token:
+            headers["X-Internal-Service"] = self._service_token
+        if trace_id:
+            headers["X-Trace-Id"] = trace_id
+        body: dict[str, Any] = {
+            "agent_id": str(agent_id),
+            "actor_user_id": str(actor_user_id),
+            "execution_id": str(execution_id),
+        }
+        if channel is not None:
+            body["channel"] = channel
+        response = await self._client.post(
+            f"{self._base_url}{ADMISSION_MATERIALS_PATH}", json=body, headers=headers
+        )
+        payload = self._decode(response)
+        if response.status_code >= 400:
+            raise AppError(error_code_from_payload(payload))
+        data = payload.get("data") if isinstance(payload, dict) else None
+        if not isinstance(data, dict):
+            raise AppError(str(ErrorCode.COMMON_INTERNAL_ERROR))
+        definition = ResolveDefinitionResponse.model_validate(data.get("definition") or {})
+        snapshot = PlatformSettingsSnapshot(
+            revision=int(data.get("settings_revision") or 0),
+            settings=data.get("settings") or {},
+        )
+        credentials = data.get("credentials") or {}
+        api_key = (credentials.get("model") or {}).get("api_key")
+        if not api_key:
+            raise AppError(ErrorCode.CREDENTIAL_MISSING)
+        secrets = {
+            str(item.get("mcp_server_id")): str(item["auth_secret"])
+            for item in credentials.get("mcp_servers") or []
+            if item.get("auth_secret")
+        }
+        return AdmissionMaterials(
+            definition=definition,
+            settings=snapshot,
+            model=definition.model.model_copy(update={"api_key": str(api_key)}),
+            mcp_secrets=secrets,
+        )
 
     async def aclose(self) -> None:
         if self._owns_client:
