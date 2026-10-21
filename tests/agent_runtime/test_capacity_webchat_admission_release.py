@@ -208,6 +208,20 @@ async def _read_run(tenant_id: str, run_id: uuid.UUID) -> dict[str, Any]:
     return dict(row)
 
 
+async def _wait_until_running(
+    tenant_id: str, run_id: uuid.UUID, *, timeout: float = 15.0
+) -> dict[str, Any]:
+    """受理在后台任务里领取执行：等 Run 真正进入 RUNNING（queue_stage 清空）再断言。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        row = await _read_run(tenant_id, run_id)
+        if row["status"] == "RUNNING":
+            return row
+        if time.monotonic() > deadline:
+            raise AssertionError(f"run {run_id} not claimed within {timeout}s: {row['status']}")
+        await asyncio.sleep(0.02)
+
+
 async def _terminal_event_count(tenant_id: str, run_id: uuid.UUID) -> int:
     async with get_session_factory()() as session:
         return int(
@@ -551,7 +565,7 @@ async def test_b231_terminal_release_commits_in_one_transaction_with_terminal_st
                 execution_supervisor_boundary, key="b231-tx-1",
             )
             await _assert_shares(tenant, count=1)
-            created = await _read_run(tenant.tenant_id, started.run_id)
+            created = await _wait_until_running(tenant.tenant_id, started.run_id)
             # 受理冻结排队投影；领取后清 stage、保留 queued_at/queue_deadline_at 作为历史
             assert created["status"] == "RUNNING" and created["queue_stage"] is None
             assert created["queue_deadline_at"] - created["queued_at"] == timedelta(seconds=60)
@@ -709,7 +723,7 @@ async def test_b231_queue_deadline_freezes_at_admission(
                 tenant, client, FakeResolveClient(response=resolved), gated_executor,
                 execution_supervisor_boundary, key="b231-freeze-1",
             )
-            row = await _read_run(tenant.tenant_id, started.run_id)
+            row = await _wait_until_running(tenant.tenant_id, started.run_id)
             assert row["status"] == "RUNNING" and row["queue_stage"] is None
             assert row["queued_at"] is not None
             assert row["queue_deadline_at"] - row["queued_at"] == timedelta(seconds=60)
@@ -729,7 +743,7 @@ async def test_b231_queue_deadline_freezes_at_admission(
                 tenant, client, _short_deadline_resolve(resolved, deadline_ms=5_000),
                 _GatedExecutorFactory(), execution_supervisor_boundary, key="b231-freeze-2",
             )
-            row = await _read_run(tenant.tenant_id, short.run_id)
+            row = await _wait_until_running(tenant.tenant_id, short.run_id)
             assert row["status"] == "RUNNING"
             assert row["queue_deadline_at"] == row["deadline_at"], "min 必须取原 Run 绝对期限"
         finally:
@@ -891,6 +905,7 @@ async def test_b05_claimed_run_is_not_killed_by_old_queue_deadline(
                 tenant, client, FakeResolveClient(response=resolved), gated_executor,
                 execution_supervisor_boundary, key="b231-kill-1",
             )
+            await _wait_until_running(tenant.tenant_id, started.run_id)
             now = datetime.now(UTC)
             await _rearm_deadlines(
                 tenant.tenant_id, started.run_id,
@@ -1073,7 +1088,7 @@ async def test_b05_share_is_shared_across_entries_and_released_on_terminal(
                 ),
             )
             await _assert_shares(tenant, count=2)
-            fresh = await _read_run(tenant.tenant_id, admitted.run_id)
+            fresh = await _wait_until_running(tenant.tenant_id, admitted.run_id)
             assert fresh["status"] == "RUNNING" and fresh["admission_released_at"] is None
         finally:
             await client.aclose()

@@ -243,6 +243,10 @@ async def test_client_disconnect_keeps_supervised_execution_running(
         iterator = started.events
         first = await anext(iterator)
         assert first.type == "run.created"
+        # 领取/消费在后台任务里启动：等监督器真正接管后再断言持久状态
+        async with asyncio.timeout(5):
+            while supervisor.execution_count == 0:
+                await asyncio.sleep(0.01)
 
         await iterator.aclose()
 
@@ -785,3 +789,26 @@ async def test_cancel_probe_throttles_pg_and_honours_hint() -> None:
     verdict["cancelled"] = True
     assert await probe.check() is True  # 提示命中：立即由 PG 确认
     assert len(db_calls) == 2
+
+
+async def test_process_admission_gate_bounds_concurrency() -> None:
+    """准入闸门按事件循环共享：同时进入的准入数不超过上限（其余在 asyncio 排队）。"""
+    from muad_agent_runtime.application import run_service as rs
+
+    rs._process_admission_gates.clear()
+    gate = rs.process_admission_gate(limit=2)
+    active = 0
+    peak = 0
+
+    async def work() -> None:
+        nonlocal active, peak
+        async with gate:
+            active += 1
+            peak = max(peak, active)
+            await asyncio.sleep(0.01)
+            active -= 1
+
+    await asyncio.gather(*(work() for _ in range(6)))
+    assert peak == 2
+    assert rs.process_admission_gate(limit=2) is gate  # 同循环复用同一实例
+    rs._process_admission_gates.clear()

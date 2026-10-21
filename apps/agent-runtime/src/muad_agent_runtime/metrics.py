@@ -160,6 +160,8 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     (EGRESS_CALLS_METRIC, COUNTER, ("platform", "status"), "Egress calls by platform and status"),
     (ARTIFACT_BYTES_METRIC, COUNTER, ("type",), "Artifact bytes written by artifact type"),
     (RUN_RECLAIM_METRIC, COUNTER, (), "Abandoned runs reaped back by the run reaper"),
+    ("db_pool_checked_out", GAUGE, (), "Database connections currently checked out"),
+    ("db_pool_size", GAUGE, (), "Open database connections held by the pool"),
     (
         MEMORY_WRITE_METRIC,
         COUNTER,

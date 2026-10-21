@@ -309,6 +309,20 @@ async def _seed_conversation(
     return conversation_id
 
 
+async def _wait_until_running(
+    tenant_id: str, run_id: uuid.UUID, *, timeout: float = 15.0
+) -> None:
+    """受理在后台任务里领取执行：改状态前先等 Run 真正被领取（避免与领取竞态）。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        row = await _read_run_row(run_id)
+        if row["status"] == "RUNNING":
+            return
+        if time.monotonic() > deadline:
+            raise AssertionError(f"run {run_id} not claimed: {row['status']}")
+        await asyncio.sleep(0.02)
+
+
 async def _set_run_status(tenant_id: str, run_id: uuid.UUID, status: str) -> None:
     async with get_session_factory()() as session:
         await session.execute(
@@ -804,6 +818,8 @@ async def test_b230_non_terminal_runs_occupy_the_shared_share(
                 tenant, client, fake_resolve, gated_executor, execution_supervisor_boundary,
                 key="b230-open-2", request=_request(tenant, conversation_id=conv_two),
             )
+            await _wait_until_running(tenant.tenant_id, first.run_id)
+            await _wait_until_running(tenant.tenant_id, second.run_id)
             # 两个非终态 Run（RUNNING → WAITING_*）：份额仍被占用，第三个受理被拒
             await _set_run_status(tenant.tenant_id, first.run_id, "WAITING_INPUT")
             await _set_run_status(tenant.tenant_id, second.run_id, "WAITING_TOOL")

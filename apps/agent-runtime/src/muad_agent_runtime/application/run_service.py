@@ -6,6 +6,7 @@ import json
 import logging
 import time
 import uuid
+import weakref
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import asdict, dataclass
@@ -880,8 +881,43 @@ def _credential_canaries(
     return tuple(value for value in values if value)
 
 
+#: 每进程同时进行的准入上限：把写事务占用的 DB 连接数封顶，池的其余连接留给执行与调度。
+#: 800 用户实测：200 个并发准入各持连接约 4s，把单 Pod 200 的池占满，准入在 claim_in
+#: 排队 26s（正是 30s 客户端超时的来源）。超出闸门的请求在 asyncio 排队、不占连接。
+ADMISSION_CONCURRENCY_LIMIT = 64
+
+
+_process_admission_gates: weakref.WeakKeyDictionary[
+    asyncio.AbstractEventLoop, asyncio.Semaphore
+] = weakref.WeakKeyDictionary()
+
+
+def process_admission_gate(limit: int = ADMISSION_CONCURRENCY_LIMIT) -> asyncio.Semaphore:
+    """取当前事件循环的准入闸门（与执行/调度共享同一个 DB 池）。"""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.Semaphore(limit)
+    gate = _process_admission_gates.get(loop)
+    if gate is None:
+        gate = asyncio.Semaphore(limit)
+        _process_admission_gates[loop] = gate
+    return gate
+
+
 #: 取消探测的 PG 兜底间隔：Redis 提示是快路径，PG 只在提示命中或间隔到时读一次。
 CANCEL_DB_FALLBACK_SEC = 5.0
+
+
+def _log_launch_failure(task: asyncio.Task[None]) -> None:
+    """后台启动任务失败必须留痕（不得静默丢失）：被取消是正常收尾。"""
+    if task.cancelled():
+        return
+    error = task.exception()
+    if error is not None:
+        logger.warning(
+            "run_launch_failed", extra={"error_type": type(error).__name__}
+        )
 
 
 class _CancelProbe:
@@ -940,6 +976,7 @@ class RunService:
         self._instance_id = instance_id
         self._executor_factory = executor_factory
         self._cancel_hints = cancel_hints or NullCancelHintStore()
+        self._launch_tasks: set[asyncio.Task[None]] = set()
         self._credentials_client = credentials_client
         # 平台设置源是**必填**：新 Run 在创建边界取一次快照并冻结。不留隐式 Null 默认——
         # 新建调用点忘记注入真 client 会静默按空设置跑；取消/回收/直构的调用点若要
@@ -978,29 +1015,33 @@ class RunService:
         """
         key = idempotency_key or request.message.id
         fingerprint = _creation_fingerprint(request, tenant_id)
-        for attempt in range(self._admission.stale_refresh_attempts + 1):
-            attempt_started = time.monotonic()
-            try:
-                started = await self._admit(request, tenant_id, key, fingerprint)
-                elapsed = time.monotonic() - attempt_started
-                if elapsed > 1.0:
+        gate_started = time.monotonic()
+        async with process_admission_gate():
+            gate_ms = int((time.monotonic() - gate_started) * 1000)
+            for attempt in range(self._admission.stale_refresh_attempts + 1):
+                attempt_started = time.monotonic()
+                try:
+                    started = await self._admit(request, tenant_id, key, fingerprint)
+                    elapsed = time.monotonic() - attempt_started
+                    if elapsed > 1.0:
+                        logger.warning(
+                            "admission_slow",
+                            extra={
+                                "tenant_id": tenant_id,
+                                "attempt": attempt,
+                                "gate_ms": gate_ms,
+                                "elapsed_ms": int(elapsed * 1000),
+                            },
+                        )
+                    return started
+                except AdmissionPolicyStaleError:
+                    # 先退出事务（连同未提交的 Run/会话）再重取，事务内不联网。
+                    await self._session.rollback()
                     logger.warning(
-                        "admission_slow",
-                        extra={
-                            "tenant_id": tenant_id,
-                            "attempt": attempt,
-                            "elapsed_ms": int(elapsed * 1000),
-                        },
+                        "admission_policy_stale_on_create",
+                        extra={"tenant_id": tenant_id, "attempt": attempt},
                     )
-                return started
-            except AdmissionPolicyStaleError:
-                # 先退出事务（连同未提交的 Run/会话）再重取，事务内不联网。
-                await self._session.rollback()
-                logger.warning(
-                    "admission_policy_stale_on_create",
-                    extra={"tenant_id": tenant_id, "attempt": attempt},
-                )
-                continue
+                    continue
         raise AppError(ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE)
 
     async def _admit(
@@ -1034,6 +1075,7 @@ class RunService:
         t_materials = time.monotonic() - t0 - t_precheck
         # 同键请求先经事务 advisory 锁串行化（RULE-api-002）：同键事务只在 advisory 锁上
         # 排队；锁内复查首次提交 ⇒ 落败者直接重放，不建第二个 Run。
+        claim_started = time.monotonic()
         replay = await self._submissions.claim_in(
             self._session,
             tenant_id=tenant_id,
@@ -1041,11 +1083,16 @@ class RunService:
             endpoint=ENDPOINT_CREATE_RUN,
             fingerprint=fingerprint,
         )
+        claim_ms = int((time.monotonic() - claim_started) * 1000)
         if replay is not None:
             self._assert_replay_owner(replay, request.platform_user_id, request.conversation_id)
             return self._replay_start(replay)
+        resolve_started = time.monotonic()
         conversation = await self._resolve_conversation(request, tenant_id)
+        resolve_ms = int((time.monotonic() - resolve_started) * 1000)
+        active_started = time.monotonic()
         active = await self._active_run(conversation.id)
+        active_ms = int((time.monotonic() - active_started) * 1000)
         if active is not None:
             return await self._resume_active(active, request, key, fingerprint)
         if materials is None:  # 预检与写事务之间出现了活跃 Run 又被清理：补取材料
@@ -1062,6 +1109,9 @@ class RunService:
                     "precheck_ms": int(t_precheck * 1000),
                     "materials_ms": int(t_materials * 1000),
                     "write_ms": int(t_write * 1000),
+                    "claim_ms": claim_ms,
+                    "resolve_ms": resolve_ms,
+                    "active_ms": active_ms,
                 },
             )
         return started
@@ -1591,10 +1641,17 @@ class RunService:
         submission_key: str,
         submission_fingerprint_value: str,
     ) -> RunStart:
+        started = time.monotonic()
+        marks: list[tuple[str, float]] = []
+
+        def mark(name: str) -> None:
+            marks.append((name, time.monotonic() - started))
+
         # 受理时刻与绝对期限取自 **PG 服务端时钟**（B-235）：这份 `now` 同时冻结
         # `deadline_at`/`queued_at`/`queue_deadline_at`，之后由 PG 时钟的领取/扫描裁决——
         # 本机墙钟偏差既不能缩短也不能延长这个窗口。
         now = await database_now(self._session)
+        mark("first_stmt")
         resolved = materials.resolved
         # 平台设置与凭据在**写事务之外**已取齐（`_admission_materials`）：事务内不再访问网络，
         # 连接持有只剩 DB 语句。这里只做纯计算与 DB 读写。
@@ -1636,6 +1693,7 @@ class RunService:
         policy = await self._admission.apply_policy_in(
             self._session, tenant_id=tenant_id, capacity=capacity
         )
+        mark("policy")
         # 初始排队投影在此冻结（与绝对期限同一份 `now`）：`queue_deadline = min(受理+配置,
         # 原 Run 绝对 deadline)`，只约束开始执行前的等待；领取/终态由各自的 CAS 清空 stage。
         deadline_at = now + timedelta(
@@ -1672,6 +1730,7 @@ class RunService:
             self._session.add(snapshot)
             await self._session.flush()
             run.snapshot_id = snapshot.id
+            mark("inserts")
             submission = await self._submissions.record_in(
                 self._session,
                 tenant_id=tenant_id,
@@ -1737,7 +1796,9 @@ class RunService:
                 policy=policy,
                 exclude_run_id=run.id,
             )
+            mark("work")
             await self._session.commit()
+            mark("commit")
         except IntegrityError as exc:
             # 并发同 key 幂等记录落败：读取首次提交结果（设计 API-01）
             await self._session.rollback()
@@ -1761,7 +1822,9 @@ class RunService:
             # 提交前任何其他失败：事务不会带上盘上的 Run 制品，文件先回滚再让异常继续上抛。
             discard_written(self._artifact_root, staged_written)
             raise
+        mark("wake_head")
         await self._wake_tail(tenant_id, conversation.id)  # 提交后唤醒（ADR-02）：受理事务已落库
+        mark("wake")
         history = await self._load_history(
             conversation.id,
             tenant_id,
@@ -1769,6 +1832,15 @@ class RunService:
             budget_messages=compaction.history_budget_messages,
             max_history_tool_rounds=compaction.max_history_tool_rounds,
         )
+        mark("history")
+        if marks and marks[-1][1] > 1.0:
+            logger.warning(
+                "admission_write_slow",
+                extra={
+                    "tenant_id": tenant_id,
+                    **{f"{name}_ms": int(elapsed * 1000) for name, elapsed in marks},
+                },
+            )
         stream = self._stream_run(
             run=run,
             agent=resolved.agent,
@@ -1786,7 +1858,7 @@ class RunService:
             members=members,
             summary_members=summary_members,
         )
-        await self._launch_execution(run, stream)
+        self._start_launch_task(run, stream)
         return RunStart(
             run_id=run.id,
             conversation_id=conversation.id,
@@ -1841,7 +1913,7 @@ class RunService:
             pool=pool_execution_policy_of(snapshot.policy_json),
             members=frozen_model_members_of(snapshot.policy_json),
             summary_members=frozen_summary_members_of(snapshot.policy_json))
-        await self._launch_execution(run, stream)
+        self._start_launch_task(run, stream)
         return RunStart(run_id=run.id, conversation_id=run.conversation_id, resumed=True,
             events=self._replay_events(submission))
 
@@ -1907,10 +1979,27 @@ class RunService:
         )
         return submission, tuple(persisted), False
 
+    def _start_launch_task(
+        self, run: RunRecord, stream: AsyncIterator[ExecutorEvent]
+    ) -> None:
+        """后台启动本地领取/消费：claim 与执行槽排队不计入受理响应时间。
+
+        800 用户实测：内联 `claim_and_submit` 在准入响应里占约 14s（写事务分段只剩 2s）。
+        领取仍由本实例发起（跑在后台任务里），失败显式留痕；Pod 退出时任务被取消，未领取的
+        Run 由续跑泵按租约接管。
+        """
+        # 会话操作必须发生在请求会话仍打开时：后台任务里会话可能已随响应关闭
+        self._session.expunge(run)
+        task = asyncio.create_task(
+            self._launch_execution(run, stream), name=f"launch:{run.id}"
+        )
+        self._launch_tasks.add(task)
+        task.add_done_callback(self._launch_tasks.discard)
+        task.add_done_callback(_log_launch_failure)
+
     async def _launch_execution(self, run: RunRecord, stream: AsyncIterator[ExecutorEvent]) -> None:
         from muad_api.context import TRACE_CORRELATION_FIELDS, context_scope
 
-        self._session.expunge(run)
         async def consume() -> None:
             fields = {name: "" for name in TRACE_CORRELATION_FIELDS}
             fields.update(

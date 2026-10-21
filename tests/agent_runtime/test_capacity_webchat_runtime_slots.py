@@ -630,6 +630,10 @@ async def test_b232_disconnected_stream_keeps_supervised_execution_running(
             first = await anext(iterator)
             assert first.type == "run.created"
             await iterator.aclose()  # HTTP 侧断开
+        # 领取/消费在后台任务里启动：等监督器接管后，断流仍不取消执行
+        async with asyncio.timeout(15):
+            while supervisor.execution_count == 0:
+                await asyncio.sleep(0.01)
         # 断流后：受监督执行仍在自己的槽里跑，Run 未取消
         assert supervisor.execution_count == 1
         state = await _run_state(factory, started.run_id)

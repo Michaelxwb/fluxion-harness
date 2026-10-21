@@ -342,12 +342,22 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
         ),
     )
     tasks = [asyncio.create_task(loop, name=name) for loop, name in loops]
+    tasks.append(asyncio.create_task(_sample_db_pool(), name="runtime.db_pool"))
     named = {task.get_name(): task for task in tasks}
     # 既有观测点保持原名（TASK-032/066 的验收与运维都读它们）。
     app.state.execution_slot_task = named[EXECUTION_SLOT_LOOP_NAME]
     app.state.delivery_pump_task = named[DELIVERY_LOOP_NAME]
     app.state.retention_task = named[RETENTION_LOOP_NAME]
     return tasks
+
+
+async def _sample_db_pool() -> None:
+    """每 2s 发布连接池占用：池耗尽+阻塞式取连接会同时拖死准入与执行，必须可观测。"""
+    while True:
+        await asyncio.sleep(2.0)
+        pool = get_engine().pool
+        record_gauge("db_pool_checked_out", pool.checkedout())
+        record_gauge("db_pool_size", pool.size())
 
 
 async def _stop_loops(tasks: list[asyncio.Task[None]]) -> None:
