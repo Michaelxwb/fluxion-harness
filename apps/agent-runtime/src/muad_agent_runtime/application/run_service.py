@@ -976,6 +976,7 @@ class RunService:
         进入写事务后只剩 DB 语句。这样每进程的 DB 池按"并发 × 毫秒级持有"排队，而不是按
         3 次 Console 往返排队。
         """
+        t0 = time.monotonic()
         replay = await self._submissions.find_replay_in(
             self._session,
             tenant_id=tenant_id,
@@ -992,7 +993,9 @@ class RunService:
         has_active = await self._active_run(conversation.id) is not None
         # 预检到此结束：后面的 Console 读取不得占用 DB 连接（池按并发而非 RTT 排队）。
         await self._session.rollback()
+        t_precheck = time.monotonic() - t0
         materials = None if has_active else await self._admission_materials(request, tenant_id)
+        t_materials = time.monotonic() - t0 - t_precheck
         # 同键请求先经事务 advisory 锁串行化（RULE-api-002）：同键事务只在 advisory 锁上
         # 排队；锁内复查首次提交 ⇒ 落败者直接重放，不建第二个 Run。
         replay = await self._submissions.claim_in(
@@ -1011,7 +1014,21 @@ class RunService:
             return await self._resume_active(active, request, key, fingerprint)
         if materials is None:  # 预检与写事务之间出现了活跃 Run 又被清理：补取材料
             materials = await self._admission_materials(request, tenant_id)
-        return await self._create_run(request, tenant_id, conversation, materials, key, fingerprint)
+        started = await self._create_run(
+            request, tenant_id, conversation, materials, key, fingerprint
+        )
+        t_write = time.monotonic() - t0 - t_precheck - t_materials
+        if t_precheck + t_materials + t_write > 1.0:
+            logger.warning(
+                "admission_stage_slow",
+                extra={
+                    "tenant_id": tenant_id,
+                    "precheck_ms": int(t_precheck * 1000),
+                    "materials_ms": int(t_materials * 1000),
+                    "write_ms": int(t_write * 1000),
+                },
+            )
+        return started
 
     async def _admission_materials(
         self, request: RunRequest, tenant_id: str

@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import time
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -51,7 +53,9 @@ from ..infrastructure.model_dispatch_store import (
     LiveMember,
     ModelDispatchStore,
 )
-from .model_capacity_service import ModelCapacityService
+from .model_capacity_service import ModelCapacityService, PoolLockGate
+
+logger = logging.getLogger(__name__)
 
 #: 被延迟的工作负载原因：物理额度都满了（或绑定额度不足）
 DEFER_REASON_CAPACITY = "NO_CAPACITY"
@@ -485,7 +489,7 @@ def _replayed(lease: LeaseSnapshot, member: ModelMemberCandidate, policy_hash: s
 
 
 class ModelAllocator:
-    """加权均衡的成员分配端口：池锁内选择与计数，随后由容量服务预占。"""
+    """加权均衡的成员分配端口：池锁内选择与计数，随后由容量服务预占（预占只用行锁）。"""
 
     def __init__(
         self,
@@ -493,10 +497,18 @@ class ModelAllocator:
         *,
         capacity: ModelCapacityService | None = None,
         store_factory: StoreFactory = ModelDispatchStore,
+        gate: PoolLockGate | None = None,
     ) -> None:
         self._session_factory_provider = session_factory_provider
-        self._capacity = capacity or ModelCapacityService(session_factory_provider)
+        self._capacity = capacity or ModelCapacityService(session_factory_provider, gate=gate)
+        # 选择与预占共享同一闸门：两者都会在 DB 上等锁，超出的调用必须在进程内排队。
+        self._gate = gate or self._capacity.gate
         self._store_factory = store_factory
+
+    @property
+    def gate(self) -> PoolLockGate:
+        """与容量预占共享的进程内闸门（可观测：见 `PoolLockGate.max_concurrency`）。"""
+        return self._gate
 
     async def allocate(
         self,
@@ -551,8 +563,17 @@ class ModelAllocator:
         candidates: Sequence[ModelMemberCandidate],
         policy: ModelDispatchPolicy,
     ) -> Selection:
-        """池 advisory 锁内的选择事务：先认领既有 attempt，再排序、判门与计一次尝试。"""
-        async with self._session_factory_provider()() as session, session.begin():
+        """选择事务：池锁内认领既有 attempt，再排序、判门并计一次尝试。
+
+        池锁保留在这里是**行为契约**（B-223：并发下等权成员预占次数差 ≤1，重试/在飞归一
+        需要串行判定）；它不再覆盖预占事务（预占改由容量行锁保证原子性），因此每次调用只
+        排一次队、临界区只剩读快照与一次原子计数写入。闸门把「在 DB 上等锁」的会话数限制
+        在进程内：超出者在 asyncio 上排队，不占数据库连接。
+        """
+        waited = time.monotonic()
+        async with self._gate.hold(), self._session_factory_provider()() as session, session.begin():
+            gate_ms = int((time.monotonic() - waited) * 1000)
+            started = time.monotonic()
             store = self._store_factory(session)
             now = await store.database_clock()
             _require_within_deadline(now, request.deadline_at)
@@ -586,6 +607,17 @@ class ModelAllocator:
                 epoch=epoch,
                 now=now,
             )
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            if gate_ms + elapsed_ms > 1000:
+                logger.warning(
+                    "model_select_slow",
+                    extra={
+                        "tenant_id": tenant_id,
+                        "gate_ms": gate_ms,
+                        "elapsed_ms": elapsed_ms,
+                        "model_id": str(model_id),
+                    },
+                )
             return _Picked(
                 member=selected.candidate,
                 epoch=epoch,

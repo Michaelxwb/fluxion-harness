@@ -39,7 +39,10 @@ from muad_agent_runtime.application.model_allocator import (
     ModelMemberCandidate,
     dispatch_policy_hash,
 )
-from muad_agent_runtime.application.model_capacity_service import ModelCapacityService
+from muad_agent_runtime.application.model_capacity_service import (
+    ModelCapacityService,
+    PoolLockGate,
+)
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.model_capacity_store import (
     RESOURCE_KEY,
@@ -222,18 +225,22 @@ def _allocator(
     *,
     store_factory: Callable[[AsyncSession], ModelDispatchStore] | None = None,
     order: list[str] | None = None,
+    gate: PoolLockGate | None = None,
 ) -> ModelAllocator:
     if order is None:
         return ModelAllocator(
             get_session_factory,
             store_factory=store_factory or ModelDispatchStore,
+            gate=gate,
         )
     recording: Callable[[AsyncSession], ModelDispatchStore] = (
         store_factory or (lambda session: _RecordingStore(session, order))
     )
     return ModelAllocator(
         get_session_factory,
-        capacity=ModelCapacityService(get_session_factory, store_factory=recording),
+        capacity=ModelCapacityService(
+            get_session_factory, store_factory=recording, gate=gate
+        ),
         store_factory=recording,
     )
 
@@ -684,6 +691,32 @@ async def test_b223_shared_quota_group_capacity_blocks_oversubscribe(tenant: Ten
     assert len(await _lease_rows(tenant.tenant_id)) == 2
 
 
+async def test_b223_pool_lock_gate_bounds_db_waiters(tenant: Tenant) -> None:
+    """闸门把同时在 DB 上等池锁的会话数压到 limit：其余调用在 asyncio 排队，不占连接。"""
+    gate = PoolLockGate(limit=2)
+    model_id = await _seed_model(tenant.tenant_id)
+    member = await _seed_member(tenant.tenant_id, model_id, key_max_inflight=50)
+    candidates = [member.candidate()]
+    policy = _policy()
+    allocator = _allocator(gate=gate)
+    assert allocator.gate is gate
+    assert allocator._capacity.gate is gate  # noqa: SLF001 - 断言选择与预占共享同一闸门
+
+    results = await asyncio.gather(
+        *(
+            _allocate(
+                allocator, tenant, model_id, candidates=candidates, policy=policy,
+                lease_owner=f"rt-gate-{index}",
+            )
+            for index in range(6)
+        ),
+        return_exceptions=True,
+    )
+
+    assert all(isinstance(item, ModelAllocation) for item in results)
+    assert gate.max_concurrency == 2
+
+
 async def test_b223_concurrent_shared_group_never_oversubscribes(tenant: Tenant) -> None:
     """[B-223] 并发 6 次分配共享额度组（上限 2）：恰好 2 次成功，组在飞恒不超发。"""
     model_id = await _seed_model(tenant.tenant_id)
@@ -881,7 +914,7 @@ async def test_b223_disabled_or_rebound_members_are_not_picked(tenant: Tenant) -
 async def test_b223_selection_happens_under_pool_lock_without_network(
     tenant: Tenant, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """[B-223] 选择事务先取池 advisory 锁、锁内不联网、不在锁内写容量行。"""
+    """[B-223] 选择事务取池 advisory 锁、锁内不联网、不在锁内写容量行；预占不再取池锁。"""
     model_id = await _seed_model(tenant.tenant_id)
     group_id = await _seed_quota_group(tenant.tenant_id, max_inflight=5)
     member = await _seed_member(
@@ -902,8 +935,8 @@ async def test_b223_selection_happens_under_pool_lock_without_network(
     assert allocation.state == "ACTIVE"
     assert deferred.code == ErrorCode.MODEL_CAPACITY_UNAVAILABLE
     assert order[0] == "lock_pool"
-    # 两次选择事务（成功 + 被延迟的后台）各持一次池锁，预占事务再持一次
-    assert order.count("lock_pool") == 3
+    # 两次选择事务（成功 + 被延迟的后台）各持一次池锁；预占只按行锁固定锁序、不再取池锁
+    assert order.count("lock_pool") == 2
     assert order[1] == "lock_attempt" and order[2] == "bump_dispatch_state"
     assert order.index("bump_dispatch_state") < order.index("insert_lease")
     assert order.count("bump_dispatch_state") == 1  # 被延迟的尝试不计一次尝试

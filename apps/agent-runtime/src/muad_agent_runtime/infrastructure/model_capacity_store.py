@@ -1,7 +1,12 @@
 """PG 侧模型容量行与调用租约行的读写（设计 §3.2/§3.3 固定锁序）。
 
-固定锁序由服务层调用顺序保证：池调度 advisory 事务锁 → quota_group 容量行 → key 容量行 →
-attempt 租约行。本模块只做带租户谓词的读写与加锁，不做超限判断，也不提交事务。
+固定锁序由服务层调用顺序保证：quota_group 容量行 → key 容量行 → attempt 租约行。
+本模块只做带租户谓词的读写与加锁，不做超限判断，也不提交事务。
+
+**池级 advisory 锁只保护成员选择**（`lock_pool`）：等权/加权轮转的串行判定是行为契约
+（B-223），锁本身由 `PoolLockGate` 限制同时在 DB 上等待的会话数，避免等待者占满连接池
+把准入饿死。容量预占**不取**池锁：组行 → Key 行 → attempt 的固定锁序已足以保证多行判定
+的原子性与无死锁。
 
 为什么读 `control.model_credential`/`control.model_quota_group`：额度上限（KEY 的
 max_inflight、额度组的 max_inflight/rpm/tpm）由 Console 拥有，Runtime 只读同一 PG 的当前
@@ -129,7 +134,7 @@ class ProbeTarget:
 
 
 def pool_lock_key(tenant_id: str, model_id: uuid.UUID) -> int:
-    """池调度 advisory 事务锁的 64 位键（同 tenant/model 跨进程一致）。"""
+    """成员选择事务的 64 位 advisory 键（同 tenant/model 跨进程一致）。"""
     digest = hashlib.sha256(f"{POOL_LOCK_NAMESPACE}:{tenant_id}:{model_id}".encode()).digest()
     return int.from_bytes(digest[:8], "big", signed=True)
 
@@ -240,7 +245,11 @@ class ModelCapacityStore:
         )
 
     async def lock_pool(self, *, tenant_id: str, model_id: uuid.UUID) -> None:
-        """池调度 advisory 事务锁：必须先于任何容量/租约行锁。"""
+        """成员选择 advisory 事务锁：把候选判定与 dispatch 计数归一串行化（B-223）。
+
+        调用方必须已经在 `PoolLockGate` 内，且只在选择事务里使用；容量预占按行锁固定锁序，
+        不再取本锁——它曾覆盖预占事务，把每次模型调用串成两段全局队列。
+        """
         await self._session.execute(
             sa.select(sa.func.pg_advisory_xact_lock(pool_lock_key(tenant_id, model_id)))
         )

@@ -4,13 +4,14 @@
 PostgreSQL 容量行（`runtime.model_capacity`）与租约行（`runtime.model_call_lease`），
 额度上限读真实 `control.model_credential`/`control.model_quota_group`。
 
-- B-221（design §3.2/§3.3/§3.7）：池→quota_group→key_resource→attempt 固定锁序；重复
-  attempt 不重复占位；跨模型/主调用/摘要/提炼/探针合并同一物理 Key 用量；锁内不联网。
+- B-221（design §3.2/§3.3/§3.7）：预占按 quota_group→key_resource→attempt 固定锁序
+  （池锁只保护成员选择，不在预占事务里）；重复 attempt 不重复占位；跨模型/主调用/摘要/
+  提炼/探针合并同一物理 Key 用量；锁内不联网。
 - B-01（design §2.5）：并发预占/释放、容量边界、重复释放、异常退出/取消/租约失效不超发，
   失约执行停手。
 
-锁序证据：① 以真实 `pg_locks` 观察「池 advisory 已持有但仍阻塞在行锁」；② 以真实存储的
-调用记录断言组行先于 key 行、attempt 最后。
+锁序证据：① 以真实 `pg_stat_activity`/`pg_blocking_pids` 观察「组行被占而 Key 行空闲时，
+预占事务已阻塞在组行」；② 以真实存储的调用记录断言组行先于 key 行、attempt 最后。
 """
 
 from __future__ import annotations
@@ -40,7 +41,6 @@ from muad_agent_runtime.infrastructure.model_capacity_store import (
     CapacitySnapshot,
     LeaseSnapshot,
     ModelCapacityStore,
-    pool_lock_key,
 )
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
@@ -389,10 +389,6 @@ class _RecordingStore(ModelCapacityStore):
         super().__init__(session)
         self._order = order
 
-    async def lock_pool(self, *, tenant_id: str, model_id: uuid.UUID) -> None:
-        self._order.append("pool")
-        await super().lock_pool(tenant_id=tenant_id, model_id=model_id)
-
     async def lock_capacity(
         self, *, tenant_id: str, resource_type: str, resource_id: uuid.UUID, window_start: datetime
     ) -> CapacitySnapshot:
@@ -409,8 +405,8 @@ class _RecordingStore(ModelCapacityStore):
         return await super().lock_attempt(tenant_id=tenant_id, call_attempt_id=call_attempt_id)
 
 
-async def test_b221_locks_pool_then_group_then_key_then_attempt(tenant: Tenant) -> None:
-    """[B-221] 含共享额度组的预占按池→组→Key→attempt 固定顺序加锁。"""
+async def test_b221_locks_group_then_key_then_attempt(tenant: Tenant) -> None:
+    """[B-221] 含共享额度组的预占按组→Key→attempt 固定顺序加锁（无池级 advisory 锁）。"""
     seed = await _seed_share(tenant.tenant_id, key_max_inflight=5, group_max_inflight=5)
     order: list[str] = []
     service = ModelCapacityService(
@@ -418,7 +414,7 @@ async def test_b221_locks_pool_then_group_then_key_then_attempt(tenant: Tenant) 
     )
     reservation = await _reserve(service, tenant, seed, owner=_probe(), reserved_tokens=100)
     assert reservation.state == "ACTIVE" and reservation.reused is False
-    assert order == ["pool", f"capacity:{RESOURCE_QUOTA_GROUP}", f"capacity:{RESOURCE_KEY}", "attempt"]
+    assert order == [f"capacity:{RESOURCE_QUOTA_GROUP}", f"capacity:{RESOURCE_KEY}", "attempt"]
 
 
 #: 等行锁在真实 `pg_locks`/`pg_stat_activity` 里的两种等待态：等持锁事务提交（transactionid）
@@ -426,40 +422,36 @@ async def test_b221_locks_pool_then_group_then_key_then_attempt(tenant: Tenant) 
 _ROW_LOCK_WAITS = ("transactionid", "tuple")
 
 
-async def _wait_for_advisory_holder(engine: AsyncEngine, key: int, *, tries: int = 600) -> dict[str, Any]:
-    """等到「池 advisory 已授予且事务仍阻塞在行锁」的真实后端，返回其观测行。
+async def _wait_for_blocked_backend(
+    engine: AsyncEngine, *, blocker_pid: int, tries: int = 600
+) -> list[dict[str, Any]]:
+    """等到被指定后端阻塞的事务（真实 `pg_stat_activity`/`pg_blocking_pids`）。
 
-    共享 dev 库上并行批次可能让预占排队数十秒，因此轮询上限按 30 秒给足；
-    只等待目标状态到达（`granted` advisory + `Lock`/`transactionid|tuple`），达到即返回。
-    这里不降低任何断言强度——断言对象仍是「先取池锁、后等行锁」的真实锁序。
+    共享 dev 库上并行批次可能让预占排队数十秒，因此轮询上限按 30 秒给足；只等待目标状态
+    到达，达到即返回。
     """
-    classid, objid = (key >> 32) & 0xFFFFFFFF, key & 0xFFFFFFFF
     observed: list[dict[str, Any]] = []
     for _ in range(tries):
         async with engine.connect() as connection:
             rows = (
                 await connection.execute(
                     sa.text(
-                        "SELECT l.pid, a.wait_event_type, a.wait_event, a.query FROM pg_locks l"
-                        " JOIN pg_stat_activity a ON a.pid = l.pid"
-                        " WHERE l.locktype = 'advisory' AND l.granted"
-                        " AND l.objid::bigint = :objid"
-                        " AND l.classid::bigint = :classid"
-                    ).bindparams(classid=classid, objid=objid)
+                        "SELECT a.pid, a.wait_event_type, a.wait_event, a.query"
+                        " FROM pg_stat_activity a"
+                        " WHERE a.datname = current_database() AND a.wait_event_type = 'Lock'"
+                        " AND :blocker_pid = ANY(pg_blocking_pids(a.pid))"
+                    ).bindparams(blocker_pid=blocker_pid)
                 )
             ).mappings().all()
         observed = [dict(row) for row in rows]
-        for item in observed:
-            if item["wait_event_type"] == "Lock" and item["wait_event"] in _ROW_LOCK_WAITS:
-                return item
+        if observed:
+            return observed
         await asyncio.sleep(0.05)
-    raise AssertionError(
-        f"超时未观察到「池 advisory 已授予且阻塞在行锁」（wait∈{_ROW_LOCK_WAITS}）：最后观测={observed}"
-    )
+    raise AssertionError(f"超时未观察到被后端 {blocker_pid} 阻塞的事务：最后观测={observed}")
 
 
-async def test_b221_pool_advisory_lock_held_before_capacity_row_lock(tenant: Tenant) -> None:
-    """[B-221] 组行被别的连接占住时：池 advisory 已持有、事务仍在等行锁（真实 pg_locks）。"""
+async def test_b221_group_row_locked_before_key_row(tenant: Tenant) -> None:
+    """[B-221] 组行被占住而 Key 行空闲时，预占事务已阻塞在组行（真实锁序：组→Key）。"""
     seed = await _seed_share(tenant.tenant_id, key_max_inflight=5, group_max_inflight=5)
     service = ModelCapacityService(get_session_factory)
     call = RunCall()
@@ -488,11 +480,11 @@ async def test_b221_pool_advisory_lock_held_before_capacity_row_lock(tenant: Ten
                 lease_owner="rt-2",
             )
         )
-        holder = await _wait_for_advisory_holder(
-            blocker_engine, pool_lock_key(tenant.tenant_id, call.model_id)
-        )
-        assert holder["wait_event_type"] == "Lock", holder
-        assert holder["wait_event"] in _ROW_LOCK_WAITS, holder
+        blocker_pid = int(await blocker.scalar(sa.text("SELECT pg_backend_pid()")))
+        blocked = await _wait_for_blocked_backend(blocker_engine, blocker_pid=blocker_pid)
+        # Key 行在此刻完全空闲：仍阻塞 ⇒ 预占先取的是组行，固定锁序成立。
+        assert blocked[0]["wait_event_type"] == "Lock", blocked
+        assert blocked[0]["wait_event"] in _ROW_LOCK_WAITS, blocked
         await transaction.rollback()
         second = await waiter
         assert second.state == "ACTIVE"

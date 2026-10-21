@@ -1,7 +1,11 @@
 """物理 Key / 共享额度组的原子预占、续租、usage 结算与 UNKNOWN 保留（设计 §3.2/§3.3/§3.7）。
 
-- 预占先取 tenant/model 的池调度 advisory 事务锁，再按 quota_group → key_resource → attempt
-  固定锁序加行锁；事务内不发起任何网络请求（凭据解析在提交之后另行进行）；
+- 预占只按 quota_group → key_resource → attempt 固定锁序加行锁（不再取池锁：同一
+  (tenant, model) 的全局 advisory 锁曾把每次模型调用串成一条队列）；事务内不发起任何
+  网络请求（凭据解析在提交之后另行进行）；
+- 池锁只用于成员选择（等权/加权轮转需要串行判定），并由进程内闸门限制**同时在 DB 上等锁**
+  的会话数：其余调用在 asyncio 信号量上排队、不占 DB 连接（800 用户实测：数百个等待者
+  占满连接池会把准入饿死）；
 - 重复 `call_attempt_id` 不重复占位：既有租约原样复用（含已 SETTLED 的尝试），冻结身份不一致
   则明确拒绝（`MODEL_CALL_LEASE_LOST`）；
 - 额度窗口固定为保守滚动 60 秒并按 60 秒桶有界分桶：保留与窗口相交的边界桶（保守侧取整），
@@ -17,8 +21,13 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
+import time
 import uuid
-from collections.abc import Callable
+import weakref
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -430,6 +439,68 @@ async def _advance_transition(
     return _finished_release(updated, plan.release_inflight)
 
 
+#: 每个进程允许同时在数据库上等待池锁的会话数（其余调用在 asyncio 信号量上排队）。
+DEFAULT_POOL_LOCK_CONCURRENCY = 64
+
+
+class PoolLockGate:
+    """限制同时在 DB 上等池锁的会话数：其余调用在进程内排队，不占数据库连接。
+
+    池锁队列中的每个等待者都占着一条 DB 连接（事务未提交）。800 用户实测：数百个模型
+    调用同时排队吃光 runtime 连接池，把准入拖到 16s。闸门只改变**谁在 DB 上排队**，不改变
+    池锁语义与吞吐；`max_concurrency` 是可观测的实际上限（供容量测试断言）。
+    """
+
+    def __init__(self, limit: int = DEFAULT_POOL_LOCK_CONCURRENCY) -> None:
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+            raise ValueError("pool lock concurrency limit must be a positive int")
+        self._limit = limit
+        self._semaphore = asyncio.Semaphore(limit)
+        self._active = 0
+        self._max_concurrency = 0
+
+    @property
+    def limit(self) -> int:
+        return self._limit
+
+    @property
+    def max_concurrency(self) -> int:
+        """观测到的同时在 DB 上等锁的最大会话数（不超过 `limit`）。"""
+        return self._max_concurrency
+
+    @asynccontextmanager
+    async def hold(self) -> AsyncIterator[None]:
+        async with self._semaphore:
+            self._active += 1
+            self._max_concurrency = max(self._max_concurrency, self._active)
+            try:
+                yield
+            finally:
+                self._active -= 1
+
+
+#: 每个事件循环一份闸门：分配器按 Run/调用装配，闸门必须进程级共享才有效。
+_process_gates: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, PoolLockGate] = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def process_pool_lock_gate(limit: int = DEFAULT_POOL_LOCK_CONCURRENCY) -> PoolLockGate:
+    """取当前事件循环的进程级闸门（无运行循环时退化为独立实例，仅测试装配期发生）。"""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return PoolLockGate(limit)
+    gate = _process_gates.get(loop)
+    if gate is None or gate.limit != limit:
+        gate = PoolLockGate(limit)
+        _process_gates[loop] = gate
+    return gate
+
+
+logger = logging.getLogger(__name__)
+
+
 class ModelCapacityService:
     def __init__(
         self,
@@ -437,14 +508,21 @@ class ModelCapacityService:
         *,
         lease_duration_sec: int | None = None,
         store_factory: StoreFactory = ModelCapacityStore,
+        gate: PoolLockGate | None = None,
     ) -> None:
         self._session_factory_provider = session_factory_provider
+        self._gate = gate or process_pool_lock_gate()
         self._lease_seconds = (
             lease_duration_sec
             if lease_duration_sec is not None
             else SharedSettings().model_call_lease_sec
         )
         self._store_factory = store_factory
+
+    @property
+    def gate(self) -> PoolLockGate:
+        """进程内闸门：调用方（分配器）必须与预占共享同一实例。"""
+        return self._gate
 
     async def reserve(
         self, *, tenant_id: str, lease_owner: str, request: ModelCapacityReservationRequest
@@ -467,13 +545,22 @@ class ModelCapacityService:
     async def _reserve_in(
         self, *, tenant_id: str, lease_owner: str, request: ModelCapacityReservationRequest
     ) -> CapacityReservation:
-        """预占本体：池锁→组行→Key 行→attempt，锁内只判定与计数，不发网络请求。"""
-        async with self._session_factory_provider()() as session, session.begin():
+        """预占本体：组行→Key 行→attempt 行锁，锁内只判定与计数，不发网络请求。
+
+        不取池级 advisory 锁：所有容量写路径（预占与释放）都按 组行 → Key 行 → attempt 的
+        固定顺序取行锁，行锁本身保证多行判定的原子性与无死锁。全局 advisory 锁曾把同一
+        (tenant, model) 的每次调用串成一条队列，等待者还占着 DB 连接（2026-10-21 800 用户
+        实测：池锁等待者数百、准入被连接饥饿拖到 16s）。行锁等待同样占连接，因此这里先过
+        进程内闸门：超出闸门的调用在 asyncio 上排队，连接留给准入与执行。
+        """
+        waited = time.monotonic()
+        async with self._gate.hold(), self._session_factory_provider()() as session, session.begin():
+            gate_ms = int((time.monotonic() - waited) * 1000)
+            started = time.monotonic()
             store = self._store_factory(session)
             key_limits, group_limits = await _require_limits(store, tenant_id=tenant_id, request=request)
             now = await store.database_clock()
             lease_until = _lease_until(now, request.deadline_at, self._lease_seconds)
-            await store.lock_pool(tenant_id=tenant_id, model_id=request.model_id)
             key_row, group_row = await _lock_capacity_rows(
                 store,
                 tenant_id=tenant_id,
@@ -506,6 +593,17 @@ class ModelCapacityService:
                     store, tenant_id=tenant_id, row=group_row, plan=group_plan, now=now
                 )
             await _write_admission(store, tenant_id=tenant_id, row=key_row, plan=key_plan, now=now)
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            if gate_ms + elapsed_ms > 1000:
+                logger.warning(
+                    "model_reserve_slow",
+                    extra={
+                        "tenant_id": tenant_id,
+                        "gate_ms": gate_ms,
+                        "elapsed_ms": elapsed_ms,
+                        "model_id": str(request.model_id),
+                    },
+                )
             return _reservation(lease, reused=False)
 
     async def release_unsent(
