@@ -880,6 +880,42 @@ def _credential_canaries(
     return tuple(value for value in values if value)
 
 
+#: 取消探测的 PG 兜底间隔：Redis 提示是快路径，PG 只在提示命中或间隔到时读一次。
+CANCEL_DB_FALLBACK_SEC = 5.0
+
+
+class _CancelProbe:
+    """单 Run 的取消探测节流：每个 250ms 节拍只问 Redis，PG 每 `CANCEL_DB_FALLBACK_SEC` 兜底一次。
+
+    旧实现每个节拍都开一个 DB 会话（800 个 Run ≈ 3,200 次/秒）：会话 churn 耗尽连接池，
+    SQLAlchemy 的阻塞式取连接把事件循环冻住（实测 14s 的 idle-in-transaction 停顿、准入
+    写事务 P50 4.5s）。DB 仍是权威事实：Redis 提示命中立即用 PG 确认，未命中按间隔兜底；
+    Redis 不可用时退化为纯兜底（取消检测 ≤5s），不影响正确性。
+    """
+
+    def __init__(
+        self,
+        *,
+        hint_set: Callable[[], Awaitable[bool]],
+        check_db: Callable[[], Awaitable[bool]],
+        fallback_sec: float = CANCEL_DB_FALLBACK_SEC,
+    ) -> None:
+        self._hint_set = hint_set
+        self._check_db = check_db
+        self._fallback_sec = fallback_sec
+        self._last_db_check = float("-inf")
+
+    async def check(self) -> bool:
+        if await self._hint_set():
+            self._last_db_check = time.monotonic()
+            return await self._check_db()
+        now = time.monotonic()
+        if now - self._last_db_check < self._fallback_sec:
+            return False
+        self._last_db_check = now
+        return await self._check_db()
+
+
 class RunService:
     def __init__(
         self,
@@ -2196,9 +2232,8 @@ class RunService:
     def _event_writer(self) -> EventWriter:
         return EventWriter(self._session)
 
-    async def _is_cancel_requested(self, run: RunRecord) -> bool:
-        if await self._cancel_hints.is_set(run.id):
-            return True
+    async def _cancel_state_in_db(self, run: RunRecord) -> bool:
+        """PG 权威判定：Run 仍存在、未请求取消、执行身份仍有效（失约即停）。"""
         async with get_session_factory()() as session:
             row = await session.scalar(
                 sa.select(RunRecord).where(
@@ -2239,7 +2274,7 @@ class RunService:
         finally 里 `await` 时才炸出来），租约随之到期、Reaper 把**仍在执行**的 Run 置 FAILED
         —— 那正是"回收后旧执行器还在跑"的可达路径（2026-10-06 review）。瞬时故障下一轮照续；
         返回 False 才是真的不再由本实例负责（状态已变 / owner 被接管），此时退出，交给
-        `_is_cancel_requested` 的状态判据让执行器停下。
+        `_cancel_state_in_db` 的状态判据让执行器停下。
         """
         while True:
             await asyncio.sleep(self._settings.run_heartbeat_sec)
@@ -2301,7 +2336,10 @@ class RunService:
                     attachments=attachments,
                     read_bytes=self._read_artifact_bytes,
                 ),
-                is_cancel_requested=lambda: self._is_cancel_requested(run),
+                is_cancel_requested=_CancelProbe(
+                    hint_set=lambda: self._cancel_hints.is_set(run.id),
+                    check_db=lambda: self._cancel_state_in_db(run),
+                ).check,
                 skills=tuple(skills),
                 mcp_servers=tuple(mcp_servers),
                 history=tuple(history),

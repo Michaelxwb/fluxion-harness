@@ -389,24 +389,37 @@ class _RecordingStore(ModelCapacityStore):
         super().__init__(session)
         self._order = order
 
-    async def lock_capacity(
-        self, *, tenant_id: str, resource_type: str, resource_id: uuid.UUID, window_start: datetime
-    ) -> CapacitySnapshot:
-        self._order.append(f"capacity:{resource_type}")
-        return await super().lock_capacity(
-            tenant_id=tenant_id,
-            resource_type=resource_type,
-            resource_id=resource_id,
-            window_start=window_start,
+    async def ensure_capacity_row(self, **kwargs: Any) -> None:
+        self._order.append(f"ensure:{kwargs['resource_type']}")
+        await super().ensure_capacity_row(**kwargs)
+
+    async def try_admit_capacity(self, **kwargs: Any) -> CapacitySnapshot | None:
+        self._order.append(f"admit:{kwargs['resource_type']}")
+        return await super().try_admit_capacity(**kwargs)
+
+    async def lock_attempt_selection(
+        self, *, tenant_id: str, call_attempt_id: uuid.UUID
+    ) -> None:
+        self._order.append("attempt_lock")
+        await super().lock_attempt_selection(
+            tenant_id=tenant_id, call_attempt_id=call_attempt_id
         )
 
-    async def lock_attempt(self, *, tenant_id: str, call_attempt_id: uuid.UUID) -> LeaseSnapshot | None:
-        self._order.append("attempt")
-        return await super().lock_attempt(tenant_id=tenant_id, call_attempt_id=call_attempt_id)
+    async def read_attempt(self, *, tenant_id: str, call_attempt_id: uuid.UUID) -> LeaseSnapshot | None:
+        self._order.append("attempt_read")
+        return await super().read_attempt(
+            tenant_id=tenant_id, call_attempt_id=call_attempt_id
+        )
+
+    async def insert_lease(self, **kwargs: Any) -> LeaseSnapshot:
+        self._order.append("insert_lease")
+        return await super().insert_lease(**kwargs)
 
 
-async def test_b221_locks_group_then_key_then_attempt(tenant: Tenant) -> None:
-    """[B-221] 含共享额度组的预占按组→Key→attempt 固定顺序加锁（无池级 advisory 锁）。"""
+async def test_b221_group_admitted_before_key_without_read_lock_write(
+    tenant: Tenant,
+) -> None:
+    """[B-221] 预占按 组→Key 各一条条件 UPDATE；attempt 身份锁在写 lease 之前，无跨语句行锁。"""
     seed = await _seed_share(tenant.tenant_id, key_max_inflight=5, group_max_inflight=5)
     order: list[str] = []
     service = ModelCapacityService(
@@ -414,7 +427,15 @@ async def test_b221_locks_group_then_key_then_attempt(tenant: Tenant) -> None:
     )
     reservation = await _reserve(service, tenant, seed, owner=_probe(), reserved_tokens=100)
     assert reservation.state == "ACTIVE" and reservation.reused is False
-    assert order == [f"capacity:{RESOURCE_QUOTA_GROUP}", f"capacity:{RESOURCE_KEY}", "attempt"]
+    assert order == [
+        f"ensure:{RESOURCE_QUOTA_GROUP}",
+        f"ensure:{RESOURCE_KEY}",
+        "attempt_lock",
+        "attempt_read",
+        "insert_lease",
+        f"admit:{RESOURCE_QUOTA_GROUP}",
+        f"admit:{RESOURCE_KEY}",
+    ]
 
 
 #: 等行锁在真实 `pg_locks`/`pg_stat_activity` 里的两种等待态：等持锁事务提交（transactionid）

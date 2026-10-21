@@ -4,8 +4,12 @@
   为唯一键：不同冻结策略版本（`dispatch_epoch_sec`/权重/老化）的分布分别解释、互不覆盖；
 - 计数**只就地按共享 epoch 归一**：`dispatch_epoch` 与当前 epoch 不同的行读作 0，被选中时在
   同一条 UPDATE 里写回当前 epoch 并从 1 起算；不做全量清零，也不承载物理额度；
-- 池调度 advisory 事务锁由调用方（`ModelAllocator`）先取；本模块只做带租户谓词的读写，
-  不提交事务，也不发起任何网络请求。
+- 选择是**一条原子语句**（`pick_and_bump_dispatch`）：按 `dispatch_count/weight`、
+  在飞归一、轮转次序选出成员并在同一语句里计数，不再有跨多次往返的池级 advisory 锁；
+  多成员并发用 `FOR UPDATE SKIP LOCKED` 各取各的行，单成员直接阻塞取唯一行；
+- 同 `call_attempt_id` 的并发选择由一把独立的 attempt 身份锁串行（不同 attempt 互不相干），
+  保证重试只计一次尝试；
+- 本模块只做带租户谓词的读写，不提交事务，也不发起任何网络请求。
 
 为什么读 `control.model_deployment`：成员关系与启用状态由 Console 拥有（§3.3），Runtime 只读
 同一 PG 的当前事实（先例：`model_capacity_store` 只读 `control.model_credential` 的额度上限）。
@@ -17,15 +21,49 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
 import sqlalchemy as sa
 from muad_contracts.model_pool import derive_model_key_resource_id
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .model_capacity_store import ModelCapacityStore
 from .models.runtime import ModelCallLease, ModelCapacity, ModelDispatchState
+
+_SELECT_AND_BUMP_TEMPLATE = (
+    "WITH eligible(deployment_id, weight, inflight_ratio) AS ("
+    " SELECT * FROM unnest("
+    "  CAST(:deployment_ids AS uuid[]), CAST(:weights AS float8[])," 
+    "  CAST(:ratios AS float8[]))"
+    "), picked AS ("
+    " SELECT s.deployment_id FROM runtime.model_dispatch_state s"
+    " JOIN eligible e ON e.deployment_id = s.deployment_id"
+    " WHERE s.tenant_id = :tenant_id AND s.model_id = :model_id"
+    " AND s.policy_hash = :policy_hash"
+    " ORDER BY"
+    "  (CASE WHEN s.dispatch_epoch = :epoch THEN s.dispatch_count ELSE 0 END)::float8 / e.weight,"
+    "  e.inflight_ratio,"
+    "  COALESCE(s.last_picked_at, '-infinity'::timestamptz),"
+    "  s.deployment_id"
+    " {skip} LIMIT 1"
+    ")"
+    " UPDATE runtime.model_dispatch_state s SET"
+    "  dispatch_epoch = :epoch,"
+    "  dispatch_count = CASE WHEN s.dispatch_epoch = :epoch THEN s.dispatch_count + 1 ELSE 1 END,"
+    "  last_picked_at = :now, update_time = :now"
+    " FROM picked p"
+    " WHERE s.tenant_id = :tenant_id AND s.model_id = :model_id"
+    "  AND s.policy_hash = :policy_hash AND s.deployment_id = p.deployment_id"
+    " RETURNING s.deployment_id, s.dispatch_epoch, s.dispatch_count, s.last_picked_at"
+)
+_SEED_DISPATCH_SQL = sa.text(
+    "INSERT INTO runtime.model_dispatch_state"
+    " (tenant_id, model_id, deployment_id, policy_hash, dispatch_epoch, dispatch_count,"
+    "  last_picked_at, create_time, update_time)"
+    " SELECT :tenant_id, :model_id, member.deployment_id, :policy_hash, :epoch, 0, NULL, :now, :now"
+    " FROM unnest(CAST(:deployment_ids AS uuid[])) AS member(deployment_id)"
+    " ON CONFLICT (tenant_id, model_id, deployment_id, policy_hash) DO NOTHING"
+)
 
 _LIVE_MEMBERS_SQL = sa.text(
     "SELECT id, credential_id, enabled FROM control.model_deployment"
@@ -260,75 +298,82 @@ class ModelDispatchStore(ModelCapacityStore):
         ).all()
         return {str(workload): int(count) for workload, count in rows}
 
-    async def bump_dispatch_state(
+    async def seed_dispatch_states(
         self,
         *,
         tenant_id: str,
         model_id: uuid.UUID,
-        deployment_id: uuid.UUID,
+        policy_hash: str,
+        epoch: int,
+        deployment_ids: Sequence[uuid.UUID],
+        now: datetime,
+    ) -> None:
+        """为**尚无计数行**的候选建 0 计数行（新成员/新策略版本），不覆盖既有行。"""
+        if not deployment_ids:
+            return
+        await self._session.execute(
+            _SEED_DISPATCH_SQL.bindparams(
+                sa.bindparam(
+                    "deployment_ids",
+                    type_=postgresql.ARRAY(postgresql.UUID(as_uuid=True)),
+                )
+            ),
+            {
+                "tenant_id": tenant_id,
+                "model_id": model_id,
+                "policy_hash": policy_hash,
+                "epoch": epoch,
+                "now": now,
+                "deployment_ids": list(deployment_ids),
+            },
+        )
+
+    async def pick_and_bump_dispatch(
+        self,
+        *,
+        tenant_id: str,
+        model_id: uuid.UUID,
         policy_hash: str,
         epoch: int,
         now: datetime,
-    ) -> DispatchState:
-        """把一次尝试计到被选中的成员：同一语句内按共享 epoch 归一后再 +1（池锁内调用）。"""
-        statement = _bump_statement(
-            tenant_id=tenant_id,
-            model_id=model_id,
-            deployment_id=deployment_id,
-            policy_hash=policy_hash,
-            epoch=epoch,
-            now=now,
+        picks: Sequence[tuple[uuid.UUID, int, float]],
+        skip_locked: bool,
+    ) -> DispatchState | None:
+        """单条语句完成「按排序选成员 + epoch 归一 + 计数 +1」。
+
+        `picks` 是 `(deployment_id, weight, inflight_ratio)` 的**可执行且未满员**候选；
+        排序与旧的 Python 口径一致：`归一计数/权重 → 归一在飞 → 最久未被选 → 成员 ID`。
+        `skip_locked=True` 时并发调用各取各的未锁行（多成员严格轮流）；`False` 时阻塞在
+        唯一/剩余行上（单成员本来就必须串行）。返回 None 表示候选都还没有计数行。
+        """
+        if not picks:
+            return None
+        skip = "FOR UPDATE OF s SKIP LOCKED" if skip_locked else ""
+        statement = sa.text(_SELECT_AND_BUMP_TEMPLATE.format(skip=skip)).bindparams(
+            sa.bindparam("deployment_ids", type_=postgresql.ARRAY(postgresql.UUID(as_uuid=True))),
+            sa.bindparam("weights", type_=postgresql.ARRAY(sa.Float)),
+            sa.bindparam("ratios", type_=postgresql.ARRAY(sa.Float)),
         )
-        row = (await self._session.execute(statement)).one()
+        row = (
+            await self._session.execute(
+                statement,
+                {
+                    "tenant_id": tenant_id,
+                    "model_id": model_id,
+                    "policy_hash": policy_hash,
+                    "epoch": epoch,
+                    "now": now,
+                    "deployment_ids": [pick[0] for pick in picks],
+                    "weights": [float(pick[1]) for pick in picks],
+                    "ratios": [pick[2] for pick in picks],
+                },
+            )
+        ).mappings().one_or_none()
+        if row is None:
+            return None
         return DispatchState(
-            deployment_id=deployment_id,
-            dispatch_epoch=int(row[0]),
-            dispatch_count=int(row[1]),
-            last_picked_at=row[2],
+            deployment_id=row["deployment_id"],
+            dispatch_epoch=int(row["dispatch_epoch"]),
+            dispatch_count=int(row["dispatch_count"]),
+            last_picked_at=row["last_picked_at"],
         )
-
-
-def _bump_statement(
-    *,
-    tenant_id: str,
-    model_id: uuid.UUID,
-    deployment_id: uuid.UUID,
-    policy_hash: str,
-    epoch: int,
-    now: datetime,
-) -> Any:
-    """原子 upsert + 计数：同 epoch 累加，旧 epoch 归一为 1（一条 UPDATE，不先清零）。"""
-    return (
-        pg_insert(ModelDispatchState)
-        .values(
-            tenant_id=tenant_id,
-            model_id=model_id,
-            deployment_id=deployment_id,
-            policy_hash=policy_hash,
-            dispatch_epoch=epoch,
-            dispatch_count=1,
-            last_picked_at=now,
-            create_time=now,
-            update_time=now,
-        )
-        .on_conflict_do_update(
-            index_elements=["tenant_id", "model_id", "deployment_id", "policy_hash"],
-            set_={
-                "dispatch_epoch": epoch,
-                "dispatch_count": sa.case(
-                    (
-                        ModelDispatchState.dispatch_epoch == epoch,
-                        ModelDispatchState.dispatch_count + 1,
-                    ),
-                    else_=1,
-                ),
-                "last_picked_at": now,
-                "update_time": now,
-            },
-        )
-        .returning(
-            ModelDispatchState.dispatch_epoch,
-            ModelDispatchState.dispatch_count,
-            ModelDispatchState.last_picked_at,
-        )
-    )

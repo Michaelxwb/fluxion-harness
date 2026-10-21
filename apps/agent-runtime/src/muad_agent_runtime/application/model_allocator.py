@@ -24,9 +24,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
+import random
 import time
 import uuid
 from collections.abc import Callable, Sequence
@@ -181,6 +183,13 @@ def dispatch_epoch_for(now: datetime, epoch_sec: int) -> int:
     return int(now.timestamp()) // epoch_sec
 
 
+#: 多成员并发选择拿不到行（其它调用正持行）时的有界等待：1ms 起、50ms 封顶、5s 上限。
+#: 等待而不是阻塞兜底：阻塞会让所有等待者堆在排序第一的行上，破坏 B-223 的均衡。
+_SELECT_RETRY_BASE_SEC = 0.001
+_SELECT_RETRY_MAX_SEC = 0.05
+_SELECT_ACQUIRE_TIMEOUT_SEC = 5.0
+
+
 @dataclass(frozen=True, slots=True)
 class _CandidateLoad:
     """一名候选的调度事实（`executable` 为假表示当前不可执行）。"""
@@ -191,6 +200,8 @@ class _CandidateLoad:
     max_inflight: int
     effective_count: int
     last_picked_at: datetime | None
+    #: 该策略版本下是否已有计数行（缺失先建 0 行，否则原子选择看不到新成员）
+    has_state: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,6 +258,7 @@ def _unavailable(candidate: ModelMemberCandidate) -> _CandidateLoad:
         max_inflight=1,
         effective_count=0,
         last_picked_at=None,
+        has_state=False,
     )
 
 
@@ -295,6 +307,7 @@ async def _load_candidate(
         max_inflight=max_inflight,
         effective_count=0 if state is None else state.count_in_epoch(epoch),
         last_picked_at=None if state is None else state.last_picked_at,
+        has_state=state is not None,
     )
 
 
@@ -351,7 +364,7 @@ async def _scan_candidates(
     epoch: int,
     policy_hash: str,
 ) -> tuple[list[_CandidateLoad], dict[str, int]]:
-    """池锁内的一次有界候选扫描：成员事实、调度计数、在飞与工作负载分布。"""
+    """一次有界候选扫描：成员事实、调度计数、在飞与工作负载分布（选择前读快照）。"""
     facts = await _read_candidate_facts(
         store,
         tenant_id=tenant_id,
@@ -435,6 +448,16 @@ def _select_load(
     ):
         raise _deferred(DEFER_REASON_WORKLOAD)
     return min(available, key=_rank_key)
+
+
+def _member_by_id(
+    candidates: Sequence[ModelMemberCandidate], deployment_id: uuid.UUID
+) -> ModelMemberCandidate:
+    """把原子选择返回的成员 ID 映射回调用方冻结的候选（未知成员即身份已失效）。"""
+    for candidate in candidates:
+        if candidate.deployment_id == deployment_id:
+            return candidate
+    raise AppError(ErrorCode.MODEL_CALL_LEASE_LOST)
 
 
 def _require_frozen_member(
@@ -563,12 +586,12 @@ class ModelAllocator:
         candidates: Sequence[ModelMemberCandidate],
         policy: ModelDispatchPolicy,
     ) -> Selection:
-        """选择事务：池锁内认领既有 attempt，再排序、判门并计一次尝试。
+        """选择事务：无池级全局锁；排序/取行/epoch 归一/计数由一条原子语句完成。
 
-        池锁保留在这里是**行为契约**（B-223：并发下等权成员预占次数差 ≤1，重试/在飞归一
-        需要串行判定）；它不再覆盖预占事务（预占改由容量行锁保证原子性），因此每次调用只
-        排一次队、临界区只剩读快照与一次原子计数写入。闸门把「在 DB 上等锁」的会话数限制
-        在进程内：超出者在 asyncio 上排队，不占数据库连接。
+        行为契约（B-223）不变：等权并发差 ≤1、权重按 count/weight、在飞归一后轮转。
+        多成员用 `FOR UPDATE SKIP LOCKED` 让并发调用各取一行，拿不到行时短退避重试；
+        单成员直接阻塞（只有一个成员时本来就必须串行）。同 attempt 的并发重试由一把独立
+        的 attempt 身份锁串行，保证「重试只计一次尝试」。闸门限制同时在 DB 上排队的会话数。
         """
         waited = time.monotonic()
         async with self._gate.hold(), self._session_factory_provider()() as session, session.begin():
@@ -577,8 +600,10 @@ class ModelAllocator:
             store = self._store_factory(session)
             now = await store.database_clock()
             _require_within_deadline(now, request.deadline_at)
-            await store.lock_pool(tenant_id=tenant_id, model_id=model_id)
-            attempt = await store.lock_attempt(
+            await store.lock_attempt_selection(
+                tenant_id=tenant_id, call_attempt_id=request.call_attempt_id
+            )
+            attempt = await store.read_attempt(
                 tenant_id=tenant_id, call_attempt_id=request.call_attempt_id
             )
             if attempt is not None:
@@ -592,20 +617,44 @@ class ModelAllocator:
                 epoch=epoch,
                 policy_hash=policy.policy_hash,
             )
-            selected = _select_load(
+            # 只做门禁（不可执行/无额度/工作负载份额）：通过的集合由下面的原子语句排序。
+            _select_load(
                 loads=loads,
                 workload_inflight=workload_inflight,
                 request=request,
                 policy=policy,
                 now=now,
             )
-            state = await store.bump_dispatch_state(
+            eligible = [
+                load
+                for load in loads
+                if load.executable and load.inflight + 1 <= load.max_inflight
+            ]
+            missing = [load.candidate.deployment_id for load in eligible if not load.has_state]
+            if missing:
+                await store.seed_dispatch_states(
+                    tenant_id=tenant_id,
+                    model_id=model_id,
+                    policy_hash=policy.policy_hash,
+                    epoch=epoch,
+                    deployment_ids=missing,
+                    now=now,
+                )
+            state = await self._pick_with_contention(
+                store,
                 tenant_id=tenant_id,
                 model_id=model_id,
-                deployment_id=selected.candidate.deployment_id,
                 policy_hash=policy.policy_hash,
                 epoch=epoch,
                 now=now,
+                picks=[
+                    (
+                        load.candidate.deployment_id,
+                        load.candidate.weight,
+                        load.inflight / load.max_inflight if load.max_inflight else 0.0,
+                    )
+                    for load in eligible
+                ],
             )
             elapsed_ms = int((time.monotonic() - started) * 1000)
             if gate_ms + elapsed_ms > 1000:
@@ -619,8 +668,55 @@ class ModelAllocator:
                     },
                 )
             return _Picked(
-                member=selected.candidate,
-                epoch=epoch,
+                member=_member_by_id(candidates, state.deployment_id),
+                epoch=state.dispatch_epoch,
                 count=state.dispatch_count,
                 last_picked_at=state.last_picked_at,
             )
+
+    async def _pick_with_contention(
+        self,
+        store: ModelDispatchStore,
+        *,
+        tenant_id: str,
+        model_id: uuid.UUID,
+        policy_hash: str,
+        epoch: int,
+        now: datetime,
+        picks: Sequence[tuple[uuid.UUID, int, float]],
+    ) -> DispatchState:
+        """多成员并发各取各的行；全部被占时抖动退避重试（有界等待），不阻塞堆在单行上。"""
+        if not picks:  # pragma: no cover - `_select_load` 已把无候选判成显式错误
+            raise AppError(ErrorCode.MODEL_CAPACITY_UNAVAILABLE)
+        if len(picks) == 1:
+            state = await store.pick_and_bump_dispatch(
+                tenant_id=tenant_id,
+                model_id=model_id,
+                policy_hash=policy_hash,
+                epoch=epoch,
+                now=now,
+                picks=picks,
+                skip_locked=False,
+            )
+            if state is None:  # pragma: no cover - 计数行已按需建好
+                raise AppError(ErrorCode.MODEL_CAPACITY_UNAVAILABLE)
+            return state
+        deadline = time.monotonic() + _SELECT_ACQUIRE_TIMEOUT_SEC
+        delay = _SELECT_RETRY_BASE_SEC
+        while True:
+            state = await store.pick_and_bump_dispatch(
+                tenant_id=tenant_id,
+                model_id=model_id,
+                policy_hash=policy_hash,
+                epoch=epoch,
+                now=now,
+                picks=picks,
+                skip_locked=True,
+            )
+            if state is not None:
+                return state
+            if time.monotonic() >= deadline:
+                raise AppError(ErrorCode.MODEL_CAPACITY_UNAVAILABLE)
+            # 抖动：12 个等待者不要在同一毫秒一起回来抢同一行
+            await asyncio.sleep(delay * random.uniform(0.5, 1.5))
+            delay = min(delay * 2, _SELECT_RETRY_MAX_SEC)

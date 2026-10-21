@@ -459,15 +459,15 @@ async def test_reaped_run_stops_the_executor_liveness_check(
             supervisor=ExecutionSupervisor(),
         )
         row = await session.get(RunRecord, run_id)
-        assert await service._is_cancel_requested(row) is False, "RUNNING with live identity can run"
+        assert await service._cancel_state_in_db(row) is False, "RUNNING with live identity can run"
         assert row is not None
         row.status = "FAILED"  # Reaper 按租约回收
         await session.commit()
-        assert await service._is_cancel_requested(row) is True, "已被回收 ⇒ 停"
+        assert await service._cancel_state_in_db(row) is True, "已被回收 ⇒ 停"
 
         row.status = "WAITING_INPUT"  # 暂停等输入仍算"在跑"：那一轮要跑完收尾
         await session.commit()
-        assert await service._is_cancel_requested(row) is True
+        assert await service._cancel_state_in_db(row) is True
 
 
 async def test_cancel_that_loses_the_cas_writes_no_fake_terminal_state(
@@ -759,3 +759,29 @@ async def test_resolve_conversation_sticks_to_conversation_that_received_user_me
             _request(tenant, "再下一条"), tenant.tenant_id
         )
         assert resolved.id == b_id
+
+
+async def test_cancel_probe_throttles_pg_and_honours_hint() -> None:
+    """取消探测：PG 只按兜底间隔读；Redis 提示命中立即用 PG 确认（DB 仍是权威）。"""
+    from muad_agent_runtime.application.run_service import _CancelProbe
+
+    db_calls: list[bool] = []
+    hint = {"set": False}
+    verdict = {"cancelled": False}
+
+    async def check_db() -> bool:
+        db_calls.append(True)
+        return verdict["cancelled"]
+
+    async def hint_set() -> bool:
+        return hint["set"]
+
+    probe = _CancelProbe(hint_set=hint_set, check_db=check_db, fallback_sec=1000.0)
+    assert await probe.check() is False  # 首次立即核对 PG
+    assert len(db_calls) == 1
+    assert await probe.check() is False  # 兜底间隔内不打 PG
+    assert len(db_calls) == 1
+    hint["set"] = True
+    verdict["cancelled"] = True
+    assert await probe.check() is True  # 提示命中：立即由 PG 确认
+    assert len(db_calls) == 2

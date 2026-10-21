@@ -412,31 +412,39 @@ class _RecordingStore(ModelDispatchStore):
         super().__init__(session)
         self._order = order
 
-    async def lock_pool(self, *, tenant_id: str, model_id: uuid.UUID) -> None:
-        self._order.append("lock_pool")
-        await super().lock_pool(tenant_id=tenant_id, model_id=model_id)
-
-    async def lock_attempt(
+    async def lock_attempt_selection(
         self, *, tenant_id: str, call_attempt_id: uuid.UUID
-    ) -> Any:
-        self._order.append("lock_attempt")
-        return await super().lock_attempt(tenant_id=tenant_id, call_attempt_id=call_attempt_id)
+    ) -> None:
+        self._order.append("lock_attempt_selection")
+        await super().lock_attempt_selection(
+            tenant_id=tenant_id, call_attempt_id=call_attempt_id
+        )
 
-    async def bump_dispatch_state(self, **kwargs: Any) -> Any:
-        self._order.append("bump_dispatch_state")
-        return await super().bump_dispatch_state(**kwargs)
+    async def read_attempt(self, *, tenant_id: str, call_attempt_id: uuid.UUID) -> Any:
+        self._order.append("read_attempt")
+        return await super().read_attempt(
+            tenant_id=tenant_id, call_attempt_id=call_attempt_id
+        )
+
+    async def seed_dispatch_states(self, **kwargs: Any) -> None:
+        self._order.append("seed_dispatch_states")
+        await super().seed_dispatch_states(**kwargs)
+
+    async def pick_and_bump_dispatch(self, **kwargs: Any) -> Any:
+        self._order.append("pick_and_bump_dispatch")
+        return await super().pick_and_bump_dispatch(**kwargs)
+
+    async def ensure_capacity_row(self, **kwargs: Any) -> None:
+        self._order.append(f"ensure:{kwargs['resource_type']}")
+        await super().ensure_capacity_row(**kwargs)
+
+    async def try_admit_capacity(self, **kwargs: Any) -> Any:
+        self._order.append(f"admit:{kwargs['resource_type']}")
+        return await super().try_admit_capacity(**kwargs)
 
     async def insert_lease(self, **kwargs: Any) -> Any:
         self._order.append("insert_lease")
         return await super().insert_lease(**kwargs)
-
-    async def write_capacity(self, **kwargs: Any) -> None:
-        self._order.append("write_capacity")
-        await super().write_capacity(**kwargs)
-
-    async def lock_capacity(self, **kwargs: Any) -> Any:
-        self._order.append(f"lock_capacity:{kwargs['resource_type']}")
-        return await super().lock_capacity(**kwargs)
 
 
 # --------------------------------------------------------------------------------------
@@ -746,8 +754,9 @@ async def test_b223_concurrent_shared_group_never_oversubscribes(tenant: Tenant)
     assert {error.code for error in denied} == {ErrorCode.MODEL_CAPACITY_UNAVAILABLE}
     assert (await _capacity_row(tenant.tenant_id, RESOURCE_QUOTA_GROUP, group_id))["inflight"] == 2
     for member in members:
+        # 行只在该成员的预占真正提交后才存在：没有行就是 0 在飞（未提交的预占随事务回滚）
         row = await _capacity_row(tenant.tenant_id, RESOURCE_KEY, member.key_resource_id)
-        assert row["inflight"] <= 5
+        assert row.get("inflight", 0) <= 5
     active = [row for row in await _lease_rows(tenant.tenant_id) if row["state"] == "ACTIVE"]
     assert len(active) == 2
     counts = await _dispatch_counts(tenant.tenant_id)
@@ -911,10 +920,10 @@ async def test_b223_disabled_or_rebound_members_are_not_picked(tenant: Tenant) -
 # --------------------------------------------------------------------------------------
 
 
-async def test_b223_selection_happens_under_pool_lock_without_network(
+async def test_b223_selection_is_one_atomic_statement_without_network(
     tenant: Tenant, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """[B-223] 选择事务取池 advisory 锁、锁内不联网、不在锁内写容量行；预占不再取池锁。"""
+    """[B-223] 选择无池级锁：身份锁→读 attempt→一次原子 pick+bump；不联网、不写容量行。"""
     model_id = await _seed_model(tenant.tenant_id)
     group_id = await _seed_quota_group(tenant.tenant_id, max_inflight=5)
     member = await _seed_member(
@@ -934,14 +943,21 @@ async def test_b223_selection_happens_under_pool_lock_without_network(
 
     assert allocation.state == "ACTIVE"
     assert deferred.code == ErrorCode.MODEL_CAPACITY_UNAVAILABLE
-    assert order[0] == "lock_pool"
-    # 两次选择事务（成功 + 被延迟的后台）各持一次池锁；预占只按行锁固定锁序、不再取池锁
-    assert order.count("lock_pool") == 2
-    assert order[1] == "lock_attempt" and order[2] == "bump_dispatch_state"
-    assert order.index("bump_dispatch_state") < order.index("insert_lease")
-    assert order.count("bump_dispatch_state") == 1  # 被延迟的尝试不计一次尝试
+    assert order[0] == "lock_attempt_selection"
+    assert order[1] == "read_attempt"
+    assert order[2] == "seed_dispatch_states"  # 首次选择先建 0 计数行
+    assert order[3] == "pick_and_bump_dispatch"
+    # 排序、取行、epoch 归一与计数是一条语句；被延迟的后台在门禁处退出，不计数
+    assert order.count("pick_and_bump_dispatch") == 1
+    assert order.count("seed_dispatch_states") == 1
+    assert order.index("pick_and_bump_dispatch") < order.index("insert_lease")
     assert order.count("insert_lease") == 1
-    assert order.count("write_capacity") == 2  # 只有预占事务写容量行（组 + Key）
+    # 选择与预占各取一次 attempt 身份锁（被延迟的调用只到门禁）；不再有跨语句 attempt 行锁
+    assert order.count("lock_attempt_selection") == 3
+    assert "lock_attempt" not in order
+    # 预占：先写 lease，再各一条条件 UPDATE（容量更新之后只剩提交）
+    assert order.index("insert_lease") < order.index("admit:QUOTA_GROUP")
+    assert order.index("admit:QUOTA_GROUP") < order.index("admit:KEY")
     assert violations == []
 
 

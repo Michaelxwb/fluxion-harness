@@ -3,10 +3,10 @@
 固定锁序由服务层调用顺序保证：quota_group 容量行 → key 容量行 → attempt 租约行。
 本模块只做带租户谓词的读写与加锁，不做超限判断，也不提交事务。
 
-**池级 advisory 锁只保护成员选择**（`lock_pool`）：等权/加权轮转的串行判定是行为契约
-（B-223），锁本身由 `PoolLockGate` 限制同时在 DB 上等待的会话数，避免等待者占满连接池
-把准入饿死。容量预占**不取**池锁：组行 → Key 行 → attempt 的固定锁序已足以保证多行判定
-的原子性与无死锁。
+**没有池级 advisory 锁**：成员选择由 `ModelDispatchStore.pick_and_bump_dispatch` 用一条
+原子语句完成（排序、取行、epoch 归一、计数），并发由 `FOR UPDATE SKIP LOCKED` 分摊到各
+成员行；容量预占按 组行 → Key 行 → attempt 的固定锁序取行锁。旧的全池串行锁曾把 800 个
+用户的每次模型调用串成一条队列（实测该锁占 DB 等待时间的 94.7%）。
 
 为什么读 `control.model_credential`/`control.model_quota_group`：额度上限（KEY 的
 max_inflight、额度组的 max_inflight/rpm/tpm）由 Console 拥有，Runtime 只读同一 PG 的当前
@@ -29,7 +29,37 @@ from .models.runtime import ModelCallLease, ModelCapacity
 
 RESOURCE_KEY = "KEY"
 RESOURCE_QUOTA_GROUP = "QUOTA_GROUP"
-POOL_LOCK_NAMESPACE = "muad:model-capacity-pool"
+ATTEMPT_SELECTION_LOCK_NAMESPACE = "muad:model-attempt-selection"
+
+_RELEASE_CAPACITY_SQL = sa.text(
+    "UPDATE runtime.model_capacity SET"
+    " inflight = GREATEST(inflight - :release_inflight, 0),"
+    " reserved_requests = CASE WHEN :lease_create_time >= window_start"
+    "   THEN GREATEST(reserved_requests - :release_request, 0) ELSE reserved_requests END,"
+    " reserved_tokens = CASE WHEN :lease_create_time >= window_start"
+    "   THEN GREATEST(reserved_tokens - :released_tokens, 0) ELSE reserved_tokens END,"
+    " update_time = :now"
+    " WHERE tenant_id = :tenant_id AND resource_type = :resource_type"
+    "  AND resource_id = :resource_id"
+)
+_ADMIT_CAPACITY_SQL = sa.text(
+    "UPDATE runtime.model_capacity SET"
+    " inflight = inflight + 1,"
+    " window_start = CASE WHEN EXTRACT(EPOCH FROM (CAST(:bucket AS timestamptz) - window_start))"
+    "   >= :span_seconds THEN CAST(:bucket AS timestamptz) ELSE window_start END,"
+    " reserved_requests = CASE WHEN EXTRACT(EPOCH FROM (CAST(:bucket AS timestamptz) - window_start))"
+    "   >= :span_seconds THEN 1 ELSE reserved_requests + 1 END,"
+    " reserved_tokens = CASE WHEN EXTRACT(EPOCH FROM (CAST(:bucket AS timestamptz) - window_start))"
+    "   >= :span_seconds THEN :tokens ELSE reserved_tokens + :tokens END,"
+    " update_time = :now"
+    " WHERE tenant_id = :tenant_id AND resource_type = :resource_type"
+    "  AND resource_id = :resource_id AND inflight + 1 <= :max_inflight"
+    "  AND (:rpm IS NULL OR (CASE WHEN EXTRACT(EPOCH FROM (CAST(:bucket AS timestamptz) - window_start))"
+    "    >= :span_seconds THEN 1 ELSE reserved_requests + 1 END) <= :rpm)"
+    "  AND (:tpm IS NULL OR (CASE WHEN EXTRACT(EPOCH FROM (CAST(:bucket AS timestamptz) - window_start))"
+    "    >= :span_seconds THEN :tokens ELSE reserved_tokens + :tokens END) <= :tpm)"
+    " RETURNING inflight, window_start, reserved_requests, reserved_tokens"
+)
 
 _CREDENTIAL_LIMITS_SQL = sa.text(
     "SELECT max_inflight, enabled FROM control.model_credential"
@@ -133,9 +163,11 @@ class ProbeTarget:
     quota_group_id: uuid.UUID | None
 
 
-def pool_lock_key(tenant_id: str, model_id: uuid.UUID) -> int:
-    """成员选择事务的 64 位 advisory 键（同 tenant/model 跨进程一致）。"""
-    digest = hashlib.sha256(f"{POOL_LOCK_NAMESPACE}:{tenant_id}:{model_id}".encode()).digest()
+def attempt_selection_lock_key(tenant_id: str, call_attempt_id: uuid.UUID) -> int:
+    """attempt 身份锁的 64 位键（同 tenant/attempt 跨进程一致）。"""
+    digest = hashlib.sha256(
+        f"{ATTEMPT_SELECTION_LOCK_NAMESPACE}:{tenant_id}:{call_attempt_id}".encode()
+    ).digest()
     return int.from_bytes(digest[:8], "big", signed=True)
 
 
@@ -244,20 +276,15 @@ class ModelCapacityStore:
             else uuid.UUID(str(row["quota_group_id"])),
         )
 
-    async def lock_pool(self, *, tenant_id: str, model_id: uuid.UUID) -> None:
-        """成员选择 advisory 事务锁：把候选判定与 dispatch 计数归一串行化（B-223）。
-
-        调用方必须已经在 `PoolLockGate` 内，且只在选择事务里使用；容量预占按行锁固定锁序，
-        不再取本锁——它曾覆盖预占事务，把每次模型调用串成两段全局队列。
-        """
-        await self._session.execute(
-            sa.select(sa.func.pg_advisory_xact_lock(pool_lock_key(tenant_id, model_id)))
-        )
-
-    async def lock_capacity(
-        self, *, tenant_id: str, resource_type: str, resource_id: uuid.UUID, window_start: datetime
-    ) -> CapacitySnapshot:
-        """取容量行（缺失即建）并加行锁；同一实际 Key 在所有池中合并为一行。"""
+    async def ensure_capacity_row(
+        self,
+        *,
+        tenant_id: str,
+        resource_type: str,
+        resource_id: uuid.UUID,
+        window_start: datetime,
+    ) -> None:
+        """按需建容量行（不锁既有行）：后续判定与计数在单条条件 UPDATE 里完成。"""
         await self._session.execute(
             pg_insert(ModelCapacity)
             .values(
@@ -270,48 +297,100 @@ class ModelCapacityStore:
                 index_elements=["tenant_id", "resource_type", "resource_id"]
             )
         )
-        row = await self._session.scalar(
-            sa.select(ModelCapacity)
-            .where(
-                ModelCapacity.tenant_id == tenant_id,
-                ModelCapacity.resource_type == resource_type,
-                ModelCapacity.resource_id == resource_id,
-            )
-            .with_for_update()
-        )
-        if row is None:  # pragma: no cover - upsert 后必然存在
-            raise RuntimeError("capacity row missing after upsert")
-        return _capacity_snapshot(row)
 
-    async def write_capacity(
+    async def try_admit_capacity(
         self,
         *,
         tenant_id: str,
-        snapshot: CapacitySnapshot,
-        inflight: int,
-        window_start: datetime,
-        reserved_requests: int,
-        reserved_tokens: int,
+        resource_type: str,
+        resource_id: uuid.UUID,
+        bucket: datetime,
+        span_seconds: int,
+        tokens: int,
+        limits: CapacityLimits,
         now: datetime,
-    ) -> None:
-        """把行锁内算好的绝对值写回容量行（调用方已持有该行锁）。"""
-        await self._session.execute(
-            sa.update(ModelCapacity)
-            .where(
-                ModelCapacity.tenant_id == tenant_id,
-                ModelCapacity.resource_type == snapshot.resource_type,
-                ModelCapacity.resource_id == snapshot.resource_id,
+    ) -> CapacitySnapshot | None:
+        """单条条件 UPDATE 完成「窗口归一 + 在飞/RPM/TPM 判定 + 计数」。
+
+        行锁只在语句执行期间持有（提交前不再有其它共享行语句），并发调用因此按语句
+        串行而不是按「读-判-写」整段事务串行。返回 None 表示任一维度超限（调用方回滚
+        整个预占事务：lease 与组行计数一起消失）。
+        """
+        row = (
+            await self._session.execute(
+                _ADMIT_CAPACITY_SQL.bindparams(
+                    sa.bindparam("rpm", type_=sa.Integer),
+                    sa.bindparam("tpm", type_=sa.Integer),
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "bucket": bucket,
+                    "span_seconds": span_seconds,
+                    "tokens": tokens,
+                    "now": now,
+                    "max_inflight": limits.max_inflight,
+                    "rpm": limits.rpm,
+                    "tpm": limits.tpm,
+                },
             )
-            .values(
-                inflight=inflight,
-                window_start=window_start,
-                reserved_requests=reserved_requests,
-                reserved_tokens=reserved_tokens,
-                update_time=now,
-            )
+        ).mappings().one_or_none()
+        if row is None:
+            return None
+        return CapacitySnapshot(
+            resource_type=resource_type,
+            resource_id=resource_id,
+            inflight=int(row["inflight"]),
+            window_start=row["window_start"],
+            reserved_requests=int(row["reserved_requests"]),
+            reserved_tokens=int(row["reserved_tokens"]),
         )
 
-    async def read_lease(self, *, tenant_id: str, call_attempt_id: uuid.UUID) -> LeaseSnapshot | None:
+    async def lock_attempt_selection(
+        self, *, tenant_id: str, call_attempt_id: uuid.UUID
+    ) -> None:
+        """同 attempt 的身份锁：不同 attempt 互不相干，只串行化重复重试。
+
+        选择与预占都先取它：保证「同一 attempt 的并发重试只计一次尝试/只建一份租约」，
+        且它不构成跨用户的串行点（键里带 attempt id）。
+        """
+        key = attempt_selection_lock_key(tenant_id, call_attempt_id)
+        await self._session.execute(sa.select(sa.func.pg_advisory_xact_lock(key)))
+
+    async def release_capacity(
+        self,
+        *,
+        tenant_id: str,
+        resource_type: str,
+        resource_id: uuid.UUID,
+        release_inflight: bool,
+        release_request: bool,
+        released_tokens: int,
+        lease_create_time: datetime,
+        now: datetime,
+    ) -> None:
+        """单条 UPDATE 释放在飞/窗口计数（跨分钟才计入窗口的租约不动窗口）。
+
+        与预占同一原则：共享容量行的行锁只覆盖这一条语句到提交，不在锁内读-判-写。
+        """
+        await self._session.execute(
+            _RELEASE_CAPACITY_SQL,
+            {
+                "tenant_id": tenant_id,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "release_inflight": 1 if release_inflight else 0,
+                "release_request": 1 if release_request else 0,
+                "released_tokens": max(released_tokens, 0),
+                "lease_create_time": lease_create_time,
+                "now": now,
+            },
+        )
+
+    async def read_lease(
+        self, *, tenant_id: str, call_attempt_id: uuid.UUID
+    ) -> LeaseSnapshot | None:
         """无锁读租约（用于取资源身份与栅栏核验，不参与锁序）。"""
         row = await self._session.scalar(
             sa.select(ModelCallLease).where(
@@ -329,6 +408,18 @@ class ModelCapacityStore:
             sa.select(ModelCallLease).where(
                 ModelCallLease.tenant_id == tenant_id,
                 ModelCallLease.id == reservation_id,
+            )
+        )
+        return None if row is None else _lease_snapshot(row)
+
+    async def read_attempt(
+        self, *, tenant_id: str, call_attempt_id: uuid.UUID
+    ) -> LeaseSnapshot | None:
+        """无锁读一次 attempt 租约（选择阶段判重放；同 attempt 的并发由调用方加身份锁）。"""
+        row = await self._session.scalar(
+            sa.select(ModelCallLease).where(
+                ModelCallLease.tenant_id == tenant_id,
+                ModelCallLease.call_attempt_id == call_attempt_id,
             )
         )
         return None if row is None else _lease_snapshot(row)

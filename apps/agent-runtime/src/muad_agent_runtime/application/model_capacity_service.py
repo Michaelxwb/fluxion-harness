@@ -3,9 +3,9 @@
 - 预占只按 quota_group → key_resource → attempt 固定锁序加行锁（不再取池锁：同一
   (tenant, model) 的全局 advisory 锁曾把每次模型调用串成一条队列）；事务内不发起任何
   网络请求（凭据解析在提交之后另行进行）；
-- 池锁只用于成员选择（等权/加权轮转需要串行判定），并由进程内闸门限制**同时在 DB 上等锁**
-  的会话数：其余调用在 asyncio 信号量上排队、不占 DB 连接（800 用户实测：数百个等待者
-  占满连接池会把准入饿死）；
+- 成员选择没有池级 advisory 锁（由单条原子语句完成排序与计数）；进程内闸门只限制**同时
+  在 DB 上排队**的会话数：其余调用在 asyncio 信号量上排队、不占 DB 连接（800 用户实测：
+  数百个等待者占满连接池会把准入饿死）；
 - 重复 `call_attempt_id` 不重复占位：既有租约原样复用（含已 SETTLED 的尝试），冻结身份不一致
   则明确拒绝（`MODEL_CALL_LEASE_LOST`）；
 - 额度窗口固定为保守滚动 60 秒并按 60 秒桶有界分桶：保留与窗口相交的边界桶（保守侧取整），
@@ -221,87 +221,6 @@ async def _require_limits(
     return limits.key, limits.quota_group
 
 
-async def _lock_capacity_rows(
-    store: ModelCapacityStore,
-    *,
-    tenant_id: str,
-    key_resource_id: uuid.UUID,
-    quota_group_id: uuid.UUID | None,
-    now: datetime,
-) -> tuple[CapacitySnapshot, CapacitySnapshot | None]:
-    """固定锁序的容量段：先组行、后 Key 行（缺失即建，组缺失则请求本身无效）。"""
-    bucket = _bucket_start(now)
-    group_row: CapacitySnapshot | None = None
-    if quota_group_id is not None:
-        group_row = await store.lock_capacity(
-            tenant_id=tenant_id,
-            resource_type=RESOURCE_QUOTA_GROUP,
-            resource_id=quota_group_id,
-            window_start=bucket,
-        )
-    key_row = await store.lock_capacity(
-        tenant_id=tenant_id,
-        resource_type=RESOURCE_KEY,
-        resource_id=key_resource_id,
-        window_start=bucket,
-    )
-    return key_row, group_row
-
-
-async def _write_admission(
-    store: ModelCapacityStore,
-    *,
-    tenant_id: str,
-    row: CapacitySnapshot,
-    plan: WindowState,
-    now: datetime,
-) -> None:
-    await store.write_capacity(
-        tenant_id=tenant_id,
-        snapshot=row,
-        inflight=row.inflight + 1,
-        window_start=plan.window_start,
-        reserved_requests=plan.reserved_requests,
-        reserved_tokens=plan.reserved_tokens,
-        now=now,
-    )
-
-
-def _settled_tokens(row: CapacitySnapshot, lease: LeaseSnapshot, plan: _CapacityPlan) -> int:
-    """窗口 token 计数：`tokens_after` 给结算后的实际用量，`None` 表示保守保留原预占。"""
-    if plan.tokens_after is None:
-        return row.reserved_tokens
-    return max(row.reserved_tokens - lease.reserved_tokens + plan.tokens_after, 0)
-
-
-async def _apply_capacity(
-    store: ModelCapacityStore,
-    *,
-    tenant_id: str,
-    lease: LeaseSnapshot,
-    key_row: CapacitySnapshot,
-    group_row: CapacitySnapshot | None,
-    plan: _CapacityPlan,
-    now: datetime,
-) -> None:
-    """把计划写进容量行：在飞按证据释放；窗口只改仍计入当窗的租约（跨分钟不污染新桶）。"""
-    for row in (group_row, key_row):
-        if row is None:
-            continue
-        counted = lease.create_time >= row.window_start
-        await store.write_capacity(
-            tenant_id=tenant_id,
-            snapshot=row,
-            inflight=max(row.inflight - (1 if plan.release_inflight else 0), 0),
-            window_start=row.window_start,
-            reserved_requests=max(
-                row.reserved_requests - (1 if counted and plan.release_request else 0), 0
-            ),
-            reserved_tokens=_settled_tokens(row, lease, plan) if counted else row.reserved_tokens,
-            now=now,
-        )
-
-
 def _lease_write(
     request: ModelCapacityReservationRequest,
     *,
@@ -400,18 +319,16 @@ async def _advance_transition(
     lease_owner: str,
     plan: _CapacityPlan,
 ) -> CapacityRelease:
-    """状态推进的共用路径：先身份后锁序，经 `_parked_release` 处理幂等与拒绝分支。"""
+    """状态推进的共用路径：先租约行、后共享容量行，经 `_parked_release` 处理幂等与拒绝。
+
+    锁序改为 attempt 行 → 容量行（组→Key）：释放/结算与预占一样，**共享容量行是最后一步**，
+    行锁只覆盖“加锁+写回+提交”，不再跨租约状态写入与幂等判定。`renew` 只锁 attempt 行、
+    预占不锁既有 attempt 行，因此不存在“持容量等 attempt”的反向路径，无死锁环。
+    """
     now = await store.database_clock()
     identity = await store.read_lease(tenant_id=tenant_id, call_attempt_id=call_attempt_id)
     if identity is None:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
-    key_row, group_row = await _lock_capacity_rows(
-        store,
-        tenant_id=tenant_id,
-        key_resource_id=identity.key_resource_id,
-        quota_group_id=identity.quota_group_id,
-        now=now,
-    )
     lease = await store.lock_attempt(tenant_id=tenant_id, call_attempt_id=call_attempt_id)
     if lease is None:  # pragma: no cover - 无锁读与行锁之间不可能删除
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
@@ -424,18 +341,37 @@ async def _advance_transition(
     parked = _parked_release(lease, plan)
     if parked is not None:
         return parked
-    await _apply_capacity(
-        store,
-        tenant_id=tenant_id,
-        lease=lease,
-        key_row=key_row,
-        group_row=group_row,
-        plan=plan,
-        now=now,
-    )
     updated = await store.write_lease_state(
         tenant_id=tenant_id, call_attempt_id=call_attempt_id, state=plan.target, now=now
     )
+    # 共享容量行是最后一步：每行一条 UPDATE，行锁只覆盖语句到提交。
+    released_tokens = (
+        0
+        if plan.tokens_after is None
+        else lease.reserved_tokens - plan.tokens_after
+    )
+    for resource_type, resource_id in (
+        (RESOURCE_QUOTA_GROUP, identity.quota_group_id),
+        (RESOURCE_KEY, identity.key_resource_id),
+    ):
+        if resource_id is None:
+            continue
+        await store.ensure_capacity_row(
+            tenant_id=tenant_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            window_start=_bucket_start(now),
+        )
+        await store.release_capacity(
+            tenant_id=tenant_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            release_inflight=plan.release_inflight,
+            release_request=plan.release_request,
+            released_tokens=released_tokens,
+            lease_create_time=lease.create_time,
+            now=now,
+        )
     return _finished_release(updated, plan.release_inflight)
 
 
@@ -444,11 +380,11 @@ DEFAULT_POOL_LOCK_CONCURRENCY = 64
 
 
 class PoolLockGate:
-    """限制同时在 DB 上等池锁的会话数：其余调用在进程内排队，不占数据库连接。
+    """限制同时在 DB 上排队（持行锁/退避重试）的会话数：其余调用不占数据库连接。
 
-    池锁队列中的每个等待者都占着一条 DB 连接（事务未提交）。800 用户实测：数百个模型
-    调用同时排队吃光 runtime 连接池，把准入拖到 16s。闸门只改变**谁在 DB 上排队**，不改变
-    池锁语义与吞吐；`max_concurrency` 是可观测的实际上限（供容量测试断言）。
+    等待中的每个会话都持有一条 DB 连接（事务未提交）。800 用户实测：数百个模型调用同时
+    排队吃光 runtime 连接池，把准入拖到 16s。闸门只改变**谁在 DB 上排队**，不改变选择
+    语义与吞吐；`max_concurrency` 是可观测的实际上限（供容量测试断言）。
     """
 
     def __init__(self, limit: int = DEFAULT_POOL_LOCK_CONCURRENCY) -> None:
@@ -545,13 +481,12 @@ class ModelCapacityService:
     async def _reserve_in(
         self, *, tenant_id: str, lease_owner: str, request: ModelCapacityReservationRequest
     ) -> CapacityReservation:
-        """预占本体：组行→Key 行→attempt 行锁，锁内只判定与计数，不发网络请求。
+        """预占本体：判定与计数由每条条件 UPDATE 完成，不跨语句持共享行锁。
 
-        不取池级 advisory 锁：所有容量写路径（预占与释放）都按 组行 → Key 行 → attempt 的
-        固定顺序取行锁，行锁本身保证多行判定的原子性与无死锁。全局 advisory 锁曾把同一
-        (tenant, model) 的每次调用串成一条队列，等待者还占着 DB 连接（2026-10-21 800 用户
-        实测：池锁等待者数百、准入被连接饥饿拖到 16s）。行锁等待同样占连接，因此这里先过
-        进程内闸门：超出闸门的调用在 asyncio 上排队，连接留给准入与执行。
+        顺序：读上限/时钟（无锁）→ 按需建行（不锁）→ 同 attempt 身份锁 → 读 attempt
+        （重放即复用）→ 写 lease → 组行/Key 行各一条条件 UPDATE。容量更新失败时整个事务
+        回滚（lease 与组行计数一起消失）。旧实现在行锁内读-判-写 6 条语句，单 Key 的并发
+        因此串行（800 用户实测：预占 P50 等待 3.3s）；现在行锁只覆盖一条 UPDATE 到提交。
         """
         waited = time.monotonic()
         async with self._gate.hold(), self._session_factory_provider()() as session, session.begin():
@@ -561,25 +496,29 @@ class ModelCapacityService:
             key_limits, group_limits = await _require_limits(store, tenant_id=tenant_id, request=request)
             now = await store.database_clock()
             lease_until = _lease_until(now, request.deadline_at, self._lease_seconds)
-            key_row, group_row = await _lock_capacity_rows(
-                store,
+            bucket = _bucket_start(now)
+            if request.quota_group_id is not None:
+                await store.ensure_capacity_row(
+                    tenant_id=tenant_id,
+                    resource_type=RESOURCE_QUOTA_GROUP,
+                    resource_id=request.quota_group_id,
+                    window_start=bucket,
+                )
+            await store.ensure_capacity_row(
                 tenant_id=tenant_id,
-                key_resource_id=request.key_resource_id,
-                quota_group_id=request.quota_group_id,
-                now=now,
+                resource_type=RESOURCE_KEY,
+                resource_id=request.key_resource_id,
+                window_start=bucket,
             )
-            attempt = await store.lock_attempt(
+            await store.lock_attempt_selection(
+                tenant_id=tenant_id, call_attempt_id=request.call_attempt_id
+            )
+            attempt = await store.read_attempt(
                 tenant_id=tenant_id, call_attempt_id=request.call_attempt_id
             )
             if attempt is not None:
                 _require_same_attempt(attempt, request)
                 return _reservation(attempt, reused=True)
-            key_plan = _plan_admission(key_row, key_limits, now=now, tokens=request.reserved_tokens)
-            group_plan: WindowState | None = None
-            if group_row is not None and group_limits is not None:
-                group_plan = _plan_admission(
-                    group_row, group_limits, now=now, tokens=request.reserved_tokens
-                )
             lease = await store.insert_lease(
                 tenant_id=tenant_id,
                 write=_lease_write(
@@ -588,11 +527,32 @@ class ModelCapacityService:
                 ),
                 now=now,
             )
-            if group_row is not None and group_plan is not None:
-                await _write_admission(
-                    store, tenant_id=tenant_id, row=group_row, plan=group_plan, now=now
+            span = QUOTA_WINDOW_SECONDS * QUOTA_WINDOW_BUCKETS
+            if request.quota_group_id is not None and group_limits is not None:
+                admitted = await store.try_admit_capacity(
+                    tenant_id=tenant_id,
+                    resource_type=RESOURCE_QUOTA_GROUP,
+                    resource_id=request.quota_group_id,
+                    bucket=bucket,
+                    span_seconds=span,
+                    tokens=request.reserved_tokens,
+                    limits=group_limits,
+                    now=now,
                 )
-            await _write_admission(store, tenant_id=tenant_id, row=key_row, plan=key_plan, now=now)
+                if admitted is None:
+                    raise AppError(ErrorCode.MODEL_CAPACITY_UNAVAILABLE)
+            admitted = await store.try_admit_capacity(
+                tenant_id=tenant_id,
+                resource_type=RESOURCE_KEY,
+                resource_id=request.key_resource_id,
+                bucket=bucket,
+                span_seconds=span,
+                tokens=request.reserved_tokens,
+                limits=key_limits,
+                now=now,
+            )
+            if admitted is None:
+                raise AppError(ErrorCode.MODEL_CAPACITY_UNAVAILABLE)
             elapsed_ms = int((time.monotonic() - started) * 1000)
             if gate_ms + elapsed_ms > 1000:
                 logger.warning(
