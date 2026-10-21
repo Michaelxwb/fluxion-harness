@@ -16,6 +16,8 @@
 
 from __future__ import annotations
 
+import logging
+import time
 import uuid
 from typing import Annotated, Any
 
@@ -44,6 +46,7 @@ from ..application.webchat_config import (
     WebchatTransportBudget,
 )
 from ..application.webchat_service import WebchatResourceService
+
 from ..application.webchat_streams import (
     SSE_MEDIA_TYPE,
     SSE_STREAM_HEADERS,
@@ -52,6 +55,8 @@ from ..application.webchat_streams import (
     WebchatStreamService,
 )
 from ..application.webchat_uploads import WebchatUploadService
+
+logger = logging.getLogger(__name__)
 from .deps import ChatIdentityDep, ChatStreamGuardDep
 
 #: 聊天资源是私有数据（design §3.4）：显式 no-store，不依赖任何默认缓存头。
@@ -242,9 +247,13 @@ async def submit_message(
     idempotency_key: IdempotencyKey,
 ) -> ApiResponse[Any]:
     """API-06：显式会话提交；受理持久化后才返回 202，长流不占本处理器。"""
+    started = time.monotonic()
     accepted = await service.submit_message(
         chat, entry_id, payload, idempotency_key=idempotency_key
     )
+    elapsed = time.monotonic() - started
+    if elapsed > 1.0:
+        logger.warning("webchat_submit_slow", extra={"elapsed_ms": int(elapsed * 1000)})
     return ok(request.app.state.message_catalog, accepted.model_dump(mode="json"))
 
 

@@ -22,6 +22,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
 from dataclasses import dataclass
@@ -34,6 +36,8 @@ from muad_contracts.webchat import ChatAuthorizedAgent, ChatPrincipal
 from pydantic import SecretStr
 
 from .console_client import ConsoleClientPort
+
+logger = logging.getLogger(__name__)
 
 #: CHAT 会话 Cookie：Console 签发（`api/chat_security.CHAT_SESSION_COOKIE`）、网关读取，同一枚
 #: （同源浏览器只带一份）。名称是两端的线上契约，改动必须同时改 Console 侧。
@@ -73,11 +77,18 @@ class ChatPrincipalGate:
 
     async def resolve(self, credentials: ChatSessionCredentials) -> ChatIdentity:
         """核验并导出主体；跨部署租户 403、上下文不匹配 409，会话/Token 失效沿用 Console 错误码。"""
+        started = time.monotonic()
         response = await self._console.chat_principal(
             credentials.session_token,
             tenant_id=self._tenant_id,
             chat_context=credentials.chat_context,
         )
+        elapsed = time.monotonic() - started
+        if elapsed > 1.0:
+            logger.warning(
+                "chat_principal_slow",
+                extra={"tenant_id": self._tenant_id, "elapsed_ms": int(elapsed * 1000)},
+            )
         principal = response.principal
         if principal.tenant_id != self._tenant_id:
             raise AppError(ErrorCode.FORBIDDEN)
