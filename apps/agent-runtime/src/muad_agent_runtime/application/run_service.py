@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from contextlib import suppress
@@ -942,8 +943,20 @@ class RunService:
         key = idempotency_key or request.message.id
         fingerprint = _creation_fingerprint(request, tenant_id)
         for attempt in range(self._admission.stale_refresh_attempts + 1):
+            attempt_started = time.monotonic()
             try:
-                return await self._admit(request, tenant_id, key, fingerprint)
+                started = await self._admit(request, tenant_id, key, fingerprint)
+                elapsed = time.monotonic() - attempt_started
+                if elapsed > 1.0:
+                    logger.warning(
+                        "admission_slow",
+                        extra={
+                            "tenant_id": tenant_id,
+                            "attempt": attempt,
+                            "elapsed_ms": int(elapsed * 1000),
+                        },
+                    )
+                return started
             except AdmissionPolicyStaleError:
                 # 先退出事务（连同未提交的 Run/会话）再重取，事务内不联网。
                 await self._session.rollback()
@@ -1008,6 +1021,7 @@ class RunService:
         调用方必须已结束当前事务（`_admit` 的预检后 `rollback`）：这里只发网络请求，不持有
         任何数据库连接。这是"设置/凭据在业务操作边界取一次"的同一边界，不引入进程内缓存。
         """
+        t0 = time.monotonic()
         resolved = await self._resolve_client.resolve(
             ResolveDefinitionRequest(
                 agent_id=request.agent_id,
@@ -1017,9 +1031,11 @@ class RunService:
             tenant_id=tenant_id,
             trace_id=current_trace_id(),
         )
+        t1 = time.monotonic()
         settings = await self._settings_client.fetch_snapshot(
             tenant_id=tenant_id, trace_id=current_trace_id() or ""
         )
+        t2 = time.monotonic()
         compaction = resolve_compaction_settings(
             resolved.agent.runtime_config,
             platform_overrides=settings.settings.get("compaction"),
@@ -1036,6 +1052,17 @@ class RunService:
             resolved.mcp_servers,
             summary_model=summary_model,
         )
+        t3 = time.monotonic()
+        if t3 - t0 > 1.0:
+            logger.warning(
+                "admission_materials_slow",
+                extra={
+                    "tenant_id": tenant_id,
+                    "resolve_ms": int((t1 - t0) * 1000),
+                    "settings_ms": int((t2 - t1) * 1000),
+                    "credentials_ms": int((t3 - t2) * 1000),
+                },
+            )
         return _AdmissionMaterials(
             run_id=run_id,
             resolved=resolved,
