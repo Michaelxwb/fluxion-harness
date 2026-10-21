@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import RunRecord
-from ..infrastructure.run_admission_store import SCOPE_TENANT, SCOPE_USER, RunAdmissionStore
+from ..infrastructure.run_admission_store import SCOPE_USER, RunAdmissionStore
 from ..metrics import (
     RUN_ADMISSION_FLOOR_METRIC,
     RUN_ADMISSION_METRIC,
@@ -152,22 +152,23 @@ async def release_admission_in(session: AsyncSession, *, run: RunRecord) -> bool
     )
     if won is None:
         return False
-    for scope_type, scope_key in ((SCOPE_USER, str(run.user_id)), (SCOPE_TENANT, run.tenant_id)):
-        held = await store.lock_counter(
-            tenant_id=run.tenant_id, scope_type=scope_type, scope_key=scope_key
+    # 只回收**用户级**计数：租户上限按 `run_record` 在飞数实时判定（见 `check_counts_in`），
+    # 不再有共享的 TENANT 计数行——它曾把每次准入/释放都串行化在同一行锁上。
+    held = await store.lock_counter(
+        tenant_id=run.tenant_id, scope_type=SCOPE_USER, scope_key=str(run.user_id)
+    )
+    if held == 0:
+        record_counter(RUN_ADMISSION_FLOOR_METRIC)
+        logger.warning(
+            "admission_counter_floor tenant=%s scope=%s scope_key=%s run=%s",
+            run.tenant_id,
+            SCOPE_USER,
+            run.user_id,
+            run.id,
         )
-        if held == 0:
-            record_counter(RUN_ADMISSION_FLOOR_METRIC)
-            logger.warning(
-                "admission_counter_floor tenant=%s scope=%s scope_key=%s run=%s",
-                run.tenant_id,
-                scope_type,
-                scope_key,
-                run.id,
-            )
-        await store.decrement_counter(
-            tenant_id=run.tenant_id, scope_type=scope_type, scope_key=scope_key
-        )
+    await store.decrement_counter(
+        tenant_id=run.tenant_id, scope_type=SCOPE_USER, scope_key=str(run.user_id)
+    )
     return True
 
 
@@ -259,12 +260,21 @@ class AdmissionPolicyService:
         )
 
     async def check_counts_in(
-        self, session: AsyncSession, *, tenant_id: str, user_id: uuid.UUID, policy: AdmissionPolicy
+        self,
+        session: AsyncSession,
+        *,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        policy: AdmissionPolicy,
+        exclude_run_id: uuid.UUID | None = None,
     ) -> None:
-        """计数校验（USER → TENANT，§3.2 锁序）：达到有效阈值即拒，不新增占位。
+        """计数校验：用户上限严格（行锁），租户上限按在飞 Run 实时计数（无锁护栏）。
 
-        两把计数行锁都在受理事务的**末尾**获取（Run/快照/提交行已写完），持有到提交只有
-        毫秒级；长持有的策略行锁已移除（见 `apply_policy_in`），这是本次吞吐修复的关键。
+        用户级是公平性约束，仍用 `run_admission_counter(USER)` 行锁严格判定（每用户互不相干，
+        不构成跨用户串行）；租户上限是护栏值（远高于真实用量），改为对 `run_record` 的
+        `admission_released_at IS NULL` 实时计数——**不再锁共享的 TENANT 计数行**：那把锁曾
+        把 1000 个互不相关的用户的每次准入/释放串成一条全局队列（2026-10-20 真 Pod 实测：
+        准入延迟随用户数线性上涨、加 Pod 无效）。并发窗口内允许少量软超发，用户级仍精确。
         """
         store = RunAdmissionStore(session)
         user_count = await store.lock_counter(
@@ -273,28 +283,37 @@ class AdmissionPolicyService:
         if user_count >= policy.limits.max_open_runs_per_user:
             record_outcome(RUN_ADMISSION_METRIC, ErrorCode.RUN_CAPACITY_EXCEEDED)
             raise AppError(ErrorCode.RUN_CAPACITY_EXCEEDED)
-        tenant_count = await store.lock_counter(
-            tenant_id=tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant_id
+        tenant_count = await store.count_open_runs(
+            tenant_id=tenant_id, exclude_run_id=exclude_run_id
         )
         if tenant_count >= policy.limits.max_open_runs_per_tenant:
             record_outcome(RUN_ADMISSION_METRIC, ErrorCode.RUN_CAPACITY_EXCEEDED)
             raise AppError(ErrorCode.RUN_CAPACITY_EXCEEDED)
 
     async def reserve_counts_in(
-        self, session: AsyncSession, *, tenant_id: str, user_id: uuid.UUID, policy: AdmissionPolicy
+        self,
+        session: AsyncSession,
+        *,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        policy: AdmissionPolicy,
+        exclude_run_id: uuid.UUID | None = None,
     ) -> None:
-        """受理占位（USER → TENANT）：达有效阈值即拒，通过则原地自增，与 Run 行**同事务**。
+        """受理占位：用户级行锁严格自增；租户上限按实时在飞数判定（无共享计数行）。
 
-        调用方在同一事务内先插入 Run 行再调用本方法；任一 scope 达阈值即
-        `RUN_CAPACITY_EXCEEDED`，调用方回滚整个事务——Run、会话、提交、事件与计数一起消失，
-        不留半建 Run，也不留下只增不减的占位。严格阈值语义保持（B-230 的精确收敛契约）。
+        调用方在同一事务内先插入 Run 行再调用本方法（`exclude_run_id` 即该行）；达用户阈值即
+        `RUN_CAPACITY_EXCEEDED`，调用方回滚整个事务——Run、会话、提交、事件与用户计数一起
+        消失，不留半建 Run，也不留下只增不减的占位。用户级阈值语义保持精确。
         """
-        await self.check_counts_in(session, tenant_id=tenant_id, user_id=user_id, policy=policy)
+        await self.check_counts_in(
+            session,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            policy=policy,
+            exclude_run_id=exclude_run_id,
+        )
         store = RunAdmissionStore(session)
         await store.increment_counter(
             tenant_id=tenant_id, scope_type=SCOPE_USER, scope_key=str(user_id)
-        )
-        await store.increment_counter(
-            tenant_id=tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant_id
         )
         record_outcome(RUN_ADMISSION_METRIC, "ACCEPTED")

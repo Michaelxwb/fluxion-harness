@@ -263,6 +263,22 @@ async def _read_counter(tenant_id: str, *, scope_type: str, scope_key: str) -> i
         )
 
 
+async def _count_open_runs(tenant_id: str) -> int:
+    """在飞 Run 的实时计数：租户上限的判据（TENANT 计数行已不再维护）。"""
+    async with get_session_factory()() as session:
+        return int(
+            await session.scalar(
+                sa.select(sa.func.count())
+                .select_from(RunRecord)
+                .where(
+                    RunRecord.tenant_id == tenant_id,
+                    RunRecord.admission_released_at.is_(None),
+                )
+            )
+            or 0
+        )
+
+
 async def _count_rows(table: str, tenant_id: str, **filters: Any) -> int:
     clauses = " AND ".join(f"{column} = :{column}" for column in filters)
     where = f" WHERE tenant_id = :tenant_id AND {clauses}" if clauses else " WHERE tenant_id = :tenant_id"
@@ -439,9 +455,7 @@ async def test_b230_create_run_commits_run_and_counts_in_one_transaction(
             assert await _read_counter(
                 tenant.tenant_id, scope_type=SCOPE_USER, scope_key=str(tenant.platform_user_id)
             ) == 1
-            assert await _read_counter(
-                tenant.tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant.tenant_id
-            ) == 1
+            assert await _count_open_runs(tenant.tenant_id) == 1
             # 同一份设置快照：阈值来自 rev 7，冻结策略也来自 rev 7（max_turns=7）
             assert await _read_policy(tenant.tenant_id) == {
                 "source_settings_revision": 7,
@@ -588,9 +602,7 @@ async def test_b230_run_and_counts_commit_together_under_counter_lock(
                 assert await _read_counter(
                     tenant.tenant_id, scope_type=SCOPE_USER, scope_key=user_key
                 ) == 1
-                assert await _read_counter(
-                    tenant.tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant.tenant_id
-                ) == 1
+                assert await _count_open_runs(tenant.tenant_id) == 1
                 gated_executor.release()
                 await _drain(started)
             finally:
@@ -691,9 +703,7 @@ async def test_b230_capacity_exceeded_rolls_back_without_fake_run(
             assert await _read_counter(
                 tenant.tenant_id, scope_type=SCOPE_USER, scope_key=str(tenant.platform_user_id)
             ) == 2
-            assert await _read_counter(
-                tenant.tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant.tenant_id
-            ) == 2
+            assert await _count_open_runs(tenant.tenant_id) == 2
             # 满额的用户在新会话上同样被拒：请求自己新建的会话也随事务回滚，不留半建行
             blocked_user = uuid.uuid4()
             await _seed_counter(
@@ -747,9 +757,7 @@ async def test_b230_tenant_share_is_shared_across_users(
                 key="b230-tenant-2",
                 request=_request(tenant, user_id=user_b, conversation_id=conv_b),
             )
-            assert await _read_counter(
-                tenant.tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant.tenant_id
-            ) == 2
+            assert await _count_open_runs(tenant.tenant_id) == 2
             with pytest.raises(AppError) as denied:
                 await _start(
                     tenant, client, fake_resolve, gated_executor, execution_supervisor_boundary,
@@ -813,9 +821,7 @@ async def test_b230_non_terminal_runs_occupy_the_shared_share(
             assert await _read_counter(
                 tenant.tenant_id, scope_type=SCOPE_USER, scope_key=str(tenant.platform_user_id)
             ) == 2
-            assert await _read_counter(
-                tenant.tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant.tenant_id
-            ) == 2
+            assert await _count_open_runs(tenant.tenant_id) == 2
             # 断言完成：把两个 Run 还原为执行中再放行，让替身正常收尾（不留悬挂任务）
             await _set_run_status(tenant.tenant_id, first.run_id, "RUNNING")
             await _set_run_status(tenant.tenant_id, second.run_id, "RUNNING")
@@ -1007,7 +1013,6 @@ async def test_b230_stale_settings_revision_refetches_and_never_admits_on_old_th
     user_key = str(tenant.platform_user_id)
     await _seed_policy(tenant.tenant_id, revision=9, tenant_limit=4, user_limit=2)
     await _seed_counter(tenant.tenant_id, scope_type=SCOPE_USER, scope_key=user_key, count=2)
-    await _seed_counter(tenant.tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant.tenant_id, count=2)
     async with _scripted_source() as (source, url):
         client = ConsolePlatformSettingsClient(url, service_token=INTERNAL_TOKEN)
         try:
@@ -1178,9 +1183,7 @@ async def test_b230_concurrent_distinct_keys_converge_exactly_to_threshold(
             assert await _read_counter(
                 tenant.tenant_id, scope_type=SCOPE_USER, scope_key=str(tenant.platform_user_id)
             ) == 3
-            assert await _read_counter(
-                tenant.tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant.tenant_id
-            ) == 3
+            assert await _count_open_runs(tenant.tenant_id) == 3
             gated_executor.release()
             await _drain(*admitted)
         finally:

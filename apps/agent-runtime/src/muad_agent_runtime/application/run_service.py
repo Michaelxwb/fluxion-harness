@@ -1655,6 +1655,7 @@ class RunService:
                 tenant_id=tenant_id,
                 user_id=request.platform_user_id,
                 policy=policy,
+                exclude_run_id=run.id,
             )
             await self._session.commit()
         except IntegrityError as exc:

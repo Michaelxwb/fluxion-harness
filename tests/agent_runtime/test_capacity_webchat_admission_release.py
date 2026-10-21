@@ -510,21 +510,15 @@ async def _seed_open_run(tenant: TenantContext, *, status: str = "RUNNING") -> u
 
 
 async def _seed_shares(tenant: TenantContext, *, count: int) -> None:
-    """把 USER/TENANT 两个 scope 的计数置为 `count`（真实计数行）。"""
+    """把**用户级**计数置为 `count`（真实计数行）：租户上限按在飞 Run 实时判定，无计数行。"""
     await _seed_counter(
         tenant.tenant_id, scope_type=SCOPE_USER, scope_key=str(tenant.platform_user_id), count=count
-    )
-    await _seed_counter(
-        tenant.tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant.tenant_id, count=count
     )
 
 
 async def _assert_shares(tenant: TenantContext, *, count: int) -> None:
     assert await _read_counter(
         tenant.tenant_id, scope_type=SCOPE_USER, scope_key=str(tenant.platform_user_id)
-    ) == count
-    assert await _read_counter(
-        tenant.tenant_id, scope_type=SCOPE_TENANT, scope_key=tenant.tenant_id
     ) == count
 
 

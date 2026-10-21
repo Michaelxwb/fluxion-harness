@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import sys
+import traceback
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -63,6 +65,9 @@ def install_exception_handlers(app: FastAPI, catalog: MessageCatalog) -> None:
     @app.exception_handler(Exception)
     async def unexpected_error_handler(_: Request, exc: Exception) -> JSONResponse:
         logger.exception("unexpected_error")
+        # 兜底输出到 stderr：日志 handler 被绕过/级别被调高时，未处理异常仍然可见。
+        traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
+        sys.stderr.flush()
         code = "COMMON_INTERNAL_ERROR"
         body = build_response(catalog, code=code)
         return _json_response(body, 500)

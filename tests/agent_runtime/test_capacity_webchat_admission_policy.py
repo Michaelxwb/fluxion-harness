@@ -287,6 +287,25 @@ async def _release_counters(tenant_id: str, *, released: int) -> None:
         await session.commit()
 
 
+async def _release_runs(tenant_id: str, run_ids: list[uuid.UUID]) -> None:
+    """真实终态释放：标记这些 Run 已释放，并把用户级计数减回去（租户按在飞 Run 实时计数）。"""
+    async with get_session_factory()() as session:
+        await session.execute(
+            sa.text(
+                "UPDATE runtime.run_record SET admission_released_at = now()"
+                " WHERE tenant_id = :tenant_id AND id = ANY(:ids)"
+            ).bindparams(tenant_id=tenant_id, ids=[str(run_id) for run_id in run_ids])
+        )
+        await session.execute(
+            sa.text(
+                "UPDATE runtime.run_admission_counter"
+                " SET open_run_count = greatest(open_run_count - :released, 0)"
+                " WHERE tenant_id = :tenant_id AND scope_type = 'USER'"
+            ).bindparams(tenant_id=tenant_id, released=len(run_ids))
+        )
+        await session.commit()
+
+
 async def _read_counter(tenant_id: str, *, scope_type: str, scope_key: str) -> int | None:
     async with get_session_factory()() as session:
         return await session.scalar(
@@ -698,10 +717,6 @@ async def test_b229_downgrade_keeps_open_runs_and_blocks_new_admission(
         await _seed_counter(
             tenant.tenant_id, scope_type=USER_SCOPE, scope_key=str(tenant.platform_user_id), count=3
         )
-        await _seed_counter(
-            tenant.tenant_id, scope_type=TENANT_SCOPE, scope_key=tenant.tenant_id, count=3
-        )
-
         source.script(tenant.tenant_id, _document(9, tenant_limit=2, user_limit=2))
         downgraded = await service.resolve(tenant_id=tenant.tenant_id)
         assert downgraded.limits == CapacityLimits(2, 2)
@@ -713,9 +728,6 @@ async def test_b229_downgrade_keeps_open_runs_and_blocks_new_admission(
         )
         assert await _read_counter(
             tenant.tenant_id, scope_type=USER_SCOPE, scope_key=str(tenant.platform_user_id)
-        ) == 3
-        assert await _read_counter(
-            tenant.tenant_id, scope_type=TENANT_SCOPE, scope_key=tenant.tenant_id
         ) == 3
 
         async with get_session_factory()() as session:
@@ -730,7 +742,7 @@ async def test_b229_downgrade_keeps_open_runs_and_blocks_new_admission(
             await session.rollback()
 
         # 终态释放使计数低于阈值后，新受理才放行
-        await _release_counters(tenant.tenant_id, released=2)
+        await _release_runs(tenant.tenant_id, run_ids[:2])
         async with get_session_factory()() as session:
             await service.check_counts_in(
                 session,

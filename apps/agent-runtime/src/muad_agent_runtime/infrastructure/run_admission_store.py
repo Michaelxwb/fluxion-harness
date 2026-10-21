@@ -23,7 +23,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models.runtime import RunAdmissionCounter, RunAdmissionPolicy
+from .models.runtime import RunAdmissionCounter, RunAdmissionPolicy, RunRecord
 
 SCOPE_USER = "USER"
 SCOPE_TENANT = "TENANT"
@@ -96,6 +96,22 @@ class RunAdmissionStore:
         if row is None:  # pragma: no cover - upsert 后必然存在
             raise RuntimeError("admission policy row missing after upsert")
         return _policy_row(row)
+
+    async def count_open_runs(
+        self, *, tenant_id: str, exclude_run_id: object | None = None
+    ) -> int:
+        """租户在飞 Run 的实时计数（无锁 MVCC 读）：租户上限是护栏值，不锁共享计数行。
+
+        `exclude_run_id`：调用方已在本事务内插入该 Run 行，计数只算「其它」在飞 Run。
+        并发窗口内允许少量软超发（上限远高于真实用量）；每用户上限仍由 USER 计数行严格保证。
+        """
+        query = sa.select(sa.func.count()).select_from(RunRecord).where(
+            RunRecord.tenant_id == tenant_id,
+            RunRecord.admission_released_at.is_(None),
+        )
+        if exclude_run_id is not None:
+            query = query.where(RunRecord.id != exclude_run_id)
+        return int(await self._session.scalar(query) or 0)
 
     async def lock_counter(self, *, tenant_id: str, scope_type: str, scope_key: str) -> int:
         """计数行锁（缺失按 0 建立）：返回当前计数。
