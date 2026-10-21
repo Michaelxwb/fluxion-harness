@@ -1672,18 +1672,21 @@ class RunService:
         pool = resolve_pool_execution_policy(snapshot_settings.settings)
         # 成员的非密钥引用与权重（B-224）：Key/指纹/计量身份实时解析，不落快照。这是"关系随 Run
         # 冻结"的输入——绑定/解绑/权重变更只影响后续新 Run，旧 Run 不能带出另一份物理额度。
-        members = await ModelDispatchStore(self._session).read_member_refs(
-            tenant_id=tenant_id, model_id=resolved.model.id
+        # 主模型与摘要模型的成员引用一次查询取齐（受理写事务里少一次往返）。
+        summary_model = materials.summary_model
+        model_ids = tuple(
+            dict.fromkeys(
+                [resolved.model.id] + ([summary_model.id] if summary_model is not None else [])
+            )
         )
+        member_refs = await ModelDispatchStore(self._session).read_member_refs_many(
+            tenant_id=tenant_id, model_ids=model_ids
+        )
+        members = member_refs.get(resolved.model.id, ())
         # 摘要模型（`compaction.summary.model_ref`）已在受理边界解析（ADR-06）；它的成员引用
         # 在此冻结（与主模型同一口径）：摘要调用与主调用共享物理资源上限。
-        summary_model = materials.summary_model
         summary_members = (
-            None
-            if summary_model is None
-            else await ModelDispatchStore(self._session).read_member_refs(
-                tenant_id=tenant_id, model_id=summary_model.id
-            )
+            None if summary_model is None else member_refs.get(summary_model.id, ())
         )
         model, mcp_secrets = materials.model, materials.mcp_secrets
         run_id = materials.run_id

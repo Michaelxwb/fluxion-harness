@@ -83,9 +83,8 @@ class RunSubmissionService:
         策略行锁**之前**取：同键事务只在 advisory 锁上排队，不在 policy/计数行上互相等待；
         partial unique 仍是并发插入的兜底。
         """
-        await self.lock_identity(
-            session, tenant_id=tenant_id, idempotency_key=idempotency_key, endpoint=endpoint
-        )
+        # 同键并发由 partial unique + 冲突重放兜底（`_create_run` 的 IntegrityError 分支）：
+        # advisory 锁只是把每条提交串行化一次额外往返，800 用户下是纯成本。
         return await self.find_replay_in(
             session,
             tenant_id=tenant_id,

@@ -183,6 +183,38 @@ class ModelDispatchStore(ModelCapacityStore):
             for row in rows
         )
 
+    async def read_member_refs_many(
+        self, *, tenant_id: str, model_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, tuple[MemberRef, ...]]:
+        """一次查询取多个逻辑模型的成员引用（主模型 + 摘要模型），避免逐模型往返。"""
+        if not model_ids:
+            return {}
+        rows = (
+            await self._session.execute(
+                sa.text(
+                    "SELECT model_id, id, credential_id, weight FROM control.model_deployment"
+                    " WHERE tenant_id = :tenant_id AND model_id = ANY(CAST(:model_ids AS uuid[]))"
+                    " AND is_deleted = false ORDER BY key, id"
+                ).bindparams(
+                    sa.bindparam(
+                        "model_ids",
+                        type_=postgresql.ARRAY(postgresql.UUID(as_uuid=True)),
+                    )
+                ),
+                {"tenant_id": tenant_id, "model_ids": list(model_ids)},
+            )
+        ).mappings().all()
+        grouped: dict[uuid.UUID, list[MemberRef]] = {}
+        for row in rows:
+            grouped.setdefault(row["model_id"], []).append(
+                MemberRef(
+                    deployment_id=row["id"],
+                    credential_id=row["credential_id"],
+                    weight=int(row["weight"]),
+                )
+            )
+        return {model_id: tuple(refs) for model_id, refs in grouped.items()}
+
     async def read_frozen_candidates(
         self,
         *,
