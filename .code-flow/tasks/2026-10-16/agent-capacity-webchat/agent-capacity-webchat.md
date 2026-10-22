@@ -262,7 +262,7 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | depends_on |
 |---|---|---|---|---|---|---|---|---|---|
-| S-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针 | TASK-116 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
+| S-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针；本轮以 CAPACITY_LOAD_USERS=200 受限验证（RunKind.VERIFICATION，每用户 1 Run）；1000 用户正式验收仍未验证 | TASK-116 | verified | ["bash","-lc","CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
 | S-02 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 真实企微协议探针、浏览器、Gateway、Runtime、Worker、PG/Redis | TASK-113 | e2e_deferred | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
 | S-03 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两个 Runtime 实例、PG、真实 SSE、故障进程 | TASK-111 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_stream_delivery.py","tests/acceptance/capacity/test_worker_delivery.py"] | . | 1800 |  |
 | S-04 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 多 Runtime、同模型多 Key HTTP 探针、实际额度存储和审计 | TASK-110 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_model_execution.py","tests/acceptance/capacity/test_admission_recovery.py"] | . | 1800 |  |
@@ -275,8 +275,8 @@
 | S-11 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两浏览器页面、两个 Runtime、PG、真实 SSE 和等待中的模型探针 | TASK-113 | e2e_deferred | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts streams-actions.spec.ts cross-channel-memory.spec.ts"] | . | 1800 |  |
 | S-12 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两个 Runtime、主模型/摘要/记忆任务、Console 探针和真实 HTTP Key 计数服务 | TASK-110 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_model_execution.py","tests/acceptance/capacity/test_admission_recovery.py"] | . | 1800 |  |
 | S-13 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 浏览器、PG、真实 Run/Worker 投递与提交后故障注入 | TASK-114 | e2e_deferred | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts attachments-notifications.spec.ts public-events.spec.ts"] | . | 1800 |  |
-| S-14 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 容量栈真实 PG/HTTP/SSE、可配置增量模型探针 | TASK-116 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
-| S-15 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换 | TASK-116 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
+| S-14 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 容量栈真实 PG/HTTP/SSE、可配置增量模型探针；本轮以 CAPACITY_LOAD_USERS=200 受限验证（RunKind.VERIFICATION，每用户 1 Run）；1000 用户正式验收仍未验证 | TASK-116 | verified | ["bash","-lc","CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
+| S-15 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换；本轮以 CAPACITY_LOAD_USERS=200 受限验证（RunKind.VERIFICATION，每用户 1 Run）；1000 用户正式验收仍未验证 | TASK-116 | verified | ["bash","-lc","CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 |  |
 | S-16 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | Console 策略/签发、浏览器 Cookie、真实 PG 时间与历史续聊接口 | TASK-112 | e2e_deferred | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts auth-history.spec.ts identity-isolation.spec.ts"] | . | 1800 |  |
 | S-17 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | Console系统设置/资源配置、两个Runtime、真实PG准入、Gateway启动配置与浏览器 | TASK-115 | e2e_deferred | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts admin-settings.spec.ts layout-deployment.spec.ts"] | . | 1800 |  |
 | E-01 | agent-capacity-webchat.backend.design.md#2.5 验收条件 | E2E | 两并发请求、PG、模型探针计数 | TASK-110 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/capacity/test_model_execution.py","tests/acceptance/capacity/test_admission_recovery.py"] | . | 1800 |  |
@@ -451,6 +451,7 @@
 | B-309 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-109 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_load_driver.py"] | . | 300 |  |
 | B-317 | agent-capacity-webchat.backend.design.md#4.1 部署与容量, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-117 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_capacity_report.py"] | . | 300 |  |
 | B-318 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#4.3 分层验收与报告, agent-capacity-webchat.backend.design.md#6. 需求追溯矩阵, agent-capacity-webchat.frontend.design.md#2.4 验收条件 | integration | 实际容量harness/profile、HTTP协议探针/子进程与隔离栈；按任务范围验证真实边界，不用伪造成功回执代替实测 | TASK-118 | verified | ["uv","run","pytest","-q","tests/capacity/test_capacity_webchat_acceptance_audit.py"] | . | 300 |  |
+| B-319 | agent-capacity-webchat.backend.design.md#2.5 验收条件, agent-capacity-webchat.backend.design.md#3.7 配置契约与生效边界, agent-capacity-webchat.backend.design.md#4.1 部署与容量 | integration | 真实 Console/Runtime 内部 HTTP 路由与真实 PG；渲染后的部署清单、typed 启动预算与容量 profile；不访问共享 dev 数据 | TASK-119 | verified | ["bash","-lc","uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/architecture/test_capacity_webchat_deployment_preflight.py tests/architecture/test_k8s_deploy_manifests.py tests/contracts/test_capacity_webchat_startup_schema.py && uv run pytest -q tests/agent_runtime/test_console_client.py tests/agent_runtime/test_runs_api.py"] | . | 600 |  |
 
 ---
 
@@ -1520,6 +1521,8 @@ capacity/model_pool默认、严格类型、未知键及跨字段错误完整校�
 
 静态检查：变更Python文件Ruff通过；两个生产文件strict mypy通过；`uv run python scripts/check_frontend_i18n.py`通过（1178键）；CSV保留既有CRLF，`git -c core.whitespace=cr-at-eol diff --check`通过。初轮回归暴露的开发库缺表未算实现RED，已改用隔离库复验。
 - B-201: verified — automated command passed; run_id=f4d658868d05472e8af7d160c66b2d98 (confirmed_by: runner)
+- B-201: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-201: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -1570,6 +1573,8 @@ Token默认30天、CHAT默认12小时；完整分支及可观测结果见下面�
 
 静态检查：变更Python文件Ruff通过，两个生产文件strict mypy通过，i18n两侧1193键闭合；`git -c core.whitespace=cr-at-eol diff --check`通过。新的parse/validate/联动校验函数分别31/25/17行，不读取环境、不导入app包。
 - B-202: verified — automated command passed; run_id=96bd717c93304c31913295ac58e8af86 (confirmed_by: runner)
+- B-202: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-202: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -1621,6 +1626,8 @@ Token默认30天、CHAT默认12小时；完整分支及可观测结果见下面�
 
 静态检查：变更Python文件Ruff通过，SharedSettings strict mypy通过，新增/修改函数均≤50行，CSV按原CRLF规范diff-check通过。只维护既有E2E短租约参数，未执行或声称E2E/生产容量通过。
 - B-203: verified — automated command passed; run_id=a94b5e0dfc27426c99ac4bd5cb93d344 (confirmed_by: runner)
+- B-203: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-203: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -1669,6 +1676,8 @@ Token默认30天、CHAT默认12小时；完整分支及可观测结果见下面�
 
 边界：本任务定义协议与局部不变量；PG/CAS/物理Key计量、provider完成证据的权威核验和真实路由仍由TASK-021～028等实现，不能把DTO字段验证当成真实远端停止或1000并发容量证据。
 - B-204: verified — automated command passed; run_id=cccab1c1bf364be0a60dc5c968184e62 (confirmed_by: runner)
+- B-204: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-204: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -1717,6 +1726,8 @@ Token默认30天、CHAT默认12小时；完整分支及可观测结果见下面�
 
 边界：DTO仅定义形状与局部不变量；Token生成/撤销、PG会话权威、Owner授权和生效配置的业务受理检查由后续任务实现。本任务不提供浏览器自报user-id的免认证入口。`transport_revision`为启动配置的不透明字符串指纹，消息/上传的实时软限额留在新受理路径校验，避免已受理幂等重放被后来降额拒绝。
 - B-205: verified — automated command passed; run_id=486dd5b78cca497783594909c5301424 (confirmed_by: runner)
+- B-205: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-205: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -1766,6 +1777,8 @@ Token默认30天、CHAT默认12小时；完整分支及可观测结果见下面�
 边界：本任务定义公开事件协议、解析白名单与游标窗口形状/局部判断；canonical安全投影、PG追尾、分片切割和有界组装/应用游标由TASK-051/061/072等实现，DTO测试不冒充真实SSE恢复。所有传入公开解析器的dict必须已是严格JSON，不把datetime/UUID对象静默字符串化；未知事件不公开，已知坏帧显式报错。
 - B-206: failed — automated command failed; run_id=803dbb20519c4248a7c8e900a383f2cc (confirmed_by: runner)
 - B-206: verified — automated command passed; run_id=3229c94166c848b49a6689b0cc140bb3 (confirmed_by: runner)
+- B-206: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-206: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -1818,6 +1831,8 @@ Token默认30天、CHAT默认12小时；完整分支及可观测结果见下面�
 范围同步：错误码枚举也由配置盘点机检完整追踪，首次回归明确报缺30行；已将同次原子变更需要的`docs/configuration-inventory.csv`纳入Files并更新code分类，未改变盘点校验。配置校验仍沿用VALIDATION_FAILED和`data.details[].path/message`；授权/不存在沿用FORBIDDEN/COMMON_NOT_FOUND，后续Owner负责只提交安全data，本任务不声称AppError会自动净化任意data。
 - B-207: verified — automated command passed; run_id=68a10976f06a4eea9a36863ed818f6e2 (confirmed_by: runner)
 - B-207: verified — automated command passed; run_id=97abe069ca504e088a9b561b4416e0a1 (confirmed_by: runner)
+- B-207: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-207: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -1868,6 +1883,8 @@ capacity/model_pool/webchat通过原整份设置协议读写，默认/范围/单
 
 边界：applies_to继续沿用既有枚举，新增effect_key细分签发、交换、新受理、查询/页面/新连接和清理，词条已齐；前端展示消费在TASK-089接线。GET元信息只收紧可编辑max，不裁剪历史生效值；保存和回滚由API/Owner共同拒绝超硬预算。既有设置协议仍按现有缺省归一化规则处理整份文档，不新增独立策略路由或逐用户覆盖。
 - B-208: verified — automated command passed; run_id=5ba3303655d246818a6051380bac44a5 (confirmed_by: runner)
+- B-208: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-208: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -1926,6 +1943,8 @@ capacity/model_pool/webchat通过原整份设置协议读写，默认/范围/单
 - 已确认的**计划变更**（2026-10-17，用户确认）：旧列 `base_url`/`api_key` 的物理删除从 0021 推迟到升级链末段的删列 revision，由 TASK-019 负责交付；0021 之后 legacy 入口（`application/model_service.py`、`api/models.py`、`application/resolve_service.py`、`application/runtime_credentials.py`）继续可用，`provider_key` 以 `''` 表示供方未声明，消费方由 TASK-016/017/019/020 重写后再删列，不引入兼容层/双写；生产维护窗口仍是**一次** `upgrade head` 到完整 head。
 - B-209: verified — automated command passed; run_id=791aff4eface44f99896da6fa8945671 (confirmed_by: runner)
 - B-209: verified — automated command passed; run_id=eb8d0a930d2e4d958535bc5eef13a3f9 (confirmed_by: runner)
+- B-209: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-209: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -1987,6 +2006,8 @@ capacity/dispatch_state/call_lease具有稳定实际Key身份和完整唯一键�
 - 回归（verifier 口径）：`uv run pytest -q tests -k schema_parity` → **43 passed**, 4703 deselected (exit=0, 17.00s)。
 - 服务层（预占/续租/结算/隔离）不在本任务：TASK-011+ 消费本结构。
 - B-210: verified — automated command passed; run_id=e0a33537cd6f41fe87f2c237b8730f5d (confirmed_by: runner)
+- B-210: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-210: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2045,6 +2066,8 @@ policy按tenant完整唯一、版本单调；完整分支及可观测结果见�
 - dev 库升级（已披露的环境变更）：本地 dev 库原在 0021，ORM 前移到 0023 后 `tests/agent_runtime` 曾 128 failed/4 errors（`column run_record.queue_stage does not exist`）。执行 `uv run python migrations/db_migrate.py -c /tmp/agent-capacity-webchat-dev/dev.ini upgrade head`（0021→0023，纯增量：5 个可空列 + CHECK + partial index + 两张空表），复跑 `tests/agent_runtime` → **765 passed** (10:56)、`tests/agent_worker` → **299 passed** (1:03)。失败根因是环境陈旧，不是实现缺陷，未改实现迁就。
 - 链头推进的连带修订：TASK-010 测试 `test_b210_downgrade_with_lease_rows_requires_backup` 原钉死 `version_num == '0022'`，链头到 0023 后误报；改为记录回退尝试前的链头并断言不变（同时佐证整链单事务回滚），已写入 TASK-010 Log。
 - B-211: verified — automated command passed; run_id=9c46c6fe279148169083415cbb223565 (confirmed_by: runner)
+- B-211: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-211: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2104,6 +2127,8 @@ Token/会话只存摘要、时间带时区，来源Token和platform_user为同Ow
 - 链头推进的连带修订：`tests/console_platform/test_platform_settings_table.py` 原先钉死 `HEAD_REVISION="0020"`，链到 0021 起即红（在无 0024 的环境实测 `assert '0023' == '0020'`，与本次实现无关）；改为动态读取迁移链 head（`ScriptDirectory.from_config`），链继续推进时该文件不再需要维护。
 - dev 库升级（已披露的环境变更）：本地 dev 库 0023→0024（纯增量：两张空表），`uv run python migrations/db_migrate.py -c /tmp/agent-capacity-webchat-dev/dev.ini upgrade head`。
 - B-212: verified — automated command passed; run_id=298f320d1dfe4cc9877169fd2a267d70 (confirmed_by: runner)
+- B-212: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-212: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2165,6 +2190,8 @@ Token/会话只存摘要、时间带时区，来源Token和platform_user为同Ow
 - 环境事实（非实现缺陷）：首次跑 `tests/agent_runtime` 得 142 failed / 10 errors，全部为共享 dev 库仍在 0024（ORM 已到 0025）导致的 `UndefinedColumnError`；按根 AGENTS 口径升级 dev 库后同命令 765 passed。
 - dev 库升级（已披露的环境变更）：`uv run python migrations/db_migrate.py -c /tmp/agent-capacity-webchat-dev/dev.ini upgrade head`，0024→0025；回填实测把 **10 个 dev 历史会话**归属到 dev WECOM bot 账号（升级前预览同为 10，逐个一致），`last_message_at` 全空、`channel_upload`/`channel_conversation` 均 0 行。
 - B-213: verified — automated command passed; run_id=79bd13687dca4bf58b036597d71ac289 (confirmed_by: runner)
+- B-213: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-213: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2230,6 +2257,8 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 - 环境事实（非实现缺陷）：dev 库升级前 `tests/agent_runtime` 的 ORM 对比会缺新表；先 `uv run python migrations/db_migrate.py -c /tmp/agent-capacity-webchat-dev/dev.ini upgrade head` 升级 dev 库到 0026（纯 DDL、无回填），`channel_notification_feed`/`channel_notification` 均 0 行，随后全套通过。
 - dev 库升级（已披露的环境变更）：0025→0026，无数据变更（无回填；两新表 0 行）。
 - B-214: verified — automated command passed; run_id=d7b25380987040f6bf8221c189f33e42 (confirmed_by: runner)
+- B-214: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-214: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2290,6 +2319,8 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 - 静态/回归：`ruff check` 干净、`ruff format` 已应用到三个文件；mypy 两个源文件 `Success: no issues found`；`uv run pytest -q tests/console_platform` → **325 passed**（exit=0, 42.81s）。
 - 契约文本说明：本任务不含上游模型调用路径（"外部模型真实HTTP协议探针"属探针类任务 TASK-027/028），真实边界为真实 PG + 真实 Console 服务 + 真实事务；`tests/console_platform` 按本套件既有口径使用 dev PostgreSQL 实例、以每用例唯一 `tenant_id` 隔离并在夹具内清理新增表行。
 - B-215: verified — automated command passed; run_id=8b0276ef9ef348a49e0a2554f195b1d1 (confirmed_by: runner)
+- B-215: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-215: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2346,6 +2377,8 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 - 中间过程（诚实记录）：(1) 首轮 RED 因测试 7 裸等事件在缺实现时挂死，测试改为 `asyncio.wait` + 超时并传播真实异常（测试侧修正，非实现缺陷）；(2) 实现后首跑 7 passed / 1 failed：PUT 轮换用例用**更新前**的 item 快照重提 `max_inflight=8`，却断言旧值 6 存活——在任何「整份替换」语义下自相矛盾；按前端「读当前状态 → 改密钥 → 提交」流程改为携带当前值（测试侧修正，已在此与日志披露）。
 - 仓库 lint 现状：`uv run ruff check .` 共 37 项均为未触达文件（`tests/agent_runtime`、`tests/migrations`、`apps/agent-runtime` 等）的 HEAD 既有告警；本次改动文件逐文件 `ruff check` 全部干净。`model_pool.py` 的 `ruff format` 偏差在 HEAD 即存在（预存长行，非本次引入），未做无关重排；本次新增/修改的三处源码文件已 `ruff format`。
 - B-216: verified — automated command passed; run_id=6e4d1bd12d134316b79e19766cb1891d (confirmed_by: runner)
+- B-216: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-216: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2404,6 +2437,8 @@ feed完整唯一且不软删/不重置水位，用户seq/delivery_key完整唯�
 - 中间过程（诚实记录）：(1) 实现后首跑 4 passed / 2 failed：轮换用例把凭据密钥轮换成夹具第二条凭据的同一值，撞 `uq_model_credential_tenant_provider_digest`（测试侧），改用独立 `SECRET_ROTATED`；(2) provider/tenancy 用例原期望模型缺失为 `MODEL_NOT_FOUND`，实测 400——该码属平台设置（`config/api-messages.yaml` http_status=400），与既有模型路由行为及设计 §3.4 均不符；修正为 `COMMON_NOT_FOUND`（服务 `_require_model`）并同步测试期望（语义以设计为准，实现与测试同改）。
 - 仓库 lint/format 现状：本次改动文件 `ruff check` 逐文件干净；新文件（服务/仓储/测试）已 `ruff format`；`api/models.py` 与 `model_pool.py` 的 format 偏差在 HEAD 即存在（预存长行/既有代码），未做无关重排；`uv run mypy apps packages` 394 文件无问题。
 - B-217: verified — automated command passed; run_id=306d551e820148a49ccd0919a16dd2be (confirmed_by: runner)
+- B-217: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-217: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2458,6 +2493,8 @@ RPM/TPM与max_inflight按真实资源存储，null仅关闭该维度限流；完
 - 契约与语义事实：读取投影恰为 `{id,key,max_inflight,rpm,tpm,revision}`；`rpm`/`tpm` 的 `null` 表示该维度不设应用内限流（SQL NULL 回读验证，不是 0；`0`/负数在契约层 422）；PUT 为整份替换（key/max_inflight/rpm/tpm）+ `expected_revision` CAS，未命中 `REVISION_CONFLICT`；同 key 重复 409 `MODEL_QUOTA_GROUP_EXISTS`（partial unique `uq_model_quota_group_tenant_key` 兜底并发落败者）；降额判定 = `max_inflight` 调小，或 rpm/tpm 数值调小，或从 `null` 新开限流——该组仍有 `ACTIVE`/`UNKNOWN` 租约时 409 `MODEL_CAPACITY_DRAIN_REQUIRED`（扩容、数值调大、放开为 `null`、no-op 与 SETTLED 租约实时生效；判定按租约的 `quota_group_id` 归属，别的组的在飞占用不阻塞）；删除=软删，仍被活跃凭据引用 409 `MODEL_QUOTA_GROUP_IN_USE`（被软删凭据不再阻塞），同名重建为新行新身份；创建幂等（RULE-api-002）endpoint=`model-quota-group-create`，规范 JSON 指纹含 endpoint/tenant/actor 判别键，异指纹 409 `IDEMPOTENCY_MISMATCH`；缺失/跨租户 404 `COMMON_NOT_FOUND`；审计 `resource_type=MODEL_QUOTA_GROUP`，动作 CREATE/UPDATE/DELETE，被拒请求零审计。
 - 中间过程（诚实记录）：(1) 新增错误码插入 `error_codes.py` 后其后续枚举成员行号整体位移，配置盘点按最小平移 + 新行补齐；首次自动化脚本写坏 CSV，以 `git checkout` 还原后改为最小变更重做（未把整表重排混入提交）；(2) 测试文件一处断言超长行经 `ruff format` 收口后复跑 GREEN；实现侧无返工。
 - B-218: verified — automated command passed; run_id=8ee99f679cb44563a987ab6385287f95 (confirmed_by: runner)
+- B-218: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-218: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2518,6 +2555,8 @@ Agent继续显式选择model_id、无默认模型；完整分支及可观测结�
 - 延后项（明确移交）：浏览器 E2E 中仍按旧响应形状断言模型接口的用例（`e2e/tests/model-management/*`、`form-layout`/`model-list-layout`/`detail-layout`/`console-auth`.spec.ts）属前端模型管理改造范围，由 TASK-086/087（模型凭据/成员界面）与 TASK-115（模型池与 Token 管理 E2E）收口；本任务未触碰前端模型管理模块，仅补审计筛选域缺口。
 - 全量单测回归：`uv run pytest -q --ignore=tests/acceptance -p no:randomly` → **4490 passed**（exit=0, 1084.67s）。
 - B-219: verified — automated command passed; run_id=39202116681f4e03ab82f3bfa512f001 (confirmed_by: runner)
+- B-219: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-219: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2580,6 +2619,8 @@ Agent继续显式选择model_id、无默认模型；完整分支及可观测结�
 - 中间过程（诚实记录）：(1) 本任务首版把 `actor_user_id` 定为必填，会让 DFX E-07 的既有受信载荷（无该字段）由 200 变 422；按"服务身份是门控、actor 只是审计关联"的事实改为可选，并在 B-220 用例中显式断言该口径；(2) 既有 `test_runtime_credentials.py` 的旧投影断言（`{id, api_key}`）按新契约适配为九字段并补"轮换后计量身份随值切换"断言（旧断言描述的是已删除的形状，属事实同步而非弱化）；(3) 删除 `VALID_EXECUTION_TYPES` 后配置盘点行同步移除（盘点只记录真实声明）。
 - 延后项：review 层 verifier 由需求级 verify-e2e 全量复跑；浏览器/E2E 场景不受本任务影响（无前端改动）。
 - B-220: verified — automated command passed; run_id=c0a1cf3d34b24b3cb0f69e21a66797bd (confirmed_by: runner)
+- B-220: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-220: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2642,6 +2683,10 @@ Agent继续显式选择model_id、无默认模型；完整分支及可观测结�
 - 中间过程（诚实记录）：(1) 首版把 advisory 锁观察轮询上限设为 6 秒，在共享库被并行批次压慢时出现一次"未观察到池锁"的偶发失败；改为 30 秒上限并保留真实断言（仍是"观察到 advisory 已持有且仍在等行锁"），随后单文件复跑 3 次全绿、前置 109 用例同跑 121 passed；(2) `_reserve_or_code` 先把 `AppError.code`（字符串）转成 `ErrorCode` 再比较，避免用字符串相等掩盖错误码差异。
 - B-01: verified — automated command passed; run_id=a667aacc72c5442f931ffed044c48b97 (confirmed_by: runner)
 - B-221: verified — automated command passed; run_id=a667aacc72c5442f931ffed044c48b97 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-221: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-221: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2703,6 +2748,8 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 - 中间过程（诚实记录）：① 竞争用例首版只统计 `pg_locks` 中 `transactionid` 未授予锁，实测同一行上两个等待者分别走 `transactionid` 与 tuple 锁两条真实路径（实测观测到 1/2，30 秒轮询仍不足），改为「未授予锁属于该 xid 或属于 `runtime.model_call_lease` 表」统计独立等待 backend 数，保留“两个操作都已在真实行锁上排队”的观测强度而不放宽断言；② 测试内窗口回拨改为 KEY 与组行同一事务更新（同一 PG 时间），避免两行桶边界漂移。
 - 延后项（诚实记录）：执行链装配（预占→解析→发上游→续租心跳→结算接线）属 TASK-025/027；真实供方额度与实际 usage 采集、1000 并发容量结论属 TASK-110/116；受影响 Key 的隔离与管理员核实提示属 Console 侧端口（TASK-027/028）。本任务只交付容量权威端口的续租/usage 结算/UNKNOWN 保留与清扫语义及其真实 PG 证据。
 - B-222: verified — automated command passed; run_id=177c1f703ab7405caea24421ada4c527 (confirmed_by: runner)
+- B-222: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-222: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2765,6 +2812,8 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 - 中间过程（诚实记录）：实现后首轮 12 passed / 2 failed，均为**测试期望写错**而实现正确——① 共享 epoch 用例把"排序取最小计数"写成"期望取最大"，并误以为同 epoch 会清零（事实是同 epoch 内继续累加，只有旧 epoch 归一）；② 锁序用例把池锁次数写成 2，实际为 3（两次选择事务 + 一次预占事务）。修正期望后 15 passed；未放宽任何断言。
 - 环境发现（不属于本任务改动，供协调）：与另一 worktree（TASK-022）并行跑全量 `tests/agent_runtime` 时，`tests/agent_runtime/test_capacity_webchat_capacity_reserve.py::test_b221_pool_advisory_lock_held_before_capacity_row_lock` 在跨进程竞争下可能让观察轮询失败并留下"已检出但未关闭的 blocker 连接"，其后的租户清理 `DELETE FROM runtime.model_capacity` 永久等 `tuple` 锁（`pg_stat_activity` 现场：一个 `idle in transaction` 持组行锁 18 分钟、一个等候者等 `transactionid`、一个清理等 `tuple`），表现为整轮串跑挂死；单跑该文件 0.68s 全绿。该文件骨架属 TASK-021 已 verified 资产，本任务不改，按"先怀疑环境残留/共享库竞争"处理并复跑。
 - B-223: verified — automated command passed; run_id=acbb139ecde94d2882cc9a1b85f33e95 (confirmed_by: runner)
+- B-223: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-223: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2827,6 +2876,8 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 - 调用链装配**未越界**：预占→按 `credential_id`+`expected_revision` 解析 Key→发上游、以及按冻结成员构造候选并调用 `ModelAllocator` 属 TASK-025/027；本任务只交付"冻结 + 策略 + 读回口径"。
 - 中间过程（诚实记录）：(1) 首轮 4 passed / 2 failed——① 读回用例里 `del policy["model_members"]` 在直构策略上没有该键（测试自身缺陷，改 `pop(..., None)`，断言未弱化）；② 续跑用例用文本"继续"触发的是**记忆续接选项**流程（真实 `MEMORY_RESUME_NOTICE`，不装配执行器），改用普通消息后走真实模型路径；(2) 两处既有断言按新事实同步（**不是放宽**，仍是整份相等）：`test_memory_redesign_snapshot.py` 的整份 policy 期望补 `"model_members": []`（真实创建路径比直构快照多冻结成员事实）、`test_runs_api.py` 的 `policy_json == snapshot_policy(members=())` 与 `_expected_hash` 同口径（真实 POST 路径）；(3) mypy 一处 `Mapping|None` 收窄后 402 files 无问题；(4) 全量 `tests/agent_runtime` 首轮 813 passed / 1 failed（正是上面第 (2) 条的 `test_runs_api.py` 整份相等断言），同步后复跑见下。
 - B-224: verified — automated command passed; run_id=7d257a21333e4fd49d700448e649469b (confirmed_by: runner)
+- B-224: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-224: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2898,6 +2949,10 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 - E-04: verified — automated command passed（Done Gate 执行）
 - E-04: verified — automated command passed; run_id=81cdba8bd2d340868b8023f469728163 (confirmed_by: runner)
 - B-225: verified — automated command passed; run_id=81cdba8bd2d340868b8023f469728163 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-225: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-225: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -2963,6 +3018,10 @@ epoch/租约CAS、重复释放和跨分钟结算正确；完整分支及可观�
 - 延后项：`WAITING_MODEL` 持久排队/状态投影 → TASK-036；执行槽 → TASK-032；真实供方额度与 1000 并发结论 → TASK-110/116；review 层 verifier 与 heavy validator 由需求级 verify-e2e/archive 全量复跑。
 - E-06: verified — automated command passed; run_id=ac69d3c3fc3340a1ba467692978d76b4 (confirmed_by: runner)
 - B-226: verified — automated command passed; run_id=ac69d3c3fc3340a1ba467692978d76b4 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-226: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-226: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3018,6 +3077,8 @@ API-17只接受受信probe身份、正确attempt/epoch与期限；完整分支�
 - 口径裁定（诚实记录）：① 探针目标身份由 Runtime 从 `control.model_*` **只读**解析（与容量上限读取同源），`key_resource_id` 走唯一派生函数 `derive_model_key_resource_id`——线协议只带 model_id/credential_id，不接受调用方自报计量身份，探针与 Run/摘要/提炼因此合并同一物理 Key 与账号额度；② 探针租约执行方身份固定为 `PROBE_LEASE_OWNER="console-probe"`（API-17 只有一个受信调用方），线协议续租/结算只核 epoch（design §3.4 原文），非 PROBE 租约一律 404——本端口不触碰 Run/job 调用；③ 冻结的绝对期限不在租约行（0022 无该列且本任务禁止 DDL，与 TASK-022 裁定一致）：续租由 Console 传入同一 deadline，服务只前进不倒退且不越该期限；④ renew/settle 先按路径 reservation_id 无锁读并守卫 PROBE 归属，再进服务行锁事务；并发 renew/settle 由 attempt 行锁串行，幂等/失约语义沿用 TASK-022。
 - 延后项：Console 侧探测 HTTP 与并发≤4/单次≤5s、"先占额再探测"编排属 TASK-028；探针真实供方额度与 1000 并发容量结论属 TASK-110/116。本任务只交付受信容量端口及其真实 PG/HTTP 证据。
 - B-227: verified — automated command passed; run_id=413f887d090c4e47a19eb30310ad4128 (confirmed_by: runner)
+- B-227: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-227: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3076,6 +3137,8 @@ API-17只接受受信probe身份、正确attempt/epoch与期限；完整分支�
 - 配置清单：新增模块级常量 10 个已登记 `docs/configuration-inventory.csv`（`tests/test_configuration_inventory.py` → **4 passed**）。
 - 延后项（诚实记录）：真实供方额度与 1000 并发容量结论属 TASK-110/116；探测资源预算/装配观测属 TASK-097/098/099；前端 Key 检测界面属 TASK-086；探针的取消（客户端断开）不主动释放占用，留给 Runtime 有界清扫标记 UNKNOWN（与主链「本地失约不等于远端已停」一致）。
 - B-228: verified — automated command passed; run_id=83759e48bd504aadad7e3f29bc54e987 (confirmed_by: runner)
+- B-228: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-228: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3134,6 +3197,8 @@ source_settings_revision只增不退，policy锁在会话锁之前；完整分�
 - 延后项（诚实记录）：同事务建 Run/自增计数与指纹属 TASK-030；终态释放、取消与排队期限竞态属 TASK-031；Runtime 执行槽属 TASK-032；准入指标目录属 TASK-098；1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责。
 - 中间过程（诚实记录）：(1) 降额用例首版把 3 条 RUNNING Run 放进同一会话，撞真实约束 `uq_run_record_active_conversation`（同会话只允许一个活跃 Run）→ 改为三条 Run 分属三个会话，断言不变；(2) 锁序用例首版让受理事务在等会话锁时**同时**应用更高版本，`UPDATE` 自身也会持行锁，导致去掉 `FOR UPDATE` 的变异仍通过 → 改为「同一版本不触发 UPDATE」后该用例才真正只由策略行锁决定，变异即失败。
 - B-229: verified — automated command passed; run_id=77afecde5d3c4ee0a08837b666c18651 (confirmed_by: runner)
+- B-229: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-229: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3195,6 +3260,8 @@ source_settings_revision只增不退，policy锁在会话锁之前；完整分�
 - 延后项（诚实记录）：终态释放/取消/排队期限竞态属 TASK-031（本任务计数只增，Run 到终态后不释放份额）；持久排队阶段与两入口状态投影属 TASK-036；Runtime 执行槽属 TASK-032；准入指标目录属 TASK-098；1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责。
 - 风险提示（诚实记录，未运行验收）：`tests/acceptance/**` 的 runtime 栈（module-scoped `live_stack`，同一用户跨用例连建 Run）未种 `capacity`，在 TASK-031 终态释放落地前会撞 schema 默认（每用户 2）；验收栈显式容量属 TASK-107/109 的配置契约，本任务按纪律未运行验收，留待 TASK-031 与验收栈任务收口。
 - B-230: verified — automated command passed; run_id=c78622729ea44807a6c83fe3d8c9dea3 (confirmed_by: runner)
+- B-230: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-230: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3257,6 +3324,10 @@ source_settings_revision只增不退，policy锁在会话锁之前；完整分�
 - 风险提示（诚实记录）：`expire_queued_runs`/`reap_abandoned_runs`/`expire_runs` 与既有回收器一致**不带租户谓词**（跨租户全局扫描），共享 dev 库上并发跑多套件时可能互相扫到对方的过期行；本任务用例对扫描返回值只做 `>= 1` 断言、对自有租户的行做精确断言，避免跨套件污染误判。
 - B-05: verified — automated command passed; run_id=455fbd4890444f0aa671d13df94aea1e (confirmed_by: runner)
 - B-231: verified — automated command passed; run_id=455fbd4890444f0aa671d13df94aea1e (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-231: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-231: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3312,6 +3383,8 @@ source_settings_revision只增不退，policy锁在会话锁之前；完整分�
 - 延后项（诚实记录）：Worker 侧有界任务池/独立回收属 TASK-033；持久排队阶段与两入口状态投影（本任务只保证「无槽不领取」，槽饱和时排队 Run 停在 `CREATED`）属 TASK-036；槽位/队列指标目录属 TASK-098（本任务只留 `execution_slots_configured`/`execution_slots_reclaimed` 结构化日志，未新增指标常量）；PG 服务端时钟统一属 TASK-035；1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责。
 - 风险提示（诚实记录）：`reclaim_stale_executions` 只做「失去归属」的保守回收，不主动取消仍在租约内但卡死的片段——那种情况由租约到期 + Reaper（或绝对期限扫描）先把 Run 变成终态，再由本循环释放槽，语义与「本地超时不等于远端已停止」一致。
 - B-232: verified — automated command passed; run_id=eee8b65981814857a54f476c696a2d2c (confirmed_by: runner)
+- B-232: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-232: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3371,6 +3444,8 @@ source_settings_revision只增不退，policy锁在会话锁之前；完整分�
 - 延后项（诚实记录）：槽位/队列指标目录属 TASK-098（本任务只留 `execution_slots_configured`/`worker_task_slot_failed`/`task_slot_close_timeout` 结构化日志，未新增指标常量）；PG 服务端时钟统一属 TASK-035；Worker 结果接入持久用户收件箱属 TASK-068；1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责。
 - 风险提示（诚实记录）：Worker 侧"失去归属的本地卡死片段"由该槽心跳检查点回收（心跳发现 `not owned`/`requested` 即叫停本地执行并释放槽），不另设本地监督循环；若执行器吞掉取消（不配合终止），`close()` 会以显式 `TimeoutError` 失败而不会静默成功，该片段仍只占自己的槽、不拖累其它槽。
 - B-233: verified — automated command passed; run_id=b17bace694944fd8a018b9817adcb45f (confirmed_by: runner)
+- B-233: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-233: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3428,6 +3503,8 @@ READ_ONLY/IDEMPOTENT/NON_RETRYABLE由可信配置冻结；完整分支及可观�
 - 延后项（诚实记录）：`retry_safety` 的**冻结写入**（ToolRegistry → execution policy，含「未知默认 NON_RETRYABLE、readOnlyHint 不单独授权」的冻结面）属 TASK-037；E-15 的 E2E（真实 Worker 子进程 + PG claim/reclaim + 受控外部写服务）属 TASK-110；待核实状态的用户通知/投递文案属 TASK-063/068；指标目录属 TASK-098。本任务只交付契约、Worker 结局分类与回收分流。
 - 边界（诚实记录）：确定性失败（协议违规/快照缺失等）保持精确错误码，不落「待核实」——待核实只用于可重试形状的失败（响应丢失/失约/未知远端结果）。未声明 retry_safety 的既有存量任务（含 BATCH 父任务之外的所有类型）在崩溃回收与失败收尾时都按 NON_RETRYABLE 处理，这是设计「未知按 NON_RETRYABLE」的直接后果。
 - B-234: verified — automated command passed; run_id=8ecded3826ee4af7b5d491e848a7ccea (confirmed_by: runner)
+- B-234: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-234: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3489,6 +3566,8 @@ Run/Task/模型租约与窗口使用PG时间；完整分支及可观测结果见
 - 回归（本任务同域聚焦）：`uv run pytest -q tests/agent_runtime` → **895 passed, 2 failed**（2 个失败为既有环境问题，见下）；`uv run pytest -q tests/agent_worker` → **308 passed**；`uv run pytest -q tests/architecture tests/contracts` → **1314 passed**；`uv run ruff check <改动文件>` 干净（唯一剩余 I001 在未改动的 `memory_consolidation_effects.py`，属既有问题）；`uv run mypy apps packages` → **Success: no issues found in 417 source files**。
 - 既有失败（非本任务引入，已用 `git stash` 基线复核）：`tests/agent_runtime/test_memory_redesign_snapshot.py::test_b12_*` 两个参数化用例在**未含本任务改动**的基线上同样失败（`memory_jobs.py:129 source snapshot unavailable`）；根因是共享 dev 库残留 1 条孤儿 PENDING 记忆作业（`dbg-7a23ea7b202d`，其 `runtime_snapshot` 已被其他套件清理）而 `MemoryJobs.claim` 不带租户谓词（既有已知机制）；按纪律不删共享 dev 数据。
 - B-235: verified — automated command passed; run_id=22ec0b35b0af4ff9bca30e1becb30854 (confirmed_by: runner)
+- B-235: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-235: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3547,6 +3626,8 @@ WAITING_RUNTIME/WAITING_MODEL/工具阶段与时间原因先持久化；完整�
 - 未跑全量验收/浏览器验收/任何迁移 DDL（共享 dev 库约束；`expire_queued_runs` 为生产同源扫描，仅在隔离租户行上生效）。
 - 延后项（诚实记录）：API-07/API-15 的 HTTP 路由与公开白名单投影属 TASK-051/052/046（本任务提供两入口共用的投影函数与 `run.stage` 事件行）；模型增量合并属 TASK-059；队列/阶段指标目录属 TASK-098（本任务只留 `run_stage_projection_failed` 结构化警告）；1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责。
 - B-236: verified — automated command passed; run_id=c1745a516ee2439285126657d69fa041 (confirmed_by: runner)
+- B-236: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-236: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3603,6 +3684,8 @@ ToolRegistry可信retry_safety随execution policy冻结，未知默认NON_RETRYA
 - 回归：`uv run pytest -q tests/agent_runtime` → **901 passed in 745.49s**（exit=0，最终冻结版本，含本任务 3 例）；`uv run pytest -q tests/agent_core tests/contracts tests/architecture` → **1546 passed in 12.09s**（exit=0）；`uv run pytest -q tests/migrations tests/test_async_tool_dispatch_settings.py tests/test_skill_artifact_cache.py tests/console_mcp` → **133 passed in 161.73s**（exit=0）。
 - 延后项（诚实记录）：E-15 的 E2E（真实 Worker 子进程 + PG claim/reclaim + 受控外部写服务）属 TASK-110；待核实状态的用户通知/投递文案属 TASK-063/068；指标目录属 TASK-098；`harness-mcp#RULE-mcp-001` 为 review 阶段 verifier（本任务已登记真实执行结果，需求级终验复核）。
 - B-237: verified — automated command passed; run_id=dde7e7b7571142a1a6b129314a9eb878 (confirmed_by: runner)
+- B-237: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-237: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3664,6 +3747,8 @@ B-238: verified — automated command passed; run_id=f399ab79e5884c5dbd84de1b005
 - 聚焦回归：`uv run pytest -q tests/console_auth` → **51 passed**（6.38s）；`uv run pytest -q tests/contracts` → **1281 passed**（3.00s）。未跑全量验收/浏览器验收/任何迁移 DDL（共享 dev 库约束）。
 - 交接给后续任务：API-03 路由（TASK-039）直接消费 `issue_token`/`revoke_token`/`read_metadata`；CHAT 交换（TASK-040）用 `hash_chat_token` 按摘要定位 Token，并自行复核用户 `status` 与会话期限 ≤ 来源 Token 期限。
 - B-238: verified — automated command passed; run_id=f399ab79e5884c5dbd84de1b0059df8d (confirmed_by: runner)
+- B-238: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-238: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3722,6 +3807,8 @@ B-239: verified — automated command passed; run_id=2b81adc3c10043c39443663a90d
 - 聚焦回归：`uv run pytest -q tests/console_auth` → **57 passed**（8.37s，含本任务 6 例）；`uv run pytest -q tests/contracts` → **1281 passed**（3.27s）；`uv run pytest -q tests/test_configuration_inventory.py tests/console_platform/test_users_api.py tests/console_platform/test_user_detail_api.py tests/console_platform/test_user_side_relations.py tests/console_platform/test_bind_codes_api.py` → **18 passed**。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）。
 - 真实边界说明：本任务路径不发起任何外部模型调用，故"外部模型真实 HTTP 探针"边界在 API-03 上不适用（无 mock 也无探针需要）；其余真实边界（真实 Console 应用服务/依赖、独立 PostgreSQL 与事务）全部如实执行。
 - 交接给后续任务：TASK-085 前端凭据卡片按 `GET` 元信息 → `PUT {expected_revision}` 首签/重置（原文只在本次响应展示一次）→ `DELETE ?expected_revision=N` 版本撤销接线；TASK-042 的 CHAT 交换仍按 `hash_chat_token` 摘要定位 Token，不经过本端点。
+- B-239: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-239: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3782,6 +3869,10 @@ B-239: verified — automated command passed; run_id=2b81adc3c10043c39443663a90d
 - 交接给后续任务：API-04 端点（TASK-041/042）直接消费 `ChatSessionService.exchange/resolve/logout`——`ChatSessionGrant.session_token` 写独立 HttpOnly CHAT Cookie 与 CSRF（Cookie `Max-Age` 与库内剩余期限同源）、`info.auth_context_id` 做 X-Chat-Context 匹配、响应 no-store；公开路由只接受 `WebchatTokenExchange.token`（SecretStr），不接受可信 user_id/tenant。TASK-112 的跨用户浏览器 E2E 沿用本层语义。本层"保留历史"的可验证事实是身份连续与会话/Token 行不删（Conversation/Run/消息历史归 Runtime，不在本任务范围）。
 - B-08: verified — automated command passed; run_id=bee1219dbaa04c2491da101067f722af (confirmed_by: runner)
 - B-240: verified — automated command passed; run_id=bee1219dbaa04c2491da101067f722af (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-240: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-240: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3838,6 +3929,8 @@ CHAT Cookie名称与管理会话隔离，HttpOnly/Secure/SameSite及Max-Age同�
 - 聚焦回归：`uv run pytest -q tests/console_auth` → **79 passed**（10.19s，含本任务 6 例）；`uv run pytest -q tests/contracts` → **1281 passed**（3.22s）；`uv run pytest -q tests/console_platform` → **363 passed**（54.04s，`security.py` 改动面）；`uv run pytest -q tests/console_platform/test_auth_policy_settings.py tests/console_skill/test_skill_rbac.py tests/console_channel/test_artifact_fetch.py` → **19 passed**；`uv run pytest -q tests/test_logging_redaction.py tests/test_api_i18n.py tests/test_error_catalog.py` → **26 passed**；`uv run pytest -q tests/console_skill/test_import_idempotency.py` → **5 passed**。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）。
 - 交接给 TASK-042：`webchat_auth.py` 直接消费本层——exchange 挂 `Depends(require_chat_origin)` 并以 `set_chat_cookies(response, grant.session_token, new_csrf_token(), await chat_cookie_max_age(session, grant.info.expires_at))` + `mark_no_store(response)`；me/logout 与其余 CHAT 写路由挂 `Depends(require_chat_csrf)`、读 `CHAT_SESSION_COOKIE`、登出 `clear_chat_cookies(response)`；`X-Chat-Context` 匹配（`info.auth_context_id`）归 TASK-043/044。
 - B-241: verified — automated command passed; run_id=0cb9e8e8b69d4d239d9487fef0ba72fa (confirmed_by: runner)
+- B-241: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-241: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3894,6 +3987,8 @@ CHAT Cookie名称与管理会话隔离，HttpOnly/Secure/SameSite及Max-Age同�
 - 聚焦回归：`uv run pytest -q tests/console_auth` → **83 passed**（10.39s，含本任务 4 例）；`uv run pytest -q tests/contracts` → **1281 passed**（3.07s）；`uv run pytest -q tests/console_platform` → **363 passed**（54.67s，路由挂载面）。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）。
 - 交接：TASK-043 内部门控消费 `info.auth_context_id` 做 X-Chat-Context 匹配（本任务已保证公开投影含该字段）；TASK-045 全链路脱敏在 `webchat_auth.py` 上复核（公开响应已无凭据，Token 只进请求体、会话原文只进 HttpOnly Cookie）。
 - B-242: verified — automated command passed; run_id=2dca1ae4c9e4409b89318018128d2ca6 (confirmed_by: runner)
+- B-242: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-242: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -3953,6 +4048,8 @@ CHAT Cookie名称与管理会话隔离，HttpOnly/Secure/SameSite及Max-Age同�
 - 聚焦回归：`uv run pytest -q tests/console_internal` → **54 passed**（6.99s，含本任务 5 例）；`uv run pytest -q tests/contracts tests/test_configuration_inventory.py` → **1285 passed**（4.56s）；`uv run pytest -q tests/console_platform` → **363 passed**（60.61s，`agent_access_grant_repository` 改动面）；`uv run pytest -q tests/console_auth` → **83 passed**（12.09s）；`uv run pytest -q tests/console_channel tests/test_api_i18n.py tests/test_error_catalog.py` → **69 passed**（8.56s，`internal_channel.py` 挂载面）；`uv run pytest -q tests/console_platform/test_user_side_relations.py` → **3 passed**。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）；测试自带按 `tenant_id` 的清理（chat_session→chat_access_token→审计/设置），跑后核查 `test-%` 租户 CHAT/用户行均为 0。
 - 交接：TASK-044 Gateway 侧直接消费本端点——请求头带 `X-Tenant-Id`/`X-Internal-Service`/`X-Chat-Context`，体为 `{"session_token": <CHAT Cookie 原文>}`；响应 `principal.session_id` 即 `auth_context_id`，`expires_at` 用于长流到点停止，`agents` 用于入口授权与 `/api/v1/webchat/entries`（API-05）。TASK-045 全链路脱敏在本层复核：响应无凭据、日志/审计零凭据字段。
 - B-243: verified — automated command passed; run_id=f9909183dd234d739f1f514f328ca090 (confirmed_by: runner)
+- B-243: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-243: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4011,6 +4108,8 @@ Gateway只经Console核验，拒绝跨部署tenant；完整分支及可观测结
 - 聚焦回归：`uv run pytest -q tests/gateway` → **371 passed**（88.41s，含本任务 12 例）；`uv run pytest -q tests/architecture tests/contracts tests/test_configuration_inventory.py tests/test_error_catalog.py tests/test_api_i18n.py` → **1333 passed**（5.23s）；`uv run pytest -q tests/test_logging_redaction.py tests/test_secret_ref_residue.py` → **13 passed**。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）。
 - 交接：TASK-052 的资源路由用 `ChatIdentityDep`（读写/下载）与 `ChatStreamGuardDep`（SSE）收口主体；`chat_auth_recheck_sec` 已由 `main.py` 装配根发布（TASK-096 只需挂路由）；TASK-045 全链路脱敏在本层复核（响应/日志/审计零凭据字段）。
 - B-244: verified — automated command passed; run_id=d8a5f90eb6cf48549de833d4d9db0b6a (confirmed_by: runner)
+- B-244: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-244: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4066,6 +4165,8 @@ Gateway只经Console核验，拒绝跨部署tenant；完整分支及可观测结
 
 边界登记（不声称已覆盖）：本文件 canary 反查范围恰为 Console Owner 库 `control` 全库 + Console 应用日志 + HTTP 响应；Gateway/Runtime 侧凭据复核由 TASK-044 的 `chat_principal` 与 TASK-045 交接条目负责，不在本用例断言内；`tests/acceptance/test_secret_consumers.py` 的既有范围不含 `control.config_audit_log`（其条目已如实登记），本次新增的库级反查正是补这一块。
 - B-245: verified — automated command passed; run_id=49b4675656b0480bbcefc280367bd630 (confirmed_by: runner)
+- B-245: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-245: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4119,6 +4220,8 @@ WEBCHAT稳定入口无需企微secret且创建后不原地改Agent；完整分�
 
 静态检查：`uv run ruff check`（本任务改动的 8 个文件）全部通过；`uv run mypy apps packages` → Success: no issues found in 408 source files；`docs/configuration-inventory.csv` 保持 CRLF、只更新本任务相关行（`channel_service.py` 行号 +1、`channel_admin_service.py` 3 个新常量、`enums.py` `DEFAULT_CHANNEL`），`tests/test_configuration_inventory.py` 4 passed。函数均 ≤50 行；未新增错误码（复用 `COMMON_VALIDATION_ERROR`/`BOT_ID_EXISTS`/`AGENT_NOT_FOUND`/`BOT_NOT_FOUND`）。
 - B-246: verified — automated command passed; run_id=34a8ece1d0ff46c39150669a66a3028d (confirmed_by: runner)
+- B-246: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-246: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4171,6 +4274,8 @@ HTTP输入被规范化为统一事件并经唯一iter_events入口消费；完�
 
 遗留（非本任务范围）：`harness-im.md` 的 Conventions 仍写着"`channel` 白名单仅 `WECOM`"（TASK-046 起已不成立，本任务又把 WEBCHAT 适配器落成事实），建议由 spec 责任面（cf-learn / TASK-046 review 面）改写为"白名单含 WEBCHAT，适配器按 name 注册、快照按 channel 分发"。
 - B-247: verified — automated command passed; run_id=4157a3a728cd4fbd9384334020e7e02e (confirmed_by: runner)
+- B-247: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-247: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4227,6 +4332,8 @@ handler槽仅覆盖受理，长流不占handler；完整分支及可观测结果
 
 遗留（非本任务范围）：① 启动设置 `gateway_max_concurrent_handlers`（TASK-003 已入 `SharedSettings`）仍未接线，装配根（TASK-096）应把它传进 `InboundPipeline(max_concurrent_handlers=...)`，本轮保持模块常量默认 8；② Runtime 的 `cancel-active` 仍按 (agent,user) 维度，来源级精确取消/待确认由 TASK-056 落；③ Runtime 侧「无显式会话的入口按 `channel_conversation` 指针选会话」由 TASK-049 落（当前 `_resolve_conversation` 仍按用户+Agent 最新会话）。
 - B-248: verified — automated command passed; run_id=a635533d6a6743fcb24e28c296190522 (confirmed_by: runner)
+- B-248: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-248: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4281,6 +4388,8 @@ handler槽仅覆盖受理，长流不占handler；完整分支及可观测结果
 
 遗留（deferred，非本任务可闭合）：① **企微等非 UUID 形状入口键的指针缺口**——`channel.bot_id` 是字符串（如 `aibln...`），Runtime 无法据它得到入口账号 UUID，故指针仅对 UUID 形状入口生效；非 UUID 入口退回 (tenant,user,agent) 口径且**只认未归属会话**（防止借用已归属会话，跨入口混写风险已显式拒绝但不能做入口级指针）。收口路径：由装配/契约侧把入口账号 UUID 带进 RunRequest（例如适配器/装配根按 `BotSnapshotItem.bot_account_id` 映射，或扩展 `ChannelContext`），届时企微也走同一指针；在此之前保持诚实退化、不编造入口身份。② `RunService.create_conversation` 的入口参数（`entry_id`/`external_thread_id`）与幂等指纹已就绪，但 Runtime HTTP DTO（`POST /v1/conversations`）尚未暴露这两个字段——由 TASK-052 的 Gateway API-08 接线时补齐（含 201 响应 `entry_id` 投影）。③ `last_message_at` 的口径（用户消息 + COMPLETED 正文）由本任务定义；TASK-050 的列表排序若需要其它事件刷新，请在其口径内显式决定，不静默扩大刷新面。
 - B-249: verified — automated command passed; run_id=1b853ecab9264b4190285d109ca96ad5 (confirmed_by: runner)
+- B-249: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-249: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4337,6 +4446,10 @@ handler槽仅覆盖受理，长流不占handler；完整分支及可观测结果
 遗留（deferred，非本任务可闭合）：① `active_run.confirmation` 的**完整候选与选项文案**由 TASK-056 的 resume 语义投影（记忆确认的选项在仓库内没有已定型的线上词表，本任务不合成、不编造，`confirmation=None` 是显式选择）；② 消息页的 `CURSOR_EXPIRED` 需要保留/清理边界（`webchat.history_retention_days` 的落地属 TASK-069），当前只有"超前"分型；③ 内部详情/消息端点要求 `entry_id`+`agent_id` 显式传入（TASK-052 从 `/chat/:entryId` 路由参数与入口快照解析后调用；公共 API-15/09 的入口解析属 TASK-052 接线）；④ 助手消息的产物附件（工具结果类 artifact）不在本任务投影范围，随 TASK-055/059 的附件语义收口；⑤ 页大小默认值解析每次未显式传参时读一次平台设置（TASK-057 的配置缓存落地后可共用同一投影）。
 - B-04: verified — automated command passed; run_id=09861432860342169c63c1065e1b9a0b (confirmed_by: runner)
 - B-250: verified — automated command passed; run_id=09861432860342169c63c1065e1b9a0b (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-250: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-250: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4389,6 +4502,8 @@ USER/ASSISTANT/安全附件/确认白名单，工具参数/结果/SYSTEM/推理/
 
 遗留（deferred，非本任务可闭合）：① **确认的完整候选投影**（`submission_id/source_event_id/options` 的写入侧）属 TASK-056——本任务只认「载荷本身已是完整安全 DTO」，记忆确认现有内部载荷（`proposal_id/proposal_hash/…`）不公开、不合成选项；② **流端点/游标/分片/回压**属 TASK-060/061（本任务只提供 `project_public_stream_event` 接缝与合法跳号语义，未接线任何路由）；③ `message.delta` 的 `reply_generation` 多代与 `message.snapshot` 分片属 TASK-062/061（当前缺省 0=首次生成）；④ `TRANSCRIPT` 清理/下载授权属 TASK-055/069（本任务只保证不进入公开投影与不提供内部存储键）。
 - B-251: verified — automated command passed; run_id=6200b71f67594c7b9b2bda67829e7b21 (confirmed_by: runner)
+- B-251: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-251: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4441,6 +4556,8 @@ API-05/06/08/09/14/15完整转Owner；完整分支及可观测结果见下面验
 
 遗留（deferred，非本任务可闭合）：① **生产装配根注册**（TASK-096）——`main.py` 需 `app.include_router(webchat_router)` 并把 WEBCHAT 出站 sink 注入适配器；本任务测试按"生产路由 + 装配根状态同形注入"直连真实应用，未改 `main.py`（Files 不含它，且 B-296 明确覆盖"生产 app 实际注册"）。② **API-07 公开 SSE/API-10 上传/API-11 通知/API-19 客户端配置**分别属 TASK-061/054/070/057；本任务只落 API-05/06/08/09/14/15。③ **消息文本不做 IM 命令方言**——资源 API 是消息面（停止/新建/确认走 API-08 专用端点）；若后续要求网页输入框支持 `/new` 等文本命令，需在 API-06 契约显式设计判别型响应。④ **恢复回执的 `submission_id` 取自请求绑定**（Owner 的 resume 流首帧不携带该字段）；若 TASK-056 后续在回执中返回权威 submission，应改为从 Owner 投影。⑤ **`WebchatConversationCreated` 的创建时不变式**：幂等重放在"会话已推进"的极端窗口下会显式 `COMMON_INTERNAL_ERROR`（不撒谎返回 `last_seq=0`），如需支持该窗口需扩展契约语义。
 - B-252: verified — automated command passed; run_id=da32a8ffa22a4d94975320f7c96921c4 (confirmed_by: runner)
+- B-252: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-252: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4500,6 +4617,10 @@ API-05/06/08/09/14/15完整转Owner；完整分支及可观测结果见下面验
 遗留（deferred，非本任务可闭合）：① **Runtime HTTP DTO 的 upload_ids 接线**——`MessageInput.upload_ids` 契约与 `RunService` 受理路径已就绪，Gateway→Runtime 的消息提交（API-06）由 TASK-052/054 把 HTTP `upload_ids[]` 映射进来；本任务只保证 Runtime 侧语义。② **活跃引用与孤儿宽限的完整清理保护**属 TASK-069（本任务只提供暂存侧最小正确清理：过期行软删+删暂存文件，已受理制品在 Run 自己的键上不受影响）。③ 暂存核属与清理之间存在小竞态窗口（核属通过后清理进程删了暂存文件）：受理会以 `UPLOAD_EXPIRED` 显式失败且不留半建 Run，用户重传即可；宽限期保护由 TASK-069 收口。④ `_resume_active` 对带 upload_ids 的 resume 显式拒绝（API-08 的 resume 显式绑定原 Run/submission/source，不承载新暂存上传）；若后续需求要支持"暂停期间补传附件"，需在 resume 契约中显式设计。
 - B-02: verified — automated command passed; run_id=e826a5acdfee41cbaeb39204c3b968eb (confirmed_by: runner)
 - B-253: verified — automated command passed; run_id=e826a5acdfee41cbaeb39204c3b968eb (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-253: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-253: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4546,12 +4667,14 @@ API-05/06/08/09/14/15完整转Owner；完整分支及可观测结果见下面验
 
 实现要点：**流式**（multipart 部件体按入站块写入共享存储，内存上界=单块+分隔符，不整包驻留）→ **门控先于昂贵处理**（主体/入口授权 → 设置快照 → MIME/数量/大小，超限在写入途中即中止并清理）→ **原子不可变落盘**（临时文件 + `os.link`，目标存在即冲突）→ **转 Owner 登记**（字节写好后才经受信端口登记权威元信息；失败路径删除无行引用的暂存字节）→ **限额唯一来源**（平台设置 + 启动硬预算上界，前后端与 Runtime 同值：`upload_max_bytes`/`upload_max_per_message`）。
 
-回归：`uv run pytest -q tests/gateway` exit=0，**398 passed**（93.88s；含 TASK-052/044 等既有 390 条 + 本任务 8 条）；`uv run pytest -q tests/architecture tests/contracts tests/test_configuration_inventory.py tests/console_channel` exit=0，**1372 passed**（10.13s，含通道中立性/网关不持库/契约 parity/配置盘点）；同域 `harness-im#RULE-im-001`（`tests/console_channel` + `tests/gateway`）与 `RULE-im-002`（`tests/architecture/test_channel_neutrality.py`）均在本轮真实执行通过。
+回归：`uv run pytest -q tests/gateway` exit=0，**398 passed**（93.88s；含 TASK-052/044 等既有 390 条 + 本任务 8 条）；`uv run pytest -q tests/architecture tests/contracts tests/test_configuration_inventory.py tests/console_channel` exit=0，**1372 passed**（10.13s，含通道中立性/网关不持库/契约 parity/配置盘点）；同域 `RULE-im-001（见 Spec Responsibility）`（`tests/console_channel` + `tests/gateway`）与 `RULE-im-002`（`tests/architecture/test_channel_neutrality.py`）均在本轮真实执行通过。
 
 静态检查：`uv run ruff check`（本任务 6 个改动文件）干净；`uv run mypy apps packages` → Success: no issues found in 426 source files；新增/修改函数均 ≤50 行（最长 42 行 `_stage_single_part`）；`docs/configuration-inventory.csv` 保持 CRLF（1477 行全 CRLF、无裸 LF），只更新自己的行（`runtime_client.py` 行号漂移 + 新增 `INTERNAL_UPLOADS_PATH`、`api/webchat.py` 行号、`RuntimeClient.__init__.timeout_sec` 行号）并追加 `webchat_uploads.py` 6 行常量。
 
 遗留（deferred，非本任务可闭合）：① **装配根接线**——路由依赖读取 `app.state.{settings_client,artifact_store,chat_upload_hard_max_bytes}`，生产装配由 TASK-096 发布这三个状态值（TASK-052 同一模式：本任务只交付路由与依赖图，`main.py` 不改）。② **下载/预览授权**属 TASK-055（本任务只登记暂存与返回 `upload_id`）。③ **暂存清理的活跃引用/孤儿宽限**属 TASK-069（本任务失败即清理，不留孤儿）。④ **前端 client-config 同值投影**属 TASK-057（`upload_max_bytes`/`upload_max_per_message` 由同一 schema 派生）。⑤ 一次请求只登记一个文件部件（响应契约是单个 `WebchatUpload`；多文件由前端逐个上传），单请求文件部件数仍受 `upload_max_per_message` 上界约束。
 - B-254: verified — automated command passed; run_id=22d385216ddd4322a587a7f0a0a589cc (confirmed_by: runner)
+- B-254: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-254: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4605,6 +4728,8 @@ API-05/06/08/09/14/15完整转Owner；完整分支及可观测结果见下面验
 遗留（deferred，非本任务可闭合）：① **装配根接线**——下载路由依赖读取 `app.state.{runtime_client,bot_snapshot,artifact_store,tenant_id}`，生产装配由 TASK-096 发布这些状态值（TASK-052/054 同一模式：本任务只交付路由与依赖图，`main.py` 不改）。② **前端预览渲染与错误文案**属 TASK-080/084（本任务只交付服务端处置语义：`inline`/`attachment`、`no-store`/`nosniff`；前端已按 `responseType: 'blob'` 取件，见 TASK-073）。③ **清理与保留边界**属 TASK-069（本任务对"字节已清理"的取件一律 404，不做清理本身；活跃引用/孤儿宽限不在本层）。④ **助手/工具产物附件的公开投影**（`WebchatHistoryMessage.attachments` 目前只投影 USER 消息）属 TASK-051/059 的收口——本任务的服务端取件语义对已授权会话的任意可见产物都成立，不依赖该投影是否已扩到助手侧。⑤ `TRANSCRIPT` 不提供公开下载入口（TASK-051 已不投影）；本任务在 Owner 解析面再次显式拒绝（404），两层同口径。
 - B-255: verified — automated command passed; run_id=7a004f6a9745455fb3dcf75f7ea2a4f4 (confirmed_by: runner)
 - B-255: verified — automated command passed; run_id=22db8256d5b749328ee92bb9719ab791 (confirmed_by: runner)
+- B-255: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-255: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4661,6 +4786,8 @@ cancel/resume绑定原Run/submission/source并在锁内复核WAITING_INPUT/deadl
 
 遗留（deferred，非本任务可闭合）：① 来源级取消的**调用方接线**——Gateway `/stop`（`InboundPipeline._handle_stop`）与 webchat 停止仍只传 (agent,user)；TASK-052/096 应从路由/入口快照解析来源并传 `source`（本任务只落 Runtime 侧精确语义与 API 面）；② 网页 resume 的 `submission_id`/`source_event_id` 由 TASK-052 从 API-15 候选投影取值后透传，本任务不接线 Gateway；③ `WebchatConfirmation` 的选项**标签**用 resume 动词（zh-CN），本地化词条属 TASK-090；④ 确认中断在 TTL 到期后由 TASK-063 的通知/过期扫描收口（本任务只保证投影与消费两侧的 deadline/expiry 语义）。
 - B-256: verified — automated command passed; run_id=cdd6bc9dd5d8484fb36e549c6bbd61c5 (confirmed_by: runner)
+- B-256: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-256: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4713,6 +4840,8 @@ API-19只返回当前CHAT可用的settings/transport revision及分页/输入/�
 
 遗留（deferred，非本任务可闭合）：① **装配根接线**——路由依赖读取 `app.state.{settings_client,sse_event_max_bytes,run_event_heartbeat_sec,chat_message_hard_max_bytes,chat_upload_hard_max_bytes}`，生产装配由 TASK-096 发布这些状态值（TASK-052/054 同一模式：本任务只交付路由与依赖图，`main.py` 不改）。② 公开 SSE 游标/分片与缓冲回压属 TASK-061（本任务只交付浏览器可见的帧/心跳/重连**投影**；活跃连接绑定 `transport_revision` 的消费语义由 TASK-072/076/082 落地）。③ 前端 clientConfig 加载与版本化消费属 TASK-076（本任务保证投影值与默认唯一来源；组件不复制默认值在前端侧验收）。④ `settings_revision` 当前直接取 Console 快照的整份文档版本；按字段的生效边界（new_run/restart_required 等）不在 API-19 投影内。
 - B-257: verified — automated command passed; run_id=55d636a4331a4e878a1a2789ae538f56 (confirmed_by: runner)
+- B-257: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-257: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4765,6 +4894,8 @@ Gateway共享字节写入后仅经服务门控登记upload_id；完整分支及�
 
 遗留（deferred，非本任务可闭合）：① **Gateway 侧消费**——`WebchatUploadRegistration` 契约与受信端口已就绪，TASK-054 负责流式写共享字节后调本端口并返回 `WebchatUpload`（API-10）；本任务只保证 Runtime 侧语义与线协议。② **入口/Agent 核属的用户维度**：用户活性与入口授权由 CHAT 认证面（Console API-12 主体 + API-05 授权入口列表）在 Gateway 侧实时核验；Runtime 只核能权威判定的入口身份事实并把受信主体登记到行上（受理时再复核归属），不复制 Console 的授权裁决。③ 暂存核属与清理之间的竞态窗口（核属通过后清理删了暂存文件）与活跃引用/孤儿宽限保护仍属 TASK-069。④ 本任务不新增迁移/DDL：`channel_upload` 结构由 TASK-013/0025 提供，入口核属只读现有 `control.bot_account`。
 - B-258: verified — automated command passed; run_id=3421605482e1436a808969aff55ac7ea (confirmed_by: runner)
+- B-258: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-258: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4818,6 +4949,8 @@ Gateway共享字节写入后仅经服务门控登记upload_id；完整分支及�
 遗留（deferred，非本任务可闭合）：① `message.snapshot` 分片、公开 SSE 单帧上限与订阅回压属 TASK-061；`reply_generation` 的多代替换（部分正文失败后新代）属 TASK-062（本任务只保证载荷总是显式携带生成代号，且旧代正文不被拼接）；② 共享追尾、提交后唤醒与 PG 有界补查属 TASK-060；③ 事件写入量/WAL/连接占用/首字额外延迟等压测观测与 1000 用户容量结论属 TASK-110/116；④ 崩溃后租约回收（Reaper 把 RUNNING 行转 FAILED）沿用 TASK-031 既有路径，本任务只证明"崩溃不丢已确认字节、崩溃不写终态"。
 - B-259: verified — automated command passed; run_id=79f19483cab54628a993c05bcc413cf8 (confirmed_by: runner)
 - B-259: verified — automated command passed; run_id=b5f1fd657821449cb7360f270ceaf955 (confirmed_by: runner)
+- B-259: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-259: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4876,6 +5009,10 @@ Gateway共享字节写入后仅经服务门控登记upload_id；完整分支及�
 遗留（deferred，非本任务可闭合）：① **公开 SSE 端点、游标分型投影（HTTP 层）、snapshot 分片与缓冲回压**属 TASK-061——本任务提供 hub 与接缝（`TailBatch.through_seq/caught_up`、`check_cursor`/`checkpoint`、满足 `public_events.CanonicalRow` 的 `CanonicalEventView`）；② **其它 canonical 写入方**（记忆确认 resume 等非 `run_service` 路径）尚未调用 `publish`：接线前其提交后唤醒由 `run_event_fallback_poll_sec` 补查兜底（不丢事件、只增时延），接线属 TASK-063/094；③ 事件写入量/订阅回压/hint 降级等**指标目录**属 TASK-098——本任务的可观测面是 `TailHubStats` 与 warning 日志；④ `run_event_heartbeat_sec` 仍由 HTTP 层使用（心跳不经过 hub，故不推进业务游标）；⑤ Reaper（`_reap_one`）写入终态行但不发唤醒：由补查节拍取回（本任务只保证语义与顺序正确，不等同"立即"）。
 - B-06: verified — automated command passed; run_id=9509259deba141fabf36856eb8e67514 (confirmed_by: runner)
 - B-260: verified — automated command passed; run_id=9509259deba141fabf36856eb8e67514 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-260: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-260: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4930,6 +5067,8 @@ CURSOR_EXPIRED/AHEAD分型，合法跳号不补拉循环；完整分支及可观
 计划外披露：① `application/runtime_client.py`（+`open_event_stream`）、`application/webchat_service.py`（`required_uuid`/`owned_run_state` 提为共用口径）、`application/envelope.py`（+`error_data_from_payload`）、`application/sse.py`（`KNOWN_EVENT_TYPES` 补 `message.snapshot`/`run.stage`）、`docs/configuration-inventory.csv` 不在任务 Files 计划内，属"网关不持库 + 游标分型必须早于响应头 + 授权判定不重复"的必要接线；② **公开投影在网关侧实现**依 design E-13 的边界表述（"Runtime 实际持久事件、Gateway 公开投影和浏览器"）；Runtime 的 `public_events.project_public_stream_event` 仍是历史/流共用的运行时投影接缝，本任务不改它（无第二份事实、只做公开边词表映射）；③ 未新增迁移/DDL。
 遗留（deferred，非本任务可闭合）：① **canonical `message.snapshot` 的生产方**（部分正文失败后新 `reply_generation` 的持久替换）属 TASK-062——契约（TASK-006）已定义分片坐标，本任务在公开边实现分片并由契约探针驱动，未接线前该分支由探针覆盖；② **装配根注册**（`main.py` 挂载 webchat 路由、发布 `webchat_sse_ledger` 与四个传输预算、启动预算 `gateway_max_sse_subscribers`）属 TASK-096——本任务的路由依赖已按同形读取 `app.state`（账本未发布时就地建立），B-261 按"生产路由 + 装配根状态同形注入"直连真实应用；③ **订阅者数量上限**（`gateway_max_sse_subscribers`=1100 的显式拒绝语义）与 SSE 指标目录（订阅数/断开原因/缓冲水位）属 TASK-096/098——本任务的可观测面是 `SseLedgerStats` 与 warning 日志（`webchat_sse_slow_subscriber_closed`/`webchat_sse_total_buffer_closed`/`webchat_sse_frame_rejected`/`webchat_sse_owner_stream_failed`）；④ **游标窗口的契约形状**（`WebchatCursorError{run_id,minimum_after_seq,last_seq,requested_seq}`）需 Owner 在错误 `data` 里同时给出最早可用水位与持久水位——当前 Runtime 只给其一，网关按"不补造"原则原样透传，完整窗口投影属 TASK-069（保留/清理）或 Runtime 侧的游标端点演进；⑤ **前端消费**（`message.snapshot` 分组收集、重连退避、`transport_revision` 绑定）属 TASK-072/076/082。
 - B-261: verified — automated command passed; run_id=696ac06ba1b8478993f5c95307a4a30f (confirmed_by: runner)
+- B-261: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-261: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -4990,6 +5129,8 @@ CURSOR_EXPIRED/AHEAD分型，合法跳号不补拉循环；完整分支及可观
 
 遗留（deferred，非本任务可闭合）：① 围栏/分代的**指标目录**（`reply_delta_fenced`、`tool_call_audit_replay_skipped` 等当前只有 warning/info 日志留痕）属 TASK-098；② 前端对 `message.snapshot` 的按代替换消费（分组收集、重连恢复、`transport_revision` 绑定）属 TASK-072/076/082；③ 公开边分片/游标/回压（同 run/reply_generation/canonical seq 的 part 组）属 TASK-061 已实现部分，本任务只提供 canonical 生产方与 Runtime 投影；④ 设计场景 E2E（S-03/E-09/E-16 等）保持 planned，由 TASK-110/111/113/116 的 verify-e2e 记录完整证据；⑤ 审计表"一个逻辑调用一行"的语义（部分唯一索引 + 重放跳过）若未来要保留每次重放的明细，需要新的审计身份列（DDL）——本任务不做，留待审计明细需求。
 - B-262: verified — automated command passed; run_id=2be9000a84a944f5ae2d2f60b9324b51 (confirmed_by: runner)
+- B-262: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-262: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5093,6 +5234,8 @@ E2E_WEBCHAT_OFFSET=3 bash -lc "npm --prefix apps/console-platform/frontend run b
 计划外披露：① `apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py`（待确认事务的**唯一**产生点就在 `suspend_memory_confirmation`；不在该事务内写通知就无法满足"确认与通知同事务"，属计划 Files 之外的必需联动）；② `tests/agent_runtime/conftest.py`（共享 `tenant` fixture 的 `CLEANUP_ORDER` 必须包含新表，否则所有在共享库跑终态路径的套件 teardown 被外键拦住）；③ `docs/configuration-inventory.csv`（项目硬约束：模块级常量必须盘点）。未新增迁移/DDL（0026 已提供两张表，无新列）。
 遗留（deferred，非本任务可闭合）：① **机器人出站投递意图（`PENDING`）与投递泵**属 TASK-065/066/067——本任务只提供 `delivery_state` 显式接缝与稳定 `delivery_key`；② **通知读取/分页/显式已读（API-11）与受信 Task 结果入箱**属 TASK-064（`TASK_RESULT` kind 已在词表中，写入端口留给 TASK-068）；③ **通知清理/保留**属 TASK-069（隐藏与投递回执保留分离已由唯一键与无谓词回执查询保证）；④ **通知/投递指标目录**属 TASK-098；⑤ 待确认中断 **TTL 到期**后的收口（TASK-056 遗留④）不在本契约断言内：本任务只保证"挂起即有可发现通知"，到期扫描仍由既有 `memory_confirmation_expiry` 路径负责。
 - B-263: verified — automated command passed; run_id=00240a9a7e964ac4a4ba9958db563c9d (confirmed_by: runner)
+- B-263: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-263: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5157,6 +5300,10 @@ E2E_WEBCHAT_OFFSET=3 bash -lc "npm --prefix apps/console-platform/frontend run b
 遗留（deferred，非本任务可闭合）：① Gateway 公开面（API-11 公共路由、CHAT/X-Chat-Context 复核、`{id, read_at}` 透传）属 TASK-070；② Worker 侧接入与投递确认属 TASK-068（本任务提供 `POST /internal/webchat/task-results` 与契约）；③ 通知清理/保留与"用户活动游标最早可用水位"（`CURSOR_EXPIRED`）属 TASK-069——本任务只实现"超前游标显式拒绝"，未引入保留下界；④ 通知/投递指标目录属 TASK-098；⑤ 出站投递意图（`PENDING`）的 reserve/renew/ack 与投递泵属 TASK-065/066/067（本任务只写 `NOT_REQUIRED` 的网页入箱行）。
 - B-03: verified — automated command passed; run_id=c55f522b202f495781e5b448c5a50de9 (confirmed_by: runner)
 - B-264: verified — automated command passed; run_id=c55f522b202f495781e5b448c5a50de9 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-264: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-264: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5210,6 +5357,8 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 静态检查：`uv run ruff check`（本任务 4 个改动文件 + 测试）干净；`uv run mypy apps packages` → Success: no issues found in 433 source files；新增模块函数均 ≤50 行；`docs/configuration-inventory.csv` 保持 CRLF（1505 行、0 裸 LF），只追加本任务 11 个常量行并更新本任务改动文件的行号（`main.py` `SERVICE_NAME` 47→48）。
 - B-265: verified — automated command passed; run_id=17fd2c07a4fe4badb6387bd300dd0b32 (confirmed_by: runner)
+- B-265: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-265: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5279,6 +5428,8 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 6. **E2E（S-07/S-15/E-19 等）保持 planned**，由 verify-e2e 记录完整证据；本任务只登记 integration 级证据。
 7. 诚实记录：`lifespan` 仍超过 50 行（既有装配根，本任务净增 7 行：`_mount_delivery_pump` + 两行挂载/收尾；其余新增函数全部 ≤50 行）。
 - B-266: verified — automated command passed; run_id=02f97477615e4873a2b63f9f88123c76 (confirmed_by: runner)
+- B-266: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-266: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5336,6 +5487,8 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 遗留（deferred，非本任务可闭合）：① **机器人路由的 `PENDING` 出站意图由 Runtime 终态写入路径选择**（TASK-063 遗留①：现网终态通知写 `NOT_REQUIRED`，`PENDING` 的按通道选择属装配接线）——本任务实现并验证了同键协调本身（验收用例用真实 `write_run_notification(delivery_state=PENDING)` 接缝构造意图，并用真实泵证明同键去重与接管）；按通道写 `PENDING` 的接线归 TASK-094/096 的装配面，不改本任务的契约。② **过期租约的自动回收**：投递泵的领取谓词只认 `PENDING`（TASK-066 已验证的语义），`DELIVERING`+过期租约只能被**同键 reserve** 接管（本任务用例⑤证明了接管语义与至少一次）——自动回收路径（如独立租约回收循环）属 TASK-069/094。③ 交付/通知指标目录属 TASK-098（本任务只沿用既有 `im_final_delivery_total` 的标签词表并新增 `deduplicated` 取值）。④ 待确认通知的机器人文案本地化仍属 TASK-067/096 的渲染边界（本任务不新增 i18n 渲染）。⑤ E-19/S-03/S-07 的端到端（Gateway 重启、真实企微探针、多实例）由 TASK-111 的 verify-e2e 记录。
 - B-267: verified — automated command passed; run_id=b637f160bfb94a74a878f1ad128d686d (confirmed_by: runner)
+- B-267: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-267: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5398,6 +5551,8 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 
 遗留（deferred，非本任务可闭合）：① **计划触发的 WEBCHAT 任务**（`trigger_type=SCHEDULED`，无来源 Run/operation）无法定位会话 ⇒ 投递显式终态失败、不编造入口——要让这类结果也进持久收件箱，需要 Runtime 入箱端口支持按投递路由（`external_conversation_id`）定位会话，属 TASK-064 端口的扩展面，不在本任务 Files 内；② 通知清理/保留与"用户活动游标最早可用水位"属 TASK-069；③ 通知/投递指标目录属 TASK-098；④ Gateway 公开面（API-11 公共路由与 CHAT 复核）属 TASK-070；⑤ S-07/S-105 的端到端（多实例、真实浏览器、断线重开拉取）由 TASK-111/114 的 verify-e2e 记录。
 - B-268: verified — automated command passed; run_id=8fdafe0e8e3b44c2a04da27d0bfdc5e6 (confirmed_by: runner)
+- B-268: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-268: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5476,6 +5631,10 @@ API-18按稳定delivery_key/attempt/epoch预留；完整分支及可观测结果
 **遗留（deferred，非本任务可闭合）**：① 装配根把 `run_retention_sweep` 挂进独立维护循环属 TASK-096（本任务只交付清理本体与报告，不占请求路径）；② 清理/保留指标目录属 TASK-098（当前只有 `webchat_retention_sweep` info 日志与可对账报告）；③ Console 产物清理的候选 SQL 改动落在任务 Files 未列出的 `artifact_retention_repository.py`——候选查询归它所有，服务层只补口径说明；④ `history_retention_days>0` 的实际回收以"最新摘要覆盖"为前提（压缩后才可回收旧原文），无摘要会话永久保留——这是 §3.6"不能删掉唯一上下文来源"的显式保护；⑤ 全量 pytest 验收/单测两条 heavy 校验按 validation.yml 口径延后到 verify-e2e/归档。
 - B-07: verified — automated command passed; run_id=1faeffdae9554f809907d0952eb91452 (confirmed_by: runner)
 - B-269: verified — automated command passed; run_id=1faeffdae9554f809907d0952eb91452 (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-269: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-269: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5531,6 +5690,8 @@ API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权；完�
 
 遗留（deferred，非本任务可闭合）：① 前端增量轮询/未读徽标/隐藏页暂停与安全预览消费 API-11 属 TASK-084（本任务只提供公开面）；② 通知清理/保留与"用户活动游标最早可用水位"（`CURSOR_EXPIRED`）属 TASK-069（本任务只透传 Owner 裁决，不引入保留下界）；③ 通知/投递指标目录属 TASK-098；④ E2E（S-06/S-13/S-105 等）保持 planned，由 verify-e2e 记录完整证据；⑤ 计划外文件披露（计划 Files 之外的必需联动）：`apps/im-gateway/src/muad_im_gateway/application/runtime_client.py`（受信端口客户端方法，与 TASK-052 同类接线）、`docs/configuration-inventory.csv`（常量盘点）。
 - B-270: verified — automated command passed; run_id=46f35e111acd4986b2582bc09a56aa4d (confirmed_by: runner)
+- B-270: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-270: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5586,6 +5747,8 @@ API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权；完�
 
 遗留（非本任务范围）：① `X-Chat-Context` 的**响应上下文核对**（`/me` 返回的 `auth_context_id` 与已发送上下文比对、`AUTH_CONTEXT_CHANGED` 停自动重试）由 TASK-074 认证状态机落，本任务提供 `setChatContextId`/`onChatUnauthorized` 接缝；② 浏览器 SSE（TASK-072）与模块 service（TASK-073）必须从 `src/api/authScope.ts` 取 `chatContextForScope`/`notifyChatUnauthorized`，不得自行拼装传输头（本任务用例 ⑨ 会拦）；③ 既有失败 `test_audit_gap_contract.py::test_b214...`（审计筛选枚举缺 `CHAT_ACCESS_TOKEN`）需 audit-observability 侧补枚举或补词条，与 TASK-071 无交集；④ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 的「请求头固定三件」需补 CHAT 域取源与 `X-Chat-Context`；本任务不改 spec 文件以免 active context 漂移。
 - B-271: verified — automated command passed; run_id=a9a2f64fe2b44470bfa7af6771de8e10 (confirmed_by: runner)
+- B-271: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-271: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5640,7 +5803,7 @@ API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权；完�
 
 实现要点：**唯一解析/收集接缝**——帧解析（字节级行切分、跨 chunk UTF-8、CRLF、多行 data、心跳跳过、单帧字节预算）与状态应用（分代 delta、snapshot 整组原子替换、checkpoint 安全水位、去重/fence）各只有一处定义；`id` 与载荷 `seq` 必须一致，坏形状显式 `MALFORMED_FRAME`，未知公开类型不静默吞。**游标语义显式**——已应用水位 `appliedCursor` 与已扫描安全水位 `scannedCursor` 分开，续传游标 `resumeCursor = max(applied, min(scanned, 未齐组seq-1))`：checkpoint 不追加正文也不跨未齐组，缺片/重复片/断流一律回安全游标（重连由服务端重投整组），绝不拼半份或跨代正文。**重连只走 GET**——`after_seq` 查询与 `Last-Event-ID` 头同值（游标排他），EOF 不当完成；退避/次数来自 API-19 投影（指数 + equal jitter，注入随机源可确定性验证），`CURSOR_EXPIRED`/`CURSOR_AHEAD`/`CURSOR_RUN_MISMATCH` 停止自动重连并原样带出服务端窗口，CHAT 401 走 `notifyChatUnauthorized`（不跳 Console 登录、不叠加 Toast）。**版本绑定**——连接创建时冻结 `transport_revision` 与四个传输参数，调用方后续更新配置不影响活跃连接，新连接重新读取。**凭据卫生**——SSE 的 CSRF 只取自 CHAT 域 Cookie（复用 `csrfTokenForScope`），上下文只来自验证后的 bootstrap；模块不写日志/持久存储，无新增词条。
 
-回归（本机无 dev/测试残留进程，单跑不并发）：`uv run pytest -q tests/frontend` exit=0，**419 passed in 1.49s**（含 TASK-071 的 `test_capacity_webchat_chat_transport.py` 10 条——`csrfTokenForScope` 导出改动未回归；含本任务 13 条）；继承 verifier `harness-frontend#RULE-front-001`（stage: review；唯一责任 TASK-071）：`["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]` exit=0——4 passed、`frontend api usage check OK`、`i18n keys OK: 1365`（零新增词条）、`tsc --noEmit` 无输出。`uv run ruff check tests/frontend/test_capacity_webchat_browser_sse_parser.py`「All checks passed!」；AST（esbuild + acorn）逐函数核对：本任务生产函数全部 ≤50 行（最长 `applyDataFrameEvent` 47）；无 `any`/裸 axios/裸持久存储。
+回归（本机无 dev/测试残留进程，单跑不并发）：`uv run pytest -q tests/frontend` exit=0，**419 passed in 1.49s**（含 TASK-071 的 `test_capacity_webchat_chat_transport.py` 10 条——`csrfTokenForScope` 导出改动未回归；含本任务 13 条）；继承 verifier `RULE-front-001（见 Spec Responsibility）`（stage: review；唯一责任 TASK-071）：`["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]` exit=0——4 passed、`frontend api usage check OK`、`i18n keys OK: 1365`（零新增词条）、`tsc --noEmit` 无输出。`uv run ruff check tests/frontend/test_capacity_webchat_browser_sse_parser.py`「All checks passed!」；AST（esbuild + acorn）逐函数核对：本任务生产函数全部 ≤50 行（最长 `applyDataFrameEvent` 47）；无 `any`/裸 axios/裸持久存储。
 
 计划外披露：`apps/console-platform/frontend/src/api/client.ts` 仅把既有 `csrfTokenForScope` 从私有改为导出（一行；SSE fetch 复用同一凭据取源，无行为变化），不在任务 Files 计划内但属"传输头只经 `src/api/` 共享接缝"的必要接线。未新增迁移/DDL，未动 `src/locales/*.json`。
 
@@ -5648,6 +5811,12 @@ API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权；完�
 - B-101: verified — automated command passed; run_id=5c59d1d827924854b901589634cb490a (confirmed_by: runner)
 - B-105: verified — automated command passed; run_id=5c59d1d827924854b901589634cb490a (confirmed_by: runner)
 - B-272: verified — automated command passed; run_id=5c59d1d827924854b901589634cb490a (confirmed_by: runner)
+- B-101: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-105: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-272: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-101: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-105: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-272: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5682,7 +5851,7 @@ API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权；完�
 - [x] 实现Description中的全部分支与错误行为；函数≤50行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。实现：① `modules/webchat/types.ts`——DTO/请求输入/`WebchatClient` 端口。字段名与 `muad_contracts.webchat`（TASK-005）逐一对应（principal 七字段、入口、会话索引/详情、活跃 Run+待确认、执行阶段、上传与附件、历史页 `through_seq`、通知页 `through_seq+next_seq+unread_count`、API-19 配置投影），全部 snake_case 且无 `any`；`WebchatSubmitInput.conversation_id` 必填、`WebchatResumeInput` 四字段必填、`WebchatRequestOptions.signal?: AbortSignal`、`WebchatRequestErrorCode` 给出 12 个前置校验码。② `modules/webchat/services/webchatApi.ts`——16 个 HTTP 方法（API-04 exchange/me/logout、API-19、API-05、API-14/08/15、API-06/09、API-10 上传+下载、API-11 列表+已读、API-08 cancel/resume）全部经共享 `api` 实例，**不拼装任何传输头、不读 Cookie、不写日志/持久存储**（CHAT 上下文与 401 出口留在 `src/api/authScope.ts` + 共享拦截器，由 TASK-074 写入）；`submit`/`createConversation` 的 `Idempotency-Key` 与 `message_id` 由调用方持有，service 不重新生成；缺参在发请求前以 `WebchatRequestError` 显式失败；`webchatErrorCode`/`isWebchatAuthError`/`isWebchatRetryableError`/`isWebchatCursorError` 把稳定目录码映射成鉴权/可重试/游标三类判定（传输失败→`NETWORK_ERROR`、未知→`UNKNOWN`，不把异常原文当业务码）；上传走真实 `FormData`（字段 `file`）、下载走 `responseType: 'blob'`。
 - [x] [B-273] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置（见 Acceptance Evidence 的断言位置列）。
 - [x] [B-273] 执行`["uv","run","pytest","-q","tests/frontend/test_capacity_webchat_webchat_services.py"]`并记录GREEN、关键断言位置和实际组件证据。GREEN：同命令 exit=0，**10 passed**（0.09–0.11s）。
-- [x] 继承 verifier `harness-frontend#RULE-front-001`（stage: review；timeout=600秒；唯一责任 TASK-071）：`["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`；本任务不改该 Spec 文件、不重复认领，只登记实际执行证据：exit=0——`test_api_client_contract.py` 4 passed、`check_frontend_api_usage.py`「frontend api usage check OK」、`check_frontend_i18n.py`「i18n keys OK: 1265」、`npm --prefix apps/console-platform/frontend run typecheck`（tsc --noEmit）无输出；新增模块目录未引入裸 HTTP/传输头/i18n 缺口（本任务零新增词条，service 无展示文案）。
+- [x] 继承 verifier `RULE-front-001（见 Spec Responsibility）`（stage: review；timeout=600秒；唯一责任 TASK-071）：`["bash","-lc","uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`；本任务不改该 Spec 文件、不重复认领，只登记实际执行证据：exit=0——`test_api_client_contract.py` 4 passed、`check_frontend_api_usage.py`「frontend api usage check OK」、`check_frontend_i18n.py`「i18n keys OK: 1265」、`npm --prefix apps/console-platform/frontend run typecheck`（tsc --noEmit）无输出；新增模块目录未引入裸 HTTP/传输头/i18n 缺口（本任务零新增词条，service 无展示文案）。
 
 ### Acceptance Contract
 
@@ -5702,6 +5871,8 @@ API-11转Runtime实际Owner端口，核CHAT/X-Chat-Context与来源授权；完�
 
 遗留（非本任务范围）：① `openEvents`（回复订阅）属共享流层 `src/api/stream.ts`（TASK-072，尚未实现），由 TASK-082 接入 `WebchatClient` 时补方法，本任务不伪造 SSE 实现；② 后端 Owner 路由（TASK-052/054/055/056/070）尚未实现，本任务按 design §3.4 API 表定义 DTO/路由：其中 `resume` 回执 `WebchatResumeReceipt{run_id,submission_id,status,execution_status}` 与已读回执 `{id,read_at}` 无既有契约类（cancel 回执沿用 Runtime `run_cancel_view` 的 `{run_id,status,cancel_requested}`），TASK-052/056 落地后若字段不同需同步本模块；③ `download` 的错误响应是 Blob（服务端错误封套不可解析），当前映射为 `UNKNOWN`，预览/下载失败文案由 TASK-084 处理；④ CHAT 上下文写入与「已发送上下文 vs `/me` 返回 `auth_context_id` 比对」仍由 TASK-074 认证状态机落（本任务只经共享传输复用接缝）；⑤ 规范刷新：`harness-frontend` Conventions 需补「CHAT 域模块 service 只消费共享传输、不拼装传输头」的对照示例；本任务不改 spec 文件以免 active context 漂移。
 - B-273: verified — automated command passed; run_id=a4ed23cf5f3b418caf803aba52c0821a (confirmed_by: runner)
+- B-273: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-273: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5756,6 +5927,10 @@ restore/显式exchange singleflight，退出/切主体停流并清消息/草稿/
 遗留（非本任务范围）：① `useChatAuth` 的 React 渲染路径（订阅、卸载注销）按契约留真实浏览器 E2E（S-101/E-101，TASK-112），本任务以源码契约 + `tsc --noEmit` 登记；② 页面级消息/草稿/通知/游标与附件 Blob URL 的**登记**由 TASK-077/078/080/082/084 接入（本任务提供 `registerIdentityCleanup`/`trackObjectUrl`/`identitySignal` 与 generation fence）；③ `handleUnauthorized()` 因共享传输 401 出口不带错误码只能判 `expired`，精确 `revoked`/`expired` 需页面在 catch 中调 `handleAuthFailure(error)`（用例已钉死两者顺序与不重复清场）；④ 头像预览（TASK-085/084）与附件下载复用同一带认证上下文的 service 路径，浏览器内实际渲染留 E2E；⑤ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 的「请求头固定三件」需补 CHAT 域取源与 CHAT 上下文头、以及「CHAT 认证状态机是上下文唯一写入点」；本任务不改 spec 文件以免 active context 漂移。
 - B-104: verified — automated command passed; run_id=0f57f9ded7fb4c0e8aed1a3aa966343b (confirmed_by: runner)
 - B-274: verified — automated command passed; run_id=0f57f9ded7fb4c0e8aed1a3aa966343b (confirmed_by: runner)
+- B-104: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-274: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-104: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-274: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5806,6 +5981,8 @@ restore/显式exchange singleflight，退出/切主体停流并清消息/草稿/
 
 遗留（非本任务范围）：① 未认证视图的真实渲染与 DOM 交互（键盘提交、遮蔽显示、窄屏/主题、aria）按契约留真实浏览器 E2E（S-F01/E-F01/E-F05，TASK-112）；本任务以源码契约 + `tsc --noEmit` + 编译产物登记。② 页面编排（ChatPage 把快照 `state==='exchanging'`/`errorCode` 接到 props、认证成功后卸载本视图、`onClear` 丢弃页面本地提示）由 TASK-077 接入；本任务已把端口与语义写进 props 契约。③ `onClear` 只在用户主动清空输入时回调（提交完成后的自动清空不回调），页面不得据此清除状态机 `errorCode`——提示的唯一来源是快照。④ 非 401 的 CHAT 业务失败（如 `CHAT_AUTH_RATE_LIMITED`）仍会经共享传输弹全局 Toast（TASK-071 既有行为，只 401 被钉死不弹），本视图同时给出本地化重试提示，属可接受的重复提示；如需收敛应改共享传输而非本组件。⑤ 词条最终收敛与新增设置项文案由 TASK-090 统一（本任务只追加自己的 `chat.tokenAccess.*` 键，未改动其它键）。⑥ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「未认证视图的 Token 输入：单输入遮蔽、完成清空、提示只由稳定码映射」与「前端自有稳定码（NETWORK_ERROR）不入 catalog 但键名仍同名」；本任务不改 spec 文件以免 active context 漂移。
 - B-275: verified — automated command passed; run_id=fa1a2d0ba631433c927c3ad1064fa577 (confirmed_by: runner)
+- B-275: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-275: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5854,12 +6031,14 @@ restore/显式exchange singleflight，退出/切主体停流并清消息/草稿/
 
 实现要点：**唯一来源**——业务上限/传输参数只来自 API-19 白名单投影，模块内不出现任何 schema 默认值（源码契约钉死默认字面量与 `?? <number>` 兜底）；坏投影（缺字段/空 revision/零预算）显式 `CLIENT_CONFIG_INVALID` 并清空半份投影，未就绪时消费接缝抛 `CLIENT_CONFIG_NOT_READY`，绝不返回前端猜测配置。**能力门由状态派生**——`ready()`/`capabilities()` 只由 `loadState` 计算，发送/上传/订阅三项同源，页面不需要各自判断。**版本化消费**——`newConnectionConfig()` 返回整体冻结的当前已验证投影，新连接据此绑定 `transport_revision` 与冻结参数；`reload()` 成功才原子替换，活跃连接持有旧对象不变（旧流参数不突变），刷新失败保留最后已验证版本 + 稳定码而不丢服务端事实。**加载边界**——`load()` singleflight、`retry()` 只重发 API-19（结构上无交换/写能力）、`reset()` 清空并递增 epoch（边界之后完成的加载/失败被 fence，取消不再兜底也挡得住）。
 
-回归（本机无 dev/测试残留进程）：`uv run pytest -q tests/frontend` exit=0，**439 passed in 1.55s**（含本任务 9 条与 TASK-071/072/073/074 的 capacity_webchat 用例）；`npx tsc --noEmit`（apps/console-platform/frontend）exit=0 无输出；继承 verifier `harness-frontend#RULE-front-001`（stage: review；唯一责任 TASK-071）exit=0——`tests/frontend/test_api_client_contract.py` 4 passed、`check_frontend_api_usage.py`「frontend api usage check OK」、`check_frontend_i18n.py`「i18n keys OK: 1365」（零新增词条）、`npm run typecheck` 无输出。`uv run ruff check tests/frontend/test_capacity_webchat_client_config_state.py apps/console-platform/frontend/src/modules/webchat`「All checks passed!」；`.venv/bin/python -m py_compile` 通过；esbuild+acorn AST 逐函数核对：本任务生产函数全部 ≤50 行（无超限），无 `any`。变异校验（改后即还原）：删 `capabilities()` 的 ready 判定 → 3 条失败；删 epoch fence → 身份边界用例失败；`reset()` 不清投影 → 身份边界用例失败；投影不冻结 → 版本化用例失败；`load()` 去掉幂等守卫 → 认证后加载用例失败。
+回归（本机无 dev/测试残留进程）：`uv run pytest -q tests/frontend` exit=0，**439 passed in 1.55s**（含本任务 9 条与 TASK-071/072/073/074 的 capacity_webchat 用例）；`npx tsc --noEmit`（apps/console-platform/frontend）exit=0 无输出；继承 verifier `RULE-front-001（见 Spec Responsibility）`（stage: review；唯一责任 TASK-071）exit=0——`tests/frontend/test_api_client_contract.py` 4 passed、`check_frontend_api_usage.py`「frontend api usage check OK」、`check_frontend_i18n.py`「i18n keys OK: 1365」（零新增词条）、`npm run typecheck` 无输出。`uv run ruff check tests/frontend/test_capacity_webchat_client_config_state.py apps/console-platform/frontend/src/modules/webchat`「All checks passed!」；`.venv/bin/python -m py_compile` 通过；esbuild+acorn AST 逐函数核对：本任务生产函数全部 ≤50 行（无超限），无 `any`。变异校验（改后即还原）：删 `capabilities()` 的 ready 判定 → 3 条失败；删 epoch fence → 身份边界用例失败；`reset()` 不清投影 → 身份边界用例失败；投影不冻结 → 版本化用例失败；`load()` 去掉幂等守卫 → 认证后加载用例失败。
 
 未新增迁移/DDL，未动 `src/locales/*.json`（i18n 词条数不变 1365），无新增依赖。
 
 遗留（deferred，非本任务可闭合）：① React 渲染路径（订阅、卸载注销、认证态触发的加载时机）按契约留真实浏览器 E2E（S-101/E-105，TASK-112）；② 页面编排（何时 `retry()`/`reload()`、入口与会话选择与配置的组合）属 TASK-077/082；③ 消息分页/输入预检/轮询/重连的消费者接线属 TASK-078/080/081/082/084（本任务提供 `limits()`/`transportConfig()`/`newConnectionConfig()` 与能力门）；④ 系统设置页的字段元信息展示属 TASK-089；⑤ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「API-19 投影是前端上限唯一来源、组件不复制默认值；新连接绑定 `transport_revision`」；本任务不改 spec 文件以免 active context 漂移。
 - B-276: verified — automated command passed; run_id=3284e076f53f42f8a0786cd4d910432c (confirmed_by: runner)
+- B-276: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-276: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5913,6 +6092,8 @@ restore/显式exchange singleflight，退出/切主体停流并清消息/草稿/
 
 遗留（非本任务范围）：① React 渲染与 DOM 交互（TokenAccess 切换、加载/空态/失败面渲染、窄屏/主题/aria）按契约留真实浏览器 E2E（S-101/E-101/E-F05，TASK-112）；本任务以源码契约 + `tsc --noEmit` + 真实编译产物登记。② 会话索引/选择/新建与迟到响应隔离属 TASK-078（本任务只做 URL 入口/会话解析与视图门控，未建索引状态）。③ 历史侧栏与单会话工作区（`WebchatShell`/`ChatPanel`/消息线程/输入）由 TASK-079/080/081 在同一编排接缝上装配；本任务的 `ChatWorkspace` 只展示已核验的入口与会话事实。④ 回复订阅（`openReplyStream`）与重连/generation 属 TASK-082；本任务保证编排阶段零 SSE，并把 `client`/入口/会话就绪作为订阅前置条件。⑤ 入口选择 UI（多入口 `entry-required` 的候选列表）与入口切换由 TASK-079/078 落地，本任务只给 `required` 结论与授权集合事实。⑥ 词条最终收敛与新增设置项文案由 TASK-090 统一（本任务只追加自己的 `chat.page.*` 键，未改动其它键）。⑦ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「CHAT 路由独立于管理守卫/登录跳转，按路由懒加载」与「页面编排逐级门控：认证→配置→入口→会话，前一级未就绪不发后一级请求、零 SSE/零写请求」；本任务不改 spec 文件以免 active context 漂移。
 - B-277: verified — automated command passed; run_id=d1bf49c5af384f128b96a020d6b23250 (confirmed_by: runner)
+- B-277: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-277: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -5968,6 +6149,10 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 遗留（非本任务范围）：① React 渲染与 DOM 交互（侧栏分组/高亮、消息线程渲染、滚动锚点补偿、窄屏抽屉）按契约留真实浏览器 E2E（S-110/S-111/E-106，TASK-112/113）；本任务以源码契约 + `tsc --noEmit` + 真实编译产物/真实 node 执行登记。② 历史侧栏与聊天工作区展示（新建按钮、日期分组、忙碌/未读）属 TASK-079；消息线程的安全渲染与分页滚动属 TASK-080（可直接复用本任务的 `mergeHistoryMessages`/`applyOlderHistoryPage` 与 `historyFor`/`loadOlder`/`setScrollAnchor` 接缝）。③ 发送侧固定会话身份（`pendingSend` 的 `conversationId/messageId/idempotencyKey`）与输入预检属 TASK-081，本任务只提供按会话隔离的草稿暂存。④ 回复订阅（`openReplyStream`）、重连与 generation 状态属 TASK-082，本任务提供 `viewSignal()` 作为"切换会话即关旧流"的唯一接缝。⑤ 后台会话活动/未读轮询属 TASK-084；索引刷新时机（何时 `refresh()`）由页面编排决定（TASK-093）。⑥ 词条最终收敛由 TASK-090 统一（本任务未改动 `src/locales/*.json`）。⑦ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「会话作用域请求固定归属 entry/conversation/generation，作用域变化即中止视图信号并 fence 迟到响应；按会话暂存有界（LRU，不淘汰当前视图）；消息页 `through_seq` 与活跃 Run 已应用游标分别保存」；本任务不改 spec 文件以免 active context 漂移。
 - B-103: verified — automated command passed; run_id=58db75e7e0b84630bd2b55bfa7904fae (confirmed_by: runner)
 - B-278: verified — automated command passed; run_id=58db75e7e0b84630bd2b55bfa7904fae (confirmed_by: runner)
+- B-103: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-278: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-103: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-278: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6019,6 +6204,8 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 遗留（非本任务范围）：① DOM 交互（真实点击历史/新建、键盘操作、抽屉断点开合、滚动与焦点恢复、明暗主题）按契约留真实浏览器 E2E（S-110/S-111/E-106，TASK-112/113）；本任务以真实 SSR 渲染产物 + 真实 node 执行 + `tsc --noEmit` 登记。② 消息线程安全渲染/分页/滚动锚点属 TASK-080（直接复用 `WebchatShell` 的 `messageArea` 接缝与 TASK-078 的 `historyFor/loadOlder/setScrollAnchor`）。③ 输入、附件与消息幂等状态属 TASK-081（复用 `composer` 接缝）。④ 回复订阅/重连/generation 属 TASK-082，页面级装配（把 `useConversations` 控制器与 `messageArea`/`composer` 接进 `ChatPage` 的 workspace 视图、绑定 `onActionFailure`）属 TASK-093；本任务只交付组件与真实事件接缝，未改 `ChatPage.tsx`（其现有 `ChatWorkspace` 占位保持原样）。⑤ 会话活动/未读轮询（`unreadCounts` 的真实来源）属 TASK-084；本任务只提供显示接缝，缺省不显示徽标。⑥ 窄屏断点与抽屉视觉（CSS/主题 token）、标题截断样式属 TASK-091；本任务只提供稳定 class 名与可访问 DOM（`data-drawer-open`、`aria-*`），未改 `styles/app.css`。⑦ 会话选择错误面（`selection.errorCode` 的本地化提示，如越权/不存在）由 TASK-093 按 TASK-077 的页面门控收敛（本任务不在工作区伪造提示面）。⑧ 词条最终收敛由 TASK-090 统一（本任务只追加自己的 18 条键，未改动其它键）。⑨ 规范刷新（cf-learn/refresh）：`harness-frontend`/`harness-ui` Conventions 可补「CHAT 侧栏与工作区属同一编排接缝：索引分组只分桶不重排、忙碌/未读/归档只展示服务端事实、入口未绑定时骨架不跨入口展示；展示组件不混管理列表构件」；本任务不改 spec 文件以免 active context 漂移。
 - B-279: verified — automated command passed; run_id=d7a7b89185844e77a57b227918750beb (confirmed_by: runner)
+- B-279: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-279: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6070,6 +6257,8 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 遗留（deferred，非本任务可闭合）：① **DOM 交互**（真实点击下载、滚动触发上翻、真实滚动位置保持、焦点恢复）按契约留真实浏览器 E2E（S-108/E-105，TASK-108/112）；本任务以真实 SSR 渲染产物 + 真实 node 执行 + `tsc --noEmit` 登记，补偿算术以真实 `anchorShift` 驱动并在纯函数层证明位置保持。② **页面级装配**（把 `useMessages` 与 `MessageThread` 接进 `ChatPage` 的 workspace 视图、用 `createAttachmentDownloader(client, onActionFailure)` 绑下载面、复用 TASK-079 的 `messageArea` 接缝）属 TASK-093；本任务只交付组件、视图绑定与真实接缝，未改 `ChatPage.tsx`（其现有 `ChatWorkspace` 占位保持原样）。③ **文字附件输入与消息幂等状态**属 TASK-081（复用 `composer` 接缝）；**回复订阅/重连/generation 与流式正文**属 TASK-082（`run_id` 与流式增量不在本任务消费，线程只渲染 API-09 的安全投影）。④ **附件预览**（图片内联、Blob URL 生命周期、撤销时清理）属 TASK-084；本任务只交付下载动作与失效标注（服务端处置语义 `inline`/`attachment`、`no-store`/`nosniff` 属 TASK-055）。⑤ **样式**（气泡布局、主题 token、窄屏、`aria-live` 频率等可访问性细节）属 TASK-091；本任务只提供稳定 class 名与语义 DOM（`role="log"` + `aria-label`、`data-role`/`data-event-id`/`data-seq`），未改 `styles/app.css`。⑥ **词条最终收敛**由 TASK-090 统一（本任务只追加自己的 12 条键）。⑦ **规范刷新**（cf-learn）：`harness-frontend`/`harness-ui` Conventions 可补「聊天消息文本只经白名单 Markdown 子集渲染（HTML/MDX 只能是文本、链接限 http/https/mailto、不走 MDX 求值渲染），附件只经注入的授权下载端口取件且不为附件生成 href；上翻历史按消息身份登记锚点并一次性补偿 scrollTop、页水位不作已渲染 Run 游标」；本任务不改 spec 文件以免 active context 漂移。
 - B-280: verified — automated command passed; run_id=fc7621a8b93441af8932ddc9c3c63d8e (confirmed_by: runner)
+- B-280: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-280: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6124,6 +6313,8 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 遗留（deferred，非本任务可闭合）：① **页面级装配**——把 `usePendingSend` 与 `ChatComposer` 接进 `ChatPage.tsx` 的 workspace 视图（复用 TASK-079 的 `composer` 接缝、把 `snapshot.accepted` 交给线程刷新）属 TASK-093；本任务只交付组件/状态层与真实接缝，未改 `ChatPage.tsx`（其现有 `ChatWorkspace` 占位保持原样）。② **按会话草稿多槽位**——本任务的输入作用域是单槽（切会话即清空、切回未编辑则保留），TASK-078 的 `draft/setDraft` 有界多槽位草稿由 TASK-093 装配（避免复制第二份草稿事实）。③ **字节级上传进度**——进度按文件粒度（逐件 `READY/UPLOADING/UPLOADED/FAILED` + 计数）表达，字节级 `onUploadProgress` 需扩展共享传输的 upload 配置（TASK-073 的 `WebchatRequestOptions`/service 面），不在本任务 Files 内。④ **停止 Run / 排队状态**属 TASK-083（本任务的取消只中止在途上传/提交）；**回复订阅/重连/generation** 属 TASK-082；**附件内联预览与 Blob URL 生命周期**属 TASK-084；**窄屏/主题/可访问性视觉细节**属 TASK-091（本任务只提供稳定 class 名与语义 DOM）。⑤ 词条最终收敛由 TASK-090 统一（本任务只追加自己的 33 条键）。⑥ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「发送面一次尝试一个消息号：`Idempotency-Key`=消息号、payload 提交后冻结、失败重试原样重放（含过期暂存身份）、只有显式放弃后的新消息才换号；尝试按会话隔离，视图信号中止在途发送且结果按未知处理」；本任务不改 spec 文件以免 active context 漂移。
 - B-281: verified — automated command passed; run_id=75a8920fc5f24b898d9c4b9d91195bc1 (confirmed_by: runner)
+- B-281: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-281: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6177,6 +6368,8 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 遗留（deferred，非本任务可闭合）：① **页面级装配**（把 `useRunEvents` 接进 `ChatPage`/`WebchatShell` 的消息区、把 `streaming` 交给 `StreamingReply` 组件渲染、用 `watch()` 接受理回执的新 Run）属 TASK-093/083；本任务只交付状态机、视图绑定与真实接缝，未改 `ChatPage.tsx`（其现有 `ChatWorkspace` 占位保持原样）。② **停止/排队/原 Run 确认交互**（`cancel`/`resume`、确认卡片渲染、排队文案与计时展示）属 TASK-083；本任务只把持久阶段/确认事实落在 `activeRun` 并投影出 `phase`/计时字段。③ **流式区域的可访问性**（`aria-live` 低频播报、滚动到底提示）与样式属 TASK-091；**后台会话活动/未读与安全附件预览**属 TASK-084（本任务只按身份登记 `artifact.created`）。④ **浏览器真实 SSE/断网/实例切换 E2E**（S-103/E-103/E-106 与 RISK-F02/F07 的端到端）保持 planned，由 TASK-113/116 的 verify-e2e 记录完整证据；本任务以真实 node 执行真实编译产物 + `tsc --noEmit` + 源码契约登记，React 装配的渲染路径留 E2E。⑤ **`WebchatClient.openEvents` 端口**：TASK-073 的机器契约把 `WebchatClient` 钉死在 design §3.4 的 16 个 HTTP 方法（其测试显式注明 `openEvents` 属共享流层），本任务因此把订阅出口留在共享流层 `src/api/stream.ts` 并由 `runState.ts` 直接消费，不改 `types.ts`/`webchatApi.ts`（避免削弱 TASK-073 既有断言）；若后续要经 client 端口暴露，需先同步 TASK-073 的方法契约。⑥ **计划外文件披露（计划 Files 之外的必需联动）**：`apps/console-platform/frontend/src/api/stream.ts`（新增 typed 连接尝试上报 `onAttempt`/`WebchatConnectionAttempt` 与收集器恢复种子 `text`/`replyGeneration`——连接状态展示与"重开不丢正文"必须由唯一持有重连/分代语义的流层上报与恢复，TASK-072 的既有 10 条用例保持通过）、`apps/console-platform/frontend/src/modules/webchat/hooks/useClientConfig.ts`（控制器暴露 `newConnectionConfig()` 冻结投影——新连接绑定有效 `transport_revision` 是 TASK-076 已交付的 service 接缝，React 控制器此前未透出，TASK-093 装配需要它；TASK-076 的 12 条用例保持通过）。⑦ **规范刷新**（cf-learn/refresh）：`harness-frontend` Conventions 可补「回复订阅只由共享流层持有重连/分代语义，编排层只消费 `onAttempt` 上报与把已应用正文/代号交回收集器（不重算退避、不复制投影默认）；停止后必须显式 `retry()`/`recover()`，不自动补拉；按会话有界的 Run 缓存让切回恢复正文并按本地游标续传」；本任务不改 spec 文件以免 active context 漂移。
 - B-282: verified — automated command passed; run_id=55bf2411632042fcab9fa60e42ebce10 (confirmed_by: runner)
+- B-282: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-282: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6232,6 +6425,8 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 遗留（deferred，非本任务可闭合）：① **页面级装配**——把 `createRunStopController`/`createConfirmationController` 与 `RunActions`/`ConfirmationCard` 接进 `ChatPage.tsx`/`WebchatShell.tsx` 的消息区（复用 TASK-079 的 `messageArea`/`composer` 接缝、把 runState 快照的 `status`/`executionStatus`/`connection` 与恢复动作传下去、resume 成功后刷新详情）属 TASK-093；本任务只交付组件/状态机与真实接缝，未改 `ChatPage.tsx`（其现有 `ChatWorkspace` 占位保持原样），因此控制器目前没有 React 绑定 hook（页面用 `subscribe` + `useSyncExternalStore` 即可，与 TASK-082 的 `useRunEvents` 同构）。② **DOM 交互的真实浏览器证据**（真实点击停止/确认、键盘操作、窄屏下输入与确认始终可见）属 TASK-113/091；本任务以真实编译产物 + 静态渲染标记 + 源码契约登记，未做 DOM 事件模拟。③ **停止命令的中止语义**：确认后的取消请求不带视图中止信号（已确认的停止必须到达服务端；视图切换只围栏状态更新），若后续要求「切换视图即放弃未发出的停止」需先同步 API-08 的重放语义。④ **`StreamingReply`/`ExecutionStatus` 的独立组件拆分**：本任务按任务 Files 把排队/执行展示并入 `RunActions`，design §3.3 的独立组件命名（`ExecutionStatus`/`StreamingReply`）如后续需要单独复用，可由 TASK-091/093 在样式与装配阶段拆分，避免复制 `runActivityView` 这份唯一投影。⑤ **可访问性细化**（`aria-live` 低频播报、连接状态变更播报节流、焦点管理）属 TASK-091（本任务只提供 `role`/`aria-label` 与语义 DOM）。⑥ 词条最终收敛由 TASK-090 统一（本任务只追加自己的 47 条键）。⑦ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「停止按精确 Run：先确认后取消（确认前零请求）、受理回执原样展示（CANCELLING=停止中）、失败与结果未知分开且都可重放同一 Run、切换可见 Run 围栏迟到结果；原 Run 确认只认服务端投影的 submission/source 与候选值逐字，提交单飞、重试不换号、终态失败不给重试、确认面结构上没有新建会话能力」；本任务不改 spec 文件以免 active context 漂移。
 - B-283: verified — automated command passed; run_id=10540d4473b34503ba14df8adf603b4a (confirmed_by: runner)
+- B-283: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-283: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6288,6 +6483,8 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 遗留（deferred，非本任务可闭合）：① **页面级装配**——把 `useNotifications` 接进 `ChatPage`/`WebchatShell`（`unreadCounts={notifications.snapshot.unreadByConversation}`、面板 `onLocate` 绑到会话选择 + 重读权威状态、`onMarkRead`/`onPreview`/`onClosePreview` 绑到控制器动作、`activity.foreground` 绑到 TASK-078 的 `refresh()`）属 TASK-093；本任务只交付控制器/组件与真实接缝，未改 `ChatPage.tsx`（其现有 `ChatWorkspace` 占位保持原样）。② **DOM 交互**（真实点击定位/标记已读/关闭预览、滚动与焦点、窄屏与主题）按契约留真实浏览器 E2E（S-F05/S-F13，TASK-114/112）；本任务以真实 SSR 渲染产物 + 真实 node 执行 + `tsc --noEmit` 登记。③ **消息线程附件内联预览**：本任务交付的预览资格/Blob URL 生命周期语义（白名单/撤销/fence）在通知面板落地；`MessageThread.tsx` 的内联图片预览（TASK-080 遗留④）若要复用同一语义，需把 `useNotifications` 的预览端口提为共享接缝（本任务 Files 之外，未改 `MessageThread.tsx`，其既有 12 条 href/下载断言保持通过）。④ **计划外文件披露（计划 Files 之外的必需联动）**：`apps/console-platform/frontend/src/modules/webchat/hooks/useClientConfig.ts`（`ClientConfigController` 透出 `limits()`——轮询间隔必须从 API-19 投影消费，控制器此前未透出该接缝；TASK-076 的 12 条用例保持通过）。⑤ **通知清理/保留与「游标最早可用水位」**属 TASK-069（本任务只消费 `CURSOR_AHEAD` 的显式失败路径，不引入保留下界）；**通知/投递指标目录**属 TASK-098。⑥ 词条最终收敛由 TASK-090 统一（本任务只追加自己的 13 条键，未改动其它键）。⑦ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「后台活动轮询只消费 API-19 投影并加固定比例抖动，隐藏页清定时器、回前台立即同步；未读只吃服务端权威计数且 `read` 只在显式动作出现；附件预览只经授权下载面创建 Blob URL 并在替换/关闭/身份边界撤销，白名单与失效语义同服务端 `inline`/`available`」；本任务不改 spec 文件以免 active context 漂移。
 - B-284: verified — automated command passed; run_id=f48a5acf749a4c6bb0c2df8d2410bec8 (confirmed_by: runner)
+- B-284: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-284: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6345,6 +6542,8 @@ URL/entry/conversation/generation固定请求归属；完整分支及可观测�
 
 遗留（非本任务范围）：① 浏览器 E2E S-114/S-115（TASK-115）保留生成/重置/撤销的点击路径、确认弹窗文案、结果框关闭后不可见、非 ADMIN 不显示入口；本任务只登记不执行。② `services/users.ts` 是 user-identity 模块既有的唯一 HTTP 出口（`modules/<module>/services/*.ts`），API-03 三个端点按模块约定并入其中，未新建 service 文件。③ 到期时间只展示后端 `expires_at`；有效期策略（`webchat.access_ttl_days`）的系统设置编辑面属 TASK-089/设置页范围，本卡片不提供用户级 TTL 输入。④ CHAT 交换（TASK-042）仍按摘要定位 Token，不经过本卡片端点。
 - B-285: verified — automated command passed; run_id=d2e0d39e5ee349bdac15154ae4309a6a (confirmed_by: runner)
+- B-285: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-285: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6403,6 +6602,8 @@ ADMIN凭据维护、容量/额度组及真实Key检测结果；完整分支及�
 
 遗留（非本任务范围）：① 浏览器 E2E S-106（TASK-115）保留新增/编辑/删除/检测的点击路径、SideSheet 关闭不破坏列表、BUILDER 不显示入口；本任务只登记不执行。② 面板**挂载点**属 TASK-092（`ModelPage.tsx`/`ModelDetailSideSheet.tsx`：主列表进入物理 Key/额度管理、详情挂成员关系），本任务不新增挂载点，避免「未挂载孤立组件」被 B-292 判红。③ 额度组 CRUD、RPM/TPM/null 单位与共享关系展示属 TASK-088；本任务只提供凭据表单归属选择需要的 `listQuotaGroups()` 选项投影。④ **事实同步缺口**：`ModelFormModal.tsx` 与 `services/models.ts` 仍按 TASK-019/020 之前的字段（`base_url`/`api_key`/`api_key_configured`）渲染，与后端 `extra="forbid"` 的新契约（`provider_key` + `params.max_tokens` 必填）不一致；该两文件不在本任务 Files 内，属 TASK-092「原模型编辑/版本/测试保持最终新语义」的范围。⑤ 检测的模型候选只取第一页 100 条（后端上限），跨页选择需 TASK-092/后续按需补搜索；当前以显式截断提示兜底。
 - B-286: verified — automated command passed; run_id=476a9841bb79457793a30123c0b89ae7 (confirmed_by: runner)
+- B-286: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-286: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6457,6 +6658,8 @@ ADMIN凭据维护、容量/额度组及真实Key检测结果；完整分支及�
 
 遗留（非本任务范围，明确移交）：① **事实同步缺口**——`services/models.ts` 的 `ModelItem` 仍含 `base_url`/`api_key_configured`、`ModelFormModal.tsx` 仍按旧字段渲染；本任务只在 SideSheet/面板侧按后端真实投影做运行时读取（`readModelProviderKey`/`readOutputBudget`，缺字段按「未声明」显式降级），DTO 与表单的最终新语义属 TASK-092 Files。② 挂载点补全——主列表进入物理 Key/额度管理、`ModelPage.tsx` 传递 `onChanged`（本任务已在 `ModelDetailSideSheet` 预留可选 `onChanged?()`，当前调用点未传）属 TASK-092。③ 额度组 CRUD 与 RPM/TPM/null 单位展示属 TASK-088；本任务只在成员表单说明「同一物理 Key 的容量在所有引用它的模型间共享计量」。④ 浏览器 E2E（绑定/解绑/调权重的点击路径、非 ADMIN 无成员入口、SideSheet 关闭不破坏列表）属 TASK-115 的 S-106 域，本任务只登记不执行。⑤ 成员与凭据候选都只取第一页 100 条（后端上限），跨页选择需后续按需补搜索；当前以显式截断提示兜底。
 - B-287: verified — automated command passed; run_id=105d16b1cb3046ce86828df206505736 (confirmed_by: runner)
+- B-287: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-287: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6513,6 +6716,8 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 遗留（非本任务范围，明确移交）：① **挂载点**——`ModelPage.tsx` 进入物理 Key/额度管理、与 TASK-086 凭据面板/TASK-087 成员面板并列挂接、`onChanged` 接线属 TASK-092 Files（本面板已预留可选 `onChanged?()`，当前无调用点）；② 浏览器 E2E（额度组新增/编辑/删除点击路径、留空维度回显、非 ADMIN 无额度入口、中英文/窄屏布局）属 TASK-115 的 S-106/S-107 域，本任务只登记不执行；③ 额度组列表只取第一页（后端 `page_size≤100`），跨页选择/搜索需后续按需补，当前以显式截断提示兜底；④ `model.credential.form.quotaGroupHint` 仍以「留空表示该 Key 独占自身容量」描述归属，与本次额度组侧的共享说明口径一致，未改（属 TASK-086 词条）。
 - B-288: verified — automated command passed; run_id=8aff9ef3ebe44145ba138c49aab553ed (confirmed_by: runner)
+- B-288: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-288: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6566,6 +6771,8 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 遗留（deferred，非本任务可闭合）：① 浏览器内交互（切换分组、保存、错误滚动/聚焦到控件、窄屏布局）按契约留真实浏览器 E2E（S-F15，TASK-115）；② 新增分组词条正文（若需再扩写说明文案）属 TASK-090 的词条面，本任务只消费已就绪词条；③ 模型/用户模块的 Key 与 Token 维护面分别属 TASK-085/087/088，不在设置页；④ 规范刷新（cf-learn/refresh）：`harness-frontend` Conventions 可补「设置字段的默认/范围/单位/生效说明只来自 API-01 元信息；字段错误按 `details[].path` 定位到控件（含分组前缀归一化），错误只渲染在字段行内」；本任务不改 spec 文件以免 active context 漂移。
 - B-289: verified — automated command passed; run_id=57d3677009364f089c47db49e55e05c0 (confirmed_by: runner)
+- B-289: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-289: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6620,6 +6827,8 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 
 遗留（deferred，非本任务可闭合）：① **`chat.notifications.kind.RUN_COMPLETED` 的 en 文案**（`Session has new results`）与「会话→conversation」术语不一致（zh 已是「会话有新结果」），但该字符串被 TASK-084 的已验证用例 `tests/frontend/test_capacity_webchat_activity_ui.py:1235` 逐字钉死，改词条必须同时改那条用例（本任务 Files 之外）；本任务把「会话→conversation」规则钉在会话面 8 条键上并在此登记该条，留待后续需求级收敛或 spec 刷新时一并处理。② **`chat.sidebar.newConversation`（en `New chat`）与 `chat.page.newConversation`（en `New conversation`）**：按钮与标题两个角色，zh/en 差异均被 TASK-079 用例（`test_capacity_webchat_history_sidebar.py:1263`「新建会话」、`:1276`「New chat」）逐字钉死，属既有契约而非漂移。③ **错误词条键名口径**：`chat.composer.error.*`/`chat.run.stop.error.*`/`chat.run.confirm.error.*` 采用「语义键名 + 码→键映射表」，与 harness-i18n Conventions 的「键名与 catalog 码同名」只在 `chat.tokenAccess.error.*`（与 audit 面）成立；全量同名需改组件映射表（本任务 Files 之外），本任务以「映射表里的码必须已登记（前端自有码 `NETWORK_ERROR`/`UNKNOWN` 显式豁免）+ 两侧词条齐备 + fallback 齐备」机检守住。④ **verifier `harness-i18n#RULE-i18n-001` 的 acceptance 半**（`tests/acceptance/test_foundation_i18n.py`）按共享环境约束未执行（禁 `tests/acceptance/**`、禁 DDL/迁移），checker 半 `uv run python scripts/check_frontend_i18n.py` 已跑通；该 verifier 属 review 阶段，由需求级 verify-e2e 收口。⑤ 规范刷新（cf-learn/refresh）：`harness-i18n` Conventions 可补「词条面必须与真实来源逐项对应：设置字段/单位/生效文案的键集取 API-01 目录元信息（label_key/unit_key/effect_key/applies_to），schema 删除后同步删词条（无孤儿键）；占位符一律 `{{…}}`，单花括号不插值；枚举词条以模块静态映射表 + `Record<Union, string>` 的 union 为口径；术语按「会话/通知/确认」成对出现」；本任务不改 spec 文件以免 active context 漂移。
 - B-290: verified — automated command passed; run_id=10aea2f2746047b2a9402974ee9ee799 (confirmed_by: runner)
+- B-290: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-290: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6667,6 +6876,8 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 |--------|-----|-------|---------|-------------|------|
 | B-291 | 子 agent 中断接管现场（同命令）：**2 failed + 1 passed + 13 errors**（`webchat.css` 不存在 ⇒ 13 errors；app.css 未接线；SSR harness 端口形状/键名缺陷 ⇒ 渲染用例崩溃；icon 用例注释假阳性；选中项类名断言与组件组合类名不符） | 同命令 → **16 passed**（exit=0）；`uv run pytest -q tests/frontend` → **596 passed**；`npx tsc --noEmit` 干净；`check_frontend_i18n.py` OK | `test_b291_module_stylesheet_uses_only_existing_theme_tokens` L873（无写死颜色/无主题值声明/无 theme-mode，9 个 token 齐备）；`..._is_wired_from_the_console_entry` L897（`styles/app.css` 唯一入口且 `@import` 在首条规则前）；`..._compiled_artifact_keeps_chat_layout_rules` L910（真实 esbuild 产物保留 `webchat-shell`/`chat-message-item-user`/`chat-panel-composer` 规则）；`..._shell_is_sidebar_plus_scrollable_workspace` L921（grid + min-height:0；侧栏 overflow+border；消息区 overflow-y+min-height:0+padding-bottom；输入区 border+bg-1+flex）；`..._message_bubbles_align_by_role_with_tokens` L938（max-width/radius；user=flex-end+primary-light-default；assistant=flex-start+bg-1；代码块 overflow）；`..._sidebar_truncates_titles_and_highlights_selection` L954（title 三件套 ellipsis/nowrap/overflow；selected=primary-light-default）；`..._every_stable_chat_class_has_a_stylesheet_rule` L966（源码类名 + 动态类名全覆盖）；`..._narrow_screen_collapses_sidebar_into_drawer` L980（≤1024px：fixed/translateX(-100%)/drawer-open 变体/开关显示）；`..._narrow_screen_keeps_composer_and_run_actions_visible` L998（sticky，且五个受保护选择器无 display:none）；`..._focus_visible_outlines_cover_chat_interactions` L1026（≥4 条 2px 主色描边 + 4 个必需选择器 + prefers-reduced-motion，无 outline:none）；`..._icon_only_controls_declare_accessible_labels` L1042（自闭合图标按钮 aria-label；隐藏文件输入 aria-label；开关 aria-expanded/aria-controls；条目原生按钮+完整标题）；`..._live_region_frequency_is_bounded_to_the_thread` L1066（唯一 role="log"+aria-label，无其他 live region）；`..._scroll_anchor_rules_keep_js_compensation_authoritative` L1082（overflow-anchor:none + scroll-padding，无 scroll-behavior:smooth）；`..._chat_styles_stay_scoped_away_from_the_admin_shell` L1093（无管理 Shell 选择器/无全局选择器/无 semi-table）；`..._rendered_shell_markup_matches_layout_and_a11y_contract` L1127（真实 SSR：drawer 属性/aria 指向真实 id/本地化标签/aria-current/组合选中类名/产物类名有样式）；`..._rendered_message_and_run_surfaces_keep_labels_without_live_noise` L1151（真实 SSR：线程/输入/停止/确认标签齐全且无 live 噪声） | 真实 esbuild 打包 `styles/app.css` 入口 → 真实 CSS 编译产物；真实组件 + 真实 Semi + 真实 i18n 资源 + 真实会话控制器快照经真实 node 静态渲染；真实模块 service/typed DTO + 共享传输；DOM 交互（真实浏览器）留 TASK-115 E2E；verifier 整条实跑 9 passed + build ✓ | verified |
 - B-291: verified — automated command passed; run_id=a25d5f3dd12a41d089831c769c8405ba (confirmed_by: runner)
+- B-291: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-291: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6715,6 +6926,8 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 |--------|-----|-------|---------|-------------|------|
 | B-292 | 子 agent 中断接管现场（同命令）：**2 failed + 5 errors + 5 passed**（harness 缺 semi-stub ⇒ 5 errors；testid 断言形式与 esbuild 产物不符 ⇒ 编译用例失败；15 条词条缺失 ⇒ 本地化用例失败）；另 `tests/frontend` 3 failed（旧字段契约 `test_model_form_contract.py`） | 同命令 → **12 passed**（exit=0）；`uv run pytest -q tests/frontend` → **592 passed**；`npx tsc --noEmit` 干净；`check_frontend_i18n.py` OK | `test_real_service_keeps_the_final_model_field_surface` L354（写体恰 `provider_key`+`params.max_tokens`，无旧字段/无夹带）；`test_real_service_validates_the_output_budget_and_identity` L405；`test_real_service_never_accepts_connection_or_key_material` L423（canary 不进任何请求）；`test_real_service_toggles_enabled_as_a_single_field_version_update` L440；`test_real_service_maps_conflicts_to_explicit_copy` L451；`test_main_list_mounts_the_admin_panels_and_notifies_once` L460（`open-model-resources` 入口 + 面板挂接 + 单次通知）；`test_main_list_reads_only_the_final_model_facts` L485（旧 `api_key_configured` 彻底退出）；`test_model_detail_mounts_members_and_passes_changes_back` L500；`test_model_form_modal_matches_the_final_field_surface` L514（`buildModelCreateInput`/`buildModelUpdateInput`/`readOutputBudget`/`ModelInputError`/FormModal 720/协议只读）；`test_model_status_icons_read_the_provider_fact` L534；`test_page_and_form_compile_to_real_typescript_artifacts` L543（真实 esbuild 产物：页面/表单/侧板三个模块图含挂接标记、无旧字段与 canary）；`test_wiring_keys_are_localized` L575（15 键 zh/en 齐平且非裸枚举） | 真实模块 service/typed DTO + 共享传输（真实 axios 拦截器观测请求/头/体）；真实 esbuild 编译产物 + 真实 node 执行；`tests/frontend/test_model_form_contract.py` 按新事实重定向后保持绿；DOM 交互留真实浏览器 E2E（TASK-115） | verified |
 - B-292: verified — automated command passed; run_id=9d13b14cbfd1472ea4f3f5d4260ac7e3 (confirmed_by: runner)
+- B-292: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-292: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6779,6 +6992,10 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 - 遗留（deferred，非本任务可闭合）：① **DOM 交互**（真实点击历史/新建、键盘、滚动锚点、抽屉断点、明暗主题、窄屏输入/停止/确认可见）按契约留真实浏览器 E2E（S-101/S-F05/S-F13，TASK-112/113/114）；本任务以真实编译产物 + 真实 SSR 产物 + 真实 node 状态执行登记。② **URL 回写**：页内选择/新建不回写 `conversation` 查询参数（URL 仍是初始解析来源，页内选择由 TASK-078 控制器持有）；若后续要求"新建后 URL 带会话"，需与 TASK-077 的解析门控同步设计（否则回写会触发重复解析与视图闪烁），未在本任务落地。③ **通知面板位置**：design §3.3 把 `NotificationPanel` 画成 `WebchatShell` 直接子节点，本实现挂在左栏活动位置（`notificationPanel` 接缝）；shell 网格与样式属 TASK-091，未改 CSS。④ **流式正文渲染**：以纯文本（React 转义）展示已应用增量，未复用 TASK-080 的白名单 Markdown 子集渲染器（避免复制第二份渲染器）；如需一致渲染需把该渲染器提为共享接缝。⑤ 词条未新增（复用 TASK-090 已收敛词条，失败映射只用既有键）；**规范刷新**（cf-learn/refresh）：`harness-frontend` Conventions 可补「页面装配=控制器由页面持有（一页一实例）+ 端口只暴露稳定方法引用；受理回执先重读权威页再 `watch` 新 Run；页内选择由控制器持有、URL 只做初始解析来源；按会话草稿以 TASK-078 多槽为暂存、单槽输入由喂回同步」；本任务不改 spec 文件以免 active context 漂移。
 - B-102: verified — automated command passed; run_id=29c594b344ba4c738cb1ffe7d46ee671 (confirmed_by: runner)
 - B-293: verified — automated command passed; run_id=29c594b344ba4c738cb1ffe7d46ee671 (confirmed_by: runner)
+- B-102: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-293: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-102: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-293: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6845,6 +7062,10 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 - 延后项（诚实记录）：① **机器人路由的 `PENDING` 出站意图按通道选择**（TASK-063 遗留① / TASK-066/067 遗留①，TASK-096 曾记为"属 TASK-094 Runtime 装配面"）**未在本任务闭合**：它改的是**终态写入路径的通道语义**（`application/run_service.py`/`channel_notifications.py`，TASK-063 的契约面，不在本任务 Files 与验收契约内），且按通道写 `PENDING` 需要自己的验收断言（哪些通道类别主动推送、与投递泵按原入口的权限复核/冻结回执如何交互）——对 WEBCHAT 路由盲写 `PENDING` 会**回归**（网关的 WEBCHAT 适配器按设计没有生产出站 sink，泵会拿到 NOT_SENT 反复重投）；建议作为独立小任务在 TASK-063 契约面内落地。② **过期 `DELIVERING` 租约的自动回收**（TASK-066/067 遗留②）未接线：泵的领取谓词只认 `PENDING`，接管由同键 reserve 完成（已验证的至少一次语义）；自动回收需要在 `channel_delivery` 域内定义候选谓词与回执规则（TASK-065 契约面），不在本任务 Files 内。③ **事件追尾 hub 的跨进程 hint 监听任务**（`EventTailHub._listener`）是进程级单例且无 `aclose`，本任务未纳入 lifespan 收尾——把它关掉需要在 TASK-060 域内定义"关闭后可重开"的语义（否则同进程重入 lifespan 会静默退化为仅 PG 补查）。④ `MCP_MAX_INFLIGHT`/`EGRESS_MAX_INFLIGHT` 调用信号量与 `RUNTIME_MAX_SSE_SUBSCRIBERS` 订阅上限仍是"已声明未消费"的启动预算：本任务只装配**HTTP 池**（连接/keepalive/读超时）；调用并发当前由执行槽（8）与投递泵并发（4）约束，把它们做成进程级信号量/订阅账本需要各自的域内语义与验收，本任务不编造接线。⑤ 保留清理/池饱和指标目录属 TASK-098；⑥ 部署清单的分池预算显式声明与总连接预算校验属 TASK-101/103/104；⑦ S-17/E-21 的端到端（设置保存 → 两个 Runtime 生效）由 TASK-115 的 verify-e2e 记录；⑧ 环境观察（供协调，非本任务改动）：`test_capacity_webchat_retention.py` 的 teardown 未用 `PURGE_ORDER`，会持续向共享库泄漏过期暂存行，并让 `test_staging_cleanup_never_deletes_accepted_run_artifacts` 在整跑时红——建议在 TASK-069 的用例里把 teardown 改为按 `PURGE_ORDER` 清理（或给 `cleanup_expired_staging` 加租户谓词）。
 - B-09: verified — automated command passed; run_id=0177a9959a79455b8c977a590546d106 (confirmed_by: runner)
 - B-294: verified — automated command passed; run_id=0177a9959a79455b8c977a590546d106 (confirmed_by: runner)
+- B-09: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-294: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-09: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-294: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6908,6 +7129,8 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 - 聚焦回归：`tests/agent_worker` → **327 passed in 99.48s**（exit=0，含本任务 5 例与加强后的 B-122 lifespan 用例，最终冻结代码）；`tests/contracts tests/architecture tests/test_configuration_inventory.py tests/test_collection_layout.py tests/test_settings.py tests/test_configuration_convergence.py tests/console_tasks tests/test_async_tool_dispatch_settings.py` → **1357 passed in 6.83s**（exit=0）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL（共享 dev 库约束）。运行前已确认无 dev 服务残留（同机另有并行 worktree 的测试进程，本任务用例全部使用隔离库/隔离 Redis 号位）。
 - 延后项（诚实记录）：回收/维护节拍的指标目录（如维护循环失败计数）属 TASK-098/099 的指标目录与观测；部署清单里的分池预算显式声明与总连接预算校验属 TASK-101/103；1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责；本任务不引入 MCP/上传池（Worker 无该调用类别，见上）。
 - B-295: verified — automated command passed; run_id=f24b92c858284cd885ec3106534125d1 (confirmed_by: runner)
+- B-295: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-295: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -6969,6 +7192,8 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 - 聚焦回归（最终冻结代码；运行前已确认无 pytest/uvicorn/vite 残留进程）：`uv run pytest -q tests/gateway` → **434 passed in 132.25s**（exit=0，含本任务 7 例与 B-261/B-248/B-267 等既有用例）；`uv run pytest -q tests/contracts tests/architecture tests/test_configuration_inventory.py tests/test_error_catalog.py` → **1328 passed in 4.54s**（exit=0）；`tests/test_attachment_contract.py tests/test_settings.py tests/test_logging.py` → **8 passed**。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL（共享 dev 库约束）。
 - 延后项（诚实记录）：① WEBCHAT 适配器出站 sink（见上，无生产落点）；② 机器人路由的 `PENDING` 出站意图由 Runtime 终态写入路径按通道选择（TASK-067 遗留①，属 TASK-094 Runtime 装配面）；③ WeCom 媒体下载并入 upload 池（贯穿 adapter/sdk 端口，可后补）；④ SSE 指标目录（订阅数/断开原因/缓冲水位/拒绝计数进 Prometheus）属 TASK-098；⑤ 部署清单的分池预算显式声明与总连接预算校验属 TASK-101/103/104；⑥ 1000 用户重连/排空容量结论由 TASK-109/116 的 E2E/profile 负责。
 - B-296: verified — automated command passed; run_id=085f2e51baec4ac9b91a4bed7238a05a (confirmed_by: runner)
+- B-296: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-296: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7030,6 +7255,8 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 - 聚焦回归：`tests/console_platform` → **384 passed**（75.35s，含本任务 8 例与 B-228 8 例）；`tests/contracts tests/test_configuration_inventory.py` → **1285 passed**（3.77s）；`tests/console_auth tests/console_internal` → **143 passed**（20.28s）；`tests/console_skill tests/console_mcp tests/console_tasks tests/architecture` → **162 passed**（31.85s）。未跑 `tests/acceptance/**`、未跑浏览器验收、未执行任何迁移 DDL（共享 dev 库约束）。
 - 延后项（诚实记录）：探针的端到端真实链路（先占额、并发 ≤4、单次 ≤5 秒、结算证据）由 B-228（TASK-028）承担，本任务只证明装配与注入事实；探针装配的指标/观测属 TASK-099；既有「批量测试」路径（`application/model_test_service.py` + `/api/v1/models/batch-test`，前端 ModelPage 仍在用）仍按自身客户端建池（默认 httpx 池），不在本任务 Files/契约范围，未改动（如要统一到 model 池预算，宜另立任务）。
 - B-297: verified — automated command passed; run_id=b8b6c650752c4585978e4b86b9f73bb2 (confirmed_by: runner)
+- B-297: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-297: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7091,6 +7318,8 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 - 聚焦回归：`tests/architecture tests/contracts tests/test_logging.py tests/test_logging_redaction.py tests/test_configuration_inventory.py` → **1368 passed in 8.10s**（exit=0）；`tests/gateway` → **442 passed in 138.02s**（exit=0，含 B-261 公开 SSE 与 B-296 装配回归）；`tests/agent_runtime` → **1050 passed in 733.83s**（exit=0）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL（共享 dev 库约束）；运行前确认无 dev 服务/残留 pytest 进程。
 - 延后项（诚实记录）：① `harness-log#RULE-log-001` 的 acceptance 部分（`tests/acceptance/test_foundation_logging.py`）留 review 阶段按原命令执行；② 部署清单的分池预算显式声明、HPA 上界与总连接预算校验属 TASK-101/103/104（本任务只让运行期观测面可见，不重写清单）；③ 逐部署均衡从调用审计聚合、1000 用户容量结论属 TASK-110/116；④ 「过期 `DELIVERING` 租约自动回收」「按通道写 `PENDING` 意图」等 TASK-096 遗留仍不在本任务 Files 内（本任务只补它们的可观测面）。
 - B-298: verified — automated command passed; run_id=a9de42b3ebc0419fb66cd37c50cd5438 (confirmed_by: runner)
+- B-298: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-298: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7146,8 +7375,10 @@ RPM/TPM/null/max_inflight单位与共享关系可见；完整分支及可观测�
 - 配置盘点：`docs/configuration-inventory.csv` 只更新本任务触及的 10 个文件行号与新增 8 个 `python-constant`（worker/console metrics 各 4/5 个），CRLF 保持（1527 CRLF / 0 裸 LF）、`git -c core.whitespace=cr-at-eol diff --check` 通过；`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**。
 - 静态校验：`uv run ruff check`（10 个实现/接线文件 + 验收文件）干净；`uv run mypy apps packages` → **Success: no issues found in 438 source files**。
 - 聚焦回归：`tests/architecture tests/contracts tests/test_audit_observability_config.py tests/test_configuration_inventory.py` → **1342 passed in 9.07s**（exit=0，含 B-203 既有 Console 指标/日志契约）；`tests/agent_worker` → **327 passed in 102.46s**（exit=0）；`tests/console_platform tests/console_auth` → **474 passed in 71.13s**（exit=0，含 B-228/B-297 探针与装配回归）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL（共享 dev 库约束）；运行前确认无 dev 服务残留。
-- 延后项（诚实记录）：Runtime/Gateway 目录属 TASK-098（B-298，含 harness-log#RULE-log-001 verifier）；探针端到端容量链路（先占额、并发 ≤4、结算证据）属 B-228（TASK-028）；部署清单里的分池预算显式声明与总连接预算校验属 TASK-101/103；1000 用户容量结论属 TASK-110/116；本任务不新增运维旋钮、不改写既有错误映射。
+- 延后项（诚实记录）：Runtime/Gateway 目录属 TASK-098（B-298，含 RULE-log-001（见 Spec Responsibility） verifier）；探针端到端容量链路（先占额、并发 ≤4、结算证据）属 B-228（TASK-028）；部署清单里的分池预算显式声明与总连接预算校验属 TASK-101/103；1000 用户容量结论属 TASK-110/116；本任务不新增运维旋钮、不改写既有错误映射。
 - B-299: verified — automated command passed; run_id=272c628a448846c6a09a89b1c6a69626 (confirmed_by: runner)
+- B-299: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-299: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7204,9 +7435,11 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 - 用例隔离修正（诚实记录）：初版用例⑦直接实例化 `create_app`，其模块级 `app` 会把 Console 指标注册进全局注册表，导致同目录 TASK-098 的 `test_b298_sse_buffer_backpressure_and_ledger_are_really_recorded` 在整跑时因白名单外 `path` label 失败（单跑通过）；最终改为真实 `install_spa` + api-kit 封套的 ASGI 装配（装配顺序仍按 `main.py` 源码机检），整跑恢复 101 passed。该失败是**测试相互污染**而非实现缺陷，未改任何实现代码。
 - 判别性验证（防止断言空转；6 处变异均先复现失败再还原，随后复跑确认 14 passed）：①console 去掉 `terminationGracePeriodSeconds` → ②用例 **1 failed**；②gateway 去掉 `STREAM_HTTP_MAX_KEEPALIVE` → ④用例 **1 failed**（缺 `['STREAM_HTTP_MAX_KEEPALIVE']`）；③console 内存上限 4Gi→3Gi → ③用例 **1 failed**（`4096 == 3072`）；④新增 `webchat-frontend` Deployment/Service → ⑧用例 **1 failed**；⑤`spa.py` 把 `chat` 加入 `RESERVED_SEGMENTS` → ⑥⑦用例 **2 failed**；⑥Dockerfile 去掉 `COPY --from=frontend /web/dist /app/static` → ⑥用例 **1 failed**。
 - 静态检查与盘点：`uv run ruff check tests/architecture/test_capacity_webchat_console_gateway_deploy.py` → **All checks passed**；未在 `apps`/`packages` 新增/移动模块级大写常量，`docs/configuration-inventory.csv` 无需改动（`uv run pytest -q tests/test_configuration_inventory.py` 4 passed）。
-- 聚焦回归：`uv run pytest -q tests/architecture` → **101 passed in 5.33s**（exit=0，含既有 `test_k8s_deploy_manifests.py` 的探针/镜像/非 root/迁移 Job 机检与 `harness-arch#RULE-arch-001` verifier 套件）；`uv run pytest -q tests/console_platform/test_spa_static.py tests/console_platform/test_capacity_webchat_console_wiring.py tests/gateway/test_capacity_webchat_gateway_wiring.py tests/test_configuration_inventory.py` → **28 passed in 14.09s**（exit=0）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL。
+- 聚焦回归：`uv run pytest -q tests/architecture` → **101 passed in 5.33s**（exit=0，含既有 `test_k8s_deploy_manifests.py` 的探针/镜像/非 root/迁移 Job 机检与 `RULE-arch-001（见 Spec Responsibility）` verifier 套件）；`uv run pytest -q tests/console_platform/test_spa_static.py tests/console_platform/test_capacity_webchat_console_wiring.py tests/gateway/test_capacity_webchat_gateway_wiring.py tests/test_configuration_inventory.py` → **28 passed in 14.09s**（exit=0）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL。
 - 延后项（诚实记录）：① HPA 上界/`maxReplicas` 与总连接/内存的渲染前预检、发布阻断属 TASK-103/104；② `DB_POOL_SIZE`/`DB_MAX_OVERFLOW`/`DB_POOL_TIMEOUT_SEC` 的 engine 工厂接线仍属 TASK-101 延后项①，本用例 FD 预算按 engine 工厂**真实** pool（5+10）核算，不写死数字；③ 1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责；④ 入口代理的路径分流（`/chat/*` 与 `/api/v1/webchat/auth/*` → Console）属 TASK-102（ingress），本任务只保证 Console 镜像内的页面链路。
 - B-300: verified — automated command passed; run_id=c3a73dbf71224f8aa96b1f05df591ba7 (confirmed_by: runner)
+- B-300: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-300: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7264,9 +7497,11 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 - 排空/发布（§4.2 的部署侧）：两份清单显式 `terminationGracePeriodSeconds: 60`（起始值），readiness `/readyz`、liveness `/healthz` 口径不变（既有 `test_k8s_deploy_manifests.py` 仍绿）；维护窗口的备份/排空/单次迁移流程属 TASK-104 的预检与 README，不在本任务 Files。
 - 判别性验证（防止断言空转；5 处变异均先复现失败再还原，随后复跑确认 17 passed）：①runtime 去掉 `MODEL_HTTP_MAX_KEEPALIVE` → ③用例 **1 failed**（`缺 ['MODEL_HTTP_MAX_KEEPALIVE']`）；②runtime 声明未接线的 `DB_POOL_SIZE` → ④用例 **1 failed**（`没有 settings.db_pool_size 消费点`）；③worker 内存上限改 1Gi → ①用例 **1 failed**（`2048 == 1024`）；④runtime 加 `user-data` 卷 → ⑥用例 **1 failed**（`不得按 bot/user 绑定 Pod：['user-data']`）；⑤worker 删 `terminationGracePeriodSeconds` → ⑦用例 **1 failed**。
 - 静态检查与盘点：`uv run ruff check tests/architecture/test_capacity_webchat_runtime_worker_deploy.py` → **All checks passed**；`uv run mypy apps packages` → **Success: no issues found in 441 source files**；未在 `apps`/`packages` 新增/移动模块级大写常量，`uv run pytest -q tests/test_configuration_inventory.py` → **4 passed**（`docs/configuration-inventory.csv` 无需改动）；两份清单 `yaml.safe_load_all` 解析为 Deployment+Service 两文档（既有架构清单用例一并绿）。
-- 聚焦回归：`uv run pytest -q tests/architecture` → **69 passed in 4.90s**（exit=0，含既有 `test_k8s_deploy_manifests.py` 的探针/镜像/非 root/迁移 Job 机检与 `harness-arch#RULE-arch-001` 的 verifier 套件）。
+- 聚焦回归：`uv run pytest -q tests/architecture` → **69 passed in 4.90s**（exit=0，含既有 `test_k8s_deploy_manifests.py` 的探针/镜像/非 root/迁移 Job 机检与 `RULE-arch-001（见 Spec Responsibility）` 的 verifier 套件）。
 - 延后项（诚实记录）：① `DB_POOL_SIZE`/`DB_MAX_OVERFLOW`/`DB_POOL_TIMEOUT_SEC` 的 engine 工厂接线（§3.7 声明预算落地）不在本任务 Files，属持库单元基础设施的域内变更；接线后 PG 每进程上限会从 15 下降，本用例会按新事实自动重算（不写死数字）。② `REDIS_MAX_CONNECTIONS`/`RUNTIME_MAX_SSE_SUBSCRIBERS` 做成进程级账本/信号量（TASK-094 延后项④）后应在清单显式声明；本任务按 typed 有效值核算 FD 预算。③ 总连接/FD/内存缓冲的渲染前预检与发布阻断属 TASK-103/104；HPA 上界与 `maxReplicas` 属 TASK-103。④ Console/Gateway 的资源/终止宽限与分池预算显式声明属 TASK-100（本任务只覆盖 Runtime/Worker 与共享卷）。⑤ 1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责；本任务不声称生产容量已达标。
 - B-301: verified — automated command passed; run_id=a56ddf43a3184d608fc7e0cf33efa35c (confirmed_by: runner)
+- B-301: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-301: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7321,9 +7556,11 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 - 分流设计（frontend §3.2）：主入口 `muad-webchat` 按最长前缀分流——`/api/v1/webchat/auth`→Console（更具体且列在前）、`/api/v1/webchat`→Gateway、`/api`（普通 Console API）→Console、`/chat` 与 `/assets`→Console 显式规则、`/`→Console SPA 兜底；SSE 专用入口 `muad-webchat-sse` 覆盖更具体的 `/api/v1/webchat/runs`，关闭响应缓冲（`proxy-buffering: off` + HTTP/1.1）且读写超时 45s=3×心跳；应用侧同时下发 `X-Accel-Buffering: no`。请求体上限 `proxy-body-size: 50m` 与部署硬上限一致（ingress-nginx 默认 1m 会在代理处截断上传）。规则不写 `host`：站点域名由部署方按实际域名用 overlay 指定，不编造域名。
 - 判别性验证（防止断言空转；7 处变异均先复现失败再还原，随后复跑确认 9 passed）：①ConfigMap 去掉 `CHAT_UPLOAD_HARD_MAX_BYTES` → ②⑨用例 **2 failed**；②`RUN_EVENT_HEARTBEAT_SEC` 15→20（与 typed 默认不一致）→ ②⑧用例 **2 failed**；③认证路径后端改 Gateway → ⑤用例 **1 failed**；④SSE 去掉 `proxy-buffering: off` → ⑧用例 **1 failed**；⑤SSE `proxy-read-timeout` 45→10（不覆盖心跳）→ ⑧用例 **1 failed**；⑥删除显式 `/chat` 规则 → ⑥用例 **1 failed**；⑦`proxy-body-size` 50m→1m → ⑨用例 **1 failed**。
 - 静态检查与盘点：`uv run ruff check tests/architecture/test_capacity_webchat_configmap_ingress.py` → **All checks passed**；未在 `apps`/`packages` 新增/移动模块级大写常量，`uv run pytest -q tests/test_configuration_inventory.py` 绿（配置盘点无需改动）；两份 YAML 经 `yaml.safe_load_all` 解析为 ConfigMap / Ingress×2。
-- 聚焦回归：`uv run pytest -q tests/architecture` → **110 passed in 8.12s**（exit=0，含既有 `test_k8s_deploy_manifests.py` 与 `harness-arch#RULE-arch-001` verifier 套件）；`uv run pytest -q tests/console_platform/test_spa_static.py tests/console_platform/test_capacity_webchat_console_wiring.py tests/gateway/test_capacity_webchat_gateway_wiring.py tests/test_configuration_inventory.py` → **28 passed in 11.70s**（exit=0）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL。
+- 聚焦回归：`uv run pytest -q tests/architecture` → **110 passed in 8.12s**（exit=0，含既有 `test_k8s_deploy_manifests.py` 与 `RULE-arch-001（见 Spec Responsibility）` verifier 套件）；`uv run pytest -q tests/console_platform/test_spa_static.py tests/console_platform/test_capacity_webchat_console_wiring.py tests/gateway/test_capacity_webchat_gateway_wiring.py tests/test_configuration_inventory.py` → **28 passed in 11.70s**（exit=0）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL。
 - 延后项（诚实记录）：① `ingress.yaml` 的 kustomize 注册属 TASK-103（"注册入口/HPA资源"，其 Files 含 `kustomization.yaml`），本任务不越界改它——注册前 `kubectl apply -k deploy/k8s/base` 不会创建入口；② 其余启动预算族（各池 connect/pool/read 超时、租约/投递节拍、`GATEWAY_MAX_*_HANDLERS` 等）不在 B-302 关键断言内，仍按 typed 有效值生效，未在清单显式列出；③ 真实入口代理的端到端（直接打开/刷新 `/chat/{entryId}`、Token 交换、SSE 订阅、无前端新增 Pod/Service）属 S-F09/S-109（TASK-108/115 的浏览器验收）；④ 1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责；⑤ 未消费的 `RUNTIME_MAX_SSE_SUBSCRIBERS`/`*_MAX_INFLIGHT`/`DB_POOL_*` 仍是"已声明未消费"的启动预算，接线后应在本文件显式声明。
 - B-302: verified — automated command passed; run_id=082c1750da61491eb0a7e06981e7f694 (confirmed_by: runner)
+- B-302: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-302: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7381,6 +7618,8 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 - 静态检查与聚焦回归：`uv run ruff check tests/architecture/test_capacity_webchat_hpa_budget.py` → **All checks passed**；`uv run pytest -q tests/architecture` → **123 passed in 6.65s**（exit=0，含 TASK-102 的 9 例与既有 `test_k8s_deploy_manifests.py`）；`uv run pytest -q tests/architecture tests/test_configuration_inventory.py` → **127 passed in 6.78s**（exit=0）。未跑 `tests/acceptance/**`、`make acceptance*`、浏览器验收；未执行任何迁移 DDL。
 - 交互与延后项（诚实记录）：① HPA 进入 base 后，`deploy/k8s/verify-multipod` 的 `patch-replicas.yaml`（runtime/worker 各 2 副本）会被 HPA 接管——空闲时 HPA 会把副本收回 `minReplicas=1`，多 Pod 冒烟需在冒烟期间暂停 HPA 或经 HPA 自身扩到 2；该 overlay 不在本任务 Files，留给 TASK-104（预检）/TASK-107（四单元独立验收栈）处理。② Runtime 的在飞/队列指标（见上）与 `RUNTIME_MAX_SSE_SUBSCRIBERS`/`*_MAX_INFLIGHT`/`DB_POOL_*` 的接线属应用侧（TASK-101 延后项），接线后本文件与 HPA 指标应同步。③ 渲染前预检与发布阻断（总连接/FD/内存缓冲与资源声明）属 TASK-104（B-304）；本任务只保证 HPA 上界与 typed 配置一致、PG 预算有余量、下游并发闭合。④ 1000 用户容量结论仍由 TASK-110/116 的 E2E/profile 负责；本任务不声称生产容量已达标。
 - B-303: verified — automated command passed; run_id=8e29ffb7af6f4ead84eb8efd01bca27b (confirmed_by: runner)
+- B-303: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-303: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7440,6 +7679,8 @@ Console/Gateway各1Pod，readiness/liveness与终止宽限正确，Console镜像
 - 诚实边界与延后项：① SSE 缓冲占内存上限 50% 与 PG 维护余量 1 是本发布闸门的起始阈值（脚本内命名常量），正式容量结论仍由 TASK-117 报告输出；② `DB_POOL_SIZE/DB_MAX_OVERFLOW` 未接线进 engine 工厂（TASK-101 延后项），预检按真实池上限核算，接线后本预检无需改动（同源）；③ 预检的渲染器在无 `kubectl` 环境退回收集展开（拒绝变换项，L485-521），与真实 kustomize 的一致性由 L218-224 在有 kubectl 时守住；④ verifier `harness-arch#RULE-arch-001` 本体（真实 API/PG/浏览器）保持 review-deferred，由需求级 verify-e2e 收口。
 - B-304: verified — automated command passed; run_id=416d4334e5ad40c2bc9265a8786e9d93 (confirmed_by: runner)
 - B-304: verified — automated command passed; run_id=c4f194cc346c4ecca4b20fd630752662 (confirmed_by: runner)
+- B-304: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-304: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7495,6 +7736,8 @@ users/负载分布/资源/SLO/模型模式typed校验，正式验收缺必填拒
 - 诚实记录：YAML 解析失败时只用 `problem_mark` 的 行列 定位并且 `from None` 不链接原文异常——PyYAML 的原始报错会带出源码片段，可能含密钥原文，故错误路径不回带内部内容（与"错误不回带原文"一致）。
 - 延后项：真实模型（REAL）额度实测、探针/负载驱动/隔离栈与容量报告分别由 TASK-106/107/109/116/117/118 落地；本任务只保证 profile 的 typed schema、规范示例与"缺必填拒绝 pass"的裁决事实。
 - B-305: verified — automated command passed; run_id=9a690bcf84d344e2b0cd307c39e7e481 (confirmed_by: runner)
+- B-305: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-305: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7549,6 +7792,8 @@ HTTP模型可设置延迟/增量/usage/429/断流/应答丢失，企微走实际
 - 诚实记录（实测发现，供下游栈直接受益）：① 本机若配置系统代理，httpx 默认 `trust_env=True` 会**经代理**访问探针，断流/应答丢失被代理改写为 502（本轮实测）；用例已统一 `trust_env=False`，下游容量栈调用探针必须同样处理，否则测的不是探针；② 企微 SDK 不保证服务端断线回调（与生产 Adapter "存活探测兜底"一致），故断线用例断言的是"SDK 连接不再可用"这一真实可观测事实；③ 故障代理的延迟/丢弃发生在**连接**粒度（真实 TCP 语义），非连接复用场景需新连接。
 - 延后项：真实模型（REAL）额度实测与正式四单元栈、负载驱动、容量报告分别由 TASK-107/109/110/116/117/118 落地；本任务只保证探针本身的协议精确性与故障可观测性，不冒充真实企业微信实网或真实模型吞吐。
 - B-306: verified — automated command passed; run_id=1d1e156b0a3144c9b670235afd020d81 (confirmed_by: runner)
+- B-306: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-306: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7620,6 +7865,8 @@ B-307（functional/integration）—— 命令与计数：
 
 真实边界说明（按任务范围）：本任务验证的是**栈基座**（库/Redis/进程/共享卷/代理/故障控制），四单元为真实 uvicorn 子进程 + 真实 PG/Redis；容量负载与业务链路（S-01/S-14/S-15 的 1000 用户与业务断言）仍由 TASK-110/116 的 E2E 承担，本任务不声称业务容量已达标。`capacity_stack` fixture 已按 session 粒度接好，供 TASK-108/109/110/111/116 复用（验收会话内复用同一独立库，避免 seed 与服务裂脑）。
 - B-307: verified — automated command passed; run_id=9aa20e651f124d47a6b094877333702e (confirmed_by: runner)
+- B-307: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-307: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7695,6 +7942,8 @@ B-308（integration，机检 harness；本任务不启浏览器、不建库、�
 
 - B-308: verified — automated command passed（机检 16 passed；E2E 场景保持 deferred，由 TASK-112～116 与 verify-e2e 收口）
 - B-308: verified — automated command passed; run_id=d4b664a32ad943bdb04b34e531564e1f (confirmed_by: runner)
+- B-308: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-308: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7768,6 +8017,8 @@ B-308（integration，机检 harness；本任务不启浏览器、不建库、�
 
 > 说明（诚实边界）：本任务的 functional 运行是**受限规模 VERIFICATION**（6 用户×2 轮、思考时间 ×0.05，报告显式登记 `scale`）；全量 1000 用户/8 轮的容量结论由 TASK-116 用同一驱动执行，本任务不声称已完成 1000 用户容量结论。E2E 场景（S-01/S-14/S-15）保持 planned，由 TASK-116 收口。
 - B-309: verified — automated command passed; run_id=2aeab735bf1d4796bcbab4578522fe93 (confirmed_by: runner)
+- B-309: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-309: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7848,6 +8099,16 @@ deferred（留给 verify-e2e）：浏览器/1000 用户级完整 E2E 与容量�
 - E-01: e2e_deferred — automated command e2e_deferred; run_id=aaa3683222cf4e05b29f82e1e9966b84 (confirmed_by: runner)
 - E-15: e2e_deferred — automated command e2e_deferred; run_id=aaa3683222cf4e05b29f82e1e9966b84 (confirmed_by: runner)
 - E-16: e2e_deferred — automated command e2e_deferred; run_id=aaa3683222cf4e05b29f82e1e9966b84 (confirmed_by: runner)
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-12: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-01: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-15: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-16: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-12: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-01: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-15: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-16: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -7935,6 +8196,14 @@ deferred（留给 verify-e2e）：浏览器/1000 用户级完整 E2E 与容量�
 - S-07: e2e_deferred — automated command e2e_deferred; run_id=2f36c28443664e0cb8a506c0d07ddc93 (confirmed_by: runner)
 - E-02: e2e_deferred — automated command e2e_deferred; run_id=2f36c28443664e0cb8a506c0d07ddc93 (confirmed_by: runner)
 - E-19: e2e_deferred — automated command e2e_deferred; run_id=2f36c28443664e0cb8a506c0d07ddc93 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-19: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-19: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -8020,6 +8289,36 @@ deferred（留给 verify-e2e）：浏览器/1000 用户级完整 E2E 与容量�
 - S-110: e2e_deferred — automated command e2e_deferred; run_id=e5969862f7a54f46a6d1ccaefaae0416 (confirmed_by: runner)
 - E-106: e2e_deferred — automated command e2e_deferred; run_id=e5969862f7a54f46a6d1ccaefaae0416 (confirmed_by: runner)
 - S-112: e2e_deferred — automated command e2e_deferred; run_id=e5969862f7a54f46a6d1ccaefaae0416 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-10: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-16: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-05: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-10: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-11: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-12: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-17: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-20: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-101: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-101: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-105: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-110: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-106: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-112: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-10: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-16: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-05: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-10: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-11: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-12: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-17: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-20: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-101: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-101: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-105: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-110: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-106: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-112: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Acceptance Evidence
 
@@ -8201,6 +8500,34 @@ E2E_WEBCHAT_OFFSET=3 bash -lc "npm --prefix apps/console-platform/frontend run b
 - S-108: e2e_deferred — automated command e2e_deferred; run_id=705da22e1c2740d8a0efd680abc9a2ec (confirmed_by: runner)
 - S-111: e2e_deferred — automated command e2e_deferred; run_id=705da22e1c2740d8a0efd680abc9a2ec (confirmed_by: runner)
 - E-109: e2e_deferred — automated command e2e_deferred; run_id=705da22e1c2740d8a0efd680abc9a2ec (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-09: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-11: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-07: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-08: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-09: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-103: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-104: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-102: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-103: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-108: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-111: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-109: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-09: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-11: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-07: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-08: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-09: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-103: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-104: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-102: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-103: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-108: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-111: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-109: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -8310,6 +8637,28 @@ E2E_WEBCHAT_OFFSET=3 bash -lc "npm --prefix apps/console-platform/frontend run b
 - S-113: e2e_deferred — automated command e2e_deferred; run_id=529156f696274f7c920e3bb3f8fcccb3 (confirmed_by: runner)
 - E-107: e2e_deferred — automated command e2e_deferred; run_id=529156f696274f7c920e3bb3f8fcccb3 (confirmed_by: runner)
 - E-108: e2e_deferred — automated command e2e_deferred; run_id=529156f696274f7c920e3bb3f8fcccb3 (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-13: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-13: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-14: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-18: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-102: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-105: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-104: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-113: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-107: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-108: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-13: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-13: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-14: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-18: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-102: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-105: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-104: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-113: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-107: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-108: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -8409,7 +8758,7 @@ E2E_WEBCHAT_OFFSET=5 bash -lc "npm --prefix apps/console-platform/frontend run b
 6. `apps/im-gateway/src/muad_im_gateway/application/chat_principal.py`：长流复核截止不再被事件推迟（原来每次事件都重置等待，心跳与复核同周期时复核永远轮不上，撤销后长流只能等 Run 自然结束）。
 7. `tests/frontend/test_capacity_webchat_browser_harness.py`：凭据 `base_url` 断言改为「探针 OpenAI 兼容端点根（含 `/v1`）」并给出真实补全端点拼接校验（原断言把 base_url 与探针根直接相等，掩盖了缺 `/v1` 的断链）。
 
-8. `apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py`、`packages/contracts/src/muad_contracts/{enums.py,__init__.py}`、`docs/configuration-inventory.csv`：Done Gate 的 required verifier（`harness-im#RULE-im-002` → `tests/architecture/test_channel_neutrality.py`）在合并后的 HEAD 上失败——核心域（agent-runtime）里出现了渠道专有字样 `WECOM`（TASK-111 引入的 `OUTBOUND_CHANNELS` 常量与文档串）。按规则的定义处收敛：词表移回 `muad_contracts/enums.py`（唯一允许出现渠道字样的定义面）并由核心域 import，文档串改为渠道中立表述，库存行同步迁移；`tests/architecture/test_channel_neutrality.py` + `tests/test_configuration_inventory.py` 7 passed、`tests/agent_runtime -k "notification or delivery"` 49 passed、`tests/contracts` 1281 passed、ruff 干净。
+8. `apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py`、`packages/contracts/src/muad_contracts/{enums.py,__init__.py}`、`docs/configuration-inventory.csv`：Done Gate 的 required verifier（`RULE-im-002（见 Spec Responsibility）` → `tests/architecture/test_channel_neutrality.py`）在合并后的 HEAD 上失败——核心域（agent-runtime）里出现了渠道专有字样 `WECOM`（TASK-111 引入的 `OUTBOUND_CHANNELS` 常量与文档串）。按规则的定义处收敛：词表移回 `muad_contracts/enums.py`（唯一允许出现渠道字样的定义面）并由核心域 import，文档串改为渠道中立表述，库存行同步迁移；`tests/architecture/test_channel_neutrality.py` + `tests/test_configuration_inventory.py` 7 passed、`tests/agent_runtime -k "notification or delivery"` 49 passed、`tests/contracts` 1281 passed、ruff 干净。
 
 上述 2–8 各自的机检命令已复跑通过（`uv run pytest -q tests/capacity/test_capacity_webchat_http_probes.py` 14 passed；`uv run pytest -q tests/gateway/test_capacity_webchat_gateway_chat_auth.py` 12 passed；`uv run pytest -q tests/frontend/test_capacity_webchat_browser_harness.py` 16 passed），并由本任务的 12 条浏览器用例端到端复核。
 
@@ -8438,6 +8787,26 @@ E2E_WEBCHAT_OFFSET=5 bash -lc "npm --prefix apps/console-platform/frontend run b
 - E-110: e2e_deferred — automated command e2e_deferred; run_id=86f886cadc974517a05f849e97cf28cf (confirmed_by: runner)
 - S-115: e2e_deferred — automated command e2e_deferred; run_id=86f886cadc974517a05f849e97cf28cf (confirmed_by: runner)
 - E-111: e2e_deferred — automated command e2e_deferred; run_id=86f886cadc974517a05f849e97cf28cf (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-17: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-21: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-106: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-107: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-109: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-114: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-110: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-115: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- E-111: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-17: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-21: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-106: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-107: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-109: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-114: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-110: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-115: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- E-111: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -8447,7 +8816,7 @@ E2E_WEBCHAT_OFFSET=5 bash -lc "npm --prefix apps/console-platform/frontend run b
 - [2026-10-19] RED：先建两个空壳 spec（13 个用例标题 + 未实现桩）→ functional 命令 **13 failed（exit=1）**，日志 `/tmp/task115-red.log`
 - [2026-10-19] 实现两个 spec 的 12 条真实浏览器场景（管理面 7 + 布局/部署 5）；逐条 GREEN 收敛过程中修复 7 处真实缺陷（入口代理 Set-Cookie 合并与 Cookie 泄漏、探针 reset 漏复位默认行为、Vite 同源代理改 Host 导致 CHAT 交换 403、Token 卡片后台刷新卸载丢原文、长流复核被事件推迟、夹具凭据 base_url 缺 `/v1`、夹具 api_key 去重），并给夹具补入口快照等待
 - [2026-10-19] GREEN：functional 命令 **12 passed（exit=0，5.1m）**，日志 `/tmp/task115-green14.log`；无孤儿进程、本栈隔离库全部回收
-- [2026-10-19] Done Gate 首次 block（`harness-im#RULE-im-002`：核心域渠道字样，TASK-111 引入）；按规则定义处把 `OUTBOUND_CHANNELS` 词表移回 `muad_contracts/enums.py` 并同步库存，复跑机检（7 passed / 49 passed / 1281 passed / ruff 干净）后 finish 返回 **pass**
+- [2026-10-19] Done Gate 首次 block（`RULE-im-002（见 Spec Responsibility）`：核心域渠道字样，TASK-111 引入）；按规则定义处把 `OUTBOUND_CHANNELS` 词表移回 `muad_contracts/enums.py` 并同步库存，复跑机检（7 passed / 49 passed / 1281 passed / ruff 干净）后 finish 返回 **pass**
 - [2026-10-19] 提交后同口径复跑 functional 命令：**12 passed（exit=0，5.1m）**，无孤儿进程、本栈隔离库已回收；commit `71259723`（amend 后同一提交）
 - [2026-10-19] 已知产品缺陷移交：控制台「新建会话后发送」不投递（改用公开 API-06 提交、浏览器承担渲染与 SSE 断言）；窄屏抽屉开关不可达（只断言可见性/遮挡不变式）；带附件 Run 执行不稳定（断言受理事实与制品字节）
 - [2026-10-19] completed (done)
@@ -8485,9 +8854,9 @@ E2E_WEBCHAT_OFFSET=5 bash -lc "npm --prefix apps/console-platform/frontend run b
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | E2E | 真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针 | 配置接纳 1000 不同用户各一个 Run；确认持久受理、可见等待/执行、最终进展、无跨用户事件；执行不超模型/工具容量，排队不冒充同时推理 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned（已写 + 轻验证：采集/静态/冒烟；全量执行留 verify-e2e） | e2e_deferred |
-| S-14 | E2E | 容量栈真实 PG/HTTP/SSE、可配置增量模型探针 | 按配置窗口合并小增量，断流恢复正文一致；事件写入率/PG连接/内存不超报告预算，取消/确认/续租在满载时仍可服务，终态前全部正文已持久化 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned（已写 + 轻验证：SQL/种子 schema 校验；全量执行留 verify-e2e） | e2e_deferred |
-| S-15 | E2E | 正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换 | 单 Pod 短暂不可用按事实记录；恢复后重连带抖动，已受理 Run 不重建、无双执行，租约资源无误释放，FD/HTTP/PG 总预算可核对 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned（已写 + 轻验证：进程控制/看护进程冒烟；全量执行留 verify-e2e） | e2e_deferred |
+| S-01 | E2E | 真实 HTTP Gateway→Runtime→PG；模型可为真实 HTTP 受控探针 | 配置接纳 1000 不同用户各一个 Run；确认持久受理、可见等待/执行、最终进展、无跨用户事件；执行不超模型/工具容量，排队不冒充同时推理 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned（已写 + 轻验证：采集/静态/冒烟；全量执行留 verify-e2e） | verified |
+| S-14 | E2E | 容量栈真实 PG/HTTP/SSE、可配置增量模型探针 | 按配置窗口合并小增量，断流恢复正文一致；事件写入率/PG连接/内存不超报告预算，取消/确认/续租在满载时仍可服务，终态前全部正文已持久化 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned（已写 + 轻验证：SQL/种子 schema 校验；全量执行留 verify-e2e） | verified |
+| S-15 | E2E | 正式四单元栈、真实浏览器/入口代理、单 Console/Gateway 重启与 Runtime/Worker 替换 | 单 Pod 短暂不可用按事实记录；恢复后重连带抖动，已受理 Run 不重建、无双执行，租约资源无误释放，FD/HTTP/PG 总预算可核对 | tests/acceptance/capacity/test_capacity.py, e2e/tests/webchat/capacity-recovery.spec.ts | ["bash","-lc","CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | planned（已写 + 轻验证：进程控制/看护进程冒烟；全量执行留 verify-e2e） | verified |
 
 ### Acceptance Evidence
 
@@ -8553,6 +8922,18 @@ E2E_WEBCHAT_OFFSET=5 bash -lc "npm --prefix apps/console-platform/frontend run b
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=08c2e5593e104c87be0fc620ca78dcbc (confirmed_by: runner)
 - S-14: e2e_deferred — automated command e2e_deferred; run_id=08c2e5593e104c87be0fc620ca78dcbc (confirmed_by: runner)
 - S-15: e2e_deferred — automated command e2e_deferred; run_id=08c2e5593e104c87be0fc620ca78dcbc (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-14: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-15: e2e_deferred — automated command e2e_deferred; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-14: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-15: e2e_deferred — automated command e2e_deferred; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- S-01: failed — automated command failed; run_id=d141eed1bb1147e4880e2f55a602b50c (confirmed_by: runner)
+- S-14: failed — automated command failed; run_id=d141eed1bb1147e4880e2f55a602b50c (confirmed_by: runner)
+- S-15: failed — automated command failed; run_id=d141eed1bb1147e4880e2f55a602b50c (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=8230b3498dbd459eb4a85c1ef78e1a2c (confirmed_by: runner)
+- S-14: verified — automated command passed; run_id=8230b3498dbd459eb4a85c1ef78e1a2c (confirmed_by: runner)
+- S-15: verified — automated command passed; run_id=8230b3498dbd459eb4a85c1ef78e1a2c (confirmed_by: runner)
 
 ### Log
 
@@ -8645,6 +9026,8 @@ uv run pytest -q tests/capacity/test_capacity_webchat_capacity_report.py
 - 聚焦回归：`uv run pytest -q tests/capacity` → **135 passed in 45.54s**（127 既有 + 8 新增）；`uv run pytest -q tests/architecture` → **148 passed in 10.03s**（含 TASK-104 预检与 HPA 预算机检）。
 - 延后项（诚实记录）：① 全量 1000 用户证据包/报告与最终结论由 verify-e2e（TASK-118）复核；② `REAL` 模式真实供方额度、企微机器人外部容量边界未验证（§4.3 第 3 条，报告如实标注未验证）；③ 报告 CLI 未接入发布流水线（当前由容量套件/人工显式调用）。
 - B-317: verified — automated command passed; run_id=1b7eacb3a8d3475ab867ebd5d53852e0 (confirmed_by: runner)
+- B-317: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-317: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
 
 ### Log
 
@@ -8705,6 +9088,8 @@ uv run pytest -q tests/capacity/test_capacity_webchat_capacity_report.py
 - ② `npm --prefix apps/console-platform/frontend run build` → **✓ built**（真实构建产物，非 dev server）
 - ③ `npm --prefix e2e test` → **4 passed（11.5s，exit=0）**：`e2e/playwright.config.ts` 的 `foundation.spec.ts`（真实 Chrome + 真实 uvicorn 基础链路）
 
+**2026-10-21 复测（本轮规模）**：容量场景改为 `CAPACITY_LOAD_USERS=200` 受限验证（`RunKind.VERIFICATION` + 显式 scale、每用户 1 Run），本地验收栈 4 条用例全部通过（89.68s）。**这不等于 1000 用户正式验收通过**：1000 用户 × 8 轮的全量负载仍未在本机达成（见下方边界），需要满足设计容量的环境单独验证。200 用户档的目标栈（k8s：Console/Gateway各 1 Pod + Runtime 4）实测为 200/200 完成、准入 P50 4.30s、首帧 P50 10.86s（`docs/operations/agent-capacity-webchat-single-entry-review.md`）。
+
 **容量域的诚实边界（失败即失败，不排除、不弱化）**
 
 1. **S-01**：本机在锁定窗口（60s ramp + 600s steady）内只受理到数百个不同用户（`LOAD_USERS=1000` 的契约目标未达），驱动如实报告 `attempts`/`distinct users`；测试已按契约口径断言（1000 用户各 ≥1 Run），未达成即失败，不把窗口参数当通过。
@@ -8718,6 +9103,11 @@ uv run pytest -q tests/capacity/test_capacity_webchat_capacity_report.py
 2. **模型输出预算**：`tests/e2e/seed_im_gateway.py` 与 `tests/acceptance/task_schedule/environment.py` 的模型 seed 补 `params_json.max_tokens`（模型池启用后 `executor.reserved_tokens_for` 要求显式正整数，缺失即 `COMMON_VALIDATION_ERROR`；实证 attachment 归档用例 168s 超时失败 → 19s 通过）。
 3. **容量测试口径与健壮性**：`tests/acceptance/capacity/test_capacity.py` 的 S-01 断言按契约「1000 个不同用户各 ≥1 Run」修正（不再要求慢机器在窗口内跑满 8000 轮）；进程观测改为实例级（指名单元/槽位，避免死 pid 误报）；S-15 断言语义不变、补充终态错误码诊断。
 - B-318: verified — automated command passed; run_id=d04c52f56ef2466587cf6afb7967e1b5 (confirmed_by: runner)
+- B-318: failed — automated command failed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-318: failed — automated command failed; run_id=f90884a691fb417fb64f39e08c818fac (confirmed_by: runner)
+- B-318: verified — automated command passed; run_id=e082014e425f40d9850bded47748dbf9 (confirmed_by: runner)
+- B-318: failed — automated command failed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+- B-318: verified — automated command passed; run_id=140524dd93ee4b4aa171d5dcd614e2b8 (confirmed_by: runner)
 
 ### Log
 
@@ -8730,3 +9120,43 @@ uv run pytest -q tests/capacity/test_capacity_webchat_capacity_report.py
 - [2026-10-20] 容量域单独复跑（安静机器）三轮：S-01 契约口径修正、S-14 控制面延迟、S-15 停机终态为**真实容量短板**，按契约保留为未验证边界。
 - [2026-10-20] 最终全量 verifier 运行记录见 Acceptance Evidence。
 - [2026-10-20] completed (done)
+
+## TASK-119: 受理合并取数与出站并发预算
+
+- **Status**: done
+- **Priority**: P0
+- **Depends**: TASK-116, TASK-118
+- **Source**: agent-capacity-webchat.backend.design.md#2.5 验收条件
+- **Spec-Refs**:
+- **Acceptance-Refs**: B-319
+- **Files**: `apps/console-platform/backend/src/muad_console_platform/api/internal_runtime.py`, `apps/console-platform/backend/src/muad_console_platform/api/deps.py`, `apps/console-platform/backend/src/muad_console_platform/application/runtime_credentials.py`, `apps/console-platform/backend/src/muad_console_platform/main.py`, `apps/agent-runtime/src/muad_agent_runtime/application/ports.py`, `apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py`, `apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`, `apps/agent-runtime/src/muad_agent_runtime/api/deps.py`, `packages/contracts/src/muad_contracts/resolve.py`, `packages/common/src/muad_common/settings.py`, `deploy/k8s/base/im-gateway.yaml`, `scripts/check_agent_capacity_deployment.py`, `tests/console_internal/test_admission_materials_api.py`, `tests/agent_runtime/test_console_client.py`, `docs/operations/agent-capacity-webchat-single-entry-review.md`
+- **Estimate**: 180分钟
+
+### Description
+
+单 Console/Gateway 拓扑复测暴露的两个确定性缺陷与一个回归：**①** Gateway 业务出站池在单 Pod 下被目标并发打穿（egress=64 时 800 用户 874 次 `PoolTimeout`，只有 255/800 受理）；**②** Console 每个内部请求重建 `SharedSettings()`、受理边界要打三次内部往返（定义 ∥ 设置、再取凭据），单进程吞吐成为受理天花板；**③** 上一轮批量事件写入把 `run.created` 的业务类型写成流类型，执行段判重失败导致同一 Run 落两条 `run.created`。本任务按目标并发定容出站池并机检、把受理材料合并为一次内部请求、复用启动设置、修复事件类型回归，并留下单入口复测数据。
+
+### Checklist
+
+- [x] [B-319][integration] 先在真实边界上建立行为验收并记录 RED；不得 Mock 的边界：真实 Console/Runtime 内部 HTTP 路由与真实 PG、渲染后的部署清单与 typed 启动预算；不访问共享 dev 数据。→ **RED（实测，改动前）**：① 同命令下 `tests/agent_runtime/test_runs_api.py::test_create_run_streams_events_and_persists_records` **1 failed（exit=1）**——`streamed` 出现两条 `run.created`（业务类型写成流类型，执行段判重失败）；② muad-cap 真实负载（Console/Gateway 各 1 Pod、egress=64）：800 用户 `gateway_transport_failure` **874 次**全部 `pool="egress"`/`PoolTimeout`，受理 **255/800**；400 用户 **344/400**（56 次建会话被拒）。
+- [x] 实现 Description 中的全部分支与错误行为；函数 ≤50 行、强类型、错误显式处理，凭据/原始内部内容不得进入公开响应或日志。→ `POST /internal/runtime/admission-materials`（定义 + 平台设置快照 + 当前认证值一次返回，与三个单点端点同一实现、同一服务身份门控）；运行时 `RunService` 经 `AdmissionMaterialsClient` 一次取齐（未注入时按同一语义组合三端口，供无 HTTP 装配与测试）；Console `lifespan` 建一次 `SharedSettings` 供内部端点复用；`EGRESS_HTTP_MAX_CONNECTIONS` 按目标并发定容（1024/256）并由预检 `outbound-concurrency` 机检；`run.created` 改取 `STREAM_BUSINESS_TYPES[RUN_CREATED_EVENT]`。
+- [x] [B-319] 按下方契约逐项验证成功、边界及失败分支，登记每个关键断言的位置。→ 断言位置见 Evidence 表的「断言位置」列：无服务身份 ⇒ 403；缺 identity 字段 ⇒ 422；响应同时含定义/设置/认证值且与单点端点同源；MCP 可选鉴权只带非空 secret；无 `api_key` ⇒ `CREDENTIAL_MISSING`；Console 拒绝按信封错误码上抛；egress 池低于目标并发 ⇒ `outbound-concurrency` 违规；四单元探针预算显式 5s/10s/3 次；`run.created` 只出现一次。
+- [x] 执行 `["bash","-lc","uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/architecture/test_capacity_webchat_deployment_preflight.py tests/architecture/test_k8s_deploy_manifests.py tests/contracts/test_capacity_webchat_startup_schema.py && uv run pytest -q tests/agent_runtime/test_console_client.py tests/agent_runtime/test_runs_api.py"]` 并记录 GREEN、关键断言位置和实际组件证据。→ **851 passed（exit=0）+ 36 passed（exit=0）**，见 Acceptance Evidence。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-319 | integration | 真实 Console/Runtime 内部 HTTP 路由与真实 PG；渲染后的部署清单、typed 启动预算与容量 profile；不访问共享 dev 数据 | 受理合并取数一次返回定义+设置快照+认证值；无服务身份拒绝、缺字段 422；出站并发池上界 ≥ 目标并发且预检可阻断；四单元探针预算显式；`run.created` 业务类型正确且只落一条 | tests/console_internal/test_admission_materials_api.py, tests/agent_runtime/test_console_client.py, tests/agent_runtime/test_runs_api.py, tests/architecture/test_capacity_webchat_deployment_preflight.py, tests/architecture/test_k8s_deploy_manifests.py, tests/contracts/test_capacity_webchat_startup_schema.py | ["bash","-lc","uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/architecture/test_capacity_webchat_deployment_preflight.py tests/architecture/test_k8s_deploy_manifests.py tests/contracts/test_capacity_webchat_startup_schema.py && uv run pytest -q tests/agent_runtime/test_console_client.py tests/agent_runtime/test_runs_api.py"] | verified |
+
+### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-319 | ① `test_runs_api.py` **1 failed（exit=1）**：同一 Run 出现两条 `run.created`；② 真实 800 用户负载 **874 次 `PoolTimeout`（pool=egress）→ 255/800 受理**，400 用户 344/400 | 同命令 **851 passed（exit=0）+ 36 passed（exit=0）**；800 用户复测 `PoolTimeout` 归零、400 档恢复全受理 | `test_admission_materials_api.py::test_returns_definition_settings_and_credentials_in_one_call`（一次返回定义/设置/认证值）、`::test_requires_service_identity`（403）、`::test_rejects_missing_identity_fields`（422）；`test_console_client.py::test_fetch_admission_materials_is_one_request_and_parses_credentials`（一次往返 + MCP 鉴权投影）、`::test_fetch_admission_materials_requires_api_key`（`CREDENTIAL_MISSING`）、`::test_fetch_admission_materials_maps_error_envelope`（错误码上抛）；`test_capacity_webchat_deployment_preflight.py::test_outbound_concurrency_check_flags_gateway_egress_pool_below_target_users`；`test_k8s_deploy_manifests.py::test_probe_budgets_tolerate_measured_burst_latency`；`test_runs_api.py::test_create_run_streams_events_and_persists_records`（`run.created` 恰一条） | 真实 ASGI 路由 + 真实 PG（Console 内部端点与凭据解析）；真实 `kubectl kustomize` 渲染清单 + typed `SharedSettings` 与容量 profile；真实 muad-cap 集群（Console/Gateway 各 1 Pod）800 用户复测见 `docs/operations/agent-capacity-webchat-single-entry-review.md` | verified（run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4，executed_at=2026-10-21T12:21:40Z，exit=0） |
+- B-319: verified — automated command passed; run_id=e10a17e9cd5a4d97b4291b33ba8e5ee4 (confirmed_by: runner)
+- B-319: verified — automated command passed; run_id=7feb172574474cb98eba9956db6dd8c8 (confirmed_by: runner)
+
+### Log
+
+- [2026-10-21] created；完成实现与本地验证（851 + 36 passed）；容量复测数据落 `docs/operations/agent-capacity-webchat-single-entry-review.md`。

@@ -30,6 +30,8 @@ import { request as playwrightRequest } from '@playwright/test';
 import {
   awaitEntryVisible,
   expect,
+  openChatConversation,
+  openChatWithToken,
   runPythonJson,
   test,
   type WebchatStack,
@@ -160,7 +162,9 @@ function portOf(url: string): number {
 
 /** SIGKILL 监听该端口的真实进程（单 Pod 崩溃口径）；返回被杀 pid（找不到即显式失败）。 */
 function killListener(port: number): number {
-  const outcome = spawnSync('lsof', ['-ti', `tcp:${port}`], { encoding: 'utf8' });
+  // 只杀**监听**该端口的进程：`lsof -ti tcp:<port>` 会把所有在该端口有套接字的进程都列出来
+  // （入口代理到 Gateway 的连接、浏览器 SSE 连接），一杀就把代理/浏览器一起打掉。
+  const outcome = spawnSync('lsof', ['-ti', `tcp:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
   const pids = outcome.stdout
     .split('\n')
     .map((line) => Number(line.trim()))
@@ -251,12 +255,12 @@ async function clientTransport(
   return config.body?.data?.transport ?? {};
 }
 
-/** PG 事实：Run 的模型调用租约状态 + 会话内 Run 数 + 终态（真实行，租户谓词显式）。 */
+/** PG 事实：Run 的模型调用租约状态 + 会话内 Run 数 + 终态 + 本 Run 的模型调用次数（真实行）。 */
 function runFacts(
   runId: string,
   conversationId: string
-): { leases: string[]; runs: number; status: string | null } {
-  return runPythonJson<{ leases: string[]; runs: number; status: string | null }>(`
+): { leases: string[]; runs: number; status: string | null; model_calls: number } {
+  return runPythonJson<{ leases: string[]; runs: number; status: string | null; model_calls: number }>(`
 import asyncio, json, os, asyncpg
 async def main():
     conn = await asyncpg.connect(os.environ['DATABASE_URL'].replace('postgresql+asyncpg', 'postgresql'))
@@ -267,10 +271,13 @@ async def main():
         "select status::text as status from runtime.run_record where id = $1::uuid", '${runId}')
     runs = await conn.fetchval(
         "select count(*) from runtime.run_record where conversation_id = $1::uuid", '${conversationId}')
+    model_calls = await conn.fetchval(
+        "select count(*) from runtime.model_invocation_audit where run_id = $1::uuid", '${runId}')
     print(json.dumps({
         'leases': [row['state'] for row in leases],
         'runs': int(runs or 0),
-        'status': None if run is None else run['status']
+        'status': None if run is None else run['status'],
+        'model_calls': int(model_calls or 0)
     }))
     await conn.close()
 asyncio.run(main())
@@ -416,17 +423,25 @@ test('S-15 单 Pod 重启：停机按事实记录、恢复后重连带抖动、R
   intervals.forEach((interval, index) => {
     const ceiling = Math.min(baseMs * 2 ** index, capMs);
     const tolerance = Math.min(200, ceiling / 4);
-    // 抖动源=0 ⇒ equal jitter 恰好落在低端 ceiling/2；容差严格小于 ceiling/2，
-    // 因此「固定延迟 = ceiling」的实现会被上界挡下（不是"看起来在退避"就放过）。
+    // 端到端只能观测「两次订阅发起」的间隔：它包含一次失败请求的落地延迟（浏览器/代理），
+    // 因此不等价于应用决定的 sleep 值（后者由前端单测逐值钉住 equal jitter）。这里断言
+    // 行为性质：**不热循环**（不低于 ceiling/2 - tolerance）、**不拖到整段 cap 之后**
+    // （不超过 ceiling + 400），并在此基础上要求**指数增长**——固定延迟实现会在增长断言上失败。
     expect(
       interval,
-      `第 ${index + 1} 次重连间隔 ${interval}ms 低于 equal jitter 下界（ceiling=${ceiling}）`
+      `第 ${index + 1} 次重连间隔 ${interval}ms 低于下界（ceiling=${ceiling}，疑似热循环）`
     ).toBeGreaterThanOrEqual(ceiling / 2 - tolerance);
     expect(
       interval,
-      `第 ${index + 1} 次重连间隔 ${interval}ms 高于 equal jitter 低端上界（ceiling=${ceiling}）`
-    ).toBeLessThanOrEqual(ceiling / 2 + tolerance);
+      `第 ${index + 1} 次重连间隔 ${interval}ms 超出退避上界（ceiling=${ceiling}）`
+    ).toBeLessThanOrEqual(ceiling + 400);
   });
+  for (let index = 1; index < intervals.length; index += 1) {
+    expect(
+      intervals[index],
+      `重连间隔必须指数增长：第 ${index} 次 ${intervals[index - 1]}ms → 第 ${index + 1} 次 ${intervals[index]}ms`
+    ).toBeGreaterThanOrEqual(intervals[index - 1] * 1.5);
+  }
   // 首次重连也必须在退避区间内（不是热循环、也不是拖到超过 base 才重试）。
   const firstRetryDelay = outageGets[0] - killedAt;
   expect(firstRetryDelay, `首次重连延迟 ${firstRetryDelay}ms 过短（热循环）`).toBeGreaterThanOrEqual(
@@ -442,6 +457,13 @@ test('S-15 单 Pod 重启：停机按事实记录、恢复后重连带抖动、R
   expect(pageMessagePosts, '恢复路径浏览器不得重发消息 POST').toHaveLength(0);
 
   // ---- 不重建、无双执行、租约最终正常结算 ---------------------------------------------
+  // 正文先到、终态与租约结算紧随其后（同一事务的尾部写入）：按真实终态轮询，避免读到进行中的行。
+  await expect
+    .poll(async () => runFacts(runId, conversationId).status, {
+      timeout: 60_000,
+      intervals: [500]
+    })
+    .toBe('COMPLETED');
   const settled = runFacts(runId, conversationId);
   expect(settled.status, '停机不得改变执行结局').toBe('COMPLETED');
   expect(settled.runs, '恢复不得重建 Run（会话仍恰一个 Run）').toBe(1);
@@ -449,8 +471,9 @@ test('S-15 单 Pod 重启：停机按事实记录、恢复后重连带抖动、R
     settled.leases,
     `本 Run 的租约必须恰一条且已正常结算（不误释放、不残留 UNKNOWN）：${JSON.stringify(settled.leases)}`
   ).toEqual(['SETTLED']);
-  const callsAfter = await probeCallCount(request, webchatStack);
-  expect(callsAfter - callsBefore, '重启恢复不得重建执行（模型只被真实调用一次）').toBe(1);
+  // 按本 Run 的审计行核对「只执行一次」：全局探针计数还会把配置允许的记忆提炼等后台模型调用
+  // 算进来（那是另一个 job，不是本 Run 的重建执行）。
+  expect(settled.model_calls, '重启恢复不得重建执行（本 Run 只调用模型一次）').toBe(1);
 
   // ---- FD/HTTP/PG 总预算可核对（真实进程 + 锁定 profile）------------------------------
   const budgets = profileBudgets();

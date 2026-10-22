@@ -69,23 +69,25 @@ def _replace_coverage(inputs: AuditInputs, scenario_id: str, **changes: object) 
 
 
 def test_real_repository_acceptance_mapping_is_closed(inputs: AuditInputs) -> None:
-    """真实盘面：189 条覆盖行、78 条设计场景、27 条 Spec 规则全部闭合且证据一致。"""
+    """真实盘面：190 条覆盖行、78 条设计场景、27 条 Spec 规则全部闭合且证据一致。"""
     report = audit_all(inputs)
     assert report.findings == (), "\n".join(str(finding) for finding in report.findings)
-    assert report.scenario_count == 189, f"覆盖行应为 189，实为 {report.scenario_count}"
+    assert report.scenario_count == 190, f"覆盖行应为 190，实为 {report.scenario_count}"
     assert report.design_scenario_count == 78, f"设计场景应为 78，实为 {report.design_scenario_count}"
     assert report.spec_rule_count == 27, f"Spec 规则应为 27，实为 {report.spec_rule_count}"
     assert report.trace_rule_count == 40, f"追溯规则/风险应为 40，实为 {report.trace_rule_count}"
-    # 收口行（B-318）在 Done Gate runner **写入回执之前**只能是 e2e_deferred：runner 先跑本测试、
-    # 通过后才把覆盖表/manifest 同步成 verified。计数按当前收口行状态精确推导，不写死单一终态。
+    # 计数口径：功能层基线（≥128 行）必须 verified；其余只能是**显式** e2e_deferred，
+    # 两者之和恰等于覆盖行数（任何非终态行都会在这里暴露）。不写死单一终态数字——
+    # E2E 层被真实执行后 deferred 会转 verified，盘面计数随执行推进而变化，硬编码会把
+    # 正常推进判成红。
     closure = next(row for row in inputs.coverage if row.scenario_id == "B-318")
-    expected_verified = 127 if closure.status == "verified" else 126
-    expected_deferred = 62 if closure.status == "verified" else 63
-    assert report.verified_count == expected_verified, (
-        f"verified 应为 {expected_verified}，实为 {report.verified_count}（B-318={closure.status}）"
+    assert closure.status == "verified", f"收口行 B-318 必须 verified，实为 {closure.status}"
+    assert report.verified_count >= 128, (
+        f"verified 至少覆盖功能层基线 128 行，实为 {report.verified_count}"
     )
-    assert report.deferred_count == expected_deferred, (
-        f"e2e_deferred 应为 {expected_deferred}，实为 {report.deferred_count}（B-318={closure.status}）"
+    assert report.verified_count + report.deferred_count == report.scenario_count, (
+        f"覆盖行必须全部处于终态：verified={report.verified_count} + "
+        f"deferred={report.deferred_count} != {report.scenario_count}"
     )
 
 

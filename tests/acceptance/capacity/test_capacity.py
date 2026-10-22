@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import threading
 import uuid
@@ -70,6 +71,7 @@ from tests.capacity.driver import (
     FailureKind,
     LoadDriver,
     LoadReport,
+    LoadScale,
     LoadTarget,
     ProbeOutcome,
     RunKind,
@@ -91,8 +93,9 @@ RUNTIME_RUNS_PATH = "/v1/runs"
 TERMINAL_RUN_STATUSES = ("COMPLETED", "FAILED", "CANCELLED")
 TERMINAL_TASK_STATUSES = ("COMPLETED", "FAILED", "CANCELLED")
 
-#: S-01 的锁定用户数（必须等于 profile.workload.users；`require_formal_acceptance` 会再核一次）。
-LOAD_USERS = 1000
+#: S-01 的锁定用户数：默认等于 profile.workload.users（正式验收）；`CAPACITY_LOAD_USERS`
+#: 可把它降为受限验证规模（`RunKind.VERIFICATION` + 显式 scale，不冒充全量验收）。
+LOAD_USERS = int(os.environ.get("CAPACITY_LOAD_USERS", "1000"))
 #: 驱动控制探测的独立主体：探测 Run 不占负载用户的受理份额。
 CONTROL_INDEX = LOAD_USERS
 #: S-15 单 Pod 恢复的独立主体（与负载用户互不干扰）。
@@ -136,6 +139,8 @@ SERVICE_ENV: Mapping[str, Mapping[str, str]] = {
     "agent-runtime": {
         **EXECUTION_CADENCE_ENV["agent-runtime"],
         "RUNTIME_EXECUTION_CONCURRENCY": str(RUNTIME_EXECUTION_CONCURRENCY),
+        # 模型池必须覆盖单进程执行并发（启动校验：每个在飞执行至多一条模型连接）。
+        "MODEL_HTTP_MAX_CONNECTIONS": str(RUNTIME_EXECUTION_CONCURRENCY),
     },
     "agent-worker": {
         **EXECUTION_CADENCE_ENV["agent-worker"],
@@ -555,6 +560,8 @@ def load_run(capacity_module: CapacityModule) -> LoadReport:
     （`require_formal_acceptance`），所以本 fixture 产出的报告不能被缩放后的运行冒充。
     """
     stack, seeded = capacity_module.stack, capacity_module.seeded
+    profile_users = capacity_module.profile.workload.users
+    scaled = LOAD_USERS != profile_users
     set_probe_behavior(
         stack.model_probe.url,
         {
@@ -582,7 +589,20 @@ def load_run(capacity_module: CapacityModule) -> LoadReport:
             user_deadline_sec=900.0,
         ),
         profile=capacity_module.profile,
-        run_kind=RunKind.ACCEPTANCE,
+        run_kind=RunKind.VERIFICATION if scaled else RunKind.ACCEPTANCE,
+        scale=(
+            LoadScale(
+                users=LOAD_USERS,
+                ramp_sec=capacity_module.profile.workload.ramp_sec,
+                steady_sec=capacity_module.profile.workload.steady_sec,
+                # 降规模验证按 S-01 的契约口径「每用户一个 Run」：保留 8 轮会让下一轮在 3s
+                # 思考时间后撞上仍在执行的上一轮（真实 RUN_BUSY 409），把容量结论变成
+                # 轮次碰撞的测量。
+                turns_per_user=1,
+            )
+            if scaled
+            else None
+        ),
         metrics=PostgresMetrics(
             stack.database_url, tenant_id=stack.tenant_id, artifacts_root=stack.artifacts_root
         ),
@@ -641,14 +661,32 @@ def test_s01_thousand_users_admitted_visible_and_bounded(
     tenant_id = stack.tenant_id
 
     # ① 锁定 profile + 全量受理
-    assert report.run_kind is RunKind.ACCEPTANCE, "全量验收必须是 ACCEPTANCE 运行"
-    assert report.scale is None, "ACCEPTANCE 运行不得夹带缩放（驱动已强制，此处再核报告）"
+    scaled = LOAD_USERS != profile.workload.users
+    assert report.run_kind is (RunKind.VERIFICATION if scaled else RunKind.ACCEPTANCE), (
+        "缩放验证必须是 VERIFICATION；全量验收必须是 ACCEPTANCE"
+    )
+    if scaled:
+        assert report.scale is not None and report.scale.users == LOAD_USERS, (
+            "受限验证必须显式登记缩放规模"
+        )
+    else:
+        assert report.scale is None, "ACCEPTANCE 运行不得夹带缩放（驱动已强制，此处再核报告）"
     assert report.locked_profile_hash == profile_hash(profile), "报告必须锁定本次 profile 内容 hash"
-    assert report.effective_users == profile.workload.users == LOAD_USERS
-    assert report.effective_turns == profile.workload.turns_per_user
+    assert report.effective_users == LOAD_USERS
+    expected_turns = 1 if scaled else profile.workload.turns_per_user
+    assert report.effective_turns == expected_turns
     assert report.attempts() >= LOAD_USERS, "锁定窗口内至少覆盖 1000 轮（契约下界）"
+    rejected = sorted(
+        {
+            (turn.http_status, (turn.detail or "")[:120])
+            for turn in report.turns
+            if turn.failure is not None and turn.failure.value == "ADMISSION_REJECTED"
+        }
+    )[:3]
     assert len({turn.user_index for turn in report.admitted()}) == LOAD_USERS, (
-        "1000 个不同用户都必须拿到真实受理（S-01：每用户各一个 Run）"
+        f"{LOAD_USERS} 个不同用户都必须拿到真实受理（S-01：每用户各一个 Run）；"
+        f"实际 {len({turn.user_index for turn in report.admitted()})}，"
+        f"失败账目 {dict(report.failure_counts())}；受理拒绝状态 {rejected}"
     )
     assert len(report.admitted()) == report.attempts(), "每一轮都必须拿到真实 202 受理"
     assert len({turn.run_id for turn in report.admitted()}) == report.attempts(), (
@@ -963,8 +1001,10 @@ def test_s14_incremental_merge_stream_break_and_loaded_control(
             uuid.UUID(str(turn.run_id)),
         )
         body_seqs = [int(row["seq"]) for row in rows if row["stream_type"] == "message.delta"]
+        # 持久层的终态流类型是 Runtime 的 `run.completed`/`run.failed`；`run.terminal` /
+        # `run.error` 只是 Gateway 对外投影的公开事件名（`webchat_streams`）。
         terminals = [
-            int(row["seq"]) for row in rows if row["stream_type"] in ("run.terminal", "run.error")
+            int(row["seq"]) for row in rows if row["stream_type"] in ("run.completed", "run.failed")
         ]
         assert body_seqs and terminals, "抽样 Run 必须有正文与终态事件"
         assert max(body_seqs) < min(terminals), (

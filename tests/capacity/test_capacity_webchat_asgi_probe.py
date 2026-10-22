@@ -12,8 +12,10 @@ import json
 import socket
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -242,6 +244,30 @@ def test_subprocess_mode_serves_control_plane() -> None:
             process.wait(timeout=5.0)
 
 
+def _run_in_thread(coro: Any) -> Any:
+    """在**独立线程**里跑协程后返回结果。
+
+    `asyncio.run` 在主线程执行完毕后会把当前事件循环置空：同进程里随后运行的异步套件
+    （pytest-asyncio 的 session 级 loop）会集体报 `no current event loop`（整批红）。
+    """
+
+    outcome: dict[str, Any] = {}
+    failure: list[BaseException] = []
+
+    def runner() -> None:
+        try:
+            outcome["value"] = asyncio.run(coro)
+        except BaseException as exc:  # noqa: BLE001 - 原样回传给主线程
+            failure.append(exc)
+
+    thread = threading.Thread(target=runner)
+    thread.start()
+    thread.join()
+    if failure:
+        raise failure[0]
+    return outcome["value"]
+
+
 def test_asyncio_probe_tracks_max_concurrency() -> None:
     """并发调用要能观测到真实重叠（容量结论里的探针侧并发上界）。"""
 
@@ -255,4 +281,4 @@ def test_asyncio_probe_tracks_max_concurrency() -> None:
             await asyncio.gather(*(client.post(CHAT_PATH, json=_chat_body()) for _ in range(8)))
         return probe.max_concurrency
 
-    assert asyncio.run(scenario()) >= 4
+    assert _run_in_thread(scenario()) >= 4

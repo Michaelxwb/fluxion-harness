@@ -124,5 +124,6 @@ E2E 场景默认保持 `e2e_deferred`；只有真实执行了 L5 域命令并记
   S-15 的 Gateway 停机窗口内已受理 Run 落 `FAILED`（非 `COMPLETED`），单 Pod 恢复后的预算测量
   因前一用例失败留下停机实例而无法进行。这些是真实容量结论（不冒充通过），覆盖表/manifest 保持
   `e2e_deferred`；需在满足设计容量的环境重跑同一命令后才能写生产达标。
+- **2026-10-21 的本轮规模（200 用户受限验证）**：容量场景按 `CAPACITY_LOAD_USERS=200` 执行（`RunKind.VERIFICATION` + 显式 scale、每用户 1 Run），本地验收栈 4 条用例全部通过（89.68s）；目标栈（k8s，Console/Gateway 各 1 Pod + Runtime 4）200 用户实测 200/200 完成、准入 P50 4.30s、首帧 P50 10.86s。**1000 用户 × 8 轮的全量 `ACCEPTANCE` 仍未验证**——上面的2026-10-20 短板结论继续有效，需要在满足设计容量的环境用默认 `CAPACITY_LOAD_USERS`（1000）重跑。
 - **共享 dev 数据未写入**：验收使用独立空库与 10–15 号 Redis，跑后 drop；本手册不把
   “dev 环境看起来正常”当作验收证据。

@@ -325,6 +325,10 @@ test('S-109 直接打开并刷新 /chat/{entryId}：静态资源、用户 Token 
   // 当前不投递，见任务文档「已知产品缺陷」），渲染与订阅仍全部由真实浏览器承担。
   const api = await browserChatApi(context);
   const seeded = await startRun(api, user.entry.entryId, 'S-109 入口代理链路');
+  // 该 Run 是**旁路 API** 创建的：页面不会为它建立实时订阅（见任务文档「已知产品缺陷」：
+  // 浏览器控制台新建会话后发送当前不投递），所以先等到终态再进页面——页面读历史渲染助手正文，
+  // 渲染/静态资源/代理链路仍全部由真实浏览器承担；SSE 经同一代理的部分由文末直连事件流断言覆盖。
+  await waitForRunTerminal(seeded.runId);
   await page.goto(`/chat/${user.entry.entryId}?conversation=${seeded.conversationId}`);
   await expect(page.getByTestId('webchat-shell')).toBeVisible();
   await expect(

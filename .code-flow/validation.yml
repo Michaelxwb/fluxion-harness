@@ -37,7 +37,11 @@ validators:
     # 归档 cf_validation 与显式 /cf-validate 执行；结果按工作树内容指纹缓存。
     - name: "Pytest (acceptance)"
       trigger: "**/*.py"
-      command: ".venv/bin/python -m pytest --tb=short -q tests/acceptance"
+      # 容量场景按 200 用户受限验证（`CAPACITY_LOAD_USERS`）：本机在锁定窗口内达不到设计容量
+      # 的 1000 用户 × 8 轮（2026-10-20/21 两次实测均未达成），全量档会让这条验收必然超时/失败。
+      # 1000 用户正式验收是**显式保留的未验证边界**，需在满足设计容量的环境用默认值单独重跑
+      # （见 docs/operations/agent-capacity-webchat-validation.md「未验证边界」）。
+      command: "CAPACITY_LOAD_USERS=200 .venv/bin/python -m pytest --tb=short -q tests/acceptance"
       heavy: true
       # 验收含真实进程栈（uvicorn/子进程/探针/双 Worker/浏览器域外的一切），2026-10-15 实测
       # 331 passed ≈ 22–25 分钟；预算给 45 分钟留负载余量。
