@@ -97,7 +97,7 @@ async function importViaUi(page: Page, key: string, zip: Buffer, version = '1.0.
   await modal.getByRole('button', { name: 'confirm', exact: true }).click();
 }
 
-test('S-05 导入合法 Skill 后 DB/NFS 落库且列表默认 SELECTED', async ({ page }) => {
+test('S-05 导入合法 Skill 后 DB/NFS 落库且列表默认 SELECTED @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s05');
   await login(page);
   try {
@@ -149,7 +149,7 @@ test('S-05m 导入内置归档逻辑生成的 Node greeting Skill', async ({ pag
   }
 });
 
-test('S-06 详情导入新版本后版本记录/当前版本更新且 SKILL.md 正文可见', async ({ page }) => {
+test('S-06 详情导入新版本后版本记录/当前版本更新且 SKILL.md 正文可见 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s06');
   await login(page);
   try {

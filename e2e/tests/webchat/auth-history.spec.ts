@@ -128,7 +128,7 @@ asyncio.run(main())
 `).count;
 }
 
-test('S-101 用户直接打开 /chat 输入 ADMIN 签发的 Token 进入聊天，刷新恢复且管理 URL 被拒', async ({
+test('S-101 用户直接打开 /chat 输入 ADMIN 签发的 Token 进入聊天，刷新恢复且管理 URL 被拒 @smoke', async ({
   playwright,
   page,
   webchatStack,
@@ -504,7 +504,7 @@ asyncio.run(main())
   expect(detailB.last_run_id).not.toBe(detail.last_run_id);
 });
 
-test('E-20 撤销/重置与交换竞态：旧 Token 无有效会话、关联会话拒绝且长流停止、不隐式取消 Run', async ({
+test('E-20 撤销/重置与交换竞态：旧 Token 无有效会话、关联会话拒绝且长流停止、不隐式取消 Run @smoke', async ({
   browser,
   page,
   webchatStack,

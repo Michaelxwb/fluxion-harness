@@ -143,7 +143,7 @@ test.afterAll(() => {
   runSeedCli(['cleanup']);
 });
 
-test('S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠', async ({ page }) => {
+test('S-21 关联 Task 打开既有详情，来源 Run 反向替换回同 run_id，反复切换不堆叠 @smoke', async ({ page }) => {
   const sheet = await openRunViaAudit(page, state.detachAuditId, state.detachRunId);
   await sheet.getByRole('tab', { name: '关联操作' }).click();
   await expect(sheet.getByTestId(`run-operation-task-${state.detachTaskId}`)).toBeVisible();
@@ -330,7 +330,7 @@ test('S-25 节点按需加载、重复展开缓存、刷新重取；真实关联
   await expect(question).toContainText('查询深圳天气');
 });
 
-test('S-26 工具结果、回复、历史模型汇总与后台任务跳转', async ({ page }) => {
+test('S-26 工具结果、回复、历史模型汇总与后台任务跳转 @smoke', async ({ page }) => {
   const sheet = await openRunViaAudit(page, state.contentAuditId, state.contentRunId);
   await sheet.getByRole('tab', { name: '事件轮廓' }).click();
   await sheet.getByTestId('run-event-toggle-5').click();

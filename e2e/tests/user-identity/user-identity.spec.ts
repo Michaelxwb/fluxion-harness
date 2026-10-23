@@ -44,7 +44,7 @@ async function openDetail(page: Page, userCode: string): Promise<void> {
   await expect(page.locator('.semi-sidesheet')).toBeVisible();
 }
 
-test('S-06/S-01 新增用户后列表显示且字段来自后端', async ({ page }) => {
+test('S-06/S-01 新增用户后列表显示且字段来自后端 @smoke', async ({ page }) => {
   const userCode = `e2e-${Date.now()}`;
   try {
     await login(page);
@@ -69,7 +69,7 @@ test('S-06/S-01 新增用户后列表显示且字段来自后端', async ({ page
   }
 });
 
-test('S-07 生成绑定码 Modal 展示 code 与过期时间', async ({ page }) => {
+test('S-07 生成绑定码 Modal 展示 code 与过期时间 @smoke', async ({ page }) => {
   const userCode = `e2e-${Date.now()}`;
   try {
     await login(page);
@@ -87,7 +87,7 @@ test('S-07 生成绑定码 Modal 展示 code 与过期时间', async ({ page }) 
   }
 });
 
-test('S-03/S-08 详情四计数与来源一致，Tab 各自加载', async ({ page }) => {
+test('S-03/S-08 详情四计数与来源一致，Tab 各自加载 @smoke', async ({ page }) => {
   const userCode = `e2e-${Date.now()}`;
   await login(page);
   await createUser(page, userCode, 'Detail Counts User');

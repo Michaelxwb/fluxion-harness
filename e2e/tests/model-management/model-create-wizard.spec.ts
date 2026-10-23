@@ -66,7 +66,7 @@ async function createModelWithFirstMember(
   return model;
 }
 
-test('S-10 新增模型向导：先建物理 Key，再创建模型并自动绑定成员', async ({ page }) => {
+test('S-10 新增模型向导：先建物理 Key，再创建模型并自动绑定成员 @smoke', async ({ page }) => {
   const credentialKey = unique('e2e-wizard-key');
   const modelKey = unique('e2e-wizard-model');
   let modelId: string | null = null;
@@ -139,7 +139,7 @@ test('S-10 新增模型向导：先建物理 Key，再创建模型并自动绑�
   }
 });
 
-test('S-11 选择物理 Key 后自动带出成员标识', async ({ page }) => {
+test('S-11 选择物理 Key 后自动带出成员标识 @smoke', async ({ page }) => {
   const modelKey = unique('e2e-member-key-model');
   const credentialAKey = unique('e2e-member-key-a');
   const credentialBKey = unique('e2e-member-key-b');

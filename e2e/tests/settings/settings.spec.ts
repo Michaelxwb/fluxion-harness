@@ -117,7 +117,7 @@ async function setFieldValue(page: Page, path: string, value: number): Promise<v
   await input.press('Enter');
 }
 
-test('S-01 保存后版本号更新并提示新操作立即生效', async ({ page }) => {
+test('S-01 保存后版本号更新并提示新操作立即生效 @smoke', async ({ page }) => {
   await login(page, state.account);
   await openSettings(page);
   await expect(page.getByTestId('settings-revision')).toContainText('v1');

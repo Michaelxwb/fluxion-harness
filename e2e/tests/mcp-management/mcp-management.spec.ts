@@ -66,7 +66,7 @@ async function registerViaUi(page: Page, key: string, endpoint: string): Promise
   await modal.getByRole('button', { name: 'confirm', exact: true }).click();
 }
 
-test('S-07 注册 Server 并连接测试后 connection_status 与工具数正确展示', async ({ page }) => {
+test('S-07 注册 Server 并连接测试后 connection_status 与工具数正确展示 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-mcp');
   await login(page);
   try {
@@ -127,7 +127,7 @@ test('S-07c 注册弹窗按交互稿排版并保存后自动发现', async ({ pa
   }
 });
 
-test('S-05 刷新工具目录后工具数与最近发现时间刷新', async ({ page }) => {
+test('S-05 刷新工具目录后工具数与最近发现时间刷新 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s05m');
   await login(page);
   try {
@@ -159,7 +159,7 @@ test('S-05 刷新工具目录后工具数与最近发现时间刷新', async ({ 
   }
 });
 
-test('S-06 工具明细展示名称与操作类型，无 Tool 级启停/授权', async ({ page }) => {
+test('S-06 工具明细展示名称与操作类型，无 Tool 级启停/授权 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s06m');
   await login(page);
   try {

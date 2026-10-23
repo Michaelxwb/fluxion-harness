@@ -41,7 +41,7 @@ test.afterAll(() => {
   expect(Object.values(counts).every((count) => count === 0), JSON.stringify(counts)).toBeTruthy();
 });
 
-test('S-03 六项指标、资源与四块图表使用一次真实聚合请求', async ({ page }) => {
+test('S-03 六项指标、资源与四块图表使用一次真实聚合请求 @smoke', async ({ page }) => {
   const requests: string[] = [];
   page.on('request', (r) => { if (r.url().includes('/api/v1/overview')) requests.push(r.url()); });
   const data = await openOverview(page);
@@ -79,7 +79,7 @@ test('S-02 七天趋势连续补零，运行和主任务切换不额外取数', 
   expect(calls).toHaveLength(0);
 });
 
-test('S-04 资源、模型指标、Agent排行和任务状态跳转带正确筛选', async ({ page }) => {
+test('S-04 资源、模型指标、Agent排行和任务状态跳转带正确筛选 @smoke', async ({ page }) => {
   const data = await openOverview(page);
   await page.getByTestId('overview-resource-agents').getByRole('button').click();
   await expect(page).toHaveURL(/\/agents$/);

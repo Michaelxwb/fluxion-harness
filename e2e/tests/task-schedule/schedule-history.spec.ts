@@ -36,7 +36,7 @@ test.describe('Schedule 历史', () => {
     await request.post('/__e2e/cleanup');
   });
 
-  test('S-FE-01 历史按 schedule_id 单次查询并可跳转 Task 详情', async ({ page, request }) => {
+  test('S-FE-01 历史按 schedule_id 单次查询并可跳转 Task 详情 @smoke', async ({ page, request }) => {
     const scheduleId = await seedSchedule(request, {
       name: 'e2e-history-schedule',
       status: 'ACTIVE',

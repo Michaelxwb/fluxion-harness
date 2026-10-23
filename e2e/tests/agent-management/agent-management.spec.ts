@@ -199,7 +199,7 @@ for (const { kind, tab, testId, remove } of PICKER_CASES) {
   });
 }
 
-test('S-07 编辑系统 Prompt 保存后详情 revision+1', async ({ page }) => {
+test('S-07 编辑系统 Prompt 保存后详情 revision+1 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s07');
   await login(page);
   ensureModel();
@@ -256,7 +256,7 @@ test('E-07 stale revision 提交：Modal 保留并提示刷新重试', async ({ 
   }
 });
 
-test('S-08/S-11 Skill/MCP 绑定即生效、解除/再绑无启停开关', async ({ page }) => {
+test('S-08/S-11 Skill/MCP 绑定即生效、解除/再绑无启停开关 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s08');
   const skillKey = uniqueKey('e2e-bind-skill');
   const mcpKey = uniqueKey('e2e-bind-mcp');

@@ -94,7 +94,7 @@ async function openPlatformDetail(page: Page, key: string): Promise<void> {
   await expect(page.locator('.semi-sidesheet')).toBeVisible();
 }
 
-test('S-01/S-09 平台创建、唯一冲突、软删重建、筛选与分页', async ({ page }) => {
+test('S-01/S-09 平台创建、唯一冲突、软删重建、筛选与分页 @smoke', async ({ page }) => {
   const key = `e2e-platform-${Date.now()}`;
   await login(page);
   try {
@@ -134,7 +134,7 @@ test('S-01/S-09 平台创建、唯一冲突、软删重建、筛选与分页', a
   }
 });
 
-test('S-05 表单仅渲染所选 resolver 字段且保存后详情一致', async ({ page }) => {
+test('S-05 表单仅渲染所选 resolver 字段且保存后详情一致 @smoke', async ({ page }) => {
   const key = `e2e-platform-sd-${Date.now()}`;
   await login(page);
   try {
@@ -167,7 +167,7 @@ test('S-05 表单仅渲染所选 resolver 字段且保存后详情一致', async
   }
 });
 
-test('S-02/S-06 用户凭据未配置→保存→DB 明文且不回显', async ({ page }) => {
+test('S-02/S-06 用户凭据未配置→保存→DB 明文且不回显 @smoke', async ({ page }) => {
   const key = `e2e-platform-cred-${Date.now()}`;
   const userCode = `e2e-user-${Date.now()}`;
   const token = 'secret-plaintext-token';

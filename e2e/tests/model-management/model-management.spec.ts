@@ -110,7 +110,7 @@ async function createModelViaUi(page: Page, key: string): Promise<void> {
   await expect(page.getByTestId(`model-link-${key}`)).toBeVisible();
 }
 
-test('S-01 新增模型后 DB/界面仅显示已配置且不回显明文', async ({ page }) => {
+test('S-01 新增模型后 DB/界面仅显示已配置且不回显明文 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s01');
   await login(page);
   await createModelViaUi(page, key);
@@ -136,7 +136,7 @@ test('S-01 新增模型后 DB/界面仅显示已配置且不回显明文', async
   await cleanupModel(page, created);
 });
 
-test('S-02/S-04 选择两个模型批量测试并刷新列表', async ({ page }) => {
+test('S-02/S-04 选择两个模型批量测试并刷新列表 @smoke', async ({ page }) => {
   await login(page);
   const first = await createModelViaApi(page, { key: uniqueKey('e2e-batch-a') });
   const second = await createModelViaApi(page, { key: uniqueKey('e2e-batch-b') });

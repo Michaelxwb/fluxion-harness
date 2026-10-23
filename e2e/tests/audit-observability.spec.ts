@@ -235,7 +235,7 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
 });
 
-test('S-08 主导出按钮建任务、提交中禁用，完成后按文件名下载且同键重放不重复建任务', async ({
+test('S-08 主导出按钮建任务、提交中禁用，完成后按文件名下载且同键重放不重复建任务 @smoke', async ({
   page
 }) => {
   await openAudits(page);
