@@ -328,6 +328,12 @@ codes:
       zh-CN: 模型服务暂时不可用，请稍后重试
       en-US: The model service is temporarily unavailable
 
+  MODEL_OUTPUT_BUDGET_INVALID:
+    http_status: 409
+    messages:
+      zh-CN: 模型未配置有效的输出预算（max_tokens），请联系管理员补齐后重试
+      en-US: The model has no valid output budget (max_tokens). Ask an administrator to configure it.
+
   SKILL_ARTIFACT_UNAVAILABLE:
     http_status: 503
     messages:

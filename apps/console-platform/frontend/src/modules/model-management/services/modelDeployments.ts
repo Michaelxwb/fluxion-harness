@@ -27,6 +27,36 @@ export interface ModelDeploymentItem {
 export const MEMBER_WEIGHT_MIN = 1;
 export const MEMBER_WEIGHT_MAX = 100;
 
+/** 成员标识契约（`ResourceKey`）：1..128。 */
+export const MEMBER_KEY_MAX_LENGTH = 128;
+
+/**
+ * 成员标识默认取所选物理 Key 的标识；同模型内重名时追加 `-2`/`-3`…
+ *
+ * 成员标识是**关系名**（同模型内唯一），物理 Key 标识是**凭据名**（同租户内唯一）；
+ * 常见场景直接用 Key 标识最直观，但若用户曾手动命名过同名成员，仍要给出可用的唯一值。
+ * 上限与后端 `ResourceKey` 一致，截断发生在追加后缀之前。
+ */
+export function suggestMemberKey(
+  credentialKey: string,
+  existingKeys: readonly string[]
+): string {
+  const base = credentialKey.trim();
+  const used = new Set(existingKeys);
+  if (!used.has(base)) {
+    return base;
+  }
+  for (let index = 2; index <= existingKeys.length + 2; index += 1) {
+    const suffix = `-${index}`;
+    const candidate = `${base.slice(0, MEMBER_KEY_MAX_LENGTH - suffix.length)}${suffix}`;
+    if (!used.has(candidate)) {
+      return candidate;
+    }
+  }
+  const fallback = `-${Date.now().toString(36)}`;
+  return `${base.slice(0, MEMBER_KEY_MAX_LENGTH - fallback.length)}${fallback}`;
+}
+
 export interface ModelDeploymentFormValues {
   key: string;
   credential_id: string;

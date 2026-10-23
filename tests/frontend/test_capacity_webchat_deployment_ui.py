@@ -254,6 +254,12 @@ observations.provider = {
   missing: service.readModelProviderKey({ key: 'model-1' }),
   wrongType: service.readModelProviderKey({ provider_key: 7 })
 };
+observations.memberKey = {
+  direct: service.suggestMemberKey('deep', []),
+  suffixed: service.suggestMemberKey('deep', ['deep']),
+  nextSuffix: service.suggestMemberKey('deep', ['deep', 'deep-2']),
+  longLength: service.suggestMemberKey('x'.repeat(140), ['x'.repeat(140)]).length
+};
 
 // 8) 单关系口径：任何时刻都没有集合级写请求，成员体也不夹带密钥/端点字段
 observations.functions = Object.entries(service)
@@ -406,6 +412,7 @@ def test_real_service_never_replaces_the_member_set_or_refills_keys(
         "listDeployments",
         "readModelProviderKey",
         "readOutputBudget",
+        "suggestMemberKey",
         "updateDeployment",
     ], "成员 service 只暴露单关系入口：不存在覆盖整个成员集合的写函数"
 
@@ -447,6 +454,12 @@ def test_real_service_maps_conflicts_and_reads_the_output_budget(deployment_serv
         "missing": "",
         "wrongType": "",
     }
+    assert deployment_service["memberKey"] == {
+        "direct": "deep",
+        "suffixed": "deep-2",
+        "nextSuffix": "deep-3",
+        "longLength": 128,
+    }, "成员标识默认取 Key 标识；重名追加后缀且不超过 ResourceKey 的 128 上限"
 
 
 def test_member_panel_is_admin_gated_and_never_refills_keys() -> None:
@@ -487,6 +500,15 @@ def test_member_panel_shows_effect_eligibility_and_binding_state() -> None:
     )
     assert "model.member.columns.weight" in source and "MEMBER_WEIGHT_MAX" in source
     assert "ConfirmAction" in source and "model.member.confirmUnbind" in source, "解绑必须走确认"
+    assert "suggestMemberKey" in source and "existingMemberKeys" in source, (
+        "选中物理 Key 后必须连带成员标识，不再要求手填第二遍"
+    )
+    assert "suggestMemberKey(selected.key" in source, "自动填充必须落到成员标识字段"
+    assert "model.member.form.keyHint" in source, "必须说明成员标识由物理 Key 自动生成"
+    key_field = source.index('field="key"')
+    assert "disabled" in source[key_field : key_field + 220], (
+        "成员标识是派生展示值，不允许再手填/改名"
+    )
 
 
 def test_member_panel_uses_shared_components_guards_and_i18n() -> None:

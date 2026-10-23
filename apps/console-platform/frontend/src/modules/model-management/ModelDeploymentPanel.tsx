@@ -28,6 +28,7 @@ import {
   deleteDeployment,
   deploymentSaveErrorKey,
   listDeployments,
+  suggestMemberKey,
   updateDeployment,
   type ModelDeploymentFormValues,
   type ModelDeploymentInputReason,
@@ -154,6 +155,8 @@ export interface ModelDeploymentFormProps {
   member: ModelDeploymentItem | null;
   /** 可绑定的已配置凭据（同供方、启用、未绑定）；编辑时凭据不可更换（重绑 = 解绑 + 绑定）。 */
   eligibleCredentials: ModelCredentialItem[];
+  /** 当前模型已有的成员标识：用于把“选中 Key 后连带成员名”的去重建议。 */
+  existingMemberKeys: string[];
   /** 编辑时的当前凭据标签（可能已不在可绑定集合里）。 */
   currentCredentialLabel: string;
   onCancel(): void;
@@ -184,7 +187,21 @@ export function ModelDeploymentForm(props: ModelDeploymentFormProps) {
   const submit = async (raw: MemberFormValues): Promise<void> => {
     setSaving(true);
     setErrorKey(null);
-    const values = toServiceValues(raw);
+    const selected =
+      member === null
+        ? props.eligibleCredentials.find((item) => item.id === raw.credential_id)
+        : undefined;
+    if (member === null && selected === undefined) {
+      setSaving(false);
+      setErrorKey(INPUT_ERROR_KEYS.CREDENTIAL_REQUIRED);
+      return;
+    }
+    // 成员标识是派生展示值：创建时取所选物理 Key 的标识（重名加后缀），编辑时保持原值。
+    let key = member?.key ?? '';
+    if (member === null && selected !== undefined) {
+      key = suggestMemberKey(selected.key, props.existingMemberKeys);
+    }
+    const values = toServiceValues({ ...raw, key });
     try {
       if (member === null) {
         await createDeployment(props.modelId, buildDeploymentCreateInput(values));
@@ -233,7 +250,8 @@ export function ModelDeploymentForm(props: ModelDeploymentFormProps) {
         <Form.Input
           field="key"
           label={t('model.member.form.key')}
-          rules={[{ required: true, message: t('model.member.form.key') }]}
+          disabled
+          extraText={t('model.member.form.keyHint')}
         />
         <Form.Select
           field="credential_id"
@@ -242,6 +260,19 @@ export function ModelDeploymentForm(props: ModelDeploymentFormProps) {
           extraText={t('model.member.form.credentialHint')}
           optionList={credentialOptions}
           rules={member === null ? [{ required: true, message: t('model.member.form.credentialRequired') }] : []}
+          onChange={(value) => {
+            if (member !== null) {
+              return;
+            }
+            const selected = props.eligibleCredentials.find((item) => item.id === String(value));
+            if (selected !== undefined) {
+              // 成员名默认取所选物理 Key 的标识：只选一个下拉，不再手填第二遍。
+              formApi.current?.setValue(
+                'key',
+                suggestMemberKey(selected.key, props.existingMemberKeys)
+              );
+            }
+          }}
         />
         <Form.InputNumber
           field="weight"
@@ -449,6 +480,7 @@ export function ModelDeploymentPanel(props: ModelDeploymentPanelProps) {
         modelId={props.modelId}
         member={editing}
         eligibleCredentials={eligibleCredentials}
+        existingMemberKeys={list.items.map((item) => item.key)}
         currentCredentialLabel={editing === null ? '' : credentialLabel(editing.credential_id)}
         onCancel={() => {
           setFormVisible(false);

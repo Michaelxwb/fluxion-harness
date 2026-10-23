@@ -31,6 +31,7 @@ REQUIRED_KEYS = (
     "task.columns.agent",
     "task.columns.intent",
     "task.columns.status",
+    "task.columns.statusIcons",
     "task.columns.triggerType",
     "task.columns.deliveryStatus",
     "task.columns.deadlineAt",
@@ -181,6 +182,7 @@ CJK = re.compile(r"[\u3000-\u303f\u4e00-\u9fff\uff01-\uff5e]")
 # 名称化改动的落点：页面/单元格都不承载硬编码文案（实体名与短 id 都是数据）
 READABILITY_SOURCES = (
     MODULE / "TaskPage.tsx",
+    MODULE / "TaskStatusIcons.tsx",
     MODULE / "SchedulePage.tsx",
     MODULE / "EntityNameText.tsx",
     COMMON / "CopyableText.tsx",

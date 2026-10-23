@@ -37,6 +37,7 @@ SERVICE_TS = MODULE / "services/models.ts"
 PAGE_TSX = MODULE / "ModelPage.tsx"
 SHEET_TSX = MODULE / "ModelDetailSideSheet.tsx"
 FORM_TSX = MODULE / "ModelFormModal.tsx"
+MODEL_FIELDS_TSX = MODULE / "ModelFields.tsx"
 ICONS_TSX = MODULE / "ModelStatusIcons.tsx"
 CLIENT_TS = SRC / "api/client.ts"
 LOCALES = SRC / "locales"
@@ -512,23 +513,25 @@ def test_model_detail_mounts_members_and_passes_changes_back() -> None:
 
 
 def test_model_form_modal_matches_the_final_field_surface() -> None:
-    """[B-292] 表单只提交 `provider_key` + `params.max_tokens`：没有 Base URL/API Key 输入。"""
+    """[B-292] 字段面只提交 `provider_key` + `params.max_tokens`：没有 Base URL/API Key 输入。"""
     form = _read(FORM_TSX)
-    assert 'field="provider_key"' in form and "model.form.provider" in form
-    assert "model.form.providerHint" in form
-    assert 'field="max_tokens"' in form and "model.form.maxTokens" in form
-    assert "model.form.maxTokensHint" in form and "model.form.maxTokensInvalid" in form
-    assert 'field="base_url"' not in form and 'field="api_key"' not in form, (
-        "连接与密钥不在逻辑模型表单（唯一权威是物理凭据）"
+    fields = _read(MODEL_FIELDS_TSX)
+    assert "ModelFields" in form, "编辑弹窗必须复用共享字段面"
+    assert 'field="provider_key"' in fields and "model.form.provider" in fields
+    assert "model.form.providerHint" in fields
+    assert 'field="max_tokens"' in fields and "model.form.maxTokens" in fields
+    assert "model.form.maxTokensHint" in fields and "model.form.maxTokensInvalid" in fields
+    assert 'field="base_url"' not in fields and 'field="api_key"' not in fields, (
+        "连接与密钥不在逻辑模型字段面（唯一权威是物理凭据）"
     )
-    assert "api_key" not in form and "base_url" not in form, "表单源码不得出现连接/密钥字段"
+    assert "api_key" not in fields and "base_url" not in fields, "字段面源码不得出现连接/密钥字段"
     assert "buildModelCreateInput" in form and "buildModelUpdateInput" in form, (
-        "表单必须经 service 的纯构造器提交（字段面唯一来源）"
+        "弹窗必须经 service 的纯构造器提交（字段面唯一来源）"
     )
     assert "readOutputBudget" in form, "编辑回显只认真正发送的键（params.max_tokens）"
     assert "ModelInputError" in form, "输入边界必须显式失败并落到字段文案"
     assert "components/common/FormModal" in form and "width={720}" in form
-    assert "disabled" in form and 'initValue="OPENAI"' in form, "协议仍只读回显 OpenAI"
+    assert "disabled" in fields and 'initValue="OPENAI"' in fields, "协议仍只读回显 OpenAI"
 
 
 def test_model_status_icons_read_the_provider_fact() -> None:
@@ -564,8 +567,10 @@ def test_page_and_form_compile_to_real_typescript_artifacts(tmp_path: Path) -> N
     assert CANARY not in page_artifact
 
     form_artifact = _compile_tsx(FORM_TSX, tmp_path / "form.mjs")
-    assert "max_tokens" in form_artifact and "provider_key" in form_artifact
-    assert "base_url" not in form_artifact and "api_key" not in form_artifact
+    fields_artifact = _compile_tsx(MODEL_FIELDS_TSX, tmp_path / "model-fields.mjs")
+    assert "max_tokens" in fields_artifact and "provider_key" in fields_artifact
+    assert "base_url" not in fields_artifact and "api_key" not in fields_artifact
+    assert "ModelFields" in form_artifact
 
     sheet_artifact = _compile_tsx(SHEET_TSX, tmp_path / "sheet.mjs")
     assert '"model-member-panel"' in sheet_artifact

@@ -33,6 +33,7 @@ verifiers:
 - 批量测试只更新 `last_test_status/last_test_at`，不递增 `revision`、不写 `model_invocation_audit`、不产生计费/上下文语义。
 - **`protocol` 创建后不可变更**：`PUT /api/v1/models/{id}` 带 `protocol` 或改 `key` 均返回 422 `COMMON_VALIDATION_ERROR`（`tests/console_platform/test_models_api.py:159-167`）。✅ 只更新 `base_url`/`params` 等可变字段；❌ 让 `protocol` 可改（同一模型的存量大面积调用语义会无声切换）。
 - **429 走有界重试而非直接失败**：provider 遇限流抛 `ModelRateLimitedError(retry_after=...)`（`packages/agent-core/src/muad_agent_core/model/openai_provider.py:189-190`），`ModelGateway` 按 `retry_after` 或 `base_delay * 2**attempt` 指数退避，超过 `max_retries` 或逼近 deadline 才抛 `MODEL_UNAVAILABLE`（`apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py:103-123`）。✅ 退避有上界（重试次数 + deadline 双约束）；❌ 无界重试或把 429 当终态失败。
+- **池化预占的输出预算是模型配置事实，不是用户请求参数**：`params.max_tokens` 必须是正整数；缺失/非法时 `reserved_tokens_for` 抛 `MODEL_OUTPUT_BUDGET_INVALID`（Runtime 带模型/Run 日志），不落 `COMMON_VALIDATION_ERROR`。✅ 用户看到「联系管理员补齐输出预算」并能定位到模型定义；❌ 让 IM 用户看到「请求参数校验失败」——用户的消息没问题，要改的是模型配置（`apps/agent-runtime/src/muad_agent_runtime/application/executor.py`）。
 
 ❌ 错误（越层：批量测试探测不得复用 Runtime 的模型调用实现，`ModelGateway`/`AuditedModelProvider` 均由 Runtime 持有）：
 

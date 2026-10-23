@@ -682,6 +682,210 @@ body {
   outline-offset: 2px;
 }
 
+.task-status-icons {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  gap: 6px;
+}
+
+.task-status-icons .task-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 15px;
+  line-height: 1;
+  border-radius: var(--app-radius-sm);
+  color: var(--semi-color-text-2);
+}
+
+.task-status-icons .task-status-success {
+  color: var(--semi-color-success);
+}
+
+.task-status-icons .task-status-running {
+  color: var(--semi-color-primary);
+}
+
+.task-status-icons .task-status-warning {
+  color: var(--semi-color-warning);
+}
+
+.task-status-icons .task-status-error {
+  color: var(--semi-color-danger);
+}
+
+.task-status-icons .task-status-muted {
+  color: var(--semi-color-text-2);
+}
+
+.task-status-icon:focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: 2px;
+}
+
+/* ---------- Model connectivity test result ---------- */
+
+.model-test-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: var(--semi-color-fill-0);
+  border-radius: var(--app-radius-sm);
+}
+
+.model-test-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.model-test-summary-passed {
+  color: var(--semi-color-success);
+}
+
+.model-test-summary-failed {
+  color: var(--semi-color-danger);
+}
+
+.model-test-summary-latency {
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--semi-color-text-2);
+}
+
+.model-test-scope {
+  margin-bottom: 14px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--semi-color-text-2);
+}
+
+.model-test-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-test-result {
+  padding: 12px 14px;
+  background: var(--semi-color-bg-1);
+  border: 1px solid var(--semi-color-border);
+  border-left-width: 3px;
+  border-radius: var(--app-radius-sm);
+}
+
+.model-test-result-passed {
+  border-left-color: var(--semi-color-success);
+}
+
+.model-test-result-failed {
+  border-left-color: var(--semi-color-danger);
+}
+
+.model-test-result-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.model-test-result-model {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-test-result-key {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--semi-color-text-0);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-test-result-name {
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--semi-color-text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-test-result-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.model-test-result-passed .model-test-result-status {
+  color: var(--semi-color-success);
+}
+
+.model-test-result-failed .model-test-result-status {
+  color: var(--semi-color-danger);
+}
+
+.model-test-result-latency {
+  min-width: 76px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--semi-color-text-1);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.model-test-result-error {
+  margin-top: 6px;
+  padding-left: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--semi-color-danger);
+  overflow-wrap: anywhere;
+}
+
+.model-test-empty {
+  padding: 24px 0;
+  color: var(--semi-color-text-2);
+  text-align: center;
+}
+
+.model-test-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 600px) {
+  .model-test-summary-latency {
+    margin-left: 0;
+  }
+
+  .model-test-result-main {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  .model-test-result-model {
+    flex-basis: 100%;
+  }
+
+  .model-test-result-latency {
+    margin-left: auto;
+  }
+}
+
 .model-table [data-testid^='model-link-'] {
   max-width: 100%;
 }
@@ -1182,6 +1386,23 @@ body {
   font-size: 12px;
   line-height: 20px;
   color: var(--semi-color-text-2);
+}
+
+.model-flow-hint {
+  margin: -4px 0 12px;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--semi-color-text-2);
+}
+
+.model-wizard-steps {
+  margin-bottom: 20px;
+}
+
+.model-wizard-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .metric-cards {

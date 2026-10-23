@@ -57,7 +57,7 @@ test.describe('跨语言与时间', () => {
     // zh-CN：列表与详情文案、时间格式
     await page.goto('/tasks');
     await expect(page.getByRole('heading', { name: '后台任务' })).toBeVisible();
-    await expect(page.locator('.semi-tag', { hasText: '失败' })).toBeVisible();
+    await expect(page.getByRole('img', { name: '状态: 失败' })).toBeVisible();
     // 按行内 testid 取单元格，不按列序：列序会随列表字段增删漂移（本用例曾因此误判）。
     const deadlineCell = page.getByTestId(`task-deadline-${taskId}`);
     await expect(deadlineCell).toHaveText(TIME_PATTERN);
@@ -72,7 +72,7 @@ test.describe('跨语言与时间', () => {
     await expect(page.locator('.semi-navigation-item', { hasText: 'Schedules' })).toBeVisible();
     await page.goto('/tasks');
     await expect(page.getByRole('heading', { name: 'Background Tasks' })).toBeVisible();
-    await expect(page.locator('.semi-tag', { hasText: 'Failed' })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Status: Failed' })).toBeVisible();
     await page.goto('/schedules');
     await expect(page.locator('.semi-tag', { hasText: 'Active' })).toBeVisible();
     expect(scheduleId).toBeTruthy();

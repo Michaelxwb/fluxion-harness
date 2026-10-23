@@ -934,8 +934,10 @@ def reserved_tokens_for(request: ModelRequest, *, policy: PoolExecutionPolicy) -
     """预占 = ceil(保守输入估算 × 冻结倍率) + 本次**实际发送**的最大输出预算（design §3.7）。"""
     max_tokens = request.max_tokens
     if max_tokens is None or max_tokens < 1:
-        # 启用池时输出预算必须显式填写：不读未发送的同义字段，也不猜一个上限
-        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+        # 启用池时输出预算必须显式填写：不读未发送的同义字段，也不猜一个上限。
+        # 这是**模型配置**缺失（不是用户请求参数错误），必须用独立错误码明示给用户与运维：
+        # 落成 COMMON_VALIDATION_ERROR 会让 IM 用户看到「请求参数校验失败」，而实际要改的是模型定义。
+        raise AppError(ErrorCode.MODEL_OUTPUT_BUDGET_INVALID)
     estimate = conservative_input_estimate(request)
     return max(math.ceil(estimate * policy.input_estimate_multiplier) + max_tokens, 1)
 
@@ -1050,7 +1052,20 @@ class PooledModelProvider:
     async def _invoke(
         self, request: ModelRequest, on_delta: DeltaCallback | None
     ) -> ModelResponse:
-        reserved_tokens = reserved_tokens_for(request, policy=self._scope.policy)
+        try:
+            reserved_tokens = reserved_tokens_for(request, policy=self._scope.policy)
+        except AppError as exc:
+            if exc.code == ErrorCode.MODEL_OUTPUT_BUDGET_INVALID:
+                # 配置缺陷必须有可定位的痕迹：错误码会以 RUN_FAILED 回给用户，日志带上模型与 Run。
+                logger.warning(
+                    "model_output_budget_invalid",
+                    extra={
+                        "tenant_id": self._scope.tenant_id,
+                        "model_id": str(self._scope.model_id),
+                        "run_id": str(self._scope.run_id),
+                    },
+                )
+            raise
         emitted = _Emitted()
         try:
             attempt = await self._select_and_reserve(reserved_tokens)

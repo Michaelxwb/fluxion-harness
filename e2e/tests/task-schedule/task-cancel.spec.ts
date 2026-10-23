@@ -77,7 +77,11 @@ test.describe('Task 取消', () => {
     expect(cancelRequests).toHaveLength(0);
     await cancelRow(page, taskId);
 
-    await expect(page.locator('.semi-table-row', { hasText: taskId })).toContainText('已取消');
+    await expect(
+      page
+        .locator('.semi-table-row', { hasText: taskId })
+        .getByRole('img', { name: '状态: 已取消' })
+    ).toBeVisible();
     await expect(page.getByTestId(`task-row-cancel-${taskId}`)).toHaveCount(0);
     expect(cancelRequests).toHaveLength(1);
 
@@ -97,13 +101,21 @@ test.describe('Task 取消', () => {
 
     await request.post('/__e2e/worker-failure', { data: { failing: true } });
     await cancelRow(page, taskId);
-    await expect(page.locator('.semi-table-row', { hasText: taskId })).toContainText('排队中');
+    await expect(
+      page
+        .locator('.semi-table-row', { hasText: taskId })
+        .getByRole('img', { name: '状态: 排队中' })
+    ).toBeVisible();
     await expect(page.getByTestId(`task-row-cancel-${taskId}`)).toBeVisible();
     await expect(page.locator('.semi-toast-content').first()).toBeVisible();
 
     await request.post('/__e2e/worker-failure', { data: { failing: false } });
     await cancelRow(page, taskId);
-    await expect(page.locator('.semi-table-row', { hasText: taskId })).toContainText('已取消');
+    await expect(
+      page
+        .locator('.semi-table-row', { hasText: taskId })
+        .getByRole('img', { name: '状态: 已取消' })
+    ).toBeVisible();
 
     await expect(page.getByTestId(`task-row-cancel-${completedId}`)).toHaveCount(0);
     await openDetail(page, completedId);

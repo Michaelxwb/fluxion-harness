@@ -1,9 +1,10 @@
-import { Banner, Form } from '@douyinfe/semi-ui';
+import { Banner } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FormModal } from '../../components/common/FormModal';
+import { ModelFields } from './ModelFields';
 import { readOutputBudget } from './services/modelDeployments';
 import {
   ModelInputError,
@@ -131,51 +132,7 @@ export function ModelFormModal(props: ModelFormModalProps) {
         void submit(values as unknown as FormValues);
       }}
     >
-      <div className="form-grid">
-        <Form.Input
-          field="name"
-          label={t('model.form.name')}
-          rules={[{ required: true, message: t('model.form.name') }]}
-        />
-        <Form.Input
-          field="key"
-          label={t('model.form.key')}
-          disabled={props.model !== null}
-          rules={props.model ? [] : [{ required: true, message: t('model.form.key') }]}
-        />
-        <Form.Select
-          field="protocol"
-          label={t('model.form.protocol')}
-          disabled
-          initValue="OPENAI"
-          extraText={t('model.form.protocolHint')}
-          optionList={[{ value: 'OPENAI', label: 'OpenAI' }]}
-        />
-        <Form.Input
-          field="model_id"
-          label={t('model.form.modelId')}
-          rules={[{ required: true, message: t('model.form.modelId') }]}
-        />
-        <div className="form-field-full">
-          <Form.Input
-            field="provider_key"
-            label={t('model.form.provider')}
-            extraText={t('model.form.providerHint')}
-          />
-        </div>
-        <div className="form-field-full">
-          <Form.InputNumber
-            field="max_tokens"
-            label={t('model.form.maxTokens')}
-            min={1}
-            precision={0}
-            style={{ width: '100%' }}
-            extraText={t('model.form.maxTokensHint')}
-            rules={[{ required: true, message: t('model.form.maxTokensInvalid') }]}
-          />
-        </div>
-        <Form.Switch field="enabled" label={t('model.form.enabled')} initValue />
-      </div>
+      <ModelFields keyDisabled={props.model !== null} />
       {errorKey === null ? null : <Banner type="danger" closeIcon={null} description={t(errorKey)} />}
     </FormModal>
   );

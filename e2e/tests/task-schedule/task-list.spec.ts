@@ -63,7 +63,7 @@ test.describe('后台任务列表（B-131）', () => {
     // 完整 id 走 title 与复制。
     await expect(page.getByTitle(AGENT_ID).first()).toBeVisible();
     await expect(page.getByText('11111111').first()).toBeVisible();
-    await expect(page.locator('.semi-tag', { hasText: '失败' })).toBeVisible();
+    await expect(page.getByRole('img', { name: '状态: 失败' })).toBeVisible();
     await expect(page.locator('.app-pagination')).toBeVisible();
     expect(listRequests.length).toBe(1);
 
@@ -248,6 +248,10 @@ test.describe('后台任务列表（B-131）', () => {
       .getByRole('button', { name: /确定|删除/ })
       .click({ force: true });
 
-    await expect(page.locator('.semi-table-row', { hasText: cancellable })).toContainText('已取消');
+    await expect(
+      page
+        .locator('.semi-table-row', { hasText: cancellable })
+        .getByRole('img', { name: '状态: 已取消' })
+    ).toBeVisible();
   });
 });

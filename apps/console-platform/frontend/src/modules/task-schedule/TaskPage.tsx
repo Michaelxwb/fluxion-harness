@@ -13,7 +13,6 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { TableText } from '../../components/common/TableText';
-import { StatusTag, type StatusTagOption } from '../../components/common/StatusTag';
 import { EntityLink } from '../../components/common/EntityLink';
 import { listSkills } from '../skill-management/services/skills';
 import { listAgentsForPicker, listUsers } from '../user-identity/services/users';
@@ -24,19 +23,11 @@ import {
 import { ScheduleDetailSideSheet } from './ScheduleDetailSideSheet';
 import { EntityNameText } from './EntityNameText';
 import { TaskDetailSideSheet } from './TaskDetailSideSheet';
+import { TaskStatusIcons } from './TaskStatusIcons';
 import { useTaskActions } from './useTaskActions';
 import { listTasks, type TaskListItem, type TaskListParams } from './services/tasks';
 
 const DEFAULT_PARAMS: TaskListParams = { page: 1, page_size: 15 };
-
-const STATUS_COLORS: Record<string, StatusTagOption['color']> = {
-  QUEUED: 'grey',
-  RUNNING: 'blue',
-  WAITING: 'amber',
-  COMPLETED: 'green',
-  FAILED: 'red',
-  CANCELLED: 'grey'
-};
 
 const TRIGGER_TYPES = ['IMMEDIATE', 'SCHEDULED'] as const;
 const TASK_STATUSES = ['QUEUED', 'RUNNING', 'WAITING', 'COMPLETED', 'FAILED', 'CANCELLED'] as const;
@@ -204,13 +195,6 @@ export function TaskPage() {
       void reload();
     }
   });
-
-  const statusOptions = Object.fromEntries(
-    TASK_STATUSES.map((status) => [
-      status,
-      { color: STATUS_COLORS[status] ?? 'grey', label: t(`task.status.${status}`) }
-    ])
-  );
 
   const setFilter = useCallback((patch: TaskListParams) => {
     setParams((prev) => ({ ...prev, ...patch, page: 1 }));
@@ -384,16 +368,10 @@ export function TaskPage() {
               )
             },
             {
-              title: t('task.columns.triggerType'),
-              dataIndex: 'trigger_type',
-              width: 96,
-              render: (value: string) => t(`task.trigger.${value}`)
-            },
-            {
-              title: t('task.columns.status'),
+              title: t('task.columns.statusIcons'),
               dataIndex: 'status',
-              width: 108,
-              render: (value: string) => <StatusTag status={value} options={statusOptions} />
+              width: 104,
+              render: (_: unknown, record: TaskListItem) => <TaskStatusIcons task={record} />
             },
             {
               title: t('task.columns.childProgress'),
@@ -428,12 +406,6 @@ export function TaskPage() {
                   <DateTimeText value={value} />
                 </span>
               )
-            },
-            {
-              title: t('task.columns.deliveryStatus'),
-              dataIndex: 'delivery_status',
-              width: 128,
-              render: (value: string) => t(`task.delivery.${value}`)
             },
             {
               title: t('task.columns.error'),

@@ -121,19 +121,19 @@ test('validation errors preserve grid alignment and footer access', async ({ pag
   await openPage(page, 'models', 'light', 'en-US');
   await page.getByTestId('create-model').click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByRole('button', { name: 'confirm', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(dialog.locator('.semi-form-field-error-message').first()).toBeVisible();
   await expectAlignedControls(dialog);
-  await expect(dialog.getByRole('button', { name: 'confirm', exact: true })).toBeInViewport({ ratio: 1 });
-  await dialog.getByRole('button', { name: 'cancel', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Next', exact: true })).toBeInViewport({ ratio: 1 });
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(dialog).toHaveCount(0);
 });
 
 test('editing preserves populated values, immutable key and save payload', async ({ page }) => {
   const model: ModelItem = {
     id: 'layout-model', key: 'layout-model', name: 'Layout model', protocol: 'OPENAI',
-    model_id: 'test-model', base_url: 'https://example.com/v1', api_key_configured: true,
-    params: {}, revision: 3, enabled: true, last_test_status: 'UNTESTED', last_test_at: null,
+    model_id: 'test-model', provider_key: 'example', params: { max_tokens: 2048 },
+    revision: 3, enabled: true, last_test_status: 'UNTESTED', last_test_at: null,
     create_time: '2026-09-30T00:00:00Z', update_time: '2026-09-30T00:00:00Z'
   };
   await openPage(page, 'models', 'dark', 'en-US', {
@@ -151,8 +151,8 @@ test('editing preserves populated values, immutable key and save payload', async
   const submitted = page.waitForRequest((request) => request.method() === 'PUT');
   await dialog.getByRole('button', { name: 'confirm', exact: true }).click();
   expect((await submitted).postDataJSON()).toEqual({
-    name: 'Updated model', base_url: model.base_url, model_id: model.model_id,
-    enabled: true, expected_revision: 3
+    name: 'Updated model', model_id: model.model_id, provider_key: model.provider_key,
+    params: { max_tokens: 2048 }, enabled: true, expected_revision: 3
   });
   await expect(dialog).toHaveCount(0);
 });

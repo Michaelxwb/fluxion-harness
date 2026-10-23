@@ -15,6 +15,7 @@ import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { TableText } from '../../components/common/TableText';
+import { ModelCreateWizard } from './ModelCreateWizard';
 import { ModelCredentialPanel } from './ModelCredentialPanel';
 import { ModelDetailSideSheet, ModelTestResultModal } from './ModelDetailSideSheet';
 import { ModelFormModal } from './ModelFormModal';
@@ -47,6 +48,8 @@ export function ModelPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ModelItem | null>(null);
+  const [detailTab, setDetailTab] = useState<'basic' | 'members'>('basic');
+  const [createVisible, setCreateVisible] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
   const [formModel, setFormModel] = useState<ModelItem | null>(null);
   const [testResults, setTestResults] = useState<ModelTestResult[]>([]);
@@ -118,6 +121,7 @@ export function ModelPage() {
 
   const openDetail = async (id: string): Promise<void> => {
     try {
+      setDetailTab('basic');
       setDetail(await getModel(id));
     } catch {
       Toast.error(t('common.loadFailed'));
@@ -167,8 +171,8 @@ export function ModelPage() {
     await reload();
   };
 
-  const testLabels: Record<string, string> = Object.fromEntries(
-    items.map((model) => [model.id, `${model.key} · ${model.name}`])
+  const testLabels: Record<string, { key: string; name: string }> = Object.fromEntries(
+    items.map((model) => [model.id, { key: model.key, name: model.name }])
   );
 
   return (
@@ -178,16 +182,6 @@ export function ModelPage() {
         <ModuleToolbar
           actions={
             <>
-              <Button
-                theme="solid"
-                data-testid="create-model"
-                onClick={() => {
-                  setFormModel(null);
-                  setFormVisible(true);
-                }}
-              >
-                {t('model.add')}
-              </Button>
               {isAdmin ? (
                 <Button
                   data-testid="open-model-resources"
@@ -199,6 +193,20 @@ export function ModelPage() {
                   {t('model.resources.manage')}
                 </Button>
               ) : null}
+              <Button
+                theme="solid"
+                data-testid="create-model"
+                onClick={() => {
+                  if (isAdmin) {
+                    setCreateVisible(true);
+                    return;
+                  }
+                  setFormModel(null);
+                  setFormVisible(true);
+                }}
+              >
+                {t('model.add')}
+              </Button>
               <Button
                 data-testid="batch-test"
                 disabled={selected.length === 0}
@@ -243,6 +251,7 @@ export function ModelPage() {
             </>
           }
         />
+        {isAdmin ? <div className="model-flow-hint">{t('model.flowHint')}</div> : null}
         {failed ? (
           <ErrorState onRetry={() => void reload()} />
         ) : (
@@ -327,6 +336,20 @@ export function ModelPage() {
           />
         )}
       </PageSection>
+      {isAdmin ? (
+        <ModelCreateWizard
+          visible={createVisible}
+          onCancel={() => setCreateVisible(false)}
+          onCreated={(created) => {
+            setCreateVisible(false);
+            setDetailTab('members');
+            setDetail(created);
+            void reload();
+            Toast.success(t('model.create.created'));
+          }}
+          onRefresh={() => void reload()}
+        />
+      ) : null}
       <ModelFormModal
         visible={formVisible}
         model={formModel}
@@ -343,6 +366,7 @@ export function ModelPage() {
       />
       <ModelDetailSideSheet
         model={detail}
+        initialTab={detailTab}
         onChanged={afterModelChanged}
         onCancel={() => setDetail(null)}
       />

@@ -1,4 +1,3 @@
-import { Form } from '@douyinfe/semi-ui';
 import { Banner, Button, Modal, Select, Table, Typography } from '@douyinfe/semi-ui';
 import { IconPlus } from '@douyinfe/semi-icons';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
@@ -18,6 +17,7 @@ import { PaginationFooter } from '../../components/common/PaginationFooter';
 import { StatusTag } from '../../components/common/StatusTag';
 import { actionColumn } from '../../components/common/tableLayout';
 import { TableText } from '../../components/common/TableText';
+import { CredentialFields } from './CredentialFields';
 import { apiKeyOptions, enabledOptions, probeStatusOptions } from './statusOptions';
 import { listModels, type ModelItem } from './services/models';
 import {
@@ -152,64 +152,7 @@ export function ModelCredentialForm(props: ModelCredentialFormProps) {
         void submit(values as unknown as CredentialFormValues);
       }}
     >
-      <div className="form-grid">
-        <Form.Input
-          field="key"
-          label={t('model.credential.form.key')}
-          disabled={credential !== null}
-          rules={credential === null ? [{ required: true, message: t('model.credential.form.key') }] : []}
-        />
-        <Form.Input
-          field="provider_key"
-          label={t('model.credential.form.provider')}
-          extraText={t('model.credential.form.providerHint')}
-          rules={[{ required: true, message: t('model.credential.form.provider') }]}
-        />
-        <div className="form-field-full">
-          <Form.Input
-            field="base_url"
-            label={t('model.credential.form.baseUrl')}
-            extraText={t('model.credential.form.baseUrlHint')}
-            rules={[
-              { required: true, message: t('model.credential.form.baseUrl') },
-              { pattern: /^https?:\/\/[^@\s#]+$/i, message: t('model.credential.form.baseUrlInvalid') }
-            ]}
-          />
-        </div>
-        <div className="form-field-full">
-          <Form.Input
-            field="api_key"
-            label={t('model.credential.form.apiKey')}
-            extraText={
-              <>
-                {t('model.credential.form.apiKeyHint')}
-                {credential === null ? '' : ` ${t('model.credential.form.apiKeyKeep')}`}
-                <br />
-                {t('model.credential.form.apiKeyNotice')}
-              </>
-            }
-            rules={credential === null ? [{ required: true, message: t('model.credential.form.apiKeyRequired') }] : []}
-          />
-        </div>
-        <Form.Select
-          field="quota_group_id"
-          label={t('model.credential.form.quotaGroup')}
-          showClear
-          placeholder={t('model.credential.quota.exclusive')}
-          extraText={t('model.credential.form.quotaGroupHint')}
-          optionList={props.quotaGroups.map((group) => ({ value: group.id, label: group.key }))}
-        />
-        <Form.InputNumber
-          field="max_inflight"
-          label={t('model.credential.form.maxInflight')}
-          min={1}
-          precision={0}
-          style={{ width: '100%' }}
-          extraText={t('model.credential.form.maxInflightHint')}
-          rules={[{ required: true, message: t('model.credential.form.maxInflightInvalid') }]}
-        />
-        <Form.Switch field="enabled" label={t('model.credential.form.enabled')} initValue />
-      </div>
+      <CredentialFields credential={credential} quotaGroups={props.quotaGroups} />
       {errorKey === null ? null : <Banner type="danger" closeIcon={null} description={t(errorKey)} />}
     </FormModal>
   );

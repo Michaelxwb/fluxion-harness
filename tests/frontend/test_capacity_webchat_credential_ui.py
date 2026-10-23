@@ -32,6 +32,7 @@ SRC = FRONTEND / "src"
 MODULE = SRC / "modules/model-management"
 SERVICE_TS = MODULE / "services/modelCredentials.ts"
 PANEL_TSX = MODULE / "ModelCredentialPanel.tsx"
+CREDENTIAL_FIELDS_TSX = MODULE / "CredentialFields.tsx"
 CLIENT_TS = SRC / "api/client.ts"
 LOCALES = SRC / "locales"
 
@@ -490,6 +491,7 @@ def test_real_service_maps_conflicts_to_explicit_copy(credential_service: dict[s
 def test_panel_is_admin_gated_and_never_renders_key_material() -> None:
     """[RULE-front-001] 凭据维护入口仅 ADMIN；读取只表达 `configured`，不渲染密钥字段。"""
     source = _read(PANEL_TSX)
+    fields = _read(CREDENTIAL_FIELDS_TSX)
     assert "useAuth" in source
     assert "account?.role === 'ADMIN'" in source
     assert re.search(r"if\(!isAdmin\)\{returnnull;?\}", _compact(source)), (
@@ -498,8 +500,9 @@ def test_panel_is_admin_gated_and_never_renders_key_material() -> None:
     assert "apiKeyOptions(t)" in source and "credential.configured" in source, "读取只表达 configured"
     for leaked in ("credential.api_key", "record.api_key", "item.api_key", "api_key_configured"):
         assert leaked not in source, f"面板不得读取密钥字段：{leaked}"
-    assert "model.credential.form.apiKeyKeep" in source, "编辑时留空保留原值必须有说明"
-    assert "model.credential.form.apiKeyNotice" in source, "必须说明密钥不回显"
+    assert "CredentialFields" in source, "字段面必须复用共享组件（资源池与新增向导同源）"
+    assert "model.credential.form.apiKeyKeep" in fields, "编辑时留空保留原值必须有说明"
+    assert "model.credential.form.apiKeyNotice" in fields, "必须说明密钥不回显"
     assert "api_key: ''" in source, "编辑表单的密钥输入必须从空值开始"
 
 
