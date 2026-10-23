@@ -21,8 +21,8 @@ from ..infrastructure.repositories.audit_query_repository import (
     AuditQueryRepository,
 )
 
-# RULE-05：Console 时间出参统一 YYYY-MM-DD HH:mm:ss
-CONSOLE_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+# RULE-05：Console 时间出参统一 YYYY-MM-DD HH:mm:ss，并附明确 offset
+CONSOLE_TIME_FORMAT = "%Y-%m-%d %H:%M:%S%z"
 
 AUDIT_TYPES = frozenset({"CONFIG", "TOOL", "EGRESS", "MODEL"})
 # 归一后的执行结果域（docs/07 §10.11）：SUCCESS / FAILED / 领域错误码
@@ -32,11 +32,18 @@ _TIME_FIELDS = ("occurred_at", "started_at", "finished_at")
 
 
 def format_console_time(value: datetime | None, *, timezone: tzinfo | None = None) -> str | None:
-    """timestamptz → Console 展示格式；出参依赖 DB 的绝对时刻，不做字符串截断。"""
+    """timestamptz → Console 展示格式。
+
+    输出带明确 offset（默认 UTC），前端 `DateTimeText` 按绝对时刻转浏览器本地时区；
+    默认不再跟随服务器本地时区——否则 CI/生产服务器（UTC）与用户浏览器（如 Asia/Shanghai）
+    会相差 8 小时。
+    """
     if value is None:
         return None
     aware = value.replace(tzinfo=UTC) if value.tzinfo is None else value
-    return aware.astimezone(timezone).strftime(CONSOLE_TIME_FORMAT)
+    target = UTC if timezone is None else timezone
+    stamp = aware.astimezone(target).strftime(CONSOLE_TIME_FORMAT)
+    return f"{stamp[:-2]}:{stamp[-2:]}"
 
 
 def _as_utc(value: datetime) -> datetime:

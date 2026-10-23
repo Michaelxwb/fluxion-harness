@@ -29,7 +29,7 @@ EXPORT_ENDPOINT = EXPORT_PATH
 JOB_TABLE = "control.audit_export_job"
 IDEMPOTENCY_TABLE = "control.skill_import_idempotency"
 FINGERPRINT_PREFIX = "sha256:"
-DATE_TIME_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+DATE_TIME_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$")
 # catalog `config/api-messages.yaml` 的 IDEMPOTENCY_MISMATCH 文案（zh-CN）
 MISMATCH_MESSAGE = "相同幂等键被用于不同的请求内容，请更换幂等键后重试"
 

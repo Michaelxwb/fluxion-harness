@@ -95,7 +95,7 @@ ARTIFACT_SIZE = 2048
 TIMELINE_EVENT_TYPES = ("USER_MESSAGE", "ASSISTANT_MESSAGE")
 TIMELINE_PAYLOADS = ({"text": "S-03 timeline user"}, {"text": "S-03 timeline assistant"})
 
-CONSOLE_TIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+CONSOLE_TIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$")
 
 # 断言用显示名（与 tests/e2e/seed_audit.py 的种子一致：账号 / 平台用户 / Agent）
 SEED_ACCOUNT_NAME = "Audit Acceptance Admin"
@@ -326,7 +326,7 @@ def _assert_console_times(items: list[dict[str, Any]]) -> None:
 
 
 def _assert_desc_ordering(items: list[dict[str, Any]]) -> None:
-    stamps = [datetime.strptime(item["occurred_at"], "%Y-%m-%d %H:%M:%S") for item in items]
+    stamps = [datetime.fromisoformat(item["occurred_at"]) for item in items]
     assert stamps == sorted(stamps, reverse=True), stamps
 
 

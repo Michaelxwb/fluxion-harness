@@ -55,7 +55,7 @@ async def test_empty_data_retains_unknown_rates_and_real_zero_counts(
     assert not any(data.activity.model_dump().values())
     assert len(data.trend.runs) == len(data.trend.tasks) == len(data.trend.tokens) == 7
     assert all(point.total == point.failed == 0 for point in data.trend.runs)
-    assert data.timezone == "Asia/Shanghai" and data.generated_at == "2026-10-11 18:00:00"
+    assert data.timezone == "Asia/Shanghai" and data.generated_at == "2026-10-11 18:00:00+08:00"
 
 
 async def test_resource_counts_are_enabled_live_and_tenant_scoped(
@@ -197,9 +197,8 @@ async def test_local_midnight_and_platform_timestamp(
     await seed_run(overview_tenant, created=midnight)
     data = await _overview(client, 1)
     assert data.kpis.run_count == 1 and data.trend.runs[0].total == 1
-    assert data.timezone == timezone and data.generated_at == NOW.astimezone(ZoneInfo(timezone)).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+    assert data.timezone == timezone
+    assert data.generated_at == format_console_time(NOW, timezone=ZoneInfo(timezone))
 
 
 async def test_failure_trend_uses_finish_date_including_older_created_work(
@@ -314,8 +313,8 @@ def test_b201_docs_07_registers_current_overview_contract() -> None:
 @pytest.mark.parametrize(
     "zone,expected",
     [
-        ("Asia/Shanghai", "2026-10-11 18:00:00"),
-        ("America/New_York", "2026-10-11 06:00:00"),
+        ("Asia/Shanghai", "2026-10-11 18:00:00+08:00"),
+        ("America/New_York", "2026-10-11 06:00:00-04:00"),
     ],
 )
 def test_console_time_formatter_uses_explicit_display_timezone(zone: str, expected: str) -> None:
@@ -324,6 +323,6 @@ def test_console_time_formatter_uses_explicit_display_timezone(zone: str, expect
     assert format_console_time(None, timezone=ZoneInfo(zone)) is None
 
 
-def test_console_time_formatter_default_retains_local_display() -> None:
+def test_console_time_formatter_default_uses_utc_offset() -> None:
     value = datetime(2026, 10, 11, 10, tzinfo=UTC)
-    assert format_console_time(value) == value.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    assert format_console_time(value) == "2026-10-11 10:00:00+00:00"
