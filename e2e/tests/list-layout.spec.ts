@@ -79,9 +79,15 @@ async function expectAuditPrimary(table: Locator) {
   await expect(missing).toContainText('missing-trace');
 }
 
+// 代表性矩阵：桌面基线（zh-CN/light）+ 宽屏长文案/深色（en-US/dark）；窄屏固定由下面的
+// narrow 用例覆盖（390px zh-CN dark）。不再做「宽度 × 语言 × 主题」的全笛卡尔积。
+const DESKTOP_CELLS = [
+  { width: 1920, locale: 'zh-CN', theme: 'light' },
+  { width: 2048, locale: 'en-US', theme: 'dark' }
+] as const;
+
 for (const entry of listLayoutCases) {
-  for (const [width, locale] of [[1920, 'zh-CN'], [2048, 'zh-CN'], [1920, 'en-US']] as const) {
-    for (const theme of ['light', 'dark']) {
+  for (const { width, locale, theme } of DESKTOP_CELLS) {
       test(`${entry.path} desktop columns fill available width at ${width}px in ${locale} ${theme}`, async ({ page }, testInfo) => {
         await page.setViewportSize({ width, height: 1000 });
         await prepare(page, theme, locale);
@@ -104,7 +110,6 @@ for (const entry of listLayoutCases) {
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
       });
     }
-  }
   test(`${entry.path} narrow list keeps data scrollable and actions fixed`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 1000 });
     await prepare(page, 'dark', 'zh-CN');

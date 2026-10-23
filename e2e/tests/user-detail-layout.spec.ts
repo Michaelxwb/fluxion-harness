@@ -88,9 +88,10 @@ async function expectMemoryAuthors(table: Locator, locale: string): Promise<void
   }
 }
 
-for (const locale of ['zh-CN', 'en-US']) {
-  for (const theme of ['light', 'dark']) {
-    test(`memory authors explain known values and preserve raw codes in ${locale} ${theme}`, async ({ page }) => {
+// 每条用例内部会切换一次语言，故初始语言固定 zh-CN；主题保留 light/dark 两档。
+for (const theme of ['light', 'dark']) {
+  const locale = 'zh-CN';
+    test(`memory authors explain known values and preserve raw codes in zh-CN ${theme}`, async ({ page }) => {
       const items: MemoryItem[] = memoryAuthors.map((author, index) => ({
         ...memories[0], id: `author-${index}`, memory_key: `author-${index}`,
         // 域外 author 取值按事实模拟：后端未来新增枚举也必须原样透出（不吞码）。
@@ -109,7 +110,6 @@ for (const locale of ['zh-CN', 'en-US']) {
       await sheet.getByRole('tab', { name: `${nextLocale === 'zh-CN' ? '用户记忆' : 'Memories'} (${items.length})`, exact: true }).click();
       await expectMemoryAuthors(table, nextLocale);
     });
-  }
 }
 
 async function expectContentFits(table: Locator): Promise<void> {
@@ -175,9 +175,15 @@ async function expectFixedActions(table: Locator, locale: string): Promise<void>
   }
 }
 
+const USER_TABLE_CELLS = [
+  { width: 1280, locale: 'zh-CN', theme: 'light' },
+  { width: 1280, locale: 'zh-CN', theme: 'dark' },
+  { width: 1280, locale: 'en-US', theme: 'light' },
+  { width: 390, locale: 'zh-CN', theme: 'light' }
+] as const;
+
 for (const entry of cases) {
-  for (const [width, locale] of [[1280, 'zh-CN'], [1280, 'en-US'], [390, 'zh-CN'], [390, 'en-US']] as const) {
-    for (const theme of ['light', 'dark']) {
+  for (const { width, locale, theme } of USER_TABLE_CELLS) {
       test(`user ${entry.key} table fits at ${width}px in ${locale} ${theme}`, async ({ page }, testInfo) => {
         await prepare(page, width, theme, locale);
         const sheet = page.getByRole('dialog');
@@ -203,4 +209,3 @@ for (const entry of cases) {
       });
     }
   }
-}

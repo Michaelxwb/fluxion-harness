@@ -143,8 +143,8 @@ jobs:
           failed=""
           mkdir -p /tmp/e2e-logs
           for domain in \
-            agent audit-observability console-auth console-auth-ui form-layout list-actions mcp \
-            model-management overview-dashboard platform sidebar skill \
+            agent audit-observability console-auth mcp \
+            model-management overview-dashboard platform skill \
             task-schedule user-identity
           do
             echo "::group::e2e ${domain}"
@@ -155,7 +155,7 @@ jobs:
               echo "FAIL ${domain}"
               failed="${failed} ${domain}"
               # trace / error-context 只在失败时保留（`trace: retain-on-failure`），但 Playwright
-              # 每跑一次都会清空 outputDir（默认 `e2e/test-results`）⇒ 当场按域搬走，否则 14 个域
+              # 每跑一次都会清空 outputDir（默认 `e2e/test-results`）⇒ 当场按域搬走，否则 10 个域
               # 顺序跑完只剩**最后一个**域的，偶发失败（如 task-cancel 的 detach）事后无从复盘。
               cp -r e2e/test-results "/tmp/e2e-logs/${domain}-test-results" 2>/dev/null || true
               # 把**失败的那一条**带进 annotation：annotation 匿名可读，而 job 日志需要认证。
@@ -178,13 +178,72 @@ jobs:
             echo "::error::浏览器验收失败的域:${failed}"
             exit 1
           fi
-          echo "全部 14 个域通过"
+          echo "全部 10 个域通过"
       - name: 上传各域日志（无论成败）
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-domain-logs
           path: /tmp/e2e-logs
+          retention-days: 7
+          if-no-files-found: warn
+
+  # 纯 component 域（真实构建产物 + mock API，不启动 Console/PG/Redis）。
+  # 与 e2e 分开：布局/错误态/菜单等 UI 语义不应该占用真实 E2E 的信号与超时预算。
+  component:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            apps/console-platform/frontend/package-lock.json
+            e2e/package-lock.json
+      - run: npm ci
+        working-directory: apps/console-platform/frontend
+      - run: npm ci
+        working-directory: e2e
+      - name: 预检系统 Chrome
+        run: google-chrome --version
+      - name: 逐域 component 验收（汇总失败，不 fail-fast）
+        run: |
+          set -u
+          failed=""
+          mkdir -p /tmp/component-logs
+          for domain in form-layout list-actions sidebar console-auth-ui
+          do
+            echo "::group::component ${domain}"
+            log="/tmp/component-logs/${domain}.log"
+            if make acceptance-e2e DOMAIN="${domain}" >"$log" 2>&1; then
+              echo "PASS ${domain}"
+            else
+              echo "FAIL ${domain}"
+              failed="${failed} ${domain}"
+              # 每个域跑完都会清空 outputDir，当场搬走 trace/error-context，避免只剩最后一个域的。
+              cp -r e2e/test-results "/tmp/component-logs/${domain}-test-results" 2>/dev/null || true
+              reason="$(grep -m1 -E '✘|^[[:space:]]*[0-9]+\) ' "$log" || true)"
+              if [ -z "${reason}" ]; then
+                reason="$(grep -m1 -E 'Error:|Timed out|EADDRINUSE|ECONNREFUSED|refused|StartupValidationError' "$log" || true)"
+              fi
+              echo "::error::${domain}: ${reason:-（未匹配到错误行，见 artifact component-domain-logs）}"
+              tail -c 2000 "$log"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "${failed}" ]; then
+            echo "::error::component 验收失败的域:${failed}"
+            exit 1
+          fi
+          echo "全部 4 个 component 域通过"
+      - name: 上传 component 日志（无论成败）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-domain-logs
+          path: /tmp/component-logs
           retention-days: 7
           if-no-files-found: warn
 

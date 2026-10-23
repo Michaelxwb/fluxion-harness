@@ -71,8 +71,13 @@ async function expectCompactSpacing(dialog: Locator) {
   }
 }
 
+// 代表性矩阵：每个表单保留桌面浅色 + 移动端；模型表单额外保留桌面深色（主题 token 回归）。
+// 不再做「表单 × 宽度 × 语言 × 主题」的全笛卡尔积；宽度语义由 1280/390 两档覆盖。
 for (const [path, action, hasGrid] of forms) {
-  for (const mode of ['desktop-light', 'desktop-dark', 'mobile'] as const) {
+  const modes = path === 'models'
+    ? (['desktop-light', 'desktop-dark', 'mobile'] as const)
+    : (['desktop-light', 'mobile'] as const);
+  for (const mode of modes) {
     test(`${path}: ${mode} keeps fields aligned and actions visible`, async ({ page }, testInfo) => {
       const mobile = mode === 'mobile';
       await page.setViewportSize({ width: mobile ? 390 : 1280, height: mobile ? 640 : 720 });

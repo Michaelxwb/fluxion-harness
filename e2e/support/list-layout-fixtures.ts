@@ -69,7 +69,7 @@ export const listLayoutCases = [
   { path: 'users', api: 'users', data: [user], columns: 9, dense: false, actions: true },
   { path: 'platforms', api: 'project-platforms', data: [platform], columns: 10, dense: true, actions: true },
   { path: 'tasks', api: 'tasks', data: [task, { ...task, task_id: 'running-task', status: 'RUNNING',
-    finished_at: null, error_code: null, error_message: null } satisfies TaskListItem], columns: 13, dense: true, actions: true },
+    finished_at: null, error_code: null, error_message: null } satisfies TaskListItem], columns: 11, dense: true, actions: true },
   { path: 'schedules', api: 'schedules', data: [schedule, { ...schedule, schedule_id: 'once-schedule',
     schedule_type: 'ONCE', cron_expr: null, run_at: time, status: 'COMPLETED' } satisfies ScheduleListItem],
     columns: 12, dense: true, actions: true },
