@@ -80,7 +80,7 @@ from tests.capacity.driver import (
 from tests.capacity.metrics import PostgresMetrics
 from tests.capacity.profile import CapacityProfile, load_profile, profile_hash
 
-pytestmark = pytest.mark.e2e
+pytestmark = [pytest.mark.integration, pytest.mark.capacity_load]
 
 # --------------------------------------------------------------------------------------
 # 锁定规格（与 profile / 真实配置一一对应，不在用例里另立默认值）

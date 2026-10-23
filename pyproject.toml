@@ -89,6 +89,7 @@ markers = [
     "contract: 契约一致性（错误码/封套/迁移 parity/SSE 解析/词条）",
     "integration: 真实 PG/Redis 或真实进程栈，允许有限外部依赖",
     "e2e: 真实浏览器或跨服务真实链路（Gateway↔Runtime↔Worker↔Browser）",
+    "capacity_load: 显式容量压测（200/1000 用户），环境依赖强、耗时长，默认 acceptance 不跑",
 ]
 
 [tool.ruff]

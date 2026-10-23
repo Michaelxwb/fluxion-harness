@@ -1,4 +1,4 @@
-.PHONY: check compile test acceptance acceptance-e2e smoke e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck
+.PHONY: check compile test acceptance acceptance-e2e smoke capacity-load e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck
 
 compile:
 	uv run python -m compileall -q apps packages migrations
@@ -8,7 +8,7 @@ test:
 
 # 验收：每轮自动建独立空库 + 独立 Redis DB（tests/acceptance/conftest.py），不需要任何环境变量
 acceptance:
-	uv run python -m pytest -q tests/acceptance
+	uv run python -m pytest -q -m "not capacity_load" tests/acceptance
 
 # 浏览器验收（按域）：make acceptance-e2e DOMAIN=console-auth
 # DOMAIN=console-auth-ui 是 component 套件（mock API、无后端）；其余域仍是 E2E。
@@ -35,6 +35,10 @@ e2e-changed:
 
 e2e-changed-plan:
 	uv run python scripts/e2e_changed.py --plan
+
+# 显式容量压测（200 用户受限档；1000 用户正式验收仍是 manual/staging 边界）。
+capacity-load:
+	CAPACITY_LOAD_USERS=200 uv run pytest -q -m capacity_load tests/acceptance/capacity
 
 i18n-check:
 	uv run python scripts/check_frontend_i18n.py
