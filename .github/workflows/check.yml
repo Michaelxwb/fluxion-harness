@@ -143,7 +143,7 @@ jobs:
           failed=""
           mkdir -p /tmp/e2e-logs
           for domain in \
-            agent audit-observability console-auth form-layout list-actions mcp \
+            agent audit-observability console-auth console-auth-ui form-layout list-actions mcp \
             model-management overview-dashboard platform sidebar skill \
             task-schedule user-identity
           do
@@ -155,7 +155,7 @@ jobs:
               echo "FAIL ${domain}"
               failed="${failed} ${domain}"
               # trace / error-context 只在失败时保留（`trace: retain-on-failure`），但 Playwright
-              # 每跑一次都会清空 outputDir（默认 `e2e/test-results`）⇒ 当场按域搬走，否则 13 个域
+              # 每跑一次都会清空 outputDir（默认 `e2e/test-results`）⇒ 当场按域搬走，否则 14 个域
               # 顺序跑完只剩**最后一个**域的，偶发失败（如 task-cancel 的 detach）事后无从复盘。
               cp -r e2e/test-results "/tmp/e2e-logs/${domain}-test-results" 2>/dev/null || true
               # 把**失败的那一条**带进 annotation：annotation 匿名可读，而 job 日志需要认证。
@@ -178,7 +178,7 @@ jobs:
             echo "::error::浏览器验收失败的域:${failed}"
             exit 1
           fi
-          echo "全部 13 个域通过"
+          echo "全部 14 个域通过"
       - name: 上传各域日志（无论成败）
         if: always()
         uses: actions/upload-artifact@v4

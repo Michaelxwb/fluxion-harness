@@ -11,8 +11,9 @@ acceptance:
 	uv run python -m pytest -q tests/acceptance
 
 # 浏览器验收（按域）：make acceptance-e2e DOMAIN=console-auth
+# DOMAIN=console-auth-ui 是 component 套件（mock API、无后端）；其余域仍是 E2E。
 acceptance-e2e:
-	@test -n "$(DOMAIN)" || { echo "用法: make acceptance-e2e DOMAIN=<域>（如 console-auth / overview-dashboard / audit-observability / task-schedule）"; exit 2; }
+	@test -n "$(DOMAIN)" || { echo "用法: make acceptance-e2e DOMAIN=<域>（如 console-auth / console-auth-ui / overview-dashboard / task-schedule）"; exit 2; }
 	npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.$(DOMAIN).config.ts
 
 i18n-check:

@@ -885,6 +885,92 @@ def test_s07_self_check_logs_query_failure(tmp_path: Path) -> None:
     assert "UndefinedTableError" in str(records[0].get("exception", "")), "必须保留真实异常上下文"
 
 
+async def test_s01_login_stores_only_hashed_token_and_updates_last_login(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[S-01] 登录只落 sha256 令牌并更新 last_login_at；明文不出现在会话表。
+
+    浏览器侧只保留“真实 Set-Cookie 属性 + 三头注入”（见 console-auth.spec.ts 的 S-09）；
+    库内形态属于 integration，不能靠浏览器套件里的 seed 核对脚本冒充。
+    """
+    response = await login(client, auth, auth.admin_username, ADMIN_PASSWORD)
+    assert response.status_code == 200, response.text
+    token = client.cookies.get("muad_session")
+    assert token, "登录必须下发会话 Cookie"
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    async with get_session_factory()() as session:
+        stored = await session.scalar(
+            sa.select(ConsoleSession).where(ConsoleSession.token_hash == digest)
+        )
+        assert stored is not None, "会话必须按 sha256 形态落库"
+        assert stored.account_id == auth.admin_id
+        assert stored.token_hash != token, "会话表不得存明文令牌"
+        plaintext = list(
+            await session.scalars(sa.select(ConsoleSession).where(ConsoleSession.token_hash == token))
+        )
+        assert plaintext == [], "明文令牌不得出现在会话表"
+        account = await session.get(ConsoleAccount, auth.admin_id)
+        assert account is not None and account.last_login_at is not None, "登录必须更新 last_login_at"
+
+
+async def test_s05_created_account_can_login_and_is_listed(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[S-05] ADMIN 创建 BUILDER：响应无 password_hash、新账号可登录、列表含之。"""
+    admin = await login(client, auth, auth.admin_username, ADMIN_PASSWORD)
+    assert admin.status_code == 200, admin.text
+    username = f"listed-{uuid.uuid4()}"
+    created = await client.post(
+        "/api/v1/accounts",
+        json={
+            "username": username,
+            "display_name": "Listed Builder",
+            "password": "listed-builder-password",
+            "role": "BUILDER",
+        },
+        headers={**tenant_headers(auth), **csrf_headers(client)},
+    )
+    assert created.status_code == 200, created.text
+    body = created.json()["data"]
+    assert set(body) == {"display_name", "id", "role", "username"}
+    assert "password_hash" not in body
+
+    listing = await client.get(
+        "/api/v1/accounts", params={"page": 1, "page_size": 100}, headers=tenant_headers(auth)
+    )
+    assert listing.status_code == 200, listing.text
+    items = listing.json()["data"]["items"]
+    assert username in {item["username"] for item in items}, "新账号必须出现在列表"
+
+    logged_in = await client.post(
+        "/api/v1/auth/login",
+        json={"username": username, "password": "listed-builder-password"},
+        headers=tenant_headers(auth),
+    )
+    assert logged_in.status_code == 200, "新账号必须可登录"
+
+
+async def test_s06_account_list_is_paginated_and_omits_sensitive_fields(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[S-06] 账号列表是分页封套，列表项只暴露四字段且不带敏感列。"""
+    admin = await login(client, auth, auth.admin_username, ADMIN_PASSWORD)
+    assert admin.status_code == 200, admin.text
+
+    listing = await client.get("/api/v1/accounts", headers=tenant_headers(auth))
+    assert listing.status_code == 200, listing.text
+    data = listing.json()["data"]
+    assert set(data) == {"items", "page", "page_size", "total"}
+    assert data["page"] == 1
+    assert data["page_size"] == 20
+    assert data["total"] >= 1
+    for item in data["items"]:
+        assert set(item) == {"display_name", "id", "role", "username"}
+        for forbidden in ("password_hash", "failed_attempts", "locked_until"):
+            assert forbidden not in item, f"{forbidden} 不得出现在列表项"
+
+
 def _purge_tenant(tenant: str) -> None:
     async def purge(factory: async_sessionmaker[AsyncSession]) -> None:
         async with factory() as session:

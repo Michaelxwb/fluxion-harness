@@ -30,6 +30,9 @@ TASK_FILE = TASK_DIR / "13-console-auth.md"
 MANIFEST = TASK_DIR / ".acceptance-manifest.json"
 SPEC_CONTEXT = TASK_DIR / "spec-context.yml"
 E2E_SPEC = ROOT / "e2e/tests/console-auth.spec.ts"
+COMPONENT_SPEC = ROOT / "e2e/tests/console-auth-ui.spec.ts"
+ACCEPTANCE_SPEC = ROOT / "tests/acceptance/console_auth_flow/test_auth_acceptance.py"
+SCENARIOS = ROOT / "e2e/scenarios/console-auth-browser.scenarios.md"
 
 CLOSURE_TASK = "TASK-012"
 SCENARIO_ROW = re.compile(r"^(S|E|B)-\d+$")
@@ -118,16 +121,41 @@ def _manifest_by_id() -> dict[str, dict[str, Any]]:
     return {item["id"]: item for item in _manifest()["scenarios"]}
 
 
-def _e2e_tests() -> dict[str, str]:
-    """E2E 套件里的 `test('…')` 块：场景 ID → 用例体。"""
-    text = _read(E2E_SPEC)
+def _spec_tests(path: Path) -> dict[str, str]:
+    """Playwright spec 里的 `test('…')` 块：用例名 → 用例体。"""
+    text = _read(path)
     parts = re.split(r"^test\('([^']+)'", text, flags=re.MULTILINE)
     tests: dict[str, str] = {}
     for index in range(1, len(parts), 2):
-        name = parts[index]
-        tests[name] = parts[index + 1]
-    assert tests, "未解析到 E2E 用例"
+        tests[parts[index]] = parts[index + 1]
+    assert tests, f"未解析到 Playwright 用例：{path.relative_to(ROOT)}"
     return tests
+
+
+def _e2e_tests() -> dict[str, str]:
+    """仍留在 E2E 套件里的用例（0.8 试点后只保留关键旅程）。"""
+    return _spec_tests(E2E_SPEC)
+
+
+def _component_tests() -> dict[str, str]:
+    return _spec_tests(COMPONENT_SPEC)
+
+
+def _acceptance_ids() -> set[str]:
+    """acceptance 用例名前缀 → 场景 ID（`test_s01_…` → `S-01`）。"""
+    return {
+        f"{level.upper()}-{number}"
+        for level, number in re.findall(
+            r"^(?:async )?def test_([seb])(\d+)_",
+            _read(ACCEPTANCE_SPEC),
+            flags=re.MULTILINE,
+        )
+    }
+
+
+def _has_scenario(tests: dict[str, str], scenario_id: str) -> bool:
+    """Playwright 用例名以 `<ID> ` 或 `<ID>：` 开头即视为该场景的用例。"""
+    return any(re.match(rf"^{re.escape(scenario_id)}[ ：]", name) for name in tests)
 
 
 def test_coverage_rows_have_exactly_one_owner() -> None:
@@ -276,28 +304,108 @@ def test_required_rules_have_unique_owner_and_executable_command() -> None:
 
 
 def test_e2e_commands_point_to_real_suites_and_scenarios() -> None:
-    """E2E 命令必须指向真实在盘的套件，且 `-g` 的场景 ID 在套件里真实存在。"""
-    tests = _e2e_tests()
+    """归档覆盖表里的每条浏览器命令都要有真实落点。
+
+    0.8 试点后 E2E 只保留关键旅程，其余场景下沉到 component（`console-auth-ui.spec.ts`）
+    或 acceptance（`test_auth_acceptance.py`）。归档 manifest/覆盖表是历史快照，不回改；
+    本清单按“同名场景在任一新层仍存在”核对，并继续对仍在 E2E 套件里的场景校验
+    config 与 `-g` 过滤。
+    """
+    e2e_tests = _e2e_tests()
+    component_tests = _component_tests()
+    acceptance_ids = _acceptance_ids()
+    covered: set[str] = set()
     checked = 0
+    moved = 0
     for row in _coverage_rows():
         argv = json.loads(row["argv"])
         command = " ".join(argv) if isinstance(argv, list) else str(argv)
         if "playwright test" not in command:
             continue
         checked += 1
-        config = re.search(r"--config (\S+)", command)
-        assert config, f"{row['id']} 未指定 --config"
-        assert (ROOT / "e2e" / config.group(1)).exists(), f"{row['id']} 的 config 不在盘上"
-
+        scenario_id = row["id"]
         grep = re.search(r'-g "([^"]+)"', command)
-        assert grep, f"{row['id']} 缺少 -g 场景过滤"
-        matched = [name for name in tests if re.search(rf"^{grep.group(1)}[ ：]", name)]
-        assert matched, f"{row['id']} 的 -g '{grep.group(1)}' 在 E2E 套件里没有对应用例"
+        assert grep, f"{scenario_id} 缺少 -g 场景过滤"
+
+        if _has_scenario(e2e_tests, scenario_id):
+            config = re.search(r"--config (\S+)", command)
+            assert config, f"{scenario_id} 未指定 --config"
+            assert (ROOT / "e2e" / config.group(1)).exists(), f"{scenario_id} 的 config 不在盘上"
+            matched = [name for name in e2e_tests if re.search(rf"^{grep.group(1)}[ ：]", name)]
+            assert matched, f"{scenario_id} 的 -g '{grep.group(1)}' 在 E2E 套件里没有对应用例"
+            covered.add(scenario_id)
+            continue
+
+        if _has_scenario(component_tests, scenario_id) or scenario_id in acceptance_ids:
+            moved += 1
+            covered.add(scenario_id)
+            continue
+
+        raise AssertionError(
+            f"{scenario_id} 在 E2E/component/acceptance 都找不到对应用例："
+            f"下沉映射漏了场景或用例名丢了 ID"
+        )
+
     assert checked >= 10, f"E2E 命令解析疑似失效，只检查到 {checked} 条"
+    assert moved >= 1, "下沉映射疑似失效：没有任何场景被识别为 component/acceptance"
+    assert len(covered) >= 16, f"覆盖表 E2E 命令只剩 {len(covered)} 个场景有落点"
+
+
+def _scenario_source() -> dict[str, dict[str, object]]:
+    """解析 0.8 场景源 frontmatter（`---` 之间的 YAML）。"""
+    text = _read(SCENARIOS)
+    assert text.startswith("---"), "场景源必须以 YAML frontmatter 开头"
+    end = text.find("\n---", 3)
+    assert end != -1, "场景源 frontmatter 缺少闭合 ---"
+    payload = yaml.safe_load(text[3:end])
+    scenarios = payload.get("scenarios") if isinstance(payload, dict) else None
+    assert isinstance(scenarios, list) and scenarios, "场景源未解析到 scenarios"
+    return {str(item["id"]): item for item in scenarios}
+
+
+def test_scenario_registry_matches_e2e_component_and_acceptance_suites() -> None:
+    """0.8 场景源里的层级必须与三个套件的真实用例一一对应，防止改 spec 时静默漂移。"""
+    source = _scenario_source()
+    e2e_spec = _e2e_tests()
+    component_spec = _component_tests()
+    acceptance_ids = _acceptance_ids()
+
+    e2e_rows = {
+        scenario_id
+        for scenario_id, item in source.items()
+        if str(item.get("level", "")).lower() == "e2e"
+    }
+    smoke_rows = {scenario_id for scenario_id, item in source.items() if item.get("smoke")}
+    component_rows = {
+        scenario_id
+        for scenario_id, item in source.items()
+        if str(item.get("level", "")).lower() == "component"
+    }
+    integration_rows = {
+        scenario_id
+        for scenario_id, item in source.items()
+        if str(item.get("level", "")).lower() == "integration"
+    }
+
+    assert e2e_rows == {
+        scenario_id for scenario_id in source if _has_scenario(e2e_spec, scenario_id)
+    }, "场景源 E2E 行与 console-auth.spec.ts 的用例不一致"
+    assert smoke_rows and smoke_rows <= e2e_rows, "smoke 场景必须是非空 E2E 子集"
+    assert all(_has_scenario(e2e_spec, scenario_id) for scenario_id in smoke_rows)
+    assert component_rows == {
+        scenario_id for scenario_id in source if _has_scenario(component_spec, scenario_id)
+    }, "场景源 component 行与 console-auth-ui.spec.ts 的用例不一致"
+    assert all(scenario_id in acceptance_ids for scenario_id in integration_rows), (
+        f"integration 行缺 acceptance 用例：{sorted(integration_rows - acceptance_ids)}"
+    )
+    assert e2e_rows and smoke_rows
+    assert len(e2e_rows) / len(source) <= 0.3, (
+        f"E2E 占比 {len(e2e_rows) / len(source):.1%} 超过 0.8 的 30% 告警线"
+    )
 
 
 def test_success_paths_do_not_intercept_routes() -> None:
-    """成功路径（S-*）不得用路由拦截制造结果——异常路径（E-*）才允许。"""
+    """仍在 E2E 套件里的成功路径（S-*）不得用路由拦截；component 场景按定义使用 mock。"""
     tests = _e2e_tests()
     problems: list[str] = []
     for row in _coverage_rows():
