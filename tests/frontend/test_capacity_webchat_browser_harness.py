@@ -44,7 +44,13 @@ E2E = ROOT / "e2e"
 CONFIG = E2E / "playwright.webchat.config.ts"
 FIXTURES = E2E / "support" / "webchat-fixtures.ts"
 CONFIG_NAME = CONFIG.name
-OTHER_CONFIGS = tuple(sorted(path for path in E2E.glob("playwright.*.config.ts") if path != CONFIG))
+OTHER_CONFIGS = tuple(
+    sorted(
+        path
+        for path in E2E.glob("playwright.*.config.ts")
+        if not path.name.startswith("playwright.webchat")
+    )
+)
 FRONTEND = ROOT / "apps" / "console-platform" / "frontend"
 ESBUILD_PKG = FRONTEND / "node_modules" / "esbuild"
 NODE = shutil.which("node")
