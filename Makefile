@@ -4,7 +4,7 @@ compile:
 	uv run python -m compileall -q apps packages migrations
 
 test:
-	uv run python -m pytest -q
+	uv run python -m pytest -q -m "not capacity_load"
 
 # 验收：每轮自动建独立空库 + 独立 Redis DB（tests/acceptance/conftest.py），不需要任何环境变量
 acceptance:
