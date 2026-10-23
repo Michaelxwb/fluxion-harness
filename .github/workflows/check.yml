@@ -213,7 +213,7 @@ jobs:
           set -u
           failed=""
           mkdir -p /tmp/component-logs
-          for domain in form-layout list-actions sidebar console-auth-ui
+          for domain in form-layout list-actions sidebar console-auth-ui overview-dashboard-ui
           do
             echo "::group::component ${domain}"
             log="/tmp/component-logs/${domain}.log"
@@ -237,7 +237,7 @@ jobs:
             echo "::error::component 验收失败的域:${failed}"
             exit 1
           fi
-          echo "全部 4 个 component 域通过"
+          echo "全部 5 个 component 域通过"
       - name: 上传 component 日志（无论成败）
         if: always()
         uses: actions/upload-artifact@v4

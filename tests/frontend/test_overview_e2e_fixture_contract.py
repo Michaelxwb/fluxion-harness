@@ -13,26 +13,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "e2e/playwright.overview-dashboard.config.ts"
 SPEC = ROOT / "e2e/tests/overview-dashboard.spec.ts"
+COMPONENT_SPEC = ROOT / "e2e/tests/overview-dashboard-ui.spec.ts"
 SEED = ROOT / "tests/e2e/seed_overview.py"
 
-# manifest 里由本文件承载的场景（S-02 图表数据出口 / S-03 聚合一次 / S-04 KPI 跳转 /
-# E-02、E-04 失效深链 / E-03 首次失败 / E-05 刷新失败 / E-06 竞态 / E-07、E-08 缺失数据）
+# 0.8 分流后 E2E 套件承载的场景（S-02 图表数据出口 / S-03 聚合一次 / S-04 KPI 跳转 /
+# E-04 失效定时任务深链）。S-05/S-06/E-03/E-05/E-06/E-07/E-08 在 component 套件；
+# E-02（失效任务深链）与 task-schedule 的 E-FE-04 重复，已删除。
 OWNED_SCENARIOS = (
     "S-02",
     "S-03",
     "S-04",
-    "E-02",
-    "E-03",
     "E-04",
-    "E-05",
-    "E-06",
-    "E-07",
-    "E-08",
-    "S-05",
-    "S-06",
 )
 # 成功路径：不得用路由拦截
-SUCCESS_SCENARIOS = ("S-02", "S-03", "S-04", "S-05", "S-06")
+SUCCESS_SCENARIOS = ("S-02", "S-03", "S-04")
+
+# component 套件承载的场景（mock API，不启动 Console/PG）
+COMPONENT_SCENARIOS = ("S-05", "S-06", "E-03", "E-05", "E-06", "E-07", "E-08")
 
 
 def _source(path: Path) -> str:
@@ -71,6 +68,14 @@ def test_spec_titles_carry_scenario_ids() -> None:
     for scenario in OWNED_SCENARIOS:
         matching = [title for title in blocks if title.startswith(scenario)]
         assert len(matching) == 1, f"{scenario} 应有且仅有一个用例标题以其开头，实际 {matching}"
+
+
+def test_component_spec_carries_moved_scenarios() -> None:
+    """下沉到 component 的场景必须在 `overview-dashboard-ui.spec.ts` 里仍有同名用例。"""
+    blocks = _test_blocks(_source(COMPONENT_SPEC))
+    for scenario in COMPONENT_SCENARIOS:
+        matching = [title for title in blocks if title.startswith(scenario)]
+        assert len(matching) >= 1, f"component spec 缺 {scenario} 用例"
 
 
 def test_success_paths_do_not_intercept_and_failure_paths_do() -> None:

@@ -1,7 +1,7 @@
 /** Real Overview backend/browser acceptance; interception is limited to E-* failure/race boundaries. */
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const REPO = fileURLToPath(new URL('../..', import.meta.url));
 const USERNAME = process.env.E2E_OVERVIEW_USERNAME ?? 'overview-browser-admin';
@@ -34,13 +34,6 @@ async function openOverview(page: Page): Promise<Snapshot> {
 async function expectNotBlank(page: Page): Promise<void> {
   await expect(page.locator('.semi-table, [data-testid="error-state"], .semi-empty, .app-error').first()).toBeVisible();
 }
-async function unavailable(route: Route): Promise<void> {
-  await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({
-    code: 'COMMON_INTERNAL_ERROR', msg: 'overview unavailable', data: null,
-    trace_id: 'e2e-trace', request_id: 'e2e-request', timestamp: '2026-10-11T00:00:00+00:00'
-  }) });
-}
-
 test.beforeAll(() => { seed('create'); });
 test.afterAll(() => {
   seed('cleanup');
@@ -111,124 +104,8 @@ test('S-04 资源、模型指标、Agent排行和任务状态跳转带正确筛�
   await expectNotBlank(page);
 });
 
-test('S-05 今日、七天、三十天切换及手动刷新使用所选期间', async ({ page }) => {
-  await openOverview(page);
-  for (const [days, count, tokens] of [[1, '1', '175'], [30, '3', '185'], [7, '2', '175']] as const) {
-    const response = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/v1/overview' && new URL(r.url()).searchParams.get('days') === String(days));
-    await page.getByTestId(`overview-range-${days}`).click();
-    const body = await (await response).json() as { data: Snapshot };
-    expect(body.data.days).toBe(days);
-    await expect(page.getByTestId('kpi-value-run-count')).toHaveText(count);
-    await expect(page.getByTestId('kpi-value-tokens')).toHaveText(tokens);
-    await expect(page.getByTestId('overview-activity-waiting-tool')).toContainText('1');
-  }
-  const refresh = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/v1/overview' && new URL(r.url()).searchParams.get('days') === '7');
-  await page.getByTestId('overview-refresh').click();
-  expect((await refresh).ok()).toBeTruthy();
-  await expect(page.getByTestId('overview-refresh')).toBeEnabled();
-});
-
-test('S-06 中英、深浅主题及不同宽度的布局无横向溢出', async ({ page }, testInfo) => {
-  await login(page);
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  for (const [theme, locale, width] of [ ['dark', 'zh-CN', 1440], ['light', 'en-US', 1920],
-    ['dark', 'en-US', 768], ['light', 'zh-CN', 1440] ] as const) {
-    await page.addInitScript(({ theme, locale }) => {
-      localStorage.setItem('muad.theme', theme); localStorage.setItem('muad.locale', locale);
-    }, { theme, locale });
-    await page.setViewportSize({ width, height: width < 1000 ? 2400 : 1440 });
-    await page.goto('/');
-    await expect(page.getByTestId('kpi-value-run-count')).toHaveText('2');
-    await expect(page.getByTestId('overview-agent-ranking')).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
-    for (const id of ['overview-trend-card', 'overview-status-card', 'overview-token-card']) {
-      expect(await page.getByTestId(id).locator('canvas').count()).toBeGreaterThan(0);
-    }
-    await page.screenshot({ path: testInfo.outputPath(`${theme}-${locale}-${width}.png`), fullPage: true });
-  }
-});
-
-test('E-02 失效任务深链不白屏、不伪造数据', async ({ page }) => {
-  await login(page);
-  await page.goto('/tasks?taskId=00000000-0000-4000-8000-000000000000');
-  await expectNotBlank(page);
-});
-
 test('E-04 失效定时任务深链不白屏、不伪造数据', async ({ page }) => {
   await login(page);
   await page.goto('/schedules?scheduleId=00000000-0000-4000-8000-000000000000');
   await expectNotBlank(page);
-});
-
-test('E-03 首次聚合失败展示错误态，重试恢复真实数据', async ({ page }) => {
-  await login(page);
-  await page.route('**/api/v1/overview?**', unavailable);
-  await page.goto('/');
-  await expect(page.getByTestId('error-state')).toBeVisible();
-  await expect(page.getByTestId('kpi-value-run-count')).toHaveCount(0);
-  await page.unroute('**/api/v1/overview?**', unavailable);
-  await page.getByTestId('error-retry').click();
-  await expect(page.getByTestId('kpi-value-run-count')).toHaveText('2');
-});
-
-test('E-05 刷新失败保留上次快照，重试后清除失败提示', async ({ page }) => {
-  await openOverview(page);
-  const updated = await page.getByTestId('overview-updated-at').innerText();
-  await page.route('**/api/v1/overview?**', unavailable);
-  await page.getByTestId('overview-refresh').click();
-  await expect(page.getByTestId('overview-refresh-error')).toBeVisible();
-  await expect(page.getByTestId('kpi-value-run-count')).toHaveText('2');
-  await expect(page.getByTestId('overview-updated-at')).toHaveText(updated);
-  await page.unroute('**/api/v1/overview?**', unavailable);
-  await page.getByTestId('overview-refresh-retry').click();
-  await expect(page.getByTestId('overview-refresh-error')).toHaveCount(0);
-});
-
-test('E-06 旧期间响应迟到不会覆盖新期间数据', async ({ page }) => {
-  await openOverview(page);
-  let release: () => void = () => { throw new Error('Request has not started'); };
-  const held = new Promise<void>((resolve) => { release = resolve; });
-  let started: () => void = () => { throw new Error('Observer has not started'); };
-  const requested = new Promise<void>((resolve) => { started = resolve; });
-  let delivered: () => void = () => { throw new Error('Observer has not started'); };
-  const finished = new Promise<void>((resolve) => { delivered = resolve; });
-  await page.route('**/api/v1/overview?days=1', async (route) => {
-    const response = await route.fetch(); started(); await held;
-    await route.fulfill({ response }); delivered();
-  });
-  await page.getByTestId('overview-range-1').click();
-  await requested;
-  await page.getByTestId('overview-range-30').click();
-  await expect(page.getByTestId('kpi-value-run-count')).toHaveText('3');
-  release(); await finished;
-  await expect(page.getByTestId('overview-range-30')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByTestId('kpi-value-run-count')).toHaveText('3');
-});
-
-
-test('E-07 有模型请求但用量全部缺失时显示未记录', async ({ page }) => {
-  seed('missing-usage');
-  try {
-    await openOverview(page);
-    await expect(page.getByTestId('kpi-value-tokens')).toHaveText('未记录');
-    await expect(page.getByTestId('kpi-value-model-requests')).toHaveText('4');
-    await expect(page.getByTestId('overview-token-card')).toContainText('未记录');
-    await expect(page.getByTestId('overview-token-card').locator('canvas')).toHaveCount(0);
-  } finally { seed('create'); }
-});
-
-test('E-08 没有运行或请求时显示真实零值和无样本状态', async ({ page }) => {
-  seed('empty');
-  try {
-    await login(page);
-    await page.goto('/');
-    await expect(page.getByTestId('kpi-value-run-count')).toHaveText('0');
-    await expect(page.getByTestId('kpi-value-success-rate')).toHaveText('—');
-    await expect(page.getByTestId('kpi-value-average-duration')).toHaveText('—');
-    await expect(page.getByTestId('kpi-value-model-requests')).toHaveText('0');
-    await expect(page.getByTestId('kpi-value-tokens')).toHaveText('0');
-    await expect(page.getByTestId('overview-status-legend')).toHaveCount(0);
-    await expect(page.getByTestId('overview-agent-ranking')).toHaveCount(0);
-    await expect(page.getByTestId('overview-token-card').locator('canvas')).toHaveCount(0);
-  } finally { seed('create'); }
 });
