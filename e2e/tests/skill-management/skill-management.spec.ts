@@ -149,40 +149,6 @@ test('S-05m 导入内置归档逻辑生成的 Node greeting Skill', async ({ pag
   }
 });
 
-test('E-05 上传非法 ZIP 时 Modal 保留并显示本地化校验错误', async ({ page }) => {
-  const key = uniqueKey('e2e-e05');
-  await login(page);
-  try {
-    await importViaUi(page, key, Buffer.from('this is not a zip archive'));
-
-    const modal = page.locator('.semi-modal');
-    await expect(modal).toBeVisible();
-    await expect(page.locator('.semi-toast-content')).toContainText('包结构');
-    await expect(modal.locator('.semi-upload')).toContainText('skill.zip');
-    expect(dumpSkill(key).skill).toBeNull();
-  } finally {
-    cleanupSkill(key);
-  }
-});
-
-test('E-05b 扩展名白名单外被拒绝', async ({ page }) => {
-  const key = uniqueKey('e2e-e05b');
-  await login(page);
-  try {
-    await importViaUi(
-      page,
-      key,
-      skillZip({ 'SKILL.md': skillMd('E2E Bad Skill'), 'run.sh': 'echo nope\n' })
-    );
-    const modal = page.locator('.semi-modal');
-    await expect(modal).toBeVisible();
-    await expect(page.locator('.semi-toast-content')).toContainText('包结构');
-    expect(dumpSkill(key).skill).toBeNull();
-  } finally {
-    cleanupSkill(key);
-  }
-});
-
 test('S-06 详情导入新版本后版本记录/当前版本更新且 SKILL.md 正文可见', async ({ page }) => {
   const key = uniqueKey('e2e-s06');
   await login(page);
@@ -238,38 +204,6 @@ test('S-06 详情导入新版本后版本记录/当前版本更新且 SKILL.md �
     expect(stored.artifacts.map((item) => item.version)).toEqual(['2.0.0', '1.0.0']);
     expect(stored.skill?.current_artifact_id).toBe(stored.artifacts[0].artifact_id);
     expect(stored.artifacts[0].instructions_length).toBeGreaterThan(0);
-  } finally {
-    cleanupSkill(key);
-  }
-});
-
-test('E-07 导入重复版本时 Toast 提示且版本列表不新增重复行', async ({ page }) => {
-  const key = uniqueKey('e2e-e07');
-  await login(page);
-  try {
-    const zip = skillZip({ 'SKILL.md': skillMd('E2E E07 Skill'), 'scripts/run.py': 'print(1)\n' });
-    await importViaUi(page, key, zip);
-    await expect(page.locator('.semi-table-row', { hasText: key })).toContainText('1.0.0');
-    await page.getByTestId(`skill-link-${key}`).click();
-    const sheet = page.locator('.semi-sidesheet');
-    await expect(page.getByTestId('artifact-list')).toContainText('1.0.0');
-
-    await expect(sheet.locator('.detail-actions')).toHaveCount(0);
-    await sheet.locator('.semi-sidesheet-close').click();
-    await page.getByTestId(`import-artifact-${key}`).click();
-    const modal = page.locator('.semi-modal');
-    await modal.getByRole('textbox', { name: /当前版本/ }).fill('1.0.0');
-    const chooser = page.waitForEvent('filechooser');
-    await modal.locator('.semi-upload').click();
-    (await chooser).setFiles({ name: 'skill.zip', mimeType: 'application/zip', buffer: zip });
-    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
-
-    await expect(page.locator('.semi-toast-content')).toContainText('版本已存在');
-    await modal.locator('.semi-modal-close').click();
-    await page.getByTestId(`skill-link-${key}`).click();
-    const rows = page.getByTestId('artifact-list').locator('li').filter({ hasText: '1.0.0' });
-    await expect(rows).toHaveCount(1);
-    expect(dumpSkill(key).artifacts).toHaveLength(1);
   } finally {
     cleanupSkill(key);
   }

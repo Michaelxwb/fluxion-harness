@@ -144,8 +144,8 @@ jobs:
           mkdir -p /tmp/e2e-logs
           for domain in \
             agent audit-observability console-auth mcp \
-            model-management overview-dashboard platform skill \
-            task-schedule-e2e task-schedule-regression user-identity
+            model-management overview-dashboard platform run-observability settings skill \
+            task-schedule-e2e task-schedule-regression user-identity webchat
           do
             echo "::group::e2e ${domain}"
             log="/tmp/e2e-logs/${domain}.log"
@@ -155,7 +155,7 @@ jobs:
               echo "FAIL ${domain}"
               failed="${failed} ${domain}"
               # trace / error-context 只在失败时保留（`trace: retain-on-failure`），但 Playwright
-              # 每跑一次都会清空 outputDir（默认 `e2e/test-results`）⇒ 当场按域搬走，否则 11 个域
+              # 每跑一次都会清空 outputDir（默认 `e2e/test-results`）⇒ 当场按域搬走，否则 14 个域
               # 顺序跑完只剩**最后一个**域的，偶发失败（如 task-cancel 的 detach）事后无从复盘。
               cp -r e2e/test-results "/tmp/e2e-logs/${domain}-test-results" 2>/dev/null || true
               # 把**失败的那一条**带进 annotation：annotation 匿名可读，而 job 日志需要认证。
@@ -178,7 +178,7 @@ jobs:
             echo "::error::浏览器验收失败的域:${failed}"
             exit 1
           fi
-          echo "全部 11 个域通过"
+          echo "全部 14 个域通过"
       - name: 上传各域日志（无论成败）
         if: always()
         uses: actions/upload-artifact@v4
@@ -213,7 +213,10 @@ jobs:
           set -u
           failed=""
           mkdir -p /tmp/component-logs
-          for domain in form-layout list-actions sidebar console-auth-ui overview-dashboard-ui
+          for domain in \
+            form-layout list-actions sidebar console-auth-ui overview-dashboard-ui audit-observability-ui \
+            model-management-ui skill-management-ui mcp-management-ui project-platform-ui \
+            user-identity-ui settings-ui agent-management-ui
           do
             echo "::group::component ${domain}"
             log="/tmp/component-logs/${domain}.log"
@@ -237,7 +240,7 @@ jobs:
             echo "::error::component 验收失败的域:${failed}"
             exit 1
           fi
-          echo "全部 5 个 component 域通过"
+          echo "全部 13 个 component 域通过"
       - name: 上传 component 日志（无论成败）
         if: always()
         uses: actions/upload-artifact@v4
