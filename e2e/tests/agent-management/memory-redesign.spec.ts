@@ -357,9 +357,14 @@ test('E-04 记忆历史分页：超过一页按 version 倒序翻页（真实 Co
   await expect(historyRows.first().getByRole('gridcell').first()).toHaveText('2');
 });
 
-for (const locale of ['zh-CN', 'en-US'] as const) {
-  for (const theme of ['light', 'dark'] as const) {
-    for (const width of [1280, 390] as const) {
+// 代表性矩阵：桌面中文浅色 + 移动端英文深色。记忆表的作者枚举/固定操作列/宽度语义
+// 已由 user-detail-layout.spec.ts（mock component）覆盖；真实栈这里只保留两端代表组合。
+const MEMORY_LAYOUT_CELLS = [
+  { locale: 'zh-CN', theme: 'light', width: 1280 },
+  { locale: 'en-US', theme: 'dark', width: 390 }
+] as const;
+
+for (const { locale, theme, width } of MEMORY_LAYOUT_CELLS) {
       test(`E-04 记忆 Tab 本地化与布局 ${locale} ${theme} ${width}px`, async ({ page }) => {
         const copy = COPY[locale];
         const stamp = Date.now();
@@ -407,8 +412,6 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
             .toBe(0);
         }
       });
-    }
-  }
 }
 
 test('E-04 越权：非 ADMIN 不可进入用户管理，也看不到记忆动作，后端写入口 403', async ({ page, browser }) => {
