@@ -676,7 +676,9 @@ def _expect_connection_refused(endpoint: str, *, timeout_sec: float = 2.0) -> No
         except httpx.HTTPError as exc:
             last_error = exc
         time.sleep(0.02)
-    raise AssertionError(f"fault proxy 未在 {timeout_sec}s 内进入拒绝连接状态：{last_error!r}") from last_error
+    raise AssertionError(
+        f"fault proxy 未在 {timeout_sec}s 内进入拒绝连接状态：{last_error!r}"
+    ) from last_error
 
 
 def test_b306_fault_proxy_forwards_real_traffic_and_injects_faults() -> None:
