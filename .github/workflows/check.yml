@@ -122,9 +122,15 @@ jobs:
           - name: dfx
             paths: "tests/acceptance/dfx"
           - name: gateway
-            paths: "tests/acceptance/gateway tests/acceptance/im_gateway"
+            paths: "tests/acceptance/gateway"
+          - name: im_gateway
+            paths: "tests/acceptance/im_gateway"
           - name: runtime
-            paths: "tests/acceptance/runtime tests/acceptance/capacity tests/acceptance/task_schedule"
+            paths: "tests/acceptance/runtime"
+          - name: capacity
+            paths: "tests/acceptance/capacity"
+          - name: task_schedule
+            paths: "tests/acceptance/task_schedule"
           - name: rest
             paths: "tests/acceptance/attachment_round_trip tests/acceptance/audit_observability tests/acceptance/console_auth_flow tests/acceptance/overview tests/acceptance/security tests/acceptance/wecom_attachments tests/acceptance/test_*.py"
     services:
@@ -168,6 +174,8 @@ jobs:
           uv run python migrations/db_migrate.py -c "$RUNNER_TEMP/alembic.ci.ini"
       - name: 清理残留 Redis claim
         run: uv run python scripts/clean_acceptance_claims.py
+      - name: 预建干净检出缺失的 .data 挂载目录
+        run: mkdir -p .data/artifacts .data/skill-cache
       - name: 运行 ${{ matrix.shard.name }} 验收分片
         run: uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
       - name: 上传失败用例清单（无论成败）
