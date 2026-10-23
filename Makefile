@@ -1,4 +1,4 @@
-.PHONY: check compile test acceptance acceptance-e2e smoke capacity-load e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck
+.PHONY: check compile test acceptance acceptance-clean acceptance-e2e smoke capacity-load e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck
 
 compile:
 	uv run python -m compileall -q apps packages migrations
@@ -8,6 +8,7 @@ test:
 
 # 验收：每轮自动建独立空库 + 独立 Redis DB（tests/acceptance/conftest.py），不需要任何环境变量
 acceptance:
+	uv run python scripts/clean_acceptance_claims.py
 	uv run python -m pytest -q -m "not capacity_load" tests/acceptance
 
 # 浏览器验收（按域）：make acceptance-e2e DOMAIN=console-auth
@@ -37,6 +38,10 @@ e2e-changed-plan:
 	uv run python scripts/e2e_changed.py --plan
 
 # 显式容量压测（200 用户受限档；1000 用户正式验收仍是 manual/staging 边界）。
+# 强制清理 Redis 10–15 的残留 claim（仅在确认没有并发验收时使用）。
+acceptance-clean:
+	uv run python scripts/clean_acceptance_claims.py --force
+
 capacity-load:
 	CAPACITY_LOAD_USERS=200 uv run pytest -q -m capacity_load tests/acceptance/capacity
 
