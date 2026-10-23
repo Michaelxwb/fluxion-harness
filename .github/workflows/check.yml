@@ -105,6 +105,8 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
@@ -156,6 +158,12 @@ jobs:
             exit 1
           fi
           echo "15 条 smoke 白名单全部通过（34 条用例）"
+      - name: changed profile（非 smoke；按 trigger_paths）
+        if: github.event_name == 'pull_request'
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          if [ -z "$base" ]; then base="HEAD~1"; fi
+          uv run python scripts/e2e_changed.py --base "$base" --no-build --no-smoke --run
       - name: 上传 smoke 日志（无论成败）
         if: always()
         uses: actions/upload-artifact@v4
@@ -171,6 +179,7 @@ jobs:
   # 产品崩溃）。逐域顺序执行且**不 fail-fast**：一次 CI 就能列出**全部**漂移的域，而不是修一个
   # 才发现下一个。新增域时同步下面那份域清单即可。
   e2e:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     services:
@@ -230,6 +239,8 @@ jobs:
       # 报清楚，而不是等到某个域超时才发现
       - name: 预检系统 Chrome
         run: google-chrome --version
+      - name: 构建前端产物（e2e 各域共用）
+        run: npm --prefix apps/console-platform/frontend run build
       - name: 逐域浏览器验收（汇总失败，不 fail-fast）
         run: |
           set -u
@@ -242,7 +253,7 @@ jobs:
           do
             echo "::group::e2e ${domain}"
             log="/tmp/e2e-logs/${domain}.log"
-            if make acceptance-e2e DOMAIN="${domain}" >"$log" 2>&1; then
+            if make acceptance-e2e DOMAIN="${domain}" BUILD_FRONTEND=0 >"$log" 2>&1; then
               echo "PASS ${domain}"
             else
               echo "FAIL ${domain}"
@@ -301,6 +312,8 @@ jobs:
         working-directory: e2e
       - name: 预检系统 Chrome
         run: google-chrome --version
+      - name: 构建前端产物（component 各域共用）
+        run: npm --prefix apps/console-platform/frontend run build
       - name: 逐域 component 验收（汇总失败，不 fail-fast）
         run: |
           set -u
@@ -313,7 +326,7 @@ jobs:
           do
             echo "::group::component ${domain}"
             log="/tmp/component-logs/${domain}.log"
-            if make acceptance-e2e DOMAIN="${domain}" >"$log" 2>&1; then
+            if make acceptance-e2e DOMAIN="${domain}" BUILD_FRONTEND=0 >"$log" 2>&1; then
               echo "PASS ${domain}"
             else
               echo "FAIL ${domain}"

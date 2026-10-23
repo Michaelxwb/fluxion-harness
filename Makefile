@@ -1,4 +1,4 @@
-.PHONY: check compile test acceptance acceptance-e2e smoke i18n-check error-message-check lint typecheck
+.PHONY: check compile test acceptance acceptance-e2e smoke e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck
 
 compile:
 	uv run python -m compileall -q apps packages migrations
@@ -12,9 +12,11 @@ acceptance:
 
 # 浏览器验收（按域）：make acceptance-e2e DOMAIN=console-auth
 # DOMAIN=console-auth-ui 是 component 套件（mock API、无后端）；其余域仍是 E2E。
+# BUILD_FRONTEND=0：调用方已构建（CI/批量循环一次 build，避免逐域重复）。
+BUILD_FRONTEND ?= 1
 acceptance-e2e:
 	@test -n "$(DOMAIN)" || { echo "用法: make acceptance-e2e DOMAIN=<域>（如 console-auth / console-auth-ui / overview-dashboard / task-schedule）"; exit 2; }
-	npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.$(DOMAIN).config.ts
+	@if [ "$(BUILD_FRONTEND)" = "1" ]; then npm --prefix apps/console-platform/frontend run build; fi && npm --prefix e2e test -- --config playwright.$(DOMAIN).config.ts
 
 # 15 条跨域 smoke 白名单（e2e/scenarios/smoke-15.scenarios.md，测试以 @smoke 标记）。
 # 一次 build，逐域只跑 @smoke；本地 fail-fast，CI 的 smoke job 另行汇总失败。
@@ -26,6 +28,13 @@ smoke:
 		echo "== smoke $$domain =="; \
 		npm --prefix e2e test -- --config playwright.$$domain.config.ts --grep "@smoke"; \
 	done
+
+# changed profile：按 e2e/scenarios/*.scenarios.md 的 trigger_paths 命中当前 diff 才跑非 smoke。
+e2e-changed:
+	uv run python scripts/e2e_changed.py --run
+
+e2e-changed-plan:
+	uv run python scripts/e2e_changed.py --plan
 
 i18n-check:
 	uv run python scripts/check_frontend_i18n.py
