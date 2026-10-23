@@ -107,11 +107,26 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # 真实栈验收（tests/acceptance）：每轮自建 muad_acc_<uuid> 空库 + 独立 Redis 号位，
-  # 与单测分片分开，避免它的长尾（租约/sweep/退避等真实等待）拖慢单测分片的关键路径。
+  # 真实栈验收（tests/acceptance）：每轮自建 muad_acc_<uuid> 空库 + 独立 Redis 号位。
+  # **按模块分片**：DFX 等模块会起真实 Worker/Runtime 子进程，claim 是全局的；串在一个
+  # pytest 进程/job 里会让前序模块的进程领走后续模块的任务（单跑绿、串跑红），且全量
+  # 超过 45 分钟。每片独立 job + 独立 PG/Redis，既隔离进程也隔离库/号位。
   acceptance:
+    name: acceptance (${{ matrix.shard.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - name: dfx
+            paths: "tests/acceptance/dfx"
+          - name: gateway
+            paths: "tests/acceptance/gateway tests/acceptance/im_gateway"
+          - name: runtime
+            paths: "tests/acceptance/runtime tests/acceptance/capacity tests/acceptance/task_schedule"
+          - name: rest
+            paths: "tests/acceptance/attachment_round_trip tests/acceptance/audit_observability tests/acceptance/console_auth_flow tests/acceptance/overview tests/acceptance/security tests/acceptance/wecom_attachments tests/acceptance/test_*.py"
     services:
       postgres:
         image: postgres:16
@@ -151,14 +166,15 @@ jobs:
           printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
             "$DATABASE_URL" > "$RUNNER_TEMP/alembic.ci.ini"
           uv run python migrations/db_migrate.py -c "$RUNNER_TEMP/alembic.ci.ini"
-      # make acceptance 先做 Redis 10–15 claim 的安全清理，再跑 `-m "not capacity_load"`；
-      # capacity_load 是显式 capacity-load 档（200 用户），不进入每次 push 的 critical path。
-      - run: uv run make acceptance
+      - name: 清理残留 Redis claim
+        run: uv run python scripts/clean_acceptance_claims.py
+      - name: 运行 ${{ matrix.shard.name }} 验收分片
+        run: uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
       - name: 上传失败用例清单（无论成败）
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: acceptance-failures
+          name: acceptance-${{ matrix.shard.name }}-failures
           path: /tmp/pytest-failures.log
           retention-days: 7
           if-no-files-found: ignore
