@@ -3,6 +3,7 @@ import json
 import argparse
 import os
 import sys
+from pathlib import Path
 from typing import Optional
 
 import cf_log
@@ -355,6 +356,78 @@ def _catalog_usage(root: str, config: dict[str, object], budget: dict[str, objec
             "entries": text.count("\n- `")}
 
 
+def _runtime_manifest_counts(manifest: Path) -> dict[str, int]:
+    from cf_acceptance_risk import risk_counts
+    from cf_acceptance_schema import scenario_check_ids
+    if not manifest.is_file():
+        return {}
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("manifest must be an object")
+    except (OSError, ValueError) as exc:
+        sys.stderr.write(f"cf_stats: cannot read {manifest}: {exc}\n")
+        return {}
+    stale: set[str] = set()
+    for row in data.get("scenarios", []):
+        if isinstance(row, dict) and row.get("status") == "stale":
+            ids = row.get("stale_checks") or scenario_check_ids(row) or [str(row.get("id"))]
+            stale.update(str(value) for value in ids)
+    return {"stale_checks": len(stale), **risk_counts(data)}
+
+
+def _deferred_rule_count(context: Path) -> int:
+    from cf_spec_context import ContextError, load_context
+    from cf_spec_gate import evidence_deferral_kind
+    if not context.is_file():
+        return 0
+    try:
+        data = load_context(str(context))
+    except (OSError, ValueError, ContextError) as exc:
+        sys.stderr.write(f"cf_stats: cannot read {context}: {exc}\n")
+        return 0
+    return sum(any(
+        status.status == "unverified" and bool(status.evidence)
+        and evidence_deferral_kind(status.evidence[-1]) in ("review_stage", "heavy")
+        for status in rule.stage_status.values()
+    ) for binding in data.bindings for rule in binding.rules)
+
+
+def _runtime_usage(root: str) -> dict[str, object]:
+    """Counts describe unique checks, live risk acceptances and deferred rules."""
+    from cf_evidence_store import EvidenceStore, requirement_key
+    marker = Path(root) / ".code-flow/.active-task.json"
+    task_dir = ""
+    if marker.is_file():
+        try:
+            data = json.loads(marker.read_text(encoding="utf-8"))
+            task_dir = str(data.get("task_dir") or "") if isinstance(data, dict) else ""
+        except (OSError, ValueError) as exc:
+            sys.stderr.write(f"cf_stats: cannot read {marker}: {exc}\n")
+    runtime: dict[str, object] = {
+        "task_dir": task_dir, "context_bytes": 0, "evidence_runs": 0,
+        "deferred_rules": 0, "stale_checks": 0, "accepted_risks": 0,
+        "recorded_risks": 0, "inactive_risks": 0,
+    }
+    if not task_dir:
+        return runtime
+    directory = (Path(root) / task_dir).resolve()
+    context = directory / "spec-context.yml"
+    if context.is_file():
+        runtime["context_bytes"] = context.stat().st_size
+    try:
+        store = EvidenceStore(root, requirement=requirement_key(directory))
+        runtime["evidence_runs"] = sum(
+            1 for path in store.directory.rglob("*.json")
+            if path.name != "latest.json" and "_context" not in path.parts
+        )
+    except (OSError, ValueError) as exc:
+        sys.stderr.write(f"cf_stats: cannot count evidence: {exc}\n")
+    runtime.update(_runtime_manifest_counts(directory / ".acceptance-manifest.json"))
+    runtime["deferred_rules"] = _deferred_rule_count(context)
+    return runtime
+
+
 def _stats_report(root: str, args: argparse.Namespace) -> dict[str, object]:
     config = load_config(root)
     budget = config.get("budget") or {}
@@ -376,6 +449,7 @@ def _stats_report(root: str, args: argparse.Namespace) -> dict[str, object]:
         "quality_loop": quality_loop_summary(root, config), "spec_workflow": spec_workflow_summary(root),
         "templates": {"tokens": usage["template_tokens"], "files": usage["excluded"],
                       "note": "tags:[] 命令专用模板，永不自动注入，不计预算"},
+        "runtime": _runtime_usage(root),
     }
     if args.audit:
         from cf_scan import build_report
@@ -439,6 +513,13 @@ def _print_stats(report: dict[str, object]) -> None:
     print("COMPRESSION:", f"{compression['total_raw']} → {compression['total_compressed']} (-{compression['total_saved_pct']}%)")
     print("CATALOG:", "mode=context_first,", f"{catalog['tokens']} / {catalog['budget']} tokens,", f"{catalog['entries']} entries")
     _print_quality(report["quality_loop"])
+    runtime = report.get("runtime") or {}
+    if runtime.get("task_dir"):
+        print("RUNTIME:", f"context={runtime.get('context_bytes', 0)}B,",
+              f"evidence_runs={runtime.get('evidence_runs', 0)},",
+              f"deferred_rules={runtime.get('deferred_rules', 0)},",
+              f"stale_checks={runtime.get('stale_checks', 0)},",
+              f"accepted_risks={runtime.get('accepted_risks', 0)}")
     if report["warnings"]:
         print("WARNINGS:", "; ".join(report["warnings"]))
     _print_audit(report.get("audit"))

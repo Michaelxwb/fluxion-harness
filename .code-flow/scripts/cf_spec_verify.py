@@ -464,10 +464,32 @@ def _skipped_evidence(metadata: SpecMetadata, rule: SpecRule, scope: Verificatio
     )
 
 
+def _deferral_kind(reason: str) -> str:
+    """Map a task-gate deferral reason to its evidence category.
+
+    Budget and env deferrals are recorded but never treated as a pass: the
+    required check did not actually run. Only review-stage work may move to the
+    requirement-level verify-e2e gate.
+    """
+    if reason in ("out_of_task_scope", "review_stage"):
+        return "review_stage"
+    if reason in ("budget", "over_finish_budget", "verifier_budget_exhausted"):
+        return "budget"
+    if reason in ("env", "env_blocked", "environment_unavailable"):
+        return "env"
+    return "unknown"
+
+
 def _deferred_evidence(metadata: SpecMetadata, rule: SpecRule, scope: VerificationScope,
                        reason: str) -> VerificationEvidence:
-    """任务级 Done Gate 延后执行（范围外/超预算）；需求级 verify-e2e 会全量补跑。"""
-    details = {"reason": reason, "deferred_to_review": True}
+    """任务级 Done Gate 延后执行（范围外/预算/环境）；需求级 verify-e2e 只补 review-stage。"""
+    kind = _deferral_kind(reason)
+    error_code = {
+        "review_stage": "deferred_to_review",
+        "budget": "verifier_budget_exhausted",
+        "env": "env_blocked",
+    }.get(kind, "deferred_to_review")
+    details = {"reason": reason, "deferral_kind": kind, "deferred_to_review": kind == "review_stage"}
     return VerificationEvidence(
         f"{metadata.id}#{rule.ref}",
         datetime.now(timezone.utc).isoformat(),
@@ -475,14 +497,14 @@ def _deferred_evidence(metadata: SpecMetadata, rule: SpecRule, scope: Verificati
         rule.text_sha256,
         None,
         scope.diff_sha256,
-        _result_hash("unverified", "deferred_to_review", details),
-        "deferred_to_review",
+        _result_hash("unverified", error_code, details),
+        error_code,
         details,
     )
 
 
 def _budget_evidence(metadata: SpecMetadata, rule: SpecRule, scope: VerificationScope, budget: float) -> VerificationEvidence:
-    details = {"budget": budget}
+    details = {"budget": budget, "deferral_kind": "budget"}
     return VerificationEvidence(
         f"{metadata.id}#{rule.ref}",
         datetime.now(timezone.utc).isoformat(),
@@ -580,3 +602,44 @@ def evidence_is_fresh(
         and evidence.artifact_sha256 == artifact_sha256
         and evidence.diff_sha256 == diff_sha256
     )
+
+def store_verification_evidence(
+    metadata: SpecMetadata,
+    scope: VerificationScope,
+    result: VerificationResult,
+    requirement: str = "",
+) -> tuple[dict[str, object], ...]:
+    """Persist verifier runs in the central sidecar (audit/compaction input)."""
+    from cf_evidence_store import EvidenceStore, git_commit
+
+    store = EvidenceStore(scope.root, requirement)
+    commit = git_commit(store.root)
+    outcomes: list[dict[str, object]] = []
+    for item in result.evidence:
+        details = dict(item.details or {})
+        identity = "|".join((
+            item.verifier_ref, item.status, item.result_sha256,
+            item.diff_sha256 or "", item.rule_text_sha256,
+        ))
+        argv = details.get("argv")
+        timeout = details.get("timeout")
+        run = {
+            "run_id": hashlib.sha256(identity.encode("utf-8")).hexdigest()[:32],
+            "check_id": item.verifier_ref,
+            "command": argv if isinstance(argv, list) and all(isinstance(value, str) for value in argv) else [],
+            "cwd": ".",
+            "timeout": timeout if isinstance(timeout, (int, float)) else 0,
+            "input_hash": item.diff_sha256 or item.result_sha256,
+            "exit_code": details.get("exit_code") if isinstance(details.get("exit_code"), int) else (0 if item.status == "verified" else 1),
+            "status": "passed" if item.status == "verified" else "failed",
+            "executed_at": item.executed_at,
+            "source": "local",
+            "commit": commit,
+            "run_url": "",
+            "rule_text_sha256": item.rule_text_sha256,
+            "result_sha256": item.result_sha256,
+            "error_code": item.error_code,
+            "details": details,
+        }
+        outcomes.append(store.write_run(item.verifier_ref, run))
+    return tuple(outcomes)
