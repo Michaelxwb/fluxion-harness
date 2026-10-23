@@ -588,10 +588,12 @@ class ModelAllocator:
     ) -> Selection:
         """选择事务：无池级全局锁；排序/取行/epoch 归一/计数由一条原子语句完成。
 
-        行为契约（B-223）不变：等权并发差 ≤1、权重按 count/weight、在飞归一后轮转。
-        多成员用 `FOR UPDATE SKIP LOCKED` 让并发调用各取一行，拿不到行时短退避重试；
-        单成员直接阻塞（只有一个成员时本来就必须串行）。同 attempt 的并发重试由一把独立
-        的 attempt 身份锁串行，保证「重试只计一次尝试」。闸门限制同时在 DB 上排队的会话数。
+        行为契约（B-223）：顺序选择差 ≤1、权重按 count/weight、在飞归一后轮转。
+        多成员用 `FOR UPDATE SKIP LOCKED` 让并发调用各取一行；最小计数行被持锁时会被跳过，
+        因此真实并发下只保证有界偏差（每个成员相对均值 ±1），不保证严格均分。拿不到行时短
+        退避重试；单成员直接阻塞（只有一个成员时本来就必须串行）。同 attempt 的并发重试由
+        一把独立的 attempt 身份锁串行，保证「重试只计一次尝试」。闸门限制同时在 DB 上排队
+        的会话数。
         """
         waited = time.monotonic()
         async with self._gate.hold(), self._session_factory_provider()() as session, session.begin():
