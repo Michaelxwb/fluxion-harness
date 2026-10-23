@@ -144,7 +144,7 @@ jobs:
           mkdir -p /tmp/e2e-logs
           for domain in \
             agent audit-observability console-auth mcp \
-            model-management overview-dashboard platform run-observability settings skill \
+            model-management overview-dashboard platform run-observability-e2e run-observability-regression settings skill \
             task-schedule-e2e task-schedule-regression user-identity webchat-e2e webchat-regression
           do
             echo "::group::e2e ${domain}"
@@ -155,7 +155,7 @@ jobs:
               echo "FAIL ${domain}"
               failed="${failed} ${domain}"
               # trace / error-context 只在失败时保留（`trace: retain-on-failure`），但 Playwright
-              # 每跑一次都会清空 outputDir（默认 `e2e/test-results`）⇒ 当场按域搬走，否则 15 个域
+              # 每跑一次都会清空 outputDir（默认 `e2e/test-results`）⇒ 当场按域搬走，否则 16 个域
               # 顺序跑完只剩**最后一个**域的，偶发失败（如 task-cancel 的 detach）事后无从复盘。
               cp -r e2e/test-results "/tmp/e2e-logs/${domain}-test-results" 2>/dev/null || true
               # 把**失败的那一条**带进 annotation：annotation 匿名可读，而 job 日志需要认证。
@@ -178,7 +178,7 @@ jobs:
             echo "::error::浏览器验收失败的域:${failed}"
             exit 1
           fi
-          echo "全部 15 个域通过"
+          echo "全部 16 个域通过"
       - name: 上传各域日志（无论成败）
         if: always()
         uses: actions/upload-artifact@v4
