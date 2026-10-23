@@ -138,7 +138,7 @@ async def test_b10_memory_redesign_lease_expiring_during_effect_flush_rolls_ever
             await session.execute(
                 sa.text(
                     "CREATE FUNCTION runtime.slow_effect() RETURNS trigger LANGUAGE plpgsql AS $$ "
-                    "BEGIN PERFORM pg_sleep(1); RETURN NEW; END $$"
+                    "BEGIN PERFORM pg_sleep(6); RETURN NEW; END $$"
                 )
             )
             await session.execute(
@@ -148,7 +148,7 @@ async def test_b10_memory_redesign_lease_expiring_during_effect_flush_rolls_ever
                 )
             )
             row = await session.get(MemoryConsolidationJob, job.id)
-            row.lease_until = datetime.now(UTC) + timedelta(seconds=0.5)
+            row.lease_until = datetime.now(UTC) + timedelta(seconds=5)
         assert await execution(factory, client).execute(claim) is None
         assert len(requests) == 1
         assert await counts(factory, run) == {
