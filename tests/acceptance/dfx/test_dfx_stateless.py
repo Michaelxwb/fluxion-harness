@@ -71,7 +71,7 @@ POLL_INTERVAL_SEC = 0.3
 TERMINAL_STATUSES = frozenset({"COMPLETED", "FAILED", "CANCELLED"})
 # 配置变更（真实 PG 列写入）：让新 Run 的 resolve 结果确定性地变化。
 NEW_INSTRUCTIONS = "You are the S-12 reconfigured agent."
-MODEL_PARAMS = {"temperature": 0.7}
+MODEL_PARAMS = {"temperature": 0.7, "max_tokens": 1024}
 ROTATED_API_KEY = f"{MODEL_API_KEY}-rotated"
 PROBE_DELAY_ENV = "OPENAI_PROBE_DELAY_MS"
 

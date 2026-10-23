@@ -613,6 +613,9 @@ def start_dfx_stack(root: Path) -> tuple[DfxStack, list[ServiceProcess]]:
         "REDIS_URL": redis_url,
         "ARTIFACT_ROOT": str(artifact_root),
         "SKILL_CACHE_ROOT": str(skill_cache_root),
+        # DFX 用例用「先占住 Worker」制造 claim 竞态/串行语义；默认并发 4 会让
+        # blocker 只占一个槽，后续任务被同一个 Worker 并行领走，竞态样板失效。
+        "WORKER_EXECUTION_CONCURRENCY": "1",
         "TASK_LEASE_SEC": str(TASK_LEASE_SEC),
         "TASK_HEARTBEAT_SEC": str(TASK_HEARTBEAT_SEC),
         "TASK_CANCEL_CHECK_SEC": str(TASK_CANCEL_CHECK_SEC),
