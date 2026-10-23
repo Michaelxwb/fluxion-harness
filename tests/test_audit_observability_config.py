@@ -418,9 +418,11 @@ async def test_b203_healthz_and_readyz_semantics(
 
 
 async def test_b203_readyz_stays_ready_when_redis_unavailable(
-    database_guard: None, monkeypatch: pytest.MonkeyPatch
+    database_guard: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """B-203：Redis 不可用不阻塞就绪（docs/09 §4）——Worker 只把 Redis 当低延迟 hint 上报为诊断。"""
+    # 干净检出没有仓库根的 .data；就绪探针需要一个真实存在的 artifact 挂载根。
+    monkeypatch.setenv("ARTIFACT_ROOT", str(tmp_path))
     monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:1/0")
     async with _serve_http(worker_app) as http:
         health = await http.get("/healthz")

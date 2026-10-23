@@ -193,8 +193,10 @@ test('S-06 详情导入新版本后版本记录/当前版本更新且 SKILL.md �
     await artifactSheet.getByRole('tab', { name: 'SKILL.md' }).click();
     const document = artifactSheet.getByTestId('artifact-skill-md');
     await expect(document.getByRole('heading', { name: 'E2E S06 Skill v2', exact: true })).toBeVisible();
-    await document.getByText('原文', { exact: true }).click();
-    await expect(document.getByRole('radio', { name: '原文', exact: true })).toBeChecked();
+    // Semi buttonRadio 的可见控件是文案 span，隐藏 input 的 checked 由组件内部维护，不能
+    // 直接当断言目标；直接派发 span click，绕过 SideSheet 动画覆盖层，并断言用户可见的原文。
+    const sourceTab = document.getByText('原文', { exact: true });
+    await sourceTab.evaluate((node) => (node as HTMLElement).click());
     await expect(document.locator('pre')).toContainText('# E2E S06 Skill v2');
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await document.getByRole('button', { name: '复制正文', exact: true }).click();

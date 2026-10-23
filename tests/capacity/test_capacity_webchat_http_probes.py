@@ -647,13 +647,28 @@ def _get(endpoint: str) -> httpx.Response:
         return client.get(endpoint)
 
 
+def _get_after_recovery(endpoint: str, *, timeout_sec: float = 5.0) -> httpx.Response:
+    """恢复直通后重试到首个 200：监听 socket 从 REFUSE 重新 bind 是异步生效的。"""
+    deadline = time.monotonic() + timeout_sec
+    last_error: httpx.HTTPError | None = None
+    while time.monotonic() < deadline:
+        try:
+            response = _get(endpoint)
+            if response.status_code == 200:
+                return response
+        except httpx.HTTPError as exc:
+            last_error = exc
+        time.sleep(0.02)
+    raise AssertionError(f"fault proxy 在 {timeout_sec}s 内未恢复直通：{last_error!r}") from last_error
+
+
 def test_b306_fault_proxy_forwards_real_traffic_and_injects_faults() -> None:
     upstream = _health_upstream()
     proxy = FaultProxy("127.0.0.1", int(upstream.server_address[1]))
     proxy.start()
     try:
         endpoint = f"http://{proxy.address[0]}:{proxy.address[1]}/healthz"
-        assert _get(endpoint).json() == {"status": "ok"}, "直通真实上游"
+        assert _get_after_recovery(endpoint).json() == {"status": "ok"}, "直通真实上游"
 
         proxy.set_fault(FaultProxyMode.DELAY, delay_ms=250)
         started = time.monotonic()
@@ -675,7 +690,7 @@ def test_b306_fault_proxy_forwards_real_traffic_and_injects_faults() -> None:
         assert proxy.listening is False
 
         proxy.set_fault(FaultProxyMode.PASS_THROUGH)
-        assert _get(endpoint).status_code == 200, "恢复后可继续转发"
+        assert _get_after_recovery(endpoint).status_code == 200, "恢复后可继续转发"
 
         assert proxy.connections >= 4
         assert proxy.dropped_connections >= 2

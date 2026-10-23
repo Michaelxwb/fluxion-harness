@@ -28,6 +28,8 @@ from muad_console_platform.main import app
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from tests.internal_service import internal_service_token  # noqa: F401  (fixture 注册)
+
 SCHEMA = "control"
 CHANNEL = "WECOM"
 GUARD_TABLES = (

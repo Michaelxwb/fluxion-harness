@@ -77,6 +77,9 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://muad:muad@localhost:5432/muad
       REDIS_URL: redis://localhost:6379/0
+      # 真实栈的内部边界要求服务身份；干净检出没有 `.env`，不设这一格所有
+      # `/internal/**` 调用都会 403（测试侧 fixture 也会兜底，但子进程只继承 env）。
+      INTERNAL_SERVICE_TOKEN: test-internal-token
       # tests/conftest.py 在用例失败/出错时即时写一行；分片被超时或 kill 时摘要不会生成，
       # 这个文件 + artifact 是事后定位失败用例的唯一线索。
       PYTEST_FAILURE_LOG: /tmp/pytest-failures.log
@@ -135,6 +138,7 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://muad:muad@localhost:5432/muad
       REDIS_URL: redis://localhost:6379/0
+      INTERNAL_SERVICE_TOKEN: test-internal-token
       PYTEST_FAILURE_LOG: /tmp/pytest-failures.log
     steps:
       - uses: actions/checkout@v4
