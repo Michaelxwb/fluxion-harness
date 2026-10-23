@@ -46,7 +46,6 @@ from ..application.webchat_config import (
     WebchatTransportBudget,
 )
 from ..application.webchat_service import WebchatResourceService
-
 from ..application.webchat_streams import (
     SSE_MEDIA_TYPE,
     SSE_STREAM_HEADERS,
@@ -55,9 +54,9 @@ from ..application.webchat_streams import (
     WebchatStreamService,
 )
 from ..application.webchat_uploads import WebchatUploadService
+from .deps import ChatIdentityDep, ChatStreamGuardDep
 
 logger = logging.getLogger(__name__)
-from .deps import ChatIdentityDep, ChatStreamGuardDep
 
 #: 聊天资源是私有数据（design §3.4）：显式 no-store，不依赖任何默认缓存头。
 NO_STORE_CACHE_CONTROL = "no-store"

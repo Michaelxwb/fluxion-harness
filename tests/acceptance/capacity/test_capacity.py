@@ -64,7 +64,13 @@ from tests.acceptance.capacity.execution_support import (
     task_row,
     wait_run_terminal,
 )
-from tests.acceptance.capacity.stack import UNITS, CapacityStack, read_process_environ, run_async
+from tests.acceptance.capacity.stack import (
+    UNITS,
+    CapacityStack,
+    ServiceInstance,
+    read_process_environ,
+    run_async,
+)
 from tests.capacity.driver import (
     ChatCredential,
     ControlProbeKind,
@@ -362,7 +368,7 @@ def process_rss_mb(pid: int) -> float:
     return int(value) / 1024.0
 
 
-def instance_rss_mb(instance: "ServiceInstance") -> float:
+def instance_rss_mb(instance: ServiceInstance) -> float:
     """按实例测量 RSS：进程已不在时显式指名单元/槽位（不把死 pid 误报成读数失败）。"""
     if not instance.alive:
         raise AssertionError(
@@ -371,7 +377,7 @@ def instance_rss_mb(instance: "ServiceInstance") -> float:
     return process_rss_mb(instance.pid)
 
 
-def instance_fd_count(instance: "ServiceInstance") -> int:
+def instance_fd_count(instance: ServiceInstance) -> int:
     if not instance.alive:
         raise AssertionError(
             f"{instance.unit}#{instance.index} 进程未运行，无法测量 FD（预算检查要求整套栈在跑）"

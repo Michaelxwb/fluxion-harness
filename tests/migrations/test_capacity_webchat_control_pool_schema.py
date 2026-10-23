@@ -254,9 +254,9 @@ async def test_b209_tenant_and_provider_boundaries_deleted_models_and_missing_ke
 
 async def test_b209_owner_foreign_keys_and_partial_uniqueness_are_enforced(async_tool_database: AsyncEngine) -> None:
     models = import_module("muad_console_platform.infrastructure.models.control")
-    group = getattr(models, "ModelQuotaGroup").__table__
-    credential = getattr(models, "ModelCredential").__table__
-    deployment = getattr(models, "ModelDeployment").__table__
+    group = models.ModelQuotaGroup.__table__
+    credential = models.ModelCredential.__table__
+    deployment = models.ModelDeployment.__table__
     async with async_tool_database.begin() as connection:
         group_id = (await connection.execute(group.insert().values(
             tenant_id="a", key="group", max_inflight=16,

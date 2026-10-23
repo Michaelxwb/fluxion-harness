@@ -9,7 +9,6 @@ from muad_agent_runtime.infrastructure.models.runtime import Artifact, Canonical
 from muad_console_platform.infrastructure.models.control import (
     AgentDefinition,
     ModelCredential,
-    ModelDefinition,
     ModelDeployment,
 )
 from sqlalchemy import select

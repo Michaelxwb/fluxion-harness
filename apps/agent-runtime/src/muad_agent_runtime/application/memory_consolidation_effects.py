@@ -3,7 +3,6 @@
 import logging
 
 import httpx
-
 from muad_agent_core.model import ModelRateLimitedError, ModelUnavailableError
 from muad_api import AppError
 from pydantic import JsonValue
