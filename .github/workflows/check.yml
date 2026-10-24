@@ -1,8 +1,18 @@
 name: check
 
 on:
+  # 分支 push 不再单独起一条流水线：有 PR 时由 `pull_request` 事件跑**全量**（含 e2e）；
+  # main 的 push 负责合并后复验与镜像发布。此前 `push:` 不加分支过滤，每次推 PR 分支都会
+  # 同时触发 push + pull_request 两条流水线，同一份提交跑两遍。
   push:
+    branches: [main]
   pull_request:
+
+# 同一 PR 连续推送时取消上一轮（避免旧提交占着 runner）；main 的验证不取消，
+# 保证每个合并点都完整跑完。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # 静态检查不需要数据库：从原来的 backend job 拆出来，和测试分片并行，而不是串在一轮
@@ -336,8 +346,8 @@ jobs:
   # 有人手动跑某个域时才暴露，没有任何聚合信号（2026-10-02 一轮里手查出 4 处这类漂移 + 1 处
   # 产品崩溃）。逐域顺序执行且**不 fail-fast**：一次 CI 就能列出**全部**漂移的域，而不是修一个
   # 才发现下一个。新增域时同步下面那份域清单即可。
+  # PR 与 main 都跑（分支 push 已不再触发本 workflow），合并门禁与合并后复验看到同一份结果。
   e2e:
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     services:
