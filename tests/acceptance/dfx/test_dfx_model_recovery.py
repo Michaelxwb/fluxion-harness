@@ -419,6 +419,13 @@ def test_e09_cancel_stops_retries_immediately(live_stack: LiveStack, fault_probe
                 streamed.append(event)
                 if len(streamed) == 1:
                     assert event["type"] == "run.created", event
+                    # `run.created` 只是受理事实：执行 Pod 可能还没领取。本用例验证的是
+                    # 「退避等待中取消立即生效」，先等真实探针收到首个模型调用——此时 Run
+                    # 必为 RUNNING，且已进入第一轮退避窗口。
+                    deadline = time.monotonic() + RUN_TIMEOUT_SEC
+                    while not fault_probe.calls and time.monotonic() < deadline:
+                        time.sleep(0.05)
+                    assert fault_probe.calls, "取消前探针未收到首个模型调用（Run 未进入执行）"
                     # 必须在流内发取消并**继续读完**：提前退出会关掉 SSE，执行器随之停摆
                     cancelled_at = time.monotonic()
                     cancelled = client.post(

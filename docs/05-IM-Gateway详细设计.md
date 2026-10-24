@@ -215,7 +215,7 @@ POST /v1/runs/cancel-active
 ```
 
 - 无活跃 Run：返回 `404 NO_ACTIVE_RUN`，回复“当前没有执行中的任务”；
-- 有活跃 Run：`WAITING_INPUT` 直接 CAS 置 `CANCELLED`；`CREATED/RUNNING` 写 `cancel_requested` + Redis hint 并返回 `status="CANCELLING"`，回复受理文案“正在停止当前任务…”。
+- 有活跃 Run：`CREATED`（排队中）与 `WAITING_INPUT`/`WAITING_TOOL` 无执行者，直接 CAS 置 `CANCELLED`（响应终态）；`RUNNING` 写 `cancel_requested` + Redis hint 并返回 `status="CANCELLING"`，回复受理文案“正在停止当前任务…”。
 
 ---
 
