@@ -29,6 +29,7 @@ from sqlalchemy import select, text
 from tests.acceptance.runtime.test_submission_hardening import _db, _wait
 from tests.acceptance.task_schedule.conftest import live_stack as schedule_stack
 from tests.acceptance.task_schedule.environment import ServiceProcess, build_skill_zip, free_port
+from tests.e2e.openai_probe_app import CONSOLIDATION_MARKER
 
 pytestmark = pytest.mark.e2e
 
@@ -199,7 +200,19 @@ def test_s03_two_results_original_tool_pair_and_reconstructed_request(live_stack
         gate.touch()
         _finish(result, thread)
         requests = client.get(live_stack.llm_url + "/requests").json()["requests"]
-        final = requests[-1]["body"]["messages"]
+        # 同一栈上还有记忆提炼等后台模型调用：不能用 `requests[-1]` 假定它一定属于本 Run。
+        # 结束时恢复请求必然带两条 tool 结果，按此定位（重试时取最后一条）。
+        candidates = [
+            entry["body"]["messages"]
+            for entry in requests
+            if sum(item["role"] == "tool" for item in entry["body"]["messages"]) == 2
+            and not any(
+                CONSOLIDATION_MARKER in str(item.get("content"))
+                for item in entry["body"]["messages"]
+            )
+        ]
+        assert candidates, requests[-1]["body"]["messages"]
+        final = candidates[-1]
         assert sum(item["role"] == "tool" for item in final) == 2
         assert sum("BACKGROUND_RESULT" in item["content"] for item in final) == 2
 
