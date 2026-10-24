@@ -471,6 +471,8 @@ async def issue_webchat_token(
         expected_revision=payload.expected_revision,
         actor=_actor(account, request),
     )
+    # 原文只在本次响应出现一次：必须先提交，客户端拿到后立刻用它换会话才不会 401。
+    await session.commit()
     _no_store(response)
     return ok(request.app.state.message_catalog, issued.to_issuance_payload())
 
@@ -496,5 +498,7 @@ async def revoke_webchat_token(
         expected_revision=expected_revision,
         actor=_actor(account, request),
     )
+    # 撤销（含关联会话终止）必须在下发成功响应前落库：客户端随后的请求要看到既成事实。
+    await session.commit()
     _no_store(response)
     return ok(request.app.state.message_catalog, metadata.model_dump(mode="json"))

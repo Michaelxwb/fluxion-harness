@@ -66,6 +66,8 @@ async def logout(
 ) -> ApiResponse[Any]:
     token = request.cookies.get(SESSION_COOKIE, "")
     await AuthService(session, tenant_id=tenant_id).logout(token)
+    # 会话撤销先落库，再清 Cookie：响应成功即代表服务端已经不认这个令牌。
+    await session.commit()
     clear_auth_cookies(response)
     return ok(request.app.state.message_catalog, {"logged_out": True})
 

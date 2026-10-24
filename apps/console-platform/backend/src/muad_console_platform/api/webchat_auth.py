@@ -65,6 +65,9 @@ async def exchange_chat_token(
     with count_outcome(CHAT_AUTH_METRIC, {"operation": "exchange"}):
         grant = await ChatSessionService(session).exchange(payload.token)
         max_age = await chat_cookie_max_age(session, grant.info.expires_at)
+        # 先提交再下发会话 Cookie：请求级 session 的 teardown 在响应发出之后才提交，
+        # 直接返回会让客户端拿到令牌后的第一个请求查不到会话行（E2E 创建会话偶发 401）。
+        await session.commit()
         set_chat_cookies(response, grant.session_token, new_csrf_token(), max_age)
     mark_no_store(response)
     return ok(request.app.state.message_catalog, grant.info.model_dump(mode="json"))
@@ -88,6 +91,7 @@ async def logout_chat_session(
     """API-04 登出：撤本会话（幂等）、清 CHAT 两枚 Cookie；来源 Token 与管理会话不受影响。"""
     with count_outcome(CHAT_AUTH_METRIC, {"operation": "logout"}):
         await ChatSessionService(session).logout(_presented_session_token(request))
+        await session.commit()
         clear_chat_cookies(response)
     mark_no_store(response)
     return ok(request.app.state.message_catalog, {"logged_out": True})

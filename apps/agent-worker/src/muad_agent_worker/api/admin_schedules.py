@@ -79,6 +79,9 @@ async def admin_pause_schedule(
 ) -> ApiResponse[Any]:
     ensure_tenant_consistent(request, tenant_id)
     schedule = await ScheduleService(session).pause_schedule(tenant_id, schedule_id)
+    # 先提交再响应：Console 收到成功后会立刻回读列表/详情，teardown 提交在响应之后
+    # 会读到旧状态（E2E 恢复后看不到「暂停」按钮，5s 超时）。
+    await session.commit()
     return ok(request.app.state.message_catalog, _payload(schedule))
 
 
@@ -92,6 +95,7 @@ async def admin_resume_schedule(
 ) -> ApiResponse[Any]:
     ensure_tenant_consistent(request, tenant_id)
     schedule = await ScheduleService(session).resume_schedule(tenant_id, schedule_id)
+    await session.commit()
     return ok(request.app.state.message_catalog, _payload(schedule))
 
 
@@ -105,6 +109,7 @@ async def admin_delete_schedule(
 ) -> ApiResponse[Any]:
     ensure_tenant_consistent(request, tenant_id)
     await ScheduleService(session).delete_schedule(tenant_id, schedule_id)
+    await session.commit()
     return ok(
         request.app.state.message_catalog, {"schedule_id": str(schedule_id), "deleted": True}
     )
