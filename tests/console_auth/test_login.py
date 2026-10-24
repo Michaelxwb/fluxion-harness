@@ -29,6 +29,15 @@ async def test_login_returns_account_and_sets_cookies(
     assert "samesite=strict" in session_header.lower()
     assert client.cookies.get(SESSION_COOKIE)
     assert client.cookies.get(CSRF_COOKIE)
+    # 响应到达即已提交：会话令牌一旦交给客户端，服务端必须马上查得到。
+    # （请求级 session 的 teardown 提交发生在响应发出之后，登录端点自己先提交。）
+    async with get_session_factory()() as session:
+        stored = await session.scalar(
+            sa.select(ConsoleSession.token_hash).where(
+                ConsoleSession.token_hash == hash_session_token(client.cookies[SESSION_COOKIE])
+            )
+        )
+    assert stored is not None, "登录响应已下发 Cookie，但会话行尚未提交"
 
 
 async def test_login_with_wrong_password_returns_invalid_credentials(

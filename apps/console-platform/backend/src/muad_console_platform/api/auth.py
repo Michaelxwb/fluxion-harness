@@ -48,6 +48,10 @@ async def login(
         after={"username": account.username, "role": account.role},
     )
     # Cookie `Max-Age` 与会话行 TTL 同源（都来自同一次平台设置读取）。
+    # **先提交再下发 Cookie**：请求级 session 的 teardown 在响应发出之后才提交，若在此刻
+    # 直接返回，客户端拿到令牌后的第一个请求可能查不到会话行（实测登录后立即建账号偶发
+    # 401 UNAUTHORIZED）。会话令牌一旦交给客户端，就必须已经持久可见。
+    await session.commit()
     set_auth_cookies(response, token, new_csrf_token(), int(session_ttl.total_seconds()))
     return ok(request.app.state.message_catalog, _account_payload(account))
 
