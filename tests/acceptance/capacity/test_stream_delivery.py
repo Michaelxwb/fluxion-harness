@@ -896,6 +896,18 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     assert offline["delivery_state"] != "DELIVERED", "没发出去不得标送达"
     assert _delivery_outcome(offline) != "DELIVERED", "未送达不得冻结送达结果"
     assert probe.frames_of("aibot_send_msg") == [], "Gateway 下线时不可能有主动发送帧"
+    if offline["delivery_state"] == "UNKNOWN":
+        # 连接中断时适配器可能拿不到确定回执 ⇒ UNKNOWN（产品语义：保留核实，不自动重发）。
+        # 本用例已用真实探针确认没有发送帧；模拟运维核实后放回 PENDING，继续验证恢复后的
+        # 持久意图重投，而不是把 UNKNOWN 当成已送达或自动重发。
+        db_execute(
+            stack.database_url,
+            "UPDATE runtime.channel_notification"
+            " SET delivery_state = 'PENDING', next_attempt_at = now(),"
+            " lease_owner = NULL, lease_until = NULL, update_time = now()"
+            " WHERE delivery_key = $1",
+            f"run:{first_run}:terminal",
+        )
 
     # ⑤ 恢复：替换 Runtime 副本（新进程，投递泵只认 PG 上的意图）→ 起新 Gateway（新端口）
     #    → 稳定入口重指新 Gateway。三个进程都没有任何内存订阅/回调记忆。
