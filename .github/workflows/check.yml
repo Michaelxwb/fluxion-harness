@@ -177,7 +177,34 @@ jobs:
       - name: 预建干净检出缺失的 .data 挂载目录
         run: mkdir -p .data/artifacts .data/skill-cache
       - name: 运行 ${{ matrix.shard.name }} 验收分片
-        run: uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
+        run: |
+          set -u
+          if [ "${{ matrix.shard.name }}" = "im_gateway" ]; then
+            # im_gateway 各文件共享真实 Gateway/Runtime/Worker 栈；同一 pytest 进程里前序
+            # 用例的 SIGKILL/后台 job 会污染后续文件（表现为“推送后未创建 Run”）。
+            # 逐文件起独立进程；E06 再单独起一次，避免它和 E05 的 options/consume 状态互扰。
+            failed=""
+            for file in tests/acceptance/im_gateway/test_*.py; do
+              echo "::group::$file"
+              if [ "$file" = "tests/acceptance/im_gateway/test_memory_redesign_e2e.py" ]; then
+                uv run pytest -q -m "not capacity_load" "$file" \
+                  --deselect "$file::test_e06_memory_redesign_sigkill_claim_owner_and_successor_takeover" \
+                  || failed="${failed} ${file}(rest)"
+                uv run pytest -q -m "not capacity_load" \
+                  "$file::test_e06_memory_redesign_sigkill_claim_owner_and_successor_takeover" \
+                  || failed="${failed} ${file}(e06)"
+              else
+                uv run pytest -q -m "not capacity_load" "$file" || failed="${failed} ${file}"
+              fi
+              echo "::endgroup::"
+            done
+            if [ -n "${failed}" ]; then
+              echo "::error::im_gateway 失败文件:${failed}"
+              exit 1
+            fi
+          else
+            uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
+          fi
       - name: 上传失败用例清单（无论成败）
         if: always()
         uses: actions/upload-artifact@v4
