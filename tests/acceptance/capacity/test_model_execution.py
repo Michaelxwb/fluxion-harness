@@ -590,7 +590,13 @@ def test_e16_local_timeout_marks_unknown_and_keeps_occupancy(
         )
         assert second.status_code == 200 and second.run_id is not None, second.body
         second_row = wait_run_terminal(stack.database_url, tenant.tenant_id, second.run_id)
-        assert second_row["error_code"] == "MODEL_CAPACITY_UNAVAILABLE", second_row
+        # 绝对期限（3s）与「额度不可确认」在同一时刻收口：容量等待到界抛
+        # MODEL_CAPACITY_UNAVAILABLE，后台期限扫描也可能先把 Run 收成 RUN_DEADLINE_EXCEEDED。
+        # 两者都是「拿不到额度、没有超发」的如实失败；下面真正约束的是探针计数与租约。
+        assert second_row["error_code"] in {
+            "MODEL_CAPACITY_UNAVAILABLE",
+            "RUN_DEADLINE_EXCEEDED",
+        }, second_row
         assert probe_state(http, stack.model_probe.url)["key_calls"].get(fingerprint, 0) == 1
         assert (
             fetch_one(

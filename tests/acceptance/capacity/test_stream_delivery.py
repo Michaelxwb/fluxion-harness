@@ -558,6 +558,17 @@ def test_e02_redis_hint_loss_falls_back_to_pg_and_is_visible(
     )
 
 
+def _memory_background_idle(database_url: str, tenant_id: str) -> bool:
+    """本租户记忆提炼是否已静止：Run 终态后它是**真实的后续模型调用**，会进探针计数。"""
+    rows = db_rows(
+        database_url,
+        "SELECT count(*) AS total FROM runtime.memory_consolidation_job"
+        " WHERE tenant_id = $1 AND status IN ('PENDING','RUNNING','RETRY')",
+        tenant_id,
+    )
+    return int(rows[0]["total"]) == 0
+
+
 def test_e02_postgres_outage_fails_closed_without_over_issue_and_recovers(
     fault_harness: FaultHarness,
 ) -> None:
@@ -590,6 +601,13 @@ def test_e02_postgres_outage_fails_closed_without_over_issue_and_recovers(
         timeout=WAIT_TIMEOUT_SEC,
     )
     before_row = run_row(stack.database_url, before_run)
+    # 记忆提炼是 Run 终态之后的真实后台模型调用：先等它静止，否则它的探针调用会落进
+    # 下面的「PG 不可确认时不得调用模型」窗口（CI 实测 6 vs 5）。
+    wait_until(
+        lambda: _memory_background_idle(stack.database_url, stack.tenant_id),
+        what="memory consolidation idle",
+        timeout=30.0,
+    )
     calls_before = int(probe_state(probe.url)["call_count"])
     maintenance_failed_before = metric_total(
         runtime.url, "runtime_maintenance_total", {"loop": "delivery", "status": "failed"}
