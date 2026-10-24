@@ -34,7 +34,7 @@ STATUS_FIELDS = frozenset(
     {"export_id", "status", "row_count", "error_code", "create_time", "update_time"}
 )
 TERMINAL_STATUSES = frozenset({"SUCCEEDED", "FAILED"})
-DATE_TIME_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+DATE_TIME_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$")
 POLL_ATTEMPTS = 5
 POLL_INTERVAL_SEC = 0.05
 

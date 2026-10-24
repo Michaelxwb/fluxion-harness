@@ -28,16 +28,21 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import IO, Optional, Sequence
+from typing import IO, Mapping, Optional, Sequence
 
 from cf_task_index import parse_task_file
 from cf_task_index import task_batches
+from cf_task_merge import MergeConflictError
 from cf_task_merge import merge_context_text
 from cf_task_merge import merge_manifest_text
 from cf_task_merge import merge_task_markdown
+from cf_task_merge import stale_context_text
 from cf_task_state import FINISHED_STATUSES
+from cf_acceptance_schema import load_manifest
+from cf_evidence_store import EvidenceStore
+from cf_exec_base import worktree_fingerprint
 from cf_runtime_install import verify_install
 
 
@@ -51,10 +56,27 @@ _TASK_ID = re.compile(r"^TASK-\d+$")
 class ParallelError(ValueError):
     """Precondition or protocol violation with a stable machine code."""
 
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self, code: str, message: str,
+                 details: Optional[Mapping[str, object]] = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
+        self.details = dict(details) if details else {}
+
+
+class ParallelEvidenceError(ParallelError):
+    """Done-Gate evidence rejection carrying machine-readable missing checks."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        missing_checks: Sequence[Mapping[str, object]] = (),
+        required_checks: Sequence[str] = (),
+    ) -> None:
+        super().__init__(code, message)
+        self.missing_checks = tuple(dict(item) for item in missing_checks)
+        self.required_checks = tuple(required_checks)
 
 
 def _run_git(root: Path, arguments: Sequence[str]) -> str:
@@ -211,12 +233,38 @@ def _read_run_meta(root: Path, run_id: str) -> dict[str, object]:
     return data
 
 
+def _update_run_meta(root: Path, run_id: str, updates: Mapping[str, object]) -> None:
+    """Persist batch-level state (smoke status) without rewriting worktrees."""
+    data = _read_run_meta(root, run_id)
+    data.update(updates)
+    path = root / WORKTREES_DIR / run_id / "run.json"
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
 def _install_worktree_manifest(root: Path, worktree: Path) -> None:
     source = root / ".code-flow/.runtime-install.json"
     if not source.is_file():
         return  # Core-only repositories have no installed platform runtime.
     try:
         verify_install(str(root))
+        # Platform files such as .claude/settings.local.json are commonly
+        # gitignored, so a fresh worktree does not receive them from checkout.
+        # Copy every managed artifact that is missing before verifying.
+        manifest = json.loads(source.read_text(encoding="utf-8"))
+        managed = list(manifest.get("files", {})) + list(manifest.get("hook_contracts", {}))
+        for relative in managed:
+            if not isinstance(relative, str) or not relative:
+                continue
+            target_file = worktree / relative
+            if target_file.exists():
+                continue
+            source_file = root / relative
+            if not source_file.is_file():
+                continue
+            target_file.parent.mkdir(parents=True, exist_ok=True)
+            target_file.write_bytes(source_file.read_bytes())
         target = worktree / ".code-flow/.runtime-install.json"
         target.write_bytes(source.read_bytes())
         verify_install(str(worktree))
@@ -303,7 +351,14 @@ def prepare(root: Path, task_file: str, tasks: Sequence[str], run_id: Optional[s
             raise ParallelError("invalid_task_id", f"TASK-ID 非法: {task}")
     _validate_batch(root, task_file, tasks)
     _commit_task_dir(root, task_file)
-    outcome = _create_worktrees(root, task_file, tasks, identifier)
+    try:
+        outcome = _create_worktrees(root, task_file, tasks, identifier)
+    except Exception:
+        try:
+            _run_git(root, ("worktree", "prune"))
+        except ParallelError:
+            pass
+        raise
     worktrees = [
         {"task": task, "branch": branch, "path": str(path)}
         for task, (path, branch) in zip(tasks, outcome["created"])
@@ -317,6 +372,206 @@ def prepare(root: Path, task_file: str, tasks: Sequence[str], run_id: Optional[s
             "base_head": outcome["base_head"], "worktrees": worktrees}
 
 
+def _required_check_map(manifest: Mapping[str, object], task: str) -> dict[str, list[str]]:
+    """Required code checks: functional scenarios traceable to this TASK.
+
+    ``check`` is the schema3 execution identity. Schema2 manifests have no
+    scenario→check link, so evidence validation is skipped for them and the
+    status gate remains authoritative.
+    """
+    scenarios = manifest.get("scenarios")
+    if not isinstance(scenarios, list):
+        return {}
+    required: dict[str, list[str]] = {}
+    for item in scenarios:
+        if not isinstance(item, Mapping):
+            continue
+        if str(item.get("kind") or "functional") in ("manual", "e2e"):
+            continue
+        owner = item.get("owner")
+        if isinstance(owner, str) and owner and owner != task:
+            continue
+        check_id = item.get("check")
+        scenario_id = item.get("id")
+        if not isinstance(scenario_id, str) or not scenario_id:
+            continue
+        raw_checks = item.get("checks")
+        check_ids = [str(value) for value in raw_checks] if isinstance(raw_checks, list) else []
+        if not check_ids and isinstance(check_id, str) and check_id.strip():
+            check_ids = [check_id]
+        if not check_ids:
+            # schema2 has no check link: the scenario id is the evidence key.
+            check_ids = [scenario_id]
+        for check_id in check_ids:
+            required.setdefault(check_id, []).append(scenario_id)
+    return required
+
+
+def _requires_acceptance(task_file: str, task: str) -> bool:
+    """True when the TASK owns Spec rules or acceptance scenarios."""
+    try:
+        text = Path(task_file).read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return False
+    match = re.search(rf"(?ms)^##\s+{re.escape(task)}:.*?(?=^##\s+TASK-|\Z)", text)
+    if match is None:
+        return False
+    body = match.group(0)
+    for field in ("Spec-Refs", "Acceptance-Refs"):
+        refs = re.search(rf"(?m)^- \*\*{field}\*\*:[ \t]*([^\n]*)", body)
+        if refs and refs.group(1).strip().upper() not in ("", "N/A"):
+            return True
+    return False
+
+
+def _task_manifest(worktree: Path, task_file: str) -> Optional[dict[str, object]]:
+    path = worktree / Path(task_file).parent / ".acceptance-manifest.json"
+    if not path.is_file():
+        return None
+    try:
+        return load_manifest(path)
+    except (OSError, ValueError) as exc:
+        raise ParallelError("acceptance_manifest_invalid", f"acceptance manifest 无效: {exc}") from exc
+
+
+def _run_matches(run: Mapping[str, object], expected_hash: str,
+                 check: Optional[Mapping[str, object]] = None,
+                 scenarios: Sequence[Mapping[str, object]] = ()) -> bool:
+    """A central evidence run proves this check against this worktree content."""
+    run_id = run.get("run_id")
+    status = run.get("status")
+    if status == "accepted_risk" and not _live_accepted_risk(check, scenarios):
+        return False
+    return (
+        isinstance(run_id, str)
+        and bool(run_id.strip())
+        and run.get("input_hash") == expected_hash
+        and (status == "accepted_risk" or run.get("exit_code") == 0)
+        and status in ("passed", "verified", "accepted_risk")
+    )
+
+
+def _live_accepted_risk(check: Optional[Mapping[str, object]],
+                        scenarios: Sequence[Mapping[str, object]]) -> bool:
+    from cf_acceptance_risk import accepted_risk
+    return bool(scenarios) and all(accepted_risk(check, row) is not None for row in scenarios)
+
+
+def _evidence_reason(runs: Sequence[Mapping[str, object]], expected_hash: str) -> str:
+    if not runs:
+        return "not_executed"
+    passed = [
+        run for run in runs
+        if run.get("exit_code") == 0 and run.get("status") in ("passed", "verified")
+    ]
+    if not passed:
+        return "nonzero_exit"
+    if any(run.get("input_hash") == expected_hash for run in passed):
+        return "missing_run_id"
+    return "input_hash_mismatch"
+
+
+def _missing_evidence(
+    worktree: Path, task: str, manifest: Mapping[str, object], task_file: str
+) -> tuple[list[dict[str, object]], list[str]]:
+    """Return checks without matching central evidence plus all required IDs."""
+    required = _required_check_map(manifest, task)
+    if not required:
+        return [], []
+    expected = worktree_fingerprint(str(worktree), include_untracked=False)
+    if not expected:
+        raise ParallelError(
+            "evidence_hash_unavailable",
+            f"{task}: 无法计算 worktree input_hash，拒绝用无法校验的旧证据放行",
+        )
+    from cf_check_inputs import check_input_hash
+    checks = {
+        str(item.get("id")): item
+        for item in (manifest.get("checks") if isinstance(manifest.get("checks"), list) else [])
+        if isinstance(item, Mapping) and item.get("id")
+    }
+    from cf_evidence_store import requirement_key
+    store = EvidenceStore(worktree, requirement=requirement_key(Path(task_file).parent))
+    missing: list[dict[str, object]] = []
+    for check_id in sorted(required):
+        check = checks.get(check_id)
+        check_hash = (
+            str(check_input_hash(str(worktree), check, expected).get("input_hash") or expected)
+            if check is not None else expected
+        )
+        runs = store.list_runs(check_id)
+        rows = [row for row in manifest.get("scenarios", [])
+                if isinstance(row, Mapping) and row.get("id") in required[check_id]]
+        if not any(_run_matches(run, check_hash, check, rows) for run in runs):
+            missing.append({
+                "check_id": check_id,
+                "scenarios": sorted(required[check_id]),
+                "reason": _evidence_reason(runs, check_hash),
+                "expected_input_hash": check_hash,
+            })
+    return missing, sorted(required)
+
+
+def _evidence_state(
+    worktree: Path, task: str, task_file: str
+) -> tuple[list[dict[str, object]], list[str]]:
+    manifest = _task_manifest(worktree, task_file)
+    if manifest is None:
+        if _requires_acceptance(str(worktree / task_file), task):
+            raise ParallelEvidenceError(
+                "required_evidence_missing",
+                f"{task}: 有 Spec-Refs 但缺少 .acceptance-manifest.json；先锁定验收计划并执行 required 检查",
+                [{"check_id": "manifest", "scenarios": [], "reason": "manifest_missing"}],
+                ["manifest"],
+            )
+        return [], []
+    return _missing_evidence(worktree, task, manifest, task_file)
+
+
+def _evidence_summary(missing: Sequence[Mapping[str, object]]) -> str:
+    return ", ".join(
+        f"{item.get('check_id')}({','.join(str(s) for s in item.get('scenarios', []))}: {item.get('reason')})"
+        for item in missing
+    )
+
+
+def _reject_unfinished(task: str, status: str, path: Path, task_file: str) -> None:
+    missing, required = _evidence_state(path, task, task_file)
+    detail = _evidence_summary(missing)
+    suffix = f"；先补 required 检查: {detail}" if detail else "；先补 required 检查后重新 finish"
+    raise ParallelEvidenceError(
+        f"task_{status}",
+        f"{task}: Status 为 {status}，未通过 Done Gate{suffix}",
+        missing,
+        required,
+    )
+
+
+def _require_evidence(task: str, path: Path, task_file: str) -> list[str]:
+    context_path = path / Path(task_file).parent / "spec-context.yml"
+    if context_path.is_file():
+        from cf_spec_context import load_context
+        from cf_workflow_service import task_truth_issues
+        issues = task_truth_issues(str(path / task_file), task, load_context(str(context_path)))
+        if issues:
+            raise ParallelEvidenceError(
+                "task_status_truth_mismatch",
+                f"{task}: 文档状态与 spec-context 冲突: {', '.join(issues)}",
+                [{"check_id": issue.split(":", 1)[0], "scenarios": [], "reason": "unverified_rule"} for issue in issues],
+                list(issues),
+            )
+    missing, required = _evidence_state(path, task, task_file)
+    if missing:
+        raise ParallelEvidenceError(
+            "required_evidence_missing",
+            f"{task}: required code checks 缺少匹配 input_hash 的 central evidence: "
+            f"{_evidence_summary(missing)}；先补 required 检查（在 worktree 内重跑 task finish）",
+            missing,
+            required,
+        )
+    return required
+
+
 def _collect_one(root: Path, entry: dict[str, object], base_head: str, task_file: str, commit: bool = True) -> dict[str, object]:
     task = str(entry["task"])
     path = Path(str(entry["path"]))
@@ -328,27 +583,37 @@ def _collect_one(root: Path, entry: dict[str, object], base_head: str, task_file
     except ValueError as exc:
         raise ParallelError("task_parse_error", f"{task}: {exc}") from exc
     status = next((node.status for node in nodes if node.task_id == task), None)
+    if status in ("provisional", "blocked"):
+        _reject_unfinished(task, status, path, task_file)
     if status not in FINISHED_STATUSES:
         raise ParallelError("task_not_finished", f"{task}: Status 为 {status}，未通过 Done Gate")
     if (path / MARKER).exists():
         raise ParallelError("active_marker_present", f"{task}: marker 未清理，finish 未完成")
     dirty = _status_paths(path)
     if dirty:
-        # finish 会在通过后回写 Evidence/状态；任务已 done 且 marker 已清理时，
-        # 这些回写由 collect 自动提交（--no-commit 可关闭，保持严格模式）。
+        outside = [item for item in dirty if not item.startswith(".code-flow/")]
+        if outside:
+            raise ParallelError(
+                "worktree_dirty",
+                f"{task}: .code-flow 之外存在未提交改动: {', '.join(outside[:8])}；"
+                "collect 只允许自动提交 finish 的流程回写",
+            )
+        # finish 会在通过后回写 Evidence/状态；只提交受管流程目录，绝不 add -A。
         if not commit:
             raise ParallelError(
                 "worktree_dirty",
-                f"{task}: 尚有未提交改动: {', '.join(dirty[:8])}；可在 worktree 内提交后重跑 collect，或去掉 --no-commit",
+                f"{task}: 尚有未提交的流程回写: {', '.join(dirty[:8])}；去掉 --no-commit 或手工提交",
             )
-        _run_git(path, ("add", "-A"))
+        _run_git(path, ("add", "-A", "--", ".code-flow"))
         _run_git(path, ("commit", "-q", "-m", f"cf-task({task}): finish 回写验收证据与任务状态"))
     head = _run_git(path, ("rev-parse", "HEAD")).strip()
     if head == base_head:
         raise ParallelError("no_commits", f"{task}: worktree 无新提交")
+    required = _require_evidence(task, path, task_file)
     files = _run_git(root, ("diff", "--name-only", f"{base_head}..{branch}")).splitlines()
     return {"task": task, "branch": branch, "path": str(path), "head": head,
-            "status": status, "files": sorted(item for item in files if item)}
+            "status": status, "files": sorted(item for item in files if item),
+            "evidence": {"required_checks": required, "verified_checks": required}}
 
 
 def collect(root: Path, run_id: str, tasks: Optional[Sequence[str]], commit: bool = True) -> dict[str, object]:
@@ -362,10 +627,26 @@ def collect(root: Path, run_id: str, tasks: Optional[Sequence[str]], commit: boo
     for entry in entries:
         try:
             results.append(_collect_one(root, entry, str(meta["base_head"]), str(meta["task_file"]), commit))
+        except ParallelEvidenceError as exc:
+            results.append({
+                "task": str(entry.get("task", "")),
+                "ok": False,
+                "code": exc.code,
+                "message": exc.message,
+                "missing_checks": list(exc.missing_checks),
+            })
         except ParallelError as exc:
             results.append({"task": str(entry.get("task", "")), "ok": False, "code": exc.code, "message": exc.message})
     ok = bool(results) and all(item.get("code") is None for item in results)
-    return {"ok": ok, "action": "collect", "run_id": run_id, "results": results}
+    payload: dict[str, object] = {"ok": ok, "action": "collect", "run_id": run_id, "results": results}
+    if ok:
+        # Batch-level smoke is executed once after merge (TASK-011); collect
+        # only records that the batch still owes it.
+        payload["batch_smoke"] = "pending"
+        _update_run_meta(root, run_id, {
+            "batch_smoke": {"status": "pending", "profile": "smoke"},
+        })
+    return payload
 
 
 # --- merge: rebase + deterministic state-file resolution + --no-ff back-merge ---
@@ -422,6 +703,12 @@ def _resolve_state_file(workdir: Path, relative: str, task: str) -> None:
             merged = merge_task_markdown(ours, theirs, task)
         else:
             raise ParallelError("state_file_unresolvable", f"{relative}: 非任务状态文件，需人工解决")
+    except MergeConflictError as exc:
+        raise ParallelError(
+            exc.code,
+            f"{relative}: {exc}",
+            {"conflicts": list(exc.conflicts)},
+        ) from exc
     except ValueError as exc:
         raise ParallelError("state_file_parse_error", f"{relative}: {exc}") from exc
     (workdir / relative).write_text(merged, encoding="utf-8")
@@ -504,6 +791,16 @@ def _merge_one(root: Path, main_branch: str, entry: dict, task_file: str) -> dic
     status = next((node.status for node in nodes if node.task_id == task), None)
     if status not in FINISHED_STATUSES:
         raise ParallelError("task_not_finished", f"{task}: Status 为 {status}，未通过 Done Gate")
+    main_manifest = _task_manifest(root, task_file)
+    worktree_manifest = _task_manifest(path, task_file)
+    if main_manifest is not None and worktree_manifest is not None:
+        from cf_task_merge import _check_conflicts
+        conflicts = _check_conflicts(main_manifest.get("checks"), worktree_manifest.get("checks"))
+        if conflicts:
+            detail = ", ".join(f"{item['check_id']}({','.join(item['fields'])})" for item in conflicts)
+            raise ParallelError("check_conflict", f"{task}: check 配置冲突: {detail}",
+                                {"conflicts": conflicts})
+    _require_evidence(task, path, task_file)
     if _status_paths(path):
         raise ParallelError("worktree_dirty", f"{task}: worktree 有未提交改动，先运行 collect")
     if _branch_is_ancestor(root, branch):
@@ -515,6 +812,49 @@ def _merge_one(root: Path, main_branch: str, entry: dict, task_file: str) -> dic
         "task": task, "ok": True, "status": "merged", "resolved": sorted(set(resolved)),
         "commit": _run_git(root, ("rev-parse", "HEAD")).strip(),
     }
+
+
+def _context_files(root: Path, task_file: str) -> list[Path]:
+    demand = root / Path(task_file).parent
+    return sorted(demand.rglob("spec-context.yml")) if demand.is_dir() else []
+
+
+def _write_text_atomic(path: Path, text: str) -> None:
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(text, encoding="utf-8")
+    temporary.replace(path)
+
+
+def _stale_after_merge(root: Path, task_file: str, input_hash: str) -> list[dict[str, object]]:
+    """Downgrade verified rules whose merge-time input hash changed.
+
+    The old evidence stays in place for audit; only the rule state becomes
+    stale so the next changed-profile run re-executes it instead of reusing a
+    green result from the pre-merge tree.
+    """
+    changed: list[dict[str, object]] = []
+    for path in _context_files(root, task_file):
+        try:
+            text = path.read_text(encoding="utf-8")
+            merged, stale = stale_context_text(text, input_hash)
+        except (OSError, ValueError) as exc:
+            raise ParallelError("stale_context_failed", f"{path}: {exc}") from exc
+        if not stale:
+            continue
+        _write_text_atomic(path, merged)
+        changed.append({"path": path.relative_to(root).as_posix(), "rules": stale})
+    manifest = root / Path(task_file).parent / ".acceptance-manifest.json"
+    if manifest.is_file():
+        from cf_acceptance_evidence import invalidate_manifest_evidence
+        try:
+            stale_rows = invalidate_manifest_evidence(root, manifest, input_hash)
+        except (OSError, ValueError) as exc:
+            raise ParallelError("stale_acceptance_failed", f"{manifest}: {exc}") from exc
+        if stale_rows:
+            changed.append({"path": manifest.relative_to(root).as_posix(),
+                            "scenarios": [row["scenario_id"] for row in stale_rows],
+                            "checks": sorted({check for row in stale_rows for check in row["checks"]})})
+    return changed
 
 
 def _refresh_demand(root: Path, task_file: str) -> str:
@@ -530,6 +870,85 @@ def _refresh_demand(root: Path, task_file: str) -> str:
     return f"block: {detail[-200:]}"
 
 
+_BATCH_SMOKE_BLOCKING = ("failed", "env_blocked", "incomplete")
+
+
+def _smoke_status(result: Mapping[str, object]) -> str:
+    if result.get("decision") == "pass":
+        return "passed"
+    if int(result.get("env_blocked") or 0) > 0:
+        return "env_blocked"
+    if int(result.get("incomplete") or 0) > 0:
+        return "incomplete"
+    return "failed"
+
+
+def _smoke_summary(result: Mapping[str, object]) -> dict[str, object]:
+    summary: dict[str, object] = {
+        "status": _smoke_status(result),
+        "profile": "smoke",
+        "changed": True,
+        "decision": result.get("decision", "block"),
+        "reason": result.get("reason", ""),
+        "executed": int(result.get("executed") or 0),
+        "reused": int(result.get("reused") or 0),
+        "failed": list(result.get("failed") or ()),
+        "env_blocked": int(result.get("env_blocked") or 0),
+        "incomplete": int(result.get("incomplete") or 0),
+    }
+    layers = result.get("layers")
+    if isinstance(layers, Mapping):
+        summary["layers"] = {
+            str(name): {
+                key: layer.get(key)
+                for key in ("decision", "reason", "executed", "reused", "env_blocked", "incomplete", "failed")
+            }
+            for name, layer in layers.items() if isinstance(layer, Mapping)
+        }
+    return summary
+
+
+def _run_batch_smoke(root: Path, run_id: str, task_file: str,
+                     task_ids: Sequence[str]) -> dict[str, object]:
+    """One post-merge smoke for the whole batch, reusing the layer runner."""
+    from cf_task_workflow import verify_layers
+
+    directory = root / Path(task_file).parent
+    try:
+        result = verify_layers(str(root), str(directory), layers="validators,e2e",
+                               profile="smoke", only_tasks=list(task_ids))
+    except (OSError, ValueError) as exc:
+        summary = {
+            "status": "failed", "profile": "smoke", "changed": True,
+            "decision": "block", "reason": "batch_smoke_error", "detail": str(exc),
+            "executed": 0, "reused": 0, "failed": [], "env_blocked": 0, "incomplete": 0,
+        }
+    else:
+        summary = _smoke_summary(result)
+    _update_run_meta(root, run_id, {
+        "batch_smoke": summary,
+        "batch_smoke_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return summary
+
+
+def _merge_entries(root: Path, main_branch: str, entries: Sequence[dict[str, object]],
+                   task_file: str) -> list[dict[str, object]]:
+    results: list[dict[str, object]] = []
+    for entry in entries:
+        try:
+            results.append(_merge_one(root, main_branch, entry, task_file))
+        except ParallelError as exc:
+            failure = {
+                "task": str(entry.get("task", "")), "ok": False,
+                "code": exc.code, "message": exc.message,
+            }
+            failure.update(exc.details)
+            results.append(failure)
+            break
+    return results
+
+
 def merge(root: Path, run_id: str, tasks: Optional[Sequence[str]]) -> dict[str, object]:
     root = root.resolve()
     _assert_repo(root)
@@ -538,33 +957,64 @@ def merge(root: Path, run_id: str, tasks: Optional[Sequence[str]]) -> dict[str, 
     if main_branch == "HEAD":
         raise ParallelError("detached_head", "主工作区处于 detached HEAD，无法回并")
     wanted = set(tasks) if tasks else None
-    entries = [item for item in meta.get("worktrees", []) if isinstance(item, dict)]
+    all_entries = [item for item in meta.get("worktrees", []) if isinstance(item, dict)]
+    all_task_ids = {str(item.get("task", "")) for item in all_entries}
+    full_batch = wanted is None or wanted >= all_task_ids
+    entries = all_entries
     if wanted:
         entries = [item for item in entries if item.get("task") in wanted]
     entries.sort(key=lambda item: str(item.get("task", "")))
     task_file = str(meta["task_file"])
-    results: list[dict[str, object]] = []
-    for entry in entries:
-        try:
-            results.append(_merge_one(root, main_branch, entry, task_file))
-        except ParallelError as exc:
-            results.append(
-                {"task": str(entry.get("task", "")), "ok": False, "code": exc.code, "message": exc.message}
-            )
-            break
+    before_hash = worktree_fingerprint(str(root), include_untracked=False)
+    results = _merge_entries(root, main_branch, entries, task_file)
     ok = bool(results) and all(item.get("ok") for item in results)
     payload: dict[str, object] = {
         "ok": ok, "action": "merge", "run_id": run_id,
         "main_branch": main_branch, "results": results,
     }
-    if ok and (root / Path(task_file).parent / "spec-context.yml").is_file():
-        payload["refresh"] = _refresh_demand(root, task_file)
+    after_hash = worktree_fingerprint(str(root), include_untracked=False)
+    if after_hash and (before_hash != after_hash or any(row.get("status") == "merged" for row in results)):
+        payload["input_hash"] = after_hash
+        payload["stale"] = _stale_after_merge(root, task_file, after_hash)
+    if ok:
+        if (root / Path(task_file).parent / "spec-context.yml").is_file():
+            payload["refresh"] = _refresh_demand(root, task_file)
+        previous = meta.get("batch_smoke")
+        previous_status = previous.get("status") if isinstance(previous, Mapping) else ""
+        merged_any = any(item.get("status") == "merged" for item in results)
+        if full_batch and (merged_any or previous_status != "passed"):
+            smoke = _run_batch_smoke(root, run_id, task_file, sorted(all_task_ids))
+            payload["batch_smoke"] = smoke
+            if smoke.get("status") != "passed":
+                payload["ok"] = False
+                payload["code"] = "batch_smoke_failed"
+                payload["message"] = (
+                    f"批次 smoke {smoke.get('status')}: "
+                    f"{smoke.get('reason') or 'shared environment verification failed'}；保留 worktree"
+                )
+        elif isinstance(previous, Mapping) and previous_status == "passed":
+            payload["batch_smoke"] = dict(previous)
     return payload
 
 
 def cleanup(root: Path, run_id: str, force: bool) -> dict[str, object]:
     root = root.resolve()
     meta = _read_run_meta(root, run_id)
+    smoke = meta.get("batch_smoke")
+    if not force and isinstance(smoke, Mapping) and smoke.get("status") in _BATCH_SMOKE_BLOCKING:
+        message = (
+            f"批次 smoke {smoke.get('status')}，保留 worktree；"
+            "修复后重新 merge，或 --force 明确放弃现场"
+        )
+        return {
+            "ok": False, "action": "cleanup", "run_id": run_id,
+            "code": "batch_smoke_failed", "message": message,
+            "results": [
+                {"task": item.get("task"), "removed": False,
+                 "code": "batch_smoke_failed", "message": message}
+                for item in meta.get("worktrees", []) if isinstance(item, dict)
+            ],
+        }
     results: list[dict[str, object]] = []
     for item in meta.get("worktrees", []):
         if not isinstance(item, dict):
@@ -635,6 +1085,7 @@ def main(argv: Optional[Sequence[str]] = None, stdout: IO[str] = sys.stdout) -> 
             payload = cleanup(root, args.run_id, args.force)
     except ParallelError as exc:
         payload = {"ok": False, "action": args.action, "code": exc.code, "message": exc.message}
+        payload.update(exc.details)
     _emit(payload, stdout)
     return 0 if payload.get("ok") else 2
 

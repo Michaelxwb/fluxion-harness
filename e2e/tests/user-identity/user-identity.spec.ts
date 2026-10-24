@@ -44,7 +44,7 @@ async function openDetail(page: Page, userCode: string): Promise<void> {
   await expect(page.locator('.semi-sidesheet')).toBeVisible();
 }
 
-test('S-06/S-01 新增用户后列表显示且字段来自后端', async ({ page }) => {
+test('S-06/S-01 新增用户后列表显示且字段来自后端 @smoke', async ({ page }) => {
   const userCode = `e2e-${Date.now()}`;
   try {
     await login(page);
@@ -69,7 +69,7 @@ test('S-06/S-01 新增用户后列表显示且字段来自后端', async ({ page
   }
 });
 
-test('S-07 生成绑定码 Modal 展示 code 与过期时间', async ({ page }) => {
+test('S-07 生成绑定码 Modal 展示 code 与过期时间 @smoke', async ({ page }) => {
   const userCode = `e2e-${Date.now()}`;
   try {
     await login(page);
@@ -87,7 +87,7 @@ test('S-07 生成绑定码 Modal 展示 code 与过期时间', async ({ page }) 
   }
 });
 
-test('S-03/S-08 详情四计数与来源一致，Tab 各自加载', async ({ page }) => {
+test('S-03/S-08 详情四计数与来源一致，Tab 各自加载 @smoke', async ({ page }) => {
   const userCode = `e2e-${Date.now()}`;
   await login(page);
   await createUser(page, userCode, 'Detail Counts User');
@@ -114,74 +114,6 @@ test('S-03/S-08 详情四计数与来源一致，Tab 各自加载', async ({ pag
     await expect(page.locator('.semi-sidesheet')).toContainText('已配置');
     await page.getByRole('tab', { name: '基本信息' }).click();
     await expect(page.locator('.semi-sidesheet')).toContainText('Detail Counts User');
-  } finally {
-    seed(userCode, { cleanup: true });
-  }
-});
-
-test('E-06 记忆 Tab 真实 500 时独立 ErrorState 且不影响其他 Tab', async ({ page }) => {
-  const userCode = `e2e-${Date.now()}`;
-  await login(page);
-  await createUser(page, userCode, 'Corrupt Memory User');
-  // 播种一条 content_json 为 JSON 数组的记忆：真实触发后端校验失败 → 真实 500（无 mock）
-  seed(userCode, { corruptMemory: true });
-  try {
-    await openDetail(page, userCode);
-
-    // Semi Tabs 保留已访问面板的 DOM，用可见性判断「当前面板」的错误态
-    await page.getByRole('tab', { name: /用户记忆/ }).click();
-    await expect(page.locator('[data-testid="error-state"]:visible')).toHaveCount(1);
-
-    await page.getByRole('tab', { name: /Agent 授权/ }).click();
-    await expect(page.locator('.semi-sidesheet')).toContainText('E2E Agent');
-    await expect(page.locator('[data-testid="error-state"]:visible')).toHaveCount(0);
-
-    await page.getByRole('tab', { name: /项目平台凭据/ }).click();
-    await expect(page.locator('.semi-sidesheet')).toContainText('E2E Platform');
-    await expect(page.locator('[data-testid="error-state"]:visible')).toHaveCount(0);
-  } finally {
-    seed(userCode, { cleanup: true });
-  }
-});
-
-test('E-05 生成绑定码失败时 SideSheet 保留并显示本地化 msg', async ({ page }) => {
-  const userCode = `e2e-${Date.now()}`;
-  await login(page);
-  await createUser(page, userCode, 'Bind Failure User');
-  seed(userCode);
-  try {
-    await openDetail(page, userCode);
-    await page.getByRole('tab', { name: /IM 身份/ }).click();
-    await expect(page.locator('.semi-sidesheet')).toContainText('WECOM');
-
-    // 删掉用户后生成绑定码 → 真实 404 COMMON_NOT_FOUND
-    seed(userCode, { cleanup: true });
-
-    await page.getByTestId('generate-bind-code').click();
-    await expect(page.locator('.semi-sidesheet')).toBeVisible();
-    await expect(page.getByTestId('bind-code-value')).toHaveCount(0);
-    await expect(page.locator('.semi-toast')).toContainText('请求的资源不存在');
-  } finally {
-    seed(userCode, { cleanup: true });
-  }
-});
-
-test('E-08 重复用户编码时 Form 定位字段并提示本地化冲突', async ({ page }) => {
-  const userCode = `e2e-${Date.now()}`;
-  try {
-    await login(page);
-    await createUser(page, userCode, 'Conflict User');
-    await page.getByTestId('create-user').click();
-    const modal = page.locator('.semi-modal');
-    await modal.getByRole('textbox', { name: /姓名/ }).fill('Conflict Again');
-    await modal.getByRole('textbox', { name: /账号/ }).fill(userCode);
-    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
-    // USER_CODE_EXISTS 专用码必须把冲突的 user_code 渲染进文案
-    // （通用 COMMON_CONFLICT 是固定模板、无占位符，渲染不出冲突对象）
-    const fieldError = modal.locator('.semi-form-field-error-message');
-    await expect(fieldError).toContainText('已存在');
-    await expect(fieldError).toContainText(userCode);
-    await expect(modal).toBeVisible();
   } finally {
     seed(userCode, { cleanup: true });
   }

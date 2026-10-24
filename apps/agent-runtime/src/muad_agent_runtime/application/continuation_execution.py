@@ -11,10 +11,16 @@ from ..infrastructure.db import get_session_factory
 from ..infrastructure.models.runtime import CanonicalEvent, RunRecord, RunSubmission
 from .async_tools.supervisor import ExecutionSupervisor
 from .attachments.inbound import PersistedAttachment, attachments_from_payload
-from .context_settings import compaction_settings_of
+from .context_settings import compaction_settings_of, pool_execution_policy_of
 from .executor import ExecutorFactory
 from .ports import CredentialsClient, PlatformSettingsClient, ResolveClient
-from .run_service import RunService, execution_defaults_of, summary_model_of
+from .run_service import (
+    RunService,
+    execution_defaults_of,
+    frozen_model_members_of,
+    frozen_summary_members_of,
+    summary_model_of,
+)
 
 
 def continuation_executor(
@@ -93,6 +99,9 @@ async def _restore_and_run(service: RunService, run: RunRecord, submission_id: U
         summary_model=summary_model_of(snapshot.policy_json),
     )
     text, attachments = await _current_input(service, run, submission_id)
+    # 队列领取（continuation pump）执行的 Run 也是**同一个 Run 的冻结快照**：模型池策略与
+    # 非密钥成员引用必须一并带进 executor。漏传会让这条路径静默退回直连 provider——
+    # 不预占容量、不计调度、没有租约（双实例下偶发“某次调用凭空少一条 dispatch/lease”）。
     stream = service._stream_run(
         run=run,
         agent=agent,
@@ -108,6 +117,9 @@ async def _restore_and_run(service: RunService, run: RunRecord, submission_id: U
         summary_model=summary,
         current_text=text,
         current_attachments=attachments,
+        pool=pool_execution_policy_of(snapshot.policy_json),
+        members=frozen_model_members_of(snapshot.policy_json),
+        summary_members=frozen_summary_members_of(snapshot.policy_json),
     )
     async for _ in stream:
         pass

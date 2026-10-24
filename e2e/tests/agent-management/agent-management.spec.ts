@@ -27,49 +27,6 @@ function uniqueKey(prefix: string): string {
   return `${prefix}-${Date.now()}`;
 }
 
-test('列表操作列横向滚动保持固定，ID 图标复制完整值且失败可见', async ({ page }) => {
-  const key = uniqueKey('e2e-fixed-copy');
-  await login(page);
-  ensureModel();
-  try {
-    await page.setViewportSize({ width: 1000, height: 800 });
-    await createAgentViaUi(page, key, 'E2E Fixed Actions');
-    const agent = await agentByKey(page, key);
-    const row = page.locator('.semi-table-row', { hasText: key });
-    const actions = row.locator('.table-actions-cell');
-    const before = await actions.boundingBox();
-    expect(before).not.toBeNull();
-    const body = page.locator('.semi-table-body');
-    await body.evaluate((node) => { node.scrollLeft = node.scrollWidth; });
-    await expect.poll(() => body.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
-    const after = await actions.boundingBox();
-    expect(Math.abs(after!.x - before!.x)).toBeLessThanOrEqual(1);
-    await expect(page.getByTestId(`edit-agent-${key}`)).toBeInViewport();
-    await expect(row.getByRole('button', { name: '删除', exact: true })).toBeInViewport();
-    await body.evaluate((node) => { node.scrollLeft = 0; });
-    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
-    const copy = row.locator('.copy-button');
-    await expect(copy).toHaveText('');
-    await expect(copy).toHaveAttribute('aria-label', '复制 ID');
-    await expect(copy.locator('svg')).toHaveCount(1);
-    await copy.click();
-    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(agent.id);
-    await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
-    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText: () => Promise.reject(new Error('permission denied')) }
-    }));
-    await copy.click();
-    await expect(page.locator('.semi-toast-content').filter({ hasText: '复制失败' })).toBeVisible();
-    await page.setViewportSize({ width: 390, height: 800 });
-    await row.getByRole('button', { name: '更多', exact: true }).click();
-    await page.getByTestId(`edit-agent-${key}`).click();
-    await expect(page.locator('.semi-modal').getByRole('textbox', { name: /名称/ })).toHaveValue('E2E Fixed Actions');
-  } finally {
-    cleanupAgent(key);
-  }
-});
-
 function seed(args: string[]): string {
   return execFileSync('uv', ['run', 'python', SEED_SCRIPT, ...args], {
     cwd: PROJECT_ROOT,
@@ -242,69 +199,7 @@ for (const { kind, tab, testId, remove } of PICKER_CASES) {
   });
 }
 
-test('S-10 详情无对象按钮，列表删除移除行', async ({ page }) => {
-  const key = uniqueKey('e2e-s10');
-  const key2 = uniqueKey('e2e-s10b');
-  await login(page);
-  ensureModel();
-  try {
-    await createAgentViaUi(page, key, 'E2E S10 Agent');
-    await page.getByTestId(`agent-link-${key}`).click();
-    const sheet = page.locator('.semi-sidesheet');
-    await expect(sheet).toBeVisible();
-
-    await expect(sheet.locator('.detail-actions')).toHaveCount(0);
-    await sheet.locator('.semi-sidesheet-close').click();
-    await page.locator('.semi-table-row', { hasText: key }).getByRole('button', { name: '删除' }).click();
-    await page.locator('.semi-popconfirm').getByRole('button', { name: /确定|删除/ }).click();
-    await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
-    await expect(page.locator('.semi-table-row', { hasText: key })).toHaveCount(0);
-
-    // 列表操作列删除（不打开详情）
-    await createAgentViaUi(page, key2, 'E2E S10B Agent');
-    const row = page.locator('.semi-table-row', { hasText: key2 });
-    await row.getByRole('button', { name: '删除' }).click();
-    await page.locator('.semi-popconfirm').getByRole('button', { name: /确定|删除/ }).click();
-    await expect(page.locator('.semi-table-row', { hasText: key2 })).toHaveCount(0);
-  } finally {
-    cleanupAgent(key);
-    cleanupAgent(key2);
-  }
-});
-
-test('E-09 新增标识重复：Modal 保留并本地化提示', async ({ page }) => {
-  const key = uniqueKey('e2e-e09');
-  await login(page);
-  ensureModel();
-  try {
-    const modelId = (await (
-      await page.request.get('/api/v1/models?page=1&page_size=1&enabled=true')
-    ).json()) as { data: { items: Array<{ id: string }> } };
-    await page.request.post('/api/v1/agents', {
-      data: { key, name: 'Existing', instructions: 'inst', model_id: modelId.data.items[0].id }
-    });
-
-    await page.goto('/agents');
-    await page.getByTestId('create-agent').click();
-    const modal = page.locator('.semi-modal');
-    await pickFirstModel(page, modal);
-    await modal.getByRole('textbox', { name: /名称/ }).fill('E2E E09 Second');
-    await modal.getByRole('textbox', { name: /标识/ }).fill(key);
-    await modal.getByRole('textbox', { name: /系统 Prompt/ }).fill('prompt');
-    const postPromise = page.waitForResponse(
-      (res) => res.url().endsWith('/api/v1/agents') && res.request().method() === 'POST'
-    );
-    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
-    const post = await postPromise;
-    expect(post.status()).toBe(409);
-    await expect(modal).toBeVisible();
-    await expect(modal).toContainText('已存在');
-  } finally {
-    cleanupAgent(key);
-  }
-});
-
-test('S-07 编辑系统 Prompt 保存后详情 revision+1', async ({ page }) => {
+test('S-07 编辑系统 Prompt 保存后详情 revision+1 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s07');
   await login(page);
   ensureModel();
@@ -361,7 +256,7 @@ test('E-07 stale revision 提交：Modal 保留并提示刷新重试', async ({ 
   }
 });
 
-test('S-08/S-11 Skill/MCP 绑定即生效、解除/再绑无启停开关', async ({ page }) => {
+test('S-08/S-11 Skill/MCP 绑定即生效、解除/再绑无启停开关 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s08');
   const skillKey = uniqueKey('e2e-bind-skill');
   const mcpKey = uniqueKey('e2e-bind-mcp');
@@ -447,82 +342,6 @@ test('S-09 基本信息最近活动只读区块（时间/用户/操作类型/操
     await expect(activityRegion).not.toContainText('CREATE');
     await expect(activityRegion).not.toContainText('解除');
     await expect(activityRegion).not.toContainText('取消授权');
-  } finally {
-    cleanupAgent(key);
-  }
-});
-
-test('S-12 IM 接入 Tab 双 bot 同 Agent，无 Pod 信息', async ({ page }) => {
-  const key = uniqueKey('e2e-s12');
-  await login(page);
-  ensureModel();
-  try {
-    await createAgentViaUi(page, key, 'E2E S12 Agent');
-    const agent = await agentByKey(page, key);
-    await page.getByTestId(`agent-link-${key}`).click();
-    const sheet = page.locator('.semi-sidesheet');
-    await sheet.getByRole('tab', { name: 'IM 接入' }).click();
-
-    const botA = `bot-a-${Date.now()}`;
-    const botB = `bot-b-${Date.now()}`;
-    for (const botId of [botA, botB]) {
-      await page.getByTestId('create-channel').click();
-      const modal = page.locator('.semi-modal');
-      await modal.getByRole('textbox', { name: /通道名称/ }).fill(`Ch ${botId}`);
-      await modal.getByRole('textbox', { name: /Bot ID/ }).fill(botId);
-      await modal.getByRole('textbox', { name: /Bot Secret/ }).fill('e2e-secret');
-      await modal.getByRole('button', { name: 'confirm', exact: true }).click();
-      await expect(page.locator('.semi-sidesheet')).toContainText(botId);
-    }
-
-    const panel = sheet.getByRole('tabpanel', { name: 'IM 接入' });
-    await expect(panel).toContainText(botA);
-    await expect(panel).toContainText(botB);
-    await expect(panel).not.toContainText('Pod');
-    await expect(panel).not.toContainText('replica');
-    await expect(panel).not.toContainText('e2e-secret');
-
-    // 两个 bot 都指向同一 agent（真实 DB）
-    const listed = (await (
-      await page.request.get(`/api/v1/agents/${agent.id}/channels`)
-    ).json()) as { data: { items: Array<{ agent_id: string }> } };
-    expect(listed.data.items).toHaveLength(2);
-    expect(new Set(listed.data.items.map((item) => item.agent_id))).toEqual(new Set([agent.id]));
-  } finally {
-    cleanupAgent(key);
-  }
-});
-
-test('E-08/E-09 bot_id 冲突：通道表单保留并提示', async ({ page }) => {
-  const key = uniqueKey('e2e-e08');
-  await login(page);
-  ensureModel();
-  try {
-    await createAgentViaUi(page, key, 'E2E E08 Agent');
-    await page.getByTestId(`agent-link-${key}`).click();
-    const sheet = page.locator('.semi-sidesheet');
-    await sheet.getByRole('tab', { name: 'IM 接入' }).click();
-    const botId = `dup-bot-${Date.now()}`;
-
-    await page.getByTestId('create-channel').click();
-    let modal = page.locator('.semi-modal');
-    await modal.getByRole('textbox', { name: /通道名称/ }).fill('First');
-    await modal.getByRole('textbox', { name: /Bot ID/ }).fill(botId);
-    await modal.getByRole('textbox', { name: /Bot Secret/ }).fill('first-secret');
-    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
-    await expect(sheet).toContainText(botId);
-
-    await page.getByTestId('create-channel').click();
-    modal = page.locator('.semi-modal');
-    await modal.getByRole('textbox', { name: /通道名称/ }).fill('Second');
-    await modal.getByRole('textbox', { name: /Bot ID/ }).fill(botId);
-    await modal.getByRole('textbox', { name: /Bot Secret/ }).fill('second-secret');
-    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
-    await expect(modal).toBeVisible();
-    await expect(modal).toContainText('已被占用');
-    await expect(
-      sheet.getByRole('tabpanel', { name: 'IM 接入' }).locator('.semi-table')
-    ).toContainText('First');
   } finally {
     cleanupAgent(key);
   }

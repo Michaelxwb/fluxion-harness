@@ -445,10 +445,13 @@ test('S-106 模型 Key 新增/编辑/解绑与 SideSheet 关闭不破坏列表�
   await detail.locator('.semi-tabs-tab', { hasText: '成员' }).click();
   await expect(detail.getByTestId('model-member-panel')).toBeVisible();
   await detail.getByTestId('bind-member').click();
-  const memberKey = e2eResourceKey(offset, `member-ui-${randomUUID().slice(0, 8)}`);
   const memberModal = modalWithTitle(page, '绑定成员');
-  await fillFormField(memberModal, /标识/, memberKey);
   await selectOption(page, memberModal, credentialKey);
+  // 成员标识由所选物理 Key 自动派生且只读：不再手填，读取派生值用于后续断言。
+  const memberKeyInput = memberModal.locator('input#key');
+  await expect(memberKeyInput).toBeDisabled();
+  const memberKey = (await memberKeyInput.inputValue()).trim();
+  expect(memberKey.length).toBeGreaterThan(0);
   await fillFormField(memberModal, /权重/, '2');
   await confirmModalSave(page, memberModal);
   await expect(detail.locator('.semi-table-row', { hasText: memberKey })).toBeVisible();
@@ -1007,6 +1010,14 @@ test('S-115 设置页展示单位/范围/生效说明，非法值按后端 detai
     .toBe(true);
   await context.close();
   await api.context.dispose();
+
+  // 恢复默认设置：后续历史分页用例按默认 page_size=50 断言，不能继承本用例的 7。
+  const restored = await saveSettingsViaApi(
+    page,
+    settingsDocument({}),
+    currentSettingsRevision(tenant)
+  );
+  expect(restored.status, JSON.stringify(restored)).toBe(200);
 });
 
 // --------------------------------------------------------------------------- E-21

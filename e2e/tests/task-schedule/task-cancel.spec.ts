@@ -49,7 +49,7 @@ test.describe('Task 取消', () => {
     await request.post('/__e2e/cleanup');
   });
 
-  test('S-FE-02 确认前不发请求，确认后终态 CANCELLED、按钮消失且列表同步', async ({
+  test('S-FE-02 确认前不发请求，确认后终态 CANCELLED、按钮消失且列表同步 @smoke', async ({
     page,
     request
   }) => {

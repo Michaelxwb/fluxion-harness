@@ -297,8 +297,10 @@ def port_is_free(port: int) -> bool:
 
 
 def process_command_line(pid: int) -> str:
+    # `-ww` 关闭 ps 的终端宽度截断：CI runner 的非 tty 宽度会把
+    # `python -m uvicorn <module>:app` 截成 `... -m uvicorn mu`，让入口断言假红。
     completed = subprocess.run(
-        ["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True
+        ["ps", "-ww", "-o", "command=", "-p", str(pid)], capture_output=True, text=True
     )
     if completed.returncode != 0:
         raise StackError(f"无法读取进程 {pid} 的命令行：{completed.stderr.strip()}")

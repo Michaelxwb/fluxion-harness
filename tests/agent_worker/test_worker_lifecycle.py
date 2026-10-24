@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from muad_agent_worker.application.task_service import TaskService
@@ -268,9 +269,15 @@ class _FakeNotifier:
         self.closed = True
 
 
-async def test_b122_lifespan_runs_and_stops_all_background_loops(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_b122_lifespan_runs_and_stops_all_background_loops(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """真实 lifespan 启动各后台循环（含独立维护循环）；退出时全部取消并等待，无悬挂任务。"""
     import muad_agent_worker.main as main_module
+
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    monkeypatch.setenv("ARTIFACT_ROOT", str(artifacts))
 
     _FakeLoop.instances = []
     _FakeLoop.maintenance_instances = []
@@ -329,10 +336,14 @@ async def test_b122_lifespan_fails_fast_when_migrations_missing(monkeypatch: pyt
 
 async def test_b122_readyz_uses_shared_probes_for_database_and_artifact_storage(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     """就绪探针来自 api-kit 共享原语：DB + Artifact/NFS 存储；Redis 只作 hint 详情。"""
     import muad_agent_worker.main as main_module
     from httpx import ASGITransport, AsyncClient
+
+    # 干净检出没有仓库根的 .data；就绪断言用真实存在的临时挂载根，不依赖本地开发目录。
+    monkeypatch.setenv("ARTIFACT_ROOT", str(tmp_path))
 
     transport = ASGITransport(app=main_module.app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

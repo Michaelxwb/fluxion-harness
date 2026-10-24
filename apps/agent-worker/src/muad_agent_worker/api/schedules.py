@@ -197,6 +197,8 @@ async def pause_schedule(
     schedule = await ScheduleService(session).pause_schedule(
         tenant_id, schedule_id, actor_user_id=actor_user_id
     )
+    # 先提交再响应：调用方收到成功后会立刻回读，teardown 提交在响应之后会读到旧状态。
+    await session.commit()
     return ok(request.app.state.message_catalog, _payload(schedule))
 
 
@@ -212,6 +214,7 @@ async def resume_schedule(
     schedule = await ScheduleService(session).resume_schedule(
         tenant_id, schedule_id, actor_user_id=actor_user_id
     )
+    await session.commit()
     return ok(request.app.state.message_catalog, _payload(schedule))
 
 
@@ -227,6 +230,7 @@ async def delete_schedule(
     await ScheduleService(session).delete_schedule(
         tenant_id, schedule_id, actor_user_id=actor_user_id
     )
+    await session.commit()
     return ok(
         request.app.state.message_catalog, {"schedule_id": str(schedule_id), "deleted": True}
     )

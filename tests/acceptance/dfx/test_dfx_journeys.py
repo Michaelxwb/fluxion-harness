@@ -96,6 +96,13 @@ async def _rows(statement: str, params: dict[str, Any]) -> list[Any]:
         await engine.dispose()
 
 
+async def _run_is_running(run_id: str) -> bool:
+    rows = await _rows(
+        "SELECT status FROM runtime.run_record WHERE id = :r", {"r": uuid.UUID(run_id)}
+    )
+    return bool(rows) and rows[0][0] == "RUNNING"
+
+
 async def _execute(statement: str, params: dict[str, Any]) -> None:
     engine = create_async_engine(SharedSettings().require_database_url())
     try:
@@ -606,6 +613,14 @@ async def test_s09_cancel_running_is_cooperative_and_terminal(
                     streamed.append(json.loads(line[len("data:") :].strip()))
                     if len(streamed) == 1:
                         assert streamed[0]["type"] == "run.created", streamed[0]
+                        # `run.created` 只证明 Run 行已提交，执行 Pod 可能还没领取、把状态迁到
+                        # RUNNING。此时取消会走「未开始执行直接 CAS 终态」路径（响应即
+                        # CANCELLED），本用例验证的是**执行中**的协作取消：先等真实盘面 RUNNING。
+                        run_id = str(streamed[0]["run_id"])
+                        await _await_value(
+                            lambda rid=run_id: _run_is_running(rid),
+                            what="Run 未在取消前进入 RUNNING（协作取消路径未被覆盖）",
+                        )
                         cancelled = await client.post(
                             f"{stack.runtime_url}{CANCEL_ACTIVE_PATH}",
                             json={
@@ -627,7 +642,6 @@ async def test_s09_cancel_running_is_cooperative_and_terminal(
     assert streamed[-1]["type"] == "run.completed", streamed[-1]
     assert streamed[-1]["data"]["status"] == "CANCELLED", streamed[-1]
 
-    run_id = str(streamed[0]["run_id"])
     row = await _rows(
         "SELECT status, cancel_requested FROM runtime.run_record WHERE id = :r",
         {"r": uuid.UUID(run_id)},

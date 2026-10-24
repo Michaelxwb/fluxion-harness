@@ -5,6 +5,12 @@ globs: []
 
 # cf-task:verify-e2e
 
+
+## 验证子动作（0.8）
+
+- `code-flow task verify --checks` — 等价于 `--layers validators`，是 `cf-validate` 的 0.8 入口。
+- `cf-validate` 保留为兼容别名，0.9.0 移除。
+
 执行需求目录下被延迟的 E2E 验收场景。
 
 ## 使用场景
@@ -16,6 +22,10 @@ globs: []
 3. **全量 validation**：执行 `validation.yml` 全部 validator（含 `heavy: true` 全量套件/构建/E2E）；结果按工作树内容指纹缓存，归档复验命中即复用、不重复执行，`code-flow validate --no-cache` 强制重跑。
 
 失败不写 verified、不反转已 done 的任务状态；归档前必须 `decision=pass`。未声明 review verifier 且无 E2E 场景时为空操作（`reason=nothing_to_verify`）。
+
+> 0.8 分层入口：`code-flow task verify --layers validators,review,e2e --profile smoke|changed|full`。每层独立返回 `decision/executed/reused/failed/env_blocked/incomplete`，`profile` 默认 `changed`，`full` 必须显式；`task verify-e2e` 保留为兼容别名（全层 + full）。
+>
+> E2E 也按范围执行：`profile=changed` 只跑 `trigger_paths` 命中当前 diff 的 E2E，没有 `trigger_paths` 的 smoke E2E 不会在 changed 中顺跑；`profile=smoke` 只跑标记 `smoke` / `profile=smoke` 的 E2E（旧计划没有 smoke 标记时才回退全量 E2E）。不要把全量 E2E 当成每个小改动的默认门禁。
 
 ## 调用方式
 
@@ -139,6 +149,7 @@ E2E 失败时：
 运行时命令示例（由命令契约生成；实际参数见各命令 --help）：
 
 ```bash
+code-flow task verify --task-dir "<需求目录>" --layers validators,review,e2e --profile changed --root "$PWD" --json
 code-flow task verify-e2e --task-dir "<需求目录>" --root "$PWD" --json
 code-flow task confirm-manual --help
 code-flow acceptance run --manifest "<需求目录>/.acceptance-manifest.json" --root "$PWD" --write-evidence

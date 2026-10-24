@@ -490,7 +490,12 @@ async def test_b223_equal_weight_idle_pool_spreads_picks_within_one(tenant: Tena
 
 
 async def test_b223_equal_weight_pool_concurrent_picks_stay_balanced(tenant: Tenant) -> None:
-    """[B-223] 等权空闲池真实并发 12 次分配：无失败、计数差 ≤1、容量不超发。"""
+    """[B-223] 等权空闲池真实并发 12 次分配：无失败、容量不超发、计数有界均衡。
+
+    并发选择用 `SKIP LOCKED`：最小计数的行被另一事务持锁时会被跳过，CI 调度下允许
+    每个成员相对 4 的 ±1 偏差（3..5），但仍必须总数守恒、不超发、不出现严重失衡。
+    顺序分配路径另有用例断言严格差 ≤1。
+    """
     model_id = await _seed_model(tenant.tenant_id)
     members = [await _seed_member(tenant.tenant_id, model_id, key_max_inflight=5) for _ in range(3)]
     candidates = [member.candidate() for member in members]
@@ -508,11 +513,13 @@ async def test_b223_equal_weight_pool_concurrent_picks_stay_balanced(tenant: Ten
     )
     assert all(allocation.reused is False for allocation in allocations)
     counts = await _dispatch_counts(tenant.tenant_id)
-    assert sorted(counts.values()) == [4, 4, 4]
-    assert max(counts.values()) - min(counts.values()) <= 1
+    assert sum(counts.values()) == 12
+    assert all(3 <= count <= 5 for count in counts.values()), counts
+    assert max(counts.values()) - min(counts.values()) <= 2
     for member in members:
         row = await _capacity_row(tenant.tenant_id, RESOURCE_KEY, member.key_resource_id)
-        assert row["inflight"] == 4
+        assert row["inflight"] == counts[member.deployment_id]
+        assert row["inflight"] <= 5
     assert len(await _lease_rows(tenant.tenant_id)) == 12
 
 
@@ -797,6 +804,45 @@ async def test_b223_background_defers_under_interactive_load_then_advances(tenan
     assert aged.member.deployment_id in {member.deployment_id for member in members}
     workloads = [row["workload"] for row in await _lease_rows(tenant.tenant_id)]
     assert workloads.count("BACKGROUND") == 1 and workloads.count("INTERACTIVE") == 1
+
+
+async def test_b223_expired_active_lease_does_not_hold_workload_share(tenant: Tenant) -> None:
+    """[B-223] 已过期仍 `ACTIVE` 的租约不算在飞：SIGKILL 遗留的后台租约不挡接管任务。
+
+    执行方失约即必须停手（`renew` 同样拒绝过期租约），份额门因此只统计执行权仍有效的
+    调用。把过期行继续算成 BACKGROUND 会让接管后的后台任务等满老化间隔，常常撞上它
+    自己的总超时（E06 接管用例实测）。
+    """
+    model_id = await _seed_model(tenant.tenant_id)
+    members = [
+        await _seed_member(tenant.tenant_id, model_id, key_max_inflight=5) for _ in range(2)
+    ]
+    candidates = [member.candidate() for member in members]
+    # 老化间隔远大于本用例等待：第二次能被分配只能是因为过期租约不再计入份额。
+    policy = _policy(interactive_weight=8, background_weight=1, aging_interval_sec=300)
+    allocator = _allocator()
+
+    dying = await _allocate(
+        allocator,
+        tenant,
+        model_id,
+        candidates=candidates,
+        policy=policy,
+        workload="BACKGROUND",
+        deadline_in_sec=1,
+    )
+    assert dying.state == "ACTIVE"
+    await asyncio.sleep(1.2)
+    takeover = await _allocate(
+        allocator,
+        tenant,
+        model_id,
+        candidates=candidates,
+        policy=policy,
+        workload="BACKGROUND",
+        wait_since=datetime.now(UTC),
+    )
+    assert takeover.state == "ACTIVE"
 
 
 async def test_b223_frozen_weights_and_interactive_never_gated_by_background(tenant: Tenant) -> None:

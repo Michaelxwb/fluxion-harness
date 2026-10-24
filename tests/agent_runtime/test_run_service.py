@@ -109,6 +109,17 @@ async def test_cooperative_cancel_stops_running_execution(
         first = await anext(iterator)
         assert first.type == "run.created"
 
+        # `run.created` 只证明存储行已提交；执行任务可能还没把 Run 迁到 RUNNING。
+        # 取消必须发生在协作式执行真正开始之后，否则会走「未运行直接取消」路径。
+        for _ in range(500):
+            async with session_factory() as probe:
+                run = await probe.get(RunRecord, started.run_id)
+                if run is not None and run.status == RunStatus.RUNNING:
+                    break
+            await asyncio.sleep(0.01)
+        else:
+            raise AssertionError("Run 未在取消前进入 RUNNING")
+
         async with session_factory() as cancel_session:
             canceller = RunService(
                 cancel_session,

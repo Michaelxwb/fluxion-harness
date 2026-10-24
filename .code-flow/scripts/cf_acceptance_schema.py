@@ -7,11 +7,25 @@ from pathlib import Path
 from typing import Mapping
 
 
-def verified_evidence(row: Mapping[str, object]) -> bool:
+EXEC_MODES = ("auto", "manual", "deferred", "aspirational")
+
+
+def scenario_check_ids(row: Mapping[str, object]) -> list[str]:
+    """The plural mapping is authoritative when present and non-empty."""
+    checks = row.get("checks")
+    if isinstance(checks, list) and checks:
+        return list(dict.fromkeys(str(value) for value in checks))
+    check = row.get("check")
+    return [check] if isinstance(check, str) and check else []
+
+
+def verified_evidence(row: Mapping[str, object], fingerprint: str = "") -> bool:
     evidence = row.get("evidence")
     if row.get("status") != "verified" or not isinstance(evidence, dict):
         return False
-    if row.get("kind") != "manual":
+    if row.get("kind") != "manual" and row.get("exec") != "manual":
+        if fingerprint and evidence.get("fingerprint") != fingerprint:
+            return False
         return evidence.get("status") == "passed" and evidence.get("exit_code") == 0
     author, detail = evidence.get("confirmed_by"), evidence.get("evidence")
     agents = {"agent", "assistant", "codex", "claude", "opencode", "costrict"}
@@ -39,6 +53,12 @@ def validate_scenarios(value: object) -> list[dict[str, object]]:
         command = item.get("command")
         if command is not None and (not isinstance(command, list) or not all(isinstance(x, str) for x in command)):
             raise ValueError(f"invalid scenario {scenario_id}:command")
+        check = item.get("check")
+        if check is not None and not isinstance(check, str):
+            raise ValueError(f"invalid scenario {scenario_id}:check")
+        checks = item.get("checks")
+        if checks is not None and (not isinstance(checks, list) or not all(isinstance(x, str) for x in checks)):
+            raise ValueError(f"invalid scenario {scenario_id}:checks")
         timeout = item.get("timeout", 60)
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
             raise ValueError(f"invalid scenario {scenario_id}:timeout")
@@ -50,6 +70,7 @@ def validate_scenarios(value: object) -> list[dict[str, object]]:
         revision = item.get("revision", 0)
         if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
             raise ValueError(f"invalid scenario {scenario_id}:revision")
+        _validate_scenario_metadata(scenario_id, item)
     for item in value:
         unknown = set(item.get("depends_on", [])) - seen
         if unknown:
@@ -57,11 +78,122 @@ def validate_scenarios(value: object) -> list[dict[str, object]]:
     return value
 
 
+def _validate_scenario_metadata(scenario_id: str, item: Mapping[str, object]) -> None:
+    """Execution metadata mirrors design §2.5 and manifest v3 checks."""
+    priority = item.get("priority")
+    if priority is not None and (not isinstance(priority, str) or not priority.strip()):
+        raise ValueError(f"invalid scenario {scenario_id}:priority")
+    exec_mode = item.get("exec")
+    if exec_mode is not None and (not isinstance(exec_mode, str) or exec_mode not in EXEC_MODES):
+        raise ValueError(f"invalid scenario {scenario_id}:exec")
+    env = item.get("env")
+    if env is not None and (not isinstance(env, str) or not env.strip()):
+        raise ValueError(f"invalid scenario {scenario_id}:env")
+    inputs = item.get("inputs")
+    if inputs is not None and (
+        not isinstance(inputs, list) or not all(isinstance(value, str) and value for value in inputs)
+    ):
+        raise ValueError(f"invalid scenario {scenario_id}:inputs")
+    why_e2e = item.get("why_e2e")
+    if why_e2e is not None and not isinstance(why_e2e, str):
+        raise ValueError(f"invalid scenario {scenario_id}:why_e2e")
+    trigger_paths = item.get("trigger_paths")
+    if trigger_paths is not None and (
+        not isinstance(trigger_paths, list)
+        or not all(isinstance(value, str) and value for value in trigger_paths)
+    ):
+        raise ValueError(f"invalid scenario {scenario_id}:trigger_paths")
+    smoke = item.get("smoke")
+    if smoke is not None and not isinstance(smoke, bool):
+        raise ValueError(f"invalid scenario {scenario_id}:smoke")
+
+
+def validate_checks(value: object) -> list[dict[str, object]]:
+    """Validate the manifest v3 checks array (execution identity)."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("invalid manifest checks: expected list")
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("invalid check: expected object")
+        check_id = item.get("id")
+        if not isinstance(check_id, str) or not check_id.strip():
+            raise ValueError("check id missing")
+        if check_id in seen:
+            raise ValueError(f"duplicate check id: {check_id}")
+        seen.add(check_id)
+        command = item.get("command")
+        if not isinstance(command, list) or not command or not all(isinstance(x, str) for x in command):
+            raise ValueError(f"invalid check {check_id}:command")
+        cwd = item.get("cwd", ".")
+        if not isinstance(cwd, str):
+            raise ValueError(f"invalid check {check_id}:cwd")
+        timeout = item.get("timeout", 60)
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError(f"invalid check {check_id}:timeout")
+        _validate_check_environment(check_id, item)
+    return value
+
+
+_ENV_SCOPES = ("shared", "isolated")
+
+
+def _validate_check_environment(check_id: str, item: Mapping[str, object]) -> None:
+    """env/env_scope/preflight/parallel_safe describe how a check may run."""
+    env = item.get("env", "none")
+    if not isinstance(env, str) or not env.strip():
+        raise ValueError(f"invalid check {check_id}:env")
+    scope = item.get("env_scope", "shared")
+    if not isinstance(scope, str) or scope not in _ENV_SCOPES:
+        raise ValueError(f"invalid check {check_id}:env_scope")
+    if "parallel_safe" in item and not isinstance(item["parallel_safe"], bool):
+        raise ValueError(f"invalid check {check_id}:parallel_safe")
+    preflight = item.get("preflight", [])
+    if not isinstance(preflight, list):
+        raise ValueError(f"invalid check {check_id}:preflight")
+    for entry in preflight:
+        if isinstance(entry, str):
+            if not entry.strip():
+                raise ValueError(f"invalid check {check_id}:preflight")
+        elif isinstance(entry, list):
+            if not entry or not all(isinstance(token, str) and token for token in entry):
+                raise ValueError(f"invalid check {check_id}:preflight")
+        else:
+            raise ValueError(f"invalid check {check_id}:preflight")
+    paths = item.get("paths")
+    if paths is not None and (
+        not isinstance(paths, list)
+        or not all(isinstance(path, str) and path.strip() for path in paths)
+    ):
+        raise ValueError(f"invalid check {check_id}:paths")
+
+
 def load_manifest(path: Path) -> dict[str, object]:
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("invalid acceptance manifest: expected object")
     validate_scenarios(data.get("scenarios"))
+    if "checks" in data:
+        validate_checks(data.get("checks"))
+    check_ids = {
+        item.get("id") for item in data.get("checks", [])
+        if isinstance(item, dict)
+    } if isinstance(data.get("checks"), list) else set()
+    for scenario in data.get("scenarios", []):
+        if not isinstance(scenario, dict):
+            continue
+        single = scenario.get("check")
+        if isinstance(single, str) and single and single not in check_ids:
+            raise ValueError(f"scenario {scenario.get('id')} references missing check: {single}")
+        multiple = scenario.get("checks")
+        if isinstance(multiple, list):
+            unknown = [str(value) for value in multiple if str(value) not in check_ids]
+            if unknown:
+                raise ValueError(
+                    f"scenario {scenario.get('id')} references missing checks: {', '.join(unknown)}"
+                )
     if "task_file" in data and not isinstance(data["task_file"], str):
         raise ValueError("invalid acceptance manifest: task_file")
     return data

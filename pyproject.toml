@@ -89,6 +89,7 @@ markers = [
     "contract: 契约一致性（错误码/封套/迁移 parity/SSE 解析/词条）",
     "integration: 真实 PG/Redis 或真实进程栈，允许有限外部依赖",
     "e2e: 真实浏览器或跨服务真实链路（Gateway↔Runtime↔Worker↔Browser）",
+    "capacity_load: 显式容量压测（200/1000 用户），环境依赖强、耗时长，默认 acceptance 不跑",
 ]
 
 [tool.ruff]
@@ -98,6 +99,15 @@ extend-exclude = ["migrations/versions", ".code-flow"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# 既有 capacity/迁移测试内嵌长 JS/HTML 字符串或长断言；为满足 110 列而换行会改变字符串内容，
+# 故只对这批文件定向豁免 E501（其余规则照常检查）。
+"tests/frontend/test_capacity_webchat_*.py" = ["E501"]
+"tests/migrations/test_capacity_webchat_*.py" = ["E501"]
+"tests/agent_runtime/test_capacity_webchat_upload_staging.py" = ["E501"]
+"tests/agent_runtime/test_memory_redesign_admin_api.py" = ["E501"]
+
 
 [tool.mypy]
 python_version = "3.12"

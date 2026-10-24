@@ -402,13 +402,25 @@ class _RuntimeProbe:
 # --- 真实 Gateway 服务（真实 socket + 真实 SSE 下发） ---------------------------------------
 
 
+class _LoopCapturingServer(uvicorn.Server):
+    """记录服务器实际运行的 loop：注入的 HTTP 客户端在服务器 loop 里被使用，关闭也要回同一个 loop。"""
+
+    def __init__(self, config: uvicorn.Config) -> None:
+        super().__init__(config)
+        self.loop: asyncio.AbstractEventLoop | None = None
+
+    async def startup(self, sockets: list[socket.socket] | None = None) -> None:
+        self.loop = asyncio.get_running_loop()
+        await super().startup(sockets=sockets)
+
+
 class _GatewayServer:
     """真实 Gateway 应用进程内服务：`main.app` + 生产 webchat 路由，真实 uvicorn（无 lifespan）。"""
 
     READY_TIMEOUT_SEC = 15.0
 
     def __init__(self) -> None:
-        self._server: uvicorn.Server | None = None
+        self._server: _LoopCapturingServer | None = None
         self._thread: threading.Thread | None = None
         self.url = ""
 
@@ -419,7 +431,7 @@ class _GatewayServer:
         config = uvicorn.Config(
             app, host="127.0.0.1", port=port, log_level="warning", lifespan="off"
         )
-        self._server = uvicorn.Server(config)
+        self._server = _LoopCapturingServer(config)
         self._thread = threading.Thread(target=self._server.run, daemon=True)
         self._thread.start()
         deadline = time.monotonic() + self.READY_TIMEOUT_SEC
@@ -428,6 +440,16 @@ class _GatewayServer:
         if not self._server.started:
             raise RuntimeError("gateway did not start")
         self.url = f"http://127.0.0.1:{port}"
+
+    async def aclose_client(self, client: Any) -> None:
+        """在服务器 loop 内关闭客户端：跨 loop 关闭会在 uvloop 上报 `TCPTransport ... handler is closed`。"""
+        loop = self._server.loop if self._server is not None else None
+        if loop is not None and loop.is_running():
+            await asyncio.wrap_future(
+                asyncio.run_coroutine_threadsafe(client.aclose(), loop)
+            )
+        else:
+            await client.aclose()
 
     def stop(self) -> None:
         if self._server is not None:
@@ -519,15 +541,19 @@ async def _gateway_env(
             total_buffer_bytes=total_buffer_bytes,
         )
     finally:
-        server.stop()
-        await console.aclose()
-        await runtime.aclose()
-        for name, value in previous.items():
-            if value is None:
-                with suppress(AttributeError):
-                    delattr(app.state, name)
-            else:
-                setattr(app.state, name, value)
+        try:
+            # 客户端在服务器线程的 loop 里被使用；回到那个 loop 关闭，避免跨 loop 的
+            # uvloop `TCPTransport ... handler is closed`（CI 实测）。
+            await server.aclose_client(console)
+            await server.aclose_client(runtime)
+        finally:
+            server.stop()
+            for name, value in previous.items():
+                if value is None:
+                    with suppress(AttributeError):
+                        delattr(app.state, name)
+                else:
+                    setattr(app.state, name, value)
 
 
 @asynccontextmanager

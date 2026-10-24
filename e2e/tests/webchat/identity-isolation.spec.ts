@@ -580,7 +580,7 @@ asyncio.run(main())
   expect(notifications.text).not.toContain('E-17 旧入口的历史消息');
 });
 
-test('S-112 同浏览器退出 A 输入 B：旧流/消息/草稿清空，B 认证完成后才拉 B 历史', async ({
+test('S-112 同浏览器退出 A 输入 B：旧流/消息/草稿清空，B 认证完成后才拉 B 历史 @smoke', async ({
   page,
   webchatAdmin,
   webchatUsers,
@@ -628,7 +628,7 @@ test('S-112 同浏览器退出 A 输入 B：旧流/消息/草稿清空，B 认�
   expect(await page.getByTestId('chat-composer-input').inputValue()).toBe('');
 });
 
-test('E-101 CHAT 会话撤销时关闭流、清私有状态并回到 Token 输入；不跳 Console 登录', async ({
+test('E-101 CHAT 会话撤销时关闭流、清私有状态并回到 Token 输入；不跳 Console 登录 @smoke', async ({
   page,
   webchatAdmin,
   webchatUsers,

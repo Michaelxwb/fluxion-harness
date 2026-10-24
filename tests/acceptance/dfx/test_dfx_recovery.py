@@ -421,18 +421,23 @@ def _sigkill_reclaim_arm(
 
 
 def _grant_crash_retry_budget(task_id: uuid.UUID, *, attempts: int = 3) -> None:
-    """给这一行留出崩溃重试预算（真实列写入）。
+    """给这一行留出崩溃重试预算，并声明它是可重试的。
 
     回收**要过重试预算**（2026-10-06 评审 #13：崩溃回收此前会无限重启），而验收栈按租户
     种的是 `task.max_attempts = 1`（E-01/E-02 用它表达「一次失败即终态」）。本用例观测的是
     「崩溃后由**别人**接手并跑完」，所以只给这两行放预算，不动栈级设置。
+    同时把冻结的 retry_safety 标成 IDEMPOTENT：产品对未声明的快照按 NON_RETRYABLE 处理，
+    崩溃后落 `TASK_RESULT_UNVERIFIED` 而不是重排；本用例要验证的正是重排/接手链路。
     """
 
     async def update(factory: Any) -> None:
         async with factory() as session:
             await session.execute(
                 sa.text(
-                    "UPDATE task.task_execution SET max_attempts = :attempts"
+                    "UPDATE task.task_execution SET max_attempts = :attempts,"
+                    " execution_snapshot_json = jsonb_set("
+                    "  COALESCE(execution_snapshot_json, '{}'::jsonb),"
+                    "  '{budget,retry_safety}', '\"IDEMPOTENT\"'::jsonb, true)"
                     " WHERE tenant_id = :t AND id = :id"
                 ),
                 {"attempts": attempts, "t": TENANT, "id": task_id},

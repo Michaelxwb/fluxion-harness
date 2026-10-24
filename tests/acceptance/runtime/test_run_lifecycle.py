@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -68,6 +69,22 @@ def _fresh_conversation(http: httpx.Client, stack: LiveStack) -> uuid.UUID:
     )
     assert response.status_code == 200, response.text
     return uuid.UUID(response.json()["data"]["conversation_id"])
+
+
+def _await_running(run_id: str, *, timeout_sec: float = 30.0) -> None:
+    """等真实盘面迁到 RUNNING：`run.created` 只是提交事实，未领取时的取消走直接 CAS 路径。"""
+
+    async def read_status(factory: Any) -> str:
+        async with factory() as session:
+            run = await session.get(RunRecord, uuid.UUID(run_id))
+            return run.status if run is not None else ""
+
+    deadline = time.monotonic() + timeout_sec
+    while time.monotonic() < deadline:
+        if run_db(read_status) == "RUNNING":
+            return
+        time.sleep(0.2)
+    raise AssertionError(f"Run 未在取消前进入 RUNNING：{run_id}")
 
 
 def _resolve_over_console(stack: LiveStack, http: httpx.Client) -> ResolveDefinitionResponse:
@@ -322,6 +339,9 @@ def test_e08_cancel_running_run_cooperatively(live_stack: LiveStack, http: httpx
                 if len(streamed) == 1:
                     assert streamed[0]["type"] == "run.created"
                     run_id = streamed[0]["run_id"]
+                    # `run.created` 只证明 Run 行已提交，执行 Pod 可能还没领取、迁到 RUNNING；
+                    # 此时取消走「未开始执行直接 CAS 终态」路径，不会返回 CANCELLING。
+                    _await_running(run_id)
                     cancelled = http.post(
                         f"{live_stack.runtime_url}/v1/runs/cancel-active",
                         json={
@@ -416,7 +436,15 @@ def test_b01_idempotency_replay_over_http(live_stack: LiveStack, http: httpx.Cli
                 )
             ).scalars().all()
             assert rows, "重放区间内没有任何 canonical 事件"
-            assert all(row.submission_id is not None for row in rows)
+            # RUN_STAGE / MEMORY_CONSOLIDATED 是 run 级进度/审计事件，天然没有 submission
+            # 回执；重放契约只要求 submission 业务事件带回执。
+            submission_rows = [
+                row
+                for row in rows
+                if row.event_type not in {"RUN_STAGE", "MEMORY_CONSOLIDATED"}
+            ]
+            assert submission_rows, "重放区间内没有 submission 业务事件"
+            assert all(row.submission_id is not None for row in submission_rows)
             return int(count or 0)
 
     assert run_db(verify) == 1

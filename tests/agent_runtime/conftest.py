@@ -40,6 +40,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 SCHEMA = "runtime"
 from tests.async_tool_datastores import async_tool_database, async_tool_datastore  # noqa: F401, E402
+from tests.internal_service import internal_service_token  # noqa: F401, E402  (fixture 注册)
 
 RUNTIME_TABLES = ("conversation", "run_record", "runtime_snapshot", "canonical_event", "run_interrupt")
 #: 清理顺序：通知行先于 feed 与 run_record/conversation（同 Owner 物理 FK）；终端 Run 会留通知行。

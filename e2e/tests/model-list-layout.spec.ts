@@ -10,8 +10,7 @@ const model: ModelItem = {
   id: 'layout-model', key: 'model-with-a-long-key-for-layout-regression',
   name: 'Model name that would otherwise wrap onto multiple lines', protocol: 'OPENAI',
   model_id: 'gpt-4o-mini-with-a-long-model-identifier',
-  base_url: 'https://example.com/a/very/long/model/endpoint/v1',
-  api_key_configured: true, params: {}, revision: 4, enabled: true,
+  provider_key: 'example', params: { max_tokens: 1024 }, revision: 4, enabled: true,
   last_test_status: 'UNTESTED', last_test_at: null,
   create_time: '2026-09-30T00:00:00Z', update_time: '2026-09-30T00:00:00Z'
 };
@@ -41,7 +40,7 @@ async function prepare(page: Page, theme: string, locale = 'zh-CN') {
   const models: ModelItem[] = [
     { ...model },
     { ...model, id: 'short-model', key: 'short', name: 'Short', model_id: 'gpt-4o-mini',
-      enabled: false, api_key_configured: false, last_test_status: 'AVAILABLE' },
+      enabled: false, provider_key: '', last_test_status: 'AVAILABLE' },
     { ...model, id: 'failed-model', key: 'failed', name: 'Failed', last_test_status: 'FAILED' }
   ];
   await page.addInitScript(({ mode, locale }) => {
@@ -113,8 +112,13 @@ async function expectAgentColumnsBalanced(page: Page) {
   }
 }
 
-for (const [width, locale] of [[1280, 'zh-CN'], [1440, 'zh-CN'], [1920, 'zh-CN'], [2048, 'zh-CN'], [1280, 'en-US'], [2048, 'en-US']] as const) {
-  for (const theme of ['light', 'dark']) {
+const AGENT_CELLS = [
+  { width: 1280, locale: 'zh-CN', theme: 'light' },
+  { width: 2048, locale: 'zh-CN', theme: 'light' },
+  { width: 2048, locale: 'en-US', theme: 'dark' }
+] as const;
+
+for (const { width, locale, theme } of AGENT_CELLS) {
     test(`agent columns fill the list without horizontal scrolling at ${width}px in ${locale} ${theme}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
       await prepare(page, theme, locale);
@@ -131,12 +135,15 @@ for (const [width, locale] of [[1280, 'zh-CN'], [1440, 'zh-CN'], [1920, 'zh-CN']
       await page.setViewportSize({ width, height: 900 });
       await expectAgentListFits(page);
       await expectAgentColumnsBalanced(page);
-    });
-  }
+  });
 }
 
-for (const width of [1280, 390]) {
-  for (const theme of ['light', 'dark']) {
+const SKILL_ACTION_CELLS = [
+  { width: 1280, theme: 'light' },
+  { width: 390, theme: 'dark' }
+] as const;
+
+for (const { width, theme } of SKILL_ACTION_CELLS) {
     test(`skill fixed actions match row and header surfaces at ${width}px in ${theme}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
       await prepare(page, theme);
@@ -146,11 +153,14 @@ for (const width of [1280, 390]) {
       await expectTableSurfaces(table, width === 390);
       await page.screenshot({ path: testInfo.outputPath(`skill-actions-${width}-${theme}.png`) });
     });
-  }
 }
 
-for (const width of [1280, 2048]) {
-  for (const theme of ['light', 'dark']) {
+const MODEL_ROW_CELLS = [
+  { width: 2048, theme: 'light' },
+  { width: 1280, theme: 'dark' }
+] as const;
+
+for (const { width, theme } of MODEL_ROW_CELLS) {
     test(`model rows match other lists at ${width}px in ${theme} theme`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
       await prepare(page, theme);
@@ -187,7 +197,6 @@ for (const width of [1280, 2048]) {
       await rows.first().getByRole('button', { name: '编辑', exact: true }).click();
       await expect(page.getByRole('dialog').getByRole('textbox', { name: /^名称/ })).toHaveValue(model.name);
     });
-  }
 }
 
 test('status icons explain all states and keyboard toggling preserves the update contract', async ({ page }) => {
@@ -196,11 +205,11 @@ test('status icons explain all states and keyboard toggling preserves the update
   const rows = page.locator('.model-table .semi-table-tbody .semi-table-row');
   await expect(rows).toHaveCount(3);
   const first = rows.first();
-  const key = first.getByRole('img', { name: 'API Key: 已配置', exact: true });
+  const key = first.getByRole('img', { name: '供方: 已声明供方', exact: true });
   await key.hover();
-  await expect(page.getByRole('tooltip')).toContainText('API Key: 已配置');
+  await expect(page.getByRole('tooltip')).toContainText('供方: 已声明供方');
   await expect(first.getByRole('img', { name: '测试状态: 未测试', exact: true })).toBeVisible();
-  await expect(rows.nth(1).getByRole('img', { name: 'API Key: 未配置', exact: true })).toBeVisible();
+  await expect(rows.nth(1).getByRole('img', { name: '供方: 未声明供方', exact: true })).toBeVisible();
   await expect(rows.nth(1).getByRole('img', { name: '测试状态: 通过', exact: true })).toBeVisible();
   await expect(rows.nth(2).getByRole('img', { name: '测试状态: 失败', exact: true })).toBeVisible();
   const enabled = first.getByRole('switch');

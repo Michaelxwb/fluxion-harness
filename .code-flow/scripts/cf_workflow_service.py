@@ -67,6 +67,30 @@ def section_status(section: str) -> str:
     return match.group(1).strip() if match else "draft"
 
 
+def task_truth_issues(task_file: str, task_id: str, context: SpecContext) -> tuple[str, ...]:
+    """Return required Rule refs whose status contradicts the Markdown claim.
+
+    The Markdown is a view. A TASK claiming done/verified while its required
+    code (or, for verified, review) Rules are not verified is a documentation
+    lie; archive/verify callers must fail closed instead of trusting the prose.
+    """
+    section = read_task_section(task_file, task_id)
+    status = section_status(section)
+    if status not in FINISHED_STATUSES:
+        return ()
+    stages = ("code", "review") if status == "verified" else ("code",)
+    issues: list[str] = []
+    for binding in context.bindings:
+        for rule in binding.rules:
+            if rule.enforcement != "required" or rule.verifier_stage not in stages:
+                continue
+            stage_status = rule.stage_status.get(rule.verifier_stage)
+            actual = stage_status.status if stage_status is not None else "missing"
+            if actual != "verified":
+                issues.append(f"{binding.spec_id}#{rule.ref}: {actual}")
+    return tuple(sorted(set(issues)))
+
+
 def section_depends(section: str) -> tuple[str, ...]:
     match = re.search(r"(?m)^- \*\*Depends\*\*:[ \t]*([^\n]*)", section)
     if match is None:
@@ -103,7 +127,7 @@ def check_startable(task_file: str, task_id: str) -> list[str]:
         blockers.append(f"{task_id} is blocked; resolve Log BLOCKED entries first")
     elif status == "done":
         blockers.append(f"{task_id} is already done; verify contract or reopen explicitly")
-    elif status not in ("draft", "in-progress"):
+    elif status not in ("draft", "in-progress", "provisional"):
         blockers.append(f"{task_id} has unexpected status '{status}'")
     notes = section_notes(section)
     if notes:
@@ -170,6 +194,8 @@ def _render_markdown(text: str, task_id: str, status: str, log_line: str = "", p
     if match is None:
         raise WorkflowError("task_not_found", task_id)
     section = _set_status(match.group(0), status, log_line)
+    if not prepend and status in ("done", "verified"):
+        section = re.sub(r"(?m)^> (?:PROVISIONAL|BLOCKED):[^\n]*\n?", "", section)
     if prepend and prepend not in section:
         if "### Log" in section:
             section = section.replace("### Log", prepend + "\n### Log", 1)
@@ -324,12 +350,29 @@ def start_task(
             ("run cf-task:plan (bind --stage plan) or cf-spec refresh to create spec-context.yml before start",),
         )
     refreshed = refresh_context(load_context(str(context_path)), root, artifact_root=str(directory))
-    save_context(str(context_path), refreshed.context)
     # No marker exists at this point (active_exists raised above), so no
     # re-sync is needed before activation below.
     current_hash = context_sha256(refreshed.context)
     owned = tuple(item for item in owned_paths if isinstance(item, str))
     _validate_start_manifest(directory, candidate)
+    from cf_acceptance_plan import build_e2e_plan
+    try:
+        e2e_plan = build_e2e_plan(
+            str(directory / ".acceptance-manifest.json"), str(candidate), task_id
+        )
+    except (OSError, ValueError) as exc:
+        raise WorkflowError("acceptance_manifest_invalid", task_id, (str(exc),)) from exc
+    quality = e2e_plan.get("quality")
+    if isinstance(quality, Mapping) and quality.get("ok") is not True:
+        errors = quality.get("errors") if isinstance(quality.get("errors"), list) else []
+        details = tuple(
+            f"{item.get('scenario', '')}:{item.get('message', '')}".strip(":")
+            for item in errors[:5] if isinstance(item, Mapping)
+        )
+        raise WorkflowError("e2e_plan_invalid", task_id, details or ("E2E plan quality gate failed",))
+    # Persist the refreshed Context only after every start gate passed. A
+    # manifest/E2E failure must not leave a half-updated Context behind.
+    save_context(str(context_path), refreshed.context)
     output = _write_projection(root, candidate, refreshed.context, task_id, session_output)
     try:
         active = replace(_new_active(root, str(directory), task_id, current_hash, owned), status="active")
@@ -346,6 +389,7 @@ def start_task(
         "active": _active_data(active),
         "session_output": str(output),
         "acceptance_manifest": str(directory / ".acceptance-manifest.json") if (directory / ".acceptance-manifest.json").is_file() else None,
+        "e2e_plan": e2e_plan,
         "markdown": markdown,
     }
 
@@ -411,13 +455,15 @@ def resume_task(root: str, task_dir: str, task_file: str, task_id: str) -> dict[
     _, target = _resolve_paths(root, task_dir, task_file)
     task_file = str(target)
     active = None
+    section = read_task_section(task_file, task_id)
     if (Path(root) / ".code-flow/.active-task.json").exists():
         _require_marker_task(root, task_id, task_dir, task_file)
         active = load_active_task(root)
-        if active.status not in ("blocked", "paused"):
+        allowed_active = active.status in ("blocked", "paused", "provisional")
+        provisional_active = active.status == "active" and section_status(section) == "provisional"
+        if not allowed_active and not provisional_active:
             raise WorkflowError("resume_unexpected_state", active.status, (task_id,))
-    section = read_task_section(task_file, task_id)
-    if active is None and section_status(section) != "blocked":
+    if active is None and section_status(section) not in ("blocked", "provisional"):
         raise WorkflowError("resume_unexpected_state", section_status(section), (task_id,))
     notes = section_notes(section)
     statuses = _all_statuses(task_file)
@@ -450,3 +496,30 @@ def complete_task(root: str, task_dir: str, task_file: str, task_id: str, gate_p
 
     markdown = _commit_state(root, task_file, task_id, "done", active, None, f"- [{_today()}] completed (done)")
     return {"ok": True, "task_id": task_id, "active": _active_data(completed), "markdown": markdown}
+
+
+def provisional_task(root: str, task_dir: str, task_file: str, task_id: str, reason: str) -> dict[str, object]:
+    """Record a provisional finish without claiming done.
+
+    The active marker stays active so the same TASK can be retried after the
+    missing checks are fixed; provisional is explicitly open/unfinished for
+    dependency, collect and archive gates.
+    """
+    from cf_spec_context import load_active_task
+
+    recover_transition(root)
+    _require_marker_task(root, task_id, task_dir, task_file)
+    _, target = _resolve_paths(root, task_dir, task_file)
+    task_file = str(target)
+    if section_status(read_task_section(task_file, task_id)) in FINISHED_STATUSES:
+        raise WorkflowError("task_already_done", task_id, ("completed TASKs cannot become provisional",))
+    active = load_active_task(root)
+    if active.status != "active":
+        raise WorkflowError("invalid_active_transition", active.status)
+    clean_reason = " ".join(reason.split())
+    markdown = _commit_state(
+        root, task_file, task_id, "provisional", active, active,
+        f"- [{_today()}] provisional ({clean_reason})",
+        prepend=f"> PROVISIONAL: {clean_reason}",
+    )
+    return {"ok": True, "task_id": task_id, "marker": "active", "markdown": markdown}

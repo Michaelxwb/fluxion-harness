@@ -3,6 +3,33 @@ name: cf-task-plan
 description: Break down a design document or design brief into structured task files with atomic subtasks, priorities, dependencies, and source chapter references. Use when starting work on a new feature from a design doc or a .design.md brief produced by cf-task-align.
 ---
 
+## Scenario-First（0.9）
+
+若需求目录存在 `<需求>.scenarios.md`，场景只能从该文件读取并分配 owner；design 只引用场景 ID。没有场景文件时回退 0.8 双 design 逻辑合并并标记 `deprecated`。
+
+## E2E 精度（plan 硬门禁）
+
+E2E 不是“用户可见结果”的默认测试层。plan 阶段按风险选择最低成本层级：
+
+- `unit`：纯函数、状态机、解析器、构造器。
+- `component`：表单/交互/布局/文案/空态/错误提示，使用 mock API。
+- `contract`：DTO、OpenAPI、错误码、前后端字段一致性。
+- `integration`：鉴权、事务、模块边界、真实 DB、进程内 ASGI。
+- `e2e`：只有真实浏览器 + 真实后端 + 鉴权/DB 才能暴露的 P0/P1 关键旅程。
+- `manual`：无法自动化的外部条件，必须用户确认。
+
+每个 E2E **必须**同时满足：
+
+1. `priority` 为 P0/P1；P2 不得用 E2E。
+2. `why_e2e` 说明为什么 unit/component/contract/integration 都覆盖不了。
+3. `boundary` 写出真实边界（浏览器/API/DB/鉴权/SSE 等）。
+4. `steps` 和 `expected` 是可复现的用户步骤与可观察结果，不是实现细节。
+5. 非 `smoke` E2E 必须有 `trigger_paths`（源码 glob）；没有触发路径的 E2E 会让小改动跑全量，直接拒绝。
+6. 不得断言源码字符串、CSS、组件宽度、字段顺序、文案顺序；这些属于 component/visual。
+7. 同一旅程只保留一条 E2E；重复旅程合并。
+
+执行 `code-flow scenarios parse --file <需求目录>/<需求>.scenarios.md --quality --json`；`quality.ok=false` 时不得继续拆解或进入 start。plan 摘要必须输出 E2E 数量、占比、smoke 数量和每条 E2E 的理由；数量不是目标，删除一条无法证明独特价值的 E2E 是正确结果。
+
 ## 输入
 
 - `cf-task-plan <设计文档路径>` — 指定文档路径
@@ -10,6 +37,8 @@ description: Break down a design document or design brief into structured task f
 - `cf-task-plan <设计文档路径> --explore` — 仅输出分析报告，不生成文件
 - `cf-task-plan <设计文档路径> --quick` — 跳过缺口分析，直接拆解（保持原有行为）
 - `cf-task-plan <.design.md 路径>` — 从 cf-task-align 产出的设计简报拆解（自动跳过缺口分析）
+- `cf-task-plan <设计文档路径> --task-size capability|file` — 拆解粒度；默认 `--task-size capability`（1-2 天可演示能力），`file` 仅作旧行为兼容
+- `cf-task-plan <设计文档路径> --max-tasks 25 --min-average-hours 2` — 覆盖预算阈值（一般不需要）
 
 ## 执行步骤
 
@@ -57,6 +86,22 @@ description: Break down a design document or design brief into structured task f
 ```
 
 此索引用于后续步骤中精确记录每个子任务的来源章节。
+
+### 2.4. Plan Gate 与 manifest 锁定
+
+拆解完成后必须执行，缺一步都不得进入 start：
+
+```bash
+code-flow scenarios parse --file <需求目录>/<需求>.scenarios.md --quality --json
+code-flow acceptance project \
+  --task-file <任务文件> \
+  --scenarios-file <需求目录>/<需求>.scenarios.md \
+  --output <需求目录>/.acceptance-manifest.json
+code-flow acceptance manifest \
+  --verify-plan --require-scenarios --task-dir <需求目录> --task-file <任务文件>
+```
+
+`quality.ok=false` 或 `acceptance manifest --verify-plan` 返回 block 时，按错误码把场景下沉到 component/contract/integration，或补齐 E2E 理由/触发路径后重跑。不得只跑 `spec gate` 就进入 start。
 
 ### 2.5. Explore 模式（--explore）
 
@@ -134,10 +179,14 @@ AI 从设计文档中识别关键缺口，输出结构化分析并与用户交�
 
 阅读设计文档内容，按以下原则拆解：
 
-**拆解粒度**：
-- 每个子任务应是一个可独立编码和验证的原子单元
-- 一个子任务对应 1-3 个文件的修改
-- 预估编码时间 15-60 分钟
+**拆解粒度（默认 capability）**：
+- 每个子任务是一个 **1-2 天可完成、可独立演示和验收的能力单元**
+- 一个任务可以跨多个文件/模块，只要它们共同交付一个用户可观察、可演示的能力
+- 禁止按“改一个函数/一个文件”机械切碎；禁止默认 15-60 分钟级任务
+- 每个任务必须写 `Capability`（用户可运行/可看到的结果）与 `Estimate`（如 `1.5d`）
+- 能力交付面超过 2 天时先合并或重新切分，不得为凑任务数按文件拆分
+
+`--task-size file` 仅用于兼容旧计划：1-3 文件 / 15-60 分钟；仍受任务数预算约束，并在计划摘要中标注为 legacy。
 
 **提取内容**：
 - 功能需求 → 子任务标题 + 描述（提炼重点，不必复制全文）
@@ -157,7 +206,7 @@ AI 从设计文档中识别关键缺口，输出结构化分析并与用户交�
 **验收契约拆解（硬约束）**：
 
 1. 从全部 design 提取 P0/P1 的 S-/E-/B- 场景，以及 RULE 和高影响 RISK 到场景的映射。
-2. 优先沿用 design 指定的测试层级与关键真实边界。旧 design 未填写时，跨 API、存储、运行时生成、渲染或最终用户可见结果的场景推断为 `E2E`，局部模块协作推断为 `integration`，纯函数约束才可用 `unit`。
+2. 优先沿用 design 指定的测试层级与关键真实边界。旧 design 未填写时按风险取**最低可覆盖层**：纯函数 `unit`；UI/表单/布局/字段顺序 `component`；DTO/错误码/字段契约 `contract`；鉴权/事务/模块边界/真实 DB `integration`；只有“真实浏览器 + 真实后端 + 鉴权/DB 才能暴露”的 P0/P1 关键旅程才用 `E2E`。**不得因为“用户可见”就推断 E2E。**
 3. 每个场景必须分配给一个负责的 TASK，并写入 `Acceptance-Refs`；同一场景可被多个任务引用，但必须有且仅有一个最终验收负责人。
 4. `manual` 只允许用于无法自动化的外部条件，必须记录原因并经用户明确确认。agent 不得把 design 的 E2E 自行降级为 unit/integration。
 5. Checklist 禁止使用泛化的“编写测试”。必须写成 `[场景ID][测试层级] + 真实边界 + 关键断言`，并为新功能/缺陷修复安排先写测试和 RED 记录。
@@ -202,19 +251,28 @@ AI 从设计文档中识别关键缺口，输出结构化分析并与用户交�
 
 ## Acceptance Coverage
 
-| 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 |
-|--------|---------|---------|-------------|---------|------|---------|
-| S-01 | xxx.design.md#2.5 验收条件 | E2E | API → Store → Renderer | TASK-001 | planned | - |
-| E-01 | xxx.design.md#2.5 验收条件 | integration | Service → Store | TASK-001 | planned | ["python3","-m","pytest","-q","tests/test_e01.py"] |
+| 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | 优先级 | 执行方式 | 环境 | 输入 | E2E理由 | 触发路径 | 冒烟 |
+|--------|---------|---------|-------------|---------|------|---------|--------|---------|------|------|--------|---------|------|
+| S-01 | xxx.design.md#2.5 验收条件 | E2E | 浏览器 → API → Store → Renderer | TASK-001 | planned | ["python3","-m","pytest","-q","tests/test_s01.py"] | P0 | deferred | browser | | 只有真实浏览器+API+DB能暴露路由/鉴权/渲染 wiring | ["src/frontend/model/**"] | no |
+| E-01 | xxx.design.md#2.5 验收条件 | integration | Service → Store | TASK-001 | planned | ["python3","-m","pytest","-q","tests/test_e01.py"] | P1 | auto | none | tests/** | - | - | no |
+| S-03 | xxx.design.md#2.5 验收条件 | component | Renderer + mocked API | TASK-001 | planned | ["npx","playwright","test","tests/component/model.spec.ts"] | P1 | auto | browser | | - | - | no |
 
 > 本表必须覆盖 design 中全部 P0/P1 场景，以及 RULE/高影响 RISK 映射的场景；存在缺口时不生成可启动任务。
 >
-> **执行命令列（functional 必填）**：`unit/integration` 场景必须登记可单独执行
-> 的命令，argv JSON 数组最稳（含空格/引号路径不拆参）；也可写 shell 词串。
-> `E2E`/`manual` 场景可写 `-`（延期/人工确认，不需要命令）。Manifest 锁定后
-> 该列与测试层级、边界、负责人一同不可静默修改；未登记命令的 functional 场景
-> 会在 Done Gate 阻断执行验收。命令也可只写在 TASK 段 `Acceptance Contract` 的
-> 执行命令列，manifest 会按场景 ID 回退读取。
+> **执行元数据（与 manifest v3 对齐）**：
+> - `执行命令`：`unit/component/contract/integration` 场景必须登记可单独执行的命令，argv JSON
+>   数组最稳（含空格/引号路径不拆参）；也可写 shell 词串。命令也可只写在 TASK
+>   段 `Acceptance Contract` 的执行命令列，manifest 会按场景 ID 回退读取。
+> - `优先级` → `scenario.priority`；`执行方式` 取 `auto` / `manual` / `deferred` /
+>   `aspirational`；`环境` / `输入` 进入 manifest check 的 `env` / `inputs`。
+> - `E2E理由` / `触发路径` / `冒烟` → `why_e2e` / `trigger_paths` / `smoke`；
+>   `触发路径` 进入 check `paths`，changed profile 只跑命中的 E2E；`冒烟=yes`
+>   等价于 check `profile=smoke`。非 E2E 的这三列写 `-`。
+> - **每个场景必须绑定 check（有执行命令）或显式标为 `aspirational`**；没有命令
+>   又未标 aspirational 的计划会被追溯矩阵/审计阻断。`E2E`/`manual` 无本地命令时
+>   使用 `deferred` 或 `manual`，纯愿望项使用 `aspirational`。
+> - E2E 缺少 `E2E理由`、非 smoke 缺少 `触发路径`、或优先级为 P2 时，
+>   `--verify-plan` 直接 block；不要用“先写 E2E 再补理由”的方式绕过。
 
 ---
 
@@ -225,15 +283,18 @@ AI 从设计文档中识别关键缺口，输出结构化分析并与用户交�
 - **Depends**:
 - **Source**: docs/xxx.md#§3.1 数据模型(L83-L110)
 - **Spec-Refs**: product-rules#RULE-product-001
-- **Acceptance-Refs**: S-01, E-01, RULE-01
+- **Acceptance-Refs**: S-01, E-01, S-03, RULE-01
+- **Estimate**: 1.5d
+- **Capability**: <一句话：用户可运行/可演示的结果，例如“导入配置并看到成功摘要”>
 
 ### Description
 <从设计文档提取的需求重点，不必复制全文>
 
 ### Checklist
+- [ ] 交付 `<Capability>`，并提供可重复的演示命令/操作（1-2 天可完成）
 - [ ] <具体实现步骤1>
 - [ ] <具体实现步骤2>
-- [ ] [S-01][E2E] 编写 E2E 验收测试并登记可单独执行的命令（真实边界：API → Store → Renderer）；不在编码期执行 RED/GREEN，统一留给 verify-e2e
+- [ ] [S-01][E2E] 编写只覆盖关键旅程的 E2E，登记可单独执行的命令与触发路径（真实边界：浏览器 → API → Store → Renderer）；只断言用户可观察结果，不做源码/CSS/布局断言；不在编码期执行 RED/GREEN
 - [ ] [S-01] 断言 <最终可观测结果 1> 与 <最终可观测结果 2>
 - [ ] [E-01][integration] 覆盖 <异常输入> 与 <可观测失败行为>
 - [ ] 运行验收命令并填写 Acceptance Evidence
@@ -247,7 +308,7 @@ AI 从设计文档中识别关键缺口，输出结构化分析并与用户交�
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 functional 的 RED/GREEN 结果、每个关键断言的位置和真实组件证据；manual 场景只登记原因/边界/验收方式，人工确认与 E2E 执行统一留给 verify-e2e。全部 functional 状态 verified 后任务才可 done。全量套件/构建/E2E 类 verifier 建议显式标 `stage: review`，由需求终验统一执行；超预算的 verifier 会被 Done Gate 自动延后。
+> `cf-task-start` 在编码期填写 functional 的 RED/GREEN 结果、每个关键断言的位置和真实组件证据；manual 场景只登记原因/边界/验收方式，人工确认与 E2E 执行统一留给 verify-e2e。全部 functional 状态 verified 后任务才可 done。全量套件/构建/E2E 类 verifier 建议显式标 `stage: review`，由需求终验统一执行；本任务 required code 检查因预算或环境未执行时，Done Gate 返回 `provisional`，补齐后重跑 finish，不能自动延后并标记 done。
 
 ### Log
 - [<当前日期>] created (draft)
@@ -272,7 +333,9 @@ AI 从设计文档中识别关键缺口，输出结构化分析并与用户交�
 
 TASK-001: <标题> [P0]
   来源: §3.1 数据模型 (L83-L110)
-  验收: S-01(E2E), E-01(integration)
+  能力: <用户可演示的结果>
+  预估: 1.5d
+  验收: S-01(E2E), E-01(integration), S-03(component)
   描述: ...
   Checklist: N 项
   依赖: 无
@@ -306,6 +369,26 @@ TASK-002: <标题> [P1]
 code-flow spec gate --task-dir <需求目录> --stage plan --artifact <任务文件> --json
 ```
 
+### 5.1. 计划预算门禁（capability 默认）
+
+写入任务文件后、绑定 Plan Gate / 锁定 manifest 前，必须执行：
+
+```bash
+code-flow task index \
+  --task-file <任务文件> \
+  --budget \
+  --task-size capability \
+  --json
+```
+
+- JSON 的 `budget` 字段输出任务数、总工时、平均任务时长、每任务场景数与每任务 `Capability`
+- `task_count > 25`：明确警告并要求合并（同能力任务合并为 1-2 天能力单元）
+- `average_hours < 2h`：任务过碎，要求合并后重新评估
+- 缺少 `Estimate` 或 `Capability`：不得进入 start
+- `requires_merge=true` 时只输出需合并的 TASK 清单，不继续 Plan Gate / manifest；合并后重跑直到 `decision=pass`
+- `--task-size file` 兼容旧粒度，不做平均 2h 检查，但仍禁止任务数 >25
+- 阈值可用 `--max-tasks` / `--min-average-hours` 显式覆盖，并在任务文件 Proposal 记录原因
+
 只有 Context Plan 状态与任务结构校验都 `decision=pass` 才输出 Start 下一步；缺唯一 owner、`verifier_ref`、测试层级或真实边界时必须回到拆解修复。
 
 ### 6. 输出摘要
@@ -313,10 +396,12 @@ code-flow spec gate --task-dir <需求目录> --stage plan --artifact <任务文
 ```
 已生成任务文件: .code-flow/tasks/2026-03-15/auth-module.md
 - 子任务数: N
+- 计划预算: 总工时 Xh / 平均 Yh（阈值：≤25 任务且平均 ≥2h；通过/需合并）
 - P0: x 个, P1: y 个, P2: z 个
 - 依赖链深度: N 层
 - 详设引用覆盖: §3.1, §3.2, §3.3, §3.5 (共 4 个章节)
-- 验收覆盖: P0/P1 场景 x/x，RULE/高影响 RISK 映射 y/y，E2E 场景 z 个
+- 验收覆盖: P0/P1 场景 x/x，RULE/高影响 RISK 映射 y/y
+- E2E 预算: z 个（占比 p%，smoke s 个）；每条 E2E 的 why_e2e / trigger_paths 已通过质量门禁
 
 建议执行顺序:
   1. TASK-001 (无依赖)
@@ -336,6 +421,10 @@ code-flow spec gate --task-dir <需求目录> --stage plan --artifact <任务文
 
 ```bash
 code-flow spec gate --help
+code-flow task index --help
+code-flow acceptance manifest --task-file "<任务文件>" --output "<需求目录>/.acceptance-manifest.json"
+code-flow acceptance project --task-file "<任务文件>" --output "<需求目录>/.acceptance-manifest.json"
+code-flow scenarios parse --file "<需求>.scenarios.md" --quality --json
 ```
 
 <!-- code-flow:runtime-commands end -->

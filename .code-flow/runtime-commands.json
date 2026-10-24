@@ -36,6 +36,13 @@
       ],
       "example_args": "--task-dir \"<需求目录>\" --root \"$PWD\" --json"
     },
+    "spec doctor": {
+      "module": "cf_spec_context",
+      "prefix": [
+        "doctor"
+      ],
+      "example_args": "--task-dir \"<需求目录>\" --root \"$PWD\" --json"
+    },
     "spec refresh": {
       "module": "cf_spec_context",
       "prefix": [
@@ -85,6 +92,13 @@
       ],
       "example_args": "--help"
     },
+    "task verify": {
+      "module": "cf_task_workflow",
+      "prefix": [
+        "verify"
+      ],
+      "example_args": "--task-dir \"<需求目录>\" --layers validators,review,e2e --profile changed --root \"$PWD\" --json"
+    },
     "task verify-e2e": {
       "module": "cf_task_workflow",
       "prefix": [
@@ -105,6 +119,11 @@
         "cleanup-session"
       ],
       "example_args": "--help"
+    },
+    "audit": {
+      "module": "cf_audit",
+      "prefix": [],
+      "example_args": "--task-dir \"<需求目录>\" --root \"$PWD\" --json"
     },
     "spec gate": {
       "module": "cf_spec_gate",
@@ -129,12 +148,33 @@
     "acceptance manifest": {
       "module": "cf_acceptance_manifest",
       "prefix": [],
-      "example_args": "--help"
+      "example_args": "--task-file \"<任务文件>\" --output \"<需求目录>/.acceptance-manifest.json\""
+    },
+    "acceptance project": {
+      "module": "cf_acceptance_manifest",
+      "prefix": [
+        "--project"
+      ],
+      "example_args": "--task-file \"<任务文件>\" --output \"<需求目录>/.acceptance-manifest.json\""
+    },
+    "acceptance risk": {
+      "module": "cf_acceptance_manifest",
+      "prefix": [
+        "--accept-risk"
+      ],
+      "example_args": "--task-file \"<任务文件>\" --output \"<需求目录>/.acceptance-manifest.json\" --check-id CHK-... --risk-owner \"<owner>\" --risk-reason \"<reason>\" --expires-at 2026-12-31 --confirmed-by \"<user>\" --source \"<user reply>\""
     },
     "acceptance run": {
       "module": "cf_acceptance_runner",
       "prefix": [],
       "example_args": "--manifest \"<需求目录>/.acceptance-manifest.json\" --root \"$PWD\" --write-evidence"
+    },
+    "evidence import": {
+      "module": "cf_evidence_import",
+      "prefix": [
+        "import"
+      ],
+      "example_args": "--format junit --file \"<report.xml>\" --commit \"$(git rev-parse HEAD)\" --run-url \"<ci-run-url>\" --json"
     },
     "validate": {
       "module": "cf_validation",
@@ -166,6 +206,34 @@
         "sync"
       ],
       "example_args": "--help"
+    },
+    "task archive": {
+      "module": "cf_task_workflow",
+      "prefix": [
+        "archive"
+      ],
+      "example_args": "--task-dir \"<需求目录>\" --root \"$PWD\" --json"
+    },
+    "scenarios parse": {
+      "module": "cf_scenarios",
+      "prefix": [
+        "parse"
+      ],
+      "example_args": "--file \"<需求>.scenarios.md\" --quality --json"
+    },
+    "scenarios merge": {
+      "module": "cf_scenarios",
+      "prefix": [
+        "merge"
+      ],
+      "example_args": "--file a.scenarios.md --file b.scenarios.md --json"
+    },
+    "scenarios migrate": {
+      "module": "cf_scenarios",
+      "prefix": [
+        "migrate"
+      ],
+      "example_args": "--task-file \"<任务文件>\" --output \"<需求>.scenarios.md\" --json"
     }
   }
 }

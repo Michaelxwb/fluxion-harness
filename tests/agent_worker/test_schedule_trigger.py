@@ -25,12 +25,12 @@ from muad_agent_worker.scheduler.service import SchedulerLoop, ScheduleService
 from muad_common import SharedSettings
 from muad_console_platform.infrastructure.db import get_session_factory as console_session_factory
 from muad_console_platform.infrastructure.models.control import (
-    ModelCredential,
-    ModelDeployment,
     AgentAccessGrant,
     AgentDefinition,
     AgentSkillBinding,
+    ModelCredential,
     ModelDefinition,
+    ModelDeployment,
     PlatformUser,
     Skill,
     SkillArtifact,

@@ -647,13 +647,47 @@ def _get(endpoint: str) -> httpx.Response:
         return client.get(endpoint)
 
 
+def _get_after_recovery(endpoint: str, *, timeout_sec: float = 5.0) -> httpx.Response:
+    """恢复直通后重试到首个 200：监听 socket 从 REFUSE 重新 bind 是异步生效的。"""
+    deadline = time.monotonic() + timeout_sec
+    last_error: httpx.HTTPError | None = None
+    while time.monotonic() < deadline:
+        try:
+            response = _get(endpoint)
+            if response.status_code == 200:
+                return response
+        except httpx.HTTPError as exc:
+            last_error = exc
+        time.sleep(0.02)
+    raise AssertionError(f"fault proxy 在 {timeout_sec}s 内未恢复直通：{last_error!r}") from last_error
+
+
+def _expect_connection_refused(endpoint: str, *, timeout_sec: float = 2.0) -> None:
+    """REFUSE 是「监听已关闭」：关闭前已进入 backlog 的连接可能先回 RST；重试到真正的 ECONNREFUSED。"""
+    deadline = time.monotonic() + timeout_sec
+    last_error: httpx.HTTPError | None = None
+    while time.monotonic() < deadline:
+        try:
+            _get(endpoint)
+        except httpx.ConnectError as exc:
+            if "refused" in str(exc).lower():
+                return
+            last_error = exc
+        except httpx.HTTPError as exc:
+            last_error = exc
+        time.sleep(0.02)
+    raise AssertionError(
+        f"fault proxy 未在 {timeout_sec}s 内进入拒绝连接状态：{last_error!r}"
+    ) from last_error
+
+
 def test_b306_fault_proxy_forwards_real_traffic_and_injects_faults() -> None:
     upstream = _health_upstream()
     proxy = FaultProxy("127.0.0.1", int(upstream.server_address[1]))
     proxy.start()
     try:
         endpoint = f"http://{proxy.address[0]}:{proxy.address[1]}/healthz"
-        assert _get(endpoint).json() == {"status": "ok"}, "直通真实上游"
+        assert _get_after_recovery(endpoint).json() == {"status": "ok"}, "直通真实上游"
 
         proxy.set_fault(FaultProxyMode.DELAY, delay_ms=250)
         started = time.monotonic()
@@ -669,13 +703,11 @@ def test_b306_fault_proxy_forwards_real_traffic_and_injects_faults() -> None:
             _get(endpoint)
 
         proxy.set_fault(FaultProxyMode.REFUSE)
-        with pytest.raises(httpx.ConnectError) as refused:
-            _get(endpoint)
-        assert "refused" in str(refused.value).lower(), "拒绝连接（监听关闭）"
+        _expect_connection_refused(endpoint)
         assert proxy.listening is False
 
         proxy.set_fault(FaultProxyMode.PASS_THROUGH)
-        assert _get(endpoint).status_code == 200, "恢复后可继续转发"
+        assert _get_after_recovery(endpoint).status_code == 200, "恢复后可继续转发"
 
         assert proxy.connections >= 4
         assert proxy.dropped_connections >= 2

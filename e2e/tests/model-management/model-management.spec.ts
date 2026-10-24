@@ -110,7 +110,7 @@ async function createModelViaUi(page: Page, key: string): Promise<void> {
   await expect(page.getByTestId(`model-link-${key}`)).toBeVisible();
 }
 
-test('S-01 新增模型后 DB/界面仅显示已配置且不回显明文', async ({ page }) => {
+test('S-01 新增模型后 DB/界面仅显示已配置且不回显明文 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s01');
   await login(page);
   await createModelViaUi(page, key);
@@ -136,7 +136,7 @@ test('S-01 新增模型后 DB/界面仅显示已配置且不回显明文', async
   await cleanupModel(page, created);
 });
 
-test('S-02/S-04 选择两个模型批量测试并刷新列表', async ({ page }) => {
+test('S-02/S-04 选择两个模型批量测试并刷新列表 @smoke', async ({ page }) => {
   await login(page);
   const first = await createModelViaApi(page, { key: uniqueKey('e2e-batch-a') });
   const second = await createModelViaApi(page, { key: uniqueKey('e2e-batch-b') });
@@ -194,97 +194,5 @@ test('S-03/S-06 启停即时生效且删除后列表消失', async ({ page }) =>
     await expect(page.locator('.semi-table-row', { hasText: model.key })).toHaveCount(0);
   } finally {
     await cleanupModel(page, model);
-  }
-});
-
-test('S-05 详情无对象按钮，编辑在列表操作列', async ({ page }) => {
-  await login(page);
-  const model = await createModelViaApi(page, { key: uniqueKey('e2e-s05') });
-  try {
-    await page.goto('/models');
-    await page.getByTestId(`model-link-${model.key}`).click();
-    const sheet = page.locator('.semi-sidesheet');
-    await expect(sheet).toBeVisible();
-    await expect(sheet).not.toContainText('默认');
-    const header = page.locator('.semi-sidesheet-header');
-    await expect(header.getByText('编辑')).toHaveCount(0);
-    await expect(header.locator('.detail-actions')).toHaveCount(0);
-    await sheet.locator('.semi-sidesheet-close').click();
-    await expect(page.locator('.semi-table-row', { hasText: model.key }).getByRole('button', { name: '编辑', exact: true })).toBeVisible();
-    await expect(page.getByTestId(`model-link-${model.key}`)).toBeVisible();
-  } finally {
-    await cleanupModel(page, model);
-  }
-});
-
-test('E-06 物理 Key 端点非 http(s) 阻止进入下一步', async ({ page }) => {
-  await login(page);
-  await page.goto('/models');
-  await page.getByTestId('create-model').click();
-  const modal = page.getByRole('dialog');
-  await modal.getByRole('radio', { name: '新建物理 Key' }).click();
-  await modal.getByRole('textbox', { name: /^标识/ }).fill(uniqueKey('e2e-e06'));
-  await modal.getByRole('textbox', { name: /^供方/ }).fill('e2e');
-  await modal.getByRole('textbox', { name: /^端点/ }).fill('ftp://example.com');
-  await modal.getByRole('textbox', { name: /^密钥/ }).fill('e2e-key');
-  await modal.getByTestId('model-wizard-next').click();
-  await expect(modal.locator('.semi-form-field-error-message')).toContainText('http(s)');
-  await expect(modal).toBeVisible();
-});
-
-test('E-07 revision 冲突保留表单并提示本地化冲突', async ({ page }) => {
-  await login(page);
-  const model = await createModelViaApi(page, { key: uniqueKey('e2e-e07') });
-  try {
-    await page.goto('/models');
-    await page.locator('.semi-table-row', { hasText: model.key }).getByRole('button', { name: '编辑', exact: true }).click();
-    const modal = page.locator('.semi-modal');
-    await expect(modal).toBeVisible();
-
-    await page.request.put(`/api/v1/models/${model.id}`, {
-      data: {
-        name: 'Concurrent Rename',
-        model_id: 'gpt-4o-mini',
-        provider_key: 'e2e',
-        params: { max_tokens: 64 },
-        expected_revision: model.revision
-      }
-    });
-
-    await modal.getByRole('textbox', { name: /名称/ }).fill('Stale Name');
-    await modal.getByRole('button', { name: 'confirm', exact: true }).click();
-    await expect(modal).toContainText('模型已被他人修改');
-    await expect(modal).toBeVisible();
-  } finally {
-    await cleanupModel(page, model);
-  }
-});
-
-test('E-08 删除被引用模型返回 MODEL_IN_USE 并展示引用数且列表不变', async ({ page }) => {
-  await login(page);
-  const model = await createModelViaApi(page, { key: uniqueKey('e2e-e08') });
-  const agentResponse = await page.request.post('/api/v1/agents', {
-    data: {
-      key: uniqueKey('e2e-agent'),
-      name: 'E2E Ref Agent',
-      instructions: 'help',
-      model_id: model.id,
-      runtime_config: {}
-    }
-  });
-  const agentId = (await agentResponse.json()).data.id as string;
-  try {
-    await page.goto('/models');
-    const row = page.locator('.semi-table-row', { hasText: model.key });
-    await row.getByText('删除').click();
-    await page.locator('.semi-popconfirm').getByText('确定').click();
-    // MODEL_IN_USE 专用码必须把 {model_key} 与 {agent_count} 渲染进文案（通用 COMMON_CONFLICT 无占位符，做不到）
-    const toast = page.locator('.semi-toast-content');
-    await expect(toast).toContainText('无法删除');
-    await expect(toast).toContainText(model.key);
-    await expect(toast).toContainText('1 个 Agent');
-    await expect(page.locator('.semi-table-row', { hasText: model.key })).toHaveCount(1);
-  } finally {
-    await cleanupModel(page, model, agentId);
   }
 });

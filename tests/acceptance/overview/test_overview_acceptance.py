@@ -46,7 +46,7 @@ RESOURCE_KEYS = {
     "users",
     "active_schedules",
 }
-CONSOLE_TIME = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+CONSOLE_TIME = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$")
 MAX_AGGREGATE_SQL = 5
 
 

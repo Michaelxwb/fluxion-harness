@@ -343,22 +343,26 @@ def test_e09_unavailable_backs_off_exponentially(
 ) -> None:
     """5xx：指数退避重试（base * 2**attempt），且不越界为 jitter 之类未实现行为。"""
     _point_model_at_probe(live_stack, fault_probe)
-    _set_policy(live_stack, max_model_retries=3, deadline_ms=120_000)
-    fault_probe.plan = ["500", "500", "ok"]
+    # 4 次重试：退避 0.1/0.2/0.4/0.8s。只看前两段会被每次调用的分配/网络固定开销淹没
+    # （CI 实测 0.196s vs 0.255s），用尾段（0.4/0.8）判定增长才稳定。
+    _set_policy(live_stack, max_model_retries=4, deadline_ms=120_000)
+    fault_probe.plan = ["500"] * 4 + ["ok"]
     fault_probe.calls.clear()
 
     events = _run(live_stack, fault_probe)
     run_id = str(events[0]["run_id"])
     assert events[-1]["type"] == "run.completed", events[-1]
     gaps = fault_probe.gaps()
-    assert len(gaps) == 2, f"应恰好重试两次：{gaps}"
-    # 指数：第 1 次≈base(0.1s)，第 2 次≈2*base(0.2s)；留足调度余量
+    assert len(gaps) == 4, f"应恰好重试四次：{gaps}"
+    # 指数：第 1 次≈base(0.1s)，第 3 次≈4*base(0.4s)，第 4 次≈8*base(0.8s)；留足调度余量
     assert 0.08 <= gaps[0] <= 0.45, gaps
-    assert gaps[1] >= gaps[0] * 1.4, f"退避未呈指数增长：{gaps}"
+    assert gaps[2] >= 0.3, f"第 3 段退避未达 0.4s 量级：{gaps}"
+    assert gaps[3] >= 0.5, f"第 4 段退避未达 0.8s 量级：{gaps}"
+    assert gaps[3] >= gaps[0] * 1.5, f"退避未呈指数增长：{gaps}"
 
     rows = _audit_rows(live_stack, run_id)
-    assert [row["status"] for row in rows] == ["RETRY", "RETRY", "OK"], rows
-    assert {row["retry_reason"] for row in rows[:2]} == {"UNAVAILABLE"}, rows
+    assert [row["status"] for row in rows] == ["RETRY"] * 4 + ["OK"], rows
+    assert {row["retry_reason"] for row in rows[:4]} == {"UNAVAILABLE"}, rows
 
 
 def test_e09_connection_reset_is_retried(live_stack: LiveStack, fault_probe: FaultProbe) -> None:
@@ -419,6 +423,13 @@ def test_e09_cancel_stops_retries_immediately(live_stack: LiveStack, fault_probe
                 streamed.append(event)
                 if len(streamed) == 1:
                     assert event["type"] == "run.created", event
+                    # `run.created` 只是受理事实：执行 Pod 可能还没领取。本用例验证的是
+                    # 「退避等待中取消立即生效」，先等真实探针收到首个模型调用——此时 Run
+                    # 必为 RUNNING，且已进入第一轮退避窗口。
+                    deadline = time.monotonic() + RUN_TIMEOUT_SEC
+                    while not fault_probe.calls and time.monotonic() < deadline:
+                        time.sleep(0.05)
+                    assert fault_probe.calls, "取消前探针未收到首个模型调用（Run 未进入执行）"
                     # 必须在流内发取消并**继续读完**：提前退出会关掉 SSE，执行器随之停摆
                     cancelled_at = time.monotonic()
                     cancelled = client.post(

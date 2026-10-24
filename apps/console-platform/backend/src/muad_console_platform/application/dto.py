@@ -326,8 +326,8 @@ class AgentGrantItem(BaseModel):
     granted_by: uuid.UUID
 
 
-CONSOLE_TIME_PATTERN = r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$"
-#: Console 面向接口的时间出参（与 `format_console_time` 同一口径）。
+CONSOLE_TIME_PATTERN = r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$"
+#: Console 面向接口的时间出参（与 `format_console_time` 同一口径；必须带 offset）。
 ConsoleTime = Annotated[str, Field(pattern=CONSOLE_TIME_PATTERN)]
 
 

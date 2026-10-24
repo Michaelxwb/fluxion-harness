@@ -136,7 +136,7 @@ async def test_e07_bad_secret_isolates_target_bot_and_readyz_stays_ready(
     # 缺/坏 secret 不停止全部 bot：就绪依据 manager + 完整快照，而非"全部 CONNECTED"
     assert data["status_code"] == 200, data
     assert data["status"] == "ready", data
-    assert data["adapters"] == {"WECOM": True}, data
+    assert data["adapters"] == {"WEBCHAT": True, "WECOM": True}, data
     assert BAD_BOT_ID in (data.get("degraded_bots") or {}), data
     assert BOT_ID not in (data.get("degraded_bots") or {}), data
 

@@ -61,6 +61,7 @@ from muad_agent_runtime.application.async_tools.operations import (
 )
 from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
 from muad_agent_runtime.application.checkpoint import release_lease_and_wait
+from muad_agent_runtime.application.context_settings import resolve_pool_execution_policy
 from muad_agent_runtime.application.continuation_execution import continuation_executor
 from muad_agent_runtime.application.executor import (
     AgentRunnerExecutor,
@@ -77,6 +78,7 @@ from muad_agent_runtime.application.run_service import (
 from muad_agent_runtime.application.task_client import TaskSubmissionContext
 from muad_agent_runtime.infrastructure import db as runtime_db
 from muad_agent_runtime.infrastructure.db import get_session_factory
+from muad_agent_runtime.infrastructure.model_dispatch_store import MemberRef
 from muad_agent_runtime.infrastructure.models.runtime import (
     Conversation,
     RunRecord,
@@ -966,3 +968,74 @@ async def test_b232_real_model_round_releases_slot_at_tool_wait(
         assert await pump.run_once() == 0, "等待中的 Run 不再占槽、也不被重复领取"
     finally:
         await supervisor.close()
+
+
+# --------------------------------------------------------------------------- #
+# 10. 队列领取（continuation pump）执行的 Run 同样沿用快照冻结的模型池
+# --------------------------------------------------------------------------- #
+
+
+async def test_continuation_keeps_frozen_model_pool_and_members(
+    isolated_runtime: async_sessionmaker[AsyncSession],
+) -> None:
+    """continuation pump 领取执行的 Run 必须走快照冻结的模型池链路。
+
+    该路径曾漏传 `pool`/`model_members`，executor 静默退回直连 provider：不预占容量、
+    不计调度、没有租约。双 Runtime 下表现为「某一轮调用凭空少一条 dispatch/lease」，
+    而每个 Run 自身仍是 COMPLETED（S-04/S-12 偶发红的根因）。
+    """
+    factory = isolated_runtime
+    source = await _seed_claimable_run(factory)
+    member = MemberRef(deployment_id=uuid.uuid4(), credential_id=uuid.uuid4(), weight=1)
+    async with factory() as session, session.begin():
+        snapshot = (
+            await session.scalars(
+                sa.select(RuntimeSnapshot).where(RuntimeSnapshot.run_id == source.run_id)
+            )
+        ).one()
+        snapshot.policy_json = snapshot_policy(
+            pool=resolve_pool_execution_policy(None), members=(member,)
+        )
+
+    captured: list[ExecutorRequest] = []
+    finished = asyncio.Event()
+
+    class _NoopExecutor:
+        async def run(self) -> AsyncIterator[ExecutorEvent]:
+            finished.set()
+            if False:  # pragma: no cover - 保持 async generator 形状
+                yield ExecutorEvent(type="noop", data={})
+
+    async def executor_factory(request: ExecutorRequest) -> RunExecutor:
+        captured.append(request)
+        return _NoopExecutor()
+
+    class _Credentials:
+        async def resolve_credentials(self, **_: Any) -> dict[str, Any]:
+            return {"model": {"api_key": "sk-continuation"}, "mcp_servers": []}
+
+    supervisor = ExecutionSupervisor(max_concurrency=1)
+    execute = continuation_executor(
+        FakeResolveClient(response=_resolve_response(source.agent_id)),
+        _Credentials(),  # type: ignore[arg-type] - 只实现本路径用到的 API-09 方法
+        NullPlatformSettingsClient(),
+        supervisor,
+        executor_factory,
+        instance_id=INSTANCE,
+    )
+    pump = ContinuationPump(
+        factory, supervisor, execute, instance_id=INSTANCE, lease_sec=60, poll_sec=0.05
+    )
+    try:
+        assert await pump.run_once() == 1
+        async with asyncio.timeout(WAIT_TIMEOUT_SEC):
+            await finished.wait()
+        await _wait_until(lambda: supervisor.execution_count == 0)
+    finally:
+        await supervisor.close()
+
+    assert len(captured) == 1, captured
+    request = captured[0]
+    assert request.pool is not None, "队列领取路径丢了冻结的 model_pool"
+    assert request.model_members == (member,), request.model_members
+    assert request.credentials_client is not None

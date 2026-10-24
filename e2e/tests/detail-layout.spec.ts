@@ -123,7 +123,8 @@ async function expectDetailHeadingTypography(sheet: Locator, mode: string): Prom
 }
 
 for (const [index, entry] of cases.entries()) {
-  for (const mode of ['light', 'dark', 'mobile']) {
+  // 代表性矩阵：桌面浅色 + 移动端；深色 token 由下面 detail-actions / activity 的 theme 循环覆盖。
+  for (const mode of ['light', 'mobile']) {
     test(`${entry.path} details share compact layout in ${mode}`, async ({ page }, testInfo) => {
       await prepare(page, index, mode);
       const sheet = page.getByRole('dialog');
@@ -191,8 +192,12 @@ for (const theme of ['light', 'dark']) {
   });
 }
 
-for (const locale of ['zh-CN', 'en-US']) {
-  for (const theme of ['light', 'dark']) {
+const ACTIVITY_CELLS = [
+  { locale: 'zh-CN', theme: 'light' },
+  { locale: 'en-US', theme: 'dark' }
+] as const;
+
+for (const { locale, theme } of ACTIVITY_CELLS) {
     test(`agent recent activity explains actions and objects in ${locale} ${theme}`, async ({ page }, testInfo) => {
       const request = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/v1/audits');
       await prepare(page, 2, theme, { activities: activityItems, locale });
@@ -222,7 +227,6 @@ for (const locale of ['zh-CN', 'en-US']) {
       await expect(table.locator('.table-actions-cell')).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath(`agent-activity-${locale}-${theme}.png`) });
     });
-  }
 }
 
 test('artifact details reuse the sheet and close back to the skill', async ({ page }) => {
@@ -271,9 +275,11 @@ async function expectCompactMarkdownTypography(document: Locator): Promise<void>
   await expect(preview.locator('pre code')).toHaveCSS('font-size', '13px');
 }
 
-for (const [locale, mode] of [
-  ['zh-CN', 'light'], ['zh-CN', 'dark'], ['en-US', 'light'], ['en-US', 'dark'], ['zh-CN', 'mobile']
-]) {
+const SKILL_CONTENT_CELLS = [
+  ['zh-CN', 'light'], ['en-US', 'light'], ['zh-CN', 'mobile']
+] as const;
+
+for (const [locale, mode] of SKILL_CONTENT_CELLS) {
   test(`skill content groups description and supports preview source and copy in ${locale} ${mode}`, async ({ page }, testInfo) => {
     await prepare(page, 4, mode, { locale, skillSource: markdownSource });
     const sheet = page.getByRole('dialog');
@@ -308,8 +314,12 @@ for (const [locale, mode] of [
   });
 }
 
-for (const locale of ['zh-CN', 'en-US']) {
-  for (const scope of ['ALL', 'SELECTED'] as const) {
+const SKILL_SCOPE_CELLS = [
+  { locale: 'zh-CN', scope: 'ALL' },
+  { locale: 'en-US', scope: 'SELECTED' }
+] as const;
+
+for (const { locale, scope } of SKILL_SCOPE_CELLS) {
     test(`skill scope ${scope} appears once in an accessible title icon in ${locale}`, async ({ page }) => {
       await prepare(page, 4, 'dark', { locale, skillScope: scope });
       const sheet = page.getByRole('dialog');
@@ -335,7 +345,6 @@ for (const locale of ['zh-CN', 'en-US']) {
       }
       await expect(sheet.locator('.semi-banner')).toHaveCount(0);
     });
-  }
 }
 
 test('long detail titles wrap with the scope icon on mobile', async ({ page }) => {

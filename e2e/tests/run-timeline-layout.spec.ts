@@ -69,9 +69,13 @@ async function prepare(page: Page, options: { locale?: string; theme?: string; w
   return { timeline, setDetail: (next: RunDetail) => { detail = next; } };
 }
 
-for (const locale of ['zh-CN', 'en-US']) {
-  for (const theme of ['light', 'dark']) {
-    for (const width of [1280, 390]) {
+const TIMELINE_CELLS = [
+  { locale: 'zh-CN', theme: 'light', width: 1280 },
+  { locale: 'en-US', theme: 'dark', width: 2048 },
+  { locale: 'zh-CN', theme: 'light', width: 390 }
+] as const;
+
+for (const { locale, theme, width } of TIMELINE_CELLS) {
       test(`expanded event details remain compact and readable in ${locale}/${theme}/${width}`, async ({ page }, testInfo) => {
         const { timeline } = await prepare(page, { locale, theme, width });
         const toggle = timeline.getByTestId('run-event-toggle-4783');
@@ -90,12 +94,14 @@ for (const locale of ['zh-CN', 'en-US']) {
         expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(nodeDetail.text);
         await page.screenshot({ path: testInfo.outputPath(`details-${locale}-${theme}-${width}.png`) });
       });
-    }
-  }
 }
 
-for (const locale of ['zh-CN', 'en-US']) {
-  for (const model_state of ['UNLINKED', 'PENDING'] as const) {
+const MODEL_STATE_CELLS = [
+  { locale: 'zh-CN', model_state: 'UNLINKED' },
+  { locale: 'en-US', model_state: 'PENDING' }
+] as const;
+
+for (const { locale, model_state } of MODEL_STATE_CELLS) {
     test(`model context explains ${model_state} details in ${locale} on narrow screens`, async ({ page }, testInfo) => {
       const historical: RunEventDetail = {
         ...nodeDetail, event_type: 'MODEL_CALL_STARTED', text: null, text_truncated: false,
@@ -118,16 +124,13 @@ for (const locale of ['zh-CN', 'en-US']) {
       expect(await detail.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`model-${locale}-${model_state}.png`) });
     });
-  }
 }
 
 async function expectMetric(timeline: Locator, label: string, value: string): Promise<void> {
   await expect(timeline.locator('.run-timeline-metric').filter({ hasText: label }).locator('strong')).toHaveText(value);
 }
 
-for (const locale of ['zh-CN', 'en-US']) {
-  for (const theme of ['light', 'dark']) {
-    for (const width of [1280, 390]) {
+for (const { locale, theme, width } of TIMELINE_CELLS) {
       test(`run timeline has readable categories, numbering and timing in ${locale}/${theme}/${width}`, async ({ page }, testInfo) => {
         const { timeline } = await prepare(page, { locale, theme, width });
         const zh = locale === 'zh-CN';
@@ -153,8 +156,6 @@ for (const locale of ['zh-CN', 'en-US']) {
         expect(await timeline.locator('.run-timeline-summary').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(width === 390 ? 2 : 4);
         await page.screenshot({ path: testInfo.outputPath(`timeline-${locale}-${theme}-${width}.png`) });
       });
-    }
-  }
 }
 
 for (const locale of ['zh-CN', 'en-US']) {

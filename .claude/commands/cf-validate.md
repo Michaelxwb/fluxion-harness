@@ -1,5 +1,7 @@
 # cf-validate
 
+> **命令面状态（0.8）**：alias — 等价于 `cf-task-verify-e2e --checks`（运行时 `code-flow task verify --checks`）；保留一个 minor，0.9.0 移除。
+
 根据变更文件自动匹配并执行验证规则（测试、类型检查、lint），失败时自动尝试修复。
 
 ## 输入
@@ -32,15 +34,23 @@ validators:
     trigger: "**/*.{ts,tsx}"
     command: "npx tsc --noEmit"
     timeout: 30000
-    heavy: false          # true = Stop 每轮跳过，finish 与 /cf-validate 执行
+    heavy: false          # true = Stop 与 finish 跳过，需求终验与 /cf-validate 执行
     on_fail: "修复建议"
 ```
 
-全量测试 / e2e 等慢命令标 `heavy: true`：Stop 每轮跳过，**任务 finish 自动执行一次**，也可显式运行 `/cf-validate`（或 CI），避免拖慢每个任务。
+全量测试 / e2e 等慢命令标 `heavy: true`：Stop 与任务 finish 跳过，由需求终验 / 归档执行，也可显式运行 `/cf-validate`（或 CI），避免拖慢每个任务。
 
 ### 3. 匹配并执行验证
 
 执行统一验证入口：
+
+- 有 active TASK 时走任务验证入口（`--checks` 等价于 `--layers validators`）：
+
+```bash
+code-flow task verify --checks --task-dir "<需求目录>" --root "$PWD" --json
+```
+
+- 无 active TASK 或用户显式指定文件时走变更验证入口：
 
 ```bash
 code-flow validate --root "$PWD" --json
@@ -79,6 +89,7 @@ code-flow validate --root "$PWD" --json
 运行时命令示例（由命令契约生成；实际参数见各命令 --help）：
 
 ```bash
+code-flow task verify --task-dir "<需求目录>" --layers validators,review,e2e --profile changed --root "$PWD" --json
 code-flow validate --root "$PWD" --json
 ```
 

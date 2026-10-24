@@ -1,12 +1,64 @@
 name: check
 
 on:
+  # 分支 push 不再单独起一条流水线：有 PR 时由 `pull_request` 事件跑**全量**（含 e2e）；
+  # main 的 push 负责合并后复验与镜像发布。此前 `push:` 不加分支过滤，每次推 PR 分支都会
+  # 同时触发 push + pull_request 两条流水线，同一份提交跑两遍。
   push:
+    branches: [main]
   pull_request:
 
+# 同一 PR 连续推送时取消上一轮（避免旧提交占着 runner）；main 的验证不取消，
+# 保证每个合并点都完整跑完。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  backend:
+  # 静态检查不需要数据库：从原来的 backend job 拆出来，和测试分片并行，而不是串在一轮
+  # 70 分钟的全量执行里。compile/i18n/error-message/lint/typecheck 都是纯静态或只读文件。
+  backend-static:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # **必须钉 Python 版本**：不钉的话 uv 会在 runner 上挑系统自带的 3.12、在开发机上挑
+      # uv 装的 3.13 —— CI 与本地静默跑在不同解释器上，是"本地绿、CI 红"最难查的一类来源
+      # （2026-10-03 实测：三次 CI 各挂一个不同的验收用例，而本地同批 1888 条全过）。
+      # 口径以镜像为准：四个 Dockerfile 都用 `uv:python3.12-bookworm-slim`，所以钉 3.12，
+      # 把开发机拉回与 CI / 生产一致，而不是反过来改 CI。仓库根的 `.python-version` 是同一口径的本地落地。
+      # 同一个 job 里 node 一直是显式钉的（`node-version: 20`），Python 漏了，这是补齐。
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - run: uv run make compile
+      - run: uv run make i18n-check
+      - run: uv run make error-message-check
+      - run: uv run make lint
+      - run: uv run make typecheck
+
+  # 单测按目录切成 4 个互不重叠的分片并行。每个分片是独立 job，因而各自拿到一套 PG/Redis
+  # service —— 不共享数据库、不共享 Redis 号位，跨分片不会互相污染。
+  # 用静态路径分片而不是 pytest-xdist：失败能直接归因到固定目录，复现命令就是本矩阵里的那行；
+  # 代价是新增顶层测试目录时必须同步这里。覆盖由人工维护，`tests/test_collection_layout.py`
+  # 只校验收集布局，不会发现「某目录没被任何分片引用」。
+  backend-tests:
+    name: backend-tests (${{ matrix.shard.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - name: fast
+            paths: "tests/contracts tests/frontend tests/architecture tests/agent_core tests/test_*.py"
+          - name: runtime
+            paths: "tests/agent_runtime tests/sdk"
+          - name: console
+            paths: "tests/gateway tests/console_auth tests/console_channel tests/console_internal tests/console_mcp tests/console_platform tests/console_skill tests/console_tasks tests/e2e"
+          - name: worker
+            paths: "tests/agent_worker tests/capacity tests/migrations"
     services:
       postgres:
         image: postgres:16
@@ -35,26 +87,142 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://muad:muad@localhost:5432/muad
       REDIS_URL: redis://localhost:6379/0
+      # 真实栈的内部边界要求服务身份；干净检出没有 `.env`，不设这一格所有
+      # `/internal/**` 调用都会 403（测试侧 fixture 也会兜底，但子进程只继承 env）。
+      INTERNAL_SERVICE_TOKEN: test-internal-token
+      # tests/conftest.py 在用例失败/出错时即时写一行；分片被超时或 kill 时摘要不会生成，
+      # 这个文件 + artifact 是事后定位失败用例的唯一线索。
+      PYTEST_FAILURE_LOG: /tmp/pytest-failures.log
     steps:
       - uses: actions/checkout@v4
-      # **必须钉 Python 版本**：不钉的话 uv 会在 runner 上挑系统自带的 3.12、在开发机上挑
-      # uv 装的 3.13 —— CI 与本地静默跑在不同解释器上，是"本地绿、CI 红"最难查的一类来源
-      # （2026-10-03 实测：三次 CI 各挂一个不同的验收用例，而本地同批 1888 条全过）。
-      # 口径以镜像为准：四个 Dockerfile 都用 `uv:python3.12-bookworm-slim`，所以钉 3.12，
-      # 把开发机拉回与 CI / 生产一致，而不是反过来改 CI。仓库根的 `.python-version` 是同一口径的本地落地。
-      # 同一个 job 里 node 一直是显式钉的（`node-version: 20`），Python 漏了，这是补齐。
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
       - run: uv sync --extra dev
-      # 迁移配置「各环境各一份」：本 job 用自己 service 的 DSN 现场生成 CI 专用 ini，
+      # 迁移配置「各环境各一份」：每个分片用自己的 service DSN 现场生成 CI 专用 ini，
       # 仓库里的 migrations/alembic.ini 是 **dev 的**配置，两者互不影响（迁移只认 ini，不读环境变量）。
       - name: 生成 CI 专用 alembic ini 并迁移到 head
         run: |
           printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
             "$DATABASE_URL" > "$RUNNER_TEMP/alembic.ci.ini"
           uv run python migrations/db_migrate.py -c "$RUNNER_TEMP/alembic.ci.ini"
-      - run: uv run make check
+      - name: 运行 ${{ matrix.shard.name }} 分片
+        run: uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
+      - name: 上传失败用例清单（无论成败）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-shard-${{ matrix.shard.name }}-failures
+          path: /tmp/pytest-failures.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # 真实栈验收（tests/acceptance）：每轮自建 muad_acc_<uuid> 空库 + 独立 Redis 号位。
+  # **按模块分片**：DFX 等模块会起真实 Worker/Runtime 子进程，claim 是全局的；串在一个
+  # pytest 进程/job 里会让前序模块的进程领走后续模块的任务（单跑绿、串跑红），且全量
+  # 超过 45 分钟。每片独立 job + 独立 PG/Redis，既隔离进程也隔离库/号位。
+  acceptance:
+    name: acceptance (${{ matrix.shard.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - name: dfx
+            paths: "tests/acceptance/dfx"
+          - name: gateway
+            paths: "tests/acceptance/gateway"
+          - name: im_gateway
+            paths: "tests/acceptance/im_gateway"
+          - name: runtime
+            paths: "tests/acceptance/runtime"
+          - name: capacity
+            paths: "tests/acceptance/capacity"
+          - name: task_schedule
+            paths: "tests/acceptance/task_schedule"
+          - name: rest
+            paths: "tests/acceptance/attachment_round_trip tests/acceptance/audit_observability tests/acceptance/console_auth_flow tests/acceptance/overview tests/acceptance/security tests/acceptance/wecom_attachments tests/acceptance/test_*.py"
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: muad
+          POSTGRES_PASSWORD: muad
+          POSTGRES_DB: muad
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U muad -d muad"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://muad:muad@localhost:5432/muad
+      REDIS_URL: redis://localhost:6379/0
+      INTERNAL_SERVICE_TOKEN: test-internal-token
+      PYTEST_FAILURE_LOG: /tmp/pytest-failures.log
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: 生成 CI 专用 alembic ini 并迁移到 head
+        run: |
+          printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
+            "$DATABASE_URL" > "$RUNNER_TEMP/alembic.ci.ini"
+          uv run python migrations/db_migrate.py -c "$RUNNER_TEMP/alembic.ci.ini"
+      - name: 清理残留 Redis claim
+        run: uv run python scripts/clean_acceptance_claims.py
+      - name: 预建干净检出缺失的 .data 挂载目录
+        run: mkdir -p .data/artifacts .data/skill-cache
+      - name: 运行 ${{ matrix.shard.name }} 验收分片
+        run: |
+          set -u
+          if [ "${{ matrix.shard.name }}" = "im_gateway" ]; then
+            # im_gateway 各文件共享真实 Gateway/Runtime/Worker 栈；同一 pytest 进程里前序
+            # 用例的 SIGKILL/后台 job 会污染后续文件（表现为“推送后未创建 Run”）。
+            # 逐文件起独立进程；E06 再单独起一次，避免它和 E05 的 options/consume 状态互扰。
+            failed=""
+            for file in tests/acceptance/im_gateway/test_*.py; do
+              echo "::group::$file"
+              if [ "$file" = "tests/acceptance/im_gateway/test_memory_redesign_e2e.py" ]; then
+                uv run pytest -q -m "not capacity_load" "$file" \
+                  --deselect "$file::test_e06_memory_redesign_sigkill_claim_owner_and_successor_takeover" \
+                  || failed="${failed} ${file}(rest)"
+                uv run pytest -q -m "not capacity_load" \
+                  "$file::test_e06_memory_redesign_sigkill_claim_owner_and_successor_takeover" \
+                  || failed="${failed} ${file}(e06)"
+              else
+                uv run pytest -q -m "not capacity_load" "$file" || failed="${failed} ${file}"
+              fi
+              echo "::endgroup::"
+            done
+            if [ -n "${failed}" ]; then
+              echo "::error::im_gateway 失败文件:${failed}"
+              exit 1
+            fi
+          else
+            uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
+          fi
+      - name: 上传失败用例清单（无论成败）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-${{ matrix.shard.name }}-failures
+          path: /tmp/pytest-failures.log
+          retention-days: 7
+          if-no-files-found: ignore
 
   frontend:
     runs-on: ubuntu-latest
@@ -72,11 +240,113 @@ jobs:
 
   # 浏览器验收：真实构建产物（vite preview）+ 真实 Chrome + 真实 PostgreSQL/Redis。
   #
+  # 15 条跨域 smoke 白名单（e2e/scenarios/smoke-15.scenarios.md）：PR/发布必跑的关键旅程。
+  # 与 e2e job 同样的真实栈服务，但只跑 @smoke 标记；逐域不 fail-fast，一次列出所有失败域。
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: muad
+          POSTGRES_PASSWORD: muad
+          POSTGRES_DB: muad
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U muad -d muad"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://muad:muad@localhost:5432/muad
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            apps/console-platform/frontend/package-lock.json
+            e2e/package-lock.json
+      - run: uv sync --extra dev
+      - run: npm ci
+        working-directory: apps/console-platform/frontend
+      - run: npm ci
+        working-directory: e2e
+      - name: 预检系统 Chrome
+        run: google-chrome --version
+      - name: 构建前端产物（smoke 各域共用）
+        run: npm --prefix apps/console-platform/frontend run build
+      - name: 逐域 smoke（汇总失败，不 fail-fast）
+        run: |
+          set -u
+          failed=""
+          mkdir -p /tmp/smoke-logs
+          for domain in \
+            console-auth overview-dashboard model-management agent skill mcp \
+            platform user-identity settings task-schedule-e2e \
+            audit-observability run-observability-e2e webchat-e2e
+          do
+            echo "::group::smoke ${domain}"
+            log="/tmp/smoke-logs/${domain}.log"
+            if npm --prefix e2e test -- --config "playwright.${domain}.config.ts" --grep "@smoke" >"$log" 2>&1; then
+              echo "PASS smoke ${domain}"
+            else
+              echo "FAIL smoke ${domain}"
+              failed="${failed} ${domain}"
+              cp -r e2e/test-results "/tmp/smoke-logs/${domain}-test-results" 2>/dev/null || true
+              reason="$(grep -m1 -E '✘|^[[:space:]]*[0-9]+\) ' "$log" || true)"
+              if [ -z "${reason}" ]; then
+                reason="$(grep -m1 -E 'Error:|Timed out|EADDRINUSE|ECONNREFUSED|refused|StartupValidationError' "$log" || true)"
+              fi
+              echo "::error::smoke ${domain}: ${reason:-（未匹配到错误行，见 artifact smoke-domain-logs）}"
+              tail -c 2000 "$log"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "${failed}" ]; then
+            echo "::error::smoke 失败的域:${failed}"
+            exit 1
+          fi
+          echo "15 条 smoke 白名单全部通过（34 条用例）"
+      - name: changed profile（非 smoke；按 trigger_paths）
+        if: github.event_name == 'pull_request'
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          if [ -z "$base" ]; then base="HEAD~1"; fi
+          uv run python scripts/e2e_changed.py --base "$base" --no-build --no-smoke --run
+      - name: 上传 smoke 日志（无论成败）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-domain-logs
+          path: /tmp/smoke-logs
+          retention-days: 7
+          if-no-files-found: warn
+
   # 为什么单列一个 job：`frontend` 只验证「能构建」，Playwright 在 CI 里从不执行 —— 于是断言
   # 与实现之间的漂移（testid 改名、详情容器从 Modal 换成 SideSheet、写死的文案被本地化）只在
   # 有人手动跑某个域时才暴露，没有任何聚合信号（2026-10-02 一轮里手查出 4 处这类漂移 + 1 处
   # 产品崩溃）。逐域顺序执行且**不 fail-fast**：一次 CI 就能列出**全部**漂移的域，而不是修一个
   # 才发现下一个。新增域时同步下面那份域清单即可。
+  # PR 与 main 都跑（分支 push 已不再触发本 workflow），合并门禁与合并后复验看到同一份结果。
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -137,25 +407,27 @@ jobs:
       # 报清楚，而不是等到某个域超时才发现
       - name: 预检系统 Chrome
         run: google-chrome --version
+      - name: 构建前端产物（e2e 各域共用）
+        run: npm --prefix apps/console-platform/frontend run build
       - name: 逐域浏览器验收（汇总失败，不 fail-fast）
         run: |
           set -u
           failed=""
           mkdir -p /tmp/e2e-logs
           for domain in \
-            agent audit-observability console-auth form-layout list-actions mcp \
-            model-management overview-dashboard platform sidebar skill \
-            task-schedule user-identity
+            agent audit-observability console-auth mcp \
+            model-management overview-dashboard platform run-observability-e2e run-observability-regression settings skill \
+            task-schedule-e2e task-schedule-regression user-identity webchat-e2e webchat-regression
           do
             echo "::group::e2e ${domain}"
             log="/tmp/e2e-logs/${domain}.log"
-            if make acceptance-e2e DOMAIN="${domain}" >"$log" 2>&1; then
+            if make acceptance-e2e DOMAIN="${domain}" BUILD_FRONTEND=0 >"$log" 2>&1; then
               echo "PASS ${domain}"
             else
               echo "FAIL ${domain}"
               failed="${failed} ${domain}"
               # trace / error-context 只在失败时保留（`trace: retain-on-failure`），但 Playwright
-              # 每跑一次都会清空 outputDir（默认 `e2e/test-results`）⇒ 当场按域搬走，否则 13 个域
+              # 每跑一次都会清空 outputDir（默认 `e2e/test-results`）⇒ 当场按域搬走，否则 16 个域
               # 顺序跑完只剩**最后一个**域的，偶发失败（如 task-cancel 的 detach）事后无从复盘。
               cp -r e2e/test-results "/tmp/e2e-logs/${domain}-test-results" 2>/dev/null || true
               # 把**失败的那一条**带进 annotation：annotation 匿名可读，而 job 日志需要认证。
@@ -178,13 +450,77 @@ jobs:
             echo "::error::浏览器验收失败的域:${failed}"
             exit 1
           fi
-          echo "全部 13 个域通过"
+          echo "全部 16 个域通过"
       - name: 上传各域日志（无论成败）
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-domain-logs
           path: /tmp/e2e-logs
+          retention-days: 7
+          if-no-files-found: warn
+
+  # 纯 component 域（真实构建产物 + mock API，不启动 Console/PG/Redis）。
+  # 与 e2e 分开：布局/错误态/菜单等 UI 语义不应该占用真实 E2E 的信号与超时预算。
+  component:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            apps/console-platform/frontend/package-lock.json
+            e2e/package-lock.json
+      - run: npm ci
+        working-directory: apps/console-platform/frontend
+      - run: npm ci
+        working-directory: e2e
+      - name: 预检系统 Chrome
+        run: google-chrome --version
+      - name: 构建前端产物（component 各域共用）
+        run: npm --prefix apps/console-platform/frontend run build
+      - name: 逐域 component 验收（汇总失败，不 fail-fast）
+        run: |
+          set -u
+          failed=""
+          mkdir -p /tmp/component-logs
+          for domain in \
+            form-layout list-actions sidebar console-auth-ui overview-dashboard-ui audit-observability-ui \
+            model-management-ui skill-management-ui mcp-management-ui project-platform-ui \
+            user-identity-ui settings-ui agent-management-ui
+          do
+            echo "::group::component ${domain}"
+            log="/tmp/component-logs/${domain}.log"
+            if make acceptance-e2e DOMAIN="${domain}" BUILD_FRONTEND=0 >"$log" 2>&1; then
+              echo "PASS ${domain}"
+            else
+              echo "FAIL ${domain}"
+              failed="${failed} ${domain}"
+              # 每个域跑完都会清空 outputDir，当场搬走 trace/error-context，避免只剩最后一个域的。
+              cp -r e2e/test-results "/tmp/component-logs/${domain}-test-results" 2>/dev/null || true
+              reason="$(grep -m1 -E '✘|^[[:space:]]*[0-9]+\) ' "$log" || true)"
+              if [ -z "${reason}" ]; then
+                reason="$(grep -m1 -E 'Error:|Timed out|EADDRINUSE|ECONNREFUSED|refused|StartupValidationError' "$log" || true)"
+              fi
+              echo "::error::${domain}: ${reason:-（未匹配到错误行，见 artifact component-domain-logs）}"
+              tail -c 2000 "$log"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "${failed}" ]; then
+            echo "::error::component 验收失败的域:${failed}"
+            exit 1
+          fi
+          echo "全部 13 个 component 域通过"
+      - name: 上传 component 日志（无论成败）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-domain-logs
+          path: /tmp/component-logs
           retention-days: 7
           if-no-files-found: warn
 

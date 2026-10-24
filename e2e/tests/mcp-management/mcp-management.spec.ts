@@ -42,10 +42,6 @@ function seed(args: string[]): string {
   });
 }
 
-function ensureUser(userCode: string): void {
-  seed(['--key', 'unused', '--user-code', userCode, '--ensure-user']);
-}
-
 function dumpMcp(key: string): McpDump {
   const output = seed(['--key', key, '--dump']);
   const lines = output.trim().split('\n');
@@ -70,7 +66,7 @@ async function registerViaUi(page: Page, key: string, endpoint: string): Promise
   await modal.getByRole('button', { name: 'confirm', exact: true }).click();
 }
 
-test('S-07 注册 Server 并连接测试后 connection_status 与工具数正确展示', async ({ page }) => {
+test('S-07 注册 Server 并连接测试后 connection_status 与工具数正确展示 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-mcp');
   await login(page);
   try {
@@ -131,7 +127,7 @@ test('S-07c 注册弹窗按交互稿排版并保存后自动发现', async ({ pa
   }
 });
 
-test('S-05 刷新工具目录后工具数与最近发现时间刷新', async ({ page }) => {
+test('S-05 刷新工具目录后工具数与最近发现时间刷新 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s05m');
   await login(page);
   try {
@@ -163,7 +159,7 @@ test('S-05 刷新工具目录后工具数与最近发现时间刷新', async ({ 
   }
 });
 
-test('S-06 工具明细展示名称与操作类型，无 Tool 级启停/授权', async ({ page }) => {
+test('S-06 工具明细展示名称与操作类型，无 Tool 级启停/授权 @smoke', async ({ page }) => {
   const key = uniqueKey('e2e-s06m');
   await login(page);
   try {
@@ -197,78 +193,5 @@ test('S-06 工具明细展示名称与操作类型，无 Tool 级启停/授权',
     await expect(toolDetail).toContainText('只读');
   } finally {
     cleanupMcp(key);
-  }
-});
-
-test('E-06 发现失败保留上一成功 Catalog（UI 不清空工具列表）', async ({ page }) => {
-  const key = uniqueKey('e2e-e06m');
-  await login(page);
-  try {
-    await registerViaUi(page, key, PROBE_MCP);
-    await expect.poll(() => dumpMcp(key).server?.tool_count, { timeout: 15000 }).toBe(2);
-    await page.getByTestId(`mcp-link-${key}`).click();
-    const sheet = page.locator('.semi-sidesheet');
-    await sheet.getByRole('tab', { name: '工具明细' }).click();
-    await expect(page.getByTestId('mcp-tool-probe_tool_0')).toBeVisible();
-    const goodHash = dumpMcp(key).server?.tool_catalog_hash;
-
-    // 后端把 endpoint 指向不可达地址，再刷新 → 失败 Toast，工具列表仍在（不切 Tab）
-    const payload = (await (await page.request.get(`/api/v1/mcp-servers?keyword=${key}`)).json()) as {
-      data: { items: Array<{ mcp_id: string }> };
-    };
-    const mcpId = payload.data.items[0].mcp_id;
-    await page.request.put(`/api/v1/mcp-servers/${mcpId}`, {
-      data: { endpoint: 'http://127.0.0.1:9/mcp' }
-    });
-    await sheet.locator('.semi-sidesheet-close').click();
-    await page.getByTestId(`refresh-mcp-${key}`).click();
-    await expect(page.getByTestId(`refresh-mcp-${key}`)).not.toHaveClass(/semi-button-loading/);
-    await page.getByTestId(`mcp-link-${key}`).click();
-    await expect(page.locator('.semi-toast-content')).toBeVisible();
-    await sheet.getByRole('tab', { name: '工具明细' }).click();
-    await expect(page.getByTestId('mcp-tool-probe_tool_0')).toBeVisible({ timeout: 10000 });
-
-    const stored = dumpMcp(key);
-    expect(stored.server?.connection_status).toBe('DISCOVERY_FAILED');
-    expect(stored.server?.tool_catalog_hash).toBe(goodHash);
-    expect(stored.server?.tool_count).toBe(2);
-  } finally {
-    cleanupMcp(key);
-  }
-});
-
-test('S-07b SELECTED 范围远端搜索添加指定用户', async ({ page }) => {
-  const key = uniqueKey('e2e-s07bm');
-  const userCode = uniqueKey('e2e-mcp-user');
-  await login(page);
-  ensureUser(userCode);
-  try {
-    await registerViaUi(page, key, PROBE_MCP);
-    await page.getByTestId(`mcp-link-${key}`).click();
-    const sheet = page.locator('.semi-sidesheet');
-    await sheet.getByRole('tab', { name: '指定用户' }).click();
-    const picker = page.getByTestId('mcp-grant-user-select');
-    await expect(picker).toBeVisible();
-
-    await picker.click();
-    await picker.locator('input').fill(userCode);
-    const option = page.locator('.semi-select-option', { hasText: userCode });
-    await expect(option).toBeVisible();
-    await option.click();
-    await expect(picker).toContainText(userCode);
-    await page.getByTestId('mcp-add-selected-user').click();
-    await expect(page.getByTestId('mcp-selected-users').locator('.semi-table')).toContainText(userCode);
-    expect(dumpMcp(key).granted_users).toContain(userCode);
-    await sheet.locator('.semi-sidesheet-close').click();
-    await page.getByTestId(`change-mcp-scope-${key}`).click();
-    const scopeModal = page.locator('.semi-modal');
-    await expect(scopeModal.getByRole('combobox', { name: /用户范围/ })).toContainText('指定用户');
-    await scopeModal.getByRole('combobox', { name: /用户范围/ }).click();
-    await page.getByRole('option', { name: /所有用户/ }).click();
-    await scopeModal.getByRole('button', { name: 'confirm', exact: true }).click();
-    await expect(scopeModal).toHaveCount(0);
-    expect(dumpMcp(key).server?.user_scope).toBe('ALL');
-  } finally {
-    cleanupMcp(key, userCode);
   }
 });

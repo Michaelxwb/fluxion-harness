@@ -311,9 +311,14 @@ class ModelDispatchStore(ModelCapacityStore):
         }
 
     async def read_workload_inflight(
-        self, *, tenant_id: str, deployment_ids: list[uuid.UUID]
+        self, *, tenant_id: str, deployment_ids: list[uuid.UUID], now: datetime
     ) -> dict[str, int]:
-        """该池成员上真实在飞的模型调用按工作负载计数（UNKNOWN 不再算在飞）。"""
+        """该池成员上**执行权仍有效**的在飞模型调用按工作负载计数。
+
+        `UNKNOWN` 不再算在飞；已过期仍 `ACTIVE` 的租约也不算——执行方失约即必须停手
+        （`renew` 同样拒绝过期租约），把它继续算成后台在飞会让 SIGKILL 之后的接管任务
+        在老化间隔内白等，最终撞上自己的总超时。
+        """
         if not deployment_ids:
             return {}
         rows = (
@@ -323,6 +328,7 @@ class ModelDispatchStore(ModelCapacityStore):
                     ModelCallLease.tenant_id == tenant_id,
                     ModelCallLease.deployment_id.in_(deployment_ids),
                     ModelCallLease.state == "ACTIVE",
+                    ModelCallLease.lease_until > now,
                     ModelCallLease.is_deleted.is_(False),
                 )
                 .group_by(ModelCallLease.workload)

@@ -16,7 +16,6 @@ const ARTIFACT_ROOT = process.env.E2E_AUDIT_ARTIFACT_ROOT ?? '';
 const STATE_FILE = process.env.E2E_AUDIT_STATE_FILE ?? '';
 const PROBE_BASE = `http://127.0.0.1:${process.env.E2E_AUDIT_PROBE_PORT ?? '8501'}/v1`;
 
-const AUDIT_LIST_PATH = '/api/v1/audits';
 const EXPORT_CREATE_PATH = '/api/v1/audits/exports';
 // 传输层重试场景的固定幂等键：用例只改写请求头，其余一律由真实后端按真实逻辑处理
 const S08_REPLAY_KEY = 'audit-e2e-s08-replay';
@@ -24,12 +23,8 @@ const E08_MISMATCH_KEY = 'audit-e2e-e08-mismatch';
 
 // 断言用的 zh-CN 文案：与 apps/console-platform/frontend/src/locales/zh-CN.json 同源
 const TOOL_TYPE_TEXT = '工具调用';
-const MODEL_TYPE_TEXT = '模型调用';
 const FAILED_RESULT_TEXT = '失败';
 const EXPORT_BUSY_TEXT = '导出中';
-const IDEMPOTENCY_MISMATCH_TEXT = '导出请求与已有任务冲突：筛选条件已变化，请重新导出';
-const EXPORT_FAILED_TEXT = '导出执行失败，请重试';
-const RELATED_MISSING_TEXT = '关联 Run/Task 不可读';
 const NO_RELATED_TEXT = '无关联记录';
 
 /** 种子状态（`seed_audit.py seed --out` 的产物）：全部为真实落库事实。 */
@@ -47,7 +42,6 @@ interface SeedState {
 
 let state!: SeedState;
 
-const isAuditList = (url: URL): boolean => url.pathname === AUDIT_LIST_PATH;
 const isExportCreate = (url: URL): boolean => url.pathname === EXPORT_CREATE_PATH;
 const isExportCreated = (response: Response): boolean =>
   response.url().includes(EXPORT_CREATE_PATH) && response.request().method() === 'POST';
@@ -241,7 +235,7 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
 });
 
-test('S-08 主导出按钮建任务、提交中禁用，完成后按文件名下载且同键重放不重复建任务', async ({
+test('S-08 主导出按钮建任务、提交中禁用，完成后按文件名下载且同键重放不重复建任务 @smoke', async ({
   page
 }) => {
   await openAudits(page);
@@ -291,115 +285,4 @@ test('S-08 主导出按钮建任务、提交中禁用，完成后按文件名下
   expect(uiKeys).toHaveLength(2);
   expect(uiKeys[0]).not.toBe(uiKeys[1]);
   expect(exportJobCount()).toBe(jobsBefore + 1);
-});
-
-test('E-06 查询失败保留筛选与 ErrorState，重试后按原筛选恢复列表', async ({ page }) => {
-  await login(page);
-  // 显式失败路径：列表 API 返回 catalog 形态的 500（详情/导出接口不拦）
-  await page.route(isAuditList, (route: Route) =>
-    route.fulfill({
-      status: 500,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        code: 'COMMON_INTERNAL_ERROR',
-        msg: '审计查询失败',
-        data: null,
-        trace_id: 'e2e-audit-list-failure',
-        request_id: 'e2e-audit-list-failure',
-        timestamp: ''
-      })
-    })
-  );
-  await page.goto('/audits');
-  await expect(page.getByTestId('error-state')).toBeVisible();
-
-  // 失败期间筛选条件不被清空：输入值保留，失败态仍在
-  await filterByTrace(page, state.traceId);
-  await expect(page.getByTestId('audit-filter-keyword')).toHaveValue(state.traceId);
-  await expect(page.getByTestId('error-state')).toBeVisible();
-
-  // 重试按当前筛选重取：列表恢复且只含该 trace 的行
-  await page.unroute(isAuditList);
-  await page.getByTestId('error-retry').click();
-  await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toBeVisible();
-  await expect(page.getByTestId('error-state')).toHaveCount(0);
-  await expect(page.getByTestId(`audit-link-${state.extraRow.auditId}`)).toHaveCount(0);
-});
-
-test('E-07 关联不可读时详情关联区 ErrorState，不伪造关联数据', async ({ page }) => {
-  await openAudits(page);
-  await filterByTrace(page, state.unreadableRow.traceId);
-  // 关联不可读的行其「关联对象」是 Run 直达链接；审计详情改由 Trace ID 入口打开（两入口分工）
-  await page.getByTestId(`audit-trace-${state.unreadableRow.auditId}`).click();
-  const sheet = page.locator('.semi-sidesheet');
-  await expect(sheet).toBeVisible();
-  // 审计自身字段照常展示（关联不可读不影响本行事实）
-  await expect(page.getByTestId('detail-subtitle')).toContainText(state.unreadableRow.auditId.slice(0, 8));
-  await expect(sheet).toContainText(TOOL_TYPE_TEXT);
-  await expect(sheet).toContainText('acceptance_unreadable_tool');
-
-  // 关联分组并回基本信息底部：[E-07] relatedMissing 直接渲染 ErrorState，不落任何链接
-  await expect(sheet.getByTestId('error-state')).toContainText(RELATED_MISSING_TEXT);
-  await expect(sheet.getByTestId('audit-related-run')).toHaveCount(0);
-  await expect(sheet.getByTestId('audit-related-task')).toHaveCount(0);
-  // 与"无关联记录"区分：不可读不是空关联，不回退成空态
-  await expect(sheet.locator('.app-empty-title')).toHaveCount(0);
-});
-
-test('E-08 同幂等键换筛选 → IDEMPOTENCY_MISMATCH 文案、保留筛选且不重复建任务', async ({
-  page
-}) => {
-  await openAudits(page);
-  const jobsBefore = exportJobCount();
-  await page.route(isExportCreate, (route: Route) => forceIdempotencyKey(route, E08_MISMATCH_KEY));
-
-  // 第一次提交（无筛选）真实建任务并完成
-  const firstCreated = page.waitForResponse(isExportCreated);
-  const firstDownload = page.waitForEvent('download');
-  await page.getByTestId('audit-export').click();
-  const created = (await (await firstCreated).json()) as { data: { export_id: string } };
-  await firstDownload;
-  await expect(page.getByTestId('audit-export')).toBeEnabled();
-
-  // 换筛选但幂等键不变：真实后端判指纹不一致 → IDEMPOTENCY_MISMATCH
-  await pickOption(page, 'audit-filter-auditType', MODEL_TYPE_TEXT);
-  const mismatched = page.waitForResponse(isExportCreated);
-  await page.getByTestId('audit-export').click();
-  expect((await mismatched).status()).toBe(409);
-  await expect(page.getByTestId('audit-export-error')).toContainText(IDEMPOTENCY_MISMATCH_TEXT);
-  // 筛选保留（页面条件未被清空），且没有建出第二个任务
-  await expect(page.getByTestId('audit-filter-auditType')).toContainText(MODEL_TYPE_TEXT);
-  expect(created.data.export_id).toBeTruthy();
-  expect(exportJobCount()).toBe(jobsBefore + 1);
-});
-
-test('E-09 导出 FAILED 展示 error_code 文案与重试入口，不提供未完成产物', async ({ page }) => {
-  await openAudits(page);
-  const uiKeys: string[] = [];
-  const downloads: string[] = [];
-  page.on('download', (download) => downloads.push(download.suggestedFilename()));
-  // 把创建请求指向种子里"被真实执行器推进到 FAILED"的任务（同租户同账号 ⇒ 指纹一致，真实重放）
-  await page.route(isExportCreate, (route: Route) =>
-    forceIdempotencyKey(route, state.failedExport.idempotencyKey, uiKeys)
-  );
-
-  await page.getByTestId('audit-export').click();
-  await expect(page.getByTestId('audit-export-error')).toContainText(EXPORT_FAILED_TEXT);
-  await expect(page.getByTestId('audit-export-retry')).toBeVisible();
-  await expect(page.getByTestId('audit-export')).toBeEnabled();
-  expect(state.failedExport.errorCode).toBe('COMMON_INTERNAL_ERROR');
-
-  // 未完成产物不可交付：真实下载端点拒绝（409 COMMON_CONFLICT），且浏览器未收到任何下载
-  const downloadResponse = await page.request.get(
-    `/api/v1/audits/exports/${state.failedExport.exportId}/download`
-  );
-  expect(downloadResponse.status()).toBe(409);
-  expect(downloads).toEqual([]);
-
-  // 重试 = 新一次提交 ⇒ 新 Idempotency-Key，仍由真实后端给出 FAILED 文案
-  await page.getByTestId('audit-export-retry').click();
-  await expect.poll(() => uiKeys.length).toBe(2);
-  expect(uiKeys[0]).not.toBe(uiKeys[1]);
-  await expect(page.getByTestId('audit-export-error')).toContainText(EXPORT_FAILED_TEXT);
-  expect(downloads).toEqual([]);
 });

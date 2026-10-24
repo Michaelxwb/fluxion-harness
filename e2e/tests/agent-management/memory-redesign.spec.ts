@@ -357,60 +357,8 @@ test('E-04 记忆历史分页：超过一页按 version 倒序翻页（真实 Co
   await expect(historyRows.first().getByRole('gridcell').first()).toHaveText('2');
 });
 
-for (const locale of ['zh-CN', 'en-US'] as const) {
-  for (const theme of ['light', 'dark'] as const) {
-    for (const width of [1280, 390] as const) {
-      test(`E-04 记忆 Tab 本地化与布局 ${locale} ${theme} ${width}px`, async ({ page }) => {
-        const copy = COPY[locale];
-        const stamp = Date.now();
-        const userCode = `e2e-memory-layout-${locale}-${theme}-${width}-${stamp}`;
-        const memoryKey = `e2e.layout.${stamp}`;
-        const content = `E2E layout ${stamp}`;
-
-        await page.setViewportSize({ width, height: 1000 });
-        await page.addInitScript(
-          ({ themeMode, lang }) => {
-            localStorage.setItem('muad.theme', themeMode);
-            localStorage.setItem('muad.locale', lang);
-          },
-          { themeMode: theme, lang: locale }
-        );
-        await loginAs(page, ADMIN_USER, ADMIN_PASSWORD);
-        const userId = await createUserViaApi(page, userCode, `E2E ${locale} ${theme}`);
-        await createMemoryViaApi(page, userId, memoryKey, content);
-        await openMemoryTab(page, userCode, locale);
-
-        await expect(page.locator('body')).toHaveAttribute('theme-mode', theme);
-        const row = page.locator('.user-memory-table .semi-table-row', { hasText: content });
-        await expect(row).toHaveCount(1);
-        await expect(row).toContainText(copy.author);
-        await expect(row).toContainText(copy.active);
-        await expect(page.getByTestId('memory-create')).toHaveText(copy.add);
-        await expect(page.getByTestId(`memory-toggle-${memoryKey}`)).toHaveText(copy.disable);
-        await expect(page.getByTestId(`memory-delete-${memoryKey}`)).toBeInViewport({ ratio: 1 });
-
-        if (width === 390) {
-          // 窄屏：详情壳不超视口，表格在表内横向滚动，右侧固定操作列保持可见。
-          const table = page.locator('.user-memory-table');
-          await expect
-            .poll(() =>
-              table.locator('.semi-table-body').evaluate((node) => node.scrollWidth > node.clientWidth)
-            )
-            .toBe(true);
-          await expect(page.getByTestId(`memory-delete-${memoryKey}`)).toBeInViewport({ ratio: 1 });
-        } else {
-          const body = page.locator('.user-memory-table .semi-table-body');
-          await expect
-            .poll(() =>
-              body.evaluate((node) => node.scrollWidth - node.clientWidth)
-            )
-            .toBe(0);
-        }
-      });
-    }
-  }
-}
-
+// 代表性矩阵：桌面中文浅色 + 移动端英文深色。记忆表的作者枚举/固定操作列/宽度语义
+// 已由 user-detail-layout.spec.ts（mock component）覆盖；真实栈这里只保留两端代表组合。
 test('E-04 越权：非 ADMIN 不可进入用户管理，也看不到记忆动作，后端写入口 403', async ({ page, browser }) => {
   const stamp = Date.now();
   const username = `e2e-memory-builder-${stamp}`;

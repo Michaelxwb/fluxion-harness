@@ -9,6 +9,7 @@ from muad_im_gateway.main import app
 
 # 隔离 PostgreSQL 号位（B-267 等需要真实 PG 行事实的 Gateway 验收复用同一实现）。
 from tests.async_tool_datastores import async_tool_datastore  # noqa: F401
+from tests.internal_service import internal_service_token  # noqa: F401  (fixture 注册)
 
 
 @pytest.fixture(scope="session")

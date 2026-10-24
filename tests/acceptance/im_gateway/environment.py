@@ -17,6 +17,7 @@ from typing import Any
 
 from muad_common import SharedSettings
 from muad_contracts.platform_settings import PlatformSettings, parse_platform_settings
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from tests.acceptance.datastores import seed_platform_settings
 from tests.acceptance.task_schedule.environment import (  # 复用 09 真实验收栈原语
@@ -299,16 +300,27 @@ async def _with_own_engine(factory: object) -> object:
         await engine.dispose()
 
 
+#: 清理事务可重试的 PG SQLSTATE：序列化失败与死锁（都由 PG 选一方回滚，重试可收敛）。
+_PURGE_RETRYABLE_SQLSTATES = frozenset({"40001", "40P01"})
+
+
+def _retryable_purge_error(exc: DBAPIError) -> bool:
+    """外键竞态（IntegrityError）与死锁/序列化失败可重试；其余 DBAPI 错误照常抛。"""
+    if isinstance(exc, IntegrityError):
+        return True
+    return getattr(exc.orig, "pgcode", None) in _PURGE_RETRYABLE_SQLSTATES
+
+
 async def purge_tenant() -> None:
     """异步入口：供 async fixture 的 finally 使用（当前事件循环内直接访问真实 PG）。
 
-    `test_recovery` 会在真实栈**仍存活**时主动 purge（验证"清理不留残留"），此时
-    Runtime/Gateway 可能并发写入 run_record，落在 run_record 与 conversation 两条
-    DELETE 之间 ⇒ 外键违例。整个事务重试即可收敛（下一次 run_record DELETE 会带走
-    竞态写入的行）；固定 3 次仍失败则照常抛错，不吞异常。
+    `test_recovery` / `test_b122_cleanup_*` 会在真实栈**仍存活**时主动 purge（验证"清理不留
+    残留"），此时 Runtime/Gateway 仍可能并发写入：run_record 与 conversation 两条 DELETE
+    之间落下的行会撞外键；两边持有对方需要的行锁时 PG 还会判死锁（栈在跑后台 job 时实测）。
+    两类都是**预期竞态**，整段事务重试即可收敛（下一次 DELETE 会带走竞态写入的行），
+    固定 3 次仍失败则照常抛错，不吞异常。
     """
     from sqlalchemy import text
-    from sqlalchemy.exc import IntegrityError
 
     async def purge(session_factory: object) -> None:
         async with session_factory() as session:  # type: ignore[operator]
@@ -320,10 +332,10 @@ async def purge_tenant() -> None:
         try:
             await _with_own_engine(purge)
             return
-        except IntegrityError:
-            if attempt == 2:
+        except DBAPIError as exc:
+            if attempt == 2 or not _retryable_purge_error(exc):
                 raise
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.5 * (attempt + 1))
 
 
 def cleanup(database_url: str) -> None:

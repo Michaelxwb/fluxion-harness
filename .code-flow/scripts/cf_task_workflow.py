@@ -3,35 +3,61 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import fnmatch
 import json
 import os
 from pathlib import Path
 import re
 from typing import IO, Mapping, Optional, Sequence
+import shutil
 import sys
+import time
 
 from cf_acceptance_manifest import record_manual_evidence
 from cf_acceptance_runner import run_manifest
-from cf_acceptance_schema import load_manifest, validate_execution_baseline, verified_evidence
-from cf_spec_context import (ContextError, Decision, SpecContext, _git_changes, _run_git,
-                             apply_decision, load_context, save_context)
-from cf_spec_gate import validate_stage
+from cf_acceptance_schema import load_manifest, scenario_check_ids, validate_execution_baseline, verified_evidence
+from cf_exec_base import execution_session
+from cf_spec_context import (ContextError, DEFAULT_ACTIVE_EXCLUDES, Decision, SpecContext,
+                             _git_changes, _run_git, apply_decision, load_active_task,
+                             load_context, save_context, start_active_task)
+from cf_spec_gate import evidence_deferral_kind, validate_stage
 from cf_spec_metadata import load_spec_metadata
-from cf_spec_verify import VerificationScope, _git_tracked_files, run_all_verifiers
+from cf_spec_session import context_sha256
+from cf_spec_verify import (VerificationScope, _git_tracked_files, run_all_verifiers,
+                             store_verification_evidence)
+from cf_exec_base import worktree_fingerprint
 from cf_task_index import parse_task_file
-from cf_task_runtime import _apply_evidence, _evidence_data, run_done_gate
+from cf_task_runtime import (_NON_EXECUTION_ERRORS, _apply_evidence, _evidence_data,
+                             run_done_gate)
 from cf_workflow_service import (FINISHED_STATUSES, _require_marker_task,
-                                 _sync_markdown, block_task, cleanup_session_projections,
-                                 complete_task, locate_task_file, remove_session_projection,
-                                 resume_task)
+                                 _sync_markdown, block_task, check_startable,
+                                 cleanup_session_projections, complete_task,
+                                 locate_task_file, provisional_task, read_task_section,
+                                 remove_session_projection, resume_task, task_truth_issues)
 from cf_workflow_transaction import recover_transition
 
 
 def finish_task(root: str, directory: str, task_file: str, task_id: str) -> dict[str, object]:
     _require_marker_task(root, task_id, directory, task_file)
     gate = run_done_gate(root, directory, task_id=task_id)
+    if gate.decision == "provisional":
+        transition = provisional_task(root, directory, task_file, task_id, gate.message)
+        return {
+            "decision": "provisional",
+            "reason": gate.message,
+            "missing_checks": list(gate.missing_checks),
+            "next": gate.next_action,
+            "env_blocked_details": list(gate.env_blocked_details),
+            "deferred_review": gate.deferred_review,
+            "deferred_requirement": gate.deferred_requirement,
+            "deferred_budget": gate.deferred_budget,
+            "deferred_heavy": gate.deferred_heavy,
+            "evidence": gate.evidence,
+            **transition,
+        }
     if gate.decision != "pass":
-        return {"decision": "block", "reason": gate.message, "evidence": gate.evidence}
+        return {"decision": "block", "reason": gate.message, "evidence": gate.evidence,
+                "env_blocked_details": list(gate.env_blocked_details)}
     completed = complete_task(root, directory, task_file, task_id, True)
     # 完成后清理本任务的 Spec Session 投影（瞬时文件，避免往期规则被后续会话读到）
     result = {
@@ -52,6 +78,321 @@ def finish_task(root: str, directory: str, task_file: str, task_id: str) -> dict
     if hints:
         result["deferred_hint"] = " | ".join(hints)
     return result
+
+
+_CAPABILITY_LINE = re.compile(r"^- \*\*(?:Capability|Demo)\*\*:[ \t]*(.*)$")
+
+
+def _normalize_capability(value: str) -> str:
+    return " ".join(value.split()).casefold()
+
+
+def _task_capability(task_file: Path, task_id: str) -> str:
+    """Read the user-demonstrable capability declared by one TASK section."""
+    try:
+        section = read_task_section(str(task_file), task_id)
+    except ValueError:
+        return ""
+    for line in section.splitlines():
+        match = _CAPABILITY_LINE.match(line)
+        if match:
+            return " ".join(match.group(1).split())
+    return ""
+
+
+def _unique_ids(values: Sequence[str]) -> list[str]:
+    seen: set[str] = set()
+    chosen: list[str] = []
+    for value in values:
+        task_id = value.strip()
+        if task_id and task_id not in seen:
+            seen.add(task_id)
+            chosen.append(task_id)
+    return chosen
+
+
+def _batch_selection(directory: Path, tasks: Sequence[str],
+                     capability: str) -> tuple[list[tuple[Path, str, str]], str]:
+    """Resolve --batch IDs or a --capability name to TASK file/status tuples."""
+    available = _demand_tasks(directory)
+    by_id = {task_id: (task_file, status) for task_file, task_id, status in available}
+    if capability.strip():
+        wanted = _normalize_capability(capability)
+        selected = [
+            (task_file, task_id, status)
+            for task_file, task_id, status in available
+            if _normalize_capability(_task_capability(task_file, task_id)) == wanted
+        ]
+        if not selected:
+            known = sorted({_task_capability(f, t) for f, t, _ in available} - {""})
+            raise ValueError(
+                f"unknown_capability: {capability.strip()}; available: {', '.join(known) or 'none'}"
+            )
+        return selected, "capability"
+    chosen = _unique_ids(tasks)
+    if not chosen:
+        raise ValueError("batch_empty: pass --batch TASK-... or --capability <name>")
+    unknown = [task_id for task_id in chosen if task_id not in by_id]
+    if unknown:
+        raise ValueError(f"unknown_tasks: {', '.join(unknown)}")
+    return [(by_id[task_id][0], task_id, by_id[task_id][1]) for task_id in chosen], "batch"
+
+
+def _batch_working_changes(root: str) -> tuple[str, ...]:
+    """Current business changes, ignoring the paths the active marker excludes."""
+    return tuple(sorted(
+        path for path in _git_changes(root)
+        if not any(fnmatch.fnmatchcase(path, pattern) for pattern in DEFAULT_ACTIVE_EXCLUDES)
+    ))
+
+
+def _batch_active_task(root: str) -> str:
+    if not (Path(root) / ".code-flow/.active-task.json").exists():
+        return ""
+    return load_active_task(root).task_id
+
+
+def _ensure_batch_marker(root: str, directory: str, task_id: str) -> bool:
+    """Open a transient marker for one batch task; returns True when created.
+
+    A pre-existing marker is only accepted for the same TASK. Other TASKs are
+    rejected: silently switching identity would let a batch finish arbitrary
+    work that was never started.
+    """
+    marker = Path(root) / ".code-flow/.active-task.json"
+    if marker.exists():
+        active = load_active_task(root)
+        if active.task_id != task_id:
+            raise ValueError(f"active_mismatch: marker={active.task_id} requested={task_id}")
+        if active.status != "active":
+            raise ValueError(f"active_not_ready: {active.task_id} is {active.status}")
+        return False
+    context = load_context(str(Path(directory) / "spec-context.yml"))
+    start_active_task(root, directory, task_id, context_sha256(context), _batch_working_changes(root))
+    return True
+
+
+def _abandon_batch_marker(root: str) -> bool:
+    """Drop a batch marker without changing the Markdown view.
+
+    A failed TASK must stay open (draft/in-progress) and must not claim done;
+    the marker only holds the single active slot, so it cannot be left behind
+    while the rest of the batch continues.
+    """
+    marker = Path(root) / ".code-flow/.active-task.json"
+    if not marker.exists():
+        return False
+    from cf_spec_context import doctor_active_task
+
+    doctor_active_task(root, "", abandon=True)
+    return True
+
+
+def _task_evidence_counts(evidence: Sequence[Mapping[str, object]]) -> tuple[int, int]:
+    executed = reused = 0
+    for item in evidence:
+        if evidence_deferral_kind(item) in ("review_stage", "heavy"):
+            continue
+        if item.get("error_code") in _NON_EXECUTION_ERRORS:
+            continue
+        details = item.get("details")
+        details = details if isinstance(details, Mapping) else {}
+        if details.get("cache_reused"):
+            reused += 1
+        else:
+            executed += 1
+    return executed, reused
+
+
+def _acceptance_task_evidence(directory: str, task_id: str) -> list[dict[str, object]]:
+    """Project the TASK's persisted manifest rows into per-check evidence."""
+    manifest = Path(directory) / ".acceptance-manifest.json"
+    if not manifest.is_file():
+        return []
+    try:
+        data = load_manifest(manifest)
+    except (OSError, ValueError):
+        return []
+    items: list[dict[str, object]] = []
+    for row in data.get("scenarios") or ():
+        if not isinstance(row, Mapping):
+            continue
+        owner = row.get("owner")
+        if isinstance(owner, str) and owner and owner != task_id:
+            continue
+        record = row.get("evidence")
+        if not isinstance(record, Mapping):
+            continue
+        scenario_id = str(row.get("id", ""))
+        check_id = str(row.get("check") or scenario_id)
+        verified = row.get("status") == "verified"
+        items.append({
+            "verifier_ref": check_id,
+            "check_id": check_id,
+            "status": "verified" if verified else "unverified",
+            "error_code": None if verified else "acceptance_failed",
+            "details": {"scenario": scenario_id, "cache_reused": bool(record.get("cache_reused"))},
+        })
+    return items
+
+
+def _finish_batch_task(root: str, directory: str, task_file: str, task_id: str) -> dict[str, object]:
+    """Run one TASK inside the shared batch execution session."""
+    activated = _ensure_batch_marker(root, directory, task_id)
+    try:
+        gate = run_done_gate(root, directory, task_id=task_id)
+        evidence = [*gate.evidence, *_acceptance_task_evidence(directory, task_id)]
+        executed, reused = _task_evidence_counts(evidence)
+        if gate.decision == "pass":
+            completed = complete_task(root, directory, task_file, task_id, True)
+            result = {
+                **completed,
+                "task": task_id,
+                "decision": "pass",
+                "status": "done",
+                "activated": activated,
+                "executed": executed,
+                "reused": reused,
+                "evidence": evidence,
+                "session_projection": remove_session_projection(root, task_file),
+            }
+            return result
+        result = {
+            "task": task_id,
+            "decision": gate.decision,
+            "status": "unchanged",
+            "reason": gate.message,
+            "activated": activated,
+            "executed": executed,
+            "reused": reused,
+            "missing_checks": list(gate.missing_checks),
+            "next": gate.next_action,
+            "evidence": evidence,
+        }
+        result["marker_cleared"] = _abandon_batch_marker(root)
+        return result
+    except Exception:
+        _abandon_batch_marker(root)
+        raise
+
+
+def _aggregate_batch_checks(
+    results: Sequence[Mapping[str, object]],
+) -> tuple[list[dict[str, object]], int, int]:
+    """Fold per-task evidence into one entry per check (executed once, reused N)."""
+    checks: dict[str, dict[str, object]] = {}
+    order: list[str] = []
+    for result in results:
+        task = str(result.get("task", ""))
+        evidence = result.get("evidence")
+        if not isinstance(evidence, Sequence):
+            continue
+        for item in evidence:
+            if not isinstance(item, Mapping):
+                continue
+            kind = evidence_deferral_kind(item)
+            if kind in ("review_stage", "heavy"):
+                continue
+            check_id = str(item.get("verifier_ref") or item.get("check_id") or "")
+            if not check_id:
+                continue
+            entry = checks.get(check_id)
+            if entry is None:
+                entry = {"check_id": check_id, "status": "verified", "tasks": [],
+                         "executions": 0, "reused": 0}
+                checks[check_id] = entry
+                order.append(check_id)
+            if task and task not in entry["tasks"]:
+                entry["tasks"].append(task)
+            if item.get("status") != "verified":
+                entry["status"] = "failed"
+            if item.get("error_code") in _NON_EXECUTION_ERRORS:
+                continue
+            if entry["executions"] == 0:
+                entry["executions"] = 1
+            else:
+                entry["reused"] = int(entry["reused"]) + 1
+    aggregated = [checks[check_id] for check_id in order]
+    executed = sum(1 for item in aggregated if int(item["executions"]) > 0)
+    reused = sum(int(item["reused"]) for item in aggregated)
+    return aggregated, executed, reused
+
+
+def _run_batch_tasks(root: str, directory: str,
+                     selected: Sequence[tuple[Path, str, str]]) -> list[dict[str, object]]:
+    results: list[dict[str, object]] = []
+    with execution_session():
+        for task_file, task_id, status in selected:
+            if status in FINISHED_STATUSES:
+                results.append({"task": task_id, "decision": "pass", "status": "already_done",
+                                "reason": "already_done", "activated": False,
+                                "executed": 0, "reused": 0, "evidence": []})
+                continue
+            blockers = check_startable(str(task_file), task_id)
+            if blockers:
+                results.append({"task": task_id, "decision": "block", "status": status,
+                                "reason": "start_blocked", "blockers": blockers,
+                                "activated": False, "executed": 0, "reused": 0, "evidence": []})
+                continue
+            try:
+                results.append(_finish_batch_task(root, directory, str(task_file), task_id))
+            except (OSError, ValueError) as exc:
+                results.append({"task": task_id, "decision": "block", "status": status,
+                                "reason": "batch_task_error", "error": str(exc),
+                                "activated": False, "executed": 0, "reused": 0, "evidence": []})
+    return results
+
+
+def _batch_payload(results: Sequence[Mapping[str, object]], selected: Sequence[tuple[Path, str, str]],
+                   mode: str, capability: str) -> dict[str, object]:
+    checks, executed, reused = _aggregate_batch_checks(results)
+    decisions = {str(item.get("decision")) for item in results}
+    decision = "block" if "block" in decisions else "provisional" if "provisional" in decisions else "pass"
+    failed = [str(item["task"]) for item in results if item.get("decision") == "block"]
+    first_reason = next(
+        (str(item.get("reason", "")) for item in results if item.get("decision") != "pass"), ""
+    )
+    return {
+        "decision": decision,
+        "action": "finish-batch",
+        "reason": "batch_failed: " + ", ".join(failed) if failed else first_reason,
+        "selection": {"mode": mode, "tasks": [item[1] for item in selected],
+                      "capability": capability.strip() or None},
+        "results": list(results),
+        "evidence": checks,
+        "executed": executed,
+        "reused": reused,
+        "failed": failed,
+        "env_blocked": sum(
+            1 for item in results if str(item.get("reason", "")).startswith("env")
+        ),
+        "incomplete": sum(1 for item in results if item.get("decision") == "provisional"),
+    }
+
+
+def finish_batch(root: str, directory: str, tasks: Sequence[str] = (),
+                 capability: str = "") -> dict[str, object]:
+    """Batch Done Gate: one shared execution session for a TASK list/capability.
+
+    Every selected TASK is gated independently, so one failure does not mark
+    the others done or block their completion. Code checks shared by the batch
+    execute once inside the session; their evidence is folded per check.
+    """
+    recover_transition(root)
+    selected, mode = _batch_selection(Path(directory), tasks, capability)
+    active_id = _batch_active_task(root)
+    selected_ids = [task_id for _, task_id, _ in selected]
+    if active_id and active_id not in selected_ids:
+        return {
+            "decision": "block",
+            "action": "finish-batch",
+            "reason": "active_mismatch",
+            "detail": f"marker={active_id}; batch={','.join(selected_ids)}",
+            "results": [],
+        }
+    # The active TASK must be consumed before any transient marker is opened.
+    selected.sort(key=lambda item: 0 if item[1] == active_id else 1)
+    return _batch_payload(_run_batch_tasks(root, directory, selected), selected, mode, capability)
 
 
 def _demand_tasks(directory: Path) -> list[tuple[Path, str, str]]:
@@ -183,12 +524,14 @@ def _manual_confirmations(root: str, targets: Mapping[str, Mapping[str, object]]
 
 def _run_requirement_verifiers(
     root: str,
+    directory: str,
     targets: dict[str, dict[str, object]],
     confirmations: Optional[Mapping[str, Mapping[str, Mapping[str, object]]]] = None,
 ) -> dict[str, object]:
     """执行需求级全量 verifier（code+review 按 spec/rule 去重），证据写回全部相关 context。"""
-    executed = reused = 0
+    executed = reused = env_blocked = incomplete = 0
     failures: list[str] = []
+    summaries: list[dict[str, object]] = []
     context_paths: set[Path] = set()
     evidence_by_context: dict[Path, list[Mapping[str, object]]] = {}
     scope = _review_scope(root)
@@ -196,12 +539,29 @@ def _run_requirement_verifiers(
         info = targets[spec_id]
         metadata = load_spec_metadata(str(Path(root) / ".code-flow/specs" / str(info["path"])))
         result = run_all_verifiers(metadata, scope, (confirmations or {}).get(spec_id), stage=None)
+        try:
+            from cf_evidence_store import requirement_key
+            store_verification_evidence(
+                metadata, scope, result, requirement=requirement_key(directory),
+            )
+        except (OSError, ValueError) as exc:
+            sys.stderr.write(f"cf_task_workflow: verifier evidence sidecar failed: {exc}\n")
         by_rule: dict[str, object] = {}
         for evidence in result.evidence:
             rule_ref = evidence.verifier_ref.split("#", 1)[-1]
             by_rule[rule_ref] = evidence
+            summaries.append({
+                "check_id": evidence.verifier_ref,
+                "status": evidence.status,
+                "error_code": evidence.error_code,
+            })
             if evidence.status != "verified":
-                failures.append(evidence.verifier_ref)
+                if evidence.error_code in _ENV_ERROR_CODES:
+                    env_blocked += 1
+                elif evidence.error_code == "verifier_timeout":
+                    incomplete += 1
+                else:
+                    failures.append(evidence.verifier_ref)
             elif (evidence.details or {}).get("cache_reused"):
                 reused += 1
             else:
@@ -225,92 +585,568 @@ def _run_requirement_verifiers(
     for ctx_path in sorted(context_paths):
         gate = validate_stage(load_context(str(ctx_path)), "review", diff_sha256=scope.diff_sha256)
         failures.extend(f"{issue.spec_id}#{issue.rule_ref}" for issue in gate.errors)
-    return {"executed": executed, "reused": reused, "failed": sorted(set(failures))}
+    return {
+        "executed": executed,
+        "reused": reused,
+        "failed": sorted(set(failures)),
+        "env_blocked": env_blocked,
+        "incomplete": incomplete,
+        "evidence": summaries,
+    }
 
 
-def verify_e2e(root: str, directory: str) -> dict[str, object]:
+VERIFY_LAYERS = ("validators", "review", "e2e")
+VERIFY_PROFILES = ("smoke", "changed", "full")
+_ENV_ERROR_CODES = frozenset(("env_blocked", "environment_unavailable", "command_unavailable"))
+
+
+def parse_verify_layers(value: Optional[str]) -> tuple[str, ...]:
+    if value is None or not value.strip():
+        return VERIFY_LAYERS
+    chosen: set[str] = set()
+    for item in value.split(","):
+        name = item.strip()
+        if not name:
+            continue
+        if name not in VERIFY_LAYERS:
+            raise ValueError(f"unknown verify layer: {name}; allowed: {', '.join(VERIFY_LAYERS)}")
+        chosen.add(name)
+    if not chosen:
+        raise ValueError(f"--layers requires at least one of: {', '.join(VERIFY_LAYERS)}")
+    return tuple(name for name in VERIFY_LAYERS if name in chosen)
+
+
+def parse_verify_profile(value: Optional[str], default: str = "changed") -> str:
+    profile = (value or default).strip()
+    if profile not in VERIFY_PROFILES:
+        raise ValueError(f"unknown verify profile: {profile}; allowed: {', '.join(VERIFY_PROFILES)}")
+    return profile
+
+
+def _layer_result(decision: str, *, reason: str = "", executed: int = 0, reused: int = 0,
+                  failed: Optional[Sequence[str]] = None, env_blocked: int = 0, incomplete: int = 0,
+                  evidence: Optional[Sequence[Mapping[str, object]]] = None,
+                  **extra: object) -> dict[str, object]:
+    result: dict[str, object] = {
+        "decision": decision,
+        "reason": reason,
+        "executed": executed,
+        "reused": reused,
+        "failed": list(failed or ()),
+        "env_blocked": env_blocked,
+        "incomplete": incomplete,
+        "evidence": list(evidence or ()),
+    }
+    result.update(extra)
+    return result
+
+
+def _nothing_to_verify() -> dict[str, object]:
+    return _layer_result("pass", reason="nothing_to_verify")
+
+
+def _validation_view(details: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "decision": details.get("decision"),
+        "reason": details.get("reason", ""),
+        "reused": details.get("reused", 0),
+        "failures": details.get("failures", []),
+    }
+
+
+def _validator_execution_count(root: str, selected: Sequence[str], reused: int) -> int:
+    from cf_stop_hook import trigger_matches
+    from cf_validation import _validators
+
+    applicable = 0
+    for validator in _validators(root):
+        if not isinstance(validator, Mapping):
+            continue
+        trigger = str(validator.get("trigger", ""))
+        if any(trigger_matches(trigger, path) for path in selected):
+            applicable += 1
+    return max(0, applicable - reused)
+
+
+def _validators_layer(root: str, profile: str) -> dict[str, object]:
+    try:
+        from cf_validation import validate_files
+
+        files = tuple(sorted(_git_tracked_files(root)))
+        details = validate_files(root, files, include_heavy=profile == "full")
+    except (OSError, ValueError) as exc:
+        return _layer_result("block", reason="validation_error", detail=str(exc))
+    view = _validation_view(details)
+    if details.get("reason") in ("no_changes", "no_validators_configured"):
+        return _layer_result("pass", reason="nothing_to_verify", validation=view)
+    failures = list(details.get("failures") or ())
+    failed = [str(item.get("name", "validator")) for item in failures if not item.get("incomplete")]
+    incomplete = sum(1 for item in failures if item.get("incomplete"))
+    reused = int(details.get("reused") or 0)
+    selected = details.get("files") or ()
+    executed = _validator_execution_count(root, selected, reused)
+    decision = "pass" if details.get("decision") == "pass" else "block"
+    return _layer_result(
+        decision,
+        reason="" if decision == "pass" else "validation_failed",
+        executed=executed,
+        reused=reused,
+        failed=failed,
+        incomplete=incomplete,
+        validation=view,
+    )
+
+
+def _review_layer(root: str, directory: str) -> dict[str, object]:
+    try:
+        review_targets = collect_review_bindings(Path(directory))
+        pending_rules, _ = _pending_manual_rules(root, review_targets)
+    except ValueError as exc:
+        return _layer_result("block", reason="manual_review_context_unreadable", detail=str(exc))
+    if pending_rules:
+        return _layer_result(
+            "block",
+            reason="manual_confirmation_required",
+            manual_rules=pending_rules,
+            next=("向用户展示待确认清单并取得明确回复后，运行 confirm-manual 批量写入确认，再重跑 verify；"
+                  "Agent 不得代确认。"),
+        )
+    try:
+        all_targets = collect_requirement_bindings(Path(directory), ("code", "review"))
+    except ValueError as exc:
+        return _layer_result("block", reason="review_context_unreadable", detail=str(exc))
+    if not all_targets:
+        return _nothing_to_verify()
+    confirmations = _manual_confirmations(root, all_targets)
+    review = _run_requirement_verifiers(root, directory, all_targets, confirmations)
+    blocked = bool(review["failed"] or review["env_blocked"] or review["incomplete"])
+    return _layer_result(
+        "block" if blocked else "pass",
+        reason="review_failed" if blocked else "",
+        executed=int(review["executed"]),
+        reused=int(review["reused"]),
+        failed=review["failed"],
+        env_blocked=int(review["env_blocked"]),
+        incomplete=int(review["incomplete"]),
+        evidence=review["evidence"],
+        review={"executed": review["executed"], "reused": review["reused"], "failed": review["failed"]},
+    )
+
+
+def _acceptance_counts(acceptance: Mapping[str, object]) -> dict[str, object]:
+    executed = reused = incomplete = env_blocked = 0
+    failed: list[str] = []
+    evidence: list[dict[str, object]] = []
+    for item in acceptance.get("results") or ():
+        if not isinstance(item, Mapping):
+            continue
+        scenario_id = str(item.get("id", ""))
+        status = str(item.get("status", ""))
+        evidence.append({"check_id": scenario_id, "status": status})
+        if status == "incomplete":
+            incomplete += 1
+        elif status == "env_blocked":
+            env_blocked += 1
+        elif status in ("failed", "not_configured"):
+            failed.append(scenario_id)
+        elif status == "passed":
+            if item.get("cache_reused"):
+                reused += 1
+            else:
+                executed += 1
+    return {"executed": executed, "reused": reused, "failed": sorted(failed),
+            "env_blocked": env_blocked, "incomplete": incomplete, "evidence": evidence}
+
+
+def _e2e_preflight(manifest: Path, tasks: Sequence[tuple[Path, str, str]],
+                   requirement_gate: bool, profile: str = "changed",
+                   root: str = "") -> tuple[Optional[dict[str, object]], Optional[dict[str, object]]]:
+    try:
+        data = load_manifest(manifest)
+        validate_execution_baseline(manifest, data)
+    except (OSError, ValueError) as exc:
+        return None, _layer_result("block", reason="acceptance_manifest_invalid", detail=str(exc))
+    bound_task = (manifest.parent / str(data.get("task_file", ""))).resolve()
+    if {task.resolve() for task, _, _ in tasks} != {bound_task}:
+        return None, _layer_result("block", reason="acceptance_manifest_task_mismatch")
+    if not requirement_gate:
+        if not any(row.get("kind") == "e2e" for row in data["scenarios"]):
+            return None, _nothing_to_verify()
+        return data, None
+    selected_ids: Optional[set[str]] = None
+    if root and profile != "full":
+        from cf_acceptance_runner import _select_profile
+        selected_ids = {
+            str(item.get("id")) for item in _select_profile(data, root, profile)["scenarios"]
+            if isinstance(item, Mapping)
+        }
+    functional_required: list[object] = []
+    manual_scenarios: list[dict[str, object]] = []
+    checks = {
+        str(item.get("id")): item for item in data.get("checks", [])
+        if isinstance(item, Mapping) and item.get("id")
+    }
+    from cf_acceptance_risk import accepted_risk as _accepted_risk
+    for row in data["scenarios"]:
+        if row.get("exec") == "aspirational":
+            continue
+        if selected_ids is not None and str(row.get("id")) not in selected_ids:
+            continue
+        if row.get("status") == "stale":
+            # Stale evidence is known-outdated, not missing. The E2E layer
+            # re-runs it; preflight must not turn it into a hard archive block.
+            continue
+        if verified_evidence(row):
+            continue
+        if row.get("status") == "accepted_risk":
+            check_ids = scenario_check_ids(row)
+            if check_ids and any(_accepted_risk(checks.get(check_id), row) is not None for check_id in check_ids):
+                continue
+        if row.get("kind") == "manual" or row.get("exec") == "manual":
+            manual_scenarios.append({
+                "id": row.get("id"),
+                "owner": row.get("owner", ""),
+                "boundary": row.get("boundary", ""),
+            })
+        elif row.get("kind", "functional") != "e2e" and row.get("exec") != "deferred":
+            functional_required.append(row["id"])
+    if functional_required:
+        return None, _layer_result("block", reason="functional_or_manual_evidence_missing",
+                                   scenarios=functional_required)
+    if manual_scenarios:
+        return None, _layer_result(
+            "block",
+            reason="manual_confirmation_required",
+            manual_scenarios=manual_scenarios,
+            next=("向用户展示待确认清单并取得明确回复后，运行 confirm-manual 批量写入确认，再重跑 verify；"
+                  "Agent 不得代确认。"),
+        )
+    return data, None
+
+
+def _stale_functional_rows(data: Mapping[str, object], root: str) -> list[str]:
+    """Functional rows claiming verified but recorded against different content."""
+    fingerprint = worktree_fingerprint(root, include_untracked=False)
+    checks = {
+        str(item.get("id")): item for item in data.get("checks", [])
+        if isinstance(item, Mapping) and item.get("id")
+    }
+    from cf_check_inputs import check_input_hashes
+    per_check = check_input_hashes(root, checks, fingerprint)
+    stale: list[str] = []
+    for row in data.get("scenarios", []) or []:
+        if not isinstance(row, Mapping):
+            continue
+        if str(row.get("kind", "functional")) in ("manual", "e2e"):
+            continue
+        if row.get("status") not in ("verified", "stale"):
+            continue
+        raw = row.get("checks")
+        check_ids = [str(value) for value in raw] if isinstance(raw, list) else []
+        if not check_ids and isinstance(row.get("check"), str):
+            check_ids = [str(row.get("check"))]
+        evidence = row.get("evidence")
+        if not check_ids:
+            if not verified_evidence(row, fingerprint):
+                stale.append(str(row.get("id")))
+            continue
+        if not isinstance(evidence, Mapping):
+            stale.append(str(row.get("id")))
+            continue
+        if len(check_ids) == 1:
+            recorded = evidence.get("check_hashes")
+            if isinstance(recorded, Mapping):
+                expected = per_check.get(check_ids[0], {}).get("input_hash")
+                if recorded.get(check_ids[0]) != expected:
+                    stale.append(str(row.get("id")))
+            else:
+                expected = per_check.get(check_ids[0], {}).get("input_hash")
+                if evidence.get("fingerprint") != expected:
+                    stale.append(str(row.get("id")))
+            continue
+        recorded = evidence.get("check_hashes")
+        if not isinstance(recorded, Mapping) or any(
+            recorded.get(check_id) != per_check.get(check_id, {}).get("input_hash")
+            for check_id in check_ids
+        ):
+            stale.append(str(row.get("id")))
+    return stale
+
+
+def _unverified_functional_rows(data: Mapping[str, object]) -> list[str]:
+    checks = {
+        str(item.get("id")): item for item in data.get("checks", [])
+        if isinstance(item, Mapping) and item.get("id")
+    }
+    from cf_acceptance_runner import _accepted_risk
+    rows: list[str] = []
+    for row in data.get("scenarios", []) or []:
+        if not isinstance(row, Mapping):
+            continue
+        if str(row.get("kind", "functional")) in ("manual", "e2e") or row.get("exec") in ("manual", "aspirational"):
+            continue
+        if row.get("status") == "accepted_risk":
+            check_ids = scenario_check_ids(row)
+            if any(_accepted_risk(checks.get(check_id), row) is not None for check_id in check_ids):
+                continue
+        if not verified_evidence(row):
+            rows.append(str(row.get("id")))
+    return rows
+
+
+def _acceptance_required(tasks: Sequence[tuple[Path, str, str]]) -> bool:
+    for task_file, task_id, _ in tasks:
+        try:
+            text = Path(task_file).read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            continue
+        section = re.search(rf"(?ms)^##\s+{re.escape(task_id)}:.*?(?=^##\s+TASK-|\Z)", text)
+        if section is None:
+            continue
+        body = section.group(0)
+        refs = re.search(r"(?m)^- \*\*Acceptance-Refs\*\*:[ \t]*([^\n]*)", body)
+        if refs and refs.group(1).strip().upper() not in ("", "N/A"):
+            return True
+    return False
+
+
+def _e2e_layer(root: str, directory: str, tasks: Sequence[tuple[Path, str, str]],
+               requirement_gate: bool, profile: str = "changed", resume: bool = True,
+               deadline: Optional[float] = None, max_failures: int = 0,
+               fail_fast: bool = False, jobs: int = 0) -> dict[str, object]:
+    manifest = Path(directory) / ".acceptance-manifest.json"
+    if not manifest.exists():
+        if _acceptance_required(tasks):
+            return _layer_result("block", reason="acceptance_manifest_missing")
+        return _nothing_to_verify()
+    data, failure = _e2e_preflight(manifest, tasks, requirement_gate, profile, root)
+    if failure is not None:
+        return failure
+    stale = _stale_functional_rows(data, root) if requirement_gate else []
+    unverified = _unverified_functional_rows(data) if requirement_gate else []
+    if profile == "smoke":
+        # Smoke only needs the E2E subset; functional freshness is handled by
+        # the explicit changed/full gate, not by the batch smoke.
+        stale = []
+        unverified = []
+    try:
+        acceptance = run_manifest(
+            str(manifest), root, write_evidence=True,
+            include_e2e=bool(stale or unverified) or profile in ("full", "smoke"),
+            only_e2e=not (stale or unverified) and profile not in ("full", "smoke"),
+            profile=profile, resume=resume, deadline=deadline,
+            max_failures=max_failures, fail_fast=fail_fast, jobs=jobs,
+            force_ids=tuple(stale or unverified),
+        )
+    except (OSError, ValueError) as exc:
+        return _layer_result("block", reason="acceptance_run_error", detail=str(exc))
+    counts = _acceptance_counts(acceptance)
+    decision = "pass" if acceptance.get("decision") == "pass" else "block"
+    extra: dict[str, object] = {"results": acceptance.get("results", [])}
+    if "checks" in acceptance:
+        extra["checks"] = acceptance["checks"]
+    if "error" in acceptance:
+        extra["error"] = acceptance["error"]
+    return _layer_result(
+        decision,
+        reason="" if decision == "pass" else "e2e_failed",
+        executed=counts["executed"],
+        reused=counts["reused"],
+        failed=counts["failed"],
+        env_blocked=counts["env_blocked"],
+        incomplete=counts["incomplete"],
+        evidence=counts["evidence"],
+        acceptance=acceptance,
+        **extra,
+    )
+
+
+def _aggregate_layers(layer_results: Mapping[str, Mapping[str, object]], profile: str,
+                      selected: Sequence[str]) -> dict[str, object]:
+    blocking = [(name, layer) for name, layer in layer_results.items() if layer.get("decision") != "pass"]
+    every_layer_empty = bool(layer_results) and all(
+        layer.get("reason") == "nothing_to_verify" for layer in layer_results.values()
+    )
+    if blocking:
+        first = blocking[0]
+        reason = str(first[1].get("reason") or f"{first[0]}_failed")
+    elif every_layer_empty:
+        reason = "nothing_to_verify"
+    else:
+        reason = ""
+    evidence = [
+        {"layer": name, **item}
+        for name, layer in layer_results.items()
+        for item in layer.get("evidence", [])
+        if isinstance(item, Mapping)
+    ]
+    result: dict[str, object] = {
+        "decision": "block" if blocking else "pass",
+        "reason": reason,
+        "profile": profile,
+        "selected_layers": list(selected),
+        "layers": dict(layer_results),
+        "executed": sum(int(layer.get("executed", 0)) for layer in layer_results.values()),
+        "reused": sum(int(layer.get("reused", 0)) for layer in layer_results.values()),
+        "failed": sorted({str(item) for layer in layer_results.values()
+                          for item in layer.get("failed", [])}),
+        "env_blocked": sum(int(layer.get("env_blocked", 0)) for layer in layer_results.values()),
+        "incomplete": sum(int(layer.get("incomplete", 0)) for layer in layer_results.values()),
+        "evidence": evidence,
+    }
+    for field in ("manual_rules", "manual_scenarios", "scenarios", "next"):
+        merged = [layer[field] for layer in layer_results.values() if field in layer]
+        if merged:
+            result[field] = merged[0] if len(merged) == 1 else merged
+    return result
+
+
+def _promote_verified(tasks: Sequence[tuple[Path, str, str]]) -> None:
+    for task_file, task_id, _ in tasks:
+        _sync_markdown(str(task_file), task_id, "verified")
+
+
+def _compact_requirement_contexts(root: str, directory: str) -> None:
+    """Keep spec-context bounded after a full requirement gate passes."""
+    from cf_evidence_store import compact_context_file, requirement_key
+    for path in sorted(Path(directory).rglob("spec-context.yml")):
+        try:
+            compact_context_file(path, root=root, requirement=requirement_key(directory))
+        except (OSError, ValueError) as exc:
+            sys.stderr.write(f"cf_task_workflow: context compaction failed: {exc}\n")
+
+
+def verify_layers(root: str, directory: str, layers: Optional[str] = None,
+                  profile: Optional[str] = None,
+                  only_tasks: Optional[Sequence[str]] = None,
+                  resume: bool = True, deadline: Optional[float] = None,
+                  max_failures: int = 0, fail_fast: bool = False,
+                  jobs: int = 0) -> dict[str, object]:
+    """Run validators/review/e2e independently and aggregate truthful layer results.
+
+    ``only_tasks`` scopes the batch smoke gate to the tasks merged by this run;
+    unrelated unfinished tasks in the same requirement must not block it.
+    """
     recover_transition(root)
     tasks = _demand_tasks(Path(directory))
+    if only_tasks is not None:
+        wanted = {str(task_id) for task_id in only_tasks}
+        known = {task_id for _, task_id, _ in tasks}
+        if wanted - known:
+            return {"decision": "block", "reason": "unknown_tasks", "tasks": sorted(wanted - known)}
+        tasks = [item for item in tasks if item[1] in wanted]
     unfinished = [task_id for _, task_id, status in tasks if status not in FINISHED_STATUSES]
     if unfinished:
         return {"decision": "block", "reason": "unfinished_tasks", "tasks": unfinished}
     if (Path(root) / ".code-flow/.active-task.json").exists():
         return {"decision": "block", "reason": "finish_active_task_first"}
-    try:
-        review_targets = collect_review_bindings(Path(directory))
-        all_targets = collect_requirement_bindings(Path(directory), ("code", "review"))
-    except ValueError as exc:
-        return {"decision": "block", "reason": "review_context_unreadable", "detail": str(exc)}
-    manifest = Path(directory) / ".acceptance-manifest.json"
-    if not all_targets and not manifest.exists():
-        return {"decision": "pass", "executed": 0, "reused": 0, "failed": [], "reason": "nothing_to_verify"}
-    manual_scenarios: list[dict[str, object]] = []
-    functional_required: list[object] = []
-    if manifest.exists():
-        data = load_manifest(manifest)
-        validate_execution_baseline(manifest, data)
-        bound_task = (manifest.parent / str(data.get("task_file", ""))).resolve()
-        if {task.resolve() for task, _, _ in tasks} != {bound_task}:
-            return {"decision": "block", "reason": "acceptance_manifest_task_mismatch"}
-        for row in data["scenarios"]:
-            if verified_evidence(row):
-                continue
-            if row.get("kind") == "manual":
-                manual_scenarios.append({
-                    "id": row.get("id"),
-                    "owner": row.get("owner", ""),
-                    "boundary": row.get("boundary", ""),
-                })
-            elif row.get("kind", "functional") != "e2e":
-                functional_required.append(row["id"])
-    if functional_required:
-        return {"decision": "block", "reason": "functional_or_manual_evidence_missing", "scenarios": functional_required}
-    try:
-        pending_rules, _ = _pending_manual_rules(root, review_targets)
-    except ValueError as exc:
-        return {"decision": "block", "reason": "manual_review_context_unreadable", "detail": str(exc)}
-    if pending_rules or manual_scenarios:
-        return {
-            "decision": "block",
-            "reason": "manual_confirmation_required",
-            "manual_rules": pending_rules,
-            "manual_scenarios": manual_scenarios,
-            "next": ("向用户展示待确认清单并取得明确回复后，运行 confirm-manual 批量写入确认，再重跑 verify-e2e；"
-                     "Agent 不得代确认。"),
-        }
-    validation: dict[str, object] = {"decision": "pass", "reason": "no_validators_configured", "reused": 0}
-    try:
-        from cf_validation import validate_files
+    selected = parse_verify_layers(layers)
+    resolved_profile = parse_verify_profile(profile)
+    requirement_gate = set(selected) == set(VERIFY_LAYERS)
+    layer_results: dict[str, dict[str, object]] = {}
+    for name in selected:
+        if name == "validators":
+            layer_results[name] = _validators_layer(root, resolved_profile)
+        elif name == "review":
+            layer_results[name] = _review_layer(root, directory)
+        else:
+            layer_results[name] = _e2e_layer(
+                root, directory, tasks, requirement_gate,
+                profile=resolved_profile, resume=resume, deadline=deadline,
+                max_failures=max_failures, fail_fast=fail_fast, jobs=jobs,
+            )
+    result = _aggregate_layers(layer_results, resolved_profile, selected)
+    if (requirement_gate and resolved_profile == "full" and result["decision"] == "pass"
+            and (result.get("reason") != "nothing_to_verify" or not _acceptance_required(tasks))):
+        context_path = Path(directory) / "spec-context.yml"
+        if context_path.is_file():
+            context = load_context(str(context_path))
+            mismatches = [
+                {"task": task_id, "issues": list(issues)}
+                for task_file, task_id, _ in tasks
+                for issues in (task_truth_issues(str(task_file), task_id, context),)
+                if issues
+            ]
+            if mismatches:
+                result["decision"] = "block"
+                result["reason"] = "task_status_truth_mismatch"
+                result["tasks"] = mismatches
+                return result
+        _compact_requirement_contexts(root, directory)
+        _promote_verified(tasks)
+    return result
 
-        validation = validate_files(root, tuple(sorted(_git_tracked_files(root))), include_heavy=True)
-    except (OSError, ValueError) as exc:
-        return {"decision": "block", "reason": "validation_error", "detail": str(exc)}
-    if validation.get("decision") != "pass" and validation.get("reason") != "no_validators_configured":
-        return {"decision": "block", "reason": "validation_failed", "validation": validation}
-    confirmations = _manual_confirmations(root, all_targets)
-    review = (_run_requirement_verifiers(root, all_targets, confirmations) if all_targets
-              else {"executed": 0, "reused": 0, "failed": []})
-    acceptance: dict[str, object] = {"decision": "pass", "results": []}
-    if manifest.exists():
-        acceptance = run_manifest(str(manifest), root, write_evidence=True, only_e2e=True)
-    decision = "pass" if not review["failed"] and acceptance.get("decision") == "pass" else "block"
-    result = {
-        **acceptance,
-        "decision": decision,
-        "executed": review["executed"],
-        "reused": review["reused"],
-        "failed": review["failed"],
-        "review": review,
-        "validation": {
-            "decision": validation.get("decision"),
-            "reason": validation.get("reason", ""),
-            "reused": validation.get("reused", 0),
-            "failures": validation.get("failures", []),
-        },
-    }
-    if decision == "pass":
-        for task_file, task_id, _ in tasks:
-            _sync_markdown(str(task_file), task_id, "verified")
+
+def verify_e2e(root: str, directory: str, layers: Optional[str] = None,
+               profile: Optional[str] = None, resume: bool = True,
+               deadline: Optional[float] = None, max_failures: int = 0,
+               fail_fast: bool = False, jobs: int = 0) -> dict[str, object]:
+    """Legacy alias: all layers under the explicit full profile."""
+    result = verify_layers(root, directory, layers or ",".join(VERIFY_LAYERS), profile or "full",
+                           resume=resume, deadline=deadline, max_failures=max_failures,
+                           fail_fast=fail_fast, jobs=jobs)
+    layer_map = result.get("layers", {})
+    if "review" in layer_map:
+        review = layer_map["review"]
+        result["review"] = review.get("review", {
+            "executed": review.get("executed", 0),
+            "reused": review.get("reused", 0),
+            "failed": review.get("failed", []),
+        })
+        result["executed"] = review.get("executed", 0)
+        result["reused"] = review.get("reused", 0)
+        result["failed"] = review.get("failed", [])
+    if "validators" in layer_map:
+        result["validation"] = layer_map["validators"].get("validation", {
+            "decision": layer_map["validators"].get("decision"),
+            "reason": layer_map["validators"].get("reason", ""),
+            "reused": layer_map["validators"].get("reused", 0),
+            "failures": layer_map["validators"].get("failed", []),
+        })
+    if "e2e" in layer_map:
+        for key in ("results", "checks", "error"):
+            if key in layer_map["e2e"]:
+                result[key] = layer_map["e2e"][key]
+    return result
+
+
+def _archived_risks(directory: Path) -> list[dict[str, object]]:
+    """Accepted risks are archived distinctly from verified evidence."""
+    manifest = directory / ".acceptance-manifest.json"
+    if not manifest.is_file():
+        return []
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return []
+    risks = []
+    for check in data.get("checks", []) if isinstance(data.get("checks"), list) else []:
+        if isinstance(check, Mapping) and isinstance(check.get("accepted_risk"), Mapping):
+            risks.append({"check_id": check.get("id"), **dict(check["accepted_risk"])})
+    return risks
+
+
+def archive_requirement(root: str, directory: str) -> dict[str, object]:
+    """Runtime archive gate: full verify first, then move the requirement dir."""
+    from datetime import date
+    from pathlib import Path as _Path
+
+    result = verify_layers(root, directory, layers=",".join(VERIFY_LAYERS), profile="full")
+    if result.get("decision") != "pass":
+        return {"decision": "block", "reason": "archive_verify_failed", "verify": result}
+    source = _Path(directory)
+    accepted_risks = _archived_risks(source)
+    base = _Path(root) / ".code-flow/tasks/archived" / date.today().isoformat()
+    target = base / source.name
+    suffix = 2
+    while target.exists():
+        target = base / f"{source.name}-{suffix}"
+        suffix += 1
+    base.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(source), str(target))
+    result = {"decision": "pass", "archived_to": str(target)}
+    if accepted_risks:
+        result["accepted_risks"] = accepted_risks
     return result
 
 
@@ -357,7 +1193,7 @@ def confirm_manual(root: str, directory: str, refs: Sequence[str], scenarios: Se
                                 if row.get("kind") == "manual" and not verified_evidence(row)]
         for sid in chosen_scenarios:
             row = rows.get(sid)
-            if row is None or row.get("kind") != "manual":
+            if row is None or (row.get("kind") != "manual" and row.get("exec") != "manual"):
                 raise ValueError(f"unknown_manual_scenario: {sid}")
             if verified_evidence(row):
                 continue
@@ -375,13 +1211,34 @@ def confirm_manual(root: str, directory: str, refs: Sequence[str], scenarios: Se
     }
 
 
+def _verify_layers_argument(layers: str, checks: bool) -> Optional[str]:
+    """Map the cf-validate compatible ``--checks`` flag onto validators only."""
+    if not checks:
+        return layers or None
+    if layers and parse_verify_layers(layers) != ("validators",):
+        raise ValueError("--checks is an alias for --layers validators; pass one of them")
+    return "validators"
+
+
 def main(argv: Optional[Sequence[str]] = None, stdout: IO[str] = sys.stdout) -> int:
     parser = argparse.ArgumentParser(prog=os.environ.get("CF_RUNTIME_COMMAND") or None)
-    parser.add_argument("action", choices=("finish", "block", "resume", "verify-e2e", "confirm-manual", "cleanup-session"),
+    parser.add_argument("action", choices=("finish", "block", "resume", "verify", "verify-e2e",
+                                           "confirm-manual", "cleanup-session", "archive"),
                         metavar=os.environ.get("CF_RUNTIME_ACTION") or None)
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--task-dir", required=True)
     parser.add_argument("--task", default="")
+    parser.add_argument("--batch", default="", help="finish multiple TASKs: TASK-001,TASK-002")
+    parser.add_argument("--capability", default="", help="finish every TASK whose Capability matches")
+    parser.add_argument("--layers", default="", help="verify layers: validators,review,e2e (default all)")
+    parser.add_argument("--checks", action="store_true",
+                        help="alias for --layers validators (cf-validate compatible entry)")
+    parser.add_argument("--profile", default="", help="verify profile: smoke,changed,full (default changed)")
+    parser.add_argument("--resume", action="store_true", default=False, help="resume from the first unfinished check")
+    parser.add_argument("--deadline", type=float, default=0.0, help="deadline in seconds from now (0 = unbounded)")
+    parser.add_argument("--max-failures", type=int, default=0, help="stop after N failed checks (0 = unlimited)")
+    parser.add_argument("--fail-fast", action="store_true", default=False, help="stop after the first failed check")
+    parser.add_argument("--jobs", type=int, default=0, help="parallel check workers (0 = automatic)")
     parser.add_argument("--reason", default="")
     parser.add_argument("--refs", default="")
     parser.add_argument("--scenarios", default="")
@@ -396,8 +1253,22 @@ def main(argv: Optional[Sequence[str]] = None, stdout: IO[str] = sys.stdout) -> 
         if Path(root) not in Path(directory).parents:
             raise ValueError("task directory outside project")
         recover_transition(root)
-        if args.action == "verify-e2e":
-            result = verify_e2e(root, directory)
+        if args.action == "archive":
+            result = archive_requirement(root, directory)
+        elif args.action == "verify":
+            layers = _verify_layers_argument(args.layers, args.checks)
+            result = verify_layers(
+                root, directory, layers, args.profile or None,
+                resume=args.resume,
+                deadline=(time.monotonic() + args.deadline) if args.deadline else None,
+                max_failures=args.max_failures, fail_fast=args.fail_fast, jobs=args.jobs,
+            )
+        elif args.action == "verify-e2e":
+            result = verify_e2e(
+                root, directory, args.layers or None, args.profile or None,
+                resume=args.resume, deadline=(time.monotonic() + args.deadline) if args.deadline else None,
+                max_failures=args.max_failures, fail_fast=args.fail_fast, jobs=args.jobs,
+            )
         elif args.action == "cleanup-session":
             result = cleanup_session_projections(root, directory)
         elif args.action == "confirm-manual":
@@ -405,6 +1276,10 @@ def main(argv: Optional[Sequence[str]] = None, stdout: IO[str] = sys.stdout) -> 
             scenarios = [item.strip() for item in args.scenarios.split(",") if item.strip()]
             result = confirm_manual(root, directory, refs, scenarios, args.confirmed_by, args.source,
                                     args.reason, args.evidence)
+        elif args.action == "finish" and (args.batch or args.capability):
+            result = finish_batch(root, directory,
+                                  [item for item in args.batch.split(",") if item.strip()],
+                                  args.capability)
         else:
             task = locate_task_file(directory, args.task)
             if task is None:
@@ -416,7 +1291,7 @@ def main(argv: Optional[Sequence[str]] = None, stdout: IO[str] = sys.stdout) -> 
             else:
                 result = resume_task(root, directory, str(task), args.task)
         stdout.write(json.dumps(result, ensure_ascii=False))
-        return 3 if result.get("decision") == "block" else 0
+        return 3 if result.get("decision") in ("block", "provisional") else 0
     except (OSError, ValueError) as exc:
         stdout.write(json.dumps({"decision": "block", "error": str(exc)}, ensure_ascii=False))
         return 2

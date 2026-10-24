@@ -1501,7 +1501,7 @@ def test_b281_composer_renders_text_files_progress_and_projection_limits(
     markup = composer_render["markup"]["composer-zh"]
     assert _count(markup, 'data-testid="chat-composer"') == 1
     assert 'data-phase="IDLE"' in _tag(markup, "chat-composer")
-    assert f'data-testid="chat-composer-input"' in markup
+    assert 'data-testid="chat-composer-input"' in markup
     assert SEND_TEXT in markup, "输入文本原样渲染"
     assert 'placeholder="' in markup and "Enter" in markup, "占位说明 Enter 发送/Shift+Enter 换行"
     assert 'aria-label="消息输入区"' in markup, "输入区有可访问标签"

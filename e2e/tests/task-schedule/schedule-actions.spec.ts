@@ -61,7 +61,7 @@ test.describe('Schedule 管理动作', () => {
     await expect(page.getByTestId(`schedule-resume-${scheduleId}`)).toBeVisible();
   });
 
-  test('B-138 暂停/恢复/删除与终态限制，删除保留历史 Task', async ({ page, request }) => {
+  test('B-138 暂停/恢复/删除与终态限制，删除保留历史 Task @smoke', async ({ page, request }) => {
     const scheduleId = await seedSchedule(request, {
       name: 'e2e-action-lifecycle',
       status: 'ACTIVE',

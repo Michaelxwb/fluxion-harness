@@ -795,6 +795,7 @@ async def test_e05_memory_redesign_second_option_selection_enters_real_request(
 
     _set_script(gateway_stack, final_text="已记录。", consolidation_text=EMPTY_BATCH)
     await _new_conversation(gateway_stack)
+    replies_before = len(_replies(gateway_stack))
     run_c = await _started_run(gateway_stack, "继续上次任务")
     conversation_c = await _conversation_of(run_c)
     TENANT_HOLDER[0] = gateway_stack.tenant_id
@@ -816,9 +817,15 @@ async def test_e05_memory_redesign_second_option_selection_enters_real_request(
     target = next(item for item in items if item["number"] == 2)
     assert {item["memory_key"] for item in items} == {key_a, key_b}, items
     await _wait_run_terminal(run_c)
+    # 候选清单属于「产生 options 的那一轮」的推送；必须在发起「第2个」之前观察，
+    # 否则会把上一轮的辅助消息错当成选择后的新回复（E05 在 CI 上因此超时）。
+    await _wait_for(
+        lambda: "请回复完整编号" in "\n".join(_replies(gateway_stack)[replies_before:]),
+        what="候选清单未经真实 SSE 渲染投递到 WS 帧",
+        timeout=REPLY_TIMEOUT_SEC,
+    )
 
     # 下一条真实用户消息先消费未消费的 options（单次消费）：编号选择须落真实结果事件
-    replies_before = len(_replies(gateway_stack))
     second_run = await _started_run(gateway_stack, "第2个")
     await _wait_run_terminal(second_run)
     await _wait_for(
@@ -842,11 +849,6 @@ async def test_e05_memory_redesign_second_option_selection_enters_real_request(
     block = _system_text(_last_business_request(gateway_stack))
     assert target["memory_key"] in block, "选中的原任务必须实际进入请求"
     assert target["title"] in block
-    await _wait_for(
-        lambda: "请回复完整编号" in "\n".join(_replies(gateway_stack)[replies_before:]),
-        what="候选清单未经真实 SSE 渲染投递到 WS 帧",
-        timeout=REPLY_TIMEOUT_SEC,
-    )
 
 
 async def test_e05_memory_redesign_completion_retires_original_and_large_checkpoint_reference(
