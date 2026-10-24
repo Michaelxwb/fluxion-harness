@@ -146,7 +146,8 @@ def test_b142_current_artifact_change_only_affects_new_fire(
     import hashlib
     import zipfile
 
-    schedule_id = _create_schedule(live_stack, http)
+    # 用远未来 cron，避免 `_make_due` 的第二轮在等待窗口内跨整分触发第三次合法 fire。
+    schedule_id = _create_schedule(live_stack, http, cron="0 3 * * *")
     _make_due(live_stack, schedule_id)
     first = _wait_task(live_stack, schedule_id)
 

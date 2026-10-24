@@ -56,8 +56,11 @@ def test_b141_stale_lease_is_taken_over_by_live_worker(live_stack: LiveStack, ht
             await session.execute(
                 text(
                     "UPDATE task.task_execution SET status = :status, lease_owner = :owner, "
-                    "lease_until = :lease_until, attempt = 1, not_before = :not_before "
-                    "WHERE id = :id"
+                    "lease_until = :lease_until, attempt = 1, not_before = :not_before,"
+                    " execution_snapshot_json = jsonb_set("
+                    "  COALESCE(execution_snapshot_json, '{}'::jsonb),"
+                    "  '{budget,retry_safety}', '\"IDEMPOTENT\"'::jsonb, true)"
+                    " WHERE id = :id"
                 ),
                 {
                     "status": str(TaskStatus.RUNNING),

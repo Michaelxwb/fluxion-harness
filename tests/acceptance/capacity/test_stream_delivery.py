@@ -882,7 +882,9 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     intent = _wecom_notification(stack.database_url, first_run)
     assert intent is not None
     assert intent["delivery_key"] == f"run:{first_run}:terminal", "稳定交付键必须与终态同源"
-    assert intent["delivery_state"] in ("PENDING", "DELIVERING", "DELIVERED"), intent
+    # 连接中断时适配器可能拿不到确定回执，落 UNKNOWN（不冒充送达）；后续断言仍要求
+    # outcome != DELIVERED，并由恢复后的持久意图重投到 DELIVERED。
+    assert intent["delivery_state"] in ("PENDING", "DELIVERING", "DELIVERED", "UNKNOWN"), intent
 
     # ④ 下线期间：投递确定未送达（连接未建立）⇒ PENDING + attempt 增长 + 回执 outcome ≠ DELIVERED。
     await await_until(

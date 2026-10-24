@@ -18,9 +18,10 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import sqlalchemy as sa
 from muad_common import SharedSettings
 
-from tests.acceptance.runtime.conftest import LiveStack
+from tests.acceptance.runtime.conftest import LiveStack, run_db
 
 ROOT = Path(__file__).resolve().parents[3]
 READY_TIMEOUT_SEC = 20.0
@@ -118,8 +119,34 @@ def _payload(stack: LiveStack, text: str, conversation_id: uuid.UUID) -> dict[st
     }
 
 
+def _wait_running_with_lease(run_id: str, timeout_sec: float = 20.0) -> None:
+    """等 Run 真被 Pod 领取并持有租约后再杀；`run.created` 不保证 claim 已发生。"""
+
+    async def read(factory: Any) -> tuple[str, str | None]:
+        async with factory() as session:
+            row = (
+                await session.execute(
+                    sa.text(
+                        "SELECT status, lease_owner FROM runtime.run_record WHERE id = :id"
+                    ),
+                    {"id": uuid.UUID(run_id)},
+                )
+            ).one()
+        return str(row[0]), row[1]
+
+    deadline = time.monotonic() + timeout_sec
+    while time.monotonic() < deadline:
+        status, owner = run_db(read)
+        if status == "RUNNING" and owner:
+            return
+        time.sleep(0.1)
+    raise AssertionError(f"Run 未在 {timeout_sec}s 内进入 RUNNING+租约：{run_id}")
+
+
 def test_s04_e07_process_kill_reaped_and_takeover(live_stack: LiveStack) -> None:
     """[S-04][E-07] Pod A 被强杀 → Reaper 回收 RUN_ABANDONED → Pod B 接管同一 conversation。"""
+    # 必须在起 Pod 之前设置：RuntimePod 是独立子进程，启动后再改测试进程 env 不会生效。
+    os.environ["OPENAI_PROBE_DELAY_MS"] = "60000"
     pod_a = RuntimePod("pod-a", live_stack)
     pod_b = RuntimePod("pod-b", live_stack)
     try:
@@ -135,10 +162,9 @@ def test_s04_e07_process_kill_reaped_and_takeover(live_stack: LiveStack) -> None
         assert conversation.status_code == 200, conversation.text
         conversation_id = uuid.UUID(conversation.json()["data"]["conversation_id"])
 
-        # 在飞窗口必须远大于「读到 run.created → kill」这段耗时：整跑负载下这段可能到秒级，
-        # 窗口太小会让 Run 先自然完成，回收断言必假（实测 assert 'COMPLETED' == 'FAILED'）。
+        # 在飞窗口必须远大于「读到 run.created → claim → kill」这段耗时：整跑负载下这段
+        # 可能到秒级；并且 run.created 早于 claim，必须等真实 lease 再杀。
         # 探针是进程内 ASGI app（`await asyncio.sleep` 非阻塞），放大窗口不影响其它用例。
-        os.environ["OPENAI_PROBE_DELAY_MS"] = "60000"
         run_id: str | None = None
         with httpx.stream(
             "POST",
@@ -154,6 +180,7 @@ def test_s04_e07_process_kill_reaped_and_takeover(live_stack: LiveStack) -> None
                     run_id = event["run_id"]
                     break
         assert run_id is not None
+        _wait_running_with_lease(run_id)
         pod_a.kill()
 
         # 另一实例的 Reaper 在 lease 过期后回收（RUN_ABANDONED 终态，GET Run 可见）。
