@@ -806,6 +806,45 @@ async def test_b223_background_defers_under_interactive_load_then_advances(tenan
     assert workloads.count("BACKGROUND") == 1 and workloads.count("INTERACTIVE") == 1
 
 
+async def test_b223_expired_active_lease_does_not_hold_workload_share(tenant: Tenant) -> None:
+    """[B-223] 已过期仍 `ACTIVE` 的租约不算在飞：SIGKILL 遗留的后台租约不挡接管任务。
+
+    执行方失约即必须停手（`renew` 同样拒绝过期租约），份额门因此只统计执行权仍有效的
+    调用。把过期行继续算成 BACKGROUND 会让接管后的后台任务等满老化间隔，常常撞上它
+    自己的总超时（E06 接管用例实测）。
+    """
+    model_id = await _seed_model(tenant.tenant_id)
+    members = [
+        await _seed_member(tenant.tenant_id, model_id, key_max_inflight=5) for _ in range(2)
+    ]
+    candidates = [member.candidate() for member in members]
+    # 老化间隔远大于本用例等待：第二次能被分配只能是因为过期租约不再计入份额。
+    policy = _policy(interactive_weight=8, background_weight=1, aging_interval_sec=300)
+    allocator = _allocator()
+
+    dying = await _allocate(
+        allocator,
+        tenant,
+        model_id,
+        candidates=candidates,
+        policy=policy,
+        workload="BACKGROUND",
+        deadline_in_sec=1,
+    )
+    assert dying.state == "ACTIVE"
+    await asyncio.sleep(1.2)
+    takeover = await _allocate(
+        allocator,
+        tenant,
+        model_id,
+        candidates=candidates,
+        policy=policy,
+        workload="BACKGROUND",
+        wait_since=datetime.now(UTC),
+    )
+    assert takeover.state == "ACTIVE"
+
+
 async def test_b223_frozen_weights_and_interactive_never_gated_by_background(tenant: Tenant) -> None:
     """[B-223] 冻结权重相等时后台按同权进展；后台在飞不阻止新的交互调用。"""
     model_id = await _seed_model(tenant.tenant_id)

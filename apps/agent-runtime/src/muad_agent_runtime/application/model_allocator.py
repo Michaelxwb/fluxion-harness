@@ -363,6 +363,7 @@ async def _scan_candidates(
     candidates: Sequence[ModelMemberCandidate],
     epoch: int,
     policy_hash: str,
+    now: datetime,
 ) -> tuple[list[_CandidateLoad], dict[str, int]]:
     """一次有界候选扫描：成员事实、调度计数、在飞与工作负载分布（选择前读快照）。"""
     facts = await _read_candidate_facts(
@@ -390,6 +391,7 @@ async def _scan_candidates(
     workload_inflight = await store.read_workload_inflight(
         tenant_id=tenant_id,
         deployment_ids=[candidate.deployment_id for candidate in candidates],
+        now=now,
     )
     return loads, workload_inflight
 
@@ -618,6 +620,7 @@ class ModelAllocator:
                 candidates=candidates,
                 epoch=epoch,
                 policy_hash=policy.policy_hash,
+                now=now,
             )
             # 只做门禁（不可执行/无额度/工作负载份额）：通过的集合由下面的原子语句排序。
             _select_load(
