@@ -1896,14 +1896,17 @@ class RunService:
         mark("wake_head")
         await self._wake_tail(tenant_id, conversation.id)  # 提交后唤醒（ADR-02）：受理事务已落库
         mark("wake")
-        history = await self._load_history(
-            conversation.id,
-            tenant_id,
-            request.platform_user_id,
-            budget_messages=compaction.history_budget_messages,
-            max_history_tool_rounds=compaction.max_history_tool_rounds,
-        )
-        mark("history")
+        async def load_history() -> tuple[ModelMessage, ...]:
+            # 历史是执行材料，不是受理事实：放到后台 launch 任务里读，202 不再等它。
+            return await self._load_history(
+                conversation.id,
+                tenant_id,
+                request.platform_user_id,
+                budget_messages=compaction.history_budget_messages,
+                max_history_tool_rounds=compaction.max_history_tool_rounds,
+            )
+
+        mark("history_deferred")
         if marks and marks[-1][1] > 1.0:
             logger.warning(
                 "admission_write_slow",
@@ -1919,7 +1922,7 @@ class RunService:
             skills=tuple(resolved.skills),
             mcp_servers=tuple(resolved.mcp_servers),
             mcp_secrets=mcp_secrets,
-            history=history,
+            history_loader=load_history,
             submission_id=submission.id,
             resumed=False,
             compaction=compaction,
@@ -1973,11 +1976,19 @@ class RunService:
             logger.warning("human_resume_transaction_failed", extra={"tenant_id": run.tenant_id,
                 "run_id": str(run.id), "error_type": type(exc).__name__})
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
-        history = await self._load_history(run.conversation_id, run.tenant_id, run.user_id,
-            budget_messages=history_budget_of(snapshot.policy_json),
-            max_history_tool_rounds=history_tool_rounds_of(snapshot.policy_json))
-        stream = self._stream_run(run=run, agent=agent, model=model, skills=skills,
-            mcp_servers=servers, mcp_secrets=secrets, history=history, submission_id=submission.id,
+        async def load_resume_history() -> tuple[ModelMessage, ...]:
+            return await self._load_history(run.conversation_id, run.tenant_id, run.user_id,
+                budget_messages=history_budget_of(snapshot.policy_json),
+                max_history_tool_rounds=history_tool_rounds_of(snapshot.policy_json))
+        stream = self._stream_run(
+            run=run,
+            agent=agent,
+            model=model,
+            skills=skills,
+            mcp_servers=servers,
+            mcp_secrets=secrets,
+            history_loader=load_resume_history,
+            submission_id=submission.id,
             resumed=True, compaction=compaction_settings_of(snapshot.policy_json),
             execution=execution_defaults_of(snapshot.policy_json), summary_model=summary_model,
             current_text=input_text, current_attachments=persisted,
@@ -2572,7 +2583,8 @@ class RunService:
         skills: Sequence[ResolvedSkill],
         mcp_servers: Sequence[ResolvedMcpServer],
         mcp_secrets: dict[str, str],
-        history: Sequence[ModelMessage],
+        history: Sequence[ModelMessage] | None = None,
+        history_loader: Callable[[], Awaitable[Sequence[ModelMessage]]] | None = None,
         submission_id: uuid.UUID,
         resumed: bool,
         compaction: CompactionSettings | None = None,
@@ -2584,6 +2596,10 @@ class RunService:
         members: Sequence[MemberRef] | None = None,
         summary_members: Sequence[MemberRef] | None = None,
     ) -> AsyncIterator[ExecutorEvent]:
+        if history is None:
+            if history_loader is None:
+                raise ValueError("history or history_loader is required")
+            history = await history_loader()
         yield await self._start_segment_event(run, submission_id, resumed)
         resume = await resume_decision(get_session_factory(), run, submission_id=submission_id)
 

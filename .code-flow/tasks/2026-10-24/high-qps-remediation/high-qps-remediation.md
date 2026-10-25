@@ -356,7 +356,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 ## TASK-005: Runtime 容量、HPA 与后台隔离
 
-- **Status**: draft
+- **Status**: blocked
 - **Priority**: P0
 - **Depends**: TASK-004
 - **Source**: high-qps-remediation.backend.design.md#3.5 质量实现方案, high-qps-remediation.backend.design.md#4.1 部署架构
@@ -414,6 +414,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 | S-13 | planned | planned | planned | planned | planned |
 | B-01 | planned | planned | planned | planned | planned |
 
+> BLOCKED: Runtime capacity/HPA/queue metrics/memory backpressure 仍需专项实现；history 已移到后台 launch（202 不再等历史），100 用户 smoke 仍失败：admission P95 4764ms、first-delta P95 9864ms、system error 40%、idle-in-tx 51。剩余项交给后续 TASK-005 续作。
 ### Log
 
 - [2026-10-25] created (draft)
@@ -421,6 +422,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 - [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
 - [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
+- [2026-10-25] blocked (Runtime capacity/HPA/queue metrics/memory backpressure 仍需专项实现；history 已移到后台 launch（202 不再等历史），100 用户 smoke 仍失败：admission P95 4764ms、first-delta P95 9864ms、system error 40%、idle-in-tx 51。剩余项交给后续 TASK-005 续作。)
 
 ---
 
