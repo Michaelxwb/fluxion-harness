@@ -747,6 +747,8 @@ WebChat submit 走 admit_sync（复用 ChatIdentity）；lean scope；受理帧�
 - S-15: verified — automated command passed; run_id=97e211e414874d5fbc4f883fed2a5651 (confirmed_by: runner)
 - S-08: verified — automated command passed; run_id=4c1b08a693ef44c082cb48f5e01d8065 (confirmed_by: runner)
 - S-15: verified — automated command passed; run_id=4c1b08a693ef44c082cb48f5e01d8065 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=58e9bcd259c1427f9452e51fb96cbf6c (confirmed_by: runner)
+- S-15: verified — automated command passed; run_id=58e9bcd259c1427f9452e51fb96cbf6c (confirmed_by: runner)
 
 ### Log
 
