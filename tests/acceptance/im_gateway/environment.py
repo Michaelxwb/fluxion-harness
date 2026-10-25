@@ -111,6 +111,9 @@ class GatewayStack:
     bound_external_user_id: str
     unbound_external_user_id: str
     chat_id: str
+    #: WEBCHAT 稳定入口与真实 CHAT Token（S-08 的 SYNC 受理走真实 CHAT 交换 + 网关提交）。
+    webchat_entry_id: uuid.UUID
+    chat_token: str
     processes: dict[str, ServiceProcess] = field(default_factory=dict)
     ws_probe: object | None = None
 
@@ -276,6 +279,8 @@ def start_gateway_stack(
         bound_external_user_id=seeded["bound_external_user_id"],
         unbound_external_user_id=seeded["unbound_external_user_id"],
         chat_id=seeded["chat_id"],
+        webchat_entry_id=seeded["webchat_entry_id"],
+        chat_token=seeded["chat_token"],
         processes={process.name: process for process in processes},
     )
     return stack, processes
@@ -293,8 +298,21 @@ def stop_gateway_stack(processes: list[ServiceProcess]) -> None:
 
 
 def _cleanup_statements() -> tuple[str, ...]:
-    """channel_identity / bind_code 需先于 bot_account、platform_user 删除（FK 顺序）。"""
-    return (*IM_CONTROL_CLEANUP, *CONTROL_CLEANUP, *RUNTIME_CLEANUP, *TASK_CLEANUP)
+    """channel_identity / bind_code 需先于 bot_account、platform_user 删除（FK 顺序）。
+
+    WebChat 消息会写用户级通知（`channel_notification` 有指向 Run/feed 的外键），
+    必须先于 `RUNTIME_CLEANUP` 的 run 行删除。
+    """
+    return (
+        "DELETE FROM runtime.channel_notification WHERE tenant_id = :t",
+        "DELETE FROM runtime.channel_notification_feed WHERE tenant_id = :t",
+        # 显式会话（WebChat）会登记入口指针：conversation_id 是物理 FK，必须先于 conversation 删除。
+        "DELETE FROM runtime.channel_conversation WHERE tenant_id = :t",
+        *IM_CONTROL_CLEANUP,
+        *CONTROL_CLEANUP,
+        *RUNTIME_CLEANUP,
+        *TASK_CLEANUP,
+    )
 
 
 async def _with_own_engine(factory: object) -> object:

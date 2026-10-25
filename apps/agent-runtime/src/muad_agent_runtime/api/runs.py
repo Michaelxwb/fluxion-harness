@@ -15,6 +15,7 @@ from muad_contracts.webchat import (
     ADMISSION_EXECUTION_STATUS_HEADER,
     ADMISSION_RESUMED_HEADER,
     ADMISSION_RUN_ID_HEADER,
+    ADMISSION_RUN_STATUS_HEADER,
 )
 
 from ..application.dto import (
@@ -46,6 +47,7 @@ async def _sse_response(
     headers[ADMISSION_RUN_ID_HEADER] = str(run.run_id)
     headers[ADMISSION_CONVERSATION_ID_HEADER] = str(run.conversation_id)
     headers[ADMISSION_RESUMED_HEADER] = "1" if run.resumed else "0"
+    headers[ADMISSION_RUN_STATUS_HEADER] = str(run.status)
     if run.execution_status is not None:
         headers[ADMISSION_EXECUTION_STATUS_HEADER] = json.dumps(
             run.execution_status.model_dump(mode="json"), ensure_ascii=True

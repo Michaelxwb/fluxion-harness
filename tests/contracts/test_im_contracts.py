@@ -10,6 +10,7 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
+from muad_contracts import RunStatus
 from muad_contracts.channel import ChannelEnvelope
 from muad_contracts.im import (
     ChannelCapabilities,
@@ -23,11 +24,13 @@ from muad_contracts.im import (
     route_key,
     shard_for,
 )
+from muad_contracts.webchat import WebchatExecutionStatus
 from muad_im_core import (
     AsyncAdmission,
     MessageGateway,
     MessageGatewayPorts,
     SyncAdmission,
+    SyncPrincipal,
 )
 from pydantic import ValidationError
 
@@ -189,18 +192,47 @@ class _Adapter:
 
 
 def test_gateway_routes_sync_and_async_and_rejects_channel_mismatch() -> None:
+    """核心的通道一致性校验与能力路由是纯同步判断（受理端口本身是异步的）。"""
     ports = MessageGatewayPorts(
-        admit_sync=lambda event: SyncAdmission(run_id=str(uuid.uuid4())),
         admit_async=lambda event: AsyncAdmission(accepted=True),
         capabilities=lambda channel: ChannelCapabilities(channel=channel, max_text_bytes=1024),
     )
     gateway = MessageGateway(ports)
     adapter = _Adapter()
-    assert gateway.admit_sync(_event(), adapter=adapter).run_id
     assert gateway.admit_async(_event(), adapter=adapter).accepted
     assert gateway.capabilities_for("WECOM").max_text_bytes == 1024
     with pytest.raises(ValueError, match="channel"):
-        gateway.admit_sync(_event(channel="WEBCHAT"), adapter=adapter)
+        gateway.admit_async(_event(channel="WEBCHAT"), adapter=adapter)
+
+
+async def test_gateway_sync_admission_hands_the_verified_principal_to_the_port() -> None:
+    """SYNC 受理：入口已验证的 principal 原样进入端口，核心不再解析身份。"""
+    seen: list[SyncPrincipal] = []
+    admission = SyncAdmission(
+        run_id=uuid.uuid4(),
+        conversation_id=uuid.uuid4(),
+        status=RunStatus.CREATED,
+        execution_status=WebchatExecutionStatus(stage="RUNNING"),
+    )
+
+    async def admit_sync(event: InboundEvent, principal: SyncPrincipal) -> SyncAdmission:
+        seen.append(principal)
+        return admission
+
+    gateway = MessageGateway(MessageGatewayPorts(admit_sync=admit_sync))
+    principal = SyncPrincipal(
+        tenant_id="tenant-a",
+        platform_user_id=uuid.uuid4(),
+        agent_id=uuid.uuid4(),
+        idempotency_key="idem-sync-1",
+    )
+    accepted = await gateway.admit_sync(
+        _event(channel="WEBCHAT"), adapter=_Adapter("WEBCHAT"), principal_context=principal
+    )
+    assert accepted == admission
+    assert seen == [principal]
+    with pytest.raises(ValueError, match="channel"):
+        await gateway.admit_sync(_event(), adapter=_Adapter("WEBCHAT"), principal_context=principal)
 
 
 def test_legacy_channel_envelope_still_round_trips() -> None:

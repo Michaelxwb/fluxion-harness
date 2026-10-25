@@ -4,10 +4,11 @@
 
 - **真实 Gateway 应用与路由**：直连 `muad_im_gateway.main.app`，HTTP 提交走真实 ASGI/HTTP 封套；
   探针路由与 TASK-052 的生产消息路由同形（正文按 `WebchatMessageRequest` 契约解析、
-  经 `RegistryDep` 从注册表取适配器）。
-- **真实通道适配器 + 真实消费**：真实 `WebchatChannelAdapter`（TASK-047）与真实 `WeComAdapter`
-  （官方 SDK 端口为进程内探针）同装配在一个注册表里；入站只经 `iter_events()` 唯一入口进入
-  真实 `InboundPipeline.consume`——一个适配器一条消费循环，与装配根同形。
+  经 `app.state.registry` 取适配器）。
+- **真实通道适配器 + 真实管线语义**：真实 `WebchatChannelAdapter`（TASK-047）与真实
+  `WeComAdapter`（官方 SDK 端口为进程内探针）同装配在一个注册表里。TASK-010 起 WEBCHAT
+  入站是 SYNC（无进程内队列）：网页探针经生产同形的 Stream 消费入口
+  `InboundPipeline.handle_stream_event` 驱动管线；企微仍经 `iter_events()` + `consume`。
 - **真实 HTTP/SSE 协议探针**：Runtime 侧是真实本地 HTTP 服务（真实 `text/event-stream` 应答、
   按文本放行长流、记录 Run 请求与链路头）；Console 侧是真实 HTTP 桩（Owner 接口封套）。
 - 网关不持库：本文件不碰任何数据库（DB 只经 Owner 接口访问，网关只做 HTTP 调用）。
@@ -49,7 +50,6 @@ from muad_contracts import BotSnapshotItem, ChannelEnvelope, DeliveryMessage, De
 from muad_contracts.webchat import WebchatMessageRequest
 from muad_im_connector.channels.wecom.adapter import WeComAdapter
 from muad_im_connector.channels.wecom.sdk_port import WeComInboundMessage
-from muad_im_gateway.api.deps import RegistryDep
 from muad_im_gateway.application.console_client import ConsoleClient
 from muad_im_gateway.application.inbound import (
     MAX_CONCURRENT_HANDLERS,
@@ -58,7 +58,7 @@ from muad_im_gateway.application.inbound import (
 )
 from muad_im_gateway.application.runtime_client import RuntimeClient
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable, ChannelRegistry
-from muad_im_gateway.channels.webchat import WebchatChannelAdapter, WebchatInboundMessage
+from muad_im_gateway.channels.webchat import WebchatChannelAdapter
 from muad_im_gateway.infrastructure.dedupe import (
     DEDUPE_VALUE,
     DedupeStore,
@@ -106,20 +106,22 @@ _probe_router = APIRouter(prefix="/api/v1/webchat/_probe-admission", tags=["webc
 
 
 @_probe_router.post("/messages")
-async def _probe_submit(request: Request, registry: RegistryDep) -> ApiResponse[Any]:
-    """HTTP 输入 → 从注册表取 WEBCHAT 适配器 → 规范化入队（返回规范化后的事件形状）。"""
+async def _probe_submit(request: Request) -> ApiResponse[Any]:
+    """HTTP 输入 → 统一事件 → **Stream 消费入口**（TASK-010 起 WEBCHAT 入站是 SYNC，
+    适配器已无进程内队列；本探针用生产同形的 `handle_stream_event` 驱动管线语义）。"""
     body = WebchatMessageRequest.model_validate(await request.json())
-    adapter = registry.get("WEBCHAT")
+    adapter = request.app.state.registry.get("WEBCHAT")
     assert isinstance(adapter, WebchatChannelAdapter)
-    envelope = adapter.submit(
-        WebchatInboundMessage(
-            entry_id=ENTRY_ID,
-            platform_user_id=str(PLATFORM_USER_ID),
-            conversation_id=str(body.conversation_id),
-            message_id=body.message_id,
-            text=body.text,
-        )
+    pipeline: InboundPipeline = request.app.state.inbound_pipeline
+    envelope = ChannelEnvelope(
+        channel="WEBCHAT",
+        bot_id=ENTRY_ID,
+        external_user_id=str(PLATFORM_USER_ID),
+        external_conversation_id=str(body.conversation_id),
+        message_id=body.message_id,
+        text=body.text,
     )
+    asyncio.create_task(pipeline.handle_stream_event(adapter, envelope))
     return ok(request.app.state.message_catalog, envelope.model_dump(mode="json"))
 
 
@@ -421,13 +423,16 @@ async def _webchat_stack(
     pipeline = _pipeline(
         console, runtime, dedupe=dedupe, max_concurrent_handlers=max_concurrent_handlers
     )
-    consumer = asyncio.create_task(pipeline.consume(adapter))
+    previous = getattr(app.state, "inbound_pipeline", None)
+    app.state.inbound_pipeline = pipeline
     try:
         yield registry, sink, pipeline
     finally:
-        consumer.cancel()
-        with suppress(asyncio.CancelledError):
-            await consumer
+        if previous is None:
+            with suppress(AttributeError):
+                delattr(app.state, "inbound_pipeline")
+        else:
+            app.state.inbound_pipeline = previous
         await adapter.stop()
         await console.aclose()
         await runtime.aclose()
@@ -633,9 +638,10 @@ async def test_b248_wecom_entry_pointer_and_commands_stay_on_their_own_source(
     console = ConsoleClient(stub_console.url)
     runtime = RuntimeClient(runtime_probe.url)
     pipeline = _pipeline(console, runtime)
-    consumers = [
-        asyncio.create_task(pipeline.consume(adapter)) for adapter in (wecom, webchat)
-    ]
+    # WEBCHAT 入站是 SYNC（无队列）：探针路由经生产同形的 Stream 消费入口驱动管线。
+    previous = getattr(app.state, "inbound_pipeline", None)
+    app.state.inbound_pipeline = pipeline
+    consumers = [asyncio.create_task(pipeline.consume(wecom))]
     try:
         sdk = factory.latest()
         sdk.push_message(
@@ -712,6 +718,11 @@ async def test_b248_wecom_entry_pointer_and_commands_stay_on_their_own_source(
         for consumer in consumers:
             with suppress(asyncio.CancelledError):
                 await consumer
+        if previous is None:
+            with suppress(AttributeError):
+                delattr(app.state, "inbound_pipeline")
+        else:
+            app.state.inbound_pipeline = previous
         await registry.stop_all()
         await console.aclose()
         await runtime.aclose()

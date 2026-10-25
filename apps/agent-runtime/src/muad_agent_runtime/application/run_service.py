@@ -132,8 +132,9 @@ from .context_settings import (
     resolve_compaction_settings,
     resolve_pool_execution_policy,
 )
-from .dto import CancelSource, RunWaitSummary, run_view
+from .dto import CancelSource, RunWaitSummary
 from .event_tail_hub import CanonicalEventView, EventTailHub, TailBatch, get_event_tail_hub
+from .execution_status import project_execution_status
 from .executor import (
     ExecutionDefaults,
     ExecutorCredentials,
@@ -183,7 +184,6 @@ from .run_submission import (
     submission_fingerprint,
 )
 from .tool_result_receipts import OP_TERMINAL
-from .webchat_history import WebchatHistoryService
 
 logger = logging.getLogger(__name__)
 
@@ -485,6 +485,8 @@ class RunStart:
     conversation_id: uuid.UUID
     resumed: bool
     events: AsyncIterator[ExecutorEvent]
+    #: 受理事实：新 Run / 重放 / 续跑后的真实 Run 状态（202 直接用它，不再回读 Run）。
+    status: RunStatus
     #: 受理事务里已持久化的阶段投影；202 响应头直接带回，避免 Gateway 另发 get_run。
     execution_status: Any | None = None
 
@@ -1226,7 +1228,7 @@ class RunService:
         )
         if replay is not None:
             self._assert_replay_owner(replay, request.platform_user_id, request.conversation_id)
-            return self._replay_start(replay)
+            return await self._replay_start(replay)
         # 只读预检：已有活跃 Run 的请求走 resume / RUN_BUSY，**不得**重新 resolve 定义与设置
         # （快照续跑的铁律）。指针会话的解析即使发生切换也会随下面的 rollback 回滚，由写事务重做。
         conversation = await self._resolve_conversation(request, tenant_id)
@@ -1249,7 +1251,7 @@ class RunService:
         claim_ms = int((time.monotonic() - claim_started) * 1000)
         if replay is not None:
             self._assert_replay_owner(replay, request.platform_user_id, request.conversation_id)
-            return self._replay_start(replay)
+            return await self._replay_start(replay)
         resolve_started = time.monotonic()
         conversation = await self._resolve_conversation(request, tenant_id)
         resolve_ms = int((time.monotonic() - resolve_started) * 1000)
@@ -1383,7 +1385,7 @@ class RunService:
         )
         if replay is not None:
             self._assert_replay_owner(replay, run.user_id, run.conversation_id)
-            return self._replay_start(replay)
+            return await self._replay_start(replay)
         if run.status in TERMINAL_RUN_STATUSES:
             return self._terminal_start(run)
         if run.status == RunStatus.WAITING_TOOL:
@@ -1427,6 +1429,7 @@ class RunService:
             run_id=run.id,
             conversation_id=run.conversation_id,
             resumed=True,
+            status=RunStatus(run.status),
             events=self._tail_events(
                 tenant_id=run.tenant_id,
                 conversation_id=run.conversation_id,
@@ -1520,22 +1523,45 @@ class RunService:
     async def get_run_scope(
         self, run_id: uuid.UUID, tenant_id: str, *, user_id: uuid.UUID
     ) -> dict[str, Any]:
-        """API-07 打开流的一步归属解析：Run 必须属于该主体，入口/Agent 只从 **Run 行的会话** 导出。
+        """API-07 打开流的一步归属解析：Run 归属 + 该 Run 的会话入口/Agent，**一次 JOIN（≤2 SQL）**。
 
-        与「`get_run` + `resolve_conversation_scope`」两次往返同义：会话由已核属的 Run 本身确定，
-        调用方不能拿任意 `conversation_id` 去做入口解析。
+        只取核属所需的列（不读 snapshot / 不聚合等待摘要）：会话由已核属的 Run 行确定，
+        调用方不能拿任意 `conversation_id` 去做入口解析（design §3.5.1 NFR-PERF-09）。
         """
         async with get_session_factory()() as session:
-            run, snapshot, wait = await self._get_run_in(session, run_id, tenant_id)
-            if run.user_id != user_id:
-                raise AppError(ErrorCode.COMMON_NOT_FOUND)
-            scope = await WebchatHistoryService(session).resolve_conversation_scope(
-                tenant_id=tenant_id, user_id=user_id, conversation_id=run.conversation_id
-            )
-            return {
-                "run": run_view(run, snapshot, wait),
-                "conversation": scope.model_dump(mode="json"),
-            }
+            row = (
+                await session.execute(
+                    sa.select(
+                        RunRecord.id.label("run_id"),
+                        RunRecord.conversation_id.label("conversation_id"),
+                        RunRecord.user_id.label("user_id"),
+                        Conversation.channel_account_id.label("entry_id"),
+                        Conversation.agent_id.label("agent_id"),
+                    )
+                    .join(Conversation, Conversation.id == RunRecord.conversation_id)
+                    .where(
+                        RunRecord.id == run_id,
+                        RunRecord.tenant_id == tenant_id,
+                        RunRecord.is_deleted.is_(False),
+                        Conversation.tenant_id == tenant_id,
+                        Conversation.is_deleted.is_(False),
+                    )
+                )
+            ).one_or_none()
+        if row is None or row.user_id != user_id or row.entry_id is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        return {
+            "run": {
+                "run_id": str(row.run_id),
+                "conversation_id": str(row.conversation_id),
+                "user_id": str(row.user_id),
+            },
+            "conversation": {
+                "conversation_id": str(row.conversation_id),
+                "entry_id": str(row.entry_id),
+                "agent_id": str(row.agent_id),
+            },
+        }
 
     async def _wait_summary(
         self, run: RunRecord, *, session: AsyncSession | None = None
@@ -2051,7 +2077,7 @@ class RunService:
                 fingerprint=submission_fingerprint_value,
             )
             if replay is not None:
-                return self._replay_start(replay)
+                return await self._replay_start(replay)
             raise AppError(ErrorCode.RUN_BUSY) from exc
         except AppError:
             # 准入拒绝等显式失败：整事务回滚，绝不留下半建 Run/会话/提交/计数。
@@ -2106,6 +2132,7 @@ class RunService:
             run_id=run.id,
             conversation_id=conversation.id,
             resumed=False,
+            status=RunStatus(run.status),
             events=self._replay_events(submission),
             execution_status=project_execution_status(run),
         )
@@ -2135,13 +2162,13 @@ class RunService:
             await self._session.commit()
             await self._wake_tail(run.tenant_id, run.conversation_id)  # 提交后唤醒（ADR-02）
             if replayed:
-                return self._replay_start(submission)
+                return await self._replay_start(submission)
         except IntegrityError as exc:
             await self._session.rollback()
             replay = await self._submissions.find_replay_in(self._session, tenant_id=run.tenant_id,
                 idempotency_key=submission_key, endpoint=endpoint, fingerprint=request_fingerprint)
             if replay is not None:
-                return self._replay_start(replay)
+                return await self._replay_start(replay)
             raise AppError(ErrorCode.RUN_BUSY) from exc
         except AppError:
             await self._session.rollback()
@@ -2171,8 +2198,17 @@ class RunService:
             members=frozen_model_members_of(snapshot.policy_json),
             summary_members=frozen_summary_members_of(snapshot.policy_json))
         self._start_launch_task(run, stream)
-        return RunStart(run_id=run.id, conversation_id=run.conversation_id, resumed=True,
-            events=self._replay_events(submission))
+        # 续跑事务已把 Run 转回 CREATED（`transition_human_resume`）：受理回执直接给这个事实，
+        # 不为一枚回执再读一次 Run。detached 行只用于投影，不回写。
+        run.status = RunStatus.CREATED
+        return RunStart(
+            run_id=run.id,
+            conversation_id=run.conversation_id,
+            resumed=True,
+            status=RunStatus.CREATED,
+            events=self._replay_events(submission),
+            execution_status=project_execution_status(run),
+        )
 
     async def _resume_snapshot(self, run: RunRecord) -> RuntimeSnapshot:
         """resume 前置：等待态与绝对期限在**锁内**复核，再取本 Run 自己那份冻结快照。"""
@@ -3132,20 +3168,26 @@ class RunService:
             timestamp=_utcnow().isoformat(),
         )
 
-    def _replay_start(self, submission: RunSubmission) -> RunStart:
+    async def _replay_start(self, submission: RunSubmission) -> RunStart:
+        """幂等重放：回执带上重放 Run 的**当前**状态与阶段投影，Gateway 不再回读 Run。"""
         if submission.run_id is None or submission.conversation_id is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        run = await self._load_run(submission.run_id, submission.tenant_id)
         return RunStart(
             run_id=submission.run_id,
             conversation_id=submission.conversation_id,
             resumed=submission.endpoint == ENDPOINT_RESUME_RUN,
+            status=RunStatus(run.status),
             events=self._replay_events(submission),
+            execution_status=project_execution_status(run),
         )
 
     def _terminal_start(self, run: RunRecord) -> RunStart:
         # 事件生成器在响应开始后才消费，此时请求级 Session 已释放：先把身份抄成普通值，
         # 否则读已过期的 ORM 属性会抛 DetachedInstanceError（终态恢复的回归）。
         run_id, conversation_id = run.id, run.conversation_id
+        status = RunStatus(run.status)
+        execution_status = project_execution_status(run)
 
         async def events() -> AsyncIterator[ExecutorEvent]:
             async with get_session_factory()() as session:
@@ -3158,7 +3200,9 @@ class RunService:
             run_id=run_id,
             conversation_id=conversation_id,
             resumed=True,
+            status=status,
             events=events(),
+            execution_status=execution_status,
         )
 
     def _replay_events(self, submission: RunSubmission) -> AsyncIterator[ExecutorEvent]:

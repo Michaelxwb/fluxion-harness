@@ -13,7 +13,7 @@ from muad_api.context import current_request_id
 from muad_api.error_codes import ErrorCode
 from muad_api.security import INTERNAL_SERVICE_HEADER
 from muad_common import SharedSettings
-from muad_contracts import RunRequest
+from muad_contracts import RunRequest, RunStatus
 from muad_contracts.channel_delivery import (
     DeliveryAck,
     DeliveryAckReceipt,
@@ -25,6 +25,7 @@ from muad_contracts.webchat import (
     ADMISSION_EXECUTION_STATUS_HEADER,
     ADMISSION_RESUMED_HEADER,
     ADMISSION_RUN_ID_HEADER,
+    ADMISSION_RUN_STATUS_HEADER,
     WebchatExecutionStatus,
     WebchatUploadRegistration,
 )
@@ -77,16 +78,18 @@ CALLER_SERVICE = "muad-im-gateway"
 
 @dataclass(frozen=True, slots=True)
 class RunAdmission:
-    """一次提交的**受理裁决**（Owner 首帧）：真实 Run 身份 + 会话 + 是否重放/恢复。
+    """一次提交的**受理裁决**（Owner 首帧）：Run 身份 + 会话 + 状态/阶段投影。
 
     长流不在这里等待终态（RULE-01/02）：拿到它就是"已持久受理"，网关据此返回 202/回执。
+    新 Run、幂等重放与自动续跑都返回同一套完整投影，调用方**不再**为回执回读 Run。
     """
 
     run_id: UUID
-    conversation_id: UUID | None
+    conversation_id: UUID
     resumed: bool
-    #: 创建事务里同批提交的 `run.stage` 投影；有它就不必再为 202 发一次 `get_run`。
-    execution_status: WebchatExecutionStatus | None = None
+    status: RunStatus
+    #: 受理事务里同批提交的 `run.stage` 投影（重放时为 Run 行的当前投影）。
+    execution_status: WebchatExecutionStatus
 
 
 def _transport_failure(exc: httpx.HTTPError, pool: GatewayPool) -> AppError:
@@ -191,44 +194,27 @@ def _read_scope(user_id: UUID, agent_id: UUID, entry_id: UUID) -> dict[str, str]
 
 
 def _admission_from_headers(headers: httpx.Headers) -> RunAdmission | None:
-    """202 响应头里的受理裁决；缺失/坏值返回 None，调用方回退读首帧（兼容旧 Runtime）。"""
+    """受理响应头里的完整受理裁决；缺失/坏值返回 None（调用方显式失败，不猜）。"""
     raw_run_id = headers.get(ADMISSION_RUN_ID_HEADER)
-    if not raw_run_id:
+    raw_conversation = headers.get(ADMISSION_CONVERSATION_ID_HEADER)
+    raw_status = headers.get(ADMISSION_RUN_STATUS_HEADER)
+    raw_execution = headers.get(ADMISSION_EXECUTION_STATUS_HEADER)
+    if not (raw_run_id and raw_conversation and raw_status and raw_execution):
         return None
     try:
         run_id = UUID(raw_run_id)
-        raw_conversation = headers.get(ADMISSION_CONVERSATION_ID_HEADER)
-        conversation_id = UUID(raw_conversation) if raw_conversation else None
-        resumed = headers.get(ADMISSION_RESUMED_HEADER) == "1"
-        raw_status = headers.get(ADMISSION_EXECUTION_STATUS_HEADER)
-        execution_status = (
-            WebchatExecutionStatus.model_validate_json(raw_status) if raw_status else None
-        )
+        conversation_id = UUID(raw_conversation)
+        status = RunStatus(raw_status)
+        execution_status = WebchatExecutionStatus.model_validate_json(raw_execution)
     except (ValueError, TypeError):
         logger.warning("gateway_admission_header_invalid")
         return None
     return RunAdmission(
         run_id=run_id,
         conversation_id=conversation_id,
-        resumed=resumed,
+        resumed=headers.get(ADMISSION_RESUMED_HEADER) == "1",
+        status=status,
         execution_status=execution_status,
-    )
-
-
-def _admission_of(event: SseEvent) -> RunAdmission:
-    """受理帧 → 强类型受理身份；缺 Run 身份的帧是坏封套，显式失败（不编造 run_id）。"""
-    if event.run_id is None:
-        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
-    try:
-        run_id = UUID(event.run_id)
-        raw_conversation = event.data.get("conversation_id")
-        conversation_id = UUID(str(raw_conversation)) if raw_conversation else None
-    except (ValueError, TypeError) as exc:
-        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
-    return RunAdmission(
-        run_id=run_id,
-        conversation_id=conversation_id,
-        resumed=bool(event.data.get("resumed")),
     )
 
 
@@ -635,19 +621,13 @@ class RuntimeClient:
                 if response.status_code >= 400:
                     error_payload = await decode_error_payload(response)
                     raise AppError(error_code_from_payload(error_payload))
-                header_admission = _admission_from_headers(response.headers)
-                if header_admission is not None:
-                    return header_admission
-                logger.warning("gateway_admission_header_missing")
-                # 兼容没有受理响应头的旧 Runtime：只读**首帧**即返回。受理裁决就在首帧，
-                # 多读一帧会等整段流（长流直到终态/读超时），把 202 拖成超时。
-                events = iter_sse_events(response.aiter_text())
-                try:
-                    event = await anext(events)
-                except StopAsyncIteration:
-                    event = None
-                if event is not None:
-                    return _admission_of(event)
+                admission = _admission_from_headers(response.headers)
+                if admission is None:
+                    # 受理裁决必须完整（Run/会话/状态/阶段）：缺失就是坏封套，显式失败——
+                    # 不读首帧兜底、不为一枚 202 再发 get_run（部署同版本，无兼容层）。
+                    logger.warning("gateway_admission_header_missing")
+                    raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+                return admission
         except httpx.HTTPError as exc:
             raise _transport_failure(exc, "stream") from exc
         # 流已结束却没有受理帧：没有可证实的受理事实，显式失败（不编造 run_id）。

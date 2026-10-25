@@ -328,6 +328,7 @@ ADMISSION_RUN_ID_HEADER = "X-Muad-Run-Id"
 ADMISSION_CONVERSATION_ID_HEADER = "X-Muad-Conversation-Id"
 ADMISSION_RESUMED_HEADER = "X-Muad-Resumed"
 ADMISSION_EXECUTION_STATUS_HEADER = "X-Muad-Execution-Status"
+ADMISSION_RUN_STATUS_HEADER = "X-Muad-Run-Status"
 
 
 class WebchatMessageAccepted(WebchatContract):

@@ -11,7 +11,8 @@
   交给 Runtime —— 撤销/越权/上下文不符的请求在触达 Owner 的幂等面之前就被拒（E-05/E-12）。
 - **受理与订阅解耦**：消息提交只等到 Owner 的**受理裁决**（首帧），长流不占 HTTP 处理器
   （RULE-01：HTTP 断开不取消执行；正文/阶段由公开 SSE 按 Run 身份另订）。
-- **不编造事实**：202 的状态/阶段取自 Owner 的 Run 视图（持久阶段投影），201 的创建时不变式
+- **不编造事实**：202 的状态/阶段取自 Owner 的**受理裁决**（Run 状态 + 持久阶段投影，
+  新 Run/幂等重放都一次带回，不再为回执回读 Run）；201 的创建时不变式
   （`last_seq=0`/`active_run=None`）由 Owner 行事实校验；Owner 的坏封套/不可投影事实一律
   显式 `COMMON_INTERNAL_ERROR`，不回显内部内容。
 - **凭据卫生**：本服务不接触 CHAT 会话原文；响应里没有主体、凭据或 Console 角色字段。
@@ -26,13 +27,14 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Protocol
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import BotSnapshotItem, ChannelName, RunRequest, RunStatus
-from muad_contracts.runtime import ChannelContext, MessageInput
+from muad_contracts import BotSnapshotItem, RunRequest
+from muad_contracts.im import InboundEvent
 from muad_contracts.webchat import (
     WebchatConversationCreated,
     WebchatConversationDetail,
@@ -40,7 +42,6 @@ from muad_contracts.webchat import (
     WebchatConversationScope,
     WebchatEntry,
     WebchatEntryPage,
-    WebchatExecutionStatus,
     WebchatMessageAccepted,
     WebchatMessagePage,
     WebchatMessageRequest,
@@ -52,15 +53,15 @@ from muad_contracts.webchat_events import (
     WebchatNotificationPage,
     WebchatNotificationReadReceipt,
 )
+from muad_im_core import SyncPrincipal
 from pydantic import BaseModel, ValidationError
 
 from .chat_principal import ChatIdentity
 from .runtime_client import RunAdmission
+from .webchat_core import WEBCHAT_CHANNEL, WEBCHAT_CHANNEL_IDENTITY, build_webchat_message_gateway
 
 logger = logging.getLogger(__name__)
 
-#: 本通道的公开入口词表（与 `BotSnapshotItem.channel` 同源；非本通道条目不进资源面）。
-WEBCHAT_CHANNEL: ChannelName = "WEBCHAT"
 #: 入口列表的页大小：条目数本身就是"当前授权入口"的完整集合（`WebchatPage` 要求 items≤page_size）。
 MAX_ENTRIES = 100
 
@@ -192,6 +193,8 @@ class WebchatResourceService:
         self._runtime = runtime
         self._entries = entries
         self._tenant_id = tenant_id
+        # WebChat 提交走统一消息核心的 SYNC 入口（API-08）：渠道校验在核心，端口只做映射。
+        self._messages = build_webchat_message_gateway(runtime)
 
     # --- API-05 ---------------------------------------------------------------------
     def list_entries(self, identity: ChatIdentity) -> WebchatEntryPage:
@@ -222,29 +225,30 @@ class WebchatResourceService:
         *,
         idempotency_key: str,
     ) -> WebchatMessageAccepted:
-        """提交消息（202）：受理裁决后立即返回；Run 状态/阶段从 Owner 视图投影。"""
+        """提交消息（202）：统一核心 SYNC 受理；状态/阶段直接用受理裁决，不再回读 Run。"""
         ref = self._resolve_entry(identity, entry_id)
         principal = identity.principal
-        run_request = RunRequest(
-            agent_id=ref.agent_id,
+        event = InboundEvent(
+            event_id=uuid4(),
+            channel=WEBCHAT_CHANNEL,
+            tenant_id=self._tenant_id,
+            bot_id=str(ref.entry_id),
+            external_message_id=request.message_id,
+            external_conversation_id=str(request.conversation_id),
+            external_user_id=str(principal.platform_user_id),
+            text=request.text,
+            received_at=datetime.now(UTC),
+        )
+        context = SyncPrincipal(
+            tenant_id=self._tenant_id,
             platform_user_id=principal.platform_user_id,
-            conversation_id=request.conversation_id,
-            channel=ChannelContext(
-                type=WEBCHAT_CHANNEL,
-                bot_id=str(ref.entry_id),
-                external_user_id=str(principal.platform_user_id),
-                external_conversation_id=str(request.conversation_id),
-            ),
-            message=MessageInput(
-                id=request.message_id,
-                type="attachment" if request.upload_ids else "text",
-                text=request.text,
-                upload_ids=list(request.upload_ids),
-            ),
+            agent_id=ref.agent_id,
+            idempotency_key=idempotency_key,
+            upload_ids=tuple(request.upload_ids),
         )
         started = time.monotonic()
-        admission = await self._runtime.submit_run(
-            run_request, tenant_id=self._tenant_id, idempotency_key=idempotency_key
+        admission = await self._messages.admit_sync(
+            event, adapter=WEBCHAT_CHANNEL_IDENTITY, principal_context=context
         )
         admission_ms = (time.monotonic() - started) * 1000
         if admission_ms > 1000:
@@ -252,29 +256,12 @@ class WebchatResourceService:
                 "webchat_submit_slow",
                 extra={"elapsed_ms": int(admission_ms), "run_id": str(admission.run_id)},
             )
-        if admission.conversation_id is not None and (
-            admission.conversation_id != request.conversation_id
-        ):
-            # 受理的 Run 必须落在请求的显式会话上；不一致是路由错误，显式失败不糊过去。
-            logger.warning("webchat_admission_conversation_mismatch")
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
-        if admission.execution_status is not None and not admission.resumed:
-            # 新 Run 的受理事务已把阶段投影一并提交：202 直接用它，不再为回执重读 Run+Snapshot。
-            conversation_id = admission.conversation_id or request.conversation_id
-            if conversation_id is None:
-                raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
-            return WebchatMessageAccepted(
-                conversation_id=conversation_id,
-                run_id=admission.run_id,
-                status=RunStatus.CREATED,
-                execution_status=admission.execution_status,
-            )
-        state = await self._owned_run(identity, admission.run_id)
+        # 受理事务已给出状态与阶段投影：202/幂等重放/自动续跑都走这一条，不再 get_run。
         return WebchatMessageAccepted(
-            conversation_id=required_uuid(state, "conversation_id"),
+            conversation_id=admission.conversation_id,
             run_id=admission.run_id,
-            status=_run_status(state),
-            execution_status=_execution_status(state),
+            status=admission.status,
+            execution_status=admission.execution_status,
         )
 
     # --- API-08 ---------------------------------------------------------------------
@@ -314,7 +301,7 @@ class WebchatResourceService:
     async def resume_run(
         self, identity: ChatIdentity, run_id: UUID, request: WebchatResumeRequest
     ) -> WebchatResumeReceipt:
-        """待确认恢复：显式绑定原 Run/submission/source；回执取恢复后的真实阶段。"""
+        """待确认恢复：显式绑定原 Run/submission/source；回执取恢复后的**受理投影**。"""
         await self._owned_run(identity, run_id)
         principal = identity.principal
         admission = await self._runtime.resume_run(
@@ -332,12 +319,11 @@ class WebchatResourceService:
             tenant_id=self._tenant_id,
             idempotency_key=request.message_id,
         )
-        state = await self._owned_run(identity, admission.run_id)
         return WebchatResumeReceipt(
             run_id=admission.run_id,
             submission_id=request.submission_id,
-            status=_run_status(state),
-            execution_status=_execution_status(state),
+            status=admission.status,
+            execution_status=admission.execution_status,
         )
 
     # --- API-09/14/15 ---------------------------------------------------------------
@@ -487,16 +473,3 @@ def resolve_authorized_entry(
     if item.agent_id not in {agent.agent_id for agent in identity.agents}:
         raise AppError(ErrorCode.FORBIDDEN)
     return ResolvedEntry(entry_id=entry_id, agent_id=item.agent_id)
-
-
-def _run_status(state: dict[str, Any]) -> RunStatus:
-    """Run 视图 → 契约状态；`CANCELLING` 是展示态、不是持久状态，坏封套显式失败。"""
-    try:
-        return RunStatus(str(state.get("status")))
-    except ValueError as exc:
-        logger.warning("webchat_run_status_invalid")
-        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
-
-
-def _execution_status(state: dict[str, Any]) -> WebchatExecutionStatus:
-    return _project(WebchatExecutionStatus, state.get("execution_status") or {})

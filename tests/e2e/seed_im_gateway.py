@@ -10,9 +10,14 @@ import hashlib
 import threading
 import uuid
 from collections.abc import Callable, Coroutine
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from muad_console_platform.infrastructure.models.auth import ROLE_ADMIN  # noqa: F401
+from muad_console_platform.application.chat_token_service import hash_chat_token
+from muad_console_platform.infrastructure.models.auth import (
+    ROLE_ADMIN,  # noqa: F401
+    ChatAccessToken,
+)
 from muad_console_platform.infrastructure.models.channel import BotAccount, ChannelIdentity
 from muad_console_platform.infrastructure.models.control import (
     AgentAccessGrant,
@@ -31,9 +36,15 @@ AGENT_KEY = "e2e_im_agent"
 BOUND_EXTERNAL_USER_ID = "e2e-im-ext-bound"
 UNBOUND_EXTERNAL_USER_ID = "e2e-im-ext-unbound"
 CHAT_ID = "e2e-im-chat"
+#: WEBCHAT 稳定入口（SYNC 受理走 HTTP→Runtime，不进网关队列）。
+WEBCHAT_BOT_ID = "e2e-im-webchat"
+#: 真实 CHAT Token（明文只用于测试内交换；库里只存摘要）。
+CHAT_TOKEN = "e2e-im-chat-token"
 
 # 需先删（有 FK 指向 bot_account / platform_user），再走 09 的 CONTROL_CLEANUP
 IM_CONTROL_CLEANUP = (
+    "DELETE FROM control.chat_session WHERE tenant_id = :t",
+    "DELETE FROM control.chat_access_token WHERE tenant_id = :t",
     "DELETE FROM control.channel_identity WHERE tenant_id = :t",
     "DELETE FROM control.bind_code WHERE tenant_id = :t",
     # 入站审计（TASK-012）：租户级清理要带上，否则跑过的验收行会留下来干扰后续断言
@@ -124,6 +135,29 @@ async def _seed(session_factory: Any, llm_url: str) -> dict[str, Any]:
         )
         session.add(bot)
         await session.flush()
+        webchat_entry = BotAccount(
+            tenant_id=TENANT,
+            channel="WEBCHAT",
+            name="IM E2E WebChat Entry",
+            bot_id=WEBCHAT_BOT_ID,
+            agent_id=agent.id,
+            enabled=True,
+            config_json={},
+        )
+        session.add(webchat_entry)
+        await session.flush()
+        now = datetime.now(UTC)
+        session.add(
+            ChatAccessToken(
+                tenant_id=TENANT,
+                platform_user_id=user.id,
+                token_hash=hash_chat_token(CHAT_TOKEN),
+                revision=1,
+                issued_at=now,
+                expires_at=now + timedelta(days=30),
+            )
+        )
+        await session.flush()
         session.add(
             ChannelIdentity(
                 tenant_id=TENANT,
@@ -146,6 +180,8 @@ async def _seed(session_factory: Any, llm_url: str) -> dict[str, Any]:
             "bound_external_user_id": BOUND_EXTERNAL_USER_ID,
             "unbound_external_user_id": UNBOUND_EXTERNAL_USER_ID,
             "chat_id": CHAT_ID,
+            "webchat_entry_id": webchat_entry.id,
+            "chat_token": CHAT_TOKEN,
         }
 
 
@@ -263,10 +299,12 @@ __all__ = [
     "BOT_SECRET",
     "BOUND_EXTERNAL_USER_ID",
     "CHAT_ID",
+    "CHAT_TOKEN",
     "IM_CONTROL_CLEANUP",
     "MODEL_KEY",
     "TENANT",
     "UNBOUND_EXTERNAL_USER_ID",
+    "WEBCHAT_BOT_ID",
     "seed_control",
     "seed_delivery_task",
     "seed_fingerprint",

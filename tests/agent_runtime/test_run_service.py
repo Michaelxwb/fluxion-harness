@@ -67,6 +67,8 @@ async def _insert_run(
             agent_id=tenant.agent_id,
             status=status,
             input_text="pending input",
+            # 生产 Run 行总有受理时间：续跑的受理回执要把状态投影回给调用方（TASK-010）。
+            start_time=datetime.now(UTC),
             deadline_at=datetime.now(UTC) + timedelta(minutes=2),
             trace_id=uuid.uuid4().hex,
             cancel_requested=False,
@@ -386,6 +388,8 @@ async def _seed_waiting_run_with_snapshot(
             agent_id=tenant.agent_id,
             status="WAITING_INPUT",
             input_text="hi",
+            # 生产 Run 行总有受理时间：续跑的受理回执要把状态投影回给调用方（TASK-010）。
+            start_time=datetime.now(UTC),
             deadline_at=datetime.now(UTC) + timedelta(minutes=2),
             trace_id=uuid.uuid4().hex,
             cancel_requested=False,

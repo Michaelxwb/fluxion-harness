@@ -67,7 +67,7 @@
 | S-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 两个真实 Connector 进程 + 假企微 WS 服务端 + 真实 Redis lease；Runtime/Gateway 真实进程 | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | S-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | E2E | 真实浏览器/HTTP 客户端 → 两个以上 Gateway 副本 → Runtime/PG/Redis；SSE 断线重连到另一副本 | TASK-009 | failed | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 | P0 | deferred | browser | - | SSE 长连接、负载均衡、断线重连和跨 Pod 游标只有真实浏览器 + 多副本 + Runtime 持久流才能覆盖。 | ["apps/im-gateway/**", "apps/agent-runtime/src/muad_agent_runtime/api/runs.py", "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py", "deploy/k8s/base/im-gateway.yaml"] | yes |
 | S-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway HTTP /channels/{channel}/events + 假 webhook 提供方 + Redis Stream + Runtime | TASK-008 | stale | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
-| S-08 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway → 统一消息核心 → Console/Runtime/PG；已验证 CHAT 主体上下文 | TASK-010 | failed | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webchat_core.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
+| S-08 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway → 统一消息核心 → Console/Runtime/PG；已验证 CHAT 主体上下文 | TASK-010 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webchat_core.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-09 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 前端 service/hook + mock HTTP；不访问真实后端 | TASK-011 | stale | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
 | S-10 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 构建产物 + 前端路由（mock API） | TASK-011 | stale | ["uv", "run", "pytest", "-q", "tests/frontend/test_webchat_code_splitting.py"] | . | 600 | P1 | auto | none | - | - | - | no |
 | S-11 | high-qps-remediation.backend.design.md#2.5 验收条件 | contract | 纯契约/序列化；不连服务 | TASK-006 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
@@ -706,7 +706,7 @@ Gateway 移除 WeCom、多副本/HPA；Connector 清单/PDB/lease；预检支持
 
 ## TASK-010: WebChat 统一核心与读路径
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-006, TASK-002
 - **Source**: high-qps-remediation.backend.design.md#3.2 架构设计, high-qps-remediation.backend.design.md#3.5 质量实现方案
@@ -721,18 +721,18 @@ WebChat submit 走 admit_sync（复用 ChatIdentity）；lean scope；受理帧�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`：同 message_id 只建一个 Run；scope≤2 SQL；202 后无 get_run
-- [ ] 实现 WebChat SYNC 核心入口，复用已验证 principal，不重复 Console resolve
-- [ ] lean `get_run_scope`；受理帧带 status/execution_status；移除 dead WebChat queue
-- [ ] [S-08][integration] SYNC 受理/幂等/202 P95≤500ms/不重复 Console resolve
-- [ ] [S-15][integration] scope≤2 SQL、202 不 get_run、dead queue 清理
+- [x] 交付 `<Capability>`：同 message_id 只建一个 Run；scope≤2 SQL；202 后无 get_run
+- [x] 实现 WebChat SYNC 核心入口，复用已验证 principal，不重复 Console resolve
+- [x] lean `get_run_scope`；受理帧带 status/execution_status；移除 dead WebChat queue
+- [x] [S-08][integration] SYNC 受理/幂等/202 P95≤500ms/不重复 Console resolve
+- [x] [S-15][integration] scope≤2 SQL、202 不 get_run、dead queue 清理
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-08 | integration | 真实 Gateway/Console/Runtime/PG | 一 Run；202 P95≤500ms；不重复 resolve | tests/acceptance/im_gateway/test_webchat_core.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webchat_core.py"] | failed |
+| S-08 | integration | 真实 Gateway/Console/Runtime/PG | 一 Run；202 P95≤500ms；不重复 resolve | tests/acceptance/im_gateway/test_webchat_core.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webchat_core.py"] | verified |
 | S-15 | integration | 真实 Gateway/Runtime/PG；SQL 计数 | scope≤2 SQL；202 后无 get_run；无 dead queue | tests/agent_runtime/test_runs_api.py | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_runs_api.py"] | verified |
 
 ### Acceptance Evidence
@@ -741,10 +741,12 @@ WebChat submit 走 admit_sync（复用 ChatIdentity）；lean scope；受理帧�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-08 | planned | planned | planned | planned | planned |
-| S-15 | planned | planned | planned | planned | planned |
+| S-08 | 用例新建（`tests/acceptance/im_gateway/test_webchat_core.py`）。诚实登记：旧码上本场景的公共受理面（幂等/202 延迟/封套）已通过（幂等由 Runtime 保证），本用例作为回归守卫；本任务要修的缺陷由 S-15 在旧码上确定性 RED——① `get_run_scope` 返回完整 `run_view`（含 snapshot/等待摘要，业务 SQL>2）；② `RunAdmission` 无 `status`（`TypeError`：受理裁决缺 Run 状态，202 只能回读 Run）；③ `WebchatChannelAdapter.iter_events()` 挂在空队列（`TimeoutError`，dead queue）。首跑另暴露两处验收夹具缺口并已修：`channel_notification`/`channel_conversation` 外键清理（teardown FK violation）与公开流终态事件名是 `run.terminal`（canonical 是 `run.completed`）。 | `uv run pytest -q tests/acceptance/im_gateway/test_webchat_core.py` → **1 passed in 9.73s**（含真实栈起停与真实模型执行）。首投 + 20 次同 message_id/同 Idempotency-Key 重试只建 1 个 Run（`run_submission`/`run_record` 各 1 行）；202 P95 ≤ 500ms（真实 HTTP 往返采样）；Console `console_api_requests_total{path=/internal/channel/chat-principal}` 增量 = 21（每请求一次，受理核心不重复 resolve）；202 回执带 `status`/`execution_status`；同键异指纹 409 `IDEMPOTENCY_MISMATCH`；公开 SSE 读到 `event: run.terminal`。 | `test_s08_webchat_sync_admission_is_single_run_and_does_not_re_resolve`：`_p95(latencies) <= 0.5`；`after_calls - baseline_calls == 1 + RETRY_SAMPLES`；PG `run_submission`/`run_record` 计数；`conflict.json()["code"] == "IDEMPOTENCY_MISMATCH"`；`"event: run.terminal" in body`。 | 真实 uvicorn 子进程 Gateway/Console/Runtime×2/Worker + 真实 PostgreSQL/Redis + 真实模型探针（`gateway_stack`）；CHAT 身份经真实 Console Token 交换（PG `control.chat_access_token` → `chat_session`）与 Console `POST /internal/channel/chat-principal`；Console resolve 计数取自 Console 进程真实 `GET /metrics`；202 延迟为真实 HTTP 往返采样。 | verified |
+| S-15 | `uv run pytest -q tests/agent_runtime/test_runs_api.py -k s15` → **3 failed**：① scope 投影是完整 `run_view`（旧路径读 run、snapshot、等待摘要聚合、continuation、等待起点与会话 scope，共 5+ SQL）；② `RunAdmission.__init__() got an unexpected keyword argument 'status'`（受理裁决缺 Run 状态，Gateway 只能 202 后 `get_run`）；③ `TimeoutError`：`WebchatChannelAdapter.iter_events()` 永远挂在空队列（dead queue）。 | 同命令 **3 passed**；验收命令 `uv run pytest -q tests/agent_runtime/test_runs_api.py` → **27 passed**。scope 是 run+conversation 一次 JOIN（业务 SQL=1 ≤2），只投影 `run_id/conversation_id/user_id` 与 `conversation_id/entry_id/agent_id`；新 Run 与幂等重放都只用 `submit_run` 的受理投影（`get_run_calls == 0`）；`WebchatChannelAdapter` 无 `submit`/`pending`/`max_pending`，`iter_events()` 立即空迭代。 | `test_s15_run_scope_is_bounded_and_projects_owner_facts`（真实引擎 `before_cursor_execute` 计数：`1 <= len(scope_sql) <= 2`；200 与 404 两条路径都计数）；`test_s15_202_uses_the_admission_projection_and_never_reads_the_run`（`owner.get_run_calls == 0`；`accepted.status/execution_status` 只来自受理裁决）；`test_s15_webchat_adapter_has_no_dead_inbound_queue`。 | 真实 Runtime ASGI 应用 + 真实 PostgreSQL（迁移 head），SQL 由 SQLAlchemy 引擎监听器在真实连接上计数；202 路径用真实 `WebchatResourceService` + `MessageGateway`（统一核心）+ 只计数不读库的 Owner 端口；真实栈受理/SSE 由 S-08 覆盖。 | verified |
 - S-08: failed — automated command failed; run_id=97e211e414874d5fbc4f883fed2a5651 (confirmed_by: runner)
 - S-15: verified — automated command passed; run_id=97e211e414874d5fbc4f883fed2a5651 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=4c1b08a693ef44c082cb48f5e01d8065 (confirmed_by: runner)
+- S-15: verified — automated command passed; run_id=4c1b08a693ef44c082cb48f5e01d8065 (confirmed_by: runner)
 
 ### Log
 
@@ -753,6 +755,8 @@ WebChat submit 走 admit_sync（复用 ChatIdentity）；lean scope；受理帧�
 - [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
 - [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
+- [2026-10-25] WebChat 统一核心与读路径：新增 `application/webchat_core.py` —— 提交经 `MessageGateway.admit_sync`（API-08）复用已核验 `ChatIdentity`/入口解析，事件→`RunRequest` 不进队列；`SyncAdmission` 携带 Run 状态+阶段投影。Runtime 受理头补 `X-Muad-Run-Status`，新 Run/幂等重放/自动续跑都回投影；Gateway 删除旧 Runtime 首帧兜底与 202 后 `get_run`（显式 resume 回执也改用受理投影）。`get_run_scope` 改为 run+conversation 一次 JOIN（业务 SQL=1，≤2；只选核属列）。删除 `WebchatChannelAdapter` 的 dead 入站队列（`submit`/消费循环/有界缓存），`iter_events()` 恒空。验收：S-08 真实栈 1 passed（P95 达标、Console resolve=21、单 Run、SSE 至 `run.terminal`）；S-15 3 passed、`test_runs_api.py` 27 passed；contracts 1291 passed、architecture 190 passed。回归：`tests/gateway`+`test_routing`+`test_gateway_idempotency` 469 passed / 1 failed（`test_routing::test_s01` 单跑同样失败：HEAD 上 Gateway 已不注册 WeCom WS 适配器，属 TASK-009 未完成的预存失效，非本任务改动面）；全量 `tests/agent_runtime` **1082 passed**（13:18）。为让续跑受理也带投影，四条测试种子的 Run 行补上生产必有的 `start_time`（`seed_submission`、`test_run_service` 两处、`test_runs_api._insert_run`）。
+- [2026-10-25] completed (done)
 
 ---
 

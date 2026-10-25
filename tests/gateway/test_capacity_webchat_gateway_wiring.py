@@ -7,8 +7,9 @@
 - **真实 Console HTTP（Owner）**：`ConsoleClient`/`ConsolePlatformSettingsClient` 打真实本地
   uvicorn（真实 socket），按 API-12/API-19 的内部端点应答（chat-principal / bots /
   platform-settings）；
-- **真实 Runtime HTTP/SSE（Owner）**：`RuntimeClient` 打真实本地 uvicorn；受理是真实
-  `text/event-stream` 首帧，公开 SSE 是真实持久帧流（含心跳与保持打开），游标按真实窗口裁决；
+- **真实 Runtime HTTP/SSE（Owner）**：`RuntimeClient` 打真实本地 uvicorn；受理裁决在
+  `text/event-stream` 响应头里一次带回（Run/会话/状态/阶段），公开 SSE 是真实持久帧流
+  （含心跳与保持打开），游标按真实窗口裁决；
 - **真实企微协议探针**：官方 SDK 经真实 WSS 连接本地探针（`WeComProbe`），单机器人连接的
   建立/替换/回收都是真实 socket 事实；
 - **数据库经 Owner 接口访问**：本文件不碰任何数据库，Gateway 零 sqlalchemy（源码扫描 + 真实
@@ -53,6 +54,13 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
+from muad_contracts.webchat import (
+    ADMISSION_CONVERSATION_ID_HEADER,
+    ADMISSION_EXECUTION_STATUS_HEADER,
+    ADMISSION_RESUMED_HEADER,
+    ADMISSION_RUN_ID_HEADER,
+    ADMISSION_RUN_STATUS_HEADER,
+)
 from muad_im_gateway.application.chat_principal import CHAT_SESSION_COOKIE
 from muad_im_gateway.application.console_client import CHAT_CONTEXT_HEADER, CHAT_PRINCIPAL_PATH
 from muad_im_gateway.channels.webchat import WebchatChannelAdapter
@@ -382,7 +390,17 @@ class _RuntimeProbe:
         async def _create_run(request: Request) -> Response:
             self.run_posts.append(json.loads((await request.body()) or b"{}"))
             return StreamingResponse(
-                _admission_stream(), media_type="text/event-stream"
+                _admission_stream(),
+                media_type="text/event-stream",
+                headers={
+                    ADMISSION_RUN_ID_HEADER: str(RUN_ID),
+                    ADMISSION_CONVERSATION_ID_HEADER: str(CONVERSATION_ID),
+                    ADMISSION_RESUMED_HEADER: "0",
+                    ADMISSION_RUN_STATUS_HEADER: "RUNNING",
+                    ADMISSION_EXECUTION_STATUS_HEADER: json.dumps(
+                        {"stage": "RUNNING"}, ensure_ascii=True
+                    ),
+                },
             )
 
         @runtime_app.get("/v1/runs/{run_id}")
@@ -486,7 +504,7 @@ class _RuntimeProbe:
 
 
 async def _admission_stream() -> AsyncIterator[str]:
-    """受理首帧：真实 SSE（Gateway 读到 `run.created` 即返回 202，不持长流）。"""
+    """受理帧：真实 SSE（受理裁决已在响应头，Gateway 读到响应头即返回 202，不持长流）。"""
     yield _canonical_frame(
         "run.created",
         {"run_id": str(RUN_ID), "conversation_id": str(CONVERSATION_ID), "resumed": False},
