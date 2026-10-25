@@ -789,6 +789,9 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 - B-04: e2e_deferred — automated command e2e_deferred; run_id=251dd95f0c3b4ca2a2b773d5a1c2f84a (confirmed_by: runner)
 - S-09: verified — automated command passed; run_id=251dd95f0c3b4ca2a2b773d5a1c2f84a (confirmed_by: runner)
 - S-10: verified — automated command passed; run_id=251dd95f0c3b4ca2a2b773d5a1c2f84a (confirmed_by: runner)
+- B-04: e2e_deferred — automated command e2e_deferred; run_id=8847542c339743c1adca293f9bc05f57 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=8847542c339743c1adca293f9bc05f57 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=8847542c339743c1adca293f9bc05f57 (confirmed_by: runner)
 
 ### Log
 

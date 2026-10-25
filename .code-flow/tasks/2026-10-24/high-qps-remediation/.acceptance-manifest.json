@@ -1026,7 +1026,7 @@
       "target_phase": "review",
       "defer_owner": "TASK-011",
       "check": "CHK-2f30d1989e59",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-04",
         "kind": "e2e",
@@ -1052,9 +1052,9 @@
             "deploy/k8s/overlays/console-web/**"
           ]
         },
-        "revision": 1,
-        "run_id": "251dd95f0c3b4ca2a2b773d5a1c2f84a",
-        "executed_at": "2026-10-25T11:50:07.881249+00:00",
+        "revision": 2,
+        "run_id": "8847542c339743c1adca293f9bc05f57",
+        "executed_at": "2026-10-25T12:17:15.159065+00:00",
         "command": [
           "bash",
           "-lc",
@@ -1092,6 +1092,42 @@
           "revision": 1,
           "run_id": "251dd95f0c3b4ca2a2b773d5a1c2f84a",
           "executed_at": "2026-10-25T11:50:07.881249+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "B-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-2f30d1989e59",
+            "command": [
+              "bash",
+              "-lc",
+              "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/console-platform/frontend/**",
+              "deploy/k8s/base/ingress.yaml",
+              "deploy/k8s/overlays/console-web/**"
+            ]
+          },
+          "revision": 2,
+          "run_id": "8847542c339743c1adca293f9bc05f57",
+          "executed_at": "2026-10-25T12:17:15.159065+00:00",
           "command": [
             "bash",
             "-lc",
@@ -3006,14 +3042,14 @@
         "client-config 已返回 history_page_size/notification_poll_sec"
       ],
       "check": "CHK-82b6d2f92451",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-09",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
         "check_id": "CHK-82b6d2f92451",
-        "input_hash": "3316274ef138ff4132898e1b50f91ecfa9892ca2d03cad95118525a5545ed588",
+        "input_hash": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5",
         "check_config": {
           "id": "CHK-82b6d2f92451",
           "command": [
@@ -3033,9 +3069,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "251dd95f0c3b4ca2a2b773d5a1c2f84a",
-        "executed_at": "2026-10-25T11:50:07.881249+00:00",
+        "revision": 2,
+        "run_id": "8847542c339743c1adca293f9bc05f57",
+        "executed_at": "2026-10-25T12:17:15.159065+00:00",
         "command": [
           "uv",
           "run",
@@ -3045,7 +3081,7 @@
         ],
         "cwd": ".",
         "timeout": 600.0,
-        "fingerprint": "3316274ef138ff4132898e1b50f91ecfa9892ca2d03cad95118525a5545ed588"
+        "fingerprint": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5"
       },
       "runs": [
         {
@@ -3087,6 +3123,46 @@
           "cwd": ".",
           "timeout": 600.0,
           "fingerprint": "3316274ef138ff4132898e1b50f91ecfa9892ca2d03cad95118525a5545ed588"
+        },
+        {
+          "id": "S-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-82b6d2f92451",
+          "input_hash": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5",
+          "check_config": {
+            "id": "CHK-82b6d2f92451",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_capacity_webchat_activity_ui.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "8847542c339743c1adca293f9bc05f57",
+          "executed_at": "2026-10-25T12:17:15.159065+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_capacity_webchat_activity_ui.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5"
         }
       ]
     },
@@ -3152,14 +3228,14 @@
         "保留深链"
       ],
       "check": "CHK-bc751ea26687",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-10",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
         "check_id": "CHK-bc751ea26687",
-        "input_hash": "3316274ef138ff4132898e1b50f91ecfa9892ca2d03cad95118525a5545ed588",
+        "input_hash": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5",
         "check_config": {
           "id": "CHK-bc751ea26687",
           "command": [
@@ -3179,9 +3255,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "251dd95f0c3b4ca2a2b773d5a1c2f84a",
-        "executed_at": "2026-10-25T11:50:07.881249+00:00",
+        "revision": 2,
+        "run_id": "8847542c339743c1adca293f9bc05f57",
+        "executed_at": "2026-10-25T12:17:15.159065+00:00",
         "command": [
           "uv",
           "run",
@@ -3191,7 +3267,7 @@
         ],
         "cwd": ".",
         "timeout": 600.0,
-        "fingerprint": "3316274ef138ff4132898e1b50f91ecfa9892ca2d03cad95118525a5545ed588"
+        "fingerprint": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5"
       },
       "runs": [
         {
@@ -3233,6 +3309,46 @@
           "cwd": ".",
           "timeout": 600.0,
           "fingerprint": "3316274ef138ff4132898e1b50f91ecfa9892ca2d03cad95118525a5545ed588"
+        },
+        {
+          "id": "S-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-bc751ea26687",
+          "input_hash": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5",
+          "check_config": {
+            "id": "CHK-bc751ea26687",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_webchat_code_splitting.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "8847542c339743c1adca293f9bc05f57",
+          "executed_at": "2026-10-25T12:17:15.159065+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_webchat_code_splitting.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5"
         }
       ]
     },
