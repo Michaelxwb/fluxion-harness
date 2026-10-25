@@ -4,8 +4,9 @@
  *
  * **有界增量轮询**：只按 API-11 的用户 feed 做增量读取——`after_seq` 取上一次响应的 `next_seq`，
  * 未追平 `through_seq` 时立即续拉、追平后按 API-19 投影的 `webchat.notification_poll_sec` 排下一轮；
- * 轮询间隔加固定比例抖动（`NOTIFICATION_POLL_JITTER_RATIO`），页大小缺省由服务端派生，本模块不复制
- * 任何后端默认值。
+ * 轮询间隔加固定比例抖动（`NOTIFICATION_POLL_JITTER_RATIO`）；页大小只取投影的
+ * `webchat.history_page_size`（≤ 后端分页上限），随每次增量请求发送；非法投影值显式失败，
+ * 不回落猜测默认值、也不复制任何后端默认值。
  *
  * **隐藏页暂停/前台同步**：页面隐藏时清掉待执行定时器并停在暂停态（零请求）；回到前台立即增量同步，
  * 并经 `activity.foreground()` 让页面同步会话索引（会话状态属 TASK-078 控制器，这里只发信号）。
@@ -47,6 +48,9 @@ import type { ClientConfigController } from './useClientConfig';
 /** 轮询间隔的固定比例抖动（design backend §3.7「实际轮询加固定比例抖动」）：±20%。 */
 export const NOTIFICATION_POLL_JITTER_RATIO = 0.2;
 
+/** 后端分页上限（`muad_contracts.MAX_PAGE_SIZE`）：投影页大小不得超过它。 */
+export const NOTIFICATION_MAX_PAGE_SIZE = 100;
+
 /** 可内联预览的媒体类型白名单（栅格图片）：与 TASK-055 服务端 `inline` 白名单同口径。 */
 export const PREVIEWABLE_MEDIA_TYPES: readonly string[] = [
   'image/png',
@@ -62,6 +66,7 @@ export type NotificationLoadState = 'idle' | 'loading' | 'ready' | 'failed';
 export type NotificationErrorCode =
   | 'NOTIFICATIONS_NOT_READY'
   | 'POLL_INTERVAL_INVALID'
+  | 'PAGE_SIZE_INVALID'
   | 'NOTIFICATION_REQUIRED'
   | 'NOTIFICATION_UNKNOWN'
   | 'ATTACHMENT_NOT_PREVIEWABLE';
@@ -88,8 +93,21 @@ export function notificationPollDelayMs(pollSec: number, random: number): number
   return Math.round(pollSec * 1000 * factor);
 }
 
-/** 未读徽标：只吃服务端权威计数；缺省/非法/非正数一律 0（不显示徽标，不伪造未读）。 */
-export function unreadBadgeCount(value: unknown): number {
+/** 通知页大小：只取 API-19 投影且不超过后端分页上限；非法值显式失败，不回落猜测默认。 */
+export function notificationPageSize(limits: WebchatClientLimits): number {
+  const value = limits.history_page_size;
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > NOTIFICATION_MAX_PAGE_SIZE
+  ) {
+    throw new NotificationStateError('PAGE_SIZE_INVALID');
+  }
+  return value;
+}
+
+/** 未读徽标：只吃服务端权威计数；缺省/非法/非正数一律 0（不显示徽标，不伪造未读）。 */export function unreadBadgeCount(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 }
 
@@ -382,7 +400,8 @@ function applyPage(runtime: NotificationRuntime, page: WebchatNotificationPage):
 /** 失败：留稳定码；首次加载失败进 failed，已有结果保留（面板内就地重试）。 */
 function applyFailure(runtime: NotificationRuntime, error: unknown): void {
   const { core } = runtime;
-  core.errorCode = webchatErrorCode(error);
+  core.errorCode =
+    error instanceof NotificationStateError ? error.code : webchatErrorCode(error);
   if (core.loadState !== 'ready') core.loadState = 'failed';
   if (isWebchatAuthError(error)) stopLoop(runtime);
   emit(runtime);
@@ -404,7 +423,11 @@ async function fetchPage(
 ): Promise<void> {
   try {
     const page = await runtime.deps.client.notifications(
-      { page: 1, after_seq: runtime.core.cursor },
+      {
+        page: 1,
+        page_size: notificationPageSize(runtime.deps.config.limits()),
+        after_seq: runtime.core.cursor
+      },
       { signal: options?.signal ?? runtime.deps.identity.identitySignal() }
     );
     applyPage(runtime, page);
