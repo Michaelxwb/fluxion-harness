@@ -75,9 +75,9 @@
 | S-13 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime/Worker/PG + 模拟队列压力 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_runtime_capacity_metrics.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-14 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Console/Runtime/PG；记录 SQL/设置读取 | TASK-002 | verified | ["bash", "-lc", "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-15 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime/PG；SQL 计数 | TASK-010 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_runs_api.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| S-16 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实栈 + 100 用户 × 1 轮 × 20 chunks/s + 通知轮询 | TASK-001 | failed | ["bash", "-lc", "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"] | . | 1800 | P0 | deferred | local-api | - | - | - | no |
-| S-17 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实栈 + 200 用户 × 1 轮 | TASK-001 | failed | ["bash", "-lc", "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"] | . | 1800 | P1 | deferred | local-api | - | - | - | no |
-| S-18 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实栈 + 400 用户 + 通知轮询，30–60 分钟 | TASK-001 | failed | ["bash", "-lc", "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"] | . | 3600 | P1 | deferred | local-api | - | - | - | no |
+| S-16 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实栈 + 100 用户 × 1 轮 × 20 chunks/s + 通知轮询 | TASK-001 | e2e_deferred | ["bash", "-lc", "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"] | . | 1800 | P0 | deferred | local-api | - | - | - | no |
+| S-17 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实栈 + 200 用户 × 1 轮 | TASK-001 | e2e_deferred | ["bash", "-lc", "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"] | . | 1800 | P1 | deferred | local-api | - | - | - | no |
+| S-18 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实栈 + 400 用户 + 通知轮询，30–60 分钟 | TASK-001 | e2e_deferred | ["bash", "-lc", "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"] | . | 3600 | P1 | deferred | local-api | - | - | - | no |
 
 > 本表覆盖全部 31 个场景；测试层级/执行方式/E2E 理由/触发路径以 scenarios 源为准，本表仅 plan 投影。manual 场景无本地命令，执行方式为 manual。
 
@@ -113,9 +113,9 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-16 | integration | 真实 Gateway/Runtime/PG/Redis + 100 用户 × 1 轮 × 20 chunks/s | admission P95≤1000ms；first-delta P95≤2500ms；无 5xx/SSE 打开失败；PG total≤120 | tests/acceptance/capacity/test_capacity_smoke.py | ["bash", "-lc", "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"] | failed |
-| S-17 | integration | 真实栈 + 200 用户 × 1 轮 | 按 profile SLO 判定；不得冒充 1000 结论；无 pool timeout | tests/acceptance/capacity/test_capacity.py::test_s17_200_user_bounded_verification | ["bash", "-lc", "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"] | failed |
-| S-18 | integration | 真实栈 + 400 用户 30–60 分钟 + 通知轮询 | 无连接/内存泄漏；PG/Redis 稳定；retention 追写入 | tests/acceptance/capacity/test_capacity_soak.py | ["bash", "-lc", "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"] | failed |
+| S-16 | integration | 真实 Gateway/Runtime/PG/Redis + 100 用户 × 1 轮 × 20 chunks/s | admission P95≤1000ms；first-delta P95≤2500ms；无 5xx/SSE 打开失败；PG total≤120 | tests/acceptance/capacity/test_capacity_smoke.py | ["bash", "-lc", "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"] | e2e_deferred |
+| S-17 | integration | 真实栈 + 200 用户 × 1 轮 | 按 profile SLO 判定；不得冒充 1000 结论；无 pool timeout | tests/acceptance/capacity/test_capacity.py::test_s17_200_user_bounded_verification | ["bash", "-lc", "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"] | e2e_deferred |
+| S-18 | integration | 真实栈 + 400 用户 30–60 分钟 + 通知轮询 | 无连接/内存泄漏；PG/Redis 稳定；retention 追写入 | tests/acceptance/capacity/test_capacity_soak.py | ["bash", "-lc", "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"] | e2e_deferred |
 
 ### Acceptance Evidence
 
@@ -142,6 +142,9 @@
 - S-16: failed — automated command failed; run_id=8483bd6783094b0d8a5f3059aa7d702d (confirmed_by: runner)
 - S-17: failed — automated command failed; run_id=8483bd6783094b0d8a5f3059aa7d702d (confirmed_by: runner)
 - S-18: failed — automated command failed; run_id=8483bd6783094b0d8a5f3059aa7d702d (confirmed_by: runner)
+- S-16: e2e_deferred — automated command e2e_deferred; run_id=9820e79bf124422fbea43cbe99b9742e (confirmed_by: runner)
+- S-17: e2e_deferred — automated command e2e_deferred; run_id=9820e79bf124422fbea43cbe99b9742e (confirmed_by: runner)
+- S-18: e2e_deferred — automated command e2e_deferred; run_id=9820e79bf124422fbea43cbe99b9742e (confirmed_by: runner)
 
 ### Baseline Finding (2026-10-25)
 
@@ -563,7 +566,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 | S-05 | 两个 Connector 各自建连（无 lease 过滤）；接管窗口重复入站 | 两个真实 Connector 进程 + 真实 Redis：只有 1 条 `aibot_subscribe`；SIGKILL owner 后另一进程以更高 epoch 接管并新建连接；接管后同 message_id 只有 1 条 Stream 记录；reply store 跨进程可读 | `tests/acceptance/im_gateway/test_connector_lease.py::test_s05_single_owner_takeover_after_sigkill_and_no_duplicate_inbound` | 真实 Console 快照 + 真实 Redis lease/Stream + 真实本地 WSS 探针 | verified |
 | E-03 | 收到消息后、XADD 前 SIGKILL：平台重投可能建两个 Run | 崩溃点确定性复现（RECEIVED 标记后暂停）；重启后平台重投发布一次；同一条入站事实提交 Runtime 两次仍只有 1 个 `run_record` | `tests/acceptance/im_gateway/test_connector_failover.py::test_e03_crash_before_xadd_then_platform_redelivery_creates_one_run` | 真实 Connector 子进程 + 真实 Redis Stream + 真实 Runtime/PG | verified |
 | E-04 | reply_ref 过期仍用旧 req_id；或静默丢弃内容 | 有效 reply_ref 走 `aibot_respond_msg`；删除 reply store 后同命令返回 `DEGRADED/REPLY_REF_EXPIRED`，探针只收到 `aibot_send_msg`，没有任何帧携带旧 req_id | `tests/acceptance/im_gateway/test_connector_failover.py::test_e04_expired_reply_ref_degrades_to_active_without_wrong_callback` | 真实 Connector + 真实 Redis reply store + 真实 WSS 探针 | verified |
-| E-06 | 未执行（需要真实企微 + staging 双 WS） | 未执行；已登记 manual/staging，owner=Connector 负责人，deadline=Phase 2 结束前 | manual | staging | manual |
+| E-06 | 未执行（需要真实企微 + staging 双 WS） | 未执行；已登记 manual/staging，owner=Connector 负责人，deadline=Phase 2 结束前 | manual | staging | manual_pending |
 | E-07 | 不重投时标记停在 RECEIVED，看起来像"没发生" | 重启扫描把超时 RECEIVED 置 LOST；`connector_inbound_lost_total` 增长；ERROR 日志可查；无 Stream 记录、无 Run | `tests/acceptance/im_gateway/test_connector_failover.py::test_e07_no_redelivery_is_explicitly_lost_and_never_fakes_a_run` | 真实 Connector 子进程 + 真实 Redis；不重投由测试显式不推送模拟 | verified |
 - E-03: e2e_deferred — automated command e2e_deferred; run_id=8c14735dc81948b0a96011caaa0ac9c3 (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=8c14735dc81948b0a96011caaa0ac9c3 (confirmed_by: runner)
