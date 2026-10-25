@@ -2672,14 +2672,14 @@
         "签名/token 校验配置"
       ],
       "check": "CHK-67745111ebdb",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-07",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
         "check_id": "CHK-67745111ebdb",
-        "input_hash": "a3f01f719252711ea02c7341ad49d112e51cc11e4283fa5692917e21cf8a61a8",
+        "input_hash": "909fb1f30a949781592ec763b589d484866cb9f238b456accb140ccd959aa4eb",
         "check_config": {
           "id": "CHK-67745111ebdb",
           "command": [
@@ -2699,9 +2699,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "9503f100ec844aafb0b4239212d5784d",
-        "executed_at": "2026-10-25T12:12:20.411904+00:00",
+        "revision": 2,
+        "run_id": "13fd94e468784d7aa2c18accbdd002de",
+        "executed_at": "2026-10-25T12:17:34.645923+00:00",
         "command": [
           "uv",
           "run",
@@ -2711,7 +2711,7 @@
         ],
         "cwd": ".",
         "timeout": 600.0,
-        "fingerprint": "a3f01f719252711ea02c7341ad49d112e51cc11e4283fa5692917e21cf8a61a8"
+        "fingerprint": "909fb1f30a949781592ec763b589d484866cb9f238b456accb140ccd959aa4eb"
       },
       "runs": [
         {
@@ -2753,6 +2753,46 @@
           "cwd": ".",
           "timeout": 600.0,
           "fingerprint": "a3f01f719252711ea02c7341ad49d112e51cc11e4283fa5692917e21cf8a61a8"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-67745111ebdb",
+          "input_hash": "909fb1f30a949781592ec763b589d484866cb9f238b456accb140ccd959aa4eb",
+          "check_config": {
+            "id": "CHK-67745111ebdb",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_webhook_channel.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "13fd94e468784d7aa2c18accbdd002de",
+          "executed_at": "2026-10-25T12:17:34.645923+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_webhook_channel.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "909fb1f30a949781592ec763b589d484866cb9f238b456accb140ccd959aa4eb"
         }
       ]
     },

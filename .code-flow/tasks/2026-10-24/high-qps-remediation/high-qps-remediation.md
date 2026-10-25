@@ -605,6 +605,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 |---|---|---|---|---|---|
 | S-07 | `uv run pytest -q tests/acceptance/im_gateway/test_webhook_channel.py` → 4 failed / 1 passed：四个 HTTP 用例全部 404 `COMMON_NOT_FOUND`（`/channels/WECOM/events` 路由尚不存在），静态「不新增 Deployment」用例通过 | 同一命令 → 5 passed：合法 HMAC 事件 202 且 ACK 前已可从 Redis 回读 `im.inbound:*` 条目，随后真实 Runtime 建 Run 到终态；错签名/过期时间戳 403 且零条目、零新 Run；重复 event_id 第二次 `duplicate=true`、仍只有 1 条 Stream 记录、Run 计数不变 | `tests/acceptance/im_gateway/test_webhook_channel.py::test_s07_valid_event_is_persisted_before_ack_and_creates_one_run`、`::test_s07_invalid_signature_is_rejected_without_persisting_or_running`、`::test_s07_expired_timestamp_is_rejected_without_persisting`、`::test_s07_duplicate_event_id_is_idempotent`、`::test_s07_no_new_deployment_or_image_is_required`；单元面 `tests/gateway/test_webhook_channel.py`（验签/时间戳/载荷/配置装配）与 `tests/gateway/test_delivery_stream.py`（入队+有界等待） | 真实 uvicorn Gateway 子进程 + 真实 Console/Runtime/Worker + 真实 `wss`-free webhook HTTP 客户端（HMAC）+ 真实 Redis `im.inbound:*` + 真实 PostgreSQL `runtime.run_record`；`deploy/k8s/base` 无 webhook 专属 Deployment。inbound 消费组 `im-ingress` 落 `apps/im-gateway/src/muad_im_gateway/application/inbound_streams.py`，验签/入队在 `channels/webhook.py` 与 `api/webhook.py` | verified |
 - S-07: verified — automated command passed; run_id=9503f100ec844aafb0b4239212d5784d (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=13fd94e468784d7aa2c18accbdd002de (confirmed_by: runner)
 
 ### Log
 
