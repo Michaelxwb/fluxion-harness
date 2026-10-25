@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "high-qps-remediation.md",
-  "task_sha256": "a5e3405ef74e92c657ad74de32b35e77622741393437c7d8c9730682dde1ede2",
+  "task_sha256": "6641a9137ddc92fe8e089bcb023b60102c13055611dc9f3689fc35faf1e72038",
   "checks": [
     {
       "id": "CHK-1f60ca901381",
@@ -549,6 +549,49 @@
       "env": "local-api",
       "smoke": false,
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "gateway",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "同时提交 1000 个 Run",
+        "采样排队、429/拒绝、内存、延迟",
+        "对已受理 Run 执行查询与取消；恢复后观察排空"
+      ],
+      "expected": [
+        "不 OOM、不无限 create_task；超出预算显式 429/CHANNEL_BUSY",
+        "已受理 Run 可查询/取消；不静默丢",
+        "队列恢复后按 SLO 排空"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "目标执行槽/模型额度有限",
+        "队列/准入预算已配置"
+      ],
+      "defer_reason": "1000 瞬时受理 burst 需容量档环境",
+      "target_phase": "review",
+      "defer_owner": "TASK-005",
       "check": "CHK-1f60ca901381",
       "revision": 3,
       "evidence": {
@@ -724,6 +767,36 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "持续写入并运行 retention",
+        "采样表大小、删除速率、WAL、索引"
+      ],
+      "expected": [
+        "删除速率 ≥ 写入速率；表大小稳定",
+        "无长事务/锁等待；分区/索引按设计生效"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "事件写入 20k rows/s 的等价批量（或 1000 Run × 20/s）",
+        "retention 批量/索引已调整"
+      ],
       "check": "CHK-057c6cf895a7",
       "revision": 1,
       "evidence": {
@@ -841,6 +914,45 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "gateway",
+        "console"
+      ],
+      "steps": [
+        "抓取 /metrics，核对计数/SSE 账本聚合",
+        "在一个 worker 签发 artifact token，在另一个 worker 下载"
+      ],
+      "expected": [
+        "指标包含所有 worker 样本；active subscriber 总数等于各 worker 之和；pending bytes ≤ 配置总预算",
+        "artifact token 跨 worker 可用",
+        "无进程内状态造成的 404/漏计数"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "Gateway/Console 使用多 worker",
+        "ArtifactFetchTokens/metrics 已改造"
+      ],
       "check": "CHK-d2dd5679105a"
     },
     {
@@ -869,6 +981,50 @@
         "deploy/k8s/overlays/console-web/**"
       ],
       "smoke": false,
+      "components": [
+        "frontend",
+        "backend",
+        "gateway"
+      ],
+      "steps": [
+        "打开 /chat，登录/交换 CHAT 会话",
+        "加载静态资源并发起 /api 与 /api/v1/webchat 请求",
+        "打开 SSE",
+        "在不启用 overlay 的默认 base 上重复登录/API/SSE 关键路径作为对照"
+      ],
+      "expected": [
+        "Cookie/CSRF/Origin 正常；无 CORS",
+        "静态资源不经过 Python；SSE 仍走 Gateway 且 buffering off",
+        "未启用 overlay 时默认 4 单元行为不变"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3,
+            4
+          ]
+        }
+      ],
+      "preconditions": [
+        "启用可选 console-web overlay",
+        "同域路径分流"
+      ],
+      "defer_reason": "静态 overlay 为 opt-in 可选层；未启用 overlay 时无真实边界可测，留 verify-e2e",
+      "target_phase": "review",
+      "defer_owner": "TASK-011",
       "check": "CHK-2f30d1989e59"
     },
     {
@@ -895,6 +1051,40 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "gateway",
+        "runtime",
+        "console"
+      ],
+      "steps": [
+        "关闭/打桩 Console platform-settings",
+        "发起通知轮询",
+        "模拟 CHAT 凭据失效，断言 401/403/409 既有语义"
+      ],
+      "expected": [
+        "认证正常时通知轮询不再依赖 settings；无 503",
+        "若认证失败，返回既有 401/403/409 语义，不吞错"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "通知请求已带 page_size",
+        "Console settings 端点故障"
+      ],
       "check": "CHK-e5efcc57271a"
     },
     {
@@ -923,6 +1113,48 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "gateway",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "打开超过池容量的 SSE",
+        "采样响应时间/错误码/池等待"
+      ],
+      "expected": [
+        "超出容量的请求在 1s 内显式失败（429/503/稳定错误码），不挂 5s",
+        "不出现未处理的 QueuePool 异常；指标可见",
+        "修后同场景 100 条流不失败"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "post_fix_hundred_streams"
+          ]
+        }
+      ],
+      "assertions": [
+        "post_fix_hundred_streams"
+      ],
+      "preconditions": [
+        "runtime pool=1/overflow=0/timeout=1s",
+        "已有长流占用连接"
+      ],
       "check": "CHK-df6c56011ddc"
     },
     {
@@ -949,6 +1181,40 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "connector",
+        "redis"
+      ],
+      "steps": [
+        "注入崩溃点（收到消息后、XADD 前）",
+        "重启 Connector/等待平台重投"
+      ],
+      "expected": [
+        "平台重投后消息最终恰好一个 Run（message_id 幂等）",
+        "无重复用户可见回复"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "假 WeCom 服务端可重投/可观测",
+        "Redis Stream AOF/重投策略已配置"
+      ],
+      "defer_reason": "Connector 崩溃 + 平台重投需真实进程与故障注入，留 verify-e2e",
+      "target_phase": "review",
+      "defer_owner": "TASK-007",
       "check": "CHK-ec7cf07411e5",
       "revision": 2,
       "evidence": {
@@ -1092,6 +1358,48 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "connector",
+        "redis",
+        "fake-wecom"
+      ],
+      "steps": [
+        "触发终态/产物投递",
+        "观察发送命令与审计结果"
+      ],
+      "expected": [
+        "走主动发送（send_text/send_media），审计 DEGRADED",
+        "不把消息挂到本路由最新回调/另一条消息",
+        "用户可见内容不丢"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "旧连接 epoch 已失效",
+        "run_id→reply_ref 过期/不匹配"
+      ],
       "check": "CHK-ec7cf07411e5",
       "revision": 1,
       "evidence": {
@@ -1203,6 +1511,41 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "runtime",
+        "redis",
+        "postgres"
+      ],
+      "steps": [
+        "关闭 Redis",
+        "打开/保持 SSE，发送新事件",
+        "恢复 Redis，断言回切且无重复/缺口"
+      ],
+      "expected": [
+        "退化为 PG 有界轮询，事件不丢/不重",
+        "降级指标/日志可见；恢复后自动回切"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "有已持久 Run 事件",
+        "Redis 关闭"
+      ],
       "check": "CHK-8193e32b163c",
       "revision": 1,
       "evidence": {
@@ -1313,7 +1656,46 @@
       "env": "staging",
       "smoke": false,
       "why_e2e": "",
-      "trigger_paths": []
+      "trigger_paths": [],
+      "components": [
+        "connector",
+        "wecom"
+      ],
+      "steps": [
+        "同一 bot 同时建立两个 WS，记录踢旧/分发/拒绝",
+        "断开后重连，尝试用旧 req_id 继续回复",
+        "验证不能继续回复时的主动发送降级"
+      ],
+      "expected": [
+        "明确记录企微单/多连接行为",
+        "明确记录 req_id 跨重连寿命",
+        "降级行为符合产品预期，不串消息"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "可用企微测试 bot/secret",
+        "两个 Connector 进程",
+        "可观察服务端行为"
+      ]
     },
     {
       "id": "E-07",
@@ -1339,6 +1721,43 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "connector",
+        "redis"
+      ],
+      "steps": [
+        "在收到消息后、XADD 前 kill -9",
+        "等待/确认无重投",
+        "检查用户可见状态与告警"
+      ],
+      "expected": [
+        "显式 FAILED/告警，不假装成功",
+        "文档写明 at-least-once 边界，不承诺 exactly-once"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "documented_at_least_once"
+          ]
+        }
+      ],
+      "assertions": [
+        "documented_at_least_once"
+      ],
+      "preconditions": [
+        "假 WS 服务端不重投",
+        "崩溃点可注入"
+      ],
+      "defer_reason": "Connector 崩溃 + 平台不重投需故障注入，留 verify-e2e",
+      "target_phase": "review",
+      "defer_owner": "TASK-007",
       "check": "CHK-ec7cf07411e5",
       "revision": 2,
       "evidence": {
@@ -1482,6 +1901,42 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "postgres",
+        "redis",
+        "gateway",
+        "runtime"
+      ],
+      "steps": [
+        "PG failover；Redis 抖动；kill Gateway/Runtime Pod",
+        "观察重连/恢复/重复"
+      ],
+      "expected": [
+        "已受理 Run 不丢；SSE 可恢复",
+        "无重复终态/投递；降级指标可见"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "可注入故障",
+        "已持久 Run"
+      ],
+      "defer_reason": "PG failover/Redis 抖动/Pod kill 混沌需可注入故障的环境",
+      "target_phase": "review",
+      "defer_owner": "TASK-012",
       "check": "CHK-ffc432bba730"
     },
     {
@@ -1501,7 +1956,36 @@
       "env": "staging",
       "smoke": false,
       "why_e2e": "",
-      "trigger_paths": []
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "capacity"
+      ],
+      "steps": [
+        "执行 1000×8 全量 capacity_load",
+        "记录 SLO/PG/CPU/retention 证据"
+      ],
+      "expected": [
+        "SLO 全过；PG/CPU/retention 预算内",
+        "未过不得写生产达标"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "目标拓扑/模型额度/观测就绪"
+      ]
     },
     {
       "id": "S-01",
@@ -1524,6 +2008,58 @@
       "env": "local-api",
       "smoke": false,
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "capacity",
+        "postgres",
+        "redis"
+      ],
+      "steps": [
+        "启动四/五单元真实栈与目标 profile",
+        "1000 个用户各建立 CHAT 会话并完成 8 轮提交/SSE/通知轮询",
+        "校验 attempts == users × turns（8000）且 steady 窗口 600s 真正约束新提交",
+        "采集 admission、first-delta、错误率、CPU、PG total/idle-in-tx/commits/s、WAL/s、retention"
+      ],
+      "expected": [
+        "admission P95 ≤ 500ms、P99 ≤ 1500ms；first-delta P95 ≤ 1200ms；系统错误率 < 1%",
+        "attempts == 8000；steady_sec 约束生效；Gateway/Console CPU < 60% limit",
+        "PG total < 200；稳态 idle-in-tx ≈ 0；commits/s ≤ 4k（Phase 2）/ ≤2k（Phase 3）",
+        "retention 删除速率 ≥ 写入速率；无 pool timeout、无 SSE 拒绝/缺终帧"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            4
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            4
+          ]
+        },
+        {
+          "expected": 4,
+          "steps": [
+            4
+          ]
+        }
+      ],
+      "preconditions": [
+        "1 个 Console、N 个 Gateway（多副本）、企微场景下 1+ Connector、Runtime/Worker 按目标副本",
+        "load profile 声明 1000 users、8 turns/600s、20 chunks/s × 10s、通知轮询 15s",
+        "模型额度/执行槽总量足以承接目标并发"
+      ],
+      "defer_reason": "1000×8 全量需目标拓扑与模型额度，属发布前 release gate（TASK-012）",
+      "target_phase": "release",
+      "defer_owner": "TASK-012",
       "check": "CHK-d321859782b6"
     },
     {
@@ -1552,6 +2088,49 @@
         "apps/console-platform/backend/src/muad_console_platform/**",
         "apps/im-gateway/src/muad_im_gateway/**"
       ],
+      "components": [
+        "backend",
+        "frontend",
+        "console",
+        "postgres"
+      ],
+      "steps": [
+        "保持 1000 个会话在线但不发消息",
+        "按 15s ±20% 抖动轮询 /notifications",
+        "采集 Console 内部调用、SQL 数、CPU、settings 读取次数"
+      ],
+      "expected": [
+        "通知轮询不再触发 Console platform-settings 读取",
+        "Console settings 构造数 = 0；chat-principal ≤3 SQL；Console CPU < 60%",
+        "无 pool timeout、无认证错误"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "1000 个已认证 CHAT 会话",
+        "前端请求带 page_size；轮询间隔 15s（可配置）"
+      ],
+      "defer_reason": "1000 会话空闲轮询需容量档环境；功能已由 10 用户自检覆盖，需求级终验复查",
+      "target_phase": "review",
+      "defer_owner": "TASK-002",
       "check": "CHK-bbe341d9d660"
     },
     {
@@ -1580,6 +2159,45 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "postgres",
+        "redis"
+      ],
+      "steps": [
+        "创建 100 个 Run（或复用已持久 Run）",
+        "同时打开 100 条 SSE 并保持 30s",
+        "采样 pg_stat_activity total/idle-in-transaction 与 runtime pool checked out"
+      ],
+      "expected": [
+        "100 条流全部成功打开；无 QueuePool timeout",
+        "pool=2 时 100 条流 PG total ≤ 20（pool×进程 + 余量），不随流数线性增长",
+        "流结束后连接归还"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "runtime `DB_POOL_SIZE=2`、`DB_MAX_OVERFLOW=0`",
+        "100 条并发 /v1/runs/{id}/events"
+      ],
       "check": "CHK-0886affd7f3c"
     },
     {
@@ -1608,6 +2226,39 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "postgres",
+        "redis"
+      ],
+      "steps": [
+        "运行 100 个流式 Run 并记录 commits/s、statements/commit、seq",
+        "在流中断言已提交前缀可重放、无重复 seq",
+        "SIGKILL 一个 Runtime，验证已提交前缀与终态 CAS"
+      ],
+      "expected": [
+        "≤4 commits/s/Run；≤3 statements/event；无丢/重 seq；terminal 最后",
+        "重放文本与终态一致；SIGKILL 后无半行"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "100 个并发 Run，每 Run 20 delta/s，首段立即 flush",
+        "事件批量窗口 250–500ms/8–16KB"
+      ],
       "check": "CHK-f6dff60fdd67",
       "revision": 1,
       "evidence": {
@@ -1724,6 +2375,50 @@
       "env": "local-api",
       "smoke": false,
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "connector",
+        "redis",
+        "postgres"
+      ],
+      "steps": [
+        "同时启动两个 Connector，观察 WS 连接数与 lease owner",
+        "杀掉 owner，等待 lease 过期/接管",
+        "在切换窗口发送入站消息与出站回复/产物"
+      ],
+      "expected": [
+        "任意时刻只有一个 active owner；旧 owner 命令被 epoch 拒绝",
+        "接管后新消息可处理；未恢复的 reply_ref 走主动发送 + DEGRADED",
+        "无重复入站 Run、无消息发到错误回调"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "同一 bot 配置给两个 Connector 候选",
+        "Redis lease TTL 已知"
+      ],
+      "defer_reason": "两个真实 Connector + 假 WS 的 lease 接管用例留需求级 verify-e2e 执行",
+      "target_phase": "review",
+      "defer_owner": "TASK-007",
       "check": "CHK-974cbc8b96aa",
       "revision": 2,
       "evidence": {
@@ -1864,6 +2559,52 @@
         "deploy/k8s/base/im-gateway.yaml"
       ],
       "smoke": true,
+      "components": [
+        "frontend",
+        "backend",
+        "gateway",
+        "runtime"
+      ],
+      "steps": [
+        "在 Pod A 提交消息并打开 SSE",
+        "断开后带 after_seq 重连到 Pod B",
+        "用同 message_id 重试提交；重启一个 Gateway Pod",
+        "再提交下一条消息并观察恢复"
+      ],
+      "expected": [
+        "任意 Pod 可服务；断线重连从游标续上，无缺口/重复",
+        "同 message_id 重试只建一个 Run",
+        "Gateway Pod 重启不影响已持久 Run；重连后继续"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3,
+            4
+          ]
+        }
+      ],
+      "preconditions": [
+        "Gateway ≥2 副本，无 sticky session",
+        "同一 CHAT 会话有活跃 Run"
+      ],
+      "defer_reason": "浏览器多副本断线重连 E2E 在 verify-e2e 统一执行",
+      "target_phase": "review",
+      "defer_owner": "TASK-009",
       "check": "CHK-d3e4e66b0653"
     },
     {
@@ -1890,6 +2631,46 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "gateway",
+        "runtime",
+        "redis"
+      ],
+      "steps": [
+        "发送合法 webhook，验证快速 2xx 与入站事件",
+        "发送错误签名，验证拒绝且无入站事件",
+        "重复 event_id，验证只建一个 Run"
+      ],
+      "expected": [
+        "不新增 Deployment/镜像；adapter 包 + 路由即可接入",
+        "合法事件先持久化再 ACK；非法签名不落库",
+        "重复 event_id 幂等"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "一个 fake webhook channel adapter",
+        "签名/token 校验配置"
+      ],
       "check": "CHK-67745111ebdb"
     },
     {
@@ -1916,6 +2697,52 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "gateway",
+        "console",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "提交消息并记录 Console chat-principal 调用次数",
+        "用同一 message_id 重试",
+        "校验 Run 数、202 延迟、SSE 可用"
+      ],
+      "expected": [
+        "只建一个 Run；202 P95 ≤ 500ms（与受理 SLO 同口径）",
+        "不再为已解析主体重复调用 Console resolve",
+        "既有 API 封套/错误码不变"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "已认证 ChatIdentity",
+        "同一 message_id 重试"
+      ],
       "check": "CHK-070375b68f7b"
     },
     {
@@ -1942,6 +2769,44 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "frontend"
+      ],
+      "steps": [
+        "触发一次通知同步",
+        "捕获请求 query 与下一次定时器延迟"
+      ],
+      "expected": [
+        "请求包含 page_size，值来自投影",
+        "轮询间隔来自配置（默认推荐 15s），带抖动",
+        "组件/hook 不裸用 fetch/axios"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "no_bare_fetch_axios"
+          ]
+        }
+      ],
+      "assertions": [
+        "no_bare_fetch_axios"
+      ],
+      "preconditions": [
+        "client-config 已返回 history_page_size/notification_poll_sec"
+      ],
       "check": "CHK-82b6d2f92451"
     },
     {
@@ -1968,6 +2833,43 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "frontend"
+      ],
+      "steps": [
+        "构建并检查 chat 入口 chunk",
+        "打开 /chat 断言不加载 admin chunk",
+        "直接打开 admin 深链断言可加载"
+      ],
+      "expected": [
+        "聊天首屏不加载 12 个 admin 页面 chunk",
+        "admin 深链可用、错误边界正常",
+        "菜单 11 项不变"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "admin 路由已 lazy",
+        "保留深链"
+      ],
       "check": "CHK-bc751ea26687"
     },
     {
@@ -1994,6 +2896,43 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "contracts",
+        "im-core"
+      ],
+      "steps": [
+        "构造四类契约并 JSON round-trip",
+        "校验 extra=forbid/必填/枚举",
+        "校验 shard/route key 稳定性"
+      ],
+      "expected": [
+        "字段/枚举/未知字段拒绝符合契约",
+        "同输入 shard 稳定",
+        "旧 WebChat/IM 契约不破坏"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "契约已定义"
+      ],
       "check": "CHK-44351a5cde34",
       "revision": 1,
       "evidence": {
@@ -2103,6 +3042,55 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "connector",
+        "deploy"
+      ],
+      "steps": [
+        "检查 gateway 依赖不含 aibot",
+        "检查 connector 不暴露公开 HTTP 路由",
+        "检查 bot snapshot 按 channel 过滤",
+        "检查 ChannelName/registry 可扩展",
+        "运行 5 单元预检"
+      ],
+      "expected": [
+        "Gateway 无 WeCom SDK；Connector 无 WebChat 公开路由",
+        "Gateway 响应不含 WECOM secret",
+        "新增 fake channel 不改 ChannelName 字面量",
+        "预检在 5 单元/多 worker 下通过"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            4
+          ]
+        },
+        {
+          "expected": 4,
+          "steps": [
+            5
+          ]
+        }
+      ],
+      "preconditions": [
+        "connector 包/镜像/清单存在"
+      ],
       "check": "CHK-6aba6aa03b34"
     },
     {
@@ -2129,6 +3117,46 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "runtime",
+        "worker",
+        "postgres"
+      ],
+      "steps": [
+        "制造等待队列，采样 waiting/oldest age",
+        "提交消息，断言 202 不等待 history",
+        "制造 memory job backlog，观察限速"
+      ],
+      "expected": [
+        "HPA 可读队列指标；队列年龄可断言",
+        "202 不因 history 扫描变慢",
+        "memory backlog 有界，不拖慢聊天"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "队列 gauge 已发布",
+        "history 后台化",
+        "memory 入队限速"
+      ],
       "check": "CHK-b7e5888e7908",
       "revision": 3,
       "evidence": {
@@ -2316,6 +3344,44 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "console",
+        "runtime"
+      ],
+      "steps": [
+        "一次受理采样 model/credential 查询次数",
+        "空闲通知轮询采样 count/page/unread 次数",
+        "故障注入 settings 源"
+      ],
+      "expected": [
+        "materials 不重复解析 model/credential",
+        "空闲轮询不再 count/page/unread 三条全跑",
+        "settings 故障不阻断已带 page_size 的轮询"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "materials 合并解析",
+        "通知 fast path"
+      ],
       "check": "CHK-ed371ead49ff"
     },
     {
@@ -2342,6 +3408,45 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "gateway",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "打开 SSE 采样 scope SQL 数",
+        "提交消息采样 202 后 get_run 次数",
+        "检查 WebchatChannelAdapter 无 dead queue 或已接入"
+      ],
+      "expected": [
+        "scope ≤2 SQL",
+        "202 后不再 get_run",
+        "无 dead queue 假象"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "lean scope 已实现",
+        "受理帧带 status"
+      ],
       "check": "CHK-f3eeb55b0d89"
     },
     {
@@ -2366,6 +3471,49 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "capacity",
+        "postgres",
+        "redis"
+      ],
+      "steps": [
+        "运行 smoke profile",
+        "采样 admission/first-delta/错误/PG/CPU"
+      ],
+      "expected": [
+        "admission P95 ≤1000ms、first-delta P95 ≤2500ms",
+        "无 5xx/SSE 打开失败",
+        "PG total ≤120、idle-in-tx 峰值 ≤20"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "capacity_smoke profile"
+      ],
+      "defer_reason": "100 用户 smoke 需真实四单元栈；编码期只登记，verify-e2e 执行",
+      "target_phase": "review",
+      "defer_owner": "TASK-001",
       "check": "CHK-8d7b3292f4ba"
     },
     {
@@ -2390,6 +3538,38 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "capacity"
+      ],
+      "steps": [
+        "运行 200 档",
+        "采样 SLO/PG"
+      ],
+      "expected": [
+        "按 profile SLO 判定；不得冒充 1000 结论",
+        "无 pool timeout"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "make capacity-load"
+      ],
+      "defer_reason": "200 用户 bounded verification 属 nightly 档负载",
+      "target_phase": "review",
+      "defer_owner": "TASK-001",
       "check": "CHK-a80d83e34deb"
     },
     {
@@ -2414,6 +3594,47 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
+      "components": [
+        "backend",
+        "capacity"
+      ],
+      "steps": [
+        "持续 30–60 分钟",
+        "采样内存/连接/WAL/retention"
+      ],
+      "expected": [
+        "无连接/内存泄漏",
+        "PG/Redis 稳定；retention 追写入",
+        "错误率 <1%"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "soak 脚本/profile"
+      ],
+      "defer_reason": "400 用户 30–60 分钟 soak 需显式门禁 MUAD_CAPACITY_SOAK=1",
+      "target_phase": "review",
+      "defer_owner": "TASK-001",
       "check": "CHK-8b09fee902a5"
     }
   ],

@@ -12,6 +12,9 @@ scenarios:
   priority: P0
   level: integration
   exec: deferred
+  owner: TASK-012
+  target_phase: release
+  defer_reason: 1000×8 全量需目标拓扑与模型额度，属发布前 release gate（TASK-012）
   env: local-api
   components:
   - backend
@@ -33,6 +36,19 @@ scenarios:
   - attempts == 8000；steady_sec 约束生效；Gateway/Console CPU < 60% limit
   - PG total < 200；稳态 idle-in-tx ≈ 0；commits/s ≤ 4k（Phase 2）/ ≤2k（Phase 3）
   - retention 删除速率 ≥ 写入速率；无 pool timeout、无 SSE 拒绝/缺终帧
+  expected_refs:
+  - expected: 1
+    steps:
+    - 4
+  - expected: 2
+    steps:
+    - 3
+  - expected: 3
+    steps:
+    - 4
+  - expected: 4
+    steps:
+    - 4
   trigger_paths: []
   smoke: false
   design_refs:
@@ -50,6 +66,9 @@ scenarios:
   priority: P0
   level: integration
   exec: deferred
+  owner: TASK-002
+  target_phase: review
+  defer_reason: 1000 会话空闲轮询需容量档环境；功能已由 10 用户自检覆盖，需求级终验复查
   env: local-api
   components:
   - backend
@@ -68,6 +87,16 @@ scenarios:
   - 通知轮询不再触发 Console platform-settings 读取
   - Console settings 构造数 = 0；chat-principal ≤3 SQL；Console CPU < 60%
   - 无 pool timeout、无认证错误
+  expected_refs:
+  - expected: 1
+    steps:
+    - 3
+  - expected: 2
+    steps:
+    - 3
+  - expected: 3
+    steps:
+    - 3
   trigger_paths:
   - apps/console-platform/frontend/src/modules/webchat/hooks/useNotifications.ts
   - apps/agent-runtime/src/muad_agent_runtime/api/webchat_history.py
@@ -103,6 +132,16 @@ scenarios:
   - 100 条流全部成功打开；无 QueuePool timeout
   - pool=2 时 100 条流 PG total ≤ 20（pool×进程 + 余量），不随流数线性增长
   - 流结束后连接归还
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -133,6 +172,14 @@ scenarios:
   expected:
   - ≤4 commits/s/Run；≤3 statements/event；无丢/重 seq；terminal 最后
   - 重放文本与终态一致；SIGKILL 后无半行
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -147,6 +194,9 @@ scenarios:
   priority: P0
   level: integration
   exec: deferred
+  owner: TASK-007
+  target_phase: review
+  defer_reason: 两个真实 Connector + 假 WS 的 lease 接管用例留需求级 verify-e2e 执行
   env: local-api
   components:
   - backend
@@ -165,6 +215,17 @@ scenarios:
   - 任意时刻只有一个 active owner；旧 owner 命令被 epoch 拒绝
   - 接管后新消息可处理；未恢复的 reply_ref 走主动发送 + DEGRADED
   - 无重复入站 Run、无消息发到错误回调
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+    - 3
+  - expected: 3
+    steps:
+    - 3
   trigger_paths: []
   smoke: false
   design_refs:
@@ -178,6 +239,9 @@ scenarios:
   priority: P0
   level: E2E
   exec: deferred
+  owner: TASK-009
+  target_phase: review
+  defer_reason: 浏览器多副本断线重连 E2E 在 verify-e2e 统一执行
   env: browser
   components:
   - frontend
@@ -197,6 +261,18 @@ scenarios:
   - 任意 Pod 可服务；断线重连从游标续上，无缺口/重复
   - 同 message_id 重试只建一个 Run
   - Gateway Pod 重启不影响已持久 Run；重连后继续
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+    - 2
+  - expected: 2
+    steps:
+    - 3
+  - expected: 3
+    steps:
+    - 3
+    - 4
   why_e2e: SSE 长连接、负载均衡、断线重连和跨 Pod 游标只有真实浏览器 + 多副本 + Runtime 持久流才能覆盖。
   trigger_paths:
   - apps/im-gateway/**
@@ -223,7 +299,8 @@ scenarios:
   - gateway
   - runtime
   - redis
-  boundary: 真实 Gateway HTTP /channels/{channel}/events + 假 webhook 提供方 + Redis Stream + Runtime
+  boundary: 真实 Gateway HTTP /channels/{channel}/events + 假 webhook 提供方 + Redis Stream
+    + Runtime
   preconditions:
   - 一个 fake webhook channel adapter
   - 签名/token 校验配置
@@ -235,6 +312,16 @@ scenarios:
   - 不新增 Deployment/镜像；adapter 包 + 路由即可接入
   - 合法事件先持久化再 ACK；非法签名不落库
   - 重复 event_id 幂等
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -268,6 +355,21 @@ scenarios:
   - 只建一个 Run；202 P95 ≤ 500ms（与受理 SLO 同口径）
   - 不再为已解析主体重复调用 Console resolve
   - 既有 API 封套/错误码不变
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+    - 2
+    - 3
+  - expected: 2
+    steps:
+    - 1
+    - 2
+  - expected: 3
+    steps:
+    - 1
+    - 2
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -295,6 +397,18 @@ scenarios:
   - 请求包含 page_size，值来自投影
   - 轮询间隔来自配置（默认推荐 15s），带抖动
   - 组件/hook 不裸用 fetch/axios
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    assertions:
+    - no_bare_fetch_axios
+  assertions:
+  - no_bare_fetch_axios
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -323,6 +437,16 @@ scenarios:
   - 聊天首屏不加载 12 个 admin 页面 chunk
   - admin 深链可用、错误边界正常
   - 菜单 11 项不变
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -351,6 +475,16 @@ scenarios:
   - 字段/枚举/未知字段拒绝符合契约
   - 同输入 shard 稳定
   - 旧 WebChat/IM 契约不破坏
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -384,6 +518,21 @@ scenarios:
   - Gateway 响应不含 WECOM secret
   - 新增 fake channel 不改 ChannelName 字面量
   - 预检在 5 单元/多 worker 下通过
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+    - 2
+  - expected: 2
+    steps:
+    - 1
+    - 3
+  - expected: 3
+    steps:
+    - 4
+  - expected: 4
+    steps:
+    - 5
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -417,6 +566,16 @@ scenarios:
   - HPA 可读队列指标；队列年龄可断言
   - 202 不因 history 扫描变慢
   - memory backlog 有界，不拖慢聊天
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -447,6 +606,16 @@ scenarios:
   - materials 不重复解析 model/credential
   - 空闲轮询不再 count/page/unread 三条全跑
   - settings 故障不阻断已带 page_size 的轮询
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -477,6 +646,16 @@ scenarios:
   - scope ≤2 SQL
   - 202 后不再 get_run
   - 无 dead queue 假象
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -491,6 +670,9 @@ scenarios:
   priority: P0
   level: integration
   exec: deferred
+  owner: TASK-001
+  target_phase: review
+  defer_reason: 100 用户 smoke 需真实四单元栈；编码期只登记，verify-e2e 执行
   env: local-api
   components:
   - backend
@@ -507,6 +689,18 @@ scenarios:
   - admission P95 ≤1000ms、first-delta P95 ≤2500ms
   - 无 5xx/SSE 打开失败
   - PG total ≤120、idle-in-tx 峰值 ≤20
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+    - 2
+  - expected: 2
+    steps:
+    - 1
+    - 2
+  - expected: 3
+    steps:
+    - 2
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -521,6 +715,9 @@ scenarios:
   priority: P1
   level: integration
   exec: deferred
+  owner: TASK-001
+  target_phase: review
+  defer_reason: 200 用户 bounded verification 属 nightly 档负载
   env: local-api
   components:
   - backend
@@ -534,6 +731,13 @@ scenarios:
   expected:
   - 按 profile SLO 判定；不得冒充 1000 结论
   - 无 pool timeout
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -548,6 +752,9 @@ scenarios:
   priority: P1
   level: integration
   exec: deferred
+  owner: TASK-001
+  target_phase: review
+  defer_reason: 400 用户 30–60 分钟 soak 需显式门禁 MUAD_CAPACITY_SOAK=1
   env: local-api
   components:
   - backend
@@ -562,6 +769,18 @@ scenarios:
   - 无连接/内存泄漏
   - PG/Redis 稳定；retention 追写入
   - 错误率 <1%
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+    - 2
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 1
+    - 2
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -594,6 +813,14 @@ scenarios:
   expected:
   - 认证正常时通知轮询不再依赖 settings；无 503
   - 若认证失败，返回既有 401/403/409 语义，不吞错
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+    - 2
+  - expected: 2
+    steps:
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -624,6 +851,18 @@ scenarios:
   - 超出容量的请求在 1s 内显式失败（429/503/稳定错误码），不挂 5s
   - 不出现未处理的 QueuePool 异常；指标可见
   - 修后同场景 100 条流不失败
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    assertions:
+    - post_fix_hundred_streams
+  assertions:
+  - post_fix_hundred_streams
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -638,6 +877,9 @@ scenarios:
   priority: P0
   level: integration
   exec: deferred
+  owner: TASK-007
+  target_phase: review
+  defer_reason: Connector 崩溃 + 平台重投需真实进程与故障注入，留 verify-e2e
   env: local-api
   components:
   - backend
@@ -653,6 +895,13 @@ scenarios:
   expected:
   - 平台重投后消息最终恰好一个 Run（message_id 幂等）
   - 无重复用户可见回复
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -684,6 +933,19 @@ scenarios:
   - 走主动发送（send_text/send_media），审计 DEGRADED
   - 不把消息挂到本路由最新回调/另一条消息
   - 用户可见内容不丢
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+    - 2
+  - expected: 2
+    steps:
+    - 1
+    - 2
+  - expected: 3
+    steps:
+    - 1
+    - 2
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -715,6 +977,15 @@ scenarios:
   expected:
   - 退化为 PG 有界轮询，事件不丢/不重
   - 降级指标/日志可见；恢复后自动回切
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+    - 2
+  - expected: 2
+    steps:
+    - 2
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -746,6 +1017,16 @@ scenarios:
   - 明确记录企微单/多连接行为
   - 明确记录 req_id 跨重连寿命
   - 降级行为符合产品预期，不串消息
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 3
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -760,6 +1041,9 @@ scenarios:
   priority: P0
   level: integration
   exec: deferred
+  owner: TASK-007
+  target_phase: review
+  defer_reason: Connector 崩溃 + 平台不重投需故障注入，留 verify-e2e
   env: local-api
   components:
   - connector
@@ -775,6 +1059,15 @@ scenarios:
   expected:
   - 显式 FAILED/告警，不假装成功
   - 文档写明 at-least-once 边界，不承诺 exactly-once
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    assertions:
+    - documented_at_least_once
+  assertions:
+  - documented_at_least_once
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -789,6 +1082,9 @@ scenarios:
   priority: P0
   level: integration
   exec: deferred
+  owner: TASK-012
+  target_phase: review
+  defer_reason: PG failover/Redis 抖动/Pod kill 混沌需可注入故障的环境
   env: local-api
   components:
   - backend
@@ -806,6 +1102,13 @@ scenarios:
   expected:
   - 已受理 Run 不丢；SSE 可恢复
   - 无重复终态/投递；降级指标可见
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -835,6 +1138,13 @@ scenarios:
   expected:
   - SLO 全过；PG/CPU/retention 预算内
   - 未过不得写生产达标
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -849,6 +1159,9 @@ scenarios:
   priority: P0
   level: integration
   exec: deferred
+  owner: TASK-005
+  target_phase: review
+  defer_reason: 1000 瞬时受理 burst 需容量档环境
   env: local-api
   components:
   - backend
@@ -867,6 +1180,16 @@ scenarios:
   - 不 OOM、不无限 create_task；超出预算显式 429/CHANNEL_BUSY
   - 已受理 Run 可查询/取消；不静默丢
   - 队列恢复后按 SLO 排空
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 3
   trigger_paths: []
   smoke: false
   design_refs:
@@ -893,6 +1216,13 @@ scenarios:
   expected:
   - 删除速率 ≥ 写入速率；表大小稳定
   - 无长事务/锁等待；分区/索引按设计生效
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -923,6 +1253,17 @@ scenarios:
   - 指标包含所有 worker 样本；active subscriber 总数等于各 worker 之和；pending bytes ≤ 配置总预算
   - artifact token 跨 worker 可用
   - 无进程内状态造成的 404/漏计数
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 1
+    - 2
   why_e2e: ''
   trigger_paths: []
   smoke: false
@@ -937,6 +1278,9 @@ scenarios:
   priority: P1
   level: E2E
   exec: deferred
+  owner: TASK-011
+  target_phase: review
+  defer_reason: 静态 overlay 为 opt-in 可选层；未启用 overlay 时无真实边界可测，留 verify-e2e
   env: browser
   components:
   - frontend
@@ -955,6 +1299,17 @@ scenarios:
   - Cookie/CSRF/Origin 正常；无 CORS
   - 静态资源不经过 Python；SSE 仍走 Gateway 且 buffering off
   - 未启用 overlay 时默认 4 单元行为不变
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  - expected: 2
+    steps:
+    - 2
+  - expected: 3
+    steps:
+    - 3
+    - 4
   why_e2e: 浏览器同源策略、Cookie、CSRF、Ingress 路径与 SSE 只有真实浏览器 + 真实代理才能验证。
   trigger_paths:
   - apps/console-platform/frontend/**

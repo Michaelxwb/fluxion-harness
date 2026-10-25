@@ -1,7 +1,7 @@
 version: 1
 task: 高 QPS 架构整改
 enforcement: required
-updated_at: '2026-10-25T07:50:46.080240+00:00'
+updated_at: '2026-10-25T11:37:37.920346+00:00'
 sources:
 - type: cli
   ref: bind
@@ -45,8 +45,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.4.4 幂等与错误
-          item_id: rule-api-002
+          section_id: Spec Compliance Matrix
+          item_id: harness-api#RULE-api-002
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -55,8 +55,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-008
-          item_id: task-008
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-api#RULE-api-002
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -269,8 +269,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.4.1 对外 HTTP API
-          item_id: rule-api-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-api#RULE-api-001
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -279,8 +279,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-008
-          item_id: task-008
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-api#RULE-api-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -539,8 +539,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §1.1 已确认设计输入 D-10
-          item_id: rule-arch-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-arch#RULE-arch-001
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -549,8 +549,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-009
-          item_id: task-009
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-arch#RULE-arch-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -810,8 +810,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.5.3 安全性设计
-          item_id: rule-auth-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-auth#RULE-auth-001
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -820,8 +820,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-002
-          item_id: task-002
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-auth#RULE-auth-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -1012,8 +1012,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.3.2 PostgreSQL 变更
-          item_id: rule-data-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-data#RULE-data-001
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -1022,8 +1022,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-004
-          item_id: task-004
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-data#RULE-data-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -1217,8 +1217,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.frontend.design.md
-          section_id: §3.5 状态与数据流
-          item_id: rule-front-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-frontend#RULE-front-001
           artifact_sha256: 32834f1d455818dee6460dcdeeab02039a398b2c23a762120347ea91dbacd295
         decision: null
         evidence: []
@@ -1227,8 +1227,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-011
-          item_id: task-011
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-frontend#RULE-front-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -1401,8 +1401,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.2 架构设计
-          item_id: rule-im-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-im#RULE-im-001
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -1411,8 +1411,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-009
-          item_id: task-009
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-im#RULE-im-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -1771,8 +1771,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.4.2 内部契约
-          item_id: rule-im-002
+          section_id: Spec Compliance Matrix
+          item_id: harness-im#RULE-im-002
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -1781,8 +1781,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-009
-          item_id: task-009
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-im#RULE-im-002
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -2011,8 +2011,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.5.5 背压与降级
-          item_id: rule-memory-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-001
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -2021,8 +2021,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
-          item_id: task-005
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-memory#RULE-memory-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -2048,8 +2048,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.5.5 背压与降级
-          item_id: rule-memory-002
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-002
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -2058,8 +2058,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
-          item_id: task-005
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-memory#RULE-memory-002
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -2086,8 +2086,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.5.5 背压与降级
-          item_id: rule-memory-003
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-003
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -2096,8 +2096,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
-          item_id: task-005
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-memory#RULE-memory-003
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -2123,8 +2123,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.5.5 背压与降级
-          item_id: rule-memory-004
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-004
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -2133,8 +2133,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
-          item_id: task-005
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-memory#RULE-memory-004
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -2161,8 +2161,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.5.5 背压与降级
-          item_id: rule-memory-005
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-005
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -2171,8 +2171,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
-          item_id: task-005
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-memory#RULE-memory-005
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -2198,8 +2198,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.5.5 背压与降级
-          item_id: rule-memory-006
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-006
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -2208,8 +2208,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
-          item_id: task-005
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-memory#RULE-memory-006
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -2251,8 +2251,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.5.3 安全性设计
-          item_id: rule-secret-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-secret#RULE-secret-001
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -2261,8 +2261,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-008
-          item_id: task-008
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-secret#RULE-secret-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -2437,8 +2437,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §3.5.2 可靠性设计
-          item_id: rule-snapshot-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-snapshot#RULE-snapshot-001
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -2447,8 +2447,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-004
-          item_id: task-004
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-snapshot#RULE-snapshot-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -2733,8 +2733,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §2.5 验收条件
-          item_id: rule-test-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-test#RULE-test-001
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -2743,8 +2743,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-012
-          item_id: task-012
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-test#RULE-test-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -2800,8 +2800,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.frontend.design.md
-          section_id: §3.2 页面与路由结构
-          item_id: rule-ui-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-ui#RULE-ui-001
           artifact_sha256: 32834f1d455818dee6460dcdeeab02039a398b2c23a762120347ea91dbacd295
         decision: null
         evidence: []
@@ -2810,8 +2810,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-011
-          item_id: task-011
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-ui#RULE-ui-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:
@@ -2960,8 +2960,8 @@ bindings:
   path: worker/harness-worker.md
   status: active
   hashes:
-    file_sha256: 4cd5c4d6e33952431cffc77d37a57d2bfc3fea1d6592fda2c1dcfe470b817fa4
-    metadata_sha256: 185250e5e95b30103f5592a48a99064876217aa17b4fc2caeadd5c3ca692b0c3
+    file_sha256: 60945c810062bd31cea47fee16241c18aba045d35e0d335bb1194638b6276742
+    metadata_sha256: f0112eee7a42b118c2bfb41673210978232e27f561615dd6bf70f85747002e04
     rules_sha256: 11fbb17617ae9335d2f9190b83c7784825fb4ccc8118ed41bdd812419ad9da02
   selected_by: agent
   reason: 后台任务隔离不改变 PG 权威/lease/deadline 规则
@@ -2987,8 +2987,8 @@ bindings:
         status: applied
         refs:
         - artifact: high-qps-remediation.backend.design.md
-          section_id: §4.1 部署架构
-          item_id: rule-worker-001
+          section_id: Spec Compliance Matrix
+          item_id: harness-worker#RULE-worker-001
           artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
         decision: null
         evidence: []
@@ -2997,8 +2997,8 @@ bindings:
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
-          item_id: task-005
-          artifact_sha256: 82cc09b64ad35012d07fcea0ab915e4f6de8e63d1387604bf411781900347e40
+          item_id: harness-worker#RULE-worker-001
+          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
         decision: null
         evidence: []
       code:

@@ -44,9 +44,20 @@ def unresolved_text(text: str) -> bool:
     return bool(_UNRESOLVED.search(without_prohibitions))
 
 
+def _task_artifact(base: Path, artifact: str) -> Path:
+    """Artifact refs recorded by `spec apply` are relative to the requirement dir."""
+    direct = base / artifact
+    if direct.is_file():
+        return direct
+    tasks = base / ".code-flow/tasks"
+    matches = [path for pattern in (f"*/*/{artifact}", f"*/*/*/{artifact}")
+               for path in sorted(tasks.glob(pattern)) if path.is_file()]
+    return matches[0] if len(matches) == 1 else direct
+
+
 def artifact_problem(root: str, artifact: str, section: str, item: str, expected_hash: str = "") -> str:
     base = Path(root).resolve()
-    target = (base / artifact).resolve()
+    target = _task_artifact(base, artifact).resolve()
     if base not in target.parents:
         return "rule_artifact_outside_project"
     try:
