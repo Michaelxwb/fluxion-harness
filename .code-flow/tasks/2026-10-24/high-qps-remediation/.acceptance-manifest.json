@@ -2090,7 +2090,7 @@
       "kind": "functional",
       "boundary": "真实进程 + PG/Redis 故障注入",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2143,7 +2143,129 @@
       "defer_reason": "PG failover/Redis 抖动/Pod kill 混沌需可注入故障的环境",
       "target_phase": "review",
       "defer_owner": "TASK-012",
-      "check": "CHK-ffc432bba730"
+      "check": "CHK-ffc432bba730",
+      "revision": 2,
+      "evidence": {
+        "id": "E-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-ffc432bba730",
+        "input_hash": "ff724e8aaad4686e30b25fcbfa3643e6441f98964a0345866c0be397c5b30a7d",
+        "check_config": {
+          "id": "CHK-ffc432bba730",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_capacity_chaos.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "06fd97a3e6ba46d0833b6cb4a0cefcd8",
+        "executed_at": "2026-10-25T23:17:02.026557+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_capacity_chaos.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "ff724e8aaad4686e30b25fcbfa3643e6441f98964a0345866c0be397c5b30a7d"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ffc432bba730",
+          "input_hash": "ff724e8aaad4686e30b25fcbfa3643e6441f98964a0345866c0be397c5b30a7d",
+          "check_config": {
+            "id": "CHK-ffc432bba730",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/capacity/test_capacity_chaos.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "06fd97a3e6ba46d0833b6cb4a0cefcd8",
+          "executed_at": "2026-10-25T23:17:02.026557+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_capacity_chaos.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "ff724e8aaad4686e30b25fcbfa3643e6441f98964a0345866c0be397c5b30a7d"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ffc432bba730",
+          "input_hash": "",
+          "check_config": {
+            "id": "CHK-ffc432bba730",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/capacity/test_capacity_chaos.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "a9a65921aac8443c8ce1f989544116f4",
+          "executed_at": "2026-10-25T23:18:15.149759+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_capacity_chaos.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0
+        }
+      ]
     },
     {
       "id": "E-09",
@@ -2200,7 +2322,7 @@
       "kind": "functional",
       "boundary": "真实入口代理 → Gateway → Runtime → PostgreSQL/Redis；模型为可控 HTTP 流式探针；通知轮询为浏览器同形请求",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -2266,7 +2388,74 @@
       "defer_reason": "1000×8 需目标拓扑与模型额度，只在 staging 执行（E-09）；本地回归守卫为 S-16（闸门容量 smoke）",
       "target_phase": "release",
       "defer_owner": "TASK-012",
-      "check": "CHK-d321859782b6"
+      "check": "CHK-d321859782b6",
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "functional",
+        "status": "e2e_deferred",
+        "check_config": {
+          "id": "CHK-d321859782b6",
+          "command": [
+            "bash",
+            "-lc",
+            "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"
+          ],
+          "cwd": ".",
+          "timeout": 5400.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "ca731a97641f423c97a6ec0925ebd7ff",
+        "executed_at": "2026-10-25T23:18:54.869085+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"
+        ],
+        "cwd": ".",
+        "timeout": 5400.0
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-d321859782b6",
+            "command": [
+              "bash",
+              "-lc",
+              "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"
+            ],
+            "cwd": ".",
+            "timeout": 5400.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "ca731a97641f423c97a6ec0925ebd7ff",
+          "executed_at": "2026-10-25T23:18:54.869085+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"
+          ],
+          "cwd": ".",
+          "timeout": 5400.0
+        }
+      ]
     },
     {
       "id": "S-02",

@@ -352,10 +352,13 @@ def _wait_for_http(
 
 
 def _signal_group(pgid: int, sig: int) -> None:
-    """向整进程组发信号；组已消失时是空操作（停机路径幂等）。"""
+    """向整进程组发信号；组已消失或被系统复用给他人时是空操作（停机路径幂等）。"""
     try:
         os.killpg(pgid, sig)
     except ProcessLookupError:
+        return
+    except PermissionError:
+        # 本组已整体退出且 pgid 被系统复用给非本用户的进程：不能再发信号（EPERM）。
         return
 
 
@@ -704,6 +707,7 @@ class _ProxyHandler(BaseHTTPRequestHandler):
         import time as _time
 
         started = _time.monotonic()
+        self._response_started = False
         server = cast("_ProxyServer", self.server)
         headers = {
             key: value for key, value in self.headers.items() if key.lower() not in _HOP_BY_HOP
@@ -726,6 +730,11 @@ class _ProxyHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "bad_request", "reason": str(exc)})
         except httpx.HTTPError as exc:
             server.record_failure(unit)
+            if self._response_started:
+                # 响应头/正文已开始发出（SSE 等以关闭界定的流）：不能再写第二个 HTTP
+                # 响应；关闭连接让客户端观测到真实断流（真实 ingress 同口径）。
+                self.close_connection = True
+                return
             self._send_json(
                 502, {"error": "upstream_unavailable", "unit": unit, "reason": type(exc).__name__}
             )
@@ -757,6 +766,7 @@ class _ProxyHandler(BaseHTTPRequestHandler):
             self.send_header(key, value)
         self.send_header("Connection", "keep-alive" if has_length else "close")
         self.end_headers()
+        self._response_started = True
         if head_only:
             return
         for chunk in upstream.iter_raw():

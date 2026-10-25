@@ -28,6 +28,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 import pytest
+import redis as redis_sync
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -53,7 +54,10 @@ from tests.acceptance.capacity.delivery_harness import (
 )
 from tests.acceptance.capacity.probes import FaultProxy, FaultProxyMode, WeComProbeServer
 from tests.acceptance.capacity.stack import (
+    REPO_ROOT,
+    STACK_ID_ENV,
     CapacityStack,
+    ServiceInstance,
     free_port,
     read_process_environ,
 )
@@ -704,36 +708,80 @@ def test_e02_postgres_outage_fails_closed_without_over_issue_and_recovers(
 # --------------------------------------------------------------------------------------
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class WeComHarness:
     stack: CapacityStack
     seeded: SeededDelivery
     probe: WeComProbeServer
     relay_port: int
+    root: Path
+    connectors: list[ServiceInstance]
+
+    @property
+    def connector(self) -> ServiceInstance:
+        return self.connectors[-1]
 
 
-@pytest.fixture(scope="module")
-async def wecom_harness(
-    tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
-) -> AsyncIterator[WeComHarness]:
-    """真实 WSS 企微探针先起，再起带 `WECOM_WS_URL` 的栈（Gateway 启动即连真实协议）。"""
-    probe = WeComProbeServer(expected_bots={WECOM_BOT_ID: WECOM_BOT_SECRET})
-    await probe.start()
-    # 每个栈一份**独立**库 + 独立 Redis 号位：Worker claim 与投递选取不带租户谓词，
-    # 同一会话里的多个栈共用一份库会互相领走对方的意图/任务（表现为串跑红、单跑绿）。
+def _start_wecom_connector(
+    stack: CapacityStack, probe: WeComProbeServer, root: Path
+) -> ServiceInstance:
+    """真实 `muad_im_connector.main`：TASK-009 后企微长连接活在 Connector，不是 Gateway。"""
+    env = {
+        **os.environ,
+        "DATABASE_URL": stack.database_url,
+        "REDIS_URL": stack.redis_url,
+        "ARTIFACT_ROOT": str(stack.artifacts_root),
+        "DEFAULT_TENANT_ID": stack.tenant_id,
+        "INTERNAL_SERVICE_TOKEN": stack.internal_token,
+        "CONSOLE_PLATFORM_URL": stack.url_of("console-platform"),
+        "AGENT_RUNTIME_URL": stack.url_of("agent-runtime"),
+        "PYTHONPATH": str(REPO_ROOT),
+        "MIGRATIONS_DIR": str(REPO_ROOT / "migrations" / "versions"),
+        STACK_ID_ENV: stack.stack_id,
+        "WECOM_WS_URL": probe.ws_url,
+        "WECOM_WS_CA_FILE": str(probe.cert_path),
+        "CHANNEL_PROBE_URL": "",
+        "BOT_SNAPSHOT_POLL_SEC": "1",
+        "CONNECTOR_OWNER_ID": f"capacity-connector-{stack.stack_id}",
+        "CONNECTOR_HANDLED_CHANNELS": "WECOM",
+        "CONNECTOR_LEASE_TTL_SEC": "5",
+        "CONNECTOR_LEASE_RENEW_SEC": "1",
+        "CONNECTOR_INBOUND_SHARDS": "8",
+    }
+    instance = ServiceInstance(
+        unit="connector",
+        index=0,
+        module="muad_im_connector.main",
+        port=free_port(),
+        env=env,
+        log_path=root / "logs" / "im-connector-0.log",
+        skill_cache_root=root / "skill-cache" / "im-connector-0",
+    )
+    instance.start()
+    return instance
+
+
+def _connector_ready(url: str) -> bool:
+    try:
+        response = httpx.get(f"{url}/readyz", timeout=2.0, trust_env=False)
+    except httpx.HTTPError:
+        return False
+    return response.status_code == 200
+
+
+def _build_wecom_stack(
+    root: Path, profile_path: Path, probe: WeComProbeServer, relay_port: int
+) -> tuple[CapacityStack, SeededDelivery]:
+    """真实四单元栈：WECOM 作为 Gateway 的远程路由面，模型凭据回填本栈探针。"""
     datastore = create_datastore_handle()
-    root = tmp_path_factory.mktemp("wecom-delivery")
-    # Runtime 的 IM_GATEWAY_URL 指向**稳定入口地址**（真实 TCP 转发器，等价 k8s Service）：
-    # Gateway 重启换端口后，投递泵仍按同一地址交付（端口在栈启动前就固定下来）。
-    relay_port = free_port()
     stack = build_stack(
         root=root,
-        profile=load_profile(capacity_profile_path),
+        profile=load_profile(profile_path),
         datastore=datastore,
         service_env={
             "im-gateway": {
-                "WECOM_WS_URL": probe.ws_url,
-                "WECOM_WS_CA_FILE": str(probe.cert_path),
+                # 企微是远程 Connector 的通道面：Gateway 入站只路由、出站写 im.outbound。
+                "GATEWAY_ROUTED_CHANNELS": "WECOM",
                 "CHANNEL_PROBE_URL": "",
             },
             "agent-runtime": {
@@ -744,21 +792,72 @@ async def wecom_harness(
             },
         },
     )
-    seeded = seed_delivery_control(
-        datastore.database_url,
-        stack.tenant_id,
-        wecom=True,
-        platform_settings={"task": {"delivery_backoff_base_sec": 1}},
-    )
-    stack.start()
-    bind_probe_credential(
-        datastore.database_url, seeded.credential_id, f"{stack.model_probe.url}/v1"
+    try:
+        seeded = seed_delivery_control(
+            datastore.database_url,
+            stack.tenant_id,
+            wecom=True,
+            platform_settings={"task": {"delivery_backoff_base_sec": 1}},
+        )
+        stack.start()
+        bind_probe_credential(
+            datastore.database_url, seeded.credential_id, f"{stack.model_probe.url}/v1"
+        )
+    except BaseException:
+        # 启动中途失败也要停掉已起的进程/探针（否则孤儿进程会污染后续套件）。
+        stack.teardown()
+        raise
+    return stack, seeded
+
+
+@pytest.fixture(scope="function")
+async def wecom_harness(
+    tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
+) -> AsyncIterator[WeComHarness]:
+    """真实 WSS 企微探针 + 真实 Connector 进程；Gateway 只持有 WECOM 的远程路由面。
+
+    函数级作用域：E-19 用完即整栈回收，避免与其他模块级容量栈同时占用 PG 连接预算。
+    """
+    probe = WeComProbeServer(expected_bots={WECOM_BOT_ID: WECOM_BOT_SECRET})
+    await probe.start()
+    # 每个栈一份**独立**库 + 独立 Redis 号位：Worker claim 与投递选取不带租户谓词，
+    # 同一会话里的多个栈共用一份库会互相领走对方的意图/任务（表现为串跑红、单跑绿）。
+    root = tmp_path_factory.mktemp("wecom-delivery")
+    # Runtime 的 IM_GATEWAY_URL 指向**稳定入口地址**（真实 TCP 转发器，等价 k8s Service）：
+    # Gateway 重启换端口后，投递泵仍按同一地址交付（端口在栈启动前就固定下来）。
+    relay_port = free_port()
+    stack, seeded = _build_wecom_stack(root, capacity_profile_path, probe, relay_port)
+    connector = _start_wecom_connector(stack, probe, root)
+    connectors = [connector]
+    wait_until(
+        lambda: _connector_ready(connector.url),
+        what="Connector 未在超时内就绪",
+        timeout=60.0,
     )
     try:
-        yield WeComHarness(stack=stack, seeded=seeded, probe=probe, relay_port=relay_port)
+        yield WeComHarness(
+            stack=stack,
+            seeded=seeded,
+            probe=probe,
+            relay_port=relay_port,
+            root=root,
+            connectors=connectors,
+        )
     finally:
+        for instance in reversed(connectors):
+            instance.stop()
         stack.teardown()
         await probe.stop()
+
+
+def _drop_reply_targets(redis_url: str, tenant_id: str) -> None:
+    """让回复窗口失效（等价真实过期）：删掉本租户的 `im:reply:*` 目标，只剩主动发送路径。"""
+    client = redis_sync.Redis.from_url(redis_url, decode_responses=True)
+    try:
+        for key in client.scan_iter(match=f"im:reply:*:{tenant_id}:*"):
+            client.delete(key)
+    finally:
+        client.close()
 
 
 def _wecom_notification(database_url: str, run_id: str) -> Mapping[str, Any] | None:
@@ -794,9 +893,10 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     ③ Runtime 终态与 `PENDING` 出站意图同事务落 PG（稳定键 `run:{id}:terminal`）；
     ④ Gateway 下线期间的投递尝试确定未送达（连接未建立 ⇒ NOT_SENT）：行留在 PENDING、attempt
        增长、冻结回执的 outcome ≠ DELIVERED —— 不把占位/尝试当送达，且失败可追溯；
-    ⑤ 恢复：起**新 Gateway**（新端口）并替换 Runtime 进程（新进程、env 指向新网关）。两个进程
-       都没有任何内存订阅/回调记忆，交付只能来自 PG 上的持久意图：`aibot_send_msg` 真实帧到达
-       探针、正文 = Run 终态正文、行落 DELIVERED 且首次结果为 DELIVERED；同键只真实送达一次；
+    ⑤ 恢复：替换 Runtime 副本与 Connector 进程（都没有内存订阅/回调记忆）+ 回复窗口失效
+       → 起新 Gateway（新端口）→ 稳定入口重指新 Gateway。交付只能来自 PG 上的持久意图：
+       `aibot_send_msg` 真实帧到达探针、正文 = Run 终态正文、行落 DELIVERED 且首次结果为
+       DELIVERED；同键只真实送达一次；
     ⑥ 发送失败保持可追溯重试、不标送达：注入渠道发送失败 → 行回 PENDING（attempt 增长、无送达
        结果）；清除注入后重投成功（同一稳定键）。
     """
@@ -805,7 +905,9 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     assert seeded.wecom_bot_account_id is not None, "本用例需要真实机器人账号 UUID"
     set_probe_behavior(
         stack.model_probe.url,
-        {"latency_ms": 1500, "deltas": ["终态", "主动", "交付"]},
+        # 30s 首块延迟：整批负载下「读到 RUNNING → kill Gateway」也可能耗掉数秒，
+        # 8s 窗口会被赛跑打穿（整跑实测 9.21s 失败）；这里把在飞窗口放大成确定性前提。
+        {"latency_ms": 30000, "deltas": ["终态", "主动", "交付"]},
         api_key=PROBE_API_KEY,
     )
 
@@ -883,6 +985,9 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     # ② SIGKILL Gateway（整组）+ 停稳定入口（真实 Service 无端点）：Run 必须继续跑到终态，
     #    投递泵的尝试必须拿到**确定未送达**（连接拒绝 ⇒ NOT_SENT 可重试），而不是"没结论"。
     gateway = stack.instance("im-gateway")
+    assert run_row(stack.database_url, first_run)["status"] == "RUNNING", (
+        "Gateway 必须在 Run 仍在执行时被杀（否则测不到下线窗口）"
+    )
     gateway_pid, gateway_pgid = gateway.pid, gateway.pgid
     stack.kill_instance(gateway)
     with pytest.raises(ProcessLookupError):
@@ -930,18 +1035,30 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
             f"run:{first_run}:terminal",
         )
 
-    # ⑤ 恢复：替换 Runtime 副本（新进程，投递泵只认 PG 上的意图）→ 起新 Gateway（新端口）
-    #    → 稳定入口重指新 Gateway。三个进程都没有任何内存订阅/回调记忆。
+    # ⑤ 恢复：替换 Runtime 副本与 Connector 进程（都没有内存订阅/回调记忆）→ 起新 Gateway
+    #    （新端口）→ 稳定入口重指新 Gateway。交付只能来自 PG 上的持久意图。
     old_runtime = stack.instance("agent-runtime", index=1)
     old_runtime_pid = old_runtime.pid
     new_runtime = stack.replace_instance("agent-runtime", index=1)
     assert new_runtime.pid != old_runtime_pid, "投递泵必须在全新 Runtime 进程里跑"
     connections_before_restart = len(probe.connections)
+    wecom_harness.connector.stop()
+    # 回复窗口失效（真实过期语义）：Connector 的 reply store 在 Redis，跨重启仍在；
+    # 目标不存在时本身就只剩主动发送路径，因此这里不做存在性断言——「主动发送帧到达探针」
+    # 才是该路径的真实证明。
+    _drop_reply_targets(stack.redis_url, stack.tenant_id)
+    replacement_connector = _start_wecom_connector(stack, probe, wecom_harness.root)
+    wecom_harness.connectors.append(replacement_connector)
+    wait_until(
+        lambda: _connector_ready(replacement_connector.url),
+        what="重启后的 Connector 未在超时内就绪",
+        timeout=60.0,
+    )
     replacement = stack.start_instance("im-gateway", index=0)
     assert replacement.pid != gateway_pid
     await await_until(
         lambda: connected_since(connections_before_restart),
-        what="重启后的 Gateway 未重新连上企微协议探针",
+        what="重启后的 Connector 未重新连上企微协议探针",
         timeout=60.0,
     )
     relay = repoint_relay(replacement.port)
@@ -976,6 +1093,12 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     )
 
     # ⑥ 发送失败：保持可追溯重试、绝不标送达；清除注入后重投成功。
+    #    第二条 Run 不再需要长在飞窗口，恢复短延迟以控制整跑耗时。
+    set_probe_behavior(
+        stack.model_probe.url,
+        {"latency_ms": 300, "deltas": ["发送", "失败", "重试"]},
+        api_key=PROBE_API_KEY,
+    )
     probe.fail_reply_bots.add(WECOM_BOT_ID)
     second_run = await push_and_wait_run("发送失败重试")
     await await_until(
@@ -1043,12 +1166,12 @@ def stream_pool_harness(
         },
     )
     seeded = seed_delivery_control(datastore.database_url, stack.tenant_id)
-    stack.start()
-    bind_probe_credential(
-        datastore.database_url, seeded.credential_id, f"{stack.model_probe.url}/v1"
-    )
-    session = exchange_chat_session(stack.proxy.url, seeded.token, seeded.user_id)
     try:
+        stack.start()
+        bind_probe_credential(
+            datastore.database_url, seeded.credential_id, f"{stack.model_probe.url}/v1"
+        )
+        session = exchange_chat_session(stack.proxy.url, seeded.token, seeded.user_id)
         yield StreamHarness(stack=stack, seeded=seeded, session=session)
     finally:
         if os.environ.get("MUAD_STREAM_DEBUG_ROOT"):
