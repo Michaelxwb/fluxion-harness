@@ -18,6 +18,7 @@ members = [
     "muad-common",
     "muad-console-platform",
     "muad-contracts",
+    "muad-im-core",
     "muad-im-gateway",
     "muad-logging",
     "muad-platform-sdk",
@@ -665,6 +666,7 @@ dev = [
     { name = "muad-common" },
     { name = "muad-console-platform" },
     { name = "muad-contracts" },
+    { name = "muad-im-core" },
     { name = "muad-im-gateway" },
     { name = "muad-logging" },
     { name = "muad-platform-sdk" },
@@ -696,6 +698,7 @@ requires-dist = [
     { name = "muad-common", marker = "extra == 'dev'", editable = "packages/common" },
     { name = "muad-console-platform", marker = "extra == 'dev'", editable = "apps/console-platform/backend" },
     { name = "muad-contracts", marker = "extra == 'dev'", editable = "packages/contracts" },
+    { name = "muad-im-core", marker = "extra == 'dev'", editable = "packages/im-core" },
     { name = "muad-im-gateway", marker = "extra == 'dev'", editable = "apps/im-gateway" },
     { name = "muad-logging", marker = "extra == 'dev'", editable = "packages/logging-kit" },
     { name = "muad-platform-sdk", marker = "extra == 'dev'", editable = "packages/platform-sdk" },
@@ -1655,6 +1658,17 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "pydantic", specifier = ">=2.9" }]
+
+[[package]]
+name = "muad-im-core"
+version = "0.1.0"
+source = { editable = "packages/im-core" }
+dependencies = [
+    { name = "muad-contracts" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "muad-contracts", editable = "packages/contracts" }]
 
 [[package]]
 name = "muad-im-gateway"

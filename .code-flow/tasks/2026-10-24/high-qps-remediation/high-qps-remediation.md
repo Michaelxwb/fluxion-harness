@@ -70,7 +70,7 @@
 | S-08 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway → 统一消息核心 → Console/Runtime/PG；已验证 CHAT 主体上下文 | TASK-010 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webchat_core.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-09 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 前端 service/hook + mock HTTP；不访问真实后端 | TASK-011 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
 | S-10 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 构建产物 + 前端路由（mock API） | TASK-011 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_webchat_code_splitting.py"] | . | 600 | P1 | auto | none | - | - | - | no |
-| S-11 | high-qps-remediation.backend.design.md#2.5 验收条件 | contract | 纯契约/序列化；不连服务 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
+| S-11 | high-qps-remediation.backend.design.md#2.5 验收条件 | contract | 纯契约/序列化；不连服务 | TASK-006 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-12 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实包导入/清单渲染/architecture tests；不启动业务栈 | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/architecture"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-13 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime/Worker/PG + 模拟队列压力 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_runtime_capacity_metrics.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-14 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Console/Runtime/PG；记录 SQL/设置读取 | TASK-002 | verified | ["bash", "-lc", "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
@@ -431,7 +431,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 ## TASK-006: 统一消息契约与网关内核
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: -
 - **Source**: high-qps-remediation.backend.design.md#3.4 接口设计, high-qps-remediation.backend.design.md#3.2 架构设计
@@ -446,18 +446,18 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`：四类契约 JSON round-trip 与未知字段拒绝
-- [ ] 新增 `muad_contracts/im.py` 与 `packages/im-core` SPI/route/stream 助手
-- [ ] 打开 ChannelName/registry；保留旧 WebChat/IM 契约兼容
-- [ ] 实现 `admit_sync`/`admit_async` 内核入口与能力路由
-- [ ] [S-11][contract] 四类契约 round-trip、shard/route key 稳定、旧契约不破坏
+- [x] 交付 `<Capability>`：四类契约 JSON round-trip 与未知字段拒绝
+- [x] 新增 `muad_contracts/im.py` 与 `packages/im-core` SPI/route/stream 助手
+- [x] 打开 ChannelName/registry；保留旧 WebChat/IM 契约兼容（新契约 channel 用开放 string；旧 ChannelName/Envelope 保留）
+- [x] 实现 `admit_sync`/`admit_async` 内核入口与能力路由
+- [x] [S-11][contract] 四类契约 round-trip、shard/route key 稳定、旧契约不破坏
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-11 | contract | 纯契约/序列化；不连服务 | 字段/枚举/未知字段拒绝符合契约；同输入 shard 稳定；旧契约不破坏 | tests/contracts/test_im_contracts.py | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py"] | planned |
+| S-11 | contract | 纯契约/序列化；不连服务 | 字段/枚举/未知字段拒绝符合契约；同输入 shard 稳定；新通道可扩展；旧契约不破坏 | tests/contracts/test_im_contracts.py | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -465,15 +465,18 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-11 | planned | planned | planned | planned | planned |
+| S-11 | 尚无统一契约；`ChannelEnvelope` 仅 WECOM/WEBCHAT | 四类契约 round-trip、未知字段拒绝、strict payload、稳定 route/shard/key、SLACK 新通道、SYNC/ASYNC 内核与旧契约兼容；7 passed | `tests/contracts/test_im_contracts.py` | 纯契约/序列化；不连服务 | verified |
+- S-11: verified — automated command passed; run_id=f86381c920464b23aa5703b9d4ba91e0 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-25] created (draft)
+- [2026-10-25] implemented unified IM contracts and im-core SPI/gateway/streams; 7 contract tests passed; mypy/ruff clean
 - [2026-10-25] started
 - [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
 - [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
+- [2026-10-25] completed (done)
 
 ---
 

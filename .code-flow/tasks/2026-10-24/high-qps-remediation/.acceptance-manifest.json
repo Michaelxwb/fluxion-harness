@@ -1398,7 +1398,7 @@
       "kind": "functional",
       "boundary": "纯契约/序列化；不连服务",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1415,7 +1415,90 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
-      "check": "CHK-44351a5cde34"
+      "check": "CHK-44351a5cde34",
+      "revision": 1,
+      "evidence": {
+        "id": "S-11",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-44351a5cde34",
+        "input_hash": "6420d573f554f2557f8072cac016eac5c88ec2c46ce7a2c3395d158ad581fd9e",
+        "check_config": {
+          "id": "CHK-44351a5cde34",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_im_contracts.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "f86381c920464b23aa5703b9d4ba91e0",
+        "executed_at": "2026-10-25T05:59:00.206252+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_im_contracts.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "6420d573f554f2557f8072cac016eac5c88ec2c46ce7a2c3395d158ad581fd9e"
+      },
+      "runs": [
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-44351a5cde34",
+          "input_hash": "6420d573f554f2557f8072cac016eac5c88ec2c46ce7a2c3395d158ad581fd9e",
+          "check_config": {
+            "id": "CHK-44351a5cde34",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/contracts/test_im_contracts.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "f86381c920464b23aa5703b9d4ba91e0",
+          "executed_at": "2026-10-25T05:59:00.206252+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_im_contracts.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "6420d573f554f2557f8072cac016eac5c88ec2c46ce7a2c3395d158ad581fd9e"
+        }
+      ]
     },
     {
       "id": "S-12",

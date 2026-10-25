@@ -40,6 +40,7 @@ dev = [
   "muad-agent-worker",
   "muad-console-platform",
   "muad-im-gateway",
+  "muad-im-core",
 ]
 
 [tool.uv.sources]
@@ -55,6 +56,7 @@ muad-agent-runtime = { workspace = true }
 muad-agent-worker = { workspace = true }
 muad-console-platform = { workspace = true }
 muad-im-gateway = { workspace = true }
+muad-im-core = { workspace = true }
 
 [tool.uv]
 default-groups = []
@@ -72,6 +74,7 @@ members = [
   "apps/agent-runtime",
   "apps/agent-worker",
   "apps/im-gateway",
+  "packages/im-core",
   "apps/console-platform/backend",
 ]
 

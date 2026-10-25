@@ -45,6 +45,18 @@ from .enums import (
     UserScope,
     WaitReason,
 )
+from .im import (
+    ChannelCapabilities,
+    ConnectorLease,
+    DeliveryCommand,
+    DeliveryKind,
+    InboundEvent,
+    inbound_stream_key,
+    lease_key,
+    outbound_stream_key,
+    route_key,
+    shard_for,
+)
 from .resolve import (
     AdmissionMaterialsRequest,
     ResolveCredentialsRequest,
