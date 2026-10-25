@@ -1679,6 +1679,7 @@ dependencies = [
     { name = "muad-platform-sdk" },
     { name = "redis" },
     { name = "uvicorn", extra = ["standard"] },
+    { name = "wecom-aibot-python-sdk" },
 ]
 
 [package.metadata]
@@ -1695,6 +1696,7 @@ requires-dist = [
     { name = "muad-platform-sdk", editable = "packages/platform-sdk" },
     { name = "redis", specifier = ">=5,<7" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+    { name = "wecom-aibot-python-sdk", specifier = ">=1,<2" },
 ]
 
 [[package]]
@@ -1702,11 +1704,17 @@ name = "muad-im-core"
 version = "0.1.0"
 source = { editable = "packages/im-core" }
 dependencies = [
+    { name = "muad-api" },
     { name = "muad-contracts" },
+    { name = "redis" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "muad-contracts", editable = "packages/contracts" }]
+requires-dist = [
+    { name = "muad-api", editable = "packages/api-kit" },
+    { name = "muad-contracts", editable = "packages/contracts" },
+    { name = "redis", specifier = ">=5,<7" },
+]
 
 [[package]]
 name = "muad-im-gateway"
@@ -1723,7 +1731,6 @@ dependencies = [
     { name = "muad-platform-sdk" },
     { name = "redis" },
     { name = "uvicorn", extra = ["standard"] },
-    { name = "wecom-aibot-python-sdk" },
 ]
 
 [package.metadata]
@@ -1738,7 +1745,6 @@ requires-dist = [
     { name = "muad-platform-sdk", editable = "packages/platform-sdk" },
     { name = "redis", specifier = ">=5,<7" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
-    { name = "wecom-aibot-python-sdk", specifier = ">=1,<2" },
 ]
 
 [[package]]

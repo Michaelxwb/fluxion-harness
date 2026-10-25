@@ -31,8 +31,8 @@ from muad_contracts import (
     InboundAuditRequest,
     RunRequest,
 )
+from muad_im_connector.channels.wecom.sdk_port import WeComInboundEvent, WeComInboundMessage
 from muad_im_gateway.application.runtime_client import SseEvent
-from muad_im_gateway.channels.wecom.sdk_port import WeComInboundEvent, WeComInboundMessage
 
 
 class FakeConsoleClient:
@@ -49,6 +49,7 @@ class FakeConsoleClient:
         self.resolve_calls: list[ChannelResolveRequest] = []
         self.bind_calls: list[ChannelBindRequest] = []
         self.bots_calls = 0
+        self.bots_channels: list[frozenset[str] | None] = []
         self.audit_calls: list[InboundAuditRequest] = []
         self.audit_error: AppError | None = None
         #: 交付审计（TASK-006/007）：E-06 靠它断言「交付结局有没有留痕、写了几次」
@@ -84,8 +85,11 @@ class FakeConsoleClient:
         *,
         page: int = 1,
         page_size: int = DEFAULT_PAGE_SIZE,
+        channels: frozenset[str] | None = None,
+        include_secret: bool = True,
     ) -> BotSnapshotResponse:
         self.bots_calls += 1
+        self.bots_channels.append(channels)
         if self.bots_error is not None:
             raise self.bots_error
         return self.bot_snapshot

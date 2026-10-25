@@ -89,6 +89,8 @@ from muad_contracts.channel_delivery import (
     DeliveryReservationRequest,
 )
 from muad_contracts.delivery import TERMINAL_DELIVERY_KEY
+from muad_im_connector.channels.wecom.adapter import WeComAdapter
+from muad_im_connector.channels.wecom.sdk_port import WeComInboundMessage
 from muad_im_gateway.application.channel_delivery import (
     ActiveChannelDelivery,
     ConsoleDeliveryPermission,
@@ -97,8 +99,6 @@ from muad_im_gateway.application.channel_delivery import (
 from muad_im_gateway.application.console_client import ConsoleClient
 from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.runtime_client import RuntimeClient
-from muad_im_gateway.channels.wecom.adapter import WeComAdapter
-from muad_im_gateway.channels.wecom.sdk_port import WeComInboundMessage
 from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 

@@ -17,7 +17,7 @@ def stream_keys(
     if event is not None:
         keys.append(inbound_stream_key(event, shards=shards))
     if command is not None:
-        keys.append(outbound_stream_key(command, shards=shards))
+        keys.append(outbound_stream_key(command))
     if not keys:
         raise ValueError("event or command is required")
     return tuple(keys)

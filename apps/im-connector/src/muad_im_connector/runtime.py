@@ -25,17 +25,14 @@ from datetime import UTC, datetime
 
 from muad_contracts import BotSnapshotItem
 from muad_contracts.im import InboundEvent
-from muad_im_gateway.application.bot_snapshot import (
-    BotSnapshotCache,
-)
-from muad_im_gateway.channels.wecom.adapter import (
+from muad_im_core import BotSnapshotCache, InboundPublisher, PublishOutcome
+
+from .channels.wecom.adapter import (
     WeComAdapter,
 )
-from muad_im_gateway.channels.wecom.sdk_port import (
+from .channels.wecom.sdk_port import (
     WeComInboundMessage,
 )
-
-from .inbound import InboundPublisher, PublishOutcome
 from .lease import BotLease, RedisLeaseManager
 from .metrics import record_inbound, record_lease, record_snapshot, set_owned_bots
 from .outbound import OutboundRunner

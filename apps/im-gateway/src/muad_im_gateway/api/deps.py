@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import Depends, Header, Request
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_im_core import InboundPublisher
 from pydantic import SecretStr
 
 from ..application.chat_principal import (
@@ -19,6 +20,7 @@ from ..application.console_client import CHAT_CONTEXT_HEADER, ConsoleClientPort
 from ..channels.base import ChannelRegistry
 from ..infrastructure.artifact_resolver import ArtifactResolverPort
 from ..infrastructure.dedupe import DedupeStore
+from ..infrastructure.streams import DeliveryStreams
 
 
 def get_registry(request: Request) -> ChannelRegistry:
@@ -56,6 +58,28 @@ RegistryDep = Annotated[ChannelRegistry, Depends(get_registry)]
 DedupeStoreDep = Annotated[DedupeStore, Depends(get_dedupe_store)]
 GatewayTenantDep = Annotated[str, Depends(get_gateway_tenant)]
 ArtifactResolverDep = Annotated[ArtifactResolverPort, Depends(get_artifact_resolver)]
+
+
+def get_delivery_streams(request: Request) -> DeliveryStreams:
+    """投递 facade 的出站命令 Stream（API-06）。"""
+    streams: DeliveryStreams = request.app.state.delivery_streams
+    return streams
+
+
+def get_delivery_stream_wait_sec(request: Request) -> float:
+    wait: float = request.app.state.delivery_stream_wait_sec
+    return wait
+
+
+def get_inbound_publisher(request: Request) -> InboundPublisher:
+    """Webhook 入站持久化（先 XADD 再 ACK）。"""
+    publisher: InboundPublisher = request.app.state.inbound_publisher
+    return publisher
+
+
+DeliveryStreamsDep = Annotated[DeliveryStreams, Depends(get_delivery_streams)]
+DeliveryStreamWaitDep = Annotated[float, Depends(get_delivery_stream_wait_sec)]
+InboundPublisherDep = Annotated[InboundPublisher, Depends(get_inbound_publisher)]
 
 # ---------------------------------------------------------------------------
 # CHAT 主体门控与长流复核（设计 §3.4 API-12/API-19；TASK-044）

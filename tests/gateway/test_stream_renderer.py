@@ -19,9 +19,9 @@ import pytest
 from fakes import FakeConsoleClient, FakeRuntimeClient, resolved_response
 from muad_api.catalog import MessageCatalog
 from muad_contracts import BotSnapshotItem
+from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.sse import SseEvent, iter_sse_events
-from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
 
 from tests.e2e.wecom_probe_app import WeComProbe

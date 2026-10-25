@@ -22,7 +22,6 @@ import pytest
 from muad_common import SharedSettings
 from muad_contracts import AttachmentRef, DeliveryMessage, DeliveryRouteInput
 from muad_contracts.im import DeliveryCommand, DeliveryKind, InboundEvent
-from muad_im_connector.inbound import InboundPublisher, PublishOutcome
 from muad_im_connector.lease import RedisLeaseManager
 from muad_im_connector.outbound import (
     CommandExecutor,
@@ -31,6 +30,7 @@ from muad_im_connector.outbound import (
     route_of,
 )
 from muad_im_connector.reply_store import ReplyStore
+from muad_im_core import InboundPublisher, PublishOutcome
 from redis.asyncio import Redis
 
 pytestmark = pytest.mark.integration
@@ -210,6 +210,9 @@ class RecordingChannel:
 
     def has_bot(self, bot_id: str) -> bool:
         return bot_id == self.bot and self.ready
+
+    def route_key(self, route: DeliveryRouteInput) -> str:
+        return f"{route.bot_id}:{route.external_user_id}"
 
     async def send_active(self, route: DeliveryRouteInput, message: DeliveryMessage) -> None:
         assert self.actives is not None

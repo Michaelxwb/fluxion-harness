@@ -15,11 +15,11 @@ from muad_contracts import (
     DeliveryMessage,
     DeliveryRouteInput,
 )
-from muad_im_gateway.application.bot_snapshot import BotSnapshotCache
+from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
+from muad_im_connector.channels.wecom.sdk_port import WeComInboundEvent, WeComInboundMessage
+from muad_im_core import BotSnapshotCache
 from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable
-from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
-from muad_im_gateway.channels.wecom.sdk_port import WeComInboundEvent, WeComInboundMessage
 from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
 
 BOT_ID = "bot-1"

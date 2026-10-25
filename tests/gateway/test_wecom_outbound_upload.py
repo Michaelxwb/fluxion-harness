@@ -22,19 +22,19 @@ from typing import Any
 import pytest
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import AttachmentRef, BotSnapshotItem, DeliveryRouteInput
-from muad_im_gateway.channels.base import (
-    ARTIFACT_DEGRADED,
-    ARTIFACT_DELIVERED,
-    ArtifactDeliveryError,
-)
-from muad_im_gateway.channels.wecom.adapter import WeComAdapter, _AibotClientPort
-from muad_im_gateway.channels.wecom.media import (
+from muad_im_connector.channels.wecom.adapter import WeComAdapter, _AibotClientPort
+from muad_im_connector.channels.wecom.media import (
     MAX_UPLOAD_CHUNKS,
     UPLOAD_CHUNK_BYTES,
     chunk_upload,
     uploadable_media_type,
 )
-from muad_im_gateway.channels.wecom.sdk_port import WeComMediaUploadTooLargeError
+from muad_im_connector.channels.wecom.sdk_port import WeComMediaUploadTooLargeError
+from muad_im_gateway.channels.base import (
+    ARTIFACT_DEGRADED,
+    ARTIFACT_DELIVERED,
+    ArtifactDeliveryError,
+)
 
 BOT_ID = "bot-outbound-1"
 ROUTE = DeliveryRouteInput(channel="WECOM", bot_id=BOT_ID, external_user_id="ext-1")

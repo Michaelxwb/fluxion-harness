@@ -166,6 +166,18 @@ class ArtifactDeliveryError(Exception):
 
 
 @runtime_checkable
+class LocalDeliverySurface(Protocol):
+    """可选能力：本通道的出站由**本进程**直接完成（WebChat 的持久入箱/SSE 面）。
+
+    没有这个能力 = 出站必须经 `im.outbound` 交给持有连接的角色（Connector）：投递 facade
+    只负责"校验 → 入队 → 有界等待结果"，**不**在请求面进程里直发渠道消息。
+    """
+
+    @property
+    def delivers_locally(self) -> bool: ...
+
+
+@runtime_checkable
 class ActiveTextDelivery(Protocol):
     """可选能力：**不借任何入站回调**，直接向会话主动发送一条文本。
 

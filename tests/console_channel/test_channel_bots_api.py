@@ -80,3 +80,58 @@ async def test_tenant_isolation_excludes_other_tenant_bots(
     returned_bot_ids = {entry["bot_id"] for entry in other["items"]}
     assert returned_bot_ids == {channel.other_bot_id}
     assert channel.bot_id not in returned_bot_ids
+
+
+async def test_channel_filter_excludes_other_channel_secrets(
+    client: AsyncClient, channel: ChannelContext
+) -> None:
+    """`channels` 过滤是安全边界：Gateway 只取 WEBCHAT，绝不能看到企微 secret。"""
+    webchat_bot_id = f"{channel.bot_id}-webchat"
+    async with get_session_factory()() as session:
+        session.add(
+            BotAccount(
+                tenant_id=channel.tenant_id,
+                channel="WEBCHAT",
+                name="WebChat entry",
+                bot_id=webchat_bot_id,
+                secret=None,
+                agent_id=channel.agent_id,
+                enabled=True,
+            )
+        )
+        await session.commit()
+
+    response = await client.get(
+        BOTS_URL,
+        headers=_headers(channel),
+        params={"channels": "WEBCHAT"},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+
+    assert {entry["bot_id"] for entry in data["items"]} == {webchat_bot_id}
+    assert all(entry["channel"] == "WEBCHAT" for entry in data["items"])
+    assert all(entry["secret"] is None for entry in data["items"])
+
+    # revision 也按通道集合收敛：同一个过滤集合稳定，换集合会变
+    assert data["revision"] == (
+        await client.get(
+            BOTS_URL, headers=_headers(channel), params={"channels": "WEBCHAT"}
+        )
+    ).json()["data"]["revision"]
+    wecom = await client.get(BOTS_URL, headers=_headers(channel), params={"channels": "WECOM"})
+    assert {entry["bot_id"] for entry in wecom.json()["data"]["items"]} == {channel.bot_id}
+
+
+async def test_include_secret_false_never_sends_bot_secrets(
+    client: AsyncClient, channel: ChannelContext
+) -> None:
+    """请求面（Gateway web 角色）不需要连接凭据：通道对也不下发 secret。"""
+    response = await client.get(
+        BOTS_URL,
+        headers=_headers(channel),
+        params={"channels": CHANNEL, "include_secret": "false"},
+    )
+    assert response.status_code == 200
+    items = response.json()["data"]["items"]
+    assert items and all(entry["secret"] is None for entry in items)

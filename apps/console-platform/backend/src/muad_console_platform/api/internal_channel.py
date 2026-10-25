@@ -61,8 +61,22 @@ async def bots(
     internal_service: InternalServiceDep,
     page: Annotated[int, Query()] = 1,
     page_size: Annotated[int, Query()] = DEFAULT_PAGE_SIZE,
+    channels: Annotated[str | None, Query()] = None,
+    include_secret: Annotated[bool, Query()] = True,
 ) -> ApiResponse[Any]:
-    snapshot = await ChannelService(session).bots(tenant_id, page=page, page_size=page_size)
+    """入口快照：`channels`（逗号分隔）限定调用方拥有的通道，避免泄露别人的 bot secret。"""
+    wanted = (
+        frozenset(item.strip().upper() for item in channels.split(",") if item.strip())
+        if channels
+        else None
+    )
+    snapshot = await ChannelService(session).bots(
+        tenant_id,
+        page=page,
+        page_size=page_size,
+        channels=wanted,
+        include_secret=include_secret,
+    )
     return ok(request.app.state.message_catalog, snapshot.model_dump(mode="json"))
 
 

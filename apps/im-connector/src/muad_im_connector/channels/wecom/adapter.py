@@ -25,8 +25,7 @@ from muad_contracts import (
     DeliveryRouteInput,
     UnsupportedMedia,
 )
-
-from ..base import (
+from muad_im_gateway.channels.base import (
     ARTIFACT_DEGRADED,
     ARTIFACT_DELIVERED,
     ARTIFACT_DELIVERY_FAILED,
@@ -42,6 +41,7 @@ from ..base import (
     ChannelBotNotFound,
     FetchedAttachment,
 )
+
 from .media import (
     UPLOAD_CHUNK_CMD,
     UPLOAD_FINISH_CMD,
@@ -661,6 +661,9 @@ def _trust_local_ws_ca(ca_file: str) -> None:
 
 
 class WeComAdapter:
+    #: 本适配器具备进程内直发能力（装配在哪个进程，由该进程的注册表决定）。
+    delivers_locally = True
+
     name = "WECOM"
 
     def __init__(

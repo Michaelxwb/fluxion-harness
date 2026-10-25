@@ -8,11 +8,8 @@ from fakes import ConsoleProcess, FakeConsoleClient
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import BotSnapshotItem, BotSnapshotResponse
-from muad_im_gateway.application.bot_snapshot import (
-    BOT_SNAPSHOT_MAX_PAGES,
-    BOT_SNAPSHOT_PAGE_SIZE,
-    BotSnapshotCache,
-)
+from muad_im_core import BotSnapshotCache
+from muad_im_core.snapshot import BOT_SNAPSHOT_MAX_PAGES, BOT_SNAPSHOT_PAGE_SIZE
 
 
 async def test_snapshot_starts_empty() -> None:
@@ -500,7 +497,15 @@ async def test_snapshot_beyond_the_page_cap_is_not_published() -> None:
     total = BOT_SNAPSHOT_PAGE_SIZE * BOT_SNAPSHOT_MAX_PAGES + 1
 
     class _OverCapacity(FakeConsoleClient):
-        async def bots(self, tenant_id, *, page=1, page_size=BOT_SNAPSHOT_PAGE_SIZE):  # type: ignore[no-untyped-def]
+        async def bots(  # type: ignore[no-untyped-def]
+            self,
+            tenant_id,
+            *,
+            page=1,
+            page_size=BOT_SNAPSHOT_PAGE_SIZE,
+            channels=None,
+            include_secret=True,
+        ):
             start = (page - 1) * page_size
             items = [
                 BotSnapshotItem(
