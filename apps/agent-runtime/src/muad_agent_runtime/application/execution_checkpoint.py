@@ -34,7 +34,7 @@ async def execution_checkpoint(
         )
         snapshot = (
             await session.scalars(
-                select(RuntimeSnapshot).where(
+                select(RuntimeSnapshot).prefix_with("/* checkpoint */").where(
                     RuntimeSnapshot.id == run.snapshot_id,
                     RuntimeSnapshot.tenant_id == run.tenant_id,
                     RuntimeSnapshot.is_deleted.is_(False),

@@ -16,7 +16,8 @@ verifiers:
     - -lc
     - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py
     cwd: .
-    timeout: 600
+    # 全量 agent_runtime 已增至 1000+ 用例（约 13 分钟），600s 会在正常全绿时误报超时。
+    timeout: 1800
 ---
 
 # harness-worker

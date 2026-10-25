@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Annotated, Any
 
@@ -9,6 +10,12 @@ from muad_api import ApiResponse, ok
 from muad_api.security import require_internal_service
 from muad_common import SharedSettings
 from muad_contracts import RunRequest
+from muad_contracts.webchat import (
+    ADMISSION_CONVERSATION_ID_HEADER,
+    ADMISSION_EXECUTION_STATUS_HEADER,
+    ADMISSION_RESUMED_HEADER,
+    ADMISSION_RUN_ID_HEADER,
+)
 
 from ..application.dto import (
     CancelActiveRequest,
@@ -35,10 +42,18 @@ async def _sse_response(
         run_id=run.run_id,
         heartbeat_sec=SharedSettings().run_event_heartbeat_sec,
     )
+    headers = dict(SSE_HEADERS)
+    headers[ADMISSION_RUN_ID_HEADER] = str(run.run_id)
+    headers[ADMISSION_CONVERSATION_ID_HEADER] = str(run.conversation_id)
+    headers[ADMISSION_RESUMED_HEADER] = "1" if run.resumed else "0"
+    if run.execution_status is not None:
+        headers[ADMISSION_EXECUTION_STATUS_HEADER] = json.dumps(
+            run.execution_status.model_dump(mode="json"), ensure_ascii=True
+        )
     # 关键：StreamingResponse 会活到流结束；先把请求级 Session 归还连接池，
     # 否则 1000 条流 = 1000 条 idle-in-transaction 连接。
     await service.release_session()
-    return StreamingResponse(frames, media_type=SSE_MEDIA_TYPE, headers=SSE_HEADERS)
+    return StreamingResponse(frames, media_type=SSE_MEDIA_TYPE, headers=headers)
 
 
 @router.post("/runs")

@@ -2,6 +2,7 @@
 
 import logging
 
+from muad_common import SharedSettings
 from muad_contracts import ResolvedAgent
 from muad_contracts.memory import MemoryResumeRef
 from pydantic import ValidationError
@@ -42,7 +43,25 @@ async def enqueue_completed(session: AsyncSession, run: RunRecord, *, through_se
 
 
 async def _insert(session: AsyncSession, run: RunRecord, through_seq: int) -> bool:
-    snapshot = await session.get(RuntimeSnapshot, run.snapshot_id)
+    # 队列上限是**进程级**容量护栏：到界后不再为新的完成 Run 入队（不阻塞终态提交），
+    # 已有 job 继续由 MemorySupervisor 有界消费；积压不会无限增长。
+    pending = await session.scalar(
+        select(func.count())
+        .select_from(MemoryConsolidationJob)
+        .where(
+            MemoryConsolidationJob.tenant_id == run.tenant_id,
+            MemoryConsolidationJob.is_deleted.is_(False),
+            MemoryConsolidationJob.status.in_(("PENDING", "RUNNING", "RETRY")),
+        )
+    )
+    if int(pending or 0) >= SharedSettings().memory_consolidation_queue_max:
+        observe("memory_consolidation_enqueue_total", labels={"outcome": "QUEUE_FULL"})
+        return False
+    snapshot = await session.scalar(
+        select(RuntimeSnapshot)
+        .prefix_with("/* memory_enqueue */")
+        .where(RuntimeSnapshot.id == run.snapshot_id)
+    )
     if snapshot is None or (snapshot.tenant_id, snapshot.run_id) != (run.tenant_id, run.id):
         raise ValueError("source snapshot unavailable")
     policy = execution_defaults_of(snapshot.policy_json).memory_policy

@@ -34,6 +34,7 @@ from .application.async_tools.control_dispatcher import ControlDispatcher, Contr
 from .application.async_tools.runtime import set_control_dispatcher
 from .application.async_tools.supervisor import ExecutionSupervisor, reclaim_stale_executions
 from .application.attachments.tool_results import ArtifactResultWriter
+from .application.capacity_metrics import capacity_metrics_loop
 from .application.channel_delivery import TenantChannelDelivery
 from .application.channel_delivery_pump import (
     ChannelDeliveryPump,
@@ -76,6 +77,7 @@ REAPER_LOOP_NAME = "runtime.reaper"
 EXECUTION_SLOT_LOOP_NAME = "runtime.execution_slots"
 DELIVERY_LOOP_NAME = "runtime.delivery"
 RETENTION_LOOP_NAME = "runtime.retention"
+CAPACITY_METRICS_LOOP_NAME = "runtime.capacity_metrics"
 
 logger = logging.getLogger(__name__)
 
@@ -332,6 +334,15 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
             EXECUTION_SLOT_LOOP_NAME,
         ),
         (app.state.delivery_pump.run_forever(), DELIVERY_LOOP_NAME),
+        # 队列/等待年龄/内存队列：HPA 的自定义指标来源；采样失败不杀死循环。
+        (
+            capacity_metrics_loop(
+                get_session_factory(),
+                tenant_id=settings.default_tenant_id,
+                interval_sec=max(2.0, float(settings.run_reaper_interval_sec)),
+            ),
+            CAPACITY_METRICS_LOOP_NAME,
+        ),
         # 保留清理：节拍沿用既有维护节拍（§3.7「不新增同义键」），一处来源。
         (
             _retention_loop(

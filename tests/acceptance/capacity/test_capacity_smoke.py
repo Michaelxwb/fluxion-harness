@@ -73,23 +73,34 @@ SMOKE_ENV: dict[str, dict[str, str]] = {
         "MODEL_CALL_HEARTBEAT_SEC": "5",
         "RUN_EVENT_HEARTBEAT_SEC": "5",
         "RUN_EVENT_FALLBACK_POLL_SEC": "2",
-        "STREAM_DELTA_FLUSH_INTERVAL_MS": "50",
+        # TASK-004 的生产窗口是 300ms；smoke 旧值 50ms 会在 100×20 delta/s 下制造
+        # 20 commits/s/Run 的写放大（首段仍立即 flush，不影响首字）。
+        "STREAM_DELTA_FLUSH_INTERVAL_MS": "300",
+        "STREAM_DELTA_FLUSH_BYTES": "8192",
         "CHANNEL_DELIVERY_POLL_SEC": "2",
         "CHANNEL_DELIVERY_RETRY_BASE_SEC": "2",
         "RUNTIME_EXECUTION_CONCURRENCY": "128",
         "MODEL_HTTP_MAX_CONNECTIONS": "128",
-        "DB_POOL_SIZE": "10",
+        # 本地 PG max_connections=100：runtime 2×30 + worker 2×5 + console 1×20 = 90，
+        # 留出测试/维护余量；生产按 profile 的 pg_connection_budget 预算，不照抄本值。
+        "DB_POOL_SIZE": "20",
         "DB_MAX_OVERFLOW": "10",
     },
     "im-gateway": {
         "DB_POOL_SIZE": "5",
         "DB_MAX_OVERFLOW": "5",
+        # 单 Gateway 承载 100/1000 用户：业务出站池必须覆盖并发会话/状态/通知请求。
+        # 本机 .env 的开发值 16 是给单机调试的，不能用于容量结论。
+        "EGRESS_HTTP_MAX_CONNECTIONS": "1024",
+        "EGRESS_HTTP_MAX_KEEPALIVE": "256",
     },
     "console-platform": {
         "DB_POOL_SIZE": "10",
         "DB_MAX_OVERFLOW": "10",
     },
     "agent-worker": {
+        "DB_POOL_SIZE": "3",
+        "DB_MAX_OVERFLOW": "2",
         "WORKER_POLL_INTERVAL_SEC": "1",
         "TASK_HEARTBEAT_SEC": "5",
         "TASK_LEASE_SEC": "30",
@@ -156,7 +167,9 @@ def smoke_module(
     tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
 ) -> Iterator[SmokeModule]:
     """生产节拍的真实栈：100 个负载主体 + 1 个控制主体。"""
-    root = tmp_path_factory.mktemp("capacity-smoke")
+    debug_root = os.environ.get("MUAD_SMOKE_DEBUG_ROOT")
+    root = Path(debug_root) if debug_root else tmp_path_factory.mktemp("capacity-smoke")
+    root.mkdir(parents=True, exist_ok=True)
     datastore = create_datastore_handle()
     profile = load_profile(capacity_profile_path)
     stack = build_stack(
@@ -189,6 +202,11 @@ def smoke_module(
             control_session=credentials[SMOKE_USERS],
         )
     finally:
+        if os.environ.get("MUAD_SMOKE_DEBUG_ROOT"):
+            keep = Path("/tmp/muad-smoke-logs")
+            keep.mkdir(parents=True, exist_ok=True)
+            for path in sorted((root / "logs").glob("*.log")):
+                (keep / path.name).write_bytes(path.read_bytes())
         stack.teardown()
 
 
@@ -295,6 +313,41 @@ def test_s16_100_user_capacity_smoke(smoke_run, smoke_module: SmokeModule) -> No
         ),
         SMOKE_THRESHOLDS,
     )
+    if os.environ.get("MUAD_SMOKE_DEBUG_ROOT"):
+        from collections import Counter
+
+        seen = Counter(
+            query
+            for sample in report.samples
+            for query, _age in sample.idle_in_tx_queries
+        )
+        ages = {
+            query: max(
+                age
+                for sample in report.samples
+                for candidate, age in sample.idle_in_tx_queries
+                if candidate == query
+            )
+            for query in seen
+        }
+        print("SMOKE-IDLE-IN-TX top queries:")
+        for query, count in seen.most_common(10):
+            print(f"  {count}x max_age={ages[query]:.2f}s :: {query[:300]}")
+        print(
+            "SMOKE-PG max_total=",
+            report.max_connections_total,
+            "idle_tx_peak=",
+            report.max_idle_in_tx,
+            "rate=",
+            report.postgres_rate(),
+        )
+    load_failures = [turn for turn in report.turns if turn.failure is not None]
+    assert not load_failures, (
+        "smoke 负载不得有失败轮次："
+        f"失败账目 {dict(report.failure_counts())}，"
+        "样本 "
+        f"{[(t.user_index, t.failure, t.http_status, (t.detail or '')[:200]) for t in load_failures[:8]]}"
+    )
     require_slo(checks)
 
     # 真实流式形状：20 chunks/s × 10s（探针真实逐帧下发，SSE 真实读取）
@@ -306,11 +359,6 @@ def test_s16_100_user_capacity_smoke(smoke_run, smoke_module: SmokeModule) -> No
         f"每轮至少 150 个真实增量帧（约 20/s × 10s），实际 {min(delta_counts)}"
     )
 
-    # 错误面：负载轮次不得有失败；驱动的故意边界探测单独归类
-    load_failures = [turn for turn in report.turns if turn.failure is not None]
-    assert not load_failures, (
-        f"smoke 负载不得有失败轮次：{[(t.failure, t.http_status) for t in load_failures][:5]}"
-    )
     assert report.pool_timeout_count == 0, "不得出现连接池等待超时"
 
     # 通知轮询：真实 200、带 page_size、游标单调

@@ -9,7 +9,7 @@ from pydantic import ValidationError
 pytestmark = pytest.mark.unit
 
 DEFAULTS: dict[str, int | float] = {
-    "runtime_execution_concurrency": 8, "worker_execution_concurrency": 4,
+    "runtime_execution_concurrency": 256, "worker_execution_concurrency": 4,
     "gateway_max_concurrent_handlers": 8, "gateway_max_pending_handlers": 256,
     "gateway_max_pending_per_route": 8, "gateway_max_pending_commands": 32,
     "gateway_max_sse_subscribers": 1100, "runtime_max_sse_subscribers": 1100,
@@ -17,7 +17,7 @@ DEFAULTS: dict[str, int | float] = {
     "redis_max_connections": 50,
     "control_http_max_connections": 32, "control_http_max_keepalive": 16,
     "stream_http_max_connections": 1100, "stream_http_max_keepalive": 64,
-    "model_http_max_connections": 64, "model_http_max_keepalive": 32,
+    "model_http_max_connections": 256, "model_http_max_keepalive": 32,
     "mcp_http_max_connections": 16, "mcp_http_max_keepalive": 8, "mcp_max_inflight": 8,
     "egress_http_max_connections": 1024, "egress_http_max_keepalive": 256, "egress_max_inflight": 8,
     "upload_http_max_connections": 8, "upload_http_max_keepalive": 4,
@@ -72,6 +72,9 @@ def test_b203_every_resource_setting_can_be_read_from_environment(
     value = default * 2 if type(default) is float else max(1, default - 1)
     if name.endswith("_lease_sec") and type(default) is int:
         value = default + 3
+    if name == "model_http_max_connections":
+        # 跨字段约束：模型池必须覆盖执行并发；默认并发已是 256，不能再向下取值验证读取。
+        value = default + 1
     assert value != default
     monkeypatch.setenv(name.upper(), str(value))
     assert getattr(SharedSettings(_env_file=None), name) == value
@@ -119,10 +122,14 @@ def test_b203_zero_has_only_declared_connection_semantics(name: str) -> None:
 def test_b203_keepalive_must_fit_connection_budget(prefix: str) -> None:
     connections, keepalive = f"{prefix}_http_max_connections", f"{prefix}_http_max_keepalive"
     for value in (0, 8):
-        settings = SharedSettings(_env_file=None, **{connections: 8, keepalive: value})
+        settings = SharedSettings(
+            _env_file=None, runtime_execution_concurrency=1, **{connections: 8, keepalive: value}
+        )
         assert getattr(settings, keepalive) == value
     with pytest.raises(ValidationError, match=keepalive):
-        SharedSettings(_env_file=None, **{connections: 8, keepalive: 9})
+        SharedSettings(
+            _env_file=None, runtime_execution_concurrency=1, **{connections: 8, keepalive: 9}
+        )
 
 
 @pytest.mark.parametrize("prefix", ["run", "task", "model_call"])
@@ -156,7 +163,10 @@ def test_b203_leases_cover_three_heartbeats(prefix: str) -> None:
         ({"channel_delivery_retry_base_sec": 31}, "channel_delivery_retry_base_sec"),
         ({"async_tool_dispatch_timeout_sec": 30}, "async_tool_dispatch_timeout_sec"),
         ({"async_tool_dispatch_retry_base_sec": 31}, "async_tool_dispatch_retry_base_sec"),
-        ({"runtime_execution_concurrency": 256}, "model_http_max_connections"),
+        (
+            {"runtime_execution_concurrency": 256, "model_http_max_connections": 64},
+            "model_http_max_connections",
+        ),
     ],
 )
 def test_b203_invalid_ranges_and_cross_field_combinations(changes: dict[str, object], field: str) -> None:

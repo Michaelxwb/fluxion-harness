@@ -76,6 +76,7 @@ from ..infrastructure.models.runtime import (
 from ..metrics import (
     AGENT_RUNS_METRIC,
     CONTEXT_SUMMARY_METRIC,
+    RUN_ADMISSION_METRIC,
     RUN_QUEUE_TIMEOUT_METRIC,
     RUN_RECLAIM_METRIC,
     record_counter,
@@ -484,6 +485,8 @@ class RunStart:
     conversation_id: uuid.UUID
     resumed: bool
     events: AsyncIterator[ExecutorEvent]
+    #: 受理事务里已持久化的阶段投影；202 响应头直接带回，避免 Gateway 另发 get_run。
+    execution_status: Any | None = None
 
 
 @dataclass(frozen=True)
@@ -913,22 +916,114 @@ def stream_scope_gate() -> asyncio.Semaphore:
     return gate
 
 
+class AdmissionQueueFull(RuntimeError):
+    """准入闸门后的排队已到上限：调用方必须显式拒绝（429），不能无限等待。"""
+
+
+@dataclass(frozen=True, slots=True)
+class AdmissionGateStats:
+    inflight: int
+    waiting: int
+    limit: int
+    queue_limit: int
+
+
+class BoundedAdmissionGate:
+    """有界准入闸门：`limit` 个在飞 + `queue_limit` 个等待，超出立即拒绝。"""
+
+    def __init__(self, limit: int, queue_limit: int) -> None:
+        if limit < 1 or queue_limit < 0:
+            raise ValueError("invalid admission gate budget")
+        self._limit = limit
+        self._queue_limit = queue_limit
+        self._semaphore = asyncio.Semaphore(limit)
+        self._inflight = 0
+        self._waiting = 0
+        self._lock = asyncio.Lock()
+
+    async def __aenter__(self) -> BoundedAdmissionGate:
+        wait = False
+        async with self._lock:
+            if self._inflight >= self._limit:
+                if self._waiting >= self._queue_limit:
+                    raise AdmissionQueueFull("admission queue is full")
+                self._waiting += 1
+                wait = True
+            else:
+                self._inflight += 1
+        if wait:
+            await self._semaphore.acquire()
+            async with self._lock:
+                self._waiting -= 1
+                self._inflight += 1
+        else:
+            await self._semaphore.acquire()
+        return self
+
+    async def __aexit__(self, *exc_info: object) -> None:
+        self._semaphore.release()
+        async with self._lock:
+            self._inflight -= 1
+
+    @property
+    def stats(self) -> AdmissionGateStats:
+        return AdmissionGateStats(
+            inflight=self._inflight,
+            waiting=self._waiting,
+            limit=self._limit,
+            queue_limit=self._queue_limit,
+        )
+
+
 _process_admission_gates: weakref.WeakKeyDictionary[
-    asyncio.AbstractEventLoop, asyncio.Semaphore
+    asyncio.AbstractEventLoop, BoundedAdmissionGate
 ] = weakref.WeakKeyDictionary()
 
 
-def process_admission_gate(limit: int = ADMISSION_CONCURRENCY_LIMIT) -> asyncio.Semaphore:
-    """取当前事件循环的准入闸门（与执行/调度共享同一个 DB 池）。"""
+def process_admission_gate(
+    limit: int | None = None, queue_limit: int | None = None
+) -> BoundedAdmissionGate:
+    """取当前事件循环的准入闸门（与执行/调度共享同一个 DB 池）。
+
+    在飞准入不得超过本进程池容量：`pool + overflow` 是硬上限，admission gate 比它更大时
+    只会把请求堆在 SQLAlchemy 的排队里（preflight 也拒绝这种配置）。
+    """
+    settings = SharedSettings()
+    if limit is None:
+        limit = max(
+            1,
+            min(
+                ADMISSION_CONCURRENCY_LIMIT,
+                settings.db_pool_size + settings.db_max_overflow,
+            ),
+        )
+    if queue_limit is None:
+        queue_limit = settings.runtime_admission_queue_limit
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.Semaphore(limit)
+        return BoundedAdmissionGate(limit, queue_limit)
     gate = _process_admission_gates.get(loop)
     if gate is None:
-        gate = asyncio.Semaphore(limit)
+        gate = BoundedAdmissionGate(limit, queue_limit)
         _process_admission_gates[loop] = gate
     return gate
+
+
+def admission_gate_stats() -> AdmissionGateStats:
+    try:
+        gate = process_admission_gate()
+    except RuntimeError:
+        return AdmissionGateStats(0, 0, ADMISSION_CONCURRENCY_LIMIT, 0)
+    return gate.stats
+
+
+def reset_admission_gates() -> None:
+    """测试专用：清理当前事件循环的闸门缓存。"""
+    try:
+        _process_admission_gates.pop(asyncio.get_running_loop(), None)
+    except RuntimeError:
+        return
 
 
 #: 取消探测的 PG 兜底间隔：Redis 提示是快路径，PG 只在提示命中或间隔到时读一次。
@@ -1038,11 +1133,22 @@ class RunService:
         fallback_root = Path(self._settings.artifact_root)
         self._artifact_root = Path(artifact_root) if artifact_root is not None else fallback_root
 
+    def detach(self, instance: object) -> None:
+        """把已加载的 ORM 行移出 Session，避免 `release_session()` 的 close 让它过期。
+
+        幂等：行可能来自别的 Session（续跑/重放路径），不在本 Session 里就什么也不做 ——
+        `expunge` 对未登记实例会抛 `InvalidRequestError`。
+        """
+        if instance in self._session:
+            self._session.expunge(instance)
+
     async def release_session(self) -> None:
         """SSE 路由返回 StreamingResponse 前释放请求级 Session。
 
         流内追尾用 `EventTailHub`/独立短事务，不依赖这条连接；提前关闭让 1000 条长流
         不再各占一条 PG 连接（idle-in-tx 的来源）。`get_session` 的收尾只在仍有事务时 commit。
+        需要在关闭后继续读的行必须先 `detach`：`close()` 会让留在 Session 里的 ORM 行过期，
+        之后读属性会抛 `DetachedInstanceError`。
         """
         if self._session.in_transaction():
             await self._session.rollback()
@@ -1062,32 +1168,43 @@ class RunService:
         key = idempotency_key or request.message.id
         fingerprint = _creation_fingerprint(request, tenant_id)
         gate_started = time.monotonic()
-        async with process_admission_gate():
-            gate_ms = int((time.monotonic() - gate_started) * 1000)
-            for attempt in range(self._admission.stale_refresh_attempts + 1):
-                attempt_started = time.monotonic()
-                try:
-                    started = await self._admit(request, tenant_id, key, fingerprint)
-                    elapsed = time.monotonic() - attempt_started
-                    if elapsed > 1.0:
+        try:
+            async with process_admission_gate():
+                gate_ms = int((time.monotonic() - gate_started) * 1000)
+                for attempt in range(self._admission.stale_refresh_attempts + 1):
+                    attempt_started = time.monotonic()
+                    try:
+                        started = await self._admit(request, tenant_id, key, fingerprint)
+                        elapsed = time.monotonic() - attempt_started
+                        if elapsed > 1.0:
+                            logger.warning(
+                                "admission_slow",
+                                extra={
+                                    "tenant_id": tenant_id,
+                                    "attempt": attempt,
+                                    "gate_ms": gate_ms,
+                                    "elapsed_ms": int(elapsed * 1000),
+                                },
+                            )
+                        return started
+                    except AdmissionPolicyStaleError:
+                        # 先退出事务（连同未提交的 Run/会话）再重取，事务内不联网。
+                        await self._session.rollback()
                         logger.warning(
-                            "admission_slow",
-                            extra={
-                                "tenant_id": tenant_id,
-                                "attempt": attempt,
-                                "gate_ms": gate_ms,
-                                "elapsed_ms": int(elapsed * 1000),
-                            },
+                            "admission_policy_stale_on_create",
+                            extra={"tenant_id": tenant_id, "attempt": attempt},
                         )
-                    return started
-                except AdmissionPolicyStaleError:
-                    # 先退出事务（连同未提交的 Run/会话）再重取，事务内不联网。
-                    await self._session.rollback()
-                    logger.warning(
-                        "admission_policy_stale_on_create",
-                        extra={"tenant_id": tenant_id, "attempt": attempt},
-                    )
-                    continue
+                        continue
+        except AdmissionQueueFull as exc:
+            record_outcome(RUN_ADMISSION_METRIC, "QUEUE_FULL")
+            logger.warning(
+                "admission_queue_full",
+                extra={
+                    "tenant_id": tenant_id,
+                    "limit": process_admission_gate().stats.limit,
+                },
+            )
+            raise AppError(ErrorCode.RUN_CAPACITY_EXCEEDED) from exc
         raise AppError(ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE)
 
     async def _admit(
@@ -1298,8 +1415,11 @@ class RunService:
         只读持久事件，不重新执行、不分配新序号、不重新 resolve 配置；终态排空后关闭。
         """
         async with stream_scope_gate():
-            run = await self._load_run(run_id, tenant_id)
-            after = max(0, after_seq)
+            # 打开/重连流只需两条短查询：不要占用请求级 Session（100 条流同时打开时，
+            # 它们会把池占满并让受理排队）。
+            async with get_session_factory()() as session:
+                run = await self._load_run_in(session, run_id, tenant_id)
+                after = max(0, after_seq)
             await self._tail_hub.check_cursor(
                 tenant_id=run.tenant_id, conversation_id=run.conversation_id, after_seq=after
             )
@@ -1379,13 +1499,23 @@ class RunService:
         run_id: uuid.UUID,
         tenant_id: str,
     ) -> tuple[RunRecord, RuntimeSnapshot | None, RunWaitSummary]:
-        run = await self._load_run(run_id, tenant_id)
+        # 读路径用独立短 Session：调用方（状态/回执）不需要与后续网络调用共享连接。
+        async with get_session_factory()() as session:
+            return await self._get_run_in(session, run_id, tenant_id)
+
+    async def _get_run_in(
+        self,
+        session: AsyncSession,
+        run_id: uuid.UUID,
+        tenant_id: str,
+    ) -> tuple[RunRecord, RuntimeSnapshot | None, RunWaitSummary]:
+        run = await self._load_run_in(session, run_id, tenant_id)
         snapshot = None
         if run.snapshot_id is not None:
-            snapshot = await self._session.scalar(
+            snapshot = await session.scalar(
                 sa.select(RuntimeSnapshot).where(RuntimeSnapshot.id == run.snapshot_id)
             )
-        return run, snapshot, await self._wait_summary(run)
+        return run, snapshot, await self._wait_summary(run, session=session)
 
     async def get_run_scope(
         self, run_id: uuid.UUID, tenant_id: str, *, user_id: uuid.UUID
@@ -1395,21 +1525,25 @@ class RunService:
         与「`get_run` + `resolve_conversation_scope`」两次往返同义：会话由已核属的 Run 本身确定，
         调用方不能拿任意 `conversation_id` 去做入口解析。
         """
-        run, snapshot, wait = await self.get_run(run_id, tenant_id)
-        if run.user_id != user_id:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND)
-        scope = await WebchatHistoryService(self._session).resolve_conversation_scope(
-            tenant_id=tenant_id, user_id=user_id, conversation_id=run.conversation_id
-        )
-        return {
-            "run": run_view(run, snapshot, wait),
-            "conversation": scope.model_dump(mode="json"),
-        }
+        async with get_session_factory()() as session:
+            run, snapshot, wait = await self._get_run_in(session, run_id, tenant_id)
+            if run.user_id != user_id:
+                raise AppError(ErrorCode.COMMON_NOT_FOUND)
+            scope = await WebchatHistoryService(session).resolve_conversation_scope(
+                tenant_id=tenant_id, user_id=user_id, conversation_id=run.conversation_id
+            )
+            return {
+                "run": run_view(run, snapshot, wait),
+                "conversation": scope.model_dump(mode="json"),
+            }
 
-    async def _wait_summary(self, run: RunRecord) -> RunWaitSummary:
+    async def _wait_summary(
+        self, run: RunRecord, *, session: AsyncSession | None = None
+    ) -> RunWaitSummary:
         """API-05：等待起点/原因与异步操作计数；只读，一次聚合 + 一次检查点读取。"""
+        active = session or self._session
         join_count, submission_count = (
-            await self._session.execute(
+            await active.execute(
                 sa.select(
                     sa.func.count().filter(
                         ToolOperation.completion_mode == CompletionMode.JOIN,
@@ -1423,7 +1557,7 @@ class RunService:
                 )
             )
         ).one()
-        continuation = await self._session.scalar(
+        continuation = await active.scalar(
             sa.select(RunContinuation).where(
                 RunContinuation.tenant_id == run.tenant_id,
                 RunContinuation.run_id == run.id,
@@ -1431,7 +1565,7 @@ class RunService:
             )
         )
         return RunWaitSummary(
-            waiting_since=await self._waiting_since(run),
+            waiting_since=await self._waiting_since(run, session=active),
             waiting_reason=tool_waiting_reason(
                 run.status,
                 resume_ready=continuation.ready if continuation is not None else False,
@@ -1443,12 +1577,15 @@ class RunService:
             continuation_count=continuation.wait_generation if continuation is not None else 0,
         )
 
-    async def _waiting_since(self, run: RunRecord) -> datetime | None:
+    async def _waiting_since(
+        self, run: RunRecord, *, session: AsyncSession | None = None
+    ) -> datetime | None:
         """等待起点：WAITING_TOOL 取最近一次 `RUN_WAITING_TOOL` 事件，WAITING_INPUT 取等待中断。"""
+        active = session or self._session
         if run.status == RunStatus.WAITING_TOOL:
             return cast(
                 datetime | None,
-                await self._session.scalar(
+                await active.scalar(
                     sa.select(sa.func.max(CanonicalEvent.create_time)).where(
                         CanonicalEvent.tenant_id == run.tenant_id,
                         CanonicalEvent.run_id == run.id,
@@ -1460,7 +1597,7 @@ class RunService:
         if run.status == RunStatus.WAITING_INPUT:
             return cast(
                 datetime | None,
-                await self._session.scalar(
+                await active.scalar(
                     sa.select(sa.func.max(RunInterrupt.create_time)).where(
                         RunInterrupt.tenant_id == run.tenant_id,
                         RunInterrupt.run_id == run.id,
@@ -1472,6 +1609,31 @@ class RunService:
         return None
 
     async def create_conversation(
+        self,
+        agent_id: uuid.UUID,
+        platform_user_id: uuid.UUID,
+        tenant_id: str,
+        idempotency_key: str | None = None,
+        *,
+        entry_id: uuid.UUID | None = None,
+        external_thread_id: str = "",
+    ) -> Conversation:
+        """建会话也走准入闸门：瞬时突发下先有界排队/拒绝，不让 Console/DB 超时冒成 500。"""
+        try:
+            async with process_admission_gate():
+                return await self._create_conversation(
+                    agent_id,
+                    platform_user_id,
+                    tenant_id,
+                    idempotency_key,
+                    entry_id=entry_id,
+                    external_thread_id=external_thread_id,
+                )
+        except AdmissionQueueFull as exc:
+            record_outcome(RUN_ADMISSION_METRIC, "QUEUE_FULL")
+            raise AppError(ErrorCode.RUN_CAPACITY_EXCEEDED) from exc
+
+    async def _create_conversation(
         self,
         agent_id: uuid.UUID,
         platform_user_id: uuid.UUID,
@@ -1604,7 +1766,12 @@ class RunService:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
 
     async def _load_run(self, run_id: uuid.UUID, tenant_id: str) -> RunRecord:
-        run = await self._session.scalar(
+        return await self._load_run_in(self._session, run_id, tenant_id)
+
+    async def _load_run_in(
+        self, session: AsyncSession, run_id: uuid.UUID, tenant_id: str
+    ) -> RunRecord:
+        run = await session.scalar(
             sa.select(RunRecord).where(
                 RunRecord.id == run_id,
                 RunRecord.tenant_id == tenant_id,
@@ -1619,7 +1786,9 @@ class RunService:
         if run.snapshot_id is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         snapshot = await self._session.scalar(
-            sa.select(RuntimeSnapshot).where(RuntimeSnapshot.id == run.snapshot_id)
+            sa.select(RuntimeSnapshot).prefix_with("/* load_snapshot */").where(
+                RuntimeSnapshot.id == run.snapshot_id
+            )
         )
         if snapshot is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
@@ -1938,6 +2107,7 @@ class RunService:
             conversation_id=conversation.id,
             resumed=False,
             events=self._replay_events(submission),
+            execution_status=project_execution_status(run),
         )
 
     async def _resume_run(
@@ -1947,6 +2117,11 @@ class RunService:
     ) -> RunStart:
         """冻结快照续跑：锁内复核等待态/期限，再按本 Run 自己那份快照执行（不重新 resolve）。"""
         snapshot = await self._resume_snapshot(run)
+        # 快照/原 Run 已读进内存：后面的凭据解析是网络调用，不得让连接停在 idle-in-tx。
+        # 先把关闭后仍要读的行移出 Session，否则 `close()` 会让它们过期。
+        self.detach(run)
+        self.detach(snapshot)
+        await self.release_session()
         agent, model, skills, servers = self._frozen_definitions(snapshot)
         model, summary_model, secrets = await self._runtime_credentials(run.id, run.tenant_id,
             run.user_id, model, servers, summary_model=summary_model_of(snapshot.policy_json))
@@ -2071,7 +2246,7 @@ class RunService:
         Run 由续跑泵按租约接管。
         """
         # 会话操作必须发生在请求会话仍打开时：后台任务里会话可能已随响应关闭
-        self._session.expunge(run)
+        self.detach(run)
         task = asyncio.create_task(
             self._launch_execution(run, stream), name=f"launch:{run.id}"
         )
@@ -2596,26 +2771,42 @@ class RunService:
         members: Sequence[MemberRef] | None = None,
         summary_members: Sequence[MemberRef] | None = None,
     ) -> AsyncIterator[ExecutorEvent]:
-        if history is None:
-            if history_loader is None:
-                raise ValueError("history or history_loader is required")
-            history = await history_loader()
-        yield await self._start_segment_event(run, submission_id, resumed)
-        resume = await resume_decision(get_session_factory(), run, submission_id=submission_id)
+        # 租约心跳必须覆盖**领取后的全部准备阶段**（history/凭据/executor 构建），不能只在
+        # 执行器循环里：100 用户实测准备阶段可超过 30s lease，Reaper 会把仍在准备的 Run 判成
+        # RUN_ABANDONED。心跳与执行器分离后，准备再慢也不会失约。
+        heartbeat = asyncio.create_task(self._renew_lease_loop(run))
+        try:
+            if history is None:
+                if history_loader is None:
+                    raise ValueError("history or history_loader is required")
+                history = await history_loader()
+            yield await self._start_segment_event(run, submission_id, resumed)
+            resume = await resume_decision(
+                get_session_factory(), run, submission_id=submission_id
+            )
 
-        async def build() -> RunExecutor:
-            return await self._build_executor(run, agent, model, skills, mcp_servers, mcp_secrets, history,
-                compaction=compaction, execution=execution, summary_model=summary_model,
-                current_text=current_text, current_attachments=current_attachments,
-                submission_id=submission_id, memory_resume_ref=resume.reference,
-                pool=pool, members=members, summary_members=summary_members)
+            async def build() -> RunExecutor:
+                return await self._build_executor(
+                    run, agent, model, skills, mcp_servers, mcp_secrets, history,
+                    compaction=compaction, execution=execution, summary_model=summary_model,
+                    current_text=current_text, current_attachments=current_attachments,
+                    submission_id=submission_id, memory_resume_ref=resume.reference,
+                    pool=pool, members=members, summary_members=summary_members,
+                )
 
-        result = (SegmentResult(final_text=resume.message) if resume.message is not None
-            else await self._run_segment(run, submission_id, agent.key, build))
-        if result is not None:
-            terminal = await self._finish_segment(run, submission_id, agent.key, result)
-            if terminal is not None:
-                yield terminal
+            result = (
+                SegmentResult(final_text=resume.message)
+                if resume.message is not None
+                else await self._run_segment(run, submission_id, agent.key, build)
+            )
+            if result is not None:
+                terminal = await self._finish_segment(run, submission_id, agent.key, result)
+                if terminal is not None:
+                    yield terminal
+        finally:
+            heartbeat.cancel()
+            with suppress(asyncio.CancelledError):
+                await heartbeat
 
     async def _start_segment_event(
         self, run: RunRecord, submission_id: uuid.UUID, resumed: bool
@@ -2633,7 +2824,7 @@ class RunService:
 
     async def _run_segment(self, run: RunRecord, submission_id: uuid.UUID, agent_key: str,
                            build: Callable[[], Awaitable[RunExecutor]]) -> SegmentResult | None:
-        heartbeat = asyncio.create_task(self._renew_lease_loop(run))
+        # 租约心跳已由 `_stream_run` 在准备阶段之前启动并覆盖到这里；这里只负责执行。
         try:
             return await self._consume_executor(run, submission_id, await build())
         except ExecutionLeaseLost:
@@ -2645,10 +2836,6 @@ class RunService:
             raise
         except Exception as exc:
             return SegmentResult(failure=exc)
-        finally:
-            heartbeat.cancel()
-            with suppress(asyncio.CancelledError):
-                await heartbeat
 
     async def _consume_executor(
         self, run: RunRecord, submission_id: uuid.UUID, executor: RunExecutor
@@ -2956,16 +3143,20 @@ class RunService:
         )
 
     def _terminal_start(self, run: RunRecord) -> RunStart:
+        # 事件生成器在响应开始后才消费，此时请求级 Session 已释放：先把身份抄成普通值，
+        # 否则读已过期的 ORM 属性会抛 DetachedInstanceError（终态恢复的回归）。
+        run_id, conversation_id = run.id, run.conversation_id
+
         async def events() -> AsyncIterator[ExecutorEvent]:
             async with get_session_factory()() as session:
-                row = await session.scalar(sa.select(RunRecord).where(RunRecord.id == run.id))
+                row = await session.scalar(sa.select(RunRecord).where(RunRecord.id == run_id))
                 if row is None:
                     raise AppError(ErrorCode.COMMON_NOT_FOUND)
                 yield await self._terminal_event(session, row)
 
         return RunStart(
-            run_id=run.id,
-            conversation_id=run.conversation_id,
+            run_id=run_id,
+            conversation_id=conversation_id,
             resumed=True,
             events=events(),
         )

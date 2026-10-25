@@ -1337,7 +1337,18 @@ async def test_b269_stream_replay_cleanup_drains_20k_backlog(
             if batch == 0:
                 break
     elapsed = time.monotonic() - started
-    assert removed == inserted
+    # retention 清扫是**全库**的：同库其它租户的过期流也会被这一轮带走。断言本用例
+    # 插入的 20k 必须全部消失，而不是要求全局删除数恰好等于 20k（串跑时会多出几行）。
+    assert removed >= inserted, f"全库只删了 {removed} 行，少于本用例插入的 {inserted}"
+    async with get_session_factory()() as session:
+        remaining = await session.scalar(
+            sa.text(
+                "SELECT count(*) FROM runtime.canonical_event "
+                "WHERE tenant_id = :tenant_id AND is_deleted = false"
+            ),
+            {"tenant_id": tenant_id},
+        )
+    assert int(remaining or 0) == 0, f"本租户仍有 {remaining} 行过期事件未排空"
     assert elapsed < 60, f"20k retention 排空耗时 {elapsed:.1f}s"
     assert removed / max(elapsed, 1e-6) >= 1000, (
         f"retention 删除速率 {removed / max(elapsed, 1e-6):.0f} rows/s 低于 1k/s"

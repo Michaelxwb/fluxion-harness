@@ -600,6 +600,9 @@ class _ProxyServer(ThreadingHTTPServer):
 
     daemon_threads = True
     allow_reuse_address = True
+    # 默认 listen backlog=5：100 用户同时建立连接时会在内核 accept 队列里排队，
+    # 表现为"网关服务本身很快、客户端准入却多出 1s"的假瓶颈（入口代理不是被测单元）。
+    request_queue_size = 256
 
     def __init__(
         self, address: tuple[str, int], backends: Mapping[str, str], routes: Sequence[IngressRoute]
@@ -698,11 +701,16 @@ class _ProxyHandler(BaseHTTPRequestHandler):
         return self.rfile.read(length)
 
     def _forward(self, method: str, unit: str) -> None:
+        import time as _time
+
+        started = _time.monotonic()
         server = cast("_ProxyServer", self.server)
         headers = {
             key: value for key, value in self.headers.items() if key.lower() not in _HOP_BY_HOP
         }
-        headers["Connection"] = "close"  # 上游收尾即 EOF，响应体以连接关闭界定（SSE 同口径）
+        # SSE 以关闭界定；JSON API 复用上游 keep-alive（真实 ingress 同口径）。
+        is_stream = "/events" in self.path or self.headers.get("Accept") == "text/event-stream"
+        headers["Connection"] = "close" if is_stream else "keep-alive"
         # 反向代理不持 Cookie 状态：共享 httpx.Client 默认带 cookie jar，会把上一个客户端
         # 登录响应里的 Set-Cookie 悄悄回放到下一个客户端（观测：浏览器无 Cookie 也能拿到
         # 别人的 `/webchat/auth/me` 200）。真实代理只转发**本次请求**携带的 Cookie。
@@ -722,9 +730,19 @@ class _ProxyHandler(BaseHTTPRequestHandler):
                 502, {"error": "upstream_unavailable", "unit": unit, "reason": type(exc).__name__}
             )
         finally:
-            self.close_connection = True
+            elapsed_ms = (_time.monotonic() - started) * 1000
+            if elapsed_ms > 500:
+                print(
+                    f"[entry-proxy] slow {method} {self.path} unit={unit} "
+                    f"elapsed_ms={elapsed_ms:.0f}",
+                    flush=True,
+                )
 
     def _relay(self, upstream: httpx.Response, *, head_only: bool) -> None:
+        # 真实 ingress 复用客户端连接；只有无 Content-Length 的响应（SSE/错误体）才以关闭界定。
+        # 此前无条件 `Connection: close` 让 100 用户每发一条消息都重建连接，准入被连接建立拖慢。
+        has_length = "content-length" in upstream.headers
+        self.close_connection = not has_length
         self.send_response(upstream.status_code)
         # `multi_items()`：重复头必须逐条透传。`items()` 会把同名头合并成一条逗号连接的值，
         # 对 `Set-Cookie` 直接违反 RFC 6265（Cookie 头不允许合并）——登录响应同时下发
@@ -732,10 +750,12 @@ class _ProxyHandler(BaseHTTPRequestHandler):
         # （nginx 等真实入口按多条透传，本代理必须同口径）。
 
         for key, value in upstream.headers.multi_items():
-            if key.lower() in _HOP_BY_HOP or key.lower() == "content-length":
+            if key.lower() in _HOP_BY_HOP:
+                continue
+            if key.lower() == "content-length" and not has_length:
                 continue
             self.send_header(key, value)
-        self.send_header("Connection", "close")
+        self.send_header("Connection", "keep-alive" if has_length else "close")
         self.end_headers()
         if head_only:
             return
@@ -748,10 +768,10 @@ class _ProxyHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Connection", "close")
+        self.send_header("Connection", "keep-alive")
         self.end_headers()
         self.wfile.write(body)
-        self.close_connection = True
+        self.close_connection = False
 
 
 @dataclass

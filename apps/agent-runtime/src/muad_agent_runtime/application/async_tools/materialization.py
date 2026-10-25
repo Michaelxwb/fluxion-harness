@@ -73,7 +73,7 @@ async def _read_batch(
             )
         )
         snapshot = await session.scalar(
-            select(RuntimeSnapshot).where(
+            select(RuntimeSnapshot).prefix_with("/* materialization */").where(
                 RuntimeSnapshot.id == run.snapshot_id,
                 RuntimeSnapshot.tenant_id == identity.tenant_id,
                 RuntimeSnapshot.is_deleted.is_(False),

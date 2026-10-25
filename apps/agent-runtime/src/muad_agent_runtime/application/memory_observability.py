@@ -34,6 +34,7 @@ _OUTCOMES = frozenset(
         "FENCED",
         "DISABLED",
         "TIMEOUT",
+        "QUEUE_FULL",
     }
 )
 _LABELS = {

@@ -271,7 +271,7 @@ def test_requests_and_limits_match_the_capacity_profile(unit: DeployUnit) -> Non
 @pytest.mark.parametrize("unit", UNITS, ids=UNIT_IDS)
 def test_http_pool_budgets_cover_exactly_the_pools_the_process_creates(unit: DeployUnit) -> None:
     """§3.7：分池预算必须与本进程真实创建的池一致（不多写不生效的键、不少写）。"""
-    settings = SharedSettings()
+    settings = SharedSettings(_env_file=None)
     declared = {
         name
         for name in _env(unit)

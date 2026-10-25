@@ -1,17 +1,19 @@
 {
   "schema": 3,
   "task_file": "high-qps-remediation.md",
-  "task_sha256": "0247353231ae7d355cd7eaed89bc788bf4ec94e5b5b2132086ac5eb9c3f5999c",
+  "task_sha256": "a5e3405ef74e92c657ad74de32b35e77622741393437c7d8c9730682dde1ede2",
   "checks": [
     {
-      "id": "CHK-212ab6917a03",
+      "id": "CHK-1f60ca901381",
       "command": [
-        "bash",
-        "-lc",
-        "CAPACITY_LOAD_USERS=1000 uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_capacity_admission_burst.py"
       ],
       "cwd": ".",
-      "timeout": 5400.0,
+      "timeout": 1200.0,
       "env": "local-api",
       "env_scope": "shared",
       "parallel_safe": false,
@@ -531,21 +533,170 @@
       "kind": "functional",
       "boundary": "真实 Gateway/Runtime/PG；ramp=0，1000 个不同用户同时提交",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
-        "bash",
-        "-lc",
-        "CAPACITY_LOAD_USERS=1000 uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_capacity_admission_burst.py"
       ],
       "cwd": ".",
-      "timeout": 5400.0,
+      "timeout": 1200.0,
       "depends_on": [],
       "priority": "P0",
       "exec": "deferred",
       "env": "local-api",
       "smoke": false,
       "trigger_paths": [],
-      "check": "CHK-212ab6917a03"
+      "check": "CHK-1f60ca901381",
+      "revision": 3,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "e2e_deferred",
+        "check_config": {
+          "id": "CHK-1f60ca901381",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_capacity_admission_burst.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 3,
+        "run_id": "a1d5e14565a542d9a5182223bb95cb45",
+        "executed_at": "2026-10-25T11:08:58.110990+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_capacity_admission_burst.py"
+        ],
+        "cwd": ".",
+        "timeout": 1200.0
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-1f60ca901381",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/capacity/test_capacity_admission_burst.py"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "00d383bae4e34f43a714b99c0c736517",
+          "executed_at": "2026-10-25T10:38:18.555639+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_capacity_admission_burst.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0
+        },
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-1f60ca901381",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/capacity/test_capacity_admission_burst.py"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "99dcc6d9a0554d0880d13cd4ab27f259",
+          "executed_at": "2026-10-25T10:52:38.464412+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_capacity_admission_burst.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0
+        },
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-1f60ca901381",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/capacity/test_capacity_admission_burst.py"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "a1d5e14565a542d9a5182223bb95cb45",
+          "executed_at": "2026-10-25T11:08:58.110990+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_capacity_admission_burst.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0
+        }
+      ]
     },
     {
       "id": "B-02",
@@ -1961,7 +2112,7 @@
       "kind": "functional",
       "boundary": "真实 Runtime/Worker/PG + 模拟队列压力",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1978,7 +2129,170 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
-      "check": "CHK-b7e5888e7908"
+      "check": "CHK-b7e5888e7908",
+      "revision": 3,
+      "evidence": {
+        "id": "S-13",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-b7e5888e7908",
+        "input_hash": "e2b19c5e2b55a3af00cb31bd9b47ecc03ec6819cee22ea95590f93d8e9dc7409",
+        "check_config": {
+          "id": "CHK-b7e5888e7908",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_runtime_capacity_metrics.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 3,
+        "run_id": "a1d5e14565a542d9a5182223bb95cb45",
+        "executed_at": "2026-10-25T11:08:58.110990+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_runtime_capacity_metrics.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "e2b19c5e2b55a3af00cb31bd9b47ecc03ec6819cee22ea95590f93d8e9dc7409"
+      },
+      "runs": [
+        {
+          "id": "S-13",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-b7e5888e7908",
+          "input_hash": "e9a79d51cc522741fe32237bfaa82fe9dde6219c364413acfb80065874dc59a0",
+          "check_config": {
+            "id": "CHK-b7e5888e7908",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_runtime_capacity_metrics.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "00d383bae4e34f43a714b99c0c736517",
+          "executed_at": "2026-10-25T10:38:18.555639+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_runtime_capacity_metrics.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "e9a79d51cc522741fe32237bfaa82fe9dde6219c364413acfb80065874dc59a0"
+        },
+        {
+          "id": "S-13",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-b7e5888e7908",
+          "input_hash": "661aeffd474950aaf11a8c497d80e399bc7a6777503c86f2f0ebe0332b441c6b",
+          "check_config": {
+            "id": "CHK-b7e5888e7908",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_runtime_capacity_metrics.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "99dcc6d9a0554d0880d13cd4ab27f259",
+          "executed_at": "2026-10-25T10:52:38.464412+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_runtime_capacity_metrics.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "661aeffd474950aaf11a8c497d80e399bc7a6777503c86f2f0ebe0332b441c6b"
+        },
+        {
+          "id": "S-13",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-b7e5888e7908",
+          "input_hash": "e2b19c5e2b55a3af00cb31bd9b47ecc03ec6819cee22ea95590f93d8e9dc7409",
+          "check_config": {
+            "id": "CHK-b7e5888e7908",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_runtime_capacity_metrics.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "a1d5e14565a542d9a5182223bb95cb45",
+          "executed_at": "2026-10-25T11:08:58.110990+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_runtime_capacity_metrics.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "e2b19c5e2b55a3af00cb31bd9b47ecc03ec6819cee22ea95590f93d8e9dc7409"
+        }
+      ]
     },
     {
       "id": "S-14",

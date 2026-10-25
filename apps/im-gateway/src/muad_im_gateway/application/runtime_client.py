@@ -20,7 +20,14 @@ from muad_contracts.channel_delivery import (
     DeliveryLeaseGrant,
     DeliveryReservationRequest,
 )
-from muad_contracts.webchat import WebchatUploadRegistration
+from muad_contracts.webchat import (
+    ADMISSION_CONVERSATION_ID_HEADER,
+    ADMISSION_EXECUTION_STATUS_HEADER,
+    ADMISSION_RESUMED_HEADER,
+    ADMISSION_RUN_ID_HEADER,
+    WebchatExecutionStatus,
+    WebchatUploadRegistration,
+)
 
 from .envelope import (
     decode_error_payload,
@@ -78,6 +85,8 @@ class RunAdmission:
     run_id: UUID
     conversation_id: UUID | None
     resumed: bool
+    #: 创建事务里同批提交的 `run.stage` 投影；有它就不必再为 202 发一次 `get_run`。
+    execution_status: WebchatExecutionStatus | None = None
 
 
 def _transport_failure(exc: httpx.HTTPError, pool: GatewayPool) -> AppError:
@@ -95,6 +104,13 @@ def _transport_failure(exc: httpx.HTTPError, pool: GatewayPool) -> AppError:
         "gateway_transport_failure",
         extra={"pool": pool, "error": type(exc).__name__},
     )
+    # 过载/超时是**显式容量拒绝**，不是内部错误：Runtime/Gateway 的流/业务池等待超时
+    # 统一映射 429，调用方可重试；控制池超时仍按内部错误（可能是 Console 故障）。
+    if isinstance(exc, (httpx.TimeoutException, httpx.PoolTimeout)) and pool in (
+        "stream",
+        "egress",
+    ):
+        return AppError(ErrorCode.RUN_CAPACITY_EXCEEDED)
     return AppError(ErrorCode.COMMON_INTERNAL_ERROR)
 
 
@@ -172,6 +188,31 @@ def _read_scope(user_id: UUID, agent_id: UUID, entry_id: UUID) -> dict[str, str]
         "agent_id": str(agent_id),
         "entry_id": str(entry_id),
     }
+
+
+def _admission_from_headers(headers: httpx.Headers) -> RunAdmission | None:
+    """202 响应头里的受理裁决；缺失/坏值返回 None，调用方回退读首帧（兼容旧 Runtime）。"""
+    raw_run_id = headers.get(ADMISSION_RUN_ID_HEADER)
+    if not raw_run_id:
+        return None
+    try:
+        run_id = UUID(raw_run_id)
+        raw_conversation = headers.get(ADMISSION_CONVERSATION_ID_HEADER)
+        conversation_id = UUID(raw_conversation) if raw_conversation else None
+        resumed = headers.get(ADMISSION_RESUMED_HEADER) == "1"
+        raw_status = headers.get(ADMISSION_EXECUTION_STATUS_HEADER)
+        execution_status = (
+            WebchatExecutionStatus.model_validate_json(raw_status) if raw_status else None
+        )
+    except (ValueError, TypeError):
+        logger.warning("gateway_admission_header_invalid")
+        return None
+    return RunAdmission(
+        run_id=run_id,
+        conversation_id=conversation_id,
+        resumed=resumed,
+        execution_status=execution_status,
+    )
 
 
 def _admission_of(event: SseEvent) -> RunAdmission:
@@ -594,7 +635,18 @@ class RuntimeClient:
                 if response.status_code >= 400:
                     error_payload = await decode_error_payload(response)
                     raise AppError(error_code_from_payload(error_payload))
-                async for event in iter_sse_events(response.aiter_text()):
+                header_admission = _admission_from_headers(response.headers)
+                if header_admission is not None:
+                    return header_admission
+                logger.warning("gateway_admission_header_missing")
+                # 兼容没有受理响应头的旧 Runtime：只读**首帧**即返回。受理裁决就在首帧，
+                # 多读一帧会等整段流（长流直到终态/读超时），把 202 拖成超时。
+                events = iter_sse_events(response.aiter_text())
+                try:
+                    event = await anext(events)
+                except StopAsyncIteration:
+                    event = None
+                if event is not None:
                     return _admission_of(event)
         except httpx.HTTPError as exc:
             raise _transport_failure(exc, "stream") from exc

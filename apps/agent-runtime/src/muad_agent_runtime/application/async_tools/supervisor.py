@@ -122,6 +122,7 @@ class ExecutionSupervisor:
             logger.error(
                 "supervised_run_failed",
                 extra={"run_id": str(run_id), "error_type": type(error).__name__},
+                exc_info=error,
             )
 
     async def close(self) -> None:

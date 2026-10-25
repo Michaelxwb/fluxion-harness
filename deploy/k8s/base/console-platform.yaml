@@ -59,7 +59,7 @@ spec:
             - name: CONTROL_HTTP_MAX_KEEPALIVE
               value: "16"
             - name: MODEL_HTTP_MAX_CONNECTIONS
-              value: "64"
+              value: "256"
             - name: MODEL_HTTP_MAX_KEEPALIVE
               value: "32"
           # 资源声明与容量 profile 的 resources.hardware.console-platform 一致

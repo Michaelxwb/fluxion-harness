@@ -293,6 +293,8 @@ class PostgresSnapshot:
     connections_idle: int = 0
     connections_idle_in_transaction: int = 0
     connections_waiting: int = 0
+    #: 当前处于 idle-in-transaction 的真实查询与事务年龄（容量诊断；不参与 SLO 判定）
+    idle_in_tx_queries: tuple[tuple[str, float], ...] = ()
 
     @property
     def open_runs(self) -> int:
@@ -474,6 +476,12 @@ class PostgresMetrics:
         event_bytes = await connection.fetchval(
             "SELECT pg_total_relation_size('runtime.canonical_event')"
         )
+        idle_in_tx = await connection.fetch(
+            "SELECT query, EXTRACT(EPOCH FROM (now() - xact_start)) AS age "
+            "FROM pg_stat_activity WHERE datname = current_database() "
+            "AND state = 'idle in transaction' AND pid <> pg_backend_pid() "
+            "ORDER BY xact_start LIMIT 20"
+        )
         if (
             counters is None
             or activity is None
@@ -497,6 +505,10 @@ class PostgresMetrics:
             "connections_idle": int(activity["idle"]),
             "connections_idle_in_transaction": int(activity["idle_in_transaction"]),
             "connections_waiting": int(activity["waiting"]),
+            "idle_in_tx_queries": tuple(
+                (str(row["query"] or "")[:500], float(row["age"] or 0.0))
+                for row in idle_in_tx
+            ),
         }
 
     async def _fetch_runs(self, connection: asyncpg.Connection) -> _RunPayload:

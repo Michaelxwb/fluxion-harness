@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import time
 import uuid
@@ -359,6 +360,7 @@ class ConcurrencySample:
     connections_total: int = 0
     connections_idle_in_tx: int = 0
     connections_waiting: int = 0
+    idle_in_tx_queries: tuple[tuple[str, float], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -558,6 +560,8 @@ class LoadDriver:
         self._active_streams = 0
         self._probe_conversation_id: str | None = None
         self._control_client: httpx.AsyncClient | None = None
+        #: 每个用户一条预热好的 keep-alive 客户端（浏览器在开始交互前已建立连接）。
+        self._clients: dict[int, httpx.AsyncClient] = {}
 
     def _validate(self) -> None:
         if self._run_kind is RunKind.ACCEPTANCE:
@@ -589,11 +593,13 @@ class LoadDriver:
 
     async def _run(self) -> LoadReport:
         target = self._target
-        self._t0 = time.monotonic()
         probe_before = self._probe_state()
         units_before = self._scrape_units()
         postgres_before = self._metrics.snapshot()
         probe_credential = target.control_session or target.sessions[0]
+        await self._prepare_user_clients()
+        # 预热连接发生在用户 ramp 之前：_t0 从这里开始，ramp 偏移才有意义。
+        self._t0 = time.monotonic()
         async with self._user_client(probe_credential) as control_client:
             self._control_client = control_client
             probe_conversation_id, _, _ = await self._create_conversation(control_client)
@@ -608,6 +614,9 @@ class LoadDriver:
                 controls.cancel()
                 await asyncio.gather(sampler, controls, return_exceptions=True)
             boundary = await self._boundary_probe()
+        for client in self._clients.values():
+            await client.aclose()
+        self._clients.clear()
         return self._build_report(
             turns=turns,
             boundary=boundary,
@@ -689,10 +698,25 @@ class LoadDriver:
                 ),
             )
 
+    async def _prepare_user_clients(self) -> None:
+        """在负载开始前建立并预热每个用户的 keep-alive 连接。
+
+        浏览器在开始对话前已经与入口建立连接；把 TCP 建连放进每条消息的受理计时，
+        量到的是测试驱动的连接建立而不是服务容量。
+        """
+        for index in range(len(self._target.sessions)):
+            client = self._user_client(self._target.sessions[index])
+            with contextlib.suppress(httpx.HTTPError):
+                await client.get(
+                    self._url("/api/v1/webchat/notifications"),
+                    params={"after_seq": 0, "page_size": 1},
+                )
+            self._clients[index] = client
+
     async def _run_user(self, plan: UserPlan) -> tuple[TurnResult, ...]:
         await self._sleep_until(plan.start_offset_sec)
-        credential = self._target.sessions[plan.index]
-        async with self._user_client(credential) as client:
+        client = self._clients.pop(plan.index)
+        try:
             conversation_id, status, detail = await self._create_conversation(client)
             if conversation_id is None:
                 return (
@@ -720,6 +744,8 @@ class LoadDriver:
                 notification_task.cancel()
                 await asyncio.gather(notification_task, return_exceptions=True)
             return tuple(results)
+        finally:
+            await client.aclose()
 
     async def _run_turn(
         self, client: httpx.AsyncClient, plan: UserPlan, turn: int, conversation_id: str
@@ -1028,6 +1054,7 @@ class LoadDriver:
                     connections_total=snapshot.connections_total,
                     connections_idle_in_tx=snapshot.connections_idle_in_transaction,
                     connections_waiting=snapshot.connections_waiting,
+                    idle_in_tx_queries=snapshot.idle_in_tx_queries,
                 )
             )
             await asyncio.sleep(self._target.sample_interval_sec)

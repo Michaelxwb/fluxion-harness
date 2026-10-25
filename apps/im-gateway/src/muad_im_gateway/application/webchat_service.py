@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 from uuid import UUID
@@ -241,15 +242,33 @@ class WebchatResourceService:
                 upload_ids=list(request.upload_ids),
             ),
         )
+        started = time.monotonic()
         admission = await self._runtime.submit_run(
             run_request, tenant_id=self._tenant_id, idempotency_key=idempotency_key
         )
+        admission_ms = (time.monotonic() - started) * 1000
+        if admission_ms > 1000:
+            logger.warning(
+                "webchat_submit_slow",
+                extra={"elapsed_ms": int(admission_ms), "run_id": str(admission.run_id)},
+            )
         if admission.conversation_id is not None and (
             admission.conversation_id != request.conversation_id
         ):
             # 受理的 Run 必须落在请求的显式会话上；不一致是路由错误，显式失败不糊过去。
             logger.warning("webchat_admission_conversation_mismatch")
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        if admission.execution_status is not None and not admission.resumed:
+            # 新 Run 的受理事务已把阶段投影一并提交：202 直接用它，不再为回执重读 Run+Snapshot。
+            conversation_id = admission.conversation_id or request.conversation_id
+            if conversation_id is None:
+                raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+            return WebchatMessageAccepted(
+                conversation_id=conversation_id,
+                run_id=admission.run_id,
+                status=RunStatus.CREATED,
+                execution_status=admission.execution_status,
+            )
         state = await self._owned_run(identity, admission.run_id)
         return WebchatMessageAccepted(
             conversation_id=required_uuid(state, "conversation_id"),

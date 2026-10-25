@@ -86,6 +86,20 @@ RUN_STAGE_PROJECTION_METRIC: Final = "run_stage_projection_total"
 EXECUTION_SLOTS_METRIC: Final = "runtime_execution_slots"
 #: 失去归属的本地执行片段被回收的次数（槽位账本不漂移）。
 EXECUTION_SLOT_RECLAIM_METRIC: Final = "execution_slot_reclaim_total"
+# --- 队列容量（TASK-005 S-13 / B-01；HPA 的自定义指标来源） -------------------------------
+#: 按排队阶段（WAITING_RUNTIME/WAITING_MODEL）的在飞队列深度。
+QUEUE_DEPTH_METRIC: Final = "runtime_queue_depth"
+#: 最老排队 Run 的等待秒数（PG 服务端时钟）；HPA 用它按等待时长扩容。
+OLDEST_QUEUE_AGE_METRIC: Final = "runtime_oldest_queue_age_seconds"
+#: 已离开队列、正在执行的 Run 数。
+EXECUTION_INFLIGHT_METRIC: Final = "runtime_execution_inflight"
+#: 本租户非终态 Run 总数（与队列深度区分：执行中 + 排队）。
+OPEN_RUNS_METRIC: Final = "runtime_open_runs"
+#: memory consolidation 队列：PENDING/RUNNING/RETRY 三个状态。
+MEMORY_JOB_QUEUE_METRIC: Final = "runtime_memory_job_queue"
+#: 本进程准入闸门：在飞 / 排队等待数（B-01 有界拒绝的观测面）。
+ADMISSION_INFLIGHT_METRIC: Final = "runtime_admission_inflight"
+ADMISSION_WAITING_METRIC: Final = "runtime_admission_waiting"
 #: 每个**独立**维护循环的节拍结局：单次失败留痕且不杀循环（design §3.2）。
 RUNTIME_MAINTENANCE_METRIC: Final = "runtime_maintenance_total"
 
@@ -265,6 +279,23 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         (),
         "Stale local executions reclaimed by the slot supervisor",
     ),
+    (QUEUE_DEPTH_METRIC, GAUGE, ("stage",), "Runs waiting in each runtime queue stage"),
+    (
+        OLDEST_QUEUE_AGE_METRIC,
+        GAUGE,
+        ("stage",),
+        "Oldest runtime queue wait in seconds by stage",
+    ),
+    (EXECUTION_INFLIGHT_METRIC, GAUGE, (), "Runs currently executing outside the queue"),
+    (OPEN_RUNS_METRIC, GAUGE, (), "Non-terminal runs visible to this runtime tenant"),
+    (
+        MEMORY_JOB_QUEUE_METRIC,
+        GAUGE,
+        ("state",),
+        "Memory consolidation jobs by state",
+    ),
+    (ADMISSION_INFLIGHT_METRIC, GAUGE, (), "Admissions currently holding the process gate"),
+    (ADMISSION_WAITING_METRIC, GAUGE, (), "Admissions waiting for the process gate"),
     (
         RUNTIME_MAINTENANCE_METRIC,
         COUNTER,

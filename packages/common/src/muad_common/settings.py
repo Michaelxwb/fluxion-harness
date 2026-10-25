@@ -36,7 +36,14 @@ class SharedSettings(BaseSettings):
     # 每机器人状态刷新预算（正文/最终结果不占此额度）：**服务资源预算上限**，留在环境。
     im_progress_updates_per_second: float = Field(default=10.0, ge=1.0)
 
-    runtime_execution_concurrency: int = Field(default=8, ge=1, le=256)
+    #: 单进程执行槽默认值按 profile 上界：4 副本 × 256 ≥ 1000 并发 Run。
+    #: 生产清单显式声明同值；本地 `.env` 可下调，但容量结论必须按清单/环境变量。
+    runtime_execution_concurrency: int = Field(default=256, ge=1, le=256)
+    #: 准入闸门之后的最多排队数（每进程）：超过即显式 RUN_CAPACITY_EXCEEDED/429，
+    #: 不把请求无限挂在 asyncio 队列里（B-01「有界队列」）。
+    runtime_admission_queue_limit: int = Field(default=256, ge=0, le=10000)
+    #: memory consolidation 的租户级待处理上限；到界后不再入队（不阻塞已完成的 Run）。
+    memory_consolidation_queue_max: int = Field(default=10000, ge=1)
     worker_execution_concurrency: int = Field(default=4, ge=1, le=64)
     gateway_max_concurrent_handlers: int = Field(default=8, ge=1)
     gateway_max_pending_handlers: int = Field(default=256, ge=1)
@@ -55,7 +62,7 @@ class SharedSettings(BaseSettings):
     control_http_max_keepalive: int = Field(default=16, ge=0)
     stream_http_max_connections: int = Field(default=1100, ge=1)
     stream_http_max_keepalive: int = Field(default=64, ge=0)
-    model_http_max_connections: int = Field(default=64, ge=1)
+    model_http_max_connections: int = Field(default=256, ge=1)
     model_http_max_keepalive: int = Field(default=32, ge=0)
     mcp_http_max_connections: int = Field(default=16, ge=1)
     mcp_http_max_keepalive: int = Field(default=8, ge=0)

@@ -836,7 +836,12 @@ def run_preflight(
             "容量 profile 缺 resources：正式发布预检必须声明资源预算（requests/limits、"
             "进程/副本计数、PG/FD/存储预算）"
         )
-    resolved_settings = settings if settings is not None else SharedSettings()
+    # 发布门禁对照的是 **typed 默认值**：本机 `.env` 的开发小池（egress=16 等）不能
+    # 改变正式清单的容量判定；环境差异只能通过显式 profile/部署 env 表达。
+    settings_factory: Any = SharedSettings
+    resolved_settings = (
+        settings if settings is not None else settings_factory(_env_file=None)
+    )
     limits = pg_per_process if pg_per_process is not None else _pg_limits()
     renderer, documents = render_manifests(base_dir)
     units = build_units(documents)

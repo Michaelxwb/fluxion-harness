@@ -72,7 +72,10 @@ NON_RESOURCE_FILES = frozenset({SECRET_TEMPLATE, "kustomization.yaml"})
 QUEUE_DEPTH_TARGET_FACTOR = 2
 
 #: 自动扩缩单元 → 必须被 HPA 使用的真实排队 gauge（源码里真的发布）。
-BACKLOG_GAUGE = {"agent-worker": "task_queue_depth"}
+BACKLOG_GAUGE = {
+    "agent-runtime": "runtime_queue_depth",
+    "agent-worker": "task_queue_depth",
+}
 
 #: 自动扩缩单元 → 真实指标目录（`metrics.py` 的 CATALOG：指标名 → 类型）。
 METRIC_CATALOGS: dict[str, dict[str, str]] = {
@@ -159,6 +162,19 @@ def _target_name(hpa: dict[str, Any]) -> str:
         f"{hpa['metadata']['name']}: HPA 必须扩缩真实 Deployment（apps/v1）"
     )
     return str(target["name"])
+
+
+def _manifest_slot_budget(unit: str, documents: Sequence[dict[str, Any]]) -> int:
+    """执行槽的**部署事实**：清单 env 优先，缺省回落 typed 设置（与运行时同一来源）。"""
+    field = EXECUTION_SLOT_FIELDS[unit]
+    env = {
+        str(item["name"]): str(item.get("value", ""))
+        for item in _deployment(unit, documents)["spec"]["template"]["spec"]["containers"][0].get(
+            "env", []
+        )
+    }
+    raw = env.get(field.upper())
+    return int(raw) if raw else int(getattr(SharedSettings(), field))
 
 
 def _metric_specs(hpa: dict[str, Any]) -> list[dict[str, Any]]:
@@ -395,7 +411,6 @@ def test_hpa_custom_metrics_are_real_published_gauges(unit: str) -> None:
     且目标值与本进程执行槽口径一致；Runtime 的随负载在飞/队列 gauge 尚未发布，不得用别的
     名字冒充（本用例只允许真实发布过的 gauge）。
     """
-    settings = SharedSettings()
     hpa = _named("HorizontalPodAutoscaler", f"muad-{unit}", _rendered_docs())
     catalog = METRIC_CATALOGS[unit]
     published = _published_gauges(APP_SOURCES[unit])
@@ -412,11 +427,26 @@ def test_hpa_custom_metrics_are_real_published_gauges(unit: str) -> None:
         assert kind in ("Pods", "Object"), (
             f"{unit}: {backlog} 必须作为 Pods/Object 指标消费，实际 {kind}"
         )
-        slots = getattr(settings, EXECUTION_SLOT_FIELDS[unit])
+        slots = _manifest_slot_budget(unit, _rendered_docs())
         assert _average_value(spec) == QUEUE_DEPTH_TARGET_FACTOR * slots, (
             f"{unit}: 队列深度目标必须与 typed 执行槽一致"
             f"（{QUEUE_DEPTH_TARGET_FACTOR}×{slots}）"
         )
+
+
+def test_execution_slot_ceiling_covers_the_profile_user_target() -> None:
+    """TASK-005：maxReplicas × 单进程执行槽 ≥ profile 的 1000 用户目标。
+
+    这条把"提高执行槽/副本"变成可复核的部署事实：只调 CPU 或只加副本都不算。
+    """
+    documents = _rendered_docs()
+    profile = load_profile(PROFILE_PATH)
+    slots = _manifest_slot_budget("agent-runtime", documents)
+    hpa = _named("HorizontalPodAutoscaler", "muad-agent-runtime", documents)
+    replicas = int(hpa["spec"]["maxReplicas"])
+    assert replicas * slots >= profile.workload.users, (
+        f"agent-runtime 槽位上限 {replicas}×{slots} < profile users={profile.workload.users}"
+    )
 
 
 @pytest.mark.parametrize("unit", AUTOSCALED_UNITS)
