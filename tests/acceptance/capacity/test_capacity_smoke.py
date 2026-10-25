@@ -78,16 +78,16 @@ SMOKE_ENV: dict[str, dict[str, str]] = {
         "CHANNEL_DELIVERY_RETRY_BASE_SEC": "2",
         "RUNTIME_EXECUTION_CONCURRENCY": "128",
         "MODEL_HTTP_MAX_CONNECTIONS": "128",
-        "DB_POOL_SIZE": "30",
-        "DB_MAX_OVERFLOW": "30",
+        "DB_POOL_SIZE": "10",
+        "DB_MAX_OVERFLOW": "10",
     },
     "im-gateway": {
-        "DB_POOL_SIZE": "20",
-        "DB_MAX_OVERFLOW": "20",
+        "DB_POOL_SIZE": "5",
+        "DB_MAX_OVERFLOW": "5",
     },
     "console-platform": {
-        "DB_POOL_SIZE": "20",
-        "DB_MAX_OVERFLOW": "20",
+        "DB_POOL_SIZE": "10",
+        "DB_MAX_OVERFLOW": "10",
     },
     "agent-worker": {
         "WORKER_POLL_INTERVAL_SEC": "1",

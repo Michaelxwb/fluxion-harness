@@ -415,6 +415,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 | B-01 | planned | planned | planned | planned | planned |
 
 > BLOCKED: Runtime capacity/HPA/queue metrics/memory backpressure 仍需专项实现；history 已移到后台 launch（202 不再等历史），100 用户 smoke 仍失败：admission P95 4764ms、first-delta P95 9864ms、system error 40%、idle-in-tx 51。剩余项交给后续 TASK-005 续作。
+> BLOCKED: 100 用户 smoke 仍失败：admission P95 3767ms、first-delta P95 9877ms、system error 20%、idle-in-tx 39。已定位本栈 PG max_connections 被打满（30+30×2 Runtime + Console/Gateway 池 > 实例上限），缩到 10+10 后 system error 66%→20%；剩余需 HPA 队列指标、执行槽/模型额度定容、Console 单进程容量与 memory 背压专项，不能在本轮安全收口。
 ### Log
 
 - [2026-10-25] created (draft)
@@ -423,6 +424,8 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 - [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 - [2026-10-25] blocked (Runtime capacity/HPA/queue metrics/memory backpressure 仍需专项实现；history 已移到后台 launch（202 不再等历史），100 用户 smoke 仍失败：admission P95 4764ms、first-delta P95 9864ms、system error 40%、idle-in-tx 51。剩余项交给后续 TASK-005 续作。)
+- [2026-10-25] resumed (draft)
+- [2026-10-25] blocked (100 用户 smoke 仍失败：admission P95 3767ms、first-delta P95 9877ms、system error 20%、idle-in-tx 39。已定位本栈 PG max_connections 被打满（30+30×2 Runtime + Console/Gateway 池 > 实例上限），缩到 10+10 后 system error 66%→20%；剩余需 HPA 队列指标、执行槽/模型额度定容、Console 单进程容量与 memory 背压专项，不能在本轮安全收口。)
 
 ---
 
