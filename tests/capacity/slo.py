@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -18,6 +19,7 @@ __all__ = [
     "SloInput",
     "SloThresholds",
     "evaluate_slo",
+    "min_delta_frames",
     "require_slo",
     "thresholds_from_profile",
 ]
@@ -184,3 +186,17 @@ def require_slo(checks: Sequence[SloCheck]) -> None:
         return
     details = "; ".join(f"{check.name}: {check.detail}" for check in failed)
     raise AssertionError(f"SLO 未通过（{len(failed)} 项）：{details}")
+
+
+def min_delta_frames(stream_ms: float, flush_ms: float, tolerance: float = 0.8) -> int:
+    """合并后的增量帧数下界：由 flush 窗口推导，不写死。
+
+    运行时按 `flush_ms` 合并增量（首段立即 flush），`stream_ms` 的流合并后约有
+    `stream_ms / flush_ms` 帧；留出首帧/尾帧余量后取下界。写死下界会在 flush 配置
+    变化后与实现脱节（TASK-004 把窗口从 50ms 调到 300ms 时就是这样）。
+    """
+    if stream_ms <= 0 or flush_ms <= 0:
+        raise ValueError("stream_ms 与 flush_ms 必须为正")
+    if not 0 < tolerance <= 1:
+        raise ValueError("tolerance 必须在 (0, 1] 之间")
+    return max(1, math.floor(stream_ms / flush_ms * tolerance))

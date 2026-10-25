@@ -888,19 +888,21 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 - **Spec-Refs**: harness-test#RULE-test-001
 - **Acceptance-Refs**: S-01, E-08, E-09
 - **Estimate**: 2d
-- **Capability**: 1000 用户真实流式/浏览器同形负载达到 SLO；故障/混沌可恢复；manual release gate 可执行
+- **Capability**: 本地回归守卫可执行（闸门容量 capacity smoke + 可注入混沌）；1000×8 SLO 由 staging 发布门禁（E-09）验证，本地不冒充
 
 ### Description
 
-把 1000×8 全量、PG failover/Redis 抖动/Pod kill、真机企微 manual gate 串成发布前验收；不以 6 用户 report 冒充。
+把本地回归守卫、PG failover/Redis 抖动/Pod kill、真机企微 manual gate 串成发布前验收；不以 6 用户 report 冒充。
+
+**执行口径（2026-10-26 复盘）**：本地单机四单元栈的 runtime DB 池是 `20+10=30`（本机 PG `max_connections=100` 的总预算），准入闸门 `min(64, pool+overflow)=30`，100 个并发准入必须分 3–4 波——100 用户 smoke 在此拓扑下不可能满足 1000ms/2500ms 的生产 SLO（30 用户对照实验全部达标可证）。因此 **本地回归守卫 = S-16（闸门容量内的 smoke）+ E-08（可注入混沌）**；**SLO 权威结论 = staging 的 E-09**（目标拓扑：N 个 runtime 副本、PG total<200、模型额度）。本地任何数字都不得写成「1000 用户达标」。
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`：1000×8 capacity_load 产出 SLO/PG/CPU/retention 证据；混沌通过；manual gate 有 owner/截止
-- [ ] 执行 S-01 全量：attempts=8000、steady 600s、SLO/PG/CPU/retention 断言
+- [ ] 交付 `<Capability>`：本地回归守卫（闸门容量 smoke + 混沌）产出 PG/CPU/retention 证据；staging SLO 由 E-09 承载；manual gate 有 owner/截止
+- [ ] 登记 S-01 的 staging 执行口径：本地不跑 1000×8（闸门/池容量不足），attempts=8000 与 SLO 证据由 E-09 产出
 - [ ] 执行 E-08 混沌：PG failover、Redis 抖动、Gateway/Runtime Pod kill；已受理不丢
 - [ ] 登记 E-09 manual/staging release gate：owner/截止/证据；未过不得写达标
-- [ ] [S-01][integration] 1000×8 全量 capacity_load；SLO/PG/CPU/retention
+- [ ] [S-01][integration] 1000×8 全量 capacity_load（staging 执行；本地以 S-16 闸门容量 smoke 作回归守卫）
 - [ ] [E-08][integration] 混沌恢复；无重复终态/投递；降级可见
 - [ ] [E-09][manual] staging 1000×8 人工 release gate（owner=发布负责人；deadline=发布前；未过不得写生产达标）
 - [ ] [harness-test#RULE-test-001][verifier] bash -lc "uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"

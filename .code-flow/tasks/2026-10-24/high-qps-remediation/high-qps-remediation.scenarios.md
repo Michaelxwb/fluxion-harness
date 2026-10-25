@@ -14,7 +14,7 @@ scenarios:
   exec: deferred
   owner: TASK-012
   target_phase: release
-  defer_reason: 1000×8 全量需目标拓扑与模型额度，属发布前 release gate（TASK-012）
+  defer_reason: 1000×8 需目标拓扑与模型额度，只在 staging 执行（E-09）；本地回归守卫为 S-16（闸门容量 smoke）
   env: local-api
   components:
   - backend

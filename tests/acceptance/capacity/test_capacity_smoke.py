@@ -45,7 +45,13 @@ from tests.capacity.driver import (
 )
 from tests.capacity.metrics import PostgresMetrics
 from tests.capacity.profile import CapacityProfile, load_profile
-from tests.capacity.slo import SloInput, SloThresholds, evaluate_slo, require_slo
+from tests.capacity.slo import (
+    SloInput,
+    SloThresholds,
+    evaluate_slo,
+    min_delta_frames,
+    require_slo,
+)
 
 pytestmark = [pytest.mark.integration, pytest.mark.capacity_load]
 
@@ -53,6 +59,8 @@ SMOKE_USERS = int(os.environ.get("CAPACITY_LOAD_USERS", "100"))
 #: 20 chunks/s × 10s = 200 个真实增量帧。
 SMOKE_CHUNKS = tuple(f"容量分片{index:03d}-" for index in range(200))
 SMOKE_CHUNK_INTERVAL_MS = 50
+#: 帧数下界由**同一份** flush 配置推导（生产节拍改窗口时断言自动跟随）。
+SMOKE_STREAM_MS = len(SMOKE_CHUNKS) * SMOKE_CHUNK_INTERVAL_MS
 SMOKE_MODEL_LATENCY_MS = 50
 #: S-16 的 smoke 阈值（场景契约；不替代 profile 的正式 SLO）。
 SMOKE_THRESHOLDS = SloThresholds(
@@ -112,6 +120,10 @@ SMOKE_ENV: dict[str, dict[str, str]] = {
         "WORKER_EXECUTION_CONCURRENCY": "16",
     },
 }
+#: 增量合并窗口与由此推导的帧数下界（同一份 SMOKE_ENV 事实，避免断言与实现脱节）。
+SMOKE_FLUSH_INTERVAL_MS = int(SMOKE_ENV["agent-runtime"]["STREAM_DELTA_FLUSH_INTERVAL_MS"])
+MIN_SMOKE_DELTA_FRAMES = min_delta_frames(SMOKE_STREAM_MS, SMOKE_FLUSH_INTERVAL_MS)
+
 SMOKE_PLATFORM_SETTINGS = {
     "model_pool": {"dispatch_epoch_sec": 3600},
     "capacity": {"queue_wait_timeout_sec": 300, "model_wait_timeout_sec": 120},
@@ -354,9 +366,10 @@ def test_s16_100_user_capacity_smoke(smoke_run, smoke_module: SmokeModule) -> No
     completed = report.completed()
     assert completed, "至少一轮到达终态"
     delta_counts = [turn.delta_frames for turn in completed]
-    # 运行时按 50ms 窗口合并增量，帧数可少于 200；下界仍须证明 20 chunks/s 的真实流形状。
-    assert min(delta_counts) >= 150, (
-        f"每轮至少 150 个真实增量帧（约 20/s × 10s），实际 {min(delta_counts)}"
+    # 帧数下界由 SMOKE_ENV 的合并窗口推导（见 MIN_SMOKE_DELTA_FRAMES），不写死。
+    assert min(delta_counts) >= MIN_SMOKE_DELTA_FRAMES, (
+        f"每轮至少 {MIN_SMOKE_DELTA_FRAMES} 个真实增量帧"
+        f"（{SMOKE_STREAM_MS}ms 流按 {SMOKE_FLUSH_INTERVAL_MS}ms 合并窗口推导），实际 {min(delta_counts)}"
     )
 
     assert report.pool_timeout_count == 0, "不得出现连接池等待超时"

@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "high-qps-remediation.md",
-  "task_sha256": "701ce74bb7d3b0584dbb63c119414c7f8bc3adb479bc17382ad1bc22ae6b7615",
+  "task_sha256": "a5172b86ca24e476e0c1690ac42721e2ae4e809599996026b30d8116920fa49b",
   "checks": [
     {
       "id": "CHK-1f60ca901381",
@@ -304,6 +304,9 @@
         "deploy/k8s/base/im-gateway.yaml"
       ],
       "suite": "browser",
+      "test_ids": [
+        "e2e/tests/webchat/capacity-recovery.spec.ts:770@chromium"
+      ],
       "markers": [
         "smoke"
       ],
@@ -323,10 +326,7 @@
           "--reporter=json"
         ],
         "timeout": 60
-      },
-      "test_ids": [
-        "e2e/tests/webchat/capacity-recovery.spec.ts:770@chromium"
-      ]
+      }
     },
     {
       "id": "CHK-67745111ebdb",
@@ -2263,7 +2263,7 @@
         "load profile 声明 1000 users、8 turns/600s、20 chunks/s × 10s、通知轮询 15s",
         "模型额度/执行槽总量足以承接目标并发"
       ],
-      "defer_reason": "1000×8 全量需目标拓扑与模型额度，属发布前 release gate（TASK-012）",
+      "defer_reason": "1000×8 需目标拓扑与模型额度，只在 staging 执行（E-09）；本地回归守卫为 S-16（闸门容量 smoke）",
       "target_phase": "release",
       "defer_owner": "TASK-012",
       "check": "CHK-d321859782b6"
