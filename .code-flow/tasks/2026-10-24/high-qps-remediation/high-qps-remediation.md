@@ -53,23 +53,23 @@
 | B-04 | high-qps-remediation.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Ingress → console-web/CDN + console-api + gateway；同源 Cookie | TASK-011 | e2e_deferred | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"] | . | 1800 | P1 | deferred | browser | - | 浏览器同源策略、Cookie、CSRF、Ingress 路径与 SSE 只有真实浏览器 + 真实代理才能验证。 | ["apps/console-platform/frontend/**", "deploy/k8s/base/ingress.yaml", "deploy/k8s/overlays/console-web/**"] | no |
 | E-01 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime + Console auth；模拟 platform-settings 不可用 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_notification_settings.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | E-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime + PostgreSQL；pool=1，打开 10 条 SSE | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_timeout_is_bounded or early_close"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| E-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；kill -9 在 WS 收到后、XADD 前 | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
-| E-04 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector + 假 WS 服务端；旧 reply_ref 过期后发送终态/产物 | TASK-007 | stale | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
-| E-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime + Redis 停机 + PG 持久事件 | TASK-004 | stale | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_shared_tail.py", "-k", "lost_hint_falls_back or hint_failure_keeps"] | . | 600 | P1 | auto | local-api | - | - | - | no |
+| E-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；kill -9 在 WS 收到后、XADD 前 | TASK-007 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
+| E-04 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector + 假 WS 服务端；旧 reply_ref 过期后发送终态/产物 | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
+| E-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime + Redis 停机 + PG 持久事件 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_shared_tail.py", "-k", "lost_hint_falls_back or hint_failure_keeps"] | . | 600 | P1 | auto | local-api | - | - | - | no |
 | E-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | manual | 真实企微智能机器人 + 两个 Connector 候选 + 真实网络；不是假 WS | TASK-007 | planned | - | . | 600 | P0 | manual | staging | - | - | - | no |
-| E-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；关闭平台重投 | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
+| E-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；关闭平台重投 | TASK-007 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | E-08 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实进程 + PG/Redis 故障注入 | TASK-012 | failed | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_chaos.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | E-09 | high-qps-remediation.backend.design.md#2.5 验收条件 | manual | staging 目标拓扑；人工执行并记录证据 | TASK-012 | planned | - | . | 3600 | P0 | manual | staging | - | - | - | no |
 | S-01 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实入口代理 → Gateway → Runtime → PostgreSQL/Redis；模型为可控 HTTP 流式探针；通知轮询为浏览器同形请求 | TASK-012 | failed | ["bash", "-lc", "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"] | . | 5400 | P0 | deferred | local-api | - | - | - | no |
 | S-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 浏览器同形通知轮询 → Gateway → Console auth / Runtime notifications；真实 PG/Redis | TASK-002 | failed | ["bash", "-lc", "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | S-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime HTTP SSE + 真实 PostgreSQL；runtime DB pool=2 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_two_hundred"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-04 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime 事件 writer + 真实 PostgreSQL/Redis；20 delta/s × 10s | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_durable_deltas.py", "-k", "production_window_bounds_commits"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| S-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 两个真实 Connector 进程 + 假企微 WS 服务端 + 真实 Redis lease；Runtime/Gateway 真实进程 | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
+| S-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 两个真实 Connector 进程 + 假企微 WS 服务端 + 真实 Redis lease；Runtime/Gateway 真实进程 | TASK-007 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | S-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | E2E | 真实浏览器/HTTP 客户端 → 两个以上 Gateway 副本 → Runtime/PG/Redis；SSE 断线重连到另一副本 | TASK-009 | e2e_deferred | ["npm", "run", "webchat-smoke"] | . | 1800 | P0 | deferred | browser | - | SSE 长连接、负载均衡、断线重连和跨 Pod 游标只有真实浏览器 + 多副本 + Runtime 持久流才能覆盖。 | ["apps/im-gateway/**", "apps/agent-runtime/src/muad_agent_runtime/api/runs.py", "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py", "deploy/k8s/base/im-gateway.yaml"] | yes |
-| S-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway HTTP /channels/{channel}/events + 假 webhook 提供方 + Redis Stream + Runtime | TASK-008 | stale | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
+| S-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway HTTP /channels/{channel}/events + 假 webhook 提供方 + Redis Stream + Runtime | TASK-008 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
 | S-08 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway → 统一消息核心 → Console/Runtime/PG；已验证 CHAT 主体上下文 | TASK-010 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webchat_core.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| S-09 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 前端 service/hook + mock HTTP；不访问真实后端 | TASK-011 | stale | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
-| S-10 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 构建产物 + 前端路由（mock API） | TASK-011 | stale | ["uv", "run", "pytest", "-q", "tests/frontend/test_webchat_code_splitting.py"] | . | 600 | P1 | auto | none | - | - | - | no |
+| S-09 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 前端 service/hook + mock HTTP；不访问真实后端 | TASK-011 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
+| S-10 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 构建产物 + 前端路由（mock API） | TASK-011 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_webchat_code_splitting.py"] | . | 600 | P1 | auto | none | - | - | - | no |
 | S-11 | high-qps-remediation.backend.design.md#2.5 验收条件 | contract | 纯契约/序列化；不连服务 | TASK-006 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-12 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实包导入/清单渲染/architecture tests；不启动业务栈 | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/architecture"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-13 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime/Worker/PG + 模拟队列压力 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_runtime_capacity_metrics.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
@@ -322,7 +322,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | S-04 | integration | 真实 Runtime 事件 writer + PostgreSQL/Redis；20 delta/s × 10s | ≤4 commits/s/Run；≤3 statements/event；无丢/重 seq；terminal 最后 | tests/agent_runtime/test_capacity_webchat_durable_deltas.py::test_b259_production_window_bounds_commits_per_second | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_durable_deltas.py", "-k", "production_window_bounds_commits"] | verified |
-| E-05 | integration | 真实 Runtime + Redis 停机 + PG 持久事件 | 退化为 PG 有界轮询；不丢/不重；恢复回切 | tests/agent_runtime/test_capacity_webchat_shared_tail.py::test_b260_lost_hint_falls_back_to_bounded_pg_catch_up; test_b260_hint_failure_keeps_writes_and_local_wakeup | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_shared_tail.py", "-k", "lost_hint_falls_back or hint_failure_keeps"] | stale |
+| E-05 | integration | 真实 Runtime + Redis 停机 + PG 持久事件 | 退化为 PG 有界轮询；不丢/不重；恢复回切 | tests/agent_runtime/test_capacity_webchat_shared_tail.py::test_b260_lost_hint_falls_back_to_bounded_pg_catch_up; test_b260_hint_failure_keeps_writes_and_local_wakeup | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_shared_tail.py", "-k", "lost_hint_falls_back or hint_failure_keeps"] | verified |
 | B-02 | integration | 真实 PostgreSQL；批量写入 + retention | 删除速率≥写入；表大小稳定；无长事务/锁等待 | tests/agent_runtime/test_capacity_webchat_retention.py::test_b269_stream_replay_cleanup_drains_20k_backlog | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_retention.py", "-k", "drains_20k"] | verified |
 
 **Spec Verifier**
@@ -352,6 +352,9 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 - S-04: stale — input changed: CHK-f6dff60fdd67 (confirmed_by: runtime)
 - B-02: verified — automated command passed; run_id=97e211e414874d5fbc4f883fed2a5651 (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=97e211e414874d5fbc4f883fed2a5651 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=94251b3a5fc946f7956498a72fc36ce9 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=94251b3a5fc946f7956498a72fc36ce9 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=94251b3a5fc946f7956498a72fc36ce9 (confirmed_by: runner)
 
 ### Log
 
@@ -536,11 +539,11 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | integration | 双 Connector 进程 + 假 WS + Redis lease | 单 owner；epoch 拒旧 owner；接管；无重复 | tests/acceptance/im_gateway/test_connector_lease.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | verified |
-| E-03 | integration | 真实 Connector + Redis Stream；平台重投 | 最终一个 Run；无重复回复 | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | verified |
-| E-04 | integration | 真实 Connector + 假 WS；旧 reply_ref | 主动发送+DEGRADED；不串消息 | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | stale |
+| S-05 | integration | 双 Connector 进程 + 假 WS + Redis lease | 单 owner；epoch 拒旧 owner；接管；无重复 | tests/acceptance/im_gateway/test_connector_lease.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | e2e_deferred |
+| E-03 | integration | 真实 Connector + Redis Stream；平台重投 | 最终一个 Run；无重复回复 | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | e2e_deferred |
+| E-04 | integration | 真实 Connector + 假 WS；旧 reply_ref | 主动发送+DEGRADED；不串消息 | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | verified |
 | E-06 | manual | 真实企微 + 两个 Connector + staging | 记录双 WS/req_id 寿命；降级符合预期 | manual/staging（owner=Connector 负责人；deadline=Phase 2 结束前） | - | planned |
-| E-07 | integration | 真实 Connector + Redis；平台不重投 | 显式 FAILED/告警；不承诺 exactly-once | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | verified |
+| E-07 | integration | 真实 Connector + Redis；平台不重投 | 显式 FAILED/告警；不承诺 exactly-once | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | e2e_deferred |
 
 ### Acceptance Evidence
 
@@ -564,6 +567,10 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 - E-03: verified — automated command passed; run_id=97e211e414874d5fbc4f883fed2a5651 (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=97e211e414874d5fbc4f883fed2a5651 (confirmed_by: runner)
 - S-05: verified — automated command passed; run_id=97e211e414874d5fbc4f883fed2a5651 (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=9bf0d256fec144ce8c3ae53166a0067e (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=9bf0d256fec144ce8c3ae53166a0067e (confirmed_by: runner)
+- E-07: e2e_deferred — automated command e2e_deferred; run_id=9bf0d256fec144ce8c3ae53166a0067e (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=9bf0d256fec144ce8c3ae53166a0067e (confirmed_by: runner)
 
 ### Log
 
@@ -606,7 +613,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-07 | integration | 真实 Gateway HTTP + 假 webhook + Redis Stream + Runtime | 不新增 Deployment；合法先持久化再 ACK；非法签名不落库；重复 event_id 幂等 | tests/acceptance/im_gateway/test_webhook_channel.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | stale |
+| S-07 | integration | 真实 Gateway HTTP + 假 webhook + Redis Stream + Runtime | 不新增 Deployment；合法先持久化再 ACK；非法签名不落库；重复 event_id 幂等 | tests/acceptance/im_gateway/test_webhook_channel.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | verified |
 
 **Spec Verifier**
 
@@ -626,6 +633,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 - S-07: verified — automated command passed; run_id=9503f100ec844aafb0b4239212d5784d (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=13fd94e468784d7aa2c18accbdd002de (confirmed_by: runner)
 - S-07: stale — input changed: CHK-67745111ebdb (confirmed_by: runtime)
+- S-07: verified — automated command passed; run_id=77c5adcac83a4d91bbe64191b64d68a3 (confirmed_by: runner)
 
 ### Log
 
@@ -809,8 +817,8 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-09 | component | 前端 service/hook + mock HTTP | page_size/轮询间隔来自投影；不裸 fetch/axios | tests/frontend/test_capacity_webchat_activity_ui.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | stale |
-| S-10 | component | 构建产物 + 前端路由（mock API） | 聊天首屏无 admin chunk；深链可用；菜单 11 项 | tests/frontend/test_webchat_code_splitting.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_webchat_code_splitting.py"] | stale |
+| S-09 | component | 前端 service/hook + mock HTTP | page_size/轮询间隔来自投影；不裸 fetch/axios | tests/frontend/test_capacity_webchat_activity_ui.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | verified |
+| S-10 | component | 构建产物 + 前端路由（mock API） | 聊天首屏无 admin chunk；深链可用；菜单 11 项 | tests/frontend/test_webchat_code_splitting.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_webchat_code_splitting.py"] | verified |
 | B-04 | E2E | 真实浏览器 + Ingress + console-web/api/gateway 同源 | Cookie/CSRF/Origin 正常；静态不经过 Python；SSE buffering off | e2e/.../static-overlay.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"] | deferred | e2e_deferred |
 
 **Spec Verifier**
@@ -839,6 +847,9 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 - S-10: verified — automated command passed; run_id=8847542c339743c1adca293f9bc05f57 (confirmed_by: runner)
 - S-09: stale — input changed: CHK-82b6d2f92451 (confirmed_by: runtime)
 - S-10: stale — input changed: CHK-bc751ea26687 (confirmed_by: runtime)
+- B-04: e2e_deferred — automated command e2e_deferred; run_id=4763011f091a42b2ad0f2922f1c72c27 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=4763011f091a42b2ad0f2922f1c72c27 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=4763011f091a42b2ad0f2922f1c72c27 (confirmed_by: runner)
 
 ### Log
 
