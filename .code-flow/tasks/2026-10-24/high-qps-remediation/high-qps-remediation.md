@@ -50,7 +50,7 @@
 | B-01 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime/PG；ramp=0；本地 100 用户瞬时 burst，1000 用户 staging（TASK-012） | TASK-005 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_admission_burst.py"] | . | 1200 | P0 | deferred | local-api | - | - | - | no |
 | B-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 PostgreSQL；批量写入 + retention sweep | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_retention.py", "-k", "drains_20k"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | B-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 uvicorn 2+ workers；/metrics 与 artifact fetch token | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/architecture/test_multi_worker_state.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
-| B-04 | high-qps-remediation.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Ingress → console-web/CDN + console-api + gateway；同源 Cookie | TASK-011 | planned | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"] | . | 1800 | P1 | deferred | browser | - | 浏览器同源策略、Cookie、CSRF、Ingress 路径与 SSE 只有真实浏览器 + 真实代理才能验证。 | ["apps/console-platform/frontend/**", "deploy/k8s/base/ingress.yaml", "deploy/k8s/overlays/console-web/**"] | no |
+| B-04 | high-qps-remediation.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Ingress → console-web/CDN + console-api + gateway；同源 Cookie | TASK-011 | e2e_deferred | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"] | . | 1800 | P1 | deferred | browser | - | 浏览器同源策略、Cookie、CSRF、Ingress 路径与 SSE 只有真实浏览器 + 真实代理才能验证。 | ["apps/console-platform/frontend/**", "deploy/k8s/base/ingress.yaml", "deploy/k8s/overlays/console-web/**"] | no |
 | E-01 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime + Console auth；模拟 platform-settings 不可用 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_notification_settings.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | E-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime + PostgreSQL；pool=1，打开 10 条 SSE | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_timeout_is_bounded or early_close"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | E-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；kill -9 在 WS 收到后、XADD 前 | TASK-007 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
@@ -68,8 +68,8 @@
 | S-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | E2E | 真实浏览器/HTTP 客户端 → 两个以上 Gateway 副本 → Runtime/PG/Redis；SSE 断线重连到另一副本 | TASK-009 | planned | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 | P0 | deferred | browser | - | SSE 长连接、负载均衡、断线重连和跨 Pod 游标只有真实浏览器 + 多副本 + Runtime 持久流才能覆盖。 | ["apps/im-gateway/**", "apps/agent-runtime/src/muad_agent_runtime/api/runs.py", "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py", "deploy/k8s/base/im-gateway.yaml"] | yes |
 | S-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway HTTP /channels/{channel}/events + 假 webhook 提供方 + Redis Stream + Runtime | TASK-008 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
 | S-08 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway → 统一消息核心 → Console/Runtime/PG；已验证 CHAT 主体上下文 | TASK-010 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webchat_core.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| S-09 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 前端 service/hook + mock HTTP；不访问真实后端 | TASK-011 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
-| S-10 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 构建产物 + 前端路由（mock API） | TASK-011 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_webchat_code_splitting.py"] | . | 600 | P1 | auto | none | - | - | - | no |
+| S-09 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 前端 service/hook + mock HTTP；不访问真实后端 | TASK-011 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
+| S-10 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 构建产物 + 前端路由（mock API） | TASK-011 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_webchat_code_splitting.py"] | . | 600 | P1 | auto | none | - | - | - | no |
 | S-11 | high-qps-remediation.backend.design.md#2.5 验收条件 | contract | 纯契约/序列化；不连服务 | TASK-006 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-12 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实包导入/清单渲染/architecture tests；不启动业务栈 | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/architecture"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-13 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime/Worker/PG + 模拟队列压力 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_runtime_capacity_metrics.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
@@ -734,7 +734,7 @@ WebChat submit 走 admit_sync（复用 ChatIdentity）；lean scope；受理帧�
 
 ## TASK-011: 前端通知 page_size、轮询与 code splitting
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-002
 - **Source**: high-qps-remediation.frontend.design.md#2.2 功能方案, high-qps-remediation.backend.design.md#3.5 质量实现方案
@@ -749,31 +749,31 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`：请求带 page_size；聊天首屏不含 admin chunk；静态 overlay 同源
-- [ ] `useNotifications` 从 client-config 取 page_size/poll_sec；service 层请求
-- [ ] admin 路由 lazy + Suspense/错误边界；深链可用
-- [ ] 可选 console-web overlay：nginx 静态 + Ingress 同源路径；默认 base 仍 4 单元
-- [ ] [S-09][component] 请求 query/page_size/轮询间隔/不裸 fetch
-- [ ] [S-10][component] admin lazy/深链/聊天首屏不加载 admin chunk
-- [ ] [B-04][E2E] 静态 overlay 同源 Cookie/CSRF/SSE；默认 base 对照
-- [ ] [harness-frontend#RULE-front-001][verifier] bash -lc "uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"
-- [ ] [harness-ui#RULE-ui-001][verifier] bash -lc "uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"
+- [x] 交付 `<Capability>`：请求带 page_size；聊天首屏不含 admin chunk；静态 overlay 按设计为可选、未启用（见 B-04 登记）
+- [x] `useNotifications` 从 client-config 取 page_size/poll_sec；service 层请求
+- [x] admin 路由 lazy + Suspense/错误边界；深链可用
+- [ ] 可选 console-web overlay：按设计为可选、未启用（nginx 静态 + Ingress 同源路径未落地；默认 base 仍 4 单元，理由见 Acceptance Evidence B-04）
+- [x] [S-09][component] 请求 query/page_size/轮询间隔/不裸 fetch
+- [x] [S-10][component] admin lazy/深链/聊天首屏不加载 admin chunk
+- [ ] [B-04][E2E] deferred 登记（不执行、无 RED/GREEN）：静态 overlay 同源 Cookie/CSRF/SSE；默认 base 对照，留 verify-e2e
+- [x] [harness-frontend#RULE-front-001][verifier] bash -lc "uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"
+- [x] [harness-ui#RULE-ui-001][verifier] bash -lc "uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-09 | component | 前端 service/hook + mock HTTP | page_size/轮询间隔来自投影；不裸 fetch/axios | tests/frontend/test_capacity_webchat_activity_ui.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | planned |
-| S-10 | component | 构建产物 + 前端路由（mock API） | 聊天首屏无 admin chunk；深链可用；菜单 11 项 | tests/frontend/test_webchat_code_splitting.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_webchat_code_splitting.py"] | planned |
-| B-04 | E2E | 真实浏览器 + Ingress + console-web/api/gateway 同源 | Cookie/CSRF/Origin 正常；静态不经过 Python；SSE buffering off | e2e/.../static-overlay.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"] | planned |
+| S-09 | component | 前端 service/hook + mock HTTP | page_size/轮询间隔来自投影；不裸 fetch/axios | tests/frontend/test_capacity_webchat_activity_ui.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | verified |
+| S-10 | component | 构建产物 + 前端路由（mock API） | 聊天首屏无 admin chunk；深链可用；菜单 11 项 | tests/frontend/test_webchat_code_splitting.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_webchat_code_splitting.py"] | verified |
+| B-04 | E2E | 真实浏览器 + Ingress + console-web/api/gateway 同源 | Cookie/CSRF/Origin 正常；静态不经过 Python；SSE buffering off | e2e/.../static-overlay.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"] | deferred | e2e_deferred |
 
 **Spec Verifier**
 
 | Rule | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 执行命令 | 状态 |
 |---|---|---|---|---|---|
-| harness-frontend#RULE-front-001 | integration | 真实 PG/Redis/HTTP/architecture tests；不 mock 规则边界 | 规则既有 verifier 全绿；本任务不改变其语义 | bash -lc "uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck" | planned |
-| harness-ui#RULE-ui-001 | integration | 真实 PG/Redis/HTTP/architecture tests；不 mock 规则边界 | 规则既有 verifier 全绿；本任务不改变其语义 | bash -lc "uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build" | planned |
+| harness-frontend#RULE-front-001 | integration | 真实 PG/Redis/HTTP/architecture tests；不 mock 规则边界 | 规则既有 verifier 全绿；本任务不改变其语义 | bash -lc "uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck" | applied |
+| harness-ui#RULE-ui-001 | integration | 真实 PG/Redis/HTTP/architecture tests；不 mock 规则边界 | 规则既有 verifier 全绿；本任务不改变其语义 | bash -lc "uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build" | applied |
 
 ### Acceptance Evidence
 
@@ -781,9 +781,14 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-09 | planned | planned | planned | planned | planned |
-| S-10 | planned | planned | planned | planned | planned |
-| B-04 | planned | planned | planned | planned | planned |
+| S-09 | `uv run pytest -q tests/frontend/test_capacity_webchat_activity_ui.py` → **4 failed, 10 passed**：通知请求 params 仅 `{page, after_seq}` 无 `page_size`；`pageSize.valid/zero/aboveMax/fractional` 观测缺失；hook 源码无 `history_page_size`/`notificationPageSize(`（对应缺陷：page_size 未随请求发送、非法投影值未显式失败） | 同命令 **14 passed**（新增 `test_s09_page_size_comes_from_the_projection_and_invalid_values_fail_explicitly`；轮询/身份边界断言更新为带 `page_size:20`） | `test_capacity_webchat_activity_ui.py::test_s09_page_size_comes_from_the_projection_and_invalid_values_fail_explicitly`（合法投影带 page_size 发送；0/101/20.5 → `PAGE_SIZE_INVALID` 且零请求）；`test_b284_polling_is_jittered_incremental_and_gated_by_the_projection`（每次请求 params）；`test_b284_merge_bound_order_and_aggregation_are_explicit`（15s 投影 → 12s/15s/18s 抖动）；`test_b284_hook_keeps_the_transport_identity_and_timer_boundaries`（只经 service、不裸 fetch/axios） | 真实 esbuild 打包真实 `modules/webchat/{hooks/useNotifications,services/webchatApi,types,clientConfig,authenticationState}` + 真实 `src/api/client.ts` axios 实例/拦截器，由真实 node 执行；HTTP 经真实 axios adapter 观测 method/URL/params/头/信号；定时器与可见性端口注入以便确定性驱动（真实浏览器留 E2E） | verified |
+| S-10 | `uv run pytest -q tests/frontend/test_webchat_code_splitting.py` → **2 failed, 1 passed**：admin 页面无独立 chunk（`ChatPage-*.js` 匹配为空）、`App.tsx` 无 `React.lazy`、无 `RouteErrorBoundary`（对应缺陷：聊天首屏静态引入全部 admin 页） | 同命令 **3 passed**（真实 `vite build` 产出 11 个 admin chunk；index.html 不预加载 admin chunk；入口仅动态 `import()`；真实路由表/Suspense/错误边界齐备） | `test_s10_chat_first_paint_does_not_load_admin_chunks`（11 个页面各一 chunk；`index.html` 不含 admin chunk；入口对每个 chunk 仅动态 import）；`test_s10_admin_deep_links_keep_the_route_table_and_error_boundary`（菜单 11 项路径、每条深链路由、`lazy()`、`RouteErrorBoundary`/`Suspense`、复用 `common.loadFailed`/`common.retry`）；`test_s10_built_artifact_is_a_single_spa_entry` | 真实 `vite build`（真实 vite.config.ts、真实 React/React Router/页面模块）产物落临时目录后逐文件断言；路由表/菜单/边界来自真实源码，不 mock 构建与路由；浏览器深链与同源 Cookie/CSRF/SSE 的真实行为留 B-04 E2E | verified |
+| B-04 | deferred（不执行，不写 RED） | deferred（不执行，不写 GREEN） | `e2e/tests/webchat/static-overlay.spec.ts`（未创建：overlay 未实现，无真实边界可断言） | 真实浏览器 → Ingress → console-web/CDN + console-api + gateway；同源 Cookie/CSRF/Origin、静态资源不经 Python、SSE 走 Gateway 且 buffering off | e2e_deferred |
+
+> **B-04 未实现理由**：console-web 静态 overlay 按前端设计 §2.2 FEAT-F04/§2.3 为 **opt-in 可选层、默认不启用**；本任务未启用 overlay（默认仍由 Console 镜像提供静态资源、默认 base 仍 4 单元），未启用时没有「真实浏览器 + Ingress + 独立静态层」这条可测边界，因此不创建 spec、不执行、不写 RED/GREEN。B-04 保持 `exec: deferred`（`target_phase: review`），由需求级 `verify-e2e` 在启用 overlay 的环境终验；聊天首屏静态分层的本任务范围内验证由 S-10 构建产物断言承担。
+- B-04: e2e_deferred — automated command e2e_deferred; run_id=251dd95f0c3b4ca2a2b773d5a1c2f84a (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=251dd95f0c3b4ca2a2b773d5a1c2f84a (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=251dd95f0c3b4ca2a2b773d5a1c2f84a (confirmed_by: runner)
 
 ### Log
 
@@ -792,6 +797,8 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 - [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
 - [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
+- [2026-10-25] implemented notification `page_size` from API-19 projection (≤100, explicit `PAGE_SIZE_INVALID` + zero request, no guessed default) and kept poll interval/jitter projection-driven; admin routes now `React.lazy` with Suspense + `RouteErrorBoundary` around `Outlet` (menu 11 items/deep links unchanged). S-09 14 passed, S-10 3 passed, `tests/frontend` 653 passed. B-04 stays deferred: optional console-web overlay not enabled (design §2.2/§2.3 opt-in), no real same-origin static-layer boundary to test.
+- [2026-10-25] completed (done)
 
 ---
 

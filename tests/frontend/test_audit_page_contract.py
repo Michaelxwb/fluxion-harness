@@ -121,7 +121,10 @@ def test_module_files_exist() -> None:
 def test_route_registered_under_console_shell() -> None:
     """[RULE-ui-001] `/audits` 路由替换占位页，并挂载在 ConsoleShell（AppLayout）内。"""
     app = _read(APP)
-    assert "import { AuditPage } from './modules/audit-observability/pages/AuditPage';" in app
+    # S-10 code splitting：admin 页面改为路由级懒加载（模块路径与路由不变）
+    assert re.search(
+        r"lazy\(\(\) =>\s*import\('\./modules/audit-observability/pages/AuditPage'\)", app
+    ), "审计页必须按路由懒加载（聊天首屏不加载 admin chunk）"
     assert '<Route path="audits" element={<AuditPage />} />' in app
     assert 'element={<PlaceholderPage titleKey="nav.audit" />}' not in app, "占位页须被替换"
     assert '<AppLayout />' in app and "<RequireAuth>" in app

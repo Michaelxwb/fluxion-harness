@@ -14,12 +14,13 @@ import {
   IconUserGroup
 } from '@douyinfe/semi-icons';
 import { Button, Dropdown, Layout, Nav, Tooltip } from '@douyinfe/semi-ui';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
 import { LocaleSwitch } from '../components/common/LocaleSwitch';
+import { RouteErrorBoundary } from '../components/common/RouteErrorBoundary';
 import { ThemeButton } from '../components/common/ThemeButton';
 import { menuItems } from '../config/menu';
 import { useThemeMode } from '../theme';
@@ -111,6 +112,7 @@ function Sidebar() {
 
 export function AppLayout() {
   const theme = useThemeMode();
+  const location = useLocation();
   return (
     <Layout className="app-shell">
       <Sidebar />
@@ -119,7 +121,15 @@ export function AppLayout() {
           <ThemeButton mode={theme.mode} onToggle={theme.toggle} />
           <LocaleSwitch />
         </Header>
-        <Content className="app-content"><Outlet /></Content>
+        <Content className="app-content">
+          <RouteErrorBoundary key={location.pathname}>
+            <Suspense
+              fallback={<div className="app-route-loading" data-testid="admin-route-loading" />}
+            >
+              <Outlet />
+            </Suspense>
+          </RouteErrorBoundary>
+        </Content>
       </Layout>
     </Layout>
   );
