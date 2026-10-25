@@ -19,8 +19,8 @@ import pytest
 import uvicorn
 from muad_api.context import set_request_context
 from muad_contracts import BotSnapshotItem
-from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
-from muad_im_gateway.channels.wecom.sdk_port import WeComSdkConnectionError
+from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
+from muad_im_connector.channels.wecom.sdk_port import WeComSdkConnectionError
 from muad_im_gateway.main import app
 
 from tests.e2e.wecom_probe_app import WeComProbe
@@ -33,7 +33,7 @@ METRICS_PATH = "/metrics"
 GAUGE_NAME = "wecom_ws_connected"
 WAIT_TIMEOUT_SEC = 20.0
 LOG_PREFIX = "wecom_bot_state_changed"
-ADAPTER_LOGGER = "muad_im_gateway.channels.wecom.adapter"
+ADAPTER_LOGGER = "muad_im_connector.channels.wecom.adapter"
 
 
 def _bot(bot_id: str, secret: str | None = B118_SECRET) -> BotSnapshotItem:

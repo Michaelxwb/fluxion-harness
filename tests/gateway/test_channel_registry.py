@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from fakes import make_envelope
 from muad_contracts import BotSnapshotItem, DeliveryMessage, DeliveryRouteInput
+from muad_im_connector.channels.wecom.adapter import WeComAdapter
 from muad_im_gateway.channels.base import (
     ChannelAdapter,
     ChannelAdapterUnavailable,
@@ -14,7 +15,6 @@ from muad_im_gateway.channels.base import (
     UnknownChannelAdapterError,
 )
 from muad_im_gateway.channels.fake import FakeChannelAdapter
-from muad_im_gateway.channels.wecom.adapter import WeComAdapter
 
 
 def _route() -> DeliveryRouteInput:

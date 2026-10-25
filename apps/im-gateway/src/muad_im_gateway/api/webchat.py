@@ -31,9 +31,9 @@ from muad_contracts.webchat import (
     WebchatMessageRequest,
     WebchatResumeRequest,
 )
+from muad_im_core import BotSnapshotCache
 from pydantic import ValidationError
 
-from ..application.bot_snapshot import BotSnapshotCache
 from ..application.runtime_client import RuntimeClient
 from ..application.webchat_artifacts import (
     NOSNIFF_HEADER,

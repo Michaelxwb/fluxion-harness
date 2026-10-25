@@ -12,11 +12,12 @@ dependencies = [
   "muad-common",
   "muad-contracts",
   "muad-im-core",
-  # 过渡期复用 Gateway 的 WeCom adapter surface；TASK-009 的部署切换把 adapter 移入
-  # Connector 并移除 Gateway 的 WeCom 依赖。两个镜像/进程仍然独立。
+  # Connector 是 im-gateway 的**有状态运行时角色**：复用 Gateway 的渠道中立协议面
+  # （`channels/base.py`）与控制面客户端；渠道实现（含 SDK）只活在本包 `channels/`。
   "muad-im-gateway",
   "muad-logging",
   "muad-platform-sdk",
+  "wecom-aibot-python-sdk>=1,<2",
 ]
 
 [build-system]

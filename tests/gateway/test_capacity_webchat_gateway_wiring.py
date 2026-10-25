@@ -56,7 +56,7 @@ from muad_common import SharedSettings
 from muad_im_gateway.application.chat_principal import CHAT_SESSION_COOKIE
 from muad_im_gateway.application.console_client import CHAT_CONTEXT_HEADER, CHAT_PRINCIPAL_PATH
 from muad_im_gateway.channels.webchat import WebchatChannelAdapter
-from muad_im_gateway.channels.wecom.adapter import WeComAdapter
+from muad_im_gateway.channels.webhook import WebhookChannelAdapter
 from muad_im_gateway.infrastructure.http_clients import (
     GATEWAY_HTTP_POOLS,
     GatewayHttpPools,
@@ -120,7 +120,11 @@ CHAT_AUTH_RECHECK_SEC = 60.0
 
 #: 真实生命周期任务的装配根命名（四类生命周期的可观测面）。
 SNAPSHOT_LOOP_NAME = "gateway.snapshot"
-INBOUND_LOOP_NAMES = ("gateway.inbound.WECOM", "gateway.inbound.WEBCHAT")
+INBOUND_LOOP_NAMES = (
+    "gateway.inbound.WECOM",
+    "gateway.inbound.WEBCHAT",
+    "gateway.inbound.stream",
+)
 
 WAIT_TIMEOUT_SEC = 20.0
 HTTP_TIMEOUT_SEC = 10.0
@@ -537,6 +541,11 @@ def _install_gateway_env(
     monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:1/0")
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", INTERNAL_TOKEN)
     monkeypatch.setenv("CHANNEL_PROBE_URL", "")
+    # 请求面通道：WEBCHAT（进程内）+ 配置驱动的 WECOM webhook（无长连接/无 bot secret）。
+    monkeypatch.setenv(
+        "GATEWAY_WEBHOOK_CHANNELS",
+        '[{"channel": "WECOM", "secret": "b296-webhook-secret", "reply_url": null}]',
+    )
     monkeypatch.setenv("WECOM_WS_URL", wecom_probe.ws_url if wecom_probe else "")
     monkeypatch.setenv(
         "WECOM_WS_CA_FILE", str(wecom_probe.cert_path) if wecom_probe else ""
@@ -693,16 +702,13 @@ async def test_b296_production_app_registers_webchat_wecom_recheck_and_public_ss
             assert "get_chat_identity" in stream_deps, "SSE 也要经主体门控"
             assert "get_chat_stream_guard" in stream_deps, "长流必须挂复核定时器"
 
-            # ② 真实通道注册：企微（真实 WSS 连接）与 WEBCHAT 稳定入口同注册表。
+            # ② 真实通道注册：WEBCHAT 稳定入口 + 配置驱动的通用 webhook（无长连接/secret）。
             registry = app.state.registry
-            assert registry.names() == ("WECOM", "WEBCHAT")
-            assert isinstance(registry.get("WECOM"), WeComAdapter)
+            assert registry.names() == ("WEBCHAT", "WECOM")
             assert isinstance(registry.get("WEBCHAT"), WebchatChannelAdapter)
-            assert registry.adapter_states == {"WECOM": True, "WEBCHAT": True}
-            await _wait_for(
-                lambda: len(probe.connections) == 1, message="真实企微连接未建立"
-            )
-            assert probe.connection_bots.get(0) == WECOM_BOT_ID
+            assert isinstance(registry.get("WECOM"), WebhookChannelAdapter)
+            assert registry.adapter_states == {"WEBCHAT": True, "WECOM": True}
+            assert probe.connections == [], "请求面不得建立渠道长连接"
 
             # ③ 真实 HTTP：client-config（设置源 + 传输预算装配根注入）。
             async with httpx.AsyncClient(base_url=env, timeout=HTTP_TIMEOUT_SEC) as client:
@@ -1061,14 +1067,14 @@ class _GatewayServer:
 # --------------------------------------------------------------------------------------
 
 
-async def test_b296_single_bot_never_has_overlapping_connections(
+async def test_b296_request_plane_opens_no_channel_connections(
     stub_console: StubConsole,
     console_probe: _ConsoleProbe,
     runtime_probe: _RuntimeProbe,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """[B-296] 真实 WSS 连接：换密钥先停旧再起新（同 bot 至多一条活连接），退出全关。"""
+    """[B-296] 请求面不持有渠道长连接：快照刷新/密钥轮换都不开 WS，退出全关。"""
     probe = WeComProbe(expected_bots={WECOM_BOT_ID: WECOM_SECRET_1})
     await probe.start()
     console_probe.items = [_bot_payload(WECOM_BOT_ID, WECOM_SECRET_1)]
@@ -1081,36 +1087,15 @@ async def test_b296_single_bot_never_has_overlapping_connections(
     )
     try:
         async with app.router.lifespan_context(app):
-            await _wait_for(
-                lambda: probe.connection_bots.get(0) == WECOM_BOT_ID,
-                message="首个真实连接未完成订阅",
-            )
-            assert probe.connections[0].close_code is None
-
-            # 快照 revision 变化 + 密钥轮换：真实刷新路径（Console → 分发 → 适配器）。
+            assert probe.connections == [], "Gateway 不应建立企微长连接"
             console_probe.revision = "rev-b296-2"
             console_probe.items = [_bot_payload(WECOM_BOT_ID, WECOM_SECRET_2)]
-            probe.expected_bots[WECOM_BOT_ID] = WECOM_SECRET_2
             await app.state.bot_snapshot.refresh()
-            await _wait_for(
-                lambda: probe.connection_bots.get(1) == WECOM_BOT_ID,
-                message="换密钥后未建立新连接",
-            )
-            # 无重叠：旧连接已关、新连接是唯一活连接。
-            assert probe.connections[0].close_code is not None, "旧连接未先停止"
-            assert probe.connections[1].close_code is None
-            live = [socket_ for socket_ in probe.connections if socket_.close_code is None]
-            assert len(live) == 1, "同一 bot 不得并存两条连接"
+            assert probe.connections == [], "快照刷新也不得开渠道连接"
             adapter = app.state.registry.get("WECOM")
-            assert isinstance(adapter, WeComAdapter)
-            assert adapter.connection_states[WECOM_BOT_ID].value == "CONNECTED"
-
-        # 退出：机器人连接生命周期随装配根停止（全部真实连接关闭）。
-        await _wait_for(
-            lambda: all(socket_.close_code is not None for socket_ in probe.connections),
-            message="退出后真实连接未全部释放",
-        )
+            assert isinstance(adapter, WebhookChannelAdapter)
         assert app.state.registry.adapter_states == {"WECOM": False, "WEBCHAT": False}
+        assert probe.connections == []
     finally:
         await probe.stop()
 

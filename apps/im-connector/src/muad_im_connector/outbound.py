@@ -82,6 +82,8 @@ class CommandResult:
     detail: str = ""
     epoch: int = 0
     fallback_url: str | None = None
+    #: 适配器产出的路由不透明串：网关写交付审计时用它（不自己拼渠道形状）。
+    route_key: str = ""
 
     @property
     def terminal(self) -> bool:
@@ -100,6 +102,7 @@ class CommandResult:
             "detail": self.detail,
             "epoch": self.epoch,
             "fallback_url": self.fallback_url,
+            "route_key": self.route_key,
             "at": datetime.now(UTC).isoformat(),
         }
 
@@ -135,6 +138,10 @@ class ConnectorChannelPort(Protocol):
         reply_ref: str | None,
     ) -> tuple[str, str | None]:
         """返回 `(outcome, fallback_url)`；outcome 是渠道中立的 DELIVERED/DEGRADED。"""
+        ...
+
+    def route_key(self, route: DeliveryRouteInput) -> str:
+        """把一条路由压成**可读的不透明串**（交付审计用；形状由适配器决定）。"""
         ...
 
 
@@ -424,7 +431,20 @@ class CommandExecutor:
             detail=detail,
             epoch=epoch,
             fallback_url=fallback_url,
+            route_key=self._route_key(command),
         )
+
+    def _route_key(self, command: DeliveryCommand) -> str:
+        """审计用的路由串：适配器产不出也不能把一次**已完成的发送**改成失败。"""
+        try:
+            return self._adapter.route_key(route_of(command))
+        except Exception as exc:  # noqa: BLE001 - 观测字段不得影响投递结论
+            logger.warning(
+                "connector_route_key_unavailable command_id=%s error=%s",
+                command.command_id,
+                type(exc).__name__,
+            )
+            return ""
 
 
 class OutboundRunner:

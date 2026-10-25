@@ -22,17 +22,19 @@ from muad_api import AppError
 from muad_api.catalog import MessageCatalog
 from muad_api.error_codes import ErrorCode
 from muad_contracts import BotSnapshotItem
+from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.api.deps import (
     get_artifact_resolver,
     get_console_client,
     get_dedupe_store,
+    get_delivery_stream_wait_sec,
+    get_delivery_streams,
     get_gateway_tenant,
     get_registry,
 )
 from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.sse import SseEvent
 from muad_im_gateway.channels.base import ChannelRegistry
-from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.infrastructure.dedupe import InMemoryDedupeStore
 from muad_im_gateway.main import app as gateway_app
 
@@ -48,6 +50,19 @@ B119_BODY_CANARY = "b119-消息正文-不得进指标"
 METRICS_PATH = "/metrics"
 DELIVERIES_PATH = "/internal/deliveries"
 WAIT_TIMEOUT_SEC = 20.0
+
+
+class _StubStreams:
+    """本文件走本地适配器路径；Stream 分支由 test_delivery_stream.py 覆盖。"""
+
+    async def enqueue(self, command):  # type: ignore[no-untyped-def]
+        raise AssertionError("local adapter path must not enqueue")
+
+    async def await_result(self, command_id, *, timeout_sec):  # type: ignore[no-untyped-def]
+        raise AssertionError("local adapter path must not await results")
+
+    async def aclose(self) -> None:
+        return None
 
 
 class _NoArtifacts:
@@ -151,6 +166,8 @@ async def metrics_http(adapter: WeComAdapter) -> AsyncIterator[httpx.AsyncClient
     gateway_app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
     gateway_app.dependency_overrides[get_gateway_tenant] = lambda: "tenant-1"
     gateway_app.dependency_overrides[get_artifact_resolver] = lambda: _NoArtifacts()
+    gateway_app.dependency_overrides[get_delivery_streams] = lambda: _StubStreams()
+    gateway_app.dependency_overrides[get_delivery_stream_wait_sec] = lambda: 0.05
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = int(sock.getsockname()[1])

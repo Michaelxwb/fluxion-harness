@@ -15,7 +15,7 @@ from collections.abc import AsyncIterator
 
 import pytest
 from muad_contracts import BotSnapshotItem, DeliveryMessage, DeliveryRouteInput
-from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
+from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
 
 from tests.e2e.wecom_probe_app import WeComProbe, frame_text
 

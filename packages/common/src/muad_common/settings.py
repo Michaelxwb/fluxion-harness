@@ -24,6 +24,16 @@ class SharedSettings(BaseSettings):
     # WeCom SDK 连接地址与 CA：仅用于本地真实协议探针（默认空 = SDK 官方地址 + certifi 校验）
     wecom_ws_url: str | None = None
     wecom_ws_ca_file: str | None = None
+    #: Gateway 的**通用 webhook 通道**配置（JSON 数组：channel/secret/reply_url）。空 = 无 webhook
+    #: 通道。secret 是验签密钥，不是 bot 连接密钥；bot secret 只流向持有长连接的 Connector。
+    gateway_webhook_channels: str = Field(default="", repr=False)
+    webhook_timestamp_tolerance_sec: int = Field(default=300, ge=1)
+    #: 入站 Stream 分片/上限（生产者与消费者必须同一口径；design §3.3.1）。
+    inbound_stream_shards: int = Field(default=32, ge=1)
+    inbound_stream_maxlen: int = Field(default=100_000, ge=1)
+    inbound_stream_lost_after_sec: int = Field(default=60, ge=1)
+    #: 投递 facade 等待 Connector 结果的有界窗口（超时回可重试错误，不把占位当成功）。
+    delivery_stream_wait_sec: float = Field(default=2.0, gt=0)
 
     artifact_root: str = "./.data/artifacts"
     skill_cache_root: str = "./.data/skill-cache"

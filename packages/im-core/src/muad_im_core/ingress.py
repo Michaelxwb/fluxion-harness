@@ -1,4 +1,4 @@
-"""Connector 入站持久化：先写去重/崩溃标记，再 XADD `im.inbound`。
+"""入站持久化（Connector 与 Gateway Webhook 共用）：先写去重/崩溃标记，再 XADD `im.inbound`。
 
 诚实边界（E-03/E-07）：
 
@@ -64,8 +64,17 @@ class InboundPublisher:
         self._lost_after_sec = lost_after_sec
         self._pause = pause_before_xadd_sec
 
-    async def publish(self, event: InboundEvent) -> PublishOutcome:
-        key = inbound_dedupe_key(event.tenant_id, event.bot_id, event.external_message_id)
+    async def publish(
+        self, event: InboundEvent, *, dedupe_id: str | None = None
+    ) -> PublishOutcome:
+        """发布一条入站事实；`dedupe_id` 覆盖去重身份（缺省 = `external_message_id`）。
+
+        Webhook 提供方的重试身份是 **event_id**（同一条消息可能被不同 event 包装），
+        Connector 的重试身份是平台 `message_id`：两者都在 **XADD 之前**收敛，Stream 里
+        因此不会出现同一次重试的第二条记录。
+        """
+        identity = dedupe_id or event.external_message_id
+        key = inbound_dedupe_key(event.tenant_id, event.bot_id, identity)
         state = await self._begin(key)
         if state == PublishOutcome.DUPLICATE:
             return state

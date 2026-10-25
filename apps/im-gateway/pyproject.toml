@@ -13,7 +13,6 @@ dependencies = [
   "muad-contracts",
   "muad-logging",
   "muad-platform-sdk",
-  "wecom-aibot-python-sdk>=1,<2",
 ]
 
 [build-system]

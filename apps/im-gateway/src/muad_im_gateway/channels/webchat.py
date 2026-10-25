@@ -74,6 +74,8 @@ class WebchatChannelAdapter:
     """标准 WEBCHAT 适配器：无长连接、无 secret，入站/出站都映射到统一封套。"""
 
     name: ChannelName = "WEBCHAT"
+    #: 本通道出站由 Gateway 自己的持久入箱/SSE 面完成（`LocalDeliverySurface`）。
+    delivers_locally = True
 
     def __init__(
         self,

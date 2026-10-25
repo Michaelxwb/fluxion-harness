@@ -15,12 +15,12 @@ from muad_contracts import (
     DeliveryMessage,
     DeliveryRouteInput,
 )
-
-from .base import ChannelAdapterUnavailable
+from muad_im_gateway.channels.base import ChannelAdapterUnavailable
 
 
 class HttpProbeChannelAdapter:
     name = "WECOM"
+    delivers_locally = True
 
     def __init__(self, url: str, *, timeout_sec: float = 10.0) -> None:
         self._url = url
@@ -64,6 +64,9 @@ class HttpProbeChannelAdapter:
     async def stream(self, route: DeliveryRouteInput, chunks: AsyncIterator[str]) -> None:
         text = "".join([chunk async for chunk in chunks])
         await self.send(route, DeliveryMessage(text=text))
+
+    def route_key(self, route: DeliveryRouteInput) -> str:
+        return f"{route.bot_id}:{route.external_user_id}"
 
     def healthy(self) -> bool:
         return self._started

@@ -2,7 +2,7 @@
 name = "muad-im-core"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["muad-contracts"]
+dependencies = ["muad-api", "muad-contracts", "redis>=5,<7"]
 
 [build-system]
 requires = ["setuptools>=70"]
@@ -10,6 +10,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.uv.sources]
+muad-api = { workspace = true }
+muad-contracts = { workspace = true }
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]

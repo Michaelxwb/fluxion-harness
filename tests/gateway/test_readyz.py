@@ -12,12 +12,13 @@ import httpx
 import pytest
 import uvicorn
 from fakes import FakeConsoleClient, StubConsole
+from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
 from muad_api import AppError, StartupValidationError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import BotSnapshotResponse
+from muad_im_core import BotSnapshotCache
 from muad_im_gateway.api.health import dedupe_mode
-from muad_im_gateway.application.bot_snapshot import BotSnapshotCache
 from muad_im_gateway.application.console_client import ConsoleClient
 from muad_im_gateway.application.runtime_client import RuntimeClient
 from muad_im_gateway.channels.base import ChannelRegistry
@@ -28,8 +29,6 @@ from muad_im_gateway.infrastructure.dedupe import (
     RedisDedupeStore,
 )
 from muad_im_gateway.main import app
-
-from tests.e2e.wecom_probe_app import WeComProbe
 
 
 class _StubRedis:
@@ -178,13 +177,13 @@ def test_dedupe_mode_maps_unknown_store_to_disabled() -> None:
 
 
 # ---------------------------------------------------------------------------
-# B-107: 启动、就绪与关闭语义（真实 Gateway lifespan + 真实 HTTP 探针 + 真实 WS 连接管理器）
+# B-107: 启动、就绪与关闭语义（真实 Gateway lifespan + 真实 HTTP 探针）
+#
+# 渠道长连接/secret 已迁到 Connector（TASK-008）：Gateway 是请求面，注册表只有 WEBCHAT
+# 与配置驱动的 webhook 通道。degraded_bots/reconnect 这类连接语义在 Connector 侧验证。
 # ---------------------------------------------------------------------------
 
-B107_OK_BOT = "bot-b107-ok"
-B107_REJECTED_BOT = "bot-b107-rejected"
-B107_SECRETLESS_BOT = "bot-b107-secretless"
-B107_SECRET = "b107-secret"
+B107_WEBCHAT_ENTRY = "entry-b107-webchat"
 BOTS_PATH = "/internal/channel/bots"
 HTTP_TIMEOUT_SEC = 5.0
 GATEWAY_BOOT_TIMEOUT_SEC = 30.0
@@ -213,10 +212,11 @@ def _bots_envelope(items: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _bot_payload(bot_id: str, secret: str | None) -> dict[str, Any]:
+def _bot_payload(bot_id: str, secret: str | None, *, channel: str = "WEBCHAT") -> dict[str, Any]:
     return {
         "bot_account_id": str(uuid4()),
         "bot_id": bot_id,
+        "channel": channel,
         "secret": secret,
         "agent_id": str(uuid4()),
         "enabled": True,
@@ -228,15 +228,15 @@ def _install_gateway_env(
     *,
     console_url: str,
     artifact_root: Path,
-    probe: WeComProbe | None = None,
 ) -> None:
     """真实配置入口：Gateway 只从环境读配置，lifespan 启动时快照这些值。"""
     artifact_root.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("ARTIFACT_ROOT", str(artifact_root))
     monkeypatch.setenv("CONSOLE_PLATFORM_URL", console_url)
-    monkeypatch.setenv("CHANNEL_PROBE_URL", "")  # 保持真实 WS 渠道适配器
-    monkeypatch.setenv("WECOM_WS_URL", probe.ws_url if probe is not None else "")
-    monkeypatch.setenv("WECOM_WS_CA_FILE", str(probe.cert_path) if probe is not None else "")
+    # Redis 指向不可达端口：本文件的用例不投递/不消费 Stream；入站消费任务按退避重试，
+    # 绝不碰共享 dev Redis 的真实事件。
+    monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:1/0")
+    monkeypatch.setenv("GATEWAY_WEBHOOK_CHANNELS", "")
 
 
 async def _wait_until(
@@ -305,148 +305,113 @@ async def test_b107_liveness_only_and_missing_console_is_not_ready(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """healthz 仅存活；缺启动必需条件（Console 不可达且无完整快照）readyz=503。"""
-    probe = WeComProbe(expected_bots={})
-    await probe.start()
     _install_gateway_env(
         monkeypatch,
         console_url=f"http://127.0.0.1:{_free_port()}",  # 不可达的 Console
         artifact_root=tmp_path / "artifacts",
-        probe=probe,
     )
     baseline = _gateway_tasks()
-    try:
-        async with running_gateway() as client:
-            healthz = await client.get("/healthz")
-            assert healthz.status_code == 200
-            assert healthz.json()["data"] == {"status": "ok"}
+    async with running_gateway() as client:
+        healthz = await client.get("/healthz")
+        assert healthz.status_code == 200
+        assert healthz.json()["data"] == {"status": "ok"}
 
-            readyz = await client.get("/readyz")
-            data = readyz.json()["data"]
-            assert readyz.status_code == 503
-            assert data["failed"] == ["console"]  # 只有整体必需条件缺失才 503
-            assert data["adapters"] == {"WECOM": True, "WEBCHAT": True}  # 通道管理器已初始化
-            assert data["bots_revision"] is None
-    finally:
-        await probe.stop()
+        readyz = await client.get("/readyz")
+        data = readyz.json()["data"]
+        assert readyz.status_code == 503
+        assert data["failed"] == ["console"]  # 只有整体必需条件缺失才 503
+        assert data["adapters"] == {"WEBCHAT": True}  # 请求面适配器已初始化
+        assert data["bots_revision"] is None
     assert await _wait_gateway_tasks_drained(baseline) == set()
 
 
-async def test_b107_ready_with_degraded_bots_and_stale_snapshot(
+async def test_b107_ready_with_snapshot_and_console_outage(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """单 bot 故障只记 degraded 且不停止其他 bot；不要求全部 CONNECTED；快照可用时 Console 不可达仍 ready。"""
-    probe = WeComProbe(expected_bots={B107_OK_BOT: B107_SECRET})
-    probe.reject_bot_ids.add(B107_REJECTED_BOT)
-    await probe.start()
+    """快照可用时 Console 短暂不可达仍 ready；关闭后适配器停止、无遗留任务。"""
     console = StubConsole()
     console.start()
     console.json_response(
         BOTS_PATH,
-        _bots_envelope(
-            [
-                _bot_payload(B107_OK_BOT, B107_SECRET),
-                _bot_payload(B107_REJECTED_BOT, B107_SECRET),
-                _bot_payload(B107_SECRETLESS_BOT, None),
-            ]
-        ),
+        _bots_envelope([_bot_payload(B107_WEBCHAT_ENTRY, None)]),
     )
-    _install_gateway_env(
-        monkeypatch,
-        console_url=console.url,
-        artifact_root=tmp_path / "artifacts",
-        probe=probe,
-    )
+    _install_gateway_env(monkeypatch, console_url=console.url, artifact_root=tmp_path / "artifacts")
     baseline = _gateway_tasks()
     try:
         async with running_gateway() as client:
-            data = await _wait_readyz_degraded(client, {B107_REJECTED_BOT, B107_SECRETLESS_BOT})
-            assert data["status"] == "ready"
-            assert data["adapters"] == {"WECOM": True, "WEBCHAT": True}
-            assert data["bots_revision"] == "rev-b107"
-            # 好 bot 经真实 socket 完成认证：没有被其他 bot 的故障停掉
             await _wait_until(
-                lambda: any(
-                    (frame.get("body") or {}).get("bot_id") == B107_OK_BOT
-                    for frame in probe.frames_of("aibot_subscribe")
-                ),
-                what="好 bot 未在真实 WS 上完成认证",
+                lambda: (app.state.bot_snapshot is not None)
+                and app.state.bot_snapshot.is_ready(),
+                what="入口快照未就绪",
             )
+            readyz = await client.get("/readyz")
+            assert readyz.status_code == 200, readyz.text
+            data = readyz.json()["data"]
+            assert data["status"] == "ready"
+            assert data["adapters"] == {"WEBCHAT": True}
+            assert data["degraded_bots"] == {}
+            assert data["bots_revision"] == "rev-b107"
+
             # 设计 §4.1：Console 短暂不可达但有完整快照时仍可服务
             console.stop()
             outage = await client.get("/readyz")
             assert outage.status_code == 200
-            assert app.state.registry.adapter_states == {"WECOM": True, "WEBCHAT": True}
+            assert app.state.registry.adapter_states == {"WEBCHAT": True}
 
-        # 关闭语义：连接管理器停止、真实连接关闭、无遗留任务
-        assert app.state.registry.adapter_states == {"WECOM": False, "WEBCHAT": False}
-        await _wait_until(
-            lambda: all(socket_.close_code is not None for socket_ in probe.connections),
-            what="关闭后真实 WS 连接未释放",
-            timeout=GATEWAY_DRAIN_TIMEOUT_SEC,
-        )
+        assert app.state.registry.adapter_states == {"WEBCHAT": False}
         assert await _wait_gateway_tasks_drained(baseline) == set()
     finally:
         console.stop()
-        await probe.stop()
 
 
-async def test_b107_reconnect_then_shutdown_leaves_no_tasks_or_connections(
+async def test_b107_restart_leaves_no_tasks_or_connections(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """断线重连后关闭：上一轮连接的 SDK 内部任务必须被取消，真实连接全部释放。"""
-    probe = WeComProbe(expected_bots={B107_OK_BOT: B107_SECRET})
-    await probe.start()
+    """连续两次 lifespan：每次启动/关闭都不遗留 Gateway 生命周期任务。"""
     console = StubConsole()
     console.start()
-    console.json_response(BOTS_PATH, _bots_envelope([_bot_payload(B107_OK_BOT, B107_SECRET)]))
-    _install_gateway_env(
-        monkeypatch,
-        console_url=console.url,
-        artifact_root=tmp_path / "artifacts",
-        probe=probe,
-    )
+    console.json_response(BOTS_PATH, _bots_envelope([_bot_payload(B107_WEBCHAT_ENTRY, None)]))
+    _install_gateway_env(monkeypatch, console_url=console.url, artifact_root=tmp_path / "artifacts")
     baseline = _gateway_tasks()
     try:
-        async with running_gateway() as client:
-            await _wait_until(
-                lambda: len(probe.connections) == 1, what="bot 未在真实 WS 上建立连接"
-            )
-            await probe.drop_connection(B107_OK_BOT)
-            await _wait_until(
-                lambda: len(probe.connections) > 1, what="断线后未重连", timeout=GATEWAY_BOOT_TIMEOUT_SEC
-            )
-            assert (await client.get("/readyz")).status_code == 200
-
-        # 关闭不遗留任务/连接：旧连接与新连接的 SDK 任务都要收尾
-        assert await _wait_gateway_tasks_drained(baseline) == set()
-        await _wait_until(
-            lambda: all(socket_.close_code is not None for socket_ in probe.connections),
-            what="关闭后真实 WS 连接未释放",
-            timeout=GATEWAY_DRAIN_TIMEOUT_SEC,
-        )
+        for _ in range(2):
+            async with running_gateway() as client:
+                assert (await client.get("/readyz")).status_code == 200
+            assert await _wait_gateway_tasks_drained(baseline) == set()
     finally:
         console.stop()
-        await probe.stop()
 
 
-async def test_b107_all_bot_secrets_missing_is_not_ready(
+async def test_b107_gateway_requests_no_bot_secrets_and_needs_none(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """全部 bot 的 secret 缺失 = 整体必需启动条件缺失 → readyz=503（failed 含 adapters）。"""
+    """请求面不需要 bot secret：快照请求带 `include_secret=false`，没有 secret 也能就绪。"""
     console = StubConsole()
     console.start()
-    console.json_response(BOTS_PATH, _bots_envelope([_bot_payload(B107_SECRETLESS_BOT, None)]))
-    _install_gateway_env(
-        monkeypatch,
-        console_url=console.url,
-        artifact_root=tmp_path / "artifacts",
-    )
+    seen: dict[str, str] = {}
+
+    async def _bots(request: Any) -> Any:
+        seen.update(dict(request.query_params))
+        return JSONResponse(
+            status_code=200, content=_bots_envelope([_bot_payload(B107_WEBCHAT_ENTRY, None)])
+        )
+
+    console.handlers[BOTS_PATH] = _bots
+    _install_gateway_env(monkeypatch, console_url=console.url, artifact_root=tmp_path / "artifacts")
     try:
         async with running_gateway() as client:
             assert (await client.get("/healthz")).status_code == 200
+            await _wait_until(
+                lambda: (app.state.bot_snapshot is not None)
+                and app.state.bot_snapshot.is_ready(),
+                what="入口快照未就绪",
+            )
             readyz = await client.get("/readyz")
-            assert readyz.status_code == 503
-            assert readyz.json()["data"]["failed"] == ["adapters"]
+            assert readyz.status_code == 200, readyz.text
+            assert readyz.json()["data"]["degraded_bots"] == {}
+        assert seen.get("channels") == "WEBCHAT"
+        assert seen.get("include_secret") == "false"
+        assert all(item.secret is None for item in app.state.bot_snapshot.items)
     finally:
         console.stop()
 
@@ -473,7 +438,7 @@ async def test_b107_failed_initialization_releases_created_resources(
     """初始化中途失败：已创建的真实资源被释放，且不发布半初始化状态。"""
     console = StubConsole()
     console.start()
-    console.json_response(BOTS_PATH, _bots_envelope([_bot_payload(B107_OK_BOT, B107_SECRET)]))
+    console.json_response(BOTS_PATH, _bots_envelope([_bot_payload(B107_WEBCHAT_ENTRY, None)]))
     _install_gateway_env(
         monkeypatch,
         console_url=console.url,

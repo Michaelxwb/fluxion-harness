@@ -8,7 +8,8 @@ import time
 from collections.abc import Callable
 from uuid import uuid4
 
-from ..base import ChannelAdapterUnavailable
+from muad_im_gateway.channels.base import ChannelAdapterUnavailable
+
 from .sdk_port import WeComSdkPort
 
 logger = logging.getLogger(__name__)

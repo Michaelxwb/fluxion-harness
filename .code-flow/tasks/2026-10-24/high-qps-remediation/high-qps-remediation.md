@@ -66,7 +66,7 @@
 | S-04 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime 事件 writer + 真实 PostgreSQL/Redis；20 delta/s × 10s | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_durable_deltas.py", "-k", "production_window_bounds_commits"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 两个真实 Connector 进程 + 假企微 WS 服务端 + 真实 Redis lease；Runtime/Gateway 真实进程 | TASK-007 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | S-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | E2E | 真实浏览器/HTTP 客户端 → 两个以上 Gateway 副本 → Runtime/PG/Redis；SSE 断线重连到另一副本 | TASK-009 | planned | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 | P0 | deferred | browser | - | SSE 长连接、负载均衡、断线重连和跨 Pod 游标只有真实浏览器 + 多副本 + Runtime 持久流才能覆盖。 | ["apps/im-gateway/**", "apps/agent-runtime/src/muad_agent_runtime/api/runs.py", "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py", "deploy/k8s/base/im-gateway.yaml"] | yes |
-| S-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway HTTP /channels/{channel}/events + 假 webhook 提供方 + Redis Stream + Runtime | TASK-008 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
+| S-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway HTTP /channels/{channel}/events + 假 webhook 提供方 + Redis Stream + Runtime | TASK-008 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
 | S-08 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway → 统一消息核心 → Console/Runtime/PG；已验证 CHAT 主体上下文 | TASK-010 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webchat_core.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-09 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 前端 service/hook + mock HTTP；不访问真实后端 | TASK-011 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
 | S-10 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 构建产物 + 前端路由（mock API） | TASK-011 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_webchat_code_splitting.py"] | . | 600 | P1 | auto | none | - | - | - | no |
@@ -558,7 +558,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 ## TASK-008: Gateway 无状态、投递 facade 与 Webhook
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: high-qps-remediation.backend.design.md#3.4 接口设计, high-qps-remediation.backend.design.md#3.5 质量实现方案
@@ -573,29 +573,29 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`：Gateway 无 WeCom SDK/secret；Webhook 合法事件入队、非法签名拒绝
-- [ ] 实现 delivery facade：校验→im.outbound→有界等待；WEBCHAT 走 inbox/SSE
-- [ ] bot snapshot 按 channel 过滤；Gateway 不接收 WECOM secret
-- [ ] 新增 `/channels/{channel}/events` Webhook 路由：验签→XADD→快速 2xx
-- [ ] [S-07][integration] Webhook adapter 接入、非法签名拒绝、重复 event_id 幂等
-- [ ] [harness-api#RULE-api-001][verifier] uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py
-- [ ] [harness-api#RULE-api-002][verifier] uv run pytest -q tests/console_skill/test_import_idempotency.py
-- [ ] [harness-secret#RULE-secret-001][verifier] uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py
+- [x] 交付 `<Capability>`：Gateway 无 WeCom SDK/secret；Webhook 合法事件入队、非法签名拒绝
+- [x] 实现 delivery facade：校验→im.outbound→有界等待；WEBCHAT 走 inbox/SSE
+- [x] bot snapshot 按 channel 过滤；Gateway 不接收 WECOM secret
+- [x] 新增 `/channels/{channel}/events` Webhook 路由：验签→XADD→快速 2xx
+- [x] [S-07][integration] Webhook adapter 接入、非法签名拒绝、重复 event_id 幂等
+- [x] [harness-api#RULE-api-001][verifier] uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py
+- [x] [harness-api#RULE-api-002][verifier] uv run pytest -q tests/console_skill/test_import_idempotency.py
+- [x] [harness-secret#RULE-secret-001][verifier] uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-07 | integration | 真实 Gateway HTTP + 假 webhook + Redis Stream + Runtime | 不新增 Deployment；合法先持久化再 ACK；非法签名不落库；重复 event_id 幂等 | tests/acceptance/im_gateway/test_webhook_channel.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | planned |
+| S-07 | integration | 真实 Gateway HTTP + 假 webhook + Redis Stream + Runtime | 不新增 Deployment；合法先持久化再 ACK；非法签名不落库；重复 event_id 幂等 | tests/acceptance/im_gateway/test_webhook_channel.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | verified |
 
 **Spec Verifier**
 
 | Rule | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 执行命令 | 状态 |
 |---|---|---|---|---|---|
-| harness-api#RULE-api-001 | integration | 真实 PG/Redis/HTTP/architecture tests；不 mock 规则边界 | 规则既有 verifier 全绿；本任务不改变其语义 | uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py | planned |
-| harness-api#RULE-api-002 | integration | 真实 PG/Redis/HTTP/architecture tests；不 mock 规则边界 | 规则既有 verifier 全绿；本任务不改变其语义 | uv run pytest -q tests/console_skill/test_import_idempotency.py | planned |
-| harness-secret#RULE-secret-001 | integration | 真实 PG/Redis/HTTP/architecture tests；不 mock 规则边界 | 规则既有 verifier 全绿；本任务不改变其语义 | uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py | planned |
+| harness-api#RULE-api-001 | integration | 真实 PG/Redis/HTTP/architecture tests；不 mock 规则边界 | 规则既有 verifier 全绿；本任务不改变其语义 | uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py | verified |
+| harness-api#RULE-api-002 | integration | 真实 PG/Redis/HTTP/architecture tests；不 mock 规则边界 | 规则既有 verifier 全绿；本任务不改变其语义 | uv run pytest -q tests/console_skill/test_import_idempotency.py | verified |
+| harness-secret#RULE-secret-001 | integration | 真实 PG/Redis/HTTP/architecture tests；不 mock 规则边界 | 规则既有 verifier 全绿；本任务不改变其语义 | uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py | verified |
 
 ### Acceptance Evidence
 
@@ -603,7 +603,9 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-07 | planned | planned | planned | planned | planned |
+| S-07 | `uv run pytest -q tests/acceptance/im_gateway/test_webhook_channel.py` → 4 failed / 1 passed：四个 HTTP 用例全部 404 `COMMON_NOT_FOUND`（`/channels/WECOM/events` 路由尚不存在），静态「不新增 Deployment」用例通过 | 同一命令 → 5 passed：合法 HMAC 事件 202 且 ACK 前已可从 Redis 回读 `im.inbound:*` 条目，随后真实 Runtime 建 Run 到终态；错签名/过期时间戳 403 且零条目、零新 Run；重复 event_id 第二次 `duplicate=true`、仍只有 1 条 Stream 记录、Run 计数不变 | `tests/acceptance/im_gateway/test_webhook_channel.py::test_s07_valid_event_is_persisted_before_ack_and_creates_one_run`、`::test_s07_invalid_signature_is_rejected_without_persisting_or_running`、`::test_s07_expired_timestamp_is_rejected_without_persisting`、`::test_s07_duplicate_event_id_is_idempotent`、`::test_s07_no_new_deployment_or_image_is_required`；单元面 `tests/gateway/test_webhook_channel.py`（验签/时间戳/载荷/配置装配）与 `tests/gateway/test_delivery_stream.py`（入队+有界等待） | 真实 uvicorn Gateway 子进程 + 真实 Console/Runtime/Worker + 真实 `wss`-free webhook HTTP 客户端（HMAC）+ 真实 Redis `im.inbound:*` + 真实 PostgreSQL `runtime.run_record`；`deploy/k8s/base` 无 webhook 专属 Deployment。inbound 消费组 `im-ingress` 落 `apps/im-gateway/src/muad_im_gateway/application/inbound_streams.py`，验签/入队在 `channels/webhook.py` 与 `api/webhook.py` | verified |
+- S-07: verified — automated command passed; run_id=9503f100ec844aafb0b4239212d5784d (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=13fd94e468784d7aa2c18accbdd002de (confirmed_by: runner)
 
 ### Log
 
@@ -612,6 +614,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 - [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
 - [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
+- [2026-10-25] completed (done)
 
 ---
 

@@ -47,6 +47,8 @@ from httpx import ASGITransport, AsyncClient
 from muad_api import ApiResponse, ok
 from muad_contracts import BotSnapshotItem, ChannelEnvelope, DeliveryMessage, DeliveryRouteInput
 from muad_contracts.webchat import WebchatMessageRequest
+from muad_im_connector.channels.wecom.adapter import WeComAdapter
+from muad_im_connector.channels.wecom.sdk_port import WeComInboundMessage
 from muad_im_gateway.api.deps import RegistryDep
 from muad_im_gateway.application.console_client import ConsoleClient
 from muad_im_gateway.application.inbound import (
@@ -57,8 +59,6 @@ from muad_im_gateway.application.inbound import (
 from muad_im_gateway.application.runtime_client import RuntimeClient
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable, ChannelRegistry
 from muad_im_gateway.channels.webchat import WebchatChannelAdapter, WebchatInboundMessage
-from muad_im_gateway.channels.wecom.adapter import WeComAdapter
-from muad_im_gateway.channels.wecom.sdk_port import WeComInboundMessage
 from muad_im_gateway.infrastructure.dedupe import (
     DEDUPE_VALUE,
     DedupeStore,

@@ -44,8 +44,9 @@ from muad_api import ApiResponse, ok
 from muad_common import SharedSettings
 from muad_contracts import BotSnapshotItem, ChannelEnvelope, DeliveryMessage, DeliveryRouteInput
 from muad_contracts.webchat import WebchatMessageRequest
+from muad_im_connector.channels.wecom.adapter import WeComAdapter
+from muad_im_core import BotSnapshotCache
 from muad_im_gateway.api.deps import RegistryDep
-from muad_im_gateway.application.bot_snapshot import BotSnapshotCache
 from muad_im_gateway.application.console_client import ConsoleClient
 from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.runtime_client import RuntimeClient
@@ -61,7 +62,7 @@ from muad_im_gateway.channels.webchat import (
     WebchatInboundMessage,
     WebchatInboundOverloaded,
 )
-from muad_im_gateway.channels.wecom.adapter import WeComAdapter
+from muad_im_gateway.channels.webhook import WebhookChannelAdapter
 from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
 from muad_im_gateway.main import app
 
@@ -482,10 +483,18 @@ async def test_b247_snapshot_dispatch_by_channel_never_touches_wecom_secret_path
     await registry.stop_all()
 
 
-async def test_b247_registry_registers_webchat_standard_adapter_without_secret() -> None:
-    """装配根同形构建：注册表同时接入 WECOM 与 WEBCHAT，标准适配器无需 bot/secret 即可用。"""
-    registry = build_channel_registry(SharedSettings(), fetch_links=_NoLinks())
-    assert registry.names() == ("WECOM", "WEBCHAT")
+async def test_b247_registry_registers_webchat_standard_adapter_without_secret(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """装配根同形构建：WEBCHAT + 配置驱动的通用 webhook 通道，均无需 bot secret 即可用。"""
+    monkeypatch.setenv(
+        "GATEWAY_WEBHOOK_CHANNELS",
+        '[{"channel": "WECOM", "secret": "test-webhook-secret", "reply_url": null}]',
+    )
+    registry = build_channel_registry(SharedSettings())
+    assert registry.names() == ("WEBCHAT", "WECOM")
+    webhook = registry.get("WECOM")
+    assert isinstance(webhook, WebhookChannelAdapter)
     adapter = registry.get("WEBCHAT")
     assert isinstance(adapter, WebchatChannelAdapter)
     standard: ChannelAdapter = adapter

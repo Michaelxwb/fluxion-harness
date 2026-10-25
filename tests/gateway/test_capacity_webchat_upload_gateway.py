@@ -52,8 +52,8 @@ from httpx import ASGITransport, AsyncClient
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import BotSnapshotItem, BotSnapshotResponse
 from muad_contracts.webchat import WebchatUploadRegistration
+from muad_im_core import BotSnapshotCache
 from muad_im_gateway.api.webchat import router as webchat_router
-from muad_im_gateway.application.bot_snapshot import BotSnapshotCache
 from muad_im_gateway.application.chat_principal import CHAT_SESSION_COOKIE
 from muad_im_gateway.application.console_client import CHAT_PRINCIPAL_PATH, ConsoleClient
 from muad_im_gateway.application.runtime_client import RuntimeClient

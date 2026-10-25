@@ -28,6 +28,8 @@ class FakeBlob:
 
 class FakeChannelAdapter:
     name: str
+    #: 测试替身在**本进程**直接发送（与 WebChat/企微适配器同一条本地投递面）。
+    delivers_locally = True
 
     def __init__(self, name: str = "WECOM") -> None:
         self.name = name

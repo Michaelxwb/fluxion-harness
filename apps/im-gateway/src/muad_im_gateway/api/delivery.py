@@ -4,7 +4,9 @@ import logging
 import time
 from contextlib import suppress
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Request
 from muad_api import ApiResponse, AppError, ErrorCode, InternalServiceDep, metrics, ok
@@ -15,6 +17,7 @@ from muad_contracts import (
     DeliveryRequest,
     canonical_json,
 )
+from muad_contracts.im import DeliveryCommand, DeliveryKind
 
 from ..channels.base import (
     ArtifactDeliveryError,
@@ -24,6 +27,7 @@ from ..channels.base import (
     ChannelBotNotFound,
     ChannelRegistry,
     ChannelRegistryError,
+    LocalDeliverySurface,
     OutboundArtifactDelivery,
 )
 from ..infrastructure.artifact_resolver import ArtifactGoneError, ArtifactResolverPort
@@ -33,10 +37,13 @@ from ..infrastructure.dedupe import (
     delivered_value,
     parse_delivered,
 )
+from ..infrastructure.streams import DeliveryStreams, DeliveryStreamsError
 from .deps import (
     ArtifactResolverDep,
     ConsoleClientDep,
     DedupeStoreDep,
+    DeliveryStreamsDep,
+    DeliveryStreamWaitDep,
     GatewayTenantDep,
     RegistryDep,
 )
@@ -83,6 +90,8 @@ async def deliver(
     request: Request,
     registry: RegistryDep,
     dedupe: DedupeStoreDep,
+    streams: DeliveryStreamsDep,
+    stream_wait_sec: DeliveryStreamWaitDep,
     console: ConsoleClientDep,
     gateway_tenant: GatewayTenantDep,
     resolver: ArtifactResolverDep,
@@ -90,15 +99,19 @@ async def deliver(
 ) -> ApiResponse[Any]:
     """受信服务（Runtime / Worker）投递一条消息给终端用户。
 
-    **三重校验**（2026-10-06 加固，此前该端点无鉴权且完全相信请求体）：
-    ① 服务身份 `X-Internal-Service`（与 `resolve-credentials` 等内部端点同门控）；
-    ② 租户必须是**本网关部署的租户**（网关按单租户部署，一个 `bot_id` 只属于一个租户）；
-    ③ 产物必须能按 `artifact_id` 在**本租户内**解析出来，且存储键与调用方声明一致
-    —— 调用方不能自行提供一个未经验证的存储键去读共享存储里的任意文件。
+    **三重校验**（2026-10-06 加固）：① 服务身份；② 租户必须是本网关部署的租户；③ 产物
+    必须能按 `artifact_id` 在本租户内解析出来且存储键一致。
+
+    **投递路径按适配器能力选择**（design §3.2）：
+
+    - 适配器声明 `LocalDeliverySurface`（WebChat 的持久入箱/SSE 面）⇒ 本进程直接发送；
+    - 其余通道 ⇒ `im.outbound` 入队 + **有界等待结果**：请求面进程不持有渠道连接/secret，
+      Web-Com 之类的有状态通道由 Connector 消费。超时回可重试错误，不把"已入队"当"已送达"。
     """
     key = f"{DELIVERY_DEDUPE_PREFIX}:{body.delivery_key}"
     trace_id = current_trace_id() or ""
     _require_gateway_tenant(body, gateway_tenant)
+    use_stream = _uses_outbound_stream(registry, body.route.channel)
     fingerprint = _fingerprint(body)
     try:
         owner = await dedupe.reserve(key, DELIVERY_IN_FLIGHT_TTL_SEC)
@@ -107,8 +120,16 @@ async def deliver(
         logger.warning(
             "delivery_dedupe_degraded delivery_key=%s error=%s", body.delivery_key, exc
         )
-        outcome = await _send_audited(
-            registry, console, body, resolver=resolver, held=None, trace_id=trace_id
+        outcome = await _dispatch(
+            registry,
+            console,
+            streams,
+            body,
+            resolver=resolver,
+            held=None,
+            trace_id=trace_id,
+            use_stream=use_stream,
+            stream_wait_sec=stream_wait_sec,
         )
         _count_delivery("accepted")
         return ok(request.app.state.message_catalog, _result(outcome))
@@ -117,13 +138,16 @@ async def deliver(
     held: _Held = (dedupe, _Reservation(key=key, owner=owner))
     renew = asyncio.create_task(_keep_placeholder(dedupe, key, owner))
     try:
-        outcome = await _send_audited(
+        outcome = await _dispatch(
             registry,
             console,
+            streams,
             body,
             resolver=resolver,
             held=held,
             trace_id=trace_id,
+            use_stream=use_stream,
+            stream_wait_sec=stream_wait_sec,
         )
     finally:
         renew.cancel()
@@ -200,6 +224,152 @@ async def _keep_placeholder(dedupe: DedupeStore, key: str, owner: str) -> None:
             logger.warning("delivery_placeholder_renew_failed key=%s error=%s", key, exc)
 
 
+def _uses_outbound_stream(registry: ChannelRegistry, channel: str) -> bool:
+    """本通道是否必须经 `im.outbound`（没有本进程直发能力）。
+
+    适配器能力而不是渠道名决定路径：WebChat 声明 `LocalDeliverySurface`（持久入箱/SSE），
+    其余通道（有状态连接角色持有的）一律入队。未注册的通道仍然显式失败，不入一条没人消费的流。
+    """
+    try:
+        adapter = registry.get(channel)
+    except ChannelRegistryError:
+        # 本进程没有这个通道的适配器 ⇒ 它由持有连接的角色（Connector）消费。
+        # 通道名受契约 `ChannelName` 约束，不存在"任意字符串入队没人消费"的面。
+        return True
+    return not isinstance(adapter, LocalDeliverySurface)
+
+
+async def _dispatch(
+    registry: ChannelRegistry,
+    console: ConsoleClientDep,
+    streams: DeliveryStreams,
+    body: DeliveryRequest,
+    *,
+    resolver: ArtifactResolverPort,
+    held: _Held | None,
+    trace_id: str,
+    use_stream: bool,
+    stream_wait_sec: float,
+) -> ArtifactDeliveryOutcome | None:
+    if use_stream:
+        return await _deliver_via_stream(
+            streams, console, body, resolver=resolver, held=held,
+            trace_id=trace_id, wait_sec=stream_wait_sec,
+        )
+    return await _send_audited(
+        registry, console, body, resolver=resolver, held=held, trace_id=trace_id
+    )
+
+
+async def _deliver_via_stream(
+    streams: DeliveryStreams,
+    console: ConsoleClientDep,
+    body: DeliveryRequest,
+    *,
+    resolver: ArtifactResolverPort,
+    held: _Held | None,
+    trace_id: str,
+    wait_sec: float,
+) -> ArtifactDeliveryOutcome | None:
+    """校验产物归属 → XADD `im.outbound` → **有界等待**结果；超时不宣称送达。"""
+    try:
+        verified = await _verified_body(body, resolver)
+    except ArtifactGoneError as exc:
+        logger.warning("delivery_artifact_unresolved delivery_key=%s error=%s", body.delivery_key, exc)
+        await _release(held, body.delivery_key)
+        _count_delivery("failed")
+        raise AppError(ErrorCode.COMMON_NOT_FOUND) from exc
+    command = _build_command(verified)
+    try:
+        await streams.enqueue(command)
+        result = await streams.await_result(command.command_id, timeout_sec=wait_sec)
+    except DeliveryStreamsError as exc:
+        logger.warning("delivery_stream_failed delivery_key=%s error=%s", body.delivery_key, exc)
+        await _release(held, body.delivery_key)
+        _count_delivery("failed")
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+    if result is None:
+        # 有界等待超时：命令可能稍后仍被 Connector 执行（at-least-once），但这里**不能**报成功。
+        logger.warning("delivery_stream_result_timeout delivery_key=%s", body.delivery_key)
+        await _release(held, body.delivery_key)
+        _count_delivery("failed")
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+    outcome, reason = _stream_outcome(result)
+    artifact = verified.message.artifact
+    if outcome is None and reason:
+        await _audit_delivery(
+            None,
+            console,
+            body,
+            outcome="FAILED",
+            reason_code=reason,
+            trace_id=trace_id,
+            route_key=_route_key_from(result),
+        )
+        await _release(held, body.delivery_key)
+        _count_delivery("failed")
+        raise AppError(ErrorCode.ARTIFACT_DELIVERY_FAILED if artifact is not None
+                       else ErrorCode.COMMON_INTERNAL_ERROR)
+    await _audit_delivery(
+        None,
+        console,
+        body,
+        outcome=outcome.outcome if outcome is not None else "DELIVERED",
+        reason_code=outcome.reason_code if outcome is not None else "",
+        trace_id=trace_id,
+        route_key=_route_key_from(result),
+    )
+    return outcome
+
+
+def _build_command(body: DeliveryRequest) -> DeliveryCommand:
+    """交付请求 → 出站命令（渠道中立；reply 目标由 Connector 按 run/route 解析）。"""
+    message = body.message
+    artifact = message.artifact
+    run_id = UUID(body.run_id) if body.run_id else None
+    return DeliveryCommand(
+        command_id=uuid4(),
+        channel=body.route.channel,
+        tenant_id=body.tenant_id,
+        bot_id=body.route.bot_id,
+        run_id=run_id,
+        external_conversation_id=body.route.external_conversation_id,
+        external_user_id=body.route.external_user_id,
+        kind=DeliveryKind.ARTIFACT if artifact is not None else DeliveryKind.TEXT,
+        text=message.text,
+        artifact=artifact,
+        created_at=datetime.now(UTC),
+    )
+
+
+def _stream_outcome(
+    result: dict[str, Any],
+) -> tuple[ArtifactDeliveryOutcome | None, str]:
+    """Connector 结果 → 成功结局（`None` = 文本已送达）或失败原因码。"""
+    status = str(result.get("status", ""))
+    if status == "DELIVERED":
+        return None, ""
+    if status == "DEGRADED":
+        return (
+            ArtifactDeliveryOutcome(
+                outcome="DEGRADED",
+                fallback_url=(
+                    result.get("fallback_url")
+                    if isinstance(result.get("fallback_url"), str)
+                    else None
+                ),
+                reason_code=str(result.get("code", "")),
+            ),
+            "",
+        )
+    return None, str(result.get("code", "")) or status or "CONNECTOR_RESULT_UNAVAILABLE"
+
+
+def _route_key_from(result: dict[str, Any]) -> str | None:
+    value = result.get("route_key")
+    return value if isinstance(value, str) and value else None
+
+
 async def _send_audited(
     registry: ChannelRegistry,
     console: ConsoleClientDep,
@@ -235,37 +405,44 @@ async def _send_audited(
 
 
 async def _audit_delivery(
-    registry: ChannelRegistry,
+    registry: ChannelRegistry | None,
     console: ConsoleClientDep,
     body: DeliveryRequest,
     *,
     outcome: DeliveryAuditOutcome,
     reason_code: str,
     trace_id: str,
+    route_key: str | None = None,
 ) -> None:
     """写一条交付审计。**只对产物形态**——审计表要求 `artifact_id`，而文本投递没有
     "把哪个产物交付给哪个路由"这件事可言，硬记一行只会把那张表灌满噪声。
 
-    `route_key` **由适配器产出**（渠道私有形状不进应用层）：适配器拿不到就跳过并留痕，
+    `route_key` **由适配器产出**（渠道私有形状不进应用层）：本进程有适配器就问它；
+    经 `im.outbound` 交付时由 Connector 侧适配器在结果里回传。两处都拿不到就跳过并留痕，
     不自己拼一个"看起来像"的串。
     """
     artifact = body.message.artifact
     if body.message.type == "text" or artifact is None or artifact.artifact_id is None:
         return
-    try:
-        adapter = registry.get(body.route.channel)
-    except (ChannelRegistryError, ChannelBotNotFound):
-        logger.warning("delivery_audit_skipped_no_adapter delivery_key=%s", body.delivery_key)
-        return
-    if not isinstance(adapter, OutboundArtifactDelivery):
-        logger.warning("delivery_audit_skipped_no_capability delivery_key=%s", body.delivery_key)
-        return
+    if route_key is None:
+        if registry is None:
+            logger.warning("delivery_audit_skipped_no_adapter delivery_key=%s", body.delivery_key)
+            return
+        try:
+            adapter = registry.get(body.route.channel)
+        except (ChannelRegistryError, ChannelBotNotFound):
+            logger.warning("delivery_audit_skipped_no_adapter delivery_key=%s", body.delivery_key)
+            return
+        if not isinstance(adapter, OutboundArtifactDelivery):
+            logger.warning("delivery_audit_skipped_no_capability delivery_key=%s", body.delivery_key)
+            return
+        route_key = adapter.route_key(body.route)
     try:
         await console.delivery_audit(
             ArtifactDeliveryAuditRequest(
                 artifact_id=artifact.artifact_id,
                 channel=body.route.channel,
-                route_key=adapter.route_key(body.route),
+                route_key=route_key,
                 delivery_key=body.delivery_key,
                 outcome=outcome,
                 reason_code=reason_code,

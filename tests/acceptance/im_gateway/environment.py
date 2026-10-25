@@ -128,9 +128,16 @@ def _service_env(base: dict[str, str], **overrides: str) -> dict[str, str]:
 def start_gateway_stack(
     root: Path,
     *,
-    ws_probe_url: str,
-    ws_ca_file: str,
+    ws_probe_url: str | None = None,
+    ws_ca_file: str | None = None,
+    gateway_env: dict[str, str] | None = None,
 ) -> tuple[GatewayStack, list[ServiceProcess]]:
+    """启动本栈的全部进程。
+
+    `ws_probe_url`/`ws_ca_file` 只对仍在 Gateway 内跑企微长连接的旧栈有意义；
+    渠道实现迁到 Connector 后（TASK-008）webhook 栈不需要它们（默认不注入）。
+    `gateway_env` 是栈级渠道配置的注入点（例如 webhook 通道的签名密钥）。
+    """
     settings = SharedSettings()
     database_url = require("DATABASE_URL", settings.database_url)
     redis_url = require("REDIS_URL", settings.redis_url)
@@ -225,6 +232,10 @@ def start_gateway_stack(
         IM_GATEWAY_URL=gateway_url,
         DELIVERY_POLL_INTERVAL_SEC="1",
     )
+    gateway_extra: dict[str, str] = dict(gateway_env or {})
+    if ws_probe_url and ws_ca_file:
+        gateway_extra["WECOM_WS_URL"] = ws_probe_url
+        gateway_extra["WECOM_WS_CA_FILE"] = ws_ca_file
     gateway = spawn(
         "gateway",
         "muad_im_gateway.main",
@@ -233,8 +244,7 @@ def start_gateway_stack(
         AGENT_RUNTIME_URL=runtime_url,
         # 注意：不设置 CHANNEL_PROBE_URL —— 该变量会让 Gateway 换用 HTTP 探针适配器，
         # 从而不建立真实 WS 连接；投递链路的渠道探针由 TASK-027 按其边界单独配置。
-        WECOM_WS_URL=ws_probe_url,
-        WECOM_WS_CA_FILE=ws_ca_file,
+        **gateway_extra,
     )
 
     llm_probe.start()
@@ -255,7 +265,7 @@ def start_gateway_stack(
         worker_url=worker_url,
         gateway_url=gateway_url,
         llm_url=llm_url,
-        wecom_ws_url=ws_probe_url,
+        wecom_ws_url=ws_probe_url or "",
         artifact_root=artifact_root,
         tenant_id=seeded["tenant_id"],
         agent_id=seeded["agent_id"],

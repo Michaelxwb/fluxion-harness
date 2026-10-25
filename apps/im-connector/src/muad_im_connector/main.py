@@ -15,10 +15,11 @@ from fastapi import FastAPI
 from muad_api import install_health_probes
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
+from muad_im_core import BotSnapshotCache, InboundPublisher
 from muad_logging import configure_logging
 from redis.asyncio import Redis
 
-from .inbound import InboundPublisher
+from .channels.wecom.adapter import WeComAdapter
 from .lease import RedisLeaseManager
 from .metrics import install_connector_metrics
 from .outbound import CommandExecutor, OutboundRunner
@@ -46,9 +47,7 @@ def _require(value: str | None, name: str) -> str:
 
 
 def _build_resources(settings: SharedSettings) -> ConnectorResources:
-    from muad_im_gateway.application.bot_snapshot import BotSnapshotCache
     from muad_im_gateway.application.console_client import ConsoleClient
-    from muad_im_gateway.channels.wecom.adapter import WeComAdapter
 
     connector = connector_settings()
     redis = Redis.from_url(
@@ -97,6 +96,8 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
     snapshot = BotSnapshotCache(
         console,
         tenant_id=settings.default_tenant_id,
+        # 只取本角色接管的通道：企微 secret 不流向 Gateway，反之亦然（NFR-SEC-01）。
+        channels=connector.handled_channels,
         interval_sec=settings.bot_snapshot_poll_sec,
         on_snapshot_changed=lambda items: holder["runtime"].on_snapshot(items),
     )

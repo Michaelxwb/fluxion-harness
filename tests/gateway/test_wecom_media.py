@@ -26,13 +26,13 @@ from uuid import uuid4
 
 import pytest
 from muad_contracts import BotSnapshotItem
-from muad_im_gateway.channels.wecom.adapter import WeComAdapter, _AibotClientPort
-from muad_im_gateway.channels.wecom.media import (
+from muad_im_connector.channels.wecom.adapter import WeComAdapter, _AibotClientPort
+from muad_im_connector.channels.wecom.media import (
     _filename_from_disposition,
     _media_type,
     download_media,
 )
-from muad_im_gateway.channels.wecom.sdk_port import (
+from muad_im_connector.channels.wecom.sdk_port import (
     WeComMediaContent,
     WeComMediaDecryptError,
     WeComMediaNetworkError,
