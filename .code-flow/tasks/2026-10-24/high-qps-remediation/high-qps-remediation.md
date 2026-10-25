@@ -3,7 +3,7 @@
 - **Source**: `.code-flow/tasks/2026-10-24/high-qps-remediation/`（backend/frontend design + scenarios 合并）
 - **Created**: 2026-10-25
 - **Updated**: 2026-10-25
-- **Plan-State**: TASK-001..003 done；TASK-004..012 draft（按批次继续）
+- **Plan-State**: TASK-001..004/006 done；TASK-005 blocked；TASK-007..012 draft
 
 ## Proposal
 
