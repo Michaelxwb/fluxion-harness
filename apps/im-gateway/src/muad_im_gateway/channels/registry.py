@@ -23,6 +23,11 @@ from .base import (
     SnapshotAware,
     UnknownChannelAdapterError,
 )
+from .routed import (
+    ConnectorCommandSink,
+    RoutedChannelAdapter,
+    parse_routed_channels,
+)
 from .webchat import WebchatChannelAdapter
 from .webhook import WebhookChannelAdapter, parse_webhook_channels
 
@@ -33,8 +38,14 @@ logger = logging.getLogger(__name__)
 SnapshotChangeCallback = Callable[[tuple[BotSnapshotItem, ...]], Awaitable[None]]
 
 
-def build_channel_registry(settings: SharedSettings) -> ChannelRegistry:
-    """装配本 Gateway 声明拥有的通道面（装配根的唯一入口）。"""
+def build_channel_registry(
+    settings: SharedSettings, *, routed_sink: ConnectorCommandSink | None = None
+) -> ChannelRegistry:
+    """装配本 Gateway 声明拥有的通道面（装配根的唯一入口）。
+
+    `GATEWAY_ROUTED_CHANNELS` 声明的通道是**远程 Connector 的请求面**：入站只路由、
+    出站写 `im.outbound`；没有 sink（未接线）时装配仍成立，任何发送都显式失败。
+    """
     registry = ChannelRegistry()
     registry.register(WebchatChannelAdapter())
     for config in parse_webhook_channels(settings.gateway_webhook_channels):
@@ -44,6 +55,8 @@ def build_channel_registry(settings: SharedSettings) -> ChannelRegistry:
                 timestamp_tolerance_sec=settings.webhook_timestamp_tolerance_sec,
             )
         )
+    for channel in parse_routed_channels(settings.gateway_routed_channels):
+        registry.register(RoutedChannelAdapter(channel, sink=routed_sink))
     return registry
 
 

@@ -89,6 +89,23 @@ def test_channel_sdk_only_lives_in_connector_adapter_surface() -> None:
     )
 
 
+def test_connector_exposes_no_public_business_routes() -> None:
+    """Connector 只有运维面（/healthz、/readyz、/metrics），没有业务 HTTP 路由。
+
+    design §4.1「不暴露公开 HTTP」：终端用户请求只打 Gateway；Connector 的入口是渠道长连接
+    与 Redis Stream。业务路由一旦注册，它就成了一个事实上的第五个服务。
+    """
+    main = ROOT / CONNECTOR / "src/muad_im_connector/main.py"
+    text = main.read_text(encoding="utf-8")
+    assert "include_router(" not in text, f"{main} 注册了业务路由（Connector 不得暴露公开业务面）"
+    assert "APIRouter(" not in text, f"{main} 声明了业务路由（Connector 不得暴露公开业务面）"
+    assert "install_health_probes(" in text and "install_connector_metrics(" in text, (
+        "Connector 必须暴露探针与指标（运维面）"
+    )
+    offenders = _sources_matching(CONNECTOR, lambda value, _path: "sqlalchemy" in value)
+    assert offenders == [], f"Connector 不持库（没有 DATABASE_URL）：{offenders}"
+
+
 def test_no_bot_or_agent_to_pod_mapping() -> None:
     """RULE-01 / RULE-04：不存在 bot/Agent→Pod 映射；四单元无 Pod 绑定。"""
     offenders: list[str] = []

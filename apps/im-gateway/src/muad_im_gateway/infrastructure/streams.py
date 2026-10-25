@@ -71,6 +71,13 @@ class DeliveryStreams:
     async def aclose(self) -> None:
         await self._client.aclose()
 
+    async def ping(self) -> bool:
+        """就绪探针用：声明了依赖 Redis 的通道面时，Redis 不可用即不就绪。"""
+        try:
+            return bool(await self._client.ping())
+        except (redis.RedisError, OSError):
+            return False
+
 
 def _parse_result(raw: object) -> dict[str, Any]:
     text = raw.decode() if isinstance(raw, bytes) else str(raw)

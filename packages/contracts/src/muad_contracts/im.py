@@ -16,7 +16,7 @@ from uuid import UUID
 from pydantic import Field, field_validator
 
 from .canonical import ensure_strict_json
-from .channel import AttachmentRef
+from .channel import AttachmentFailure, AttachmentRef
 from .tasks import ContractModel
 
 __all__ = [
@@ -61,6 +61,8 @@ class InboundEvent(ContractModel):
     attachments: tuple[AttachmentRef, ...] = ()
     #: 未取件附件的不透明计数键：Gateway 可据此知道"来过几个媒体项"，键本身不含 URL/密钥。
     attachment_keys: tuple[str, ...] = ()
+    #: 取件失败（键 + 渠道中立原因码）：Gateway 用它与"本地取件失败"同一个出口反馈/审计。
+    attachment_failures: tuple[AttachmentFailure, ...] = ()
     unsupported_media: str | None = None
     reply_ref: str | None = None
     received_at: datetime
@@ -75,6 +77,10 @@ class DeliveryCommand(ContractModel):
     tenant_id: str = Field(min_length=1)
     bot_id: str = Field(min_length=1)
     run_id: UUID | None = None
+    #: 发起该 Run 的**入站消息身份**（契约层的渠道中立字段）：Connector 据此找回
+    #: 本条消息自己的 reply target（`im:reply:message:*`），而不是退化成"本路由最新回调"。
+    #: 后台任务/主动投递没有入站消息，为空时由 Connector 按 route 解析。
+    message_id: str | None = None
     external_conversation_id: str | None = None
     external_user_id: str = Field(min_length=1)
     kind: DeliveryKind

@@ -17,6 +17,7 @@ import pytest
 import yaml
 
 BASE = Path("deploy/k8s/base")
+CONNECTOR_OVERLAY = Path("deploy/k8s/with-connector")
 DEPLOYMENTS = ("console-platform", "agent-runtime", "agent-worker", "im-gateway")
 
 
@@ -107,3 +108,105 @@ def test_pods_run_as_non_root_with_matching_fs_group(name: str) -> None:
     security = pod_spec["securityContext"]
     assert security["runAsNonRoot"] is True
     assert security["runAsUser"] == 10001 and security["fsGroup"] == 10001
+
+
+# --------------------------------------------------------------------------------------
+# Connector（im-gateway 的有状态运行时角色）：独立镜像/无公开入口/自身 secret/PDB
+# --------------------------------------------------------------------------------------
+
+
+def _connector_docs() -> list[dict[str, Any]]:
+    return [
+        doc
+        for doc in yaml.safe_load_all(
+            (CONNECTOR_OVERLAY / "connector.yaml").read_text(encoding="utf-8")
+        )
+        if isinstance(doc, dict)
+    ]
+
+
+def _connector_deployment() -> dict[str, Any]:
+    docs = [d for d in _connector_docs() if d.get("kind") == "Deployment"]
+    assert len(docs) == 1, "connector.yaml 应有且仅有一个 Deployment"
+    return docs[0]
+
+
+def test_connector_overlay_is_collected_and_gateway_is_multi_replica() -> None:
+    """5 单元 overlay 只多一个 Connector（无 patches）；Gateway 多副本在 base 里声明。"""
+    kustomization = next(
+        d for d in yaml.safe_load_all(
+            (CONNECTOR_OVERLAY / "kustomization.yaml").read_text(encoding="utf-8")
+        ) if isinstance(d, dict) and d.get("kind") == "Kustomization"
+    )
+    assert "connector.yaml" in kustomization["resources"], "Connector 清单必须被 overlay 收集"
+    assert "../base" in kustomization["resources"], "5 单元 overlay 必须复用 base 的四单元"
+    assert "patches" not in kustomization, (
+        "overlay 只用 resources：预检在无 kustomize 的环境里走收集展开也要能验证它"
+    )
+    gateway = next(
+        d for d in yaml.safe_load_all(
+            (BASE / "im-gateway.yaml").read_text(encoding="utf-8")
+        ) if isinstance(d, dict) and d.get("kind") == "Deployment"
+    )
+    assert gateway["spec"]["replicas"] == 2, "Gateway 允许 N 副本（design §4.1）：base 基线 2"
+    config = next(
+        d for d in yaml.safe_load_all(
+            (BASE / "configmap.yaml").read_text(encoding="utf-8")
+        ) if isinstance(d, dict) and d.get("kind") == "ConfigMap"
+    )
+    assert config["data"].get("GATEWAY_ROUTED_CHANNELS") == "WECOM", (
+        "请求面必须声明远程通道只路由（入站 im.inbound、出站 im.outbound）"
+    )
+
+
+def test_connector_uses_its_own_secret_without_database_url() -> None:
+    env = {
+        item["name"]: item
+        for item in _connector_deployment()["spec"]["template"]["spec"]["containers"][0].get(
+            "env", []
+        )
+    }
+    assert "DATABASE_URL" not in env, "Connector 不持库：不得注入 DATABASE_URL"
+    assert "WECOM_SECRET" not in env and "BOT_SECRET" not in env, (
+        "渠道连接凭据由 Console 快照下发，不得进 Deployment 环境变量"
+    )
+    for key in ("REDIS_URL", "INTERNAL_SERVICE_TOKEN"):
+        source = env[key]["valueFrom"]["secretKeyRef"]
+        assert source["name"] == "muad-connector-external", (
+            f"{key} 必须来自 Connector 自己的 secret（只挂自身 secret）"
+        )
+
+
+def test_connector_probes_metrics_and_lease_budget_are_declared() -> None:
+    container = _connector_deployment()["spec"]["template"]["spec"]["containers"][0]
+    assert container["readinessProbe"]["httpGet"]["path"] == "/readyz"
+    assert container["livenessProbe"]["httpGet"]["path"] == "/healthz"
+    for probe in ("readinessProbe", "livenessProbe"):
+        assert container[probe]["timeoutSeconds"] >= 5
+        assert container[probe]["periodSeconds"] == 10
+        assert container[probe]["failureThreshold"] == 3
+    env = {item["name"]: item.get("value") for item in container.get("env", [])}
+    ttl = float(str(env["CONNECTOR_LEASE_TTL_SEC"]))
+    renew = float(str(env["CONNECTOR_LEASE_RENEW_SEC"]))
+    assert ttl >= 5 and renew < ttl / 2, "lease 续租必须显著早于过期（避免互相抢连接）"
+    assert container["ports"][0]["containerPort"] == 8004, "Connector 的 metrics/probe 端口"
+
+
+def test_connector_has_pdb_and_no_public_ingress_route() -> None:
+    pdbs = [d for d in _connector_docs() if d.get("kind") == "PodDisruptionBudget"]
+    assert len(pdbs) == 1, "Connector 必须有显式 PDB（有状态 bot 连接）"
+    assert pdbs[0]["spec"]["maxUnavailable"] == 1, "PDB 允许一次有界中断，接管由 lease 完成"
+    services = [d for d in _connector_docs() if d.get("kind") == "Service"]
+    assert len(services) == 1, "Connector 需要一个内部 Service（探针/指标），不是公开入口"
+    ingress = [
+        doc for doc in yaml.safe_load_all(
+            (BASE / "ingress.yaml").read_text(encoding="utf-8")
+        ) if isinstance(doc, dict)
+    ]
+    backend_services = {
+        ((entry.get("backend") or {}).get("service") or {}).get("name")
+        for doc in ingress
+        for rule in (doc.get("spec", {}).get("rules") or [])
+        for entry in ((rule.get("http") or {}).get("paths") or [])
+    }
+    assert "muad-connector" not in backend_services, "Connector 不得有公开入口（不暴露业务路由）"

@@ -70,6 +70,7 @@ from muad_agent_worker.worker.service import WorkerLoop
 from muad_api import install_api_foundation
 from muad_common import SharedSettings
 from muad_contracts import (
+    BUILTIN_CHANNEL_NAMES,
     ChannelName,
     CompletionMode,
     ControlOutboxStatus,
@@ -805,4 +806,6 @@ async def test_b268_non_webchat_routes_keep_gateway_delivery_without_runtime_pub
 
 def test_b268_webchat_channel_constant_matches_the_shared_vocabulary() -> None:
     assert WEBCHAT_CHANNEL == "WEBCHAT"
-    assert ChannelName.__args__ == ("WECOM", "WEBCHAT")
+    # 通道名是开放 string（S-12：新增通道只写适配器）：内建名只在 enums 一处声明，
+    # 不再以 `Literal` 封闭（`ChannelName = str`，没有 `__args__`）。
+    assert BUILTIN_CHANNEL_NAMES == ("WECOM", "WEBCHAT")

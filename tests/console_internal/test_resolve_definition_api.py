@@ -161,15 +161,27 @@ async def test_tenant_isolation_returns_not_found(
     _assert_error(response, 404, "AGENT_NOT_FOUND")
 
 
-async def test_invalid_channel_returns_validation_envelope(
+async def test_channel_validation_is_open_but_rejects_the_empty_name(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
-    response = await client.post(
+    """通道名是开放 string（S-12：新增通道只写适配器）：空名被契约拒绝；未知名不是契约错误。
+
+    解析只用 channel 做上下文/授权输入；"这个部署认不认这个通道"由注册表与运行期裁决，
+    不再是类型层的封闭枚举。
+    """
+    empty = await client.post(
+        RESOLVE_URL,
+        json=_payload(tenant.agent_id, tenant.actor_user_id, channel=""),
+        headers=_headers(tenant),
+    )
+    _assert_error(empty, 422, "COMMON_VALIDATION_ERROR")
+
+    open_name = await client.post(
         RESOLVE_URL,
         json=_payload(tenant.agent_id, tenant.actor_user_id, channel="SLACK"),
         headers=_headers(tenant),
     )
-    _assert_error(response, 422, "COMMON_VALIDATION_ERROR")
+    assert open_name.status_code == 200, open_name.text
 
 
 async def test_resolve_mcp_servers_effective_formula(

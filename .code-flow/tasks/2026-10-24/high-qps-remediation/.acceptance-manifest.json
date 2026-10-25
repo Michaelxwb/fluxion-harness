@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "high-qps-remediation.md",
-  "task_sha256": "6641a9137ddc92fe8e089bcb023b60102c13055611dc9f3689fc35faf1e72038",
+  "task_sha256": "701ce74bb7d3b0584dbb63c119414c7f8bc3adb479bc17382ad1bc22ae6b7615",
   "checks": [
     {
       "id": "CHK-1f60ca901381",
@@ -283,11 +283,11 @@
       "paths": []
     },
     {
-      "id": "CHK-d3e4e66b0653",
+      "id": "CHK-db89ed311e57",
       "command": [
-        "bash",
-        "-lc",
-        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+        "npm",
+        "run",
+        "webchat-smoke"
       ],
       "cwd": ".",
       "timeout": 1800.0,
@@ -302,6 +302,30 @@
         "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py",
         "apps/im-gateway/**",
         "deploy/k8s/base/im-gateway.yaml"
+      ],
+      "suite": "browser",
+      "markers": [
+        "smoke"
+      ],
+      "collect": {
+        "format": "playwright",
+        "argv": [
+          "npm",
+          "--prefix",
+          "e2e",
+          "test",
+          "--silent",
+          "--",
+          "--config",
+          "playwright.webchat.config.ts",
+          "capacity-recovery.spec.ts",
+          "--list",
+          "--reporter=json"
+        ],
+        "timeout": 60
+      },
+      "test_ids": [
+        "e2e/tests/webchat/capacity-recovery.spec.ts:770@chromium"
       ]
     },
     {
@@ -533,7 +557,7 @@
       "kind": "functional",
       "boundary": "真实 Gateway/Runtime/PG；ramp=0，1000 个不同用户同时提交",
       "owner": "TASK-005",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -592,217 +616,7 @@
       "defer_reason": "1000 瞬时受理 burst 需容量档环境",
       "target_phase": "review",
       "defer_owner": "TASK-005",
-      "check": "CHK-1f60ca901381",
-      "revision": 4,
-      "evidence": {
-        "id": "B-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-1f60ca901381",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-1f60ca901381",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/capacity/test_capacity_admission_burst.py"
-          ],
-          "cwd": ".",
-          "timeout": 1200.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 4,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/capacity/test_capacity_admission_burst.py"
-        ],
-        "cwd": ".",
-        "timeout": 1200.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-      },
-      "runs": [
-        {
-          "id": "B-01",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-1f60ca901381",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/capacity/test_capacity_admission_burst.py"
-            ],
-            "cwd": ".",
-            "timeout": 1200.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "00d383bae4e34f43a714b99c0c736517",
-          "executed_at": "2026-10-25T10:38:18.555639+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/capacity/test_capacity_admission_burst.py"
-          ],
-          "cwd": ".",
-          "timeout": 1200.0
-        },
-        {
-          "id": "B-01",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-1f60ca901381",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/capacity/test_capacity_admission_burst.py"
-            ],
-            "cwd": ".",
-            "timeout": 1200.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "99dcc6d9a0554d0880d13cd4ab27f259",
-          "executed_at": "2026-10-25T10:52:38.464412+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/capacity/test_capacity_admission_burst.py"
-          ],
-          "cwd": ".",
-          "timeout": 1200.0
-        },
-        {
-          "id": "B-01",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-1f60ca901381",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/capacity/test_capacity_admission_burst.py"
-            ],
-            "cwd": ".",
-            "timeout": 1200.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 3,
-          "run_id": "a1d5e14565a542d9a5182223bb95cb45",
-          "executed_at": "2026-10-25T11:08:58.110990+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/capacity/test_capacity_admission_burst.py"
-          ],
-          "cwd": ".",
-          "timeout": 1200.0
-        },
-        {
-          "id": "B-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-1f60ca901381",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-1f60ca901381",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/capacity/test_capacity_admission_burst.py"
-            ],
-            "cwd": ".",
-            "timeout": 1200.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 4,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/capacity/test_capacity_admission_burst.py"
-          ],
-          "cwd": ".",
-          "timeout": 1200.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        }
-      ],
-      "check_config": {
-        "id": "CHK-1f60ca901381",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/capacity/test_capacity_admission_burst.py"
-        ],
-        "cwd": ".",
-        "timeout": 1200.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      }
+      "check": "CHK-1f60ca901381"
     },
     {
       "id": "B-02",
@@ -811,7 +625,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL；批量写入 + retention sweep",
       "owner": "TASK-004",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -860,163 +674,7 @@
         "事件写入 20k rows/s 的等价批量（或 1000 Run × 20/s）",
         "retention 批量/索引已调整"
       ],
-      "check": "CHK-057c6cf895a7",
-      "revision": 2,
-      "evidence": {
-        "id": "B-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-057c6cf895a7",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-057c6cf895a7",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_capacity_webchat_retention.py",
-            "-k",
-            "drains_20k"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 2,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_capacity_webchat_retention.py",
-          "-k",
-          "drains_20k"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-      },
-      "runs": [
-        {
-          "id": "B-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-057c6cf895a7",
-          "input_hash": "5fe7234a4ca199ec52abcabb2c5067b64bd8635dba37121ca75f55cebcf0aa4d",
-          "check_config": {
-            "id": "CHK-057c6cf895a7",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_capacity_webchat_retention.py",
-              "-k",
-              "drains_20k"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "46c8602419f6455dabd8f837f9289563",
-          "executed_at": "2026-10-25T05:33:23.405762+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_capacity_webchat_retention.py",
-            "-k",
-            "drains_20k"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "5fe7234a4ca199ec52abcabb2c5067b64bd8635dba37121ca75f55cebcf0aa4d"
-        },
-        {
-          "id": "B-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-057c6cf895a7",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-057c6cf895a7",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_capacity_webchat_retention.py",
-              "-k",
-              "drains_20k"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_capacity_webchat_retention.py",
-            "-k",
-            "drains_20k"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        }
-      ],
-      "check_config": {
-        "id": "CHK-057c6cf895a7",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_capacity_webchat_retention.py",
-          "-k",
-          "drains_20k"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      }
+      "check": "CHK-057c6cf895a7"
     },
     {
       "id": "B-03",
@@ -1025,7 +683,7 @@
       "kind": "functional",
       "boundary": "真实 uvicorn 2+ workers；/metrics 与 artifact fetch token",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1081,7 +739,130 @@
         "Gateway/Console 使用多 worker",
         "ArtifactFetchTokens/metrics 已改造"
       ],
-      "check": "CHK-d2dd5679105a"
+      "check": "CHK-d2dd5679105a",
+      "revision": 2,
+      "evidence": {
+        "id": "B-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-d2dd5679105a",
+        "input_hash": "7916b83e655d727d08c053a61d4b7fde257e7046c533e7fcb1bc49d7e1268c31",
+        "check_config": {
+          "id": "CHK-d2dd5679105a",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_multi_worker_state.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 2,
+        "run_id": "f088846a6e134e22a381c0c375efc95a",
+        "executed_at": "2026-10-25T15:51:31.169993+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/architecture/test_multi_worker_state.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "7916b83e655d727d08c053a61d4b7fde257e7046c533e7fcb1bc49d7e1268c31"
+      },
+      "runs": [
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-d2dd5679105a",
+          "input_hash": "5ce65b13b99c40aa4f7ca8bcb4aca6e7907fa256247abd253dce0b3c0c5d3e92",
+          "check_config": {
+            "id": "CHK-d2dd5679105a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/architecture/test_multi_worker_state.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "50542fec81b447488d9e13b298a17940",
+          "executed_at": "2026-10-25T15:43:14.123704+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_multi_worker_state.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "5ce65b13b99c40aa4f7ca8bcb4aca6e7907fa256247abd253dce0b3c0c5d3e92"
+        },
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-d2dd5679105a",
+          "input_hash": "7916b83e655d727d08c053a61d4b7fde257e7046c533e7fcb1bc49d7e1268c31",
+          "check_config": {
+            "id": "CHK-d2dd5679105a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/architecture/test_multi_worker_state.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "f088846a6e134e22a381c0c375efc95a",
+          "executed_at": "2026-10-25T15:51:31.169993+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_multi_worker_state.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "7916b83e655d727d08c053a61d4b7fde257e7046c533e7fcb1bc49d7e1268c31"
+        }
+      ]
     },
     {
       "id": "B-04",
@@ -1153,118 +934,7 @@
       "defer_reason": "静态 overlay 为 opt-in 可选层；未启用 overlay 时无真实边界可测，留 verify-e2e",
       "target_phase": "review",
       "defer_owner": "TASK-011",
-      "check": "CHK-2f30d1989e59",
-      "revision": 2,
-      "evidence": {
-        "id": "B-04",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "check_config": {
-          "id": "CHK-2f30d1989e59",
-          "command": [
-            "bash",
-            "-lc",
-            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0,
-          "env": "browser",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": [
-            "apps/console-platform/frontend/**",
-            "deploy/k8s/base/ingress.yaml",
-            "deploy/k8s/overlays/console-web/**"
-          ]
-        },
-        "revision": 2,
-        "run_id": "8847542c339743c1adca293f9bc05f57",
-        "executed_at": "2026-10-25T12:17:15.159065+00:00",
-        "command": [
-          "bash",
-          "-lc",
-          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"
-        ],
-        "cwd": ".",
-        "timeout": 1800.0
-      },
-      "runs": [
-        {
-          "id": "B-04",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-2f30d1989e59",
-            "command": [
-              "bash",
-              "-lc",
-              "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"
-            ],
-            "cwd": ".",
-            "timeout": 1800.0,
-            "env": "browser",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": [
-              "apps/console-platform/frontend/**",
-              "deploy/k8s/base/ingress.yaml",
-              "deploy/k8s/overlays/console-web/**"
-            ]
-          },
-          "revision": 1,
-          "run_id": "251dd95f0c3b4ca2a2b773d5a1c2f84a",
-          "executed_at": "2026-10-25T11:50:07.881249+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0
-        },
-        {
-          "id": "B-04",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-2f30d1989e59",
-            "command": [
-              "bash",
-              "-lc",
-              "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"
-            ],
-            "cwd": ".",
-            "timeout": 1800.0,
-            "env": "browser",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": [
-              "apps/console-platform/frontend/**",
-              "deploy/k8s/base/ingress.yaml",
-              "deploy/k8s/overlays/console-web/**"
-            ]
-          },
-          "revision": 2,
-          "run_id": "8847542c339743c1adca293f9bc05f57",
-          "executed_at": "2026-10-25T12:17:15.159065+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0
-        }
-      ]
+      "check": "CHK-2f30d1989e59"
     },
     {
       "id": "E-01",
@@ -1333,7 +1003,7 @@
       "kind": "functional",
       "boundary": "真实 Runtime + PostgreSQL；pool=1，打开 10 条 SSE",
       "owner": "TASK-003",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -1394,119 +1064,7 @@
         "runtime pool=1/overflow=0/timeout=1s",
         "已有长流占用连接"
       ],
-      "check": "CHK-df6c56011ddc",
-      "check_config": {
-        "id": "CHK-df6c56011ddc",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/capacity/test_stream_delivery.py",
-          "-k",
-          "pool_timeout_is_bounded or early_close"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      },
-      "revision": 1,
-      "evidence": {
-        "id": "E-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-df6c56011ddc",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-df6c56011ddc",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/capacity/test_stream_delivery.py",
-            "-k",
-            "pool_timeout_is_bounded or early_close"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 1,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/capacity/test_stream_delivery.py",
-          "-k",
-          "pool_timeout_is_bounded or early_close"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-      },
-      "runs": [
-        {
-          "id": "E-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-df6c56011ddc",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-df6c56011ddc",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/capacity/test_stream_delivery.py",
-              "-k",
-              "pool_timeout_is_bounded or early_close"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/capacity/test_stream_delivery.py",
-            "-k",
-            "pool_timeout_is_bounded or early_close"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        }
-      ]
+      "check": "CHK-df6c56011ddc"
     },
     {
       "id": "E-03",
@@ -1515,7 +1073,7 @@
       "kind": "functional",
       "boundary": "真实 Connector 进程 + Redis Stream；kill -9 在 WS 收到后、XADD 前",
       "owner": "TASK-007",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -1566,185 +1124,7 @@
       "defer_reason": "Connector 崩溃 + 平台重投需真实进程与故障注入，留 verify-e2e",
       "target_phase": "review",
       "defer_owner": "TASK-007",
-      "check": "CHK-ec7cf07411e5",
-      "revision": 3,
-      "evidence": {
-        "id": "E-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-ec7cf07411e5",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-ec7cf07411e5",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_failover.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 3,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/im_gateway/test_connector_failover.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-      },
-      "runs": [
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
-          "check_id": "CHK-ec7cf07411e5",
-          "check_config": {
-            "id": "CHK-ec7cf07411e5",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_connector_failover.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "8c14735dc81948b0a96011caaa0ac9c3",
-          "executed_at": "2026-10-25T07:29:25.133868+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_failover.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0
-        },
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
-          "check_id": "CHK-ec7cf07411e5",
-          "check_config": {
-            "id": "CHK-ec7cf07411e5",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_connector_failover.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "8a4915ef786945a1a06c383376d7f958",
-          "executed_at": "2026-10-25T07:32:43.092586+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_failover.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0
-        },
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-ec7cf07411e5",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-ec7cf07411e5",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_connector_failover.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 3,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_failover.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        }
-      ],
-      "check_config": {
-        "id": "CHK-ec7cf07411e5",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/im_gateway/test_connector_failover.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      }
+      "check": "CHK-ec7cf07411e5"
     },
     {
       "id": "E-04",
@@ -1812,93 +1192,7 @@
         "旧连接 epoch 已失效",
         "run_id→reply_ref 过期/不匹配"
       ],
-      "check": "CHK-ec7cf07411e5",
-      "revision": 1,
-      "evidence": {
-        "id": "E-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-ec7cf07411e5",
-        "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
-        "check_config": {
-          "id": "CHK-ec7cf07411e5",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_failover.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 1,
-        "run_id": "8c14735dc81948b0a96011caaa0ac9c3",
-        "executed_at": "2026-10-25T07:29:25.133868+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/im_gateway/test_connector_failover.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "fingerprint": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53"
-      },
-      "runs": [
-        {
-          "id": "E-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-ec7cf07411e5",
-          "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
-          "check_config": {
-            "id": "CHK-ec7cf07411e5",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_connector_failover.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "8c14735dc81948b0a96011caaa0ac9c3",
-          "executed_at": "2026-10-25T07:29:25.133868+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_failover.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "fingerprint": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53"
-        }
-      ],
-      "stale_checks": [
-        "CHK-ec7cf07411e5"
-      ]
+      "check": "CHK-ec7cf07411e5"
     },
     {
       "id": "E-05",
@@ -1961,101 +1255,7 @@
         "有已持久 Run 事件",
         "Redis 关闭"
       ],
-      "check": "CHK-8193e32b163c",
-      "revision": 1,
-      "evidence": {
-        "id": "E-05",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-8193e32b163c",
-        "input_hash": "5fe7234a4ca199ec52abcabb2c5067b64bd8635dba37121ca75f55cebcf0aa4d",
-        "check_config": {
-          "id": "CHK-8193e32b163c",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_capacity_webchat_shared_tail.py",
-            "-k",
-            "lost_hint_falls_back or hint_failure_keeps"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 1,
-        "run_id": "46c8602419f6455dabd8f837f9289563",
-        "executed_at": "2026-10-25T05:33:23.405762+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_capacity_webchat_shared_tail.py",
-          "-k",
-          "lost_hint_falls_back or hint_failure_keeps"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "5fe7234a4ca199ec52abcabb2c5067b64bd8635dba37121ca75f55cebcf0aa4d"
-      },
-      "runs": [
-        {
-          "id": "E-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-8193e32b163c",
-          "input_hash": "5fe7234a4ca199ec52abcabb2c5067b64bd8635dba37121ca75f55cebcf0aa4d",
-          "check_config": {
-            "id": "CHK-8193e32b163c",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_capacity_webchat_shared_tail.py",
-              "-k",
-              "lost_hint_falls_back or hint_failure_keeps"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "46c8602419f6455dabd8f837f9289563",
-          "executed_at": "2026-10-25T05:33:23.405762+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_capacity_webchat_shared_tail.py",
-            "-k",
-            "lost_hint_falls_back or hint_failure_keeps"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "5fe7234a4ca199ec52abcabb2c5067b64bd8635dba37121ca75f55cebcf0aa4d"
-        }
-      ],
-      "stale_checks": [
-        "CHK-8193e32b163c"
-      ]
+      "check": "CHK-8193e32b163c"
     },
     {
       "id": "E-06",
@@ -2113,8 +1313,7 @@
         "可用企微测试 bot/secret",
         "两个 Connector 进程",
         "可观察服务端行为"
-      ],
-      "check_config": {}
+      ]
     },
     {
       "id": "E-07",
@@ -2123,7 +1322,7 @@
       "kind": "functional",
       "boundary": "真实 Connector 进程 + Redis Stream；关闭平台重投",
       "owner": "TASK-007",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -2177,185 +1376,7 @@
       "defer_reason": "Connector 崩溃 + 平台不重投需故障注入，留 verify-e2e",
       "target_phase": "review",
       "defer_owner": "TASK-007",
-      "check": "CHK-ec7cf07411e5",
-      "revision": 3,
-      "evidence": {
-        "id": "E-07",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-ec7cf07411e5",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-ec7cf07411e5",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_failover.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 3,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/im_gateway/test_connector_failover.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-      },
-      "runs": [
-        {
-          "id": "E-07",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
-          "check_id": "CHK-ec7cf07411e5",
-          "check_config": {
-            "id": "CHK-ec7cf07411e5",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_connector_failover.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "8c14735dc81948b0a96011caaa0ac9c3",
-          "executed_at": "2026-10-25T07:29:25.133868+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_failover.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0
-        },
-        {
-          "id": "E-07",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
-          "check_id": "CHK-ec7cf07411e5",
-          "check_config": {
-            "id": "CHK-ec7cf07411e5",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_connector_failover.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "8a4915ef786945a1a06c383376d7f958",
-          "executed_at": "2026-10-25T07:32:43.092586+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_failover.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0
-        },
-        {
-          "id": "E-07",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-ec7cf07411e5",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-ec7cf07411e5",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_connector_failover.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 3,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_failover.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        }
-      ],
-      "check_config": {
-        "id": "CHK-ec7cf07411e5",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/im_gateway/test_connector_failover.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      }
+      "check": "CHK-ec7cf07411e5"
     },
     {
       "id": "E-08",
@@ -2364,7 +1385,7 @@
       "kind": "functional",
       "boundary": "真实进程 + PG/Redis 故障注入",
       "owner": "TASK-012",
-      "status": "failed",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -2417,109 +1438,7 @@
       "defer_reason": "PG failover/Redis 抖动/Pod kill 混沌需可注入故障的环境",
       "target_phase": "review",
       "defer_owner": "TASK-012",
-      "check": "CHK-ffc432bba730",
-      "check_config": {
-        "id": "CHK-ffc432bba730",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/capacity/test_capacity_chaos.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      },
-      "revision": 1,
-      "evidence": {
-        "id": "E-08",
-        "kind": "functional",
-        "status": "failed",
-        "exit_code": 4,
-        "output": "no tests ran in 0.01s\nERROR: file or directory not found: tests/acceptance/capacity/test_capacity_chaos.py",
-        "check_id": "CHK-ffc432bba730",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-ffc432bba730",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/capacity/test_capacity_chaos.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 1,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/capacity/test_capacity_chaos.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0
-      },
-      "runs": [
-        {
-          "id": "E-08",
-          "kind": "functional",
-          "status": "failed",
-          "exit_code": 4,
-          "output": "no tests ran in 0.01s\nERROR: file or directory not found: tests/acceptance/capacity/test_capacity_chaos.py",
-          "check_id": "CHK-ffc432bba730",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-ffc432bba730",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/capacity/test_capacity_chaos.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/capacity/test_capacity_chaos.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0
-        }
-      ]
+      "check": "CHK-ffc432bba730"
     },
     {
       "id": "E-09",
@@ -2567,8 +1486,7 @@
       ],
       "preconditions": [
         "目标拓扑/模型额度/观测就绪"
-      ],
-      "check_config": {}
+      ]
     },
     {
       "id": "S-01",
@@ -2577,7 +1495,7 @@
       "kind": "functional",
       "boundary": "真实入口代理 → Gateway → Runtime → PostgreSQL/Redis；模型为可控 HTTP 流式探针；通知轮询为浏览器同形请求",
       "owner": "TASK-012",
-      "status": "failed",
+      "status": "planned",
       "command": [
         "bash",
         "-lc",
@@ -2643,99 +1561,7 @@
       "defer_reason": "1000×8 全量需目标拓扑与模型额度，属发布前 release gate（TASK-012）",
       "target_phase": "release",
       "defer_owner": "TASK-012",
-      "check": "CHK-d321859782b6",
-      "check_config": {
-        "id": "CHK-d321859782b6",
-        "command": [
-          "bash",
-          "-lc",
-          "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"
-        ],
-        "cwd": ".",
-        "timeout": 5400.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      },
-      "revision": 1,
-      "evidence": {
-        "id": "S-01",
-        "kind": "functional",
-        "status": "failed",
-        "exit_code": 1,
-        "output": "束）；\n        ⑤ 真实测量：PG 连接数 ≤ 预算；四单元进程 RSS ≤ memory_limit_mb、FD 数 ≤ fd_budget。\n        \"\"\"\n        stack = capacity_module.stack\n        resources = capacity_module.profile.resources\n        assert resources is not None\n        settings = SharedSettings()\n    \n        # ② PG 总连接预算\n        pg_total = sum(\n            resources.process_counts[unit]\n            * resources.max_replica_counts[unit]\n            * (settings.db_pool_size + settings.db_max_overflow)\n            for unit in UNITS\n        )\n        assert pg_total + PG_MAINTENANCE_RESERVE <= resources.pg_connection_budget, (\n            f\"PG 总连接 {pg_total}+{PG_MAINTENANCE_RESERVE} 超过预算 {resources.pg_connection_budget}\"\n        )\n    \n        # ③ 每进程 FD 预算 + ④ SSE 缓冲与内存\n        for unit in UNITS:\n            hardware = resources.hardware[unit]\n            assert hardware.cpu_request_millicores <= hardware.cpu_limit_millicores\n            assert hardware.memory_request_mb <= hardware.memory_limit_mb\n            pools = (\n                settings.control_http_max_connections\n                + settings.stream_http_max_connections\n                + settings.model_http_max_connections\n                + settings.mcp_http_max_connections\n                + settings.egress_http_max_connections\n                + settings.upload_http_max_connections\n            )\n            per_process = (\n                pools\n                + settings.db_pool_size\n                + settings.db_max_overflow\n                + settings.redis_max_connections\n                + FD_SERVER_OVERHEAD\n            )\n            assert per_process <= resources.fd_budget, (\n                f\"{unit} 每进程 FD 预算 {per_process} 超过 fd_budget {resources.fd_budget}\"\n            )\n            assert settings.sse_total_buffer_bytes <= hardware.memory_limit_mb * 1024 * 1024, (\n                f\"{unit} 的 SSE 总缓冲超过内存上限（进程内存预算约束）\"\n            )\n            assert settings.sse_subscriber_buffer_bytes >= 2 * settings.sse_event_max_bytes\n    \n        # ⑤ 真实测量\n        metrics = PostgresMetrics(stack.database_url, tenant_id=stack.tenant_id)\n        snapshot = metrics.snapshot()\n        assert snapshot.connections_total <= resources.pg_connection_budget, (\n            f\"实测 PG 连接 {snapshot.connections_total} 超过预算 {resources.pg_connection_budget}\"\n        )\n        assert snapshot.locks_waiting == 0, \"稳态下不得有未授予的锁等待（热点锁会在此显形）\"\n        for instance in stack.all_instances():\n            hardware = resources.hardware[instance.unit]\n>           rss_mb = instance_rss_mb(instance)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/acceptance/capacity/test_capacity.py:1388: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\ninstance = ServiceInstance(unit='im-gateway', index=0, module='muad_im_gateway.main', port=63275, env={'AI_AGENT': 'claude-code_2...e/im-gateway-0'), process=<Popen: returncode: -9 args: ['/Users/jahan/workspace/fluxion-harness/.venv/...>, pgid=11860)\n\n    def instance_rss_mb(instance: ServiceInstance) -> float:\n        \"\"\"按实例测量 RSS：进程已不在时显式指名单元/槽位（不把死 pid 误报成读数失败）。\"\"\"\n        if not instance.alive:\n>           raise AssertionError(\n                f\"{instance.unit}#{instance.index} 进程未运行，无法测量 RSS（预算检查要求整套栈在跑）\"\n            )\nE           AssertionError: im-gateway#0 进程未运行，无法测量 RSS（预算检查要求整套栈在跑）\n\ntests/acceptance/capacity/test_capacity.py:381: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/capacity/test_capacity.py::test_s01_thousand_users_admitted_visible_and_bounded\nFAILED tests/acceptance/capacity/test_capacity.py::test_s14_incremental_merge_stream_break_and_loaded_control\nFAILED tests/acceptance/capacity/test_capacity.py::test_s15_single_pod_restart_replica_replacement_and_lease_hold\nFAILED tests/acceptance/capacity/test_capacity.py::test_s15_fd_http_pg_budgets_are_computable_and_measured\nERROR tests/acceptance/capacity/test_capacity.py::test_s17_200_user_bounded_verification\n4 failed, 1 error in 598.81s (0:09:58)",
-        "check_id": "CHK-d321859782b6",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-d321859782b6",
-          "command": [
-            "bash",
-            "-lc",
-            "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"
-          ],
-          "cwd": ".",
-          "timeout": 5400.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 1,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "bash",
-          "-lc",
-          "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"
-        ],
-        "cwd": ".",
-        "timeout": 5400.0
-      },
-      "runs": [
-        {
-          "id": "S-01",
-          "kind": "functional",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "束）；\n        ⑤ 真实测量：PG 连接数 ≤ 预算；四单元进程 RSS ≤ memory_limit_mb、FD 数 ≤ fd_budget。\n        \"\"\"\n        stack = capacity_module.stack\n        resources = capacity_module.profile.resources\n        assert resources is not None\n        settings = SharedSettings()\n    \n        # ② PG 总连接预算\n        pg_total = sum(\n            resources.process_counts[unit]\n            * resources.max_replica_counts[unit]\n            * (settings.db_pool_size + settings.db_max_overflow)\n            for unit in UNITS\n        )\n        assert pg_total + PG_MAINTENANCE_RESERVE <= resources.pg_connection_budget, (\n            f\"PG 总连接 {pg_total}+{PG_MAINTENANCE_RESERVE} 超过预算 {resources.pg_connection_budget}\"\n        )\n    \n        # ③ 每进程 FD 预算 + ④ SSE 缓冲与内存\n        for unit in UNITS:\n            hardware = resources.hardware[unit]\n            assert hardware.cpu_request_millicores <= hardware.cpu_limit_millicores\n            assert hardware.memory_request_mb <= hardware.memory_limit_mb\n            pools = (\n                settings.control_http_max_connections\n                + settings.stream_http_max_connections\n                + settings.model_http_max_connections\n                + settings.mcp_http_max_connections\n                + settings.egress_http_max_connections\n                + settings.upload_http_max_connections\n            )\n            per_process = (\n                pools\n                + settings.db_pool_size\n                + settings.db_max_overflow\n                + settings.redis_max_connections\n                + FD_SERVER_OVERHEAD\n            )\n            assert per_process <= resources.fd_budget, (\n                f\"{unit} 每进程 FD 预算 {per_process} 超过 fd_budget {resources.fd_budget}\"\n            )\n            assert settings.sse_total_buffer_bytes <= hardware.memory_limit_mb * 1024 * 1024, (\n                f\"{unit} 的 SSE 总缓冲超过内存上限（进程内存预算约束）\"\n            )\n            assert settings.sse_subscriber_buffer_bytes >= 2 * settings.sse_event_max_bytes\n    \n        # ⑤ 真实测量\n        metrics = PostgresMetrics(stack.database_url, tenant_id=stack.tenant_id)\n        snapshot = metrics.snapshot()\n        assert snapshot.connections_total <= resources.pg_connection_budget, (\n            f\"实测 PG 连接 {snapshot.connections_total} 超过预算 {resources.pg_connection_budget}\"\n        )\n        assert snapshot.locks_waiting == 0, \"稳态下不得有未授予的锁等待（热点锁会在此显形）\"\n        for instance in stack.all_instances():\n            hardware = resources.hardware[instance.unit]\n>           rss_mb = instance_rss_mb(instance)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/acceptance/capacity/test_capacity.py:1388: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\ninstance = ServiceInstance(unit='im-gateway', index=0, module='muad_im_gateway.main', port=63275, env={'AI_AGENT': 'claude-code_2...e/im-gateway-0'), process=<Popen: returncode: -9 args: ['/Users/jahan/workspace/fluxion-harness/.venv/...>, pgid=11860)\n\n    def instance_rss_mb(instance: ServiceInstance) -> float:\n        \"\"\"按实例测量 RSS：进程已不在时显式指名单元/槽位（不把死 pid 误报成读数失败）。\"\"\"\n        if not instance.alive:\n>           raise AssertionError(\n                f\"{instance.unit}#{instance.index} 进程未运行，无法测量 RSS（预算检查要求整套栈在跑）\"\n            )\nE           AssertionError: im-gateway#0 进程未运行，无法测量 RSS（预算检查要求整套栈在跑）\n\ntests/acceptance/capacity/test_capacity.py:381: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/capacity/test_capacity.py::test_s01_thousand_users_admitted_visible_and_bounded\nFAILED tests/acceptance/capacity/test_capacity.py::test_s14_incremental_merge_stream_break_and_loaded_control\nFAILED tests/acceptance/capacity/test_capacity.py::test_s15_single_pod_restart_replica_replacement_and_lease_hold\nFAILED tests/acceptance/capacity/test_capacity.py::test_s15_fd_http_pg_budgets_are_computable_and_measured\nERROR tests/acceptance/capacity/test_capacity.py::test_s17_200_user_bounded_verification\n4 failed, 1 error in 598.81s (0:09:58)",
-          "check_id": "CHK-d321859782b6",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-d321859782b6",
-            "command": [
-              "bash",
-              "-lc",
-              "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"
-            ],
-            "cwd": ".",
-            "timeout": 5400.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"
-          ],
-          "cwd": ".",
-          "timeout": 5400.0
-        }
-      ]
+      "check": "CHK-d321859782b6"
     },
     {
       "id": "S-02",
@@ -2744,7 +1570,7 @@
       "kind": "functional",
       "boundary": "浏览器同形通知轮询 → Gateway → Console auth / Runtime notifications；真实 PG/Redis",
       "owner": "TASK-002",
-      "status": "failed",
+      "status": "planned",
       "command": [
         "bash",
         "-lc",
@@ -2806,114 +1632,7 @@
       "defer_reason": "1000 会话空闲轮询需容量档环境；功能已由 10 用户自检覆盖，需求级终验复查",
       "target_phase": "review",
       "defer_owner": "TASK-002",
-      "check": "CHK-bbe341d9d660",
-      "check_config": {
-        "id": "CHK-bbe341d9d660",
-        "command": [
-          "bash",
-          "-lc",
-          "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": [
-          "apps/agent-runtime/src/muad_agent_runtime/api/webchat_history.py",
-          "apps/console-platform/backend/src/muad_console_platform/**",
-          "apps/console-platform/frontend/src/modules/webchat/hooks/useNotifications.ts",
-          "apps/im-gateway/src/muad_im_gateway/**"
-        ]
-      },
-      "revision": 1,
-      "evidence": {
-        "id": "S-02",
-        "kind": "functional",
-        "status": "failed",
-        "exit_code": 1,
-        "output": "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/acceptance/capacity/test_capacity_notifications.py:102: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/asyncio/runners.py:195: in run\n    return runner.run(main)\n           ^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/asyncio/runners.py:118: in run\n    return self._loop.run_until_complete(task)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/asyncio/base_events.py:691: in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\ntests/acceptance/capacity/test_capacity_notifications.py:83: in _poll_users\n    return await asyncio.gather(*(_one_user(module, index, rounds) for index in range(users)))\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/acceptance/capacity/test_capacity_notifications.py:74: in _one_user\n    result = await _poll_once(client, after_seq)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/acceptance/capacity/test_capacity_notifications.py:45: in _poll_once\n    response = await client.get(\n.venv/lib/python3.12/site-packages/httpx/_client.py:1768: in get\n    return await self.request(\n.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request\n    return await self.send(request, auth=auth, follow_redirects=follow_redirects)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send\n    response = await self._send_handling_auth(\n.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth\n    response = await self._send_handling_redirects(\n.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects\n    response = await self._send_single_request(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request\n    response = await transport.handle_async_request(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/httpx/_transports/default.py:393: in handle_async_request\n    with map_httpcore_exceptions():\n         ^^^^^^^^^^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__\n    self.gen.throw(value)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\n    @contextlib.contextmanager\n    def map_httpcore_exceptions() -> typing.Iterator[None]:\n        global HTTPCORE_EXC_MAP\n        if len(HTTPCORE_EXC_MAP) == 0:\n            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()\n        try:\n            yield\n        except Exception as exc:\n            mapped_exc = None\n    \n            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():\n                if not isinstance(exc, from_exc):\n                    continue\n                # We want to map to the most specific exception we can find.\n                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to\n                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.\n                if mapped_exc is None or issubclass(to_exc, mapped_exc):\n                    mapped_exc = to_exc\n    \n            if mapped_exc is None:  # pragma: no cover\n                raise\n    \n            message = str(exc)\n>           raise mapped_exc(message) from exc\nE           httpx.ConnectError: All connection attempts failed\n\n.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError\n=========================== short test summary info ============================\nERROR tests/acceptance/capacity/test_capacity_notifications.py::test_s02_1000_user_notification_polling_does_not_fetch_settings\n1 error in 79.01s (0:01:19)",
-        "check_id": "CHK-bbe341d9d660",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-bbe341d9d660",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": [
-            "apps/agent-runtime/src/muad_agent_runtime/api/webchat_history.py",
-            "apps/console-platform/backend/src/muad_console_platform/**",
-            "apps/console-platform/frontend/src/modules/webchat/hooks/useNotifications.ts",
-            "apps/im-gateway/src/muad_im_gateway/**"
-          ]
-        },
-        "revision": 1,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "bash",
-          "-lc",
-          "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"
-        ],
-        "cwd": ".",
-        "timeout": 900.0
-      },
-      "runs": [
-        {
-          "id": "S-02",
-          "kind": "functional",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/acceptance/capacity/test_capacity_notifications.py:102: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/asyncio/runners.py:195: in run\n    return runner.run(main)\n           ^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/asyncio/runners.py:118: in run\n    return self._loop.run_until_complete(task)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/asyncio/base_events.py:691: in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\ntests/acceptance/capacity/test_capacity_notifications.py:83: in _poll_users\n    return await asyncio.gather(*(_one_user(module, index, rounds) for index in range(users)))\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/acceptance/capacity/test_capacity_notifications.py:74: in _one_user\n    result = await _poll_once(client, after_seq)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/acceptance/capacity/test_capacity_notifications.py:45: in _poll_once\n    response = await client.get(\n.venv/lib/python3.12/site-packages/httpx/_client.py:1768: in get\n    return await self.request(\n.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request\n    return await self.send(request, auth=auth, follow_redirects=follow_redirects)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send\n    response = await self._send_handling_auth(\n.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth\n    response = await self._send_handling_redirects(\n.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects\n    response = await self._send_single_request(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request\n    response = await transport.handle_async_request(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/httpx/_transports/default.py:393: in handle_async_request\n    with map_httpcore_exceptions():\n         ^^^^^^^^^^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:158: in __exit__\n    self.gen.throw(value)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\n    @contextlib.contextmanager\n    def map_httpcore_exceptions() -> typing.Iterator[None]:\n        global HTTPCORE_EXC_MAP\n        if len(HTTPCORE_EXC_MAP) == 0:\n            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()\n        try:\n            yield\n        except Exception as exc:\n            mapped_exc = None\n    \n            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():\n                if not isinstance(exc, from_exc):\n                    continue\n                # We want to map to the most specific exception we can find.\n                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to\n                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.\n                if mapped_exc is None or issubclass(to_exc, mapped_exc):\n                    mapped_exc = to_exc\n    \n            if mapped_exc is None:  # pragma: no cover\n                raise\n    \n            message = str(exc)\n>           raise mapped_exc(message) from exc\nE           httpx.ConnectError: All connection attempts failed\n\n.venv/lib/python3.12/site-packages/httpx/_transports/default.py:118: ConnectError\n=========================== short test summary info ============================\nERROR tests/acceptance/capacity/test_capacity_notifications.py::test_s02_1000_user_notification_polling_does_not_fetch_settings\n1 error in 79.01s (0:01:19)",
-          "check_id": "CHK-bbe341d9d660",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-bbe341d9d660",
-            "command": [
-              "bash",
-              "-lc",
-              "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": [
-              "apps/agent-runtime/src/muad_agent_runtime/api/webchat_history.py",
-              "apps/console-platform/backend/src/muad_console_platform/**",
-              "apps/console-platform/frontend/src/modules/webchat/hooks/useNotifications.ts",
-              "apps/im-gateway/src/muad_im_gateway/**"
-            ]
-          },
-          "revision": 1,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"
-          ],
-          "cwd": ".",
-          "timeout": 900.0
-        }
-      ]
+      "check": "CHK-bbe341d9d660"
     },
     {
       "id": "S-03",
@@ -2922,7 +1641,7 @@
       "kind": "functional",
       "boundary": "真实 Gateway/Runtime HTTP SSE + 真实 PostgreSQL；runtime DB pool=2",
       "owner": "TASK-003",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -2980,119 +1699,7 @@
         "runtime `DB_POOL_SIZE=2`、`DB_MAX_OVERFLOW=0`",
         "100 条并发 /v1/runs/{id}/events"
       ],
-      "check": "CHK-0886affd7f3c",
-      "check_config": {
-        "id": "CHK-0886affd7f3c",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/capacity/test_stream_delivery.py",
-          "-k",
-          "pool_two_hundred"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      },
-      "revision": 1,
-      "evidence": {
-        "id": "S-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-0886affd7f3c",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-0886affd7f3c",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/capacity/test_stream_delivery.py",
-            "-k",
-            "pool_two_hundred"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 1,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/capacity/test_stream_delivery.py",
-          "-k",
-          "pool_two_hundred"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-      },
-      "runs": [
-        {
-          "id": "S-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-0886affd7f3c",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-0886affd7f3c",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/capacity/test_stream_delivery.py",
-              "-k",
-              "pool_two_hundred"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/capacity/test_stream_delivery.py",
-            "-k",
-            "pool_two_hundred"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        }
-      ]
+      "check": "CHK-0886affd7f3c"
     },
     {
       "id": "S-04",
@@ -3101,7 +1708,7 @@
       "kind": "functional",
       "boundary": "真实 Runtime 事件 writer + 真实 PostgreSQL/Redis；20 delta/s × 10s",
       "owner": "TASK-004",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -3153,163 +1760,7 @@
         "100 个并发 Run，每 Run 20 delta/s，首段立即 flush",
         "事件批量窗口 250–500ms/8–16KB"
       ],
-      "check": "CHK-f6dff60fdd67",
-      "revision": 2,
-      "evidence": {
-        "id": "S-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-f6dff60fdd67",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-f6dff60fdd67",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_capacity_webchat_durable_deltas.py",
-            "-k",
-            "production_window_bounds_commits"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 2,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_capacity_webchat_durable_deltas.py",
-          "-k",
-          "production_window_bounds_commits"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-      },
-      "runs": [
-        {
-          "id": "S-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-f6dff60fdd67",
-          "input_hash": "5fe7234a4ca199ec52abcabb2c5067b64bd8635dba37121ca75f55cebcf0aa4d",
-          "check_config": {
-            "id": "CHK-f6dff60fdd67",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_capacity_webchat_durable_deltas.py",
-              "-k",
-              "production_window_bounds_commits"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "46c8602419f6455dabd8f837f9289563",
-          "executed_at": "2026-10-25T05:33:23.405762+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_capacity_webchat_durable_deltas.py",
-            "-k",
-            "production_window_bounds_commits"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "5fe7234a4ca199ec52abcabb2c5067b64bd8635dba37121ca75f55cebcf0aa4d"
-        },
-        {
-          "id": "S-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-f6dff60fdd67",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-f6dff60fdd67",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_capacity_webchat_durable_deltas.py",
-              "-k",
-              "production_window_bounds_commits"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_capacity_webchat_durable_deltas.py",
-            "-k",
-            "production_window_bounds_commits"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        }
-      ],
-      "check_config": {
-        "id": "CHK-f6dff60fdd67",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_capacity_webchat_durable_deltas.py",
-          "-k",
-          "production_window_bounds_commits"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      }
+      "check": "CHK-f6dff60fdd67"
     },
     {
       "id": "S-05",
@@ -3318,7 +1769,7 @@
       "kind": "functional",
       "boundary": "两个真实 Connector 进程 + 假企微 WS 服务端 + 真实 Redis lease；Runtime/Gateway 真实进程",
       "owner": "TASK-007",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -3378,181 +1829,7 @@
       "defer_reason": "两个真实 Connector + 假 WS 的 lease 接管用例留需求级 verify-e2e 执行",
       "target_phase": "review",
       "defer_owner": "TASK-007",
-      "check": "CHK-974cbc8b96aa",
-      "revision": 3,
-      "evidence": {
-        "id": "S-05",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-974cbc8b96aa",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-974cbc8b96aa",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_lease.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 3,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/im_gateway/test_connector_lease.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-      },
-      "runs": [
-        {
-          "id": "S-05",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-974cbc8b96aa",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_connector_lease.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "8c14735dc81948b0a96011caaa0ac9c3",
-          "executed_at": "2026-10-25T07:29:25.133868+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_lease.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0
-        },
-        {
-          "id": "S-05",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-974cbc8b96aa",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_connector_lease.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "8a4915ef786945a1a06c383376d7f958",
-          "executed_at": "2026-10-25T07:32:43.092586+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_lease.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0
-        },
-        {
-          "id": "S-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-974cbc8b96aa",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-974cbc8b96aa",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_connector_lease.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 3,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_connector_lease.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        }
-      ],
-      "check_config": {
-        "id": "CHK-974cbc8b96aa",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/im_gateway/test_connector_lease.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      }
+      "check": "CHK-974cbc8b96aa"
     },
     {
       "id": "S-06",
@@ -3561,11 +1838,11 @@
       "kind": "e2e",
       "boundary": "真实浏览器/HTTP 客户端 → 两个以上 Gateway 副本 → Runtime/PG/Redis；SSE 断线重连到另一副本",
       "owner": "TASK-009",
-      "status": "failed",
+      "status": "e2e_deferred",
       "command": [
-        "bash",
-        "-lc",
-        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+        "npm",
+        "run",
+        "webchat-smoke"
       ],
       "cwd": ".",
       "timeout": 1800.0,
@@ -3627,44 +1904,18 @@
       "defer_reason": "浏览器多副本断线重连 E2E 在 verify-e2e 统一执行",
       "target_phase": "review",
       "defer_owner": "TASK-009",
-      "check": "CHK-d3e4e66b0653",
-      "check_config": {
-        "id": "CHK-d3e4e66b0653",
-        "command": [
-          "bash",
-          "-lc",
-          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
-        ],
-        "cwd": ".",
-        "timeout": 1800.0,
-        "env": "browser",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "smoke",
-        "inputs": [],
-        "preflight": [],
-        "paths": [
-          "apps/agent-runtime/src/muad_agent_runtime/api/runs.py",
-          "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py",
-          "apps/im-gateway/**",
-          "deploy/k8s/base/im-gateway.yaml"
-        ]
-      },
-      "revision": 1,
+      "check": "CHK-db89ed311e57",
+      "revision": 2,
       "evidence": {
         "id": "S-06",
         "kind": "e2e",
-        "status": "failed",
-        "exit_code": 1,
-        "output": "(received).toBeGreaterThanOrEqual(expected)\n\n    Expected: >= 2\n    Received:    0\n\n      418 |\n      419 |   const outageGets = eventGets.filter((at) => at > killedAt && at < restartedAt);\n    > 420 |   expect(outageGets.length, '停机窗口内必须发生多次真实重连').toBeGreaterThanOrEqual(2);\n          |                                                ^\n      421 |   const intervals = intervalsMs(outageGets);\n      422 |   expect(intervals.length).toBeLessThanOrEqual(maxAttempts);\n      423 |   intervals.forEach((interval, index) => {\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/webchat/capacity-recovery.spec.ts:420:48\n\n    Error Context: test-results/capacity-recovery-S-15-单-P-6ca8c-按事实记录、恢复后重连带抖动、Run-不重建且无双执行/error-context.md\n\n    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/capacity-recovery-S-15-单-P-6ca8c-按事实记录、恢复后重连带抖动、Run-不重建且无双执行/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/capacity-recovery-S-15-单-P-6ca8c-按事实记录、恢复后重连带抖动、Run-不重建且无双执行/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  2) tests/webchat/capacity-recovery.spec.ts:489:1 › S-15 正式四单元栈与入口代理在恢复后仍整体可用 ─────────────────────\n\n    Error: apiRequestContext.get: connect ECONNREFUSED 127.0.0.1:10320\n    Call log:\n      - → GET http://127.0.0.1:10320/healthz\n        - user-agent: Playwright/1.63.0 (arm64; macOS 27.0) node/24.17\n        - accept: */*\n        - accept-encoding: gzip,deflate,br\n\n\n      496 |     webchatStack.modelProbeURL\n      497 |   ]) {\n    > 498 |     const health = await request.get(`${url}/healthz`);\n          |                                  ^\n      499 |     expect(health.ok(), `${url}/healthz 必须可用：HTTP ${health.status()}`).toBe(true);\n      500 |   }\n      501 |   const proxy = await proxyState(request, webchatStack);\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/webchat/capacity-recovery.spec.ts:498:34\n\n    Error Context: test-results/capacity-recovery-S-15-正式四单元栈与入口代理在恢复后仍整体可用/error-context.md\n\n    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/capacity-recovery-S-15-正式四单元栈与入口代理在恢复后仍整体可用/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/capacity-recovery-S-15-正式四单元栈与入口代理在恢复后仍整体可用/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  2 failed\n    tests/webchat/capacity-recovery.spec.ts:330:1 › S-15 单 Pod 重启：停机按事实记录、恢复后重连带抖动、Run 不重建且无双执行 ────\n    tests/webchat/capacity-recovery.spec.ts:489:1 › S-15 正式四单元栈与入口代理在恢复后仍整体可用 ──────────────────────\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [12383]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:10020 (Press CTRL+C to quit)\n[WebServer] INFO:     Started server process [12385]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:10120 (Press CTRL+C to quit)\n[WebServer] INFO:     Started server process [12387]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:10220 (Press CTRL+C to quit)\n[WebServer] INFO:     Started server process [12389]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:10320 (Press CTRL+C to quit)",
-        "check_id": "CHK-d3e4e66b0653",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
+        "status": "e2e_deferred",
         "check_config": {
-          "id": "CHK-d3e4e66b0653",
+          "id": "CHK-db89ed311e57",
           "command": [
-            "bash",
-            "-lc",
-            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+            "npm",
+            "run",
+            "webchat-smoke"
           ],
           "cwd": ".",
           "timeout": 1800.0,
@@ -3679,15 +1930,39 @@
             "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py",
             "apps/im-gateway/**",
             "deploy/k8s/base/im-gateway.yaml"
+          ],
+          "suite": "browser",
+          "markers": [
+            "smoke"
+          ],
+          "collect": {
+            "format": "playwright",
+            "argv": [
+              "npm",
+              "--prefix",
+              "e2e",
+              "test",
+              "--silent",
+              "--",
+              "--config",
+              "playwright.webchat.config.ts",
+              "capacity-recovery.spec.ts",
+              "--list",
+              "--reporter=json"
+            ],
+            "timeout": 60
+          },
+          "test_ids": [
+            "e2e/tests/webchat/capacity-recovery.spec.ts:770@chromium"
           ]
         },
-        "revision": 1,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
+        "revision": 2,
+        "run_id": "f088846a6e134e22a381c0c375efc95a",
+        "executed_at": "2026-10-25T15:51:31.169993+00:00",
         "command": [
-          "bash",
-          "-lc",
-          "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+          "npm",
+          "run",
+          "webchat-smoke"
         ],
         "cwd": ".",
         "timeout": 1800.0
@@ -3696,17 +1971,13 @@
         {
           "id": "S-06",
           "kind": "e2e",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "(received).toBeGreaterThanOrEqual(expected)\n\n    Expected: >= 2\n    Received:    0\n\n      418 |\n      419 |   const outageGets = eventGets.filter((at) => at > killedAt && at < restartedAt);\n    > 420 |   expect(outageGets.length, '停机窗口内必须发生多次真实重连').toBeGreaterThanOrEqual(2);\n          |                                                ^\n      421 |   const intervals = intervalsMs(outageGets);\n      422 |   expect(intervals.length).toBeLessThanOrEqual(maxAttempts);\n      423 |   intervals.forEach((interval, index) => {\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/webchat/capacity-recovery.spec.ts:420:48\n\n    Error Context: test-results/capacity-recovery-S-15-单-P-6ca8c-按事实记录、恢复后重连带抖动、Run-不重建且无双执行/error-context.md\n\n    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/capacity-recovery-S-15-单-P-6ca8c-按事实记录、恢复后重连带抖动、Run-不重建且无双执行/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/capacity-recovery-S-15-单-P-6ca8c-按事实记录、恢复后重连带抖动、Run-不重建且无双执行/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  2) tests/webchat/capacity-recovery.spec.ts:489:1 › S-15 正式四单元栈与入口代理在恢复后仍整体可用 ─────────────────────\n\n    Error: apiRequestContext.get: connect ECONNREFUSED 127.0.0.1:10320\n    Call log:\n      - → GET http://127.0.0.1:10320/healthz\n        - user-agent: Playwright/1.63.0 (arm64; macOS 27.0) node/24.17\n        - accept: */*\n        - accept-encoding: gzip,deflate,br\n\n\n      496 |     webchatStack.modelProbeURL\n      497 |   ]) {\n    > 498 |     const health = await request.get(`${url}/healthz`);\n          |                                  ^\n      499 |     expect(health.ok(), `${url}/healthz 必须可用：HTTP ${health.status()}`).toBe(true);\n      500 |   }\n      501 |   const proxy = await proxyState(request, webchatStack);\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/webchat/capacity-recovery.spec.ts:498:34\n\n    Error Context: test-results/capacity-recovery-S-15-正式四单元栈与入口代理在恢复后仍整体可用/error-context.md\n\n    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/capacity-recovery-S-15-正式四单元栈与入口代理在恢复后仍整体可用/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/capacity-recovery-S-15-正式四单元栈与入口代理在恢复后仍整体可用/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  2 failed\n    tests/webchat/capacity-recovery.spec.ts:330:1 › S-15 单 Pod 重启：停机按事实记录、恢复后重连带抖动、Run 不重建且无双执行 ────\n    tests/webchat/capacity-recovery.spec.ts:489:1 › S-15 正式四单元栈与入口代理在恢复后仍整体可用 ──────────────────────\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [12383]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:10020 (Press CTRL+C to quit)\n[WebServer] INFO:     Started server process [12385]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:10120 (Press CTRL+C to quit)\n[WebServer] INFO:     Started server process [12387]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:10220 (Press CTRL+C to quit)\n[WebServer] INFO:     Started server process [12389]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:10320 (Press CTRL+C to quit)",
-          "check_id": "CHK-d3e4e66b0653",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
+          "status": "e2e_deferred",
           "check_config": {
-            "id": "CHK-d3e4e66b0653",
+            "id": "CHK-db89ed311e57",
             "command": [
-              "bash",
-              "-lc",
-              "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+              "npm",
+              "run",
+              "webchat-smoke"
             ],
             "cwd": ".",
             "timeout": 1800.0,
@@ -3721,15 +1992,100 @@
               "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py",
               "apps/im-gateway/**",
               "deploy/k8s/base/im-gateway.yaml"
+            ],
+            "suite": "browser",
+            "markers": [
+              "smoke"
+            ],
+            "collect": {
+              "format": "playwright",
+              "argv": [
+                "npm",
+                "--prefix",
+                "e2e",
+                "test",
+                "--silent",
+                "--",
+                "--config",
+                "playwright.webchat.config.ts",
+                "capacity-recovery.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "timeout": 60
+            },
+            "test_ids": [
+              "e2e/tests/webchat/capacity-recovery.spec.ts:770@chromium"
             ]
           },
           "revision": 1,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
+          "run_id": "50542fec81b447488d9e13b298a17940",
+          "executed_at": "2026-10-25T15:43:14.123704+00:00",
           "command": [
-            "bash",
-            "-lc",
-            "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"
+            "npm",
+            "run",
+            "webchat-smoke"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-db89ed311e57",
+            "command": [
+              "npm",
+              "run",
+              "webchat-smoke"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "smoke",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/agent-runtime/src/muad_agent_runtime/api/runs.py",
+              "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py",
+              "apps/im-gateway/**",
+              "deploy/k8s/base/im-gateway.yaml"
+            ],
+            "suite": "browser",
+            "markers": [
+              "smoke"
+            ],
+            "collect": {
+              "format": "playwright",
+              "argv": [
+                "npm",
+                "--prefix",
+                "e2e",
+                "test",
+                "--silent",
+                "--",
+                "--config",
+                "playwright.webchat.config.ts",
+                "capacity-recovery.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "timeout": 60
+            },
+            "test_ids": [
+              "e2e/tests/webchat/capacity-recovery.spec.ts:770@chromium"
+            ]
+          },
+          "revision": 2,
+          "run_id": "f088846a6e134e22a381c0c375efc95a",
+          "executed_at": "2026-10-25T15:51:31.169993+00:00",
+          "command": [
+            "npm",
+            "run",
+            "webchat-smoke"
           ],
           "cwd": ".",
           "timeout": 1800.0
@@ -3800,133 +2156,7 @@
         "一个 fake webhook channel adapter",
         "签名/token 校验配置"
       ],
-      "check": "CHK-67745111ebdb",
-      "revision": 2,
-      "evidence": {
-        "id": "S-07",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-67745111ebdb",
-        "input_hash": "909fb1f30a949781592ec763b589d484866cb9f238b456accb140ccd959aa4eb",
-        "check_config": {
-          "id": "CHK-67745111ebdb",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_webhook_channel.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 2,
-        "run_id": "13fd94e468784d7aa2c18accbdd002de",
-        "executed_at": "2026-10-25T12:17:34.645923+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/im_gateway/test_webhook_channel.py"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "909fb1f30a949781592ec763b589d484866cb9f238b456accb140ccd959aa4eb"
-      },
-      "runs": [
-        {
-          "id": "S-07",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-67745111ebdb",
-          "input_hash": "a3f01f719252711ea02c7341ad49d112e51cc11e4283fa5692917e21cf8a61a8",
-          "check_config": {
-            "id": "CHK-67745111ebdb",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_webhook_channel.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "9503f100ec844aafb0b4239212d5784d",
-          "executed_at": "2026-10-25T12:12:20.411904+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_webhook_channel.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "a3f01f719252711ea02c7341ad49d112e51cc11e4283fa5692917e21cf8a61a8"
-        },
-        {
-          "id": "S-07",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-67745111ebdb",
-          "input_hash": "909fb1f30a949781592ec763b589d484866cb9f238b456accb140ccd959aa4eb",
-          "check_config": {
-            "id": "CHK-67745111ebdb",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_webhook_channel.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "13fd94e468784d7aa2c18accbdd002de",
-          "executed_at": "2026-10-25T12:17:34.645923+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_webhook_channel.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "909fb1f30a949781592ec763b589d484866cb9f238b456accb140ccd959aa4eb"
-        }
-      ],
-      "stale_checks": [
-        "CHK-67745111ebdb"
-      ]
+      "check": "CHK-67745111ebdb"
     },
     {
       "id": "S-08",
@@ -3935,7 +2165,7 @@
       "kind": "functional",
       "boundary": "真实 Gateway → 统一消息核心 → Console/Runtime/PG；已验证 CHAT 主体上下文",
       "owner": "TASK-010",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -3998,189 +2228,7 @@
         "已认证 ChatIdentity",
         "同一 message_id 重试"
       ],
-      "check": "CHK-070375b68f7b",
-      "check_config": {
-        "id": "CHK-070375b68f7b",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/im_gateway/test_webchat_core.py"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      },
-      "revision": 3,
-      "evidence": {
-        "id": "S-08",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-070375b68f7b",
-        "input_hash": "d4cb7064d2bcc2a773857f32054dba64009ee28b450e0fe1bc5787f637245874",
-        "check_config": {
-          "id": "CHK-070375b68f7b",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_webchat_core.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 3,
-        "run_id": "58e9bcd259c1427f9452e51fb96cbf6c",
-        "executed_at": "2026-10-25T13:32:36.379143+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/acceptance/im_gateway/test_webchat_core.py"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "d4cb7064d2bcc2a773857f32054dba64009ee28b450e0fe1bc5787f637245874"
-      },
-      "runs": [
-        {
-          "id": "S-08",
-          "kind": "functional",
-          "status": "failed",
-          "exit_code": 4,
-          "output": "no tests ran in 0.01s\nERROR: file or directory not found: tests/acceptance/im_gateway/test_webchat_core.py",
-          "check_id": "CHK-070375b68f7b",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-070375b68f7b",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_webchat_core.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_webchat_core.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0
-        },
-        {
-          "id": "S-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-070375b68f7b",
-          "input_hash": "aa8c790ef13d3b13101feccb5815cdd3ccf81aff302e5af79ffcfcd935713b3e",
-          "check_config": {
-            "id": "CHK-070375b68f7b",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_webchat_core.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "4c1b08a693ef44c082cb48f5e01d8065",
-          "executed_at": "2026-10-25T13:29:11.586926+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_webchat_core.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "aa8c790ef13d3b13101feccb5815cdd3ccf81aff302e5af79ffcfcd935713b3e"
-        },
-        {
-          "id": "S-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-070375b68f7b",
-          "input_hash": "d4cb7064d2bcc2a773857f32054dba64009ee28b450e0fe1bc5787f637245874",
-          "check_config": {
-            "id": "CHK-070375b68f7b",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/acceptance/im_gateway/test_webchat_core.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 3,
-          "run_id": "58e9bcd259c1427f9452e51fb96cbf6c",
-          "executed_at": "2026-10-25T13:32:36.379143+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/acceptance/im_gateway/test_webchat_core.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "d4cb7064d2bcc2a773857f32054dba64009ee28b450e0fe1bc5787f637245874"
-        }
-      ]
+      "check": "CHK-070375b68f7b"
     },
     {
       "id": "S-09",
@@ -4244,133 +2292,7 @@
       "preconditions": [
         "client-config 已返回 history_page_size/notification_poll_sec"
       ],
-      "check": "CHK-82b6d2f92451",
-      "revision": 2,
-      "evidence": {
-        "id": "S-09",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-82b6d2f92451",
-        "input_hash": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5",
-        "check_config": {
-          "id": "CHK-82b6d2f92451",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/frontend/test_capacity_webchat_activity_ui.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "env": "none",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 2,
-        "run_id": "8847542c339743c1adca293f9bc05f57",
-        "executed_at": "2026-10-25T12:17:15.159065+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/frontend/test_capacity_webchat_activity_ui.py"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5"
-      },
-      "runs": [
-        {
-          "id": "S-09",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-82b6d2f92451",
-          "input_hash": "3316274ef138ff4132898e1b50f91ecfa9892ca2d03cad95118525a5545ed588",
-          "check_config": {
-            "id": "CHK-82b6d2f92451",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/frontend/test_capacity_webchat_activity_ui.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "none",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "251dd95f0c3b4ca2a2b773d5a1c2f84a",
-          "executed_at": "2026-10-25T11:50:07.881249+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/frontend/test_capacity_webchat_activity_ui.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "3316274ef138ff4132898e1b50f91ecfa9892ca2d03cad95118525a5545ed588"
-        },
-        {
-          "id": "S-09",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-82b6d2f92451",
-          "input_hash": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5",
-          "check_config": {
-            "id": "CHK-82b6d2f92451",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/frontend/test_capacity_webchat_activity_ui.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "none",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "8847542c339743c1adca293f9bc05f57",
-          "executed_at": "2026-10-25T12:17:15.159065+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/frontend/test_capacity_webchat_activity_ui.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5"
-        }
-      ],
-      "stale_checks": [
-        "CHK-82b6d2f92451"
-      ]
+      "check": "CHK-82b6d2f92451"
     },
     {
       "id": "S-10",
@@ -4433,133 +2355,7 @@
         "admin 路由已 lazy",
         "保留深链"
       ],
-      "check": "CHK-bc751ea26687",
-      "revision": 2,
-      "evidence": {
-        "id": "S-10",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-bc751ea26687",
-        "input_hash": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5",
-        "check_config": {
-          "id": "CHK-bc751ea26687",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/frontend/test_webchat_code_splitting.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "env": "none",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 2,
-        "run_id": "8847542c339743c1adca293f9bc05f57",
-        "executed_at": "2026-10-25T12:17:15.159065+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/frontend/test_webchat_code_splitting.py"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5"
-      },
-      "runs": [
-        {
-          "id": "S-10",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-bc751ea26687",
-          "input_hash": "3316274ef138ff4132898e1b50f91ecfa9892ca2d03cad95118525a5545ed588",
-          "check_config": {
-            "id": "CHK-bc751ea26687",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/frontend/test_webchat_code_splitting.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "none",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "251dd95f0c3b4ca2a2b773d5a1c2f84a",
-          "executed_at": "2026-10-25T11:50:07.881249+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/frontend/test_webchat_code_splitting.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "3316274ef138ff4132898e1b50f91ecfa9892ca2d03cad95118525a5545ed588"
-        },
-        {
-          "id": "S-10",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-bc751ea26687",
-          "input_hash": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5",
-          "check_config": {
-            "id": "CHK-bc751ea26687",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/frontend/test_webchat_code_splitting.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "none",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "8847542c339743c1adca293f9bc05f57",
-          "executed_at": "2026-10-25T12:17:15.159065+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/frontend/test_webchat_code_splitting.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "8caa7af34c0cffd7b8d70479a071ef494f15ef645a2c21031af2133e40b968a5"
-        }
-      ],
-      "stale_checks": [
-        "CHK-bc751ea26687"
-      ]
+      "check": "CHK-bc751ea26687"
     },
     {
       "id": "S-11",
@@ -4568,7 +2364,7 @@
       "kind": "functional",
       "boundary": "纯契约/序列化；不连服务",
       "owner": "TASK-006",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -4622,149 +2418,7 @@
       "preconditions": [
         "契约已定义"
       ],
-      "check": "CHK-44351a5cde34",
-      "revision": 2,
-      "evidence": {
-        "id": "S-11",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-44351a5cde34",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-44351a5cde34",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/contracts/test_im_contracts.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "env": "none",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 2,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/contracts/test_im_contracts.py"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-      },
-      "runs": [
-        {
-          "id": "S-11",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-44351a5cde34",
-          "input_hash": "6420d573f554f2557f8072cac016eac5c88ec2c46ce7a2c3395d158ad581fd9e",
-          "check_config": {
-            "id": "CHK-44351a5cde34",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/contracts/test_im_contracts.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "none",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "f86381c920464b23aa5703b9d4ba91e0",
-          "executed_at": "2026-10-25T05:59:00.206252+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/contracts/test_im_contracts.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "6420d573f554f2557f8072cac016eac5c88ec2c46ce7a2c3395d158ad581fd9e"
-        },
-        {
-          "id": "S-11",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-44351a5cde34",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-44351a5cde34",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/contracts/test_im_contracts.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "none",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/contracts/test_im_contracts.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        }
-      ],
-      "check_config": {
-        "id": "CHK-44351a5cde34",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/contracts/test_im_contracts.py"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "env": "none",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      }
+      "check": "CHK-44351a5cde34"
     },
     {
       "id": "S-12",
@@ -4840,33 +2494,14 @@
         "connector 包/镜像/清单存在"
       ],
       "check": "CHK-6aba6aa03b34",
-      "check_config": {
-        "id": "CHK-6aba6aa03b34",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/architecture"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "env": "none",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      },
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-12",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
         "check_id": "CHK-6aba6aa03b34",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
+        "input_hash": "7916b83e655d727d08c053a61d4b7fde257e7046c533e7fcb1bc49d7e1268c31",
         "check_config": {
           "id": "CHK-6aba6aa03b34",
           "command": [
@@ -4886,9 +2521,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
+        "revision": 2,
+        "run_id": "f088846a6e134e22a381c0c375efc95a",
+        "executed_at": "2026-10-25T15:51:31.169993+00:00",
         "command": [
           "uv",
           "run",
@@ -4898,7 +2533,7 @@
         ],
         "cwd": ".",
         "timeout": 600.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
+        "fingerprint": "7916b83e655d727d08c053a61d4b7fde257e7046c533e7fcb1bc49d7e1268c31"
       },
       "runs": [
         {
@@ -4907,7 +2542,7 @@
           "status": "passed",
           "exit_code": 0,
           "check_id": "CHK-6aba6aa03b34",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
+          "input_hash": "5ce65b13b99c40aa4f7ca8bcb4aca6e7907fa256247abd253dce0b3c0c5d3e92",
           "check_config": {
             "id": "CHK-6aba6aa03b34",
             "command": [
@@ -4928,8 +2563,8 @@
             "paths": []
           },
           "revision": 1,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
+          "run_id": "50542fec81b447488d9e13b298a17940",
+          "executed_at": "2026-10-25T15:43:14.123704+00:00",
           "command": [
             "uv",
             "run",
@@ -4939,7 +2574,47 @@
           ],
           "cwd": ".",
           "timeout": 600.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
+          "fingerprint": "5ce65b13b99c40aa4f7ca8bcb4aca6e7907fa256247abd253dce0b3c0c5d3e92"
+        },
+        {
+          "id": "S-12",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-6aba6aa03b34",
+          "input_hash": "7916b83e655d727d08c053a61d4b7fde257e7046c533e7fcb1bc49d7e1268c31",
+          "check_config": {
+            "id": "CHK-6aba6aa03b34",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/architecture"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "f088846a6e134e22a381c0c375efc95a",
+          "executed_at": "2026-10-25T15:51:31.169993+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "7916b83e655d727d08c053a61d4b7fde257e7046c533e7fcb1bc49d7e1268c31"
         }
       ]
     },
@@ -4950,7 +2625,7 @@
       "kind": "functional",
       "boundary": "真实 Runtime/Worker/PG + 模拟队列压力",
       "owner": "TASK-005",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -5007,229 +2682,7 @@
         "history 后台化",
         "memory 入队限速"
       ],
-      "check": "CHK-b7e5888e7908",
-      "revision": 4,
-      "evidence": {
-        "id": "S-13",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-b7e5888e7908",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-b7e5888e7908",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_runtime_capacity_metrics.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 4,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_runtime_capacity_metrics.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-      },
-      "runs": [
-        {
-          "id": "S-13",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-b7e5888e7908",
-          "input_hash": "e9a79d51cc522741fe32237bfaa82fe9dde6219c364413acfb80065874dc59a0",
-          "check_config": {
-            "id": "CHK-b7e5888e7908",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_runtime_capacity_metrics.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "00d383bae4e34f43a714b99c0c736517",
-          "executed_at": "2026-10-25T10:38:18.555639+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_runtime_capacity_metrics.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "fingerprint": "e9a79d51cc522741fe32237bfaa82fe9dde6219c364413acfb80065874dc59a0"
-        },
-        {
-          "id": "S-13",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-b7e5888e7908",
-          "input_hash": "661aeffd474950aaf11a8c497d80e399bc7a6777503c86f2f0ebe0332b441c6b",
-          "check_config": {
-            "id": "CHK-b7e5888e7908",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_runtime_capacity_metrics.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "99dcc6d9a0554d0880d13cd4ab27f259",
-          "executed_at": "2026-10-25T10:52:38.464412+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_runtime_capacity_metrics.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "fingerprint": "661aeffd474950aaf11a8c497d80e399bc7a6777503c86f2f0ebe0332b441c6b"
-        },
-        {
-          "id": "S-13",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-b7e5888e7908",
-          "input_hash": "e2b19c5e2b55a3af00cb31bd9b47ecc03ec6819cee22ea95590f93d8e9dc7409",
-          "check_config": {
-            "id": "CHK-b7e5888e7908",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_runtime_capacity_metrics.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 3,
-          "run_id": "a1d5e14565a542d9a5182223bb95cb45",
-          "executed_at": "2026-10-25T11:08:58.110990+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_runtime_capacity_metrics.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "fingerprint": "e2b19c5e2b55a3af00cb31bd9b47ecc03ec6819cee22ea95590f93d8e9dc7409"
-        },
-        {
-          "id": "S-13",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-b7e5888e7908",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-b7e5888e7908",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_runtime_capacity_metrics.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 4,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_runtime_capacity_metrics.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        }
-      ],
-      "check_config": {
-        "id": "CHK-b7e5888e7908",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_runtime_capacity_metrics.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      }
+      "check": "CHK-b7e5888e7908"
     },
     {
       "id": "S-14",
@@ -5238,7 +2691,7 @@
       "kind": "functional",
       "boundary": "真实 Console/Runtime/PG；记录 SQL/设置读取",
       "owner": "TASK-002",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "bash",
         "-lc",
@@ -5291,99 +2744,7 @@
         "materials 合并解析",
         "通知 fast path"
       ],
-      "check": "CHK-ed371ead49ff",
-      "check_config": {
-        "id": "CHK-ed371ead49ff",
-        "command": [
-          "bash",
-          "-lc",
-          "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      },
-      "revision": 1,
-      "evidence": {
-        "id": "S-14",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-ed371ead49ff",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-ed371ead49ff",
-          "command": [
-            "bash",
-            "-lc",
-            "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 1,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "bash",
-          "-lc",
-          "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"
-        ],
-        "cwd": ".",
-        "timeout": 900.0,
-        "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-      },
-      "runs": [
-        {
-          "id": "S-14",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-ed371ead49ff",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-ed371ead49ff",
-            "command": [
-              "bash",
-              "-lc",
-              "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"
-            ],
-            "cwd": ".",
-            "timeout": 900.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"
-          ],
-          "cwd": ".",
-          "timeout": 900.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        }
-      ]
+      "check": "CHK-ed371ead49ff"
     },
     {
       "id": "S-15",
@@ -5392,7 +2753,7 @@
       "kind": "functional",
       "boundary": "真实 Gateway/Runtime/PG；SQL 计数",
       "owner": "TASK-010",
-      "status": "verified",
+      "status": "planned",
       "command": [
         "uv",
         "run",
@@ -5448,189 +2809,7 @@
         "lean scope 已实现",
         "受理帧带 status"
       ],
-      "check": "CHK-f3eeb55b0d89",
-      "check_config": {
-        "id": "CHK-f3eeb55b0d89",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_runs_api.py"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      },
-      "revision": 3,
-      "evidence": {
-        "id": "S-15",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "check_id": "CHK-f3eeb55b0d89",
-        "input_hash": "d4cb7064d2bcc2a773857f32054dba64009ee28b450e0fe1bc5787f637245874",
-        "check_config": {
-          "id": "CHK-f3eeb55b0d89",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_runs_api.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 3,
-        "run_id": "58e9bcd259c1427f9452e51fb96cbf6c",
-        "executed_at": "2026-10-25T13:32:36.379143+00:00",
-        "command": [
-          "uv",
-          "run",
-          "pytest",
-          "-q",
-          "tests/agent_runtime/test_runs_api.py"
-        ],
-        "cwd": ".",
-        "timeout": 600.0,
-        "fingerprint": "d4cb7064d2bcc2a773857f32054dba64009ee28b450e0fe1bc5787f637245874"
-      },
-      "runs": [
-        {
-          "id": "S-15",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-f3eeb55b0d89",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-f3eeb55b0d89",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_runs_api.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_runs_api.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005"
-        },
-        {
-          "id": "S-15",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-f3eeb55b0d89",
-          "input_hash": "aa8c790ef13d3b13101feccb5815cdd3ccf81aff302e5af79ffcfcd935713b3e",
-          "check_config": {
-            "id": "CHK-f3eeb55b0d89",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_runs_api.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "4c1b08a693ef44c082cb48f5e01d8065",
-          "executed_at": "2026-10-25T13:29:11.586926+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_runs_api.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "aa8c790ef13d3b13101feccb5815cdd3ccf81aff302e5af79ffcfcd935713b3e"
-        },
-        {
-          "id": "S-15",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "check_id": "CHK-f3eeb55b0d89",
-          "input_hash": "d4cb7064d2bcc2a773857f32054dba64009ee28b450e0fe1bc5787f637245874",
-          "check_config": {
-            "id": "CHK-f3eeb55b0d89",
-            "command": [
-              "uv",
-              "run",
-              "pytest",
-              "-q",
-              "tests/agent_runtime/test_runs_api.py"
-            ],
-            "cwd": ".",
-            "timeout": 600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 3,
-          "run_id": "58e9bcd259c1427f9452e51fb96cbf6c",
-          "executed_at": "2026-10-25T13:32:36.379143+00:00",
-          "command": [
-            "uv",
-            "run",
-            "pytest",
-            "-q",
-            "tests/agent_runtime/test_runs_api.py"
-          ],
-          "cwd": ".",
-          "timeout": 600.0,
-          "fingerprint": "d4cb7064d2bcc2a773857f32054dba64009ee28b450e0fe1bc5787f637245874"
-        }
-      ]
+      "check": "CHK-f3eeb55b0d89"
     },
     {
       "id": "S-16",
@@ -5639,7 +2818,7 @@
       "kind": "functional",
       "boundary": "真实栈 + 100 用户 × 1 轮 × 20 chunks/s + 通知轮询",
       "owner": "TASK-001",
-      "status": "failed",
+      "status": "planned",
       "command": [
         "bash",
         "-lc",
@@ -5697,99 +2876,7 @@
       "defer_reason": "100 用户 smoke 需真实四单元栈；编码期只登记，verify-e2e 执行",
       "target_phase": "review",
       "defer_owner": "TASK-001",
-      "check": "CHK-8d7b3292f4ba",
-      "check_config": {
-        "id": "CHK-8d7b3292f4ba",
-        "command": [
-          "bash",
-          "-lc",
-          "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-        ],
-        "cwd": ".",
-        "timeout": 1800.0,
-        "env": "local-api",
-        "env_scope": "shared",
-        "parallel_safe": false,
-        "profile": "changed",
-        "inputs": [],
-        "preflight": [],
-        "paths": []
-      },
-      "revision": 1,
-      "evidence": {
-        "id": "S-16",
-        "kind": "functional",
-        "status": "failed",
-        "exit_code": 1,
-        "output": "ERS\n        assert report.effective_turns == 1\n        assert report.run_kind is RunKind.VERIFICATION\n        assert report.scale is not None and report.scale.users == SMOKE_USERS, (\n            \"受限 smoke 必须显式登记规模，不得冒充 1000 用户\"\n        )\n        assert report.planned_attempts == SMOKE_USERS\n        assert report.attempts() == SMOKE_USERS, \"每个用户都尝试了一次真实提交（不丢样本）\"\n        failure_samples = [\n            (turn.user_index, turn.failure, turn.http_status, (turn.detail or \"\")[:120])\n            for turn in report.turns\n            if turn.failure is not None\n        ][:5]\n        assert len(report.admitted()) == SMOKE_USERS, (\n            \"每一轮都拿到真实 202；\"\n            f\"失败账目 {dict(report.failure_counts())}，样本 {failure_samples}\"\n        )\n        assert report.steady_violations == (), \"所有提交都在 ramp+steady 窗口内\"\n    \n        checks = evaluate_slo(\n            SloInput(\n                admission=report.admission_latency(),\n                first_delta=report.first_delta_latency(),\n                system_error_ratio=report.system_error_ratio(),\n                pool_timeouts=report.pool_timeout_count,\n                attempts=report.attempts(),\n                planned_attempts=report.planned_attempts,\n                steady_violations=len(report.steady_violations),\n                max_connections_total=report.max_connections_total,\n                max_idle_in_tx=report.max_idle_in_tx,\n            ),\n            SMOKE_THRESHOLDS,\n        )\n        if os.environ.get(\"MUAD_SMOKE_DEBUG_ROOT\"):\n            from collections import Counter\n    \n            seen = Counter(\n                query\n                for sample in report.samples\n                for query, _age in sample.idle_in_tx_queries\n            )\n            ages = {\n                query: max(\n                    age\n                    for sample in report.samples\n                    for candidate, age in sample.idle_in_tx_queries\n                    if candidate == query\n                )\n                for query in seen\n            }\n            print(\"SMOKE-IDLE-IN-TX top queries:\")\n            for query, count in seen.most_common(10):\n                print(f\"  {count}x max_age={ages[query]:.2f}s :: {query[:300]}\")\n            print(\n                \"SMOKE-PG max_total=\",\n                report.max_connections_total,\n                \"idle_tx_peak=\",\n                report.max_idle_in_tx,\n                \"rate=\",\n                report.postgres_rate(),\n            )\n        load_failures = [turn for turn in report.turns if turn.failure is not None]\n        assert not load_failures, (\n            \"smoke 负载不得有失败轮次：\"\n            f\"失败账目 {dict(report.failure_counts())}，\"\n            \"样本 \"\n            f\"{[(t.user_index, t.failure, t.http_status, (t.detail or '')[:200]) for t in load_failures[:8]]}\"\n        )\n>       require_slo(checks)\n\ntests/acceptance/capacity/test_capacity_smoke.py:351: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nchecks = (SloCheck(name='admission_p95_ms', actual=2813.9539170078933, limit=1000, ok=False, detail='P95=2814.0ms 阈值 1000ms（样本 ...100 / 计划 100'), SloCheck(name='steady_violations', actual=0, limit=0, ok=True, detail='超出 ramp+steady 窗口的提交 0 次'), ...)\n\n    def require_slo(checks: Sequence[SloCheck]) -> None:\n        \"\"\"任一越界即抛出带全部失败项的 AssertionError（不静默、不截断）。\"\"\"\n        failed = [check for check in checks if not check.ok]\n        if not failed:\n            return\n        details = \"; \".join(f\"{check.name}: {check.detail}\" for check in failed)\n>       raise AssertionError(f\"SLO 未通过（{len(failed)} 项）：{details}\")\nE       AssertionError: SLO 未通过（3 项）：admission_p95_ms: P95=2814.0ms 阈值 1000ms（样本 100）; first_delta_p95_ms: P95=8259.0ms 阈值 2500ms（样本 100）; max_idle_in_tx: idle-in-tx 峰值 29 阈值 20\n\ntests/capacity/slo.py:186: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/capacity/test_capacity_smoke.py::test_s16_100_user_capacity_smoke\n1 failed in 113.59s (0:01:53)",
-        "check_id": "CHK-8d7b3292f4ba",
-        "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-        "check_config": {
-          "id": "CHK-8d7b3292f4ba",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 1,
-        "run_id": "97e211e414874d5fbc4f883fed2a5651",
-        "executed_at": "2026-10-25T12:34:08.988006+00:00",
-        "command": [
-          "bash",
-          "-lc",
-          "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-        ],
-        "cwd": ".",
-        "timeout": 1800.0
-      },
-      "runs": [
-        {
-          "id": "S-16",
-          "kind": "functional",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "ERS\n        assert report.effective_turns == 1\n        assert report.run_kind is RunKind.VERIFICATION\n        assert report.scale is not None and report.scale.users == SMOKE_USERS, (\n            \"受限 smoke 必须显式登记规模，不得冒充 1000 用户\"\n        )\n        assert report.planned_attempts == SMOKE_USERS\n        assert report.attempts() == SMOKE_USERS, \"每个用户都尝试了一次真实提交（不丢样本）\"\n        failure_samples = [\n            (turn.user_index, turn.failure, turn.http_status, (turn.detail or \"\")[:120])\n            for turn in report.turns\n            if turn.failure is not None\n        ][:5]\n        assert len(report.admitted()) == SMOKE_USERS, (\n            \"每一轮都拿到真实 202；\"\n            f\"失败账目 {dict(report.failure_counts())}，样本 {failure_samples}\"\n        )\n        assert report.steady_violations == (), \"所有提交都在 ramp+steady 窗口内\"\n    \n        checks = evaluate_slo(\n            SloInput(\n                admission=report.admission_latency(),\n                first_delta=report.first_delta_latency(),\n                system_error_ratio=report.system_error_ratio(),\n                pool_timeouts=report.pool_timeout_count,\n                attempts=report.attempts(),\n                planned_attempts=report.planned_attempts,\n                steady_violations=len(report.steady_violations),\n                max_connections_total=report.max_connections_total,\n                max_idle_in_tx=report.max_idle_in_tx,\n            ),\n            SMOKE_THRESHOLDS,\n        )\n        if os.environ.get(\"MUAD_SMOKE_DEBUG_ROOT\"):\n            from collections import Counter\n    \n            seen = Counter(\n                query\n                for sample in report.samples\n                for query, _age in sample.idle_in_tx_queries\n            )\n            ages = {\n                query: max(\n                    age\n                    for sample in report.samples\n                    for candidate, age in sample.idle_in_tx_queries\n                    if candidate == query\n                )\n                for query in seen\n            }\n            print(\"SMOKE-IDLE-IN-TX top queries:\")\n            for query, count in seen.most_common(10):\n                print(f\"  {count}x max_age={ages[query]:.2f}s :: {query[:300]}\")\n            print(\n                \"SMOKE-PG max_total=\",\n                report.max_connections_total,\n                \"idle_tx_peak=\",\n                report.max_idle_in_tx,\n                \"rate=\",\n                report.postgres_rate(),\n            )\n        load_failures = [turn for turn in report.turns if turn.failure is not None]\n        assert not load_failures, (\n            \"smoke 负载不得有失败轮次：\"\n            f\"失败账目 {dict(report.failure_counts())}，\"\n            \"样本 \"\n            f\"{[(t.user_index, t.failure, t.http_status, (t.detail or '')[:200]) for t in load_failures[:8]]}\"\n        )\n>       require_slo(checks)\n\ntests/acceptance/capacity/test_capacity_smoke.py:351: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nchecks = (SloCheck(name='admission_p95_ms', actual=2813.9539170078933, limit=1000, ok=False, detail='P95=2814.0ms 阈值 1000ms（样本 ...100 / 计划 100'), SloCheck(name='steady_violations', actual=0, limit=0, ok=True, detail='超出 ramp+steady 窗口的提交 0 次'), ...)\n\n    def require_slo(checks: Sequence[SloCheck]) -> None:\n        \"\"\"任一越界即抛出带全部失败项的 AssertionError（不静默、不截断）。\"\"\"\n        failed = [check for check in checks if not check.ok]\n        if not failed:\n            return\n        details = \"; \".join(f\"{check.name}: {check.detail}\" for check in failed)\n>       raise AssertionError(f\"SLO 未通过（{len(failed)} 项）：{details}\")\nE       AssertionError: SLO 未通过（3 项）：admission_p95_ms: P95=2814.0ms 阈值 1000ms（样本 100）; first_delta_p95_ms: P95=8259.0ms 阈值 2500ms（样本 100）; max_idle_in_tx: idle-in-tx 峰值 29 阈值 20\n\ntests/capacity/slo.py:186: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/capacity/test_capacity_smoke.py::test_s16_100_user_capacity_smoke\n1 failed in 113.59s (0:01:53)",
-          "check_id": "CHK-8d7b3292f4ba",
-          "input_hash": "98167cc25c026a4e2ea0dcea18b39f3fd68cb864106efdc3c5d580794ceab005",
-          "check_config": {
-            "id": "CHK-8d7b3292f4ba",
-            "command": [
-              "bash",
-              "-lc",
-              "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-            ],
-            "cwd": ".",
-            "timeout": 1800.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "97e211e414874d5fbc4f883fed2a5651",
-          "executed_at": "2026-10-25T12:34:08.988006+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0
-        }
-      ]
+      "check": "CHK-8d7b3292f4ba"
     },
     {
       "id": "S-17",

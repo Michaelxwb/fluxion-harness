@@ -33,6 +33,18 @@ OutboundOutcome = Literal[
 ]
 SnapshotOutcome = Literal["ok", "failed", "incomplete"]
 
+#: 指标目录：(名称, 类型, label 名, help)。`/metrics` 在无流量时也暴露完整目录（harness-arch）。
+CATALOG: Final = (
+    (LEASE_METRIC, "counter", ("outcome",), "Connector bot lease outcomes"),
+    (LEASE_LOST_METRIC, "counter", (), "Connector bot lease losses"),
+    (LEASE_ACTIVE_METRIC, "gauge", (), "Bots currently owned by this connector"),
+    (INBOUND_METRIC, "counter", ("outcome",), "Connector inbound publish outcomes"),
+    (INBOUND_LOST_METRIC, "counter", (), "Inbound messages lost before XADD"),
+    (OUTBOUND_METRIC, "counter", ("outcome",), "Connector outbound command outcomes"),
+    (OUTBOUND_DEAD_METRIC, "counter", (), "Connector outbound dead letters"),
+    (SNAPSHOT_METRIC, "counter", ("outcome",), "Connector bot snapshot refresh outcomes"),
+)
+
 
 def record_lease(outcome: LeaseOutcome, count: int = 1) -> None:
     inc_counter(
@@ -85,11 +97,5 @@ def record_snapshot(outcome: SnapshotOutcome) -> None:
 
 def install_connector_metrics(app: FastAPI) -> None:
     install_metrics(app)
-    declare_metric(LEASE_METRIC, "counter", help="Connector bot lease outcomes")
-    declare_metric(LEASE_LOST_METRIC, "counter", help="Connector bot lease losses")
-    declare_metric(LEASE_ACTIVE_METRIC, "gauge", help="Bots currently owned by this connector")
-    declare_metric(INBOUND_METRIC, "counter", help="Connector inbound publish outcomes")
-    declare_metric(INBOUND_LOST_METRIC, "counter", help="Inbound messages lost before XADD")
-    declare_metric(OUTBOUND_METRIC, "counter", help="Connector outbound command outcomes")
-    declare_metric(OUTBOUND_DEAD_METRIC, "counter", help="Connector outbound dead letters")
-    declare_metric(SNAPSHOT_METRIC, "counter", help="Connector bot snapshot refresh outcomes")
+    for name, kind, _labels, help_text in CATALOG:
+        declare_metric(name, kind, help=help_text)

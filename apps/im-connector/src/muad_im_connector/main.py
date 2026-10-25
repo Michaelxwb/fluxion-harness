@@ -16,15 +16,18 @@ from muad_api import install_health_probes
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_im_core import BotSnapshotCache, InboundPublisher
+from muad_im_gateway.application.inbound_attachments import InboundAttachmentStore
+from muad_im_gateway.channels.base import ArtifactLinkIssuer
 from muad_logging import configure_logging
 from redis.asyncio import Redis
 
+from .channels.probe import HttpProbeChannelAdapter
 from .channels.wecom.adapter import WeComAdapter
 from .lease import RedisLeaseManager
 from .metrics import install_connector_metrics
 from .outbound import CommandExecutor, OutboundRunner
 from .reply_store import ReplyStore
-from .runtime import ConnectorRuntime
+from .runtime import ConnectorAdapterPort, ConnectorRuntime
 from .settings import connector_settings
 
 logger = logging.getLogger(__name__)
@@ -36,7 +39,7 @@ SERVICE_NAME = "muad-im-connector"
 class ConnectorResources:
     redis: Redis
     console: object
-    adapter: object
+    adapter: ConnectorAdapterPort
     runtime: ConnectorRuntime
 
 
@@ -44,6 +47,25 @@ def _require(value: str | None, name: str) -> str:
     if not value:
         raise RuntimeError(f"{name} is required but not configured")
     return value
+
+
+def _build_adapter(
+    settings: SharedSettings,
+    *,
+    artifact_store: NfsArtifactStore,
+    fetch_links: ArtifactLinkIssuer,
+) -> ConnectorAdapterPort:
+    """通道适配器的装配点：`CHANNEL_PROBE_URL` 有值 → HTTP 探针，否则真实企微长连接。
+
+    两条路都是 Connector 的**通道适配器表面**；切换只影响协议实现，不影响租约/回复/媒体编排。
+    """
+    if settings.channel_probe_url:
+        return HttpProbeChannelAdapter(settings.channel_probe_url)
+    return WeComAdapter(
+        artifact_store=artifact_store,
+        fetch_links=fetch_links,
+        status_updates_per_second=settings.im_progress_updates_per_second,
+    )
 
 
 def _build_resources(settings: SharedSettings) -> ConnectorResources:
@@ -65,11 +87,7 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
         service_token=settings.internal_service_token,
     )
     artifact_store = NfsArtifactStore(settings.artifact_root)
-    adapter = WeComAdapter(
-        artifact_store=artifact_store,
-        fetch_links=console,
-        status_updates_per_second=settings.im_progress_updates_per_second,
-    )
+    adapter = _build_adapter(settings, artifact_store=artifact_store, fetch_links=console)
     leases = RedisLeaseManager(
         redis, owner_id=connector.owner_id, ttl_sec=connector.connector_lease_ttl_sec
     )
@@ -111,6 +129,8 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
         outbound=outbound,
         snapshot=snapshot,
         renew_sec=connector.connector_lease_renew_sec,
+        # 入站附件：字节只在本进程取（渠道凭据不出适配器），落共享存储后上行只给引用。
+        attachment_store=InboundAttachmentStore(artifact_store),
     )
     holder["runtime"] = runtime
     # 适配器的原始消息回调必须在 runtime 建好之后绑定（runtime 持有有界队列）。

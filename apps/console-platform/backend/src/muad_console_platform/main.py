@@ -116,6 +116,11 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         catalog_client = getattr(fastapi_app.state, "mcp_catalog_cache_client", None)
         if catalog_client is not None:
             await catalog_client.aclose()
+        fetch_tokens_client = getattr(
+            fastapi_app.state, "artifact_fetch_tokens_client", None
+        )
+        if fetch_tokens_client is not None:
+            await fetch_tokens_client.aclose()
         fetch_service = getattr(fastapi_app.state, "artifact_fetch_service", None)
         if fetch_service is not None:
             await fetch_service.aclose()

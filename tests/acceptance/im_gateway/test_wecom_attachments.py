@@ -143,7 +143,7 @@ async def _wait_connected(stack: GatewayStack) -> Any:
             (frame.get("body") or {}).get("bot_id") == BOT_ID
             for frame in probe.frames_of("aibot_subscribe")
         ),
-        what="Gateway 未完成与探针的真实 WS 认证",
+        what="Connector 未完成与探针的真实 WS 认证",
     )
     return probe
 
@@ -196,13 +196,22 @@ async def test_s04_three_attachments_land_and_are_readable_separately(
     stored = _stored(root, message_id)
     assert {key: value for key, value in stored.items()} == expected
 
-    # ② 契约：Runtime 把三条引用落成了 artifact 行（AD-1-B：网关只写字节、不写库）
-    rows = await _fetch(
-        "SELECT storage_key, media_type, size, checksum, artifact_type, run_id "
-        "FROM runtime.artifact WHERE tenant_id = :t AND storage_key LIKE :k AND is_deleted = false "
-        "ORDER BY storage_key",
-        {"t": gateway_stack.tenant_id, "k": f"inbound/{message_id}/%"},
-    )
+    # ② 契约：Runtime 把三条引用落成了 artifact 行（AD-1-B：网关只写字节、不写库）。
+    # 附件字节由 **Connector** 先落盘、再发布事件：字节出现 ≠ Run 已建（中间隔着
+    # im.inbound 一跳）。这里按真实终态轮询，而不是把异步相位差当失败。
+    async def _rows() -> list[tuple[Any, ...]]:
+        return await _fetch(
+            "SELECT storage_key, media_type, size, checksum, artifact_type, run_id "
+            "FROM runtime.artifact WHERE tenant_id = :t AND storage_key LIKE :k AND is_deleted = false "
+            "ORDER BY storage_key",
+            {"t": gateway_stack.tenant_id, "k": f"inbound/{message_id}/%"},
+        )
+
+    async def _three_rows() -> bool:
+        return len(await _rows()) == 3
+
+    await _wait_for(_three_rows, what="Runtime 未在超时内把三条附件引用落成 artifact 行")
+    rows = await _rows()
     assert len(rows) == 3, f"artifact 行数应为 3，实得 {rows}"
     for index, (storage_key, media_type, size, checksum, artifact_type, run_id) in enumerate(rows):
         assert storage_key == f"inbound/{message_id}/{index}"

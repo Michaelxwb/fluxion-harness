@@ -55,7 +55,7 @@ PROFILE_PATH = ROOT / "tests/capacity/profiles/agent-capacity-webchat.example.ym
 #: 固定四个部署单元（harness-arch#RULE-arch-001）；前端聊天不新增工作负载。
 DEPLOY_UNITS = ("console-platform", "agent-runtime", "agent-worker", "im-gateway")
 #: Console/Gateway 各 1 Pod 是部署约束（design §4.1）：不声明 HPA，typed 上界也是 1。
-SINGLE_POD_UNITS = ("console-platform", "im-gateway")
+SINGLE_POD_UNITS = ("console-platform",)
 #: 无状态可横向扩展的单元：HPA 提供副本上界（design §3.7「生产资源及 maxReplicas 必填」）。
 AUTOSCALED_UNITS = ("agent-runtime", "agent-worker")
 
@@ -349,7 +349,11 @@ def test_rendered_base_carries_ingress_and_autoscaling_resources() -> None:
 
 
 def test_single_pod_units_stay_fixed_without_hpa() -> None:
-    """Console/Gateway 各 1 Pod 是部署约束：清单基线、typed 上界、HPA 三处都必须一致。"""
+    """Console 单 Pod 是容量口径：清单基线、typed 上界、HPA 三处都必须一致。
+
+    Gateway 已允许 N 副本（design §4.1）：它的上界由 typed `max_replica_counts` 表达，
+    多副本清单在 `deploy/k8s/with-connector` overlay，不在这里断言为 1。
+    """
     documents = _rendered_docs()
     resources = _resource_profile()
     for unit in SINGLE_POD_UNITS:
@@ -357,7 +361,7 @@ def test_single_pod_units_stay_fixed_without_hpa() -> None:
             f"{unit}: 基线必须是 1 个 Pod"
         )
         assert resources.max_replica_counts[unit] == 1, (
-            f"{unit}: typed max_replica_counts 必须为 1（单 Pod 是部署约束）"
+            f"{unit}: typed max_replica_counts 必须为 1（Console 单 Pod 是容量口径）"
         )
         offenders = [
             hpa["metadata"]["name"]

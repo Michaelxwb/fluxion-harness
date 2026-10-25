@@ -49,6 +49,7 @@ try:
     import muad_agent_worker.infrastructure.db as worker_db  # type: ignore[import-untyped, unused-ignore]
     import muad_console_platform.infrastructure.db as console_db  # type: ignore[import-untyped, unused-ignore]
     from muad_common import SharedSettings
+    from muad_im_connector.settings import ConnectorSettings  # type: ignore[import-untyped, unused-ignore]
     from sqlalchemy.ext.asyncio import AsyncEngine
     from sqlalchemy.pool import QueuePool
 
@@ -68,12 +69,20 @@ except ModuleNotFoundError as exc:
     )
     raise SystemExit(2) from None
 
-#: 固定四个部署单元（harness-arch#RULE-arch-001）；前端聊天不新增工作负载。
+#: 四个核心逻辑业务单元（harness-arch#RULE-arch-001）；单元集合由 profile 声明，可+connector/+console-web。
 DEPLOY_UNITS = ("console-platform", "agent-runtime", "agent-worker", "im-gateway")
-#: Console/Gateway 各 1 Pod 是部署约束（design §4.1）：不声明 HPA，typed 上界也是 1。
-SINGLE_POD_UNITS = ("console-platform", "im-gateway")
-#: 持库单元（Gateway 不持库）：PG 总连接按它们求和。
+#: 只有 Console 是单 Pod 容量口径（design §4.1）；Gateway 允许 N 副本。
+SINGLE_POD_UNITS = ("console-platform",)
+#: 持库单元（Gateway/Connector 不持库）：PG 总连接按它们求和。
 DB_UNITS = ("console-platform", "agent-runtime", "agent-worker")
+#: 每单元 DB 池的清单键（允许按单元覆盖全局 typed 池；env 名与 SQLAlchemy 接线同源）。
+DB_POOL_ENV = "DB_POOL_SIZE"
+DB_OVERFLOW_ENV = "DB_MAX_OVERFLOW"
+#: Runtime 每进程准入闸门的上界（代码常量 `run_service.ADMISSION_CONCURRENCY_LIMIT` 的
+#: 预检侧同值；`test_capacity_webchat_deployment_preflight` 断言两者一致，避免各写一份漂移）。
+RUNTIME_ADMISSION_CONCURRENCY_LIMIT = 64
+#: Connector 租约下界（`ConnectorSettings` 校验：TTL ≥ 5 秒且 renew < TTL/2）。
+CONNECTOR_MIN_LEASE_TTL_SEC = 5
 #: 进程级 SSE 缓冲的持有单元 → 入站订阅上限的 typed 字段（服务端长连接占 FD 与内存缓冲）。
 SSE_BUFFER_UNITS: Mapping[str, str] = {
     "im-gateway": "gateway_max_sse_subscribers",
@@ -258,9 +267,11 @@ def _hpa_for(documents: Sequence[Mapping[str, Any]], unit: str) -> Mapping[str, 
     return matches[0] if matches else None
 
 
-def _hpa_bounds(documents: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+def _hpa_bounds(
+    documents: Sequence[Mapping[str, Any]], units: Sequence[str]
+) -> dict[str, int]:
     bounds: dict[str, int] = {}
-    for unit in DEPLOY_UNITS:
+    for unit in units:
         hpa = _hpa_for(documents, unit)
         if hpa is None:
             continue
@@ -271,11 +282,13 @@ def _hpa_bounds(documents: Sequence[Mapping[str, Any]]) -> dict[str, int]:
     return bounds
 
 
-def build_units(documents: Sequence[Mapping[str, Any]]) -> tuple[DeploymentView, ...]:
-    """从渲染集合取四个部署单元：单容器、基线副本与真实副本上界（有 HPA 时取 HPA）。"""
-    hpa_bounds = _hpa_bounds(documents)
-    units: list[DeploymentView] = []
-    for name in DEPLOY_UNITS:
+def build_units(
+    documents: Sequence[Mapping[str, Any]], units: Sequence[str]
+) -> tuple[DeploymentView, ...]:
+    """从渲染集合取 profile 声明的部署单元：单容器、基线副本与真实副本上界（有 HPA 取 HPA）。"""
+    hpa_bounds = _hpa_bounds(documents, units)
+    views: list[DeploymentView] = []
+    for name in units:
         deployment = _named(documents, "Deployment", f"muad-{name}")
         try:
             pod_spec = deployment["spec"]["template"]["spec"]
@@ -287,7 +300,7 @@ def build_units(documents: Sequence[Mapping[str, Any]]) -> tuple[DeploymentView,
         replicas = deployment["spec"].get("replicas")
         if not isinstance(replicas, int) or isinstance(replicas, bool) or replicas < 1:
             raise PreflightError(f"{name}: 基线副本数必须是正整数")
-        units.append(
+        views.append(
             DeploymentView(
                 name=name,
                 replicas=replicas,
@@ -296,7 +309,7 @@ def build_units(documents: Sequence[Mapping[str, Any]]) -> tuple[DeploymentView,
                 pod_spec=pod_spec,
             )
         )
-    return tuple(units)
+    return tuple(views)
 
 
 # --------------------------------------------------------------------------------------
@@ -309,9 +322,9 @@ def check_shape(
     documents: Sequence[Mapping[str, Any]],
     resources: ResourceProfile,
 ) -> list[Violation]:
-    """固定四个部署单元/服务；副本上界与 typed `max_replica_counts` 一致；单 Pod 不得有 HPA。"""
+    """单元集合由 profile 声明；副本上界与 typed `max_replica_counts` 一致；Console 单 Pod 无 HPA。"""
     violations: list[Violation] = []
-    expected = {f"muad-{name}" for name in DEPLOY_UNITS}
+    expected = {f"muad-{name}" for name in resources.hardware}
     deployments = {
         str(doc.get("metadata", {}).get("name"))
         for doc in documents
@@ -324,11 +337,11 @@ def check_shape(
     }
     if deployments != expected:
         violations.append(
-            Violation("shape", f"渲染集合必须恰好是固定四个部署单元：{sorted(deployments)}")
+            Violation("shape", f"渲染集合的 Deployment 必须恰好等于 profile 声明单元：{sorted(deployments)}")
         )
     if services != expected:
         violations.append(
-            Violation("shape", f"渲染集合必须恰好是固定四个 Service：{sorted(services)}")
+            Violation("shape", f"渲染集合的 Service 必须恰好等于 profile 声明单元：{sorted(services)}")
         )
     for unit in units:
         typed_max = resources.max_replica_counts[unit.name]
@@ -345,7 +358,7 @@ def check_shape(
                 violations.append(
                     Violation(
                         "shape",
-                        f"{unit.name}: Console/Gateway 各 1 Pod 是部署约束（基线 {unit.replicas}、"
+                        f"{unit.name}: Console 单 Pod 是容量口径（基线 {unit.replicas}、"
                         f"typed 上界 {typed_max} 必须都为 1）",
                     )
                 )
@@ -429,18 +442,38 @@ def _literal_number(label: str, key: str, raw: object) -> float:
     return float(raw)
 
 
+def _typed_values(unit: str | None, settings: SharedSettings) -> dict[str, object]:
+    """本单元真正消费的 typed 字段 → 默认值。
+
+    Connector 有自己的 `ConnectorSettings`（lease 节拍/流上限）：把它的字段并入该单元的
+    白名单，否则租约/上限这类真实生效的键会被误判成"不写不生效的键"。
+    """
+    values: dict[str, object] = {
+        name: getattr(settings, name) for name in SharedSettings.model_fields
+    }
+    if unit == "connector":
+        connector = ConnectorSettings(_env_file=None)  # type: ignore[call-arg]
+        values.update(
+            {name: getattr(connector, name) for name in ConnectorSettings.model_fields}
+        )
+    return values
+
+
 def _check_budget_map(
-    label: str, values: Mapping[str, Any], settings: SharedSettings
+    label: str, values: Mapping[str, Any], declared_fields: Mapping[str, object]
 ) -> list[Violation]:
     violations: list[Violation] = []
     for key in sorted(values):
         field = key.lower()
-        if field not in SharedSettings.model_fields:
+        if field not in declared_fields:
             violations.append(
-                Violation("typed-config", f"{label}.{key} 不是 SharedSettings typed 字段（不写不生效的键）")
+                Violation(
+                    "typed-config",
+                    f"{label}.{key} 不是本单元的 typed 字段（不写不生效的键）",
+                )
             )
             continue
-        declared = getattr(settings, field)
+        declared = declared_fields[field]
         if isinstance(declared, bool) or not isinstance(declared, (int, float)):
             continue  # 字符串键（URL/目录/租户）由应用解析，预检只核预算数字
         try:
@@ -470,7 +503,9 @@ def check_manifest_typed_consistency(
         if kind == "ConfigMap":
             data = document.get("data")
             if isinstance(data, Mapping):
-                violations.extend(_check_budget_map(f"ConfigMap/{name}", data, settings))
+                violations.extend(
+                    _check_budget_map(f"ConfigMap/{name}", data, _typed_values(None, settings))
+                )
         elif kind == "Deployment":
             containers = (
                 document.get("spec", {}).get("template", {}).get("spec", {}).get("containers")
@@ -482,7 +517,10 @@ def check_manifest_typed_consistency(
                 for item in containers[0].get("env", [])
                 if "value" in item
             }
-            violations.extend(_check_budget_map(f"Deployment/{name}", literals, settings))
+            unit = str(name).removeprefix("muad-")
+            violations.extend(
+                _check_budget_map(f"Deployment/{name}", literals, _typed_values(unit, settings))
+            )
     return violations
 
 
@@ -491,40 +529,87 @@ def check_manifest_typed_consistency(
 # --------------------------------------------------------------------------------------
 
 
+def _literal_int(label: str, raw: object) -> int:
+    if not isinstance(raw, str) or not raw.isdigit():
+        raise PreflightError(f"{label} 必须是字面非负整数：{raw!r}")
+    return int(raw)
+
+
+def _effective_pool(
+    unit: DeploymentView, pg_per_process: Mapping[str, int], settings: SharedSettings
+) -> tuple[int, int]:
+    """本单元生效的 (pool, overflow)。
+
+    清单允许按单元覆盖 `DB_POOL_SIZE`/`DB_MAX_OVERFLOW`（容量的真实来源）；只声明其中一个时，
+    另一个取 typed 默认（与进程内 `SharedSettings` 读到的一致）。两个都没声明 ⇒ 真实 engine
+    工厂的上限（`pool_size + max_overflow`）。
+    """
+    env = unit.env()
+    declared_pool = env.get(DB_POOL_ENV)
+    declared_overflow = env.get(DB_OVERFLOW_ENV)
+    if declared_pool is None and declared_overflow is None:
+        per_process = pg_per_process.get(unit.name)
+        if per_process is None:
+            raise PreflightError(f"{unit.name}: 缺真实 engine 池上限（预检无法核算 PG 总连接）")
+        return per_process, 0
+    pool = (
+        _literal_int(f"{unit.name}.{DB_POOL_ENV}", declared_pool["value"])
+        if declared_pool is not None
+        else settings.db_pool_size
+    )
+    overflow = (
+        _literal_int(f"{unit.name}.{DB_OVERFLOW_ENV}", declared_overflow["value"])
+        if declared_overflow is not None
+        else settings.db_max_overflow
+    )
+    if "value" not in (declared_pool or {}):
+        raise PreflightError(f"{unit.name}.{DB_POOL_ENV} 必须是字面量值")
+    return pool, overflow
+
+
 def _pg_per_unit(
-    units: Sequence[DeploymentView], resources: ResourceProfile, pg_per_process: Mapping[str, int]
+    units: Sequence[DeploymentView],
+    resources: ResourceProfile,
+    pg_per_process: Mapping[str, int],
+    settings: SharedSettings,
 ) -> dict[str, tuple[int, int, int]]:
-    """持库单元 → (进程数, 最大副本数, 每进程上限)；每进程上限取自真实 engine 工厂。"""
+    """持库单元 → (进程数, 最大副本数, 每进程 pool+overflow)。"""
     per_unit: dict[str, tuple[int, int, int]] = {}
     for unit in units:
         if unit.name not in DB_UNITS:
             continue
-        per_process = pg_per_process.get(unit.name)
-        if per_process is None:
-            raise PreflightError(f"{unit.name}: 缺真实 engine 池上限（预检无法核算 PG 总连接）")
+        pool, overflow = _effective_pool(unit, pg_per_process, settings)
         per_unit[unit.name] = (
             resources.process_counts[unit.name],
             unit.max_replicas,
-            per_process,
+            pool + overflow,
         )
     return per_unit
 
 
 def _pg_total(
-    units: Sequence[DeploymentView], resources: ResourceProfile, pg_per_process: Mapping[str, int]
+    units: Sequence[DeploymentView],
+    resources: ResourceProfile,
+    pg_per_process: Mapping[str, int],
+    settings: SharedSettings,
 ) -> int:
-    """PG 总连接 = Σ 进程数 × 最大副本数 × (pool + overflow)（真实 engine 上限）。"""
+    """PG 总连接 = Σ 进程数 × 最大副本数 × (pool + overflow)（清单覆盖优先，否则真实 engine）。"""
     return sum(
         processes * replicas * per_process
-        for processes, replicas, per_process in _pg_per_unit(units, resources, pg_per_process).values()
+        for processes, replicas, per_process in _pg_per_unit(
+            units, resources, pg_per_process, settings
+        ).values()
     )
 
 
 def check_pg_budget(
-    units: Sequence[DeploymentView], resources: ResourceProfile, pg_per_process: Mapping[str, int]
+    units: Sequence[DeploymentView],
+    resources: ResourceProfile,
+    pg_per_process: Mapping[str, int],
+    settings: SharedSettings,
 ) -> list[Violation]:
     """最大副本下 PG 总连接必须留维护/迁移余量并落在 typed `pg_connection_budget` 内。"""
-    per_unit = _pg_per_unit(units, resources, pg_per_process)
+    per_unit = _pg_per_unit(units, resources, pg_per_process, settings)
     total = sum(processes * replicas * per_process for processes, replicas, per_process in per_unit.values())
     budget = resources.pg_connection_budget
     if total + PG_MAINTENANCE_RESERVE > budget:
@@ -543,22 +628,160 @@ def check_pg_budget(
     return []
 
 
+def _db_gate(unit: DeploymentView, settings: SharedSettings, capacity: int) -> int:
+    """本单元 DB 池必须覆盖的并发闸门（每单元各自的事实，不再共用一个全局数）。
+
+    - Runtime：准入闸门 `min(ADMISSION_CONCURRENCY_LIMIT, pool+overflow)` 与 SSE 打开段闸门
+      （`pool+overflow-1`）都由池推导，闸门不能超过池；
+    - Worker：执行槽 `worker_execution_concurrency` 的每次 claim/写库都要占连接；
+    - Console：请求级会话（1 条即够）。
+    """
+    if unit.name == "agent-runtime":
+        return min(RUNTIME_ADMISSION_CONCURRENCY_LIMIT, capacity)
+    if unit.name == "agent-worker":
+        return settings.worker_execution_concurrency
+    return 1
+
+
+def check_db_pools(
+    units: Sequence[DeploymentView],
+    settings: SharedSettings,
+    pg_per_process: Mapping[str, int],
+) -> list[Violation]:
+    """每单元 DB 池：只在持库单元声明；`pool+overflow ≥ gate`。"""
+    violations: list[Violation] = []
+    for unit in units:
+        declared = [key for key in (DB_POOL_ENV, DB_OVERFLOW_ENV) if key in unit.env()]
+        if unit.name not in DB_UNITS:
+            if declared:
+                violations.append(
+                    Violation(
+                        "db-pool",
+                        f"{unit.name}: 不持库，却声明了 {declared}（不写不生效的键）",
+                    )
+                )
+            continue
+        try:
+            pool, overflow = _effective_pool(unit, pg_per_process, settings)
+        except PreflightError as exc:
+            violations.append(Violation("db-pool", f"{unit.name}: {exc}"))
+            continue
+        capacity = pool + overflow
+        gate = _db_gate(unit, settings, capacity)
+        if capacity < gate or gate < 1:
+            violations.append(
+                Violation(
+                    "db-pool",
+                    f"{unit.name}: pool+overflow={pool}+{overflow}={capacity} "
+                    f"小于本单元并发闸门 {gate} —— 超出闸门的请求会堆在连接池里排队到超时",
+                )
+            )
+    return violations
+
+
+def _connector_lease_floor(unit: DeploymentView) -> list[Violation]:
+    """Connector 的 lease 节拍必须显式且满足 TTL ≥ 5 秒、renew < TTL/2（否则会互相抢连接）。"""
+    env = unit.env()
+
+    def number(key: str) -> float | None:
+        item = env.get(key)
+        if item is None or "value" not in item:
+            return None
+        raw = str(item["value"])
+        try:
+            return float(raw)
+        except ValueError:
+            return None
+
+    ttl = number("CONNECTOR_LEASE_TTL_SEC")
+    renew = number("CONNECTOR_LEASE_RENEW_SEC")
+    if ttl is None or renew is None or ttl < CONNECTOR_MIN_LEASE_TTL_SEC or renew >= ttl / 2:
+        return [
+            Violation(
+                "connector-lease",
+                f"connector: CONNECTOR_LEASE_TTL_SEC/CONNECTOR_LEASE_RENEW_SEC 必须显式声明"
+                f"（TTL ≥ {CONNECTOR_MIN_LEASE_TTL_SEC} 秒、renew < TTL/2），"
+                f"实际 ttl={ttl!r} renew={renew!r}",
+            )
+        ]
+    return []
+
+
+def check_connector(
+    units: Sequence[DeploymentView], documents: Sequence[Mapping[str, Any]]
+) -> list[Violation]:
+    """Connector：PDB + lease 节拍；它没有公开入口（Ingress 不得指向它）。"""
+    connector = next((unit for unit in units if unit.name == "connector"), None)
+    if connector is None:
+        return []
+    violations: list[Violation] = []
+    pdbs = [
+        doc
+        for doc in documents
+        if doc.get("kind") == "PodDisruptionBudget"
+        and doc.get("metadata", {}).get("name") == "muad-connector"
+    ]
+    if len(pdbs) != 1:
+        violations.append(
+            Violation(
+                "connector-pdb",
+                "connector: 渲染集合里必须有唯一 PodDisruptionBudget/muad-connector"
+                "（有状态 bot 连接迁移要有显式中断预算）",
+            )
+        )
+    else:
+        spec = pdbs[0].get("spec", {})
+        if spec.get("maxUnavailable") in (None, 0) and spec.get("minAvailable") in (None, 0):
+            violations.append(
+                Violation(
+                    "connector-pdb",
+                    "connector: PDB 必须允许一次有界中断（maxUnavailable ≥ 1 或 minAvailable ≥ 1）",
+                )
+            )
+    violations.extend(_connector_lease_floor(connector))
+    ingress_backends = {
+        str(((entry.get("backend") or {}).get("service") or {}).get("name"))
+        for document in documents
+        if document.get("kind") == "Ingress"
+        for rule in (document.get("spec", {}).get("rules") or [])
+        for entry in ((rule.get("http") or {}).get("paths") or [])
+    }
+    if "muad-connector" in ingress_backends:
+        violations.append(
+            Violation(
+                "connector-edge",
+                "connector: 不得有公开入口（Ingress 指向 muad-connector = 把有状态连接暴露到边缘）",
+            )
+        )
+    return violations
+
+
 def _pool_keys(unit: DeploymentView) -> list[str]:
     return sorted(key for key in unit.env() if _POOL_KEY.fullmatch(key) is not None)
 
 
 def _fd_totals(
-    units: Sequence[DeploymentView], settings: SharedSettings, pg_per_process: Mapping[str, int]
-) -> dict[str, int]:
-    """每进程 FD = 出站池连接 + PG 上限 + Redis + 入站订阅（服务端长连接同样占 FD）。"""
-    totals: dict[str, int] = {}
+    units: Sequence[DeploymentView],
+    resources: ResourceProfile,
+    settings: SharedSettings,
+    pg_per_process: Mapping[str, int],
+) -> dict[str, tuple[int, int]]:
+    """每 Pod FD = 进程数 × (出站池 + PG + Redis + 入站订阅)；返回 (每 Pod, 每进程)。
+
+    多 worker 时 nofile 按进程计、但 Pod 的资源声明按整个 Pod 核算：预算必须乘 `process_counts`。
+    """
+    totals: dict[str, tuple[int, int]] = {}
     for unit in units:
         outbound = sum(int(unit.env_value(key)) for key in _pool_keys(unit))
         pg = pg_per_process.get(unit.name, 0) if unit.name in DB_UNITS else 0
         inbound = 0
         if unit.name in SSE_BUFFER_UNITS:
             inbound = int(getattr(settings, SSE_BUFFER_UNITS[unit.name]))
-        totals[unit.name] = outbound + pg + int(settings.redis_max_connections) + inbound
+        per_process = outbound + pg + int(settings.redis_max_connections) + inbound
+        totals[unit.name] = (
+            resources.process_counts[unit.name] * per_process,
+            per_process,
+        )
     return totals
 
 
@@ -568,17 +791,19 @@ def check_fd_budget(
     settings: SharedSettings,
     pg_per_process: Mapping[str, int],
 ) -> list[Violation]:
-    """每进程 FD 预算必须落在 typed `fd_budget`（nofile）内。"""
-    totals = _fd_totals(units, settings, pg_per_process)
+    """每 Pod（进程数 × 每进程）FD 预算必须落在 typed `fd_budget` 内。"""
+    totals = _fd_totals(units, resources, settings, pg_per_process)
     budget = resources.fd_budget
     return [
         Violation(
             "fd-budget",
-            f"{unit.name}: 每进程 FD 上限 {totals[unit.name]} 超出 fd_budget={budget}"
-            "（出站池+PG+Redis+入站订阅；把变量写大不算容量足够）—— 降低池/订阅上限或提高预算",
+            f"{unit.name}: 每 Pod FD 上限 {totals[unit.name][0]}"
+            f"（{resources.process_counts[unit.name]} 进程 × {totals[unit.name][1]}）"
+            f"超出 fd_budget={budget}（出站池+PG+Redis+入站订阅；把变量写大不算容量足够）"
+            "—— 降低池/订阅上限或提高预算",
         )
         for unit in units
-        if totals[unit.name] > budget
+        if totals[unit.name][0] > budget
     ]
 
 
@@ -587,18 +812,20 @@ def check_memory_buffers(
 ) -> list[Violation]:
     """进程级 SSE 总缓冲必须受 typed 内存上限约束（不超过其约定份额）。"""
     violations: list[Violation] = []
-    buffer_bytes = int(settings.sse_total_buffer_bytes)
+    per_process_buffer = int(settings.sse_total_buffer_bytes)
     for unit in units:
         if unit.name not in SSE_BUFFER_UNITS:
             continue
+        buffer_bytes = resources.process_counts[unit.name] * per_process_buffer
         limit_bytes = resources.hardware[unit.name].memory_limit_mb * 1024 * 1024
         if buffer_bytes > limit_bytes * SSE_BUFFER_MEMORY_SHARE_MAX:
             violations.append(
                 Violation(
                     "memory-buffer",
-                    f"{unit.name}: 进程级 SSE 总缓冲 {buffer_bytes} 字节超过 typed 内存上限 "
-                    f"{limit_bytes} 字节的 {SSE_BUFFER_MEMORY_SHARE_MAX:.0%}（总缓冲受进程内存预算"
-                    f"约束）—— 降低缓冲预算或提高 resources.hardware.{unit.name}.memory_limit_mb",
+                    f"{unit.name}: Pod 内 SSE 总缓冲 {buffer_bytes} 字节"
+                    f"（{resources.process_counts[unit.name]} 进程 × 每进程预算）超过 typed 内存上限 "
+                    f"{limit_bytes} 字节的 {SSE_BUFFER_MEMORY_SHARE_MAX:.0%}（缓冲受内存预算约束）"
+                    f"—— 降低缓冲预算/进程数或提高 resources.hardware.{unit.name}.memory_limit_mb",
                 )
             )
     return violations
@@ -796,10 +1023,14 @@ def _summary(
     profile: CapacityProfile,
 ) -> tuple[str, ...]:
     """可核对的预算数字（证据行）：预检通过时把它们打出来，便于报告引用。"""
-    total = _pg_total(units, resources, pg_per_process)
+    total = _pg_total(units, resources, pg_per_process, settings)
     budget = resources.pg_connection_budget
-    fd_totals = _fd_totals(units, settings, pg_per_process)
-    fd_rendered = ", ".join(f"{unit.name}={fd_totals[unit.name]}" for unit in units)
+    fd_totals = _fd_totals(units, resources, settings, pg_per_process)
+    fd_rendered = ", ".join(
+        f"{unit.name}={fd_totals[unit.name][0]}（{resources.process_counts[unit.name]}进程×"
+        f"{fd_totals[unit.name][1]}）"
+        for unit in units
+    )
     buffer_bytes = int(settings.sse_total_buffer_bytes)
     limits = ", ".join(
         f"{unit.name}={resources.hardware[unit.name].memory_limit_mb}MiB"
@@ -809,11 +1040,15 @@ def _summary(
     bound, capacity = _fan_in(units, settings)
     gateway = next(unit for unit in units if unit.name == "im-gateway")
     egress = int(gateway.env_value("EGRESS_HTTP_MAX_CONNECTIONS")) * gateway.max_replicas
+    units_rendered = ", ".join(unit.name for unit in units)
     return (
+        f"单元集合（profile 声明）：{units_rendered}",
         f"PG 总连接（进程×最大副本）：{total} ≤ pg_connection_budget={budget}"
         f"（维护余量 {budget - total} ≥ {PG_MAINTENANCE_RESERVE}）",
-        f"FD 每进程上限（出站池+PG+Redis+入站订阅）：{fd_rendered} ≤ fd_budget={resources.fd_budget}",
-        f"SSE 总缓冲 {buffer_bytes} 字节 ≤ 内存上限的 {SSE_BUFFER_MEMORY_SHARE_MAX:.0%}（{limits}）",
+        f"FD 每 Pod 上限（进程数×(出站池+PG+Redis+入站订阅)）：{fd_rendered} ≤ "
+        f"fd_budget={resources.fd_budget}",
+        f"SSE 每进程缓冲 {buffer_bytes} 字节；Pod 内按进程数相乘 ≤ 内存上限的 "
+        f"{SSE_BUFFER_MEMORY_SHARE_MAX:.0%}（{limits}）",
         f"下游扇入：im-gateway 流池上界 {bound} ≤ agent-runtime 订阅容量 {capacity}",
         f"业务出站并发：im-gateway egress 上界 {egress} ≥ 目标并发 "
         f"{profile.workload.users * profile.workload.active_runs_per_user}",
@@ -844,16 +1079,18 @@ def run_preflight(
     )
     limits = pg_per_process if pg_per_process is not None else _pg_limits()
     renderer, documents = render_manifests(base_dir)
-    units = build_units(documents)
+    units = build_units(documents, tuple(resolved.resources.hardware))
     violations = [
         *check_shape(units, documents, resolved.resources),
         *check_resource_declarations(units, resolved.resources),
         *check_manifest_typed_consistency(documents, resolved_settings),
-        *check_pg_budget(units, resolved.resources, limits),
+        *check_db_pools(units, resolved_settings, limits),
+        *check_pg_budget(units, resolved.resources, limits, resolved_settings),
         *check_fd_budget(units, resolved.resources, resolved_settings, limits),
         *check_memory_buffers(units, resolved.resources, resolved_settings),
         *check_downstream_fan_in(units, resolved_settings),
         *check_outbound_concurrency(units, resolved),
+        *check_connector(units, documents),
         *check_drain(units, documents),
         *check_probes(units),
         *check_migration(documents),
@@ -867,8 +1104,12 @@ def run_preflight(
     )
 
 
-def check_live_single_pods(documents: Sequence[Mapping[str, Any]]) -> list[Violation]:
-    """核对真实 Deployment/Pod/HPA；压测必须等 Console/Gateway 单 Pod 就绪且缩容结束。"""
+def check_live_topology(documents: Sequence[Mapping[str, Any]]) -> list[Violation]:
+    """核对真实 Deployment/Pod/HPA：Console 必须单 Pod 就绪；Gateway/Connector 允许 N 副本。
+
+    Gateway 曾经也按单 Pod 核对（design §4.1 已改为 N 副本）；这里只约束 Console 的容量口径，
+    其余单元只要存在且就绪（副本数与期望一致）就通过。
+    """
     violations: list[Violation] = []
     for unit in SINGLE_POD_UNITS:
         name = f"muad-{unit}"
@@ -896,6 +1137,34 @@ def check_live_single_pods(documents: Sequence[Mapping[str, Any]]) -> list[Viola
                and d.get("spec", {}).get("scaleTargetRef", {}).get("name") == name
                for d in documents):
             violations.append(Violation("live-topology", f"{unit}: 单 Pod 部署不得由 HPA 扩容"))
+    return violations
+
+
+def check_live_replicas(documents: Sequence[Mapping[str, Any]]) -> list[Violation]:
+    """Gateway/Connector 等可扩单元：期望=实际=就绪，且至少 1 个 Pod 存活（不强求副本数=1）。"""
+    violations: list[Violation] = []
+    for document in documents:
+        if document.get("kind") != "Deployment":
+            continue
+        name = str(document.get("metadata", {}).get("name"))
+        unit = name.removeprefix("muad-")
+        if unit in SINGLE_POD_UNITS:
+            continue
+        desired = document.get("spec", {}).get("replicas")
+        status = document.get("status", {})
+        actual = status.get("replicas")
+        ready = status.get("readyReplicas")
+        if type(desired) is not int or desired < 1:
+            violations.append(Violation("live-topology", f"{unit}: 期望副本数必须是正整数"))
+            continue
+        if actual != desired or ready != desired:
+            violations.append(
+                Violation(
+                    "live-topology",
+                    f"{unit}: 期望/实际/就绪副本必须一致（{desired}/{actual}/{ready}）"
+                    "，扩缩未结束不得开始压测",
+                )
+            )
     return violations
 
 
@@ -934,7 +1203,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         report = run_preflight(args.base, args.profile)
         violations = list(report.violations)
         if args.live_namespace:
-            violations.extend(check_live_single_pods(_read_live_resources(args.live_namespace)))
+            live = _read_live_resources(args.live_namespace)
+            violations.extend(check_live_topology(live))
+            violations.extend(check_live_replicas(live))
     except PreflightError as exc:
         print(f"预检无法给出结论（阻断发布）：{exc}", file=sys.stderr)
         return 2
@@ -948,7 +1219,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"  [{violation.check}] {violation.message}", file=sys.stderr)
         return 1
     if args.live_namespace:
-        print(f"实时拓扑通过（{args.live_namespace}）：Console=1 Pod，Gateway=1 Pod，无终止中副本/HPA")
+        print(
+            f"实时拓扑通过（{args.live_namespace}）：Console=1 Pod；Gateway/Connector 期望=实际=就绪"
+        )
     print("预检通过：可以发布")
     return 0
 

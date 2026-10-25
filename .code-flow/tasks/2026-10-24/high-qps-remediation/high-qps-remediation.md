@@ -2,7 +2,7 @@
 
 - **Source**: `.code-flow/tasks/2026-10-24/high-qps-remediation/`（backend/frontend design + scenarios 合并）
 - **Created**: 2026-10-25
-- **Updated**: 2026-10-25
+- **Updated**: 2026-10-26
 - **Plan-State**: TASK-001..007 done；TASK-008..012 draft
 
 ## Proposal
@@ -49,7 +49,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | B-01 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime/PG；ramp=0；本地 100 用户瞬时 burst，1000 用户 staging（TASK-012） | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_admission_burst.py"] | . | 1200 | P0 | deferred | local-api | - | - | - | no |
 | B-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 PostgreSQL；批量写入 + retention sweep | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_retention.py", "-k", "drains_20k"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| B-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 uvicorn 2+ workers；/metrics 与 artifact fetch token | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/architecture/test_multi_worker_state.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
+| B-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 uvicorn 2+ workers；/metrics 与 artifact fetch token | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/architecture/test_multi_worker_state.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
 | B-04 | high-qps-remediation.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Ingress → console-web/CDN + console-api + gateway；同源 Cookie | TASK-011 | e2e_deferred | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"] | . | 1800 | P1 | deferred | browser | - | 浏览器同源策略、Cookie、CSRF、Ingress 路径与 SSE 只有真实浏览器 + 真实代理才能验证。 | ["apps/console-platform/frontend/**", "deploy/k8s/base/ingress.yaml", "deploy/k8s/overlays/console-web/**"] | no |
 | E-01 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime + Console auth；模拟 platform-settings 不可用 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_notification_settings.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | E-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime + PostgreSQL；pool=1，打开 10 条 SSE | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_timeout_is_bounded or early_close"] | . | 600 | P0 | auto | local-api | - | - | - | no |
@@ -65,7 +65,7 @@
 | S-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime HTTP SSE + 真实 PostgreSQL；runtime DB pool=2 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_two_hundred"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-04 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime 事件 writer + 真实 PostgreSQL/Redis；20 delta/s × 10s | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_durable_deltas.py", "-k", "production_window_bounds_commits"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 两个真实 Connector 进程 + 假企微 WS 服务端 + 真实 Redis lease；Runtime/Gateway 真实进程 | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
-| S-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | E2E | 真实浏览器/HTTP 客户端 → 两个以上 Gateway 副本 → Runtime/PG/Redis；SSE 断线重连到另一副本 | TASK-009 | failed | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 | P0 | deferred | browser | - | SSE 长连接、负载均衡、断线重连和跨 Pod 游标只有真实浏览器 + 多副本 + Runtime 持久流才能覆盖。 | ["apps/im-gateway/**", "apps/agent-runtime/src/muad_agent_runtime/api/runs.py", "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py", "deploy/k8s/base/im-gateway.yaml"] | yes |
+| S-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | E2E | 真实浏览器/HTTP 客户端 → 两个以上 Gateway 副本 → Runtime/PG/Redis；SSE 断线重连到另一副本 | TASK-009 | e2e_deferred | ["npm", "run", "webchat-smoke"] | . | 1800 | P0 | deferred | browser | - | SSE 长连接、负载均衡、断线重连和跨 Pod 游标只有真实浏览器 + 多副本 + Runtime 持久流才能覆盖。 | ["apps/im-gateway/**", "apps/agent-runtime/src/muad_agent_runtime/api/runs.py", "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py", "deploy/k8s/base/im-gateway.yaml"] | yes |
 | S-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway HTTP /channels/{channel}/events + 假 webhook 提供方 + Redis Stream + Runtime | TASK-008 | stale | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
 | S-08 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway → 统一消息核心 → Console/Runtime/PG；已验证 CHAT 主体上下文 | TASK-010 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webchat_core.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-09 | high-qps-remediation.frontend.design.md#2.4 验收条件 | component | 前端 service/hook + mock HTTP；不访问真实后端 | TASK-011 | stale | ["uv", "run", "pytest", "-q", "tests/frontend/test_capacity_webchat_activity_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
@@ -640,7 +640,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 ## TASK-009: Gateway/Connector 切换、预检与多 worker 边界
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007, TASK-008
 - **Source**: high-qps-remediation.backend.design.md#4.1 部署架构, high-qps-remediation.backend.design.md#4.1.1 必须同步的 spec / architecture tests / preflight
@@ -655,24 +655,24 @@ Gateway 移除 WeCom、多副本/HPA；Connector 清单/PDB/lease；预检支持
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`：两个 Gateway 副本 + 一个 Connector，WebChat 任意 Pod 可服务/重连
-- [ ] 更新 preflight：单元集合由 profile 声明、process_counts 乘预算、每单元 DB 池、Gateway 多副本
-- [ ] 更新 architecture tests：SDK 允许 connector surface、Gateway 无 WeCom、Connector metrics/probe
-- [ ] [S-06][E2E] 多 Gateway 提交/SSE 重连/同 message_id 重试/Pod 重启
-- [ ] [S-12][integration] 独立镜像、无公开路由、无 WeCom SDK、ChannelName 开放、5 单元预检
-- [ ] [B-03][integration] 多 worker 指标聚合、artifact token 跨 worker
-- [ ] [harness-arch#RULE-arch-001][verifier] uv run pytest -q tests/architecture
-- [ ] [harness-im#RULE-im-001][verifier] uv run pytest -q tests/console_channel tests/gateway
-- [ ] [harness-im#RULE-im-002][verifier] uv run pytest -q tests/architecture/test_channel_neutrality.py
+- [x] 交付 `<Capability>`：base 起 2 个 Gateway 副本；`with-connector` overlay 加 Connector（2 副本、bot lease 接管）；WebChat/企微入站均由任一 Pod 服务，重连按持久游标续上
+- [x] 更新 preflight：单元集合由 profile 声明（4 核心 + 可选 `connector`）、`process_counts` 乘 FD/SSE 预算、每单元 DB 池键 `pool+overflow ≥ gate`、Gateway 多副本（仅 Console 单 Pod）、Connector PDB/lease/无公开入口
+- [x] 更新 architecture tests：SDK 允许 connector surface、Gateway 无 WeCom SDK、Connector 无业务路由/metrics/probe、ChannelName 开放（新 fake channel 不改字面量）
+- [x] [S-06][E2E] 多 Gateway 提交/SSE 重连/同 message_id 重试/Pod 重启（已编写并登记，deferred 不执行）
+- [x] [S-12][integration] 独立镜像、无公开路由、无 WeCom SDK、ChannelName 开放、5 单元预检
+- [x] [B-03][integration] 多 worker 指标聚合、artifact token 跨 worker
+- [x] [harness-arch#RULE-arch-001][verifier] uv run pytest -q tests/architecture
+- [x] [harness-im#RULE-im-001][verifier] uv run pytest -q tests/console_channel tests/gateway
+- [x] [harness-im#RULE-im-002][verifier] uv run pytest -q tests/architecture/test_channel_neutrality.py
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-06 | E2E | 真实浏览器/HTTP + 两 Gateway 副本 + Runtime/PG/Redis | 任意 Pod 服务；游标续流无缺口；同 message_id 一 Run；Pod 重启不丢 | e2e/.../capacity-recovery.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | failed |
+| S-06 | E2E | 真实浏览器/HTTP + 两 Gateway 副本 + Runtime/PG/Redis | 任意 Pod 服务；游标续流无缺口；同 message_id 一 Run；Pod 重启不丢 | e2e/.../capacity-recovery.spec.ts | ["npm", "run", "webchat-smoke"] | e2e_deferred |
 | S-12 | integration | 真实包导入/清单渲染/architecture tests | Gateway 无 SDK/secret；Connector 无公开路由；5 单元预检通过 | tests/architecture | ["uv", "run", "pytest", "-q", "tests/architecture"] | verified |
-| B-03 | integration | 真实 uvicorn 2+ workers；metrics/artifact token | 指标含所有 worker；token 跨 worker；无 404/漏计数 | tests/architecture/test_multi_worker_state.py | ["uv", "run", "pytest", "-q", "tests/architecture/test_multi_worker_state.py"] | planned |
+| B-03 | integration | 真实 uvicorn 2+ workers；metrics/artifact token | 指标含所有 worker；token 跨 worker；无 404/漏计数 | tests/architecture/test_multi_worker_state.py | ["uv", "run", "pytest", "-q", "tests/architecture/test_multi_worker_state.py"] | verified |
 
 **Spec Verifier**
 
@@ -688,19 +688,34 @@ Gateway 移除 WeCom、多副本/HPA；Connector 清单/PDB/lease；预检支持
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-06 | planned | planned | planned | planned | planned |
-| S-12 | planned | planned | planned | planned | planned |
-| B-03 | planned | planned | planned | planned | planned |
-- S-06: failed — automated command failed; run_id=97e211e414874d5fbc4f883fed2a5651 (confirmed_by: runner)
-- S-12: verified — automated command passed; run_id=97e211e414874d5fbc4f883fed2a5651 (confirmed_by: runner)
+| S-06 | 旧验收栈把企微长连接放在 Gateway 里：`test_routing.py::test_s01` 单跑即失败（Gateway 已不注册 WS 适配器，TASK-008 后的预存失效）；且没有多副本语义的 E2E | 单测/验收侧同拓扑已由 `test_routing.py`（真实 Connector 进程 + 2 bot + 任意 Runtime）与 `test_execution_progress.py`（`<think>` 状态帧/单 finish 帧）转绿；E2E 用例已写到 `e2e/tests/webchat/capacity-recovery.spec.ts`：①同一 CHAT 会话分别打 Pod A/B；②A 上读到 2 帧后断开、带 `after_seq` 连 B 直到 `run.terminal`（游标严格递增）；③同 message_id 在 B 重试仍是同一 run_id 且 PG 会话恰 1 行；④SIGKILL Pod A 后 B 受理新消息并跑完，重启 A 后能从头重放持久终态、Run 不重建 | `e2e/tests/webchat/capacity-recovery.spec.ts`（第 770 行用例，含原有「停机按事实记录」断言）；`tests/acceptance/im_gateway/test_routing.py::test_s01_two_bots_share_one_agent_and_any_runtime_serves`；`test_execution_progress.py::test_s401_real_run_switches_model_tool_and_elapsed` | 真实两个 uvicorn Gateway 进程（同一组 CHAT Cookie、无 sticky）+ 真实 Runtime/PG/Redis + 真实模型协议探针；登记：check `CHK-db89ed311e57`（`suite=browser`、`markers=[smoke]`、`collect` 真实 Playwright 收集、`test_ids=["e2e/tests/webchat/capacity-recovery.spec.ts:770@chromium"]`），`npm run webchat-smoke` 实际执行选择该用例 | e2e_deferred（只编写/登记，不执行） |
+| S-12 | 旧实现：base 固定四个 Deployment、preflight 拒绝非四单元、Gateway 被钉死 1 副本；`ChannelName=Literal["WECOM","WEBCHAT"]`（新通道要改字面量）；Connector 无清单/边界检查；Gateway 收到 WECOM 入站会落 `im:inbound:dead`（`UNKNOWN_CHANNEL`） | `uv run pytest -q tests/architecture` 全绿（含 5 单元 overlay + 5 单元 profile 预检、Connector PDB/lease/无 Ingress、ChannelName 开放、Connector 无业务路由/无 sqlalchemy）；`uv run pytest -q tests/console_channel tests/gateway` 全绿；`tests/architecture/test_channel_neutrality.py` 全绿 | `test_capacity_webchat_deployment_preflight.py`（`test_connector_overlay_preflight_passes_with_five_units`、`test_db_pool_check_requires_pool_overflow_to_cover_the_unit_gate`、`test_process_counts_multiply_the_fd_and_sse_budget`、`test_connector_requires_pdb_lease_and_no_public_edge`）；`test_k8s_deploy_manifests.py`（Connector 自身 secret/探针/PDB/无公开入口）；`test_im_gateway_boundaries.py::test_connector_exposes_no_public_business_routes`；`tests/test_attachment_contract.py::test_b07_new_channel_needs_no_literal_change` | 真实包导入 + 真实 kustomize/收集渲染（overlay 只用 `resources`，无 kustomize 环境亦可验证）+ 真实源码静态边界；不启动业务栈 | verified |
+| B-03 | 旧实现是**进程内状态**：`MetricsRegistry` 每次 `/metrics` 只渲染服务该次连接的 worker（多 worker 漏计数），Console 的 `ArtifactFetchTokens` 把授权存在**签发进程的内存 dict**（A 签的链接到 B 404）。新用例在旧代码上无 `pid` 样本、跨 worker 兑换大概率 404 | `uv run pytest -q tests/architecture/test_multi_worker_state.py` 全绿：真实 `uvicorn --workers 2` 的 Gateway 一次抓取含两个 `muad_process_up{pid}` 样本，12 次真实投递的 `im_background_delivery_total{status="failed"}` 聚合后恰为 12（无漏计数）；gauge 语义用两个 worker 快照验证「各 worker 样本之和 = 全局总数」；Console `--workers 2` 下 fetch-link 签发的 token 落在共享 Redis（键可直接回读），8 条新连接兑换全部 200 且字节一致，`/metrics` 同样含两个 worker | `tests/architecture/test_multi_worker_state.py`（三个用例：Gateway 聚合、gauge 聚合语义、Console token 跨 worker）；`packages/api-kit/src/muad_api/metrics.py`（`PROMETHEUS_MULTIPROC_DIR` 快照合并）与 `apps/console-platform/backend/.../artifact_fetch_tokens.py`（`RedisFetchGrantStore`） | 真实 uvicorn 2 workers + 真实 PostgreSQL（自建 `muad_mw_*` 隔离库、alembic head）+ 真实 Redis（共享 token 键）+ 真实 Runtime 解析端点 + 每次新 HTTP 连接；无 mock 业务响应 | verified |
+- S-06: e2e_deferred — 已编写并登记（`CHK-db89ed311e57`，`suite=browser`/`markers=[smoke]`/真实 Playwright 收集），编码期只登记不执行，由需求级 verify-e2e 终验
+- B-03: verified — automated command passed; run_id=50542fec81b447488d9e13b298a17940 (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=50542fec81b447488d9e13b298a17940 (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=50542fec81b447488d9e13b298a17940 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=f088846a6e134e22a381c0c375efc95a (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=f088846a6e134e22a381c0c375efc95a (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=f088846a6e134e22a381c0c375efc95a (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-25] created (draft)
-- [2026-10-25] started
-- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
-- [2026-10-25] started
-- [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
+- [2026-10-25] 验收栈切到真实 Connector：`start_gateway_stack` 起独立 `muad_im_connector` 进程（WS 探针归 Connector），Gateway 声明 `GATEWAY_ROUTED_CHANNELS=WECOM` 只路由；新增 Gateway 侧 `channels/routed.py` + `application/connector_outbound.py`（status/delta/terminal/text 全部走 `im.outbound`，`reply_ref` 由 Connector 按 `message_id`/route 解析）。`test_routing::test_s01` 恢复通过
+- [2026-10-25] 入站附件随架构迁移：Connector 取件+门控+落共享存储，`InboundEvent.attachments/attachment_failures` 上行，Gateway 走同一回执/审计出口（`_accept_materialized`）；`test_wecom_attachments` 5 passed
+- [2026-10-25] Gateway 就绪口径补 `streams`（声明远程通道/webhook 时 Redis 是硬依赖）；Redis 故障验收改为「显式 503/500 + 入站事实留在 Stream 等恢复」，`test_redis_degradation` 2 passed
+- [2026-10-25] 多 worker：`muad_api.metrics` 支持 `PROMETHEUS_MULTIPROC_DIR` 快照聚合（counter 求和、gauge 每 worker 一条 `pid` 样本 + `muad_process_up`）；Console 取件令牌改共享 Redis 存储（可撤销仍靠 DEL）；B-03 三个用例通过
+- [2026-10-25] preflight/清单：profile 声明单元集合（4 核心 + 可选 connector）；`process_counts` 乘 FD/SSE；每单元 DB 池键与 gate；Gateway 多副本（base 2 副本）、仅 Console 单 Pod；`deploy/k8s/with-connector` 只有 Connector（自身 secret/PDB/无公开入口，无 patches）
+- [2026-10-25] ChannelName 打开为开放 string（`BUILTIN_CHANNEL_NAMES` 单处声明）；新 fake channel 不改字面量（`tests/test_attachment_contract.py`）
+- [2026-10-25] S-06 E2E 已编写并登记（只登记不执行）：`capacity-recovery.spec.ts` 第 770 行 `@smoke`；`npm run webchat-smoke`（`prewebchat-smoke` 先 build）；`acceptance manifest --verify-plan` 的 S-06 登记通过（B-04 缺口属 TASK-011）
+- [2026-10-25] 验收栈跨套件隔离两处（`tests/acceptance/im_gateway` 整跑红、单跑绿的根因；均不放宽断言）：
+  ① Redis：`start_gateway_stack` 起进程前 + 每个验收模块（`conftest` autouse）清栈级 IM 工作键（`im.inbound:*`/`im.outbound:*`/`im:dedupe:*`/`im:reply:*`/`connector:*`）。Connector→Gateway 经 Stream 异步交接后，上一模块（或只写不读的 connector 套件）留下的事件会被本模块 `im-ingress` 消费组当成新消息：实测模型请求里混入别模块的 `E-04 入站`/`接管后你好` 导致 `test_context_compaction` 的 snip 保头断言失败、`test_connector_primitives` 的「sweep 后 `im.inbound:0` 为空」被打穿。
+  ② PG：租户清理补删 `runtime.run_admission_policy` / `run_admission_counter`（平台设置的派生投影）；`test_memory_redesign_e2e` 临时插更高 settings revision 再删除后，残留 policy 使后续每次准入 `AdmissionPolicyStaleError` 直到 `PLATFORM_SETTINGS_UNAVAILABLE`（e06 与 security/multi_instance/recovery 全红）；`_drop_platform_setting` 同时回退派生投影。
+- [2026-10-25] 全量 `tests/acceptance/im_gateway` 暴露的三处跨任务缺口（按事实修，不放宽断言）：①`start_gateway_stack` 只在真起了 Connector 时才声明 `GATEWAY_ROUTED_CHANNELS=WECOM`（把 WECOM 配成 webhook 通道的 S-07 否则因重名适配器 `DuplicateChannelAdapterError` 起不来）；②`test_runtime_stream` 的 resume 种子补生产必有的 `start_time`（TASK-010 的续跑回执会调用阶段投影 `project_execution_status`，缺它即 `ValueError: ... no valid queue window` → 500）；③`test_b127` 的同步点改为「RETRY 事件落库」而非「attempts 已自增」（attempts 在发送前提交，routed 通道的失败要经 Connector 往返才有结论）。三个受影响模块 `uv run pytest -q tests/acceptance/im_gateway/test_webhook_channel.py tests/acceptance/im_gateway/test_runtime_stream.py tests/acceptance/im_gateway/test_worker_delivery.py` = **14 passed**。
+- [2026-10-25] 全量 `uv run pytest -q tests/acceptance/im_gateway` = **111 passed**（479.82s，0 failed/0 error）：真实 Connector + Gateway 请求面、5 单元预检、routed 通道投递/附件/确认与多实例路径全部转绿。
+- [2026-10-26] 开放 `ChannelName` 的连带回归（Done Gate 的 harness-worker 验证器照出，均按新事实改断言）：`tests/agent_worker/test_capacity_webchat_worker_notifications.py::test_b268...` 仍读 `ChannelName.__args__`（Literal 时代）→ 改断 `BUILTIN_CHANNEL_NAMES`；`tests/console_internal/test_resolve_definition_api.py` 的「非法通道名 422」→「空名 422 + 未知名开放（SLACK 200）」。两文件分别 **5 passed** / **12 passed**。
+- [2026-10-26] completed (done)
 
 ---
 

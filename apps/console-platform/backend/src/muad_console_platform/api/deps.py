@@ -13,7 +13,13 @@ from muad_common import SharedSettings
 from muad_platform_sdk import PlatformAdapterRegistry, RedisPlatformSessionInvalidator
 
 from ..application.artifact_fetch_service import ArtifactFetchService, ArtifactResolvePort
-from ..application.artifact_fetch_tokens import ArtifactFetchTokens, configured_ttl_sec
+from ..application.artifact_fetch_tokens import (
+    ArtifactFetchTokens,
+    FetchGrantStore,
+    InMemoryFetchGrantStore,
+    RedisFetchGrantStore,
+    configured_ttl_sec,
+)
 from ..application.auth_service import AuthService, ResolvedConsoleSession
 from ..application.mcp_ports import McpCatalogCache, NullMcpCatalogCache
 from ..application.model_probe_service import ProbeBudget, ProbeCapacityClient
@@ -267,12 +273,21 @@ def get_mcp_catalog_cache(request: Request) -> McpCatalogCache:
 def get_artifact_fetch_tokens(request: Request) -> ArtifactFetchTokens:
     """取件令牌的签发/兑换器（按进程缓存，测试可覆盖）。
 
-    **进程内**：多实例部署下 A 实例签的链接到 B 实例会 404。这是设计中接受的代价——
-    TTL 只有几分钟，且**失败方向是拒绝**，不会误放行（见 `artifact_fetch_tokens` 模块说明）。
+    存储按部署形态选择：有 `REDIS_URL` ⇒ 共享存储（多 worker 下 A 签的链接 B 也能兑换，
+    可撤销靠 DEL）；没有 Redis ⇒ 进程内存储，只适用于单进程开发。
     """
     tokens = getattr(request.app.state, "artifact_fetch_tokens", None)
     if tokens is None:
-        tokens = ArtifactFetchTokens(ttl_sec=configured_ttl_sec())
+        redis_url = get_settings(request).redis_url
+        store: FetchGrantStore
+        if redis_url:
+            client = redis.from_url(redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
+            # 生命周期收尾要能关掉这个连接（与 platform_sessions_client 同口径）。
+            request.app.state.artifact_fetch_tokens_client = client
+            store = RedisFetchGrantStore(client)
+        else:
+            store = InMemoryFetchGrantStore()
+        tokens = ArtifactFetchTokens(ttl_sec=configured_ttl_sec(), store=store)
         request.app.state.artifact_fetch_tokens = tokens
     return tokens
 

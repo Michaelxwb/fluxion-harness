@@ -933,6 +933,22 @@ class WeComAdapter:
             )
             raise ChannelAdapterUnavailable("wecom reply stream failed") from exc
 
+    async def send_status(
+        self,
+        route: DeliveryRouteInput,
+        reply_ref: str,
+        stream_id: str,
+        status: str,
+        body: str,
+    ) -> None:
+        """状态帧（`<think>` 段）：**与正文同一条流**，但不进入正文累积。
+
+        这是企微的展示约定（旧 `ReplySession.update_status` 同形）；Gateway 侧只送中立的
+        `status=True` 标记，格式由适配器决定。
+        """
+        content = f"<think>{status}</think>" + (f"\n\n{body}" if body else "")
+        await self.send_reply_stream(route, reply_ref, stream_id, content, finish=False)
+
     async def deliver_artifact_with_target(
         self,
         route: DeliveryRouteInput,

@@ -149,7 +149,7 @@ def _resources() -> ResourceProfile:
 
 def _units() -> tuple[preflight.DeploymentView, ...]:
     _renderer, documents = preflight.render_manifests(BASE)
-    return preflight.build_units(documents)
+    return preflight.build_units(documents, DEPLOY_UNITS)
 
 
 def _mutated_profile(tmp_path: Path, mutate: Callable[[dict[str, Any]], None]) -> Path:
@@ -441,8 +441,9 @@ def test_pg_budget_check_flags_over_budget_pool_limits() -> None:
     resources = _resources()
     units = _units()
     real = {"console-platform": 15, "agent-runtime": 15, "agent-worker": 15}
-    assert preflight.check_pg_budget(units, resources, real) == []
-    violations = preflight.check_pg_budget(units, resources, {**real, "agent-runtime": 200})
+    settings = SharedSettings()
+    assert preflight.check_pg_budget(units, resources, real, settings) == []
+    violations = preflight.check_pg_budget(units, resources, {**real, "agent-runtime": 200}, settings)
     assert [violation.check for violation in violations] == ["pg-budget"]
     assert "agent-runtime" in violations[0].message
     assert "pg_connection_budget" in violations[0].message
@@ -484,8 +485,9 @@ def test_downstream_fan_in_check_flags_runtime_capacity_below_gateway_stream_poo
 def test_outbound_concurrency_check_flags_gateway_egress_pool_below_target_users() -> None:
     """注入小于目标并发的 egress 池 → 出站并发检查必须报违规。
 
-    单 Pod Gateway 下每个用户建会话/提交消息各占一条连接；池不够时多出的请求在池里排队，
-    池等待超时把正常突发变成 500（实测 800 用户、64 连接：874 次 PoolTimeout）。
+    每个用户建会话/提交消息各占一条 Gateway→Runtime 连接；池上界 = 单 Pod 池 × 副本数，
+    不够时多出的请求在池里排队、池等待超时把正常突发变成 500（实测 800 用户、64 连接：874 次
+    PoolTimeout）。base 现在是 2 副本（design §4.1）：64 的单 Pod 池只覆盖 128 并发。
     """
     units = _units()
     profile = _profile()
@@ -498,7 +500,7 @@ def test_outbound_concurrency_check_flags_gateway_egress_pool_below_target_users
     squeezed = dataclasses.replace(gateway, container={**gateway.container, "env": squeezed_env})
     violations = preflight.check_outbound_concurrency([squeezed], profile)
     assert [violation.check for violation in violations] == ["outbound-concurrency"]
-    assert "im-gateway" in violations[0].message and "64" in violations[0].message
+    assert "im-gateway" in violations[0].message and "128" in violations[0].message
 
 
 # --------------------------------------------------------------------------------------
@@ -599,7 +601,7 @@ def test_readme_documents_the_release_preflight_and_maintenance_window() -> None
 def test_preflight_checks_the_rendered_drain_and_probe_preconditions() -> None:
     """排空/探针前置在渲染集合上成立：终止宽限、readiness/liveness 口径、缩容受宽限约束。"""
     _renderer, documents = preflight.render_manifests(BASE)
-    units = preflight.build_units(documents)
+    units = preflight.build_units(documents, DEPLOY_UNITS)
     assert preflight.check_drain(units, documents) == []
     assert preflight.check_probes(units) == []
     assert preflight.check_migration(documents) == []
@@ -620,7 +622,186 @@ def test_drain_check_flags_a_scale_down_window_shorter_than_the_grace_period(
         mutate,
     )
     _renderer, documents = preflight.render_manifests(base_copy)
-    units = preflight.build_units(documents)
+    units = preflight.build_units(documents, DEPLOY_UNITS)
     violations = preflight.check_drain(units, documents)
     assert [violation.check for violation in violations] == ["drain"]
     assert "stabilizationWindowSeconds" in violations[0].message
+
+
+# --------------------------------------------------------------------------------------
+# 6) 5 单元（启用 Connector）与 Gateway 多副本：单元集合由 profile 声明
+# --------------------------------------------------------------------------------------
+
+CONNECTOR_BASE = ROOT / "deploy/k8s/with-connector"
+CONNECTOR_PROFILE = ROOT / "tests/capacity/profiles/agent-capacity-webchat-connector.example.yml"
+
+
+def test_connector_overlay_preflight_passes_with_five_units() -> None:
+    """启用企微的 5 单元拓扑：overlay + 5 单元 profile 渲染后预检通过（Gateway 2 副本）。"""
+    result = _run_cli("--base", str(CONNECTOR_BASE), "--profile", str(CONNECTOR_PROFILE))
+    assert result.returncode == 0, _output(result)
+    assert "connector" in result.stdout, result.stdout
+    assert "单元集合（profile 声明）" in result.stdout
+
+
+def test_profile_declares_optional_connector_unit_and_gateway_replicas() -> None:
+    """profile 的单元集合可含 `connector`；Gateway 允许 >1 副本，Console 仍必须为 1。"""
+    profile = load_profile(CONNECTOR_PROFILE)
+    resources = profile.resources
+    assert resources is not None
+    assert set(resources.hardware) == {*DEPLOY_UNITS, "connector"}
+    assert resources.max_replica_counts["im-gateway"] == 2
+    assert resources.max_replica_counts["console-platform"] == 1
+
+    document = yaml.safe_load(CONNECTOR_PROFILE.read_text(encoding="utf-8"))
+    document["resources"]["max_replica_counts"]["console-platform"] = 2
+    bad = ROOT / "tests/capacity/profiles/_tmp_console_two.yml"
+    try:
+        bad.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+        with pytest.raises(Exception, match="Console"):
+            load_profile(bad)
+    finally:
+        bad.unlink(missing_ok=True)
+
+
+def test_profile_rejects_unknown_deployment_unit(tmp_path: Path) -> None:
+    """单元集合由 profile 声明，但不是任意字符串：未知单元必须显式拒绝。"""
+    document = yaml.safe_load(PROFILE_PATH.read_text(encoding="utf-8"))
+    for table in ("hardware", "process_counts", "replica_counts", "max_replica_counts"):
+        document["resources"][table]["mystery"] = (
+            document["resources"][table]["console-platform"]
+        )
+    path = tmp_path / "profile.yml"
+    path.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+    with pytest.raises(Exception, match="未知部署单元"):
+        load_profile(path)
+
+
+def test_shape_requires_exactly_the_declared_units(base_copy: Path) -> None:
+    """清单多出的 Deployment（不在 profile 声明里）必须阻断：预算核算不能漏单元。"""
+    rogue = base_copy / "connector-rogue.yaml"
+    rogue.write_text(
+        yaml.safe_dump(
+            {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "metadata": {"name": "muad-connector", "namespace": "muad"},
+                "spec": {"replicas": 1, "template": {"spec": {"containers": [{"name": "app"}]}}},
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    _mutate_kustomization(
+        base_copy / "kustomization.yaml",
+        lambda doc: doc["resources"].append("connector-rogue.yaml"),
+    )
+    result = _run_cli("--base", str(base_copy))
+    assert result.returncode == 1, _output(result)
+    assert "profile 声明单元" in _output(result), _output(result)
+
+
+def test_process_counts_multiply_the_fd_and_sse_budget() -> None:
+    """process_counts>1 时 Pod 内 FD/SSE 缓冲预算按进程数相乘（多 worker 不能按单进程算）。"""
+    resources = _resources()
+    units = _units()
+    settings = SharedSettings()
+    twice = dataclasses.replace(
+        resources, process_counts={**resources.process_counts, "im-gateway": 2}
+    )
+    limits = {"console-platform": 15, "agent-runtime": 15, "agent-worker": 15}
+    once = preflight._fd_totals(units, resources, settings, limits)
+    doubled = preflight._fd_totals(units, twice, settings, limits)
+    assert doubled["im-gateway"][0] == once["im-gateway"][0] * 2
+    squeezed = _squeezed_hardware(twice, "im-gateway", memory_limit_mb=128)
+    violations = preflight.check_memory_buffers(units, squeezed, settings)
+    assert [v.check for v in violations] == ["memory-buffer"]
+
+
+def test_db_pool_check_requires_pool_overflow_to_cover_the_unit_gate() -> None:
+    """`pool+overflow ≥ gate`：Worker 执行槽 4 时池 2 会被拦；Gateway 声明池键也被拦。"""
+    units = _units()
+    settings = SharedSettings()
+    limits = {"console-platform": 10, "agent-runtime": 10, "agent-worker": 10}
+    assert preflight.check_db_pools(units, settings, limits) == []
+
+    worker = next(unit for unit in units if unit.name == "agent-worker")
+    squeezed_env = [
+        item for item in worker.container.get("env", [])
+        if item["name"] not in ("DB_POOL_SIZE", "DB_MAX_OVERFLOW")
+    ] + [{"name": "DB_POOL_SIZE", "value": "2"}]
+    squeezed = dataclasses.replace(
+        worker, container={**worker.container, "env": squeezed_env}
+    )
+    violations = preflight.check_db_pools([squeezed], settings, limits)
+    assert any(v.check == "db-pool" and "agent-worker" in v.message for v in violations)
+
+    gateway = next(unit for unit in units if unit.name == "im-gateway")
+    gateway_with_pool = dataclasses.replace(
+        gateway,
+        container={
+            **gateway.container,
+            "env": [*gateway.container.get("env", []), {"name": "DB_POOL_SIZE", "value": "10"}],
+        },
+    )
+    violations = preflight.check_db_pools([gateway_with_pool], settings, limits)
+    assert any(v.check == "db-pool" and "不持库" in v.message for v in violations)
+
+
+def test_db_pool_manifest_override_feeds_the_pg_total() -> None:
+    """清单按单元覆盖池时，PG 总连接必须按覆盖后的值核算（不是 engine 默认）。"""
+    resources = _resources()
+    units = _units()
+    settings = SharedSettings()
+    limits = {"console-platform": 10, "agent-runtime": 10, "agent-worker": 10}
+    runtime = next(unit for unit in units if unit.name == "agent-runtime")
+    overridden = dataclasses.replace(
+        runtime,
+        container={
+            **runtime.container,
+            "env": [
+                *runtime.container.get("env", []),
+                {"name": "DB_POOL_SIZE", "value": "20"},
+                {"name": "DB_MAX_OVERFLOW", "value": "10"},
+            ],
+        },
+    )
+    per_unit = preflight._pg_per_unit(
+        [overridden], resources, limits, settings
+    )
+    assert per_unit["agent-runtime"][2] == 30
+
+
+def test_connector_requires_pdb_lease_and_no_public_edge() -> None:
+    """Connector 的部署面：PDB、lease 节拍、无公开入口，缺一即阻断。"""
+    _renderer, documents = preflight.render_manifests(CONNECTOR_BASE)
+    profile = load_profile(CONNECTOR_PROFILE)
+    assert profile.resources is not None
+    units = preflight.build_units(documents, tuple(profile.resources.hardware))
+    assert preflight.check_connector(units, documents) == []
+
+    connector = next(unit for unit in units if unit.name == "connector")
+    connector_env = [
+        item for item in connector.container.get("env", [])
+        if item["name"] != "CONNECTOR_LEASE_RENEW_SEC"
+    ] + [{"name": "CONNECTOR_LEASE_RENEW_SEC", "value": "20"}]
+    replaced = dataclasses.replace(
+        connector, container={**connector.container, "env": connector_env}
+    )
+    violations = preflight.check_connector([replaced], documents)
+    assert any(v.check == "connector-lease" for v in violations)
+
+    without_pdb = [
+        doc for doc in documents
+        if not (doc.get("kind") == "PodDisruptionBudget"
+                and doc.get("metadata", {}).get("name") == "muad-connector")
+    ]
+    violations = preflight.check_connector([connector], without_pdb)
+    assert [v.check for v in violations] == ["connector-pdb"]
+
+
+def test_preflight_runtime_gate_matches_the_code_constant() -> None:
+    """预检里的 Runtime 准入闸门上界必须等于代码常量（否则池/闸门核对基于错误数字）。"""
+    from muad_agent_runtime.application.run_service import ADMISSION_CONCURRENCY_LIMIT
+
+    assert preflight.RUNTIME_ADMISSION_CONCURRENCY_LIMIT == ADMISSION_CONCURRENCY_LIMIT

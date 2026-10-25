@@ -47,7 +47,19 @@ def readiness_checks(app: FastAPI) -> Mapping[str, ReadinessCheck]:
             return False
         return bool(snapshot.console_reachable or snapshot.is_ready())
 
-    return {"adapters": adapters_ready, "console": console_ready}
+    async def streams_ready() -> bool:
+        """声明了经 Redis Stream 的通道面（远程 Connector / webhook）时，Redis 是硬依赖。
+
+        WebChat-only 部署（`GATEWAY_ROUTED_CHANNELS`/`GATEWAY_WEBHOOK_CHANNELS` 均为空）不
+        经过 Stream，Redis 抖动不该把请求面摘出负载均衡。`delivery_streams` 未装配时同样
+        没有 Stream 依赖（装配根两者一起发布；测试替身只替换探针状态）。
+        """
+        streams = getattr(app.state, "delivery_streams", None)
+        if not getattr(app.state, "stream_reliant", False) or streams is None:
+            return True
+        return bool(await streams.ping())
+
+    return {"adapters": adapters_ready, "console": console_ready, "streams": streams_ready}
 
 
 def readiness_detail(app: FastAPI) -> Mapping[str, Any]:

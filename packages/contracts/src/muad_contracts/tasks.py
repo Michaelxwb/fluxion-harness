@@ -17,7 +17,7 @@ class ContractModel(BaseModel):
 
 
 class DeliveryRouteInput(ContractModel):
-    channel: ChannelName
+    channel: ChannelName = Field(min_length=1)
     bot_id: str = Field(min_length=1)
     external_user_id: str = Field(min_length=1)
     external_conversation_id: str | None = None

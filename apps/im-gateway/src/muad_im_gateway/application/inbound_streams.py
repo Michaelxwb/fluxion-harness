@@ -22,7 +22,7 @@ from typing import Any, cast
 
 import redis.asyncio
 from muad_api import metrics
-from muad_contracts import ChannelEnvelope, ChannelName, UnsupportedMedia
+from muad_contracts import ChannelEnvelope, UnsupportedMedia
 from muad_contracts.im import InboundEvent
 from redis.asyncio import Redis
 
@@ -229,13 +229,14 @@ class InboundStreamConsumer:
 def _envelope(event: InboundEvent, adapter: ChannelAdapter) -> ChannelEnvelope:
     """统一入站事实 → 管线认识的渠道信封；渠道身份由**适配器**给出（不猜）。"""
     return ChannelEnvelope(
-        channel=cast(ChannelName, adapter.name),
+        channel=adapter.name,
         bot_id=event.bot_id,
         external_user_id=event.external_user_id,
         external_conversation_id=event.external_conversation_id,
         message_id=event.external_message_id,
         text=event.text,
         attachments=list(event.attachments),
+        attachment_failures=list(event.attachment_failures),
         unsupported_media=(
             cast(UnsupportedMedia, event.unsupported_media) if event.unsupported_media else None
         ),

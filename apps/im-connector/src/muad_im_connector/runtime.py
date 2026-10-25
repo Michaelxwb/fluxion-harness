@@ -19,26 +19,65 @@ import contextlib
 import logging
 import time
 import uuid
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Protocol
 
-from muad_contracts import BotSnapshotItem
+from muad_contracts import AttachmentFailure, AttachmentRef, BotSnapshotItem, ChannelEnvelope
 from muad_contracts.im import InboundEvent
 from muad_im_core import BotSnapshotCache, InboundPublisher, PublishOutcome
-
-from .channels.wecom.adapter import (
-    WeComAdapter,
+from muad_im_gateway.application.attachment_gate import (
+    ATTACHMENT_COUNT_EXCEEDED,
+    MAX_ATTACHMENT_BYTES,
+    MAX_ATTACHMENTS_PER_MESSAGE,
+    AttachmentCandidate,
+    evaluate_gate,
 )
+from muad_im_gateway.application.inbound_attachments import (
+    AttachmentConflictError,
+    InboundAttachmentStore,
+)
+from muad_im_gateway.channels.base import (
+    ATTACHMENT_FETCH_FAILED,
+    AttachmentFetchError,
+    AttachmentSource,
+    FetchedAttachment,
+)
+
 from .channels.wecom.sdk_port import (
     WeComInboundMessage,
 )
 from .lease import BotLease, RedisLeaseManager
 from .metrics import record_inbound, record_lease, record_snapshot, set_owned_bots
-from .outbound import OutboundRunner
+from .outbound import ConnectorChannelPort, OutboundRunner
 from .reply_store import ReplyStore
 
 logger = logging.getLogger(__name__)
+
+
+class ConnectorAdapterPort(ConnectorChannelPort, Protocol):
+    """Connector 运行时需要的适配器能力（企微长连接 / HTTP 探针同形）。
+
+    继承出站端口（`send_*`/`has_bot`）：同一个适配器对象同时被 runtime 与 CommandExecutor 使用。
+    """
+
+    name: str
+
+    def set_raw_sink(
+        self, sink: Callable[[WeComInboundMessage], None] | None
+    ) -> None: ...
+
+    async def start(self) -> None: ...
+
+    async def stop(self) -> None: ...
+
+    async def apply_snapshot(self, items: Sequence[BotSnapshotItem]) -> None: ...
+
+    async def drop_bot(self, bot_id: str) -> None: ...
+
+    @property
+    def connection_states(self) -> Mapping[str, object]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,13 +93,15 @@ class ConnectorRuntime:
         *,
         tenant_id: str,
         handled_channels: frozenset[str],
-        adapter: WeComAdapter,
+        adapter: ConnectorAdapterPort,
         leases: RedisLeaseManager,
         replies: ReplyStore,
         publisher: InboundPublisher,
         outbound: OutboundRunner,
         snapshot: BotSnapshotCache,
         renew_sec: float,
+        attachment_store: InboundAttachmentStore | None = None,
+        max_attachment_bytes: int = MAX_ATTACHMENT_BYTES,
         inbound_queue_size: int = 10_000,
     ) -> None:
         if renew_sec <= 0:
@@ -74,6 +115,10 @@ class ConnectorRuntime:
         self._outbound = outbound
         self._snapshot = snapshot
         self._renew_sec = renew_sec
+        #: 入站附件落盘（设计 §3.2.1 ⑤）：**字节只在内持有连接的角色里取**，落共享存储后
+        #: 上行只给 `AttachmentRef`（上层不接触 URL/aes_key）。
+        self._attachment_store = attachment_store
+        self._max_attachment_bytes = max_attachment_bytes
         self._queue: asyncio.Queue[WeComInboundMessage] = asyncio.Queue(
             maxsize=inbound_queue_size
         )
@@ -137,9 +182,12 @@ class ConnectorRuntime:
             "owned_bots": [f"{tenant}:{bot}" for tenant, bot in self.owned_bots],
             "snapshot_revision": self._snapshot.revision,
             "connection_states": {
-                bot_id: state.value
+                bot_id: getattr(state, "value", state)
                 for bot_id, state in self._adapter.connection_states.items()
             },
+            # 未 CONNECTED 的 bot 只在**持有连接的角色**里可见（Gateway 的 readyz 不该报
+            # 自己没连的 bot）。适配器没声明该能力时为空。
+            "degraded_bots": dict(getattr(self._adapter, "degraded_bots", {}) or {}),
         }
 
     # ---- snapshot / lease -----------------------------------------------------
@@ -285,6 +333,7 @@ class ConnectorRuntime:
             reply_ref=message.reply_id or None,
             epoch=epoch,
         )
+        attachments, failures = await self._materialize_attachments(message)
         event = InboundEvent(
             event_id=uuid.uuid4(),
             channel="WECOM",
@@ -294,9 +343,9 @@ class ConnectorRuntime:
             external_conversation_id=message.external_conversation_id,
             external_user_id=message.external_user_id,
             text=message.text,
-            attachment_keys=tuple(
-                f"{message.message_id}#{index}" for index in range(len(message.media))
-            ),
+            attachments=attachments,
+            attachment_keys=tuple(failure.key for failure in failures),
+            attachment_failures=failures,
             unsupported_media=message.unsupported_media,
             reply_ref=message.reply_id or None,
             received_at=datetime.now(UTC),
@@ -318,6 +367,84 @@ class ConnectorRuntime:
             )
             return
 
+    async def _materialize_attachments(
+        self, message: WeComInboundMessage
+    ) -> tuple[tuple[AttachmentRef, ...], tuple[AttachmentFailure, ...]]:
+        """取件 + 门控 + 落共享存储；失败逐项翻译成渠道中立原因码（不静默丢）。
+
+        与 Gateway 原先的本地取件完全同序：数量上限先行（超出的不下载）→ 下载/解密 →
+        类型/体积门控 → 原子落盘。区别只是执行者换成了持有长连接的 Connector。
+        """
+        store = self._attachment_store
+        if store is None or not message.media:
+            return (), ()
+        adapter = self._adapter
+        if not isinstance(adapter, AttachmentSource):
+            return (), tuple(
+                AttachmentFailure(key=f"{message.message_id}#{index}",
+                                  code=ATTACHMENT_FETCH_FAILED)
+                for index in range(len(message.media))
+            )
+        envelope = _media_envelope(adapter.name, message)
+        refs: list[AttachmentRef] = []
+        failures: list[AttachmentFailure] = []
+        fetched: list[tuple[int, FetchedAttachment]] = []
+        limit = min(len(message.media), MAX_ATTACHMENTS_PER_MESSAGE)
+        for index in range(len(message.media)):
+            key = f"{message.message_id}#{index}"
+            if index >= limit:
+                failures.append(AttachmentFailure(key=key, code=ATTACHMENT_COUNT_EXCEEDED))
+                continue
+            try:
+                content = await adapter.fetch_attachment(
+                    envelope, index, max_bytes=self._max_attachment_bytes
+                )
+            except AttachmentFetchError as exc:
+                logger.warning(
+                    "connector_attachment_fetch_failed message_id=%s index=%s code=%s",
+                    message.message_id,
+                    index,
+                    exc.code,
+                )
+                failures.append(AttachmentFailure(key=key, code=exc.code))
+                continue
+            fetched.append((index, content))
+        decision = evaluate_gate(
+            [
+                AttachmentCandidate(
+                    media_type=content.media_type,
+                    size=len(content.data),
+                    filename=content.filename,
+                )
+                for _index, content in fetched
+            ]
+        )
+        rejected = {rejection.index: rejection.code for rejection in decision.rejected}
+        for position, (index, content) in enumerate(fetched):
+            key = f"{message.message_id}#{index}"
+            code = rejected.get(position)
+            if code is not None:
+                failures.append(AttachmentFailure(key=key, code=code))
+                continue
+            try:
+                refs.append(
+                    store.persist(
+                        token=message.message_id,
+                        index=index,
+                        content=content,
+                        source_channel=adapter.name,
+                    )
+                )
+            except (AttachmentConflictError, OSError) as exc:
+                logger.error(
+                    "connector_attachment_persist_failed message_id=%s index=%s error=%s",
+                    message.message_id,
+                    index,
+                    type(exc).__name__,
+                )
+                failures.append(AttachmentFailure(key=key, code=ATTACHMENT_FETCH_FAILED))
+        return tuple(refs), tuple(failures)
+
     # ---- helpers --------------------------------------------------------------
     def raw_sink(self, message: WeComInboundMessage) -> None:
         """适配器回调 → 有界队列；队满时显式失败（不静默丢）。"""
@@ -334,6 +461,18 @@ class ConnectorRuntime:
     async def _sleep(self, seconds: float) -> None:
         with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(self._stopped.wait(), timeout=seconds)
+
+
+def _media_envelope(channel: str, message: WeComInboundMessage) -> ChannelEnvelope:
+    """取件只需要渠道身份与消息 id（媒体引用按 message_id 存在适配器里）。"""
+    return ChannelEnvelope(
+        channel=channel,
+        bot_id=message.bot_id,
+        external_user_id=message.external_user_id,
+        external_conversation_id=message.external_conversation_id,
+        message_id=message.message_id,
+        text="",
+    )
 
 
 async def drain_inbound(

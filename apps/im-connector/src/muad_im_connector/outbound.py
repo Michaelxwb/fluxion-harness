@@ -28,7 +28,6 @@ from typing import Any, Protocol, cast
 
 from muad_contracts import (
     AttachmentRef,
-    ChannelName,
     DeliveryMessage,
     DeliveryRouteInput,
 )
@@ -114,6 +113,17 @@ class ConnectorChannelPort(Protocol):
 
     async def send_active(self, route: DeliveryRouteInput, message: DeliveryMessage) -> None: ...
 
+    async def send_status(
+        self,
+        route: DeliveryRouteInput,
+        reply_ref: str,
+        stream_id: str,
+        status: str,
+        body: str,
+    ) -> None:
+        """状态帧：**不是正文**（由适配器决定如何标记，例如企微的 `<think>` 段）。"""
+        ...
+
     async def send_reply_text(
         self, route: DeliveryRouteInput, reply_ref: str, text: str
     ) -> None: ...
@@ -147,7 +157,7 @@ class ConnectorChannelPort(Protocol):
 
 def route_of(command: DeliveryCommand) -> DeliveryRouteInput:
     return DeliveryRouteInput(
-        channel=cast(ChannelName, command.channel),
+        channel=command.channel,
         bot_id=command.bot_id,
         external_user_id=command.external_user_id,
         external_conversation_id=command.external_conversation_id,
@@ -205,6 +215,8 @@ class CommandExecutor:
             if command.kind is DeliveryKind.TEXT:
                 return await self._text(command, route, reply_ref, reply_problem, lease)
             if command.kind is DeliveryKind.DELTA:
+                if bool(command.payload.get("status")):
+                    return await self._status(command, route, reply_ref, lease)
                 return await self._delta(command, route, reply_ref, reply_problem, lease)
             if command.kind is DeliveryKind.TERMINAL:
                 return await self._terminal(command, route, reply_ref, reply_problem, lease)
@@ -238,9 +250,32 @@ class CommandExecutor:
     async def _usable_reply(
         self, command: DeliveryCommand, lease: BotLease
     ) -> tuple[str | None, str]:
-        """判断 reply_ref 是否可用；不可用时返回原因（调用方据此 DEGRADED）。"""
+        """判断回复目标是否可用；不可用时返回原因（调用方据此 DEGRADED）。
+
+        Gateway 的请求面**不认识 reply_ref**（那是 Connector 的 reply store），它只带
+        入站消息身份与 route。所以这里按 owner 自己的存储解析：
+        ① 命令显式带 reply_ref（Worker/直投路径）→ 校验 epoch/存在性；
+        ② 带 `message_id` → 该条消息自己的回调（精确，不会被同会话后来的消息顶掉）；
+        ③ 只有 route → 本路由最新回调（后台任务等没有入站消息的投递）。
+        """
+        if not command.reply_ref and command.message_id:
+            target = await self._replies.resolve_message(
+                tenant_id=command.tenant_id,
+                bot_id=command.bot_id,
+                message_id=command.message_id,
+            )
+            if target is not None:
+                return target.reply_ref, ""
         if not command.reply_ref:
-            return None, ""
+            target = await self._replies.resolve_route(
+                tenant_id=command.tenant_id,
+                bot_id=command.bot_id,
+                external_user_id=command.external_user_id,
+                external_conversation_id=command.external_conversation_id,
+            )
+            if target is None:
+                return None, ""
+            return target.reply_ref, ""
         if command.epoch and command.epoch < lease.epoch:
             return None, RESULT_CODE_REPLY_EXPIRED
         target = await self._replies.resolve_ref(
@@ -253,6 +288,37 @@ class CommandExecutor:
         if command.epoch and target.epoch and command.epoch != target.epoch:
             return None, RESULT_CODE_REPLY_EXPIRED
         return command.reply_ref, ""
+
+    async def _status(
+        self,
+        command: DeliveryCommand,
+        route: DeliveryRouteInput,
+        reply_ref: str | None,
+        lease: BotLease,
+    ) -> CommandResult:
+        """状态帧：不是正文，不进入正文缓冲；没有可用回调时**可丢**（不主动发一条噪音）。"""
+        if reply_ref is None:
+            return self._result(
+                command, CommandStatus.ACCEPTED, detail="status dropped (no reply target)",
+                epoch=lease.epoch,
+            )
+        key = self._buffer_key(command)
+        body = "".join(self._buffers.get(key, ()))
+        try:
+            await self._adapter.send_status(
+                route, reply_ref, command.stream_id or key, command.text, body
+            )
+        except Exception as exc:  # noqa: BLE001 - 状态可丢；下一个 tick 带最新阶段重来
+            logger.warning(
+                "connector_status_failed command_id=%s error=%s",
+                command.command_id,
+                type(exc).__name__,
+            )
+            return self._result(
+                command, CommandStatus.ACCEPTED, code=RESULT_CODE_REPLY_FAILED,
+                detail="status dropped", epoch=lease.epoch,
+            )
+        return self._result(command, CommandStatus.DELIVERED, epoch=lease.epoch)
 
     async def _text(
         self,
@@ -274,7 +340,7 @@ class CommandExecutor:
                 )
                 reply_problem = RESULT_CODE_REPLY_FAILED
         await self._adapter.send_active(route, DeliveryMessage(text=command.text))
-        status = CommandStatus.DEGRADED if command.reply_ref else CommandStatus.DELIVERED
+        status = CommandStatus.DEGRADED if reply_problem else CommandStatus.DELIVERED
         return self._result(
             command, status, code=reply_problem, detail="active send", epoch=lease.epoch
         )
@@ -288,13 +354,16 @@ class CommandExecutor:
         lease: BotLease,
     ) -> CommandResult:
         key = self._buffer_key(command)
+        # 正文累积：渠道流式帧的内容是**累积值**（客户端每帧整体重绘），与旧 ReplySession
+        # 同口径；只发最后一段会把前文从客户端抹掉。
+        self._buffers.setdefault(key, []).append(command.text)
         if reply_ref is not None:
             try:
                 await self._adapter.send_reply_stream(
                     route,
                     reply_ref,
                     command.stream_id or key,
-                    command.text,
+                    "".join(self._buffers[key]),
                     finish=False,
                 )
                 return self._result(command, CommandStatus.DELIVERED, epoch=lease.epoch)
@@ -305,10 +374,9 @@ class CommandExecutor:
                     type(exc).__name__,
                 )
                 reply_problem = RESULT_CODE_REPLY_FAILED
-        self._buffers.setdefault(key, []).append(command.text)
         return self._result(
             command,
-            CommandStatus.DEGRADED if command.reply_ref else CommandStatus.ACCEPTED,
+            CommandStatus.DEGRADED if reply_problem else CommandStatus.ACCEPTED,
             code=reply_problem,
             detail="buffered for active send",
             epoch=lease.epoch,
@@ -351,7 +419,7 @@ class CommandExecutor:
                 reply_problem = RESULT_CODE_REPLY_FAILED
         if text:
             await self._adapter.send_active(route, DeliveryMessage(text=text))
-        status = CommandStatus.DEGRADED if command.reply_ref else CommandStatus.DELIVERED
+        status = CommandStatus.DEGRADED if reply_problem else CommandStatus.DELIVERED
         return self._result(
             command,
             status,
@@ -399,7 +467,7 @@ class CommandExecutor:
             )
         status = (
             CommandStatus.DEGRADED
-            if command.reply_ref and reply_ref is None
+            if reply_problem
             else CommandStatus.DELIVERED
         )
         return self._result(

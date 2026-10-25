@@ -325,6 +325,16 @@ class ChannelRegistry:
     def names(self) -> tuple[str, ...]:
         return tuple(self._adapters)
 
+    def snapshot_names(self) -> tuple[str, ...]:
+        """需要 bot 快照的通道（结构上实现 `SnapshotAware`）。
+
+        远程 Connector 路由面不吃快照：bot 连接与 secret 只在持有长连接的角色里，
+        请求面向 Console 请求这些条目纯属多拉一份（且没有消费方）。
+        """
+        return tuple(
+            name for name, adapter in self._adapters.items() if isinstance(adapter, SnapshotAware)
+        )
+
     @property
     def adapter_states(self) -> dict[str, bool]:
         return {name: name in self._started for name in self._adapters}

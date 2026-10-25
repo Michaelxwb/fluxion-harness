@@ -28,6 +28,10 @@ class SharedSettings(BaseSettings):
     #: 通道。secret 是验签密钥，不是 bot 连接密钥；bot secret 只流向持有长连接的 Connector。
     gateway_webhook_channels: str = Field(default="", repr=False)
     webhook_timestamp_tolerance_sec: int = Field(default=300, ge=1)
+    #: Gateway 的**远程 Connector 路由面**：这些通道的入站只做路由（建 Run）、出站经
+    #: `im.outbound` 交给持有长连接的 Connector（Gateway 不发 WS/不持 secret）。逗号分隔；
+    #: 空 = 本部署没有远程通道（WebChat-only 四单元默认）。
+    gateway_routed_channels: str = Field(default="")
     #: 入站 Stream 分片/上限（生产者与消费者必须同一口径；design §3.3.1）。
     inbound_stream_shards: int = Field(default=32, ge=1)
     inbound_stream_maxlen: int = Field(default=100_000, ge=1)

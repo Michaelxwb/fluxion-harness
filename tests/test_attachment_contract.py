@@ -5,7 +5,8 @@
 就不成立。本文件钉死三件可序列化/可静态判定的事：
 
 - B-05：零附件消息的既有字段序列化结果不变，且**不新增必填字段**（向后兼容）。
-- B-07：通道枚举只在一处定义（`ChannelName`），其余位置引用别名（`Literal["WECOM"]` 字面量仅 1 处）。
+- B-07：通道名只在一处声明（`BUILTIN_CHANNEL_NAMES`），契约字段是**开放 string**；
+  新增 fake channel 不需要改任何字面量（适配器名即路由身份）。
 - S-07：附件引用的结构里**不含任何取件凭据**（url / aes_key / media_id / download_code …）——
   取件方式渠道私有（设计 AD-8），边界只描述"已到手的字节"。
 """
@@ -13,14 +14,16 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import get_args
 
+import pytest
 from muad_contracts import (
+    BUILTIN_CHANNEL_NAMES,
     AttachmentRef,
     ChannelEnvelope,
-    ChannelName,
     MessageInput,
 )
+from muad_contracts.im import InboundEvent
+from muad_im_gateway.channels.base import DuplicateChannelAdapterError, UnknownChannelAdapterError
 from muad_im_gateway.channels.fake import FakeChannelAdapter
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -100,30 +103,74 @@ def test_b05_zero_attachment_serialization_stays_backward_compatible() -> None:
     assert attachment_message.type == "attachment", "type 需能表达带附件的消息"
 
 
-def test_b07_channel_enum_is_defined_in_exactly_one_place() -> None:
-    """B-07：通道枚举字面量只允许出现在 ChannelName 定义处，其余位置引用别名。"""
+def test_b07_builtin_channel_names_are_declared_in_exactly_one_place() -> None:
+    """B-07：内建通道名只在一处声明；其余契约源码引用别名，不再写枚举字面量。"""
     scanned = sorted(CONTRACT_DIR.glob("*.py")) + [CONSOLE_DTO]
     assert scanned, "未扫描到任何契约源码：路径规则可能已与目录结构脱节"
 
-    values = get_args(ChannelName)
-    assert values == ("WECOM", "WEBCHAT"), (
-        "ChannelName 的取值集合必须与 enums.py 的唯一字面量一致（新增通道只改那一行）"
+    assert BUILTIN_CHANNEL_NAMES == ("WECOM", "WEBCHAT"), (
+        "内建通道名必须与 enums.py 的唯一声明一致（新增通道**不需要**改这里）"
     )
-    literal_text = "Literal[" + ", ".join(f'"{value}"' for value in values) + "]"
+    literal_text = "Literal[" + ", ".join(f'"{value}"' for value in BUILTIN_CHANNEL_NAMES) + "]"
     hits = {
         path.name: path.read_text(encoding="utf-8").count(literal_text)
         for path in scanned
     }
     offenders = {name: count for name, count in hits.items() if count}
-    assert offenders == {"enums.py": 1}, (
-        "通道枚举必须只在一处定义（ChannelName），其余位置引用别名；"
-        f"实际字面量分布：{offenders}"
-    )
+    assert offenders == {}, f"不得再有通道枚举字面量：{offenders}"
 
     # 别名必须被真正用起来，而不是只定义不引用
     for name in ("channel.py", "runtime.py", "tasks.py", "resolve.py"):
         text = (CONTRACT_DIR / name).read_text(encoding="utf-8")
         assert "ChannelName" in text, f"{name} 未引用 ChannelName 别名"
+
+
+def test_b07_new_channel_needs_no_literal_change() -> None:
+    """B-07（开放）：新通道 = 一个新适配器名；契约与注册表都不需要改字面量。
+
+    这是 S-12「新增 fake channel 不改 ChannelName 字面量」的契约侧断言：
+    `ChannelEnvelope` / `InboundEvent` 接受任何非空通道名，注册表按适配器的 `name` 路由。
+    """
+    envelope = ChannelEnvelope(
+        channel="DINGTALK",
+        bot_id="bot-x",
+        external_user_id="user-x",
+        message_id="msg-x",
+        text="hi",
+    )
+    assert envelope.channel == "DINGTALK"
+    event = InboundEvent.model_validate(
+        {
+            "event_id": "6f1b1f2a-7f1f-4f7e-9b0e-1f5d3a2c1b0a",
+            "channel": "DINGTALK",
+            "tenant_id": "t1",
+            "bot_id": "bot-x",
+            "external_message_id": "msg-x",
+            "external_user_id": "user-x",
+            "received_at": "2026-10-25T00:00:00Z",
+        }
+    )
+    assert InboundEvent.model_validate(event.model_dump(mode="json")).channel == "DINGTALK"
+
+    registry = ChannelRegistryForTest()
+    registry.register(FakeChannelAdapter(name="DINGTALK"))
+    assert registry.get("DINGTALK").name == "DINGTALK"
+    with pytest.raises(DuplicateChannelAdapterError):
+        registry.register(FakeChannelAdapter(name="DINGTALK"))
+    with pytest.raises(UnknownChannelAdapterError):
+        registry.get("SLACK")
+
+    # 空名仍然被契约拒绝（开放 ≠ 什么都能进）
+    with pytest.raises(ValueError):
+        ChannelEnvelope(
+            channel="", bot_id="b", external_user_id="u", message_id="m"
+        )
+
+
+def ChannelRegistryForTest():  # noqa: N802 - 小工具，保持与类名一致的显式构造
+    from muad_im_gateway.channels.base import ChannelRegistry
+
+    return ChannelRegistry()
 
 
 async def test_s07_fake_adapter_carries_attachments_without_credentials() -> None:

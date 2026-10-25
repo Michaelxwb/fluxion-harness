@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import redis
 from muad_common import SharedSettings
 from muad_contracts.platform_settings import PlatformSettings, parse_platform_settings
 from sqlalchemy.exc import DBAPIError, IntegrityError
@@ -83,6 +84,7 @@ __all__ = [
     "latest_run_id",
     "purge_tenant",
     "require",
+    "reset_redis_state",
     "restart_process",
     "run_db",
     "start_gateway_stack",
@@ -99,6 +101,7 @@ class GatewayStack:
     runtime2_url: str
     worker_url: str
     gateway_url: str
+    connector_url: str
     llm_url: str
     wecom_ws_url: str
     artifact_root: Path
@@ -137,9 +140,10 @@ def start_gateway_stack(
 ) -> tuple[GatewayStack, list[ServiceProcess]]:
     """启动本栈的全部进程。
 
-    `ws_probe_url`/`ws_ca_file` 只对仍在 Gateway 内跑企微长连接的旧栈有意义；
-    渠道实现迁到 Connector 后（TASK-008）webhook 栈不需要它们（默认不注入）。
-    `gateway_env` 是栈级渠道配置的注入点（例如 webhook 通道的签名密钥）。
+    `ws_probe_url`/`ws_ca_file` 指向真实本地企微 WS 探针：长连接由**独立 Connector 进程**
+    持有（TASK-009 起与生产同构），Gateway 只做请求面路由 —— 入站经 `im.inbound` 消费、
+    出站经 `im.outbound` 回 Connector。`gateway_env` 是栈级渠道配置的注入点（例如 webhook
+    通道的签名密钥）。
     """
     settings = SharedSettings()
     database_url = require("DATABASE_URL", settings.database_url)
@@ -157,12 +161,14 @@ def start_gateway_stack(
     runtime2_port = free_port()
     worker_port = free_port()
     gateway_port = free_port()
+    connector_port = free_port()
     llm_port = free_port()
     console_url = f"http://127.0.0.1:{console_port}"
     runtime_url = f"http://127.0.0.1:{runtime_port}"
     runtime2_url = f"http://127.0.0.1:{runtime2_port}"
     worker_url = f"http://127.0.0.1:{worker_port}"
     gateway_url = f"http://127.0.0.1:{gateway_port}"
+    connector_url = f"http://127.0.0.1:{connector_port}"
     llm_url = f"http://127.0.0.1:{llm_port}"
 
     base_env = _service_env(
@@ -236,22 +242,48 @@ def start_gateway_stack(
         DELIVERY_POLL_INTERVAL_SEC="1",
     )
     gateway_extra: dict[str, str] = dict(gateway_env or {})
-    if ws_probe_url and ws_ca_file:
-        gateway_extra["WECOM_WS_URL"] = ws_probe_url
-        gateway_extra["WECOM_WS_CA_FILE"] = ws_ca_file
+    # 远程通道只在**真的起了 Connector** 时声明为路由面：没有 Connector 的栈（例如把 WECOM
+    # 配成 webhook 通道的 S-07）若同时声明同名路由通道，注册表会因重名直接起不来。
+    start_connector = bool(ws_probe_url and ws_ca_file)
     gateway = spawn(
         "gateway",
         "muad_im_gateway.main",
         gateway_port,
         CONSOLE_PLATFORM_URL=console_url,
         AGENT_RUNTIME_URL=runtime_url,
-        # 注意：不设置 CHANNEL_PROBE_URL —— 该变量会让 Gateway 换用 HTTP 探针适配器，
-        # 从而不建立真实 WS 连接；投递链路的渠道探针由 TASK-027 按其边界单独配置。
+        # 请求面只路由：WECOM 的入站事件经 `im.inbound` 进来、出站经 `im.outbound` 出去。
+        # Gateway 不拿 WS 地址/CA（那是 Connector 的连接凭据），也不注册任何 WS 适配器。
+        GATEWAY_ROUTED_CHANNELS="WECOM" if start_connector else "",
         **gateway_extra,
     )
+    # 真实的独立 Connector 进程（生产同构）：持有企微长连接、bot lease 与 reply store，
+    # 入站写 `im.inbound`，出站消费 `im.outbound`。**只有给了真实 WS 探针才起**：没有探针时
+    # 起 Connector 会让它按官方地址对真实企微发起连接（隔离验收不该出网）。
+    connector: ServiceProcess | None = None
+    if start_connector:
+        connector = spawn(
+            "connector",
+            "muad_im_connector.main",
+            connector_port,
+            CONSOLE_PLATFORM_URL=console_url,
+            AGENT_RUNTIME_URL=runtime_url,
+            IM_GATEWAY_URL=gateway_url,
+            CONNECTOR_OWNER_ID="e2e-connector-0",
+            CONNECTOR_HANDLED_CHANNELS="WECOM",
+            CONNECTOR_INBOUND_SHARDS="8",
+            CONNECTOR_LEASE_TTL_SEC="5",
+            CONNECTOR_LEASE_RENEW_SEC="1",
+            BOT_SNAPSHOT_POLL_SEC="1",
+            # 显式关闭 HTTP 探针：本栈要的是真实 WS 长连接（探针适配器是另一条验收路径）。
+            CHANNEL_PROBE_URL="",
+            WECOM_WS_URL=ws_probe_url,
+            WECOM_WS_CA_FILE=ws_ca_file,
+        )
 
     llm_probe.start()
     cleanup(database_url)
+    # 入站交接经 Stream：先清掉上一栈留下的事件/消费组，否则会被本栈当成新消息消费。
+    reset_redis_state(redis_url)
     seeded = seed_control(llm_url)
     # 与生产同构：把原先 env 注入的业务默认按本栈租户种一行平台设置（服务在此之后才起）。
     seed_platform_settings(database_url, TENANT, PLATFORM_SETTINGS_OVERRIDES)
@@ -260,6 +292,8 @@ def start_gateway_stack(
     runtime2.start()
     worker.start()
     gateway.start()
+    if connector is not None:
+        connector.start()
 
     stack = GatewayStack(
         console_url=console_url,
@@ -267,6 +301,7 @@ def start_gateway_stack(
         runtime2_url=runtime2_url,
         worker_url=worker_url,
         gateway_url=gateway_url,
+        connector_url=connector_url,
         llm_url=llm_url,
         wecom_ws_url=ws_probe_url or "",
         artifact_root=artifact_root,
@@ -304,6 +339,13 @@ def _cleanup_statements() -> tuple[str, ...]:
     必须先于 `RUNTIME_CLEANUP` 的 run 行删除。
     """
     return (
+        # 0023 受理策略投影是**平台设置的派生行**（`source_settings_revision` 单调追赶设置版本）。
+        # 只清 `control.platform_setting` 而留下 policy 时，下一个栈重种 revision=1 的设置在
+        # 每次准入都会 `AdmissionPolicyStaleError`（DB 里的 policy revision 更高）→ 重试耗尽后
+        # `PLATFORM_SETTINGS_UNAVAILABLE`。实测：记忆套件临时插更高 revision 再删除后，其后每个
+        # 模块的所有 Run 都失败（「整跑红、单跑绿」）。派生行必须随租户状态一起清。
+        "DELETE FROM runtime.run_admission_counter WHERE tenant_id = :t",
+        "DELETE FROM runtime.run_admission_policy WHERE tenant_id = :t",
         "DELETE FROM runtime.channel_notification WHERE tenant_id = :t",
         "DELETE FROM runtime.channel_notification_feed WHERE tenant_id = :t",
         # 显式会话（WebChat）会登记入口指针：conversation_id 是物理 FK，必须先于 conversation 删除。
@@ -377,6 +419,45 @@ def cleanup(database_url: str) -> None:
                     await session.execute(text(statement), {"t": TENANT})
 
     run_db(purge)
+
+
+#: 每个栈启动前要清掉的 Redis 工作状态（Stream/去重/回复/租约）。
+#:
+#: Connector→Gateway 的入站是**异步交接**（Connector 写 `im.inbound`，Gateway 的 `im-ingress`
+#: 消费组读）：Stream 与消费组都随 Redis DB 存活，于是本栈启动前已经躺在 Stream 里的事件
+#: （上一个栈 teardown 前推送的、或 connector-only 套件只写不读的）会被本栈 Gateway 当成
+#: **新消息**——在同一租户下建 Run、占会话，表现为「单跑绿、整跑红」。PG 每个栈都清，
+#: Redis 的栈级工作状态同样要清；只删工作键，不碰其它键。
+_STACK_REDIS_PATTERNS = (
+    "im.inbound:*",
+    "im.outbound:*",
+    "im:outbound:result:*",
+    "im:dedupe:*",
+    "im:reply:*",
+    "connector:bot:*",
+    "connector:cmd:*",
+    "connector:inbound:*",
+    "connector:outbound-cursor:*",
+)
+
+
+def reset_redis_state(redis_url: str | None = None) -> None:
+    """清掉栈级 IM 工作状态；`MUAD_ACCEPTANCE_SHARED_DB=1` 逃生阀下不清（可能是开发数据）。"""
+    if os.environ.get("MUAD_ACCEPTANCE_SHARED_DB") == "1":
+        return
+    client = redis.Redis.from_url(redis_url or SharedSettings().require_redis_url())
+    try:
+        for pattern in _STACK_REDIS_PATTERNS:
+            batch: list[bytes] = []
+            for key in client.scan_iter(match=pattern, count=500):
+                batch.append(key)
+                if len(batch) >= 500:
+                    client.delete(*batch)
+                    batch.clear()
+            if batch:
+                client.delete(*batch)
+    finally:
+        client.close()
 
 
 async def count_tenant_rows(table: str) -> int:

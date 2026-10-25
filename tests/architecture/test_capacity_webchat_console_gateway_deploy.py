@@ -51,7 +51,7 @@ APP_TSX = ROOT / "apps/console-platform/frontend/src/App.tsx"
 
 #: 固定四个部署单元（harness-arch#RULE-arch-001）；前端聊天不新增工作负载。
 DEPLOY_UNITS = ("console-platform", "agent-runtime", "agent-worker", "im-gateway")
-SINGLE_POD_UNITS = ("console-platform", "im-gateway")
+SINGLE_POD_UNITS = ("console-platform",)
 
 #: 清单里不走 SharedSettings 的注入键：Secret 引用。
 NON_SETTINGS_ENV = frozenset({"DATABASE_URL", "REDIS_URL", "INTERNAL_SERVICE_TOKEN"})
@@ -222,17 +222,26 @@ def _pg_connections_per_process(engine: AsyncEngine) -> int:
 
 
 @pytest.mark.parametrize("unit", UNITS, ids=UNIT_IDS)
-def test_single_pod_units_stay_at_one_replica(unit: DeployUnit) -> None:
-    """Console/Gateway 各 1 Pod 是部署约束（design §4.1）：基线副本与 typed 上界都为 1。"""
+def test_baseline_replicas_are_one_and_only_console_is_capacity_pinned(unit: DeployUnit) -> None:
+    """base 的基线各 1 Pod；只有 Console 被 typed 上界钉死。
+
+    design §4.1：Gateway 已改为 N 副本（`deploy/k8s/with-connector` overlay 起 2 个），
+    Console 仍是单 Pod 容量口径。base 里任何单元都不声明 HPA（扩缩上界由 typed profile 表达，
+    Runtime/Worker 的 HPA 在独立的 `capacity-autoscaling.yaml`）。
+    """
     deployment = _deployment(unit)
-    assert deployment["spec"]["replicas"] == 1, f"{unit.name}: 基线必须是 1 个 Pod"
     resources = _resource_profile()
-    assert resources.replica_counts[unit.name] == 1
-    assert resources.max_replica_counts[unit.name] == 1, (
-        f"{unit.name}: Console/Gateway 各 1 Pod 是部署约束（不提供这两单元的高可用承诺）"
+    baseline = {"console-platform": 1, "agent-runtime": 1, "agent-worker": 1, "im-gateway": 2}
+    assert deployment["spec"]["replicas"] == baseline[unit.name], (
+        f"{unit.name}: 基线副本必须等于清单事实（Gateway 允许多副本）"
     )
+    assert resources.replica_counts[unit.name] <= resources.max_replica_counts[unit.name]
+    if unit.name in SINGLE_POD_UNITS:
+        assert resources.max_replica_counts[unit.name] == 1, (
+            f"{unit.name}: Console 仍是单 Pod 容量口径（HA 不在本设计内）"
+        )
     assert all(doc.get("kind") != "HorizontalPodAutoscaler" for doc in _docs(f"{unit.name}.yaml")), (
-        f"{unit.name}: 不引入 HPA —— 单 Pod 约束不能被自动扩缩绕过"
+        f"{unit.name}: base 单元清单不声明 HPA（扩缩上界在 capacity-autoscaling.yaml / typed profile）"
     )
 
 

@@ -25,6 +25,7 @@ from .api.health import readiness_checks, readiness_detail
 from .api.webchat import router as webchat_router
 from .api.webhook import router as webhook_router
 from .application.channel_delivery import ActiveChannelDelivery, ConsoleDeliveryPermission
+from .application.connector_outbound import ConnectorOutboundCommands
 from .application.console_client import ConsoleClient
 from .application.inbound import InboundPipeline
 from .application.inbound_attachments import InboundAttachmentStore
@@ -33,6 +34,8 @@ from .application.runtime_client import RuntimeClient
 from .application.webchat_streams import SseBufferLedger
 from .channels.base import ChannelRegistry
 from .channels.registry import build_channel_registry, dispatch_snapshot
+from .channels.routed import parse_routed_channels
+from .channels.webhook import parse_webhook_channels
 from .infrastructure.artifact_resolver import HttpArtifactResolver
 from .infrastructure.dedupe import DedupeStore, build_dedupe_store
 from .infrastructure.http_clients import GatewayHttpPools, build_gateway_http_pools
@@ -77,6 +80,9 @@ class _GatewayResources:
     streams: DeliveryStreams
     inbound_publisher: InboundPublisher
     inbound_consumer: InboundStreamConsumer
+    #: 本部署是否声明了经 Redis Stream 的通道面（远程 Connector / webhook）：决定 Redis 是否
+    #: 是就绪硬依赖（WebChat-only 部署不经过 Stream）。
+    stream_reliant: bool
 
     def publish(self, app: FastAPI) -> None:
         """初始化成功后才公开运行时状态：探针与投递/聊天 API 都从这里读依赖。"""
@@ -92,6 +98,7 @@ class _GatewayResources:
         app.state.delivery_streams = self.streams
         app.state.delivery_stream_wait_sec = self.settings.delivery_stream_wait_sec
         app.state.inbound_publisher = self.inbound_publisher
+        app.state.stream_reliant = self.stream_reliant
         # Webchat 路由（TASK-052/054/055/057/061）消费的状态值：装配根是唯一发布点，
         # 值来自同一个 SharedSettings（预算/上限的唯一来源，不在路由层另抄一份默认值）。
         app.state.settings_client = self.settings_client
@@ -198,7 +205,8 @@ def _build_snapshot(
     return BotSnapshotCache(
         console,
         tenant_id=settings.default_tenant_id,
-        channels=frozenset(registry.names()),
+        # 只要**本进程真正管理连接**的通道：远程 Connector 路由面不吃快照。
+        channels=frozenset(registry.snapshot_names()),
         # 请求面不需要连接凭据：通道过滤只缩小范围，secret 的下发必须单独关掉。
         include_secret=False,
         interval_sec=settings.bot_snapshot_poll_sec,
@@ -211,11 +219,18 @@ async def _build_resources(
 ) -> _GatewayResources:
     """按启动设置组装运行时资源；中途失败时回收已创建的部分（分池由调用方收尾）。"""
     console, runtime, settings_client, artifacts = _build_outbound_clients(settings, pools)
+    redis = _build_redis(settings)
+    streams = DeliveryStreams(redis, maxlen=settings.inbound_stream_maxlen)
     # 请求面只装配不含渠道长连接/私钥的适配器（WEBCHAT + 配置驱动的通用 webhook）；
     # 有状态通道（企微）的适配器活在 Connector。装配根不按通道分支。
-    registry = build_channel_registry(settings)
-    redis = _build_redis(settings)
-    dedupe = await build_dedupe_store(settings.redis_url)
+    # `GATEWAY_ROUTED_CHANNELS` 声明的远程通道只拿到命令 sink：入站路由、出站入队。
+    routed_sink = ConnectorOutboundCommands(streams, tenant_id=settings.default_tenant_id)
+    registry = build_channel_registry(settings, routed_sink=routed_sink)
+    try:
+        dedupe = await build_dedupe_store(settings.redis_url)
+    except BaseException:
+        await redis.aclose()
+        raise
     try:
         snapshot = _build_snapshot(settings, console, registry)
         # 附件字节落共享 artifact store（RWX PVC，Runtime 同挂）：部署侧必须挂载 `artifact_root`，
@@ -235,7 +250,6 @@ async def _build_resources(
             total_bytes=settings.sse_total_buffer_bytes,
             max_subscribers=settings.gateway_max_sse_subscribers,
         )
-        streams = DeliveryStreams(redis, maxlen=settings.inbound_stream_maxlen)
         publisher = InboundPublisher(
             redis,
             shards=settings.inbound_stream_shards,
@@ -267,6 +281,10 @@ async def _build_resources(
             streams=streams,
             inbound_publisher=publisher,
             inbound_consumer=consumer,
+            stream_reliant=bool(
+                parse_routed_channels(settings.gateway_routed_channels)
+                or parse_webhook_channels(settings.gateway_webhook_channels)
+            ),
         )
     except BaseException:
         # 半初始化不发布、也不留资源：自有的 dedupe/streams（Redis 连接）在这里回收；HTTP

@@ -36,3 +36,7 @@ data:
   CHAT_AUTH_RECHECK_SEC: "15"
   # Gateway→Runtime 流读超时：流空闲超时 ≥3× 心跳（SharedSettings 启动校验）。
   STREAM_HTTP_READ_TIMEOUT_SEC: "45"
+  # 远程 Connector 路由面（design §4.1）：这些通道的入站经 `im.inbound` 只做路由、出站写
+  # `im.outbound` 交给持有长连接的角色。没有 Connector 的部署里该键无效（无入站事件）。
+  # 启用企微时由 `deploy/k8s/with-connector` 增加 Connector Deployment/Service/PDB。
+  GATEWAY_ROUTED_CHANNELS: WECOM

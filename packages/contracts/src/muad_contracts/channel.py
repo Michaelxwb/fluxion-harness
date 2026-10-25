@@ -66,13 +66,24 @@ class AttachmentRef(ContractModel):
     filename: str | None = None
     checksum: str = Field(min_length=1)
     #: 入站方向必填；出站方向不需要（见类文档）
-    source_channel: ChannelName | None = None
+    source_channel: ChannelName | None = Field(default=None, min_length=1)
     #: 出站方向必填；入站方向拿不到（AD-1-B）
     artifact_id: UUID | None = None
 
 
+class AttachmentFailure(ContractModel):
+    """一个**没取到**的入站附件：不透明计数键 + 渠道中立原因码。
+
+    字节与原因码都在持有渠道连接的进程里产生（Connector）；上游拿到的仍是渠道中立词汇，
+    不需要认识 URL/aes_key，也不能凭它重试取件（键只是 `message_id#index` 的计数标识）。
+    """
+
+    key: str = Field(min_length=1)
+    code: str = Field(min_length=1)
+
+
 class ChannelEnvelope(ContractModel):
-    channel: ChannelName
+    channel: ChannelName = Field(min_length=1)
     bot_id: str = Field(min_length=1)
     external_user_id: str = Field(min_length=1)
     external_conversation_id: str | None = None
@@ -83,6 +94,9 @@ class ChannelEnvelope(ContractModel):
     # 非空表示这条消息的载荷形态本渠道不接收（如语音/视频）：核心域据此给用户明确反馈，
     # 而不是让消息在渠道边界静默消失（RULE-01）。默认 None ⇒ 序列化结果与改造前一致。
     unsupported_media: UnsupportedMedia | None = None
+    #: **已由 Connector 落盘但没取到**的附件（连接失败/超限/类型不支持…）：上游据此
+    #: 给用户同一条回执/拒绝说明并写审计，与"本地取件失败"走完全相同的出口。
+    attachment_failures: list[AttachmentFailure] = Field(default_factory=list)
 
 
 class InboundAuditRequest(ContractModel):
@@ -93,7 +107,7 @@ class InboundAuditRequest(ContractModel):
     的运行时脱敏）。谁发的什么被拒、为什么，全部落在具名字段里。
     """
 
-    channel: ChannelName
+    channel: ChannelName = Field(min_length=1)
     bot_id: str = Field(min_length=1)
     external_message_id: str = Field(min_length=1)
     external_user_id: str = Field(min_length=1)
@@ -118,7 +132,7 @@ class ArtifactDeliveryAuditRequest(ContractModel):
     """
 
     artifact_id: UUID
-    channel: ChannelName
+    channel: ChannelName = Field(min_length=1)
     route_key: str = Field(min_length=1, max_length=256)
     delivery_key: str = Field(min_length=1, max_length=128)
     outcome: DeliveryAuditOutcome
@@ -127,7 +141,7 @@ class ArtifactDeliveryAuditRequest(ContractModel):
 
 
 class ChannelResolveRequest(ContractModel):
-    channel: ChannelName
+    channel: ChannelName = Field(min_length=1)
     bot_id: str = Field(min_length=1)
     external_user_id: str = Field(min_length=1)
     external_conversation_id: str | None = None
@@ -141,7 +155,7 @@ class ChannelResolveResponse(ContractModel):
 
 
 class ChannelBindRequest(ContractModel):
-    channel: ChannelName
+    channel: ChannelName = Field(min_length=1)
     bot_id: str = Field(min_length=1)
     external_user_id: str = Field(min_length=1)
     bind_code: str = Field(min_length=1)
@@ -171,7 +185,7 @@ class BotSnapshotItem(ContractModel):
     bot_id: str
     # 实际通道（Console 按 `control.bot_account.channel` 输出，装配根按类型分发）。
     # 缺省值 = 该列的历史默认（见 `enums.DEFAULT_CHANNEL`）：字段出现前落库的行只可能是企微。
-    channel: ChannelName = DEFAULT_CHANNEL
+    channel: ChannelName = Field(default=DEFAULT_CHANNEL, min_length=1)
     # 仅内存/受保护内部快照使用：不从 repr/异常详情回显
     secret: str | None = Field(default=None, repr=False)
     agent_id: UUID

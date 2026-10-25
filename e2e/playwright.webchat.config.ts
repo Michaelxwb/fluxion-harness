@@ -92,6 +92,14 @@ const STACK_ENV: NodeJS.ProcessEnv = {
 export default defineConfig({
   globalTeardown: ISOLATED_DATASTORES_TEARDOWN,
   testDir: './tests/webchat',
+  // 显式 project：场景登记（`cf-task` 的 acceptance manifest）按 `projectName` 判定浏览器能力，
+  // 没有 project 时收集到的用例没有名字、无法证明它是浏览器用例。真正跑什么由 `--grep`/文件选择。
+  projects: [
+    {
+      name: 'chromium',
+      metadata: { capabilities: ['browser'] }
+    }
+  ],
   // 单用例预算：真实链路里有 30s 入口快照传播、15s SSE 复核与多段慢模型调用，
   // 120s 会把「慢」误判成「失败」；这里给的是时间预算，不是放宽断言。
   timeout: 210_000,

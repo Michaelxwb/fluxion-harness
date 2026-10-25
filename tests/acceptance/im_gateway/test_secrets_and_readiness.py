@@ -88,9 +88,17 @@ async def bad_secret_bot(gateway_stack: GatewayStack) -> Any:
 
 
 async def _readyz(stack: GatewayStack) -> dict[str, Any]:
+    return await _readyz_of(f"{stack.gateway_url}/readyz")
+
+
+async def _readyz_of(url: str) -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get(f"{stack.gateway_url}/readyz")
-    return {"status_code": response.status_code, **(response.json().get("data") or {})}
+        response = await client.get(url)
+    body = response.json()
+    # Gateway 装了 api 封套（字段在 `data` 下）；Connector 只暴露运维面、没有消息目录，
+    # api-kit 的探针回落到裸 JSON —— 两种都读同一批字段。
+    data = body.get("data") if isinstance(body.get("data"), dict) else body
+    return {"status_code": response.status_code, **data}
 
 
 def _gateway_log(stack: GatewayStack) -> str:
@@ -133,12 +141,19 @@ async def test_e07_bad_secret_isolates_target_bot_and_readyz_stays_ready(
     )
 
     data = await _readyz(gateway_stack)
-    # 缺/坏 secret 不停止全部 bot：就绪依据 manager + 完整快照，而非"全部 CONNECTED"
+    # 缺/坏 secret 不停止全部 bot：就绪依据 manager + 完整快照，而非"全部 CONNECTED"。
+    # Gateway 只路由（WECOM 适配器已启动但**不持连接**）：bot 连接健康属于 Connector 的口径。
     assert data["status_code"] == 200, data
     assert data["status"] == "ready", data
     assert data["adapters"] == {"WEBCHAT": True, "WECOM": True}, data
-    assert BAD_BOT_ID in (data.get("degraded_bots") or {}), data
-    assert BOT_ID not in (data.get("degraded_bots") or {}), data
+    assert not (data.get("degraded_bots") or {}), (
+        "Gateway 不持 bot 连接，degraded_bots 必须为空（连接健康在 Connector）"
+    )
+
+    connector = await _readyz_of(f"{gateway_stack.connector_url}/readyz")
+    assert connector["status_code"] == 200, connector
+    assert BAD_BOT_ID in (connector.get("degraded_bots") or {}), connector
+    assert BOT_ID not in (connector.get("degraded_bots") or {}), connector
 
     # 坏 bot 的 secret 不得出现在 Gateway 进程日志里
     assert CANARY_SECRET not in _gateway_log(gateway_stack), "secret 进入 Gateway 日志"

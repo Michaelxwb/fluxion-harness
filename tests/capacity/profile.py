@@ -20,6 +20,8 @@ from typing import cast
 import yaml
 
 __all__ = [
+    "CORE_UNITS",
+    "OPTIONAL_UNITS",
     "AttachmentDistribution",
     "CapacityProfile",
     "HardwareSpec",
@@ -44,8 +46,19 @@ __all__ = [
     "require_formal_acceptance",
 ]
 
+#: 四个核心逻辑业务单元（harness-arch#RULE-arch-001）：任何 profile 都必须声明。
 _UNITS = ("console-platform", "agent-runtime", "agent-worker", "im-gateway")
-_SINGLE_POD_UNITS = ("console-platform", "im-gateway")
+#: 可选单元（design §4.1）：启用企微时多一个 Connector（`im-gateway` 的有状态运行时角色），
+#: 静态 overlay 可选 console-web。单元集合由 profile 声明，不再固定四个。
+_OPTIONAL_UNITS = ("connector", "console-web")
+_KNOWN_UNITS = (*_UNITS, *_OPTIONAL_UNITS)
+
+
+#: 对外公开的单元集合（测试/预检只读这两个常量，避免各自再抄一份）。
+CORE_UNITS = _UNITS
+OPTIONAL_UNITS = _OPTIONAL_UNITS
+#: 只有 Console 仍是单 Pod 容量口径（Gateway 允许 N 副本）。
+_SINGLE_POD_UNITS = ("console-platform",)
 _TOP_LEVEL_KEYS = ("workload", "model", "slo", "resources")
 _SLO_KEYS = (
     "admission_p95_ms",
@@ -360,11 +373,17 @@ def _resources_payload(resources: ResourceProfile) -> dict[str, object]:
                 "memory_request_mb": resources.hardware[unit].memory_request_mb,
                 "memory_limit_mb": resources.hardware[unit].memory_limit_mb,
             }
-            for unit in _UNITS
+            for unit in _units_of(resources)
         },
-        "process_counts": {unit: resources.process_counts[unit] for unit in _UNITS},
-        "replica_counts": {unit: resources.replica_counts[unit] for unit in _UNITS},
-        "max_replica_counts": {unit: resources.max_replica_counts[unit] for unit in _UNITS},
+        "process_counts": {
+            unit: resources.process_counts[unit] for unit in _units_of(resources)
+        },
+        "replica_counts": {
+            unit: resources.replica_counts[unit] for unit in _units_of(resources)
+        },
+        "max_replica_counts": {
+            unit: resources.max_replica_counts[unit] for unit in _units_of(resources)
+        },
         "pg_connection_budget": resources.pg_connection_budget,
         "fd_budget": resources.fd_budget,
         "storage_budget": {
@@ -563,12 +582,33 @@ def _parse_resources(value: object) -> ResourceProfile:
         ),
         path,
     )
-    hardware = _parse_hardware(f"{path}.hardware", _require(mapping, "hardware", path))
-    process_counts = _unit_counts(f"{path}.process_counts", _require(mapping, "process_counts", path))
-    replica_counts = _unit_counts(f"{path}.replica_counts", _require(mapping, "replica_counts", path))
-    max_replica_counts = _unit_counts(
-        f"{path}.max_replica_counts", _require(mapping, "max_replica_counts", path),
+    hardware_raw = _object(f"{path}.hardware", _require(mapping, "hardware", path))
+    process_raw = _object(
+        f"{path}.process_counts", _require(mapping, "process_counts", path)
     )
+    replica_raw = _object(
+        f"{path}.replica_counts", _require(mapping, "replica_counts", path)
+    )
+    max_raw = _object(
+        f"{path}.max_replica_counts", _require(mapping, "max_replica_counts", path)
+    )
+    units = _declared_units(path, hardware_raw, process_raw, replica_raw, max_raw)
+    hardware = {
+        unit: _parse_hardware_spec(f"{path}.hardware.{unit}", hardware_raw[unit])
+        for unit in units
+    }
+    process_counts = {
+        unit: _int(f"{path}.process_counts.{unit}", process_raw[unit], minimum=1)
+        for unit in units
+    }
+    replica_counts = {
+        unit: _int(f"{path}.replica_counts.{unit}", replica_raw[unit], minimum=1)
+        for unit in units
+    }
+    max_replica_counts = {
+        unit: _int(f"{path}.max_replica_counts.{unit}", max_raw[unit], minimum=1)
+        for unit in units
+    }
     _validate_replica_room(path, replica_counts, max_replica_counts)
     _validate_single_pod_units(path, max_replica_counts)
     return ResourceProfile(
@@ -589,7 +629,7 @@ def _parse_resources(value: object) -> ResourceProfile:
 def _validate_replica_room(
     path: str, replica_counts: Mapping[str, int], max_replica_counts: Mapping[str, int],
 ) -> None:
-    for unit in _UNITS:
+    for unit in replica_counts:
         if replica_counts[unit] > max_replica_counts[unit]:
             raise ProfileError(
                 f"{path}.replica_counts.{unit} 不得超过 "
@@ -598,17 +638,37 @@ def _validate_replica_room(
 
 
 def _validate_single_pod_units(path: str, max_replica_counts: Mapping[str, int]) -> None:
+    """Console 仍是单 Pod 容量口径；Gateway 允许 N 副本（design §4.1）。"""
     for unit in _SINGLE_POD_UNITS:
-        if max_replica_counts[unit] != 1:
+        if max_replica_counts.get(unit, 1) != 1:
             raise ProfileError(
-                f"{path}.max_replica_counts.{unit} 必须为 1（Console/Gateway 各一个 Pod 是部署约束）"
+                f"{path}.max_replica_counts.{unit} 必须为 1（Console 是单 Pod 容量口径；"
+                "HA 不在本设计内）"
             )
 
 
-def _parse_hardware(path: str, value: object) -> dict[str, HardwareSpec]:
-    mapping = _object(path, value)
-    _require_units(path, mapping)
-    return {unit: _parse_hardware_spec(f"{path}.{unit}", mapping[unit]) for unit in _UNITS}
+def _declared_units(path: str, *mappings: Mapping[str, object]) -> tuple[str, ...]:
+    """单元集合由 profile 声明：四个核心单元必填，`connector`/`console-web` 可选。
+
+    四张逐单元表（hardware/counts）必须覆盖**同一**单元集合——只在一处声明会让预算核算
+    静默漏掉一个单元（例如 Connector 的 FD/内存）。
+    """
+    first = set(mappings[0])
+    for index, mapping in enumerate(mappings[1:], start=2):
+        if set(mapping) != first:
+            extra = sorted(set(mapping) - first)
+            missing = sorted(first - set(mapping))
+            raise ProfileError(
+                f"{path}: 第 {index} 张逐单元表的键集合与第一张不一致"
+                f"（多出 {extra}，缺少 {missing}）"
+            )
+    unknown = sorted(first - set(_KNOWN_UNITS))
+    if unknown:
+        raise ProfileError(f"{path}: 未知部署单元 {unknown}（允许：{list(_KNOWN_UNITS)}）")
+    missing_core = [unit for unit in _UNITS if unit not in first]
+    if missing_core:
+        raise ProfileError(f"{path}: 缺少核心部署单元 {missing_core}")
+    return tuple(unit for unit in _KNOWN_UNITS if unit in first)
 
 
 def _parse_hardware_spec(path: str, value: object) -> HardwareSpec:
@@ -658,17 +718,9 @@ def _parse_storage_budget(path: str, value: object) -> StorageBudget:
     )
 
 
-def _unit_counts(path: str, value: object) -> dict[str, int]:
-    mapping = _object(path, value)
-    _require_units(path, mapping)
-    return {unit: _int(f"{path}.{unit}", mapping[unit], minimum=1) for unit in _UNITS}
-
-
-def _require_units(path: str, mapping: Mapping[str, object]) -> None:
-    _reject_unknown(mapping, _UNITS, path)
-    missing = [unit for unit in _UNITS if unit not in mapping]
-    if missing:
-        raise ProfileError(f"{path} 缺少部署单元: {', '.join(missing)}")
+def _units_of(resources: ResourceProfile) -> tuple[str, ...]:
+    """profile 声明的单元集合（顺序与 `_KNOWN_UNITS` 一致）。"""
+    return tuple(unit for unit in _KNOWN_UNITS if unit in resources.hardware)
 
 
 def _distribution(path: str, value: object, *, minimum_max: int = 0) -> PercentileDistribution:
