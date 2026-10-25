@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# 本地开发：Console / Runtime / Worker / Gateway + Console 前端的启停。
+# 本地开发：Console / Runtime / Worker / Gateway（+ 可选 Connector）+ Console 前端的启停。
 #
 # 用法：
 #   scripts/dev.sh          # 先停掉本仓库已有的同名服务，再全部起起来
 #   scripts/dev.sh start    # 同上
 #   scripts/dev.sh stop     # 只停，并逐个报告端口是否已释放
+#   WITH_CONNECTOR=1 scripts/dev.sh   # 额外启动 Connector（:8004，企微/IM 用；默认不起）
 #
 # 约定：
 # - **必须在仓库根运行**：`.env`（`SharedSettings` 的 env_file）与 uvicorn 的 `--app-dir`
@@ -49,7 +50,15 @@ SERVICES=(
   "runtime|muad_agent_runtime.main:app|apps/agent-runtime/src|8001"
   "worker|muad_agent_worker.main:app|apps/agent-worker/src|8002"
   "gateway|muad_im_gateway.main:app|apps/im-gateway/src|8003"
+  # 设计 §4.1：默认 4 个逻辑单元；启用企微/IM 时 +1 个 Connector（WeCom 长连接已从
+  # Gateway 迁出，Gateway 不再持有通道 socket）。默认不启动；`WITH_CONNECTOR=1` 时一并起。
+  # stop / 停止归属判定始终包含它，避免残留进程占着 lease。
+  "connector|muad_im_connector.main:app|apps/im-connector/src|8004"
 )
+
+connector_enabled() {
+  [ "${WITH_CONNECTOR:-0}" = "1" ]
+}
 
 FRONTEND_LOG="$LOG_DIR/frontend.log"
 
@@ -175,6 +184,9 @@ echo "== 端口检查 =="
 BLOCKED_PORTS=""
 for entry in "${SERVICES[@]}"; do
   IFS='|' read -r name _module _app_dir port <<<"$entry"
+  if [ "$name" = "connector" ] && ! connector_enabled; then
+    continue
+  fi
   holder_pid="$(port_holder_pid "$port")"
   if [ -n "$holder_pid" ] && pid_is_ours "$holder_pid"; then
     echo "  ⚠ 端口 $port 仍被本仓库进程 pid=$holder_pid 占用，强杀"
@@ -197,6 +209,9 @@ echo
 echo "== 启动服务 =="
 for entry in "${SERVICES[@]}"; do
   IFS='|' read -r name module app_dir port <<<"$entry"
+  if [ "$name" = "connector" ] && ! connector_enabled; then
+    continue
+  fi
   case " $BLOCKED_PORTS " in
     *" $port "*)
       echo "  跳过 $name (:$port) —— 端口被占用"
@@ -219,6 +234,9 @@ echo "== 就绪探测 =="
 sleep 3
 for entry in "${SERVICES[@]}"; do
   IFS='|' read -r name _module _app_dir port <<<"$entry"
+  if [ "$name" = "connector" ] && ! connector_enabled; then
+    continue
+  fi
   case " $BLOCKED_PORTS " in
     *" $port "*)
       echo "  ✗ $name    http://127.0.0.1:$port 未启动（端口被他人占用，不是它没起来）"
