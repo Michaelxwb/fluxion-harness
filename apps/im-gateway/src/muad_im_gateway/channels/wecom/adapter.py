@@ -675,10 +675,14 @@ class WeComAdapter:
         artifact_store: NfsArtifactStore | None = None,
         fetch_links: ArtifactLinkIssuer | None = None,
         status_updates_per_second: float = 10.0,
+        raw_sink: Callable[[WeComInboundMessage], None] | None = None,
     ) -> None:
         if status_updates_per_second < 1:
             raise ValueError("status update rate must be at least one per second")
         self._status_rate = status_updates_per_second
+        #: Connector 角色接管入站时，把**渠道原始消息**（含 reply_id/media）交给调用方；
+        #: Gateway 角色保持 None，继续走 ChannelEnvelope 队列（既有语义不变）。
+        self._raw_sink = raw_sink
         self._status_budgets: dict[str, StatusBudget] = {}
         self._message_refs: dict[tuple[str, str], tuple[str, float]] = {}
         self._replies: set[ReplySession] = set()
@@ -863,6 +867,148 @@ class WeComAdapter:
         """企微的交付路由标识：`{bot_id}:{external_user_id}`（可读、不透明）。"""
         return f"{route.bot_id}:{route.external_user_id}"
 
+    def set_raw_sink(self, sink: Callable[[WeComInboundMessage], None] | None) -> None:
+        """装配点：Connector 在 runtime 建好后绑定入站队列；Gateway 保持 None。"""
+        self._raw_sink = sink
+
+    async def drop_bot(self, bot_id: str) -> None:
+        """租约丢失时立即断开并丢弃该 bot（不等下一次整批快照）。
+
+        旧连接多活一秒就可能把同一条平台消息再发一次；失权路径必须是**立即**的。
+        """
+        connection = self._connections.pop(bot_id, None)
+        if connection is None:
+            return
+        self._drop_routes(bot_id)
+        await connection.stop()
+
+    def has_bot(self, bot_id: str) -> bool:
+        """本适配器是否持有该 bot 的已建连接对象（lease 过滤后的快照决定）。"""
+        return bot_id in self._connections
+
+    async def send_reply_text(
+        self, route: DeliveryRouteInput, reply_ref: str, text: str
+    ) -> None:
+        """显式 reply_ref 的会话内文本（Connector 命令路径）。"""
+        self._ensure_started()
+        client = self._require_client(route.bot_id)
+        try:
+            await client.reply_text(reply_ref, text)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "wecom_reply_text_failed bot_id=%s error=%s: %s",
+                route.bot_id,
+                type(exc).__name__,
+                exc,
+            )
+            raise ChannelAdapterUnavailable("wecom reply text failed") from exc
+
+    async def send_reply_stream(
+        self,
+        route: DeliveryRouteInput,
+        reply_ref: str,
+        stream_id: str,
+        text: str,
+        *,
+        finish: bool,
+    ) -> None:
+        """显式 reply_ref 的会话内流式回复（stream/finish 由调用方决定）。"""
+        self._ensure_started()
+        client = self._require_client(route.bot_id)
+        try:
+            await client.send_stream(reply_ref, stream_id, text, finish=finish)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "wecom_reply_stream_failed bot_id=%s error=%s: %s",
+                route.bot_id,
+                type(exc).__name__,
+                exc,
+            )
+            raise ChannelAdapterUnavailable("wecom reply stream failed") from exc
+
+    async def deliver_artifact_with_target(
+        self,
+        route: DeliveryRouteInput,
+        artifact: AttachmentRef,
+        *,
+        tenant_id: str,
+        run_id: str | None,
+        reply_ref: str | None,
+    ) -> tuple[str, str | None]:
+        """显式目标交付产物：`reply_ref=None` 表示主动发送（不猜最新回调）。
+
+        返回 `(outcome, fallback_url)`；outcome 是契约的 `DELIVERED`/`DEGRADED`。
+        """
+        outcome = await self._deliver_artifact_to_target(
+            route, artifact, tenant_id=tenant_id, run_id=run_id, reply_ref=reply_ref
+        )
+        return outcome.outcome, outcome.fallback_url
+
+    async def _deliver_artifact_to_target(
+        self,
+        route: DeliveryRouteInput,
+        artifact: AttachmentRef,
+        *,
+        tenant_id: str,
+        run_id: str | None,
+        reply_ref: str | None,
+    ) -> ArtifactDeliveryOutcome:
+        self._ensure_started()
+        store = self._artifact_store
+        if store is None:
+            logger.error("wecom_artifact_store_missing bot_id=%s", route.bot_id)
+            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED)
+        try:
+            data = store.resolve(artifact.storage_key).read_bytes()
+        except (OSError, ValueError) as exc:
+            logger.warning("wecom_artifact_read_failed bot_id=%s", route.bot_id)
+            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED) from exc
+
+        media_type = uploadable_media_type(artifact.kind)
+        client = self._require_client(route.bot_id)
+        try:
+            media_id = await client.upload_media(
+                data, media_type=media_type, filename=artifact.filename or f"artifact.{media_type}"
+            )
+        except WeComMediaUploadTooLargeError:
+            logger.info("wecom_artifact_over_cap_degrading bot_id=%s", route.bot_id)
+            return await self._degrade_to_fetch_link_to_target(
+                route, artifact, tenant_id=tenant_id, run_id=run_id, reply_ref=reply_ref
+            )
+        if reply_ref is not None:
+            await client.reply_media(reply_ref, media_type=media_type, media_id=media_id)
+        else:
+            await client.send_media(_chat_id(route), media_type=media_type, media_id=media_id)
+        return ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED)
+
+    async def _degrade_to_fetch_link_to_target(
+        self,
+        route: DeliveryRouteInput,
+        artifact: AttachmentRef,
+        *,
+        tenant_id: str,
+        run_id: str | None,
+        reply_ref: str | None,
+    ) -> ArtifactDeliveryOutcome:
+        artifact_id = artifact.artifact_id
+        if self._fetch_links is None or artifact_id is None:
+            logger.warning("wecom_fetch_link_issuer_missing bot_id=%s", route.bot_id)
+            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED)
+        url = await self._fetch_links.issue_fetch_link(artifact_id, tenant_id=tenant_id)
+        if url is None:
+            logger.warning("wecom_fetch_link_unavailable bot_id=%s", route.bot_id)
+            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED)
+        client = self._require_client(route.bot_id)
+        if reply_ref is not None:
+            await client.reply_text(reply_ref, url)
+        else:
+            await client.send_text(_chat_id(route), url)
+        return ArtifactDeliveryOutcome(outcome=ARTIFACT_DEGRADED, fallback_url=url)
+
     async def deliver_artifact(
         self,
         route: DeliveryRouteInput,
@@ -881,36 +1027,13 @@ class WeComAdapter:
         （512 KiB × 100 片 ≈50 MB，见 TASK-001 真机实测），不是我们的产品策略。降级由
         **本适配器**决定并执行——它知道企微收不收得下，核心域不知道也不该知道。
         """
-        self._ensure_started()
-        store = self._artifact_store
-        if store is None:
-            logger.error("wecom_artifact_store_missing bot_id=%s", route.bot_id)
-            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED)
-        try:
-            data = store.resolve(artifact.storage_key).read_bytes()
-        except (OSError, ValueError) as exc:
-            # 行在、字节没了：**不是"渠道不收"**，降级也救不回来（链接同样取不到）。显式失败。
-            logger.warning("wecom_artifact_read_failed bot_id=%s", route.bot_id)
-            raise ArtifactDeliveryError(ARTIFACT_DELIVERY_FAILED) from exc
-
-        media_type = uploadable_media_type(artifact.kind)
-        client = self._require_client(route.bot_id)
-        try:
-            media_id = await client.upload_media(
-                data, media_type=media_type, filename=artifact.filename or f"artifact.{media_type}"
-            )
-        except WeComMediaUploadTooLargeError:
-            logger.info("wecom_artifact_over_cap_degrading bot_id=%s", route.bot_id)
-            return await self._degrade_to_fetch_link(
-                route, artifact, tenant_id=tenant_id, run_id=run_id
-            )
-
-        reply_ref = self._reply_target(route, run_id)
-        if reply_ref is not None:
-            await client.reply_media(reply_ref, media_type=media_type, media_id=media_id)
-        else:
-            await client.send_media(_chat_id(route), media_type=media_type, media_id=media_id)
-        return ArtifactDeliveryOutcome(outcome=ARTIFACT_DELIVERED)
+        return await self._deliver_artifact_to_target(
+            route,
+            artifact,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            reply_ref=self._reply_target(route, run_id),
+        )
 
     def _reply_target(self, route: DeliveryRouteInput, run_id: str | None) -> str | None:
         """本条出站消息该回哪个回调。
@@ -1090,6 +1213,10 @@ class WeComAdapter:
         self._remember_reply(message)
         if message.media:
             self._remember_media(message.message_id, message.media)
+        if self._raw_sink is not None:
+            # Connector：保留 reply_id/media 的原始消息给流发布器；不再生产无人消费的 envelope。
+            self._raw_sink(message)
+            return
         # `attachments` 此刻必为空：取件（`message.media`，渠道私有）与落盘由网关应用编排层
         # 按设计 §3.2.1 的 ②→⑥ 顺序接线后填充；适配器只负责把"来了一条什么"送达边界。
         self._events.put_nowait(

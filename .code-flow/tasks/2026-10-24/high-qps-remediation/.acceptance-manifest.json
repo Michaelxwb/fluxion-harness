@@ -781,7 +781,7 @@
       "kind": "functional",
       "boundary": "真实 Connector 进程 + Redis Stream；kill -9 在 WS 收到后、XADD 前",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -798,7 +798,124 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
-      "check": "CHK-ec7cf07411e5"
+      "check": "CHK-ec7cf07411e5",
+      "revision": 2,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "e2e_deferred",
+        "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
+        "check_id": "CHK-ec7cf07411e5",
+        "check_config": {
+          "id": "CHK-ec7cf07411e5",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_failover.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 2,
+        "run_id": "8a4915ef786945a1a06c383376d7f958",
+        "executed_at": "2026-10-25T07:32:43.092586+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/im_gateway/test_connector_failover.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
+          "check_id": "CHK-ec7cf07411e5",
+          "check_config": {
+            "id": "CHK-ec7cf07411e5",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_connector_failover.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "8c14735dc81948b0a96011caaa0ac9c3",
+          "executed_at": "2026-10-25T07:29:25.133868+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_failover.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
+          "check_id": "CHK-ec7cf07411e5",
+          "check_config": {
+            "id": "CHK-ec7cf07411e5",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_connector_failover.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "8a4915ef786945a1a06c383376d7f958",
+          "executed_at": "2026-10-25T07:32:43.092586+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_failover.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0
+        }
+      ]
     },
     {
       "id": "E-04",
@@ -807,7 +924,7 @@
       "kind": "functional",
       "boundary": "真实 Connector + 假 WS 服务端；旧 reply_ref 过期后发送终态/产物",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -824,7 +941,90 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
-      "check": "CHK-ec7cf07411e5"
+      "check": "CHK-ec7cf07411e5",
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-ec7cf07411e5",
+        "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
+        "check_config": {
+          "id": "CHK-ec7cf07411e5",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_failover.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "8c14735dc81948b0a96011caaa0ac9c3",
+        "executed_at": "2026-10-25T07:29:25.133868+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/im_gateway/test_connector_failover.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ec7cf07411e5",
+          "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
+          "check_config": {
+            "id": "CHK-ec7cf07411e5",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_connector_failover.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "8c14735dc81948b0a96011caaa0ac9c3",
+          "executed_at": "2026-10-25T07:29:25.133868+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_failover.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53"
+        }
+      ]
     },
     {
       "id": "E-05",
@@ -971,7 +1171,7 @@
       "kind": "functional",
       "boundary": "真实 Connector 进程 + Redis Stream；关闭平台重投",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -988,7 +1188,124 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
-      "check": "CHK-ec7cf07411e5"
+      "check": "CHK-ec7cf07411e5",
+      "revision": 2,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "e2e_deferred",
+        "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
+        "check_id": "CHK-ec7cf07411e5",
+        "check_config": {
+          "id": "CHK-ec7cf07411e5",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_failover.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 2,
+        "run_id": "8a4915ef786945a1a06c383376d7f958",
+        "executed_at": "2026-10-25T07:32:43.092586+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/im_gateway/test_connector_failover.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
+          "check_id": "CHK-ec7cf07411e5",
+          "check_config": {
+            "id": "CHK-ec7cf07411e5",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_connector_failover.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "8c14735dc81948b0a96011caaa0ac9c3",
+          "executed_at": "2026-10-25T07:29:25.133868+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_failover.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "input_hash": "4aad4ce552b8c48005078a0547cf8475b7efa4591f2a302e6f12a3417e36cd53",
+          "check_id": "CHK-ec7cf07411e5",
+          "check_config": {
+            "id": "CHK-ec7cf07411e5",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_connector_failover.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "8a4915ef786945a1a06c383376d7f958",
+          "executed_at": "2026-10-25T07:32:43.092586+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_failover.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0
+        }
+      ]
     },
     {
       "id": "E-08",
@@ -1240,7 +1557,7 @@
       "kind": "functional",
       "boundary": "两个真实 Connector 进程 + 假企微 WS 服务端 + 真实 Redis lease；Runtime/Gateway 真实进程",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1256,7 +1573,118 @@
       "env": "local-api",
       "smoke": false,
       "trigger_paths": [],
-      "check": "CHK-974cbc8b96aa"
+      "check": "CHK-974cbc8b96aa",
+      "revision": 2,
+      "evidence": {
+        "id": "S-05",
+        "kind": "functional",
+        "status": "e2e_deferred",
+        "check_config": {
+          "id": "CHK-974cbc8b96aa",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_lease.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 2,
+        "run_id": "8a4915ef786945a1a06c383376d7f958",
+        "executed_at": "2026-10-25T07:32:43.092586+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/im_gateway/test_connector_lease.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-974cbc8b96aa",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_connector_lease.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "8c14735dc81948b0a96011caaa0ac9c3",
+          "executed_at": "2026-10-25T07:29:25.133868+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_lease.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-974cbc8b96aa",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_connector_lease.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "8a4915ef786945a1a06c383376d7f958",
+          "executed_at": "2026-10-25T07:32:43.092586+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_lease.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0
+        }
+      ]
     },
     {
       "id": "S-06",

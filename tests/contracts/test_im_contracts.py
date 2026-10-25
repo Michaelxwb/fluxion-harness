@@ -90,6 +90,25 @@ def test_delivery_command_round_trip_and_strict_payload() -> None:
         _command(unexpected=1)
 
 
+def test_artifact_command_requires_the_artifact_payload() -> None:
+    from muad_contracts.channel import AttachmentRef
+
+    artifact = AttachmentRef(
+        storage_key="run/r1/a1",
+        kind="DOCUMENT",
+        media_type="application/pdf",
+        size=10,
+        checksum="a" * 64,
+        artifact_id=uuid.uuid4(),
+    )
+    command = _command(
+        kind=DeliveryKind.ARTIFACT, artifact=artifact, payload={}, text=""
+    )
+    assert DeliveryCommand.model_validate(command.model_dump(mode="json")) == command
+    with pytest.raises(ValidationError):
+        _command(kind=DeliveryKind.ARTIFACT, artifact=None)
+
+
 def test_capabilities_and_lease_round_trip() -> None:
     caps = ChannelCapabilities(
         channel="WECOM", streaming=True, media=True, max_text_bytes=4096, features=("reply",)
@@ -133,6 +152,12 @@ def test_route_and_stream_keys_are_deterministic_and_channel_scoped() -> None:
     assert outbound_stream_key(command) == outbound_stream_key(
         _command(command_id=uuid.uuid4())
     )
+    assert outbound_stream_key(command) == f"im.outbound:{command.tenant_id}:{command.bot_id}"
+    # 出站按 bot 分流：同 bot 的不同用户/会话仍进同一条流（由 Connector 单 owner 串行消费）。
+    assert outbound_stream_key(command) == outbound_stream_key(
+        _command(external_user_id="user-2", external_conversation_id="chat-2")
+    )
+    assert outbound_stream_key(command) != outbound_stream_key(_command(bot_id="bot-2"))
     assert lease_key(
         ConnectorLease(
             channel="WECOM",

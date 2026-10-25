@@ -18,6 +18,7 @@ members = [
     "muad-common",
     "muad-console-platform",
     "muad-contracts",
+    "muad-im-connector",
     "muad-im-core",
     "muad-im-gateway",
     "muad-logging",
@@ -666,6 +667,7 @@ dev = [
     { name = "muad-common" },
     { name = "muad-console-platform" },
     { name = "muad-contracts" },
+    { name = "muad-im-connector" },
     { name = "muad-im-core" },
     { name = "muad-im-gateway" },
     { name = "muad-logging" },
@@ -698,6 +700,7 @@ requires-dist = [
     { name = "muad-common", marker = "extra == 'dev'", editable = "packages/common" },
     { name = "muad-console-platform", marker = "extra == 'dev'", editable = "apps/console-platform/backend" },
     { name = "muad-contracts", marker = "extra == 'dev'", editable = "packages/contracts" },
+    { name = "muad-im-connector", marker = "extra == 'dev'", editable = "apps/im-connector" },
     { name = "muad-im-core", marker = "extra == 'dev'", editable = "packages/im-core" },
     { name = "muad-im-gateway", marker = "extra == 'dev'", editable = "apps/im-gateway" },
     { name = "muad-logging", marker = "extra == 'dev'", editable = "packages/logging-kit" },
@@ -1658,6 +1661,41 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "pydantic", specifier = ">=2.9" }]
+
+[[package]]
+name = "muad-im-connector"
+version = "0.1.0"
+source = { editable = "apps/im-connector" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "muad-api" },
+    { name = "muad-artifact-store" },
+    { name = "muad-common" },
+    { name = "muad-contracts" },
+    { name = "muad-im-core" },
+    { name = "muad-im-gateway" },
+    { name = "muad-logging" },
+    { name = "muad-platform-sdk" },
+    { name = "redis" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "muad-api", editable = "packages/api-kit" },
+    { name = "muad-artifact-store", editable = "packages/artifact-store" },
+    { name = "muad-common", editable = "packages/common" },
+    { name = "muad-contracts", editable = "packages/contracts" },
+    { name = "muad-im-core", editable = "packages/im-core" },
+    { name = "muad-im-gateway", editable = "apps/im-gateway" },
+    { name = "muad-logging", editable = "packages/logging-kit" },
+    { name = "muad-platform-sdk", editable = "packages/platform-sdk" },
+    { name = "redis", specifier = ">=5,<7" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
 
 [[package]]
 name = "muad-im-core"

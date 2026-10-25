@@ -2970,15 +2970,39 @@ class RunService:
             events=events(),
         )
 
-    async def _replay_events(self, submission: RunSubmission) -> AsyncIterator[ExecutorEvent]:
-        """重放已持久化事件并接续未结束流；不调用 LLM/Tool，不分配新序号。"""
-        if submission.conversation_id is None or submission.run_id is None:
+    def _replay_events(self, submission: RunSubmission) -> AsyncIterator[ExecutorEvent]:
+        """重放已持久化事件并接续未结束流；不调用 LLM/Tool，不分配新序号。
+
+        **在调用时就把 ORM 行上的值抄成普通变量**：SSE 路由返回 `StreamingResponse` 前会
+        释放请求级 Session（TASK-003 的短 Session），生成器随后才被消费；直接读
+        `submission.xxx` 会触发 `DetachedInstanceError`（所有字段都已是过期属性）。
+        """
+        tenant_id = submission.tenant_id
+        conversation_id = submission.conversation_id
+        run_id = submission.run_id
+        first_seq = submission.first_seq
+        return self._replay_events_from_values(
+            tenant_id=tenant_id,
+            conversation_id=conversation_id,
+            run_id=run_id,
+            first_seq=first_seq,
+        )
+
+    async def _replay_events_from_values(
+        self,
+        *,
+        tenant_id: str,
+        conversation_id: uuid.UUID | None,
+        run_id: uuid.UUID | None,
+        first_seq: int | None,
+    ) -> AsyncIterator[ExecutorEvent]:
+        if conversation_id is None or run_id is None:
             return
         async for event in self._tail_events(
-            tenant_id=submission.tenant_id,
-            conversation_id=submission.conversation_id,
-            run_id=submission.run_id,
-            after_seq=(submission.first_seq or 1) - 1,
+            tenant_id=tenant_id,
+            conversation_id=conversation_id,
+            run_id=run_id,
+            after_seq=(first_seq or 1) - 1,
         ):
             yield event
 

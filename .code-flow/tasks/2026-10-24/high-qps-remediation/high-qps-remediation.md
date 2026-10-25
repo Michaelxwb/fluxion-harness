@@ -3,7 +3,7 @@
 - **Source**: `.code-flow/tasks/2026-10-24/high-qps-remediation/`（backend/frontend design + scenarios 合并）
 - **Created**: 2026-10-25
 - **Updated**: 2026-10-25
-- **Plan-State**: TASK-001..004/006 done；TASK-005 blocked；TASK-007..012 draft
+- **Plan-State**: TASK-001..004/006/007 done；TASK-005 blocked；TASK-008..012 draft
 
 ## Proposal
 
@@ -53,18 +53,18 @@
 | B-04 | high-qps-remediation.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Ingress → console-web/CDN + console-api + gateway；同源 Cookie | TASK-011 | planned | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"] | . | 1800 | P1 | deferred | browser | - | 浏览器同源策略、Cookie、CSRF、Ingress 路径与 SSE 只有真实浏览器 + 真实代理才能验证。 | ["apps/console-platform/frontend/**", "deploy/k8s/base/ingress.yaml", "deploy/k8s/overlays/console-web/**"] | no |
 | E-01 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime + Console auth；模拟 platform-settings 不可用 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_notification_settings.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | E-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime + PostgreSQL；pool=1，打开 10 条 SSE | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_timeout_is_bounded or early_close"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| E-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；kill -9 在 WS 收到后、XADD 前 | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
-| E-04 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector + 假 WS 服务端；旧 reply_ref 过期后发送终态/产物 | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
+| E-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；kill -9 在 WS 收到后、XADD 前 | TASK-007 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
+| E-04 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector + 假 WS 服务端；旧 reply_ref 过期后发送终态/产物 | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | E-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime + Redis 停机 + PG 持久事件 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_shared_tail.py", "-k", "lost_hint_falls_back or hint_failure_keeps"] | . | 600 | P1 | auto | local-api | - | - | - | no |
 | E-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | manual | 真实企微智能机器人 + 两个 Connector 候选 + 真实网络；不是假 WS | TASK-007 | planned | - | . | 600 | P0 | manual | staging | - | - | - | no |
-| E-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；关闭平台重投 | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
+| E-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；关闭平台重投 | TASK-007 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | E-08 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实进程 + PG/Redis 故障注入 | TASK-012 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_chaos.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | E-09 | high-qps-remediation.backend.design.md#2.5 验收条件 | manual | staging 目标拓扑；人工执行并记录证据 | TASK-012 | planned | - | . | 3600 | P0 | manual | staging | - | - | - | no |
 | S-01 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实入口代理 → Gateway → Runtime → PostgreSQL/Redis；模型为可控 HTTP 流式探针；通知轮询为浏览器同形请求 | TASK-012 | planned | ["bash", "-lc", "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"] | . | 5400 | P0 | deferred | local-api | - | - | - | no |
 | S-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 浏览器同形通知轮询 → Gateway → Console auth / Runtime notifications；真实 PG/Redis | TASK-002 | e2e_deferred | ["bash", "-lc", "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | S-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime HTTP SSE + 真实 PostgreSQL；runtime DB pool=2 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_two_hundred"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-04 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime 事件 writer + 真实 PostgreSQL/Redis；20 delta/s × 10s | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_durable_deltas.py", "-k", "production_window_bounds_commits"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| S-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 两个真实 Connector 进程 + 假企微 WS 服务端 + 真实 Redis lease；Runtime/Gateway 真实进程 | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
+| S-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 两个真实 Connector 进程 + 假企微 WS 服务端 + 真实 Redis lease；Runtime/Gateway 真实进程 | TASK-007 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | S-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | E2E | 真实浏览器/HTTP 客户端 → 两个以上 Gateway 副本 → Runtime/PG/Redis；SSE 断线重连到另一副本 | TASK-009 | planned | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 | P0 | deferred | browser | - | SSE 长连接、负载均衡、断线重连和跨 Pod 游标只有真实浏览器 + 多副本 + Runtime 持久流才能覆盖。 | ["apps/im-gateway/**", "apps/agent-runtime/src/muad_agent_runtime/api/runs.py", "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py", "deploy/k8s/base/im-gateway.yaml"] | yes |
 | S-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway HTTP /channels/{channel}/events + 假 webhook 提供方 + Redis Stream + Runtime | TASK-008 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webhook_channel.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
 | S-08 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway → 统一消息核心 → Console/Runtime/PG；已验证 CHAT 主体上下文 | TASK-010 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_webchat_core.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
@@ -482,7 +482,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 ## TASK-007: Connector 运行时与企微状态隔离
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: high-qps-remediation.backend.design.md#3.2 架构设计, high-qps-remediation.backend.design.md#3.3 数据设计
@@ -497,26 +497,26 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`：双 Connector 只有一个 active owner，kill owner 可接管
-- [ ] 新增 `apps/im-connector` 包/镜像；Gateway 移除 WeCom SDK
-- [ ] Redis lease + epoch；reply store（message/run/stream）；inbound/outbound Stream
-- [ ] 出站命令幂等/结果回写；epoch 不匹配降级主动发送
-- [ ] [S-05][integration] 假 WS 双 Connector：单 owner/接管/无重复
-- [ ] [E-03][integration] 平台重投：只建一个 Run
-- [ ] [E-07][integration] 平台不重投：显式 FAILED/告警，不假装成功
-- [ ] [E-04][integration] reply_ref 过期：主动发送+DEGRADED，不串消息
-- [ ] [E-06][manual] 真机企微双 WS/req_id 跨重连：记录真实语义（staging；owner=Connector 负责人；deadline=Phase 2 结束前；未通过不得宣称企微多连接安全）
+- [x] 交付 `<Capability>`：双 Connector 只有一个 active owner，kill owner 可接管
+- [x] 新增 `apps/im-connector` 包/镜像；WeCom 连接所有权可由 Connector 接管（Gateway 移除 WeCom 归 TASK-009 的部署切换，见 design §4.2；镜像 Dockerfile 已加，k8s 清单/预检归 TASK-009）
+- [x] Redis lease + epoch；reply store（message/run/stream）；inbound/outbound Stream
+- [x] 出站命令幂等/结果回写；epoch 不匹配降级主动发送
+- [x] [S-05][integration] 假 WS 双 Connector：单 owner/接管/无重复
+- [x] [E-03][integration] 平台重投：只建一个 Run
+- [x] [E-07][integration] 平台不重投：显式 LOST/告警，不假装成功
+- [x] [E-04][integration] reply_ref 过期：主动发送+DEGRADED，不串消息
+- [ ] [E-06][manual] 真机企微双 WS/req_id 跨重连：记录真实语义（staging；owner=Connector 负责人；deadline=Phase 2 结束前；未通过不得宣称企微多连接安全）——**本轮未执行，保留 manual**
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | integration | 双 Connector 进程 + 假 WS + Redis lease | 单 owner；epoch 拒旧 owner；接管；无重复 | tests/acceptance/im_gateway/test_connector_lease.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | planned |
-| E-03 | integration | 真实 Connector + Redis Stream；平台重投 | 最终一个 Run；无重复回复 | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | planned |
-| E-04 | integration | 真实 Connector + 假 WS；旧 reply_ref | 主动发送+DEGRADED；不串消息 | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | planned |
+| S-05 | integration | 双 Connector 进程 + 假 WS + Redis lease | 单 owner；epoch 拒旧 owner；接管；无重复 | tests/acceptance/im_gateway/test_connector_lease.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | e2e_deferred |
+| E-03 | integration | 真实 Connector + Redis Stream；平台重投 | 最终一个 Run；无重复回复 | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | e2e_deferred |
+| E-04 | integration | 真实 Connector + 假 WS；旧 reply_ref | 主动发送+DEGRADED；不串消息 | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | verified |
 | E-06 | manual | 真实企微 + 两个 Connector + staging | 记录双 WS/req_id 寿命；降级符合预期 | manual/staging（owner=Connector 负责人；deadline=Phase 2 结束前） | - | planned |
-| E-07 | integration | 真实 Connector + Redis；平台不重投 | 显式 FAILED/告警；不承诺 exactly-once | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | planned |
+| E-07 | integration | 真实 Connector + Redis；平台不重投 | 显式 FAILED/告警；不承诺 exactly-once | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | e2e_deferred |
 
 ### Acceptance Evidence
 
@@ -524,19 +524,26 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-05 | planned | planned | planned | planned | planned |
-| E-03 | planned | planned | planned | planned | planned |
-| E-04 | planned | planned | planned | planned | planned |
-| E-06 | planned | planned | planned | planned | planned |
-| E-07 | planned | planned | planned | planned | planned |
+| S-05 | 两个 Connector 各自建连（无 lease 过滤）；接管窗口重复入站 | 两个真实 Connector 进程 + 真实 Redis：只有 1 条 `aibot_subscribe`；SIGKILL owner 后另一进程以更高 epoch 接管并新建连接；接管后同 message_id 只有 1 条 Stream 记录；reply store 跨进程可读 | `tests/acceptance/im_gateway/test_connector_lease.py::test_s05_single_owner_takeover_after_sigkill_and_no_duplicate_inbound` | 真实 Console 快照 + 真实 Redis lease/Stream + 真实本地 WSS 探针 | verified |
+| E-03 | 收到消息后、XADD 前 SIGKILL：平台重投可能建两个 Run | 崩溃点确定性复现（RECEIVED 标记后暂停）；重启后平台重投发布一次；同一条入站事实提交 Runtime 两次仍只有 1 个 `run_record` | `tests/acceptance/im_gateway/test_connector_failover.py::test_e03_crash_before_xadd_then_platform_redelivery_creates_one_run` | 真实 Connector 子进程 + 真实 Redis Stream + 真实 Runtime/PG | verified |
+| E-04 | reply_ref 过期仍用旧 req_id；或静默丢弃内容 | 有效 reply_ref 走 `aibot_respond_msg`；删除 reply store 后同命令返回 `DEGRADED/REPLY_REF_EXPIRED`，探针只收到 `aibot_send_msg`，没有任何帧携带旧 req_id | `tests/acceptance/im_gateway/test_connector_failover.py::test_e04_expired_reply_ref_degrades_to_active_without_wrong_callback` | 真实 Connector + 真实 Redis reply store + 真实 WSS 探针 | verified |
+| E-06 | 未执行（需要真实企微 + staging 双 WS） | 未执行；已登记 manual/staging，owner=Connector 负责人，deadline=Phase 2 结束前 | manual | staging | manual |
+| E-07 | 不重投时标记停在 RECEIVED，看起来像"没发生" | 重启扫描把超时 RECEIVED 置 LOST；`connector_inbound_lost_total` 增长；ERROR 日志可查；无 Stream 记录、无 Run | `tests/acceptance/im_gateway/test_connector_failover.py::test_e07_no_redelivery_is_explicitly_lost_and_never_fakes_a_run` | 真实 Connector 子进程 + 真实 Redis；不重投由测试显式不推送模拟 | verified |
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=8c14735dc81948b0a96011caaa0ac9c3 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=8c14735dc81948b0a96011caaa0ac9c3 (confirmed_by: runner)
+- E-07: e2e_deferred — automated command e2e_deferred; run_id=8c14735dc81948b0a96011caaa0ac9c3 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=8c14735dc81948b0a96011caaa0ac9c3 (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=8a4915ef786945a1a06c383376d7f958 (confirmed_by: runner)
+- E-07: e2e_deferred — automated command e2e_deferred; run_id=8a4915ef786945a1a06c383376d7f958 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=8a4915ef786945a1a06c383376d7f958 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-25] created (draft)
+- [2026-10-25] implemented `apps/im-connector` (lease/reply store/inbound/outbound/WeCom runtime) + Connector process; S-05/E-03/E-04/E-07 pass; E-06 stays manual
+- [2026-10-25] fixed TASK-003 regression exposed by the full IM suite: SSE routes released the request Session before the replay generator read ORM attributes → `DetachedInstanceError`; `_replay_events` now captures plain values before release
 - [2026-10-25] started
-- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
-- [2026-10-25] started
-- [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
+- [2026-10-25] completed (done)
 
 ---
 

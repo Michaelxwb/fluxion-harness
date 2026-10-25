@@ -1,0 +1,37 @@
+[project]
+name = "muad-im-connector"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "httpx>=0.28,<1",
+  "redis>=5,<7",
+  "muad-api",
+  "muad-artifact-store",
+  "muad-common",
+  "muad-contracts",
+  "muad-im-core",
+  # 过渡期复用 Gateway 的 WeCom adapter surface；TASK-009 的部署切换把 adapter 移入
+  # Connector 并移除 Gateway 的 WeCom 依赖。两个镜像/进程仍然独立。
+  "muad-im-gateway",
+  "muad-logging",
+  "muad-platform-sdk",
+]
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv.sources]
+muad-api = { workspace = true }
+muad-artifact-store = { workspace = true }
+muad-common = { workspace = true }
+muad-contracts = { workspace = true }
+muad-im-core = { workspace = true }
+muad-im-gateway = { workspace = true }
+muad-logging = { workspace = true }
+muad-platform-sdk = { workspace = true }
