@@ -714,6 +714,41 @@ async def test_b264_incremental_pagination_by_feed_seq_has_no_skips(
     assert tail["through_seq"] == 6 and tail["next_seq"] == 6
 
 
+async def test_b264_idle_cursor_skips_count_and_page_queries(
+    client: AsyncClient, activity_tenant: ActivityTenant
+) -> None:
+    """[S-14/TASK-002] 空闲轮询（after_seq==through_seq）只读水位与未读，不做 count/page。"""
+    tenant = activity_tenant
+    conversation_id = await _seed_conversation(tenant)
+    run = await _seed_run(tenant, conversation_id)
+    await _write_notification(tenant, run.id)
+
+    first = await _list_notifications(client, tenant, after_seq=0, page_size=10)
+    statements: list[str] = []
+
+    @sa.event.listens_for(runtime_db.get_engine().sync_engine, "before_cursor_execute")
+    def _capture(conn, cursor, statement, parameters, context, executemany):  # type: ignore[no-untyped-def]
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    try:
+        idle = await _list_notifications(
+            client, tenant, after_seq=first["through_seq"], page_size=10
+        )
+    finally:
+        sa.event.remove(
+            runtime_db.get_engine().sync_engine, "before_cursor_execute", _capture
+        )
+
+    assert idle["items"] == []
+    assert idle["next_seq"] == idle["through_seq"] == first["through_seq"]
+    assert idle["unread_count"] == first["unread_count"]
+    assert len(statements) == 2, (
+        "空闲轮询只允许水位 + 未读两条 SELECT（不再 count/page 全跑）；"
+        f"实际 {len(statements)} 条：{statements}"
+    )
+
+
 async def test_b264_projection_is_safe_and_carries_public_refs(
     client: AsyncClient, activity_tenant: ActivityTenant
 ):

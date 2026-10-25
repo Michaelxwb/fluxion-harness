@@ -30,6 +30,7 @@ from .infrastructure.http_clients import (
     build_probe_http_client,
     probe_budget,
 )
+from .infrastructure.settings import process_settings
 from .metrics import CONFIG_FAILURE_METRIC, install_console_metrics, record_reason
 from .spa import install_spa
 
@@ -40,7 +41,7 @@ logger = logging.getLogger(SERVICE_NAME)
 
 
 async def _warn_if_no_accounts() -> None:
-    settings = SharedSettings()
+    settings = process_settings()
     if not settings.database_url:
         logger.warning("console_account_check_skipped_database_url_missing")
         return
@@ -136,7 +137,14 @@ def create_app(*, static_dir: Path | None = None) -> FastAPI:
         )
     )
     install_api_foundation(fastapi_app)
-    install_console_security(fastapi_app, ConsoleSessionVerifier(), ConsoleRoleResolver())
+    install_console_security(
+        fastapi_app,
+        ConsoleSessionVerifier(
+            settings_provider=lambda: getattr(fastapi_app.state, "settings", None)
+            or process_settings()
+        ),
+        ConsoleRoleResolver(),
+    )
     fastapi_app.add_middleware(SessionRenewalMiddleware)
     install_health_probes(fastapi_app, {"database": database_readiness(get_engine)})
     install_console_metrics(fastapi_app)

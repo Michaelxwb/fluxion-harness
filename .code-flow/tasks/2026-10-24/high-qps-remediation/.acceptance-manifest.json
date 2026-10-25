@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "high-qps-remediation.md",
-  "task_sha256": "ae5e657a9ec31dd89d417abb6e080901fa264092a87743b31884fd70217b9b83",
+  "task_sha256": "570f1827ff7ed2058a81510ee858c80767a0d319aa88728f39b5468131424e27",
   "checks": [
     {
       "id": "CHK-212ab6917a03",
@@ -80,11 +80,13 @@
       ]
     },
     {
-      "id": "CHK-5a9bc273ac58",
+      "id": "CHK-e5efcc57271a",
       "command": [
-        "bash",
-        "-lc",
-        "uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py"
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_capacity_notification_settings.py"
       ],
       "cwd": ".",
       "timeout": 900.0,
@@ -94,12 +96,7 @@
       "profile": "changed",
       "inputs": [],
       "preflight": [],
-      "paths": [
-        "apps/agent-runtime/src/muad_agent_runtime/api/webchat_history.py",
-        "apps/console-platform/backend/src/muad_console_platform/**",
-        "apps/console-platform/frontend/src/modules/webchat/hooks/useNotifications.ts",
-        "apps/im-gateway/src/muad_im_gateway/**"
-      ]
+      "paths": []
     },
     {
       "id": "CHK-088b4502c6f8",
@@ -193,6 +190,28 @@
       "inputs": [],
       "preflight": [],
       "paths": []
+    },
+    {
+      "id": "CHK-bbe341d9d660",
+      "command": [
+        "bash",
+        "-lc",
+        "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": [
+        "apps/agent-runtime/src/muad_agent_runtime/api/webchat_history.py",
+        "apps/console-platform/backend/src/muad_console_platform/**",
+        "apps/console-platform/frontend/src/modules/webchat/hooks/useNotifications.ts",
+        "apps/im-gateway/src/muad_im_gateway/**"
+      ]
     },
     {
       "id": "CHK-0ca0fff8694a",
@@ -388,13 +407,11 @@
       "paths": []
     },
     {
-      "id": "CHK-992ccea66147",
+      "id": "CHK-ed371ead49ff",
       "command": [
-        "uv",
-        "run",
-        "pytest",
-        "-q",
-        "tests/console_internal/test_admission_materials_api.py"
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"
       ],
       "cwd": ".",
       "timeout": 900.0,
@@ -588,11 +605,13 @@
       "kind": "functional",
       "boundary": "真实 Gateway/Runtime + Console auth；模拟 platform-settings 不可用",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
-        "bash",
-        "-lc",
-        "uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py"
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/capacity/test_capacity_notification_settings.py"
       ],
       "cwd": ".",
       "timeout": 900.0,
@@ -603,7 +622,90 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
-      "check": "CHK-5a9bc273ac58"
+      "check": "CHK-e5efcc57271a",
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-e5efcc57271a",
+        "input_hash": "e823066d5d3b7e18303d175953ae87a2cbb70b5ee53acc7439d4cf17958d29df",
+        "check_config": {
+          "id": "CHK-e5efcc57271a",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_capacity_notification_settings.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "1b37fc5dea11438e8b200d4034d208e0",
+        "executed_at": "2026-10-25T05:13:46.032835+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/capacity/test_capacity_notification_settings.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "e823066d5d3b7e18303d175953ae87a2cbb70b5ee53acc7439d4cf17958d29df"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-e5efcc57271a",
+          "input_hash": "e823066d5d3b7e18303d175953ae87a2cbb70b5ee53acc7439d4cf17958d29df",
+          "check_config": {
+            "id": "CHK-e5efcc57271a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/capacity/test_capacity_notification_settings.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "1b37fc5dea11438e8b200d4034d208e0",
+          "executed_at": "2026-10-25T05:13:46.032835+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/capacity/test_capacity_notification_settings.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "e823066d5d3b7e18303d175953ae87a2cbb70b5ee53acc7439d4cf17958d29df"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -829,11 +931,11 @@
       "kind": "functional",
       "boundary": "浏览器同形通知轮询 → Gateway → Console auth / Runtime notifications；真实 PG/Redis",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
-        "uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py"
+        "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"
       ],
       "cwd": ".",
       "timeout": 900.0,
@@ -848,7 +950,84 @@
         "apps/console-platform/backend/src/muad_console_platform/**",
         "apps/im-gateway/src/muad_im_gateway/**"
       ],
-      "check": "CHK-5a9bc273ac58"
+      "check": "CHK-bbe341d9d660",
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "e2e_deferred",
+        "check_config": {
+          "id": "CHK-bbe341d9d660",
+          "command": [
+            "bash",
+            "-lc",
+            "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": [
+            "apps/agent-runtime/src/muad_agent_runtime/api/webchat_history.py",
+            "apps/console-platform/backend/src/muad_console_platform/**",
+            "apps/console-platform/frontend/src/modules/webchat/hooks/useNotifications.ts",
+            "apps/im-gateway/src/muad_im_gateway/**"
+          ]
+        },
+        "revision": 1,
+        "run_id": "1b37fc5dea11438e8b200d4034d208e0",
+        "executed_at": "2026-10-25T05:13:46.032835+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"
+        ],
+        "cwd": ".",
+        "timeout": 900.0
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-bbe341d9d660",
+            "command": [
+              "bash",
+              "-lc",
+              "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/agent-runtime/src/muad_agent_runtime/api/webchat_history.py",
+              "apps/console-platform/backend/src/muad_console_platform/**",
+              "apps/console-platform/frontend/src/modules/webchat/hooks/useNotifications.ts",
+              "apps/im-gateway/src/muad_im_gateway/**"
+            ]
+          },
+          "revision": 1,
+          "run_id": "1b37fc5dea11438e8b200d4034d208e0",
+          "executed_at": "2026-10-25T05:13:46.032835+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"
+          ],
+          "cwd": ".",
+          "timeout": 900.0
+        }
+      ]
     },
     {
       "id": "S-03",
@@ -1145,13 +1324,11 @@
       "kind": "functional",
       "boundary": "真实 Console/Runtime/PG；记录 SQL/设置读取",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
-        "uv",
-        "run",
-        "pytest",
-        "-q",
-        "tests/console_internal/test_admission_materials_api.py"
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"
       ],
       "cwd": ".",
       "timeout": 900.0,
@@ -1162,7 +1339,82 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
-      "check": "CHK-992ccea66147"
+      "check": "CHK-ed371ead49ff",
+      "revision": 1,
+      "evidence": {
+        "id": "S-14",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-ed371ead49ff",
+        "input_hash": "e823066d5d3b7e18303d175953ae87a2cbb70b5ee53acc7439d4cf17958d29df",
+        "check_config": {
+          "id": "CHK-ed371ead49ff",
+          "command": [
+            "bash",
+            "-lc",
+            "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "1b37fc5dea11438e8b200d4034d208e0",
+        "executed_at": "2026-10-25T05:13:46.032835+00:00",
+        "command": [
+          "bash",
+          "-lc",
+          "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "e823066d5d3b7e18303d175953ae87a2cbb70b5ee53acc7439d4cf17958d29df"
+      },
+      "runs": [
+        {
+          "id": "S-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ed371ead49ff",
+          "input_hash": "e823066d5d3b7e18303d175953ae87a2cbb70b5ee53acc7439d4cf17958d29df",
+          "check_config": {
+            "id": "CHK-ed371ead49ff",
+            "command": [
+              "bash",
+              "-lc",
+              "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "1b37fc5dea11438e8b200d4034d208e0",
+          "executed_at": "2026-10-25T05:13:46.032835+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "uv run pytest -q tests/console_internal/test_admission_materials_api.py tests/console_auth/test_capacity_webchat_chat_session_service.py tests/agent_runtime/test_capacity_webchat_activity_read.py tests/console_platform/test_platform_settings_singleton.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "e823066d5d3b7e18303d175953ae87a2cbb70b5ee53acc7439d4cf17958d29df"
+        }
+      ]
     },
     {
       "id": "S-15",
@@ -1212,138 +1464,7 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
-      "check": "CHK-8d7b3292f4ba",
-      "revision": 3,
-      "evidence": {
-        "id": "S-16",
-        "kind": "functional",
-        "status": "e2e_deferred",
-        "check_config": {
-          "id": "CHK-8d7b3292f4ba",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 3,
-        "run_id": "40a3fc0fc6dc4f5f84b02ca54fedd027",
-        "executed_at": "2026-10-25T04:47:29.412938+00:00",
-        "command": [
-          "bash",
-          "-lc",
-          "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-        ],
-        "cwd": ".",
-        "timeout": 1800.0
-      },
-      "runs": [
-        {
-          "id": "S-16",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-8d7b3292f4ba",
-            "command": [
-              "bash",
-              "-lc",
-              "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-            ],
-            "cwd": ".",
-            "timeout": 1800.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "c5622a9188e649bdbfacb2cb5b76f9c3",
-          "executed_at": "2026-10-25T03:33:52.906442+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0
-        },
-        {
-          "id": "S-16",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-8d7b3292f4ba",
-            "command": [
-              "bash",
-              "-lc",
-              "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-            ],
-            "cwd": ".",
-            "timeout": 1800.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "388427d391ad4769a569289387582f11",
-          "executed_at": "2026-10-25T04:06:15.046592+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0
-        },
-        {
-          "id": "S-16",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-8d7b3292f4ba",
-            "command": [
-              "bash",
-              "-lc",
-              "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-            ],
-            "cwd": ".",
-            "timeout": 1800.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 3,
-          "run_id": "40a3fc0fc6dc4f5f84b02ca54fedd027",
-          "executed_at": "2026-10-25T04:47:29.412938+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0
-        }
-      ]
+      "check": "CHK-8d7b3292f4ba"
     },
     {
       "id": "S-17",
@@ -1367,138 +1488,7 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
-      "check": "CHK-a80d83e34deb",
-      "revision": 3,
-      "evidence": {
-        "id": "S-17",
-        "kind": "functional",
-        "status": "e2e_deferred",
-        "check_config": {
-          "id": "CHK-a80d83e34deb",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 3,
-        "run_id": "40a3fc0fc6dc4f5f84b02ca54fedd027",
-        "executed_at": "2026-10-25T04:47:29.412938+00:00",
-        "command": [
-          "bash",
-          "-lc",
-          "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"
-        ],
-        "cwd": ".",
-        "timeout": 1800.0
-      },
-      "runs": [
-        {
-          "id": "S-17",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-a80d83e34deb",
-            "command": [
-              "bash",
-              "-lc",
-              "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"
-            ],
-            "cwd": ".",
-            "timeout": 1800.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "c5622a9188e649bdbfacb2cb5b76f9c3",
-          "executed_at": "2026-10-25T03:33:52.906442+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0
-        },
-        {
-          "id": "S-17",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-a80d83e34deb",
-            "command": [
-              "bash",
-              "-lc",
-              "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"
-            ],
-            "cwd": ".",
-            "timeout": 1800.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "388427d391ad4769a569289387582f11",
-          "executed_at": "2026-10-25T04:06:15.046592+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0
-        },
-        {
-          "id": "S-17",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-a80d83e34deb",
-            "command": [
-              "bash",
-              "-lc",
-              "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"
-            ],
-            "cwd": ".",
-            "timeout": 1800.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 3,
-          "run_id": "40a3fc0fc6dc4f5f84b02ca54fedd027",
-          "executed_at": "2026-10-25T04:47:29.412938+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"
-          ],
-          "cwd": ".",
-          "timeout": 1800.0
-        }
-      ]
+      "check": "CHK-a80d83e34deb"
     },
     {
       "id": "S-18",
@@ -1522,138 +1512,7 @@
       "smoke": false,
       "why_e2e": "",
       "trigger_paths": [],
-      "check": "CHK-8b09fee902a5",
-      "revision": 3,
-      "evidence": {
-        "id": "S-18",
-        "kind": "functional",
-        "status": "e2e_deferred",
-        "check_config": {
-          "id": "CHK-8b09fee902a5",
-          "command": [
-            "bash",
-            "-lc",
-            "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"
-          ],
-          "cwd": ".",
-          "timeout": 3600.0,
-          "env": "local-api",
-          "env_scope": "shared",
-          "parallel_safe": false,
-          "profile": "changed",
-          "inputs": [],
-          "preflight": [],
-          "paths": []
-        },
-        "revision": 3,
-        "run_id": "40a3fc0fc6dc4f5f84b02ca54fedd027",
-        "executed_at": "2026-10-25T04:47:29.412938+00:00",
-        "command": [
-          "bash",
-          "-lc",
-          "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"
-        ],
-        "cwd": ".",
-        "timeout": 3600.0
-      },
-      "runs": [
-        {
-          "id": "S-18",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-8b09fee902a5",
-            "command": [
-              "bash",
-              "-lc",
-              "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"
-            ],
-            "cwd": ".",
-            "timeout": 3600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 1,
-          "run_id": "c5622a9188e649bdbfacb2cb5b76f9c3",
-          "executed_at": "2026-10-25T03:33:52.906442+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"
-          ],
-          "cwd": ".",
-          "timeout": 3600.0
-        },
-        {
-          "id": "S-18",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-8b09fee902a5",
-            "command": [
-              "bash",
-              "-lc",
-              "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"
-            ],
-            "cwd": ".",
-            "timeout": 3600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 2,
-          "run_id": "388427d391ad4769a569289387582f11",
-          "executed_at": "2026-10-25T04:06:15.046592+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"
-          ],
-          "cwd": ".",
-          "timeout": 3600.0
-        },
-        {
-          "id": "S-18",
-          "kind": "functional",
-          "status": "e2e_deferred",
-          "check_config": {
-            "id": "CHK-8b09fee902a5",
-            "command": [
-              "bash",
-              "-lc",
-              "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"
-            ],
-            "cwd": ".",
-            "timeout": 3600.0,
-            "env": "local-api",
-            "env_scope": "shared",
-            "parallel_safe": false,
-            "profile": "changed",
-            "inputs": [],
-            "preflight": [],
-            "paths": []
-          },
-          "revision": 3,
-          "run_id": "40a3fc0fc6dc4f5f84b02ca54fedd027",
-          "executed_at": "2026-10-25T04:47:29.412938+00:00",
-          "command": [
-            "bash",
-            "-lc",
-            "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"
-          ],
-          "cwd": ".",
-          "timeout": 3600.0
-        }
-      ]
+      "check": "CHK-8b09fee902a5"
     }
   ],
   "scenarios_file": "high-qps-remediation.scenarios.md",

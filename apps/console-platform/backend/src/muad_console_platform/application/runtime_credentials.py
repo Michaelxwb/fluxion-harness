@@ -42,7 +42,7 @@ def require_service_identity(token: str | None, expected: str | None) -> None:
         raise AppError(ErrorCode.FORBIDDEN)
 
 
-def _selected_credential(
+def selected_credential(
     tenant_id: str, model_id: uuid.UUID, deployment_id: uuid.UUID, credential: ModelCredential
 ) -> SelectedModelCredential:
     """按**当前行的实值**构造解析结果：明文只在此装载，指纹换算成稳定的计量身份。"""
@@ -81,7 +81,7 @@ async def _frozen_selection(
     if deployment.credential_id != credential.id or credential.revision != payload.expected_revision:
         # 冻结的非密钥引用已经与当前事实不符：重新选择成员/预占，而不是拿新 Key 消费旧槽位
         raise AppError(ErrorCode.MODEL_CREDENTIAL_CHANGED)
-    return _selected_credential(tenant_id, model_id, deployment.id, credential)
+    return selected_credential(tenant_id, model_id, deployment.id, credential)
 
 
 async def _interim_selection(
@@ -95,7 +95,7 @@ async def _interim_selection(
         raise AppError(ErrorCode.CREDENTIAL_MISSING)
     deployment = await deployments.find_by_credential(tenant_id, model_id, credential.id)
     assert deployment is not None  # 与 find_execution_credential 同一谓词
-    return _selected_credential(tenant_id, model_id, deployment.id, credential)
+    return selected_credential(tenant_id, model_id, deployment.id, credential)
 
 
 async def _mcp_credentials(
@@ -123,14 +123,18 @@ async def resolve_runtime_credentials(
     session: AsyncSession,
     tenant_id: str,
     payload: ResolveCredentialsRequest,
+    *,
+    selected: SelectedModelCredential | None = None,
 ) -> dict[str, Any]:
-    model = await session.get(ModelDefinition, payload.model_id)
-    if model is None or model.is_deleted or model.tenant_id != tenant_id:
-        raise AppError(ErrorCode.COMMON_NOT_FOUND)
-    if payload.deployment_id is None:
-        selected = await _interim_selection(session, tenant_id, payload.model_id)
-    else:
-        selected = await _frozen_selection(session, tenant_id, payload.model_id, payload)
+    """解析当前认证值；`selected` 由调用方在同一请求内已经解析过时传入，避免重复查库。"""
+    if selected is None:
+        model = await session.get(ModelDefinition, payload.model_id)
+        if model is None or model.is_deleted or model.tenant_id != tenant_id:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        if payload.deployment_id is None:
+            selected = await _interim_selection(session, tenant_id, payload.model_id)
+        else:
+            selected = await _frozen_selection(session, tenant_id, payload.model_id, payload)
     return {
         "model": selected.to_internal_payload(),
         "mcp_servers": await _mcp_credentials(session, tenant_id, payload.mcp_server_ids),

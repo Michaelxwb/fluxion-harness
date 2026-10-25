@@ -30,3 +30,29 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     except OSError:
         # 日志写入失败不能反过来影响测试结果；stdout 已经留下了同一行。
         pass
+
+
+@pytest.fixture(autouse=True)
+def _reset_console_process_settings() -> object:
+    """Console 进程级 settings 是跨用例缓存；每个用例前后清掉，避免 env/DB 串用。
+
+    生产只在 lifespan/进程启动时构造一次；测试里各用例会 monkeypatch `DATABASE_URL`、
+    `INTERNAL_SERVICE_TOKEN`、硬上限等，必须让缓存重新读取当前 env。
+    """
+    try:
+        from muad_console_platform.infrastructure.settings import reset_settings_cache
+    except Exception:  # pragma: no cover - 非 Console 测试环境没有该依赖
+        yield
+        return
+    reset_settings_cache()
+    try:
+        from muad_console_platform.main import app as console_app
+
+        if hasattr(console_app.state, "settings"):
+            delattr(console_app.state, "settings")
+    except Exception:  # pragma: no cover - 非 Console 测试环境
+        pass
+    try:
+        yield
+    finally:
+        reset_settings_cache()

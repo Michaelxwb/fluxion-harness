@@ -18,7 +18,6 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, AppError, ErrorCode, inc_counter, ok, paginate
-from muad_common import SharedSettings
 from muad_contracts.platform_settings import PlatformSettings, PlatformSettingsError, parse_platform_settings
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -48,7 +47,7 @@ from ..infrastructure.db import get_session
 from ..infrastructure.models.auth import ConsoleAccount
 from ..infrastructure.skill_validator import ENTRY_LIMIT, UNPACKED_BYTES_LIMIT, ZIP_BYTES_LIMIT
 from ..metrics import PLATFORM_SETTINGS_SAVE_METRIC
-from .deps import AccountTenantId, AdminAccount, CurrentAccount, get_source_ip
+from .deps import AccountTenantId, AdminAccount, CurrentAccount, SettingsDep, get_source_ip
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +91,7 @@ def _validation_error(error: PlatformSettingsError) -> AppError:
     return AppError(ErrorCode.VALIDATION_FAILED, data={"details": [validation_detail(error)]})
 
 
-def _parse_settings(document: dict[str, Any]) -> PlatformSettings:
-    resources = SharedSettings()
+def _parse_settings(document: dict[str, Any], resources: Any) -> PlatformSettings:
     try:
         return parse_platform_settings(
             document, batch_platform_limit=resources.batch_platform_limit,
@@ -123,6 +121,7 @@ async def read_platform_settings(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    resources: SettingsDep,
 ) -> ApiResponse[Any]:
     snapshot = await PlatformSettingsService(session).read_current(tenant_id)
     updated_by: str | None = None
@@ -131,7 +130,6 @@ async def read_platform_settings(
             snapshot.actor_user_id
         )
     overrides = await count_resource_overrides(session, tenant_id)
-    resources = SharedSettings()
     data = {
         "revision": snapshot.revision,
         "updated_at": snapshot.updated_at.isoformat() if snapshot.updated_at else None,
@@ -153,8 +151,9 @@ async def _apply_save(
     actor: AuditActor,
     payload: PlatformSettingsSaveRequest,
     idempotency_key: str | None,
+    resources: Any,
 ) -> dict[str, Any]:
-    settings = _parse_settings(payload.settings)
+    settings = _parse_settings(payload.settings, resources)
     fingerprint = idempotency_fingerprint(
         tenant_id,
         ENDPOINT_SAVE,
@@ -199,10 +198,13 @@ async def save_platform_settings(
     account: AdminAccount,
     tenant_id: TenantId,
     session: Session,
+    resources: SettingsDep,
     idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ApiResponse[Any]:
     reject_secret_keys(payload.settings)
-    data = await _apply_save(session, tenant_id, _actor(account, request), payload, idempotency_key)
+    data = await _apply_save(
+        session, tenant_id, _actor(account, request), payload, idempotency_key, resources
+    )
     return ok(request.app.state.message_catalog, data)
 
 

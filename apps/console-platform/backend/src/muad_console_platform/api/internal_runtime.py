@@ -65,7 +65,7 @@ async def admission_materials(
     """
     require_service_identity(x_internal_service, service_token(request))
     with count_outcome(RESOLVE_DEFINITION_METRIC):
-        resolved = await ResolveService(session).resolve_definition(
+        resolved, selected = await ResolveService(session).resolve_admission(
             tenant_id,
             ResolveDefinitionRequest(
                 agent_id=payload.agent_id,
@@ -88,6 +88,7 @@ async def admission_materials(
             model_id=resolved.model.id,
             mcp_server_ids=[server.mcp_server_id for server in resolved.mcp_servers],
         ),
+        selected=selected,
     )
     data = {
         "definition": resolved.model_dump(mode="json"),

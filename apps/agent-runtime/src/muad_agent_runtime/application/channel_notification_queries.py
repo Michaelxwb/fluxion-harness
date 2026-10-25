@@ -119,6 +119,18 @@ class ChannelNotificationQueryService:
                 ErrorCode.CURSOR_AHEAD,
                 data={"after_seq": after_seq, "through_seq": through_seq},
             )
+        if after_seq == through_seq:
+            # 空闲轮询（多数 15s 轮询的稳态）：没有新行就不做 count/page 两条查询；
+            # 未读徽标仍是用户可见事实，保留一次轻量 count。
+            return WebchatNotificationPage(
+                items=[],
+                page=page,
+                page_size=page_size,
+                total=0,
+                through_seq=through_seq,
+                next_seq=through_seq,
+                unread_count=await self._unread_count(scope),
+            )
         rows, total = await self._page(scope, after_seq, through_seq, page=page, page_size=page_size)
         items = await self._project(scope, rows)
         return WebchatNotificationPage(

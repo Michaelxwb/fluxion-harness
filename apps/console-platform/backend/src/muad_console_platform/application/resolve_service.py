@@ -12,6 +12,7 @@ from muad_contracts import (
     ResolveModelResponse,
     SkillExecutionMode,
 )
+from muad_contracts.model_pool import SelectedModelCredential
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import ModelDefinition
@@ -20,6 +21,7 @@ from ..infrastructure.repositories.agent_repository import AgentRepository
 from ..infrastructure.repositories.model_deployment_repository import ModelDeploymentRepository
 from ..infrastructure.repositories.skill_repository import SkillRepository
 from .agent_mcp_service import AgentMcpService
+from .runtime_credentials import selected_credential
 
 
 class ResolveService:
@@ -35,6 +37,15 @@ class ResolveService:
         tenant_id: str,
         payload: ResolveDefinitionRequest,
     ) -> ResolveDefinitionResponse:
+        resolved, _ = await self.resolve_admission(tenant_id, payload)
+        return resolved
+
+    async def resolve_admission(
+        self,
+        tenant_id: str,
+        payload: ResolveDefinitionRequest,
+    ) -> tuple[ResolveDefinitionResponse, SelectedModelCredential]:
+        """受理材料一次解析：定义 + 首个可执行成员凭据，不重复查 model/credential。"""
         agent = await self._agents.get(tenant_id, payload.agent_id)
         if agent is None:
             raise AppError(ErrorCode.AGENT_NOT_FOUND)
@@ -52,7 +63,11 @@ class ResolveService:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
         if not model.enabled:
             raise AppError(ErrorCode.MODEL_DISABLED)
-        return ResolveDefinitionResponse(
+        selection = await self._deployments.find_execution_selection(tenant_id, model.id)
+        if selection is None:
+            raise AppError(ErrorCode.CREDENTIAL_MISSING)
+        deployment, credential = selection
+        resolved = ResolveDefinitionResponse(
             agent=ResolvedAgent(
                 id=agent.id,
                 key=agent.key,
@@ -60,11 +75,22 @@ class ResolveService:
                 instructions=agent.instructions,
                 runtime_config=agent.runtime_config,
             ),
-            model=await self._resolved_model(tenant_id, model),
+            model=ResolvedModel(
+                id=model.id,
+                revision=model.revision,
+                protocol=cast(Literal["OPENAI"], model.protocol),
+                model_id=model.model_id,
+                base_url=credential.base_url,
+                api_key=credential.api_key,
+                params=model.params_json,
+            ),
             skills=await self._resolved_skills(tenant_id, payload),
             mcp_servers=await self._mcp.effective_mcp_servers(
                 tenant_id, payload.agent_id, payload.actor_user_id
             ),
+        )
+        return resolved, selected_credential(
+            tenant_id, model.id, deployment.id, credential
         )
 
     async def resolve_model(
@@ -91,9 +117,10 @@ class ResolveService:
         逻辑模型本身不再持有 `base_url`/`api_key`；没有可用成员就是"没有执行入口"，
         明确失败（CREDENTIAL_MISSING），不退回任何旧列/环境变量/平台默认。
         """
-        credential = await self._deployments.find_execution_credential(tenant_id, model.id)
-        if credential is None:
+        selection = await self._deployments.find_execution_selection(tenant_id, model.id)
+        if selection is None:
             raise AppError(ErrorCode.CREDENTIAL_MISSING)
+        _deployment, credential = selection
         return ResolvedModel(
             id=model.id,
             revision=model.revision,

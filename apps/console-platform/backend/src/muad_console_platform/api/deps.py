@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from typing import Annotated, Any, cast
 
 import httpx
@@ -28,6 +29,7 @@ from ..infrastructure.http_clients import (
 from ..infrastructure.mcp_catalog_cache import RedisMcpCatalogCache
 from ..infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
 from ..infrastructure.runtime_memory_client import RuntimeMemoryClient
+from ..infrastructure.settings import process_settings
 from ..infrastructure.worker_client import WorkerAdminClient
 from ..metrics import CONFIG_FAILURE_METRIC, record_reason
 
@@ -39,10 +41,16 @@ class ConsoleSessionVerifier:
 
     会话校验原语（取 token、UNAUTHORIZED/FORBIDDEN 语义）由 api-kit 提供；
     本类返回账号与续期结果，并持有自己的短事务提交滑动续期。
+
+    `settings_provider` 由装配根注入 `app.state.settings`；未跑 lifespan 的 ASGI 测试
+    回落到进程级缓存，避免每个已认证请求都构造一次 `SharedSettings`。
     """
 
+    def __init__(self, settings_provider: Callable[[], SharedSettings] = process_settings) -> None:
+        self._settings_provider = settings_provider
+
     async def verify(self, session_token: str) -> ResolvedConsoleSession | None:
-        tenant_id = current_tenant_id() or SharedSettings().default_tenant_id
+        tenant_id = current_tenant_id() or self._settings_provider().default_tenant_id
         try:
             async with get_session_factory()() as session:
                 account = await AuthService(session, tenant_id=tenant_id).resolve_session(session_token)
@@ -59,23 +67,28 @@ class ConsoleRoleResolver:
         return (principal.account.role,) if isinstance(principal, ResolvedConsoleSession) else ()
 
 
-def get_header_tenant_id() -> str:
+def get_header_tenant_id(request: Request) -> str:
     """请求头派生的租户——**只给内部服务与公开入口用**，不要在用户态路由上使用。
 
     租户是**已认证主体**的属性，不是客户端可声明的属性：用户态路由一律用 `AccountTenantId`。
     保留本依赖只覆盖两处无主体可依的场景：`/internal/*`（另有服务身份门控）与公开登录
     （无会话，只能靠头按租户定位账号）。见 `HeaderTenantId`。
     """
-    return current_tenant_id() or SharedSettings().default_tenant_id
+    return current_tenant_id() or get_settings(request).default_tenant_id
+
+
+def get_settings(request: Request) -> SharedSettings:
+    """装配根注入的设置优先；未跑 lifespan 的 ASGI 测试回落到进程级缓存。"""
+    settings: SharedSettings | None = getattr(request.app.state, "settings", None)
+    return settings if settings is not None else process_settings()
+
+
+SettingsDep = Annotated[SharedSettings, Depends(get_settings)]
 
 
 def service_token(request: Request) -> str | None:
-    """内部服务身份的期望值：装配根在 lifespan 建一次 settings，请求路径复用。
-
-    未跑 lifespan 的 ASGI 测试应用现场构造——与旧实现逐请求读取同一来源，语义不变。
-    """
-    settings: SharedSettings | None = getattr(request.app.state, "settings", None)
-    return (settings or SharedSettings()).internal_service_token
+    """内部服务身份的期望值：装配根在 lifespan 建一次 settings，请求路径复用。"""
+    return get_settings(request).internal_service_token
 
 
 def get_source_ip(request: Request) -> str | None:
@@ -120,7 +133,7 @@ def get_worker_client(request: Request) -> WorkerAdminClient:
     """Console → Worker Admin API 的共享客户端（按进程缓存，测试可覆盖）。"""
     client = getattr(request.app.state, "worker_client", None)
     if client is None:
-        settings = SharedSettings()
+        settings = get_settings(request)
         client = WorkerAdminClient(
             settings.agent_worker_url, service_token=settings.internal_service_token
         )
@@ -139,7 +152,7 @@ def get_runtime_memory_client(request: Request) -> RuntimeMemoryClient:
     """
     client: RuntimeMemoryClient | None = getattr(request.app.state, "runtime_memory_client", None)
     if client is None:
-        settings = SharedSettings()
+        settings = get_settings(request)
         missing = [
             name
             for name, value in (
@@ -172,7 +185,7 @@ def get_probe_capacity_client(request: Request) -> ProbeCapacityClient:
     client: ProbeCapacityClient | None = getattr(request.app.state, "probe_capacity_client", None)
     if client is None:
         try:
-            client = build_probe_capacity_client(SharedSettings())
+            client = build_probe_capacity_client(get_settings(request))
         except ProbeCapacityUnconfigured as exc:
             logger.warning("probe_capacity_client_unconfigured missing=%s", ",".join(exc.missing))
             record_reason(
@@ -193,7 +206,7 @@ def get_probe_http_client(request: Request) -> httpx.AsyncClient:
     """
     client: httpx.AsyncClient | None = getattr(request.app.state, "probe_http_client", None)
     if client is None:
-        client = build_probe_http_client(SharedSettings())
+        client = build_probe_http_client(get_settings(request))
         request.app.state.probe_http_client = client
     return client
 
@@ -205,7 +218,7 @@ def get_probe_budget(request: Request) -> ProbeBudget:
     """探针执行预算（按进程缓存）：装配根注入的契约常量，请求路径不重抄默认值。"""
     budget: ProbeBudget | None = getattr(request.app.state, "probe_budget", None)
     if budget is None:
-        budget = probe_budget(SharedSettings())
+        budget = probe_budget(get_settings(request))
         request.app.state.probe_budget = budget
     return budget
 
@@ -225,7 +238,7 @@ def get_platform_sessions(request: Request) -> PlatformSessionInvalidator:
     sessions = getattr(request.app.state, "platform_sessions", None)
     if sessions is not None:
         return cast(PlatformSessionInvalidator, sessions)
-    redis_url = SharedSettings().redis_url
+    redis_url = get_settings(request).redis_url
     if not redis_url:
         invalidator: PlatformSessionInvalidator = NullPlatformSessionInvalidator()
     else:
@@ -240,7 +253,7 @@ def get_mcp_catalog_cache(request: Request) -> McpCatalogCache:
     cache = getattr(request.app.state, "mcp_catalog_cache", None)
     if cache is not None:
         return cast(McpCatalogCache, cache)
-    redis_url = SharedSettings().redis_url
+    redis_url = get_settings(request).redis_url
     if not redis_url:
         resolved: McpCatalogCache = NullMcpCatalogCache()
     else:
@@ -277,7 +290,7 @@ def get_artifact_fetch_service(request: Request) -> ArtifactFetchService:
     """
     service = getattr(request.app.state, "artifact_fetch_service", None)
     if service is None:
-        settings = SharedSettings()
+        settings = get_settings(request)
         service = ArtifactFetchService(
             store=NfsArtifactStore(settings.artifact_root),
             resolver=ArtifactResolvePort(
