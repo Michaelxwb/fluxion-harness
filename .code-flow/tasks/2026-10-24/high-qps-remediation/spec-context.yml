@@ -1,7 +1,7 @@
 version: 1
 task: 高 QPS 架构整改
 enforcement: required
-updated_at: '2026-10-25T11:37:37.920346+00:00'
+updated_at: '2026-10-25T12:17:41.978774+00:00'
 sources:
 - type: cli
   ref: bind
@@ -22,6 +22,76 @@ bindings:
   - code
   - review
   rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
+      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
+      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
+      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
+      unique 只作兜底（`channel_service.py:153-159`、`auth_service.py:270-276`、`audit_export_service.py:386-392`、`agent_service.py:159-162`、`mcp_service.py:240-243`、`skill_service.py:278-286`）。**存量待收敛**：console
+      侧 `agent_service`/`mcp_service`/`skill_service` 三处 `_fingerprint` 仍用 `|` 拼接且不含
+      endpoint/tenant，须按本口径对齐（合规参考 `channel_service.py:59-74`、`auth_service.py:253-267`、`audit_export_service.py:100-119`、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py:30-49`）。
+      Runtime 记忆命令使用永久回执 `runtime.memory_command_receipt`，完整唯一 `(tenant_id, command_id)`
+      且禁止软删；Scope 行锁后取同一 `(tenant_id, command_id)` 身份的事务 advisory lock，复查首次回执，完整唯一约束兜底。endpoint/user/actor/source_run/来源事件和规范化输入均进入指纹；同命令号跨
+      endpoint 或 user 返回 `IDEMPOTENCY_MISMATCH`，不新建第二份回执。回执、事实、完整历史、scope revision
+      同事务；批量清空只写一个回执。
+    text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    verifier_stage: code
+    stage_status:
+      code:
+        status: stale
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-25T12:12:22.815774+00:00'
+          status: verified
+          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+          artifact_sha256: null
+          diff_sha256: 9f20fb429dfef13b2f5fcae5dfd35d3188cce9c346448b5aabdd249295d168c5
+          result_sha256: 4a27cd723af04bad7dd09817561eb349cf766c426452b57aee1b23cb648aea31
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: bb9e22c69cb497bdd217813b07e5630c85feff6925f0d5b6d679a8d50e8d9495
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.13s
+
+              '
+      design:
+        status: applied
+        refs:
+        - artifact: high-qps-remediation.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-api#RULE-api-002
+          artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: high-qps-remediation.md
+          section_id: TASK-008
+          item_id: harness-api#RULE-api-002
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
   - ref: RULE-api-001
     summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
       `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
@@ -32,7 +102,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -80,77 +150,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-008
           item_id: harness-api#RULE-api-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
-        decision: null
-        evidence: []
-      review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-  - ref: RULE-api-002
-    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
-      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
-      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
-      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
-      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
-      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
-      unique 只作兜底（`channel_service.py:153-159`、`auth_service.py:270-276`、`audit_export_service.py:386-392`、`agent_service.py:159-162`、`mcp_service.py:240-243`、`skill_service.py:278-286`）。**存量待收敛**：console
-      侧 `agent_service`/`mcp_service`/`skill_service` 三处 `_fingerprint` 仍用 `|` 拼接且不含
-      endpoint/tenant，须按本口径对齐（合规参考 `channel_service.py:59-74`、`auth_service.py:253-267`、`audit_export_service.py:100-119`、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py:30-49`）。
-      Runtime 记忆命令使用永久回执 `runtime.memory_command_receipt`，完整唯一 `(tenant_id, command_id)`
-      且禁止软删；Scope 行锁后取同一 `(tenant_id, command_id)` 身份的事务 advisory lock，复查首次回执，完整唯一约束兜底。endpoint/user/actor/source_run/来源事件和规范化输入均进入指纹；同命令号跨
-      endpoint 或 user 返回 `IDEMPOTENCY_MISMATCH`，不新建第二份回执。回执、事实、完整历史、scope revision
-      同事务；批量清空只写一个回执。
-    text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
-    enforcement: required
-    verifier_ref: harness-api#RULE-api-002
-    verifier_stage: code
-    stage_status:
-      code:
-        status: verified
-        refs: []
-        decision: null
-        evidence:
-        - verifier_ref: harness-api#RULE-api-002
-          executed_at: '2026-10-25T12:12:22.815774+00:00'
-          status: verified
-          rule_text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
-          artifact_sha256: null
-          diff_sha256: 9f20fb429dfef13b2f5fcae5dfd35d3188cce9c346448b5aabdd249295d168c5
-          result_sha256: 4a27cd723af04bad7dd09817561eb349cf766c426452b57aee1b23cb648aea31
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/console_skill/test_import_idempotency.py
-            exit_code: 0
-            stdout_sha256: bb9e22c69cb497bdd217813b07e5630c85feff6925f0d5b6d679a8d50e8d9495
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '.....                                                                    [100%]
-
-              5 passed in 1.13s
-
-              '
-      design:
-        status: applied
-        refs:
-        - artifact: high-qps-remediation.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: harness-api#RULE-api-002
-          artifact_sha256: 888b26ed85cfbb268976a150086677eb7a0ac3d4e575ece4a22602e051da9034
-        decision: null
-        evidence: []
-      plan:
-        status: applied
-        refs:
-        - artifact: high-qps-remediation.md
-          section_id: TASK-008
-          item_id: harness-api#RULE-api-002
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -215,7 +215,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-009
           item_id: harness-arch#RULE-arch-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -281,7 +281,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-002
           item_id: harness-auth#RULE-auth-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -348,7 +348,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-004
           item_id: harness-data#RULE-data-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -416,7 +416,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-011
           item_id: harness-frontend#RULE-front-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -449,7 +449,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -522,7 +522,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-009
           item_id: harness-im#RULE-im-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -541,7 +541,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -583,7 +583,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-009
           item_id: harness-im#RULE-im-002
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -636,7 +636,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -673,7 +673,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-002
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -711,7 +711,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-003
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -748,7 +748,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-004
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -786,7 +786,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-005
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -823,7 +823,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-006
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -857,7 +857,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -900,7 +900,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-008
           item_id: harness-secret#RULE-secret-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -966,7 +966,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-004
           item_id: harness-snapshot#RULE-snapshot-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -1033,7 +1033,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-012
           item_id: harness-test#RULE-test-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -1097,7 +1097,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-011
           item_id: harness-ui#RULE-ui-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
@@ -1164,7 +1164,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-worker#RULE-worker-001
-          artifact_sha256: 9f0c1c72adbabb0a39d1610b0be077aeba0a877ad940f56903ebd9ef6f738df9
+          artifact_sha256: 9a3dfa7f208ac230efbb3315b5fb3fd241a2cc06788aa523a3ba2ee9c20edad2
         decision: null
         evidence: []
       review:
