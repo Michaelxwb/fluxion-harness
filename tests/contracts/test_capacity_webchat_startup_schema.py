@@ -29,7 +29,7 @@ DEFAULTS: dict[str, int | float] = {
     "task_lease_sec": 60, "task_heartbeat_sec": 20,
     "model_call_lease_sec": 60, "model_call_heartbeat_sec": 20,
     "run_event_heartbeat_sec": 15, "run_event_fallback_poll_sec": 5.0,
-    "stream_delta_flush_interval_ms": 50, "stream_delta_flush_bytes": 4096,
+    "stream_delta_flush_interval_ms": 300, "stream_delta_flush_bytes": 8192,
     "sse_event_max_bytes": 262144, "sse_subscriber_buffer_bytes": 1048576,
     "sse_total_buffer_bytes": 67108864,
     "chat_auth_recheck_sec": 15.0, "chat_exchange_max_body_bytes": 4096,

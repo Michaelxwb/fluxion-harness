@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import time
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -1298,3 +1299,54 @@ async def test_b07_artifact_cleanup_protects_active_run_and_job_references(
         kept = await _resolve_download(client, tenant, artifact_id)
         assert kept.status_code == 200, kept.text
         assert kept.json()["data"]["reference"]["storage_key"]
+
+
+async def test_b269_stream_replay_cleanup_drains_20k_backlog(
+    retention_ctx: RetentionContext,
+) -> None:
+    """[B-02] 20k 过期流增量在批量 retention 下排空；删除速率 ≥ 1k rows/s，无长锁等待。"""
+    tenant_id = f"retention-throughput-{uuid.uuid4()}"
+    inserted = 20_000
+    async with get_session_factory()() as session:
+        await session.execute(
+            sa.text(
+                "INSERT INTO runtime.canonical_event ("
+                "id, tenant_id, conversation_id, run_id, seq, stream_type, event_type,"
+                " payload_json, create_time, update_time, is_deleted"
+                ") SELECT gen_random_uuid(), :tenant_id, gen_random_uuid(), NULL, 1,"
+                " 'MESSAGE_DELTA', 'MESSAGE_DELTA', '{}'::jsonb,"
+                " now() - interval '30 hours', now() - interval '30 hours', false"
+                " FROM generate_series(1, :count)"
+            ),
+            {"tenant_id": tenant_id, "count": inserted},
+        )
+        await session.commit()
+
+    policy = RetentionPolicy(
+        stream_replay_retention_hours=STREAM_HOURS,
+        notification_retention_days=30,
+        history_retention_days=0,
+    )
+    removed = 0
+    started = time.monotonic()
+    async with get_session_factory()() as session:
+        while True:
+            batch = await cleanup_stream_replay(session, policy=policy)
+            await session.commit()
+            removed += batch
+            if batch == 0:
+                break
+    elapsed = time.monotonic() - started
+    assert removed == inserted
+    assert elapsed < 60, f"20k retention 排空耗时 {elapsed:.1f}s"
+    assert removed / max(elapsed, 1e-6) >= 1000, (
+        f"retention 删除速率 {removed / max(elapsed, 1e-6):.0f} rows/s 低于 1k/s"
+    )
+    async with get_session_factory()() as session:
+        waiting = await session.scalar(
+            sa.text(
+                "SELECT count(*) FROM pg_locks l JOIN pg_database d ON l.database = d.oid "
+                "WHERE d.datname = current_database() AND NOT l.granted"
+            )
+        )
+    assert int(waiting or 0) == 0

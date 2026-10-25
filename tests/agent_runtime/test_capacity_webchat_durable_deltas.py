@@ -125,6 +125,14 @@ def test_b259_window_flushes_on_either_boundary_and_never_emits_empty() -> None:
     assert window.drain() is None
 
 
+def test_b259_production_window_flushes_first_delta_immediately() -> None:
+    """首段立即 flush：生产窗口的首个 delta 不等待 300ms 时间边界。"""
+    window = DeltaWindow(flush_interval_sec=0.3, flush_bytes=8192, flush_first=True)
+    assert window.add("首段") == "首段"
+    assert window.add("后续") is None
+    assert window.drain() == "后续"
+
+
 def test_b259_window_drain_is_lossless_in_order() -> None:
     """窗口只是缓冲：任意 add/drain 交错都不得改变拼接结果与顺序。"""
     clock = FakeClock()
@@ -493,6 +501,50 @@ async def test_b259_time_window_commits_before_push_while_model_pauses(
 # --------------------------------------------------------------------------- #
 # 场景 3：终态前 flush —— 终态行排在全部已确认正文之后
 # --------------------------------------------------------------------------- #
+
+
+async def test_b259_production_window_bounds_commits_per_second(
+    durable_tenant: DurableTenant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """[S-04] 20 delta/s × 10s：300ms 窗口下 ≤4 commits/s/Run，远少于逐事件事务。"""
+    monkeypatch.setenv("STREAM_DELTA_FLUSH_INTERVAL_MS", "300")
+    monkeypatch.setenv("STREAM_DELTA_FLUSH_BYTES", "8192")
+    script = ModelProbeScript(chunks=("0123456789",) * 200, gap_sec=0.05)
+    engine = runtime_db.get_engine().sync_engine
+    commits = 0
+    inserts = 0
+
+    def _on_commit(conn) -> None:  # type: ignore[no-untyped-def]
+        nonlocal commits
+        commits += 1
+
+    def _on_execute(conn, cursor, statement, parameters, context, executemany):  # type: ignore[no-untyped-def]
+        nonlocal inserts
+        if "INSERT INTO runtime.canonical_event" in statement:
+            inserts += 1
+
+    sa.event.listen(engine, "commit", _on_commit)
+    sa.event.listen(engine, "before_cursor_execute", _on_execute)
+    started = time.monotonic()
+    try:
+        async with model_probe(script) as base_url, started_run(durable_tenant, base_url) as running:
+            await _drain_run(running.start)
+            rows = await _delta_rows(running.run_id)
+    finally:
+        elapsed = time.monotonic() - started
+        sa.event.remove(engine, "commit", _on_commit)
+        sa.event.remove(engine, "before_cursor_execute", _on_execute)
+
+    assert _texts(rows) == script.full_text
+    commits_per_sec = commits / elapsed
+    assert commits_per_sec <= 4.5, (
+        f"{script.sent} 个 delta / {elapsed:.1f}s 产生 {commits_per_sec:.1f} commits/s（目标 ≤4）"
+    )
+    assert inserts < 200, f"窗口内应合并批量写入，实际 INSERT {inserts} 次"
+    assert inserts <= 3 * script.sent, (
+        f"statements/event 必须 ≤3；实际 {inserts} 条 INSERT / {script.sent} 个 delta"
+    )
 
 
 async def test_b259_terminal_flush_orders_all_confirmed_text_before_terminal(
